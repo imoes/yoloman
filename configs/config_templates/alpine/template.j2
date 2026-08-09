@@ -1,0 +1,100 @@
+{# ============================================================================== #}
+{# Alpine / Pine Personal Configuration File (.pinerc)                          #}
+{#                                                                              #}
+{# This template generates a self-contained .pinerc configuration for Alpine.   #}
+{# Every variable is sourced from the Ansible role's variable namespace. If a    #}
+{# variable is not defined, the schema default is used (see comments below).     #}
+{#                                                                              #}
+{# Format: variable-name=value                                                  #}
+{# See: https://alpine.sourceforge.net/pine.html                                #}
+{# ============================================================================== #}
+
+{# User's full name for 'From:' field in outgoing messages. #}
+send-mail-name={{ user_full_name | default('') }}
+
+{# User's primary email address for outgoing messages. #}
+send-mail-address={{ user_email | default('') }}
+
+{# SMTP server hostname for sending outgoing mail. #}
+smtphost={{ smtp_host | default('localhost') }}
+
+{# IMAP server hostname for accessing mail folders. #}
+imap-server={{ imap_host | default('localhost') }}
+
+{# IMAP server port (default: 143). #}
+imap-port={{ imap_port | default(143) }}
+
+{# Enable strict SSL certificate verification for IMAP connections. #}
+ssl-cert-verify={{ ssl_cert_verify | default(false) | ternary('yes', 'no') }}
+
+{# Personal folder collections: each collection has a name and list of folders (IMAP paths). #}
+{# Format: folder-collection-name: folder1,folder2,... #}
+{%- for coll in folder_collections | default([]) %}
+folder-collection-{{ loop.index }}={{ coll.name }}: {{ coll.folders | default([]) | join(',') }}
+{%- endfor %}
+
+{# Index (1-based) of default folder collection. #}
+default-folder-collection={{ default_folder_collection | default(1) }}
+
+{# Path to file containing message signature (prepended to outgoing messages). #}
+signature-file={{ signature_file | default('~/.signature') }}
+
+{# Path to address book file. #}
+addressbook-file={{ addressbook_file | default('~/.addressbook') }}
+
+{# Command to use for local mail delivery if SMTP is not used. #}
+sendmail-command={{ sendmail_command | default('/usr/sbin/sendmail -oem -t') }}
+
+{# Space-separated list of features; prepend 'no-' to disable a feature (e.g., 'no-suspend'). #}
+feature-list={{ feature_list | default('') }}
+
+{# Interval (seconds) for checking new mail (minimum 150 per Alpine docs). #}
+newmail-check-interval={{ newmail_check_interval | default(150) }}
+
+{# Sort order for folder index view (e.g., 'date', 'subject', 'from', 'reverse'). #}
+folder-index-sort={{ folder_index_sort | default('arrival') }}
+
+{# Enable message threading in folder index. #}
+threading-enabled={{ threading_enabled | default(false) | ternary('yes', 'no') }}
+
+{# Editor used for message composition (only 'pico' is supported). #}
+editor={{ editor | default('pico') }}
+
+{# Semicolon-separated list of mailcap file paths for MIME handling. #}
+mailcap-path={{ mailcap_path | default('/etc/mailcap;/usr/share/etc/mailcap') }}
+
+{# Path to system MIME type mapping file. #}
+mime-types-file={{ mime_types_file | default('/etc/mime.types') }}
+
+{# Debug level (0-9) or flag set (e.g., 'flush,timestamp,imap=1'). #}
+debug={{ debug | default('0') }}
+
+{# Path to password cache file (if compiled with support). #}
+password-cache={{ password_cache | default('~/.pine-passwd-cache') }}
+
+{# Directory for S/MIME keys, certificates, and CA store. #}
+smime-directory={{ smime_directory | default('~/.alpine-smime') }}
+
+{# OAuth2 service provider name (e.g., 'Gmail'). All XOAUTH2 variables must be set together. #}
+xoauth2-server={{ xoauth2_server | default('') }}
+
+{# OAuth2 client ID for XOAUTH2 auth. #}
+xoauth2-client-id={{ xoauth2_client_id | default('') }}
+
+{# OAuth2 client secret for XOAUTH2 auth. #}
+xoauth2-client-secret={{ xoauth2_client_secret | default('') }}
+
+{# Enable restricted demo mode (limits save/export and restricts recipients). #}
+restricted-mode={{ restricted_mode | default(false) | ternary('yes', 'no') }}
+
+{# Use function-key commands instead of single-letter mnemonics (like alpinef). #}
+function-keys={{ function_keys | default(false) | ternary('yes', 'no') }}
+
+{# Enable ^Z and SIGTSTP suspension (not recommended in non-interactive use). #}
+suspend-allowed={{ suspend_allowed | default(false) | ternary('yes', 'no') }}
+
+{# Use SSL/TLS for SMTP connection. #}
+smtp-use-ssl={{ smtp_use_ssl | default(false) | ternary('yes', 'no') }}
+
+{# Use SSL/TLS for IMAP connection. #}
+imap-use-ssl={{ imap_use_ssl | default(false) | ternary('yes', 'no') }}

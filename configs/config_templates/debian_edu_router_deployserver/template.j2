@@ -1,0 +1,122 @@
+# ==============================================================================
+# TFTP Server Configuration (Debian Edu Router DeployServer)
+# ==============================================================================
+# This template generates a configuration file for a TFTP server used by
+# Debian Edu to network-boot client machines. It supports options for IPv6,
+# security constraints, HTTPS fallback for large assets, and DHCP assistance.
+# ==============================================================================
+
+# ==============================================================================
+# Basic Network Settings
+# ==============================================================================
+
+# IP address (IPv4 or IPv6) the TFTP server should listen on.
+# Use 0.0.0.0 for all interfaces.
+bind-address: {{ tftp_bind_address | default('0.0.0.0') }}
+
+# UDP port number for the TFTP server. Standard TFTP uses port 69.
+port: {{ tftp_port | default(69) }}
+
+# Absolute filesystem path to the TFTP root directory.
+# Must be readable and contain boot files (e.g., pxelinux.0, initrd, vmlinuz).
+tftp-root: {{ tftp_root | default('/srv/tftp') }}
+
+# Enable IPv6 support for TFTP.
+# Not all clients support IPv6 TFTP — disable if issues occur.
+ipv6-enabled: {{ ipv6_enabled | default(False) | lower }}
+
+# Maximum number of concurrent TFTP sessions.
+# Adjust based on server capacity.
+max-connections: {{ max_connections | default(100) }}
+
+# Enable strict security: chroot, disable directory listing, and require
+# minimal file permissions. Recommended for production.
+secure-mode: {{ secure_mode | default(True) | lower }}
+
+# ==============================================================================
+# Access Control
+# ==============================================================================
+
+# List of allowed client subnets in CIDR notation.
+# Restrict access for security. Empty list allows all.
+{% for subnet in allowed_subnets | default([]) %}allow-subnet: {{ subnet }}
+{% endfor %}
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+
+# Logging verbosity level. Use 'debug' only for troubleshooting.
+log-level: {{ log_level | default('info') }}
+
+# Path to log file, or '-' to log to standard output (e.g., for systemd journal).
+log-file: {{ log_file | default('-') }}
+
+# ==============================================================================
+# Boot Configuration
+# ==============================================================================
+
+# Name of the default boot file (e.g., pxelinux.0, grubx64.efi) served to
+# clients that don't request a specific one.
+default-bootfile: {{ default_bootfile | default('pxelinux.0') }}
+
+# Optional path prefix prepended to bootfile names (e.g., '/pxe/' → /pxe/pxelinux.0).
+bootfile-prefix: {{ bootfile_prefix | default('') }}
+
+# ==============================================================================
+# DHCP Assistance
+# ==============================================================================
+
+# Enable DHCP request relay to an external DHCP server (e.g., for IPAM, DNS,
+# or advanced lease control).
+{% if dhcp_assist_enabled | default(False) %}
+# DHCP server address to forward requests to.
+# Only used if dhcp_assist_enabled is true.
+dhcp-server: {{ dhcp_assist_server | default('192.168.0.1') }}
+{% endif %}
+
+# ==============================================================================
+# HTTPS Fallback
+# ==============================================================================
+
+# Enable HTTPS fallback for downloading large files (e.g., ISOs) when TFTP is
+# insufficient. Requires a web server.
+{% if https_enabled | default(False) %}
+# Base URL of the HTTPS web server for fallback downloads.
+https-server: {{ https_server | default('https://debainedu.example.org') }}
+
+# Path prefix on the HTTPS server where boot assets are served.
+https-base-path: {{ https_base_path | default('/debian-edu/router/') }}
+
+# Path to the SSL certificate chain file (PEM format) for the HTTPS fallback server.
+https-cert: {{ https_cert | default('/etc/ssl/certs/debian-edu-router.crt') }}
+{% endif %}
+
+# ==============================================================================
+# PXE Proxy
+# ==============================================================================
+
+# Enable PXE proxy mode (e.g., when using dnsmasq to handle both DHCP and
+# TFTP in one service).
+pxe-proxy: {{ pxe_proxy | default(False) | lower }}
+
+# ==============================================================================
+# Post-Boot Actions
+# ==============================================================================
+
+# Optional command/script to run after a successful boot.
+# Leave empty to disable.
+{% if post_boot_script | default('') %}post-boot-cmd: {{ post_boot_script | default('') }}
+{% endif %}
+
+# ==============================================================================
+# Transfer Settings
+# ==============================================================================
+
+# TFTP transfer timeout in seconds.
+# 0 = no timeout. Non-zero may cause failures on high-latency links.
+transfer-timeout: {{ transfer_timeout | default(0) }}
+
+# Block size (in bytes) for TFTP transfers.
+# 1408 is optimal for standard Ethernet (avoids fragmentation).
+blocksize: {{ tftp_blocksize | default(1408) }}

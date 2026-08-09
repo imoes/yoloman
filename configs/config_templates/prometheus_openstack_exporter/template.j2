@@ -1,0 +1,145 @@
+# ==============================================================================
+# Configuration for prometheus-openstack-exporter
+#
+# This template generates a shell-style environment file.
+# Variables are sourced by the exporter binary to configure authentication,
+# collector selection, and HTTP listening parameters.
+#
+# Self-documenting: each variable is preceded by a comment explaining its
+# purpose and mapping to the underlying OpenStack or exporter concepts.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# OpenStack Identity (Keystone) Authentication Parameters
+# These variables are consumed by the python-openstackclient / os-client-config
+# library to obtain a Keystone token before querying other OpenStack APIs.
+# ------------------------------------------------------------------------------
+
+# The OpenStack Identity endpoint URL (e.g., keystone v3).
+OS_AUTH_URL={{ os_auth_url | default('https://identity.example.com:5000/v3') }}
+
+# The OpenStack region to query metrics from.
+OS_REGION_NAME={{ os_region_name | default('RegionOne') }}
+
+# Username for OpenStack authentication.
+# Leave empty if using application credentials.
+OS_USERNAME={{ os_username | default('') }}
+
+# Password for OpenStack authentication.
+# SECURITY: Use application credentials in production environments.
+OS_PASSWORD={{ os_password | default('') }}
+
+# Project (tenant) name for authentication.
+OS_PROJECT_NAME={{ os_project_name | default('service') }}
+
+# User's domain name (required for v3 auth).
+OS_USER_DOMAIN_NAME={{ os_user_domain_name | default('Default') }}
+
+# Project's domain name (required for v3 auth).
+OS_PROJECT_DOMAIN_NAME={{ os_project_domain_name | default('Default') }}
+
+# ------------------------------------------------------------------------------
+# Application Credentials (Alternative to Username/Password)
+# If provided, these override OS_USERNAME/OS_PASSWORD for authentication.
+# ------------------------------------------------------------------------------
+
+{% if os_application_credential_id | default('', boolean=True) %}
+# Application credential ID (alternative to username/password).
+OS_APPLICATION_CREDENTIAL_ID={{ os_application_credential_id | default('') }}
+{% endif %}
+
+{% if os_application_credential_name | default('', boolean=True) %}
+# Application credential name (alternative to username/password).
+OS_APPLICATION_CREDENTIAL_NAME={{ os_application_credential_name | default('') }}
+{% endif %}
+
+{% if os_application_credential_secret | default('', boolean=True) %}
+# Secret for the application credential (used with name or ID).
+OS_APPLICATION_CREDENTIAL_SECRET={{ os_application_credential_secret | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# API Versions and Endpoint Selection
+# ------------------------------------------------------------------------------
+
+{% if os_interface | default('', boolean=True) %}
+# Endpoint interface to use (public, internal, or admin).
+OS_INTERFACE={{ os_interface | default('public') }}
+{% endif %}
+
+{% if os_identity_api_version | default('', boolean=True) %}
+# OpenStack Identity API version (e.g., 2 or 3).
+OS_IDENTITY_API_VERSION={{ os_identity_api_version | default('3') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Exporter HTTP Server Settings
+# Controls where the metrics endpoint is exposed.
+# ------------------------------------------------------------------------------
+
+# IP address to bind the exporter's HTTP server to.
+EXPORTER_LISTEN_ADDRESS={{ exporter_listen_address | default('0.0.0.0') }}
+
+# Port on which the exporter exposes metrics.
+EXPORTER_PORT={{ exporter_port | default(9183) }}
+
+# Timeout (seconds) for OpenStack API calls.
+EXPORTER_TIMEOUT={{ exporter_timeout | default(30) }}
+
+# Skip TLS certificate verification for OpenStack APIs.
+# WARNING: Use only in trusted environments.
+EXPORTER_INSECURE_SKIP_VERIFY={{ exporter_insecure_skip_verify | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# Collector Configuration
+# Controls which OpenStack resource metrics are collected.
+# Each key enables (true) or disables (false) a specific collector.
+# ------------------------------------------------------------------------------
+
+{% for collector_name, enabled in collectors | default({'servers': True, 'flavors': True, 'images': True, 'volumes': True, 'snapshots': True, 'networks': True, 'ports': True, 'routers': True, 'floating_ips': True, 'projects': True, 'users': True, 'hypervisors': True, 'services': True, 'limits': True, 'network_agents': True}) | dict2items %}
+# Enable/disable {{ collector_name }} collector. {{ 'Enabled' if enabled else 'Disabled' }}
+OS_EXPORTER_ENABLE_{{ collector_name | upper }}={{ 'true' if enabled else 'false' }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+{% if log_level | default('', boolean=True) %}
+# Logging verbosity level (debug, info, warn, error, etc.).
+LOG_LEVEL={{ log_level | default('info') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Exclusions
+# ------------------------------------------------------------------------------
+
+{% if exclude_services | default([]) | length > 0 %}
+# List of OpenStack service types to exclude (comma-separated list).
+# Example: baremetal,volumev3
+OS_EXPORTER_EXCLUDE_SERVICES={{ exclude_services | default([]) | join(',') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# TLS Configuration for HTTPS Endpoint
+# If tls_cert_file and tls_key_file are provided, the exporter serves HTTPS.
+# ------------------------------------------------------------------------------
+
+{% if tls_cert_file | default('', boolean=True) %}
+# Path to TLS certificate file for HTTPS endpoint (optional).
+TLS_CERT_FILE={{ tls_cert_file | default('') }}
+{% endif %}
+
+{% if tls_key_file | default('', boolean=True) %}
+# Path to TLS private key file for HTTPS endpoint (optional).
+TLS_KEY_FILE={{ tls_key_file | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Metrics Naming
+# ------------------------------------------------------------------------------
+
+{% if metrics_path_prefix | default('', boolean=True) %}
+# Prefix to prepend to all exported metric names.
+METRICS_PATH_PREFIX={{ metrics_path_prefix | default('') }}
+{% endif %}

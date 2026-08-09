@@ -1,0 +1,113 @@
+{
+  "api_base_url": {
+    "type": "string",
+    "default": "https://debci.debian.net",
+    "description": "Base URL of the DebCI backend API. Should include scheme and hostname, e.g., https://debci.example.com"
+  },
+  "worker_name": {
+    "type": "string",
+    "default": "debci-worker-01",
+    "description": "Unique name for this worker in the DebCI fleet. Used for identification and logging."
+  },
+  "jobs": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of concurrent build/test jobs this worker will accept."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/var/lib/debci",
+    "description": "Directory used for job workspaces, chroots, and logs. Must have sufficient disk space."
+  },
+  "min_free_space": {
+    "type": "number",
+    "default": 5120,
+    "description": "Minimum free disk space (in MB) required in WORK_DIR before the worker refuses new jobs."
+  },
+  "cpu_mask": {
+    "type": "string",
+    "default": "",
+    "description": "Hexadecimal CPU affinity mask (e.g., '0x3' for CPUs 0\u20131). Leave empty to use all CPUs."
+  },
+  "cross_build": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow building packages for foreign architectures (requires qemu-user-static and appropriate binfmt_misc support)."
+  },
+  "supported_architectures": {
+    "type": "list",
+    "default": [
+      "amd64",
+      "i386"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Architecture name as known to dpkg and APT (e.g., 'arm64', 'ppc64el', 's390x'). Must match available cross-toolchains and chroot support."
+    },
+    "description": "List of architectures this worker can build for. Must match installed cross-toolchains and chroot definitions."
+  },
+  "extra_repos": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "description": "An additional APT repository to include during package installation.",
+      "fields": {
+        "description": {
+          "type": "string",
+          "description": "Human-readable label for the repository (used in comments)."
+        },
+        "uri": {
+          "type": "string",
+          "description": "Repository base URI (e.g., http://deb.debian.org/debian)."
+        },
+        "suite": {
+          "type": "string",
+          "description": "Distribution suite (e.g., 'stable', 'sid')."
+        },
+        "components": {
+          "type": "string",
+          "description": "Comma- or space-separated components (e.g., 'main contrib non-free')."
+        },
+        "architectures": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "description": "Optional list of architectures the repo supports (for multiarch or cross-build repos)."
+        }
+      }
+    },
+    "description": "List of extra APT repositories to add to the build environment (e.g., backports, local repos)."
+  },
+  "api_tls_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client TLS certificate (PEM format) for mutual TLS with the API endpoint. Leave empty if not required."
+  },
+  "api_tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client TLS private key (PEM format, unencrypted). Required if API_TLS_CERT is set."
+  },
+  "api_ca_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle used to verify the API endpoint's TLS certificate."
+  },
+  "setup_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Maximum time (seconds) allowed for job setup (chroot creation, package installation, etc.)."
+  },
+  "build_timeout": {
+    "type": "number",
+    "default": 7200,
+    "description": "Maximum time (seconds) allowed for actual build/test execution per job."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to console and job logs (recommended only for troubleshooting)."
+  }
+}

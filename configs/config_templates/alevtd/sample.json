@@ -1,0 +1,55 @@
+{
+  "listen_address": "127.0.0.1",
+  "listen_port": 8080,
+  "max_connections": 50,
+  "idle_timeout": 30,
+  "root_dir": "/var/lib/alevtd/pages",
+  "use_compression": true,
+  "log_level": "warn",
+  "log_file": "/var/log/alevtd/alevtd.log",
+  "vhosts": [
+    {
+      "name": "main",
+      "server_name": "teletext.example.com",
+      "root_dir": "/var/lib/alevtd/pages/main",
+      "ssl": {
+        "enabled": true,
+        "cert_path": "/etc/ssl/certs/teletext.crt",
+        "key_path": "/etc/ssl/private/teletext.key"
+      }
+    }
+  ],
+  "mime_overrides": {
+    "text/plain": "txt, ttxt, ttx"
+  },
+  "directory_listing": false,
+  "access_rules": [
+    {
+      "action": "allow",
+      "source": "10.0.0.0/8"
+    },
+    {
+      "action": "allow",
+      "source": "192.168.1.0/24"
+    },
+    {
+      "action": "deny",
+      "source": "0.0.0.0/0"
+    }
+  ],
+  "cache": {
+    "enabled": true,
+    "max_size_mb": 50,
+    "ttl_sec": 600
+  },
+  "rate_limit": {
+    "enabled": true,
+    "rps": 20,
+    "burst": 50
+  },
+  "index_page": "welcome.txt",
+  "extra_headers": {
+    "X-Content-Type-Options": "nosniff",
+    "X-XSS-Protection": "1; mode=block"
+  }
+}

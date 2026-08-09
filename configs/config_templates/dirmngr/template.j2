@@ -1,0 +1,101 @@
+{# ==========================================================================
+   dirmngr Configuration Template
+   ==========================================================================
+   This template generates the configuration file for GNUPG's dirmngr,
+   which handles directory (LDAP/HTTP) and OCSP operations for certificate
+   validation and revocation checking.
+
+   It is self-documenting: every directive is preceded by a comment explaining
+   its purpose, derived from the schema description.
+   ========================================================================== #}
+
+{# --------------------------------------------------------------------------
+   Path to local Unix stream socket for gpg-agent communication.
+   Use 0 to disable local socket or -1 for default.
+   -------------------------------------------------------------------------- #}
+local-stream-socket {{ dirmngr_local_stream_socket | default('/run/user/{{ ansible_env.USERID }}/dirmngr.sock') }}
+
+{# --------------------------------------------------------------------------
+   TCP port to listen on for LDAP queries.
+   Set to 0 to disable LDAP support.
+   -------------------------------------------------------------------------- #}
+ldap-port {{ dirmngr_ldap_port | default(389) }}
+
+{# --------------------------------------------------------------------------
+   Enable automatic LDAP server failover using DNS SRV records (RFC 2782).
+   -------------------------------------------------------------------------- #}
+ldap-server-pool {{ 'on' if dirmngr_ldap_server_pool | default(true) else 'off' }}
+
+{# --------------------------------------------------------------------------
+   List of LDAP servers for certificate lookups.
+   Each item contains the LDAP URL (ldap:// or ldaps://).
+   -------------------------------------------------------------------------- #}
+{% for server in dirmngr_ldap_servers | default([{'url': 'ldap://pool.sks-keyservers.net'}]) %}
+ldap-server {{ server.url | default('') | e }}
+{% endfor %}
+
+{# --------------------------------------------------------------------------
+   HTTP proxy to use for LDAP/HTTP traffic.
+   Use 'auto' to detect proxy from environment (http_proxy/HTTP_PROXY).
+   -------------------------------------------------------------------------- #}
+http-proxy {{ dirmngr_http_proxy | default('auto') | e }}
+
+{# --------------------------------------------------------------------------
+   Disable DNS-based certificate lookup (RFC 4398/6186).
+   Recommended for privacy or restricted networks.
+   -------------------------------------------------------------------------- #}
+no-allow-dns-cert {{ 'on' if dirmngr_no_allow_dns_cert | default(false) else 'off' }}
+
+{# --------------------------------------------------------------------------
+   Disable LDAP entirely (including DNS SRV-based discovery).
+   Use for air-gapped or non-networked environments.
+   -------------------------------------------------------------------------- #}
+no-allow-ldap {{ 'on' if dirmngr_no_allow_ldap | default(false) else 'off' }}
+
+{# --------------------------------------------------------------------------
+   Maximum seconds to wait for network operations (LDAP, HTTP, OCSP).
+   -------------------------------------------------------------------------- #}
+connection-timeout {{ dirmngr_connection_timeout | default(30) }}
+
+{# --------------------------------------------------------------------------
+   Maximum number of concurrent network connections (LDAP, HTTP).
+   -------------------------------------------------------------------------- #}
+max-connections {{ dirmngr_max_connections | default(5) }}
+
+{# --------------------------------------------------------------------------
+   How long (seconds) to cache certificate responses before revalidation.
+   -------------------------------------------------------------------------- #}
+cache-validity {{ dirmngr_cache_validity | default(3600) }}
+
+{# --------------------------------------------------------------------------
+   Enable OCSP (Online Certificate Status Protocol) checks for revocation status.
+   Requires responders or DNS SRV records.
+   -------------------------------------------------------------------------- #}
+ocsp {{ 'on' if dirmngr_ocsp | default(false) else 'off' }}
+
+{# --------------------------------------------------------------------------
+   List of explicit OCSP responder URLs (optional; DNS-based discovery used if omitted).
+   -------------------------------------------------------------------------- #}
+{% for responder in dirmngr_ocsp_responders | default([]) %}
+ocsp-responder {{ responder.url | default('') | e }}
+{% endfor %}
+
+{# --------------------------------------------------------------------------
+   Use system DNS resolver instead of cURL’s built-in resolver (e.g., for systemd-resolved compatibility).
+   -------------------------------------------------------------------------- #}
+use-standard-resolver {{ 'on' if dirmngr_use_standard_resolver | default(false) else 'off' }}
+
+{# --------------------------------------------------------------------------
+   Path to log file (empty = no log file; log to stdout/stderr).
+   Avoid logging to world-readable paths.
+   -------------------------------------------------------------------------- #}
+log-file {{ dirmngr_log_file | default('') | e }}
+
+{# --------------------------------------------------------------------------
+   Verbosity level (0–3). Each increment adds more debug output.
+   Do not enable in production unless debugging.
+   -------------------------------------------------------------------------- #}
+{% if dirmngr_verbose | default(0) | int > 0 %}
+{% for _ in range(dirmngr_verbose | default(0) | int) %}verbose
+{% endfor %}
+{% endif %}

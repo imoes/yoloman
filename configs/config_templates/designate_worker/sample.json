@@ -1,0 +1,55 @@
+{
+  "log_file": "/var/log/designate/designate-worker.log",
+  "log_dir": "/var/log/designate",
+  "debug": false,
+  "verbose": true,
+  "host": "worker-01.openstack.internal",
+  "transport_url": "rabbit://designate:secretpass@rabbitmq.openstack.svc:5672/",
+  "auth_url": "https://keystone.openstack.svc:5000/v3",
+  "project_domain_name": "Default",
+  "project_name": "service",
+  "user_domain_name": "Default",
+  "username": "designate",
+  "password": "designate_secret_password",
+  "workers": 4,
+  "threads": 16,
+  "periodic_interval": 120,
+  "max_concurrent_updates": 20,
+  "max_retries": 5,
+  "enabled_export": true,
+  "export_dir": "/var/lib/designate/exports",
+  "default_pool_id": "default",
+  "storage_connection": "mysql+pymysql://designate:dbpass@mysql.openstack.svc/designate?charset=utf8",
+  "storage_pool_size": 20,
+  "storage_pool_timeout": 60,
+  "bind9_enabled": true,
+  "bind9_servers": [
+    {
+      "name": "bind-primary",
+      "api_endpoint": "http://bind1.internal:8080/api/v1",
+      "api_key": "bind-api-secret-key-abc123",
+      "md5_auth_key": "bind-md5-secret",
+      "tsig_key_name": "designate-key"
+    },
+    {
+      "name": "bind-secondary",
+      "api_endpoint": "http://bind2.internal:8080/api/v1",
+      "api_key": "bind-api-secret-key-def456"
+    }
+  ],
+  "notifier_enabled": true,
+  "notifier_endpoints": [
+    {
+      "backend": "http",
+      "options": {
+        "url": "https://monitoring.internal:8443/dns-events",
+        "method": "POST",
+        "timeout": "5"
+      }
+    },
+    {
+      "backend": "log",
+      "options": {}
+    }
+  ]
+}

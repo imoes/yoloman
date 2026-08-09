@@ -1,0 +1,133 @@
+{
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the PostgreSQL server to connect to."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port number of the PostgreSQL server."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database user account for pg_fact_loader to authenticate as."
+  },
+  "db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the database user. Prefer using .pgpass or IAM auth in production.",
+    "format": "password"
+  },
+  "db_name": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Name of the PostgreSQL database to connect to."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum severity level for log messages to emit."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/pg_fact_loader/pg_fact_loader.log",
+    "description": "Path to the log file (standard output if empty)."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of concurrent worker processes to spawn."
+  },
+  "max_tasks_per_worker": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of tasks a worker may process before restarting (helps avoid memory leaks)."
+  },
+  "task_timeout_seconds": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum seconds a single fact table build may run before being killed."
+  },
+  "poll_interval_seconds": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between checks for new fact table build requests in the job queue."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retry attempts after a failed task."
+  },
+  "retry_delay_seconds": {
+    "type": "number",
+    "default": 1,
+    "description": "Initial delay (seconds) before first retry."
+  },
+  "max_retry_delay_seconds": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum delay (seconds) between retries (capped exponential backoff)."
+  },
+  "fact_tables": {
+    "type": "list",
+    "default": [],
+    "description": "List of fact tables to manage. Each entry defines the source query and refresh behavior.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable identifier for the fact table (used in logs/metrics)."
+      },
+      "schema": {
+        "type": "string",
+        "default": "dw",
+        "description": "PostgreSQL schema where the fact table resides."
+      },
+      "table": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the fact table to build or refresh."
+      },
+      "query": {
+        "type": "string",
+        "default": "",
+        "description": "SQL statement used to generate the fact table data. Typically an INSERT/SELECT or CTAS query."
+      },
+      "schedule": {
+        "type": "string",
+        "default": "",
+        "description": "Cron expression for automatic background refresh (e.g., '0 2 * * *' = daily at 2 AM). Leave blank to disable scheduled runs."
+      },
+      "truncate_before_load": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, TRUNCATE the table before loading new data (full refresh). If false, perform append/update."
+      },
+      "tags": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional labels to categorize or group this fact table (e.g., 'finance', 'realtime')."
+      }
+    }
+  },
+  "monitoring.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the built-in HTTP health/metrics endpoint."
+  },
+  "monitoring.port": {
+    "type": "number",
+    "default": 9187,
+    "description": "Port to expose the monitoring endpoint on."
+  },
+  "monitoring.path": {
+    "type": "string",
+    "default": "/health",
+    "description": "HTTP path for health checks (e.g., /health or /metrics)."
+  }
+}

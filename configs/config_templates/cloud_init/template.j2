@@ -1,0 +1,268 @@
+# ===========================================================================
+# cloud-init main configuration file
+# Path: /etc/cloud/cloud.cfg
+#
+# This Jinja2 template generates a valid cloud-init YAML configuration.
+# All variables are sourced from the Ansible role's defaults or host/group vars.
+# Each directive is commented with its schema description for self-documentation.
+# ===========================================================================
+
+# ===========================================================================
+# Global Settings
+# ===========================================================================
+
+# Disable direct root login via SSH and console. Strongly recommended in production.
+# Type: boolean
+# Default: true
+disable_root: {{ disable_root | default(true) }}
+
+# Keep the OS hostname as-is and ignore the hostname provided by the cloud datasource.
+# Type: boolean
+# Default: false
+preserve_hostname: {{ preserve_hostname | default(false) }}
+
+# Rewrite /etc/hosts on each boot so the instance hostname resolves to 127.0.1.1.
+# Type: boolean
+# Default: true
+manage_etc_hosts: {{ manage_etc_hosts | default(true) }}
+
+# ===========================================================================
+# SSH Configuration
+# ===========================================================================
+
+# Allow SSH password authentication. Set to false to enforce key-only access (recommended).
+# Type: boolean
+# Default: false
+ssh_pwauth: {{ ssh_pwauth | default(false) }}
+
+# Delete any pre-baked SSH host keys from the image and regenerate them on first boot.
+# Type: boolean
+# Default: true
+ssh_deletekeys: {{ ssh_deletekeys | default(true) }}
+
+# SSH host key algorithms to generate on first boot.
+# Type: list
+# Default: ['rsa', 'ecdsa', 'ed25519']
+ssh_genkeytypes:
+{% for kt in ssh_genkeytypes | default(['rsa', 'ecdsa', 'ed25519']) %}
+  - {{ kt }}
+{% endfor %}
+
+# ===========================================================================
+# System Localization & Time
+# ===========================================================================
+
+# System locale (LANG). Must appear in /usr/share/i18n/SUPPORTED on the target image.
+# Type: string
+# Default: en_US.UTF-8
+locale: {{ locale | default('en_US.UTF-8') }}
+
+# System timezone using tz database names, e.g. UTC, Europe/Berlin, America/New_York.
+# Type: string
+# Default: UTC
+timezone: {{ timezone | default('UTC') }}
+
+# ===========================================================================
+# Disk & Partition Management
+# ===========================================================================
+
+# Expand the root filesystem to fill the partition after growpart widens it.
+# Type: boolean
+# Default: true
+resize_rootfs: {{ resize_rootfs | default(true) }}
+
+# Partition growth backend: auto (detect tool automatically), growpart, gpart, or off to disable.
+# Type: string
+# Default: auto
+growpart:
+  mode: {{ growpart_mode | default('auto') }}
+  # Devices to grow (hardcoded to root for this template scope)
+  devices:
+    - /
+
+# ===========================================================================
+# Package Management
+# ===========================================================================
+
+# Run a full package upgrade on first boot. Increases boot time but ensures day-0 security patches.
+# Type: boolean
+# Default: false
+package_upgrade: {{ package_upgrade | default(false) }}
+
+# Extra packages to install during first boot via the distro package manager.
+# Type: list
+# Default: []
+packages:
+{% if packages | default([]) %}
+{% for pkg in packages | default([]) %}
+  - {{ pkg }}
+{% endfor %}
+{% else %}
+  []
+{% endif %}
+
+# ===========================================================================
+# NTP Configuration
+# ===========================================================================
+
+# NTP daemon configuration
+ntp:
+  enabled: true
+  # NTP server hostnames or IPs. Use your cloud provider's internal endpoint (e.g. 169.254.169.123 on AWS) for lowest latency.
+  # Type: list
+  # Default: ['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']
+  servers:
+{% for srv in ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) %}
+    - {{ srv }}
+{% endfor %}
+
+# ===========================================================================
+# User Management
+# ===========================================================================
+
+# Users to create on first boot; first entry becomes the primary administrative user
+users:
+  - name: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).name }}
+    # GECOS / human-readable display name
+    gecos: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).gecos }}
+    # Default login shell
+    shell: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).shell }}
+    # Supplementary Unix groups (comma-separated)
+    groups: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).groups | join(', ') }}
+    # Sudoers rule — quoted to handle empty-string (no sudo) safely
+    sudo: "{{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).sudo }}"
+    # Lock the Unix password slot to prevent password-based logins
+    lock_passwd: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).lock_passwd }}
+{% if (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).ssh_authorized_keys %}
+    # SSH public keys pre-authorized for this user
+    ssh_authorized_keys:
+{% for key in (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).ssh_authorized_keys %}
+      - {{ key }}
+{% endfor %}
+{% endif %}
+
+# Additional users to create beyond the primary admin user. Each entry has the same shape as admin_user.
+# Type: list
+# Default: []
+{% for u in extra_users | default([]) %}
+  - name: {{ u.name }}
+    gecos: {{ u.gecos }}
+    shell: {{ u.shell }}
+    groups: {{ u.groups | join(', ') }}
+    sudo: "{{ u.sudo }}"
+    lock_passwd: {{ u.lock_passwd }}
+{% if u.ssh_authorized_keys %}
+    ssh_authorized_keys:
+{% for key in u.ssh_authorized_keys %}
+      - {{ key }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# ===========================================================================
+# Datasource Configuration
+# ===========================================================================
+
+# Cloud metadata datasources to probe in order. Restrict to your actual cloud provider to cut first-boot time.
+# Type: list
+# Default: ['Ec2', 'NoCloud', 'None']
+datasource_list:
+{% for ds in datasource_list | default(['Ec2', 'NoCloud', 'None']) %}
+  - {{ ds }}
+{% endfor %}
+
+# Per-datasource tunables
+datasource:
+  Ec2:
+    # Seconds to wait for the EC2 IMDSv2 token endpoint per connection attempt.
+    # Type: integer
+    # Default: 50
+    timeout: {{ ec2_metadata_timeout | default(50) }}
+    # Total seconds cloud-init will retry EC2 metadata fetching before giving up on the datasource.
+    # Type: integer
+    # Default: 120
+    max_wait: {{ ec2_metadata_max_wait | default(120) }}
+
+# ===========================================================================
+# System Info
+# ===========================================================================
+
+system_info:
+  default_user:
+    name: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).name }}
+    lock_passwd: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).lock_passwd }}
+    gecos: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).gecos }}
+    groups:
+{% for g in (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).groups %}
+      - {{ g }}
+{% endfor %}
+    sudo: "{{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).sudo }}"
+    shell: {{ (admin_user | default({'name': 'ubuntu', 'gecos': 'Ubuntu', 'shell': '/bin/bash', 'groups': ['adm', 'cdrom', 'dip', 'lxd', 'netdev', 'plugdev', 'sudo'], 'sudo': 'ALL=(ALL) NOPASSWD:ALL', 'lock_passwd': True, 'ssh_authorized_keys': []})).shell }}
+
+  # Distro identifier for package manager and convention selection. Typical values: ubuntu, debian, rhel, centos, sles.
+  # Type: string
+  # Default: ubuntu
+  distro: {{ distro | default('ubuntu') }}
+  paths:
+    cloud_dir: /var/lib/cloud/
+    templates_dir: /etc/cloud/templates/
+  # systemd unit name for the SSH daemon. Use ssh on Debian/Ubuntu, sshd on RHEL/CentOS/Fedora.
+  # Type: string
+  # Default: ssh
+  ssh_svcname: {{ ssh_svcname | default('ssh') }}
+
+# ===========================================================================
+# Module Execution Stages
+# ===========================================================================
+
+# Stage 1 — network-up, filesystem, early user and SSH setup
+cloud_init_modules:
+  - migrator
+  - seed_random
+  - bootcmd
+  - write-files
+  - growpart
+  - resizefs
+  - disk_setup
+  - mounts
+  - set_hostname
+  - update_hostname
+  - update_etc_hosts
+  - ca-certs
+  - rsyslog
+  - users-groups
+  - ssh
+
+# Stage 2 — package repositories, locale, timezone, NTP, runcmd
+cloud_config_modules:
+  - snap
+  - ssh-import-id
+  - keyboard
+  - locale
+  - set-passwords
+  - grub-dpkg
+  - apt-pipelining
+  - apt-configure
+  - ntp
+  - timezone
+  - runcmd
+
+# Stage 3 — software installation, per-instance and per-boot scripts
+cloud_final_modules:
+  - package-update-upgrade-install
+  - write-files-deferred
+  - scripts-vendor
+  - scripts-per-once
+  - scripts-per-boot
+  - scripts-per-instance
+  - scripts-user
+  - ssh-authkey-fingerprints
+  - keys-to-console
+  - final-message
+  - power-state-change
+
+# Message logged to /var/log/cloud-init-output.log when all modules complete.
+# Supported substitutions: $VERSION, $TIMESTAMP, $DATASOURCE, $UPTIME
+# Type: string
+# Default: 'cloud-init $VERSION finished at $TIMESTAMP. Up $UPTIME seconds.'
+final_message: {{ final_message | default('cloud-init $VERSION finished at $TIMESTAMP. Up $UPTIME seconds.') }}

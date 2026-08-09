@@ -1,0 +1,180 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging for verbose output (use only for troubleshooting)."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes to handle event listener requests."
+  },
+  "evaluation_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between alarm evaluation cycles (minimum 10s recommended)."
+  },
+  "batch_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of notifications to batch and send per cycle."
+  },
+  "notification_retry_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Delay (in seconds) between notification delivery retry attempts."
+  },
+  "api_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname for the Aodh listener API to bind to."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 8042,
+    "description": "TCP port for the Aodh listener API."
+  },
+  "api_enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL for the API endpoint (requires valid cert/key paths)."
+  },
+  "api_ssl_cert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/aodh.pem",
+    "description": "Path to SSL certificate file (used only if SSL enabled)."
+  },
+  "api_ssl_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/aodh.key",
+    "description": "Path to SSL private key file (used only if SSL enabled)."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://keystone.local:5000/v3",
+    "description": "Keystone identity service endpoint URL (must include version, e.g., /v3)."
+  },
+  "keystone_auth_type": {
+    "type": "string",
+    "default": "password",
+    "description": "Keystone authentication method (e.g., 'password', 'token', 'application_credential')."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project (tenant) name used for service authentication."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name for authentication."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name for authentication."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "aodh",
+    "description": "Keystone service username (must have appropriate roles and project access)."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Aodh service user in Keystone (leave empty to use other auth types)."
+  },
+  "keystone_disable_ssl_certificate_validation": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip TLS verification for Keystone communication (dangerous \u2014 only for dev/test)."
+  },
+  "keystone_cafile": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to CA certificate bundle for self-signed or internal Keystone."
+  },
+  "memcached_servers": {
+    "type": "list",
+    "default": [
+      "localhost:11211"
+    ],
+    "description": "List of Memcached server hosts (host:port), used for caching."
+  },
+  "event_handlers": {
+    "type": "list",
+    "default": [],
+    "description": "List of event handler configurations to process incoming events (e.g., for alarm triggering). Each entry defines an event type and an action.",
+    "items": {
+      "event_type": {
+        "type": "string",
+        "description": "OpenStack event type to match (e.g., 'compute.instance.create.end')."
+      },
+      "action": {
+        "type": "string",
+        "description": "Action to invoke when event matches (e.g., 'log', 'http', 'workflow')."
+      },
+      "description": {
+        "type": "string",
+        "description": "Optional human-readable description for documentation."
+      },
+      "action_options": {
+        "type": "object",
+        "description": "JSON dict of action-specific parameters (e.g., {\"url\": \"http://...\", \"method\": \"POST\"})."
+      }
+    }
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://aodh:secret@localhost/aodh",
+    "description": "Database connection string (e.g., 'postgresql://user:pass@host/db')."
+  },
+  "database_max_retries": {
+    "type": "number",
+    "default": -1,
+    "description": "Maximum number of retries on database connection failure (-1 = infinite)."
+  },
+  "database_retry_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds between database connection retry attempts."
+  },
+  "publisher_uri": {
+    "type": "string",
+    "default": "rabbit://openstack:secret@localhost:5672/",
+    "description": "Message bus URI (e.g., RabbitMQ or Redis) for publishing telemetry events."
+  },
+  "evaluator_batch_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of alarms to evaluate in each batch cycle."
+  },
+  "notification_method": {
+    "type": "string",
+    "default": "log",
+    "description": "Default method for sending alarm notifications (e.g., 'log', 'http', 'email').",
+    "enum": [
+      "log",
+      "http"
+    ]
+  },
+  "alarm_notification_methods": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional alarm notification method configurations. Each item must define a 'type' and may include parameters.",
+    "items": {
+      "type": {
+        "type": "string",
+        "description": "Notification type (e.g., 'log', 'http', 'email', 'webhook')."
+      },
+      "name": {
+        "type": "string",
+        "description": "Optional descriptive name for the notification method."
+      },
+      "payload": {
+        "type": "object",
+        "description": "JSON payload or template (e.g., {'url': 'http://...', 'method': 'POST'})."
+      }
+    }
+  }
+}

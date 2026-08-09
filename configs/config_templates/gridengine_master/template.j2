@@ -1,0 +1,98 @@
+# Grid Engine Master Server configuration
+# Master node configuration for Grid Engine (SGE)
+# This file is auto-generated; site-specific values are injected at install time
+
+# --- Cluster and Queue Manager Settings ---
+
+# Name of the Grid Engine cluster; must be unique across all clusters in the network.
+cluster_name {{ cluster_name | default('default') }}
+
+# Root spool directory for the Grid Engine installation (master and exec spooling).
+execd_spool_dir {{ spool_dir | default('/var/lib/gridengine/default/spool') }}
+
+# User account with administrative privileges for Grid Engine.
+admin_user {{ admin_user | default('sgeadmin') }}
+
+# Default shell used when executing jobs (must exist on all execution hosts).
+default_shell {{ default_shell | default('/bin/bash') }}
+
+# Email notification policy: 'a' = all, 'e' = error, 's' = suspend, 'n' = none.
+qsub_mail_opts {{ mail_opts | default('a') }}
+
+# Number of slots to use when computing dynamic job priority.
+priority_slots {{ priority_slots | default(1) }}
+
+# Maximum number of jobs a single user can submit simultaneously.
+max_jobs {{ max_jobs_per_user | default(100) }}
+
+# Time (in seconds) after which job information is removed from the database.
+job_priority_retention_time {{ job_retention_time | default(86400) }}
+
+# Parallel environment definitions (if any)
+{% for pe in penv_list | default([]) %}
+# Parallel environment: {{ pe.name | default('') }}
+pe_name {{ pe.name | default('') }}
+pe_slots {{ pe.slots | default('') }}
+pe_require_hosts {{ pe.require_hosts | default('') }}
+pe_rule {{ pe.rule | default('') }}
+{% endfor %}
+
+# Queue configuration — one queue per line (name and options)
+{% for queue in queue_list | default([]) %}
+# Queue: {{ queue.name | default('') }}
+qname {{ queue.name | default('') }}
+hostlist {{ queue.hostlist | join(',') if queue.hostlist is defined else '' }}
+seq_no {{ queue.seq_no | default('') }}
+{% if queue.priority | default(false) %}priority {{ queue.priority | default(false) }}{% endif %}
+{% if queue.slots is defined and queue.slots %}slots {{ queue.slots | join(',') }}{% endif %}
+{% if queue.start_job_prolog is defined %}start_job_prolog {{ queue.start_job_prolog }}{% endif %}
+{% if queue.end_prolog is defined %}end_job_prolog {{ queue.end_prolog }}{% endif %}
+{% if queue.hold | default(false) %}hold_wjobs {{ queue.hold | default(false) }}{% endif %}
+{% if queue.submit_hosts is defined and queue.submit_hosts %}submit_hosts {{ queue.submit_hosts | join(',') }}{% endif %}
+{% if queue.exclude_hosts is defined and queue.exclude_hosts %}exclude_hosts {{ queue.exclude_hosts | join(',') }}{% endif %}
+{% if queue.reservation is defined %}reservation_time {{ queue.reservation }}{% endif %}
+{% if queue.load_thresholds is defined %}load_thresholds {{ queue.load_thresholds }}{% endif %}
+{% if queue.suspend_thresholds is defined %}suspend_thresholds {{ queue.suspend_thresholds }}{% endif %}
+{% if queue.suspend_exit_delay is defined %}suspend_exit_delay {{ queue.suspend_exit_delay }}{% endif %}
+{% if queue.resume_thresholds is defined %}resume_thresholds {{ queue.resume_thresholds }}{% endif %}
+{% if queue.ujobs is defined and queue.ujobs %}ujobs {{ queue.ujobs | join(',') }}{% endif %}
+{% if queue.pjobs is defined and queue.pjobs %}pjobs {{ queue.pjobs | join(',') }}{% endif %}
+{% if queue.mjobs is defined and queue.mjobs %}mjobs {{ queue.mjobs | join(',') }}{% endif %}
+{% if queue.max_ujobs is defined and queue.max_ujobs != 0 %}max_ujobs {{ queue.max_ujobs }}{% endif %}
+{% if queue.max_pjobs is defined and queue.max_pjobs != 0 %}max_pjobs {{ queue.max_pjobs }}{% endif %}
+{% if queue.max_mjobs is defined and queue.max_mjobs != 0 %}max_mjobs {{ queue.max_mjobs }}{% endif %}
+{% if queue.max_jslots is defined and queue.max_jslots != 1 %}max_jslots {{ queue.max_jslots }}{% endif %}
+{% if queue.min_jslots is defined and queue.min_jslots != 1 %}min_jslots {{ queue.min_jslots }}{% endif %}
+{% if queue.job_factor is defined %}job_factor {{ queue.job_factor | default(1.0) }}{% endif %}
+{% endfor %}
+
+# --- Network & Communication Settings ---
+
+# Spool directory specifically for the qmaster daemon.
+qmaster_spool_dir {{ qmaster_spool_dir | default('/var/lib/gridengine/default/spool/qmaster') }}
+
+# TCP port used by the qmaster daemon for client communication.
+qmaster_port {{ qmaster_port | default(6444) }}
+
+# TCP port used by execd daemons for communication with qmaster.
+execd_port {{ execd_port | default(6445) }}
+
+# TCP port used by the shadow daemon (for job submission and control).
+shadow_port {{ shadow_port | default(6446) }}
+
+# Enable SSL encryption for daemon-to-daemon and client-to-daemon communication.
+use_ssl {{ use_ssl | default(False) | string | lower }}
+
+# --- Logging ---
+
+# Logging verbosity: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=debug.
+loglevel {{ log_level | default(3) }}
+
+# Directory where Grid Engine logs (qmaster, execd, scheduler) are written.
+logdir {{ log_dir | default('/var/log/gridengine') }}
+
+# Root spool directory for the Grid Engine installation (used here for log/temp spooling).
+spooldir {{ spool_dir | default('/var/lib/gridengine/default/spool') }}
+
+# Whether to also forward logs to the system syslog daemon.
+use_syslog {{ use_syslog | default(True) | string | lower }}

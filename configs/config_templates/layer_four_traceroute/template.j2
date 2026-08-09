@@ -1,0 +1,39 @@
+# /etc/lft.conf — Layer-Four Traceroute configuration
+# Self-documenting template: every directive is preceded by its schema description.
+
+# Global timeout (seconds) for each probe response. Increase for high-latency or congested networks.
+Timeout: {{ (timeout | default(2)) }}
+
+# Initial TTL value to start the traceroute from. Usually 1.
+StartTTL: {{ (start_ttl | default(1)) }}
+
+# Maximum TTL value to probe. Limits the hop count of the trace.
+MaxTTL: {{ (max_ttl | default(30)) }}
+
+# Number of probe packets sent per hop for averaging. Higher values improve reliability at cost of time.
+ProbesPerHop: {{ (probes_per_hop | default(3)) }}
+
+# Fallback to ICMP ECHO probes if UDP probes are blocked by firewalls.
+UseICMP: {% if (use_icmp | default(false) | bool) %}yes{% else %}no{% endif %}
+
+# Enable detailed logging of packet contents and timing for debugging.
+Verbose: {% if (verbose | default(false) | bool) %}yes{% else %}no{% endif %}
+
+# List of destination hosts to trace, each with optional ports and source IP.
+# Iterates over the targets list provided by the schema.
+{% for target in (targets | default([])) %}# Traceroute to {{ (target.hostname | default('unknown')) }} using ports: {{ (target.ports | default([])) | join(', ') }}
+Host: {{ (target.hostname | default('')) }}
+{% if (target.ports | default([])) %}Ports: {{ (target.ports | default([])) | join(',') }}
+{% endif %}
+{% if (target.source_ip | default('')) %}SourceIP: {{ (target.source_ip | default('')) }}
+{% endif %}
+{% endfor %}
+
+# Ports used as fallback when a target entry omits Ports.
+DefaultPorts: {{ (default_ports | default([80, 443])) | join(',') }}
+
+# Network interface name to bind source sockets (e.g., eth0). Leave blank for automatic selection.
+Interface: {{ (interface | default('')) or 'auto' }}
+
+# Maximum packets per second per target. Set to 0 for no limit. Use to avoid overwhelming targets.
+RateLimit: {{ (rate_limit | default(0)) }}

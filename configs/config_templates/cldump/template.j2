@@ -1,0 +1,48 @@
+{# ============================================================================== #}
+{# cldump configuration file - Self-Documenting Ansible Jinja2 Template           #}
+{# cldump(1) is used to extract data from Clarion .DAT files                      #}
+{# This template generates a Debian-style config for cldump.                      #}
+{# See man cldump for CLI flag equivalents.                                       #}
+{# ============================================================================== #}
+
+# Default action: what to dump?
+# One of: 'active' (-d), 'data' (-D), 'meta' (-m), or 'schema' (-s)
+# Corresponds to: -d, -D, -m, -s
+DEFAULT_ACTION={{ default_action | default('active') }}
+
+# Output format: one of 'csv' (-c), 'sql' (-S), or 'none' for meta/schema-only
+# Corresponds to: -c, -S, or no format flag
+OUTPUT_FORMAT={{ output_format | default('none') }}
+
+# Enable MySQL-specific SQL syntax (using backticks for identifiers)
+# Corresponds to: -M
+USE_MYSQL={{ use_mysql | default(false) }}
+
+# Field separator character used in CSV output
+# Corresponds to: -f <char>
+FIELD_SEPARATOR={{ field_separator | default(',') }}
+
+# Skip dumping memo entries (comments/notes)
+# Corresponds to: -n
+NO_MEMO={{ no_memo | default(false) }}
+
+# Decryption key slot to use (1-4) for encrypted .DAT files
+# Set to 0 to disable decryption
+# Corresponds to: -x <slot>
+DECRYPT_SLOT={{ decrypt_slot | default(0) }}
+
+# Source character set for transcoding strings/memos to UTF-8
+# Corresponds to: -U[charset]; default ISO8859-1
+UTF8_SOURCE_CHARSET={{ utf8_source_charset | default('ISO8859-1') }}
+
+# ============================================================================== #
+# Input database file(s) to process
+# List of Clarion .DAT files to be dumped.
+# Required positional arguments for cldump(1).
+# One file per line in the config.
+# ============================================================================== #
+{% if database_files | default([]) | length > 0 %}
+{% for db_file in database_files | default([]) %}
+{{ db_file }}
+{% endfor %}
+{% endif %}

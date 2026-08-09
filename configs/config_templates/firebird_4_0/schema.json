@@ -1,0 +1,168 @@
+{
+  "root_directory": {
+    "type": "string",
+    "default": "/usr/lib/firebird/4.0",
+    "description": "Firebird installation root; the tree under this path holds bin/, lib/, plugins/, and include/"
+  },
+  "remote_service_port": {
+    "type": "number",
+    "default": 3050,
+    "description": "TCP port Firebird listens on for client connections (IANA-assigned default is 3050)"
+  },
+  "remote_bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind to; leave empty to accept connections on all interfaces"
+  },
+  "remote_aux_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Auxiliary port for async event delivery; 0 lets the OS assign a free ephemeral port"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum simultaneous database attachments across the entire server instance; 0 = unlimited"
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 180,
+    "description": "Seconds of inactivity before an idle client connection is dropped; 0 = never drop"
+  },
+  "dummy_packet_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval in seconds between keepalive dummy packets sent to clients to prevent stateful-firewall drops"
+  },
+  "auth_server": {
+    "type": "list",
+    "default": [
+      "Srp256",
+      "Srp"
+    ],
+    "description": "Server-side authentication plugins tried in order; valid names: Srp256, Srp, Legacy_Auth, Win_Sspi",
+    "items": {
+      "plugin_name": {
+        "type": "string",
+        "description": "Authentication plugin name (e.g. Srp256, Srp, Legacy_Auth)"
+      }
+    }
+  },
+  "auth_client": {
+    "type": "list",
+    "default": [
+      "Srp256",
+      "Srp",
+      "Legacy_Auth"
+    ],
+    "description": "Client-side authentication plugins offered to the server; order determines preference",
+    "items": {
+      "plugin_name": {
+        "type": "string",
+        "description": "Authentication plugin name (e.g. Srp256, Srp, Legacy_Auth)"
+      }
+    }
+  },
+  "user_manager": {
+    "type": "string",
+    "default": "Srp",
+    "description": "Plugin that manages Firebird user accounts; use Srp for modern installs, Legacy_UserManager only for Firebird 2.x compatibility"
+  },
+  "wire_crypt": {
+    "type": "string",
+    "default": "Required",
+    "description": "Wire encryption: Required = always enforce TLS-like encryption, Enabled = honour client request, Disabled = plaintext only"
+  },
+  "security_database": {
+    "type": "string",
+    "default": "/var/lib/firebird/4.0/system/security4.fdb",
+    "description": "Absolute path to the Firebird security database (security4.fdb) that stores user credentials and roles"
+  },
+  "server_mode": {
+    "type": "string",
+    "default": "SuperServer",
+    "description": "Server architecture: SuperServer is best for most workloads; SuperClassic improves SMP throughput; Classic gives maximum isolation at higher process overhead",
+    "enum": [
+      "SuperServer",
+      "ClassicServer",
+      "SuperClassic",
+      "Embedded"
+    ]
+  },
+  "max_parallel_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum intra-query parallel worker threads (SuperServer only); 1 disables parallelism; set to logical CPU count for analytics workloads"
+  },
+  "default_db_cache_pages": {
+    "type": "number",
+    "default": 2048,
+    "description": "Default number of page-cache buffers per database (each page is 4\u201316 KB); larger values reduce I/O at the cost of RAM"
+  },
+  "file_system_cache_threshold": {
+    "type": "number",
+    "default": 65536,
+    "description": "Database size in pages above which Firebird switches to direct I/O (O_DIRECT) bypassing the OS page cache; lower values reduce double-buffering on large databases"
+  },
+  "file_system_cache_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum percentage of physical RAM the OS file cache may use for Firebird files; 0 leaves the decision to the OS"
+  },
+  "temp_cache_limit": {
+    "type": "number",
+    "default": 67108864,
+    "description": "Maximum in-memory temporary workspace in bytes before sort/merge data spills to disk; default 64 MB (67108864); increase for heavy OLAP queries"
+  },
+  "temp_directories": {
+    "type": "list",
+    "default": [],
+    "description": "Directories for on-disk temporary sort/merge files; empty list = use the OS default temp dir; entries are joined with semicolons in the config",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Absolute path to a directory writable by the firebird OS user"
+      }
+    }
+  },
+  "max_unflushed_writes": {
+    "type": "number",
+    "default": -1,
+    "description": "Maximum pending page writes before Firebird forces a disk flush; -1 = no limit (OS-controlled); lower values improve durability at the cost of write throughput"
+  },
+  "max_unflushed_write_time": {
+    "type": "number",
+    "default": -1,
+    "description": "Maximum seconds pending writes may stay unflushed before a forced flush; -1 = no time limit"
+  },
+  "gc_policy": {
+    "type": "string",
+    "default": "combined",
+    "description": "Garbage collection strategy: combined (cooperative + background, recommended), cooperative, background, or none"
+  },
+  "database_access": {
+    "type": "string",
+    "default": "Full",
+    "description": "Controls which database files the server may open: Full, None, or Restrict followed by a semicolon-separated list of allowed paths"
+  },
+  "external_file_access": {
+    "type": "string",
+    "default": "None",
+    "description": "Controls access to external table data files: None (most secure, recommended), Full, or Restrict <path-list>"
+  },
+  "udf_access": {
+    "type": "string",
+    "default": "None",
+    "description": "Controls loading of legacy UDF shared libraries: None (recommended \u2014 prefer UDR in Firebird 4.0), Full, or Restrict <path-list>"
+  },
+  "audit_trace_config_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the audit trace config file; empty string disables server-level audit logging entirely"
+  },
+  "data_type_compatibility": {
+    "type": "string",
+    "default": "",
+    "description": "Compatibility level for legacy clients: '3.0' restores Firebird 3.0 type semantics for VARCHAR/NUMERIC/TIME columns; leave empty for native Firebird 4.0 behaviour"
+  }
+}

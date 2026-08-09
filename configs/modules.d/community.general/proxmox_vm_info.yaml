@@ -1,0 +1,72 @@
+name: proxmox_vm_info
+fqcn: community.general.proxmox_vm_info
+collection: community.general
+short_description: Retrieve information about one or more Proxmox VE virtual machines
+description: Retrieve information about one or more Proxmox VE virtual machines.
+options:
+  api_host:
+    type: str
+    required: true
+    description: Specify the target host of the Proxmox VE cluster.
+  api_password:
+    type: str
+    description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment
+      variable.
+  api_token_id:
+    type: str
+    description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+  api_token_secret:
+    type: str
+    description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+  api_user:
+    type: str
+    required: true
+    description: Specify the user to authenticate with.
+  config:
+    type: str
+    default: none
+    choices:
+    - none
+    - current
+    - pending
+    description: Whether to retrieve the VM configuration along with VM status. If set to V(none) (default),
+      no configuration will be returned. If set to V(current), the current running configuration will
+      be returned. If set to V(pending), the configuration with pending changes applied will be returned.
+  name:
+    type: str
+    description: Restrict results to a specific virtual machine(s) by using their name. If VM(s) with
+      the specified name do not exist in a cluster then the resulting list will be empty.
+  node:
+    type: str
+    description: Restrict results to a specific Proxmox VE node.
+  type:
+    type: str
+    default: all
+    choices:
+    - all
+    - qemu
+    - lxc
+    description: Restrict results to a specific virtual machine(s) type.
+  validate_certs:
+    type: bool
+    default: false
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+  vmid:
+    type: int
+    description: Restrict results to a specific virtual machine by using its ID. If VM with the specified
+      vmid does not exist in a cluster then resulting list will be empty.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: List all existing virtual machines on node\n  community.general.proxmox_vm_info:\n\
+  \    api_host: proxmoxhost\n    api_user: root@pam\n    api_token_id: '{{ token_id | default(omit) }}'\n\
+  \    api_token_secret: '{{ token_secret | default(omit) }}'\n    node: node01\n\n- name: List all QEMU\
+  \ virtual machines on node\n  community.general.proxmox_vm_info:\n    api_host: proxmoxhost\n    api_user:\
+  \ root@pam\n    api_password: '{{ password | default(omit) }}'\n    node: node01\n    type: qemu\n\n\
+  - name: Retrieve information about specific VM by ID\n  community.general.proxmox_vm_info:\n    api_host:\
+  \ proxmoxhost\n    api_user: root@pam\n    api_password: '{{ password | default(omit) }}'\n    node:\
+  \ node01\n    type: qemu\n    vmid: 101\n\n- name: Retrieve information about specific VM by name and\
+  \ get current configuration\n  community.general.proxmox_vm_info:\n    api_host: proxmoxhost\n    api_user:\
+  \ root@pam\n    api_password: '{{ password | default(omit) }}'\n    node: node01\n    type: lxc\n  \
+  \  name: lxc05.home.arpa\n    config: current\n"

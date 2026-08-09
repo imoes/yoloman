@@ -1,0 +1,38 @@
+# Options for the Fake arp daemon (farpd)
+#
+# This configuration file defines the network interface and scope
+# for the Fake ARP daemon, which provides gratuitous ARP responses
+# to prevent ARP cache poisoning and ensure high availability in
+# clustered environments.
+
+# =============================================================================
+# Network Interface Configuration
+# =============================================================================
+# Interface where farpd will listen. The daemon binds to this specific
+# network interface to send and receive ARP requests.
+# Default: 'eth0'
+INTERFACE="{{ interface | default('eth0') }}"
+
+# =============================================================================
+# Network Scope Configuration
+# =============================================================================
+# IPv4 network (CIDR or IP range) for which farpd will answer ARP requests.
+# If this value is empty (""), farpd will attempt to answer for all addresses
+# assigned to the interface.
+#
+# IMPORTANT: The default value 'unconfigured' is a special sentinel value.
+# If left as 'unconfigured', farpd will NOT start. You MUST provide a valid
+# network specification (e.g., '192.168.1.0/24') or an empty string to
+# enable the service.
+NETWORK="{{ network | default('unconfigured') }}"
+
+# =============================================================================
+# Daemon Lifecycle Configuration
+# =============================================================================
+# Time to wait for the daemon to die before restarting it (in seconds).
+# This value is currently commented out in the default configuration.
+# To enable automatic restart logic or graceful shutdown timeouts,
+# uncomment the line below and set the desired integer value.
+#
+# Note: Ensure the systemd service file or init script supports this variable.
+# DODTIME="{{ dodtime | default(5) }}"

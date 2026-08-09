@@ -1,0 +1,226 @@
+{
+  "inventory_dir": {
+    "type": "string",
+    "default": "/etc/ansible/hosts",
+    "description": "Path or colon-separated list of paths to inventory files or directories."
+  },
+  "remote_user": {
+    "type": "string",
+    "default": "",
+    "description": "Default remote user Ansible connects as (can be overridden per host/group)."
+  },
+  "host_key_checking": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to verify SSH host keys before connecting."
+  },
+  "forks": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of parallel processes to use for task execution. Increase for larger infrastructures."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time in seconds to wait for SSH connections and commands."
+  },
+  "interpreter_python": {
+    "type": "string",
+    "default": "auto_silent",
+    "description": "Python interpreter to use on remote hosts. Use 'auto' or 'auto_silent' for automatic detection."
+  },
+  "fact_caching_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable persistent fact caching (required for 'ansible-inventory' and some plugins)."
+  },
+  "fact_caching_connection": {
+    "type": "string",
+    "default": "/var/tmp/ansible_facts",
+    "description": "Path to directory (for jsonfile plugin) or connection string (e.g., redis://localhost:6379/0) for fact caching."
+  },
+  "fact_caching_type": {
+    "type": "string",
+    "default": "jsonfile",
+    "description": "Fact caching plugin to use (e.g., 'jsonfile', 'redis')."
+  },
+  "roles_path": {
+    "type": "list",
+    "default": [],
+    "description": "List of directories to search for roles (local development roles)."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file where Ansible logs per-playbook run. Leave empty to disable logging."
+  },
+  "library_path": {
+    "type": "list",
+    "default": [],
+    "description": "List of directories to search for custom modules."
+  },
+  "callbacks_enabled": {
+    "type": "list",
+    "default": [],
+    "description": "List of callback plugins to enable by default (e.g., 'profile_tasks', 'log_plays')."
+  },
+  "retry_files_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to save .retry files on failure (to re-run only failed hosts)."
+  },
+  "retry_files_save_path": {
+    "type": "string",
+    "default": "~/.ansible/retry",
+    "description": "Directory to store .retry files when enabled."
+  },
+  "gathering": {
+    "type": "string",
+    "default": "smart",
+    "description": "How facts are gathered: 'smart' (only missing), 'explicit' (when requested), or 'implicit' (always)."
+  },
+  "become": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable privilege escalation (become) by default."
+  },
+  "become_method": {
+    "type": "string",
+    "default": "sudo",
+    "description": "Privilege escalation method to use (sudo, su, pbrun, pfexec, doas, dzdo, ksu, runas).",
+    "enum": [
+      "sudo",
+      "su"
+    ]
+  },
+  "become_user": {
+    "type": "string",
+    "default": "root",
+    "description": "Target user to become after escalation."
+  },
+  "ask_pass": {
+    "type": "bool",
+    "default": false,
+    "description": "Prompt for SSH password (instead of using keys)."
+  },
+  "ask_become_pass": {
+    "type": "bool",
+    "default": false,
+    "description": "Prompt for privilege escalation password."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity level (0\u20136); higher shows more detail during runs."
+  },
+  "deprecation_warnings": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to show deprecation warnings for outdated features."
+  },
+  "transport": {
+    "type": "string",
+    "default": "smart",
+    "description": "Default connection transport (ssh, paramiko, local, docker, etc.)."
+  },
+  "ssh_args": {
+    "type": "string",
+    "default": "-C -o ControlMaster=auto -o ControlPersist=60s",
+    "description": "Additional arguments passed to SSH (e.g., compression, connection reuse)."
+  },
+  "paramiko_look_for_keys": {
+    "type": "bool",
+    "default": true,
+    "description": "Look for SSH keys in default locations when using paramiko backend."
+  },
+  "additional_host_patterns": {
+    "type": "object",
+    "default": [],
+    "description": "Custom per-pattern configuration (e.g., for specific host groups like [webservers]). Keys are host patterns; values are dictionaries of key=value pairs."
+  },
+  "sudo_command": {
+    "type": "string",
+    "default": "sudo -H -S -n %s",
+    "description": "Command template for sudo privilege escalation (legacy)."
+  },
+  "su_command": {
+    "type": "string",
+    "default": "su - %s",
+    "description": "Command template for su privilege escalation."
+  },
+  "pbrun_command": {
+    "type": "string",
+    "default": "pbrun -u %s %s",
+    "description": "Command template for pbrun privilege escalation."
+  },
+  "pfexec_command": {
+    "type": "string",
+    "default": "pfexec %s",
+    "description": "Command template for pfexec privilege escalation."
+  },
+  "doas_command": {
+    "type": "string",
+    "default": "doas %s",
+    "description": "Command template for doas privilege escalation."
+  },
+  "dzdo_command": {
+    "type": "string",
+    "default": "dzdo %s",
+    "description": "Command template for dzdo privilege escalation."
+  },
+  "ksu_command": {
+    "type": "string",
+    "default": "ksu -l %s -c %s",
+    "description": "Command template for ksu privilege escalation."
+  },
+  "runas_command": {
+    "type": "string",
+    "default": "runas -u %s %s",
+    "description": "Command template for runas privilege escalation."
+  },
+  "pipelining": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSH pipelining for faster module execution (requires remote user to allow it)."
+  },
+  "ssh_keepalive_interval": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds between keepalive messages to prevent SSH timeouts."
+  },
+  "sftp_batch_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Use batch mode for SFTP (faster, but disables interactive prompts)."
+  },
+  "galaxy_server": {
+    "type": "string",
+    "default": "https://galaxy.ansible.com",
+    "description": "Default Galaxy server URL for role/collection installation."
+  },
+  "galaxy_roles_path": {
+    "type": "list",
+    "default": [],
+    "description": "List of directories to search for installed Galaxy roles."
+  },
+  "galaxy_ignore_certs": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip SSL certificate validation for Galaxy connections (not recommended)."
+  },
+  "galaxy_servers_list": {
+    "type": "object",
+    "default": [],
+    "description": "Dictionary of named Galaxy server entries. Keys are server names; values are objects with: url (required), username, token."
+  },
+  "diff_context": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of lines of context to show in diffs (0 = no context)."
+  },
+  "diff_always": {
+    "type": "bool",
+    "default": false,
+    "description": "Always show diffs (even on success) for tasks that support it."
+  }
+}

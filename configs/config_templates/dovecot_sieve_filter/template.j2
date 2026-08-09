@@ -1,0 +1,59 @@
+{%- if sieve_enabled %}plugin {
+  -sieve = {{ sieve_global_script_dir }}/{{ sieve_global_script }}
+  ^sieve_global_dir = {{ sieve_global_script_dir }}
+  *sieve_global_script_name = {{ sieve_global_script }}
+{%- for plugin, value in sieve_plugins.items() %}
+  %sieve_{{ plugin }} = {{ 'yes' if value else 'no' }}
+{%- endfor %}
+}
+{%- endif %}
+
+{%- if sieve_in_lda %}
+protocol lda {
+ mail_plugins = $mail_plugins sieve
+}
+{%- endif %}
+{%- if sieve_in_lmtp %}
+protocol lmtp {
+ mail_plugins = $mail_plugins sieve
+}
+{%- endif %}
+
+{%- if sieve_storage_dir %}
+plugin {
+  -sieve_storage = {{ sieve_storage_dir }}
+}
+{%- endif %}
+
+{%- if sieve_before_scripts %}
+plugin {
+  -sieve_before = {% for script in sieve_before_scripts %}{{ script }}{% if not loop.last %}; {% endif %}{% endfor %}
+}
+{%- endif %}
+{%- if sieve_after_scripts %}
+plugin {
+  -sieve_after = {% for script in sieve_after_scripts %}{{ script }}{% if not loop.last %}; {% endif %}{% endfor %}
+}
+{%- endif %}
+
+{%- if sieve_max_script_size is defined %}
+plugin {
+  ^sieve_max_script_size = {{ sieve_max_script_size }}
+}
+{%- endif %}
+{%- if sieve_max_actions is defined %}
+plugin {
+  ^sieve_max_actions = {{ sieve_max_actions }}
+}
+{%- endif %}
+{%- if sieve_max_redirects is defined %}
+plugin {
+  ^sieve_max_redirects = {{ sieve_max_redirects }}
+}
+{%- endif %}
+
+{%- if sieve_debug %}
+plugin {
+  ^sieve_debug = yes
+}
+{%- endif %}

@@ -1,0 +1,27 @@
+# Adminer Web Interface Configuration
+# This template generates the Apache VirtualHost or Directory configuration for the Adminer database management tool.
+# Adminer is a single-file PHP script used to manage databases via a web interface.
+
+# Define the filesystem path where Adminer is accessible.
+# This path must match the Alias directive and the Directory block below.
+# Schema Description: Filesystem path where Adminer is aliased (must match Alias directive). Typically /etc/adminer or /usr/share/adminer.
+# Variable: adminer_alias_path
+# Default: /etc/adminer
+{% set alias_path = adminer_alias_path | default('/etc/adminer') %}
+
+# Apache Alias Directive
+# Maps the URL path to the filesystem directory.
+# Syntax: Alias <URL-path> <filesystem-path>
+Alias /{{ alias_path }} {{ alias_path }}
+
+# Apache Directory Block
+# Configures access controls and default index behavior for the Adminer directory.
+<Directory {{ alias_path }}>
+    # Security: Restrict access by default, then explicitly grant access here.
+    # In production, consider restricting this with <RequireAll> and specific IP/Host rules.
+    Require all granted
+
+    # DirectoryIndex: Specify the entry point script.
+    # Adminer typically uses conf.php as its main configuration/interface file.
+    DirectoryIndex conf.php
+</Directory>

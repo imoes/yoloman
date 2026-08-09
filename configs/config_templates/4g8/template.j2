@@ -1,0 +1,72 @@
+# {{ service_name }} configuration file
+# Managed by {{ managed_by | default('configuration management system') }}
+
+[service]
+# Service name identifier
+name = {{ service_name }}
+
+# Enable or disable the service
+enabled = {{ enabled | lower }}
+
+# Runtime user under which the service runs
+user = {{ run_user }}
+
+# Runtime group under which the service runs
+group = {{ run_group }}
+
+# Working directory for the service
+working_directory = {{ working_directory }}
+
+# Absolute path to the executable
+exec_path = {{ exec_path }}
+
+# Command-line arguments to pass to the executable (space-separated)
+# If empty, no arguments are passed
+{% if exec_args %}exec_args = {{ exec_args | join(' ') }}{% else %}exec_args = {% endif %}
+
+# Maximum number of restart attempts before giving up
+restart_tries = {{ restart_tries }}
+
+# Delay between restart attempts in seconds
+restart_delay = {{ restart_delay }}
+
+# Restart policy: always, on-failure, no
+restart_policy = {{ restart_policy }}
+
+# Environment variables as key=value pairs, one per line
+{% for env_var in environment_vars %}environment.{{ env_var.key }} = {{ env_var.value | string }}
+{% endfor %}
+
+# Log directory
+log_directory = {{ log_directory }}
+
+# Log level: debug, info, warn, error
+log_level = {{ log_level }}
+
+# Maximum size of a single log file in MB before rotation
+log_max_size = {{ log_max_size }}
+
+# Number of rotated log files to keep
+log_keep_count = {{ log_keep_count }}
+
+# Optional dependencies (comma-separated service names)
+# If none, leave blank
+{% if dependencies %}dependencies = {{ dependencies | join(', ') }}{% else %}dependencies = {% endif %}
+
+# Timeout for graceful shutdown in seconds
+shutdown_timeout = {{ shutdown_timeout }}
+
+# Health check endpoint URL (optional)
+{% if health_check_url %}health_check_url = {{ health_check_url }}{% endif %}
+
+# Health check interval in seconds (only if health_check_url is defined)
+{% if health_check_url %}health_check_interval = {{ health_check_interval }}{% endif %}
+
+# Memory limit in megabytes (0 = no limit)
+memory_limit = {{ memory_limit }}
+
+# CPU limit in cores (e.g., 0.5 = 50% of one core)
+cpu_limit = {{ cpu_limit }}
+
+# Network isolation: none, private, restricted
+network_isolation = {{ network_isolation }}

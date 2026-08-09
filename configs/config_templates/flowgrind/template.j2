@@ -1,0 +1,187 @@
+# flowgrind controller configuration
+# This template generates the command-line arguments for the flowgrind tool.
+# It supports both a default single-flow test and complex multi-flow definitions.
+
+# Global settings: Report interval in seconds.
+# 0.05 means reports are generated every 50 milliseconds.
+{% if report_interval is defined %}
+-R i={{ report_interval }}
+{% else %}
+-R i=0.05
+{% endif %}
+
+# Global settings: Throughput unit.
+# If true, report throughput in MiB/s (2^20 bytes/s); otherwise default Mbit/s (10^6 bit/s).
+{% if throughput_unit is defined and throughput_unit %}
+-U t=mib
+{% else %}
+-U t=mbit
+{% endif %}
+
+# Global settings: Log file path.
+# If empty, flowgrind uses a default timestamped log. If non-empty, enable logging to file.
+{% if log_file is defined and log_file %}
+-o {{ log_file }}
+{% endif %}
+
+# Global settings: Overwrite existing log files.
+# If true, overwrite; if false, append or fail on existence.
+{% if overwrite_log is defined and overwrite_log %}
+-O w=true
+{% endif %}
+
+# Global settings: Dump prefix for libpcap dump filenames.
+{% if dump_prefix is defined and dump_prefix %}
+-D p={{ dump_prefix }}
+{% endif %}
+
+# Global settings: Force unit for TCP stack metrics.
+# 'segment' or 'byte'. If empty, auto-detect.
+{% if tcp_stack_unit is defined and tcp_stack_unit %}
+-T u={{ tcp_stack_unit }}
+{% endif %}
+
+# Global settings: Random seed for reproducible stochastic traffic.
+# -1 means use /dev/urandom.
+{% if random_seed is defined and random_seed != -1 %}
+-R s={{ random_seed }}
+{% endif %}
+
+# Global settings: One-way delay calculation.
+# If true, compute one-way delay (requires no clock sync).
+{% if one_way_delay is defined and one_way_delay %}
+-O owd=true
+{% endif %}
+
+# Global settings: Show additional columns in output.
+# Allowed: 'interval', 'through', 'transac', 'iat', 'kernel', 'blocks', 'rtt', 'delay'.
+{% if show_columns is defined and show_columns %}
+-O cols={{ show_columns | join(',') }}
+{% endif %}
+
+{% if flows is defined and flows %}
+# Flow configurations
+{% for flow in flows %}
+{% if loop.index0 > 0 %}
+# --- End of flow {{ loop.index0 - 1 }}, start of flow {{ loop.index0 }} ---
+{% endif %}
+
+# Flow {{ loop.index0 }}: {{ flow.id | default('Flow-' ~ loop.index0) }}
+
+# Source endpoint definition.
+# host_source: Source endpoint hostname or IP (IPv4 or IPv6).
+# control_source: Control connection port or address for source. Format: ':PORT' or 'HOST:PORT'.
+{% if flow.host_source is defined and flow.host_source %}
+-H s={{ flow.host_source }}{% if flow.control_source is defined and flow.control_source %}:{{ flow.control_source }}{% endif %}
+{% else %}
+# No source defined, defaulting to localhost.
+-H s=127.0.0.1
+{% endif %}
+
+# Destination endpoint definition.
+# host_dest: Destination endpoint hostname or IP (IPv4 or IPv6).
+# control_dest: Control connection port or address for destination. Same format as control_source.
+{% if flow.host_dest is defined and flow.host_dest %}
+-H d={{ flow.host_dest }}{% if flow.control_dest is defined and flow.control_dest %}:{{ flow.control_dest }}{% endif %}
+{% else %}
+# No destination defined, defaulting to localhost.
+-H d=127.0.0.1
+{% endif %}
+
+# Flow duration settings.
+# duration_source: Flow duration for source endpoint, in seconds.
+# duration_dest: Flow duration for destination endpoint, in seconds. 0 = unlimited.
+{% if flow.duration_source is defined %}
+-T s={{ flow.duration_source | default(10.0) }}
+{% endif %}
+{% if flow.duration_dest is defined %}
+-T d={{ flow.duration_dest | default(0.0) }}
+{% endif %}
+
+# Block size setting.
+# Uniform block size for both endpoints, in bytes. Ignored if stochastic traffic is configured.
+{% if flow.block_size is defined %}
+-S b={{ flow.block_size | default(8192) }}
+{% endif %}
+
+# Request distribution settings (stochastic traffic).
+# request_distribution: Distribution type. One of: C (Constant), U (Uniform), E (Exponential), N (Normal), L (LogNormal), P (Pareto), W (Weibull).
+# request_params: Distribution parameters.
+{% if flow.request_distribution is defined %}
+-G b=q:{{ flow.request_distribution | default('C') }}{% if flow.request_params is defined %}
+-G b=q:{{ flow.request_distribution | default('C') }}:{{ flow.request_params | default([40]) | join(':') }}
+{% endif %}
+{% endif %}
+
+# Response distribution settings.
+# response_distribution: Distribution type for response size. Same options as request_distribution.
+# response_params: Distribution parameters for response size.
+{% if flow.response_distribution is defined %}
+-G b=p:{{ flow.response_distribution | default('C') }}{% if flow.response_params is defined %}
+-G b=p:{{ flow.response_distribution | default('C') }}:{{ flow.response_params | default([40]) | join(':') }}
+{% endif %}
+{% endif %}
+
+# Interpacket gap distribution settings.
+# gap_distribution: Distribution type for interpacket gap (seconds). Same options.
+# gap_params: Distribution parameters for interpacket gap.
+{% if flow.gap_distribution is defined %}
+-G b=g:{{ flow.gap_distribution | default('C') }}{% if flow.gap_params is defined %}
+-G b=g:{{ flow.gap_distribution | default('C') }}:{{ flow.gap_params | default([0.0]) | join(':') }}
+{% endif %}
+{% endif %}
+
+# Block size limit for stochastic distributions.
+# Required for unbounded distributions.
+{% if flow.block_size_limit is defined %}
+-U {{ flow.block_size_limit | default(32768) }}
+{% endif %}
+
+# Socket options.
+# List of socket option strings (e.g., ['TCP_NODELAY']). Applies to both endpoints.
+{% if flow.socket_opts is defined and flow.socket_opts %}
+{% for opt in flow.socket_opts %}
+-O b={{ opt }}
+{% endfor %}
+{% endif %}
+
+# Minimal response size for RTT calculation.
+{% if flow.min_response_size is defined and flow.min_response_size %}
+-A b
+{% endif %}
+
+# Pushy sending (disable select() iteration).
+{% if flow.pushy is defined and flow.pushy %}
+-P b
+{% endif %}
+
+# TCP Cork.
+{% if flow.tcp_cork is defined and flow.tcp_cork %}
+-O b=TCP_CORK
+{% endif %}
+
+# TCP No Delay (disable Nagle).
+{% if flow.tcp_nodelay is defined and flow.tcp_nodelay %}
+-O b=TCP_NODELAY
+{% endif %}
+
+# TCP Congestion Control.
+# Algorithm (e.g., 'cubic', 'reno'). If empty, use system default.
+{% if flow.tcp_congestion is defined and flow.tcp_congestion %}
+-O b=TCP_CONGESTION={{ flow.tcp_congestion }}
+{% endif %}
+
+# TCP Info Metrics to display.
+# Allowed: 'interval', 'through', 'transac', 'iat', 'kernel', 'blocks', 'rtt', 'delay'.
+{% if flow.tcp_info_metrics is defined and flow.tcp_info_metrics %}
+{% set tcp_metrics = flow.tcp_info_metrics | default([]) %}
+-c s={{ tcp_metrics | join(',') }}
+{% endif %}
+
+{% endfor %}
+{% else %}
+# Default single-flow test: localhost IPv4
+-H s=127.0.0.1
+-H d=127.0.0.1
+-T s=10,d=0
+{% endif %}

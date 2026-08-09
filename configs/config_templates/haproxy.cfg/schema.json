@@ -1,0 +1,252 @@
+{
+  "global_maxconn": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of concurrent connections for the entire HAProxy process."
+  },
+  "global_ssl_default_bind": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable strict SSL defaults (TLSv1.2 minimum, no session tickets) for bind lines."
+  },
+  "defaults_mode": {
+    "type": "string",
+    "default": "http",
+    "description": "Default proxy mode: 'http', 'tcp', or 'health'.",
+    "enum": [
+      "http",
+      "tcp",
+      "health"
+    ]
+  },
+  "defaults_timeout_connect": {
+    "type": "string",
+    "default": "5s",
+    "description": "Maximum time to wait for a connection attempt to a server."
+  },
+  "defaults_timeout_client": {
+    "type": "string",
+    "default": "50s",
+    "description": "Maximum inactivity time on the client side."
+  },
+  "defaults_timeout_server": {
+    "type": "string",
+    "default": "50s",
+    "description": "Maximum inactivity time on the server side."
+  },
+  "defaults_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries when a connection to a server fails."
+  },
+  "defaults_option_httplog": {
+    "type": "string",
+    "default": "dontlognull",
+    "description": "HTTP logging option (e.g., 'httplog', 'dontlognull', or empty)."
+  },
+  "frontends": {
+    "type": "list",
+    "default": [],
+    "description": "List of frontend definitions (HTTP entry points).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "web",
+        "description": "Unique frontend name."
+      },
+      "bind_address": {
+        "type": "string",
+        "default": "*",
+        "description": "IP address to bind to (e.g., '127.0.0.1' or '*'). Set to '*' for all interfaces."
+      },
+      "bind_port": {
+        "type": "number",
+        "default": 80,
+        "description": "Port to listen on (e.g., 80 for HTTP)."
+      },
+      "ssl_port": {
+        "type": "number",
+        "default": 443,
+        "description": "Port for HTTPS (if ssl_cert is defined)."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to combined cert+key PEM file (e.g., '/etc/haproxy/certs/site.pem'). Leave empty to disable HTTPS."
+      },
+      "mode": {
+        "type": "string",
+        "default": "http",
+        "description": "Override default mode for this frontend: 'http', 'tcp', or 'health'."
+      },
+      "option_forwardfor": {
+        "type": "bool",
+        "default": true,
+        "description": "Add 'X-Forwarded-For' header to requests."
+      },
+      "acl_rules": {
+        "type": "list",
+        "default": [],
+        "description": "List of ACL rules to define conditions for routing.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "ACL name (e.g., 'is_api', 'is_static')."
+          },
+          "condition": {
+            "type": "string",
+            "default": "",
+            "description": "ACL condition (e.g., 'path_beg /api', 'hdr_dom(host) -i example.com')."
+          }
+        }
+      },
+      "use_backend_rules": {
+        "type": "list",
+        "default": [],
+        "description": "List of routing rules to send traffic to specific backends based on ACLs.",
+        "items": {
+          "condition_name": {
+            "type": "string",
+            "default": "",
+            "description": "Name of the ACL condition (e.g., 'is_api')."
+          },
+          "backend_name": {
+            "type": "string",
+            "default": "",
+            "description": "Name of the backend to route matching traffic to."
+          }
+        }
+      },
+      "default_backend": {
+        "type": "string",
+        "default": "",
+        "description": "Backend to use if no ACL rules match (fallback). Required if use_backend_rules is empty."
+      },
+      "stats_enable": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable per-frontend statistics."
+      },
+      "stats_uri": {
+        "type": "string",
+        "default": "/stats",
+        "description": "URI path for the per-frontend stats endpoint."
+      },
+      "stats_refresh": {
+        "type": "string",
+        "default": "10s",
+        "description": "Auto-refresh interval for stats (e.g., '10s', '1m')."
+      }
+    }
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend definitions (server pools).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "web_servers",
+        "description": "Unique backend name (must match referenced backend names in frontends)."
+      },
+      "mode": {
+        "type": "string",
+        "default": "http",
+        "description": "Proxy mode for this backend: 'http' or 'tcp'."
+      },
+      "balance": {
+        "type": "string",
+        "default": "roundrobin",
+        "description": "Load-balancing algorithm (e.g., 'roundrobin', 'leastconn', 'static-rr')."
+      },
+      "health_check_path": {
+        "type": "string",
+        "default": "/health",
+        "description": "Path used for HTTP health checks (e.g., '/healthz'). Leave empty to disable HTTP checks."
+      },
+      "health_check_port": {
+        "type": "number",
+        "default": 80,
+        "description": "Port for TCP-level health checks (fallback if health_check_path is empty)."
+      },
+      "server_options": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable 'option http-server-close' for better connection handling."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend servers.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "srv1",
+            "description": "Server identifier (must be unique within the backend)."
+          },
+          "address": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "IP address or hostname of the server."
+          },
+          "port": {
+            "type": "number",
+            "default": 8080,
+            "description": "Port where the server listens."
+          },
+          "check": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable health checks for this server."
+          },
+          "maxconn": {
+            "type": "number",
+            "default": 2000,
+            "description": "Maximum concurrent connections to this server (optional)."
+          },
+          "weight": {
+            "type": "number",
+            "default": 128,
+            "description": "Server weight for weighted load balancing (1\u2013256)."
+          },
+          "backup": {
+            "type": "bool",
+            "default": false,
+            "description": "Mark as backup server (only used if all primary servers are down)."
+          }
+        }
+      }
+    }
+  },
+  "stats_frontend_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a dedicated stats listener for HAProxy\u2019s global statistics UI."
+  },
+  "stats_frontend_port": {
+    "type": "number",
+    "default": 9000,
+    "description": "Port for the stats UI (e.g., 9000)."
+  },
+  "stats_frontend_uri": {
+    "type": "string",
+    "default": "/haproxy-stats",
+    "description": "URI path for the stats UI (e.g., '/stats', '/haproxy-stats')."
+  },
+  "stats_frontend_refresh": {
+    "type": "string",
+    "default": "10s",
+    "description": "Auto-refresh interval for stats (e.g., '5s', '30s')."
+  },
+  "stats_frontend_auth_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for stats authentication (leave blank to disable auth)."
+  },
+  "stats_frontend_auth_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for stats authentication (ignored if auth_user is blank)."
+  }
+}

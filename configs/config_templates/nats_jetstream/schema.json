@@ -1,0 +1,247 @@
+{
+  "enable_jetstream": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable JetStream functionality in NATS server."
+  },
+  "max_memory": {
+    "type": "number",
+    "default": 536870912,
+    "description": "Maximum memory (in bytes) JetStream may use for memory-backed streams."
+  },
+  "max_storage": {
+    "type": "number",
+    "default": 10737418240,
+    "description": "Maximum total storage (in bytes) JetStream may use for disk-backed streams."
+  },
+  "storage_dir": {
+    "type": "string",
+    "default": "/var/lib/nats",
+    "description": "Directory path where JetStream persists stream data (for disk storage)."
+  },
+  "max_ack_pending": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of unacknowledged messages allowed per consumer."
+  },
+  "mem_max_stream_bytes": {
+    "type": "number",
+    "default": 1073741824,
+    "description": "Maximum size (in bytes) for a memory-backed stream."
+  },
+  "storage_max_stream_bytes": {
+    "type": "number",
+    "default": 10737418240,
+    "description": "Maximum size (in bytes) for a disk-backed stream."
+  },
+  "stream_defaults_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable application of default settings to all newly created streams."
+  },
+  "max_consumers": {
+    "type": "number",
+    "default": 256,
+    "description": "Default maximum number of consumers per stream."
+  },
+  "max_msg_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Default maximum message size (in bytes) for streams."
+  },
+  "max_bytes": {
+    "type": "string",
+    "default": "-1",
+    "description": "Default total storage limit per stream (e.g., '1G', '100M'). Use -1 for unlimited."
+  },
+  "max_age": {
+    "type": "string",
+    "default": "24h",
+    "description": "Default maximum message age (e.g., '1h', '72h') before auto-expiration."
+  },
+  "duplicate_window": {
+    "type": "string",
+    "default": "2m",
+    "description": "Default time window to track duplicate messages (to avoid re-delivery of duplicates)."
+  },
+  "allow_rollup": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow stream rollups (aggregate/summarize data via rollup subjects) by default."
+  },
+  "deny_delete": {
+    "type": "bool",
+    "default": false,
+    "description": "Prevent direct message deletion in new streams by default."
+  },
+  "deny_purge": {
+    "type": "bool",
+    "default": false,
+    "description": "Prevent stream purging (deletion of all messages) by default."
+  },
+  "streams": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom JetStream streams to define (beyond defaults). Each stream must have a name and at least one subject.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Stream name (alphanumeric, underscore, hyphen)."
+      },
+      "subjects": {
+        "type": "list",
+        "required": true,
+        "description": "List of subject patterns this stream captures.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "max_consumers": {
+        "type": "number",
+        "default": null,
+        "description": "Stream-specific max consumers (overrides global default)."
+      },
+      "max_msg_size": {
+        "type": "number",
+        "default": null,
+        "description": "Stream-specific max message size (bytes)."
+      },
+      "max_bytes": {
+        "type": "string",
+        "default": null,
+        "description": "Stream-specific storage limit (e.g., '2G')."
+      },
+      "max_age": {
+        "type": "string",
+        "default": null,
+        "description": "Stream-specific max message age (e.g., '48h')."
+      },
+      "duplicate_window": {
+        "type": "string",
+        "default": null,
+        "description": "Stream-specific duplicate window (e.g., '1m')."
+      },
+      "max_messages_per_subject": {
+        "type": "number",
+        "default": null,
+        "description": "Limit messages per subject (for subject-limited streams)."
+      },
+      "max_msgs": {
+        "type": "number",
+        "default": null,
+        "description": "Maximum total messages to retain in this stream."
+      },
+      "retention": {
+        "type": "string",
+        "default": null,
+        "enum": [
+          "interest",
+          "limits",
+          "workqueue",
+          "file",
+          "memory"
+        ],
+        "description": "Retention policy: 'interest' (ack-based), 'limits', 'workqueue', or 'file'/'memory' (legacy)."
+      },
+      "discard": {
+        "type": "string",
+        "default": null,
+        "enum": [
+          "old",
+          "new"
+        ],
+        "description": "Discard policy when limits reached: 'old' (delete oldest), 'new' (reject new)."
+      },
+      "allow_rollup": {
+        "type": "bool",
+        "default": null,
+        "description": "Allow rollups for this stream."
+      },
+      "deny_delete": {
+        "type": "bool",
+        "default": null,
+        "description": "Disable direct deletes for this stream."
+      },
+      "deny_purge": {
+        "type": "bool",
+        "default": null,
+        "description": "Disable stream purges for this stream."
+      },
+      "storage": {
+        "type": "string",
+        "default": null,
+        "enum": [
+          "file",
+          "memory"
+        ],
+        "description": "Storage backend for this stream: 'file' (disk), 'memory' (RAM)."
+      },
+      "num_replicas": {
+        "type": "number",
+        "default": null,
+        "enum": [
+          1,
+          3,
+          5
+        ],
+        "description": "Replication factor (1 = no HA, 3 = typical HA, 5 = high durability)."
+      }
+    }
+  },
+  "cluster": {
+    "type": "object",
+    "default": null,
+    "description": "Cluster configuration for JetStream replication.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Cluster name (required for multi-server HA)."
+      },
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Cluster listen address."
+      },
+      "port": {
+        "type": "number",
+        "default": 6222,
+        "description": "Cluster port for inter-server communication."
+      },
+      "peers": {
+        "type": "list",
+        "default": [],
+        "description": "List of cluster peers (other NATS servers in the cluster).",
+        "items": {
+          "name": {
+            "type": "string",
+            "required": true,
+            "description": "Peer server name."
+          },
+          "host": {
+            "type": "string",
+            "required": true,
+            "description": "Peer server hostname or IP."
+          },
+          "port": {
+            "type": "number",
+            "required": true,
+            "default": 6222,
+            "description": "Peer server cluster port."
+          }
+        }
+      }
+    }
+  },
+  "system_account": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable system account for JetStream admin and monitoring."
+  },
+  "system_password": {
+    "type": "string",
+    "default": "change_me",
+    "description": "Password for the system account user (change in production!)."
+  }
+}

@@ -1,0 +1,148 @@
+# ============================================================================
+# BitlBee IRC Gateway Configuration
+# ============================================================================
+# This template configures BitlBee, a daemon that bridges IRC with various
+# instant messaging protocols (Jabber, Twitter, Facebook, etc.).
+# ============================================================================
+
+# IP address for BitlBee to listen on (empty or 0.0.0.0 for all interfaces)
+listen = {{ listen_ip | default('127.0.0.1') }}
+
+# TCP port for IRC client connections
+port = {{ port | default(6667) }}
+
+# IP protocol version to use for listening: inet (IPv4), inet6 (IPv6), or both
+protocol = {{ protocol | default('inet') }}
+
+# Maximum number of simultaneous client connections allowed
+maxconn = {{ max_connections | default(100) }}
+
+# Maximum number of IM accounts a single user may register
+max_accounts = {{ max_accounts_per_user | default(5) }}
+
+# Maximum length (in bytes) for a single message (excluding control chars)
+max_message_length = {{ max_message_length | default(512) }}
+
+# Enable extra-verbose debug mode (affects logging level)
+debug = {{ debug | default(False) | lower }}
+
+# Verbosity level for logs (0=none, 5=debug)
+loglevel = {{ log_level | default(3) }}
+
+# Path to the main log file (use '/dev/stdout' in containers)
+logfile = {{ log_file | default('/var/log/bitlbee/bitlbee.log') }}
+
+# Authentication method: 'password' for IRC-level auth, 'unix' for local socket trust
+auth_mode = {{ auth_mode | default('password') }}
+
+# Root directory for persistent data (accounts, settings, etc.)
+rootdir = {{ root_dir | default('/var/lib/bitlbee') }}
+
+# Path to the IMC process binary (do not change unless installing plugins)
+im_command = {{ im_command | default('/usr/lib/x86_64-linux-gnu/bitlbee/im') }}
+
+# Seconds of inactivity after which the client is disconnected
+idle_timeout = {{ idle_timeout | default(600) }}
+
+# Seconds to wait before attempting to reconnect to an IM service
+reconnect_delay = {{ reconnect_delay | default(10) }}
+
+# Maximum reconnect attempts before giving up on an account
+reconnect_max_tries = {{ reconnect_max_tries | default(5) }}
+
+# Allow users to change their IRC nicknames via /NICK
+allow_nick_changes = {{ allow_nick_changes | default(True) | lower }}
+
+# Allow new accounts to be registered via the IRC interface
+allow_register = {{ allow_register | default(True) | lower }}
+
+# Enable SSL/TLS encryption for client connections (recommended for remote access)
+ssl = {{ ssl_enabled | default(False) | lower }}
+
+# Path to the SSL certificate file (PEM format)
+ssl_cert = {{ ssl_cert_path | default('/etc/bitlbee/cert.pem') }}
+
+# Path to the SSL private key file (PEM format)
+ssl_key = {{ ssl_key_path | default('/etc/bitlbee/key.pem') }}
+
+# Optional path to an intermediate certificate chain file
+ssl_chain = {{ ssl_chain_path | default('') }}
+
+# Require clients to present valid SSL certificates (client-side cert auth)
+ssl_verify = {{ ssl_verify | default(False) | lower }}
+
+# Public hostname to advertise in server messages and SSL redirects
+hostname = {{ hostname | default('localhost') }}
+
+# List of network interfaces to bind to for outgoing connections (e.g., ['eth0'])
+outgoing_interfaces = {{ outgoing_interfaces | default([]) | join(', ') }}
+
+# Enable DNSSEC validation for outgoing DNS lookups
+dnssec = {{ dnssec | default(False) | lower }}
+
+# Seconds to wait for DNS resolution before failing
+dns_timeout = {{ dns_timeout | default(10) }}
+
+# Enable IPv6 for outgoing IM connections (services permitting)
+ipv6 = {{ ipv6_enabled | default(True) | lower }}
+
+# ---------------------------------------------------------------------------
+# Proxy Configuration
+# ---------------------------------------------------------------------------
+# Outgoing proxy configuration (for environments with strict outbound filtering)
+# The proxy variable is a mapping with keys: type, host, port, user, pass.
+{% set _proxy = proxy | default({'type': 'none', 'host': '', 'port': 0, 'user': '', 'pass': ''}) %}
+proxy_type = {{ _proxy.type | default('none') }}
+proxy_host = {{ _proxy.host | default('') }}
+proxy_port = {{ _proxy.port | default(0) }}
+proxy_user = {{ _proxy.user | default('') }}
+proxy_pass = {{ _proxy.pass | default('') }}
+
+# ---------------------------------------------------------------------------
+# Plugin Configuration
+# ---------------------------------------------------------------------------
+# List of paths to additional plugin binaries to load on startup
+plugins = [{{ plugins | default([]) | join(', ') }}]
+
+# Per-plugin configuration key-value pairs (used by dynamic plugins)
+# plugin_options is a list of mappings, each with 'description', 'key', and 'value'
+{% for plugin_opt in (plugin_options | default([])) %}
+# {{ plugin_opt.description | default('Plugin option') }}
+{{ plugin_opt.key | default('key') }} = {{ plugin_opt.value | default('value') }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Protocol and Account Settings
+# ---------------------------------------------------------------------------
+# List of protocols allowed for new accounts (see 'protocols' in bitlbee help)
+protocols = [{{ allowed_protocols | default(['jabber', 'irc', 'twitter', 'oscar', 'msn', 'ymsg']) | join(', ') }}]
+
+# Global default settings for newly registered accounts
+# default_account_settings is a list of mappings, each with 'description', 'name', and 'value'
+{% for account_setting in (default_account_settings | default([])) %}
+# {{ account_setting.description | default('Account setting') }}
+default_{{ account_setting.name | default('name') }} = {{ account_setting.value | default('value') }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Unix Domain Socket Configuration
+# ---------------------------------------------------------------------------
+# Path to Unix domain socket for local clients (e.g., irssi via /dcc)
+unixsocket = {{ unixsocket_path | default('/var/run/bitlbee/bitlbee.sock') }}
+unixsocket_perms = {{ unixsocket_perms | default('0750') }}
+
+# ---------------------------------------------------------------------------
+# HTTP API Configuration (Experimental)
+# ---------------------------------------------------------------------------
+# Enable experimental HTTP API (not recommended for production)
+http = {{ http_enabled | default(False) | lower }}
+http_port = {{ http_port | default(8080) }}
+http_root = {{ http_root | default('/') }}
+http_password = {{ http_password | default('') }}
+
+# ---------------------------------------------------------------------------
+# JSON-RPC Configuration
+# ---------------------------------------------------------------------------
+# Enable JSON-RPC over Unix socket (advanced)
+jsonrpc = {{ jsonrpc_enabled | default(False) | lower }}
+jsonrpc_path = {{ jsonrpc_path | default('/var/run/bitlbee/jsonrpc.sock') }}

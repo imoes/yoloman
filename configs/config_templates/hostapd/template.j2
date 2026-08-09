@@ -1,0 +1,26 @@
+# Ansible-managed defaults for the hostapd init script.
+# These variables control how the systemd/init.d wrapper starts hostapd.
+#
+# Note: This template does NOT generate the actual wireless configuration
+# (interface, SSID, security). That is done in the file pointed to by
+# DAEMON_CONF (typically /etc/hostapd/hostapd.conf).
+
+# Path to the main hostapd configuration file.
+# This file defines the wireless interface, SSID, encryption (WPA2/WPA3),
+# and other 802.11 parameters.
+# If left empty, hostapd will not start unless configured via another mechanism.
+{% if daemon_conf is defined %}
+DAEMON_CONF="{{ daemon_conf }}"
+{% else %}
+DAEMON_CONF="/etc/hostapd/hostapd.conf"
+{% endif %}
+
+# Additional command-line flags for the hostapd daemon.
+# Common flags: -d (debug), -e (entire config dump), -P (pid file, usually auto).
+# WARNING: Do NOT include -B (daemonize) here; the init script handles it.
+# If left empty, standard daemon behavior is used.
+{% if daemon_opts is defined %}
+DAEMON_OPTS="{{ daemon_opts }}"
+{% else %}
+DAEMON_OPTS=""
+{% endif %}

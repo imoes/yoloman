@@ -1,0 +1,135 @@
+# ============================================================================
+# Cacti Spine Configuration Template
+# ============================================================================
+# This file configures the Cacti Spine poller daemon.
+# Spine is a high-speed poller written in C, designed to replace the PHP
+# poller for better performance in large environments.
+#
+# Format: Key: Value
+# See `spine.conf.dist` or `man spine` for reference.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Database Connection Settings
+# ---------------------------------------------------------------------------
+
+# Database server hostname or IP address where the Cacti database resides.
+# Default: localhost
+DBHost: {{ db_host | default('localhost') }}
+
+# Name of the Cacti database that Spine will query.
+# Default: cacti
+DBName: {{ db_name | default('cacti') }}
+
+# Database user account with SELECT/INSERT/UPDATE permissions on the Cacti DB.
+# Default: cacti
+DBUser: {{ db_user | default('cacti') }}
+
+# Password for the database user. Leave empty if no password is required.
+# Default: (empty)
+DBPass: {{ db_pass | default('') }}
+
+# TCP port for the database connection. Set to 0 to use the default port
+# for the database type (usually 3306 for MySQL/MariaDB).
+# Default: 3306
+DBPort: {{ db_port | default(3306) }}
+
+# ---------------------------------------------------------------------------
+# Poller Concurrency and Threading
+# ---------------------------------------------------------------------------
+
+# Number of concurrent poller processes to run.
+# Set to 0 for automatic detection based on the number of CPU cores.
+# Default: 0
+Concurrency: {{ concurrency | default(0) }}
+
+# Number of threads to spawn per poller process.
+# Default: 4
+Threads: {{ threads | default(4) }}
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+
+# Directory where Spine writes its log files.
+# Default: /var/log/cacti
+LogPath: {{ log_path | default('/var/log/cacti') }}
+
+# Logging verbosity level:
+# 0 = quiet (no logs), 1 = error, 2 = warning, 3 = info, 4 = debug
+# Default: 2
+LogLevel: {{ log_level | default(2) }}
+
+# ---------------------------------------------------------------------------
+# SNMP Binary Paths
+# ---------------------------------------------------------------------------
+
+# Full path to the snmpwalk binary.
+# Default: /usr/bin/snmpwalk
+SNMPWalk: {{ snmp_walk | default('/usr/bin/snmpwalk') }}
+
+# Full path to the snmpget binary.
+# Default: /usr/bin/snmpget
+SNMPGet: {{ snmp_get | default('/usr/bin/snmpget') }}
+
+# Full path to the snmpset binary.
+# Default: /usr/bin/snmpset
+SNMPSet: {{ snmp_set | default('/usr/bin/snmpset') }}
+
+# Full path to the snmpbulkwalk binary.
+# Default: /usr/bin/snmpbulkwalk
+SNMPBulk: {{ snmp_bulk | default('/usr/bin/snmpbulkwalk') }}
+
+# Full path to the snmpgetnext binary.
+# Default: /usr/bin/snmpgetnext
+SNMPGetNext: {{ snmp_getnext | default('/usr/bin/snmpgetnext') }}
+
+# ---------------------------------------------------------------------------
+# SNMP Communication Settings
+# ---------------------------------------------------------------------------
+
+# SNMP timeout in milliseconds.
+# Example: 500 = 0.5 seconds.
+# Default: 500
+SNMPTimeout: {{ snmp_timeout | default(500) }}
+
+# Enable IPv6 support for SNMP communication (true/false).
+# Default: false
+IPv6: {{ ipv6 | default(false) | lower }}
+
+# List of extra SNMP command-line options to apply globally.
+# Each item in the list is printed on a separate SNMPOpts line,
+# allowing per-host or global SNMPv3/transport tweaks.
+# Default: [] (empty list)
+{% if snmp_opts | default([]) | length > 0 %}
+# Custom SNMP Options:
+{% for opt in snmp_opts | default([]) %}
+SNMPOpts: {{ opt }}
+{% endfor %}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# External Tool Paths
+# ---------------------------------------------------------------------------
+
+# Path to the PHP CLI executable. Required for some poller scripts or
+# legacy compatibility modes.
+# Default: /usr/bin/php
+PHP: {{ php_path | default('/usr/bin/php') }}
+
+# Path to the rrdtool binary. Used by Spine to interact with RRD files.
+# Default: /usr/bin/rrdtool
+RRDTool: {{ rrdtool_path | default('/usr/bin/rrdtool') }}
+
+# ---------------------------------------------------------------------------
+# SNMP Version and Library Settings
+# ---------------------------------------------------------------------------
+
+# Enable SNMPv3 support. Automatically sets up v3 context if true.
+# Default: false
+SNMPv3: {{ snmpv3_enabled | default(false) | lower }}
+
+# Full path to libmysqlclient.so. Leave blank to use the system default
+# loader. Useful if MySQL is installed in a non-standard location.
+# Default: (empty)
+MySQLLib: {{ mysql_lib | default('') }}

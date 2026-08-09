@@ -1,0 +1,60 @@
+{
+  "backup_dirs": [
+    "/etc",
+    "/home",
+    "/var/www"
+  ],
+  "hostname": "web01.example.com",
+  "tarball_date_format": "%Y-%m-%d",
+  "compression": "gzip",
+  "compress_extensions": ".gz",
+  "compression_level": 6,
+  "repository_root": "/var/backups",
+  "repository_subdir": "backup-manager",
+  "use_tar_prefix": true,
+  "delete_after_backup": false,
+  "oldest_file_days": 30,
+  "max_backup_days": 90,
+  "use_rsync": true,
+  "rsync_host": "backup.example.com",
+  "rsync_user": "backup",
+  "rsync_port": 22,
+  "rsync_path": "/backups/web01",
+  "rsync_options": [
+    "-az",
+    "--delete",
+    "--progress"
+  ],
+  "export_databases": true,
+  "databases": [
+    {
+      "type": "mysql",
+      "host": "localhost",
+      "user": "backup_user",
+      "password": "secret_pass_123",
+      "name": "production_db",
+      "port": 3306,
+      "file": "db_production.sql"
+    },
+    {
+      "type": "postgresql",
+      "host": "localhost",
+      "user": "pg_backup",
+      "password": "",
+      "name": "*",
+      "port": 5432,
+      "file": "db_postgres.sql"
+    }
+  ],
+  "ssh_key": "/etc/backup-manager/keys/id_backup",
+  "ssh_options": [
+    "-o StrictHostKeyChecking=yes",
+    "-o IdentitiesOnly=yes"
+  ],
+  "mail_alert": true,
+  "mail_address": "ops@example.com",
+  "mail_subject_prefix": "[web01 Backup]",
+  "mail_from": "backup@web01.example.com",
+  "pre_backup_hook": "/etc/backup-manager/hooks/pre-backup.sh",
+  "post_backup_hook": "/etc/backup-manager/hooks/post-backup.sh"
+}

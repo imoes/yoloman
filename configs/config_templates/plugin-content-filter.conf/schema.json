@@ -1,0 +1,127 @@
+{
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the content filter service."
+  },
+  "mode": {
+    "type": "string",
+    "default": "block",
+    "description": "Filtering mode: 'block' (default), 'monitor', or 'off'. In 'monitor' mode, violations are logged but not blocked."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'warn', or 'error'."
+  },
+  "proxy": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 3128,
+      "timeout": 30
+    },
+    "description": "Upstream proxy used to reach the content filtering service.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Proxy hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "default": 3128,
+        "description": "Proxy port number."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Connection timeout in seconds."
+      }
+    }
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "url": "https://filter.example.com/api/v1",
+      "key": ""
+    },
+    "description": "API endpoint and authentication for remote filtering service.",
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "https://filter.example.com/api/v1",
+        "description": "Base URL of the filtering API."
+      },
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "API key for authentication (leave blank if using token file or none)."
+      }
+    }
+  },
+  "block_categories": {
+    "type": "list",
+    "default": [
+      "malware",
+      "phishing",
+      "porn",
+      "gaming",
+      "social"
+    ],
+    "description": "List of category IDs to block (e.g., 'malware', 'phishing')."
+  },
+  "exception_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of full domain names exempt from filtering (e.g., 'internal.example.org')."
+  },
+  "exception_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames (not full FQDNs) exempt from filtering (e.g., 'gateway')."
+  },
+  "exception_urls": {
+    "type": "list",
+    "default": [],
+    "description": "List of URLs to whitelist, optionally with comments.",
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "Full URL to whitelist (e.g., 'https://edu.example.org/learning/')"
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional note explaining why this URL is whitelisted."
+      }
+    }
+  },
+  "rate_limiting": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "requests_per_minute": 60,
+      "burst_size": 10
+    },
+    "description": "Optional rate limiting per client IP.",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable per-client rate limiting for API requests."
+      },
+      "requests_per_minute": {
+        "type": "number",
+        "default": 60,
+        "description": "Maximum requests per minute per client IP."
+      },
+      "burst_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum burst (extra requests allowed before throttling)."
+      }
+    }
+  }
+}

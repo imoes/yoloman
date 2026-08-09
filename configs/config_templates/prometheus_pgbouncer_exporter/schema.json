@@ -1,0 +1,69 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the exporter listens on for incoming HTTP requests from Prometheus."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 9127,
+    "description": "Port number the exporter listens on for Prometheus scrapes."
+  },
+  "instances": {
+    "type": "list",
+    "default": [
+      "localhost:6432"
+    ],
+    "description": "List of PgBouncer instances to monitor, each specified as 'host:port'.",
+    "items": {
+      "type": "string",
+      "pattern": "^[^:]+:\\d+$",
+      "description": "PgBouncer host and port (e.g., 'pgbouncer.local:6432')."
+    }
+  },
+  "dsn_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for authenticating to PgBouncer (if required by PgBouncer's auth_type). Leave empty if using trust or other non-password auth."
+  },
+  "metrics_path": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "HTTP path under which metrics are exposed (e.g., /metrics or /pgbouncer/metrics)."
+  },
+  "collect_database_metrics": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to collect per-database metrics (e.g., total queries, active connections per DB)."
+  },
+  "collect_pool_metrics": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to collect per-pool metrics (e.g., pool size, waiting clients per pool)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log verbosity: debug, info, warn, or error."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum time (seconds) to wait for a response from PgBouncer. Set to 0 to disable timeout."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (HTTPS) for the exporter's metrics endpoint (requires cert/key files)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/prometheus-pgbouncer-exporter/tls/cert.pem",
+    "description": "Path to TLS certificate file (PEM format) when TLS is enabled."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/prometheus-pgbouncer-exporter/tls/key.pem",
+    "description": "Path to TLS private key file (PEM format) when TLS is enabled."
+  }
+}

@@ -1,0 +1,202 @@
+# ==============================================================================
+# NATS JetStream Configuration
+# ==============================================================================
+# This template generates the JetStream section for the NATS server configuration file.
+# It controls persistent storage, stream defaults, per-stream definitions,
+# cluster replication settings, and system account management.
+
+{# -------------------------------------------------------------------------- #}
+{# Global JetStream Settings                                                    #}
+{# -------------------------------------------------------------------------- #}
+
+{# Enable JetStream functionality in NATS server. If false, the entire block is omitted. #}
+{%- if enable_jetstream | default(true) | bool %}
+jetstream {
+  {# Maximum memory (in bytes) JetStream may use for memory-backed streams. #}
+  max_memory: {{ max_memory | default(536870912) }}
+
+  {# Maximum total storage (in bytes) JetStream may use for disk-backed streams. #}
+  max_storage: {{ max_storage | default(10737418240) }}
+
+  {# Directory path where JetStream persists stream data (for disk storage). #}
+  store_dir: {{ storage_dir | default('/var/lib/nats') }}
+
+  {# Maximum number of unacknowledged messages allowed per consumer. #}
+  max_ack_pending: {{ max_ack_pending | default(65536) }}
+
+  {# Maximum size (in bytes) for a memory-backed stream. #}
+  memory_max_stream_bytes: {{ mem_max_stream_bytes | default(1073741824) }}
+
+  {# Maximum size (in bytes) for a disk-backed stream. #}
+  storage_max_stream_bytes: {{ storage_max_stream_bytes | default(10737418240) }}
+}
+{%- else %}
+{# JetStream is disabled. No configuration block emitted. #}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Stream-Level Defaults                                                        #}
+{# -------------------------------------------------------------------------- #}
+
+{# Enable application of default settings to all newly created streams. #}
+{%- if stream_defaults_enabled | default(true) | bool %}
+stream_defaults {
+  {# Default maximum number of consumers per stream. #}
+  max_consumers: {{ max_consumers | default(256) }}
+
+  {# Default maximum message size (in bytes) for streams. #}
+  max_msg_size: {{ max_msg_size | default(1048576) }}
+
+  {# Default total storage limit per stream (e.g., '1G', '100M'). Use -1 for unlimited. #}
+  max_bytes: {{ max_bytes | default('-1') }}
+
+  {# Default maximum message age (e.g., '1h', '72h') before auto-expiration. #}
+  max_age: "{{ max_age | default('24h') }}"
+
+  {# Default time window to track duplicate messages (to avoid re-delivery of duplicates). #}
+  duplicate_window: "{{ duplicate_window | default('2m') }}"
+
+  {# Allow stream rollups (aggregate/summarize data via rollup subjects) by default. #}
+  allow_rollup: {{ allow_rollup | default(false) | lower }}
+
+  {# Prevent direct message deletion in new streams by default. #}
+  deny_delete: {{ deny_delete | default(false) | lower }}
+
+  {# Prevent stream purging (deletion of all messages) by default. #}
+  deny_purge: {{ deny_purge | default(false) | lower }}
+}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Per-Stream Configuration                                                     #}
+{# -------------------------------------------------------------------------- #}
+
+{# Define named streams with custom settings (if any). Each stream must have a name and at least one subject. #}
+{%- for stream in streams | default([]) %}
+# Stream: {{ stream.name }}
+streams {
+  {{ stream.name }} {
+    {# Subject(s) this stream listens to. #}
+    {%- if stream.subjects is defined and stream.subjects %}
+    subjects: [{{ stream.subjects | join(', ') }}]
+    {%- endif %}
+
+    {# Maximum number of consumers for this specific stream. Overrides default. #}
+    {%- if stream.max_consumers is defined %}
+    max_consumers: {{ stream.max_consumers }}
+    {%- endif %}
+
+    {# Maximum message size for this stream. Overrides default. #}
+    {%- if stream.max_msg_size is defined %}
+    max_msg_size: {{ stream.max_msg_size }}
+    {%- endif %}
+
+    {# Total storage limit for this stream. Overrides default. #}
+    {%- if stream.max_bytes is defined %}
+    max_bytes: {{ stream.max_bytes }}
+    {%- endif %}
+
+    {# Maximum message age for this stream. Overrides default. #}
+    {%- if stream.max_age is defined %}
+    max_age: "{{ stream.max_age }}"
+    {%- endif %}
+
+    {# Duplicate window for this stream. Overrides default. #}
+    {%- if stream.duplicate_window is defined %}
+    duplicate_window: "{{ stream.duplicate_window }}"
+    {%- endif %}
+
+    {# Maximum number of messages per subject. #}
+    {%- if stream.max_messages_per_subject is defined %}
+    max_msgs_per_subject: {{ stream.max_messages_per_subject }}
+    {%- endif %}
+
+    {# Maximum number of total messages in the stream. #}
+    {%- if stream.max_msgs is defined %}
+    max_msgs: {{ stream.max_msgs }}
+    {%- endif %}
+
+    {# Retention policy (limits, interest, work_queue). #}
+    {%- if stream.retention is defined %}
+    retention: {{ stream.retention }}
+    {%- endif %}
+
+    {# Discard policy (old, new, new_first). #}
+    {%- if stream.discard is defined %}
+    discard: {{ stream.discard }}
+    {%- endif %}
+
+    {# Allow stream rollups for this stream. #}
+    {%- if stream.allow_rollup is defined %}
+    allow_rollup: {{ stream.allow_rollup | lower }}
+    {%- endif %}
+
+    {# Prevent direct message deletion for this stream. #}
+    {%- if stream.deny_delete is defined %}
+    deny_delete: {{ stream.deny_delete | lower }}
+    {%- endif %}
+
+    {# Prevent stream purging for this stream. #}
+    {%- if stream.deny_purge is defined %}
+    deny_purge: {{ stream.deny_purge | lower }}
+    {%- endif %}
+
+    {# Storage backend (file or memory). #}
+    {%- if stream.storage is defined %}
+    storage: {{ stream.storage }}
+    {%- endif %}
+
+    {# Number of replicas for cluster replication of this stream. #}
+    {%- if stream.num_replicas is defined %}
+    num_replicas: {{ stream.num_replicas }}
+    {%- endif %}
+  }
+}
+{%- endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# Cluster Configuration                                                        #}
+{# -------------------------------------------------------------------------- #}
+
+{# Cluster configuration for JetStream replication. Requires a cluster name. #}
+{%- if cluster is defined and cluster is not none and cluster.name is defined and cluster.name %}
+cluster {
+  {# Unique name for this JetStream cluster. #}
+  name: {{ cluster.name }}
+
+  {# Host/IP for the cluster advertising. #}
+  {%- if cluster.host is defined %}
+  host: {{ cluster.host }}
+  {%- endif %}
+
+  {# Port for the cluster advertising. #}
+  {%- if cluster.port is defined %}
+  port: {{ cluster.port }}
+  {%- endif %}
+
+  {# List of peer routes for HA. #}
+  {%- if cluster.peers is defined and cluster.peers %}
+  routes = [
+    {%- for peer in cluster.peers %}
+    nats://{{ peer.host }}:{{ peer.port }},
+    {%- endfor %}
+  ]
+  {%- endif %}
+}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# System Account                                                             #}
+{# -------------------------------------------------------------------------- #}
+
+{# Enable system account for JetStream admin and monitoring. #}
+{%- if system_account | default(false) | bool %}
+accounts {
+  $SYS {
+    users = [
+      { user: "sys", password: "{{ system_password | default('change_me') }}" }
+    ]
+  }
+}
+system_account: "$SYS"
+{%- endif %}

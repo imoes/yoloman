@@ -1,0 +1,167 @@
+# ==============================================================================
+# FIASCO Image Manager / Flashing Tool Configuration Template
+# ==============================================================================
+# This template generates a command-line invocation for a FIASCO image management tool.
+# Each block corresponds to a specific tool flag.
+#
+# Self-documentation guide:
+# - Boolean flags (True/False): If true, the short flag (e.g., -I, -r) is emitted.
+# - String/Integer/Path flags: The flag and its value are emitted if the value is non-empty/non-default.
+# - List flags: Joined into a comma-separated string.
+# - Dict list (input_images): Each dict is rendered into a complex -m argument.
+# ==============================================================================
+
+{% if device_id | default(False) %}
+-I
+{% endif %}
+
+{# Root device: 0=flash, 1=mmc, 2=usb #}
+{% if root_device | default(0) != 0 %}
+-D {{ root_device | default(0) }}
+{% endif %}
+
+{# Enable USB host mode (disable if false) #}
+{% if usb_host_mode | default(False) %}
+-U 1
+{% else %}
+-U 0
+{% endif %}
+
+{# Enable R&D mode (disable if false) #}
+{% if rd_mode | default(False) %}
+-R 1
+{% else %}
+-R 0
+{% endif %}
+
+{# List of R&D flags to enable/disable (see man page for valid values) #}
+{% if rd_flags | default([]) %}
+-F {{ rd_flags | default([]) | join(',') }}
+{% endif %}
+
+{# Hardware revision string (e.g., '2101,2102') #}
+{% if hw_revision | default('') %}
+-H {{ hw_revision | default('') }}
+{% endif %}
+
+{# NOLO bootloader version string #}
+{% if nolo_version | default('') %}
+-N {{ nolo_version | default('') }}
+{% endif %}
+
+{# Kernel version string #}
+{% if kernel_version | default('') %}
+-K {{ kernel_version | default('') }}
+{% endif %}
+
+{# Initial RAM filesystem version string #}
+{% if initfs_version | default('') %}
+-T {{ initfs_version | default('') }}
+{% endif %}
+
+{# Software release version string #}
+{% if sw_release_version | default('') %}
+-S {{ sw_release_version | default('') }}
+{% endif %}
+
+{# Content eMMC version string #}
+{% if emmc_content_version | default('') %}
+-C {{ emmc_content_version | default('') }}
+{% endif %}
+
+{# Kernel command line for boot; empty string = boot with no cmdline #}
+{% if boot_cmdline | default('') %}
+-b {{ boot_cmdline | default('') }}
+{% endif %}
+
+{# Reboot device after operation #}
+{% if reboot | default(False) %}
+-r
+{% endif %}
+
+{# Load kernel & initfs images to RAM and boot #}
+{% if load_to_ram | default(False) %}
+-l
+{% endif %}
+
+{# Flash all specified images #}
+{% if flash_images | default(False) %}
+-f
+{% endif %}
+
+{# Cold flash secondary images (for dead device with erased bootloader) #}
+{% if cold_flash | default(False) %}
+-c
+{% endif %}
+
+{# Check for bad blocks on specified MTD device; empty = all devices #}
+{% if check_mtd | default('') %}
+-x {{ check_mtd | default('') }}
+{% endif %}
+
+{# Path to dump all device images into one FIASCO image file #}
+{% if dump_to_fiasco | default('') %}
+-E {{ dump_to_fiasco | default('') }}
+{% endif %}
+
+{# Directory to dump all device images to #}
+{% if dump_to_dir | default('') %}
+-e {{ dump_to_dir | default('') }}
+{% endif %}
+
+{# Directory to unpack FIASCO image to #}
+{% if unpack_fiasco | default('') %}
+-u {{ unpack_fiasco | default('') }}
+{% endif %}
+
+{# Path to generate new FIASCO image file; if ends with %sw, use SW release version #}
+{% if generate_fiasco | default('') %}
+-g {{ generate_fiasco | default('') }}
+{% endif %}
+
+{# Identify and list FIASCO image contents #}
+{% if identify_images | default(False) %}
+-i
+{% endif %}
+
+{# Simulate operations without flashing or writing #}
+{% if simulate | default(False) %}
+-s
+{% endif %}
+
+{# Disable hash, checksum, and image type checking #}
+{% if disable_checks | default(False) %}
+-n
+{% endif %}
+
+{# Enable verbose/noisy output #}
+{% if verbose | default(False) %}
+-v
+{% endif %}
+
+{# Filter images by image type (e.g., kernel, initfs) #}
+{% if image_filter_type | default('') %}
+-t {{ image_filter_type | default('') }}
+{% endif %}
+
+{# Filter images by device (e.g., RX-51) #}
+{% if image_filter_device | default('') %}
+-d {{ image_filter_device | default('') }}
+{% endif %}
+
+{# Filter images by HW revision #}
+{% if image_filter_hw | default('') %}
+-w {{ image_filter_hw | default('') }}
+{% endif %}
+
+{# Input image specifications: each is a dict with fields dev/hw/ver/type/file/lay
+   Format: -m dev:hw:ver:type:file%lay
+   Note: 'type' is required. 'file' is usually required. Others are optional. #}
+{% for img in input_images | default([]) %}
+-m {% if img.dev %}{{ img.dev }}:{% endif %}{% if img.hw %}{{ img.hw | join(',') }}:{% endif %}{% if img.ver %}{{ img.ver }}:{% endif %}{{ img.type }}:{{ img.file }}{% if img.lay %}%{{ img.lay }}{% endif %}
+{% endfor %}
+
+{# Path to existing FIASCO image to use (e.g., for flashing or unpacking) #}
+{% if fiasco_image | default('') %}
+-M {{ fiasco_image | default('') }}
+{% endif %}

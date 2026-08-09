@@ -1,0 +1,98 @@
+# Nginx Configuration Template
+# =============================
+# This template configures an Nginx instance optimized for gRPC workloads.
+# It includes global settings, event tuning, HTTP server defaults (with gRPC-specific notes),
+# and a stream context for raw TCP-based gRPC load balancing.
+
+# Main context: Global configuration settings
+# worker_processes: Number of worker processes. 'auto' scales to available CPUs.
+worker_processes auto;
+
+# error_log: Path and level for error logging. 'warn' captures warnings and errors.
+error_log /var/log/nginx/error.log warn;
+
+# pid: PID file location for the Nginx master process.
+pid /run/nginx.pid;
+
+# Events context: Connection handling tuning
+events {
+    # worker_connections: Maximum number of simultaneous connections per worker process.
+    # Increase for high-concurrency deployments (e.g., gRPC streams).
+    worker_connections {{ worker_connections | default(1024) }};
+
+    # multi_accept: Allow workers to accept multiple connections at once.
+    multi_accept on;
+
+    # use: Specify the event method. 'epoll' is standard for Linux.
+    use epoll;
+}
+
+# HTTP context: HTTP server defaults and upstreams
+http {
+    # include: Load MIME types mapping for correct Content-Type headers.
+    include /etc/nginx/mime.types;
+
+    # default_type: Fallback Content-Type for responses without explicit type.
+    default_type application/octet-stream;
+
+    # Logging format and access log
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+    access_log /var/log/nginx/access.log main;
+
+    # sendfile: Efficient file serving using kernel-space transfer.
+    sendfile on;
+
+    # tcp_nopush: Optimize data sending with sendfile.
+    tcp_nopush on;
+
+    # tcp_nodelay: Disable Nagle's algorithm to reduce latency (good for gRPC).
+    tcp_nodelay on;
+
+    # keepalive_timeout: Timeout (in seconds) for keep-alive connections to upstream gRPC servers.
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
+
+    # types_hash_max_size: Size limit for the MIME types hash table.
+    types_hash_max_size 2048;
+
+    # Gzip compression (optional, but common for gRPC over HTTP/2 — disabled per gRPC spec)
+    # Note: gRPC does NOT support compression via gzip; left disabled by default
+    gzip off;
+
+    # Include site-specific configs (e.g., /etc/nginx/conf.d/*.conf)
+    include /etc/nginx/conf.d/*.conf;
+}
+
+# Stream context: TCP/UDP load balancing (used for raw gRPC over TCP without HTTP/2 if needed)
+stream {
+    # stream_upstreams: List of TCP upstream blocks for raw gRPC (non-HTTP/2) load balancing.
+    # Iterates through the stream_upstreams list to define upstream blocks.
+    {% for stream_upstream in (stream_upstreams | default([])) %}
+    # Upstream: {{ stream_upstream.name | default('unnamed') }}
+    upstream {{ stream_upstream.name | default('unnamed') }} {
+        {% for server in stream_upstream.servers | default([]) %}
+        server {{ server.host | default('127.0.0.1') }}:{{ server.port | default(80) }} {{ server.options | default([]) | join(', ') }};
+        {% endfor %}
+        {{ stream_upstream.extra_directives | default([]) | join('\n') }}
+    }
+    {% endfor %}
+
+    # stream_servers: List of TCP server blocks to proxy raw gRPC traffic (non-HTTP/2).
+    {% for stream_server in (stream_servers | default([])) %}
+    # Server: {{ stream_server.name | default('unnamed') }} — TCP proxy for raw gRPC
+    server {
+        # listen: Port and options for listening on this server block.
+        listen {{ stream_server.listen.port | default(50051) }} {{ stream_server.listen.options | default([]) | join(', ') }};
+
+        # proxy_timeout: Timeout for proxy connections.
+        proxy_timeout {{ stream_server.proxy_timeout | default(60) }}s;
+
+        # proxy_responses: Number of responses to expect (1 for gRPC stream, etc.).
+        proxy_responses {{ stream_server.proxy_responses | default(1) }};
+
+        # proxy_pass: Target upstream name or address.
+        proxy_pass {{ stream_server.upstream | default('') }};
+    }
+    {% endfor %}
+}

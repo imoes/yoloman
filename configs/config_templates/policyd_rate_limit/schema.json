@@ -1,0 +1,136 @@
+{
+  "max_messages": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of messages allowed per user/client within the time window."
+  },
+  "window": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time window in seconds during which max_messages is enforced."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to syslog."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Syslog priority level for logging (emerg, alert, crit, error, warning, notice, info, debug)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/policyd-rate-limit/policyd-rate-limit.pid",
+    "description": "Path to the PID file for the daemon."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the policy service (typically loopback for Postfix integration)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 12525,
+    "description": "TCP port for the policy service (used only if Postfix connects via inet, otherwise unix socket)."
+  },
+  "storage_backend": {
+    "type": "string",
+    "default": "memory",
+    "description": "Backend for storing counters: 'memory' (fast, non-persistent), 'sqlite' (simple, persistent), or 'redis' (distributed)."
+  },
+  "sqlite_database": {
+    "type": "string",
+    "default": "/var/lib/policyd-rate-limit/ratelimit.db",
+    "description": "Path to SQLite database file (used only if storage_backend = 'sqlite')."
+  },
+  "redis_url": {
+    "type": "string",
+    "default": "redis://127.0.0.1:6379/0",
+    "description": "Redis connection string (used only if storage_backend = 'redis')."
+  },
+  "scope": {
+    "type": "string",
+    "default": "user",
+    "description": "Scope of rate limit: 'user' (auth user), 'sender' (envelope sender), or 'client' (client IP)."
+  },
+  "ignore_clients": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8",
+      "::1"
+    ],
+    "description": "List of CIDR ranges for clients to exempt from rate limiting."
+  },
+  "ignore_users": {
+    "type": "list",
+    "default": [
+      "^postmaster$",
+      "^bounce.*@.*$"
+    ],
+    "description": "List of regex patterns for users to exempt (e.g., system accounts)."
+  },
+  "ignore_domains": {
+    "type": "list",
+    "default": [
+      "^localhost$",
+      "^internal\\.example\\.com$"
+    ],
+    "description": "List of regex patterns for domains to exempt (e.g., internal relay)."
+  },
+  "custom_limits": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-sender rate limit overrides. Each entry has a sender pattern and custom limit.",
+    "items": {
+      "sender_pattern": {
+        "type": "string",
+        "description": "Envelope sender address or regex pattern (e.g., noreply@example.com)"
+      },
+      "rate_limit": {
+        "type": "number",
+        "description": "Custom max messages allowed for this sender within the window."
+      }
+    }
+  },
+  "action_on_limit": {
+    "type": "string",
+    "default": "reject",
+    "description": "Action when rate limit exceeded: 'reject' (554) or 'warn' (log and allow)."
+  },
+  "reject_message": {
+    "type": "string",
+    "default": "554 5.7.1 User exceeded rate limit of %n messages per %w seconds",
+    "description": "Custom rejection message template (supports %s, %u, %c, %n, %w placeholders)."
+  },
+  "burst_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable temporary burst allowance (allows short spikes up to burst_limit)."
+  },
+  "burst_limit": {
+    "type": "number",
+    "default": 150,
+    "description": "Maximum burst allowed when burst_enabled is true (must be > max_messages)."
+  },
+  "session_reset_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity before resetting per-session counters."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of concurrent tracked sessions (0 = unlimited)."
+  },
+  "reset_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (seconds) to flush persistent counters (SQLite/Redis)."
+  },
+  "redis_sync_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between Redis syncs (only applicable for Redis backend)."
+  }
+}

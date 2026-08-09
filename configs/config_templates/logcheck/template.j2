@@ -1,0 +1,13 @@
+# /etc/cron.d/logcheck: crontab entries for the logcheck package
+# These do nothing under systemd because the systemd timer will take precedence
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# REPORTMAIL: Primary email address to receive logcheck summary reports.
+MAILTO={{ (REPORTMAIL | default('root')) | default('root') }}
+
+# Run logcheck manually if systemd is not present, otherwise systemd timer handles it.
+@reboot	logcheck	if [ ! -d /run/systemd/system ] && [ -x /usr/sbin/logcheck ]; then nice -n10 /usr/sbin/logcheck -R; fi
+
+# Run logcheck every 2 hours if systemd is not present.
+2 * * * *	logcheck	if [ ! -d /run/systemd/system ] && [ -x /usr/sbin/logcheck ]; then nice -n10 /usr/sbin/logcheck; fi

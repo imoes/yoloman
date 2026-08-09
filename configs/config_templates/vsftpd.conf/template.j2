@@ -1,0 +1,174 @@
+# Enables anonymous FTP logins (set to YES/NO)
+anonymous_enable={{ anonymous_enable }}
+
+# Enables local user logins (set to YES/NO)
+local_enable={{ local_enable }}
+
+# Allows write operations (e.g., uploads, deletes) if enabled for users
+write_enable={{ write_enable }}
+
+# Allows anonymous users to upload files
+# Required for anonymous uploads to work
+anon_upload_enable={{ anon_upload_enable }}
+
+# Directory for anonymous uploads (must exist and be writable by 'ftp' user)
+# Required for anon_upload_enable to take effect
+anon_upload_dir={{ anon_upload_dir }}
+
+# Directory to serve as root for anonymous users
+anon_root={{ anon_root }}
+
+# Directory where local users are chrooted after login
+local_root={{ local_root }}
+
+# Enables chrooting of local users to their home directories
+# Prevents them from navigating outside their home dirs
+chroot_local_user={{ chroot_local_user }}
+
+# List of users *not* to chroot (if chroot_local_user=YES)
+# Format: one username per line in this file
+chroot_list_file={{ chroot_list_file }}
+
+# Whether to list chrooted users in chroot_list_file
+chroot_list_enable={{ chroot_list_enable }}
+
+# Passive FTP mode settings: range of ports to use for data connections
+# Required for FTP clients behind NAT/firewalls
+pasv_enable={{ pasv_enable }}
+pasv_min_port={{ pasv_min_port }}
+pasv_max_port={{ pasv_max_port }}
+
+# Listen address and port
+listen={{ listen }}
+listen_address={{ listen_address }}
+listen_port={{ listen_port }}
+
+# Log file path for access and session logs
+xferlog_enable={{ xferlog_enable }}
+xferlog_file={{ xferlog_file }}
+
+# Enable logging in standard vsftpd log format (vsftpd_log_style)
+# Set to YES for syslog or NO for custom log file (if xferlog_std_format=NO)
+xferlog_std_format={{ xferlog_std_format }}
+
+# Log file for standard format logs (if xferlog_std_format=NO)
+# Note: if xferlog_file is set and xferlog_std_format=NO, use xferlog_file
+# This setting is overridden by xferlog_file in most configs, but kept for clarity
+log_file={{ log_file }}
+
+# Set default file permissions
+# umask for local users (default: 022 → files 644, dirs 755)
+local_umask={{ local_umask }}
+
+# Set default file permissions for anonymous users
+# anon_umask is often 077 → files 600, dirs 700 for security
+anon_umask={{ anon_umask }}
+
+# Directory where virtual users' files reside (if using virtual users)
+# Only relevant if guest_enable=YES
+virtual_user_config_dir={{ virtual_user_config_dir }}
+
+# Enable virtual users (requires PAM config for vsftpd)
+guest_enable={{ guest_enable }}
+guest_username={{ guest_username }}
+
+# User mapping for virtual users
+# Format: one line per mapping: virtual_user=local_system_user
+# Full path to mapping file
+user_sub_token={{ user_sub_token }}
+
+# PAM service name for authentication
+pam_service_name={{ pam_service_name }}
+
+# Whether to hide local user names in listings
+hide_ids={{ hide_ids }}
+
+# Directory where virtual users' root directories are located
+# e.g., /home/vsftpd/vuser1 → /home/vsftpd/vuser1/web
+# Combined with user_sub_token (e.g., $USER) for dynamic substitution
+user_config_dir={{ user_config_dir }}
+
+# Listeners for virtual users with per-user configs
+# Each virtual user can have custom settings
+{% for user_name, user_config in virtual_users.items() %}
+# Virtual user-specific config: {{ user_name }}
+{% for key, value in user_config.items() %}
+# {{ key }}
+{{ key }}={{ value }}
+{% endfor %}
+{% endfor %}
+
+# Enable TLS/SSL (set to YES to enable)
+ssl_enable={{ ssl_enable }}
+
+# Require SSL for login and data (YES/NO)
+# Use YES for security-sensitive deployments
+allow_ssl={{ allow_ssl }}
+
+# Path to SSL certificate (PEM format)
+rsa_cert_file={{ rsa_cert_file }}
+
+# Path to SSL private key (PEM format)
+rsa_private_key_file={{ rsa_private_key_file }}
+
+# SSL protocol version (e.g., SSLv2, SSLv3, TLSv1, TLSv1.1, TLSv1.2)
+# Multiple values can be combined with commas (no spaces)
+ssl_protocols={{ ssl_protocols }}
+
+# SSL cipher list (e.g., HIGH:MEDIUM:!aNULL:!MD5)
+ssl_ciphers={{ ssl_ciphers }}
+
+# Force reuse of SSL session IDs (improves performance)
+ssl_session_cache={{ ssl_session_cache }}
+
+# Enable data connection over SSL (YES/NO)
+# If YES, only SSL connections for data are allowed
+require_ssl={{ require_ssl }}
+
+# Directory to serve for virtual users
+# Substituted using user_sub_token (e.g., $USER)
+# Example: /home/vsftpd/$USER
+local_root={{ local_root }}
+
+# Whether to log to syslog instead of xferlog_file
+syslog_enable={{ syslog_enable }}
+
+# TCP Wrappers support (inetd mode only)
+tcp_wrappers={{ tcp_wrappers }}
+
+# Idle session timeout (seconds)
+# Clients disconnect after this time without activity
+timeout={{ timeout }}
+
+# Idle data connection timeout (seconds)
+data_connection_timeout={{ data_connection_timeout }}
+
+# Maximum number of clients allowed
+max_clients={{ max_clients }}
+
+# Maximum clients per IP address
+max_per_ip={{ max_per_ip }}
+
+# Maximum file upload rate in bytes/sec for anonymous users
+# Set to 0 for unlimited
+anon_max_rate={{ anon_max_rate }}
+
+# Maximum file upload rate in bytes/sec for local users
+# Set to 0 for unlimited
+local_max_rate={{ local_max_rate }}
+
+# Whether to display motd file on login
+ftpd_banner={{ ftpd_banner }}
+
+# Banner message shown before authentication
+banner_file={{ banner_file }}
+
+# Whether to accept ASCII mode transfers
+ascii_mode_upload={{ ascii_mode_upload }}
+ascii_mode_download={{ ascii_mode_download }}
+
+# Whether to accept UTF-8 filenames
+utf8_filesystem={{ utf8_filesystem }}
+
+# Enable listen on IPv6 (if listen=YES, IPv4 is used)
+listen_ipv6={{ listen_ipv6 }}

@@ -1,0 +1,55 @@
+{# ============================================================================ #}
+{# mptcpd.conf — MPTCP daemon global configuration                             #}
+{#                                                                              #}
+{# This template is self-documenting: every directive is preceded by a comment  #}
+{# that restates its schema description. All variables use safe defaults to     #}
+{# prevent render errors when a field is omitted.                               #}
+{# ============================================================================ #}
+
+{# Logging verbosity (debug, info, warn, error, critical). Default is warn if not specified. #}
+log_level: {{ log_level | default('warn') }}
+
+{# Path to the log file #}
+log_file: {{ log_file | default('/var/log/mptcpd/mptcpd.log') }}
+
+{# Path to the PID file #}
+pid_file: {{ pid_file | default('/run/mptcpd/mptcpd.pid') }}
+
+{# Directory for runtime files (e.g., Unix sockets) #}
+run_dir: {{ run_dir | default('/run/mptcpd') }}
+
+{# List of network interface names allowed to carry MPTCP subflows (leave empty to allow all) #}
+{% if (allowed_interfaces | default([]) | length) > 0 %}
+allowed_interfaces:
+{% for iface in allowed_interfaces %}
+  - {{ iface }}
+{% endfor %}
+{% endif %}
+
+{# List of network interface names explicitly disallowed for MPTCP subflows #}
+{% if (blocked_interfaces | default([]) | length) > 0 %}
+blocked_interfaces:
+{% for iface in blocked_interfaces %}
+  - {{ iface }}
+{% endfor %}
+{% endif %}
+
+{# Static endpoint definitions (override auto-detected addresses) #}
+{% if (endpoints | default([]) | length) > 0 %}
+endpoints:
+{% for ep in endpoints %}
+  - address: {{ ep.address }}
+{% if ep.port is defined %}
+    port: {{ ep.port }}
+{% endif %}
+{% if ep.interface is defined %}
+    interface: {{ ep.interface }}
+{% endif %}
+{% if ep.priority is defined %}
+    priority: {{ ep.priority }}
+{% endif %}
+{% if ep.backup is defined %}
+    backup: {{ ep.backup | lower }}
+{% endif %}
+{% endfor %}
+{% endif %}

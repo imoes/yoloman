@@ -1,0 +1,61 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server listens on (e.g., '0.0.0.0' for all interfaces, or specific IP)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 80,
+    "description": "TCP port for HTTP server (commonly 80 or 8080)."
+  },
+  "ip_pool_file": {
+    "type": "string",
+    "default": "/etc/hippotat/ip_pool",
+    "description": "Path to a file listing client IP pools in CIDR notation (one per line)."
+  },
+  "clients_dir": {
+    "type": "string",
+    "default": "/etc/hippotat/clients",
+    "description": "Directory containing per-client configuration files (typically named by client IP)."
+  },
+  "out_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface used for routing client traffic (must support masquerading/NAT)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent HTTP connections allowed per client."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds of inactivity before an idle connection is closed."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging for troubleshooting (set to true for verbose output)."
+  },
+  "rate_limits": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-client rate limits (each entry applies to a specific IP/CIDR range).",
+    "items": {
+      "ip": {
+        "type": "string",
+        "description": "Client IP or CIDR range (e.g., '192.168.1.0/24' or '10.0.0.5')."
+      },
+      "download": {
+        "type": "number",
+        "description": "Maximum downstream bandwidth in kilobits per second (kbps)."
+      },
+      "upload": {
+        "type": "number",
+        "description": "Maximum upstream bandwidth in kilobits per second (kbps)."
+      }
+    }
+  }
+}

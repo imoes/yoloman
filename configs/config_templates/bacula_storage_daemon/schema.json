@@ -1,0 +1,136 @@
+{
+  "director_name": {
+    "type": "string",
+    "default": "bacula-dir",
+    "description": "Name of the Director that is authorized to control this Storage Daemon. Must match the Director's Name."
+  },
+  "director_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password used by the Director to authenticate to this Storage Daemon. Should be a strong secret."
+  },
+  "storage_name": {
+    "type": "string",
+    "default": "Storage",
+    "description": "Unique identifier for this Storage Daemon (typically 'Storage' or a host-specific name like 'StorageNode1')."
+  },
+  "sd_port": {
+    "type": "number",
+    "default": 9103,
+    "description": "TCP port on which the Storage Daemon listens for incoming connections."
+  },
+  "sd_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Storage Daemon binds to. Use 0.0.0.0 to listen on all interfaces, or a specific IP for security."
+  },
+  "working_directory": {
+    "type": "string",
+    "default": "/var/lib/bacula",
+    "description": "Directory for runtime files (e.g., .job, .status). Must be writable by the bacula-sd user."
+  },
+  "pid_directory": {
+    "type": "string",
+    "default": "/var/run/bacula",
+    "description": "Directory where the Storage Daemon writes its process ID file."
+  },
+  "max_concurrent_jobs": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of backup/restore jobs the Storage Daemon can run concurrently."
+  },
+  "device_name": {
+    "type": "string",
+    "default": "FileChgr1",
+    "description": "Name of the primary backup device (e.g., for disk-based backups)."
+  },
+  "media_type": {
+    "type": "string",
+    "default": "File",
+    "description": "Type of media used by the primary device (e.g., 'File', 'LTO-6', 'DVD', 'Tape')."
+  },
+  "archive_device": {
+    "type": "string",
+    "default": "/backup/storage",
+    "description": "Physical path to the backup storage (e.g., disk mount point or tape device like /dev/st0)."
+  },
+  "label_media": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether Bacula should automatically label new volumes when needed."
+  },
+  "random_access": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the device supports random access (true for disk, false for tape)."
+  },
+  "automatic_mount": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether Bacula should automatically mount the device when needed (e.g., for tape changer operations)."
+  },
+  "removable_media": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether the media is considered removable (e.g., tape, CD, DVD). Affects rotation and mount behavior."
+  },
+  "always_open": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to keep the device open between jobs (performance optimization for some tape devices)."
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional storage devices (e.g., for multi-device or tape-library setups). Each device is a named configuration block.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for this device (e.g., 'TapeDrive1', 'DVDWriter')."
+      },
+      "media_type": {
+        "type": "string",
+        "description": "Media type for the device (e.g., 'LTO-6', 'DVD', 'Tape')."
+      },
+      "archive_device": {
+        "type": "string",
+        "description": "Device path or mount point (e.g., '/dev/st0', '/dev/sr0')."
+      },
+      "label_media": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to auto-label media for this device."
+      },
+      "random_access": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether this device supports random access (true for disk, false for sequential media)."
+      },
+      "automatic_mount": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to auto-mount media for this device when needed."
+      },
+      "removable_media": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this device uses removable media."
+      },
+      "always_open": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to keep the device always open between jobs."
+      },
+      "max_concurrent_jobs": {
+        "type": "number",
+        "default": 10,
+        "description": "Optional maximum concurrent jobs for this specific device (overrides the global default)."
+      },
+      "dev_extra": {
+        "type": "list",
+        "default": [],
+        "description": "Optional list of extra key=value or directive strings for advanced tuning (e.g., ['AutoChanger = yes', 'SdPort = 9104'])."
+      }
+    }
+  }
+}

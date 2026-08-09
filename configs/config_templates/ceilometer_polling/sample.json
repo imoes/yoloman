@@ -1,0 +1,66 @@
+{
+  "debug": false,
+  "verbose": false,
+  "log_dir": "/var/log/ceilometer",
+  "log_file": "ceilometer-polling.log",
+  "transport_url": "rabbit://ceilometer:secrete@controller:5672/",
+  "keystone_authtoken": {
+    "auth_url": "http://controller:5000/v3",
+    "project_domain_name": "Default",
+    "user_domain_name": "Default",
+    "project_name": "service",
+    "username": "ceilometer",
+    "password": "secrete",
+    "www_authenticate_uri": "http://controller:5000/",
+    "auth_type": "password"
+  },
+  "polling_namespaces": [
+    "compute",
+    "ipmi"
+  ],
+  "polling_sources": [
+    {
+      "name": "compute",
+      "meter": [],
+      "interval": 600,
+      "disabled": false,
+      "resource_types": [
+        "instance"
+      ],
+      "resource_discovery": true,
+      "discovery_params": {
+        "project_id": "service"
+      },
+      "resources": []
+    },
+    {
+      "name": "ipmi",
+      "meter": [
+        "hardware.cpu.util",
+        "hardware.memory.used",
+        "hardware.system_power.power"
+      ],
+      "interval": 300,
+      "disabled": false,
+      "resource_types": [],
+      "resource_discovery": false,
+      "resources": [
+        "node1.example.com",
+        "node2.example.com"
+      ]
+    }
+  ],
+  "gnocchi": {
+    "project_domain_name": "Default",
+    "user_domain_name": "Default",
+    "project_name": "service",
+    "username": "ceilometer",
+    "password": "secrete",
+    "auth_url": "http://controller:5000/v3",
+    "region_name": "RegionOne",
+    "endpoint_type": "internalURL",
+    "archive_policy": "ceilometer",
+    "resource_type": "generic",
+    "timeout": 30
+  }
+}

@@ -1,0 +1,142 @@
+# ==============================================================================
+# detachtty Service Configuration Template
+# ==============================================================================
+#
+# Purpose:
+#   Configures `detachtty` to run an interactive command and expose its I/O
+#   via a Unix-domain socket. This allows users to connect, disconnect, and
+#   reconnect to the same persistent process session.
+#
+# Self-Documentation:
+#   Every configuration directive below is preceded by a comment explaining
+#   its function, source variable, and default value.
+#
+# Variable Convention:
+#   All variables are accessed via `{{ var_name | default('...') }}` to ensure
+#   the template renders safely even if a variable is undefined in the Ansible
+#   inventory.
+#
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Socket Path Configuration
+# --------------------------------------------------------------------------
+# Schema Description: Path to the Unix-domain socket. Must be writable by
+#                      the user running detachtty.
+# Variable:     socket_path
+# Default:      /run/detachtty/myapp.sock
+# --------------------------------------------------------------------------
+socket_path: {{ socket_path | default('/run/detachtty/myapp.sock') }}
+
+# --------------------------------------------------------------------------
+# Directory Permissions (Socket Parent)
+# --------------------------------------------------------------------------
+# Schema Description: Octal permissions for the directory containing the
+#                      socket. This is NOT a native detachtty directive but
+#                      is often used by wrapper scripts or systemd units to
+#                      set permissions on the socket's parent directory
+#                      before detachtty starts. Strongly recommended to be 700.
+# Variable:     socket_dir_mode
+# Default:      700
+# --------------------------------------------------------------------------
+{% if socket_dir_mode is defined %}
+# NOTE: socket_dir_mode is a management directive, not consumed by detachtty binary.
+# The value below is for external configuration management (e.g., systemd tmpfiles.d).
+socket_dir_mode: {{ socket_dir_mode | default('700') }}
+{% else %}
+# No directory mode specified; relying on system defaults or external management.
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Command Execution Configuration
+# --------------------------------------------------------------------------
+# Schema Description: Absolute path to the command to execute. detachtty
+#                      does NOT search PATH; an absolute path is required.
+# Variable:     command
+# Default:      /usr/bin/program
+# --------------------------------------------------------------------------
+command: {{ command | default('/usr/bin/program') }}
+
+# --------------------------------------------------------------------------
+# Command Arguments
+# --------------------------------------------------------------------------
+# Schema Description: Arguments passed to the command. Must be a flat list
+#                      of strings.
+# Variable:     command_args
+# Default:      [] (empty list)
+# --------------------------------------------------------------------------
+{% set args = command_args | default([]) %}
+{% if args | length > 0 %}
+# Arguments for the command (one per line, indented)
+command_args:
+{% for arg in args %}
+  - {{ arg }}
+{% endfor %}
+{% else %}
+# No arguments specified.
+command_args: []
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Detach/Fork Behavior
+# --------------------------------------------------------------------------
+# Schema Description: If true, do NOT fork into background. This is useful
+#                      when running from service managers (systemd) or
+#                      inittab where the daemonization is handled externally.
+# Variable:     no_detach
+# Default:      False (meaning: detach/fork is ON by default in detachtty)
+# --------------------------------------------------------------------------
+# Note: detachtty defaults to detaching. Set no_detach to true if you
+# want to run it in the foreground (e.g., under systemd Type=simple).
+no_detach: {{ no_detach | default(False) | bool }}
+
+# --------------------------------------------------------------------------
+# Logging Configuration
+# --------------------------------------------------------------------------
+# Schema Description: File to write status messages (connects, disconnects,
+#                      errors). If omitted, messages go to stderr (only
+#                      useful when no_detach=true or for debugging).
+# Variable:     log_file
+# Default:      '' (empty, implies stderr)
+# --------------------------------------------------------------------------
+{% if log_file is defined and log_file | length > 0 %}
+# Log file for status messages.
+log_file: {{ log_file }}
+{% else %}
+# No log file specified; status messages go to stderr.
+# log_file: omitted
+{% endif %}
+
+# --------------------------------------------------------------------------
+# PID File Configuration
+# --------------------------------------------------------------------------
+# Schema Description: File to write the PID of detachtty. Required to
+#                      support SIGHUP log-reopen functionality.
+# Variable:     pid_file
+# Default:      '' (empty)
+# --------------------------------------------------------------------------
+{% if pid_file is defined and pid_file | length > 0 %}
+# PID file for process tracking and signal handling.
+# SIGHUP sent to this PID will reopen log files.
+pid_file: {{ pid_file }}
+{% else %}
+# No PID file specified. SIGHUP log-reopen will not be supported.
+# pid_file: omitted
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Dribble (Session Recording) Configuration
+# --------------------------------------------------------------------------
+# Schema Description: File to record all I/O to/from the child process
+#                      (session logging). If omitted, dribble is disabled.
+# Variable:     dribble_file
+# Default:      '' (empty)
+# --------------------------------------------------------------------------
+{% if dribble_file is defined and dribble_file | length > 0 %}
+# Dribble file enables recording of the entire terminal session
+# (stdin and stdout) for auditing or debugging purposes.
+dribble_file: {{ dribble_file }}
+{% else %}
+# No dribble file specified; session logging is disabled.
+# dribble_file: omitted
+{% endif %}

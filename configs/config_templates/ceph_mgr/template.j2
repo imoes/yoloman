@@ -1,0 +1,179 @@
+# ==============================================================================
+# Ceph Manager (ceph-mgr) Configuration Template
+# ==============================================================================
+# This template generates the ceph-mgr configuration file (ceph.conf).
+# It manages cluster identity, networking, authentication, OSD pool defaults,
+# and the optional web dashboard.
+#
+# NOTE: Variables that are lists must be joined with commas where the Ceph
+# configuration format expects it (e.g., mon_initial_members, mgr_modules).
+# ==============================================================================
+
+[global]
+# ------------------------------------------------------------------------------
+# Cluster Identity
+# ------------------------------------------------------------------------------
+# Unique 128-bit UUID of the Ceph cluster (e.g., 'a0b1c2d3-e4f5-6789-abcd-ef0123456789')
+# Schema: cluster_fsid (string, default: '')
+fsid = {{ cluster_fsid | default('') }}
+
+# ------------------------------------------------------------------------------
+# Monitor (MON) Configuration
+# ------------------------------------------------------------------------------
+# List of hostnames/IPs of the initial monitor nodes; must match mon_host order
+# Schema: mon_initial_members (list, default: [])
+mon_initial_members = {{ mon_initial_members | default([]) | join(', ') }}
+
+# List of monitor hostnames/IPs (must include all mon_initial_members)
+# Schema: mon_host (list, default: [])
+mon_host = {{ mon_host | default([]) | join(', ') }}
+
+# Path to the keyring file used for monitor authentication.
+# This is typically auto-generated or managed by ceph-deploy/ansible.
+mon_keyring = /etc/ceph/ceph.client.admin.keyring
+
+# ------------------------------------------------------------------------------
+# Logging and Process Management
+# ------------------------------------------------------------------------------
+# Path pattern for the manager log file.
+# $name is replaced by the daemon name (e.g., mgr.$hostname).
+log_file = /var/log/ceph/ceph-$name.log
+
+# Path to the PID file for the manager process.
+pid_file = /var/run/ceph/ceph-$name.pid
+
+# ------------------------------------------------------------------------------
+# Network Configuration
+# ------------------------------------------------------------------------------
+# CIDR subnet for public (client-facing) network (e.g., '10.0.0.0/24')
+# Schema: public_network (string, default: '')
+public_network = {{ public_network | default('') }}
+
+# CIDR subnet for cluster (replication/internal) network (e.g., '10.1.0.0/24')
+# Schema: cluster_network (string, default: '')
+cluster_network = {{ cluster_network | default('') }}
+
+# ------------------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------------------
+# Authentication method required for cluster communication (e.g., 'cephx', 'none')
+# Schema: auth_cluster_required (string, default: 'cephx')
+auth_cluster_required = {{ auth_cluster_required | default('cephx') }}
+
+# Authentication method required for service daemons (e.g., 'cephx', 'none')
+# Schema: auth_service_required (string, default: 'cephx')
+auth_service_required = {{ auth_service_required | default('cephx') }}
+
+# Authentication method required for client connections (e.g., 'cephx', 'none')
+# Schema: auth_client_required (string, default: 'cephx')
+auth_client_required = {{ auth_client_required | default('cephx') }}
+
+# ------------------------------------------------------------------------------
+# OSD Pool Defaults
+# ------------------------------------------------------------------------------
+# Enable automatic PG count scaling: 'on', 'off', or 'warn'
+# Schema: osd_pool_default_pg_autoscale_mode (string, default: 'on')
+osd_pool_default_pg_autoscale_mode = {{ osd_pool_default_pg_autoscale_mode | default('on') }}
+
+# Default replication size for new pools (number of copies per object)
+# Schema: osd_pool_default_size (int, default: 3)
+osd_pool_default_size = {{ osd_pool_default_size | default(3) }}
+
+# Minimum replication size allowed for writes in a pool
+# Schema: osd_pool_default_min_size (int, default: 2)
+osd_pool_default_min_size = {{ osd_pool_default_min_size | default(2) }}
+
+# Initial number of placement groups per pool (must be power of 2)
+# Schema: osd_pool_default_pg_num (int, default: 128)
+osd_pool_default_pg_num = {{ osd_pool_default_pg_num | default(128) }}
+
+# Initial number of placement group placement states (usually equals pg_num)
+# Schema: osd_pool_default_pgp_num (int, default: 128)
+osd_pool_default_pgp_num = {{ osd_pool_default_pgp_num | default(128) }}
+
+# ------------------------------------------------------------------------------
+# MGR Modules
+# ------------------------------------------------------------------------------
+# List of initial mgr modules to load at startup (e.g., ['balancer', 'status', 'restful'])
+# Schema: mgr_initial_modules (list, default: ['balancer', 'status'])
+mgr_initial_modules = {{ mgr_initial_modules | default(['balancer', 'status']) | join(', ') }}
+
+# List of mgr modules to enable (e.g., ['dashboard', 'prometheus', 'restful']); 'dashboard' required for web UI
+# Schema: mgr_modules (list, default: ['dashboard'])
+mgr_modules = {{ mgr_modules | default(['dashboard']) | join(', ') }}
+
+# ==============================================================================
+# MGR Daemon Specific Configuration
+# ==============================================================================
+[mgr]
+# Re-declare modules here as some Ceph versions expect them in the [mgr] section.
+# This ensures the dashboard and other modules are loaded.
+# Schema: mgr_modules (list, default: ['dashboard'])
+mgr_modules = {{ mgr_modules | default(['dashboard']) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# Dashboard Configuration
+# ------------------------------------------------------------------------------
+# Section for Ceph Dashboard settings.
+# Only active if 'dashboard' is included in mgr_modules and enable_dashboard is true.
+{% if enable_dashboard | default(true) | bool %}
+[mgr-dashboard]
+# Enable the Ceph Dashboard web UI
+# Schema: enable_dashboard (boolean, default: True)
+dashboard = true
+
+# IP address for the dashboard web server to bind to (e.g., '0.0.0.0' or '127.0.0.1')
+# Schema: dashboard_server_addr (string, default: '0.0.0.0')
+dashboard_server_addr = {{ dashboard_server_addr | default('0.0.0.0') }}
+
+# Port for the dashboard web server (defaults to 8443 for HTTPS)
+# Schema: dashboard_server_port (int, default: 8443)
+dashboard_server_port = {{ dashboard_server_port | default(8443) }}
+
+# Path to the SSL certificate file for the dashboard (auto-generated if missing)
+# Schema: dashboard_ssl_cert_path (string, default: '/etc/ceph/ceph-mgr-dashboard-self-signed.pem')
+dashboard_ssl_cert = {{ dashboard_ssl_cert_path | default('/etc/ceph/ceph-mgr-dashboard-self-signed.pem') }}
+
+# Path to the SSL private key file for the dashboard
+# Schema: dashboard_ssl_key_path (string, default: '/etc/ceph/ceph-mgr-dashboard-self-signed.key')
+dashboard_ssl_key = {{ dashboard_ssl_key_path | default('/etc/ceph/ceph-mgr-dashboard-self-signed.key') }}
+
+# Enable HTTPS for the dashboard web UI
+# Schema: dashboard_ssl_enabled (boolean, default: True)
+ssl = {{ dashboard_ssl_enabled | default(true) | lower }}
+
+# IP address for the dashboard API server (backend services)
+# Schema: dashboard_api_server_addr (string, default: '0.0.0.0')
+api_server_addr = {{ dashboard_api_server_addr | default('0.0.0.0') }}
+
+# Port for the dashboard API server (defaults to 8080 for HTTP)
+# Schema: dashboard_api_server_port (int, default: 8080)
+api_server_port = {{ dashboard_api_server_port | default(8080) }}
+
+# Enable HTTPS for the dashboard API server (not recommended in production without external TLS)
+# Schema: dashboard_api_ssl_enabled (boolean, default: False)
+api_ssl = {{ dashboard_api_ssl_enabled | default(false) | lower }}
+
+# Path to the SSL certificate for the dashboard API (leave empty to use dashboard cert)
+# Schema: dashboard_api_ssl_cert_path (string, default: '')
+api_ssl_cert = {{ dashboard_api_ssl_cert_path | default('') }}
+
+# Path to the SSL key for the dashboard API (leave empty to use dashboard key)
+# Schema: dashboard_api_ssl_key_path (string, default: '')
+api_ssl_key = {{ dashboard_api_ssl_key_path | default('') }}
+
+{% endif %}
+
+# ==============================================================================
+# Per-Daemon Overrides (Optional)
+# ==============================================================================
+# Allows fine-tuned placement or priority for specific mgr daemons.
+# Schema: mgr_daemons (list, default: [])
+{% for mgr_daemon in mgr_daemons | default([]) %}
+# Manager daemon for {{ mgr_daemon.name | default('unknown') }}
+[mgr-{{ mgr_daemon.name | default('unknown') }}]
+{% if 'priority' in mgr_daemon %}
+# Priority for this daemon (higher runs first on failover)
+priority = {{ mgr_daemon.priority | default(0) }}
+{% endif %}
+{% endfor %}

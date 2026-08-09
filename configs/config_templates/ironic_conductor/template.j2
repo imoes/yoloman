@@ -1,0 +1,146 @@
+[DEFAULT]
+# Unique identifier for this conductor node (leave as 'auto' to auto-generate from hostname).
+conductor_id = {{ conductor_id | default('auto') }}
+
+# Number of worker processes for handling RPC calls. Increase under high RPC load.
+rpc_workers = {{ rpc_workers | default(4) }}
+
+# Number of worker processes for the HTTP API service. Increase for higher request throughput.
+api_workers = {{ api_workers | default(1) }}
+
+# RPC transport URL in the form 'driver://user:password@host:port//vhost'. Typically 'rabbit://' for RabbitMQ.
+# Requires a message_queue service providing rabbitmq backend.
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672//') }}
+
+# Authentication strategy for the conductor service ('keystone' or 'noauth'). Use 'noauth' only for testing.
+auth_strategy = {{ auth_strategy | default('keystone') }}
+
+# Default timeout (in seconds) for IPMI operations like power status polling or remote media mounting.
+default_ipmi_timeout = {{ default_ipmi_timeout | default(10) }}
+
+# Enable or disable the Ironic Inspector service integration (used for automated hardware introspection).
+enable_inspector = {{ enable_inspector | default(true) }}
+
+# Enable or disable the Ironic API endpoint on this conductor. Disable if running API-only on separate nodes.
+enable_api = {{ enable_api | default(true) }}
+
+# IP address or hostname of this conductor host (used for API endpoint registration). Leave 'auto' to detect automatically.
+my_ip = {{ my_ip | default('auto') }}
+
+# Timeout (in seconds) for HTTP requests made by drivers (e.g., to firmware update endpoints).
+driver_http_timeout = {{ driver_http_timeout | default(30) }}
+
+# Maximum number of retries for failed HTTP requests made by drivers.
+driver_http_retries = {{ driver_http_retries | default(3) }}
+
+# Interval (in seconds) between health checks for conductor status reporting.
+health_check_interval = {{ health_check_interval | default(60) }}
+
+# Maximum number of node provisioning (build) operations that may run concurrently on this conductor.
+max_concurrent_builds = {{ max_concurrent_builds | default(5) }}
+
+# Maximum expected time (in seconds) for cleaning operations (e.g., disk wiping). Increase for large disks.
+max_cleaning_timeout = {{ max_cleaning_timeout | default(7200) }}
+
+# Maximum expected time (in seconds) for RAID configuration operations.
+max_raid_config_timeout = {{ max_raid_config_timeout | default(14400) }}
+
+# If true, disable automatic cleaning after deployment (requires manual cleaning).
+default_cleaning_disable = {{ default_cleaning_disable | default(false) }}
+
+# Default management interface used for power control, reboot, etc. (e.g., 'ipmi', 'redfish').
+default_management_interface = {{ default_management_interface | default('ipmi') }}
+
+# Default power interface (e.g., 'ipmi', 'redfish').
+default_power_interface = {{ default_power_interface | default('ipmi') }}
+
+# Default console interface (e.g., 'no-console', 'ipmi-sol', 'redfish-virtual-media').
+default_console_interface = {{ default_console_interface | default('no-console') }}
+
+# Default RAID configuration interface (e.g., 'no-raid', 'idrac-raid', 'irmc').
+default_raid_interface = {{ default_raid_interface | default('no-raid') }}
+
+# Default vendor-specific interface (e.g., 'no-vendor', 'ipmi', 'drac').
+default_vendor_interface = {{ default_vendor_interface | default('no-vendor') }}
+
+# Default deploy interface (e.g., 'iscsi', 'direct', 'ansible').
+default_deploy_interface = {{ default_deploy_interface | default('iscsi') }}
+
+# Default network provisioning interface (e.g., 'flat', 'neutron', 'no-provisioning').
+default_network_interface = {{ default_network_interface | default('neutron') }}
+
+# List of enabled network interfaces for node configurations.
+enabled_network_interfaces = {{ enabled_network_interfaces | default(['flat', 'neutron']) | join(', ') }}
+
+# List of enabled storage interfaces.
+enabled_storage_interfaces = {{ enabled_storage_interfaces | default(['cinder', 'noop']) | join(', ') }}
+
+# List of enabled RAID configuration interfaces.
+enabled_raid_interfaces = {{ enabled_raid_interfaces | default(['idrac-raid', 'irmc', 'no-raid']) | join(', ') }}
+
+# List of enabled vendor-specific interfaces.
+enabled_vendor_interfaces = {{ enabled_vendor_interfaces | default(['ipmi', 'drac', 'no-vendor']) | join(', ') }}
+
+# List of enabled console interfaces.
+enabled_console_interfaces = {{ enabled_console_interfaces | default(['no-console', 'ipmi-sol', 'redfish-virtual-media']) | join(', ') }}
+
+# List of enabled boot interfaces.
+enabled_boot_interfaces = {{ enabled_boot_interfaces | default(['pxe', 'ipxe', 'virtual-media']) | join(', ') }}
+
+# List of enabled deploy interfaces.
+enabled_deploy_interfaces = {{ enabled_deploy_interfaces | default(['iscsi', 'direct', 'ansible']) | join(', ') }}
+
+# List of enabled management interfaces.
+enabled_management_interfaces = {{ enabled_management_interfaces | default(['ipmi', 'redfish']) | join(', ') }}
+
+# List of enabled power control interfaces.
+enabled_power_interfaces = {{ enabled_power_interfaces | default(['ipmi', 'redfish']) | join(', ') }}
+
+[neutron]
+# Neutron API endpoint URL.
+url = {{ neutron_url | default('http://localhost:9696') }}
+
+[inspector]
+# Ironic Inspector API endpoint URL.
+url = {{ inspector_url | default('http://localhost:5050') }}
+
+[keystone_authtoken]
+# Keystone authentication URL (v3).
+# Requires a directory service providing openldap or freeipa backend.
+auth_url = {{ keystone_auth_url | default('http://localhost:5000/v3') }}
+
+# Keystone project domain name.
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+
+# Keystone project name.
+project_name = {{ keystone_project_name | default('service') }}
+
+# Keystone user domain name.
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# Keystone username for Ironic service.
+username = {{ keystone_username | default('ironic') }}
+
+# Keystone password for Ironic service.
+password = {{ keystone_password | default('') }}
+
+# Keystone endpoint interface to use ('public', 'internal', or 'admin').
+interface = {{ keystone_interface | default('internal') }}
+
+# If true, disable TLS certificate verification for Keystone API calls.
+insecure = {{ keystone_insecure | default(false) }}
+
+[paste_deploy]
+# PasteDeploy flavor for Ironic API ('keystone' or 'noauth').
+flavor = {{ api_flavor | default('keystone') }}
+
+[conductor]
+# Database connection URL (SQLAlchemy format).
+# Requires a database service providing mysql or mariadb backend.
+database_connection = {{ database_connection | default('mysql+pymysql://ironic:ironic@localhost/ironic?charset=utf8') }}
+
+# Maximum size of the database connection pool.
+database_max_pool_size = {{ database_max_pool_size | default(10) }}
+
+# Idle timeout (seconds) for database connections.
+database_pool_timeout = {{ database_pool_timeout | default(30) }}

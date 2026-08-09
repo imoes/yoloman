@@ -1,0 +1,43 @@
+- name: install-postfix
+  hosts: all
+  become: true
+  vars:
+    tls:
+      enabled: true
+      key_file: /etc/ssl/private/mail.key
+      cert_file: /etc/ssl/certs/mail.crt
+      security_level: may
+    _dest: /etc/postfix/main.cf
+    domain: example.com
+    _service: postfix
+    hostname: mail.example.com
+    _packages:
+      - postfix
+    relayhost: "[smtp.upstream.example.com]:587"
+    mynetworks: 127.0.0.0/8 10.0.0.0/24
+    inet_interfaces: all
+    message_size_limit: 26214400
+  tasks:
+    - name: Install Postfix Mail Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: postfix.j2
+        dest: "{{ _dest }}"
+      vars:
+        tls: "{{ tls }}"
+        domain: "{{ domain }}"
+        hostname: "{{ hostname }}"
+        relayhost: "{{ relayhost }}"
+        mynetworks: "{{ mynetworks }}"
+        inet_interfaces: "{{ inet_interfaces }}"
+        message_size_limit: "{{ message_size_limit }}"
+
+    - name: Enable and restart Postfix Mail Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

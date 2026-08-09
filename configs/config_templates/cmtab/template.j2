@@ -1,0 +1,95 @@
+# /etc/cryptmount/cmtab - Cryptmount mount table
+# This file defines encrypted filesystems managed by cryptmount.
+# Each entry maps a device to a decrypted mount point using specified encryption parameters.
+# Format: TARGET_NAME { ... }
+
+# List of encrypted filesystem entries to manage via cryptmount.
+# Each entry maps a device to a decrypted mount point using specified encryption parameters.
+# Defaults to an empty list if not provided.
+{% for entry in cmtab_entries | default([], true) %}
+# Entry Label: Unique identifier for this encrypted volume.
+# Defaults to the entry's 'label' field.
+{{ entry.label | default('unnamed') }} {
+
+  # Device: The block device or file containing the encrypted data.
+  dev={{ entry.device | default('') }}
+
+  # Loop Device: If the 'dev' is a file, specify the loop device here (optional).
+  {% if entry.loop is defined and entry.loop %}
+  loop={{ entry.loop }}
+  {% endif %}
+
+  # Mount Directory: The directory where the decrypted filesystem will be mounted.
+  dir={{ entry.dir | default('/mnt/crypt') }}
+
+  # Filesystem Type: The type of the filesystem on the decrypted device.
+  fstype={{ entry.fstype | default('ext4') }}
+
+  # Mount Options: Comma-separated list of mount options for the filesystem.
+  {% if entry.mountoptions is defined and entry.mountoptions %}
+  mountoptions={{ entry.mountoptions | join(',') }}
+  {% endif %}
+
+  # Cipher: The encryption cipher algorithm (e.g., aes-xts-plain64).
+  cipher={{ entry.cipher | default('aes-xts-plain64') }}
+
+  # Keyfile: Path to the file containing the encryption key.
+  keyfile={{ entry.keyfile | default('/etc/cryptmount/keyfile') }}
+
+  # Key Format: The format of the key data (e.g., raw, passphrased).
+  keyformat={{ entry.keyformat | default('raw') }}
+
+  # Key Hash: Hash algorithm for the key (optional, e.g., md5, sha256).
+  {% if entry.keyhash is defined and entry.keyhash %}
+  keyhash={{ entry.keyhash }}
+  {% endif %}
+
+  # Key Cipher: Cipher used to encrypt the key itself (optional).
+  keycipher={{ entry.keycipher | default('') }}
+
+  # Key Maxlen: Maximum length of the key in bytes (optional).
+  {% if entry.keymaxlen is defined and entry.keymaxlen %}
+  keymaxlen={{ entry.keymaxlen }}
+  {% endif %}
+
+  # Start Sector: Start sector of the encrypted data on the device (optional).
+  {% if entry.startsector is defined and entry.startsector %}
+  startsector={{ entry.startsector }}
+  {% endif %}
+
+  # Number of Sectors: Number of sectors of encrypted data (optional).
+  {% if entry.numsectors is defined and entry.numsectors %}
+  numsectors={{ entry.numsectors }}
+  {% endif %}
+
+  # IV Offset: Offset in sectors for the initialization vector (optional).
+  {% if entry.ivoffset is defined and entry.ivoffset %}
+  ivoffset={{ entry.ivoffset }}
+  {% endif %}
+
+  # Boot Action: Action to take during boot if the volume is missing/locked (optional).
+  {% if entry.bootaction is defined and entry.bootaction %}
+  bootaction={{ entry.bootaction }}
+  {% endif %}
+
+  # Flags: Comma-separated list of flags (e.g., noswap, auto).
+  {% if entry.flags is defined and entry.flags and entry.flags %}
+  flags={{ entry.flags | join(',') }}
+  {% endif %}
+
+  # FSCK Options: Semicolon-separated list of fsck options (optional).
+  {% if entry.fsckoptions is defined and entry.fsckoptions %}
+  fsckoptions={{ entry.fsckoptions | join(';') }}
+  {% endif %}
+
+  # Superblock Path: Path to the superblock if non-standard (optional).
+  {% if entry.supath is defined and entry.supath %}
+  supath={{ entry.supath }}
+  {% endif %}
+
+  # Password Retries: Number of password retries allowed (optional).
+  {% if entry.passwdretries is defined and entry.passwdretries %}
+  passwdretries={{ entry.passwdretries }}
+  {% endif %}
+}
+{% endfor %}

@@ -1,0 +1,171 @@
+[DEFAULT]
+# Enable debug logging for troubleshooting
+# (set to true only when debugging; defaults to false)
+{% if debug | default(false) %}debug = true{% else %}debug = false{% endif %}
+
+# Log directory and file name
+# Log output location for Aodh API service
+log_dir = /var/log/aodh
+log_file = aodh-api.log
+
+# Logging format for structured logs
+# Format string for log messages (e.g., timestamp, level, message)
+log_format = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(message)s
+
+# API server binding address and port
+# IP address and port on which the Aodh API listens
+bind_host = {{ api.bind_host | default('0.0.0.0') }}
+bind_port = {{ api.bind_port | default(8042) }}
+
+# Number of worker processes for the API service
+# Parallel workers handling requests (set >1 for concurrency on multi-core systems)
+workers = {{ api.workers | default(1) }}
+
+# Authentication backend type
+# Authentication strategy used by the API (e.g., keystone, noauth for testing)
+auth_strategy = {{ auth.strategy | default('keystone') }}
+
+# Transport URL for message queue (e.g., RabbitMQ or Redis)
+# Connection string to the messaging backend (REQUIRED for coordination)
+transport_url = {{ messaging.transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Database connection string
+# SQLAlchemy connection to the Aodh backend database
+connection = {{ database.connection | default('sqlite:///var/lib/aodh/aodh.sqlite') }}
+connection_retries = {{ database.connection_retries | default(3) }}
+max_overflow = {{ database.max_overflow | default(10) }}
+pool_size = {{ database.pool_size | default(5) }}
+
+# Event pipeline configuration
+# Enable or disable alarm evaluation engine integration
+evaluation_enabled = {{ evaluation.enabled | default(true) }}
+
+# Notification driver (email, log, etc.)
+# Default notification driver used for alarm notifications
+default_notification_method = {{ notifications.default_method | default('log') }}
+
+{% if notifications.drivers %}
+# List of additional notification drivers (e.g., for email, webhooks)
+[notification]
+{% for driver in notifications.drivers %}
+# Driver: {{ driver.name }}
+driver = {{ driver.name }}{% if driver.config %}
+config = {{ driver.config | tojson }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# Authentication (Keystone v3) endpoint configuration
+# Endpoint type (public/internal/admin) used to talk to Keystone
+endpoint_type = {{ keystone.endpoint_type | default('public') }}
+
+# Region name where this service resides
+# Required if multiple regions are configured in Keystone
+region_name = {{ keystone.region_name | default('RegionOne') }}
+
+{% if keystone.auth_url %}
+# Keystone auth URL — override default discovery if needed
+auth_url = {{ keystone.auth_url }}
+{% endif %}
+
+{% if keystone.project_name %}
+# Service project name for service catalog authentication
+project_name = {{ keystone.project_name }}
+{% endif %}
+
+{% if keystone.username %}
+# Service user (service account) for Keystone auth
+username = {{ keystone.username }}
+{% endif %}
+
+{% if keystone.password %}
+# Service user password (recommended: store in keyring or barbican)
+password = {{ keystone.password }}
+{% endif %}
+
+{% if keystone.user_domain_name %}
+# Domain for service user (Keystone v3 requirement)
+user_domain_name = {{ keystone.user_domain_name }}
+{% endif %}
+
+{% if keystone.project_domain_name %}
+# Domain for service project
+project_domain_name = {{ keystone.project_domain_name }}
+{% endif %}
+
+# Rate limiting configuration (optional)
+# Enforce request throttling per client IP
+rate_limit = {{ rate_limit.enabled | default(false) }}
+rate_limit_seconds = {{ rate_limit.window | default(60) }}
+rate_limit_num = {{ rate_limit.requests | default(100) }}
+
+# CORS policy (for cross-origin API access)
+# Comma-separated list of allowed origins
+{% if cors.allowed_origins %}
+cors_allowed_origins = {{ cors.allowed_origins | join(', ') }}
+{% else %}
+# cors_allowed_origins = *  # allow all (unsafe in production)
+{% endif %}
+
+# SSL/TLS termination (for HTTPS) — enabled via PasteDeploy config usually,
+# but optional here for reference if using built-in SSL
+{% if api.ssl.enabled %}
+# Enable SSL (note: production deployments typically front with a proxy like HAProxy/Nginx)
+ssl_cert_file = {{ api.ssl.cert_file }}
+ssl_key_file = {{ api.ssl.key_file }}
+{% endif %}
+
+# Health check endpoint path (for load balancers)
+# Path for simple HTTP health check (e.g., /healthcheck)
+healthcheck_uri = {{ healthcheck.uri | default('/healthcheck') }}
+
+# Metric storage backend (e.g., influxdb, mongodb, gnocchi)
+# Backend used for storing alarm history (if not default DB)
+{% if metrics.backend %}
+[metrics]
+backend = {{ metrics.backend }}
+{% if metrics.backend == 'influxdb' %}
+url = {{ metrics.influxdb.url | default('http://localhost:8086') }}
+dbname = {{ metrics.influxdb.dbname | default('aodh') }}
+username = {{ metrics.influxdb.username | default('aodh') }}
+password = {{ metrics.influxdb.password | default('aodh') }}
+{% elif metrics.backend == 'mongodb' %}
+url = {{ metrics.mongodb.url | default('mongodb://localhost:27017') }}
+dbname = {{ metrics.mongodb.dbname | default('aodh') }}
+{% elif metrics.backend == 'gnocchi' %}
+# Gnocchi integration via OpenStack Gnocchi metrics service
+project_name = {{ metrics.gnocchi.project_name | default('services') }}
+auth_url = {{ metrics.gnocchi.auth_url | default('http://localhost:5000/v3') }}
+username = {{ metrics.gnocchi.username | default('gnocchi') }}
+password = {{ metrics.gnocchi.password | default('gnocchi') }}
+user_domain_name = {{ metrics.gnocchi.user_domain_name | default('Default') }}
+project_domain_name = {{ metrics.gnocchi.project_domain_name | default('Default') }}
+{% endif %}
+{% endif %}
+
+# Deprecated: legacy ceilometer compat settings (for migrations only)
+# Ensure compatibility if upgrading from Ceilometer-based deployments
+{% if legacy.ceilometer_compat %}
+[legacy]
+ceilometer_compat = true
+{% endif %}
+
+# Event source configuration (for event-based alarms)
+# Map event types to sources for filtering
+{% for source in events.sources %}
+# Event source: {{ source.name }} ({{ source.type }})
+[event_source:{{ source.name }}]
+type = {{ source.type }}
+{% if source.connection %}
+connection = {{ source.connection }}
+{% endif %}
+{% endfor %}
+
+# Alarm actions (webhook, email, etc.) — configurable per alarm definition,
+# but default action can be overridden here
+# (This section is rarely set globally; kept for reference)
+[alarms]
+# Default timeout for action execution (seconds)
+action_timeout = {{ alarms.action_timeout | default(30) }}
+
+# Enable/disable alarm history persistence
+history_enabled = {{ alarms.history.enabled | default(true) }}

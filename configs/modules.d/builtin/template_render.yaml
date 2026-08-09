@@ -1,0 +1,37 @@
+name: template_render
+fqcn: builtin.template_render
+collection: builtin
+short_description: Render a full Jinja2 template (loops, if/else, filters, tests like
+  `is defined` — gonja) against a `values` context and write it to `dest`
+description: 'Render a full Jinja2 template (loops, if/else, filters, tests like `is
+  defined` — gonja) against a `values` context and write it to `dest`. The Class-B
+  config mechanism: own a complex config file (nginx/apache/bind) as template + values.
+  Idempotent — writes only when the rendered output differs from dest; dry_run-aware.
+  Params: `template` (the Jinja2 source), `dest`, `values` (the render context). Distinct
+  from `template`, which only does {{ name }} substitution.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.template (Jinja2). Salt/Puppet: file.managed + jinja
+  / .erb.'
+options:
+  dest:
+    type: string
+    description: Destination path to write the rendered file, e.g. /etc/nginx/nginx.conf.
+    required: true
+  template:
+    type: string
+    description: The Jinja2 template source (inline). Prefer template_path in a runbook
+      — inline {{ }} collides with the runbook's own substitution.
+  template_path:
+    type: string
+    description: Path to a Jinja2 template file on the host (the runbook-safe way
+      — its {{ }} is not touched by runbook substitution).
+  values:
+    type: object
+    description: The template render context (variables).
+native: true
+writes: true
+runtime: native
+source: agent-registry

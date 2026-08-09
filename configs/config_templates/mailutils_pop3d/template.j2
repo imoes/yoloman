@@ -1,0 +1,84 @@
+# GNU Mailutils POP3 Daemon configuration file
+# Generated from template; do not edit directly
+
+# Enable debugging output (0=none, 1=normal, 2=verbose)
+debug = {{ debug_level }};
+
+# Service definition block
+service pop3 {
+  # Protocol-specific settings
+  protocol pop3 {
+    # Enable/Disable clear-text authentication over unencrypted connections
+    # Note: Consider enabling only with TLS/SSL
+    auth { % if allow_plaintext_auth %}
+      plain;
+    { % endif %}
+    # Enable/Disable CRAM-MD5 and DIGEST-MD5 if supported
+    { % if allow_cram_md5 %}
+    cram-md5;
+    { % endif %}
+    { % if allow_digest_md5 %}
+    digest-md5;
+    { % endif %}
+  }
+
+  # Listener configuration
+  # Listen on specified addresses and ports
+  { % for listener in listeners %}
+  listen {
+    host {{ listener.host }};
+    port {{ listener.port }};
+  }
+  { % endfor %}
+
+  # Authentication backend
+  auth {
+    mechanism { % if auth_mechanism %}{{ auth_mechanism }}{% else %}pam{% endif %};
+  }
+
+  # Mailbox location and format
+  maildir {
+    # Default path for user mailboxes (relative or absolute)
+    directory {{ maildir_path }};
+  }
+
+  # TLS/SSL encryption settings
+  { % if enable_tls %}
+  tls {
+    # Path to the server certificate chain
+    certificate-file {{ tls_cert_file }};
+    # Path to the private key (optional; if not set, assumed in cert file)
+    key-file {{ tls_key_file | default(tls_cert_file) }};
+    # Minimum TLS version (tls1, tls1.1, tls1.2, tls1.3)
+    version {{ tls_min_version }};
+    # Cipher list (optional, may be omitted for system defaults)
+    { % if tls_cipher_list %}
+    cipher-list {{ tls_cipher_list | shellquote | quote }};
+    { % endif %}
+    # Disable client-initiated renegotiation for security
+    disable-client-renegotiation;
+  }
+  { % endif %}
+
+  # Resource limits
+  # Maximum number of simultaneous connections per IP
+  max_connections_per_ip {{ max_connections_per_ip }};
+  # Maximum number of connections total
+  max_connections {{ max_total_connections }};
+  # Connection idle timeout (seconds)
+  idle_timeout {{ idle_timeout }};
+  # Authentication timeout (seconds)
+  auth_timeout {{ auth_timeout }};
+
+  # Logging
+  # Log to syslog or to a file
+  { % if log_to_file %}
+  log {
+    file {{ log_file }};
+    # Log level (0-7, 3=default)
+    level {{ log_level }};
+  }
+  { % else %}
+  log syslog;
+  { % endif %}
+}

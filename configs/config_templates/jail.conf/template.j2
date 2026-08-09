@@ -1,0 +1,89 @@
+[DEFAULT]
+# Global default settings applied to all jails unless overridden.
+# These values apply to every [jail] block below unless that block explicitly overrides them.
+
+# List of IP addresses/CIDRs that are always trusted and never banned.
+# Defaults to localhost and IPv6 localhost.
+ignoreip = {{ (defaults | default({})).ignoreip | default(['127.0.0.1', '::1']) | join(' ') }}
+
+# Ban duration. Can be an integer (seconds) or a time string (e.g., '1h', '1d', '1w').
+# If the jail-specific bantime is not set, this value is used.
+bantime = {{ (defaults | default({})).bantime | default('10m') }}
+
+# Time window in seconds for counting failures.
+# If the jail-specific findtime is not set, this value is used.
+findtime = {{ (defaults | default({})).findtime | default('10m') }}
+
+# Number of failures before a host is banned.
+# If the jail-specific maxretry is not set, this value is used.
+maxretry = {{ (defaults | default({})).maxretry | default(5) }}
+
+# Backend used to monitor log files (e.g., systemd, gamin, auto, polling).
+# If the jail-specific backend is not set, this value is used.
+backend = {{ (defaults | default({})).backend | default('auto') }}
+
+# Email destination for ban notifications.
+# If not set, no emails are sent.
+destemail = {{ (defaults | default({})).destemail | default('root@localhost') }}
+
+# Sender address for ban notification emails.
+sender = {{ (defaults | default({})).sender | default('root@localhost') }}
+
+# MTA command to send emails.
+mta = {{ (defaults | default({})).mta | default('sendmail') }}
+
+# Action to take on ban (e.g., iptables-multiport, firewallcmd-ipset, sendmail-whois).
+# If not set, no action is taken.
+action = {{ (defaults | default({})).action | default([]) | join(', ') }}
+
+{% for jail in (jails | default([])) %}
+# ==============================================================================
+# Jail: {{ jail.name | default('unnamed') }}
+# A specific jail configuration block. Overrides [DEFAULT] settings when present.
+# ==============================================================================
+[{{ jail.name | default('unnamed') }}]
+
+# Enable this jail. Set to 'true' to activate, 'false' to disable.
+# Defaults to true if the jail block exists and is defined in the list.
+enabled = {{ jail.enabled | default(true) }}
+
+# Backend for this jail. Overrides global backend if specified.
+{% if jail.backend is defined %}backend = {{ jail.backend | default('auto') }}
+{% endif %}
+
+# Filter name used to parse logs for this jail.
+# Must match a filter file in the filters.d directory.
+filter = {{ jail.filter | default('') }}
+
+# Path(s) to log file(s), space- or comma-separated.
+# Overrides global logpath if set.
+{% if jail.logpath is defined %}logpath = {{ jail.logpath | default([]) | join(' ') }}
+{% endif %}
+
+# Number of failures before banning. Overrides global maxretry.
+{% if jail.maxretry is defined %}maxretry = {{ jail.maxretry | default(5) }}
+{% endif %}
+
+# Time window in seconds for counting failures. Overrides global findtime.
+{% if jail.findtime is defined %}findtime = {{ jail.findtime | default('10m') }}
+{% endif %}
+
+# Ban duration in seconds. Overrides global bantime.
+{% if jail.bantime is defined %}bantime = {{ jail.bantime | default('10m') }}
+{% endif %}
+
+# Additional ignore IPs (comma- or space-separated). Merged with global ignoreip.
+{% if jail.ignoreip is defined %}ignoreip = {{ jail.ignoreip | default(['127.0.0.1', '::1']) | join(' ') }}
+{% endif %}
+
+# Custom actions (overrides default action list).
+{% if jail.action is defined %}action = {{ jail.action | default([]) | join(', ') }}
+{% endif %}
+
+# Additional filters or parameters as key=value lines.
+# Iterates over a mapping of extra options.
+{% if jail.options is defined and jail.options is mapping %}
+{% for key, value in jail.options | dict2items %}{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}

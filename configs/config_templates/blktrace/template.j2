@@ -1,0 +1,41 @@
+# Configuration for blktrace service
+{% for dev in devices %}# Trace device: {{ dev }}
+-d {{ dev }}
+{% endfor %}
+{% if debugfs_path %}# Override default debugfs mount point
+-r {{ debugfs_path }}
+{% endif %}
+{% if output_dir %}# Output directory prefix for trace files
+-D {{ output_dir }}
+{% endif %}
+{% if output_basename %}# Base name for output files (use '-' for live mode)
+-o {{ output_basename }}
+{% endif %}
+{% if runtime_seconds %}# Run time in seconds (0 or undefined => run until killed)
+-w {{ runtime_seconds }}
+{% endif %}
+{% if buffer_size_kib %}# Buffer size in KiB (default 512)
+-b {{ buffer_size_kib }}
+{% endif %}
+{% if num_sub_buffers %}# Number of sub-buffers per CPU (default 4)
+-n {{ num_sub_buffers }}
+{% endif %}
+{% if filter_masks %}# Filter masks (space-separated list)
+{% for mask in filter_masks %}-a {{ mask }}
+{% endfor %}
+{% endif %}
+{% if hex_mask %}# Hexadecimal filter mask (overrides -a)
+-A {{ hex_mask }}
+{% endif %}
+{% if listen_mode %}# Run in network listen mode
+-l
+{% endif %}
+{% if hostname %}# Run in network client mode to hostname
+-h {{ hostname }}
+{% endif %}
+{% if port %}# Network port for remote tracing (default 8462)
+-p {{ port }}
+{% endif %}
+{% if not_sendfile %}# Disable sendfile() for network transfers
+-s
+{% endif %}

@@ -1,0 +1,199 @@
+{
+  "default_sender": {
+    "type": "string",
+    "default": "",
+    "description": "Email address used as the default sender when none is specified."
+  },
+  "relay_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP of the SMTP relay server (leave empty for direct delivery)."
+  },
+  "relay_port": {
+    "type": "number",
+    "default": 587,
+    "description": "Port number of the SMTP relay server."
+  },
+  "relay_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable authentication to the relay host."
+  },
+  "relay_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for relay authentication (only used if relay_auth=true)."
+  },
+  "relay_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for relay authentication (store securely)."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      "127.0.0.0/8"
+    ],
+    "description": "Networks (CIDR or hostnames) allowed to submit mail without restriction.",
+    "items": {
+      "type": "string",
+      "description": "A CIDR notation (e.g., 192.168.1.0/24) or hostname."
+    }
+  },
+  "local_hosts": {
+    "type": "list",
+    "default": [
+      "localhost"
+    ],
+    "description": "Hosts treated as local (mail for these is delivered locally, not relayed).",
+    "items": {
+      "type": "string",
+      "description": "A hostname or IP address."
+    }
+  },
+  "max_connections_per_host": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum concurrent SMTP connections per remote host."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum message size in bytes (0 = unlimited)."
+  },
+  "smtp_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "SMTP transaction timeout in seconds."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable STARTTLS for outbound SMTP connections."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for TLS verification."
+  },
+  "dns_lookup": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS MX lookups to determine delivery targets."
+  },
+  "retry_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between delivery retries for deferred messages."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of delivery attempts before bouncing the message."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity (debug, info, notice, warn, err, crit, alert, emerg)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to log file (use '-' for stdout)."
+  },
+  "queue_dir": {
+    "type": "string",
+    "default": "/var/spool/dma",
+    "description": "Directory used for the message queue."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/dma/dma.pid",
+    "description": "File to store the DMA daemon process ID."
+  },
+  "listen": {
+    "type": "list",
+    "default": [
+      "127.0.0.1:25"
+    ],
+    "description": "Addresses/ports to listen on for incoming SMTP.",
+    "items": {
+      "type": "string",
+      "description": "An IP:port pair (e.g., 0.0.0.0:25 or [::]:25)."
+    }
+  },
+  "enable_submission": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the submission port (587) listener."
+  },
+  "submission_auth": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method for the submission port (587)."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "",
+    "description": "LDAP server URI for submission auth (only if submission_auth=ldap)."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "Bind DN for LDAP submission auth (if not anonymous bind)."
+  },
+  "ldap_bind_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN."
+  },
+  "aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Custom email aliases.",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "Local mailbox name (e.g., postmaster)."
+      },
+      "value": {
+        "type": "list",
+        "description": "Delivery targets (usernames, addresses, or file paths).",
+        "items": {
+          "type": "string",
+          "description": "A mailbox, email address, or file path (e.g., root, admin@example.com, /var/mail/logs)."
+        }
+      }
+    }
+  },
+  "sender_maps": {
+    "type": "list",
+    "default": [],
+    "description": "Sender rewrite rules (masquerade).",
+    "items": {
+      "from": {
+        "type": "string",
+        "description": "Pattern or exact sender address to match (e.g., user@example.com or @example.com)."
+      },
+      "to": {
+        "type": "string",
+        "description": "Replacement address (e.g., user@company.com)."
+      }
+    }
+  },
+  "recipient_maps": {
+    "type": "list",
+    "default": [],
+    "description": "Recipient rewrite rules.",
+    "items": {
+      "from": {
+        "type": "string",
+        "description": "Pattern or exact recipient address to match."
+      },
+      "to": {
+        "type": "string",
+        "description": "Replacement address."
+      }
+    }
+  }
+}

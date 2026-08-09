@@ -1,0 +1,23 @@
+name: dnf_config_manager
+fqcn: community.general.dnf_config_manager
+collection: community.general
+short_description: Enable or disable dnf repositories using config-manager
+description: This module enables or disables repositories using the C(dnf config-manager) sub-command.
+options:
+  name:
+    type: list
+    default: []
+    description: Repository ID, for example V(crb).
+  state:
+    type: str
+    default: enabled
+    choices:
+    - enabled
+    - disabled
+    description: Whether the repositories should be V(enabled) or V(disabled).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Ensure the crb repository is enabled\n  community.general.dnf_config_manager:\n \
+  \   name: crb\n    state: enabled\n\n- name: Ensure the appstream and zfs repositories are disabled\n\
+  \  community.general.dnf_config_manager:\n    name:\n      - appstream\n      - zfs\n    state: disabled\n"

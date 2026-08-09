@@ -1,0 +1,81 @@
+# Bare-metal restore — PHASE 1 (PE context, against the raw target block devices).
+#
+# Ansible-task playbook: every step is a module call (yoloman.* provisioning modules + the discovered
+# community.general storage modules). Parsed by services/ansible_playbook.parse_playbook into the
+# canonical runbook doc and executed by the agent's runbook runner INSIDE the RAM PE — no chroot here;
+# these tasks operate on the raw disk / LVs before the target tree is mounted.
+#
+# Bossman resolves the captured layout + target size into the vars below (per-volume device paths,
+# image URLs, LV sizes, grow list) and passes them as runbook params; the loops keep this one playbook
+# valid for any layout. After this phase the runner mounts the target tree + bind mounts, then runs
+# restore-target-phase.yml with chroot=/mnt/target.
+- name: restore-pe-phase
+  hosts: all
+  vars:
+    target_disk: ""          # e.g. /dev/sda
+    has_partitions: false     # false when LVM sits on the raw disk (no partition table to write)
+    volume_groups: []         # [{vg, pvs}]
+    logical_volumes: []       # [{vg, lv, size}]   created at SOURCE size (small), grown after restore
+    restore_volumes: []       # [{device, source_url}]  one per captured filesystem
+    grow_lvs: []              # [{vg, lv, size}]  LVM growables → lvextend --resizefs to final (100%FREE/planned)
+    growable_volumes: []      # [{device, fstype}]  raw-partition growables only (LVM grows via grow_lvs)
+  tasks:
+    - name: Write the target partition table from the source's sfdisk dump
+      yoloman.disk_partition:
+        disk: "{{ target_disk }}"
+        dump_file: /tmp/target.sfdisk
+      when: has_partitions
+
+    - name: Create the volume groups
+      community.general.lvg:
+        vg: "{{ item.vg }}"
+        pvs: "{{ item.pvs }}"
+        state: present
+      loop: "{{ volume_groups }}"
+
+    - name: Create the logical volumes
+      community.general.lvol:
+        vg: "{{ item.vg }}"
+        lv: "{{ item.lv }}"
+        size: "{{ item.size }}"
+        state: present
+      loop: "{{ logical_volumes }}"
+
+    - name: Restore each captured filesystem image onto its device
+      yoloman.partclone_restore:
+        device: "{{ item.device }}"
+        source_url: "{{ item.source_url }}"
+      loop: "{{ restore_volumes }}"
+
+    # resize2fs refuses to grow an ext filesystem that is not marked clean, and a partclone-restored fs is
+    # often flagged "not cleanly unmounted" (its cleanliness depends on the source's state at capture, which
+    # is why some volumes grow and others don't). So force a check first — otherwise `lvextend --resizefs`
+    # fails with the opaque "Failed to extend file system with lvresize_fs_helper". Only ext* is checked;
+    # xfs/others are skipped. e2fsck rc is intentionally ignored (0 clean / 1 fixed are both fine).
+    - name: e2fsck each LVM ext filesystem before growing it
+      ansible.builtin.shell: >-
+        dev=/dev/{{ item.vg }}/{{ item.lv }};
+        t=$(blkid -o value -s TYPE "$dev" 2>/dev/null);
+        case "$t" in ext2|ext3|ext4) e2fsck -fy "$dev" || true ;; esac
+      loop: "{{ grow_lvs }}"
+
+    - name: Grow each LVM volume + its filesystem to the target size (lvextend --resizefs = fsadm)
+      community.general.lvol:
+        vg: "{{ item.vg }}"
+        lv: "{{ item.lv }}"
+        size: "{{ item.size }}"
+        resizefs: true
+        state: present
+      loop: "{{ grow_lvs }}"
+
+    - name: e2fsck each raw-partition ext filesystem before growing it
+      ansible.builtin.shell: >-
+        case "{{ item.fstype }}" in ext2|ext3|ext4) e2fsck -fy "{{ item.device }}" || true ;; esac
+      loop: "{{ growable_volumes }}"
+
+    - name: Grow any raw-partition filesystems to fill their (larger) target partition
+      community.general.filesystem:
+        dev: "{{ item.device }}"
+        fstype: "{{ item.fstype }}"
+        resizefs: true
+      loop: "{{ growable_volumes }}"

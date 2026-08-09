@@ -1,0 +1,45 @@
+{
+  "scheduler_auto_shutdown": true,
+  "scheduler_try_1_max_submissions": 5,
+  "scheduler_poll_interval": 60,
+  "scheduler_cycle_point_delay": 60,
+  "scheduler_max_active_cycle_points": 3,
+  "log_file_enable": true,
+  "log_file_path": "${HOME}/.cylc-run/my_workflow/log/log",
+  "log_file_max_size": 5242880,
+  "tasks": [
+    {
+      "task_name": "prepare",
+      "environment": {
+        "DATA_DIR": "/data/input",
+        "MODEL_VERSION": "v2.1"
+      },
+      "script": "preprocess.sh --input ${DATA_DIR} --version ${MODEL_VERSION}",
+      "batch_system": "local"
+    },
+    {
+      "task_name": "run_model",
+      "environment": {
+        "OMP_NUM_THREADS": "4",
+        "WORK_DIR": "/scratch/run"
+      },
+      "script": "cd ${WORK_DIR} && ./model.exe --config model.yaml",
+      "batch_system": "slurm",
+      "submit_command": "sbatch",
+      "retry": [
+        30,
+        60,
+        120
+      ]
+    },
+    {
+      "task_name": "postprocess",
+      "environment": {},
+      "script": "postprocess.sh",
+      "batch_system": "local",
+      "retry": [
+        10
+      ]
+    }
+  ]
+}

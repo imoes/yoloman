@@ -1,0 +1,63 @@
+# harvid configuration file — HTTP server for Ardour video streaming
+# See https://github.com/ardour/harvid for documentation
+#
+# This file is self-documenting. Every directive is preceded by a comment
+# derived from the schema description. All variables are safe: they use
+# `default()` with the schema-provided fallback to prevent rendering errors
+# when the variable is undefined.
+
+[server]
+# IP address of the network interface the server listens on. Use '0.0.0.0' to listen on all interfaces.
+host = {{ host | default('0.0.0.0') }}
+
+# TCP port for incoming HTTP connections.
+port = {{ port | default(8080) }}
+
+# Maximum number of simultaneous client connections allowed.
+max_connections = {{ max_connections | default(100) }}
+
+# Idle connection timeout in seconds. Connections beyond this duration are closed.
+timeout = {{ timeout | default(30) }}
+
+# Enable or disable gzip compression for HTTP responses (helps reduce bandwidth).
+compression = {{ compression | default(True) | lower }}
+
+[paths]
+# Absolute or relative path to the top-level directory where video files are stored.
+root = {{ root | default('/srv/harvid/videos') }}
+
+# Subdirectory under `root` to serve as default index landing page (e.g., 'main'). Leave empty to disable.
+index_dir = {{ index_dir | default('') }}
+
+# Path to custom HTML template for directory listings. If omitted, a basic auto-generated listing is used.
+index_template = {{ index_template | default('') }}
+
+[logging]
+# Path to server log file. Use '-' to log to stderr instead.
+file = {{ log_file | default('/var/log/harvid/harvid.log') }}
+
+# Verbosity level of logging. Choose from: debug, info, warn, error, fatal.
+level = {{ log_level | default('info') | lower }}
+
+# Enable detailed access logging (every request with IP, path, status, etc.).
+access_log = {{ access_log | default(True) | lower }}
+
+{% for service in services | default([]) %}
+[service:{{ service.name }}]
+# Description: {{ service.description | default('No description') }}
+# List of optional named services (each with its own root path and mount point). Useful for multi-tenant or segmented deployments.
+enabled = {{ service.enabled | default(true) | lower }}
+
+# Root path for this service (relative or absolute)
+root = {{ service.root }}
+
+# Optional mount point (e.g., `/videos`, defaults to `/` if omitted)
+{% if service.mount %}mount = {{ service.mount }}{% else %}# mount = (unset, uses default root path){% endif %}
+{% endfor %}
+
+[security]
+# Enable HTTP Basic Authentication for all endpoints.
+enable_basic_auth = {{ enable_basic_auth | default(False) | lower }}
+
+# Path to htpasswd-formatted file containing usernames and hashed passwords (supports md5, bcrypt, sha1).
+password_file = {{ password_file | default('/etc/harvid/htpasswd') }}

@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# designate-tlds cron weekly
+#
+# Self-documenting template for OpenStack Designate TLD population job.
+# This script is scheduled via cron to periodically populate the TLD list
+# using the 'designate-populate-tlds' utility provided by the OpenStack
+# Designate service.
+#
+# Variables:
+#   designate_populate_tlds_binary_path : Path to the designate-populate-tlds binary.
+#   log_file                            : Path to the log file for designate-tlds output.
+
+set -e
+
+# Check if the designate-populate-tlds binary is executable before running it.
+# This prevents errors if the package is not installed or the path is incorrect.
+if [ -x {{ designate_populate_tlds_binary_path | default('/usr/bin/designate-populate-tlds') }} ]; then
+    # Execute the binary and append its output to the designated log file.
+    # This ensures that all TLD population activity is logged for auditing and debugging.
+    {{ designate_populate_tlds_binary_path | default('/usr/bin/designate-populate-tlds') }} >> {{ log_file | default('/var/log/designate-tlds/designate-tlds.log') }}
+fi
+
+exit 0

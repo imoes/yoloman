@@ -1,0 +1,50 @@
+{
+  "instance_id": "foomuuri-prod-us-east-1a",
+  "log_level": "info",
+  "working_dir": "/var/lib/foomuuri",
+  "pid_file": "/run/foomuuri.pid",
+  "server": {
+    "bind_host": "0.0.0.0",
+    "bind_port": 8080,
+    "max_connections": 2000,
+    "tls_enabled": true,
+    "server_cert": "/etc/foomuuri/tls/fullchain.pem",
+    "server_key": "/etc/foomuuri/tls/privkey.pem",
+    "tls_min_version": "TLSv1.3"
+  },
+  "worker": {
+    "process_count": 4,
+    "max_jobs_per_worker": 15000,
+    "memory_limit_mb": 1024,
+    "graceful_timeout": 60
+  },
+  "queue": {
+    "type": "redis",
+    "backends": [
+      {
+        "name": "primary",
+        "config": {
+          "host": "redis-primary.internal",
+          "port": "6379",
+          "password": "REDACTED",
+          "db": "0"
+        }
+      },
+      {
+        "name": "backup",
+        "config": {
+          "host": "redis-backup.internal",
+          "port": "6379",
+          "password": "REDACTED",
+          "db": "1",
+          "retry_on_timeout": "true"
+        }
+      }
+    ]
+  },
+  "metrics": {
+    "enabled": true,
+    "port": 9090,
+    "endpoint": "/metrics"
+  }
+}

@@ -1,0 +1,99 @@
+# fling.conf - configuration for the fling(1) service
+# This file controls the behavior of the fling utility, which facilitates
+# fast file transfers over SSH or raw TCP.
+#
+# This template is self-documenting. Every directive is preceded by a comment
+# derived from the schema definition, including defaults and descriptions.
+
+# Enable fling service configuration (required to render template)
+# Default: False
+{% if (fling_config | default({})).enabled | default(False) %}
+
+# fling service configuration
+# List of fling instance configurations
+# Default: []
+{% for item in (fling_config | default({})).instances | default([]) %}
+# Instance: {{ (item.name | default('')) | string }}
+# Human-readable name for this instance (for documentation only)
+{% set _mode = item.mode | default('sender') %}
+{% set _host = item.host | default('') %}
+{% set _port = item.port | default(0) %}
+{% set _user = item.user | default('') %}
+{% set _output_path = item.output_path | default('') %}
+{% set _output_file = item.output_file | default('') %}
+{% set _remote_exe = item.remote_exe | default('') %}
+{% set _ssh_cmd = item.ssh_cmd | default('') %}
+{% set _verbose = item.verbose | default(False) %}
+{% set _progress = item.progress | default(False) %}
+
+# Determine the mode of operation: 'sender', 'receiver', or 'ssh_auto'
+# Default: 'sender'
+{% if _mode == 'sender' %}
+# Mode: sender
+# Send mode: sends data from stdin to remote host:port
+# Remote hostname or IP address (required for 'sender' and 'ssh_auto' modes)
+# Default: ''
+FLING_REMOTE_HOST={{ _host }}
+
+# TCP port to use (required for 'sender' and 'receiver' modes)
+# 0 = auto-select in some contexts but not recommended
+# Default: 0
+FLING_REMOTE_PORT={{ _port }}
+
+{% elif _mode == 'receiver' %}
+# Mode: receiver
+# Receive mode: listens on port, writes to file or stdout
+
+# TCP port to use (required for 'sender' and 'receiver' modes)
+# 0 = auto-select in some contexts but not recommended
+# Default: 0
+FLING_REMOTE_PORT={{ _port }}
+
+# Local file path to write received data (for 'receiver' mode)
+# Default: ''
+{% if _output_file %}
+FLING_OUTPUT_FILE={{ _output_file }}
+{% endif %}
+
+{% elif _mode == 'ssh_auto' %}
+# Mode: ssh_auto
+# SSH-auto mode: fling connects via SSH to remote, picks port automatically
+# Remote SSH user for 'ssh_auto' mode
+# Default: ''
+FLING_REMOTE_USER={{ _user }}
+
+# Remote hostname or IP address (required for 'sender' and 'ssh_auto' modes)
+# Default: '' (empty, must be provided by user)
+FLING_REMOTE_HOST={{ _host }}
+
+# Remote file path to receive data (for 'ssh_auto' mode)
+# Default: ''
+FLING_REMOTE_PATH={{ _output_path }}
+
+# Override remote fling executable path (env var: FLING_REMOTE_EXE)
+# Default: ''
+{% if _remote_exe %}
+FLING_REMOTE_EXE={{ _remote_exe }}
+{% endif %}
+
+# Override SSH command (env var: FLING_SSH)
+# Default: ''
+{% if _ssh_cmd %}
+FLING_SSH={{ _ssh_cmd }}
+{% endif %}
+
+{% endif %}
+
+# Enable verbose output (env var: FLING_VERBOSE=1 when true)
+# Default: False
+{% if _verbose %}
+FLING_VERBOSE=1
+{% endif %}
+
+# Enable progress reporting (env var: FLING_PROGRESS=1 when true)
+# Default: False
+{% if _progress %}
+FLING_PROGRESS=1
+{% endif %}
+{% endfor %}
+{% endif %}

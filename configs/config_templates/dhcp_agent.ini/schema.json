@@ -1,0 +1,237 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the DHCP agent API server to. Use 0.0.0.0 to listen on all interfaces."
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the DHCP agent API server. Set to 0 to disable the API server."
+  },
+  "maxdhcpdevices": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of DHCP agents that can serve a given network. Increases fault tolerance but adds overhead."
+  },
+  "enable_isolated_metadata": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable metadata proxy for isolated networks (e.g., tenant networks without routers). Required for instance metadata access in such cases."
+  },
+  "enable_metadata_proxy": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable metadata proxy on shared networks. Allows instances to access the Neutron metadata service via a proxy."
+  },
+  "dhcp_leasefs": {
+    "type": "string",
+    "default": "/var/lib/neutron/dhcp",
+    "description": "Base directory for DHCP lease files managed by the agent."
+  },
+  "dhcp_leasefile": {
+    "type": "string",
+    "default": "/var/lib/neutron/dhcp/leases",
+    "description": "Path to the shared dnsmasq leases file used for tracking DHCP assignments."
+  },
+  "domain": {
+    "type": "string",
+    "default": "openstack.local",
+    "description": "DNS domain to assign to instances (e.g., openstack.local). Used for hostname resolution inside VMs."
+  },
+  "dhcp_broadcast": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DHCP broadcast replies. Set to false for unicast-only environments (e.g., some cloud environments)."
+  },
+  "enable_dnsmasq_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS functionality in dnsmasq for instances. Disabling may break name resolution in VMs."
+  },
+  "mtu_set": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable --mtu-set in dnsmasq. Requires dnsmasq >= 2.67. Sets the interface MTU via DHCP."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "format": "ipv4"
+    },
+    "description": "List of DNS server IPs to provide to instances via DHCP. If empty, uses DNS servers configured on the subnet."
+  },
+  "extra_dhcp_opts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Custom DHCP options in format: tag:<tag>,<code>,<value> (e.g., tag:pxe,6,8.8.8.8). Used for advanced provisioning."
+    },
+    "description": "List of extra DHCP options to pass to dnsmasq. Useful for PXE boot, vendor-specific parameters, etc."
+  },
+  "dnsmasq_config_dir": {
+    "type": "string",
+    "default": "/etc/neutron/dnsmasq.d",
+    "description": "Directory containing per-network dnsmasq configuration files. Allows per-subnet customization."
+  },
+  "enable_dnsmasq_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS query caching in dnsmasq. Improves DNS resolution performance for repeated lookups."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "allowed_values": [
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ],
+    "description": "Logging verbosity level for the DHCP agent."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory where log files are stored for the DHCP agent."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between heartbeat messages sent to the Neutron server. Set to 0 to disable heartbeats (not recommended)."
+  },
+  "dhcp_driver": {
+    "type": "string",
+    "default": "neutron.agent.linux.dnsmasq.Dnsmasq",
+    "description": "DHCP driver class to use for managing DHCP services (e.g., dnsmasq)."
+  },
+  "use_external_dhcp": {
+    "type": "bool",
+    "default": false,
+    "description": "Use external DHCP servers instead of Neutron-managed dnsmasq for certain networks (e.g., provider networks)."
+  },
+  "metadata_port": {
+    "type": "number",
+    "default": 80,
+    "description": "Port used by the metadata proxy to forward instance requests to the Neutron metadata service."
+  },
+  "gateway_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include gateway (router) IP in DHCP responses as option 3."
+  },
+  "host_routes_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include host routes in DHCP responses as option 121 (classless static routes)."
+  },
+  "domain_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include domain name in DHCP responses as option 15."
+  },
+  "mtu_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include interface MTU in DHCP responses as option 26. Requires dnsmasq >= 2.67."
+  },
+  "ntp_servers_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include NTP server IPs in DHCP responses as option 42."
+  },
+  "static_routes_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include static routes in DHCP responses as option 121 (alias of host_routes_in_dns)."
+  },
+  "lease_time": {
+    "type": "string",
+    "default": "86400",
+    "description": "Default DHCP lease time in seconds (e.g., 86400 for 24 hours)."
+  },
+  "subnet_mask_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include subnet mask in DHCP responses as option 1."
+  },
+  "broadcast_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include broadcast address in DHCP responses as option 28."
+  },
+  "router_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Alias for gateway_in_dns (include router as option 3)."
+  },
+  "classless_route_in_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Include classless static routes (option 121) \u2014 modern replacement for option 33."
+  },
+  "vendor_class_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include vendor class identifier (option 60) \u2014 used for PXE boot device identification."
+  },
+  "user_class_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include user class identifier (option 77) \u2014 for client-side classification."
+  },
+  "firmware_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include firmware version (option 93) \u2014 for PXE boot device firmware info."
+  },
+  "location_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include location option (option 112) \u2014 for geolocation or rack-aware provisioning."
+  },
+  "vendor_specific_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include vendor-specific information (option 43)."
+  },
+  "netboot_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include netboot option (option 209) \u2014 for iPXE/HTTP boot support."
+  },
+  "pxeserver_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include PXE server option (option 66/67) \u2014 for legacy PXE boot servers."
+  },
+  "pxeboot_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Alias for pxeserver_in_dns."
+  },
+  "tftp_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include TFTP server option \u2014 used for network boot."
+  },
+  "bootfile_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include bootfile name (option 67)."
+  },
+  "initfile_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include init file name (option 50) \u2014 used for some bootloaders."
+  },
+  "rootpath_in_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Include root path (option 17) \u2014 for diskless boot."
+  }
+}

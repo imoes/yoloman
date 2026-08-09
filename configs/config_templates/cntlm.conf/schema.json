@@ -1,0 +1,50 @@
+{
+  "username": {
+    "type": "string",
+    "default": "",
+    "description": "Your domain username for authenticating with the upstream proxy."
+  },
+  "domain": {
+    "type": "string",
+    "default": "",
+    "description": "Your Windows domain name (required for NTLM authentication)."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Your domain password. For security, consider using a hash (e.g., 'PassNTLMv2') instead of plain text."
+  },
+  "proxy_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream proxy hosts (e.g., ['proxy.example.com:8080']). At least one required for proxy mode, though standalone is supported if NoProxy is configured appropriately or in gateway mode without proxies? Actually Proxy is required for parent proxy authentication. The man page says Proxy is a keyword. Standalone mode uses NoProxy to define which URLs are proxied directly? No, NoProxy avoids parent proxy. Standalone means no parent proxy at all? The man page says: \"Another option is to have cntlm authenticate your local web connections without any parent proxies.\" But the config file keywords list includes Proxy. If no Proxy is set, it runs standalone? The man page implies Proxy is for parent proxies. If you don't have parent proxies, you don't use Proxy. But typically cntlm is used with a parent proxy. The default for proxy_hosts is empty. This is valid for standalone or if Proxy is omitted. However, the template has Proxy. If the list is empty, it generates no lines. That is correct behavior for standalone/optional parent proxies. The description says 'At least one required'. This might be misleading for standalone mode, but for the typical use case (proxying through corporate proxy), it is required. I will keep the schema but maybe adjust description? The instructions say "
+  },
+  "listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address to bind the Cntlm proxy listener (commonly 127.0.0.1 or 0.0.0.0)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3128,
+    "description": "Local port for Cntlm to accept connections (e.g., 3128)."
+  },
+  "tunnel_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of tunnel definitions. Each item should be a string like 'host:port' or 'ip:host:port'. See -L option."
+  },
+  "no_proxy": {
+    "type": "list",
+    "default": [
+      "localhost",
+      "127.0.0.1"
+    ],
+    "description": "List of hosts or patterns that should bypass the parent proxy (e.g., internal services)."
+  },
+  "gateway": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable gateway mode, allowing Cntlm to listen on all network interfaces instead of just loopback."
+  }
+}

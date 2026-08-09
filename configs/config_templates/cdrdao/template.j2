@@ -1,0 +1,92 @@
+{# ============================================================================== #}
+{# /etc/cdrdao.conf — cdrdao (Compact Disc Read And Write) configuration file     #}
+{#                                                                                #}
+{# This file configures the CD-R/RW driver used by cdrdao for reading and writing. #}
+{# cdrdao uses a specific text-based config format:                               #}
+{#   SettingName: value   (for numbers)                                           #}
+{#   SettingName: "value" (for strings, quotes are mandatory)                     #}
+{#                                                                                #}
+{# All variables below use Ansible/Jinja2 defaults derived from the role schema.  #}
+{# ============================================================================== #}
+
+{# -------------------------------------------------------------------------- #}
+{# WRITE DEVICE: Device node or SCSI address for write operations             #}
+{# -------------------------------------------------------------------------- #}
+{# Specifies the CD recorder device node (e.g., /dev/scd0) or a SCSI address  #}
+{# in the format "host,channel,lun" or ATAPI format (e.g., ATAPI:0,0,0).     #}
+write_device: "{{ write_device | default('/dev/scd0') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# WRITE DRIVER: CD recorder driver ID                                        #}
+{# -------------------------------------------------------------------------- #}
+{# Selects the driver module for write operations. Examples: generic-mmc,     #}
+{# plextor, yamaha-cdr10x. Some drivers accept optional colon-separated flags #}
+{# appended to the driver ID.                                                  #}
+write_driver: "{{ write_driver | default('generic-mmc') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# WRITE SPEED: Write speed in units defined by the driver                    #}
+{# -------------------------------------------------------------------------- #}
+{# Sets the CD writing speed. A value of 0 tells the driver to use the        #}
+{# maximum supported speed. Otherwise, specifies a multiple of the standard   #}
+{# CD-ROM speed (150 KB/s for CD, 1.32 MB/s for DVD).                         #}
+write_speed: {{ write_speed | default(0) }}
+
+{# -------------------------------------------------------------------------- #}
+{# WRITE BUFFERS: Number of audio FIFO buffers                                #}
+{# -------------------------------------------------------------------------- #}
+{# Number of audio buffers to use during writing. Each buffer holds about 1    #}
+{# second of audio data. Prevents buffer underruns (coaster effect). Minimum  #}
+{# is 10, default is 32. Higher values use more memory but improve reliability. #}
+write_buffers: {{ write_buffers | default(32) }}
+
+{# -------------------------------------------------------------------------- #}
+{# READ DEVICE: Device node or SCSI address for read operations               #}
+{# -------------------------------------------------------------------------- #}
+{# Specifies the CD-ROM/reader device node or SCSI address used by            #}
+{# commands like read-toc, read-cd, and copy.                                 #}
+read_device: "{{ read_device | default('/dev/scd0') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# READ DRIVER: CD reader driver ID                                           #}
+{# -------------------------------------------------------------------------- #}
+{# Selects the driver module for read operations. Examples: generic-mmc.      #}
+read_driver: "{{ read_driver | default('generic-mmc') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# READ PARANOIA MODE: Audio extraction error correction mode                 #}
+{# -------------------------------------------------------------------------- #}
+{# Controls the level of error correction during audio extraction (read-cd):  #}
+{#   0 = None (fastest, no error correction)                                  #}
+{#   1 = Jitter correction                                                    #}
+{#   2 = Check correction                                                     #}
+{#   3 = Scratch repair (slowest, most thorough)                              #}
+read_paranoia_mode: {{ read_paranoia_mode | default(3) }}
+
+{# -------------------------------------------------------------------------- #}
+{# CDDB SERVER LIST: List of CDDB servers to query                            #}
+{# -------------------------------------------------------------------------- #}
+{# Comma-separated list of CD Database (CDDB) servers. Supports various       #}
+{# formats: host, host:port, host:/path, host:port:/path. Uses the cddbp      #}
+{# protocol or HTTP proxy-compatible access.                                  #}
+cddb_server_list: "{{ cddb_server_list | default(['freedb.freedb.org:/~cddb/cddb.cgi']) | join(',') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# CDDB TIMEOUT: Timeout for CDDB connections                                 #}
+{# -------------------------------------------------------------------------- #}
+{# Maximum time in seconds to wait for a response from the CDDB server.       #}
+cddb_timeout: {{ cddb_timeout | default(15) }}
+
+{# -------------------------------------------------------------------------- #}
+{# CDDB DIRECTORY: Local cache for CDDB records                               #}
+{# -------------------------------------------------------------------------- #}
+{# Local directory where fetched CDDB records are cached to avoid repeated    #}
+{# network queries.                                                           #}
+cddb_directory: "{{ cddb_directory | default('~/.cddblink') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# TMP FILE DIR: Directory for temporary audio files                          #}
+{# -------------------------------------------------------------------------- #}
+{# Directory used to store temporary audio files (e.g., WAV files extracted   #}
+{# from MP3s or intermediate formats) during processing.                      #}
+tmp_file_dir: "{{ tmp_file_dir | default('/tmp') }}"

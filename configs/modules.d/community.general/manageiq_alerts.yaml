@@ -1,0 +1,68 @@
+name: manageiq_alerts
+fqcn: community.general.manageiq_alerts
+collection: community.general
+short_description: Configuration of alerts in ManageIQ
+description: The manageiq_alerts module supports adding, updating and deleting alerts in ManageIQ.
+options:
+  description:
+    type: str
+    description: The unique alert description in ManageIQ. Required when state is "absent" or "present".
+  enabled:
+    type: bool
+    description: Enable or disable the alert. Required if state is "present".
+  expression:
+    type: dict
+    description: The alert expression for ManageIQ. Can either be in the "Miq Expression" format or the
+      "Hash Expression format". Required if state is "present".
+  expression_type:
+    type: str
+    default: hash
+    choices:
+    - hash
+    - miq
+    description: Expression type.
+  manageiq_connection:
+    type: dict
+    description: ManageIQ connection configuration information.
+  options:
+    type: dict
+    description: Additional alert options, such as notification type and frequency
+  resource_type:
+    type: str
+    choices:
+    - Vm
+    - ContainerNode
+    - MiqServer
+    - Host
+    - Storage
+    - EmsCluster
+    - ExtManagementSystem
+    - MiddlewareServer
+    description: The entity type for the alert in ManageIQ. Required when state is "present".
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: absent - alert should not exist, present - alert should exist,
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add an alert with a \"hash expression\" to ManageIQ\n  community.general.manageiq_alerts:\n\
+  \    state: present\n    description: Test Alert 01\n    options:\n      notifications:\n        email:\n\
+  \          to: [\"example@example.com\"]\n          from: \"example@example.com\"\n    resource_type:\
+  \ ContainerNode\n    expression:\n        eval_method: hostd_log_threshold\n        mode: internal\n\
+  \        options: {}\n    enabled: true\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n\n- name: Add an alert with a \"miq expression\" to ManageIQ\n  community.general.manageiq_alerts:\n\
+  \    state: present\n    description: Test Alert 02\n    options:\n      notifications:\n        email:\n\
+  \          to: [\"example@example.com\"]\n          from: \"example@example.com\"\n    resource_type:\
+  \ Vm\n    expression_type: miq\n    expression:\n        and:\n          - CONTAINS:\n             \
+  \ tag: Vm.managed-environment\n              value: prod\n          - not:\n            CONTAINS:\n\
+  \              tag: Vm.host.managed-environment\n              value: prod\n    enabled: true\n    manageiq_connection:\n\
+  \      url: 'http://127.0.0.1:3000'\n      username: 'admin'\n      password: 'smartvm'\n      validate_certs:\
+  \ false  # only do this when you trust the network!\n\n- name: Delete an alert from ManageIQ\n  community.general.manageiq_alerts:\n\
+  \    state: absent\n    description: Test Alert 01\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n"

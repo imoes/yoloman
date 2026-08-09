@@ -1,0 +1,183 @@
+{# ============================================================================= #}
+{# Kea DHCPv4 Configuration Template                                                #}
+{# This template generates the JSON configuration file for Kea DHCPv4.             #}
+{# It handles MySQL lease storage, control socket, hooks (lease_cmds, DDNS),       #}
+{# interface binding, subnet definitions, and logging.                            #}
+{# All variables use `default()` to prevent rendering errors if a variable is      #}
+{# undefined in the Ansible host_vars/group_vars.                                 #}
+{# ============================================================================= #}
+{
+  {# Dhcp4: Top-level block for DHCPv4 server configuration #}
+  "Dhcp4": {
+    {# config-control: Controls how the server loads configuration and stores leases #}
+    "config-control": {
+      {# config-databases: List of database connection strings for configuration management. #}
+      {# Format: mysql://user:pass@host/database #}
+      "config-databases": [
+        "mysql://{{ mysql_user | default('kea_admin') }}:{{ mysql_password | default('') }}@{{ mysql_host | default('localhost') }}/{{ mysql_database | default('kea') }}"
+      ]
+    },
+
+    {# control-socket: Unix socket for external control (e.g., kea-dhcp4-ctrl-agent) #}
+    "control-socket": {
+      "socket-type": "unix",
+      {# socket-name: Path to the Unix socket for Kea DHCP control commands #}
+      "socket-name": "{{ control_socket_path | default('/run/kea/dhcp4-ctrl.sock') }}"
+    },
+
+    {# dhcp-queue-control: Settings for the DHCP packet processing queue #}
+    "dhcp-queue-control": {
+      {# queue-size: Size of the DHCP packet processing queue. Increase for high-throughput deployments. #}
+      "queue-size": {{ dhcp_queue_size | default(64) }}
+    },
+
+    {# hooks-libraries: List of shared libraries (hooks) to load at startup #}
+    "hooks-libraries": [
+      {# lease_cmds_lib_path: Path to the lease commands hook library (required for API-based lease management) #}
+      {
+        "library": "{{ lease_cmds_lib_path | default('/usr/lib/x86_64-linux-gnu/kea/hooks/libdhcp_lease_cmds.so') }}"
+      },
+      {% if enable_ddns | default(False) %}
+      {# ddns_lib_path: Path to the DDNS hook library (only used if dynamic DNS updates are enabled) #}
+      {
+        "library": "{{ ddns_lib_path | default('/usr/lib/x86_64-linux-gnu/kea/hooks/libdhcp_ddns.so') }}",
+        "parameters": {
+          "dynamic-dns": {
+            {# enable-updates: Enables dynamic DNS updates #}
+            "enable-updates": true,
+            {# dns-server-timeout: Timeout (in milliseconds) for DNS updates #}
+            "dns-server-timeout": {{ ddns_timeout | default(1000) }},
+            {# ttl: Default TTL (seconds) for DNS records created via DDNS #}
+            "ttl": {{ ddns_ttl | default(3600) }},
+            {# forward-changes: Enable forward DNS updates #}
+            "forward-changes": true,
+            {# reverse-changes: Enable reverse DNS updates #}
+            "reverse-changes": true,
+            {# ncr-protocol: Protocol for NCR (Name Change Request) - UDP or TCP #}
+            "ncr-protocol": "UDP",
+            {# ncr-format: Format for NCR - JSON or XML #}
+            "ncr-format": "JSON",
+            {# ncr-server-ip: IP address of the DNS server to receive DDNS updates (must support TSIG) #}
+            "ncr-server-ip": "{{ ddns_server_ip | default('127.0.0.1') }}",
+            {# ncr-server-port: Port of the DNS server for DDNS updates #}
+            "ncr-server-port": {{ ddns_server_port | default(53) }},
+            {# qualifying-suffix: Domain suffix to append to hostnames for FQDNs when DDNS is enabled #}
+            "qualifying-suffix": "{{ ddns_qualifying_suffix | default('example.com') }}"
+          }
+        }
+      }
+      {% endif %}
+    ],
+
+    {# interfaces-config: Network interfaces on which Kea DHCP will listen #}
+    "interfaces-config": {
+      {# interfaces: List of network interfaces (by name) on which Kea DHCP will listen. #}
+      {# For DHCPv4, 'raw' sockets are used if dhcp-socket-type is 'raw' #}
+      "interfaces": [{{ interfaces | default(['eth0']) | map('string') | join(', ') }}],
+      "dhcp-socket-type": "raw"
+    },
+
+    {# lease-database: MySQL database configuration for DHCP lease storage #}
+    "lease-database": {
+      {# type: Database type driver #}
+      "type": "mysql",
+      {# lfc-interval: Interval (seconds) between cleanup of expired leases from the database #}
+      "lfc-interval": {{ lease_lfc_interval | default(3600) }},
+      {# name: Name of the MySQL database used by Kea DHCP #}
+      "name": "{{ mysql_database | default('kea') }}",
+      {# password: Password for the MySQL database. Leave blank only if using peer authentication #}
+      "password": "{{ mysql_password | default('') }}",
+      {# user: Username for the MySQL database used for DHCP lease storage and control #}
+      "user": "{{ mysql_user | default('kea_admin') }}",
+      {# host: Hostname or IP address of the MySQL server #}
+      "host": "{{ mysql_host | default('localhost') }}",
+      {# port: Port number of the MySQL server #}
+      "port": {{ mysql_port | default(3306) }}
+    },
+
+    {# renew-time: Time (seconds) after lease issuance when client may attempt renewal #}
+    "renew-time": {{ renew_time | default(300) }},
+    {# rebind-time: Time (seconds) after lease issuance when client must attempt rebinding if renewal fails #}
+    "rebind-time": {{ rebind_time | default(500) }},
+    {# valid-lifetime: Default validity lifetime (seconds) for IPv4 addresses assigned by this server #}
+    "valid-lifetime": {{ valid_lifetime | default(3600) }},
+
+    {# loggers: Logging configuration #}
+    "loggers": [
+      {
+        {# name: Logger name identifier #}
+        "name": "kea-dhcp4",
+        {# output_options: Where to send log messages. Can be a file path or special values like 'stdout', 'stderr' #}
+        "output_options": [
+          {
+            "output": "{{ log_output | default('stdout') }}"
+          }
+        ],
+        {# severity: Minimum log severity (DEBUG, INFO, WARN, ERROR, FATAL). Use INFO or DEBUG for troubleshooting #}
+        "severity": "{{ log_severity | default('INFO') }}",
+        {# debuglevel: Debug verbosity level (0–99). Higher values produce more logs. Only effective for DEBUG severity #}
+        "debuglevel": {{ log_debuglevel | default(0) }}
+      }
+    ],
+
+    {# subnet4: List of IPv4 subnets managed by this Kea server #}
+    "subnet4": [
+      {% for subnet in subnets | default([]) %}
+      {
+        {# id: Unique identifier for the subnet #}
+        "id": {{ subnet.id | default(0) }},
+        {# subnet: Network address and prefix length (e.g., '192.168.1.0/24') #}
+        "subnet": "{{ subnet.network | default('192.168.1.0') }}/{{ subnet.prefix | default(24) }}",
+        {# option-data: DHCP options to send to clients in this subnet #}
+        "option-data": [
+          {
+            {# name: DHCP option name (routers = gateway) #}
+            "name": "routers",
+            {# data: Value for the option (Gateway IP) #}
+            "data": "{{ subnet.gateway | default('192.168.1.1') }}"
+          },
+          {
+            {# name: DHCP option name (domain-name-servers) #}
+            "name": "domain-name-servers",
+            {# data: Comma-separated list of DNS server IPs #}
+            "data": "{{ subnet.dns_servers | default(['192.168.1.1']) | join(', ') }}"
+          },
+          {
+            {# name: DHCP option name (domain-name) #}
+            "name": "domain-name",
+            {# data: Domain name for the subnet #}
+            "data": "{{ subnet.domain_name | default('example.com') }}"
+          }
+        ],
+        {# pools: List of IP address pools for dynamic allocation #}
+        "pools": [
+          {% for pool in subnet.pools | default([]) %}
+          {
+            {# pool: IP range for allocation (e.g., '192.168.1.100 - 192.168.1.200') #}
+            "pool": "{{ pool.start | default('192.168.1.100') }} - {{ pool.end | default('192.168.1.200') }}"
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ],
+        {# reservations: Static IP reservations for specific MAC addresses #}
+        {% if subnet.reservations | default([]) | length > 0 %}
+        "reservations": [
+          {% for reservation in subnet.reservations | default([]) %}
+          {
+            {# hw-address: MAC address of the client #}
+            "hw-address": "{{ reservation.mac | default('00:00:00:00:00:00') }}",
+            {# ip-address: Static IP address to assign #}
+            "ip-address": "{{ reservation.ip | default('192.168.1.10') }}",
+            {# hostname: Hostname to assign #}
+            "hostname": "{{ reservation.hostname | default('') }}"
+          }{% if not loop.last %},{% endif %}
+          {% endfor %}
+        ]
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+
+    {# shared-networks: List of shared networks (empty in this minimal template) #}
+    "shared-networks": []
+  }
+}

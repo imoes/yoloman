@@ -1,0 +1,63 @@
+[server]
+# Base address the server binds to
+bind_address = {{ server.bind_address }}
+
+# Port the server listens on
+port = {{ server.port }}
+
+# Maximum number of worker threads
+max_workers = {{ server.max_workers }}
+
+# Enable or disable HTTPS support
+https_enabled = {{ server.https_enabled }}
+
+# SSL certificate file path (required if https_enabled)
+{% if server.https_enabled %}
+ssl_cert_path = {{ server.ssl_cert_path }}
+ssl_key_path = {{ server.ssl_key_path }}
+{% endif %}
+
+# Document root directory
+{% if server.docroot %}
+docroot = {{ server.docroot }}
+{% endif %}
+
+# Directory index file(s)
+index_files = {{ server.index_files | join(', ') }}
+
+[logging]
+# Enable verbose debug logging
+verbose = {{ logging.verbose }}
+
+# Log level (debug, info, warn, error, critical)
+level = {{ logging.level }}
+
+# Path to the main log file
+path = {{ logging.path }}
+
+[security]
+# Maximum request size in bytes (0 = unlimited)
+max_request_size = {{ security.max_request_size }}
+
+# List of allowed origin hostnames (CORS)
+{% for origin in security.allowed_origins %}
+allowed_origin = {{ origin }}
+{% endfor %}
+
+# Enable or disable basic authentication
+auth_enabled = {{ security.auth_enabled }}
+
+# Path to password file for basic auth (e.g., htpasswd format)
+{% if security.auth_enabled %}
+auth_file = {{ security.auth_file }}
+{% endif %}
+
+[limits]
+# Connection timeout in seconds
+connection_timeout = {{ limits.connection_timeout }}
+
+# Maximum concurrent connections
+max_connections = {{ limits.max_connections }}
+
+# Request rate limit (requests per minute per client IP)
+rate_limit = {{ limits.rate_limit }}

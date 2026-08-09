@@ -1,0 +1,128 @@
+# Apache2 Main Configuration File
+# This template generates the main apache2.conf file.
+# It maps schema fields to standard Apache directives.
+# Self-documenting: every directive is preceded by a comment
+# explaining its source, default, and purpose.
+
+# Global Server Settings
+
+# ServerRoot: The directory that serves as the top-level
+# directory under which the server's configuration, error,
+# and log files are kept.
+# Schema Field: server_root
+ServerRoot "{{ server_root | default('/etc/apache2') }}"
+
+# Timeout: The number of seconds before receives and sends
+# time out.
+# Schema Field: timeout
+Timeout {{ timeout | default(300) }}
+
+# KeepAlive: Whether or not to allow persistent connections
+# (more than one request per connection). Set to "Off" to deactivate.
+# Schema Field: keepalive
+KeepAlive {{ keepalive | default('On') }}
+
+# MaxKeepAliveRequests: The maximum number of requests to
+# allow during a persistent connection. Set to 0 to allow an
+# unlimited amount.
+# Schema Field: max_keepalive_requests
+MaxKeepAliveRequests {{ max_keepalive_requests | default(100) }}
+
+# KeepAliveTimeout: Number of seconds to wait for the next
+# request from the same client on the same connection.
+# Schema Field: keepalive_timeout
+KeepAliveTimeout {{ keepalive_timeout | default(5) }}
+
+# User: The user account Apache runs as.
+# NOTE: This directive is often overridden by environment
+# variables in /etc/apache2/envvars, but we provide the
+# schema default here for completeness.
+# Schema Field: user
+User {{ user | default('www-data') }}
+
+# Group: The group account Apache runs as.
+# NOTE: This directive is often overridden by environment
+# variables in /etc/apache2/envvars, but we provide the
+# schema default here for completeness.
+# Schema Field: group
+Group {{ group | default('www-data') }}
+
+# Log Level: Control the severity of messages logged to the
+# error_log. Available values: trace8, ..., trace1, debug,
+# info, notice, warn, error, crit, alert, emerg.
+# Schema Field: log_level
+LogLevel {{ log_level | default('warn') }}
+
+# Include module configuration
+IncludeOptional mods-enabled/*.load
+IncludeOptional mods-enabled/*.conf
+
+# Include list of ports to listen on
+Include ports.conf
+
+# Virtual Hosts Configuration
+# Schema Field: virtual_hosts
+# This block iterates over the list of virtual host definitions
+# provided in the schema.
+# Each virtual host object is expected to have fields like
+# 'server_name', 'document_root', 'port', 'listen_address',
+# 'directory_index', 'error_log', 'access_log', 'ssl',
+# 'ssl_certificate', 'ssl_certificate_key', 'extra_directives',
+# 'allow_override', 'require', 'options'.
+
+{% for vh in virtual_hosts | default([]) %}
+# =================================================================
+# Virtual Host Definition
+# Server Name: {{ vh.server_name | default('default') }}
+# Document Root: {{ vh.document_root | default('/var/www/html') }}
+# =================================================================
+
+<VirtualHost {{ vh.listen_address | default('*') }}:{{ vh.port | default(80) }}>
+    # ServerName: The hostname and port that this virtual host responds to.
+    ServerName {{ vh.server_name | default('localhost') }}
+
+    # DocumentRoot: The directory out of which you will serve the
+    # documents for this virtual host.
+    DocumentRoot {{ vh.document_root | default('/var/www/html') }}
+
+    # Directory Index: Default files to look for if a directory
+    # is accessed.
+    DirectoryIndex {{ vh.directory_index | default('index.html') }}
+
+    # Error Log: Location of the error log for this virtual host.
+    ErrorLog {{ vh.error_log | default('/var/log/apache2/error.log') }}
+
+    # Custom Log: Location of the access log for this virtual host.
+    CustomLog {{ vh.access_log | default('/var/log/apache2/access.log') }} combined
+
+    # SSL Configuration (Conditional)
+    {% if vh.ssl | default(false) %}
+    SSLEngine on
+    SSLCertificateFile {{ vh.ssl_certificate | default('/etc/ssl/certs/server.crt') }}
+    SSLCertificateKeyFile {{ vh.ssl_certificate_key | default('/etc/ssl/private/server.key') }}
+    {% endif %}
+
+    # Directory Configuration
+    <Directory {{ vh.document_root | default('/var/www/html') }}>
+        # Options: Which features are enabled for this directory.
+        Options {{ vh.options | default('FollowSymLinks') }}
+
+        # AllowOverride: Which directives listed in .htaccess files
+        # are permitted here.
+        AllowOverride {{ vh.allow_override | default('None') }}
+
+        # Require: Who is allowed to access this directory.
+        Require all granted
+    </Directory>
+
+    # Extra Directives
+    # Allows the user to inject any additional Apache directives
+    # specific to this virtual host.
+    {% if vh.extra_directives | default([]) %}
+    {% for directive in vh.extra_directives %}
+    {{ directive }}
+    {% endfor %}
+    {% endif %}
+</VirtualHost>
+
+{% endfor %}

@@ -1,0 +1,168 @@
+#!/bin/sh
+# /etc/init.d/rcS: System V initialization script (SysVinit)
+# This script is executed during early boot to run system initialization tasks.
+# It sources environment settings, mounts filesystems, sets hostname, and invokes runlevel-specific scripts.
+
+# Abort on any error to prevent silent boot failures
+set -e
+
+# Source configuration (if present)
+# Path to optional environment configuration file sourced at boot.
+# Default: /etc/default/rcS
+{% set rcS_env_file = rcS_env_file | default('/etc/default/rcS') %}
+{% if rcS_env_file %}
+[ -f "{{ rcS_env_file }}" ] && . "{{ rcS_env_file }}"
+{% endif %}
+
+# Set default PATH if not already set
+# Ensures standard binaries are available regardless of inherited environment
+[ -z "${PATH}" ] && export PATH="/usr/local/sbin:/usr/local/bin:/sbin/bin:/usr/sbin:/usr/bin"
+
+# Mount virtual filesystems (proc, sysfs, devtmpfs, etc.)
+# List of filesystems to mount during early boot.
+# Default: [{'target': '/proc', 'type': 'proc'}, {'target': '/sys', 'type': 'sysfs'}, {'target': '/dev', 'type': 'devtmpfs'}]
+{% set mount_points = mount_points | default([{'target': '/proc', 'type': 'proc'}, {'target': '/sys', 'type': 'sysfs'}, {'target': '/dev', 'type': 'devtmpfs'}]) %}
+{% for fs in mount_points %}
+# Mount {{ fs.target }} filesystem ({{ fs.type }})
+[ -d "{{ fs.target }}" ] && mount -t {{ fs.type }} {{ fs.type }} {{ fs.target }} 2>/dev/null || true
+{% endfor %}
+
+# Configure hostname (if specified and not already set)
+# System hostname to set during boot. Leave empty to skip hostname configuration.
+# Default: ''
+{% set hostname = hostname | default('') %}
+{% if hostname %}
+if [ -z "$(hostname 2>/dev/null || true)" ]; then
+  hostname "{{ hostname }}"
+fi
+{% endif %}
+
+# Set system clock (if NTP not used and time needs setting)
+# System clock configuration.
+# Default: {'mode': 'auto'}
+{% set system_clock = system_clock | default({'mode': 'auto'}) %}
+{% if system_clock.mode == 'manual' %}
+# Configure system clock: manual
+{% set dt = system_clock.get('datetime', '') | default('') %}
+{% if dt %}
+date -s "{{ dt }}" 2>/dev/null || true
+{% endif %}
+{% elif system_clock.mode == 'auto' %}
+# Configure system clock: auto (no action, rely on NTP or hardware clock)
+{% endif %}
+
+# Load kernel modules (if any specified)
+# List of kernel modules to load at boot.
+# Default: []
+{% set modules = modules | default([]) %}
+{% if modules %}
+# Load kernel modules
+{% for mod in modules %}
+{% if mod.options %}
+modprobe {{ mod.name }} {{ mod.options }} 2>/dev/null || true
+{% else %}
+modprobe {{ mod.name }} 2>/dev/null || true
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Configure swap (if enabled)
+# Enable swap activation during boot.
+# Default: True
+{% set swap_enabled = swap_enabled | default(True) %}
+{% if swap_enabled %}
+# Activate swap devices/files
+{% set swap_devices = swap_devices | default(['/swapfile', '/dev/sda2']) %}
+{% for swap_dev in swap_devices %}
+swapon "{{ swap_dev }}" 2>/dev/null || true
+{% endfor %}
+{% endif %}
+
+# Filesystem checks and repair (if enabled)
+# Force filesystem check even if filesystems appear clean.
+# Default: False
+{% set fsck_force = fsck_force | default(False) %}
+{% if fsck_force %}
+# Force filesystem check
+echo "Forcing filesystem checks..."
+{% else %}
+# Check filesystems only if needed (based on mount count or time)
+echo "Checking filesystems normally..."
+{% endif %}
+
+# Set up temporary files in /tmp (if configured)
+# Configuration for /tmp directory setup.
+# Default: {'mode': 'clean'}
+{% set tmp_setup = tmp_setup | default({'mode': 'clean'}) %}
+{% if tmp_setup.mode == 'clean' %}
+# Initialize/clean /tmp
+rm -rf /tmp/* 2>/dev/null || true
+{% elif tmp_setup.mode == 'size_limited' %}
+# Ensure /tmp does not exceed {{ tmp_setup.get('max_size_mb', 1000) | default(1000) }} MB
+find /tmp -type f -size +{{ tmp_setup.get('max_size_mb', 1000) | default(1000) }}M -delete 2>/dev/null || true
+{% endif %}
+mkdir -p /tmp/.ICE-unix /tmp/.X11-unix 2>/dev/null || true
+chmod 1777 /tmp 2>/dev/null || true
+
+# Apply sysctl parameters (if any)
+# List of sysctl key=value pairs to apply (as 'key=value' strings).
+# Default: ['kernel/sysrq = 1', 'vm.swappiness = 60', 'net.ipv4.ip_forward = 1']
+{% set sysctl_params = sysctl_params | default(['kernel/sysrq = 1', 'vm.swappiness = 60', 'net.ipv4.ip_forward = 1']) %}
+{% if sysctl_params %}
+# Apply kernel parameters
+{% for param in sysctl_params %}
+echo "{{ param }}" > /proc/sys/$(echo "{{ param }}" | tr '/' '.') 2>/dev/null || true
+{% endfor %}
+{% endif %}
+
+# Set hostname again (in case DNS changed it)
+# System hostname to set during boot. Leave empty to skip hostname configuration.
+# Default: ''
+{% if hostname %}
+if [ -f /etc/hostname ]; then
+  hostname -F /etc/hostname 2>/dev/null || true
+fi
+{% endif %}
+
+# Mount remaining filesystems (from /etc/fstab)
+# Mounts everything except specific virtual fs types already handled
+mount -a -t nonfs,noproc,nosysfs,nodevtmpfs 2>/dev/null || true
+
+# Configure pseudo-terminal devices (if devtmpfs not used)
+# Note: using_devtmpfs is not in the schema, but referenced in original. Defaulting to False to preserve original behavior if not set.
+{% if not (using_devtmpfs | default(False)) %}
+mknod -m 666 /dev/ptmx c 5 2 2>/dev/null || true
+{% endif %}
+
+# Set default runlevel (if specified and init is SysV init)
+# Default SysV runlevel (e.g., '2' for multi-user, '5' for GUI). Ignored on systemd systems unless in compatibility mode.
+# Default: '2'
+{% set default_runlevel = default_runlevel | default('2') %}
+{% if default_runlevel %}
+# Set default runlevel (ignored by systemd; safe for hybrid setups)
+[ -x /usr/sbin/invoke-rc.d ] && /usr/sbin/invoke-rc.d --force set-default {{ default_runlevel }} 2>/dev/null || true
+{% endif %}
+
+# Run S-level scripts (from /etc/init.d/) before multi-user mode
+# Note: On systemd systems, these are mostly ignored unless compatibility mode is used.
+# List of scripts in /etc/init.d/ to execute with 'start' argument before runlevel switching.
+# Default: []
+{% set s_scripts = s_scripts | default([]) %}
+{% if s_scripts %}
+{% for script in s_scripts %}
+if [ -x "/etc/init.d/{{ script }}" ]; then
+  "/etc/init.d/{{ script }}" start 2>/dev/null || true
+fi
+{% endfor %}
+{% endif %}
+
+# Finally, switch to the appropriate runlevel (if using SysV init)
+# If true, attempt to switch to the default runlevel after initialization (only on SysV-only systems).
+# Default: False
+{% set use_sysv_init = use_sysv_init | default(False) %}
+{% if use_sysv_init %}
+exec /sbin/runlevel --single
+{% else %}
+# On systemd systems, this script is typically used only for compatibility
+echo "[rcS] SysV init script executed for compatibility (systemd may be managing services)" > /dev/kmsg 2>/dev/null || true
+{% endif %}

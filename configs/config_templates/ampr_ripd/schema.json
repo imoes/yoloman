@@ -1,0 +1,109 @@
+{
+  "interface_name": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface used to send and receive RIP packets (must support multicast)"
+  },
+  "gateway_ip": {
+    "type": "string",
+    "default": "44.1.2.3",
+    "description": "IPv4 address of this gateway in AMPRnet (44.0.0.0/8). Must be unique in the network."
+  },
+  "gateway_mask": {
+    "type": "number",
+    "default": 24,
+    "description": "CIDR prefix length (e.g., 24 for /24) to announce for this gateway's subnet"
+  },
+  "timer_update": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between RIP update messages. Lower values increase convergence but also traffic."
+  },
+  "timer_hold": {
+    "type": "number",
+    "default": 180,
+    "description": "Hold-down time (in seconds) before a route is marked unreachable after missing updates."
+  },
+  "timer_gc": {
+    "type": "number",
+    "default": 120,
+    "description": "Garbage collection time (in seconds) before a dead route is removed from the routing table."
+  },
+  "auth_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable MD5 authentication for RIP packets. Recommended for security."
+  },
+  "auth_key_id": {
+    "type": "number",
+    "default": 1,
+    "description": "MD5 key ID (1\u2013255) used in authentication."
+  },
+  "auth_secret": {
+    "type": "string",
+    "default": "",
+    "description": "MD5 shared secret (max 16 ASCII characters). Never use in plaintext in untrusted contexts."
+  },
+  "rate_limit_in": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum incoming RIP packets per second (0 = no limit). Helps mitigate DoS attacks."
+  },
+  "static_routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional routes to announce via RIP. Each entry defines a network, prefix, next hop, and metric.",
+    "items": {
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional comment describing the route."
+      },
+      "network": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 network address (e.g., 44.1.0.0)"
+      },
+      "prefix": {
+        "type": "number",
+        "default": 16,
+        "description": "CIDR prefix length (e.g., 16 for /16)"
+      },
+      "nexthop": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 next-hop address (typically an adjacent router or interface)"
+      },
+      "metric": {
+        "type": "number",
+        "default": 1,
+        "description": "Route metric (0\u201315, per RIP spec). Lower = more preferred."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: 'debug', 'info', 'warn', 'error', or 'off'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ampr-ripd.log",
+    "description": "Path to log file. If omitted, logs to syslog."
+  },
+  "drop_privileges": {
+    "type": "bool",
+    "default": true,
+    "description": "Drop root privileges after startup for improved security."
+  },
+  "daemon_user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "User to drop to when privileges are dropped."
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "Group to drop to when privileges are dropped."
+  }
+}

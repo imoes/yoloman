@@ -1,0 +1,33 @@
+name: clc_aa_policy
+fqcn: community.general.clc_aa_policy
+collection: community.general
+short_description: Create or Delete Anti Affinity Policies at CenturyLink Cloud
+description: An Ansible module to Create or Delete Anti Affinity Policies at CenturyLink Cloud.
+options:
+  location:
+    type: str
+    required: true
+    description: Datacenter in which the policy lives/should live.
+  name:
+    type: str
+    required: true
+    description: The name of the Anti Affinity Policy.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether to create or delete the policy.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Note - You must set the CLC_V2_API_USERNAME And CLC_V2_API_PASSWD Environment variables\
+  \ before running these examples\n\n---\n- name: Create AA Policy\n  hosts: localhost\n  gather_facts:\
+  \ false\n  connection: local\n  tasks:\n    - name: Create an Anti Affinity Policy\n      community.general.clc_aa_policy:\n\
+  \        name: Hammer Time\n        location: UK3\n        state: present\n      register: policy\n\n\
+  \    - name: Debug\n      ansible.builtin.debug:\n        var: policy\n\n- name: Delete AA Policy\n\
+  \  hosts: localhost\n  gather_facts: false\n  connection: local\n  tasks:\n    - name: Delete an Anti\
+  \ Affinity Policy\n      community.general.clc_aa_policy:\n        name: Hammer Time\n        location:\
+  \ UK3\n        state: absent\n      register: policy\n\n    - name: Debug\n      ansible.builtin.debug:\n\
+  \        var: policy\n"

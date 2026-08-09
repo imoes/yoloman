@@ -1,0 +1,43 @@
+# Defaults for amavisd-milter initscript
+# sourced by /etc/init.d/amavisd-milter
+# installed at /etc/default/amavisd-milter by the maintainer scripts
+# 2011-01-26 Harald Jenny
+
+# The user should be the one amavisd-new is running as
+SYSTEMUSER={{ system_user | default('amavis') }}
+
+# Pidfile is placed in run-directory from amavisd-new
+PIDFILE={{ pidfile | default('/var/run/amavis/amavisd-milter.pid') }}
+
+# This is the default location of the milter socket
+MILTERSOCKET={{ milter_socket | default('/var/lib/amavis/amavisd-milter.sock') }}
+
+# If you want the milter daemon to listen on tcp please
+# use something like the next line:
+# MILTERSOCKET=inet:<port>@<host>
+# Uncomment and set the following to enable TCP listening:
+# MILTERSOCKET=inet:{{ milter_port | default(60001) }}@{{ milter_host | default('127.0.0.1') }}
+
+# When using postfix and you want the smtpd to run
+# chrooted you may need a socket inside the chroot.
+# You will probably also need the options at the end of
+# this file!
+MILTERSOCKET={{ chroot_milter_socket | default('/var/spool/postfix/amavis/amavis.sock') }}
+
+# The default location of the amavisd-new socket
+AMAVISSOCKET={{ amavis_socket | default('/var/lib/amavis/amavisd.sock') }}
+
+# Here amavisd-milter stores the mails which should get
+# checked (needs to be changed when amavisd-new TEMPBASE
+# variable is modified!).
+WORKINGDIR={{ working_dir | default('/var/lib/amavis/tmp') }}
+
+# The parameters listed here will be passed directly to
+# amavisd-milter directly, please take a look at the
+# programs manpage for detailed infomation.
+EXTRAPARAMS="{{ extra_params | default('') }}"
+
+# Set these two options if you want the socket to have
+# special permissions (usefull mainly for postfix).
+MILTERSOCKETOWNER="{{ milter_socket_owner | default('postfix:postfix') }}"
+MILTERSOCKETMODE="{{ milter_socket_mode | default('0660') }}"

@@ -1,0 +1,148 @@
+# =============================================================================
+# blktool configuration template
+#
+# This template generates configuration directives for blktool(8), a utility
+# to set or get various ATA/IDE/SATA device parameters.
+#
+# The 'devices' variable is a list of mappings. Each mapping represents a block
+# device and contains its identifier (device.name) and optional settings.
+# =============================================================================
+
+{% for device in devices | default([], true) %}
+# -----------------------------------------------------------------------------
+# Block device settings for: {{ device.name | default('unknown') }}
+# Source field: devices[].name
+# -----------------------------------------------------------------------------
+
+{% if device.acoustic_mgmt is defined %}
+# acoustic_mgmt: Control acoustic management settings (e.g., MIN, MEDIUM, MEDIUM_MIN, MAX).
+# See: blktool <device> acoustic-mgmt <value>
+acoustic-mgmt {{ device.acoustic_mgmt }}
+{% endif %}
+
+{% if device.block_sz is defined %}
+# block_sz: Set logical block size (e.g., 512, 4096).
+# See: blktool <device> block-sz <value>
+block-sz {{ device.block_sz }}
+{% endif %}
+
+{% if device.bus_state is defined %}
+# bus_state: Control bus state (e.g., ACTIVE, STANDBY, IDLE, SLEEP).
+# See: blktool <device> bus-state <value>
+bus-state {{ device.bus_state }}
+{% endif %}
+
+{% if device.cd_speed is defined %}
+# cd_speed: Set CD-ROM drive speed (in 150KB/s units).
+# See: blktool <device> cd-speed <value>
+cd-speed {{ device.cd_speed }}
+{% endif %}
+
+{% if device.defect_mgmt is defined %}
+# defect_mgmt: Enable or disable defect management.
+# See: blktool <device> defect-mgmt <value>
+defect-mgmt {{ device.defect_mgmt }}
+{% endif %}
+
+{% if device.dev_keep_settings is defined %}
+# dev_keep_settings: Retain settings across power cycles if true.
+# See: blktool <device> dev-keep-settings <value>
+dev-keep-settings {{ device.dev_keep_settings }}
+{% endif %}
+
+{% if device.dev_read_ahead is defined %}
+# dev_read_ahead: Set device-side read-ahead count.
+# See: blktool <device> dev-read-ahead <value>
+dev-read-ahead {{ device.dev_read_ahead }}
+{% endif %}
+
+{% if device.dma is defined %}
+# dma: Enable or disable Direct Memory Access (DMA).
+# See: blktool <device> dma <value>
+dma {{ device.dma }}
+{% endif %}
+
+{% if device.i2o_rcache is defined %}
+# i2o_rcache: Configure I2O read cache settings.
+# See: blktool <device> i2o-rcache <value>
+i2o-rcache {{ device.i2o_rcache }}
+{% endif %}
+
+{% if device.i2o_wcache is defined %}
+# i2o_wcache: Configure I2O write cache settings.
+# See: blktool <device> i2o-wcache <value>
+i2o-wcache {{ device.i2o_wcache }}
+{% endif %}
+
+{% if device.keep_settings is defined %}
+# keep_settings: Retain current settings after reboot (boolean).
+# See: blktool <device> keep-settings <value>
+keep-settings {{ device.keep_settings }}
+{% endif %}
+
+{% if device.media_lock is defined %}
+# media_lock: Lock or unlock the media (eject button).
+# See: blktool <device> media <value>
+media {{ device.media_lock }}
+{% endif %}
+
+{% if device.multiple_count is defined %}
+# multiple_count: Set the multiple sector count for PIO DMA transfers.
+# See: blktool <device> multiple-count <value>
+multiple-count {{ device.multiple_count }}
+{% endif %}
+
+{% if device.no_write_err is defined %}
+# no_write_err: Disable write error reporting if true.
+# See: blktool <device> no-write-err <value>
+no-write-err {{ device.no_write_err }}
+{% endif %}
+
+{% if device.pio_data is defined %}
+# pio_data: Set PIO data transfer mode.
+# See: blktool <device> pio-data <value>
+pio-data {{ device.pio_data }}
+{% endif %}
+
+{% if device.pio_mode is defined %}
+# pio_mode: Set PIO mode number (0-4).
+# See: blktool <device> pio-mode <value>
+pio-mode {{ device.pio_mode }}
+{% endif %}
+
+{% if device.pm_mode is defined %}
+# pm_mode: Set Power Management mode.
+# See: blktool <device> pm-mode <value>
+pm-mode {{ device.pm_mode }}
+{% endif %}
+
+{% if device.queue_depth is defined %}
+# queue_depth: Set the command queue depth for the device.
+# See: blktool <device> queue-depth <value>
+queue-depth {{ device.queue_depth }}
+{% endif %}
+
+{% if device.read_ahead is defined %}
+# read_ahead: Set Linux kernel read-ahead count for this device (in sectors).
+# See: blktool <device> read-ahead <value>
+read-ahead {{ device.read_ahead }}
+{% endif %}
+
+{% if device.readonly is defined %}
+# readonly: Force the device into read-only mode.
+# See: blktool <device> readonly <value>
+readonly {{ device.readonly }}
+{% endif %}
+
+{% if device.unmask_irq is defined %}
+# unmask_irq: Unmask IRQs during PIO data transfer (true/false).
+# See: blktool <device> unmask-irq <value>
+unmask-irq {{ device.unmask_irq }}
+{% endif %}
+
+{% if device.wcache is defined %}
+# wcache: Enable or disable the device write cache.
+# See: blktool <device> wcache <value>
+wcache {{ device.wcache }}
+{% endif %}
+{% endfor %}

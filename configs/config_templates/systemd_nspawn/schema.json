@@ -1,0 +1,161 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "my-container",
+    "description": "Hostname visible inside the container and used for reverse DNS lookup"
+  },
+  "boot": {
+    "type": "bool",
+    "default": true,
+    "description": "Boot the container's init system as PID 1; requires a complete OS tree (not just a single binary)"
+  },
+  "ephemeral": {
+    "type": "bool",
+    "default": false,
+    "description": "Discard all filesystem changes on shutdown; useful for stateless or immutable containers"
+  },
+  "private_users": {
+    "type": "string",
+    "default": "pick",
+    "description": "User namespace mode: 'no' (none), 'yes' (fixed mapping), 'pick' (auto-select safe range), or a numeric UID base like '100000'"
+  },
+  "user": {
+    "type": "string",
+    "default": "",
+    "description": "Run the container main process as this user; leave empty to run as root"
+  },
+  "working_directory": {
+    "type": "string",
+    "default": "",
+    "description": "Initial working directory for the container process; leave empty for the system default"
+  },
+  "environment_vars": {
+    "type": "list",
+    "default": [],
+    "description": "Environment variables to inject into all container processes",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Variable name (e.g. TZ)"
+      },
+      "value": {
+        "type": "string",
+        "description": "Variable value (e.g. Europe/Berlin)"
+      }
+    }
+  },
+  "capabilities": {
+    "type": "list",
+    "default": [],
+    "description": "Additional Linux capabilities to grant beyond the default bounding set (e.g. CAP_NET_ADMIN)"
+  },
+  "drop_capabilities": {
+    "type": "list",
+    "default": [],
+    "description": "Linux capabilities to remove from the default bounding set (e.g. CAP_NET_RAW CAP_SYS_ADMIN)"
+  },
+  "no_new_privileges": {
+    "type": "bool",
+    "default": true,
+    "description": "Block privilege escalation via setuid binaries or file capabilities inside the container"
+  },
+  "limit_nofile": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of open file descriptors per process inside the container (ulimit -n)"
+  },
+  "limit_nproc": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum number of processes or threads the container may spawn (ulimit -u)"
+  },
+  "read_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Mount the container root filesystem read-only; combine with Volatile or BindReadOnly for mutable state paths"
+  },
+  "volatile": {
+    "type": "string",
+    "default": "no",
+    "description": "Volatile mode: 'no' = fully persistent, 'yes' = tmpfs replaces the entire root, 'state' = tmpfs overlays /var only"
+  },
+  "bind_mounts": {
+    "type": "list",
+    "default": [],
+    "description": "Host paths to bind-mount into the container with read-write access",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Absolute path on the host (e.g. /srv/myapp/data)"
+      },
+      "container": {
+        "type": "string",
+        "description": "Absolute path inside the container (e.g. /var/lib/myapp)"
+      }
+    }
+  },
+  "bind_read_only_mounts": {
+    "type": "list",
+    "default": [],
+    "description": "Host paths to bind-mount into the container with read-only access",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Absolute path on the host"
+      },
+      "container": {
+        "type": "string",
+        "description": "Absolute path inside the container"
+      }
+    }
+  },
+  "tmpfs_mounts": {
+    "type": "list",
+    "default": [],
+    "description": "Paths inside the container to mount as fresh ephemeral tmpfs on each start (e.g. /tmp, /run)"
+  },
+  "network_private": {
+    "type": "bool",
+    "default": true,
+    "description": "Run the container in its own isolated network namespace (strongly recommended)"
+  },
+  "virtual_ethernet": {
+    "type": "bool",
+    "default": true,
+    "description": "Create a veth pair between host and container for network connectivity; effective only when Private=yes"
+  },
+  "bridge": {
+    "type": "string",
+    "default": "",
+    "description": "Host bridge interface to attach the container veth to (e.g. br0); leave empty for a point-to-point veth pair"
+  },
+  "network_zone": {
+    "type": "string",
+    "default": "",
+    "description": "systemd-networkd zone name; the daemon auto-creates a bridge and manages DHCP/routing (leave empty to configure networking manually)"
+  },
+  "port_forwards": {
+    "type": "list",
+    "default": [],
+    "description": "Host-to-container port forwarding rules; only effective when Private=yes",
+    "items": {
+      "protocol": {
+        "type": "string",
+        "description": "Network protocol: 'tcp' or 'udp'"
+      },
+      "host_port": {
+        "type": "number",
+        "description": "Port number on the host to forward from"
+      },
+      "container_port": {
+        "type": "number",
+        "description": "Port number inside the container to forward to"
+      }
+    }
+  },
+  "macvlan_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "Host network interfaces to clone as MACVLAN links inside the container (e.g. eth0)"
+  }
+}

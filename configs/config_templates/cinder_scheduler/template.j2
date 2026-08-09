@@ -1,0 +1,183 @@
+# ============================================================================
+# Cinder Scheduler Configuration Template
+# ============================================================================
+# This file configures the cinder-scheduler service, which is responsible for
+# selecting the best storage backend/host to satisfy a volume creation request.
+# It handles filtering, weighing, and managing volume lifecycle constraints.
+#
+# Self-documenting: every directive below is preceded by a comment explaining
+# its purpose and its schema default.
+# ============================================================================
+
+[DEFAULT]
+
+# Logging level for scheduler messages (debug, info, warning, error, critical)
+# Default: 'INFO'
+log_level = {{ log_level | default('INFO') }}
+
+# Path to scheduler log file; empty string logs to stderr
+# Default: ''
+log_file = {{ log_file | default('') }}
+
+# Base directory for scheduler state, lock files, and temporary data
+# Default: '/var/lib/cinder'
+state_path = {{ state_path | default('/var/lib/cinder') }}
+
+# Message broker connection URL (e.g., RabbitMQ or Redis)
+# Default: 'rabbit://openstack:RABBIT_PASSWORD@controller:5672/'
+transport_url = {{ transport_url | default('rabbit://openstack:RABBIT_PASSWORD@controller:5672/') }}
+
+# Name of the default volume type to use when not specified by the user
+# Default: 'default'
+default_volume_type = {{ default_volume_type | default('default') }}
+
+# Maximum total size (in GB) of volumes that can be created per tenant
+# Default: 1000
+max_gigs_per_tenant = {{ max_gigs_per_tenant | default(1000) }}
+
+# Maximum number of snapshots a tenant can create
+# Default: 10
+max_snapshots_per_tenant = {{ max_snapshots_per_tenant | default(10) }}
+
+# Maximum number of backups a tenant can create
+# Default: 50
+max_backups_per_tenant = {{ max_backups_per_tenant | default(50) }}
+
+# Maximum total backup size (in GB) allowed per tenant
+# Default: 10000
+max_backup_gigs = {{ max_backup_gigs | default(10000) }}
+
+# Whether to automatically create the default volume type if missing
+# Default: True
+default_volume_type_create = {{ default_volume_type_create | default(True) }}
+
+# List of scheduler filter classes to apply when selecting a host.
+# These filters narrow down the candidate hosts before weighing is applied.
+# Default: ['AvailabilityZoneFilter', 'CapacityFilter', 'CapabilitesFilter', 'ImagePropertiesFilter', 'ServerGroupAntiAffinityFilter', 'ServerGroupAffinityFilter']
+scheduler_default_filters = {{ scheduler_default_filters | default(['AvailabilityZoneFilter', 'CapacityFilter', 'CapabilitesFilter', 'ImagePropertiesFilter', 'ServerGroupAntiAffinityFilter', 'ServerGroupAffinityFilter']) | tojson }}
+
+# List of scheduler weigher classes to rank hosts after filtering.
+# Default: ['WeightedSumWeigher']
+scheduler_default_weighers = {{ scheduler_default_weighers | default(['WeightedSumWeigher']) | tojson }}
+
+# Number of separate scheduler worker processes (for horizontal scaling)
+# Default: 1
+workers = {{ workers | default(1) }}
+
+# Enable or disable rate limiting on scheduler API endpoints
+# Default: False
+api_rate_limit = {{ api_rate_limit | default(False) }}
+
+# Enable verbose logging of all API requests and responses
+# Default: False
+api_debug = {{ api_debug | default(False) }}
+
+# Number of times to retry volume allocation before failing
+# Default: 3
+volume_allocate_retries = {{ volume_allocate_retries | default(3) }}
+
+# Seconds to wait between volume allocation retries
+# Default: 10
+volume_allocate_retry_interval = {{ volume_allocate_retry_interval | default(10) }}
+
+# Allow cloning volumes across tenants (requires backend support)
+# Default: False
+enable_cross_tenant_clone = {{ enable_cross_tenant_clone | default(False) }}
+
+# Allow restoring volumes from snapshots owned by other tenants
+# Default: False
+enable_cross_tenant_snapshot_restore = {{ enable_cross_tenant_snapshot_restore | default(False) }}
+
+# Enable consistency group operations (for application-consistent snapshots)
+# Default: False
+enable_consistency_groups = {{ enable_consistency_groups | default(False) }}
+
+# Enable volume replication across backends or sites
+# Default: False
+enable_replication = {{ enable_replication | default(False) }}
+
+# Enable volume backup service (requires cinder-backup)
+# Default: False
+enable_backup = {{ enable_backup | default(False) }}
+
+# Seconds to wait for a volume migration confirmation before auto-aborting
+# Default: 1800
+migration_confirm_timeout = {{ migration_confirm_timeout | default(1800) }}
+
+# Number of best hosts to randomly choose from after filtering (>=1).
+# A value of 1 means the single best host is always chosen.
+# Default: 1
+scheduler_host_subset_size = {{ scheduler_host_subset_size | default(1) }}
+
+# Disable weighting; select the first matching host after filtering.
+# If True, the scheduler ignores weighers and picks the first host that passes filters.
+# Default: False
+scheduler_use_bare_host = {{ scheduler_use_bare_host | default(False) }}
+
+# List of backend names to consider for scheduling (empty = all enabled backends)
+# Default: []
+scheduler_available_backends = {{ scheduler_available_backends | default([]) | tojson }}
+
+# ============================================================================
+# Storage Backend Definitions
+# ============================================================================
+# Each backend is defined in its own section [backend_name].
+# The scheduler uses these definitions to understand available storage resources.
+#
+# Default backend structure:
+# - name: unique identifier for the backend
+# - driver: Python module path for the volume driver
+# - target_ip: IP address of the storage target (e.g., iSCSI portal)
+# - options: driver-specific configuration dictionary
+#
+# Example:
+# [lvm]
+# driver = cinder.volume.drivers.lvm.LVMVolumeDriver
+# volume_backend_name = lvm
+# target_ip = 192.168.1.100
+# volume_group = cinder-volumes
+# target_protocol = iscsi
+# ...
+
+{% for backend in backends | default([{'name': 'lvm', 'driver': 'cinder.volume.drivers.lvm.LVMVolumeDriver', 'target_ip': '192.168.1.100', 'options': {'volume_group': 'cinder-volumes', 'target_protocol': 'iscsi', 'target_helper': 'lioadm', 'lvm_type': 'thin', 'iscsi_ip_address': '192.168.1.100', 'iscsi_port': 3260, 'iscsi_helper': 'tgtadm'}}]) %}[{{ backend.name }}]
+# Backend driver to use (e.g., cinder.volume.drivers.lvm.LVMVolumeDriver)
+driver = {{ backend.driver }}
+
+# Logical name of the backend as seen by Cinder
+# (Often set to backend.name for consistency)
+volume_backend_name = {{ backend.name }}
+
+# Target IP address (for iSCSI/NFS targets)
+{% if backend.target_ip is defined %}target_ip = {{ backend.target_ip }}{% endif %}
+
+# Backend-specific configuration options
+# These are passed directly to the volume driver
+{% for key, value in backend.options | default({}) | dict2items %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}
+
+# ============================================================================
+# Availability Zones Configuration
+# ============================================================================
+# Maps availability zones to the list of backend names that belong to them.
+# This allows the scheduler to place volumes in specific zones based on
+# affinity/anti-affinity rules and zone preferences.
+#
+# Default structure: {'nova': ['lvm']}
+#
+# Note: Cinder typically reads availability zones from [availability_zones]
+# sections or from the [DEFAULT] zone_name. This section provides a mapping
+# for the scheduler's internal zone-to-backend affinity logic.
+
+{% for zone, backend_names in availability_zones | default({'nova': ['lvm']}) | dict2items %}
+[availability_zones:{{ zone }}]
+# Assign backends to availability zone {{ zone }}
+{% for name in backend_names %}
+# {{ name }}
+{% endfor %}{% endfor %}
+
+# ============================================================================
+# Debugging
+# ============================================================================
+# Enable full debug logging (verbose, for troubleshooting only).
+# Default: False
+debug = {{ debug | default(False) }}

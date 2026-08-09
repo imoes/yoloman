@@ -1,0 +1,119 @@
+{
+  "server.name": {
+    "type": "string",
+    "default": "Crossfire Server",
+    "description": "Human-readable name of the server, displayed to players."
+  },
+  "server.bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server will bind to (e.g., '0.0.0.0' for all interfaces)."
+  },
+  "server.port": {
+    "type": "number",
+    "default": 2003,
+    "description": "TCP port the server listens on for incoming client connections."
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logs; recommended levels: debug, info, warn, error."
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "/var/log/crossfire/server.log",
+    "description": "Path to the server log file."
+  },
+  "world.max_players": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of concurrent players allowed on the server."
+  },
+  "world.map_directory": {
+    "type": "string",
+    "default": "/var/lib/crossfire/maps",
+    "description": "Directory containing map files (.map) used by the server."
+  },
+  "rules.turn_time": {
+    "type": "number",
+    "default": 2,
+    "description": "Time (in seconds) per player turn during combat or movement resolution."
+  },
+  "rules.combat_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable combat mechanics (damage, death, etc.)."
+  },
+  "pathfinder.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Use pathfinding algorithms for NPC movement and routing."
+  },
+  "pathfinder.verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Log detailed pathfinding decisions (useful for debugging)."
+  },
+  "auth.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Require players to authenticate with credentials before connecting."
+  },
+  "auth.timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Time (in seconds) to wait for authentication before disconnecting."
+  },
+  "admins": {
+    "type": "list",
+    "default": [],
+    "description": "List of administrative users with elevated privileges.",
+    "items": {
+      "username": {
+        "type": "string",
+        "description": "Admin username (case-sensitive)."
+      },
+      "password_hash": {
+        "type": "string",
+        "description": "Pre-hashed password (e.g., SHA256) \u2014 never store plaintext."
+      }
+    }
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of loadable modules (e.g., quests, events, economy).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Module filename or identifier (without path)."
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value configuration for the module."
+      }
+    }
+  },
+  "map_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Per-map customizations that override global settings.",
+    "items": {
+      "map_name": {
+        "type": "string",
+        "description": "Base filename of the map (e.g., 'mainhall')."
+      },
+      "max_players": {
+        "type": "number",
+        "default": null,
+        "description": "Maximum players on this map; if omitted, uses global 'world.max_players'."
+      },
+      "turn_time": {
+        "type": "number",
+        "default": null,
+        "description": "Turn time (seconds) for this map; if omitted, uses global 'rules.turn_time'."
+      }
+    }
+  }
+}

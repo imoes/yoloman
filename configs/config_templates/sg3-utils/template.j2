@@ -1,0 +1,24 @@
+# /etc/sg.conf - SCSI Generic (sg) configuration file
+# Lines beginning with '#' are comments.
+# This file controls behavior of sg3-utils tools (e.g., sg_scan, sdparm)
+# Syntax: each line is either a command, a comment, or a directive
+# Supported directives: dev, skip, no_auto, timeout
+
+# Enable verbose output for diagnostic tools (e.g., show device details, command details).
+# Defaults to false (quiet) if not specified.
+{% if verbose | default(false) %}verbose{% endif %}
+
+# Default timeout (in seconds) for SCSI commands executed by tools like sg_scan and sdparm.
+# Applies globally unless overridden per device. Set to 0 for no timeout.
+timeout {{ default_timeout | default(30) }}
+
+# Disable automatic scanning of /dev/sg* nodes.
+# Useful when using multipath or custom discovery logic. Defaults to false.
+{% if no_auto | default(false) %}no_auto{% endif %}
+
+# Explicit device rules (applied in order; first match wins).
+# Rules control how specific SCSI generic devices are scanned or used.
+{% for rule in device_rules | default([]) %}
+{% if rule.comment is defined %}# {{ rule.comment }}{% endif %}
+{% if rule.skip | default(false) %}skip{% else %}dev{% endif %} {{ rule.dev_node | default('') }}{% if rule.timeout is defined %} timeout {{ rule.timeout | default(omit) }}{% endif %}
+{% endfor %}

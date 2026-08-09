@@ -1,0 +1,86 @@
+# ==============================================================================
+# Ceph Manager Dashboard Configuration
+# ==============================================================================
+# This template generates the [mgr] section of a Ceph configuration file (ceph.conf)
+# and related module settings for the Ceph Manager Dashboard.
+# ==============================================================================
+
+[mgr]
+
+# ------------------------------------------------------------------------------
+# Global Dashboard Toggle
+# ------------------------------------------------------------------------------
+# enable_dashboard: default=True
+# desc='Enable or disable the Ceph Manager Dashboard plugin globally.'
+{% if enable_dashboard | default(true) %}
+dashboard = True
+{% else %}
+# dashboard = True
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Network Binding
+# ------------------------------------------------------------------------------
+# dashboard_host: default='0.0.0.0'
+# desc='IP address or hostname the dashboard HTTP(S) server binds to. Use `0.0.0.0` to bind to all interfaces.'
+dashboard_server_addr = {{ dashboard_host | default('0.0.0.0') }}
+
+# dashboard_port: default=8443
+# desc='TCP port the dashboard HTTP(S) server listens on. Commonly 8443 (HTTPS) or 7000 (HTTP, not recommended).'
+dashboard_server_port = {{ dashboard_port | default(8443) }}
+
+# ------------------------------------------------------------------------------
+# SSL/TLS Configuration
+# ------------------------------------------------------------------------------
+# ssl: default=True
+# desc='Enable TLS (HTTPS) for the dashboard. Strongly recommended in production.'
+{% if ssl | default(true) %}
+dashboard_ssl = True
+{% else %}
+dashboard_ssl = False
+{% endif %}
+
+# ssl_cert: default='/etc/ceph/ssl/dashboard.crt'
+# desc='Path to the TLS certificate file for HTTPS. Must be readable by `ceph-mgr`.'
+dashboard_ssl_cert = {{ ssl_cert | default('/etc/ceph/ssl/dashboard.crt') }}
+
+# ssl_key: default='/etc/ceph/ssl/dashboard.key'
+# desc='Path to the TLS private key file for HTTPS. Must be readable and secure (e.g., mode 0600).'
+dashboard_ssl_key = {{ ssl_key | default('/etc/ceph/ssl/dashboard.key') }}
+
+# ------------------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------------------
+# auth_mode: default='internal'
+# desc="Authentication mode: `internal` (Ceph's built-in user database) or `tls-client` (client certificate-based auth)."
+dashboard_auth_mode = {{ auth_mode | default('internal') }}
+
+# ------------------------------------------------------------------------------
+# API Configuration
+# ------------------------------------------------------------------------------
+# api_prefix: default='/api'
+# desc='URL prefix for the REST API endpoints. Useful when proxying behind another web server.'
+dashboard_api_prefix = {{ api_prefix | default('/api') }}
+
+# ------------------------------------------------------------------------------
+# Additional Modules
+# ------------------------------------------------------------------------------
+# modules: default=['dashboard', 'prometheus']
+# desc='List of Ceph Manager modules to load *in addition to* the dashboard plugin. Common modules: `dashboard`, `prometheus`, `rook`, `influx`, `restful`.'
+{% set mlist = modules | default(['dashboard', 'prometheus']) %}
+{% if mlist is iterable and mlist | length > 0 %}
+[mgr modules]
+{% for mod in mlist %}
+  {{ mod }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Dashboard Storage Pool
+# ------------------------------------------------------------------------------
+# dashboard_pool: default='cephfs_data'
+# desc='Name of the pool used for storing dashboard state (e.g., custom dashboards, settings). Usually a small, replicated pool like `cephfs_data` or `rbd_data`.'
+# Note: If left undefined, Ceph uses the default pool or the 'mgr' pool if configured.
+{% if dashboard_pool is defined %}
+dashboard_pool = {{ dashboard_pool }}
+{% endif %}

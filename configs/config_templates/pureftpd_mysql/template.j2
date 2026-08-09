@@ -1,0 +1,102 @@
+# ==============================================================================
+# Pure-FTPd MySQL Authentication Configuration
+# ==============================================================================
+# This file configures Pure-FTPd to authenticate FTP users against a MySQL/MariaDB
+# database. It defines the connection parameters, the SQL queries used to fetch
+# user credentials/quotas/bandwidth, and the password hashing scheme.
+#
+# Self-documenting: Every directive is preceded by a comment derived from the
+# Ansible variable schema to explain its purpose and default value.
+# ==============================================================================
+
+# --- Connection Parameters ---
+
+# Path to MySQL Unix socket (e.g., /var/run/mysqld/mysqld.sock). If provided, overrides server/port.
+# Leave empty to use TCP/IP.
+# Default: '' (empty, uses TCP)
+MYSQLSocket		{{ mysql_socket | default('') }}
+
+# MySQL server hostname or IP address. Use 'localhost' for Unix socket or omit port when using socket.
+# Use 'localhost' if the database is on the same host (may use socket if socket is empty).
+# Default: 'localhost'
+MYSQLServer		{{ mysql_server | default('localhost') }}
+
+# Port number for MySQL server. Use 0 or omit if using Unix socket.
+# Port number for the MySQL server connection. Set to 0 or leave empty if using a Unix socket.
+# Default: 3306
+MYSQLPort		{{ mysql_port | default(3306) }}
+
+# MySQL username with SELECT access to the FTP user table.
+# Username for the MySQL account used by Pure-FTPd to query the database. This user needs SELECT privileges on the FTP virtual user tables.
+# Default: 'pureftpd'
+MYSQLUser		{{ mysql_user | default('pureftpd') }}
+
+# Password for the MySQL user. Keep this secure; never commit to source control.
+# Password for the MySQL user defined in MYSQLUser. Keep this secure; ensure file permissions restrict access (e.g., 600).
+# Default: '' (empty)
+MYSQLPassword		{{ mysql_password | default('') }}
+
+# Name of the database containing the FTP user table.
+# Name of the MySQL database containing the FTP virtual user tables.
+# Default: 'ftpd'
+MYSQLDatabase		{{ mysql_database | default('ftpd') }}
+
+# --- Authentication & User Data Queries ---
+
+# SQL query to verify a user's existence and active status. \$1 is replaced with the username.
+# Query to verify a user's existence and active status, and return the password hash. Pure-FTPd uses this to check if the user exists and if the provided password matches. The placeholder `$1` is replaced by the username provided by the FTP client.
+# Default: 'SELECT User FROM ftpd WHERE User="\$1" AND Status="1"'
+# Note: Ensure the column containing the password hash is selected if using MYSQLCrypt.
+# If your schema stores the password in a separate column (e.g., Password), adjust accordingly:
+# SELECT Password FROM ftpd WHERE User="$1" AND Status="1"
+MYSQLGetPW		{{ mysql_getpw | default('SELECT User FROM ftpd WHERE User="\\$1" AND Status="1"') }}
+
+# SQL query to retrieve the numeric UID for the user.
+# Query to retrieve the numeric UID (User ID) for the FTP user. This UID is used by the FTP daemon when accessing files on the filesystem.
+# Default: 'SELECT Uid FROM ftpd WHERE User="\$1"'
+MYSQLGetUID		{{ mysql_getuid | default('SELECT Uid FROM ftpd WHERE User="\\$1"') }}
+
+# SQL query to retrieve the numeric GID for the user.
+# Query to retrieve the numeric GID (Group ID) for the FTP user. This GID is used by the FTP daemon when accessing files on the filesystem.
+# Default: 'SELECT Gid FROM ftpd WHERE User="\$1"'
+MYSQLGetGID		{{ mysql_getgid | default('SELECT Gid FROM ftpd WHERE User="\\$1"') }}
+
+# SQL query to retrieve the user's home directory path.
+# Query to retrieve the user's home directory path. This is the root directory the user sees upon logging in.
+# Default: 'SELECT Dir FROM ftpd WHERE User="\$1"'
+MYSQLGetDir		{{ mysql_getdir | default('SELECT Dir FROM ftpd WHERE User="\\$1"') }}
+
+# --- Quota & Bandwidth Queries ---
+
+# SQL query to retrieve per-user disk quota in MB (0 = unlimited).
+# Query to retrieve the disk quota for the user in megabytes (MB). A value of 0 typically means unlimited quota.
+# Default: 'SELECT QuotaSize FROM ftpd WHERE User="\$1"'
+MYSQLGetQTASZ		{{ mysql_getqtasz | default('SELECT QuotaSize FROM ftpd WHERE User="\\$1"') }}
+
+# SQL query to retrieve per-user file count quota (0 = unlimited).
+# Query to retrieve the file count quota for the user. A value of 0 typically means unlimited file count.
+# Default: 'SELECT QuotaFiles FROM ftpd WHERE User="\$1"'
+MYSQLGetQTAFS		{{ mysql_getqtafs | default('SELECT QuotaFiles FROM ftpd WHERE User="\\$1"') }}
+
+# SQL query to retrieve per-user upload bandwidth limit in KB/s (0 = unlimited).
+# Query to retrieve the upload bandwidth limit for the user in KB/s. A value of 0 typically means no limit (unlimited).
+# Default: 'SELECT UploadBandwidth FROM ftpd WHERE User="\$1"'
+MYSQLGetBandwidthIN	{{ mysql_getbandwidthin | default('SELECT UploadBandwidth FROM ftpd WHERE User="\\$1"') }}
+
+# SQL query to retrieve per-user download bandwidth limit in KB/s (0 = unlimited).
+# Query to retrieve the download bandwidth limit for the user in KB/s. A value of 0 typically means no limit (unlimited).
+# Default: 'SELECT DownloadBandwidth FROM ftpd WHERE User="\$1"'
+MYSQLGetBandwidthOUT	{{ mysql_getbandwidthout | default('SELECT DownloadBandwidth FROM ftpd WHERE User="\\$1"') }}
+
+# --- Optional Settings ---
+
+# Password hashing scheme used in the DB. 'none' means plain text; 'crypt' uses system crypt().
+# Password hashing scheme used in the database. Options include: md5, crypt, sha256, etc., or 'none' for plain text.
+# Ensure the format in MYSQLGetPW matches this scheme.
+# Default: 'md5'
+MYSQLCrypt		{{ mysql_crypt | default('md5') }}
+
+# Fallback home directory for users who lack a Dir field in the database.
+# Fallback home directory for users who do not have an explicit `Dir` field returned by the MYSQLGetDir query.
+# Default: '/var/ftp'
+MYSQLDefaultHomeDir	{{ mysql_default_homedir | default('/var/ftp') }}

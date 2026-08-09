@@ -1,0 +1,154 @@
+# =============================================================================
+# I2PD Configuration Template (i2pd.conf)
+# =============================================================================
+# This file configures the I2P Daemon (I2PD).
+# All settings use the schema-provided defaults if not overridden by Ansible variables.
+# =============================================================================
+
+# --- Logging ---
+
+# Logging verbosity: error, warn, info, debug, trace
+loglevel = {{ log_level | default('info') }}
+
+# Path to log file
+logfile = {{ log_file | default('/var/log/i2pd/i2pd.log') }}
+
+# --- Network Settings ---
+
+# Bind host for I2P router (e.g., 0.0.0.0 for all interfaces)
+host = {{ host | default('127.0.0.1') }}
+
+# Port for I2P router (NTCP/SSU)
+port = {{ port | default(4444) }}
+
+# --- Limits and Timeouts ---
+
+# Maximum simultaneous network connections
+maxconn = {{ max_connections | default(128) }}
+
+# Timeout (in seconds) for tunnel build attempts
+tunnelbuildtimeout = {{ tunnel_build_timeout | default(10) }}
+
+# --- Bandwidth Limits ---
+
+# Outbound bandwidth limit in KB/s
+bandwidth = {{ outbound_bandwidth | default(1024) }}
+
+# Inbound bandwidth limit in KB/s (share for transit)
+share = {{ inbound_bandwidth | default(1024) }}
+
+# --- Tunnel Settings ---
+
+# Number of gateway routers per tunnel
+gateways = {{ tunnel_gateways | default(3) }}
+
+# Number of hops in each tunnel (0 = un-anonymized)
+hops = {{ tunnel_hops | default(2) }}
+
+# Length of tunnel (in hops, overrides 'hops' for new tunnels)
+tunnellength = {{ tunnel_length | default(3) }}
+
+# Number of tunnels to build at once
+tunnelquantity = {{ tunnel_quantity | default(1) }}
+
+# --- Sharing ---
+
+# Bandwidth sharing percentage (0–100); higher = more transit participation
+shareratio = {{ share_ratio | default(80) }}
+
+# --- Daemon Operation ---
+
+# Run I2PD as a background daemon
+daemon = {{ daemon_mode | default(true) }}
+
+# Enable SSDP to discover UPnP/NAT-PMP devices
+ssdp = {{ enable_ssdp | default(true) }}
+
+# Enable automatic NAT-PMP/UPnP port mapping
+upnp = {{ enable_upnp | default(true) }}
+
+# --- Paths ---
+
+# Directory for persistent data (keys, tunnels, etc.)
+datadir = {{ data_dir | default('/var/lib/i2pd') }}
+
+# Directory for config and profile files
+confdir = {{ conf_dir | default('/etc/i2pd') }}
+
+# --- Web Console ---
+
+# Enable the web-based admin console
+webconsole = {{ enable_webconsole | default(false) }}
+
+# Bind host for the webconsole
+webconsolehost = {{ webconsole_host | default('127.0.0.1') }}
+
+# Port for the webconsole
+webconsoleport = {{ webconsole_port | default(7070) }}
+
+# HTTP basic auth credentials as 'username:password'
+webconsoleauth = {{ webconsole_auth | default('user:pass') }}
+
+# Path to TLS certificate for HTTPS webconsole
+webconsolecert = {{ webconsole_cert | default('/etc/i2pd/webconsole.crt') }}
+
+# Path to TLS private key for HTTPS webconsole
+webconsolekey = {{ webconsole_key | default('/etc/i2pd/webconsole.key') }}
+
+# --- Optional Services ---
+
+# Enable fee-based tunnel prioritization (requires fees.conf)
+fees = {{ enable_fees | default(true) }}
+
+# List of address book publisher URLs
+# Note: In the config file, these are joined by spaces or newlines depending on parser version.
+# Here we join with space as a safe delimiter for ini-style parsers.
+addressbookurls = {{ addressbook_urls | default(['http://stats.i2p/cgi-bin/newbase60.pl', 'http://i2p.mooo.com/netdb/']) | join(' ') }}
+
+# --- Transit Settings ---
+
+# Allow routing of I2P traffic for other users
+transit = {{ transit_enabled | default(true) }}
+
+# Maximum number of transit tunnels to maintain
+transittunnels = {{ transit_tunnels | default(40) }}
+
+# --- Transport Settings ---
+
+# Enable legacy NTCP transport
+ntcp = {{ enable_ntcp | default(true) }}
+
+# Enable SSU transport (recommended)
+ssu = {{ enable_ssu | default(true) }}
+
+# Enable NTCP2 transport (future-proof)
+ntcp2 = {{ enable_ntcp2 | default(true) }}
+
+# --- Local Services ---
+
+# List of local I2P services to expose (e.g., HTTP, IRC, SSH)
+# Each service block defines the local binding for a destination.
+{% for service in services | default([]) %}
+# --- Service: {{ service.name | default('unnamed') }} ---
+
+# Local port for this service
+{{ service.name | default('unnamed') }}.port = {{ service.port | default(0) }}
+
+# Bind host for this service (usually 127.0.0.1 for local-only)
+{{ service.name | default('unnamed') }}.host = {{ service.host | default('127.0.0.1') }}
+
+# Inbound tunnel length for this service
+{{ service.name | default('unnamed') }}.inbound.length = {{ service.inbound_length | default(3) }}
+
+# Outbound tunnel length for this service
+{{ service.name | default('unnamed') }}.outbound.length = {{ service.outbound_length | default(3) }}
+
+# Inbound tunnel quantity for this service
+{{ service.name | default('unnamed') }}.inbound.quantity = {{ service.inbound_quantity | default(1) }}
+
+# Outbound tunnel quantity for this service
+{{ service.name | default('unnamed') }}.outbound.quantity = {{ service.outbound_quantity | default(1) }}
+
+# Path to the private key for this destination
+{{ service.name | default('unnamed') }}.privatekey = {{ service.private_key_path | default('/dev/null') }}
+{% endfor %}

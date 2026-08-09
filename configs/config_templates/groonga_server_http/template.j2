@@ -1,0 +1,63 @@
+# listen address and port
+listen {{ listen_address }}:{{ listen_port }}
+
+# number of worker processes
+worker_processes {{ worker_processes }}
+
+# path to PID file
+pid {{ pid_file }}
+
+# log level: debug, info, notice, warning, error
+log_level {{ log_level }}
+
+# path to log file
+log_path {{ log_path }}
+
+# directory for storing databases
+db_path {{ db_path }}
+
+# enable or disable access log
+# access_log {{ access_log_enabled }}
+{% if access_log_enabled %}
+access_log {{ access_log_path }}
+{% endif %}
+
+# path to default database (if no database is specified in path)
+default_db {{ default_db }}
+
+# enable SSL
+# ssl {{ ssl_enabled }}
+{% if ssl_enabled %}
+ssl_certificate {{ ssl_certificate_path }}
+ssl_certificate_key {{ ssl_certificate_key_path }}
+{% endif %}
+
+# set maximum number of client connections
+max_connections {{ max_connections }}
+
+# set timeout for client connections (seconds)
+client_timeout {{ client_timeout }}
+
+# set request body size limit (bytes)
+client_max_body_size {{ client_max_body_size }}
+
+# enable gzip compression
+# gzip {{ gzip_enabled }}
+{% if gzip_enabled %}
+gzip on
+gzip_types {{ gzip_types | join(', ') }}
+{% endif %}
+
+# set server name (used in HTTP 1.1 Host header validation)
+server_name {{ server_name }}
+
+# enable or disable maintenance mode
+# maintenance_mode {{ maintenance_mode_enabled }}
+{% if maintenance_mode_enabled %}
+maintenance on
+maintenance_message {{ maintenance_message }}
+{% endif %}
+
+# extra options passed to Groonga core (e.g., token filters, normalizers)
+{% for option, value in extra_options.items() %}{{ option }} {{ value }}
+{% endfor %}

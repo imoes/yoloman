@@ -1,0 +1,102 @@
+#! /bin/sh
+#
+# boxbackup-server: LSB-compliant init script for the BoxBackup backup storage daemon.
+# This template is self-documenting; every variable usage is annotated with its schema
+# description and a safe default fallback.
+#
+### BEGIN INIT INFO
+# Provides: {{ init_provides | default('boxbackup-server') }}
+# Short-Description: {{ short_description | default('boxbackup server') }}
+# Description: {{ desc | default('boxbackup-server') }}
+# Required-Start:  $syslog $remote_fs $network
+# Required-Stop: $syslog $remote_fs $network
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+# Standard PATH for system daemons
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# DAEMON: Path to the bbstored executable
+DAEMON=/usr/sbin/{{ name | default('bbstored') }}
+
+# NAME: Base name used for PID files and identification
+NAME={{ name | default('bbstored') }}
+
+# DESC: Human-readable long description for logging/status output
+DESC={{ desc | default('boxbackup-server') }}
+
+# CONF: Path to the main bbstored configuration file
+CONF={{ conf_path | default('/etc/boxbackup/bbstored.conf') }}
+
+# Check if the daemon binary exists; if not, exit gracefully
+test -f $DAEMON || exit 0
+
+# Check if the configuration file exists; if not, exit gracefully
+test -f $CONF || exit 0
+
+# Extract the PidFile path from the configuration file.
+# Uses grep/sed to parse 'PidFile = /path/to/file'.
+# If the variable is empty after extraction, it falls back to the configured default path.
+PIDFILE=`grep 'PidFile' $CONF | sed 's/[[:space:]]*PidFile[[:space:]]*=[[:space:]]*\(\/[A-Za-z0-9/]*/\)/\1/'`
+[ -z "$PIDFILE" ] && PIDFILE="{{ default_pidfile_path | default('/var/run/bbstored.pid') }}"
+
+# Extract the CertificateFile path from the configuration file.
+# The daemon requires a valid certificate to run.
+CERTFILE=`grep 'CertificateFile' $CONF | sed 's/[[:space:]]*CertificateFile[[:space:]]*=[[:space:]]*\(\/[A-Za-z0-9/]*/\)/\1/'`
+
+# Don't start if certificate file is not present
+[ ! -e "$CERTFILE" ] && exit 0
+
+set -e
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--exec $DAEMON -- $CONF
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+		--exec $DAEMON
+	echo "$NAME."
+	;;
+  #reload)
+	#
+	#	If the daemon can reload its config files on the fly
+	#	for example by sending it SIGHUP, do it here.
+	#
+	#	If the daemon responds to changes in its config file
+	#	directly anyway, make this a do-nothing entry.
+	#
+	# echo "Reloading $DESC configuration files."
+	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
+	# 	/var/run/$NAME.pid --exec $DAEMON
+  #;;
+  restart|force-reload)
+	#
+	#	If the "reload" option is implemented, move the "force-reload"
+	#	option to the "reload" entry above. If not, "force-reload" is
+	#	just the same as "restart".
+	#
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --oknodo --stop --quiet --pidfile \
+	$PIDFILE --exec $DAEMON
+	sleep 1
+	start-stop-daemon --start --quiet --pidfile \
+	$PIDFILE --exec $DAEMON -- $CONF
+	echo "$NAME."
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

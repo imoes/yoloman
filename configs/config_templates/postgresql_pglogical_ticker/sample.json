@@ -1,0 +1,26 @@
+{
+  "db_name": "postgres",
+  "db_host": "localhost",
+  "db_port": 5432,
+  "db_user": "pglogical_ticker",
+  "db_pass": "secret123",
+  "db_sslmode": "prefer",
+  "db_connect_timeout": 10,
+  "tick_interval": 30,
+  "schema_name": "pglogical_ticker",
+  "tick_table": "ticks",
+  "retention_days": 60,
+  "verbose": true,
+  "replication_sets": [
+    {
+      "name": "app_data",
+      "provider": "host=prod-pg-1 port=5432 dbname=appdb user=replicator sslmode=require"
+    },
+    {
+      "name": "audit_log",
+      "provider": "host=prod-pg-1 port=5432 dbname=auditdb user=replicator sslmode=require"
+    }
+  ],
+  "post_tick_cmd": "/usr/local/bin/alert_lag.sh 500ms",
+  "log_file": "/var/log/postgresql/pglogical_ticker.log"
+}

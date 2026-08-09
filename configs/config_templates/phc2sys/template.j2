@@ -1,0 +1,34 @@
+# phc2sys: Synchronize system clock to PTP hardware clock
+# Source and target clock sources (use -s for system, -h for hardware)
+{{ "-s " ~ source_clock }}{% if dest_clock %}
+{{ "-c " ~ dest_clock }}{% endif %}
+
+# Optional: Set specific PTP domain
+{% if domain is defined and domain is not none %}{{ "-n " ~ domain }}{% endif %}
+
+# Optional: Set path to PHC device (e.g., /dev/ptp0)
+{% if phc_device is defined and phc_device %}{{ "-s " ~ phc_device }}{% endif %}
+
+# Optional: Set clock step threshold (seconds) to prevent large jumps
+{% if step_threshold is defined and step_threshold is not none %}{{ "-S " ~ step_threshold }}{% endif %}
+
+# Optional: Set frequency limit (ppb) for sanity check
+{% if freq_limit is defined and freq_limit is not none %}{{ "-L " ~ freq_limit }}{% endif %}
+
+# Optional: Enable automatic clock source switching when PHC is lost (deprecated; use -a instead)
+{% if auto_switch %}{{ "-A" }}{% endif %}
+
+# Optional: Set the number of PHC readings per update
+{% if offset_samples is defined and offset_samples is not none %}{{ "-N " ~ offset_samples }}{% endif %}
+
+# Optional: Set update rate (per second) in direct mode
+{% if update_rate is defined and update_rate is not none %}{{ "-R " ~ update_rate }}{% endif %}
+
+# Optional: Set kernel leap second handling (disable stepping on leap, let servo adjust)
+{% if kernel_leap is defined and kernel_leap is not none %}{{ "-x" }}{% endif %}
+
+# Optional: Set syslog logging level (0–7)
+{% if log_level is defined and log_level is not none %}{{ "-l " ~ log_level }}{% endif %}
+
+# Optional: Run in test mode (no actual clock adjustments)
+{% if test_mode %}{{ "-n" }}{% endif %}

@@ -1,0 +1,102 @@
+# ==============================================================================
+# FAI (Fully Automatic Installation) Configuration Template
+# ==============================================================================
+# This file is sourced as a shell script by the 'debian-edu-fai_install'
+# and related scripts. It defines variables controlling the netboot environment,
+# APT mirrors, iPXE boot entries, and post-install user configuration.
+#
+# IMPORTANT:
+# - Use single quotes around variable values if they contain special characters,
+#   or ensure the shell does not expand them unexpectedly.
+# - To enable FAI's savelog feature (pushing install logs to the FAI server),
+#   you must manually configure SSH keys for the 'fai' user on the FAI server
+#   BEFORE generating the nfsroot chroots. See comments in the original template.
+# ==============================================================================
+
+# --- FAI Logging Configuration ---
+# FQDN of the FAI server for savelog feature.
+# Logs from client installations are pushed to this host.
+fai_logserver='{{ fai_logserver | default("faiserver.localdomain") }}'
+
+# System user on the FAI server authorized for savelog operations (SSH push).
+# This user must have SSH access to fai_logserver.
+fai_loguser='{{ fai_loguser | default("fai") }}'
+
+# --- APT Mirror Configuration ---
+# Primary APT mirror URL for package downloads.
+mirrorurl='{{ mirrorurl | default("http://deb.debian.org/debian") }}'
+
+# Alternative APT mirror URL (e.g., via apt-cacher-ng cache).
+# Uncomment below to use this mirror instead of the primary one.
+# mirrorurl='{{ mirrorurl_alternative | default("http://10.0.0.1:3142/debian") }}'
+
+# --- HTTP Proxy Configuration (apt-cacher-ng) ---
+# HTTP proxy address for apt-cacher-ng running on the gateway.
+http_proxy='{{ http_proxy | default("http://10.0.0.1:3142") }}'
+
+# FTP proxy address for apt-cacher-ng running on the gateway.
+ftp_proxy='{{ ftp_proxy | default("http://10.0.0.1:3142") }}'
+
+# --- HTTP Proxy Configuration (squid-deb-proxy) ---
+# Alternative HTTP proxy if using squid-deb-proxy instead of apt-cacher-ng.
+# Uncomment below to use this proxy instead.
+# http_proxy='{{ http_proxy_squid | default("http://faiserver:8000") }}'
+# ftp_proxy='{{ ftp_proxy_squid | default("http://faiserver:8000") }}'
+
+# --- TFTP Directory ---
+# Directory on the FAI server where TFTP configuration files and boot images
+# are stored.
+tftpdir='{{ tftpdir | default("/srv/tftp") }}'
+
+# --- Installer Build Configuration ---
+# Space-separated list of Debian codenames to build installer chroots for.
+# Example: 'trixie bookworm bullseye'
+codenames='{{ codenames | default("trixie bookworm bullseye") }}'
+
+# Default codename used for the primary iPXE boot menu entry.
+# Should correspond to one of the codenames listed above.
+default_codename='{{ default_codename | default("trixie") }}'
+
+# Space-separated list of architectures (e.g., amd64, i386) for installer chroots.
+# Note: If building a non-native arch (e.g., i386 on amd64), ensure
+# 'dpkg --add-architecture' was run on the host before invoking the install script.
+archs='{{ archs | default("amd64 i386") }}'
+
+# Default architecture used for the primary iPXE boot menu entry.
+default_arch='{{ default_arch | default("i386") }}'
+
+# --- Post-Installation Configuration ---
+
+# Root password hash for FAI-installed devices.
+# Format: SHA-512 or yescrypt hash (use 'mkpasswd -m yescrypt').
+# If empty, the host's current root password will be used.
+{% if rootpw | default("") | length > 0 %}
+rootpw='{{ rootpw | default("") }}'
+{% endif %}
+
+# Local username to create in installed systems.
+# If empty, no local user account is created.
+{% if localuser | default("") | length > 0 %}
+localuser='{{ localuser | default("") }}'
+{% endif %}
+
+# Password hash for the local user.
+# Format: SHA-512 or yescrypt hash.
+{% if localuserpw | default("") | length > 0 %}
+localuserpw='{{ localuserpw | default("") }}'
+{% endif %}
+
+# WiFi ESSID to configure on installed devices.
+# If empty, WiFi is not configured via FAI.
+{% if wifi_essid | default("") | length > 0 %}
+wifi_essid='{{ wifi_essid | default("") }}'
+{% endif %}
+
+# WiFi passphrase in cleartext.
+# Only used if wifi_essid is set.
+{% if wifi_passphrase | default("") | length > 0 %}
+wifi_passphrase='{{ wifi_passphrase | default("") }}'
+{% endif %}
+
+# School tag: Short identifier/name for the school deployment.
+school_tag='{{ school_tag | default("SKOLE") }}'

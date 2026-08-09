@@ -1,0 +1,99 @@
+[DEFAULT]
+# Default logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_level = {{ log_level }}
+# Directory where log files are stored
+log_dir = {{ log_dir }}
+
+# Authentication URL for connecting to keystone
+auth_url = {{ keystone.auth_url }}
+# Username for authenticating with keystone
+auth_user = {{ keystone.username }}
+# Password for authenticating with keystone
+auth_password = {{ keystone.password }}
+# Project name for authenticating with keystone
+auth_project_name = {{ keystone.project_name }}
+# Domain name for authenticating with keystone (optional, defaults to Default)
+{% if keystone.domain_name is defined %}
+auth_domain_name = {{ keystone.domain_name }}
+{% endif %}
+
+# RabbitMQ connection string
+{% if messaging.url is defined %}
+mongodb_url = {{ messaging.url }}
+{% else %}
+# Legacy: if MongoDB URL is specified instead of RabbitMQ
+{% endif %}
+
+# Transport URL for messaging (RabbitMQ, etc.)
+transport_url = {{ messaging.transport_url }}
+
+# Pipeline configuration file path
+pipeline_manager = {{ pipeline_manager }}
+
+# Notification driver(s) for sending events/metrics
+notification_drivers = {{ notification_drivers | join(', ') }}
+
+# Metering pipeline configuration file
+metering_pipeline = {{ metering_pipeline }}
+
+# Enable or disable event processing
+{% if events.enabled %}
+{% for event in events.definitions %}
+# Define event {{ event.name }}
+{% if event.source is defined %}event_source = {{ event.source }}{% endif %}
+{% endfor %}
+{% endif %}
+
+[agent]
+# Polling interval (seconds) for polling meters
+polling_interval = {{ agent.polling_interval }}
+
+# Maximum number of samples to batch before publishing
+{% if agent.batch_size is defined %}
+batch_size = {{ agent.batch_size }}
+{% endif %}
+
+# Number of worker processes for polling
+{% if agent.workers is defined %}
+workers = {{ agent.workers }}
+{% endif %}
+
+# Disable polling for specific meter types (list of meter names)
+{% if agent.disabled_pollsters is defined %}
+disabled_pollsters = {{ agent.disabled_pollsters | join(', ') }}
+{% endif %}
+
+# Enable or disable specific pollsters (list of name:enabled pairs)
+{% if agent.pollster_mapping is defined %}
+{% for pollster, enabled in agent.pollster_mapping.items() %}
+pollster_{{ pollster }} = {{ enabled }}
+{% endfor %}
+{% endif %}
+
+[storage]
+# Backend URL for storing metering data (MongoDB or SQL)
+{% if storage.backend == 'mongodb' %}
+# MongoDB backend configuration
+mongodb_url = {{ storage.options.url }}
+{% elif storage.backend == 'sql' %}
+# SQL backend configuration
+sql_connection = {{ storage.options.connection }}
+{% endif %}
+
+[keystone_authtoken]
+# Authentication strategy: keystonemiddleware.auth_token
+auth_type = {{ keystone_authtoken.auth_type }}
+auth_url = {{ keystone_authtoken.auth_url }}
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+project_name = {{ keystone_authtoken.project_name }}
+username = {{ keystone_authtoken.username }}
+password = {{ keystone_authtoken.password }}
+
+# TLS options (optional)
+{% if keystone_authtoken.cafile is defined %}
+cafile = {{ keystone_authtoken.cafile }}
+{% endif %}
+{% if keystone_authtoken.insecure is defined %}
+insecure = {{ keystone_authtoken.insecure }}
+{% endif %}

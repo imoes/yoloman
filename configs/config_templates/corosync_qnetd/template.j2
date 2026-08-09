@@ -1,0 +1,167 @@
+# ==============================================================================
+# Corosync qnetd Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the Corosync Quorum Netlink
+# Daemon (qnetd). It handles TLS settings, network binding, client allowlists,
+# and quorum heartbeating parameters.
+#
+# Self-documentation principle:
+# Every directive is preceded by a comment explaining its purpose, accepted
+# values, and the Ansible variable used to configure it.
+# ==============================================================================
+
+# ==============================================================================
+# TLS/SSL Global Settings
+# ==============================================================================
+
+# Global TLS setting: 'on' enables TLS for all connections.
+# Variable: tls (boolean or string)
+# Default: 'on'
+{% if tls is defined and tls | lower | trim == 'on' %}
+tls: on
+{% else %}
+tls: off
+{% endif %}
+
+# ==============================================================================
+# Network Binding
+# ==============================================================================
+
+# IP address the qnetd daemon binds to.
+# Use '0.0.0.0' for all interfaces or a specific IP.
+# Variable: host
+# Default: '0.0.0.0'
+host: {{ host | default('0.0.0.0') }}
+
+# TCP port used for incoming qnetd connections.
+# Must match the port expected by corosync clients (qdevice/qnetd).
+# Variable: port
+# Default: 5403
+port: {{ port | default(5403) }}
+
+# ==============================================================================
+# TLS Certificate Configuration
+# ==============================================================================
+
+# Directory containing TLS certificates (CA, server cert, server key).
+# Ensure the qnetd user has read permissions for this directory and files.
+# Variable: certdir
+# Default: '/etc/corosync/qnetd'
+certdir: {{ certdir | default('/etc/corosync/qnetd') }}
+
+# Path to the Certificate Revocation List (CRL) file.
+# Leave empty ('') if CRL is not used or not configured.
+# Variable: crl_file
+# Default: ''
+crl_file: {{ crl_file | default('') }}
+
+# Algorithm/Cipher strength preference for TLS.
+# Allowed values: 'high', 'medium', 'low', or a specific OpenSSL cipher string.
+# Variable: tls_algorithm
+# Default: 'high'
+tls_algorithm: {{ tls_algorithm | default('high') }}
+
+# ==============================================================================
+# Operational Tuning
+# ==============================================================================
+
+# Number of worker threads to handle client requests.
+# Set to 0 to auto-detect based on available CPU cores (recommended).
+# Variable: work_threads
+# Default: 0
+work_threads: {{ work_threads | default(0) }}
+
+# Maximum number of simultaneous client connections allowed.
+# Connections beyond this limit may be rejected or queued depending on system limits.
+# Variable: max_connections
+# Default: 50
+max_connections: {{ max_connections | default(50) }}
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+
+# Minimum logging level for qnetd messages.
+# Allowed values: 'debug', 'info', 'notice', 'warning', 'err', 'crit', 'alert', 'emerg'.
+# Variable: log_level
+# Default: 'notice'
+log_level: {{ log_level | default('notice') }}
+
+# Path to the log file.
+# If empty (''), logs are sent to stdout or syslog (depending on service manager config).
+# Variable: log_file
+# Default: ''
+log_file: {{ log_file | default('') }}
+
+# ==============================================================================
+# Quorum Algorithm
+# ==============================================================================
+
+# Algorithm used for quorum scoring and tie-breaking.
+# Allowed values: 'ffsplit' (fixed failover, standard) or 'lms' (linear model scoring).
+# Variable: algorithm
+# Default: 'ffsplit'
+algorithm: {{ algorithm | default('ffsplit') }}
+
+# ==============================================================================
+# Client Allowlist / Access Control
+# ==============================================================================
+
+# List of trusted client configurations.
+# If this list is empty, qnetd allows all clients that present a valid TLS certificate
+# signed by the configured CA. If populated, only the listed clients are permitted.
+#
+# Each client entry in the list typically contains:
+#   - cn: Common Name from the client's TLS certificate
+#   - algorithm: (Optional) Override quorum algorithm for this specific client
+#   - node_id: (Optional) Override node ID for this specific client
+#
+# Variable: clients (list of dicts)
+# Default: []
+{% if clients is defined and clients | length > 0 %}
+{% for client in clients %}
+# --- Client Block ---
+# Common Name (CN) from the client's TLS certificate, or IP address.
+# Variable: clients[].cn
+cn: {{ client.cn | default('') }}
+
+# (Optional) Override quorum algorithm for this client.
+# If omitted, the global 'algorithm' directive is used.
+# Variable: clients[].algorithm
+algorithm: {{ client.algorithm | default('') }}
+
+# (Optional) Custom node ID for this client. Must be unique and <= 15 chars.
+# If omitted, corosync may derive or assign an ID automatically.
+# Variable: clients[].node_id
+node_id: {{ client.node_id | default('') }}
+{% endfor %}
+{% else %}
+# No per-client rules defined.
+# Allow all verified clients (those with valid certs signed by the CA).
+core_only: on
+{% endif %}
+
+# ==============================================================================
+# Heartbeat & Quorum Maintenance
+# ==============================================================================
+
+# Timeout in milliseconds before qnetd considers a client request timed out.
+# Variable: timeout
+# Default: 5000
+timeout: {{ timeout | default(5000) }}
+
+# Number of consecutive heartbeat misses before a client is marked as failed.
+# Variable: max_missed
+# Default: 2
+max_missed: {{ max_missed | default(2) }}
+
+# Interval in milliseconds between qnetd heartbeats to its clients.
+# Variable: interval
+# Default: 1000
+interval: {{ interval | default(1000) }}
+
+# Minimum number of nodes required in the cluster to maintain quorum.
+# Includes the qnetd device itself.
+# Variable: minimum_nodes
+# Default: 2
+minimum_nodes: {{ minimum_nodes | default(2) }}

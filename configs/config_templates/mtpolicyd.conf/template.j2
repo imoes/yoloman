@@ -1,0 +1,146 @@
+# =============================================================================
+# mtpolicyd Configuration Template
+# =============================================================================
+# This configuration file defines the runtime behavior, network listeners,
+# and plugin loading for mtpolicyd, an SMTP policy service.
+#
+# Structure:
+#   [DEFAULT] Section: Global daemon settings (PIDs, users, limits, logging).
+#   <VirtualHost> Blocks: Listener definitions with associated policy plugins.
+#   <SessionCache> Block: Session persistence backend configuration.
+#   <Connection> Blocks: Database/Service connection pool definitions used by plugins.
+# =============================================================================
+
+# [DEFAULT] Section
+# -----------------------------------------------------------------------------
+
+# Base directory for policy data and logs
+# Default: /etc/mtpolicyd
+base_dir = {{ base_dir | default('/etc/mtpolicyd') }}
+
+# PID file location for the daemon process
+# Default: /var/run/mtpolicyd.pid
+pid_file = {{ pid_file | default('/var/run/mtpolicyd.pid') }}
+
+# Minimum number of client processes to start to handle requests
+# Default: 4
+min_servers = {{ min_servers | default(4) }}
+
+# Minimum number of spare (idle) client processes kept available for quick handling
+# Default: 4
+min_spare_servers = {{ min_spare_servers | default(4) }}
+
+# Maximum number of spare (idle) client processes before they are terminated
+# Default: 12
+max_spare_servers = {{ max_spare_servers | default(12) }}
+
+# Absolute maximum number of child processes allowed to run simultaneously
+# Default: 25
+max_servers = {{ max_servers | default(25) }}
+
+# Maximum number of requests a child process handles before restarting (memory leak prevention)
+# Default: 1000
+max_requests = {{ max_requests | default(1000) }}
+
+# Number of keepalive requests after which the connection is closed.
+# Set to 0 for no limit (infinite keepalive).
+# Default: 0
+max_keepalive = {{ max_keepalive | default(0) }}
+
+# Unix user id to run the worker processes as (privilege separation)
+# Default: mtpolicyd
+user = {{ user | default('mtpolicyd') }}
+
+# Unix group id to run the worker processes as
+# Default: mtpolicyd
+group = {{ group | default('mtpolicyd') }}
+
+# IP address to bind the listening sockets to
+# Default: 127.0.0.1
+host = {{ host | default('127.0.0.1') }}
+
+# Comma-separated list of IP:Port addresses to listen on.
+# Example: "127.0.0.1:125, 0.0.0.0:125"
+# Default: 127.0.0.1:125
+port = {{ port | default('127.0.0.1:125') }}
+
+# Logging verbosity level:
+#   0 = err (errors only)
+#   1 = warning
+#   2 = notice
+#   3 = info (default)
+#   4 = debug
+# Default: 3
+log_level = {{ log_level | default(3) }}
+
+# Maximum total time (in seconds) allowed for a single policy request processing
+# Default: 30
+request_timeout = {{ request_timeout | default(30) }}
+
+# Enable VirtualHost selection based on the 'policy_context' request field.
+# If 1, the server uses the policy_context to determine which VirtualHost block
+# handles the request. If 0 or omitted, standard port-based binding is used.
+# Default: False (0)
+{% if vhost_by_policy_context is defined and vhost_by_policy_context %}
+vhost_by_policy_context=1
+{% endif %}
+
+# =============================================================================
+# VirtualHost Blocks
+# =============================================================================
+# Define listeners and their associated policy plugins.
+# Each block identifies a port and a logical name for grouping plugins.
+# =============================================================================
+{% if virtual_hosts is defined and virtual_hosts %}
+{% for vhost in virtual_hosts %}
+# --- VirtualHost: {{ vhost.name | default('unnamed') }} ---
+<VirtualHost {{ vhost.port | default('0.0.0.0:0') }}>
+name={{ vhost.name | default('unnamed') }}
+
+{% for plugin in vhost.plugins | default([]) %}
+# --- Plugin: {{ plugin.name | default('unnamed') }} ---
+<Plugin {{ plugin.name | default('unnamed') }}>
+module="{{ plugin.module | default('') }}"
+
+{% for key, value in plugin.options | default({}) | dict2items %}
+{{ key.key }}="{{ value.value }}"
+{% endfor %}
+</Plugin>
+{% endfor %}
+</VirtualHost>
+{% endfor %}
+{% endif %}
+
+# =============================================================================
+# Session Cache Configuration
+# =============================================================================
+# Optional block to configure persistent session storage for policy decisions.
+# If not defined, mtpolicyd does not use a session cache.
+# =============================================================================
+{% if session_cache is defined and session_cache %}
+<SessionCache>
+module="{{ session_cache.module | default('') }}"
+
+{% for key, value in session_cache.options | default({}) | dict2items %}
+{{ key.key }}="{{ value.value }}"
+{% endfor %}
+</SessionCache>
+{% endif %}
+
+# =============================================================================
+# Connection Pool Configuration
+# =============================================================================
+# Define named connection pools that plugins can reference.
+# Common backends: MySQL, PostgreSQL, Redis, etc.
+# =============================================================================
+{% if connections is defined and connections %}
+{% for conn in connections %}
+<Connection {{ conn.name | default('unnamed') }}>
+module="{{ conn.module | default('') }}"
+
+{% for key, value in conn.options | default({}) | dict2items %}
+{{ key.key }}="{{ value.value }}"
+{% endfor %}
+</Connection>
+{% endfor %}
+{% endif %}

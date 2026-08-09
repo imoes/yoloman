@@ -1,0 +1,145 @@
+; MySecureShell configuration file
+; This file configures the MySecureShell daemon, which wraps OpenSSH to provide
+; chrooted SFTP/SCP access with fine-grained control over user permissions and logging.
+;
+; Sections:
+;   [General] - Global daemon settings (ports, logging, auth, chroot)
+;   [Users]   - Per-user overrides and constraints
+;   [Groups]  - Per-group constraints inherited by users
+;   [AllowedIPs] - Whitelisted IP/CIDR ranges
+;   [DeniedIPs]  - Blacklisted IP/CIDR ranges
+;   [Directories] - Chrooted directory permission policies
+;   [Subsystems] - Protocol subsystem definitions (SFTP/SCP)
+
+[General]
+; Enable verbose debug logging (not recommended for production).
+Debug = {{ debug_mode | default(False) | lower }}
+
+; Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.
+LogLevel = {{ log_level | default(2) }}
+
+; Path to the log file (empty string to log to syslog).
+LogPath = {{ log_path | default('') }}
+
+; Maximum number of concurrent SSH connections allowed per IP address.
+MaxConnPerIP = {{ max_conn_per_ip | default(5) }}
+
+; Maximum number of concurrent SSH connections allowed per user.
+MaxConnPerUser = {{ max_conn_per_user | default(3) }}
+
+; TCP port on which the SSH/SFTP service will listen.
+Port = {{ ssh_port | default(2222) }}
+
+; IP address to bind the SSH/SFTP service (e.g., '127.0.0.1' or '::').
+ListenAddr = {{ listen_addr | default('0.0.0.0') }}
+
+; Path to the root directory for chrooted users (must be owned by root).
+ChrootPath = {{ chroot_path | default('/var/chroot/mysecureshell') }}
+
+; Enable SFTP protocol support.
+SFTPEnabled = {{ sftp_enabled | default(True) | lower }}
+
+; Enable SCP protocol support for file transfers.
+SCPOutEnabled = {{ scp_enabled | default(True) | lower }}
+
+; Allow authentication via username and password.
+PasswordAuth = {{ password_auth | default(False) | lower }}
+
+; Allow authentication via SSH public keys.
+PubKeyAuth = {{ pub_key_auth | default(True) | lower }}
+
+; Maximum time in seconds allowed for client authentication before disconnect.
+LoginTimeout = {{ login_timeout | default(30) }}
+
+; Maximum number of authentication attempts before disconnecting the client.
+MaxAuthTries = {{ max_auth_tries | default(6) }}
+
+; Display a legal banner to users upon connection.
+Banner = {{ banner_enabled | default(True) | lower }}
+
+; Path to the file containing the login banner.
+BannerPath = {{ banner_path | default('/etc/mysecureshell/banner.txt') }}
+
+[Users]
+; List of SSH users with their configurations.
+; Each user block is keyed by 'name' and applies specific overrides.
+{% for user in users | default([]) %}
+{% if loop.index0 > 0 %}
+
+{% endif %}
+{% for key, value in user | dict2items %}
+{% if key != 'name' %}
+{{ user.name }}.{{ key }} = {{ value }}
+{% endif %}
+{% endfor %}
+; The user's name is explicitly set for identification.
+{{ user.name }}.name = {{ user.name }}
+{% endfor %}
+
+[Groups]
+; List of user groups with shared configurations.
+{% for group in groups | default([]) %}
+{% if loop.index0 > 0 %}
+
+{% endif %}
+{% for key, value in group | dict2items %}
+{{ group.name }}.{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+[AllowedIPs]
+; List of allowed IP ranges (CIDR notation or single IPs) to connect to the SSH service.
+{% for ip in allowed_ips | default(['0.0.0.0/0']) %}
+{% if loop.index0 > 0 %}
+
+{% endif %}
+{{ ip }}
+{% endfor %}
+
+[DeniedIPs]
+; List of denied IP ranges to block from connecting.
+{% for ip in denied_ips | default([]) %}
+{% if loop.index0 > 0 %}
+
+{% endif %}
+{{ ip }}
+{% endfor %}
+
+[Directories]
+; Custom permissions for chrooted directories.
+{% for dir in directory_permissions | default([]) %}
+{% if loop.index0 > 0 %}
+
+{% endif %}
+{% set dpath = dir.path | default('unknown') %}
+{{ dpath }}.path = {{ dpath }}
+{% if dir.mode is defined %}
+{{ dpath }}.mode = {{ dir.mode }}
+{% endif %}
+{% if dir.owner is defined %}
+{{ dpath }}.owner = {{ dir.owner }}
+{% endif %}
+{% if dir.group is defined %}
+{{ dpath }}.group = {{ dir.group }}
+{% endif %}
+{% if dir.read_only is defined %}
+{{ dpath }}.read_only = {{ dir.read_only | lower }}
+{% endif %}
+{% if dir.max_files is defined %}
+{{ dpath }}.max_files = {{ dir.max_files }}
+{% endif %}
+{% if dir.max_size is defined %}
+{{ dpath }}.max_size = {{ dir.max_size }}
+{% endif %}
+{% endfor %}
+
+[Subsystems]
+; SFTP subsystem definition.
+{% set subsystem = sftp_subsystem | default({'command': 'internal-sftp'}) %}
+{% set subsys_name = subsystem.name | default('sftp') %}
+{{ subsys_name }}.command = {{ subsystem.command | default('internal-sftp') }}
+{% if subsystem.args is defined %}
+{% if subsystem.args is iterable and not (subsystem.args is string) %}
+{{ subsys_name }}.args = {{ subsystem.args | join(' ') }}
+{% endif %}
+{% endif %}

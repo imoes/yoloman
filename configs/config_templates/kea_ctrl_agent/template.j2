@@ -1,0 +1,39 @@
+{# HTTP control agent configuration for KEA Control Agent #}
+{
+  "Control-agent": {
+    "http-host": "{{ http_host }}",
+    "http-port": {{ http_port }},
+    "user-file": "{{ user_file }}",
+    "control-sockets": {
+{% for socket in control_sockets %}
+      "{{ socket.name }}": {
+        "type": "{{ socket.type }}",
+        "socket-name": "{{ socket.socket_name }}"
+      }{% if not loop.last %},{% endif %}
+{% endfor %}
+    },
+{% if allow_from %}
+    "allow-from": [
+{% for host in allow_from %}
+      "{{ host }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+    ],
+{% endif %}
+    "loggers": [
+      {
+        "name": "kea-ctrl-agent",
+        "level": "{{ log_level }}",
+        "output_options": [
+          {
+            "output": "{{ log_output }}"
+{% if log_debuglevel > 0 %}
+          ,{
+            "debuglevel": {{ log_debuglevel }}
+          }
+{% endif %}
+          }
+        ]
+      }
+    ]
+  }
+}

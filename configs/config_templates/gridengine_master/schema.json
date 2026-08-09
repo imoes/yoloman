@@ -1,0 +1,235 @@
+{
+  "cluster_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the Grid Engine cluster; must be unique across all clusters in the network."
+  },
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/lib/gridengine/default/spool",
+    "description": "Root spool directory for the Grid Engine installation (master and exec spooling)."
+  },
+  "admin_user": {
+    "type": "string",
+    "default": "sgeadmin",
+    "description": "User account with administrative privileges for Grid Engine."
+  },
+  "default_shell": {
+    "type": "string",
+    "default": "/bin/bash",
+    "description": "Default shell used when executing jobs (must exist on all execution hosts)."
+  },
+  "mail_opts": {
+    "type": "string",
+    "default": "a",
+    "description": "Email notification policy: 'a' = all, 'e' = error, 's' = suspend, 'n' = none.",
+    "enum": [
+      "a",
+      "e",
+      "s"
+    ]
+  },
+  "priority_slots": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of slots to use when computing dynamic job priority."
+  },
+  "max_jobs_per_user": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of jobs a single user can submit simultaneously."
+  },
+  "job_retention_time": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time (in seconds) after which job information is removed from the database."
+  },
+  "qmaster_spool_dir": {
+    "type": "string",
+    "default": "/var/lib/gridengine/default/spool/qmaster",
+    "description": "Spool directory specifically for the qmaster daemon."
+  },
+  "qmaster_port": {
+    "type": "number",
+    "default": 6444,
+    "description": "TCP port used by the qmaster daemon for client communication."
+  },
+  "execd_port": {
+    "type": "number",
+    "default": 6445,
+    "description": "TCP port used by execd daemons for communication with qmaster."
+  },
+  "shadow_port": {
+    "type": "number",
+    "default": 6446,
+    "description": "TCP port used by the shadow daemon (for job submission and control)."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL encryption for daemon-to-daemon and client-to-daemon communication."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Logging verbosity: 0=silent, 1=fatal, 2=error, 3=warn, 4=info, 5=debug."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/gridengine",
+    "description": "Directory where Grid Engine logs (qmaster, execd, scheduler) are written."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to also forward logs to the system syslog daemon."
+  },
+  "penv_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of parallel environments for multi-slot (MPI, OpenMP) jobs.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the parallel environment (e.g., 'mpi')."
+      },
+      "slots": {
+        "type": "number",
+        "description": "Maximum number of slots per job in this PE."
+      },
+      "require_hosts": {
+        "type": "string",
+        "default": "",
+        "description": "Optional constraint: only allow jobs on hosts matching this pattern."
+      },
+      "rule": {
+        "type": "string",
+        "description": "Slot allocation rule: 'fill_up', 'round_robin', 'pe_filler', or custom."
+      }
+    }
+  },
+  "queue_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of queues (execution hosts groups) configured on this cluster.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Queue name (e.g., 'all.q', 'highprio')."
+      },
+      "hostlist": {
+        "type": "list",
+        "description": "List of execution hosts assigned to this queue (by short hostname)."
+      },
+      "seq_no": {
+        "type": "number",
+        "default": 0,
+        "description": "Queue priority order (lower numbers have higher priority)."
+      },
+      "priority": {
+        "type": "number",
+        "default": 0,
+        "description": "Static priority (higher = more likely to run first)."
+      },
+      "slots": {
+        "type": "list",
+        "description": "List of slot definitions per host, e.g., ['host1=4', 'host2=8'] or just numeric defaults."
+      },
+      "start_job_prolog": {
+        "type": "string",
+        "default": "",
+        "description": "Optional script to run before each job starts."
+      },
+      "end_job_prolog": {
+        "type": "string",
+        "default": "",
+        "description": "Optional script to run after each job ends."
+      },
+      "hold": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, queue is held (jobs cannot start)."
+      },
+      "submit_hosts": {
+        "type": "list",
+        "default": [],
+        "description": "If set, restrict job submission to these hosts only."
+      },
+      "exclude_hosts": {
+        "type": "list",
+        "default": [],
+        "description": "Hosts explicitly excluded from this queue."
+      },
+      "reservation": {
+        "type": "string",
+        "default": "",
+        "description": "Reservation time window (e.g., 'now+1h' or '12:00-14:00')."
+      },
+      "load_thresholds": {
+        "type": "string",
+        "default": "",
+        "description": "Load thresholds at which jobs are suspended (e.g., 'cpu=1.5 load_avg=2.0')."
+      },
+      "suspend_thresholds": {
+        "type": "string",
+        "default": "",
+        "description": "Load thresholds at which new jobs are suspended."
+      },
+      "suspend_exit_delay": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds to wait before suspending a running job after threshold is exceeded."
+      },
+      "resume_thresholds": {
+        "type": "string",
+        "default": "",
+        "description": "Load thresholds that trigger resuming suspended jobs."
+      },
+      "ujobs": {
+        "type": "list",
+        "default": [],
+        "description": "User-specific job limits, e.g., ['alice=10', 'bob=5']."
+      },
+      "pjobs": {
+        "type": "list",
+        "default": [],
+        "description": "Project-specific job limits, e.g., ['projX=20']."
+      },
+      "mjobs": {
+        "type": "list",
+        "default": [],
+        "description": "Machine-specific job limits, e.g., ['host1=8']."
+      },
+      "maxujobs": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of jobs per user in this queue (0 = no limit)."
+      },
+      "maxpjobs": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of jobs per project in this queue (0 = no limit)."
+      },
+      "maxmjobs": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of jobs per host in this queue (0 = no limit)."
+      },
+      "max_jslots": {
+        "type": "number",
+        "default": 1,
+        "description": "Maximum total job slots a user can consume across this queue."
+      },
+      "min_jslots": {
+        "type": "number",
+        "default": 1,
+        "description": "Minimum job slots required per job in this queue."
+      },
+      "job_factor": {
+        "type": "number",
+        "default": 1.0,
+        "description": "Multiplier applied to job priority (e.g., for premium queues)."
+      }
+    }
+  }
+}

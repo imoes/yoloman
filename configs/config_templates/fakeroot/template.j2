@@ -1,0 +1,40 @@
+# Configuration for fakeroot — run command in fake root environment
+# Source: fakeroot(1) manpage
+
+# Path to the wrapper library (e.g., /usr/lib/*/libfakeroot-*.so)
+# Use -l/--lib to override default path
+# Default: auto-detected by fakeroot via standard search paths
+# LIBRARY = ""
+{% if LIBRARY | default('') %}
+LIBRARY={{ LIBRARY | default('') }}
+{% endif %}
+
+# Path to the faked binary (optional; usually auto-detected)
+# Use --faked to override
+# DEFAULTS_TO_FAKED_BIN = ""
+{% if DEFAULTS_TO_FAKED_BIN | default('') %}
+DEFAULTS_TO_FAKED_BIN={{ DEFAULTS_TO_FAKED_BIN | default('') }}
+{% endif %}
+
+# Load previously saved fakeroot state from this file (e.g., for rsync backup/restore)
+# Use -i/--load-file to specify
+# LOAD_FILE = ""
+{% if LOAD_FILE | default('') %}
+LOAD_FILE={{ LOAD_FILE | default('') }}
+{% endif %}
+
+# Save current fakeroot state to this file on exit (use with -s)
+# SAVE_FILE = ""
+{% if SAVE_FILE | default('') %}
+SAVE_FILE={{ SAVE_FILE | default('') }}
+{% endif %}
+
+# Use real ownership for files unknown to fakeroot instead of defaulting to root:root
+# Use -u/--unknown-is-real to enable
+# UNKNOWN_IS_REAL = false
+UNKNOWN_IS_REAL={{ UNKNOWN_IS_REAL | default(False) | lower }}
+
+# Minimum file descriptor number to use for TCP connections (TCP mode only)
+# Use -b/--fd-base to set; avoid conflicts with wrapped program’s FDs
+# FD_BASE = 2000
+FD_BASE={{ FD_BASE | default(2000) }}

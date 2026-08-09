@@ -1,0 +1,146 @@
+{
+  "router_id": {
+    "type": "string",
+    "default": "1.1.1.1",
+    "description": "Default router ID for all neighbors that don\u2019t specify their own."
+  },
+  "neighbors": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP neighbors to configure.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of the BGP peer."
+      },
+      "local_as": {
+        "type": "number",
+        "default": 64500,
+        "description": "Local autonomous system number."
+      },
+      "peer_as": {
+        "type": "number",
+        "default": 64500,
+        "description": "Autonomous system number of the peer."
+      },
+      "router_id": {
+        "type": "string",
+        "default": "",
+        "description": "Router ID for this specific neighbor (optional). If omitted, uses the global `router_id`."
+      },
+      "description": {
+        "type": "string",
+        "default": "ExaBGP peer",
+        "description": "Human-readable description of the neighbor."
+      },
+      "hold_time": {
+        "type": "number",
+        "default": 90,
+        "description": "BGP hold timer in seconds."
+      },
+      "connect_retry": {
+        "type": "number",
+        "default": 120,
+        "description": "Time in seconds to wait before retrying a failed connection."
+      },
+      "keepalive": {
+        "type": "number",
+        "default": 30,
+        "description": "BGP keepalive interval in seconds."
+      },
+      "in_filter": {
+        "type": "list",
+        "default": [],
+        "description": "List of import filter rules (type: 'allow', 'deny', or 'community'); policy: e.g., 'accept', 'reject', or community match.",
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "community",
+            "description": "Filter type \u2014 'allow', 'deny', or 'community'."
+          },
+          "policy": {
+            "type": "string",
+            "default": "accept",
+            "description": "Policy action \u2014 'accept', 'reject', or a community match pattern."
+          }
+        }
+      },
+      "out_filter": {
+        "type": "list",
+        "default": [],
+        "description": "List of export filter rules (same structure as `in_filter`).",
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "community",
+            "description": "Filter type \u2014 'allow', 'deny', or 'community'."
+          },
+          "policy": {
+            "type": "string",
+            "default": "accept",
+            "description": "Policy action \u2014 'accept', 'reject', or a community match pattern."
+          }
+        }
+      },
+      "graceful_restart": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable BGP graceful restart for this neighbor (RFC 4724)."
+      },
+      "passive": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable passive mode \u2014 only accept incoming connections (do not initiate)."
+      }
+    }
+  },
+  "static_routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of static routes to announce via ExaBGP.",
+    "items": {
+      "prefix": {
+        "type": "string",
+        "default": "",
+        "description": "IP prefix in CIDR notation (e.g., '192.0.2.0/24')."
+      },
+      "next_hop": {
+        "type": "string",
+        "default": "",
+        "description": "Next-hop IP address for the route."
+      },
+      "community": {
+        "type": "string",
+        "default": "",
+        "description": "BGP community attribute (e.g., '64500:100'). Optional."
+      }
+    }
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "fork": true,
+      "threads": 1
+    },
+    "description": "ExaBGP API configuration for programmatic control.",
+    "fields": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable the ExaBGP API (required for external control via JSON/HTTP)."
+      },
+      "fork": {
+        "type": "boolean",
+        "default": true,
+        "description": "Fork child processes for API handlers (recommended for isolation)."
+      },
+      "threads": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of threads for API handlers."
+      }
+    }
+  }
+}

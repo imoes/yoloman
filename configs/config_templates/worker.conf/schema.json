@@ -1,0 +1,151 @@
+{
+  "worker_id": {
+    "type": "string",
+    "default": "worker-01",
+    "description": "Unique name for this worker instance (used by the coordinator to identify it)"
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of concurrent test jobs this worker can run simultaneously"
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/var/lib/debci",
+    "description": "Root directory for worker state, logs, and test artifacts"
+  },
+  "package_cache_dir": {
+    "type": "string",
+    "default": "/var/cache/debci/packages",
+    "description": "Directory where downloaded test packages and metadata are cached"
+  },
+  "coordinator_url": {
+    "type": "string",
+    "default": "https://coordinator.example.com",
+    "description": "Base URL of the debci coordinator server"
+  },
+  "api_token_file": {
+    "type": "string",
+    "default": "/etc/debci/api-token",
+    "description": "Path to a file containing the API token used to authenticate with the coordinator"
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of seconds to wait before retrying a failed job (e.g., network error)"
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retry attempts for a failed job"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (info level and above)"
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging (includes all info/warning/error messages plus detailed debug traces)"
+  },
+  "supported_architectures": {
+    "type": "list",
+    "default": [
+      "amd64",
+      "i386"
+    ],
+    "description": "List of CPU architectures this worker can build and test (e.g., 'amd64', 'arm64')",
+    "items": {
+      "type": "string"
+    }
+  },
+  "supported_releases": {
+    "type": "list",
+    "default": [
+      "bullseye",
+      "bookworm",
+      "trixie"
+    ],
+    "description": "List of Debian/Ubuntu distribution releases this worker supports",
+    "items": {
+      "type": "string"
+    }
+  },
+  "environment": {
+    "type": "object",
+    "default": {},
+    "description": "Key-value pairs of environment variables to export to test jobs (e.g., TZ, DEBEMAIL)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "job_limits": {
+    "type": "object",
+    "default": {
+      "cpu_quota": 50000,
+      "memory_limit": "2G"
+    },
+    "description": "Resource limits per job (applies to systemd/cgroupv2)",
+    "items": {
+      "cpu_quota": {
+        "type": "number",
+        "description": "CPU quota in microseconds per 100ms period (e.g., 50000 = 50% of one CPU core)"
+      },
+      "memory_limit": {
+        "type": "string",
+        "description": "Maximum memory per job (e.g., '2G', '1024M')"
+      }
+    }
+  },
+  "job_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum time (in seconds) a single test job may run before being killed"
+  },
+  "cleanup_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically remove old test artifacts (logs, builds, etc.) to free disk space"
+  },
+  "cleanup_age_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Delete test artifacts older than this many days"
+  },
+  "pre_test_hook": {
+    "type": "string",
+    "default": "",
+    "description": "Optional absolute path to a script to run before each test job begins"
+  },
+  "post_test_hook": {
+    "type": "string",
+    "default": "",
+    "description": "Optional absolute path to a script to run after each test job completes"
+  },
+  "lxc_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Run each test job inside an isolated LXC container instead of the host"
+  },
+  "lxc_template": {
+    "type": "string",
+    "default": "debian",
+    "description": "LXC template to use (e.g., 'debian', 'ubuntu', 'download')"
+  },
+  "lxc_distribution": {
+    "type": "string",
+    "default": "debian",
+    "description": "Distribution name (used with 'download' template)"
+  },
+  "lxc_release": {
+    "type": "string",
+    "default": "bookworm",
+    "description": "Release codename (e.g., 'bullseye', 'focal') \u2014 used with 'download' template"
+  },
+  "lxc_architecture": {
+    "type": "string",
+    "default": "amd64",
+    "description": "Architecture for LXC containers (should match supported_architectures)"
+  }
+}

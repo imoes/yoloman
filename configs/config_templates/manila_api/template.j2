@@ -1,0 +1,109 @@
+# ============================================================================
+# Manila API Configuration Template
+# ============================================================================
+# This template generates the configuration file for the manila-api service,
+# part of OpenStack Manila (Shared File Systems).
+#
+# Self-documenting: every directive is preceded by a comment derived from the
+# schema description. All variables use the `| default(...)` filter to ensure
+# safe rendering even if the variable is undefined in the Ansible play.
+# ============================================================================
+
+[DEFAULT]
+# Path to the log file for the Manila API server.
+log_file = {{ log_file | default('/var/log/manila/manila-api.log') }}
+
+# Directory where log files are stored.
+log_dir = {{ log_dir | default('/var/log/manila') }}
+
+# Enable debug-level logging for troubleshooting.
+# Note: 'true'/'false' are standard boolean string representations.
+debug = {{ debug | default(False) | lower }}
+
+# IP address the Manila API server will listen on.
+bind_host = {{ bind_host | default('0.0.0.0') }}
+
+# Port on which the Manila API server listens.
+bind_port = {{ bind_port | default(8786) }}
+
+# Path to the PasteDeploy configuration file.
+# This file controls WSGI pipeline and app mounting.
+api_paste_config = {{ api_paste_config | default('/etc/manila/api-paste.ini') }}
+
+# Authentication strategy (e.g., 'keystone' or 'noauth').
+auth_strategy = {{ auth_strategy | default('keystone') }}
+
+# If true, parse X-Forwarded-* headers to determine client IP and protocol.
+# Useful when the API is behind a reverse proxy.
+enable_proxy_headers_parsing = {{ enable_proxy_headers_parsing | default(True) | lower }}
+
+# Maximum number of incoming requests per project per minute allowed (0 = unlimited).
+rate_limit_incoming_requests = {{ rate_limit_incoming_requests | default(1000) }}
+
+# Maximum number of share instances allowed per tenant.
+max_shares_per_tenant = {{ max_shares_per_tenant | default(10) }}
+
+# Maximum number of snapshots allowed per share.
+max_snapshots_per_share = {{ max_snapshots_per_share | default(10) }}
+
+# List of share driver configurations.
+# Each item in this list generates a dedicated section for a specific backend driver.
+{% for driver in share_driver_list | default([]) %}
+# Share driver configuration: {{ driver.name | default('unnamed_driver') }}
+[{{ driver.section | default('DEFAULT') }}]
+share_driver = {{ driver.share_driver | default('') }}
+
+# Extra key-value options for the share driver.
+{% if driver.extra_opts is defined and driver.extra_opts %}
+{% for key, val in driver.extra_opts | dict2items %}
+{{ key.key }} = {{ val.value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+[database]
+# Database connection string (SQLAlchemy URI format).
+# Typically points to MariaDB/MySQL for Manila.
+connection = {{ database_connection | default('mysql+pymysql://manila:manila@localhost/manila') }}
+
+[oslo_messaging_notifications]
+# Driver for notifications (e.g., 'messaging', 'messagingv2').
+# Used to send notifications to the message queue.
+driver = {{ notifications_driver | default('messagingv2') }}
+
+[keystone_authtoken]
+# Keystone authentication endpoint URL.
+auth_url = {{ keystone_authtoken_auth_url | default('http://localhost:5000') }}
+
+# Keystone project domain name.
+project_domain_name = {{ keystone_authtoken_project_domain_name | default('Default') }}
+
+# Keystone user domain name.
+user_domain_name = {{ keystone_authtoken_user_domain_name | default('Default') }}
+
+# Service project name in Keystone.
+project_name = {{ keystone_authtoken_project_name | default('service') }}
+
+# Service user name in Keystone.
+username = {{ keystone_authtoken_username | default('manila') }}
+
+# Service user password in Keystone (secret).
+password = {{ keystone_authtoken_password | default('manila') }}
+
+[oslo_concurrency]
+# Directory used for filesystem-based locking.
+# Prevents race conditions between concurrent API processes.
+lock_path = {{ lock_path | default('/var/lib/manila/tmp') }}
+
+[oslo_policy]
+# Path to the policy definition file (YAML format).
+policy_file = {{ policy_file | default('/etc/manila/policy.yaml') }}
+
+# List of service endpoint configuration sections.
+# Rarely used in modern OpenStack deployments as endpoints are usually registered
+# in the Identity service catalog directly.
+{% for endpoint in endpoint_list | default([]) %}
+# Service endpoint registration: {{ endpoint.service_type | default('unknown') }}
+[{{ endpoint.section | default('DEFAULT') }}]
+endpoint_template = {{ endpoint.endpoint_template | default('') }}
+{% endfor %}

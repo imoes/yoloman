@@ -1,0 +1,80 @@
+name: one_host
+fqcn: community.general.one_host
+collection: community.general
+short_description: Manages OpenNebula Hosts
+description: Manages OpenNebula Hosts
+options:
+  api_password:
+    type: str
+    aliases:
+    - api_token
+    description: The password or token for XMLRPC authentication. If not specified then the value of the
+      E(ONE_PASSWORD) environment variable, if any, is used.
+  api_url:
+    type: str
+    aliases:
+    - api_endpoint
+    description: The ENDPOINT URL of the XMLRPC server. If not specified then the value of the E(ONE_URL)
+      environment variable, if any, is used.
+  api_username:
+    type: str
+    description: The name of the user for XMLRPC authentication. If not specified then the value of the
+      E(ONE_USERNAME) environment variable, if any, is used.
+  cluster_id:
+    type: int
+    default: 0
+    description: The cluster ID.
+  cluster_name:
+    type: str
+    description: The cluster specified by name.
+  im_mad_name:
+    type: str
+    default: kvm
+    description: The name of the information manager, this values are taken from the oned.conf with the
+      tag name IM_MAD (name)
+  labels:
+    type: list
+    description: The labels for this host.
+  name:
+    type: str
+    required: true
+    description: Hostname of the machine to manage.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    - enabled
+    - disabled
+    - offline
+    description: Takes the host to the desired lifecycle state. If V(absent) the host will be deleted
+      from the cluster. If V(present) the host will be created in the cluster (includes V(enabled), V(disabled)
+      and V(offline) states). If V(enabled) the host is fully operational. V(disabled), e.g. to perform
+      maintenance operations. V(offline), host is totally offline.
+  template:
+    type: dict
+    aliases:
+    - attributes
+    description: The template or attribute changes to merge into the host template.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether to validate the TLS/SSL certificates or not. This parameter is ignored if E(PYTHONHTTPSVERIFY)
+      environment variable is used.
+  vmm_mad_name:
+    type: str
+    default: kvm
+    description: The name of the virtual machine manager mad name, this values are taken from the oned.conf
+      with the tag name VM_MAD (name)
+  wait_timeout:
+    type: int
+    default: 300
+    description: Time to wait for the desired state to be reached before timeout, in seconds.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a new host in OpenNebula\n  community.general.one_host:\n    name: host1\n\
+  \    cluster_id: 1\n    api_url: http://127.0.0.1:2633/RPC2\n\n- name: Create a host and adjust its\
+  \ template\n  community.general.one_host:\n    name: host2\n    cluster_name: default\n    template:\n\
+  \        LABELS:\n            - gold\n            - ssd\n        RESERVED_CPU: -100\n"

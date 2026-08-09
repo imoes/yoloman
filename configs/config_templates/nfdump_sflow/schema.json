@@ -1,0 +1,86 @@
+{
+  "listen_port": {
+    "type": "number",
+    "default": 6343,
+    "description": "UDP port on which the sFlow collector listens for incoming packets."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind the collector to. Leave empty to listen on all interfaces."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for IPv6 sFlow/NetFlow packets."
+  },
+  "input_format": {
+    "type": "string",
+    "default": "sflow",
+    "description": "Protocol format to parse: 'sflow', 'netflow', 'ipfix', or 'auto' (detect automatically)."
+  },
+  "output_dir": {
+    "type": "string",
+    "default": "/var/spool/nfcapd",
+    "description": "Directory where flow files (e.g., nfcapd.YYYYMMDDHHmm) will be written. Must exist and be writable by the daemon user."
+  },
+  "rotate_interval": {
+    "type": "number",
+    "default": 900,
+    "description": "Time interval (in seconds) after which flow files are rotated."
+  },
+  "retention_period": {
+    "type": "number",
+    "default": 604800,
+    "description": "Number of seconds to retain flow files. Set to 0 to keep indefinitely."
+  },
+  "daemon_user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user account under which the collector daemon runs (for security)."
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System group for the daemon user (optional \u2014 leave empty to omit)."
+  },
+  "verbose_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging to syslog for troubleshooting."
+  },
+  "max_file_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum size (in bytes) per flow file before rotation. Overrides rotate_interval if set >0."
+  },
+  "compress_flows": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress rotated flow files with gzip to save disk space."
+  },
+  "stream_target": {
+    "type": "string",
+    "default": "",
+    "description": "Target host:port to forward live flows (e.g., '192.168.1.10:9995'). Leave empty to disable streaming."
+  },
+  "extended_nf9": {
+    "type": "bool",
+    "default": true,
+    "description": "Parse extended NetFlow v9 and IPFIX options (e.g., BGP next-hop, MPLS) \u2014 recommended for modern networks."
+  },
+  "allow_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of source IP subnets (CIDR notation) allowed to send sFlow/NetFlow data. Empty = accept from any source.",
+    "items": {
+      "type": "string",
+      "description": "IPv4/IPv6 CIDR subnet allowed as sender (e.g., '10.0.0.0/8')"
+    }
+  },
+  "no_flow_aggregation": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable flow aggregation (one file per flow record instead of time-binned); mainly for debugging."
+  }
+}

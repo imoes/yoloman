@@ -1,0 +1,114 @@
+# ==============================================================================
+# Osmocom GTP Hub Proxy configuration file
+# ==============================================================================
+# This template generates the main configuration file for osmo_gtphub,
+# a GTP proxy/hub used in 3GPP core networks (2G/3G/4G). It listens for
+# GTP-C (control/signaling) and GTP-U (user data/plane) traffic and
+# forwards it to configured upstream or downstream peers (GGSNs, SGSNs, or MMEs).
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Section: Global GTP-C (Control Plane) Listening Parameters
+# --------------------------------------------------------------------------
+
+# IP address for listening to GTP-C (signaling) traffic from SGSNs/MMEs.
+# Default '0.0.0.0' binds to all available interfaces.
+# Schema: gtpc_listen_ip (string, default: '0.0.0.0')
+gtphub gtpc-listen-ip {{ gtpc_listen_ip | default('0.0.0.0') }}
+
+# UDP port for GTP-C signaling. Standard 3GPP port is 2123.
+# Schema: gtpc_listen_port (integer, default: 2123)
+gtphub gtpc-listen-port {{ gtpc_listen_port | default(2123) }}
+
+# --------------------------------------------------------------------------
+# Section: Global GTP-U (User Plane) Listening Parameters
+# --------------------------------------------------------------------------
+
+# IP address for listening to GTP-U (user-plane) traffic from SGSNs/MMEs.
+# Default '0.0.0.0' binds to all available interfaces.
+# Schema: gtpu_listen_ip (string, default: '0.0.0.0')
+gtphub gtpu-listen-ip {{ gtpu_listen_ip | default('0.0.0.0') }}
+
+# UDP port for GTP-U user-plane traffic. Standard 3GPP port is 2152.
+# Schema: gtpu_listen_port (integer, default: 2152)
+gtphub gtpu-listen-port {{ gtpu_listen_port | default(2152) }}
+
+# --------------------------------------------------------------------------
+# Section: Peer Definitions
+# --------------------------------------------------------------------------
+# Defines upstream (e.g., GGSN) or downstream (e.g., SGSN/MME) peers.
+# Each peer entry maps to an item in the 'peers' list.
+# Schema: peers (list of dicts)
+{% for peer in peers | default([], true) %}
+
+# Peer: {{ peer.name | default('unnamed-peer') }}
+# Description: {{ peer.description | default('No description provided') }}
+# --------------------------------------------------------------------------
+# Peer Identity
+# The logical name used to reference this peer in routing/TEID rules.
+gtphub peer {{ peer.name | default('unnamed-peer') }} ip {{ peer.ip | default('0.0.0.0') }}
+
+# Peer GTP-C Port
+# Port on this peer where it expects GTP-C signaling. Standard is 2123.
+# Schema: peer.gtpc_port (int, default: 2123)
+gtphub peer {{ peer.name | default('unnamed-peer') }} gtpc-port {{ peer.gtpc_port | default(2123) }}
+
+# Peer GTP-U Port
+# Port on this peer where it expects GTP-U user data. Standard is 2152.
+# Schema: peer.gtpu_port (int, default: 2152)
+gtphub peer {{ peer.name | default('unnamed-peer') }} gtpu-port {{ peer.gtpu_port | default(2152) }}
+
+# Peer Type (Optional)
+# Specifies the role of the peer (e.g., 'sgsn', 'ggsn', 'mme').
+# If omitted, the proxy may use heuristics or default behavior.
+{% if peer.type is defined and peer.type %}
+gtphub peer {{ peer.name | default('unnamed-peer') }} type {{ peer.type }}
+{% endif %}
+
+# TEID Range Start (Optional)
+# Starting Traffic Endpoint ID for this peer's user plane sessions.
+{% if peer.teid_range_start is defined and peer.teid_range_start %}
+gtphub peer {{ peer.name | default('unnamed-peer') }} teid-start {{ peer.teid_range_start }}
+{% endif %}
+
+# TEID Range End (Optional)
+# Ending Traffic Endpoint ID for this peer's user plane sessions.
+{% if peer.teid_range_end is defined and peer.teid_range_end %}
+gtphub peer {{ peer.name | default('unnamed-peer') }} teid-end {{ peer.teid_range_end }}
+{% endif %}
+
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Section: Logging Configuration
+# --------------------------------------------------------------------------
+
+# Global log verbosity level.
+# Allowed values: 'debug', 'info', 'notice', 'warning', 'error'.
+# Schema: log_level (string, default: 'debug')
+gtphub log-level {{ log_level | default('debug') }}
+
+# Enable ANSI color codes in console logs for better readability.
+# Schema: log_color (boolean, default: true)
+gtphub log-color {{ log_color | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# Section: Statistics and Metrics
+# --------------------------------------------------------------------------
+
+# Interval (in seconds) between logging of statistics summary (packet counts, byte counts, etc.).
+# Set to 0 to disable periodic stats logging.
+# Schema: stats_interval (integer, default: 60)
+gtphub stats-interval {{ stats_interval | default(60) }}
+
+# --------------------------------------------------------------------------
+# Section: Routing Identity (Optional)
+# --------------------------------------------------------------------------
+
+# Authentication/routing realm identifier (e.g., 'mnc001.mcc001.3gppnetwork.org').
+# Used for routing decisions in multi-operator or multi-homing deployments.
+# If not specified, the proxy relies on peer IP/TEID matching.
+# Schema: realm (string, nullable)
+{% if realm is defined and realm %}
+gtphub realm {{ realm }}
+{% endif %}

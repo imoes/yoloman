@@ -1,0 +1,91 @@
+name: netcup_dns
+fqcn: community.general.netcup_dns
+collection: community.general
+short_description: Manage Netcup DNS records
+description: Manages DNS records via the Netcup API, see the docs U(https://ccp.netcup.net/run/webservice/servers/endpoint.php).
+options:
+  api_key:
+    type: str
+    required: true
+    description: API key for authentication, must be obtained via the netcup CCP (U(https://ccp.netcup.net)).
+  api_password:
+    type: str
+    required: true
+    description: API password for authentication, must be obtained via the netcup CCP (U(https://ccp.netcup.net)).
+  customer_id:
+    type: int
+    required: true
+    description: Netcup customer id.
+  domain:
+    type: str
+    required: true
+    description: Domainname the records should be added / removed.
+  priority:
+    type: int
+    description: Record priority. Required for O(type=MX).
+  record:
+    type: str
+    default: '@'
+    aliases:
+    - name
+    description: Record to add or delete, supports wildcard (V(*)). Default is V(@) (that is, the zone
+      name).
+  solo:
+    type: bool
+    default: false
+    description: Whether the record should be the only one for that record type and record name. Only
+      use with O(state=present). This will delete all other records with the same record name and type.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the record should exist or not.
+  timeout:
+    type: int
+    default: 5
+    description: HTTP(S) connection timeout in seconds.
+  type:
+    type: str
+    required: true
+    choices:
+    - A
+    - AAAA
+    - MX
+    - CNAME
+    - CAA
+    - SRV
+    - TXT
+    - TLSA
+    - NS
+    - DS
+    - OPENPGPKEY
+    - SMIMEA
+    - SSHFP
+    description: Record type. Support for V(OPENPGPKEY), V(SMIMEA) and V(SSHFP) was added in community.general
+      8.1.0. Record types V(OPENPGPKEY) and V(SMIMEA) require nc-dnsapi >= 0.1.5. Record type V(SSHFP)
+      requires nc-dnsapi >= 0.1.6.
+  value:
+    type: str
+    required: true
+    description: Record value.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a record of type A\n  community.general.netcup_dns:\n    api_key: \"...\"\n\
+  \    api_password: \"...\"\n    customer_id: \"...\"\n    domain: \"example.com\"\n    name: \"mail\"\
+  \n    type: \"A\"\n    value: \"127.0.0.1\"\n\n- name: Delete that record\n  community.general.netcup_dns:\n\
+  \    api_key: \"...\"\n    api_password: \"...\"\n    customer_id: \"...\"\n    domain: \"example.com\"\
+  \n    name: \"mail\"\n    type: \"A\"\n    value: \"127.0.0.1\"\n    state: absent\n\n- name: Create\
+  \ a wildcard record\n  community.general.netcup_dns:\n    api_key: \"...\"\n    api_password: \"...\"\
+  \n    customer_id: \"...\"\n    domain: \"example.com\"\n    name: \"*\"\n    type: \"A\"\n    value:\
+  \ \"127.0.1.1\"\n\n- name: Set the MX record for example.com\n  community.general.netcup_dns:\n    api_key:\
+  \ \"...\"\n    api_password: \"...\"\n    customer_id: \"...\"\n    domain: \"example.com\"\n    type:\
+  \ \"MX\"\n    value: \"mail.example.com\"\n\n- name: Set a record and ensure that this is the only one\n\
+  \  community.general.netcup_dns:\n    api_key: \"...\"\n    api_password: \"...\"\n    customer_id:\
+  \ \"...\"\n    name: \"demo\"\n    domain: \"example.com\"\n    type: \"AAAA\"\n    value: \"::1\"\n\
+  \    solo: true\n\n- name: Increase the connection timeout to avoid problems with an unstable connection\n\
+  \  community.general.netcup_dns:\n    api_key: \"...\"\n    api_password: \"...\"\n    customer_id:\
+  \ \"...\"\n    domain: \"example.com\"\n    name: \"mail\"\n    type: \"A\"\n    value: \"127.0.0.1\"\
+  \n    timeout: 30\n\n"

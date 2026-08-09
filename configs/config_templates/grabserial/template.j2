@@ -1,0 +1,63 @@
+# Grabserial Configuration
+# Self-documenting template for grabserial serial logging utility.
+# This file configures the serial port parameters and logging behavior.
+
+[Device Settings]
+# Serial device path (e.g., /dev/ttyUSB0, /dev/ttyS0)
+device = {{ (device | default('/dev/ttyS0')) }}
+
+[Serial Port Parameters]
+# Baud rate for serial communication (bits per second)
+baudrate = {{ (baudrate | default(115200)) }}
+
+# Data bit width (typically 5, 6, 7, or 8)
+width = {{ (width | default(8)) }}
+
+# Parity setting: N=none, E=even, O=odd, M=mark, S=space
+parity = {{ (parity | default('N')) }}
+
+# Stop bits (1 or 2)
+stopbits = {{ (stopbits | default(1)) }}
+
+[Flow Control]
+# Enable software flow control (XON/XOFF)
+{% if (xonxoff | default(false)) %}xonxoff = true{% endif %}
+
+# Enable hardware flow control (RTS/CTS)
+{% if (rtscts | default(false)) %}rtscts = true{% endif %}
+
+# Force pyserial to reset device parameters on open
+{% if (force_reset | default(false)) %}force-reset = true{% endif %}
+
+[Timing and Output Control]
+# End program after specified seconds (float allowed). If omitted, runs until interrupted.
+{% if endtime is defined %}endtime = {{ endtime | default(None) }}{% endif %}
+
+# Command string to send to serial port before reading. Useful for waking devices.
+{% if command is defined %}command = {{ command | default('') }}{% endif %}
+
+# Print relative time for each line (relative to base time).
+{% if (time | default(false)) %}time = true{% endif %}
+
+# Print absolute system time for each line.
+{% if (systime | default(false)) %}systime = true{% endif %}
+
+# Set base time from program launch time (used if `time` is also enabled).
+{% if (launchtime | default(false)) %}launchtime = true{% endif %}
+
+# Regex pattern to define base time for relative timestamps.
+# If provided, lines matching this pattern set the epoch for relative timing.
+{% if match is defined %}match = {{ match | default('') }}{% endif %}
+
+# Regex pattern whose timestamp should be printed at end of run.
+# Useful for marking the end of a capture session.
+{% if instantpat is defined %}instantpat = {{ instantpat | default('') }}{% endif %}
+
+# Regex pattern that, when matched, causes program to exit immediately.
+{% if quitpat is defined %}quitpat = {{ quitpat | default('') }}{% endif %}
+
+# File path to which output will be written. If omitted, output goes to stdout.
+{% if output is defined %}output = {{ output | default('') }}{% endif %}
+
+# Enable verbose runtime messages to stderr.
+{% if (verbose | default(false)) %}verbose = true{% endif %}

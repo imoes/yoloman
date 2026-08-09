@@ -1,0 +1,124 @@
+{
+  "default_realm": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Default Kerberos realm and domain to use when no domain is explicitly specified in join commands."
+  },
+  "kerberos_server": {
+    "type": "string",
+    "default": "",
+    "description": "Preferred KDC or domain controller hostname (e.g., dc1.example.com). Optional; if omitted, DNS SRV records are used."
+  },
+  "use_fully_qualified_names": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, users and groups appear as 'user@realm' in the system; if false, just 'user' (short name)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "debug",
+    "description": "Verbosity of logging: 'debug', 'info', 'notice', 'warning', 'error', 'critical', or 'off'. Use 'debug' for troubleshooting."
+  },
+  "automatic_imap": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically configure IMAP email settings using domain discovery (e.g., from SRV records)."
+  },
+  "automatic_ldap": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically configure LDAP/S directory service settings via domain discovery."
+  },
+  "automatic_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, use DNS for domain controller discovery via SRV records; disable only in air-gapped networks."
+  },
+  "computer_ou": {
+    "type": "string",
+    "default": "",
+    "description": "Organizational Unit (DN) where computer accounts are created during enrollment (e.g., 'OU=Workstations,DC=example,DC=com')."
+  },
+  "os_name": {
+    "type": "string",
+    "default": "Linux",
+    "description": "Operating system name to report in the computer account (e.g., 'Ubuntu', 'RHEL', 'Fedora'.)"
+  },
+  "os_version": {
+    "type": "string",
+    "default": "unknown",
+    "description": "Operating system version to report (e.g., '38', '2023-05-01'). Often auto-detected."
+  },
+  "disable_dns_sites": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable site-aware DNS SRV queries (useful in non-AD or legacy DNS environments)."
+  },
+  "preferred_ad_site": {
+    "type": "string",
+    "default": "",
+    "description": "Preferred Active Directory site name for domain controller selection (e.g., 'US-East')."
+  },
+  "discover": {
+    "type": "list",
+    "default": [],
+    "description": "List of discovery mechanisms to enable: 'ldap', 'kerberos', 'srv'. Use empty list to disable automatic discovery.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "ldap",
+        "kerberos",
+        "srv"
+      ]
+    }
+  },
+  "kerberos_realm_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of Kerberos realm \u2194 DNS domain mappings for non-standard or non-AD Kerberos realms.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Section name (must be unique per mapping; typically the DNS domain in lowercase)."
+      },
+      "kerberos_realm": {
+        "type": "string",
+        "description": "Kerberos realm name (e.g., 'INTERNAL.EXAMPLE.COM')."
+      },
+      "dns_domain": {
+        "type": "string",
+        "description": "Associated DNS domain (e.g., 'internal.example.com')."
+      }
+    }
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-domain configuration overrides (e.g., for multi-domain forests or trusted domains).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Domain name or realm (e.g., 'child.example.com' or 'CHILD.EXAMPLE.COM')."
+      },
+      "server_software": {
+        "type": "string",
+        "description": "Indicates domain controller type: 'active-directory', 'freeipa', or 'custom'."
+      },
+      "member_of": {
+        "type": "string",
+        "default": "",
+        "description": "Parent domain for nested domain enrollments (e.g., 'EXAMPLE.COM')."
+      },
+      "kerberos_server": {
+        "type": "string",
+        "default": "",
+        "description": "Override KDC hostname specifically for this domain."
+      },
+      "preferred_ad_site": {
+        "type": "string",
+        "default": "",
+        "description": "Override AD site preference for this domain."
+      }
+    }
+  }
+}

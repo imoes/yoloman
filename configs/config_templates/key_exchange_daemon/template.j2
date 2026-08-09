@@ -1,0 +1,70 @@
+# Listen address and port for incoming connections
+bind_address: {{ bind_address }}
+bind_port: {{ bind_port }}
+
+# Path to the private key file (PEM format)
+private_key_path: {{ private_key_path }}
+
+# Path to the public certificate file (PEM format)
+certificate_path: {{ certificate_path }}
+
+# Maximum number of concurrent connections
+max_connections: {{ max_connections }}
+
+# Connection timeout in seconds
+connection_timeout: {{ connection_timeout }}
+
+# Enable mutual TLS (mTLS) authentication
+mtls_enabled: {{ mtls_enabled | lower }}
+
+# Log level: debug, info, warn, error
+log_level: {{ log_level }}
+
+# Log file path (use '-' for stdout)
+log_file: {{ log_file }}
+
+# Allowed cipher suites (ordered by preference)
+# If empty, defaults to secure modern ciphers
+{% if cipher_suites | length > 0 %}
+cipher_suites:
+{% for cipher in cipher_suites %}  - {{ cipher }}
+{% endfor %}
+{% else %}
+# (defaults used — leave empty in config)
+{% endif %}
+
+# Trusted CA certificates (additional to system trust store)
+{% if trusted_ca_certs | length > 0 %}
+trusted_ca_certs:
+{% for ca in trusted_ca_certs %}  - {{ ca }}
+{% endfor %}
+{% endif %}
+
+# Hostname whitelist for client certificates (CN must match one)
+{% if client_hostname_whitelist | length > 0 %}
+client_hostname_whitelist:
+{% for host in client_hostname_whitelist %}  - {{ host }}
+{% endfor %}
+{% else %}
+# (disabled — client cert CN not validated)
+{% endif %}
+
+# Pre-shared key (PSK) mode — only used if mtls_enabled = false
+{% if psk_enabled %}
+psk_enabled: true
+psk_identity: {{ psk_identity }}
+psk_secret_path: {{ psk_secret_path }}
+{% else %}
+psk_enabled: false
+{% endif %}
+
+# Session resumption: 0 = disabled, >0 = timeout in seconds
+session_timeout: {{ session_timeout }}
+
+# Rate limiting: max requests per minute per IP
+rate_limit_rpm: {{ rate_limit_rpm }}
+
+# Enable experimental features
+experimental:
+  key_rotation: {{ experimental_key_rotation | lower }}
+  pfs_only: {{ experimental_pfs_only | lower }}

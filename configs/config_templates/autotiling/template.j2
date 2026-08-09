@@ -1,0 +1,25 @@
+{# autotiling configuration #}
+{# debug: Enable debug output to stderr #}
+{% if debug | default(False) %}# debug mode
+-D{% endif %}
+{# outputs: List of output names to restrict autotiling to #}
+{% if outputs | default([]) | length > 0 %}# restrict to specific outputs
+-o{{ outputs | default([]) | join(' ') }}{% endif %}
+{# workspaces: List of workspace numbers or names to restrict autotiling to #}
+{% if workspaces | default([]) | length > 0 %}# restrict to specific workspaces
+-w{{ workspaces | default([]) | join(' ') }}{% endif %}
+{# limit: Maximum number of splits per container (0 = no limit) #}
+{% if limit | default(0) is defined %}# limit split count per container
+-l{{ limit | default(0) }}{% endif %}
+{# splitwidth: Width factor for vertical splits (e.g., 1.0 = default) #}
+{% if splitwidth | default(1.0) is defined %}# vertical split width factor
+-sw{{ splitwidth | default(1.0) }}{% endif %}
+{# splitheight: Height factor for horizontal splits (e.g., 1.0 = default) #}
+{% if splitheight | default(1.0) is defined %}# horizontal split height factor
+-sh{{ splitheight | default(1.0) }}{% endif %}
+{# splitratio: Split direction ratio: split horizontally if window width/height > ratio; e.g., 1.61 for golden ratio #}
+{% if splitratio | default(1.0) is defined %}# split direction ratio
+-sr{{ splitratio | default(1.0) }}{% endif %}
+{# events: List of events that trigger split orientation change #}
+{% if events | default(['WINDOW', 'MODE']) | length > 0 %}# trigger events
+-e{{ events | default(['WINDOW', 'MODE']) | join(' ') }}{% endif %}

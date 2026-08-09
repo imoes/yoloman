@@ -1,0 +1,342 @@
+{
+  "poll_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Interval in seconds between polling cycles. Shorter intervals give fresher data but increase load."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads used for SNMP polling. Increase on high-host-count systems."
+  },
+  "max_snmp_queries": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum concurrent SNMP queries per polling cycle. Avoid setting too high to prevent network overload."
+  },
+  "snmp_timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "SNMP request timeout in seconds per attempt."
+  },
+  "snmp_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries before giving up on an SNMP request."
+  },
+  "verbose_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging to syslog for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file for logging (empty to log only to syslog)."
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "type": "rrd",
+      "rrd_dir": "/var/lib/cricket/rrd",
+      "rrd_step": 300
+    },
+    "description": "Storage backend settings. Choose 'rrd' (default) for local storage or 'sql' for database-backed storage.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "rrd",
+        "enum": [
+          "rrd",
+          "sql"
+        ],
+        "description": "Backend type: 'rrd' (Round-Robin Database) or 'sql' (SQL database)."
+      },
+      "rrd_dir": {
+        "type": "string",
+        "default": "/var/lib/cricket/rrd",
+        "description": "Directory where RRD files are stored. Must be writable by Cricket.",
+        "only_if": {
+          "database.type": "rrd"
+        }
+      },
+      "rrd_step": {
+        "type": "number",
+        "default": 300,
+        "description": "RRD step (seconds). Should match poll_interval for best results.",
+        "only_if": {
+          "database.type": "rrd"
+        }
+      },
+      "dsn": {
+        "type": "string",
+        "default": "mysql://cricket:cricket@localhost/cricket",
+        "description": "SQL database connection string (e.g., 'postgres://user:pass@host/db').",
+        "only_if": {
+          "database.type": "sql"
+        }
+      },
+      "table_prefix": {
+        "type": "string",
+        "default": "cricket_",
+        "description": "Prefix for Cricket tables in the SQL database to avoid naming conflicts.",
+        "only_if": {
+          "database.type": "sql"
+        }
+      }
+    }
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of network devices (hosts) to monitor. Each host defines SNMP credentials and targets (e.g., interfaces).",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "IP address or FQDN of the target host."
+      },
+      "version": {
+        "type": "number",
+        "default": 2,
+        "enum": [
+          1,
+          2,
+          3
+        ],
+        "description": "SNMP version: 1, 2c (v2), or 3."
+      },
+      "community": {
+        "type": "string",
+        "default": "public",
+        "description": "SNMP community string for v1/v2c (e.g., 'public', 'private')."
+      },
+      "security_level": {
+        "type": "string",
+        "default": "noAuthNoPriv",
+        "enum": [
+          "noAuthNoPriv",
+          "authNoPriv",
+          "authPriv"
+        ],
+        "description": "SNMPv3 security level (ignored for v1/v2c).",
+        "only_if": {
+          "hosts[].version": 3
+        }
+      },
+      "auth_protocol": {
+        "type": "string",
+        "default": "MD5",
+        "enum": [
+          "MD5",
+          "SHA"
+        ],
+        "description": "Authentication protocol (SNMPv3).",
+        "only_if": {
+          "hosts[].security_level": [
+            "authNoPriv",
+            "authPriv"
+          ]
+        }
+      },
+      "auth_passphrase": {
+        "type": "string",
+        "default": "",
+        "description": "Authentication passphrase (SNMPv3).",
+        "only_if": {
+          "hosts[].security_level": [
+            "authNoPriv",
+            "authPriv"
+          ]
+        }
+      },
+      "priv_protocol": {
+        "type": "string",
+        "default": "DES",
+        "enum": [
+          "DES",
+          "AES"
+        ],
+        "description": "Privacy (encryption) protocol (SNMPv3).",
+        "only_if": {
+          "hosts[].security_level": "authPriv"
+        }
+      },
+      "priv_passphrase": {
+        "type": "string",
+        "default": "",
+        "description": "Privacy passphrase (SNMPv3).",
+        "only_if": {
+          "hosts[].security_level": "authPriv"
+        }
+      },
+      "context": {
+        "type": "string",
+        "default": "",
+        "description": "SNMP context name (optional, mostly for Cisco devices).",
+        "only_if": {
+          "hosts[].version": [
+            1,
+            2
+          ]
+        }
+      },
+      "targets": {
+        "type": "list",
+        "default": [],
+        "description": "List of targets (interfaces, services, or custom OIDs) to poll on this host.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "eth0",
+            "description": "Human-readable name for the target."
+          },
+          "type": {
+            "type": "string",
+            "default": "ifIndex",
+            "enum": [
+              "ifIndex",
+              "ifDescr",
+              "custom"
+            ],
+            "description": "Target type: interface index, interface description, or custom OID."
+          },
+          "ifIndex": {
+            "type": "number",
+            "default": 1,
+            "description": "Interface index (for type='ifIndex').",
+            "only_if": {
+              "hosts[].targets[].type": "ifIndex"
+            }
+          },
+          "ifDescr": {
+            "type": "string",
+            "default": "eth0",
+            "description": "Interface description (for type='ifDescr').",
+            "only_if": {
+              "hosts[].targets[].type": "ifDescr"
+            }
+          },
+          "oid": {
+            "type": "string",
+            "default": "1.3.6.1.2.1.2.2.1.10.1",
+            "description": "Custom OID to poll (for type='custom').",
+            "only_if": {
+              "hosts[].targets[].type": "custom"
+            }
+          },
+          "ds_type": {
+            "type": "string",
+            "default": "gauge",
+            "enum": [
+              "gauge",
+              "counter",
+              "derived"
+            ],
+            "description": "Data source type: gauge (instant value), counter (monotonically increasing), or derived."
+          },
+          "description": {
+            "type": "string",
+            "default": "Primary interface",
+            "description": "Description shown in reports and UI."
+          },
+          "thresholds": {
+            "type": "object",
+            "default": {
+              "warning": "",
+              "critical": ""
+            },
+            "items": {
+              "warning": {
+                "type": "number",
+                "default": "",
+                "description": "Warning threshold (e.g., bandwidth in kbps or percent of capacity). Leave blank to use global default."
+              },
+              "critical": {
+                "type": "number",
+                "default": "",
+                "description": "Critical threshold (same units as warning). Leave blank to use global default."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "thresholds": {
+    "type": "object",
+    "default": {
+      "warning_percent": 70,
+      "critical_percent": 90,
+      "window": 3600
+    },
+    "description": "Global threshold defaults for targets without explicit thresholds.",
+    "items": {
+      "warning_percent": {
+        "type": "number",
+        "default": 70,
+        "description": "Warning utilization threshold as a percentage (e.g., for bandwidth)."
+      },
+      "critical_percent": {
+        "type": "number",
+        "default": 90,
+        "description": "Critical utilization threshold as a percentage."
+      },
+      "window": {
+        "type": "number",
+        "default": 3600,
+        "description": "Time window (seconds) over which thresholds are evaluated (e.g., average over 1 hour)."
+      }
+    }
+  },
+  "web": {
+    "type": "object",
+    "default": {
+      "bind_address": "0.0.0.0",
+      "port": 8080,
+      "base_url": "/",
+      "tls_enabled": false,
+      "tls_key_file": "/etc/cricket/tls/key.pem",
+      "tls_cert_file": "/etc/cricket/tls/cert.pem"
+    },
+    "description": "Web server settings for Cricket's HTML/JSON API.",
+    "items": {
+      "bind_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface to bind the web server to (e.g., '127.0.0.1' for localhost-only)."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "HTTP(S) port for the web interface."
+      },
+      "base_url": {
+        "type": "string",
+        "default": "/",
+        "description": "Base URL path (e.g., '/cricket' if served behind a proxy at /cricket)."
+      },
+      "tls_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTPS. Requires valid TLS key/cert files."
+      },
+      "tls_key_file": {
+        "type": "string",
+        "default": "/etc/cricket/tls/key.pem",
+        "description": "Path to private key file for HTTPS (ignored if TLS disabled).",
+        "only_if": {
+          "web.tls_enabled": true
+        }
+      },
+      "tls_cert_file": {
+        "type": "string",
+        "default": "/etc/cricket/tls/cert.pem",
+        "description": "Path to certificate file for HTTPS (ignored if TLS disabled).",
+        "only_if": {
+          "web.tls_enabled": true
+        }
+      }
+    }
+  }
+}

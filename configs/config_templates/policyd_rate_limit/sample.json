@@ -1,0 +1,45 @@
+{
+  "max_messages": 100,
+  "window": 3600,
+  "debug": false,
+  "log_level": "notice",
+  "pid_file": "/run/policyd-rate-limit/policyd-rate-limit.pid",
+  "listen_address": "127.0.0.1",
+  "listen_port": 12525,
+  "storage_backend": "sqlite",
+  "sqlite_database": "/var/lib/policyd-rate-limit/ratelimit.db",
+  "redis_url": "redis://127.0.0.1:6379/0",
+  "scope": "user",
+  "ignore_clients": [
+    "127.0.0.0/8",
+    "::1",
+    "10.0.0.0/8"
+  ],
+  "ignore_users": [
+    "^postmaster$",
+    "^ abuse$",
+    "^noreply"
+  ],
+  "ignore_domains": [
+    "^localhost$",
+    "^internal\\.example\\.com$"
+  ],
+  "custom_limits": [
+    {
+      "sender_pattern": "noreply@example.com",
+      "rate_limit": 500
+    },
+    {
+      "sender_pattern": "bounces@example.com",
+      "rate_limit": 2000
+    }
+  ],
+  "action_on_limit": "reject",
+  "reject_message": "554 5.7.1 User exceeded rate limit of %n messages per %w seconds",
+  "burst_enabled": true,
+  "burst_limit": 150,
+  "session_reset_timeout": 300,
+  "max_sessions": 10000,
+  "reset_interval": 3600,
+  "redis_sync_interval": 60
+}

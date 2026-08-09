@@ -1,0 +1,86 @@
+name: java_cert
+fqcn: community.general.java_cert
+collection: community.general
+short_description: Uses keytool to import/remove certificate to/from java keystore (cacerts)
+description: This is a wrapper module around keytool, which can be used to import certificates and optionally
+  private keys to a given java keystore, or remove them from it.
+options:
+  cert_alias:
+    type: str
+    description: Imported certificate alias. The alias is used when checking for the presence of a certificate
+      in the keystore.
+  cert_path:
+    type: path
+    description: Local path to load certificate from. Exactly one of O(cert_url), O(cert_path), or O(pkcs12_path)
+      is required to load certificate.
+  cert_port:
+    type: int
+    default: 443
+    description: Port to connect to URL. This will be used to create server URL:PORT.
+  cert_url:
+    type: str
+    description: Basic URL to fetch SSL certificate from. Exactly one of O(cert_url), O(cert_path), or
+      O(pkcs12_path) is required to load certificate.
+  executable:
+    type: str
+    default: keytool
+    description: Path to keytool binary if not used we search in PATH for it.
+  keystore_create:
+    type: bool
+    default: false
+    description: Create keystore if it does not exist.
+  keystore_pass:
+    type: str
+    required: true
+    description: Keystore password.
+  keystore_path:
+    type: path
+    description: Path to keystore.
+  keystore_type:
+    type: str
+    description: Keystore type (JCEKS, JKS).
+  pkcs12_alias:
+    type: str
+    description: Alias in the PKCS12 keystore.
+  pkcs12_password:
+    type: str
+    description: Password for importing from PKCS12 keystore.
+  pkcs12_path:
+    type: path
+    description: Local path to load PKCS12 keystore from. Unlike O(cert_url) and O(cert_path), the PKCS12
+      keystore embeds the private key matching the certificate, and is used to import both the certificate
+      and its private key into the java keystore. Exactly one of O(cert_url), O(cert_path), or O(pkcs12_path)
+      is required to load certificate.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Defines action which can be either certificate import or removal. When state is present,
+      the certificate will always idempotently be inserted into the keystore, even if there already exists
+      a cert alias that is different.
+  trust_cacert:
+    type: bool
+    default: false
+    description: Trust imported cert as CAcert.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Import SSL certificate from google.com to a given cacerts keystore\n  community.general.java_cert:\n\
+  \    cert_url: google.com\n    cert_port: 443\n    keystore_path: /usr/lib/jvm/jre7/lib/security/cacerts\n\
+  \    keystore_pass: changeit\n    state: present\n\n- name: Remove certificate with given alias from\
+  \ a keystore\n  community.general.java_cert:\n    cert_url: google.com\n    keystore_path: /usr/lib/jvm/jre7/lib/security/cacerts\n\
+  \    keystore_pass: changeit\n    executable: /usr/lib/jvm/jre7/bin/keytool\n    state: absent\n\n-\
+  \ name: Import trusted CA from SSL certificate\n  community.general.java_cert:\n    cert_path: /opt/certs/rootca.crt\n\
+  \    keystore_path: /tmp/cacerts\n    keystore_pass: changeit\n    keystore_create: true\n    state:\
+  \ present\n    cert_alias: LE_RootCA\n    trust_cacert: true\n\n- name: Import SSL certificate from\
+  \ google.com to a keystore, create it if it doesn't exist\n  community.general.java_cert:\n    cert_url:\
+  \ google.com\n    keystore_path: /tmp/cacerts\n    keystore_pass: changeit\n    keystore_create: true\n\
+  \    state: present\n\n- name: Import a pkcs12 keystore with a specified alias, create it if it doesn't\
+  \ exist\n  community.general.java_cert:\n    pkcs12_path: \"/tmp/importkeystore.p12\"\n    cert_alias:\
+  \ default\n    keystore_path: /opt/wildfly/standalone/configuration/defaultkeystore.jks\n    keystore_pass:\
+  \ changeit\n    keystore_create: true\n    state: present\n\n- name: Import SSL certificate to JCEKS\
+  \ keystore\n  community.general.java_cert:\n    pkcs12_path: \"/tmp/importkeystore.p12\"\n    pkcs12_alias:\
+  \ default\n    pkcs12_password: somepass\n    cert_alias: default\n    keystore_path: /opt/someapp/security/keystore.jceks\n\
+  \    keystore_type: \"JCEKS\"\n    keystore_pass: changeit\n    keystore_create: true\n    state: present\n"

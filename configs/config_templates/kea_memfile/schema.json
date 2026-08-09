@@ -1,0 +1,97 @@
+{
+  "lease_database_lfc_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Lease File Cleanup (LFC) interval in seconds; how often KEA compacts and rewrites the lease file."
+  },
+  "lease_database_persist": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to persist lease data to disk (file) even though it's in-memory storage. Must be true to enable file-based backup."
+  },
+  "lease_database_name": {
+    "type": "string",
+    "default": "/var/lib/kea/kea-leases4.csv",
+    "description": "Path to the CSV file used for lease persistence when persist=true."
+  },
+  "hooks_libraries": {
+    "type": "list",
+    "default": [],
+    "description": "List of hook libraries to load (e.g., for statistics, logging, or custom logic). Each element defines a library to load and optional parameters.",
+    "items": {
+      "library": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the shared library (e.g., /usr/lib/kea/hooks/liblog.so)."
+      },
+      "parameters": {
+        "type": "object",
+        "default": {},
+        "description": "JSON object with library-specific configuration parameters."
+      }
+    }
+  },
+  "reconnect_wait_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to wait before reconnecting to the lease database after a disconnect (0 = no delay; only relevant for non-memfile DBs; kept for structure)."
+  },
+  "db_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (seconds) between periodic writes of lease data to the file (only effective when persist=true)."
+  },
+  "auth": {
+    "type": "object",
+    "default": {},
+    "description": "Authentication configuration for database access (not used by memfile, but accepted for config compatibility). Leave empty unless overriding."
+  },
+  "loggers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "kea-dhcp4",
+        "severity": "INFO",
+        "debuglevel": 0
+      }
+    ],
+    "description": "Configure logging for KEA components. Each object defines a logger name, severity, and output options.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "kea-dhcp4",
+        "description": "Logger name (e.g., 'kea-dhcp4', 'kea-dhcp4.dhcpsrv')."
+      },
+      "output": {
+        "type": "string",
+        "default": "stdout",
+        "description": "Output destination: 'stdout', 'stderr', or a file path (e.g., '/var/log/kea/kea.log')."
+      },
+      "max_size": {
+        "type": "number",
+        "default": 10485760,
+        "description": "Maximum size (bytes) before log rotation (only applies to file outputs)."
+      },
+      "max_versions": {
+        "type": "number",
+        "default": 5,
+        "description": "Number of rotated log files to retain."
+      },
+      "flush": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to flush output immediately after each log entry (slower but safer)."
+      },
+      "severity": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Logging level: DEBUG, INFO, WARN, ERROR, FATAL."
+      },
+      "debuglevel": {
+        "type": "number",
+        "default": 0,
+        "description": "Debug verbosity level (0\u201399); higher = more verbose; only effective if compiled with debug support."
+      }
+    }
+  }
+}

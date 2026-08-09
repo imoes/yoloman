@@ -1,0 +1,132 @@
+name: docker_stack
+fqcn: community.docker.docker_stack
+collection: community.docker
+short_description: docker stack module
+description: Manage docker stacks using the C(docker stack) command on the target node (see examples).
+options:
+  absent_retries:
+    type: int
+    default: 0
+    description: If larger than V(0) and O(state=absent) the module will retry up to O(absent_retries)
+      times to delete the stack until all the resources have been effectively deleted. If the last try
+      still reports the stack as not completely removed the module will fail.
+  absent_retries_interval:
+    type: int
+    default: 1
+    description: Interval in seconds between consecutive O(absent_retries).
+  api_version:
+    type: str
+    default: auto
+    aliases:
+    - docker_api_version
+    description: The version of the Docker API running on the Docker Host. Defaults to the latest version
+      of the API supported by this collection and the docker daemon. If the value is not specified in
+      the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the environment
+      variable is not set, the default value will be used.
+  ca_path:
+    type: path
+    aliases:
+    - ca_cert
+    - tls_ca_cert
+    - cacert_path
+    description: Use a CA certificate when performing server verification by providing the path to a CA
+      certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH)
+      is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH)
+      will be used.
+  cli_context:
+    type: str
+    description: The Docker CLI context to use.
+  client_cert:
+    type: path
+    aliases:
+    - tls_client_cert
+    - cert_path
+    description: Path to the client's TLS certificate file. If the value is not specified in the task
+      and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory
+      specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+  client_key:
+    type: path
+    aliases:
+    - tls_client_key
+    - key_path
+    description: Path to the client's TLS key file. If the value is not specified in the task and the
+      environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified
+      in the environment variable E(DOCKER_CERT_PATH) will be used.
+  compose:
+    type: list
+    default: []
+    description: List of compose definitions. Any element may be a string referring to the path of the
+      compose file on the target host or the YAML contents of a compose file nested as dictionary.
+  docker_cli:
+    type: path
+    description: Path to the Docker CLI. If not provided, will search for Docker CLI on the E(PATH).
+  docker_host:
+    type: str
+    default: unix:///var/run/docker.sock
+    aliases:
+    - docker_url
+    description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote
+      host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to
+      encrypt the connection, the module will automatically replace C(tcp) in the connection URL with
+      C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  name:
+    type: str
+    required: true
+    description: Stack name
+  prune:
+    type: bool
+    default: false
+    description: If true will add the C(--prune) option to the C(docker stack deploy) command. This will
+      have docker remove the services not present in the current stack definition.
+  resolve_image:
+    type: str
+    choices:
+    - always
+    - changed
+    - never
+    description: If set will add the C(--resolve-image) option to the C(docker stack deploy) command.
+      This will have docker query the registry to resolve image digest and supported platforms. If not
+      set, docker use "always" by default.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Service state.
+  tls:
+    type: bool
+    default: false
+    description: Secure the connection to the API by using TLS without verifying the authenticity of the
+      Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence.
+      If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will
+      be used instead. If the environment variable is not set, the default value will be used.
+  tls_hostname:
+    type: str
+    description: When verifying the authenticity of the Docker Host server, provide the expected name
+      of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  validate_certs:
+    type: bool
+    default: false
+    aliases:
+    - tls_verify
+    description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker
+      host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  with_registry_auth:
+    type: bool
+    default: false
+    description: If true will add the C(--with-registry-auth) option to the C(docker stack deploy) command.
+      This will have docker send registry authentication details to Swarm agents.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Deploy stack from a compose file\n    community.docker.docker_stack:\n      state:\
+  \ present\n      name: mystack\n      compose:\n        - /opt/docker-compose.yml\n\n  - name: Deploy\
+  \ stack from base compose file and override the web service\n    community.docker.docker_stack:\n  \
+  \    state: present\n      name: mystack\n      compose:\n        - /opt/docker-compose.yml\n      \
+  \  - version: '3'\n          services:\n            web:\n              image: nginx:latest\n      \
+  \        environment:\n                ENVVAR: envvar\n\n  - name: Remove stack\n    community.docker.docker_stack:\n\
+  \      name: mystack\n      state: absent\n"

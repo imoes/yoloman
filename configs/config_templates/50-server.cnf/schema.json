@@ -1,0 +1,269 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind to. Use '0.0.0.0' to listen on all interfaces (not recommended for production without firewalling)."
+  },
+  "port": {
+    "type": "number",
+    "default": 3306,
+    "description": "TCP port for MySQL connections."
+  },
+  "basedir": {
+    "type": "string",
+    "default": "/usr",
+    "description": "Base directory where the MariaDB binaries are installed."
+  },
+  "datadir": {
+    "type": "string",
+    "default": "/var/lib/mysql",
+    "description": "Data directory where database files are stored."
+  },
+  "tmpdir": {
+    "type": "string",
+    "default": "/tmp",
+    "description": "Directory for temporary files (e.g., sorting, temp tables). Ensure it has sufficient space and proper permissions."
+  },
+  "lc_messages_dir": {
+    "type": "string",
+    "default": "/usr/share/mysql",
+    "description": "Directory containing error message files for localization."
+  },
+  "character_set_server": {
+    "type": "string",
+    "default": "utf8mb4",
+    "description": "Default server character set. Use utf8mb4 for full Unicode support (including emoji)."
+  },
+  "collation_server": {
+    "type": "string",
+    "default": "utf8mb4_general_ci",
+    "description": "Default server collation. Match your language and sorting needs."
+  },
+  "innodb_buffer_pool_size": {
+    "type": "string",
+    "default": "1G",
+    "description": "Size of InnoDB buffer pool (memory for caching data and indexes). Recommended: ~70-80% of total RAM on dedicated DB server."
+  },
+  "innodb_log_file_size": {
+    "type": "string",
+    "default": "256M",
+    "description": "Size of each InnoDB log file in the log group. Larger sizes improve performance but increase crash recovery time."
+  },
+  "innodb_flush_log_at_trx_commit": {
+    "type": "number",
+    "default": 1,
+    "description": "Controls durability/speed tradeoff: 1 = safest (ACID), 2 = faster (OS flush), 0 = fastest (less safe). Use 1 for production."
+  },
+  "innodb_file_per_table": {
+    "type": "bool",
+    "default": true,
+    "description": "Store each InnoDB table in its own .ibd file. Recommended for manageability and disk reclamation."
+  },
+  "query_cache_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Query cache size in bytes. 0 disables it (recommended for MariaDB \u226510.1 and modern workloads)."
+  },
+  "query_cache_type": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether query cache is ON (true) or OFF (false). Ignored if query_cache_size = 0."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 151,
+    "description": "Maximum number of simultaneous client connections. Increase if you see 'Too many connections' errors."
+  },
+  "max_allowed_packet": {
+    "type": "string",
+    "default": "64M",
+    "description": "Maximum size of a single packet or row. Increase for large INSERTs or BLOBs."
+  },
+  "thread_cache_size": {
+    "type": "number",
+    "default": 21,
+    "description": "Number of threads to keep in cache for reuse. Tune to reduce thread creation overhead."
+  },
+  "general_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable general query logging (logs all statements). Use only for debugging \u2014 impacts performance and disk I/O."
+  },
+  "general_log_file": {
+    "type": "string",
+    "default": "/var/log/mysql/query.log",
+    "description": "Path to the general log file. Ensure directory exists and is writable by mysql user."
+  },
+  "slow_query_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable slow query logging (queries exceeding long_query_time). Critical for performance tuning."
+  },
+  "slow_query_log_file": {
+    "type": "string",
+    "default": "/var/log/mysql/slow-query.log",
+    "description": "Path to the slow query log file."
+  },
+  "long_query_time": {
+    "type": "number",
+    "default": 2.0,
+    "description": "Threshold in seconds for a query to be logged as 'slow'. Lower for stricter logging."
+  },
+  "server_id": {
+    "type": "number",
+    "default": 1,
+    "description": "Unique server ID for replication. Must be > 0 to enable binary logging. Set to 0 to disable replication features."
+  },
+  "log_bin": {
+    "type": "string",
+    "default": "/var/log/mysql/binlog",
+    "description": "Base name/path for binary log files. Required for replication and point-in-time recovery."
+  },
+  "log_bin_index": {
+    "type": "string",
+    "default": "/var/log/mysql/binlog.index",
+    "description": "Index file for binary logs."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS for encrypted connections. Requires valid certificate/key files."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/server-cert.pem",
+    "description": "Path to SSL certificate file."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/server-key.pem",
+    "description": "Path to SSL private key file."
+  },
+  "key_buffer_size": {
+    "type": "string",
+    "default": "16M",
+    "description": "Memory buffer for MyISAM index blocks. Relevant only if you use MyISAM tables."
+  },
+  "read_buffer_size": {
+    "type": "string",
+    "default": "8M",
+    "description": "Buffer size for sequential table scans."
+  },
+  "read_rnd_buffer_size": {
+    "type": "string",
+    "default": "2M",
+    "description": "Buffer size for random reads after sorting (e.g., ORDER BY with LIMIT)."
+  },
+  "sort_buffer_size": {
+    "type": "string",
+    "default": "2M",
+    "description": "Memory per connection used for ORDER BY and GROUP BY operations."
+  },
+  "join_buffer_size": {
+    "type": "string",
+    "default": "2M",
+    "description": "Buffer size for full join operations (without indexes)."
+  },
+  "thread_stack": {
+    "type": "string",
+    "default": "256K",
+    "description": "Stack size for each thread. Increase for deep recursion or large stored procedures."
+  },
+  "timeout_connect": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for connection handshake before aborting."
+  },
+  "timeout_interactive": {
+    "type": "number",
+    "default": 28800,
+    "description": "Seconds of inactivity before closing an interactive connection."
+  },
+  "timeout_slave": {
+    "type": "number",
+    "default": 3600,
+    "description": "Seconds of inactivity before closing a replication slave connection."
+  },
+  "wait_timeout": {
+    "type": "number",
+    "default": 28800,
+    "description": "Seconds of inactivity before closing a non-interactive connection."
+  },
+  "interactive_timeout": {
+    "type": "number",
+    "default": 28800,
+    "description": "Seconds of inactivity before closing an interactive connection (same as timeout_interactive)."
+  },
+  "replicas": {
+    "type": "list",
+    "default": [],
+    "description": "List of configured replicas (slaves). Each entry defines connection parameters for replication setup.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Identifier for this replica (for documentation)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this replica is active."
+      },
+      "report_host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP used by the slave to report itself to the master (for SHOW SLAVE HOSTS)."
+      },
+      "report_user": {
+        "type": "string",
+        "default": "",
+        "description": "Replication user account used to connect to this replica (for master-to-master setups)."
+      },
+      "auto_position": {
+        "type": "bool",
+        "default": true,
+        "description": "Use GTID-based replication (recommended) or file/position-based."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "mysql-bin.000001",
+        "description": "Binary log file to start reading from (used only if auto_position=false)."
+      },
+      "log_pos": {
+        "type": "number",
+        "default": 4,
+        "description": "Position in binary log to start reading from (used only if auto_position=false)."
+      }
+    }
+  },
+  "default_storage_engine": {
+    "type": "string",
+    "default": "InnoDB",
+    "description": "Default storage engine for new tables. InnoDB is strongly recommended for production."
+  },
+  "local_infile_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable LOCAL INFILE (allows client to upload files). Set to false for security unless needed."
+  },
+  "max_heap_table_size": {
+    "type": "string",
+    "default": "16M",
+    "description": "Maximum size of in-memory temporary tables (MEMORY engine)."
+  },
+  "tmp_table_size": {
+    "type": "string",
+    "default": "16M",
+    "description": "Maximum size of in-memory temporary tables (before spilling to disk)."
+  },
+  "open_files_limit": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of files the server can open. Increase for large databases with many tables."
+  },
+  "table_open_cache": {
+    "type": "number",
+    "default": 400,
+    "description": "Number of open table descriptors to cache. Tune with open_files_limit."
+  }
+}

@@ -1,0 +1,87 @@
+{
+  "distro": "ubuntu",
+  "search_domain": [
+    "internal.example.com"
+  ],
+  "search_dns": true,
+  "network_renderer": "netplan",
+  "network_interfaces": [
+    {
+      "name": "eth0",
+      "type": "ethernet"
+    }
+  ],
+  "default_user": {
+    "name": "clouduser",
+    "sudo": "ALL=(ALL) NOPASSWD:ALL"
+  },
+  "ssh_authorized_keys": [
+    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... admin@example.com",
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... ops@example.com"
+  ],
+  "package_update": true,
+  "package_upgrade": true,
+  "package_reboot_if_required": true,
+  "boot_commands": [
+    "echo 'Running pre-network setup'",
+    "rfkill block wlan"
+  ],
+  "runcmd": [
+    [
+      "echo",
+      "System initialized at",
+      "$(date)",
+      ">",
+      "/var/log/init.log"
+    ],
+    [
+      "systemctl",
+      "enable",
+      "myapp"
+    ],
+    [
+      "systemctl",
+      "start",
+      "myapp"
+    ]
+  ],
+  "final_message": "Cloud-init completed at $uptime seconds.",
+  "preserve_hostname": false,
+  "timezone": "America/Los_Angeles",
+  "datasource_list": [
+    "Ec2",
+    "None"
+  ],
+  "cloud_init_modules": [
+    "migrator",
+    "seed_random",
+    "bootcmd",
+    "write_files",
+    "generate_hostname",
+    "ssh_authkey_fingerprints",
+    "keys_to_console",
+    "install_ssh"
+  ],
+  "cloud_config_modules": [
+    "mounts",
+    "locale",
+    "set_passwords",
+    "ssh",
+    "ubuntu-advantage",
+    "update_etc_hosts",
+    "resize_fs"
+  ],
+  "cloud_final_modules": [
+    "package-update-upgrade-install",
+    "fan",
+    "landscape",
+    "lxd",
+    "ubuntu-drivers",
+    "puppet",
+    "chef",
+    "salt-minion",
+    "mcollective",
+    "disable-ec2-metadata",
+    "runcmd"
+  ]
+}

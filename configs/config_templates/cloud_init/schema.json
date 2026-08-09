@@ -1,0 +1,196 @@
+{
+  "disable_root": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable direct root login via SSH and console. Strongly recommended in production."
+  },
+  "preserve_hostname": {
+    "type": "bool",
+    "default": false,
+    "description": "Keep the OS hostname as-is and ignore the hostname provided by the cloud datasource."
+  },
+  "manage_etc_hosts": {
+    "type": "bool",
+    "default": true,
+    "description": "Rewrite /etc/hosts on each boot so the instance hostname resolves to 127.0.1.1."
+  },
+  "ssh_pwauth": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow SSH password authentication. Set to false to enforce key-only access (recommended)."
+  },
+  "ssh_deletekeys": {
+    "type": "bool",
+    "default": true,
+    "description": "Delete any pre-baked SSH host keys from the image and regenerate them on first boot."
+  },
+  "ssh_genkeytypes": {
+    "type": "list",
+    "default": [
+      "rsa",
+      "ecdsa",
+      "ed25519"
+    ],
+    "description": "SSH host key algorithms to generate on first boot."
+  },
+  "locale": {
+    "type": "string",
+    "default": "en_US.UTF-8",
+    "description": "System locale (LANG). Must appear in /usr/share/i18n/SUPPORTED on the target image."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "System timezone using tz database names, e.g. UTC, Europe/Berlin, America/New_York."
+  },
+  "resize_rootfs": {
+    "type": "bool",
+    "default": true,
+    "description": "Expand the root filesystem to fill the partition after growpart widens it."
+  },
+  "growpart_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Partition growth backend: auto (detect tool automatically), growpart, gpart, or off to disable."
+  },
+  "package_upgrade": {
+    "type": "bool",
+    "default": false,
+    "description": "Run a full package upgrade on first boot. Increases boot time but ensures day-0 security patches."
+  },
+  "packages": {
+    "type": "list",
+    "default": [],
+    "description": "Extra packages to install during first boot via the distro package manager."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org",
+      "2.pool.ntp.org",
+      "3.pool.ntp.org"
+    ],
+    "description": "NTP server hostnames or IPs. Use your cloud provider's internal endpoint (e.g. 169.254.169.123 on AWS) for lowest latency."
+  },
+  "admin_user": {
+    "type": "object",
+    "default": {
+      "name": "ubuntu",
+      "gecos": "Ubuntu",
+      "shell": "/bin/bash",
+      "groups": [
+        "adm",
+        "cdrom",
+        "dip",
+        "lxd",
+        "netdev",
+        "plugdev",
+        "sudo"
+      ],
+      "sudo": "ALL=(ALL) NOPASSWD:ALL",
+      "lock_passwd": true,
+      "ssh_authorized_keys": []
+    },
+    "description": "Primary administrative user created on first boot. Also written into system_info.default_user.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unix login name."
+      },
+      "gecos": {
+        "type": "string",
+        "description": "Human-readable full name (GECOS field)."
+      },
+      "shell": {
+        "type": "string",
+        "description": "Default login shell path, e.g. /bin/bash."
+      },
+      "groups": {
+        "type": "list",
+        "description": "Supplementary Unix groups to add the user to (list of strings)."
+      },
+      "sudo": {
+        "type": "string",
+        "description": "Sudoers rule, e.g. ALL=(ALL) NOPASSWD:ALL. Empty string = no sudo access."
+      },
+      "lock_passwd": {
+        "type": "bool",
+        "description": "Lock the Unix password slot to prevent password-based logins."
+      },
+      "ssh_authorized_keys": {
+        "type": "list",
+        "description": "Full SSH public key strings (e.g. ssh-ed25519 AAAA... user@host) to pre-authorize."
+      }
+    }
+  },
+  "extra_users": {
+    "type": "list",
+    "default": [],
+    "description": "Additional users to create beyond the primary admin user. Each entry has the same shape as admin_user.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unix login name."
+      },
+      "gecos": {
+        "type": "string",
+        "description": "Human-readable full name (GECOS field)."
+      },
+      "shell": {
+        "type": "string",
+        "description": "Default login shell path. Use /usr/sbin/nologin for service accounts."
+      },
+      "groups": {
+        "type": "list",
+        "description": "Supplementary Unix groups (list of strings)."
+      },
+      "sudo": {
+        "type": "string",
+        "description": "Sudoers rule. Empty string = no sudo access."
+      },
+      "lock_passwd": {
+        "type": "bool",
+        "description": "Lock the Unix password slot."
+      },
+      "ssh_authorized_keys": {
+        "type": "list",
+        "description": "Pre-authorized SSH public keys (full key strings)."
+      }
+    }
+  },
+  "datasource_list": {
+    "type": "list",
+    "default": [
+      "Ec2",
+      "NoCloud",
+      "None"
+    ],
+    "description": "Cloud metadata datasources to probe in order. Restrict to your actual cloud provider to cut first-boot time. Common values: Ec2, Azure, GCE, OpenStack, NoCloud, None."
+  },
+  "ec2_metadata_timeout": {
+    "type": "number",
+    "default": 50,
+    "description": "Seconds to wait for the EC2 IMDSv2 token endpoint per connection attempt."
+  },
+  "ec2_metadata_max_wait": {
+    "type": "number",
+    "default": 120,
+    "description": "Total seconds cloud-init will retry EC2 metadata fetching before giving up on the datasource."
+  },
+  "distro": {
+    "type": "string",
+    "default": "ubuntu",
+    "description": "Distro identifier for package manager and convention selection. Typical values: ubuntu, debian, rhel, centos, sles."
+  },
+  "ssh_svcname": {
+    "type": "string",
+    "default": "ssh",
+    "description": "systemd unit name for the SSH daemon. Use ssh on Debian/Ubuntu, sshd on RHEL/CentOS/Fedora."
+  },
+  "final_message": {
+    "type": "string",
+    "default": "cloud-init $VERSION finished at $TIMESTAMP. Up $UPTIME seconds.",
+    "description": "Message logged to /var/log/cloud-init-output.log when all modules complete. Supported substitutions: $VERSION, $TIMESTAMP, $DATASOURCE, $UPTIME."
+  }
+}

@@ -1,0 +1,172 @@
+- generic [ref=f254e3]:
+  - navigation "Main navigation" [ref=f254e4]:
+    - generic [ref=f254e5]:
+      - img "Bossman" [ref=f254e6]
+      - generic [ref=f254e7]: Bossman
+      - generic [ref=f254e8]: Fleet Commander
+    - link "fleet Fleet Overview" [ref=f254e9] [cursor=pointer]:
+      - /url: /fleet
+      - img "fleet" [ref=f254e12]
+      - generic [ref=f254e18]: Fleet Overview
+    - link "fleet NOC view" [ref=f254e19] [cursor=pointer]:
+      - /url: /noc
+      - img "fleet" [ref=f254e22]
+      - generic [ref=f254e28]: NOC view
+    - link "hosts Hosts" [ref=f254e29] [cursor=pointer]:
+      - /url: /hosts
+      - img "hosts" [ref=f254e32]
+      - generic [ref=f254e37]: Hosts
+    - link "problems Problems" [ref=f254e38] [cursor=pointer]:
+      - /url: /problems
+      - img "problems" [ref=f254e41]
+      - generic [ref=f254e45]: Problems
+    - link "fleet Business services" [ref=f254e46] [cursor=pointer]:
+      - /url: /business-services
+      - img "fleet" [ref=f254e49]
+      - generic [ref=f254e55]: Business services
+    - link "fleet Capacity" [ref=f254e56] [cursor=pointer]:
+      - /url: /capacity
+      - img "fleet" [ref=f254e59]
+      - generic [ref=f254e65]: Capacity
+    - link "topology Topology" [ref=f254e66] [cursor=pointer]:
+      - /url: /topology
+      - img "topology" [ref=f254e69]
+      - generic [ref=f254e75]: Topology
+    - link "security Security" [ref=f254e76] [cursor=pointer]:
+      - /url: /security
+      - img "security" [ref=f254e79]
+      - generic [ref=f254e83]: Security
+    - link "host-placement Host placement" [ref=f254e84] [cursor=pointer]:
+      - /url: /host-placement
+      - img "host-placement" [ref=f254e87]
+      - generic [ref=f254e93]: Host placement
+    - link "roles Roles" [ref=f254e94] [cursor=pointer]:
+      - /url: /plan-library
+      - img "roles" [ref=f254e97]
+      - generic [ref=f254e101]: Roles
+    - link "workflow Workflow designer" [ref=f254e102] [cursor=pointer]:
+      - /url: /runbooks
+      - img "workflow" [ref=f254e105]
+      - generic [ref=f254e111]: Workflow designer
+    - link "fleet Scheduler" [ref=f254e112] [cursor=pointer]:
+      - /url: /scheduler
+      - img "fleet" [ref=f254e115]
+      - generic [ref=f254e121]: Scheduler
+    - link "fleet Rollouts" [ref=f254e122] [cursor=pointer]:
+      - /url: /rollouts
+      - img "fleet" [ref=f254e125]
+      - generic [ref=f254e131]: Rollouts
+    - link "deploy Deploy" [ref=f254e132] [cursor=pointer]:
+      - /url: /deploy
+      - img "deploy" [ref=f254e135]
+      - generic [ref=f254e140]: Deploy
+    - link "runs Runs" [ref=f254e141] [cursor=pointer]:
+      - /url: /runs
+      - img "runs" [ref=f254e144]
+      - generic [ref=f254e149]: Runs
+    - link "help Help" [ref=f254e150] [cursor=pointer]:
+      - /url: /help
+      - img "help" [ref=f254e153]
+      - generic [ref=f254e158]: Help
+    - button "setup Setup chevron-down" [ref=f254e159] [cursor=pointer]:
+      - img "setup" [ref=f254e162]
+      - generic [ref=f254e168]: Setup
+      - img "chevron-down" [ref=f254e171]
+    - link "notifications Notifications" [ref=f254e174] [cursor=pointer]:
+      - /url: /notifications
+      - img "notifications" [ref=f254e177]
+      - generic [ref=f254e181]: Notifications
+    - link "ou-policy OU / Policy" [ref=f254e182] [cursor=pointer]:
+      - /url: /ou
+      - img "ou-policy" [ref=f254e185]
+      - generic [ref=f254e189]: OU / Policy
+    - link "modules Modules" [ref=f254e190] [cursor=pointer]:
+      - /url: /modules
+      - img "modules" [ref=f254e193]
+      - generic [ref=f254e196]: Modules
+    - link "checks Checks" [ref=f254e197] [cursor=pointer]:
+      - /url: /checks
+      - img "checks" [ref=f254e200]
+      - generic [ref=f254e204]: Checks
+    - link "fleet Compliance" [ref=f254e205] [cursor=pointer]:
+      - /url: /compliance
+      - img "fleet" [ref=f254e208]
+      - generic [ref=f254e214]: Compliance
+    - link "fleet Certificates" [ref=f254e215] [cursor=pointer]:
+      - /url: /certificates
+      - img "fleet" [ref=f254e218]
+      - generic [ref=f254e224]: Certificates
+    - link "hosts Devices" [ref=f254e225] [cursor=pointer]:
+      - /url: /snmp-devices
+      - img "hosts" [ref=f254e228]
+      - generic [ref=f254e233]: Devices
+    - link "fleet Event Console" [ref=f254e234] [cursor=pointer]:
+      - /url: /events
+      - img "fleet" [ref=f254e237]
+      - generic [ref=f254e243]: Event Console
+    - link "config-templates Config templates" [ref=f254e244] [cursor=pointer]:
+      - /url: /config-templates
+      - img "config-templates" [ref=f254e247]
+      - generic [ref=f254e251]: Config templates
+    - link "config-templates Config codecs" [ref=f254e252] [cursor=pointer]:
+      - /url: /config-codecs
+      - img "config-templates" [ref=f254e255]
+      - generic [ref=f254e259]: Config codecs
+    - link "fleet Config distribution" [ref=f254e260] [cursor=pointer]:
+      - /url: /config-sync
+      - img "fleet" [ref=f254e263]
+      - generic [ref=f254e269]: Config distribution
+    - link "fleet Audit log" [ref=f254e270] [cursor=pointer]:
+      - /url: /audit
+      - img "fleet" [ref=f254e273]
+      - generic [ref=f254e279]: Audit log
+    - link "users Users & Access" [ref=f254e280] [cursor=pointer]:
+      - /url: /users
+      - img "users" [ref=f254e283]
+      - generic [ref=f254e288]: Users & Access
+    - link "settings Settings" [ref=f254e289] [cursor=pointer]:
+      - /url: /settings
+      - img "settings" [ref=f254e292]
+      - generic [ref=f254e296]: Settings
+    - generic [ref=f254e297]:
+      - generic [ref=f254e298]: admin
+      - button "Log out" [ref=f254e299] [cursor=pointer]:
+        - img "logout" [ref=f254e302]
+  - generic [ref=f254e306]:
+    - generic [ref=f254e309]:
+      - heading "Config distribution" [level=1] [ref=f254e310]
+      - paragraph [ref=f254e311]: "Config changes (thresholds, checks, OU/group policies, roles) are pushed to agents automatically by the reconciler. This convergence sweep is the backstop: it re-pushes to any host whose compiled config is ahead of what it last acknowledged — hosts that were offline, freshly enrolled, or missed an event."
+      - generic [ref=f254e331]:
+        - generic [ref=f254e332]:
+          - generic [ref=f254e333]: "0"
+          - generic [ref=f254e334]: hosts behind
+        - generic [ref=f254e335]:
+          - generic [ref=f254e336]: "5"
+          - generic [ref=f254e337]: pushed (total)
+        - generic [ref=f254e338]:
+          - generic [ref=f254e339]: "0"
+          - generic [ref=f254e340]: failed (total)
+        - generic [ref=f254e341]:
+          - generic [ref=f254e342]: "5"
+          - generic [ref=f254e343]: checked (total)
+      - generic [ref=f254e344]:
+        - generic [ref=f254e345]:
+          - generic [ref=f254e346]: Automatic sweep
+          - generic [ref=f254e347]: enabled · every 600s
+        - generic [ref=f254e348]:
+          - generic [ref=f254e349]: Last sweep
+          - generic [ref=f254e350]: 2026-07-19 10:47:03
+        - button "Sync now" [ref=f254e352]:
+          - img [ref=f254e353]: sync
+          - generic [ref=f254e354]: Sync now
+    - generic [ref=f254e315]:
+      - button "Expand" [ref=f254e316] [cursor=pointer]:
+        - img [ref=f254e317]: expand_less
+      - img [ref=f254e320]: smart_toy
+      - generic [ref=f254e321]: Assistant
+      - combobox [ref=f254e322]:
+        - option "hermes-web" [selected]
+      - button "New chat" [ref=f254e323] [cursor=pointer]:
+        - img [ref=f254e324]: add_comment
+      - button "Maximize" [ref=f254e327] [cursor=pointer]:
+        - img [ref=f254e328]: fullscreen

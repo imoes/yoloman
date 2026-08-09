@@ -1,0 +1,78 @@
+# =============================================================================
+# LAM Daemon Configuration Template
+# =============================================================================
+# This template generates the configuration file for the LAM daemon.
+# It is organized into sections: [main], [ldap], [database], and [security].
+# Every variable uses a `| default(...)` filter to ensure safe rendering even
+# if the variable is undefined in the Ansible inventory.
+# =============================================================================
+
+[main]
+# Port number on which the LAM daemon listens for incoming HTTP requests.
+port = {{ daemon_port | default(2020) }}
+
+# IP address or hostname to bind the daemon to (empty string means bind to all interfaces).
+host = {{ daemon_host | default('') }}
+
+# Verbosity level for daemon logging.
+# Options: debug, info, notice, warning, error, critical.
+log_level = {{ log_level | default('notice') }}
+
+# Absolute path to the main log file.
+log_file = {{ log_file | default('/var/log/lamdaemon/lamdaemon.log') }}
+
+# Absolute path to the PID file used by the daemon.
+pid_file = {{ pid_file | default('/run/lamdaemon.pid') }}
+
+# Number of worker processes to spawn for handling requests.
+worker_count = {{ worker_count | default(4) }}
+
+[ldap]
+# List of LDAP server URIs to connect to (supports failover).
+# Rendered as a comma-separated list for the config format.
+ldap_servers = {{ (ldap_servers | default(['ldap://localhost'])) | join(', ') }}
+
+# Base DN under which user/group entries are stored in LDAP.
+ldap_basedn = {{ ldap_basedn | default('dc=example,dc=com') }}
+
+# DN to bind as for LDAP searches (empty = anonymous bind).
+ldap_binddn = {{ ldap_binddn | default('') }}
+
+# Password for the bind DN. Leave empty if using anonymous or external auth (e.g., SASL/GSSAPI).
+ldap_bindpw = {{ ldap_bindpw | default('') }}
+
+# Enable StartTLS to upgrade plain LDAP connections to TLS.
+# Output is lowercased 'true' or 'false'.
+ldap_starttls = {{ ldap_starttls | default(false) | lower }}
+
+# Absolute path to CA certificate file for verifying LDAP server TLS certificates.
+# Empty disables verification.
+ldap_cacert = {{ ldap_cacert | default('') }}
+
+[database]
+# Database backend for LAM daemon. Currently only 'sqlite' is supported.
+db_driver = {{ db_driver | default('sqlite') }}
+
+# Path to SQLite database file (used if db_driver = sqlite).
+db_file = {{ db_file | default('/var/lib/lamdaemon/lamdaemon.db') }}
+
+[security]
+# Enable HTTPS (SSL/TLS) for incoming daemon connections.
+# Output is lowercased 'true' or 'false'.
+ssl_enabled = {{ ssl_enabled | default(false) | lower }}
+
+# Absolute path to the SSL certificate file (required if SSL enabled).
+ssl_cert_path = {{ ssl_cert_path | default('/etc/ssl/certs/lamdaemon.crt') }}
+
+# Absolute path to the SSL private key file (required if SSL enabled).
+ssl_key_path = {{ ssl_key_path | default('/etc/ssl/private/lamdaemon.key') }}
+
+# Time in seconds to cache LDAP results. Set to 0 to disable caching.
+cache_ttl_seconds = {{ cache_ttl_seconds | default(300) }}
+
+# Enable logging of individual requests (URL, method, client IP, response status).
+# Output is lowercased 'true' or 'false'.
+request_logging = {{ request_logging | default(true) | lower }}
+
+# Path to the request log file (only used if request_logging is enabled).
+request_log_file = {{ request_log_file | default('/var/log/lamdaemon/requests.log') }}

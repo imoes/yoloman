@@ -1,0 +1,95 @@
+# LFT (Layer Four Tool) configuration file
+# =========================================
+# This template is self-documenting. Every directive is preceded by
+# its schema description as a comment. All variables use `| default(...)`
+# to ensure safe rendering even when the variable is undefined.
+
+# --- General Settings ---
+
+# Enable verbose logging for detailed diagnostic output.
+# Defaults to: False
+verbose {{ verbose | default(False) | ternary('true', 'false') }}
+
+# --- Network Interface ---
+
+# Network interface to capture traffic on (e.g., eth0, wlan0).
+# Defaults to: eth0
+interface {{ interface | default('eth0') }}
+
+# --- Port Monitoring ---
+
+# TCP ports to monitor. Common choices: 22 (SSH), 80 (HTTP), 443 (HTTPS).
+# Defaults to: [22, 80, 443]
+tcp_ports {{ (tcp_ports | default([22, 80, 443])) | join(',') }}
+
+# UDP ports to monitor. Common choices: 53 (DNS), 123 (NTP).
+# Defaults to: [53, 123]
+udp_ports {{ (udp_ports | default([53, 123])) | join(',') }}
+
+# --- Connection Tracking Limits ---
+
+# Maximum number of simultaneous connections LFT will track.
+# Defaults to: 1000
+max_connections {{ max_connections | default(1000) }}
+
+# --- File Paths ---
+
+# Path to write the process PID file.
+# Defaults to: /var/run/lft.pid
+pidfile {{ pidfile | default('/var/run/lft.pid') }}
+
+# Path to write operational logs. Ensure log directory exists and is writable.
+# Defaults to: /var/log/lft/lft.log
+logfile {{ logfile | default('/var/log/lft/lft.log') }}
+
+# --- Capture Options ---
+
+# Enable promiscuous mode on the interface to capture all traffic (requires root and interface support).
+# Defaults to: True
+promiscuous {{ promiscuous | default(True) | ternary('true', 'false') }}
+
+# Host(s) to whitelist (one per line, or empty for none).
+# List of hostnames or IP addresses to *only* monitor. Empty means monitor all (subject to blacklist).
+# Defaults to: []
+{% set wlist = whitelist | default([]) %}
+{% if wlist | length > 0 %}
+{% for host in wlist %}
+whitelist {{ host }}
+{% endfor %}
+{% endif %}
+
+# Host(s) to blacklist (one per line, or empty for none).
+# List of hostnames or IP addresses to ignore. Takes precedence over whitelist.
+# Defaults to: []
+{% set blist = blacklist | default([]) %}
+{% if blist | length > 0 %}
+{% for host in blist %}
+blacklist {{ host }}
+{% endfor %}
+{% endif %}
+
+# --- Timeouts and Intervals ---
+
+# Idle timeout (in seconds) after which a connection is removed from tracking.
+# Defaults to: 300
+connection_timeout {{ connection_timeout | default(300) }}
+
+# Interval (in seconds) between logging summary statistics.
+# Defaults to: 60
+stats_interval {{ stats_interval | default(60) }}
+
+# --- Payload Capture ---
+
+# Enable capture of packet payloads (requires more memory and CPU).
+# Defaults to: False
+payload_capture {{ payload_capture | default(False) | ternary('true', 'false') }}
+
+# Maximum bytes of payload to capture per connection (only relevant if payload_capture is enabled).
+# Defaults to: 512
+max_payload_size {{ max_payload_size | default(512) }}
+
+# --- DNS Resolution ---
+
+# Perform reverse DNS lookups on IP addresses to resolve hostnames in logs/output.
+# Defaults to: True
+dns_lookup {{ dns_lookup | default(True) | ternary('true', 'false') }}

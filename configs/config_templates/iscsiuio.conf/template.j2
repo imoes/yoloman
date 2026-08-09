@@ -1,0 +1,55 @@
+# iSCSI User Mode Initiator daemon configuration
+# This file controls the behavior of iscsiuio, the user-space iSCSI target service.
+# See `man iscsiuio.conf` for full documentation.
+
+[general]
+# Logging verbosity: 0 (silent) to 4 (debug). Higher values produce more logs.
+loglevel = {{ loglevel | default(3) }}
+
+# Path to the PID file. Must be writable by the iscsiuio user.
+pidfile = {{ pidfile | default('/run/iscsiuio/iscsiuio.pid') }}
+
+# Number of worker threads. Set to match CPU cores for best performance.
+num_threads = {{ num_threads | default(2) }}
+
+# TCP port for the management interface. Set to 0 to disable.
+mgmt_port = {{ mgmt_port | default(3261) }}
+
+# IP address to bind the management interface. Use `0.0.0.0` for all interfaces.
+mgmt_host = "{{ mgmt_host | default('127.0.0.1') }}"
+
+[defaults]
+# Default IP address or hostname used for sendtargets discovery when no target IP is provided.
+default_discovery_addr = "{{ default_discovery_addr | default('') }}"
+
+# Default port for iSCSI discovery.
+default_discovery_port = {{ default_discovery_port | default(3260) }}
+
+# If true, automatically log in to discovered targets. Otherwise, require manual login.
+default_autologin = {{ default_autologin | default(False) | lower }}
+
+# Seconds to wait for login operations before timing out.
+default_login_timeout = {{ default_login_timeout | default(15) }}
+
+# Maximum number of reconnection attempts per session before giving up.
+default_max_reconnect = {{ default_max_reconnect | default(3) }}
+
+# Seconds to wait between reconnection attempts.
+default_reconnect_interval = {{ default_reconnect_interval | default(5) }}
+
+# If true, delay startup to wait for network interfaces to come up.
+delay_start = {{ delay_start | default(False) | lower }}
+
+# Duration (seconds) to wait if `delay_start` is enabled.
+delay_start_seconds = {{ delay_start_seconds | default(10) }}
+
+# Optional list of per-session configuration presets for dynamically discovered targets.
+# Each entry defines default timeouts and buffer sizes.
+{% for session in session_defaults | default([]) %}
+[session.{{ loop.index }}]
+# Description: {{ session.description | default('No description') }}
+node.session.timeo.replacement_timeout = {{ session.replacement_timeout | default(30) }}
+node.session.err_timeo.abort_timeout = {{ session.abort_timeout | default(20) }}
+node.session.err_timeo.reset_timeout = {{ session.reset_timeout | default(30) }}
+node.session.iscsi.MaxRecvDataSegmentLength = {{ session.max_recv_data_segment_length | default(262144) }}
+{% endfor %}

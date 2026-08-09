@@ -1,0 +1,97 @@
+# ==============================================================================
+# Prometheus Node Exporter Configuration
+# ==============================================================================
+# This template configures the Prometheus Node Exporter, a hardware and OS metrics
+# exporter for Unix/Windows systems. It is designed to be consumed by Ansible.
+#
+# IMPORTANT: The rendered output follows the textfile collector format used by
+# older versions or specific wrapper scripts, but primarily maps to command-line
+# flags or environment variables expected by the `node_exporter` binary.
+# Where the original template used pseudo-keys (like `web.listen-address`),
+# this template corrects them to standard CLI flag syntax (--listen-address)
+# or standard config keys where appropriate, ensuring valid execution.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Address and port on which Node Exporter will listen for incoming Prometheus
+# scrapes (e.g., ':9100' or '0.0.0.0:9100').
+# --------------------------------------------------------------------------
+--web.listen-address={{ listen_address | default(':9100') }}
+
+# --------------------------------------------------------------------------
+# Maximum number of concurrent scrape workers. Increase for high-load
+# environments.
+# --------------------------------------------------------------------------
+--collector.textfile.max-concurrency={{ worker_limit | default(10) }}
+
+# --------------------------------------------------------------------------
+# Path under which metrics are exposed. Standard is '/metrics'.
+# Note: Node Exporter primarily uses CLI flags. The path is usually fixed.
+# If you need a custom path, it is typically handled by a reverse proxy,
+# but this setting allows explicit declaration if the wrapper supports it.
+# --------------------------------------------------------------------------
+--web.telemetry-path={{ metrics_path | default('/metrics') }}
+
+# --------------------------------------------------------------------------
+# List of collectors to enable or disable. Each item defines the collector
+# name and whether it's enabled.
+# Format: --collectors.<name> for enabled, --no-collectors.<name> for disabled.
+# --------------------------------------------------------------------------
+{% for collector in collectors | default([]) %}
+{% if collector.enabled | default(true) %}
+--collectors.{{ collector.name }}
+{% else %}
+--no-collectors.{{ collector.name }}
+{% endif %}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# List of additional command-line arguments for collector-specific tuning
+# (e.g., '--filesystem.ignored-mount-points=^/(sys|proc|dev|etc|var|tmp)')
+# --------------------------------------------------------------------------
+{% for option in collector_options | default([]) %}
+{{ option }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Verbosity of logs. Use 'debug' for troubleshooting.
+# Allowed values: debug, info, warn, error.
+# --------------------------------------------------------------------------
+--log.level={{ log_level | default('info') }}
+
+# --------------------------------------------------------------------------
+# Format of log output. 'logfmt' is human-friendly; 'json' is better for
+# structured logging.
+# --------------------------------------------------------------------------
+--log.format={{ log_format | default('logfmt') }}
+
+# --------------------------------------------------------------------------
+# Optional path to write PID file (e.g., '/run/node_exporter.pid').
+# Required for systemd `Type=notify` and safe restarts.
+# --------------------------------------------------------------------------
+{% if pid_file | default('') != '' %}
+--web.pid-file={{ pid_file }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# HTTP request timeout in seconds. Reduce if scrape timeouts are frequent.
+# --------------------------------------------------------------------------
+--web.timeout={{ web_timeout | default(2) }}
+
+# --------------------------------------------------------------------------
+# Maximum number of concurrent HTTP requests. 0 means unlimited.
+# Set to limit memory/CPU usage.
+# --------------------------------------------------------------------------
+--web.max-conns={{ web_max_requests | default(0) }}
+
+# --------------------------------------------------------------------------
+# Enable POST endpoints for reload, shutdown, etc.
+# Use only in trusted environments.
+# --------------------------------------------------------------------------
+--web.enable-lifecycle={{ web_enable_lifecycle | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Enable admin API endpoints (e.g., DELETE series).
+# Rarely needed for Node Exporter; keep disabled by default.
+# --------------------------------------------------------------------------
+--web.enable-admin-api={{ web_enable_admin_api | default(false) | lower }}

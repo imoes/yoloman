@@ -1,0 +1,45 @@
+{
+  "health_manager": {
+    "host": "10.0.0.1",
+    "port": 5555,
+    "name": "hm-primary",
+    "health_check_interval": 15,
+    "timeout": 5,
+    "successful_connections_before_active": 2,
+    "failed_connections_before_inactive": 3,
+    "workers": 4,
+    "update_frequency": 1000,
+    "max_retries": 5,
+    "retry_interval": 2,
+    "stats_driver": "statsd",
+    "amphorae": [
+      {
+        "id": "amp-001",
+        "host": "192.168.0.10",
+        "healthcheck_ip": "10.1.1.10",
+        "status": "ACTIVE"
+      },
+      {
+        "id": "amp-002",
+        "host": "192.168.0.11",
+        "healthcheck_ip": "10.1.1.11",
+        "status": "PENDING_CREATE"
+      }
+    ],
+    "drivers": [
+      {
+        "name": "amphora_udp",
+        "enabled": true,
+        "options": {
+          "transport_driver": "socket",
+          "source_ip": "10.0.0.1",
+          "source_port": "5556"
+        }
+      }
+    ]
+  },
+  "health_hooks": {
+    "on_failed": "/opt/octavia/scripts/notify-fail.sh ${amphora_id}",
+    "on_succeeded": "/opt/octavia/scripts/notify-ok.sh ${amphora_id}"
+  }
+}

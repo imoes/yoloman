@@ -1,0 +1,40 @@
+# /etc/crontab: system-wide crontab
+#
+# This file is managed by Ansible. Do not edit manually.
+# It configures the system-wide crontab for the OS.
+#
+# Structure:
+#   Variable overrides (SHELL, PATH)
+#   Cron job definitions (minute hour day month dow user command)
+
+# Shell used to execute cron jobs.
+# Default: /bin/sh
+SHELL={{ shell | default('/bin/sh') }}
+
+# Optional PATH override; leave empty to inherit environment PATH.
+# If empty, the comment is kept to document the option but no override is applied.
+# PATH={{ path | default('') }}
+
+# ---------------------------------------------------------------------------
+# Cron job definitions
+# ---------------------------------------------------------------------------
+# Format for each job:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12) OR jan,feb,mar,apr ...
+# |  |  |  |  .---- day of week (0 - 6) (Sunday=0 or 7) OR sun,mon,tue,wed,thu,fri,sat
+# |  |  |  |  |
+# *  *  *  *  * user-name command to be executed
+#
+# Each job is defined in the `jobs` list with the following fields:
+#   - minute: Minute field (0–59 or *)
+#   - hour:   Hour field (0–23 or *)
+#   - day:    Day of month field (1 - 31 or *)
+#   - month:  Month field (1 - 12 or *)
+#   - dow:    Day of week field (0 - 6 or *)
+#   - user:   User to run the command as (default: root)
+#   - command: Command to execute
+
+{% for job in (jobs | default([])) %}{{ job.minute | default('*') }}	{{ job.hour | default('*') }}	{{ job.day | default('*') }}	{{ job.month | default('*') }}	{{ job.dow | default('*') }}	{{ job.user | default('root') }}	{{ job.command | default('') }}
+{% endfor %}

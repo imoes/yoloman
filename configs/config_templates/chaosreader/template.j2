@@ -1,0 +1,160 @@
+{# chaosreader(1) configuration file #}
+# chaosreader service configuration — see chaosreader(1) man page
+# Every directive below is optional and has a documented default in values_schema
+
+# List of command-line arguments to pass to chaosreader. Each item must be a valid argument string.
+# Corresponds to manual invocation of chaosreader with these flags.
+{% for arg in cli_args | default([]) %}
+{{ arg }}
+{% endfor %}
+
+# Output directory for generated files; corresponds to -D dir.
+-D {{ output_dir | default('.') }}
+
+# TCP ports to create replay scripts for (e.g., ['25', '79']). Corresponds to -b port[,...].
+{% if tcp_ports_playback | default([]) | length > 0 %}
+-b {{ tcp_ports_playback | default([]) | join(',') }}
+{% endif %}
+
+# UDP ports to create replay scripts for (e.g., ['36', '42']). Corresponds to -B port[,...].
+{% if udp_ports_playback | default([]) | length > 0 %}
+-B {{ udp_ports_playback | default([]) | join(',') }}
+{% endif %}
+
+# TCP ports to create HTML views for (e.g., ['7', '79']). Corresponds to -l port[,...].
+{% if tcp_ports_html | default([]) | length > 0 %}
+-l {{ tcp_ports_html | default([]) | join(',') }}
+{% endif %}
+
+# UDP ports to create HTML views for (e.g., ['7', '123']). Corresponds to -L port[,...].
+{% if udp_ports_html | default([]) | length > 0 %}
+-L {{ udp_ports_html | default([]) | join(',') }}
+{% endif %}
+
+# Only examine these TCP ports (e.g., ['21', '23']). Corresponds to -p port[,...].
+{% if tcp_ports_only | default([]) | length > 0 %}
+-p {{ tcp_ports_only | default([]) | join(',') }}
+{% endif %}
+
+# Exclude these TCP ports (e.g., ['80', '81']). Corresponds to -P port[,...].
+{% if tcp_ports_skip | default([]) | length > 0 %}
+-P {{ tcp_ports_skip | default([]) | join(',') }}
+{% endif %}
+
+# Only examine these UDP ports (e.g., ['53']). Corresponds to -p port[,...].
+{% if udp_ports_only | default([]) | length > 0 %}
+-p {{ udp_ports_only | default([]) | join(',') }}
+{% endif %}
+
+# Exclude these UDP ports (e.g., ['5353']). Corresponds to -P port[,...].
+{% if udp_ports_skip | default([]) | length > 0 %}
+-P {{ udp_ports_skip | default([]) | join(',') }}
+{% endif %}
+
+# Only examine these IP addresses (e.g., ['10.1.2.1']). Corresponds to -j IPaddr[,...].
+{% if ip_addrs_only | default([]) | length > 0 %}
+-j {{ ip_addrs_only | default([]) | join(',') }}
+{% endif %}
+
+# Exclude these IP addresses (e.g., ['10.1.2.1']). Corresponds to -J IPaddr[,...].
+{% if ip_addrs_skip | default([]) | length > 0 %}
+-J {{ ip_addrs_skip | default([]) | join(',') }}
+{% endif %}
+
+# Minimum connection size to save (e.g., '1k'). Corresponds to -m bytes[k].
+{% if min_conn_size | default('') != '' %}
+-m {{ min_conn_size | default('') }}
+{% endif %}
+
+# Maximum connection size to save (e.g., '1024k'). Corresponds to -M bytes[k].
+{% if max_conn_size | default('') != '' %}
+-M {{ max_conn_size | default('') }}
+{% endif %}
+
+# Sort order: 'time', 'size', 'type', or 'ip'. Corresponds to -o type.
+-o {{ sort_order | default('time') }}
+
+# Standalone mode duration in minutes for single capture. Corresponds to -s mins.
+{% if standalone_minutes | default(0) > 0 %}
+-s {{ standalone_minutes | default(0) }}{% if standalone_count | default(0) > 0 %},{% endif %}
+{% endif %}
+
+# Number of standalone samples (used with standalone_minutes). Corresponds to -S mins[,count].
+{% if standalone_count | default(0) > 0 %}
+-S {{ standalone_minutes | default(0) }},{{ standalone_count | default(0) }}
+{% endif %}
+
+# If true, reprocess last run’s logs (standalone redo mode). Corresponds to -z.
+{% if standalone_redo | default(False) %}
+-z
+{% endif %}
+
+# BPF filter string for standalone mode. Corresponds to -f 'filter'.
+{% if dump_filter | default('') != '' %}
+-f {{ dump_filter | default('') }}
+{% endif %}
+
+# Suppress screen output. Corresponds to -q.
+{% if quiet | default(False) %}
+-q
+{% endif %}
+
+# Enable verbose output. Corresponds to -v.
+{% if verbose | default(False) %}
+-v
+{% endif %}
+
+# Show DNS names instead of IP addresses. Corresponds to -d.
+{% if prefer_dns | default(False) %}
+-d
+{% endif %}
+
+# Include HTML index files. Corresponds to --noindex to disable (inverted).
+{% if not (include_html_index | default(True)) %}
+--noindex
+{% endif %}
+
+# Include .info session info files. Corresponds to --noinfo to disable (inverted).
+{% if not (include_info_files | default(True)) %}
+--noinfo
+{% endif %}
+
+# Include raw session files. Corresponds to --noraw to disable (inverted).
+{% if not (include_raw_files | default(True)) %}
+--noraw
+{% endif %}
+
+# Include application session files. Corresponds to --noapplication to disable (inverted).
+{% if not (include_application_files | default(True)) %}
+--noapplication
+{% endif %}
+
+# Include TCP traffic. Corresponds to --notcp to disable (inverted).
+{% if not (include_tcp | default(True)) %}
+--notcp
+{% endif %}
+
+# Include UDP traffic. Corresponds to --noudp to disable (inverted).
+{% if not (include_udp | default(True)) %}
+--noudp
+{% endif %}
+
+# Include ICMP traffic. Corresponds to --noicmp to disable (inverted).
+{% if not (include_icmp | default(True)) %}
+--noicmp
+{% endif %}
+
+# Include hex dumps. Corresponds to -H.
+{% if include_hex | default(False) %}
+-H
+{% endif %}
+
+# Create HTML and hex files for everything. Corresponds to -e.
+{% if include_everything | default(False) %}
+-e
+{% endif %}
+
+# Create keystroke analysis data. Corresponds to -k.
+{% if include_keydata | default(False) %}
+-k
+{% endif %}

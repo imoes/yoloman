@@ -1,0 +1,50 @@
+name: airbrake_deployment
+fqcn: community.general.airbrake_deployment
+collection: community.general
+short_description: Notify airbrake about app deployments
+description: Notify airbrake about app deployments (see U(https://airbrake.io/docs/api/#deploys-v4)).
+options:
+  environment:
+    type: str
+    required: true
+    description: The airbrake environment name, typically 'production', 'staging', etc.
+  project_id:
+    type: str
+    required: true
+    description: Airbrake PROJECT_ID
+  project_key:
+    type: str
+    required: true
+    description: Airbrake PROJECT_KEY.
+  repo:
+    type: str
+    description: URL of the project repository
+  revision:
+    type: str
+    description: A hash, number, tag, or other identifier showing what revision from version control was
+      deployed
+  url:
+    type: str
+    default: https://api.airbrake.io/api/v4/projects/
+    description: Optional URL to submit the notification to. Use to send notifications to Airbrake-compliant
+      tools like Errbit.
+  user:
+    type: str
+    description: The username of the person doing the deployment
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates for the target url will not be validated. This should only
+      be used on personally controlled sites using self-signed certificates.
+  version:
+    type: str
+    description: A string identifying what version was deployed
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Notify airbrake about an app deployment\n  community.general.airbrake_deployment:\n\
+  \    project_id: '12345'\n    project_key: 'AAAAAA'\n    environment: staging\n    user: ansible\n \
+  \   revision: '4.2'\n\n- name: Notify airbrake about an app deployment, using git hash as revision\n\
+  \  community.general.airbrake_deployment:\n    project_id: '12345'\n    project_key: 'AAAAAA'\n    environment:\
+  \ staging\n    user: ansible\n    revision: 'e54dd3a01f2c421b558ef33b5f79db936e2dcf15'\n    version:\
+  \ '0.2.0'\n"

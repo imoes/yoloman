@@ -1,0 +1,61 @@
+{
+  "admins": [
+    "alice",
+    "bob"
+  ],
+  "repositories": [
+    {
+      "name": "core/main",
+      "description": "Primary application codebase",
+      "admins": [
+        "alice"
+      ],
+      "writers": [
+        "bob",
+        "charlie"
+      ],
+      "readers": [
+        "ci-bot",
+        "qa-team"
+      ]
+    },
+    {
+      "name": "shared/libs",
+      "description": "Internal shared libraries",
+      "writers": [
+        "bob"
+      ],
+      "readers": [
+        "all"
+      ]
+    },
+    {
+      "name": "team/dev",
+      "description": "Development sandbox",
+      "admins": [
+        "charlie"
+      ],
+      "writers": [
+        "charlie",
+        "dev1",
+        "dev2"
+      ],
+      "readers": []
+    }
+  ],
+  "mirrors": [
+    {
+      "name": "core/main",
+      "target": "git@backup.example.com:core/main.git"
+    }
+  ],
+  "hooks": [
+    {
+      "name": "core/main",
+      "config": {
+        "hook.pre-receive": "branch-restrict",
+        "option branch-restrict.max-age": "30"
+      }
+    }
+  ]
+}

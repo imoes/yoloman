@@ -1,0 +1,326 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Public hostname or FQDN of this Icecast server (used in URLs and YP directory)."
+  },
+  "ports": {
+    "type": "object",
+    "default": {
+      "http": 8000,
+      "https": null
+    },
+    "description": "Ports for HTTP and optional HTTPS connections.",
+    "items": {
+      "http": {
+        "type": "number",
+        "default": 8000,
+        "description": "HTTP port for stream delivery and admin interface."
+      },
+      "https": {
+        "type": "number",
+        "default": null,
+        "description": "HTTPS port (if SSL is enabled). Set to `null` to disable."
+      }
+    }
+  },
+  "paths": {
+    "type": "object",
+    "default": {
+      "webroot": "/usr/share/icecast2/web",
+      "adminroot": "/usr/share/icecast2/admin",
+      "ssl_certificate": "/etc/icecast2/ssl/server.crt",
+      "ssl_certificate_key": "/etc/icecast2/ssl/server.key",
+      "ssl_ca_list": null
+    },
+    "description": "File system paths for web assets and SSL.",
+    "items": {
+      "webroot": {
+        "type": "string",
+        "default": "/usr/share/icecast2/web",
+        "description": "Directory containing static web content (HTML/JS) for client interfaces."
+      },
+      "adminroot": {
+        "type": "string",
+        "default": "/usr/share/icecast2/admin",
+        "description": "Directory containing admin UI assets (templates, images)."
+      },
+      "ssl_certificate": {
+        "type": "string",
+        "default": "/etc/icecast2/ssl/server.crt",
+        "description": "Path to SSL certificate file (PEM format, required for HTTPS)."
+      },
+      "ssl_certificate_key": {
+        "type": "string",
+        "default": "/etc/icecast2/ssl/server.key",
+        "description": "Path to SSL private key file (PEM format, unencrypted)."
+      },
+      "ssl_ca_list": {
+        "type": "string",
+        "default": null,
+        "description": "Optional path to CA bundle for client certificate verification."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "accesslog": "/var/log/icecast2/access.log",
+      "errorlog": "/var/log/icecast2/error.log",
+      "logsize": 10000000,
+      "loglevel": 2,
+      "logjson": false
+    },
+    "description": "Logging configuration (file paths, rotation, verbosity).",
+    "items": {
+      "accesslog": {
+        "type": "string",
+        "default": "/var/log/icecast2/access.log",
+        "description": "File path for client access logs (each connection)."
+      },
+      "errorlog": {
+        "type": "string",
+        "default": "/var/log/icecast2/error.log",
+        "description": "File path for error and status logs."
+      },
+      "logsize": {
+        "type": "number",
+        "default": 10000000,
+        "description": "Maximum log file size in bytes before rotation (0 = no rotation)."
+      },
+      "loglevel": {
+        "type": "number",
+        "default": 2,
+        "description": "Verbosity level: 0=error, 1=warn, 2=info, 3=debug."
+      },
+      "logjson": {
+        "type": "boolean",
+        "default": false,
+        "description": "Output logs in JSON format (requires Icecast \u22652.5.0)."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "source": {
+        "username": "source",
+        "password": "hackme"
+      },
+      "relay": {
+        "username": "relay",
+        "password": "hackme"
+      },
+      "admin": {
+        "username": "admin",
+        "password": "hackme"
+      }
+    },
+    "description": "Credentials for source, relay, and admin access.",
+    "items": {
+      "source": {
+        "type": "object",
+        "items": {
+          "username": {
+            "type": "string",
+            "default": "source",
+            "description": "Username for source clients (SHOUTcast/Icecast-compatible encoders)."
+          },
+          "password": {
+            "type": "string",
+            "default": "hackme",
+            "description": "Password for source clients. Use a strong password in production!"
+          }
+        }
+      },
+      "relay": {
+        "type": "object",
+        "items": {
+          "username": {
+            "type": "string",
+            "default": "relay",
+            "description": "Username for relay connections to upstream servers."
+          },
+          "password": {
+            "type": "string",
+            "default": "hackme",
+            "description": "Password for relay authentication."
+          }
+        }
+      },
+      "admin": {
+        "type": "object",
+        "items": {
+          "username": {
+            "type": "string",
+            "default": "admin",
+            "description": "Username for the Icecast admin web interface."
+          },
+          "password": {
+            "type": "string",
+            "default": "hackme",
+            "description": "Password for the admin interface. Change in production!"
+          }
+        }
+      }
+    }
+  },
+  "relays": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream servers to relay (pull streams from). Each item defines a relay mount.",
+    "items": {
+      "server": {
+        "type": "string",
+        "default": "example.com",
+        "description": "Hostname or IP of upstream server."
+      },
+      "port": {
+        "type": "number",
+        "default": 8000,
+        "description": "Port of upstream server (default 8000)."
+      },
+      "mount": {
+        "type": "string",
+        "default": "/example.ogg",
+        "description": "Mount path on upstream server (e.g., '/stream')."
+      },
+      "local_mount": {
+        "type": "string",
+        "default": "/relayed_stream",
+        "description": "Local mount path where relayed stream will appear (e.g., '/relayed')."
+      },
+      "password": {
+        "type": "string",
+        "default": "hackme",
+        "description": "Relay password (must match upstream relay credentials)."
+      },
+      "on_demand": {
+        "type": "boolean",
+        "default": false,
+        "description": "Start relay only when a client connects (saves bandwidth)."
+      },
+      "shoutcast_metadata": {
+        "type": "boolean",
+        "default": false,
+        "description": "Attempt to parse SHOUTcast metadata (for legacy compatibility)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": null,
+        "description": "Connection timeout in seconds (0 = use default)."
+      }
+    }
+  },
+  "mounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of static mount points with custom settings (max listeners, fallback, etc.).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "/live",
+        "description": "Mount point path (e.g., '/live', '/music')."
+      },
+      "username": {
+        "type": "string",
+        "default": "source",
+        "description": "Optional username override for this mount (instead of global source user)."
+      },
+      "password": {
+        "type": "string",
+        "default": null,
+        "description": "Optional password override for this mount. If omitted, global source credentials apply."
+      },
+      "fallback_mount": {
+        "type": "string",
+        "default": null,
+        "description": "Local mount to stream when this one disconnects (e.g., '/fallback')."
+      },
+      "fallback_location": {
+        "type": "string",
+        "default": null,
+        "description": "External URL to redirect clients when stream is offline."
+      },
+      "max_listeners": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum concurrent listeners (0 = unlimited)."
+      },
+      "listener_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Idle timeout in seconds before disconnecting inactive listeners."
+      },
+      "genre": {
+        "type": "string",
+        "default": null,
+        "description": "Stream genre (e.g., 'Rock', 'Jazz') \u2014 visible in YP directory."
+      },
+      "public": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to list this stream in public YP (Yellow Pages) directory."
+      },
+      "description": {
+        "type": "string",
+        "default": null,
+        "description": "Stream description \u2014 visible to clients and YP."
+      },
+      "bitrate": {
+        "type": "number",
+        "default": null,
+        "description": "Bitrate in kbps \u2014 used for YP display (optional)."
+      },
+      "type": {
+        "type": "string",
+        "default": null,
+        "description": "MIME type (e.g., 'audio/mpeg', 'audio/ogg'). Auto-detected if omitted."
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "burst_on_connect": true,
+      "burst_size": 65535,
+      "client_timeout": 30,
+      "source_ip_limit": 2,
+      "client_ip_limit": 5,
+      "burst_limit": 32768
+    },
+    "description": "Connection rate and burst controls.",
+    "items": {
+      "burst_on_connect": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable burst-on-connect (send buffered data immediately to new clients)."
+      },
+      "burst_size": {
+        "type": "number",
+        "default": 65535,
+        "description": "Max bytes to burst per client on connect (0 = disable burst)."
+      },
+      "client_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Client idle timeout in seconds (after which client is dropped)."
+      },
+      "source_ip_limit": {
+        "type": "number",
+        "default": 2,
+        "description": "Max concurrent source connections per IP (prevents abuse)."
+      },
+      "client_ip_limit": {
+        "type": "number",
+        "default": 5,
+        "description": "Max concurrent client connections per IP."
+      },
+      "burst_limit": {
+        "type": "number",
+        "default": 32768,
+        "description": "Total burst bytes allowed per IP (DDoS mitigation)."
+      }
+    }
+  }
+}

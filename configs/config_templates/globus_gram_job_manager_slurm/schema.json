@@ -1,0 +1,112 @@
+{
+  "srun_path": {
+    "type": "string",
+    "default": "/usr/bin/srun",
+    "description": "Absolute path to the SLURM `srun` executable used to launch jobs."
+  },
+  "sbatch_path": {
+    "type": "string",
+    "default": "/usr/bin/sbatch",
+    "description": "Absolute path to the SLURM `sbatch` executable used to submit batch jobs."
+  },
+  "scancel_path": {
+    "type": "string",
+    "default": "/usr/bin/scancel",
+    "description": "Absolute path to the SLURM `scancel` executable used to cancel jobs."
+  },
+  "squeue_path": {
+    "type": "string",
+    "default": "/usr/bin/squeue",
+    "description": "Absolute path to the SLURM `squeue` executable used to query job status."
+  },
+  "sinfo_path": {
+    "type": "string",
+    "default": "/usr/bin/sinfo",
+    "description": "Absolute path to the SLURM `sinfo` executable used to query cluster state."
+  },
+  "enable_job_arrays": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable submission of SLURM job arrays. Recommended for compatibility with HPC workflows."
+  },
+  "max_jobs_per_user": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of concurrent jobs allowed per user. Set to 0 for no limit."
+  },
+  "default_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Default timeout (in seconds) for job operations (e.g., stage-in/out, startup)."
+  },
+  "max_runtime": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum allowed job runtime in seconds. Set to 0 for no enforced limit (SLURM partition limits still apply)."
+  },
+  "environment_setup_script": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a shell script that sets up environment variables (e.g., module loading) before job execution."
+  },
+  "slurm_defaults": {
+    "type": "object",
+    "default": {},
+    "description": "Default SLURM request options applied to all jobs unless overridden.",
+    "items": {
+      "account": {
+        "type": "string",
+        "description": "Default billing/accounting account."
+      },
+      "partition": {
+        "type": "string",
+        "description": "Default partition (queue) to submit jobs to."
+      },
+      "qos": {
+        "type": "string",
+        "description": "Default quality-of-service (QoS) level."
+      },
+      "constraint": {
+        "type": "string",
+        "description": "Default node feature constraint(s)."
+      },
+      "reservation": {
+        "type": "string",
+        "description": "Default reservation name (if any)."
+      }
+    }
+  },
+  "extra_sbatch_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional command-line options to pass to `sbatch` (e.g., '--exclusive', '--mail-type=end').",
+    "items": {
+      "type": "string"
+    }
+  },
+  "allowed_partitions": {
+    "type": "list",
+    "default": [],
+    "description": "List of SLURM partition names users are allowed to submit to. Empty list = all partitions allowed (unless denied)."
+  },
+  "denied_partitions": {
+    "type": "list",
+    "default": [],
+    "description": "List of SLURM partition names explicitly denied to users. Takes precedence over allowed_partitions."
+  },
+  "enable_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to send job manager logs to the system syslog."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level of job manager logging."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/globus/globus-gram-job-manager-slurm.log",
+    "description": "Path to the primary log file for the SLURM job manager."
+  }
+}

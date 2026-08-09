@@ -1,0 +1,91 @@
+[DEFAULT]
+# The name of the service (used in service catalog and endpoint discovery)
+service_name = glance
+
+# Log file name (empty for stderr); log to syslog if log_file is empty and syslog is True
+#log_file = {{ log_file | default('') }}
+
+# Enable debug logging (very verbose, use in development or troubleshooting only)
+debug = {{ debug | default(false) }}
+
+# Default log level (INFO, DEBUG, WARNING, ERROR, CRITICAL)
+#log_level = {{ log_level | default('INFO') }}
+
+{% if workers is defined %}
+# Number of worker processes for the API service (for concurrency)
+workers = {{ workers }}
+{% endif %}
+
+[database]
+# Database connection string (SQLAlchemy URL)
+connection = {{ database.connection }}
+
+# Maximum number of database connections in the pool
+max_retries = {{ database.max_retries | default(-1) }}
+
+[keystone_authtoken]
+# Authenticate API requests using Keystone (required for production)
+auth_type = password
+auth_url = {{ keystone_authtoken.auth_url }}
+username = {{ keystone_authtoken.username }}
+password = {{ keystone_authtoken.password }}
+project_name = {{ keystone_authtoken.project_name }}
+project_domain_name = {{ keystone_authtoken.project_domain_name | default('Default') }}
+user_domain_name = {{ keystone_authtoken.user_domain_name | default('Default') }}
+
+# Certificate verification (disable only in test environments)
+insecure = {{ keystone_authtoken.insecure | default(false) | lower }}
+
+# CA certificate bundle path (for TLS verification)
+cafile = {{ keystone_authtoken.cafile | default('') }}
+
+[paste_deploy]
+# Load the Glance API pipeline from the PasteDeploy configuration
+flavor = {{ paste_deploy.flavor | default('keystone') }}
+
+[glance_store]
+# Storage backend configuration
+# List of stores to use (first one is default for new images)
+{% for store in stores %}
+# {{ store.description | default('Store configuration: ' + store.name) }}
+stores = {{ store.name }}
+{% endfor %}
+
+# Default store (must match one of the configured store names)
+default_store = {{ default_store }}
+
+# Directory to store images (used by filesystem store)
+filesystem_store_datadir = {{ filesystem_store_datadir | default('/var/lib/glance/images') }}
+
+# (Optional) S3-compatible store settings (for swift, s3, etc.)
+{% for store in stores if store.name in ['s3', 'swift'] %}
+[{{ store.name }}_store]
+# {{ store.description | default('Configuration for ' + store.name.upper() + ' store') }}
+store_region = {{ store.region | default('') }}
+{% endfor %}
+
+[image_format]
+# Supported image formats (used for validation and conversion)
+# List of allowed image formats for upload
+image_cache_dir = {{ image_cache_dir | default('/var/lib/glance/image-cache') }}
+{% if image_formats %}
+# Comma-separated list of allowed image formats
+{% for fmt in image_formats %}
+#{{ ' ' }}{{ fmt }}
+{% endfor %}
+{% endif %}
+
+[task]
+# Task processor configuration
+# Enable task system (for import/export, conversion, etc.)
+enable = {{ task.enable | default(true) }}
+
+# Number of task workers
+{% if task.workers is defined %}
+workers = {{ task.workers }}
+{% endif %}
+
+[oslo_messaging_notifications]
+# Notification driver(s) (e.g., 'routing', 'log', 'noop')
+# For use with monitoring systems like ceilometer
+driver = {{ notifications_driver | default('noop') }}

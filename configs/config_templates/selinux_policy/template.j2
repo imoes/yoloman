@@ -1,0 +1,18 @@
+# SELinux configuration for containerized workloads
+# This file controls the system-wide SELinux mode and policy
+# See `man 5 selinuxconfig` for details
+
+# SELinux enforcement mode. Use `enforcing` for strict security, `permissive` for logging without blocking, or `disabled` to turn off SELinux
+# Defaults to 'permissive' if not provided by Ansible variables.
+SELINUX={{ selinux_mode | default('permissive') }}
+
+# SELinux policy type. `targeted` restricts only specific daemons/services (recommended for containers); `mls` provides Multi-Level Security
+# Defaults to 'targeted' if not provided by Ansible variables.
+SELINUXTYPE={{ selinux_policy_type | default('targeted') }}
+
+# List of SELinux booleans to persistently enable/disable for container compatibility.
+# Each entry must be a fully-qualified `setsebool -P` command (e.g., `setsebool -P container_use_nfs on`).
+# Defaults to an empty list if not provided.
+{% for boolean_cmd in selinux_booleans | default([]) %}
+{{ boolean_cmd }}
+{% endfor %}

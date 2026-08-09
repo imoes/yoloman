@@ -1,0 +1,107 @@
+# /etc/dnsmasq.conf — Configuration file for dnsmasq, a lightweight DNS forwarder and DHCP server.
+# Load additional config files from /etc/dnsmasq.d/
+# Do *not* put comments on the same line as options — they will be parsed as part of the value.
+
+# Basic configuration
+{% if domain_name is defined %}
+# Set the local domain name (e.g., 'lan' → 'host.lan')
+local-domain={{ domain_name }}
+{% endif %}
+
+# Set DNS upstream servers
+{% for server in upstream_servers %}
+# Use this upstream DNS server
+server={{ server }}
+{% endfor %}
+
+{% if addn_hosts is defined %}
+# Append entries from this hosts file to the in-memory host table
+addn-hosts={{ addn_hosts }}
+{% endif %}
+
+# DNS listening interface(s)
+{% if listen_interfaces is defined %}
+# Listen only on these interfaces
+{% for iface in listen_interfaces %}
+interface={{ iface }}
+{% endfor %}
+{% else %}
+# Listen on all interfaces (default)
+listen-address=127.0.0.1
+{% endif %}
+
+# Bind to interfaces only (prevents binding to wildcard address)
+bind-interfaces
+
+# Do not read /etc/resolv.conf or any other file
+no-resolv
+
+# Do not poll /etc/resolv.conf for changes
+no-poll
+
+# Do not forward plain names (without a dot or domain part)
+domain-needed
+
+# Never forward addresses in the non-routed address spaces
+bogus-priv
+
+# Expand hosts file entries to include domain (requires local-domain)
+{% if expand_hosts is defined and expand_hosts %}
+expand-hosts
+{% endif %}
+
+{% if dhcp_enabled %}
+# DHCP configuration
+# Enable DHCP on this interface
+{% for net in dhcp_networks %}
+dhcp-range={{ net.interface }},{{ net.start }},{{ net.end }},{{ net.lease_time | default('12h') }}
+{% endfor %}
+
+{% if dhcp_options is defined %}
+# Custom DHCP options
+{% for opt in dhcp_options %}
+dhcp-option={{ opt.code }},{{ opt.value }}
+{% endfor %}
+{% endif %}
+
+# Set gateway (router) for DHCP clients
+{% if dhcp_gateway is defined %}
+dhcp-option=option:router,{{ dhcp_gateway }}
+{% endif %}
+
+# Set DNS servers for DHCP clients
+{% if dhcp_dns is defined %}
+dhcp-option=option:dns-server,{{ dhcp_dns | join(',') }}
+{% endif %}
+{% endif %}
+
+# Static DHCP (and DNS) entries
+{% for host in static_hosts %}
+# Static lease and DNS mapping for {{ host.name }} ({{ host.mac or 'no MAC' }})
+dhcp-host={{ host.mac | default('') }}{{ host.mac and host.ip and ',' or '' }}{{ host.ip | default('') }}{{ (host.mac or host.ip) and host.name and ',' or '' }}{{ host.name | default('') }}{{ (host.mac or host.ip) and host.hostname and ',' or '' }}{{ host.hostname | default('') }}
+{% endfor %}
+
+# Cache size
+{% if cache_size is defined %}
+dns-cache-size={{ cache_size }}
+{% endif %}
+
+# Log level (0 = quiet, 7 = verbose)
+{% if log_level is defined and log_level | int >= 1 %}
+log-queries
+log-facility={{ log_file | default('-') }}
+log-dhcp
+{% endif %}
+
+# Port for DNS queries
+port={{ dns_port }}
+
+# Port for DHCP (only if DHCP enabled)
+{% if dhcp_enabled %}
+dhcp-port={{ dhcp_port }}
+{% endif %}
+
+# Ignore /etc/hosts for DHCP (only use static-hosts above)
+{% if ignore_hosts is defined and ignore_hosts %}
+dhcp-hostfile=/dev/null
+{% endif %}

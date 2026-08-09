@@ -1,0 +1,59 @@
+{
+  "log_level": "EVENT",
+  "protocols": [
+    "4",
+    "4.1"
+  ],
+  "transports": [
+    "tcp"
+  ],
+  "grace_period": 90,
+  "enable_locking": true,
+  "enable_gss": false,
+  "export_default": {
+    "path": "/exports",
+    "clients": [
+      "10.0.0.0/24"
+    ],
+    "pseudo": "/export",
+    "access_async": true,
+    "squash": "root",
+    "fsal_flags": [
+      "No_Sync"
+    ]
+  },
+  "exports": [
+    {
+      "export_id": 1,
+      "description": "Home directories",
+      "path": "/home",
+      "clients": [
+        "10.0.0.10",
+        "10.0.0.11/32"
+      ],
+      "pseudo": "/home",
+      "squash": "none",
+      "fsal": {
+        "name": "VFS",
+        "fs_id": "0",
+        "xattr_name": "user.ganesha."
+      }
+    },
+    {
+      "export_id": 2,
+      "description": "Shared data (read-only for most clients)",
+      "path": "/data/shared",
+      "clients": [
+        "10.0.0.0/24",
+        "192.168.1.0/24"
+      ],
+      "pseudo": "/shared",
+      "squash": "all",
+      "access_async": false,
+      "fsal": {
+        "name": "VFS",
+        "fs_id": "1"
+      }
+    }
+  ]
+}

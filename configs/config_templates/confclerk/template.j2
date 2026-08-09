@@ -1,0 +1,21 @@
+; Configuration file for confclerk (offline conference scheduler)
+; This file is written in INI format and parsed by QSettings (Qt).
+
+; Path to the conference schedule SQLite database.
+; If empty, defaults to ~/.local/share/Toastfreeware/ConfClerk/ConfClerk.sqlite (Qt5) or ~/.local/share/... (Qt6).
+; Use peer_injection or ansible vars to set this if managing an external DB file.
+DatabasePath={{ db_path | default('') }}
+
+; Whether to automatically reload the database when it changes on disk.
+; Useful for live updates during import processes.
+AutoReload={{ auto_reload | default(True) | ternary('true', 'false') }}
+
+; Whether to show only favorite events in the main schedule view.
+; Defaults to false (show all events).
+FavoritesOnly={{ favorites_only | default(False) | ternary('true', 'false') }}
+
+; List of URLs (file:// or http(s)://) to conference schedule XML files to import at startup.
+; One entry per line in the generated configuration.
+{% for url in import_urls | default([]) %}
+ImportUrl={{ url }}
+{% endfor %}

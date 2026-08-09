@@ -1,0 +1,31 @@
+# finger(1) configuration file
+# Format: /etc/fingerd.conf
+#
+# This template manages the fingerd daemon settings. It is self-documenting:
+# every directive is preceded by a comment derived from its schema definition.
+
+# IP address to bind fingerd server to (e.g., 127.0.0.1, 0.0.0.0)
+bind-address: {{ bind_addr | default('0.0.0.0') }}
+
+# TCP port number for finger service
+port: {{ port | default(79) }}
+
+# Enable mail status lookup (mailboxes checked at query time)
+mail-lookup: {% if enable_mail_lookup | default(True) %}yes{% else %}no{% endif %}
+
+# Include contents of ~/.plan file in long-format responses
+show-plan: {% if show_plan | default(True) %}yes{% else %}no{% endif %}
+
+# Include contents of ~/.project file in long-format responses
+show-project: {% if show_project | default(True) %}yes{% else %}no{% endif %}
+
+# Include contents of ~/.pgpkey file in long-format responses
+show-pgpkey: {% if show_pgpkey | default(True) %}yes{% else %}no{% endif %}
+
+# Ignore .nofinger file and always respond for all users (disable privacy protection)
+hide-user-nofinger: {% if hide_user_nofinger | default(False) %}yes{% else %}no{% endif %}
+
+# List of IP addresses or hostnames allowed to query this finger daemon; empty means allow all (insecure).
+{% for client in allowed_clients | default([]) %}
+client: {{ client }}
+{% endfor %}

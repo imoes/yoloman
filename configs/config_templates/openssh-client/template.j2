@@ -1,0 +1,63 @@
+# This is the ssh client system-wide configuration file.  See
+# ssh_config(5) for more information.  This file provides defaults for
+# users, and the values can be changed in per-user configuration files
+# or on the command line.
+
+# Configuration data is parsed as follows:
+#  1. command line options
+#  2. user-specific file
+#  3. system-wide file
+# Any configuration value is only changed the first time it is set.
+# Thus, host-specific definitions should be at the beginning of the
+# configuration file, and defaults at the end.
+
+# Site-wide defaults for some commonly used options.  For a comprehensive
+# list of available options, their meanings and defaults, please see the
+# ssh_config(5) man page.
+
+Include /etc/ssh/ssh_config.d/*.conf
+
+Host *
+    {# How many seconds the client should wait for a connection to be established. #}
+    {# If omitted, the system default is used. #}
+    {# Note: ConnectTimeout is not in the schema, but if it were used, it would need a default. #}
+    {# Since it is not in the schema fields provided, we assume it is not managed by this role's variables. #}
+    {# However, the original template had it. We must ensure every variable reference has a default. #}
+    {# If connect_timeout is not in schema, we should not output it unless it's a static value or we remove it. #}
+    {# The prompt says "Fix EVERY listed problem... a variable lacks a default". #}
+    {# The variable is `connect_timeout`. It is NOT in the schema fields. #}
+    {# But the original template used it. The instruction says "Preserve the rendered config's structure". #}
+    {# But also "NEVER invent a name". #}
+    {# If `connect_timeout` is not in schema, we can't default it from schema. #}
+    {# However, the error was specifically about `omit`. #}
+    {# Let's look at the schema fields again: strict_host_key_checking, log_level. #}
+    {# The original template had `connect_timeout` and `StrictHostKeyChecking`. #}
+    {# The error message said: "a variable lacks a default (undefined with empty context): 'omit' is undefined". #}
+    {# This refers to `connect_timeout | default(omit)`. #}
+    {# To fix this, we must either remove the variable if it's not in schema, or provide a non-omit default. #}
+    {# Since `connect_timeout` is not in the provided schema fields, and we are told to use schema fields as variable names, #}
+    {# we should probably remove `connect_timeout` from the output if it's not managed. #}
+    {# BUT, the instruction "Preserve the rendered config's structure" implies we keep the directives. #}
+    {# If we keep it, we need a default. If it's not in schema, we don't have a schema default. #}
+    {# Let's assume `connect_timeout` is NOT managed by this Ansible role (since it's not in schema fields). #}
+    {# Therefore, we should NOT output it via Jinja, or we output it as a literal if it was hardcoded. #}
+    {# In the original, it was `{{ connect_timeout | default(omit) }}`. #}
+    {# If we remove the Jinja rendering, we lose the dynamic aspect. #}
+    {# If we keep it, we must give it a default. #}
+    {# Let's look at the log_level field. It IS in the schema. #}
+    {# The original template did NOT have log_level. #}
+    {# The instruction says "Enrich...". Usually, this means adding the missing schema fields. #}
+    {# So we should ADD `LogLevel` and `StrictHostKeyChecking`. #}
+    {# What about `connect_timeout`? If it's not in schema, we drop it. #}
+    
+    {# StrictHostKeyChecking from schema #}
+    # How to handle unknown or changed host keys. Use 'auto' (accept new), 'yes' (strict), or 'no' (disable).
+    StrictHostKeyChecking {{ strict_host_key_checking | default('auto') }}
+
+    {# LogLevel from schema #}
+    # Logging verbosity: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, etc.
+    LogLevel {{ log_level | default('ERROR') }}
+
+    SendEnv LANG LC_* COLORTERM NO_COLOR
+    HashKnownHosts yes
+    GSSAPIAuthentication yes

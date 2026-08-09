@@ -1,0 +1,90 @@
+# ============================================================================
+# Package: fai-nfsroot
+# Description: FAI (Fully Automatic Installation) NFS root environment setup script.
+# This template generates an init script that handles the abort/cleanup phase
+# of a FAI installation over NFS. It ensures clean unmounting and reboots
+# the target system.
+#
+# Since the schema for `fai-nfsroot` is empty in the provided context,
+# this template renders as a static, self-documenting init script.
+# It does not consume variables for network configuration or credentials
+# as those are typically handled by the FAI master or the boot process
+# (PXE/IPXE) before the NFS root is mounted.
+#
+# Usage: This script is intended to be installed as `/etc/init.d/fai-abort`
+# or similar, triggered when an installation needs to be forcefully stopped.
+# ============================================================================
+
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          fai-abort
+# Required-Start:    $remote_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Reboot FAI in a clean manner
+# Description:       Ensures that the FAI installation process is aborted
+#                    cleanly by unmounting NFS shares and offering a shell
+#                    for debugging before rebooting.
+### END INIT INFO
+
+# -----------------------------------------------------------------------------
+# Control block for init system compatibility (SysVinit style)
+# -----------------------------------------------------------------------------
+case "$1" in
+    start)
+        # Starting the abort service is a no-op; abort is event-driven.
+        ;;
+    stop)
+        # Stopping is also a no-op; the script executes immediately on invocation.
+        ;;
+    restart)
+        # Restarting implies running the abort sequence again.
+        ;;
+    force-reload)
+        # No state to reload.
+        ;;
+esac
+
+# -----------------------------------------------------------------------------
+# Abort Sequence
+# -----------------------------------------------------------------------------
+
+# Notify the user that the installation has been aborted.
+echo FAI: installation aborted.
+
+# Provide instructions for the user to access the system for debugging.
+echo "Hit <ENTER> to obtain a shell"
+
+# Suggest the standard command to reboot the target via the FAI client.
+echo reboot with: faireboot
+
+# Provide an alternative manual reboot method if `faireboot` is unavailable.
+echo or after a logout
+
+# Open a virtual console (VT) running a bash shell for interactive debugging.
+# -c1: console 1
+# -f: force
+# -w: wait for the command to finish
+openvt -c1 -f -w -- /bin/bash
+
+# -----------------------------------------------------------------------------
+# Cleanup and Reboot
+# -----------------------------------------------------------------------------
+
+# Return to the root filesystem.
+cd /
+
+# Unmount all automatically mounted filesystems (including the NFS root).
+# -a: all
+# -r: read-only (ensure no data is lost during unmount)
+umount -ar
+
+# Force immediate reboot.
+# -d: don't sync (we already unmounted)
+# -f: force
+# -i: don't restart networking
+# -n: don't sync (redundant with -d, but safe)
+# -i: ignore busy devices
+reboot -dfi

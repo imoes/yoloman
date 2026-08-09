@@ -1,0 +1,87 @@
+# =============================================================================
+# gtimelog Configuration Template
+# =============================================================================
+# This template generates a self-contained configuration file for the gtimelog
+# Python application. It manages time tracking, task management, and daily
+# email reporting via SMTP.
+#
+# All variables use explicit defaults to ensure safe rendering even when
+# Ansible facts or role variables are missing.
+# =============================================================================
+
+[gtimelog]
+
+# ---------------------------------------------------------------------------
+# General Time Tracking Settings
+# ---------------------------------------------------------------------------
+
+# Time format used in the GUI and reports (e.g., %H:%M for 24h format, %I:%M %p for 12h)
+# See Python strftime documentation for valid directives.
+time_format = {{ time_format | default('%H:%M') }}
+
+# Number of working hours per day used to calculate remaining work time
+# This value is typically used by the application to estimate daily progress.
+work_hours_per_day = {{ work_hours_per_day | default(8) }}
+
+# ---------------------------------------------------------------------------
+# Email / SMTP Reporting Configuration
+# ---------------------------------------------------------------------------
+
+# Email address to use when sending daily reports.
+# If email_enabled is true but this is empty, the sender_address is used.
+email_address = {{ email_address | default('') }}
+
+# SMTP server host to use for sending email reports.
+# Set to 'localhost' if using a local MTA like Postfix or Exim.
+smtp_server = {{ smtp_server | default('localhost') }}
+
+# SMTP server port.
+# Standard ports: 25 (plain), 587 (STARTTLS), 465 (SSL/TLS).
+smtp_port = {{ smtp_port | default(25) }}
+
+# Whether to use implicit TLS/SSL for the SMTP connection.
+# If true, connects via SSL on the configured port (usually 465).
+smtp_use_tls = {{ smtp_use_tls | default(false) }}
+
+# Whether to use STARTTLS for the SMTP connection.
+# Upgrade a plain connection to TLS on ports like 587.
+smtp_use_starttls = {{ smtp_use_starttls | default(false) }}
+
+# SMTP authentication username.
+# Leave empty if the server allows anonymous submission (common for localhost MTAs).
+smtp_username = {{ smtp_username | default('') }}
+
+# SMTP authentication password.
+# Leave empty if no authentication is required.
+smtp_password = {{ smtp_password | default('') }}
+
+# Email address used as the 'From:' field in outgoing emails.
+# If empty, gtimelog falls back to the 'email_address' setting above.
+sender_address = {{ sender_address | default('') }}
+
+# List of email addresses to use as default recipients for daily reports.
+# Values are joined into a comma-separated string for the SMTP transmission.
+default_recipients = {{ default_recipients | default([]) | join(',') }}
+
+# Whether email reporting is enabled globally.
+# Set to false to disable all email sending regardless of other SMTP settings.
+email_enabled = {{ email_enabled | default(false) }}
+
+# ---------------------------------------------------------------------------
+# File Paths (Optional Overrides)
+# ---------------------------------------------------------------------------
+
+# Custom path to the activity log file.
+# Overrides the XDG default ($XDG_DATA_HOME/gtimelog/timelog.txt).
+# Leave empty to use the automatic XDG path.
+log_file = {{ log_file | default('') }}
+
+# Custom path to the tasks file.
+# Overrides the XDG default ($XDG_DATA_HOME/gtimelog/tasks.txt).
+# Leave empty to use the automatic XDG path.
+tasks_file = {{ tasks_file | default('') }}
+
+# Custom path to the sent reports log file.
+# Overrides the XDG default ($XDG_DATA_HOME/gtimelog/sentreports.log).
+# Leave empty to use the automatic XDG path.
+sentreports_file = {{ sentreports_file | default('') }}

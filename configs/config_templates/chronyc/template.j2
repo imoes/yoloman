@@ -1,0 +1,137 @@
+# ==============================================================================
+# Chrony Configuration Template
+# ==============================================================================
+# This template generates a chrony.conf file for the chronyd NTP daemon.
+# It supports server peers, local clock, access control, interface binding,
+# and authentication. All variables are sourced from the Ansible inventory/vars.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Section: Server Peers
+# --------------------------------------------------------------------------
+# List of NTP servers/peers to synchronize with.
+# Each entry can specify a host, and optional flags: iburst, prefer, key.
+# At least one server is recommended for production.
+# Variable: servers (list of dicts)
+{% for server in servers | default([]) %}
+# Source NTP server/peer: {{ (server | default({})).host | default('unknown') }}
+server {{ (server | default({})).host | default('') }}{{ ' iburst' if (server | default({})).iburst | default(False) else '' }}{{ ' prefer' if (server | default({})).prefer | default(False) else '' }}{{ ' key ' + ((server | default({})).key_id | default(0) | string) if (server | default({})).key_id is defined and (server | default({})).key_id else '' }}
+
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Section: Local Reference Clock
+# --------------------------------------------------------------------------
+# Use local clock as time source when external sources are unavailable.
+# Typically used in virtualized environments or when no internet/NTP is available.
+# Variable: local_stratum (dict: {enabled: bool, level: int})
+{% if (local_stratum | default({})).enabled | default(False) %}
+# Local reference clock enabled at stratum level {{ (local_stratum | default({})).level | default(10) }}
+local stratum {{ (local_stratum | default({})).level | default(10) }}
+
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Section: Access Control
+# --------------------------------------------------------------------------
+# Access control rules for NTP clients or chronyc command access.
+# Defines allowed/denied networks (IPv4/IPv6).
+# Variable: access_rules (list of dicts: {allow: bool, net: str, mask: str (opt)})
+{% for rule in access_rules | default([{'allow': True, 'net': '192.168.0.0/16'}, {'allow': True, 'net': 'fd00::/8'}]) %}
+# Access rule: {{ 'allow' if (rule | default({})).allow | default(True) else 'deny' }} network {{ (rule | default({})).net | default('') }}{{ ' mask ' + ((rule | default({})).mask | default('') | string) if (rule | default({})).mask is defined and (rule | default({})).mask else '' }}
+{{ 'allow' if (rule | default({})).allow | default(True) else 'deny' }}{{ ' ' + ((rule | default({})).net | default('') | string) }}{{ ' mask ' + ((rule | default({})).mask | default('') | string) if (rule | default({})).mask is defined and (rule | default({})).mask else '' }}
+
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Section: Network Binding
+# --------------------------------------------------------------------------
+# List of network interfaces to bind for NTP traffic.
+# Leave empty to bind all interfaces.
+# Variable: bind_interfaces (list of strings)
+{% for iface in bind_interfaces | default([]) %}
+# Bind NTP traffic to interface {{ iface }}
+bindaddress {{ iface }}
+
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Section: Update Rate Limiting
+# --------------------------------------------------------------------------
+# Maximum rate of time updates per second to prevent excessive client load.
+# Helps mitigate DDoS attacks against the NTP service.
+# Variable: max_update_skew (int)
+# Maximum rate of time updates per second (Hz).
+maxupdateskew {{ max_update_skew | default(100) }}
+
+# --------------------------------------------------------------------------
+# Section: File Paths
+# --------------------------------------------------------------------------
+# Configuration for various file paths used by chronyd.
+# Variable: paths (dict: {driftfile, rtcoutc, logdir, keyfile})
+# Frequency file path (persistent drift correction data).
+driftfile {{ (paths | default({})).driftfile | default('/var/lib/chrony/drift') }}
+
+# RTC file path (real-time clock offset tracking).
+rtconutc {{ (paths | default({})).rtcoutc | default('/etc/chrony/rtc') }}
+
+# --------------------------------------------------------------------------
+# Section: Hardware Timestamping
+# --------------------------------------------------------------------------
+# Enable hardware-assisted timestamping for high-precision timing.
+# Requires a compatible NIC and kernel support.
+# Variable: hardware_timestamping (bool)
+{% if hardware_timestamping | default(False) %}
+# Hardware timestamping enabled
+hwtimestamp *
+
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Section: Logging
+# --------------------------------------------------------------------------
+# Logging configuration for chronyd.
+# Logs measurements, statistics, and tracking data.
+# Variable: paths.logdir (dict access)
+# Logging data directory.
+logdir {{ (paths | default({})).logdir | default('/var/log/chrony') }}
+
+# --------------------------------------------------------------------------
+# Section: Authentication
+# --------------------------------------------------------------------------
+# Enable NTP authentication (RFC 5905) for secure time sources.
+# Uses a keyfile containing symmetric keys and trusted key IDs.
+# Variable: authentication (dict: {enabled: bool, trusted_keys: list})
+{% if (authentication | default({})).enabled | default(False) %}
+# NTP Authentication enabled
+# Key file containing NTP symmetric keys.
+keyfile {{ (paths | default({})).keyfile | default('/etc/chrony/keys') }}
+
+# List of trusted key IDs for authentication.
+{% for key_id in (authentication | default({})).trusted_keys | default([]) %}
+trustedkey {{ key_id }}
+
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Section: Command Port & General Settings
+# --------------------------------------------------------------------------
+# Port for chronyd command interface (used by chronyc).
+# If cmdport_disabled is true, the command port is closed (cmdport 0).
+# Variable: cmdport_disabled (bool), cmd_port (int)
+# Make step adjustments only during initial synchronization
+makestep {{ step_threshold | default(1.0) }} {{ max_steps | default(12) }}
+
+# Leap second handling timezone configuration.
+leapsectz {{ leap_sec_tz | default('right/UTC') }}
+
+{% if cmdport_disabled | default(False) %}
+# Command port disabled
+cmdport 0
+
+{% else %}
+# Command port enabled on {{ cmd_port | default(323) }}
+cmdport {{ cmd_port | default(323) }}
+
+{% endif %}

@@ -1,0 +1,52 @@
+{
+  "spool_dir": "/var/spool/filespooler",
+  "max_file_age": 172800,
+  "worker_count": 8,
+  "verbose": true,
+  "max_file_size": 524288000,
+  "max_file_count": 20000,
+  "listener": {
+    "host": "127.0.0.1",
+    "port": 9090,
+    "tls_enabled": true,
+    "cert_file": "/etc/filespooler/tls/server.crt",
+    "key_file": "/etc/filespooler/tls/server.key"
+  },
+  "backends": [
+    {
+      "name": "local-primary",
+      "description": "Primary local storage for high-throughput ingestion",
+      "enabled": true,
+      "type": "local",
+      "local": {
+        "storage_dir": "/mnt/ssd/spooler/local"
+      }
+    },
+    {
+      "name": "s3-archive",
+      "description": "Cold archive to S3-compatible object store",
+      "enabled": true,
+      "type": "s3",
+      "s3": {
+        "region": "us-west-2",
+        "endpoint": "s3.us-west-2.amazonaws.com",
+        "bucket": "filespooler-archive",
+        "access_key": "AKIAIOSFODNN7EXAMPLE",
+        "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+      }
+    },
+    {
+      "name": "ftp-backup",
+      "description": "Legacy FTP fallback for offsite backup",
+      "enabled": false,
+      "type": "ftp",
+      "ftp": {
+        "host": "backup.example.org",
+        "port": 21,
+        "username": "spooler-backup",
+        "use_tls": true,
+        "password": "supersecret"
+      }
+    }
+  ]
+}

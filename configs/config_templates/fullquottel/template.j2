@@ -1,0 +1,198 @@
+# ==============================================================================
+# Fullquottel Configuration
+# ==============================================================================
+# This file configures the fullquottel email analysis tool.
+# It detects "TOFU" (Trust On First Use) emails by analyzing quoting patterns
+# and attribution lines.
+#
+# Format: Key=Value
+# Lines starting with # are comments. Empty lines are ignored.
+# If a variable is not set, its default value is used.
+# ==============================================================================
+
+# ---------------------------------------------------------------------------
+# GENERAL OPTIONS
+# ---------------------------------------------------------------------------
+
+# scorethreshold: Threshold for final score that discriminates between Goodquottel and Fullquottel
+# Possible values: double
+# Default: 1.5
+scorethreshold={{ scorethreshold | default(1.5) }}
+
+# quotechars: Chars used for quoting
+# Possible values: chars
+# Default: >|#
+quotechars='{{ quotechars | default(">|#") }}'
+
+# debug: Debug option: 1 (on), 0 (off)
+# Possible values: 1 (on), 0 (off)
+# Default: off
+debug={{ debug | default(0) }}
+
+# ---------------------------------------------------------------------------
+# TEST RELATED OPTIONS
+# ---------------------------------------------------------------------------
+
+# 1) ownSigTest
+# This test searches for the own email signature (default in file: ~/.signature),
+# no matter if it is quoted or not. If the own signature is included in a reply,
+# this is a strong sign for a tofu mail.
+
+# ownsigtest: Turn on/off ownSigTest
+# Possible values: 1 (on), 0 (off)
+# Default: on
+ownsigtest={{ ownsigtest | default(1) }}
+
+# ownsigtestscore: Score for ownSigTest
+# Possible values: double
+# Default: 1.0
+ownsigtestscore={{ ownsigtestscore | default(1.0) }}
+
+# ownsigtestfile: Signature file to test against
+# Possible values: string (filename)
+# Default: ~/.signature
+ownsigtestfile={{ ownsigtestfile | default("~/.signature") }}
+
+# 2) msTest
+# People using MS Outlook (Express) often have the original mail at the
+# bottom of their reply below a line like "----- Original Message -----".
+# This test searches for this kind of lines. It is possible to compare the line
+# number where it was found to a certain threshold. If the line number is equal
+# to or higher than this threshold, the test is positive and the specified
+# score is added.
+# Why the line number? It is possible that a user replies in a non-tofu way
+# but has this "original message" line at the very beginning of his reply.
+# For definition of the attribution line see below.
+
+# mstest: Turn on/off msTest (Microsoft attribution lines)
+# Possible values: 1 (on), 0 (off)
+# Default: on
+mstest={{ mstest | default(1) }}
+
+# mstestscore: Score for msTest
+# Possible values: double
+# Default: 1.0
+mstestscore={{ mstestscore | default(1.0) }}
+
+# mstestthreshold: Threshold for msTest (at or below which line a Microsoft attribution line is found)
+# Possible values: double
+# Default: 2
+mstestthreshold={{ mstestthreshold | default(2) }}
+
+# 3) quotedToAllTest
+# This test calculates the ratio between the number of quoted lines and the
+# number of all lines. The ratio has a value between 0 and 1. It is compared
+# to a threshold (default: 0.5) and in case the ratio is higher than the
+# threshold the score is added to the final score. Additionally a factor can
+# be specified that adds an additional weighted score:
+# score(quotedToAllTest) = ratio > threshold ? score + ratio * factor : 0
+
+# quotedtoalltest: Turn on/off quotedToAllTest (ratio quoted lines to all)
+# Possible values: 1 (on), 0 (off)
+# Default: on
+quotedtoalltest={{ quotedtoalltest | default(1) }}
+
+# quotedtoalltestscore: Score for quotedToAllTest
+# Possible values: double
+# Default: 1.0
+quotedtoalltestscore={{ quotedtoalltestscore | default(1.0) }}
+
+# quotedtoalltestfactor: Result = score + ratio * FACTOR
+# Possible values: double
+# Default: 0
+quotedtoalltestfactor={{ quotedtoalltestfactor | default(0) }}
+
+# quotedtoalltestthreshold: Ratio threshold for activating quotedToAllTest
+# Possible values: double
+# Default: 0.5
+quotedtoalltestthreshold={{ quotedtoalltestthreshold | default(0.5) }}
+
+# 4) bottomQuotedToAllTest
+# This test calculates the ratio between the number of quoted lines at the
+# bottom of the mail and the number of all lines. The ratio has a value
+# between 0 and 1. It is compared to a threshold (default: 0.5) and in case
+# the ratio is higher than the threshold the score is added to the final
+# score. Additionally a factor can be specified that adds an additional
+# weighted score:
+# score(bottomQuotedToAllTest) = ratio > threshold ? score + ratio * factor : 0
+
+# bottomquotedtoalltest: Turn on/off bottomQuotedToAllTest (ratio quoted lines at bottom to all)
+# Possible values: 1 (on), 0 (off)
+# Default: on
+bottomquotedtoalltest={{ bottomquotedtoalltest | default(1) }}
+
+# bottomquotedtoalltestscore: Score for bottomQuotedToAllTest
+# Possible values: double
+# Default: 1.0
+bottomquotedtoalltestscore={{ bottomquotedtoalltestscore | default(1.0) }}
+
+# bottomquotedtoalltestfactor: Result = score + ratio * FACTOR
+# Possible values: double
+# Default: 0
+bottomquotedtoalltestfactor={{ bottomquotedtoalltestfactor | default(0) }}
+
+# bottomquotedtoalltestthreshold: Ratio threshold for activating bottomQuotedToAllTest
+# Possible values: double
+# Default: 0.5
+bottomquotedtoalltestthreshold={{ bottomquotedtoalltestthreshold | default(0.5) }}
+
+# 5) bottomQuotedToQuotedTest
+# This test calculates the ratio between the number of quoted lines at the
+# bottom of the mail and the number of all quoted lines. The ratio has a
+# value between 0 and 1. It is compared to a threshold (default: 0.5) and in
+# case the ratio is higher than the threshold the score is added to the
+# final score. Additionally a factor can be specified that adds an
+# additional weighted score:
+# score(bottomQuotedToQuotedTest) = ratio > threshold ? score + ratio * factor : 0
+
+# bottomquotedtoquotedtest: Turn on/off bottomQuotedToQuotedTest (ratio quoted lines at bottom to all quoted lines)
+# Possible values: 1 (on), 0 (off)
+# Default: on
+bottomquotedtoquotedtest={{ bottomquotedtoquotedtest | default(1) }}
+
+# bottomquotedtoquotedtestscore: Score for bottomQuotedToQuotedTest
+# Possible values: double
+# Default: 1.0
+bottomquotedtoquotedtestscore={{ bottomquotedtoquotedtestscore | default(1.0) }}
+
+# bottomquotedtoquotedtestfactor: Result = score + ratio * FACTOR
+# Possible values: double
+# Default: 0
+bottomquotedtoquotedtestfactor={{ bottomquotedtoquotedtestfactor | default(0) }}
+
+# bottomquotedtoquotedtestthreshold: Ratio threshold for activating bottomQuotedToQuotedTest
+# Possible values: double
+# Default: 0.5
+bottomquotedtoquotedtestthreshold={{ bottomquotedtoquotedtestthreshold | default(0.5) }}
+
+# 6) singleBottomQuoteTest
+# This test checks if the mail has only one quote block and if this quote
+# block is at the bottom of the mail - the classical tofu style.
+
+# singlebottomquotetest: Turn on/off singleBottomQuoteTest (only one quote block, and at the bottom)
+# Possible values: 1 (on), 0 (off)
+# Default: on
+singlebottomquotetest={{ singlebottomquotetest | default(1) }}
+
+# singlebottomquotetestscore: Score for singleBottomQuoteTest
+# Possible values: double
+# Default: 1.0
+singlebottomquotetestscore={{ singlebottomquotetestscore | default(1.0) }}
+
+# ---------------------------------------------------------------------------
+# ADDITIONAL OPTIONS
+# ---------------------------------------------------------------------------
+
+# addattributionlines: Add additional attribution lines for the 'mstest' (see above)
+# Possible values: true false
+# If 'false': other definitions are ignored
+# If 'true': following definitions are added
+# Default: true
+addattributionlines={{ addattributionlines | default(true) }}
+
+# attributionlines: Additional attribution lines for 'mstest'
+# More than one entry is allowed. Each line generates an 'attributionline' directive.
+# Default: ['-----Ursprüngliche Nachricht-----', '-----Original Message-----', '----- Ursprüngliche Nachricht -----', '----- Original Message -----']
+{% for line in attributionlines | default(['-----Ursprüngliche Nachricht-----', '-----Original Message-----', '----- Ursprüngliche Nachricht -----', '----- Original Message -----']) %}
+attributionline={{ line }}
+{% endfor %}

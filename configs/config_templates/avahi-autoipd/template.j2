@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# This file is part of avahi.
+#
+# avahi-autoipd is a script used by DHCP client hooks to manage link-local
+# IP address assignment using the Avahi mDNS/DNS-SD stack. It ensures that
+# the avahi-autoipd daemon is running for the interface when a link-local
+# address is needed, and stopped when it is released or expired.
+#
+# This template is self-documenting: every variable reference is annotated
+# with its schema description and safe default.
+#
+
+case "$reason" in
+    MEDIUM|ARPCHECK|ARPSEND|NBI)
+        # No action required for these DHCP reason codes.
+        ;;
+
+    PREINIT|BOUND|RENEW|REBIND|REBOOT|STOP|RELEASE)
+        #
+        # avahi_autoipd_binary_path: Absolute path to the avahi-autoipd binary executable
+        # Default: /usr/sbin/avahi-autoipd
+        #
+        # Check if the avahi-autoipd binary exists and is executable.
+        # If it supports configuration for the current interface ($interface),
+        # verify its status.
+        #
+        if [ -x {{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }} ] && {{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }} -c $interface; then
+            # Stop any existing avahi-autoipd instance for this interface to allow
+            # proper state management. Errors are suppressed as the process might
+            # already be stopped.
+            {{ avahi_autoipd_binary_path | default('/usr/sbin/avahi-autoipd') }} -k $interface 2> /dev/null
+        fi
+        ;;
+    
+    EXPIRE|FAIL|TIMEOUT)
+        #
+        # When an address expires, fails, or times out, the actual starting
+        # of avahi-autoipd is handled by a separate exit hook mechanism,
+        # so no action is taken here.
+        #
+        ;;
+esac

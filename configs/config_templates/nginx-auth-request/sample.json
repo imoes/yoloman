@@ -1,0 +1,41 @@
+{
+  "worker_processes": "auto",
+  "error_log": "/var/log/nginx/error.log warn",
+  "pid_file": "/run/nginx.pid",
+  "worker_connections": 1024,
+  "sendfile": true,
+  "tcp_nopush": true,
+  "tcp_nodelay": true,
+  "keepalive_timeout": 65,
+  "types_hash_max_size": 2048,
+  "enable_security_headers": true,
+  "include_conf_d": true,
+  "include_sites_enabled": true,
+  "custom_server_blocks": [
+    {
+      "server_name": "app.example.com",
+      "listen": "80",
+      "auth_request_url": "https://auth.internal/auth",
+      "auth_request_set": "$auth_user $auth_status",
+      "auth_request_pass_request_body": false,
+      "locations": [
+        {
+          "path": "/",
+          "auth_enabled": true,
+          "proxy_pass": "http://backend:3000",
+          "proxy_set_headers": [
+            {
+              "X-Forwarded-For": "$proxy_add_x_forwarded_for"
+            },
+            {
+              "X-Real-IP": "$remote_addr"
+            },
+            {
+              "X-Auth-User": "$auth_user"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

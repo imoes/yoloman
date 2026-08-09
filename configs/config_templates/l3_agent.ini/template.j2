@@ -1,0 +1,65 @@
+[DEFAULT]
+# Unique identifier for this L3 agent instance (must be unique across all agents in the deployment).
+agent_id = {{ agent_id | default('l3-agent-1') }}
+
+# Enable verbose debugging output for troubleshooting.
+debug = {{ debug | default(False) }}
+
+# Interval (in seconds) between state syncs with the Neutron server. Lower values improve responsiveness but increase load.
+state_sync_interval = {{ state_sync_interval | default(30) }}
+
+# Maximum number of routers this agent will manage. Set to 0 for unlimited. Helps distribute load across agents.
+max_routers_per_agent = {{ max_routers_per_agent | default(0) }}
+
+# Bridge name used for external network traffic. Empty string uses the default bridge (e.g., br-ex).
+external_network_bridge = {{ external_network_bridge | default('') }}
+
+# Enable NAT for internal-to-external network translation (required for floating IPs and SNAT).
+enable_nat = {{ enable_nat | default(True) }}
+
+# Number of parallel worker processes for router processing. Increase under high router load.
+num_router_agents = {{ num_router_agents | default(1) }}
+
+# Enable high availability (HA) for routers using keepalived. Requires shared storage or database replication.
+ha = {{ ha | default(False) }}
+
+# Name of the Neutron network used for HA heartbeat traffic when HA mode is enabled.
+ha_network_name = {{ ha_network_name | default('ha-network') }}
+
+# MTU (in bytes) for the HA network interface. Should account for overhead (e.g., 1500 - 50 for VXLAN).
+ha_network_mtu = {{ ha_network_mtu | default(1450) }}
+
+# Physical interface (e.g., 'eth0') bound to gateway router. Required for SNAT/DNAT when not using OVS.
+gateway_external_device = {{ gateway_external_device | default('') }}
+
+# Enable IPv6 router advertisements and ND support.
+enable_ipv6 = {{ enable_ipv6 | default(True) }}
+
+[AGENT]
+# Interval (in seconds) between agent heartbeats to the Neutron server. Shorter intervals improve failover detection.
+report_interval = {{ report_interval | default(30) }}
+
+# Minimum time (in seconds) between agent restarts. Prevents thrashing during rapid failures.
+min_restart_interval = {{ min_restart_interval | default(5) }}
+
+# Name of the Open vSwitch integration bridge.
+ovs_integration_bridge = {{ ovs_integration_bridge | default('br-int') }}
+
+# The driver to use for managing the external interface (e.g., 'linuxbridge', 'openvswitch').
+interface_driver = {{ interface_driver | default('linuxbridge') }}
+
+# Enable DHCP agent functionality within the L3 agent process.
+enable_dhcp = {{ enable_dhcp | default(True) }}
+
+# Path to the log file for the L3 agent. Empty string logs to stdout.
+log_file = {{ log_file | default('') }}
+
+{% for network in external_networks | default([]) %}
+# External network configuration: {{ network.name }}
+[external_network_{{ loop.index }}]
+bridge = {{ network.bridge }}
+gateway = {{ network.gateway }}
+{% if network.vlan %}
+vlan = {{ network.vlan }}
+{% endif %}
+{% endfor %}

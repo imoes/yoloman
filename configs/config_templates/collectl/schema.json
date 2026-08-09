@@ -1,0 +1,89 @@
+{
+  "daemon": {
+    "type": "bool",
+    "default": false,
+    "description": "DaemonCommands is set but not commented out, but the template itself does not enable daemon mode \u2014 only provides default command-line arguments for daemon mode; actual daemon mode is controlled via the -D flag, which is not set by default"
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/collectl.pid",
+    "description": "Standard default; not overridden in the shipped config"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Not controlled by any config line; depends on CLI -v flag; config has no equivalent"
+  },
+  "interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Default; Interval line is commented out"
+  },
+  "format": {
+    "type": "string",
+    "default": "ascii",
+    "description": "Default; format is not controlled by config file \u2014 it's CLI only (e.g., -f for raw, -F for ascii), so the shipped config doesn't set it; default is 'ascii' per collectl docs",
+    "enum": [
+      "ascii",
+      "raw"
+    ]
+  },
+  "dir": {
+    "type": "string",
+    "default": "/var/log/collectl",
+    "description": "Used in DaemonCommands as the -f path; this is the shipped default directory"
+  },
+  "compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Not configurable in shipped config \u2014 controlled via CLI -Z/-z flags; default is compression enabled"
+  },
+  "retention": {
+    "type": "number",
+    "default": 7,
+    "description": "Encoded as -r00:00,7 in DaemonCommands \u2014 retention is 7 days"
+  },
+  "maxSize": {
+    "type": "number",
+    "default": 60000,
+    "description": "Encoded as -F60 in DaemonCommands \u2014 60 minutes between rotations. However, -F controls time-based rotation, not size. Size-based rotation is controlled via -m flag with -z for size limit. Since no size limit is specified in DaemonCommands, and shipped config has no maxSize setting, the *default* is 50000 KB per collectl docs. The shipped config doesn't override this, so default applies."
+  },
+  "subsystems": {
+    "type": "list",
+    "default": [
+      "b",
+      "c",
+      "d",
+      "f",
+      "i",
+      "j",
+      "l",
+      "m",
+      "n",
+      "s",
+      "t",
+      "x",
+      "y",
+      "z"
+    ],
+    "description": "List of subsystems to monitor (mapped from DaemonCommands '-s+YZ' + core subsystems)"
+  },
+  "custom_format": {
+    "type": "string",
+    "default": "ascii",
+    "description": "No custom format spec in shipped config",
+    "enum": [
+      "ascii",
+      "raw"
+    ]
+  },
+  "optional_features": {
+    "type": "list",
+    "default": [
+      "cgroup",
+      "zfs",
+      "infiniband"
+    ],
+    "description": "From -s+YZ: 'y' enables infiniband, 'Z' enables zfs, and 'c' (process stats) may imply cgroup if enabled. Also, '-s cdm' implies procstat (c) and Y/Z imply their respective optional features."
+  }
+}

@@ -1,0 +1,101 @@
+# =============================================================================
+# N2N Peer-to-Peer VPN Daemon Configuration
+#
+# This template generates a configuration file for the `n2n` (edge) daemon.
+# It defines network parameters, encryption settings, logging, and supernode
+# connection details.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# =============================================================================
+
+# Name of the virtual TAP interface (e.g., n2n0, tap0).
+# Default: 'n2n0'
+interface_name={{ interface_name | default('n2n0') }}
+
+# MAC address for the virtual interface; use 'auto' to generate a random one.
+# Default: 'auto'
+mac_address={{ mac_address | default('auto') }}
+
+# Static IPv4 address and CIDR netmask for the interface (e.g., 10.42.10.2/24).
+# Default: '10.123.45.1/24'
+ip_address={{ ip_address | default('10.123.45.1/24') }}
+
+# List of supernode addresses to bootstrap the mesh. At least one is required.
+# Output format: comma-separated host:port strings.
+# Default: [] (empty list)
+supernodes={{ supernodes | default([]) | join(', ') }}
+
+# Shared community name (case-sensitive). All edges must use the same community to join the mesh.
+# Default: 'public'
+community={{ community | default('public') }}
+
+# Cipher algorithm for payload encryption. Supported: 'none', 'aes', 'twofish', 'blowfish', 'cast5'.
+# Default: 'aes'
+encryption={{ encryption | default('aes') }}
+
+# Encryption key (base64-encoded or plain). Required if encryption ≠ 'none'.
+# Leave blank for 'none'.
+# Default: '' (empty)
+encryption_key={{ encryption_key | default('') }}
+
+# Local UDP port to listen on for incoming P2P connections. Use 0 to let the OS choose.
+# Default: 0
+listen_port={{ listen_port | default(0) }}
+
+# Enable multicast peer discovery to locate peers locally (requires multicast support).
+# Output format: 'yes' or 'no'.
+# Default: True
+enable_multicast={{ 'yes' if enable_multicast | default(True) else 'no' }}
+
+# Compression algorithm. Supported: 'none', 'lzo', 'zlib'.
+# Default: 'none'
+compression={{ compression | default('none') }}
+
+# IP TTL for forwarded packets. Lower values limit hop count (e.g., 1 = local network only).
+# Default: 16
+ttl={{ ttl | default(16) }}
+
+# Path to write the process PID file.
+# Default: '/var/run/n2n/n2n.pid'
+pid_file={{ pid_file | default('/var/run/n2n/n2n.pid') }}
+
+# Path to write log output. Empty string disables file logging.
+# Default: '/var/log/n2n/n2n.log'
+log_file={{ log_file | default('/var/log/n2n/n2n.log') }}
+
+# Verbosity of logging: 0 (quiet) to 4 (debug). 2 (warn) is recommended for production.
+# Default: 2
+log_level={{ log_level | default(2) }}
+
+# Seconds between keepalive packets (0 to disable). Helps maintain NAT traversal.
+# Default: 20
+keepalive_interval={{ keepalive_interval | default(20) }}
+
+# Maximum peers allowed in this community (0 = unlimited). Helps prevent resource exhaustion.
+# Default: 0
+max_edges={{ max_edges | default(0) }}
+
+# User:group to drop to after startup for security (e.g., n2n:nobody).
+# Default: 'n2n:n2n'
+drop_privileges={{ drop_privileges | default('n2n:n2n') }}
+
+# Attempt direct peer-to-peer connection (bypass supernode) when possible (improves latency).
+# Output format: 'yes' or 'no'.
+# Default: True
+direct_connection={{ 'yes' if direct_connection | default(True) else 'no' }}
+
+# Optional persistent state file for edge registration (used by some supernodes).
+# Default: '/var/lib/n2n/state.json'
+state_file={{ state_file | default('/var/lib/n2n/state.json') }}
+
+# Reject connections from peers not registered with this edge (requires external auth).
+# Output format: 'yes' or 'no'.
+# Default: False
+only_registered_edges={{ 'yes' if only_registered_edges | default(False) else 'no' }}
+
+# Extra command-line arguments (e.g., '--daemon --pid-file /run/n2n/n2n.pid').
+# Use with caution. Blank if not provided.
+# Default: '' (empty)
+{% if extra_opts | default('') %}
+extra_opts={{ extra_opts | default('') }}
+{% endif %}

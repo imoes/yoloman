@@ -1,0 +1,77 @@
+{
+  "gssapi_hostname": {
+    "type": "string",
+    "default": "mail.example.com",
+    "description": "Hostname used for GSSAPI (e.g., fully qualified domain name of the mail server). Must match the principal in the keytab."
+  },
+  "gssapi_keytab": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the Kerberos keytab file. Leave empty to use the system default (typically /etc/krb5.keytab)."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot.log",
+    "description": "Path to the main Dovecot log file where GSSAPI events will be recorded."
+  },
+  "auth_userdb_user": {
+    "type": "string",
+    "default": "dovecot",
+    "description": "User owning the auth-userdb Unix socket for authentication database access."
+  },
+  "auth_userdb_group": {
+    "type": "string",
+    "default": "dovecot",
+    "description": "Group owning the auth-userdb Unix socket."
+  },
+  "gssapi_auth_module_path": {
+    "type": "string",
+    "default": "/usr/lib/dovecot/authgssapi.so",
+    "description": "Path to the GSSAPI authentication module (if not auto-loaded). Adjust for architecture or distribution (e.g., /usr/lib64/dovecot/authgssapi.so)."
+  },
+  "gssapi_trusted_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of CIDR networks allowed to use GSSAPI authentication. If empty, all networks are allowed (not recommended for untrusted environments).",
+    "items": {
+      "type": "string",
+      "description": "Network in CIDR notation (e.g., '10.0.0.0/8' or '192.168.1.0/24')"
+    }
+  },
+  "gssapi_services": {
+    "type": "list",
+    "default": [],
+    "description": "Custom per-service configurations to override defaults (e.g., for IMAP, POP3, or LDA). Add only if needed.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Name of the service (e.g., 'imap', 'pop3', 'auth')"
+      },
+      "chroot": {
+        "type": "string",
+        "default": "",
+        "description": "Chroot directory for the service (optional)"
+      },
+      "listen": {
+        "type": "list",
+        "default": [],
+        "description": "Addresses or hostnames this service listens on",
+        "items": {
+          "type": "string",
+          "description": "IP or hostname"
+        }
+      },
+      "max_processes": {
+        "type": "number",
+        "default": 256,
+        "description": "Maximum number of concurrent processes for this service"
+      },
+      "gssapi_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable GSSAPI for this specific service (override global setting)"
+      }
+    }
+  }
+}

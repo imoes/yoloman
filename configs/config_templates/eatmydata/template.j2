@@ -1,0 +1,47 @@
+# =============================================================================
+# eatmydata Configuration Template
+# =============================================================================
+# This template configures 'eatmydata', a library that disables fsync, fdatasync,
+# and flush operations to speed up database and package manager operations.
+# It supports two modes: manual environment variable injection or symlink
+# replacement.
+# =============================================================================
+
+{# -----------------------------------------------------------------------------
+   Mode 1: Manual Environment Variable Exports
+   -----------------------------------------------------------------------------
+   If use_manual_env is True, this block generates shell export commands
+   to preload the eatmydata library manually.
+   ----------------------------------------------------------------------------- #}
+{% if use_manual_env | default(False) %}
+{#
+  Export LD_PRELOAD so that the libeatmydata.so library is loaded before
+  any other shared library in the process. This effectively disables
+  fsync/fdatasync for the target application.
+#}
+export LD_PRELOAD=libeatmydata.so
+
+{#
+  Ensure the library path includes the directory where libeatmydata.so
+  resides, allowing the dynamic linker to find it.
+#}
+export LD_LIBRARY_PATH={{ '/usr/lib' | default('/usr/lib') }}
+{% endif %}
+
+{# -----------------------------------------------------------------------------
+   Mode 2: Symlink Mode Configuration
+   -----------------------------------------------------------------------------
+   If symlinks is defined and not empty, this block generates shell commands
+   to create symlinks from common tool names (e.g., 'rpm', 'dpkg') to
+   'eatmydata'. When executed, the symlink target runs eatmydata, which
+   then executes the original command with the library preloaded.
+   ----------------------------------------------------------------------------- #}
+{% for symlink in symlinks | default([]) %}
+{#
+  Create a symbolic link for this specific entry.
+  - symlink.basename: The name of the symlink to create (e.g., 'rpm').
+  - symlink.path: The full path where the symlink will reside (default: /usr/local/bin/<basename>).
+  - symlink.target: The target command path (default: /usr/bin/eatmydata).
+#}
+ln -sf {{ symlink.target | default('/usr/bin/eatmydata') }} {{ symlink.path | default('/usr/local/bin/' ~ symlink.basename) }}
+{% endfor %}

@@ -1,0 +1,142 @@
+{
+  "prometheus_module_path": {
+    "type": "string",
+    "default": "modules/ngx_http_prometheus_module.so",
+    "description": "Path (relative to nginx root) to the Prometheus module .so file"
+  },
+  "error_log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Global logging level: debug, info, notice, warn, error, crit, alert, emerg"
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/nginx/error.log",
+    "description": "Path to the error log file"
+  },
+  "pid_path": {
+    "type": "string",
+    "default": "/run/nginx.pid",
+    "description": "Path to the PID file"
+  },
+  "worker_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous connections per worker process"
+  },
+  "worker_processes": {
+    "type": "string",
+    "default": "auto",
+    "description": "Number of worker processes (e.g., 'auto', '1', '4'). Set to 'auto' for CPU-core autodetection."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Timeout (in seconds) for keep-alive connections to the backend"
+  },
+  "sendfile": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable kernel zero-copy sendfile optimization"
+  },
+  "prometheus_port": {
+    "type": "number",
+    "default": 9113,
+    "description": "Port on which the Prometheus metrics endpoint (/metrics) is exposed"
+  },
+  "prometheus_server_name": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Server name (hostname) for the internal Prometheus metrics server block"
+  },
+  "sites": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream application server blocks to proxy/load balance to (besides the internal /metrics server)",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Server name (domain) for this virtual host"
+      },
+      "listen": {
+        "type": "string",
+        "description": "Listen address:port (e.g., '80', '443', '0.0.0.0:8080')"
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS for this server"
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate file (required if ssl=true)"
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL private key file (required if ssl=true)"
+      },
+      "root": {
+        "type": "string",
+        "default": "",
+        "description": "Document root directory for static content"
+      },
+      "index": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "index.html"
+        ],
+        "description": "Index files to try in order (e.g., ['index.html', 'index.htm'])"
+      },
+      "locations": {
+        "type": "list",
+        "default": [],
+        "description": "Location blocks defining proxy/rewrite rules",
+        "items": {
+          "path": {
+            "type": "string",
+            "description": "Location path prefix (e.g., '/api/', '~ ^/graphql')"
+          },
+          "proxy_pass": {
+            "type": "string",
+            "default": "",
+            "description": "Upstream target for reverse proxy (e.g., 'http://backend:3000')"
+          },
+          "try_files": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "description": "Fallback chain (e.g., ['$uri', '$uri/', '=404'])"
+          },
+          "return": {
+            "type": "object",
+            "default": {},
+            "description": "Immediate HTTP response (for redirects or static responses)",
+            "items": {
+              "code": {
+                "type": "number",
+                "description": "HTTP status code (e.g., 301, 302, 404)"
+              },
+              "body": {
+                "type": "string",
+                "default": "",
+                "description": "Optional redirect URL or response body"
+              }
+            }
+          }
+        }
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of this site (used in template comments)"
+      }
+    }
+  }
+}

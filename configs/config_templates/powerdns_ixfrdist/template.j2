@@ -1,0 +1,98 @@
+# =============================================================================
+# PowerDNS IXFR Distributor Configuration Template
+# =============================================================================
+# This configuration file controls the behavior of the pdns-ixfrdist service.
+# It manages zone transfers (AXFR/IXFR) from authoritative sources and
+# distributes them to downstream slaves.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# API / Control Interface
+# -----------------------------------------------------------------------------
+
+# IP address on which the API/control interface listens.
+bind-address: {{ api_bind_address | default('127.0.0.1') }}
+
+# Port for the API/control interface (must be between 1 and 65535).
+bind-port: {{ api_bind_port | default(8083) }}
+
+# -----------------------------------------------------------------------------
+# Storage Directories
+# -----------------------------------------------------------------------------
+
+# Directory where the distributor stores transferred zone files.
+# Must exist and be writable by the service user.
+zone-dir: {{ zone_dir | default('/var/lib/pdns-ixfrdist/zones') }}
+
+# Directory where journal files for incremental transfers are stored.
+journal-dir: {{ journal_dir | default('/var/lib/pdns-ixfrdist/journals') }}
+
+# -----------------------------------------------------------------------------
+# Transfer Settings
+# -----------------------------------------------------------------------------
+
+# Maximum number of concurrent AXFR/IXFR transfers per peer.
+max-concurrent-transfers: {{ max_concurrent_transfers | default(10) }}
+
+# Timeout (in seconds) for individual AXFR/IXFR transfers.
+transfer-timeout: {{ transfer_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# DNSSEC Validation
+# -----------------------------------------------------------------------------
+
+# Enable DNSSEC validation of transferred zones before distribution.
+validate-dnssec: {{ validate_dnssec | default(true) }}
+
+# -----------------------------------------------------------------------------
+# Zone Definitions
+# -----------------------------------------------------------------------------
+# List of DNS zones to distribute.
+# Each entry defines a zone name, its authoritative source server, and
+# optional access/transfer settings.
+zones:
+{% for zone in zones | default([]) %}
+  - name: {{ zone.name }}
+    # Source server to AXFR/IXFR from
+    source: {{ zone.source }}
+    # Optional: list of allowed peer IPs (if omitted, all peers allowed)
+{% if zone.allowed_peers is defined and zone.allowed_peers is iterable and zone.allowed_peers | length > 0 %}    allowed-peers:
+{% for peer in zone.allowed_peers %}      - {{ peer }}
+{% endfor %}
+{% else %}    # (no restrictions — all peers allowed)
+{% endif %}    # Optional: enable IXFR fallback (if source supports it); if false, force AXFR
+    prefer-ixfr: {{ zone.prefer_ixfr | default(true) }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Verbosity of the logging output.
+log-level: {{ log_level | default('INFO') }}
+
+# Path to a log file. If empty, logs go to stdout.
+{% if log_file | default('') %}log-file: {{ log_file | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Performance Tuning
+# -----------------------------------------------------------------------------
+
+# Maximum size (in MiB) of zone data cached in memory (0 means unlimited).
+zone-cache-size: {{ zone_cache_size | default(256) }}
+
+# Interval (in seconds) between zone change checks (IXFR queries) for active zones.
+check-interval: {{ check_interval | default(300) }}
+
+# -----------------------------------------------------------------------------
+# Statistics Endpoint
+# -----------------------------------------------------------------------------
+
+# Enable the HTTP stats endpoint.
+stats-enabled: {{ stats_enabled | default(true) }}
+
+# Stats bind address/port (only used if stats are enabled).
+{% if stats_enabled | default(true) %}stats-bind-address: {{ stats_bind_address | default('127.0.0.1') }}
+stats-bind-port: {{ stats_bind_port | default(8084) }}
+{% endif %}

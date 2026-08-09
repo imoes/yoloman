@@ -1,0 +1,99 @@
+{
+  "protocols": {
+    "type": "list",
+    "default": [
+      "imap",
+      "pop3",
+      "submission"
+    ],
+    "description": "List of enabled protocols. Common: imap, pop3, lmtp, submission."
+  },
+  "listen": {
+    "type": "list",
+    "default": [
+      "*",
+      "::"
+    ],
+    "description": "IP addresses or hostnames to listen on. Use ['*'] for IPv4 only, ['::'] for IPv6 only."
+  },
+  "disable_plaintext_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Set to true to reject authentication unless TLS is active. Critical for security."
+  },
+  "mail_location": {
+    "type": "string",
+    "default": "maildir:~/Maildir",
+    "description": "Mailbox storage format and path. Use 'mbox:~/mbox' for mbox format or 'maildir:~/Maildir' for Maildir."
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "plain",
+      "login"
+    ],
+    "description": "SASL authentication mechanisms to support. Prefer SCRAM-SHA-256 or external certs in production."
+  },
+  "passdb": {
+    "type": "object",
+    "default": true,
+    "description": "Password database configuration. Driver typically 'passwd-file', 'sql', or 'pam'. This block is generated if defined in services or global passdb settings."
+  },
+  "userdb": {
+    "type": "object",
+    "default": true,
+    "description": "User database configuration. Often mirrors passdb for simple setups. This block is generated if defined in services or global userdb settings."
+  },
+  "ssl": {
+    "type": "object",
+    "default": true,
+    "description": "SSL/TLS settings. Set mode to 'required' to enforce encryption."
+  },
+  "mail_max_userip_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Max concurrent connections per user/IP. Default is 10."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot.log",
+    "description": "Path to the Dovecot log file."
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "imap-login",
+        "chroot": "login",
+        "executable": "imap-login",
+        "user": "dovecot",
+        "group": "",
+        "extra_config": "service_count = 1\nprocess_min_avail = 0\n"
+      },
+      {
+        "name": "submission-login",
+        "chroot": "login",
+        "executable": "submission-login",
+        "user": "dovecot",
+        "group": "",
+        "extra_config": "inet_listener submission {\n  port = 587\n}\n"
+      }
+    ],
+    "description": "Service definitions for Dovecot login processes (e.g., imap-login, submission-login, pop3-login). Each defines how login daemons run."
+  },
+  "imap_max_line_length": {
+    "type": "number",
+    "default": 65536,
+    "description": "Max IMAP line length in bytes. Increase for large IMAP folders or long ACL lists."
+  },
+  "auth_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Log additional details on auth attempts (useful for troubleshooting, may leak info in logs)."
+  },
+  "auth_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose auth debugging. Not for production use."
+  }
+}

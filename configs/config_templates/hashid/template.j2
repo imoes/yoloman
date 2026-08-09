@@ -1,0 +1,35 @@
+{# hashid(1) — Hash identifier tool configuration #}
+{# This template generates the command-line arguments for the `hashid` utility. #}
+{# `hashid` is a tool to identify hash types based on their input. #}
+
+{# -------------------------------------------------------------------------- #}
+{# INPUT: The hash string, file path, or directory to analyze. #}
+{# Use '-' to read from standard input. #}
+{# -------------------------------------------------------------------------- #}
+{{ input | default('-') | string }}
+
+{# -------------------------------------------------------------------------- #}
+{# EXTENDED MODE: Enable extended mode to list all possible hash algorithms, #}
+{# including salted passwords which are often excluded in default mode. #}
+{# -------------------------------------------------------------------------- #}
+{% if extended | default(false) | bool %}-e
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# MODE: Include the corresponding Hashcat mode number in the output. #}
+{# -------------------------------------------------------------------------- #}
+{% if mode | default(false) | bool %}-m
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# JOHN: Include the corresponding John the Ripper format name in the output. #}
+{# -------------------------------------------------------------------------- #}
+{% if john | default(false) | bool %}-j
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# OUTPUT FILE: Write the results to a specific file instead of stdout. #}
+{# If empty, results are printed to stdout. #}
+{# -------------------------------------------------------------------------- #}
+{% if outfile | default('') | trim != '' %}-o {{ outfile | default('') | trim }}
+{% endif %}

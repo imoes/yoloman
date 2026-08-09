@@ -1,0 +1,230 @@
+{
+  "cluster_name": {
+    "type": "string",
+    "default": "ceph",
+    "description": "The name of the Ceph cluster (e.g., 'ceph', 'mycluster'). Must match the cluster deployed in the environment."
+  },
+  "keyring_path": {
+    "type": "string",
+    "default": "/etc/ceph/client.admin.keyring",
+    "description": "Path to the keyring file used by rbd-mirror for authentication to the Ceph cluster. Typically generated via 'ceph auth get-or-create'."
+  },
+  "log_to_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable logging to the system syslog daemon."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the general Ceph log file. Leave empty to disable file logging (syslog or stderr only)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 20,
+    "description": "Global log level for Ceph daemons (integer 0-20). 0=fatal, 1=error, 5=warning, 10=info, 20=debug."
+  },
+  "log_to_stderr": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, send logs to standard error in addition to file or syslog."
+  },
+  "daemon_log_file_path": {
+    "type": "string",
+    "default": "/var/log/ceph/rbd-mirror-$name.log",
+    "description": "Path for rbd-mirror daemon logs. '$name' is replaced with the instance name in multi-instance setups."
+  },
+  "mon_hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Monitor host (IP:port) to connect to. Leave empty to rely on DNS SRV records or /etc/hosts."
+    },
+    "description": "Optional list of Ceph monitors. Useful when DNS SRV is unavailable or for explicit bootstrapping."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads used by rbd-mirror to process mirroring tasks. Adjust based on CPU and I/O capacity."
+  },
+  "max_concurrent_image_syncs": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of RBD images to sync in parallel per daemon instance. Higher values increase throughput but also I/O load."
+  },
+  "concurrent_mirroring_ops": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent mirroring operations (e.g., snapshot replication, journal reads/writes) to peer clusters."
+  },
+  "client_mount_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for client mount operations (e.g., connecting to monitors)."
+  },
+  "rados_osd_op_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (seconds) to wait for RADOS OSD operations before failing."
+  },
+  "rados_mon_op_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (seconds) to wait for RADOS monitor operations before failing."
+  },
+  "fast_diff_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable fast-diff (uses object map) to speed up image diff calculations during sync status queries."
+  },
+  "journal_compression_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable compression for journal writes. Requires Ceph Quincy+ and careful testing due to CPU overhead."
+  },
+  "journal_compression_algorithm": {
+    "type": "string",
+    "default": "lz4",
+    "description": "Compression algorithm for journal writes (e.g., 'lz4', 'zlib', 'snappy')."
+  },
+  "auto_resync_on_failure": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically reinitiate full sync if incremental sync fails. Disable only if full syncs are too expensive."
+  },
+  "delete_on_remote_snapshots_deleted": {
+    "type": "bool",
+    "default": false,
+    "description": "When true, delete the mirrored image on the remote cluster if the local image is deleted (including all its snapshots)."
+  },
+  "image_sync_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between sync status updates and health checks for an image."
+  },
+  "journal_max_objects": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of journal objects (0 = unlimited). Controls memory usage in high-throughput environments."
+  },
+  "journal_max_entries": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of journal entries per object (0 = default). Useful for tuning journal size in high-latency links."
+  },
+  "instances": {
+    "type": "list",
+    "default": [
+      {
+        "name": "instance1",
+        "hostname": "",
+        "priority": 100,
+        "enabled": true,
+        "pool_pattern": "*",
+        "recovery_enabled": true,
+        "replay_max_delay": 0,
+        "pool_config_overrides": {},
+        "tls": {
+          "enabled": false,
+          "verify_mode": "peer",
+          "cert_file": "",
+          "key_file": "",
+          "ca_dir": ""
+        }
+      }
+    ],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "instance1",
+          "description": "Unique name for this rbd-mirror daemon instance."
+        },
+        "hostname": {
+          "type": "string",
+          "default": "",
+          "description": "Optional hostname override. If empty, system hostname is used."
+        },
+        "priority": {
+          "type": "number",
+          "default": 100,
+          "description": "Instance priority for leader election. Higher values have precedence in multi-instance setups."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether this instance should run. Set to false to disable without deleting config."
+        },
+        "pools": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "string",
+            "description": "Specific pool names to mirror (optional). If omitted, uses pool_pattern instead."
+          },
+          "description": "List of pool names to mirror. Mutually exclusive with pool_pattern when present."
+        },
+        "pool_pattern": {
+          "type": "string",
+          "default": "*",
+          "description": "Shell glob or regex pattern matching pools to mirror (e.g., 'rbd*', 'backup_*'). Applied only if pools is empty."
+        },
+        "recovery_enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable automatic recovery if mirror replay fails (e.g., network interruption)."
+        },
+        "replay_max_delay": {
+          "type": "number",
+          "default": 0,
+          "description": "Maximum replay delay (seconds) before pausing sync. 0 = no limit. Helps avoid overwhelming remote cluster."
+        },
+        "pool_config_overrides": {
+          "type": "object",
+          "default": {},
+          "description": "Pool-specific configuration overrides (keyed by pool name). Each override sets rbd_mirror_pool_config_<pool>_<key> = <value>."
+        },
+        "tls": {
+          "type": "object",
+          "default": {
+            "enabled": false,
+            "verify_mode": "peer",
+            "cert_file": "",
+            "key_file": "",
+            "ca_dir": ""
+          },
+          "fields": {
+            "enabled": {
+              "type": "bool",
+              "default": false,
+              "description": "Enable TLS for inter-cluster peer communication (e.g., for remote mirroring over untrusted networks)."
+            },
+            "verify_mode": {
+              "type": "string",
+              "default": "peer",
+              "description": "TLS verification mode: 'peer' (verify peer), 'none' (no verification), 'peer_and_verify_ca' (strict)."
+            },
+            "cert_file": {
+              "type": "string",
+              "default": "",
+              "description": "Path to TLS certificate file for this instance (PEM format). Required if TLS enabled."
+            },
+            "key_file": {
+              "type": "string",
+              "default": "",
+              "description": "Path to TLS private key file (PEM format). Required if TLS enabled."
+            },
+            "ca_dir": {
+              "type": "string",
+              "default": "",
+              "description": "Directory containing trusted CA certificates for TLS verification."
+            }
+          }
+        }
+      }
+    },
+    "description": "List of rbd-mirror daemon instances for multi-instance deployments. Typically one instance per node, but may be increased for HA or sharding."
+  }
+}

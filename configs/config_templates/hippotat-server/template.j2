@@ -1,0 +1,173 @@
+#!/bin/sh
+
+# Provides: {{ init_provides | default('hippotatd') }}
+# Provides name in LSB header
+### BEGIN INIT INFO
+# Provides: {{ init_provides | default('hippotatd') }}
+# Required-Start: $network $local_fs
+# Required-Stop: $network $local_fs
+# Should-Start: userv $syslog
+# Should-Stop: userv $syslog
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: {{ short_description | default('hippotatd') }}
+# Short description in LSB header
+# Description: {{ description | default('Asinine IP over HTTP server') }}
+# Long description in LSB header
+### END INIT INFO
+
+# Path to the hippotatd executable binary
+# Full path to hippotatd executable
+DAEMON={{ daemon_path | default('/usr/sbin/hippotatd') }}
+
+# Path to the main hippotatd configuration file
+# Path to main configuration file
+MAIN_CONFIG={{ main_config_path | default('/etc/hippotat/main.cfg') }}
+
+# User account under which the hippotatd daemon runs
+# User account under which hippotatd runs
+USER={{ run_user | default('_hippotat') }}
+
+# Group associated with the hippotatd daemon process
+# Group for hippotatd process
+GROUP={{ run_group | default('_hippotat') }}
+
+# Path to the PID file for the daemon
+# Path to PID file
+PIDFILE={{ pidfile_path | default('/var/run/hippotat/hippotatd.pid') }}
+
+# Syslog facility to use for logging (e.g., daemon, local0)
+# Syslog facility for logging
+LOGFACILITY={{ syslog_facility | default('daemon') }}
+
+# Whether to check the firewall rules before starting the daemon
+# Accepts string 'true' or 'false'
+# Whether to check firewall before starting (string 'true' or 'false')
+CHECK_FIREWALL={{ check_firewall | default('true') }}
+
+# HIPPOTATD_ARGS allows passing extra arguments to the daemon
+# HIPPOTATD_ARGS=
+
+# Command wrapper used to run the daemon as an unprivileged user
+# Command wrapper to run as unprivileged user
+AS_USER={{ as_user_command | default('as_user_userv') }}
+
+# Short description of the service for log messages
+# Long description in LSB header
+DESCRIPTION='{{ description | default('Asinine IP over HTTP server') }}'
+
+# If authbind is available, use it for privileged port binding
+if type authbind >/dev/null 2>&1; then AUTHBIND=authbind; fi
+
+# Source additional configuration if provided by the system administrator
+test -e /etc/default/hippotatd && . /etc/default/hippotatd
+
+set -e
+
+# Exit if the daemon binary does not exist
+test -f $DAEMON || exit 0
+
+# Exit if the configuration file is empty or contains only comments/whitespace
+egrep '^[^ 	#]' $MAIN_CONFIG >/dev/null 2>&1 || exit 0
+
+. /lib/lsb/init-functions
+
+# Function to execute a command as the specified user via userv
+as_user_userv () {
+	userv --override '
+		execute-from-path
+		no-suppress-args
+	' $USER "$@"
+}
+
+# Wrapper around start-stop-daemon to handle exit codes gracefully
+ssd () {
+	set +e
+	start-stop-daemon --quiet --user $USER --pidfile=$PIDFILE "$@"
+	rc=$?
+	set -e
+}
+
+# Ensure the directory for the PID file exists with correct ownership
+ensure_dirs () {
+	pidfiledir=${PIDFILE%/*}
+	if test -d ${pidfiledir}; then return; fi
+	mkdir -m 755 $pidfiledir
+	chown $USER $pidfiledir
+}
+
+# Dump current iptables rules for debugging
+dump_firewall () {
+	iptables -L -v -n
+}
+
+# Print the current configuration of the daemon
+print_config () {
+	$AS_USER $DAEMON $HIPPOTATD_ARGS --print-config "$1"
+}
+
+# Check if the firewall allows the virtual network defined in config
+check_firewall () {
+	# If checking is disabled, return immediately
+	# Whether to check firewall before starting (string 'true' or 'false')
+	{% if not (check_firewall | default('true')) %}return 0{% endif %}
+	vnetwork=$(print_config vnetwork)
+	if dump_firewall | fgrep " $vnetwork " >/dev/null; then :; else
+		log_failure_msg \
+ "error: no entry in firewall for insecure vnetwork $vnetwork"
+		exit 1
+	fi
+}
+
+# Start the hippotatd daemon
+do_start () {
+	check_firewall
+	ensure_dirs
+	ssd	--chuid $USER --start 				\
+		--startas /bin/sh -- -ec '"$@"' x		\
+		$AUTHBIND $DAEMON --daemon --pidfile=$PIDFILE	\
+		--syslog-facility=$LOGFACILITY $HIPPOTATD_ARGS
+}
+
+# Stop the hippotatd daemon
+do_stop () {
+	ssd	--stop --oknodo --retry 5
+}
+
+# Handle command line arguments
+case "$1" in
+start)
+	log_daemon_msg "Starting $DESCRIPTION" hippotatd
+	do_start
+	log_end_msg $rc
+	exit $rc
+	;;
+
+stop)
+	log_daemon_msg "Stopping $DESCRIPTION" hippotatd
+	do_stop
+	log_end_msg $rc
+	exit $rc
+	;;
+
+restart|force-reload)
+	log_daemon_msg "Restarting $DESCRIPTION" hippotatd
+	do_stop
+	sleep 1
+	do_start
+	log_end_msg $rc
+	;;
+
+reload)
+	log_failure_msg "Cannot reload hippot - need restart"
+	exit 1
+	;;
+
+*)
+	echo >&2 "$0: unknown action $1"
+	exit 1
+	;;
+
+esac
+
+exit 0

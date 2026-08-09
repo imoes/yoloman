@@ -1,0 +1,31 @@
+# /etc/default/hd-idle
+# Configuration for the Hard Disk Idle Spindown Daemon (hd-idle)
+# This file is sourced by the init script; each line sets options for hd-idle.
+# See `man hd-idle` for full options.
+
+# Enable hd-idle service.
+# Schema: enabled (bool, default: True)
+# Description: Whether to enable and start the hd-idle service.
+{% if enabled | default(true) %}
+START_HD_IDLE=true
+{% else %}
+START_HD_IDLE=false
+{% endif %}
+
+# Interface for listening to systemd/hotplug events (optional).
+# Schema: listen_interface (string, default: '')
+# Description: Optional interface name (e.g., 'usb') to listen for device events;
+# leave empty to disable event-based spindown.
+{% if listen_interface | default('') %}
+LISTEN_INTERFACE={{ listen_interface | default('') | string | trim }}
+{% endif %}
+
+# Additional arguments passed to `hd-idle` daemon startup.
+# Schema: devices (list, default: [])
+# Description: List of disks to manage with hd-idle. Each entry defines a disk
+# and its idle timeout.
+# Structure of each item in `devices`:
+#   - disk: string (required) - Device name (e.g., '/dev/sda')
+#   - idle_time_sec: int (required) - Idle timeout in seconds
+#   - log_file: string (optional) - Path to log file
+HD_IDLE_ARGS="{% for device in devices | default([]) %}-a {{ device.disk | default('') | string }} -i {{ device.idle_time_sec | default(0) | int }}{% if device.log_file %} -l {{ device.log_file | default('') | string }}{% endif %}{% if not loop.last %} {% endif %}{% endfor %}"

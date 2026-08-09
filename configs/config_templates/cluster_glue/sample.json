@@ -1,0 +1,85 @@
+{
+  "cluster_name": "prod-ha-1",
+  "config_version": 3,
+  "logging_debug": false,
+  "cman_keyfile": "/etc/cluster/authkey",
+  "expected_votes": 2,
+  "two_node": true,
+  "nodes": [
+    {
+      "name": "db1.example.com",
+      "votes": 1,
+      "nodeid": 1,
+      "fence_device": "ipmi-db1"
+    },
+    {
+      "name": "db2.example.com",
+      "votes": 1,
+      "nodeid": 2,
+      "fence_device": "ipmi-db2"
+    }
+  ],
+  "fence_devices": [
+    {
+      "name": "ipmi-db1",
+      "agent": "fence_ipmilan",
+      "ipaddr": "10.0.0.21",
+      "login": "clusterfence",
+      "passwd": "s3cr3tFence!",
+      "lanplus": true
+    },
+    {
+      "name": "ipmi-db2",
+      "agent": "fence_ipmilan",
+      "ipaddr": "10.0.0.22",
+      "login": "clusterfence",
+      "passwd": "s3cr3tFence!",
+      "lanplus": true
+    }
+  ],
+  "failover_domains": [
+    {
+      "name": "db-domain",
+      "ordered": true,
+      "restricted": true,
+      "nodes": [
+        {
+          "name": "db1.example.com",
+          "priority": 1
+        },
+        {
+          "name": "db2.example.com",
+          "priority": 2
+        }
+      ]
+    }
+  ],
+  "vip_resources": [
+    {
+      "address": "10.0.1.100",
+      "monitor_link": true
+    }
+  ],
+  "fs_resources": [
+    {
+      "name": "shared-data",
+      "device": "/dev/sdb1",
+      "mountpoint": "/mnt/shared",
+      "fstype": "ext4",
+      "force_unmount": true
+    }
+  ],
+  "services": [
+    {
+      "name": "postgres-ha",
+      "domain": "db-domain",
+      "recovery": "relocate",
+      "ip_refs": [
+        "10.0.1.100"
+      ],
+      "fs_refs": [
+        "shared-data"
+      ]
+    }
+  ]
+}

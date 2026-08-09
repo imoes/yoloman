@@ -1,0 +1,28 @@
+# drbd.conf — Global configuration for DRBD (Distributed Replicated Block Device)
+#
+# This file configures the global behavior of the DRBD daemon (drbdadm/drbdsetup).
+# Resource definitions (devices, networks, disks) are typically placed in
+# /etc/drbd.d/*.res and included below.
+#
+# Refer to drbd.conf(5) for details on available global options.
+
+# -----------------------------------------------------------------------------
+# Global Options
+# -----------------------------------------------------------------------------
+# Set global defaults such as 'minor-count', 'user-click-on-resync', 'data-integrity-alg', etc.
+# If `global_options` is empty or undefined, no global block is emitted.
+{% if global_options | default({}) | length > 0 %}
+global {
+  # Global DRBD options (e.g., minor-count, user-click-on-resync, etc.).
+  # Refer to drbd.conf(5) for valid keys.
+  {{ global_options | default({}) | to_nice_json(indent=2) | replace('\"', '') | replace('{', '{\n  ') | replace('}', '\n}') | trim }}
+}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Include Resource Definitions
+# -----------------------------------------------------------------------------
+# DRBD resources (devices, network settings, disk options) are defined in separate files.
+# This wildcard include pulls in all .res files from /etc/drbd.d/.
+# Do NOT remove this line if you use DRBD resources.
+include "/etc/drbd.d/*.res";

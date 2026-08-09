@@ -1,0 +1,262 @@
+# OAR Server Configuration
+# This file contains all configuration settings for the OAR (Open Archive and Resource) server.
+# It is managed by Ansible. Do not edit manually.
+
+# ==============================================================================
+# Database Connection Settings
+# Configures how OAR connects to its backend database (PostgreSQL or MySQL).
+# ==============================================================================
+
+{# Database Driver Selection #}
+{% set _db = db | default({'driver': 'postgresql', 'host': 'localhost', 'port': 5432, 'name': 'oar', 'user': 'oar', 'password': ''}) %}
+{% if _db.driver == 'postgresql' %}
+# Driver: PostgreSQL
+DB_DRIVER=PGSQL
+{% elif _db.driver == 'mysql' %}
+# Driver: MySQL
+DB_DRIVER=MYSQL
+{% else %}
+# Unsupported or missing database driver; defaulting to none.
+DB_DRIVER=NONE
+{% endif %}
+
+{# Database Host #}
+DB_HOST={{ (_db.host | default('localhost')) }}
+
+{# Database Port #}
+DB_PORT={{ (_db.port | default(5432)) }}
+
+{# Database Name/Schema #}
+DB_NAME={{ (_db.name | default('oar')) }}
+
+{# Database User #}
+DB_USER={{ (_db.user | default('oar')) }}
+
+{# Database Password #}
+DB_PASSWORD={{ (_db.password | default('')) }}
+
+
+# ==============================================================================
+# Resource Reservation Settings
+# Advanced features for reserving resources in advance.
+# ==============================================================================
+
+{% set _job_res = job_reservation | default({'enabled': False, 'max_duration': 259200}) %}
+
+{# Enable/Disable Job Reservation Feature #}
+JOB_RESERVATION_ENABLED={% if _job_res.enabled %}true{% else %}false{% endif %}
+
+{# Maximum Duration for a Reservation (in seconds, default 3 days) #}
+RESERVATION_MAX_DUR={{ _job_res.max_duration | default(259200) }}
+
+
+# ==============================================================================
+# Resource Monitoring and Heartbeat
+# Settings for how often the server checks the status of compute resources.
+# ==============================================================================
+
+{% set _mon = monitoring | default({'resource_interval': 30, 'resource_timeout': 10, 'max_failures': 3}) %}
+
+{# Interval between resource state checks (in seconds) #}
+RESOURCE_MONITORING_INTERVAL={{ _mon.resource_interval | default(30) }}
+
+{# Timeout for a single resource state query (in seconds) #}
+RESOURCE_MONITORING_TIMEOUT={{ _mon.resource_timeout | default(10) }}
+
+{# Number of consecutive failures before marking a resource as DOWN #}
+RESOURCE_MONITORING_MAX_FAILS={{ _mon.max_failures | default(3) }}
+
+
+# ==============================================================================
+# Scheduler Configuration
+# Core policies governing job scheduling, limits, and preemption.
+# ==============================================================================
+
+{% set _sched = scheduler | default({'policy': 'fifo', 'max_jobs_per_user': 100, 'max_walltime': 259200, 'preemption': {'enabled': False}}) %}
+
+{# Scheduling Policy: fifo, fairshare, or priority #}
+SCHEDULING_POLICY={{ (_sched.policy | default('fifo')) }}
+
+{# Maximum number of active jobs allowed per user #}
+SCHEDULING_MAX_JOBS_PER_USER={{ _sched.max_jobs_per_user | default(100) }}
+
+{# Maximum allowed walltime per job (in seconds) #}
+SCHEDULING_MAX_WALLTIME={{ _sched.max_walltime | default(259200) }}
+
+{# Enable Job Preemption (requires fairshare policy typically) #}
+SCHEDULING_PREEMPTION_ENABLED={% if (_sched.preemption | default({'enabled': False})).enabled %}true{% else %}false{% endif %}
+
+
+# ==============================================================================
+# Logging Configuration
+# Controls verbosity and log file location for the server.
+# ==============================================================================
+
+{% set _log = logging | default({'level': 'INFO', 'file': '/var/log/oar/server.log'}) %}
+
+{# Logging Level: DEBUG, INFO, WARNING, ERROR, or CRITICAL #}
+LOG_LEVEL={{ (_log.level | default('INFO')) }}
+
+{# Path to the server log file #}
+LOG_FILE={{ (_log.file | default('/var/log/oar/server.log')) }}
+
+
+# ==============================================================================
+# API and Web Interface Settings
+# Configures the OAR REST API and the Web UI frontend.
+# ==============================================================================
+
+{% set _api = api | default({'port': 6667, 'host': '0.0.0.0'}) %}
+
+{# API Server Listening Port #}
+API_PORT={{ _api.port | default(6667) }}
+
+{# API Server Listening Interface (0.0.0.0 for all, localhost for local only) #}
+API_HOST={{ _api.host | default('0.0.0.0') }}
+
+
+{% set _webui = webui | default({'enabled': False, 'port': 8080, 'host': '127.0.0.1', 'admin_email': 'admin@cluster.local', 'login_message': 'Welcome to OAR'}) %}
+
+{# Enable the OAR Web User Interface #}
+WEBUI_ENABLED={% if _webui.enabled %}true{% else %}false{% endif %}
+
+{# Web UI Listening Port #}
+WEBUI_PORT={{ _webui.port | default(8080) }}
+
+{# Web UI Listening Interface #}
+WEBUI_HOST={{ _webui.host | default('127.0.0.1') }}
+
+{# Admin Email for Support Inquiries in the UI #}
+WEBUI_ADMIN_EMAIL={{ _webui.admin_email | default('admin@cluster.local') }}
+
+{# Message displayed on the Web UI Login Screen #}
+WEBUI_LOGIN_MESSAGE={{ _webui.login_message | default('Welcome to OAR') }}
+
+
+# ==============================================================================
+# Worker Node Configuration
+# List of compute nodes managed by this OAR server.
+# ==============================================================================
+
+{# Comma-separated list of worker node hostnames or IPs #}
+WORKER_NODES={{ (worker_nodes | default([])) | join(', ') }}
+
+
+# ==============================================================================
+# Job Queue Configurations
+# Defines available job queues and their resource requests/walltime limits.
+# ==============================================================================
+
+{% set _queues = queues | default([{'name': 'default', 'resource_request': 'core=1', 'max_walltime': 86400, 'default_walltime': 3600}]) %}
+
+{% for queue in _queues %}
+# -----------------------------------------------------------------------------
+# Queue: {{ queue.name | default('unnamed') }}
+# -----------------------------------------------------------------------------
+
+{# Resource Request String (e.g., 'core=1', 'nodes=1:host_type=gpu') #}
+{{ queue.name | default('unnamed') | upper() }}_RESOURCE_REQUEST={{ queue.resource_request | default('core=1') }}
+
+{# Maximum Walltime for jobs in this queue (in seconds) #}
+{{ queue.name | default('unnamed') | upper() }}_MAX_WALLTIME={{ queue.max_walltime | default(86400) }}
+
+{# Default Walltime for jobs in this queue (in seconds) #}
+{{ queue.name | default('unnamed') | upper() }}_DEFAULT_WALLTIME={{ queue.default_walltime | default(3600) }}
+
+{# Priority for this queue (if specified) #}
+{% if queue.priority is defined %}
+{{ queue.name | default('unnamed') | upper() }}_PRIORITY={{ queue.priority }}
+{% endif %}
+
+{% endfor %}
+
+
+# ==============================================================================
+# Shared Filesystem Settings
+# Configuration for the shared home/job directories accessed by all nodes.
+# ==============================================================================
+
+{% set _fs = shared_fs | default({'root': '/home', 'user': 'root', 'group': 'users', 'mode': '0755'}) %}
+
+{# Root directory of the shared home filesystem #}
+SHARED_FS_ROOT={{ _fs.root | default('/home') }}
+
+{# Owner user for job working directories #}
+SHARED_FS_USER={{ _fs.user | default('root') }}
+
+{# Owner group for job working directories #}
+SHARED_FS_GROUP={{ _fs.group | default('users') }}
+
+{# Directory permissions (octal) for job directories #}
+SHARED_FS_MODE={{ _fs.mode | default('0755') }}
+
+
+# ==============================================================================
+# Mail Notification Settings
+# Email alerts for job events (start, end, error, etc.).
+# ==============================================================================
+
+{% set _mail = mail | default({'enabled': False, 'smtp_server': 'localhost', 'smtp_port': 25, 'from_address': 'oar@cluster.local'}) %}
+
+{# Enable Email Notifications #}
+MAIL_ENABLED={% if _mail.enabled %}true{% else %}false{% endif %}
+
+{# SMTP Server Hostname #}
+MAIL_SMTP_SERVER={{ _mail.smtp_server | default('localhost') }}
+
+{# SMTP Server Port #}
+MAIL_SMTP_PORT={{ _mail.smtp_port | default(25) }}
+
+{# Sender Email Address for Notifications #}
+MAIL_FROM={{ _mail.from_address | default('oar@cluster.local') }}
+
+
+# ==============================================================================
+# Authentication and Security Settings
+# Backend for user authentication (file, ldap, pam).
+# ==============================================================================
+
+{% set _auth = auth | default({'backend': 'file', 'ldap': {'uri': 'ldap://ldap.example.com', 'base_dn': 'ou=users,dc=example,dc=com', 'bind_dn': '', 'bind_password': '', 'user_filter': '(uid=%u)'}}) %}
+
+{# Authentication Backend: file, ldap, or pam #}
+AUTH_BACKEND={{ (_auth.backend | default('file')) }}
+
+{% if _auth.backend == 'ldap' %}
+# -----------------------------------------------------------------------------
+# LDAP Authentication Settings
+# These settings are used only when AUTH_BACKEND is set to 'ldap'.
+# -----------------------------------------------------------------------------
+
+{# LDAP Server URI (ldap://, ldaps://, or ldapi://) #}
+LDAP_URI={{ (_auth.ldap | default({'uri': 'ldap://ldap.example.com'})).uri | default('ldap://ldap.example.com') }}
+
+{# Base DN for user searches #}
+LDAP_BASE_DN={{ (_auth.ldap | default({'base_dn': 'ou=users,dc=example,dc=com'})).base_dn | default('ou=users,dc=example,dc=com') }}
+
+{# DN for binding to the directory (empty for anonymous) #}
+LDAP_BIND_DN={{ (_auth.ldap | default({'bind_dn': ''})).bind_dn | default('') }}
+
+{# Password for the bind DN #}
+LDAP_BIND_PASSWORD={{ (_auth.ldap | default({'bind_password': ''})).bind_password | default('') }}
+
+{# LDAP Filter Template for finding users (%u replaced by username) #}
+LDAP_USER_FILTER={{ (_auth.ldap | default({'user_filter': '(uid=%u)'})).user_filter | default('(uid=%u)') }}
+
+{% endif %}
+
+
+# ==============================================================================
+# SSH Settings for Remote Job Launching
+# How the OAR server connects to worker nodes to execute jobs.
+# ==============================================================================
+
+{% set _ssh = ssh | default({'port': 22, 'user': 'root', 'key_path': '/root/.ssh/id_rsa'}) %}
+
+{# SSH Port for remote connections #}
+SSH_PORT={{ _ssh.port | default(22) }}
+
+{# SSH User Account used for remote job launching #}
+SSH_USER={{ _ssh.user | default('root') }}
+
+{# Path to Private SSH Key for Authentication #}
+SSH_KEY_PATH={{ _ssh.key_path | default('/root/.ssh/id_rsa') }}

@@ -1,0 +1,51 @@
+# ==============================================================================
+# Bluetooth Configuration Template (Self-Documenting)
+# ==============================================================================
+# This template configures Bluetooth device state, startup/shutdown delays,
+# and Runtime Power Management (PM) driver exclusions.
+# Variables are drawn directly from the provided schema. Defaults are applied
+# inline to ensure safe rendering even if a variable is undefined.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Bluetooth device state
+# Controls whether the Bluetooth device is turned on, off, or toggled.
+# Valid values: 'on', 'off', 'toggle', or empty (leave unchanged).
+# ------------------------------------------------------------------------------
+{% if state is defined %}
+# Bluetooth device state: {{ state | default('') }}
+{% if state == 'on' %}
+DEVICE_DRIVER_FILTER="bluetooth=on"
+{% elif state == 'off' %}
+DEVICE_DRIVER_FILTER="bluetooth=off"
+{% elif state == 'toggle' %}
+DEVICE_DRIVER_FILTER="bluetooth=toggle"
+{% endif %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Delay before Bluetooth device is enabled on boot (seconds)
+# Specifies the number of seconds to wait before enabling Bluetooth during system boot.
+# ------------------------------------------------------------------------------
+{% if start_delay is defined %}
+START_DELAY={{ start_delay | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Delay before Bluetooth device is disabled on shutdown (seconds)
+# Specifies the number of seconds to wait before disabling Bluetooth during system shutdown.
+# ------------------------------------------------------------------------------
+{% if stop_delay is defined %}
+STOP_DELAY={{ stop_delay | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Runtime PM driver deny list
+# List of drivers to exclude from Runtime Power Management.
+# This prevents the system from powering off Bluetooth hardware unexpectedly.
+# The 'btusb' driver is typically preserved here to avoid Bluetooth radio issues.
+# Format: space-separated list of driver names.
+# ------------------------------------------------------------------------------
+{% if runtime_pm_driver_deny_list is defined %}
+RUNTIME_PM_DRIVER_DENY_LIST="{{ runtime_pm_driver_deny_list | default([]) | join(' ') }}"
+{% endif %}

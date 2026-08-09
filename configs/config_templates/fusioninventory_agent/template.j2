@@ -1,0 +1,126 @@
+# FusionInventory Agent configuration file
+# This file controls the behavior of the FusionInventory agent.
+# It is structured into sections: [main], [proxy], and [server-<name>].
+# Variables are provided with sensible defaults to ensure the template
+# renders valid configuration even when optional Ansible variables are omitted.
+
+[main]
+
+# Unique identifier for this agent (defaults to hostname if not set, but here we use the server URL)
+# FusionInventory server URL (or local mode with `no-server = 1`)
+server = {{ (server | default('http://localhost:62353')) }}
+
+# Enable verbose debugging output (includes all log levels)
+debug = {{ debug | default(False) | lower }}
+
+# Run in local-only mode (no server communication); output written to `localdir`
+no-server = {{ no_server | default(False) | lower }}
+
+# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug
+loglevel = {{ loglevel | default(2) }}
+
+# Path to log file
+logfile = {{ logfile | default('/var/log/fusioninventory/fusioninventory.log') }}
+
+# Send logs to system syslog in addition to file
+log_to_syslog = {{ log_to_syslog | default(False) | lower }}
+
+# Time (in seconds) between automatic inventory runs
+interval = {{ interval | default(3600) }}
+
+# Include hardware inventory (CPU, memory, disks, etc.)
+hardware = {{ hardware | default(True) | lower }}
+
+# Include installed software inventory
+software = {{ software | default(True) | lower }}
+
+# Include network interfaces and IP configuration
+network = {{ network | default(True) | lower }}
+
+# Include PCI devices inventory
+pci = {{ pci | default(True) | lower }}
+
+# Include USB devices inventory
+usb = {{ usb | default(True) | lower }}
+
+# Include sound hardware inventory
+sound = {{ sound | default(True) | lower }}
+
+# Include video/graphics hardware inventory
+video = {{ video | default(True) | lower }}
+
+# Include storage devices (disks, partitions, etc.)
+storage = {{ storage | default(True) | lower }}
+
+# Include printer inventory
+printer = {{ printer | default(True) | lower }}
+
+# Include virtualization guests/containers inventory (e.g., Docker, LXC)
+virtualization = {{ virtualization | default(True) | lower }}
+
+# Include running processes inventory
+processes = {{ processes | default(True) | lower }}
+
+# Include system services inventory
+services = {{ services | default(True) | lower }}
+
+# Write inventory to local files instead of sending to server (when `no-server = 1`)
+# Note: In FusionInventory config, this directive is 'local', not 'local_inventory'
+local = {{ local_inventory | default(False) | lower }}
+
+# Directory to store local inventory files
+localdir = {{ localdir | default('/var/lib/fusioninventory-agent') }}
+
+# Enable SNMP scanning of local/network devices (requires additional setup)
+snmp = {{ snmp | default(False) | lower }}
+
+# Enable WMI queries on Windows (ignored on Linux)
+wmi = {{ wmi | default(False) | lower }}
+
+# Enable Windows registry scanning (ignored on Linux)
+registry = {{ registry | default(False) | lower }}
+
+# Custom inventory tags as key-value pairs (e.g., environment=production)
+# Iterates over the 'tags' mapping to produce 'tag = key=value' lines.
+{% for item in (tags | default({})) | dict2items %}
+tag = {{ item.key }}={{ item.value }}
+{% endfor %}
+
+# Proxy configuration
+[proxy]
+
+# HTTP proxy hostname (empty disables proxy)
+host = {{ proxy_host | default('') }}
+
+# HTTP proxy port
+port = {{ proxy_port | default(8080) }}
+
+# HTTP proxy username (if authentication required)
+user = {{ proxy_user | default('') }}
+
+# HTTP proxy password (if authentication required)
+password = {{ proxy_password | default('') }}
+
+# Server communication configuration
+# Iterates over the 'servers' list to generate sections like [server-default]
+{% for server_entry in (servers | default([{'name': 'default', 'url': 'http://localhost:62353', 'username': 'fusioninventory', 'password': 'fusioninventory', 'ssl_verify': True, 'enabled': True}])) %}
+[server-{{ server_entry.name }}]
+
+# Base URL of FusionInventory server
+url = {{ server_entry.url }}
+
+# Authentication username
+username = {{ server_entry.username }}
+
+# Authentication password
+password = {{ server_entry.password }}
+
+# Enable SSL verification (set to 0 to disable)
+ssl_verify = {{ server_entry.ssl_verify | lower }}
+
+# Optional CA bundle path (defaults to empty string if not provided)
+ca_bundle = {{ server_entry.ca_bundle | default('') }}
+
+# Enable/Disable this server
+enabled = {{ server_entry.enabled | lower }}
+{% endfor %}

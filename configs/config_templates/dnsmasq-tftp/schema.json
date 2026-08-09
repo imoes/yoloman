@@ -1,0 +1,92 @@
+{
+  "tftp_root": {
+    "type": "string",
+    "default": "/var/lib/tftpboot",
+    "description": "Root directory where TFTP files are served from. Must exist and be readable."
+  },
+  "tftp_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to *only* use for TFTP traffic (restricts TFTP to these).",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., 'eth0', 'br-lan')."
+    }
+  },
+  "tftp_no_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to *exclude* from TFTP service.",
+    "items": {
+      "type": "string",
+      "description": "Interface name to exclude (e.g., 'lo')."
+    }
+  },
+  "tftp_bind_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses to bind TFTP service to. If omitted, binds to all interfaces.",
+    "items": {
+      "type": "string",
+      "description": "IPv4/IPv6 address (e.g., '192.168.1.1', '::1')."
+    }
+  },
+  "tftp_boot_file": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the default boot file served (e.g., 'pxelinux.0' or 'grubaa64.efi'). Optional."
+  },
+  "pxe_prompt": {
+    "type": "string",
+    "default": "",
+    "description": "Text prompt shown before PXE boot menu (e.g., 'Press F8 for boot menu'). Optional."
+  },
+  "pxe_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of PXE service entries (boot menu items). Each defines a boot option shown during PXE.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable label for this service (used only in comment)."
+      },
+      "type": {
+        "type": "string",
+        "description": "PXE service type (e.g., '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'). Common: '0' = x86 PC, '7' = Intel EM (x86-64 UEFI), '11' = ARM64 UEFI."
+      },
+      "desc": {
+        "type": "string",
+        "description": "Description string shown in boot menu."
+      },
+      "bootfile": {
+        "type": "string",
+        "description": "Optional specific boot file for this entry (overrides global 'tftp_boot_file')."
+      }
+    }
+  },
+  "tftp_port": {
+    "type": "number",
+    "default": 0,
+    "description": "UDP port for TFTP server. 0 = use IANA standard port 69. Change only if needed."
+  },
+  "tftp_connections": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous TFTP connections."
+  },
+  "tftp_blocksize": {
+    "type": "number",
+    "default": 512,
+    "description": "Maximum TFTP block size (in bytes). RFC 2348 allows up to 65464. Default 512 (legacy)."
+  },
+  "tftp_no_fail": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, TFTP is read-only (no file uploads). If false, allow writes (not recommended for most uses)."
+  },
+  "tftp_unique_root": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, allows TFTP option negotiation (e.g., blksize). Usually safe to leave true."
+  }
+}

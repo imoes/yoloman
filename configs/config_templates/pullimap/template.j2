@@ -1,0 +1,76 @@
+# Core runtime options
+[main]
+user = {{ main.user }}
+group = {{ main.group }}
+
+# IMAP source configuration
+[imap]
+host = {{ imap.host }}
+port = {{ imap.port }}
+ssl = {{ 'yes' if imap.ssl else 'no' }}
+mailbox = {{ imap.mailbox }}
+username = {{ imap.username }}
+password = {{ imap.password }}
+fetch_batch_size = {{ imap.fetch_batch_size }}
+
+# Delivery target (SMTP or LMTP)
+[delivery]
+method = {{ delivery.method }}
+{{- delivery.method == 'smtp' }}
+{{-   for server in delivery.smtp_servers }}
+server = {{ server.host }}:{{ server.port }}
+{{-   endfor }}
+{{- else }}
+socket_path = {{ delivery.lmtp_socket }}
+{{- endif }}
+
+# Optional TLS/encryption settings
+[tls]
+enable = {{ 'yes' if tls.enable else 'no' }}
+ca_file = {{ tls.ca_file }}
+client_cert = {{ tls.client_cert }}
+client_key = {{ tls.client_key }}
+
+# Logging and debugging
+[logging]
+level = {{ logging.level }}
+facility = {{ logging.facility }}
+log_file = {{ logging.log_file }}
+
+# Throttle and limits
+[limits]
+max_concurrent_jobs = {{ limits.max_concurrent_jobs }}
+max_message_size = {{ limits.max_message_size }}
+rate_limit_per_minute = {{ limits.rate_limit_per_minute }}
+
+# Optional headers to preserve or modify
+[headers]
+add_received = {{ 'yes' if headers.add_received else 'no' }}
+add_date = {{ 'yes' if headers.add_date else 'no' }}
+replace_from = {{ headers.replace_from }}
+
+# Additional required and optional directives missing from original config
+[main]
+statefile = {{ main.statefile }}
+
+[imap]
+type = {{ imap.type }}
+auth = {{ imap.auth }}
+compress = {{ 'yes' if imap.compress else 'no' }}
+proxy = {{ imap.proxy }}
+
+[tls]
+SSL_verify = {{ 'yes' if tls.SSL_verify else 'no' }}
+SSL_CAfile = {{ tls.SSL_CAfile }}
+SSL_CApath = {{ tls.SSL_CApath }}
+SSL_hostname = {{ tls.SSL_hostname }}
+SSL_fingerprint = {{ tls.SSL_fingerprint }}
+SSL_protocol_min = {{ tls.SSL_protocol_min }}
+SSL_protocol_max = {{ tls.SSL_protocol_max }}
+
+[delivery]
+ehlo = {{ delivery.ehlo }}
+recipient = {{ delivery.recipient }}
+
+[purge]
+retention_days = {{ purge.retention_days }}

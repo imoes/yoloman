@@ -1,0 +1,47 @@
+name: replace
+fqcn: builtin.replace
+collection: builtin
+short_description: Replace every match of a regular expression anywhere in a file's
+  content — unlike lineinfile (which matches whole lines), this can match and replace
+  within or across lines, and supports Go RE2 backref
+description: 'Replace every match of a regular expression anywhere in a file''s content
+  — unlike lineinfile (which matches whole lines), this can match and replace within
+  or across lines, and supports Go RE2 backreferences like $1 in the replacement text.
+  Idempotent — a repeat call with the same pattern reports changed=false once no more
+  matches exist or all matches already read as the replacement. Supports check_mode
+  via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.replace. Same path/regexp/replace semantics (a focused
+  subset — Ansible also supports before/after/backup, not yet implemented here; and
+  Ansible''s replace uses Python re syntax with \1 backreferences, this uses Go RE2
+  syntax with $1).
+
+  - Chef: no single built-in resource; typically Ruby''s own String#gsub inside a
+  custom resource/library reading and rewriting the file.
+
+  - Puppet: the puppetlabs-stdlib module''s `file_line` with `match`/replace-style
+  usage, or the third-party augeasproviders modules for structured config formats.
+
+  - Salt: the `file.replace` state — nearly identical regex-across-file-content model.
+
+  - Terraform: not applicable — no regex file-editing primitive.'
+options:
+  path:
+    type: string
+    description: File to edit, e.g. "/etc/hosts".
+    required: true
+  regexp:
+    type: string
+    description: RE2 regular expression to match anywhere in the file's content.
+    required: true
+  replace:
+    type: string
+    description: Replacement text; may reference capture groups as $1, $2, etc. Default
+      "" (delete matches).
+native: true
+writes: true
+runtime: native
+source: agent-registry

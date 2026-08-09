@@ -1,0 +1,41 @@
+{# ============================================================================ #}
+{# awardeco configuration template                                               #}
+{#                                                                              #}
+{# Self-documenting Jinja2 template for awardeco, a tool used to interact with   #}
+{# BIOS flashfiles (decompressing, listing contents, extracting).                #}
+{#                                                                              #}
+{# Variables used:                                                              #}
+{#   - path:      Path to the input flashfile (BIOS image) to decompress         #}
+{#   - mode:      Operation mode: list, list-all, extract, extract-all, or       #}
+{#                extract-raw                                                    #}
+{#   - output_file: Output file path when using extraction modes. Empty string   #}
+{#                means output to stdout.                                        #}
+{#                                                                              #}
+{# Defaults are applied via Jinja2 default() filter to ensure the template       #}
+{# renders safely even when variables are undefined in the Ansible inventory.    #}
+{# ============================================================================ #}
+
+[awardeco]
+
+{# Path to the input flashfile (BIOS image) to decompress                       #}
+{# If empty or undefined, awardeco will fail since it requires an input file.   #}
+{# Default is a placeholder path; replace with actual BIOS image path.          #}
+path = {{ path | default('/path/to/bios.bin') }}
+
+{# Operation mode                                                               #}
+{# Valid modes:                                                                 #}
+{#   - list:      List ROM components of a given file                           #}
+{#   - list-all:  List all ROM components of all files in a directory           #}
+{#   - extract:   Extract ROM components of a given file                        #}
+{#   - extract-all: Extract ROM components of all files in a directory          #}
+{#   - extract-raw: Extract raw ROM data                                        #}
+{# Default is 'list' which only lists contents without extracting.              #}
+mode = {{ mode | default('list') }}
+
+{# Output file path for extraction operations                                   #}
+{# When a mode other than the list modes is used, this specifies where to write #}
+{# the extracted output. If empty, output is written to stdout.               #}
+{# Note: The actual destination directory/file is determined by awardeco's      #}
+{# internal logic when this is empty (stdout). Otherwise, this field directs    #}
+{# the output to the specified path.                                            #}
+output_file = {{ output_file | default('') }}

@@ -1,0 +1,181 @@
+{
+  "inputs": {
+    "type": "list",
+    "default": [],
+    "description": "List of log input configurations. Each defines how to collect logs from a source.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "filestream",
+          "description": "Input type (e.g., 'filestream', 'log')"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether this input is active."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description of this input."
+        },
+        "paths": {
+          "type": "list",
+          "default": [],
+          "description": "List of file paths or glob patterns to read."
+        },
+        "config": {
+          "type": "object",
+          "default": {},
+          "description": "Free-form input-specific configuration (e.g., 'fields', 'fields_under_root', 'ignore_older', etc.)."
+        },
+        "multiline": {
+          "type": "object",
+          "default": {},
+          "description": "Multiline event aggregation rules (e.g., 'pattern', 'negate', 'match', 'flush_pattern')."
+        },
+        "scan_frequency": {
+          "type": "string",
+          "default": "10s",
+          "description": "How often Filebeat checks for new log content."
+        },
+        "close_on_rotate": {
+          "type": "bool",
+          "default": false,
+          "description": "Whether to close file handles on rotation (for log rotation compatibility)."
+        },
+        "document_type": {
+          "type": "string",
+          "default": null,
+          "description": "Deprecated: Use 'fields' instead. Sets the '_type' field in Elasticsearch (\u22647.x)."
+        }
+      }
+    }
+  },
+  "processors": {
+    "type": "list",
+    "default": [],
+    "description": "List of event processors to enrich, drop, or transform logs.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "default": "",
+          "description": "Processor type (e.g., 'drop_fields', 'add_tags', 'decode_json_fields', 'rename')."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable or disable this processor."
+        },
+        "config": {
+          "type": "object",
+          "default": {},
+          "description": "Processor-specific configuration (e.g., fields list, patterns, regex)."
+        }
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "default": {
+      "type": "elasticsearch",
+      "config": {}
+    },
+    "description": "Output destination configuration.",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "elasticsearch",
+          "logstash"
+        ],
+        "default": "elasticsearch",
+        "description": "Output backend type."
+      },
+      "config": {
+        "type": "object",
+        "default": {},
+        "description": "Output-specific configuration (e.g., hosts, index, pipeline, loadbalancing)."
+      }
+    }
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log verbosity: 'debug', 'info', 'warning', 'error', 'critical'."
+  },
+  "logging.to_files": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to write logs to files instead of stdout."
+  },
+  "logging.files.path": {
+    "type": "string",
+    "default": "/var/log/filebeat",
+    "description": "Directory to store log files."
+  },
+  "logging.files.name": {
+    "type": "string",
+    "default": "filebeat",
+    "description": "Base name of log files."
+  },
+  "logging.files.keepfiles": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of old log files to retain."
+  },
+  "logging.files.permissions": {
+    "type": "string",
+    "default": "0600",
+    "description": "File permissions for log files (octal string)."
+  },
+  "config_modules_reload_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to auto-reload module configurations when files change."
+  },
+  "kibana_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Kibana host for dashboards and index pattern setup."
+  },
+  "kibana_port": {
+    "type": "number",
+    "default": 5601,
+    "description": "Kibana HTTP port."
+  },
+  "kibana_username": {
+    "type": "string",
+    "default": null,
+    "description": "Kibana username (if authentication enabled)."
+  },
+  "kibana_password": {
+    "type": "string",
+    "default": null,
+    "description": "Kibana password (if authentication enabled)."
+  },
+  "template_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to install the index template on Elasticsearch."
+  },
+  "template_name": {
+    "type": "string",
+    "default": "filebeat",
+    "description": "Name of the Elasticsearch index template."
+  },
+  "template_pattern": {
+    "type": "string",
+    "default": "filebeat-*",
+    "description": "Index pattern this template applies to."
+  },
+  "template_fields": {
+    "type": "string",
+    "default": "fields.yml",
+    "description": "Path to fields definition YAML file (relative to Filebeat config dir)."
+  }
+}

@@ -1,0 +1,385 @@
+{# Hashcat configuration file.
+   This template generates a Debian-style hashcat configuration file (/etc/hashcat/hashcat.conf).
+   It is self-documenting: every directive is preceded by a comment explaining its purpose,
+   source schema field, and default value. Variables use explicit defaults to prevent rendering
+   failures when optional fields are omitted by the caller. #}
+
+# ==============================================================================
+# CORE CRACKING PARAMETERS
+# ==============================================================================
+
+# Hash type identifier (see man hashcat(1) section 'Hash types').
+# Common values: 1000=NTLM, 500=md5crypt, 1800=sha512crypt.
+# Schema field: hash_type | default: 1000
+HASH_TYPE={{ hash_type | default(1000) }}
+
+# Attack mode definition.
+# 0=straight (dictionary), 1=combination, 3=brute-force, 6=hybrid (wordlist+mask), 7=hybrid (mask+wordlist).
+# Schema field: attack_mode | default: 0
+ATTACK_MODE={{ attack_mode | default(0) }}
+
+# Path to the input file containing the hashes to crack.
+# If empty, hashcat expects hashes via standard input or specific CLI arguments.
+# Schema field: hash_file | default: ''
+{% if hash_file | default('') %}
+HASH_FILE={{ hash_file | default('') }}
+{% endif %}
+
+# ==============================================================================
+# ATTACK RESOURCES (Wordlists and Masks)
+# ==============================================================================
+
+# Supply wordlists or masks based on the selected attack mode.
+# These directives are mutually exclusive based on ATTACK_MODE logic.
+
+{% if attack_mode | default(0) == 0 or attack_mode | default(0) == 6 %}
+# Wordlist(s) for straight or hybrid (wordlist first) attacks.
+# Schema field: wordlist (list) | default: []
+# Joined into a space-separated string as expected by the config file format.
+{% set wl = wordlist | default([]) %}
+{% if wl | length > 0 %}
+WORDLIST={{ wl | join(' ') }}
+{% endif %}
+
+{% elif attack_mode | default(0) == 3 or attack_mode | default(0) == 7 %}
+# Mask string for brute-force or hybrid (mask first) attacks.
+# Example: ?l?l?l?d (lowercase, lowercase, lowercase, digit).
+# Schema field: mask | default: ''
+{% if mask | default('') %}
+MASK={{ mask | default('') }}
+{% endif %}
+
+{% elif attack_mode | default(0) == 1 %}
+# Combination attack: two separate wordlists.
+# The tool attempts to concatenate words from LEFT_WORDLIST with RIGHT_WORDLIST.
+# Schema field: left_wordlist | default: ''
+{% if left_wordlist | default('') %}
+LEFT_WORDLIST={{ left_wordlist | default('') }}
+{% endif %}
+# Schema field: right_wordlist | default: ''
+{% if right_wordlist | default('') %}
+RIGHT_WORDLIST={{ right_wordlist | default('') }}
+{% endif %}
+
+{% endif %}
+
+# ==============================================================================
+# OUTPUT AND POST-PROCESSING
+# ==============================================================================
+
+# Path to the file where recovered passwords (and associated hashes) will be written.
+# Schema field: outfile | default: ''
+{% if outfile | default('') %}
+OUTFILE={{ outfile | default('') }}
+{% endif %}
+
+# Outfile format identifier (integer 1–15).
+# Determines how the recovered password and hash are formatted in the OUTFILE.
+# See man hashcat(1) section 'Outfile formats'.
+# Schema field: outfile_format | default: 3
+OUTFILE_FORMAT={{ outfile_format | default(3) }}
+
+# Separator character used to split fields in hashlists and output files.
+# Default is ':' (colon).
+# Schema field: separator | default: ':'
+{% if separator | default(':') %}
+SEPARATOR={{ separator | default(':') }}
+{% endif %}
+
+# Remove hashes from the input file once they have been successfully cracked.
+# Useful for cleaning up input files after a run.
+# Schema field: remove | default: False
+{% if remove | default(false) %}
+REMOVE={{ remove | default(false) }}
+{% endif %}
+
+# ==============================================================================
+# POTFILE MANAGEMENT
+# ==============================================================================
+
+# The potfile stores already-cracked hashes to avoid re-cracking them.
+# By default, potfile writing is DISABLED (potfile_disable=True) to support
+# stateless/ephemeral deployments where persistent state is not desired.
+
+{% if potfile_disable | default(true) %}
+# Potfile writing is disabled.
+# To enable it, set potfile_disable=False and optionally define POTFILE_PATH.
+# POTFILE_PATH={{ potfile_path | default('') }}
+{% else %}
+# Custom path for the potfile. If empty, defaults to ~/.hashcat/hashcat.potfile.
+# Schema field: potfile_path | default: ''
+{% if potfile_path | default('') %}
+POTFILE_PATH={{ potfile_path | default('') }}
+{% endif %}
+{% endif %}
+
+# ==============================================================================
+# EXECUTION CONTROL AND OPTIMIZATION
+# ==============================================================================
+
+# Maximum runtime in seconds for the attack (0 = no limit).
+# Useful for scheduling attacks within fixed time windows.
+# Schema field: runtime | default: 0
+{% if runtime | default(0) > 0 %}
+RUNTIME={{ runtime | default(0) }}
+{% endif %}
+
+# Disable the built-in self-test on startup.
+# Self-tests validate GPU/hashcat compatibility and performance.
+# Schema field: self_test_disable | default: False
+{% if self_test_disable | default(false) %}
+SELF_TEST_DISABLE={{ self_test_disable | default(false) }}
+{% endif %}
+
+# Number of words to skip from the beginning of the wordlist.
+# Allows splitting workloads across multiple workers.
+# Schema field: skip | default: 0
+{% if skip | default(0) > 0 %}
+SKIP={{ skip | default(0) }}
+{% endif %}
+
+# Maximum number of words to process from the wordlist (after skipping).
+# Limits the workload size.
+# Schema field: limit | default: 0
+{% if limit | default(0) > 0 %}
+LIMIT={{ limit | default(0) }}
+{% endif %}
+
+# ==============================================================================
+# MARKOV HEURISTICS
+# ==============================================================================
+
+# Controls the use of Markov chain heuristics for mask attacks.
+# These heuristics analyze character transitions to skip unlikely password combinations.
+
+# Markov chain threshold. Stops accepting new chains when the count drops below this value.
+# A value of 0 disables Markov heuristics.
+# Schema field: markov_threshold | default: 0
+{% if markov_threshold | default(0) > 0 %}
+MARKOV_THRESHOLD={{ markov_threshold | default(0) }}
+{% endif %}
+
+# Path to the precompiled hcstat2 file containing Markov statistics.
+# Schema field: markov_hcstat2 | default: ''
+{% if markov_hcstat2 | default('') %}
+MARKOV_HCSTAT2={{ markov_hcstat2 | default('') }}
+{% endif %}
+
+# Explicitly disable Markov chains (force classic brute-force behavior).
+# Overrides markov_threshold if set.
+# Schema field: markov_disable | default: False
+{% if markov_disable | default(false) %}
+MARKOV_DISABLE={{ markov_disable | default(false) }}
+{% endif %}
+
+# ==============================================================================
+# CUSTOM CHARSET DEFINITIONS
+# ==============================================================================
+
+# Define custom character sets (?1, ?2, ?3, ?4) for use in masks.
+# Only emitted if the specific charset is non-empty.
+
+# User-defined charset for ?1.
+# Example: ?1=abcdef1234567890
+# Schema field: custom_charset1 | default: ''
+{% if custom_charset1 | default('') %}
+CUSTOM_CHARSET1='{{ custom_charset1 | default('') }}'
+{% endif %}
+
+# User-defined charset for ?2.
+# Schema field: custom_charset2 | default: ''
+{% if custom_charset2 | default('') %}
+CUSTOM_CHARSET2='{{ custom_charset2 | default('') }}'
+{% endif %}
+
+# User-defined charset for ?3.
+# Schema field: custom_charset3 | default: ''
+{% if custom_charset3 | default('') %}
+CUSTOM_CHARSET3='{{ custom_charset3 | default('') }}'
+{% endif %}
+
+# User-defined charset for ?4.
+# Schema field: custom_charset4 | default: ''
+{% if custom_charset4 | default('') %}
+CUSTOM_CHARSET4='{{ custom_charset4 | default('') }}'
+{% endif %}
+
+# ==============================================================================
+# INCREMENTAL MODE SETTINGS
+# ==============================================================================
+
+# Enable incremental mode (auto-increase password length).
+# Typically used for pure brute-force exploration.
+# Schema field: increment | default: False
+{% if increment | default(false) %}
+INCREMENT={{ increment | default(false) }}
+
+# Minimum length for incremental mode.
+# Schema field: increment_min | default: 0
+{% if increment_min | default(0) > 0 %}
+INCREMENT_MIN={{ increment_min | default(0) }}
+{% endif %}
+
+# Maximum length for incremental mode.
+# Schema field: increment_max | default: 0
+{% if increment_max | default(0) > 0 %}
+INCREMENT_MAX={{ increment_max | default(0) }}
+{% endif %}
+
+{% endif %}
+
+# ==============================================================================
+# RULE-BASED ATTACKS
+# ==============================================================================
+
+# Path to a rule file containing transformation rules for dictionary words.
+# Rules manipulate base words to generate candidate passwords.
+# Schema field: rules_file | default: ''
+{% if rules_file | default('') %}
+RULES_FILE={{ rules_file | default('') }}
+{% endif %}
+
+# Number of random rules to generate on the fly.
+# Used with the --generate-rules flag conceptually, but here specifies quantity.
+# Schema field: generate_rules | default: 0
+{% if generate_rules | default(0) > 0 %}
+GENERATE_RULES={{ generate_rules | default(0) }}
+{% endif %}
+
+# ==============================================================================
+# DEBUG MODE
+# ==============================================================================
+
+# Debug mode identifier (1–4).
+# Only relevant for hybrid attacks. Outputs intermediate debugging information.
+# Schema field: debug_mode | default: 0
+{% if debug_mode | default(0) > 0 %}
+DEBUG_MODE={{ debug_mode | default(0) }}
+
+# Output file for debug information generated by debug_mode.
+# Schema field: debug_file | default: ''
+{% if debug_file | default('') %}
+DEBUG_FILE={{ debug_file | default('') }}
+{% endif %}
+
+{% endif %}
+
+# ==============================================================================
+# HARDWARE TUNING
+# ==============================================================================
+
+# Manual override for kernel thread count (0 = auto-detect).
+# Schema field: kernel_threads | default: 0
+{% if kernel_threads | default(0) > 0 %}
+KERNEL_THREADS={{ kernel_threads | default(0) }}
+{% endif %}
+
+# Manual override for outer-loop step size (kernel_accel) (0 = auto).
+# Schema field: kernel_accel | default: 0
+{% if kernel_accel | default(0) > 0 %}
+KERNEL_ACCEL={{ kernel_accel | default(0) }}
+{% endif %}
+
+# Manual override for inner-loop step size (kernel_loops) (0 = auto).
+# Schema field: kernel_loops | default: 0
+{% if kernel_loops | default(0) > 0 %}
+KERNEL_LOOPS={{ kernel_loops | default(0) }}
+{% endif %}
+
+# ==============================================================================
+# BRAIN CLIENT (DISTRIBUTED CRACKING)
+# ==============================================================================
+
+# Enable the Brain client to connect to a central Brain server for distributed work.
+# Schema field: brain_client | default: False
+{% if brain_client | default(false) %}
+BRAIN_CLIENT={{ brain_client | default(false) }}
+
+# Hostname or IP address of the Brain server.
+# Schema field: brain_host | default: ''
+{% if brain_host | default('') %}
+BRAIN_HOST={{ brain_host | default('') }}
+{% endif %}
+
+# Port of the Brain server (0 = default port).
+# Schema field: brain_port | default: 0
+{% if brain_port | default(0) > 0 %}
+BRAIN_PORT={{ brain_port | default(0) }}
+{% endif %}
+
+# Authentication password for the Brain server.
+# Schema field: brain_password | default: ''
+{% if brain_password | default('') %}
+BRAIN_PASSWORD={{ brain_password | default('') }}
+{% endif %}
+
+# Override the Brain session ID (hex string).
+# Useful for resuming specific sessions.
+# Schema field: brain_session | default: ''
+{% if brain_session | default('') %}
+BRAIN_SESSION={{ brain_session | default('') }}
+{% endif %}
+
+{% endif %}
+
+# ==============================================================================
+# ENCODING CONVERSION
+# ==============================================================================
+
+# Input encoding name for hash processing (e.g., UTF-8, ISO-8859-1).
+# Schema field: encoding_from | default: ''
+{% if encoding_from | default('') %}
+ENCODING_FROM={{ encoding_from | default('') }}
+{% endif %}
+
+# Output encoding name for recovered passwords.
+# Schema field: encoding_to | default: ''
+{% if encoding_to | default('') %}
+ENCODING_TO={{ encoding_to | default('') }}
+{% endif %}
+
+# ==============================================================================
+# HEX INPUT/OPTIONS
+# ==============================================================================
+
+# Assume salts in the hashlist are hex-encoded.
+# Schema field: hex_salt | default: False
+{% if hex_salt | default(false) %}
+HEX_SALT={{ hex_salt | default(false) }}
+{% endif %}
+
+# Assume character sets are hex-encoded.
+# Schema field: hex_charset | default: False
+{% if hex_charset | default(false) %}
+HEX_CHARSETS={{ hex_charset | default(false) }}
+{% endif %}
+
+# Assume words in the wordlist are hex-encoded.
+# Schema field: hex_wordlist | default: False
+{% if hex_wordlist | default(false) %}
+HEX_WORDLIST={{ hex_wordlist | default(false) }}
+{% endif %}
+
+# ==============================================================================
+# OPERATIONAL MODES
+# ==============================================================================
+
+# Suppress non-error output (quiet mode).
+# Reduces console noise.
+# Schema field: quiet | default: False
+{% if quiet | default(false) %}
+QUIET={{ quiet | default(false) }}
+{% endif %}
+
+# Force execution, ignoring warnings (e.g., about performance or hardware).
+# Schema field: force | default: False
+{% if force | default(false) %}
+FORCE={{ force | default(false) }}
+{% endif %}
+
+# Run hardware benchmark instead of cracking hashes.
+# Measures hash rate for the selected hash type and device.
+# Schema field: benchmark | default: False
+{% if benchmark | default(false) %}
+BENCHMARK={{ benchmark | default(false) }}
+{% endif %}

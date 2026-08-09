@@ -1,0 +1,19 @@
+# rinetd configuration file
+# Format: <bind_address> <bind_port> <connect_address> <connect_port>
+#
+# This template dynamically generates forwarding rules from the `forwarding_rules` list.
+# Each item in the list must be a mapping with keys: address, bind_port, connect_address, connect_port.
+# Optional keys: protocol (default tcp)
+
+# List of port redirection rules. Each rule specifies how to forward traffic from a local address/port to a remote address/port.
+{% for rule in forwarding_rules | default([]) %}
+# Rule: {{ rule.address | default('0.0.0.0') }} {{ rule.bind_port | default('0') }} -> {{ rule.connect_address | default('127.0.0.1') }} {{ rule.connect_port | default('0') }}
+# address: The local IP address to bind to for this forwarding rule.
+{{ rule.address | default('0.0.0.0') }}
+# bind_port: The local port to listen on for this forwarding rule.
+{{ rule.bind_port | default('0') }}
+# connect_address: The remote IP address to forward traffic to.
+{{ rule.connect_address | default('127.0.0.1') }}
+# connect_port: The remote port to forward traffic to.
+{{ rule.connect_port | default('0') }}
+{% endfor %}

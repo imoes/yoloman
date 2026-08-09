@@ -1,0 +1,106 @@
+name: ali_instance_info
+fqcn: community.general.ali_instance_info
+collection: community.general
+short_description: Gather information on instances of Alibaba Cloud ECS
+description: This module fetches data from the Open API in Alicloud. The module must be called from within
+  the ECS instance itself.
+options:
+  alicloud_access_key:
+    type: str
+    aliases:
+    - access_key_id
+    - access_key
+    description: Alibaba Cloud access key. If not set then the value of environment variable E(ALICLOUD_ACCESS_KEY),
+      E(ALICLOUD_ACCESS_KEY_ID) will be used instead.
+  alicloud_assume_role:
+    type: dict
+    aliases:
+    - assume_role
+    description: If provided with a role ARN, Ansible will attempt to assume this role using the supplied
+      credentials. The nested assume_role block supports C(alicloud_assume_role_arn), C(alicloud_assume_role_session_name),
+      C(alicloud_assume_role_session_expiration) and C(alicloud_assume_role_policy).
+  alicloud_assume_role_arn:
+    type: str
+    aliases:
+    - assume_role_arn
+    description: The Alibaba Cloud C(role_arn). The ARN of the role to assume. If ARN is set to an empty
+      string, it does not perform role switching. It supports environment variable E(ALICLOUD_ASSUME_ROLE_ARN).
+      ansible will execute with provided credentials.
+  alicloud_assume_role_session_expiration:
+    type: int
+    aliases:
+    - assume_role_session_expiration
+    description: The Alibaba Cloud C(session_expiration). The time after which the established session
+      for assuming role expires. Valid value range 900-3600 seconds. Default to 3600 (in this case Alicloud
+      use own default value). It supports environment variable E(ALICLOUD_ASSUME_ROLE_SESSION_EXPIRATION).
+  alicloud_assume_role_session_name:
+    type: str
+    aliases:
+    - assume_role_session_name
+    description: The Alibaba Cloud session_name. The session name to use when assuming the role. If omitted,
+      'ansible' is passed to the AssumeRole call as session name. It supports environment variable E(ALICLOUD_ASSUME_ROLE_SESSION_NAME).
+  alicloud_region:
+    type: str
+    required: true
+    aliases:
+    - region
+    - region_id
+    description: The Alibaba Cloud region to use. If not specified then the value of environment variable
+      E(ALICLOUD_REGION), E(ALICLOUD_REGION_ID) will be used instead.
+  alicloud_secret_key:
+    type: str
+    aliases:
+    - secret_access_key
+    - secret_key
+    description: Alibaba Cloud secret key. If not set then the value of environment variable E(ALICLOUD_SECRET_KEY),
+      E(ALICLOUD_SECRET_ACCESS_KEY) will be used instead.
+  alicloud_security_token:
+    type: str
+    aliases:
+    - security_token
+    description: The Alibaba Cloud security token. If not specified then the value of environment variable
+      E(ALICLOUD_SECURITY_TOKEN) will be used instead.
+  ecs_role_name:
+    type: str
+    aliases:
+    - role_name
+    description: The RAM Role Name attached on a ECS instance for API operations. You can retrieve this
+      from the 'Access Control' section of the Alibaba Cloud console. If you're running Ansible from an
+      ECS instance with RAM Instance using RAM Role, Ansible will just access the metadata U(http://100.100.100.200/latest/meta-data/ram/security-credentials/<ecs_role_name>)
+      to obtain the STS credential. This is a preferred approach over any other when running in ECS as
+      you can avoid hard coding credentials. Instead these are leased on-the-fly by Ansible which reduces
+      the chance of leakage.
+  filters:
+    type: dict
+    description: A dict of filters to apply. Each dict item consists of a filter key and a filter value.
+      The filter keys can be all of request parameters. See U(https://www.alibabacloud.com/help/doc-detail/25506.htm)
+      for parameter details. Filter keys can be same as request parameter name or be lower case and use
+      underscore (V("_")) or dash (V("-")) to connect different words in one parameter. C(InstanceIds)
+      should be a list. C(Tag.n.Key) and C(Tag.n.Value) should be a dict and using O(tags) instead.
+  name_prefix:
+    type: str
+    description: Use a instance name prefix to filter ecs instances.
+  profile:
+    type: str
+    description: This is the Alicloud profile name as set in the shared credentials file. It can also
+      be sourced from the E(ALICLOUD_PROFILE) environment variable.
+  shared_credentials_file:
+    type: str
+    description: This is the path to the shared credentials file. It can also be sourced from the E(ALICLOUD_SHARED_CREDENTIALS_FILE)
+      environment variable. If this is not set and a profile is specified, C(~/.aliyun/config.json) will
+      be used.
+  tags:
+    type: dict
+    aliases:
+    - instance_tags
+    description: A hash/dictionaries of instance tags. C({"key":"value"})
+writes: false
+runtime: starlark
+source: translated
+examples: "\n# Fetch instances details according to setting different filters\n\n- name: Find all instances\
+  \ in the specified region\n  community.general.ali_instance_info:\n  register: all_instances\n\n- name:\
+  \ Find all instances based on the specified ids\n  community.general.ali_instance_info:\n    instance_ids:\n\
+  \      - \"i-35b333d9\"\n      - \"i-ddav43kd\"\n  register: instances_by_ids\n\n- name: Find all instances\
+  \ based on the specified name_prefix\n  community.general.ali_instance_info:\n    name_prefix: \"ecs_instance_\"\
+  \n  register: instances_by_name_prefix\n\n- name: Find instances based on tags\n  community.general.ali_instance_info:\n\
+  \    tags:\n      Test: \"add\"\n"

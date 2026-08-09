@@ -1,0 +1,371 @@
+# ============================================================================
+# Docker Registry Configuration (config.yml)
+# ============================================================================
+#
+# This file configures the Docker Registry v2 service.
+# It defines storage backends, HTTP/TLS listeners, authentication, proxying,
+# notifications, and health checks.
+#
+# Self-documenting: every directive is preceded by a comment describing its
+# purpose, source schema field, and default value.
+# ============================================================================
+
+# Root of the configuration.
+# Schema field: version
+# Default: '0.1'
+# Description: Configuration file format version.
+version: 0.1
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+
+log:
+  # Logging verbosity level: debug, info, warning, error, or critical
+  # Schema field: log_level
+  # Default: 'info'
+  level: {{ log_level | default('info') }}
+
+  # Optional: log to file instead of stdout
+  # Schema field: log_file
+  # Default: False
+  # Description: If true, logs are written to /var/log/registry/registry.log
+  #              and structured fields (service, environment) are added.
+  {% if log_file | default(False) %}
+  # Log output to file
+  formatter: text
+  fields:
+    service: registry
+    environment: {{ log_environment | default('production') }}
+  {% else %}
+  # Log to stdout (no file)
+  formatter: text
+  fields:
+    service: registry
+    environment: {{ log_environment | default('production') }}
+  {% endif %}
+
+# ---------------------------------------------------------------------------
+# Storage Configuration
+# ---------------------------------------------------------------------------
+
+storage:
+  # Primary storage driver
+  # Schema field: storage_driver
+  # Default: 'filesystem'
+  # Supported: filesystem, s3, gcs, azure, swift, inmemory
+  driver: {{ storage_driver | default('filesystem') }}
+
+  # Filesystem-specific settings
+  # Schema field: storage_filesystem_rootdirectory
+  # Default: '/var/lib/registry'
+  {% if storage_driver | default('filesystem') == 'filesystem' %}
+  filesystem:
+    # Path on local filesystem where image data is stored
+    rootdirectory: {{ storage_filesystem_rootdirectory | default('/var/lib/registry') }}
+  {% endif %}
+
+  # S3-specific settings
+  # Schema fields: s3_region, s3_bucket, s3_encrypt, s3_keyid, s3_secure, s3_v4auth
+  {% if storage_driver | default('filesystem') == 's3' %}
+  s3:
+    # AWS region of S3 bucket
+    # Default: 'us-east-1'
+    region: {{ s3_region | default('us-east-1') }}
+    # S3 bucket name
+    # Default: ''
+    bucket: {{ s3_bucket | default('') }}
+    # Enable server-side encryption (SSE-S3 or SSE-KMS)
+    # Default: False
+    encrypt: {{ s3_encrypt | default(False) }}
+    # KMS key ID for encryption (optional, used only if s3_encrypt=true and SSE-KMS)
+    # Default: ''
+    keyid: {{ s3_keyid | default('') }}
+    # Use HTTPS for S3 communication
+    # Default: True
+    secure: {{ s3_secure | default(True) }}
+    # Use AWS Signature Version 4 for authentication
+    # Default: True
+    v4auth: {{ s3_v4auth | default(True) }}
+  {% endif %}
+
+  # GCS-specific settings
+  # Schema fields: gcs_bucket, gcs_keyid, gcs_private_key, gcs_user_project
+  {% if storage_driver | default('filesystem') == 'gcs' %}
+  gcs:
+    # GCS bucket name
+    # Default: ''
+    bucket: {{ gcs_bucket | default('') }}
+    # KMS key ID for GCS encryption (optional)
+    # Default: ''
+    keyid: {{ gcs_keyid | default('') }}
+    # Base64-encoded private key JSON (for service account auth)
+    # Default: ''
+    private_key: {{ gcs_private_key | default('') }}
+    # GCP project ID to bill for access (if bucket is requester-pays)
+    # Default: ''
+    user_project: {{ gcs_user_project | default('') }}
+  {% endif %}
+
+  # Azure-specific settings
+  # Schema fields: azure_container, azure_accountname, azure_accountkey, azure_realm
+  {% if storage_driver | default('filesystem') == 'azure' %}
+  azure:
+    # Azure Blob container name
+    # Default: ''
+    container: {{ azure_container | default('') }}
+    # Azure Storage account name
+    # Default: ''
+    accountname: {{ azure_accountname | default('') }}
+    # Base64-encoded account access key
+    # Default: ''
+    accountkey: {{ azure_accountkey | default('') }}
+    # Azure storage realm (usually unchanged)
+    # Default: 'blob.core.windows.net'
+    realm: {{ azure_realm | default('blob.core.windows.net') }}
+  {% endif %}
+
+  # Enable deletion of layers and manifests
+  # Schema field: storage_delete_enabled
+  # Default: False
+  # Description: Required for garbage collection.
+  {% if storage_delete_enabled | default(False) %}
+  delete:
+    enabled: true
+  {% else %}
+  delete:
+    enabled: false
+  {% endif %}
+
+  # Cache manifest/blob descriptor metadata in memory
+  # Schema field: storage_cache_blobdescriptor
+  # Default: True
+  # Description: Improves performance.
+  {% if storage_cache_blobdescriptor | default(True) %}
+  cache:
+    blobdescriptor: inmemory
+  {% endif %}
+
+  # Redirect client requests directly to backend storage
+  # Schema field: storage_redirect
+  # Default: False
+  # Description: e.g., S3 presigned URLs.
+  {% if storage_redirect | default(False) %}
+  redirect:
+    disable: false
+  {% else %}
+  redirect:
+    disable: true
+  {% endif %}
+
+# ---------------------------------------------------------------------------
+# HTTP Server Configuration
+# ---------------------------------------------------------------------------
+
+http:
+  # HTTP listener address (host:port) for registry API
+  # Schema field: http_addr
+  # Default: '0.0.0.0:5000'
+  addr: {{ http_addr | default('0.0.0.0:5000') }}
+
+  # TLS/SSL configuration
+  # Schema fields: tls_enabled, tls_addr, tls_keystore, tls_key, tls_client_ca
+  {% if tls_enabled | default(False) %}
+  tls:
+    # HTTPS listener address (host:port)
+    # Default: '0.0.0.0:5001'
+    address: {{ tls_addr | default('0.0.0.0:5001') }}
+    # Path to TLS certificate chain (PEM format)
+    # Default: ''
+    keystore: {{ tls_keystore | default('') }}
+    # Path to TLS private key (PEM format)
+    # Default: ''
+    key: {{ tls_key | default('') }}
+    # Optional: client CA for mutual TLS
+    {% if tls_client_ca | default('') %}
+    clientcas:
+      - {{ tls_client_ca | default('') }}
+    {% endif %}
+  {% endif %}
+
+  # Debug endpoint (health, metrics, pprof)
+  debug:
+    # Address for debug endpoints
+    # Schema field: debug_addr
+    # Default: 'localhost:5001'
+    addr: {{ debug_addr | default('localhost:5001') }}
+
+    # Enable Prometheus metrics at /metrics
+    # Schema field: debug_prometheus_enabled
+    # Default: False
+    {% if debug_prometheus_enabled | default(False) %}
+    prometheus:
+      enabled: true
+      path: /metrics
+    {% endif %}
+
+    # Enable pprof debugging endpoints (dangerous in production)
+    # Schema field: debug_pprof_enabled
+    # Default: False
+    {% if debug_pprof_enabled | default(False) %}
+    pprof:
+      enabled: true
+      # pprof listener address
+      # Schema field: debug_pprof_addr
+      # Default: 'localhost:6060'
+      address: {{ debug_pprof_addr | default('localhost:6060') }}
+    {% endif %}
+
+    # Enable distributed tracing (Jaeger/Zipkin)
+    # Schema field: debug_trace_enabled
+    # Default: False
+    {% if debug_trace_enabled | default(False) %}
+    trace:
+      enabled: true
+      # If true: always sample traces; if false: use probabilistic sampling
+      # Schema field: debug_trace_sampler
+      # Default: False
+      {% if debug_trace_sampler | default(False) %}
+      sampler:
+        type: always
+      {% else %}
+      sampler:
+        # Sampler type for probabilistic sampling
+        type: jaeger
+        # Sampling rate (0.0–1.0) when probabilistic sampling is used
+        # Schema field: debug_trace_sampler_param
+        # Default: 0.1
+        param: {{ debug_trace_sampler_param | default(0.1) }}
+      {% endif %}
+    {% endif %}
+
+# ---------------------------------------------------------------------------
+# Authentication Configuration
+# ---------------------------------------------------------------------------
+
+auth:
+  # Token-based authentication
+  # Schema field: auth_type
+  # Default: 'none'
+  # Supported: 'none', 'htpasswd', 'token'
+  {% if auth_type | default('none') == 'token' %}
+  token:
+    # URL of token service
+    # Schema field: auth_token_realm
+    # Default: ''
+    realm: {{ auth_token_realm | default('') }}
+    # Token service name (must match issuer expectation)
+    # Schema field: auth_token_service
+    # Default: 'registry.docker.io'
+    service: {{ auth_token_service | default('registry.docker.io') }}
+    # JWT issuer name
+    # Schema field: auth_token_issuer
+    # Default: 'registry-token-issuer'
+    issuer: {{ auth_token_issuer | default('registry-token-issuer') }}
+    # Path to CA bundle for validating token signatures
+    # Schema field: auth_token_rootcertbundle
+    # Default: ''
+    rootcertbundle: {{ auth_token_rootcertbundle | default('') }}
+  {% endif %}
+
+  # Basic auth (HTPASSWD file)
+  {% if auth_type | default('none') == 'htpasswd' %}
+  htpasswd:
+    # Basic auth realm (shown in browser login dialog)
+    # Schema field: auth_htpasswd_realm
+    # Default: 'Registry Realm'
+    realm: {{ auth_htpasswd_realm | default('Registry Realm') }}
+    # Path to HTPASSWD file
+    # Schema field: auth_htpasswd_path
+    # Default: ''
+    path: {{ auth_htpasswd_path | default('') }}
+  {% endif %}
+
+  # Anonymous (no auth)
+  # If auth_type is 'none', no auth block is emitted (or empty)
+  {% if auth_type | default('none') == 'none' %}
+  # No authentication enabled
+  {% endif %}
+
+# ---------------------------------------------------------------------------
+# Proxy Settings (Pull-Through Cache)
+# ---------------------------------------------------------------------------
+
+# Schema field: proxy_remoteurl
+# Default: ''
+# Description: Upstream registry URL (e.g., https://registry-1.docker.io)
+{% if proxy_remoteurl | default('') %}
+proxy:
+  remoteurl: {{ proxy_remoteurl | default('') }}
+  # Username for authenticated proxy upstream (optional)
+  # Schema field: proxy_username
+  # Default: ''
+  username: {{ proxy_username | default('') }}
+  # Password for authenticated proxy upstream (optional)
+  # Schema field: proxy_password
+  # Default: ''
+  password: {{ proxy_password | default('') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Notifications (Webhooks)
+# ---------------------------------------------------------------------------
+
+# Schema field: notifications_enabled
+# Default: False
+# Description: Enable webhook notifications on image pushes/pulls.
+{% if notifications_enabled | default(False) %}
+notifications:
+  endpoints:
+    # List of webhook endpoints
+    # Schema field: notifications_endpoints
+    # Default: []
+    {% for endpoint in notifications_endpoints | default([]) %}
+    - name: {{ endpoint.name | default('') }}
+      url: {{ endpoint.url | default('') }}
+      headers:
+        # Iterate over headers map if present
+        {% if endpoint.headers is defined and endpoint.headers is mapping %}
+        {% for key, value in endpoint.headers | dict2items %}
+        {{ key }}: {{ value | default('') | tojson }}
+        {% endfor %}
+        {% endif %}
+      # Timeout for the notification request
+      # Default: '3s'
+      timeout: {{ endpoint.timeout | default('3s') }}
+      {% if endpoint.threshold is defined %}
+      threshold: {{ endpoint.threshold }}
+      {% endif %}
+      {% if endpoint.backoff is defined %}
+      backoff:
+        duration: {{ endpoint.backoff.duration | default('0s') }}
+        interval: {{ endpoint.backoff.interval | default('1s') }}
+        maxinterval: {{ endpoint.backoff.maxinterval | default('10s') }}
+        maxretry: {{ endpoint.backoff.maxretry | default(0) }}
+      {% endif %}
+      {% if endpoint.disabled is defined %}
+      disabled: true
+      {% endif %}
+    {% endfor %}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Health Checks
+# ---------------------------------------------------------------------------
+
+# Schema field: health_storagedriver_enabled
+# Default: False
+# Description: Enable health endpoint that checks storage driver connectivity.
+{% if health_storagedriver_enabled | default(False) %}
+health:
+  storagedriver:
+    enabled: true
+    # Interval between storage health checks
+    # Schema field: health_storagedriver_interval
+    # Default: '10s'
+    interval: {{ health_storagedriver_interval | default('10s') }}
+    # Number of failed checks before marking unhealthy
+    # Schema field: health_storagedriver_threshold
+    # Default: 3
+    threshold: {{ health_storagedriver_threshold | default(3) }}
+{% endif %}

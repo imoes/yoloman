@@ -1,0 +1,42 @@
+# ==============================================================================
+# talkd - BSD Talk Service Configuration
+# ==============================================================================
+# This template configures the inetd/xinetd-supervised 'talk' and 'ntalk' services.
+# These are legacy, low-latency, full-duplex text chat services using UDP.
+#
+# Schema Defaults:
+#   talk_enabled: True
+#   ntalk_enabled: True
+#   talk_user: 'root'
+#   talkd_path: '/usr/sbin/in.talkd'
+#   extra_services: []
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Enable/Disable the legacy 'talk' service (UDP port 517).
+# ------------------------------------------------------------------------------
+{% if talk_enabled | default(true) | bool %}
+talk            dgram   udp     wait    {{ talk_user | default('root') }}  {{ talkd_path | default('/usr/sbin/in.talkd') }}  {{ talkd_path | default('/usr/sbin/in.talkd') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Enable/Disable the modern 'ntalk' service (UDP port 518).
+# ntalk is preferred over talk for better compatibility and ring notifications.
+# ------------------------------------------------------------------------------
+{% if ntalk_enabled | default(true) | bool %}
+ntalk           dgram   udp     wait    {{ talk_user | default('root') }}  {{ talkd_path | default('/usr/sbin/in.talkd') }}  {{ talkd_path | default('/usr/sbin/in.talkd') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Extra custom services managed by inetd.
+# Each entry in extra_services is expected to be a string containing a complete
+# inetd.conf line or a dict with 'line' key. If it's a dict, we use the 'line'
+# value. If it's a string, we use the string directly.
+# ------------------------------------------------------------------------------
+{% for svc in extra_services | default([]) | list %}
+{% if svc is mapping %}
+{{ svc.line | default('') }}
+{% elif svc is string %}
+{{ svc }}
+{% endif %}
+{% endfor %}

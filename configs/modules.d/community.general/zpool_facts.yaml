@@ -1,0 +1,28 @@
+name: zpool_facts
+fqcn: community.general.zpool_facts
+collection: community.general
+short_description: Gather facts about ZFS pools
+description: Gather facts from ZFS pool properties.
+options:
+  name:
+    type: str
+    aliases:
+    - pool
+    - zpool
+    description: ZFS pool name.
+  parsable:
+    type: bool
+    default: false
+    description: Specifies if property values should be displayed in machine friendly format.
+  properties:
+    type: str
+    default: all
+    description: Specifies which dataset properties should be queried in comma-separated format. For more
+      information about dataset properties, check zpool(1M) man page.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Gather facts about ZFS pool rpool\n  community.general.zpool_facts: pool=rpool\n\n\
+  - name: Gather space usage about all imported ZFS pools\n  community.general.zpool_facts: properties='free,size'\n\
+  \n- name: Print gathered information\n  ansible.builtin.debug:\n    msg: 'ZFS pool {{ item.name }} has\
+  \ {{ item.free }} free space out of {{ item.size }}.'\n  with_items: '{{ ansible_zfs_pools }}'\n"

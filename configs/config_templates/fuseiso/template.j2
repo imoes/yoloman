@@ -1,0 +1,79 @@
+# ==============================================================================
+# fuseiso: Mount ISO images (BIN, NRG, IMG, MDF, ISO) via FUSE
+# ==============================================================================
+# This template generates a shell command to run fuseiso.
+#
+# Variables:
+#   iso_image           (str, default='')   Path to the ISO/BIN/NRG/IMG/MDF image.
+#   mount_point         (str, default='')   Directory where the image is mounted.
+#   iocharset           (str, default='UTF-8') Character set for Joliet filesystems (e.g., iso8859-1, UTF-8).
+#   no_mtab             (bool, default=False) Do not maintain ~/.mtab.fuseiso.
+#   create_mount_point  (bool, default=False) Create mount point if missing; remove on exit.
+#   foreground          (bool, default=False) Run in foreground (no daemonization).
+#   debug               (bool, default=False) Enable debug output (implies foreground).
+#   single_threaded     (bool, default=False) Run single-threaded (FUSE -s option).
+# ==============================================================================
+
+# ISO image path (Required)
+# Path to the ISO, BIN, NRG, IMG, or MDF image to mount.
+# Uses the schema default if undefined.
+ISO_IMAGE="{{ (iso_image | default('')) }}"
+
+# Mount point directory (Required)
+# Mount point directory. Created if create_mount_point is true.
+# Uses the schema default if undefined.
+MOUNT_POINT="{{ (mount_point | default('')) }}"
+
+# Character set for Joliet filesystems
+# Must be supported by iconv. Defaults to UTF-8.
+# Only adds the flag if the value is not the default UTF-8.
+IOCHARSET_OPT=""
+{% if (iocharset | default('UTF-8')) != 'UTF-8' %}
+# Character set for Joliet (default: UTF-8)
+IOCHARSET_OPT="-c {{ iocharset | default('UTF-8') | string | trim }}"
+{% endif %}
+
+# FUSE Options
+# -n: Do not maintain ~/.mtab.fuseiso
+# -p: Create mount point if missing and remove on exit
+# -f: Run in foreground (no daemonization)
+# -d: Debug output (implies foreground)
+# -s: Run single-threaded
+
+# Assemble flags into a list to safely join without string concatenation issues
+FLAGS_LIST=[]
+
+# Do not maintain ~/.mtab.fuseiso
+{% if (no_mtab | default(false) | bool) %}
+FLAGS_LIST=FLAGS_LIST+['-n']
+{% endif %}
+
+# Maintain mount point (create on mount, delete on exit)
+{% if (create_mount_point | default(false) | bool) %}
+FLAGS_LIST=FLAGS_LIST+['-p']
+{% endif %}
+
+# Run in foreground (no daemonization)
+# Also implied by debug
+{% if (foreground | default(false) | bool) or (debug | default(false) | bool) %}
+FLAGS_LIST=FLAGS_LIST+['-f']
+{% endif %}
+
+# Enable debug output
+{% if (debug | default(false) | bool) %}
+FLAGS_LIST=FLAGS_LIST+['-d']
+{% endif %}
+
+# Run single-threaded
+{% if (single_threaded | default(false) | bool) %}
+FLAGS_LIST=FLAGS_LIST+['-s']
+{% endif %}
+
+# Execute fuseiso
+fuseiso \
+  {% for flag in FLAGS_LIST | default([]) %}
+  {{ flag }} \
+  {% endfor %}
+  {{ (iocharset | default('UTF-8')) }} \
+  "{{ iso_image | default('') }}" \
+  "{{ mount_point | default('') }}"

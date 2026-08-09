@@ -1,0 +1,69 @@
+# /etc/default/prometheus-frr-exporter
+# Environment variables for the prometheus-frr-exporter systemd/sysv service.
+# This file is self-documenting: every variable is explained and safe.
+
+# System user account under which the exporter process runs.
+# Schema: user (default: 'frr')
+FRR_EXPORTER_USER="{{ user | default('frr') }}"
+
+# System group for the exporter process.
+# Schema: group (default: 'frr')
+FRR_EXPORTER_GROUP="{{ group | default('frr') }}"
+
+# IP address the exporter listens on. Use '0.0.0.0' to listen on all interfaces.
+# Schema: listen_address (default: '127.0.0.1')
+FRR_EXPORTER_LISTEN_ADDRESS="{{ listen_address | default('127.0.0.1') }}"
+
+# TCP port the exporter listens on for Prometheus scrapes.
+# Schema: listen_port (default: 9342)
+FRR_EXPORTER_LISTEN_PORT="{{ listen_port | default(9342) }}"
+
+# Path to the FRR vty socket used to query routing protocol state.
+# Schema: vty_socket_path (default: '/run/frr/vty.sock')
+FRR_VTY_SOCKET="{{ vty_socket_path | default('/run/frr/vty.sock') }}"
+
+# Optional path to FRR's daemons configuration file. If set, enables per-daemon metrics.
+# Schema: daemons_config_path (default: '')
+{%- if daemons_config_path | default('') %}
+FRR_DAEMONS_CONFIG="{{ daemons_config_path | default('') }}"
+{%- else %}
+# FRR_DAEMONS_CONFIG="{{ daemons_config_path | default('') }}"
+{%- endif %}
+
+# Enable verbose debug logging for troubleshooting.
+# Schema: debug (default: False)
+FRR_EXPORTER_DEBUG="{{ debug | default(False) | string | lower }}"
+
+# List of FRR daemons to scrape. Use ['all'] to scrape all enabled daemons,
+# or specify a subset (e.g., ['bgp', 'isis']).
+# Schema: daemons (default: ['all'])
+FRR_EXPORTER_DAEMONS="{{ daemons | default(['all']) | join(',') }}"
+
+# Maximum time (in seconds) to wait for responses from the FRR vty socket.
+# Schema: timeout (default: 5)
+FRR_EXPORTER_TIMEOUT="{{ timeout | default(5) }}"
+
+# Enable TLS (HTTPS) for the exporter metrics endpoint.
+# Schema: tls_enabled (default: False)
+FRR_EXPORTER_TLS="{{ tls_enabled | default(False) | string | lower }}"
+
+# Absolute path to the TLS certificate file (required if TLS is enabled).
+# Schema: tls_cert_path (default: '')
+{%- if tls_cert_path | default('') %}
+FRR_EXPORTER_TLS_CERT="{{ tls_cert_path | default('') }}"
+{%- else %}
+# FRR_EXPORTER_TLS_CERT="{{ tls_cert_path | default('') }}"
+{%- endif %}
+
+# Absolute path to the TLS private key file (required if TLS is enabled).
+# Schema: tls_key_path (default: '')
+{%- if tls_key_path | default('') %}
+FRR_EXPORTER_TLS_KEY="{{ tls_key_path | default('') }}"
+{%- else %}
+# FRR_EXPORTER_TLS_KEY="{{ tls_key_path | default('') }}"
+{%- endif %}
+
+# Note: The listen address and port are also available as a combined variable
+# for legacy compatibility or direct usage by the init script.
+# Derived from listen_address and listen_port schemas.
+FRR_EXPORTER_LISTEN="{{ listen_address | default('127.0.0.1') }}:{{ listen_port | default(9342) }}"

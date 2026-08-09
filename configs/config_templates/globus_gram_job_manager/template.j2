@@ -1,0 +1,88 @@
+# =============================================================================
+# Globus GRAM Job Manager Configuration Template
+# =============================================================================
+# This template configures the Globus Grid Resource Allocation and Management
+# (GRAM) Job Manager service. It is self-documenting: every directive is preceded
+# by a comment explaining its purpose and source schema field.
+# =============================================================================
+
+# Network interface IP address on which the GRAM Job Manager listens for incoming connections.
+listen: {{ (listen_host | default('0.0.0.0')) }}:{{ (listen_port | default(2119)) }}
+
+# Authentication method: 'gridftp' (GSI proxy), 'gsi' (GSI credentials only), or 'none' (no authentication).
+auth_method: {{ auth_method | default('gridftp') }}
+
+# Path to the directory containing trusted CA certificates for GSI authentication.
+ca_cert_dir: {{ ca_cert_dir | default('/etc/globus/certificates') }}
+
+# Enable verbose debug logging to stderr or log file.
+verbose: {{ verbose | default(False) | lower }}
+
+# Path to the log file. Set to empty string to disable file logging.
+log_file: {{ log_file | default('/var/log/globus/gram-job-manager.log') }}
+
+# Maximum number of concurrently active jobs the manager will handle. Increase for high-throughput sites.
+max_jobs: {{ max_jobs | default(1000) }}
+
+# Maximum number of jobs waiting in the submission queue. Set to 0 for unlimited.
+max_queue_depth: {{ max_queue_depth | default(5000) }}
+
+# =============================================================================
+# GridFTP Endpoints for Data Staging
+# =============================================================================
+# List of GridFTP endpoints used for data staging during job execution.
+# Each endpoint may have host, port, and proxy_mode.
+{% for endpoint in gridftp_endpoints | default([]) %}
+# GridFTP endpoint: {{ endpoint.host | default('') }}:{{ endpoint.port | default(2811) }}
+gridftp_endpoint: {{ (endpoint | default({})).host | default('') }}:{{ (endpoint | default({})).port | default(2811) }}
+{% if (endpoint | default({})).proxy_mode is defined and (endpoint | default({})).proxy_mode %}
+gridftp_proxy_mode: {{ (endpoint | default({})).proxy_mode }}
+{% endif %}
+{% endfor %}
+
+# =============================================================================
+# Job Manager Types
+# =============================================================================
+# List of jobmanager types supported by this service (e.g., 'jobmanager', 'jobmanager+pbs').
+# Must match available jobmanager implementations on the host.
+{% for jm in jobmanager_types | default(['jobmanager', 'jobmanager+lsf', 'jobmanager+pbs']) %}
+# Allowed job manager type: {{ jm }}
+jobmanager: {{ jm }}
+{% endfor %}
+
+# =============================================================================
+# Execution Wrapper
+# =============================================================================
+# Path to an optional job execution wrapper script that runs before user jobs.
+{% if job_wrapper_path | default('/usr/libexec/globus/globus-job-wrapper.sh') %}
+# Execution environment: path to job execution wrapper (e.g., shell wrapper script)
+job_wrapper: {{ job_wrapper_path | default('/usr/libexec/globus/globus-job-wrapper.sh') }}
+{% endif %}
+
+# =============================================================================
+# Resource Manager Plugin
+# =============================================================================
+# Resource manager plugin to use (empty to use default auto-detection or legacy behavior).
+# Path to the resource manager plugin configuration file.
+{% if resource_manager_plugin | default('pbs') %}
+# Resource manager plugin configuration
+resource_manager_plugin: {{ resource_manager_plugin | default('pbs') }}
+resource_manager_config: {{ resource_manager_config_path | default('/etc/globus/resource-manager.conf') }}
+{% endif %}
+
+# =============================================================================
+# Service Contact URL
+# =============================================================================
+# Public hostname used in the service contact URL (e.g., for discovery by clients).
+# HTTPS port used by the service contact URL.
+# Enable TLS for the service contact endpoint.
+#service_contact: https://{{ service_hostname | default('grid.example.edu') }}:{{ service_port | default(8443) }}/jobmanager
+
+# SSL/TLS configuration for the service contact endpoint.
+ssl_enabled: {{ ssl_enabled | default(True) | lower }}
+
+# Service contact hostname for discovery.
+service_hostname: {{ service_hostname | default('grid.example.edu') }}
+
+# Service contact port for discovery.
+service_port: {{ service_port | default(8443) }}

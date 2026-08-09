@@ -1,0 +1,136 @@
+# cpustat configuration template
+# cpustat is a CPU utilization statistics tool. This template configures its
+# sampling behavior and output options. It does not listen on any network port
+# and does not require external services.
+
+# === Sampling Parameters ===
+
+# sample_interval
+# Description: Delay between samples in seconds (cpustat [delay] [count])
+# Type: integer
+# Default: 1
+sample_interval: {{ sample_interval | default(1) }}
+
+# sample_count
+# Description: Number of samples to collect (cpustat [delay] [count]); null means infinite
+# Type: integer or null
+# Default: None
+{% if sample_count is defined and sample_count is not none %}
+sample_count: {{ sample_count }}
+{% else %}
+# sample_count is not set (infinite sampling)
+{% endif %}
+
+# === Output Options ===
+
+# csv_output
+# Description: Output CSV file path for gathered data (-r)
+# Type: string
+# Default: '' (empty string means stdout)
+{% if csv_output is defined and csv_output | length > 0 %}
+csv_output: {{ csv_output }}
+{% else %}
+# csv_output is not set (output to stdout)
+{% endif %}
+
+# timestamp
+# Description: Show timestamp (adds time column in CSV if used with -r) (-S)
+# Type: boolean
+# Default: False
+timestamp: {{ timestamp | default(false) | ternary('true', 'false') }}
+
+# quiet
+# Description: Run quietly, only meaningful with CSV output (-q)
+# Type: boolean
+# Default: False
+quiet: {{ quiet | default(false) | ternary('true', 'false') }}
+
+# === Display Options ===
+
+# all_cpus
+# Description: Scale CPU utilization by number of CPUs (-a)
+# Type: boolean
+# Default: False
+all_cpus: {{ all_cpus | default(false) | ternary('true', 'false') }}
+
+# comm_field
+# Description: Get command info from process comm field (-c)
+# Type: boolean
+# Default: False
+comm_field: {{ comm_field | default(false) | ternary('true', 'false') }}
+
+# strip_dirname
+# Description: Strip directory basename from command info (-d)
+# Type: boolean
+# Default: False
+strip_dirname: {{ strip_dirname | default(false) | ternary('true', 'false') }}
+
+# show_distribution
+# Description: Compute and show distribution of CPU utilisation by task and CPU (-D)
+# Type: boolean
+# Default: False
+show_distribution: {{ show_distribution | default(false) | ternary('true', 'false') }}
+
+# grand_total
+# Description: Show grand total CPU utilisation at end of run (-g)
+# Type: boolean
+# Default: False
+grand_total: {{ grand_total | default(false) | ternary('true', 'false') }}
+
+# ignore_self
+# Description: Ignore cpustat itself in statistics (-i)
+# Type: boolean
+# Default: False
+ignore_self: {{ ignore_self | default(false) | ternary('true', 'false') }}
+
+# long_cmd
+# Description: Show long (full) command information (-l)
+# Type: boolean
+# Default: False
+long_cmd: {{ long_cmd | default(false) | ternary('true', 'false') }}
+
+# short_cmd
+# Description: Show short command information (-s)
+# Type: boolean
+# Default: False
+short_cmd: {{ short_cmd | default(false) | ternary('true', 'false') }}
+
+# max_tasks
+# Description: Display only top N tasks (-n)
+# Type: integer or null
+# Default: None
+{% if max_tasks is defined and max_tasks is not none %}
+max_tasks: {{ max_tasks }}
+{% else %}
+# max_tasks is not set (display all tasks)
+{% endif %}
+
+# pid_filter
+# Description: Only display process matching PID (-p)
+# Type: integer or null
+# Default: None
+{% if pid_filter is defined and pid_filter is not none %}
+pid_filter: {{ pid_filter }}
+{% else %}
+# pid_filter is not set (no filtering)
+{% endif %}
+
+# === Advanced Statistics ===
+
+# cpu_threshold
+# Description: Ignore samples where CPU usage delta per second < threshold (-t)
+# Type: integer
+# Default: 0
+cpu_threshold: {{ cpu_threshold | default(0) }}
+
+# total_util
+# Description: Calculate total CPU utilisation (-T)
+# Type: boolean
+# Default: False
+total_util: {{ total_util | default(false) | ternary('true', 'false') }}
+
+# extra_stats
+# Description: Show extra CPU statistics (load average, CPU freq, online CPUs) (-x)
+# Type: boolean
+# Default: False
+extra_stats: {{ extra_stats | default(false) | ternary('true', 'false') }}

@@ -1,0 +1,45 @@
+# Port on which EFLite Speech Server listens for client connections
+bind_port = {{ server.bind_port }}
+
+# Host interface to bind to (0.0.0.0 for all interfaces)
+bind_host = "{{ server.bind_host }}"
+
+# Directory where EFLite stores temporary files and logs
+temp_dir = "{{ paths.temp_dir }}"
+
+# Directory for persistent user data (e.g., voice settings, preferences)
+data_dir = "{{ paths.data_dir }}"
+
+# Maximum number of concurrent clients
+max_clients = {{ server.max_clients }}
+
+# Enable verbose logging (true/false)
+verbose = {{ server.verbose | lower }}
+
+# Log file path (empty string disables file logging)
+log_file = "{{ paths.log_file }}"
+
+# Voice selection: default voice name
+voice = "{{ voice.name }}"
+
+# Rate of speech (words per minute)
+rate = {{ voice.rate }}
+
+# Pitch adjustment (0-100, where 50 is neutral)
+pitch = {{ voice.pitch }}
+
+# Volume gain (0-100, where 50 is default)
+volume = {{ voice.volume }}
+
+{% for client in clients %}
+# Client-specific override for {{ client.name }}
+{% if client.enabled %}
+[{{ client.name }}]
+bind_host = "{{ client.bind_host }}"
+bind_port = {{ client.bind_port }}
+voice = "{{ client.voice }}"
+rate = {{ client.rate }}
+pitch = {{ client.pitch }}
+volume = {{ client.volume }}
+{% endif %}
+{% endfor %}

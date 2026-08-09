@@ -1,0 +1,70 @@
+; LemonLDAP-NG main configuration file
+; Generated from template — do not edit directly
+; See https://lemonldap-ng.org/documentation/2.0/configuration
+
+[main]
+; Global configuration mode: 'production' or 'development'
+configStorage = {{ config_storage.type }}
+configStorageOptions = {{ config_storage.options | tojson }}
+
+; URL under which LemonLDAP-NG is accessible (for redirects and cookies)
+portal = {{ portal_url }}
+
+; Logging configuration (syslog, file, stderr, none)
+logLevel = {{ log_level }}
+logPriority = {{ log_priority }}
+logBackend = {{ log_backend }}
+
+; Session storage configuration (DBI, File, Redis, etc.)
+sessionStorage = {{ session_storage.type }}
+sessionStorageOptions = {{ session_storage.options | tojson }}
+
+; Application storage (for virtual hosts, handlers, etc.)
+appsStorage = {{ apps_storage.type }}
+appsStorageOptions = {{ apps_storage.options | tojson }}
+
+; Secret key used for HMAC signing of cookies and tokens
+secretKey = {{ secret_key }}
+
+; Cookie domain (defaults to first domain in virtualHosts, or empty)
+cookieDomain = {{ cookie_domain }}
+
+; Enable or disable HTTPS for cookies (1 = yes, 0 = no)
+cookieSecure = {{ cookie_secure }}
+
+; Cookie lifetime in seconds
+cookieLifetime = {{ cookie_lifetime }}
+
+; Enable or disable maintenance mode (1 = yes, 0 = no)
+maintenance = {{ maintenance }}
+
+; Enable or disable debug mode (1 = yes, 0 = no)
+debug = {{ debug }}
+
+; Enable or disable the portal login page (set to 0 for pure API deployments)
+enablePortal = {{ enable_portal }}
+
+; Path to custom CSS/JS files (relative to portal URL)
+customJs = {{ custom_js }}
+customCss = {{ custom_css }}
+
+; Enable or disable OpenID Connect support
+oidcEnabled = {{ oidc_enabled }}
+
+; Enable or disable SAML support
+samlEnabled = {{ saml_enabled }}
+
+; Enable or disable OAuth2 support
+oauth2Enabled = {{ oauth2_enabled }}
+
+; Enable or disable WebFinger support
+webfingerEnabled = {{ webfinger_enabled }}
+
+{% for handler in handlers %}
+; Handler {{ loop.index }}: {{ handler.name }} — {{ handler.description }}
+[{{ handler.name }}]
+{% for key, value in handler.config.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+

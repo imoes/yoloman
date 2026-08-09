@@ -1,0 +1,102 @@
+# =============================================================================
+# maildrop Configuration Template
+# =============================================================================
+# This file configures maildrop, a delivery agent for incoming email.
+# It handles filtering, logging, quota enforcement, and message size limits.
+#
+# VARIABLES:
+#   loglevel          : Integer. Logging verbosity (0=silent, 1=errors, 2=warnings, 3=info, 4=debug).
+#   default_delivery  : String. Default delivery directory (Maildir or Mbox path).
+#   logfile           : String. Path to maildrop log file. Empty string disables logging.
+#   quota_enabled     : Boolean. Enable per-user mailbox quota enforcement.
+#   quota_mb          : Integer. Maximum mailbox size in megabytes (only used if quota_enabled=true).
+#   maxsize           : Integer. Maximum message size in bytes. 0 = no limit.
+#   ext_filter_enabled: Boolean. Enable extended Sieve-like filtering.
+#   sieve_script      : String. Path to Sieve script for extended filtering.
+#   filter_rules      : List. List of filter rule objects. Each object may contain 'condition' and 'action'.
+#   pre_delivery_hook : String. Command to run before final delivery (e.g., antivirus scan).
+# =============================================================================
+
+# Global maildrop filter file
+
+# -----------------------------------------------------------------------------
+# Default delivery directory.
+# Uncomment this line to make maildrop default to ~/Maildir for delivery.
+# This is where courier-imap (amongst others) will look.
+# -----------------------------------------------------------------------------
+#DEFAULT="{{ default_delivery | default('\"Maildir/\"') }}"
+
+# -----------------------------------------------------------------------------
+# Logging verbosity level.
+# 0=silent, 1=errors only, 2=warnings, 3=info, 4=debug.
+# -----------------------------------------------------------------------------
+LOGLEVEL="{{ loglevel | default(1) }}"
+
+# -----------------------------------------------------------------------------
+# Path to maildrop log file.
+# Empty string disables logging.
+# -----------------------------------------------------------------------------
+LOGFILE="{{ logfile | default('/var/log/maildrop.log') }}"
+
+# -----------------------------------------------------------------------------
+# Enable per-user mailbox quota enforcement.
+# -----------------------------------------------------------------------------
+QUOTA_ENABLED="{{ quota_enabled | default(false) | lower }}"
+
+# -----------------------------------------------------------------------------
+# Maximum mailbox size in megabytes.
+# Only used if quota_enabled=true.
+# -----------------------------------------------------------------------------
+QUOTA="{{ quota_mb | default(512) }}"
+
+# -----------------------------------------------------------------------------
+# Maximum message size in bytes.
+# 0 = no limit. Recommend 25000000 (25MB) for modern use.
+# -----------------------------------------------------------------------------
+MAXSIZE="{{ maxsize | default(0) }}"
+
+# -----------------------------------------------------------------------------
+# Enable extended Sieve-like filtering.
+# Use this to enable advanced filtering capabilities (e.g., Dovecot managedsieve).
+# -----------------------------------------------------------------------------
+EXT_FILTER="{{ ext_filter_enabled | default(false) | lower }}"
+
+# -----------------------------------------------------------------------------
+# Path to Sieve script for extended filtering.
+# Only used if ext_filter_enabled=true.
+# -----------------------------------------------------------------------------
+SIEVE="{{ sieve_script | default('/etc/dovecot/sieve/default.sieve') }}"
+
+# -----------------------------------------------------------------------------
+# Pre-delivery hook.
+# Command to run before final delivery (e.g., antivirus scan).
+# Must be quoted and safe.
+# -----------------------------------------------------------------------------
+{% if pre_delivery_hook | default('') %}
+HOOK="{{ pre_delivery_hook | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Filter rules.
+# List of filter rules. Each rule may have a condition (omit for unconditional)
+# and an action.
+# -----------------------------------------------------------------------------
+{% if filter_rules | default([]) | length > 0 %}
+{% for rule in filter_rules | default([]) %}
+# Rule condition: {{ rule.get('condition', 'None') | default('None') }}
+# Rule action: {{ rule.get('action', 'None') | default('None') }}
+{% if rule.get('condition') %}
+{%- if rule.get('condition') is string -%}
+FILTER "{{ rule.get('condition') }}"
+{%- else -%}
+FILTER {{ rule.get('condition') }}
+{%- endif -%}
+{% endif %}
+{%- if rule.get('action') is string -%}
+DELIVER "{{ rule.get('action') }}"
+{%- else -%}
+DELIVER {{ rule.get('action') }}
+{%- endif -%}
+
+{% endfor %}
+{% endif %}

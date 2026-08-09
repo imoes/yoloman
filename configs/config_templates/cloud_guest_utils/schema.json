@@ -1,0 +1,143 @@
+{
+  "datasource_list": {
+    "type": "list",
+    "default": [
+      "NoCloud",
+      "None"
+    ],
+    "description": "Ordered list of cloud datasources cloud-init tries in sequence; first match wins. Common values: Ec2, OpenStack, Azure, GCE, NoCloud, None.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "growpart_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Partition-grow tool: 'auto' picks the best available binary (growpart then gpart), 'growpart' forces growpart, 'gpart' forces gpart, 'off' disables growing entirely."
+  },
+  "growpart_devices": {
+    "type": "list",
+    "default": [
+      "/"
+    ],
+    "description": "Mount points or block device paths whose underlying partition will be expanded to fill available disk space.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "growpart_ignore_disabled": {
+    "type": "bool",
+    "default": false,
+    "description": "When true, cloud-init ignores the /etc/growroot-disabled guard file and grows the partition regardless."
+  },
+  "resize_rootfs": {
+    "type": "string",
+    "default": "noblock",
+    "description": "Resize root filesystem after growpart: 'true' blocks boot until done, 'noblock' runs in background (recommended), 'false' skips resizing."
+  },
+  "disable_root": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable direct root SSH login. Users should connect as the default cloud user and use sudo."
+  },
+  "preserve_hostname": {
+    "type": "bool",
+    "default": false,
+    "description": "When false, cloud-init overwrites the hostname with the value from instance metadata on every boot."
+  },
+  "manage_etc_hosts": {
+    "type": "bool",
+    "default": false,
+    "description": "When true, cloud-init rewrites /etc/hosts to include the instance hostname on every boot."
+  },
+  "default_user": {
+    "type": "object",
+    "default": {
+      "name": "ubuntu",
+      "gecos": "Ubuntu",
+      "lock_passwd": true,
+      "shell": "/bin/bash",
+      "groups": [
+        "adm",
+        "sudo"
+      ],
+      "sudo_rules": [
+        "ALL=(ALL) NOPASSWD:ALL"
+      ]
+    },
+    "description": "Default cloud user account injected on first boot. All SSH public keys from instance metadata are written to this account.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Linux username for the injected cloud account (e.g. ubuntu, ec2-user, cloud-user)."
+      },
+      "gecos": {
+        "type": "string",
+        "description": "Human-readable full name (GECOS) shown in /etc/passwd."
+      },
+      "lock_passwd": {
+        "type": "bool",
+        "description": "Lock the password field so only SSH key authentication works initially."
+      },
+      "shell": {
+        "type": "string",
+        "description": "Absolute path to the login shell for the cloud user."
+      },
+      "groups": {
+        "type": "list",
+        "description": "Supplementary groups the cloud user is added to at creation time."
+      },
+      "sudo_rules": {
+        "type": "list",
+        "description": "Sudoers rules granted to the cloud user. 'ALL=(ALL) NOPASSWD:ALL' grants full passwordless sudo."
+      }
+    }
+  },
+  "ntp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable cloud-init NTP management. Set false if NTP is managed by another tool (e.g. systemd-timesyncd via a separate role)."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org",
+      "2.pool.ntp.org"
+    ],
+    "description": "NTP servers cloud-init configures on first boot. Only applied when ntp_enabled is true.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "cloud_config_modules": {
+    "type": "list",
+    "default": [
+      "growpart",
+      "resizefs",
+      "set_hostname",
+      "update_hostname",
+      "users-groups",
+      "ssh"
+    ],
+    "description": "Ordered list of cloud-init modules run during the config stage. Order matters: growpart must precede resizefs.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "cloud_final_modules": {
+    "type": "list",
+    "default": [
+      "scripts-vendor",
+      "scripts-per-once",
+      "scripts-per-boot",
+      "scripts-per-instance",
+      "scripts-user",
+      "final-message"
+    ],
+    "description": "Ordered list of cloud-init modules run during the final stage, after the system is fully configured.",
+    "items": {
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,181 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the web server to."
+  },
+  "web_port": {
+    "type": "number",
+    "default": 4545,
+    "description": "TCP port for the main web API and UI."
+  },
+  "use_unix_socket": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Unix socket listener instead of TCP."
+  },
+  "unix_socket_path": {
+    "type": "string",
+    "default": "/run/goiardi/goiardi.sock",
+    "description": "Path for the Unix socket (used only if use_unix_socket is true)."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP address of PostgreSQL server (leave empty if using socket)."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL port (ignored if db_socket is set)."
+  },
+  "db_socket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to PostgreSQL socket directory (e.g., '/var/run/postgresql'). Overrides db_host/db_port."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "goiardi",
+    "description": "Name of the PostgreSQL database."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "goiardi",
+    "description": "PostgreSQL username."
+  },
+  "db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for PostgreSQL user (optional, may be omitted if peer auth or .pgpass is used)."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL encryption for the web interface."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/goiardi/ssl/server.crt",
+    "description": "Path to the SSL certificate file."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/goiardi/ssl/server.key",
+    "description": "Path to the SSL private key file."
+  },
+  "ssl_ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to CA certificate for client cert verification."
+  },
+  "enable_opaques_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Use internal Goiardi (opaq) user auth instead of LDAP."
+  },
+  "ldap_url": {
+    "type": "string",
+    "default": "",
+    "description": "LDAP server URL (e.g., ldap://ldap.example.com). Required if using LDAP auth."
+  },
+  "ldap_binddn": {
+    "type": "string",
+    "default": "",
+    "description": "DN used to bind to the LDAP server for user lookups."
+  },
+  "ldap_bindpw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for ldap_binddn (optional, may be omitted if anonymous bind is allowed)."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(&(objectClass=person)(uid={{ username }}))",
+    "description": "LDAP filter to locate a user by username."
+  },
+  "ldap_group_base": {
+    "type": "string",
+    "default": "",
+    "description": "Base DN for group searches (optional)."
+  },
+  "ldap_group_filter": {
+    "type": "string",
+    "default": "(member={{ userdn }})",
+    "description": "Filter to check group membership for Chef admin roles."
+  },
+  "file_backend": {
+    "type": "string",
+    "default": "filesystem",
+    "description": "Backend for storing file uploads (nodes, cookbooks, etc.)."
+  },
+  "file_root_path": {
+    "type": "string",
+    "default": "/var/lib/goiardi/files",
+    "description": "Root directory for filesystem storage."
+  },
+  "s3_bucket": {
+    "type": "string",
+    "default": "",
+    "description": "S3 bucket name (required if using S3 backend)."
+  },
+  "s3_region": {
+    "type": "string",
+    "default": "us-east-1",
+    "description": "AWS region for S3 bucket."
+  },
+  "s3_access_key": {
+    "type": "string",
+    "default": "",
+    "description": "S3 access key (optional if IAM role is used)."
+  },
+  "s3_secret_key": {
+    "type": "string",
+    "default": "",
+    "description": "S3 secret key (optional if IAM role is used)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level.",
+    "enum": [
+      "DEBUG",
+      "INFO"
+    ]
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/goiardi/goiardi.log",
+    "description": "Path to log file."
+  },
+  "max_concurrent_uploads": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent cookbook/node uploads."
+  },
+  "max_nodes": {
+    "type": "number",
+    "default": 50000,
+    "description": "Maximum number of nodes the server will manage."
+  },
+  "max_search_results": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum results returned per search query."
+  },
+  "enable_metrics": {
+    "type": "bool",
+    "default": false,
+    "description": "Expose Prometheus-compatible metrics endpoint."
+  },
+  "metrics_port": {
+    "type": "number",
+    "default": 9090,
+    "description": "Port for metrics endpoint."
+  },
+  "text_search_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable text search functionality (requires PostgreSQL full-text indexing)."
+  }
+}

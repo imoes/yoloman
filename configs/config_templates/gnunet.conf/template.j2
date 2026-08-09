@@ -1,0 +1,164 @@
+# ==============================================================================
+# GNUnet Service Configuration
+# ==============================================================================
+# This is the main configuration file for GNUnet.
+# Adjust values to suit your deployment.
+# Each section corresponds to a service (e.g., ARM, NAT, DHT).
+# Use [SECTION_NAME] to define settings; each setting uses KEY = VALUE syntax.
+# Comments start with #.
+#
+# Self-documenting template: every variable uses `| default(...)` to ensure
+# safe rendering even when the corresponding Ansible variable is undefined.
+
+# [arm] — Automatic Restart Manager
+# Controls service lifecycle and resource logging.
+# Default values for ports etc are in /etc/gnunet.conf
+# See: https://gnunet.org/man-gnunet.conf.html#arm
+[arm]
+# Port used by the ARM daemon. Default is typically 2101.
+PORT = {{ (arm | default({})).port | default(2101) }}
+# Hostname or IP address where ARM listens or advertises itself.
+HOSTNAME = {{ (arm | default({})).hostname | default('localhost') }}
+# Whether ARM should automatically start system-level GNUnet services.
+# Valid values: true, false. Defaults to true for system deployments.
+START_SYSTEM_SERVICES = {{ (arm | default({})).start_system_services | default(true) | string | lower }}
+# Whether ARM should automatically start user-level GNUnet services.
+# Valid values: true, false. Defaults to true for user deployments.
+START_USER_SERVICES = {{ (arm | default({})).start_user_services | default(true) | string | lower }}
+# Enable resource usage diagnostics (CPU, memory, file descriptors) for running services.
+# Valid values: true, false. Defaults to false.
+RESOURCE_DIAGNOSTICS = {{ (arm | default({})).resource_diagnostics | default(false) | string | lower }}
+
+# [nat] — NAT traversal and reachability
+# Handles UPnP, NAT-PMP and manual port forwarding configuration.
+[nat]
+# Whether the peer is behind a NAT. If true, GNUnet will attempt to configure port forwarding.
+# Valid values: true, false. Defaults to false.
+BEHIND_NAT = {{ (nat | default({})).behind_nat | default(false) | string | upper }}
+# Enable UPnP (Universal Plug and Play) to automatically open ports on the router.
+# Valid values: true, false. Defaults to false.
+ENABLE_UPNP = {{ (nat | default({})).enable_upnp | default(false) | string | upper }}
+# Disable IPv6 networking for GNUnet services.
+# Valid values: true, false. Defaults to false.
+DISABLEV6 = {{ (nat | default({})).disablev6 | default(false) | string | upper }}
+# External IP address to advertise to other peers (required if BEHIND_NAT=true and UPnP is disabled).
+EXTERNAL_ADDRESS = {{ (nat | default({})).external_address | default('') }}
+
+# [dht] — Distributed Hash Table service
+# Core overlay for decentralized data storage and retrieval.
+[dht]
+# Port used by the DHT service for peer communication. Default is 2087.
+PORT = {{ (dht | default({})).port | default(2087) }}
+# Hostname or IP address for the DHT service.
+HOSTNAME = {{ (dht | default({})).hostname | default('localhost') }}
+# Number of peers to store in each DHT bucket. Smaller values reduce memory usage.
+# Valid integer. Defaults to 8.
+BUCKET_SIZE = {{ (dht | default({})).bucket_size | default(8) }}
+
+# [datastore] — Persistent storage backend
+# Stores data chunks on disk for later retrieval by other peers.
+[datastore]
+# Port used by the datastore service for peer communication. Default is 2088.
+PORT = {{ (datastore | default({})).port | default(2088) }}
+# Hostname or IP address for the datastore service.
+HOSTNAME = {{ (datastore | default({})).hostname | default('localhost') }}
+# Maximum disk space (in MB) the datastore can use. Defaults to 10240 (10 GB).
+QUOTA = {{ (datastore | default({})).quota | default(10240) }}
+# Path to the SQLite database file used for storing metadata.
+DATABASE = {{ (datastore | default({})).database | default('/var/lib/gnunet/datastore.sqlite3') }}
+
+# [transport] — Transport plugins
+# Configures low-level network transport protocols (TCP, UDP, Unix, HTTP).
+[transport]
+# Comma-separated list of transport plugins to load (e.g., tcp, udp, unix).
+PLUGINS = {{ (transport | default({})).plugins | default(['tcp', 'udp']) | join(', ') }}
+
+# [peerinfo] — Peer information storage and discovery
+# Allows peers to query and publish reachability information.
+[peerinfo]
+# Port used by the peerinfo service. Default is 2104.
+PORT = {{ (peerinfo | default({})).port | default(2104) }}
+# Hostname or IP address for the peerinfo service.
+HOSTNAME = {{ (peerinfo | default({})).hostname | default('localhost') }}
+
+# [vpn] — GNUnet VPN service (optional)
+# Provides a virtual network interface for secure peer-to-peer networking.
+{% if (vpn | default({})).enabled | default(false) %}
+[vpn]
+# Port used by the VPN service. Default is 2105.
+PORT = {{ (vpn | default({})).port | default(2105) }}
+# Hostname or IP address for the VPN service.
+HOSTNAME = {{ (vpn | default({})).hostname | default('localhost') }}
+# Name of the virtual network interface to create (e.g., 'gnunet0').
+IFNAME = {{ (vpn | default({})).ifname | default('gnunet0') }}
+# Enable virtual DNS resolution within the VPN tunnel.
+# Valid values: true, false. Defaults to false.
+VIRTDNS = {{ (vpn | default({})).virtdns | default(false) | string | lower }}
+# Enable virtual DNS6 resolution for IPv6 addresses within the VPN tunnel.
+# Valid values: true, false. Defaults to false.
+VIRTDNS6 = {{ (vpn | default({})).virtdns6 | default(false) | string | lower }}
+# IPv4 address assigned to the VPN interface (CIDR notation or address).
+IPV4ADDR = {{ (vpn | default({})).ipv4addr | default('10.0.0.1') }}
+# IPv4 subnet mask for the VPN interface.
+IPV4MASK = {{ (vpn | default({})).ipv4mask | default('255.255.255.0') }}
+# IPv6 address assigned to the VPN interface.
+IPV6ADDR = {{ (vpn | default({})).ipv6addr | default('fd00::1') }}
+# IPv6 prefix length for the VPN interface.
+IPV6PREFIX = {{ (vpn | default({})).ipv6prefix | default(64) }}
+{% endif %}
+
+# [resolver] — Local DNS resolver
+# Resolves DNS names to GNUnet identifiers (peer IDs).
+[resolver]
+# Port used by the resolver service. Default is 2103.
+PORT = {{ (resolver | default({})).port | default(2103) }}
+# Hostname or IP address for the resolver service.
+HOSTNAME = {{ (resolver | default({})).hostname | default('localhost') }}
+
+# [gns] — GNU Name System (decentralized DNS)
+# Provides a decentralized naming system using GNS (GNU Name System).
+[gns]
+# Port used by the GNS service. Default is 2106.
+PORT = {{ (gns | default({})).port | default(2106) }}
+# Hostname or IP address for the GNS service.
+HOSTNAME = {{ (gns | default({})).hostname | default('localhost') }}
+
+# [set] — Secure Set Intersection
+# Enables secure computation of set intersections between peers.
+[set]
+# Port used by the set service. Default is 2107.
+PORT = {{ (set | default({})).port | default(2107) }}
+# Hostname or IP address for the set service.
+HOSTNAME = {{ (set | default({})).hostname | default('localhost') }}
+
+# [cadet] — Overlay Communication and Data Exchange Transport
+# Provides encrypted, end-to-end communication channels between peers.
+[cadet]
+# Port used by the cadet service. Default is 2089.
+PORT = {{ (cadet | default({})).port | default(2089) }}
+# Hostname or IP address for the cadet service.
+HOSTNAME = {{ (cadet | default({})).hostname | default('localhost') }}
+
+# [namestore] — Namestore service for GNS records
+# Manages local GNS zone files and name records.
+[namestore]
+# Port used by the namestore service. Default is 2102.
+PORT = {{ (namestore | default({})).port | default(2102) }}
+# Hostname or IP address for the namestore service.
+HOSTNAME = {{ (namestore | default({})).hostname | default('localhost') }}
+
+# [consensus] — Consensus protocol
+# Implements distributed consensus mechanisms for group decisions.
+[consensus]
+# Port used by the consensus service. Default is 2108.
+PORT = {{ (consensus | default({})).port | default(2108) }}
+# Hostname or IP address for the consensus service.
+HOSTNAME = {{ (consensus | default({})).hostname | default('localhost') }}
+
+# [revocation] — Credential revocation service
+# Handles revocation lists for GNS identities and other credentials.
+[revocation]
+# Port used by the revocation service. Default is 2109.
+PORT = {{ (revocation | default({})).port | default(2109) }}
+# Hostname or IP address for the revocation service.
+HOSTNAME = {{ (revocation | default({})).hostname | default('localhost') }}

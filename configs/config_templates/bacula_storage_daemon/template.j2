@@ -1,0 +1,140 @@
+# ============================================================================
+# Bacula Storage Daemon Configuration Template
+# ============================================================================
+# This template generates the bacula-sd.conf configuration file.
+# It is self-documenting: every directive is preceded by a comment
+# derived from the schema description.
+# ============================================================================
+
+# ============================================================================
+# Director Configuration
+# ============================================================================
+# Director that is allowed to communicate with this storage daemon
+
+# Name of the Director that is authorized to control this Storage Daemon. Must match the Director's Name.
+Director {
+  Name = {{ director_name | default('bacula-dir') }}
+  
+  # Password used by the Director to authenticate to this Storage Daemon. Should be a strong secret.
+  Password = "{{ director_password | default('') }}"
+}
+
+# ============================================================================
+# Storage Daemon Main Configuration
+# ============================================================================
+
+# Unique name for this storage daemon
+
+# Unique identifier for this Storage Daemon (typically 'Storage' or a host-specific name like 'StorageNode1').
+Storage {
+  Name = {{ storage_name | default('Storage') }}
+  
+  # TCP port on which the Storage Daemon listens for incoming connections.
+  SDport = {{ sd_port | default(9103) }}
+  
+  # Directory for runtime files (e.g., .job, .status). Must be writable by the bacula-sd user.
+  WorkingDirectory = "{{ working_directory | default('/var/lib/bacula') }}"
+  
+  # Directory where the Storage Daemon writes its process ID file.
+  PidDirectory = "{{ pid_directory | default('/var/run/bacula') }}"
+  
+  # Maximum number of backup/restore jobs the Storage Daemon can run concurrently.
+  Maximum Concurrent Jobs = {{ max_concurrent_jobs | default(20) }}
+}
+
+# ============================================================================
+# Listener Address and Port
+# ============================================================================
+
+# IP address the Storage Daemon binds to. Use 0.0.0.0 to listen on all interfaces, or a specific IP for security.
+SDAddress = {{ sd_address | default('0.0.0.0') }}
+
+# TCP port on which the Storage Daemon listens for incoming connections.
+SDPort = {{ sd_port | default(9103) }}
+
+# ============================================================================
+# Primary Device Configuration
+# ============================================================================
+
+# Name of the primary backup device (e.g., for disk-based backups).
+Device {
+  Name = {{ device_name | default('FileChgr1') }}
+  
+  # Type of media used by the primary device (e.g., 'File', 'LTO-6', 'DVD', 'Tape').
+  Media Type = {{ media_type | default('File') }}
+  
+  # Physical path to the backup storage (e.g., disk mount point or tape device like /dev/st0).
+  Archive Device = "{{ archive_device | default('/backup/storage') }}"
+  
+  # Whether Bacula should automatically label new volumes when needed.
+  LabelMedia = {{ label_media | default(True) | string | lower }}
+  
+  # Whether the device supports random access (true for disk, false for tape).
+  Random Access = {{ random_access | default(True) | string | lower }}
+  
+  # Whether Bacula should automatically mount the device when needed (e.g., for tape changer operations).
+  AutomaticMount = {{ automatic_mount | default(True) | string | lower }}
+  
+  # Whether the media is considered removable (e.g., tape, CD, DVD). Affects rotation and mount behavior.
+  RemovableMedia = {{ removable_media | default(False) | string | lower }}
+  
+  # Whether to keep the device open between jobs (performance optimization for some tape devices).
+  AlwaysOpen = {{ always_open | default(False) | string | lower }}
+}
+
+# ============================================================================
+# Additional Devices
+# ============================================================================
+
+# Optional: Additional devices (e.g., for tape libraries or multi-device configs)
+# List of additional storage devices (e.g., for multi-device or tape-library setups). Each device is a named configuration block.
+{% for device in devices | default([]) %}
+Device {
+  # Name of the additional backup device
+  Name = {{ device.name | default('') }}
+  
+  # Type of media used by this device
+  Media Type = {{ device.media_type | default('File') }}
+  
+  # Physical path to the backup storage for this device
+  Archive Device = "{{ device.archive_device | default('') }}"
+  
+  # Whether Bacula should automatically label new volumes for this device
+  LabelMedia = {{ device.label_media | default(True) | string | lower }}
+  
+  # Whether the device supports random access
+  Random Access = {{ device.random_access | default(True) | string | lower }}
+  
+  # Whether Bacula should automatically mount the device when needed
+  AutomaticMount = {{ device.automatic_mount | default(True) | string | lower }}
+  
+  # Whether the media is considered removable
+  RemovableMedia = {{ device.removable_media | default(False) | string | lower }}
+  
+  # Whether to keep the device open between jobs
+  AlwaysOpen = {{ device.always_open | default(False) | string | lower }}
+  
+  {% if device.max_concurrent_jobs is defined %}
+  # Maximum number of concurrent jobs for this specific device
+  Maximum Concurrent Jobs = {{ device.max_concurrent_jobs | default(20) }}
+  {% endif %}
+  
+  {% if device.dev_extra is defined and device.dev_extra %}
+  {% for extra in device.dev_extra | default([]) %}
+  {{ extra | tojson(indent=4) | replace('\"', '') | replace('\n        ', '\n  ') }}
+  {% endfor %}
+  {% endif %}
+}
+{% endfor %}
+
+# ============================================================================
+# Messages Configuration
+# ============================================================================
+
+# Optional: Messages to send to Director upon events
+Messages {
+  Name = Standard
+  
+  # The Director to send messages to, and the events to trigger them
+  director = {{ director_name | default('bacula-dir') }} = all, !skipped, !saved
+}

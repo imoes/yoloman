@@ -1,0 +1,135 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the GNSS share service (starts it on boot if true)."
+  },
+  "bind_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to listen on (e.g., eth0, wg0)."
+  },
+  "service_port": {
+    "type": "number",
+    "default": 10110,
+    "description": "TCP port for the main GNSS data service (HTTP API)."
+  },
+  "stream_port": {
+    "type": "number",
+    "default": 10111,
+    "description": "UDP port for raw GNSS data streaming (NTRIP, RTCM)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gnss-share.log",
+    "description": "Path to the log file, or 'syslog' to use system logging."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/gnss-share/gnss-share.pid",
+    "description": "Path where the process PID file will be written."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads (0 = automatically detect CPU count)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle timeout (seconds) for client connections before closing."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP addresses or CIDR subnets (empty list = allow all).",
+    "items": {
+      "type": "string",
+      "description": "An IP address or CIDR subnet (e.g., 192.168.1.0/24, 10.0.0.5)."
+    }
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the HTTP service (requires certificate files)."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/gnss-share/ssl/cert.pem",
+    "description": "Path to SSL/TLS certificate file (PEM format). Required if SSL is enabled."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/gnss-share/ssl/key.pem",
+    "description": "Path to SSL/TLS private key file (PEM format). Required if SSL is enabled."
+  },
+  "gnss_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream GNSS data sources to fetch and re-share (e.g., NTRIP servers).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this source (e.g., 'mountpoint1')."
+      },
+      "type": {
+        "type": "string",
+        "default": "ntrip",
+        "enum": [
+          "ntrip",
+          "http",
+          "file"
+        ],
+        "description": "Protocol type of the source (ntrip, http, or file)."
+      },
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "URL or path to the source (e.g., 'http://example.com/stream', or 'file:///data/rtcm')."
+      },
+      "format": {
+        "type": "string",
+        "default": "rtcm3",
+        "enum": [
+          "rtcm2",
+          "rtcm3",
+          "cmr",
+          "sierv",
+          "novatel"
+        ],
+        "description": "GNSS data format of the stream."
+      },
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for authenticated sources (optional)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for authenticated sources (optional)."
+      }
+    }
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP Basic authentication for API access (requires users file)."
+  },
+  "auth_users_file": {
+    "type": "string",
+    "default": "/etc/gnss-share/users.json",
+    "description": "Path to JSON file with username:hash pairs for authentication (e.g., using bcrypt)."
+  }
+}

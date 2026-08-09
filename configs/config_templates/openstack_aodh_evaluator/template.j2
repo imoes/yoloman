@@ -1,0 +1,140 @@
+# Main configuration for OpenStack Aodh Alarm Evaluator service
+# Controls alarm evaluation behavior: thresholds, timeouts, and worker settings
+
+[DEFAULT]
+# Directory where log files are written.
+log_dir = {{ log_dir | default('/var/log/aodh') }}
+
+# Base name of the log file (in log_dir).
+log_file = {{ log_file | default('aodh-evaluator.log') }}
+
+# Enable verbose debug logging.
+debug = {{ debug | default(False) | lower }}
+
+[evaluator]
+# Number of parallel worker processes for evaluating alarms.
+workers = {{ workers | default(1) }}
+
+# Maximum number of alarms evaluated in one batch to avoid overload.
+batch_size = {{ batch_size | default(100) }}
+
+# Interval (in seconds) between successive alarm evaluation cycles.
+evaluation_interval = {{ evaluation_interval | default(60) }}
+
+# Timeout (in seconds) for a single alarm evaluation. Alarms exceeding this are marked as error.
+evaluation_timeout = {{ evaluation_timeout | default(30) }}
+
+# Set to false to temporarily disable alarm evaluation (e.g., for maintenance).
+enabled = {{ enabled | default(True) | lower }}
+
+# SQLAlchemy connection URL for the alarm history database (e.g., mysql+pymysql://user:pass@host/db).
+[database]
+connection = {{ (database | default({})).connection | default('sqlite:///var/lib/aodh/aodh.db') }}
+
+# Maximum attempts to reconnect to the database if connection fails.
+max_retries = {{ (database | default({})).max_retries | default(10) }}
+
+# Seconds to wait between database reconnection attempts.
+retry_interval = {{ (database | default({})).retry_interval | default(2) }}
+
+# Seconds to wait for a database connection from the pool (0 = no timeout).
+pool_timeout = {{ (database | default({})).pool_timeout | default(30) }}
+
+# Keystone authentication method (e.g., password, token, v3password).
+[keystone_authtoken]
+auth_type = {{ (keystone_authtoken | default({})).auth_type | default('password') }}
+
+# Keystone identity service endpoint URL.
+auth_url = {{ (keystone_authtoken | default({})).auth_url | default('http://localhost:5000/v3') }}
+
+# Domain name containing the project (tenant).
+project_domain_name = {{ (keystone_authtoken | default({})).project_domain_name | default('Default') }}
+
+# Project (tenant) name used for authentication.
+project_name = {{ (keystone_authtoken | default({})).project_name | default('service') }}
+
+# Domain name containing the user account.
+user_domain_name = {{ (keystone_authtoken | default({})).user_domain_name | default('Default') }}
+
+# Username for the Aodh service account in Keystone.
+username = {{ (keystone_authtoken | default({})).username | default('aodh') }}
+
+# Password for the Aodh service account (required, secret).
+password = {{ (keystone_authtoken | default({})).password | default('') }}
+
+# Keystone endpoint interface: public, internal, or admin.
+interface = {{ (keystone_authtoken | default({})).interface | default('internal') }}
+
+# If true, skip SSL certificate verification (not recommended in production).
+insecure = {{ (keystone_authtoken | default({})).insecure | default(False) | lower }}
+
+# Path to a CA bundle for verifying Keystone certificates (if not using system trust).
+cafile = {{ (keystone_authtoken | default({})).cafile | default('') }}
+
+# Message bus transport URL (e.g., for RabbitMQ, Kafka, or others).
+[oslo_messaging_notifications]
+transport_url = {{ (oslo_messaging_notifications | default({})).transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Notification driver (usually 'messagingv2' for oslo.messaging).
+driver = {{ (oslo_messaging_notifications | default({})).driver | default('messagingv2') }}
+
+# List of notification topics to subscribe to for alarm events.
+topics = {{ (oslo_messaging_notifications | default({})).topics | default(['alarm_notification']) | join(', ') }}
+
+# Transport URL for RPC communication between Aodh components.
+[oslo_messaging_rpc]
+transport_url = {{ (oslo_messaging_rpc | default({})).transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# RabbitMQ server hostname or IP.
+[rabbit]
+host = {{ (rabbit | default({})).host | default('localhost') }}
+
+# RabbitMQ server port.
+port = {{ (rabbit | default({})).port | default(5672) }}
+
+# RabbitMQ username.
+userid = {{ (rabbit | default({})).userid | default('guest') }}
+
+# RabbitMQ password (secret).
+password = {{ (rabbit | default({})).password | default('guest') }}
+
+# RabbitMQ virtual host (VHost).
+virtual_host = {{ (rabbit | default({})).virtual_host | default('/') }}
+
+# RabbitMQ heartbeat interval (seconds).
+heartbeat = {{ (rabbit | default({})).heartbeat | default(60) }}
+
+# Size of the thread pool for eventlet-based async execution.
+[eventlet_executor]
+threads = {{ (eventlet_executor | default({})).threads | default(10) }}
+
+# Authentication method for service credentials (e.g., password).
+[service_credentials]
+auth_type = {{ (service_credentials | default({})).auth_type | default('password') }}
+
+# Keystone URL for service credentials (often same as keystone_authtoken.auth_url).
+auth_url = {{ (service_credentials | default({})).auth_url | default('http://localhost:5000/v3') }}
+
+# Domain for the service project.
+project_domain_name = {{ (service_credentials | default({})).project_domain_name | default('Default') }}
+
+# Service project name.
+project_name = {{ (service_credentials | default({})).project_name | default('service') }}
+
+# Domain for the service user.
+user_domain_name = {{ (service_credentials | default({})).user_domain_name | default('Default') }}
+
+# Service username (may differ from keystone_authtoken.username if using separate creds).
+username = {{ (service_credentials | default({})).username | default('aodh') }}
+
+# Service password (secret).
+password = {{ (service_credentials | default({})).password | default('') }}
+
+# Service endpoint interface.
+interface = {{ (service_credentials | default({})).interface | default('internal') }}
+
+# Skip SSL verification for service credentials.
+insecure = {{ (service_credentials | default({})).insecure | default(False) | lower }}
+
+# CA cert file for service credentials.
+cafile = {{ (service_credentials | default({})).cafile | default('') }}

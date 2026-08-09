@@ -1,0 +1,194 @@
+{# dictfmt configuration for dictionary database formatting #}
+{# This template generates the configuration file for dictfmt, a tool used to format dictionary databases. #}
+{# It maps Ansible variables (from 'config' dictionary) to dictfmt directive lines. #}
+{# All variables use | default() with schema defaults to ensure safe rendering even if undefined. #}
+{# Self-documenting: every directive is preceded by its schema description. #}
+
+{# === Input/Output Configuration === #}
+
+{# Basename for output files (basename.dict, basename.index); required #}
+{% set basename = (config | default({})).basename | default('') %}
+{% if basename is string and basename != '' %}
+# Basename for output files (basename.dict, basename.index); required
+basename: {{ basename | quote }}
+{% endif %}
+
+{# === Input Format Selection === #}
+
+{# Input format: one of 'c5','t','e','f','h','j','p','i','I' #}
+{% set fmt = (config | default({})).format | default('') %}
+{% if fmt == 'c5' %}
+# CIA WORLD FACTBOOK style: headwords preceded by >=5 underscores
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -c5
+{% elif fmt == 't' %}
+# dictunformat-compatible input (-c5, --without-info, --without-headword implied)
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -t
+{% elif fmt == 'e' %}
+# HTML with <B>headword - </B> style (e.g., EASTON'S BIBLE DICTIONARY)
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -e
+{% elif fmt == 'f' %}
+# F.O.L.D.O.C. style: headword in column 0, indented definition
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -f
+{% elif fmt == 'h' %}
+# HITCHCOCK'S BIBLE NAMES style: headword in column 0, followed by comma
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -h
+{% elif fmt == 'j' %}
+# JARGON FILE style: headword in column 0, enclosed in colons
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -j
+{% elif fmt == 'p' %}
+# Jay Kominek's elements style: '%h headword' and optional '%d' lines
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -p
+{% elif fmt == 'i' %}
+# Resort existing .index with decimal offsets
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -i
+{% elif fmt == 'I' %}
+# Resort existing .index with base64 offsets
+# Input format: one of 'c5','t','e','f','h','j','p','i','I'
+format: -I
+{% endif %}
+
+{# === Optional Metadata Headers === #}
+
+{# Database short name (optionally with version/date); overrides 00-database-short header #}
+{% set database_short = (config | default({})).database_short | default('') %}
+{% if database_short is string and database_short != '' %}
+# Database short name (optionally with version/date); overrides 00-database-short header
+# Short name and optionally version/date of the database
+  database-short: {{ database_short | quote }}
+{% endif %}
+
+{# Source URL of the raw database; overrides 00-database-url header #}
+{% set database_url = (config | default({})).database_url | default('') %}
+{% if database_url is string and database_url != '' %}
+# Source URL of the raw database; overrides 00-database-url header
+# URL where the raw database was obtained
+  database-url: {{ database_url | quote }}
+{% endif %}
+
+{# === Sorting and Indexing Options === #}
+
+{# Locale used for sorting (e.g., 'C.UTF-8','en_US.UTF-8') #}
+{% set locale = (config | default({})).locale | default('C') %}
+{% if locale is string and locale != 'C' %}
+# Locale used for sorting (e.g., 'C.UTF-8','en_US.UTF-8'); default: C
+# Locale for sorting (default: C)
+  locale: {{ locale | quote }}
+{% endif %}
+
+{# Include all characters in index/search (default: only alphanums + space) #}
+{% if (config | default({})).allchars | default(False) %}
+# Include all characters in index/search (default: only alphanums + space)
+allchars: true
+{% endif %}
+
+{# Make search case-sensitive #}
+{% if (config | default({})).case_sensitive | default(False) %}
+# Make search case-sensitive
+case-sensitive: true
+{% endif %}
+
+{# === Advanced Formatting Options === #}
+
+{# Separator used to split multiple headwords (e.g., '%%%') #}
+{% set hws = (config | default({})).headword_separator | default('') %}
+{% if hws is string and hws != '' %}
+# Separator used to split multiple headwords (e.g., '%%%')
+# Separator for multiple headwords per definition (e.g., '%%%')
+headword-separator: {{ hws | quote }}
+{% endif %}
+
+{# Line-wrap width for definitions (0 or negative disables wrapping) #}
+{% set cols = (config | default({})).columns | default(72) %}
+{% if cols is number and (cols == 0 or cols < 0 or cols != 72) %}
+# Line-wrap width for definitions (0 or negative disables wrapping); default: 72
+# Line-wrap width for definitions (0 or negative disables wrapping)
+  columns: {{ cols | string }}
+{% endif %}
+
+{# Default search strategy (e.g., 'prefix','suffix','exact') #}
+{% set ds = (config | default({})).default_strategy | default('') %}
+{% if ds is string and ds != '' %}
+# Default search strategy (e.g., 'prefix','suffix','exact')
+# Default search strategy (e.g., 'prefix' instead of '.')
+default-strategy: {{ ds | quote }}
+{% endif %}
+
+{# MIME header to prepend to definitions on OPTION MIME #}
+{% set mh = (config | default({})).mime_header | default('') %}
+{% if mh is string and mh != '' %}
+# MIME header to prepend to definitions on OPTION MIME
+# MIME header to prepend to definitions (e.g., 'text/html; charset=UTF-8')
+mime-header: {{ mh | quote }}
+{% endif %}
+
+{# === Output Control Flags === #}
+
+{# Do not include headwords in .dict file #}
+{% if (config | default({})).without_headword | default(False) %}
+# Do not include headwords in .dict file
+without-headword: true
+{% endif %}
+
+{# Do not copy header to DB info entry #}
+{% if (config | default({})).without_header | default(False) %}
+# Do not copy header to DB info entry
+without-header: true
+{% endif %}
+
+{# Do not copy URL to DB info entry #}
+{% if (config | default({})).without_url | default(False) %}
+# Do not copy URL to DB info entry
+without-url: true
+{% endif %}
+
+{# Do not copy creation time to DB info entry #}
+{% if (config | default({})).without_time | default(False) %}
+# Do not copy creation time to DB info entry
+without-time: true
+{% endif %}
+
+{# Suppress dictfmt version entry #}
+{% if (config | default({})).without_ver | default(False) %}
+# Suppress dictfmt version entry (00-database-dictfmt-X.Y.Z)
+without-ver: true
+{% endif %}
+
+{# Suppress DB info entry entirely #}
+{% if (config | default({})).without_info | default(False) %}
+# Suppress DB info entry entirely
+without-info: true
+{% endif %}
+
+{# Write multiple headwords on separate lines #}
+{% if (config | default({})).break_headwords | default(False) %}
+# Write multiple headwords on separate lines (for use with headword-separator)
+break-headwords: true
+{% endif %}
+
+{# Preserve original headword in 4th index column (for UTF-8) #}
+{% if (config | default({})).index_keep_orig | default(False) %}
+# Preserve original (unmodified) headword in 4th index column
+index-keep-orig: true
+{% endif %}
+
+{# Separator between index and data columns in .index file (octal string) #}
+{% set ids = (config | default({})).index_data_separator | default('\\034') %}
+{% if ids is string and ids != '\\034' %}
+# Separator between index and data columns in .index file (octal string)
+# Custom separator between index column and data column (octal/hex allowed)
+index-data-separator: {{ ids | quote }}
+{% endif %}
+
+{# Generate UTF-8 database #}
+{% if (config | default({})).utf8 | default(False) %}
+# Generate UTF-8 database
+utf8: true
+{% endif %}

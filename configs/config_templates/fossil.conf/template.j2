@@ -1,0 +1,130 @@
+# ==============================================================================
+# Fossil Server Configuration Template
+# ==============================================================================
+# This file configures the Fossil distributed version control system's
+# built-in HTTP server. It handles database storage, network binding,
+# authentication, logging, and various server behaviors.
+#
+# SELF-DOCUMENTING: Every directive is preceded by a comment derived from
+# the schema description. Variables are safely defaulted using Jinja2 defaults.
+# ==============================================================================
+
+# Path to the SQLite database file where Fossil stores repositories and metadata.
+# This file must be writable by the user running the Fossil server.
+database: {{ database_path | default('/var/lib/fossil/fossil.db') }}
+
+# Name of the default repository exposed at the root web path (e.g., /home).
+# Use an empty string to disable the root repository.
+root_name: {{ root_name | default('home') }}
+
+# HTTP port the server listens on for incoming connections.
+port: {{ port | default(8080) }}
+
+# IP address or hostname to bind the server to.
+# Use '0.0.0.0' for all interfaces or '127.0.0.1' for local-only access.
+host: {{ host | default('0.0.0.0') }}
+
+# Enable the built-in web interface.
+# Set to true for most standard deployments.
+webui: {{ webui | default(true) | lower }}
+
+# Enable HTTPS support.
+# Requires valid SSL certificate and key paths to be configured below.
+ssl: {{ ssl | default(false) | lower }}
+
+# Path to the SSL certificate file (PEM format).
+# This field is required if SSL is enabled.
+ssl_cert_path: {{ ssl_cert_path | default('') }}
+
+# Path to the SSL private key file (PEM format).
+# This field is required if SSL is enabled.
+ssl_key_path: {{ ssl_key_path | default('') }}
+
+# Allow creation of new repositories via the web UI.
+# Enable with caution in production environments.
+auto_create: {{ auto_create | default(false) | lower }}
+
+# Maximum simultaneous connections.
+# Set to 0 for unlimited connections; otherwise, specify a positive integer.
+max_connections: {{ max_connections | default(0) }}
+
+# Authentication method for client connections.
+# Supported methods: 'none', 'form', 'basic', 'http', 'digest'.
+auth_method: {{ auth_method | default('none') }}
+
+# List of allowed client IP addresses.
+# Supports wildcards (e.g., '192.168.1.*') and CIDR notation (e.g., '10.0.0.0/8').
+# An empty list allows connections from all IPs.
+{% for ip in allowed_ips | default([]) %}ip_pattern: {{ ip }}
+{% endfor %}
+
+# Default access level for unauthenticated or new users.
+# Levels: 'anonymous', 'reader', 'committer', 'admin'.
+# Only applied if auth_method is 'form' or 'digest'.
+default_access: {{ default_access | default('reader') }}
+
+# List of authenticated users.
+# Each entry requires a user object with 'name', 'password_hash', 'access', and optionally 'comment'.
+# Required for secure access when auth_method is not 'none'.
+{% for user in users | default([]) %}user: {{ user.name }}:{{ user.password_hash }}:{{ user.access }}{% if user.comment is defined and user.comment %} # {{ user.comment }}{% endif %}
+{% endfor %}
+
+# Enable HTTP Strict Transport Security (HSTS) header.
+# Recommended for HTTPS-enabled servers to enforce secure connections.
+hsts: {{ hsts | default(false) | lower }}
+
+# Path to the log file.
+# Set to an empty string to log only to stderr.
+log_file: {{ log_file | default('/var/log/fossil/fossil.log') }}
+
+# Verbosity level of log output.
+# Levels: 'verbose', 'info', 'warning', 'error'.
+log_level: {{ log_level | default('info') }}
+
+# Base URL for the server.
+# Used to generate absolute links in emails and web UI (e.g., 'https://fossil.example.com/').
+base_url: {{ base_url | default('') }}
+
+# Automatically authenticate local requests (from the same machine).
+# Useful for scripts or local tools interacting with the server.
+local_auth: {{ local_auth | default(false) | lower }}
+
+# Base directory for relative repository paths in the database.
+# Leave empty to use absolute paths only.
+repository_root: {{ repository_root | default('') }}
+
+# Run Fossil in CGI mode instead of standalone HTTP server.
+# Set to true if integrating with an existing web server via CGI.
+cgi: {{ cgi | default(false) | lower }}
+
+# Path to the CGI executable.
+# Used only when cgi is enabled.
+cgi_path: {{ cgi_path | default('/usr/lib/fossil/fossil.cgi') }}
+
+# Enable support for reverse proxies.
+# Allows Fossil to respect X-Forwarded-For and other proxy headers.
+proxy: {{ proxy | default(false) | lower }}
+
+# Request timeout in seconds.
+# Clients disconnected longer than this are dropped.
+timeout: {{ timeout | default(300) }}
+
+# Enable gzip compression for HTTP responses.
+# Improves bandwidth efficiency for text-based content.
+compression: {{ compression | default(true) | lower }}
+
+# Enable Fossil’s internal content cache.
+# Improves performance for frequently accessed content.
+cache: {{ cache | default(true) | lower }}
+
+# Maximum cache size in KB.
+# Set to 0 to use the default (~100 MB).
+cache_size_kb: {{ cache_size_kb | default(0) }}
+
+# Enable experimental repository replication.
+# Not recommended for production use.
+replication: {{ replication | default(false) | lower }}
+
+# Enable debug mode.
+# Produces very verbose logging for troubleshooting.
+debug: {{ debug | default(false) | lower }}

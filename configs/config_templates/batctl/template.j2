@@ -1,0 +1,210 @@
+# ============================================================================
+# batctl (batman-adv) Runtime Configuration Template
+# ============================================================================
+# This template generates a configuration file for batman-adv mesh networking
+# settings via the batctl utility. Each directive corresponds to a runtime
+# configurable parameter that can also be set via `batctl <meshif> <setting> <value>`.
+#
+# Self-documenting: every setting is preceded by a comment explaining its
+# purpose, valid range, and default value as defined in the schema.
+#
+# Variables used here MUST be defined in the Ansible inventory/vars with the
+# exact names listed below. If a variable is undefined, the default value
+# from the schema will be used.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Mesh Interface Configuration
+# ---------------------------------------------------------------------------
+
+# Name of the batman-adv mesh interface (e.g., bat0)
+# Default: bat0
+# batctl -m <meshif> ...
+# batctl <mesh_interface> ...
+mesh_interface: {{ mesh_interface | default('bat0') }}
+
+# Routing algorithm used by the mesh.
+# Supported: BATMAN_IV (default), BATMAN_V
+# batctl <mesh_interface> routing_algo <algo>
+# Default: BATMAN_IV
+routing_algo: {{ routing_algo | default('BATMAN_IV') }}
+
+# Enable/disable Originator Message (OGM) aggregation.
+# Reduces overhead by aggregating multiple OGMs into one.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> aggregation <0|1>
+# Default: False (0)
+aggregation: {{ aggregation | default(False) | string }}
+
+# Enable/disable AP isolation on the mesh interface.
+# Prevents mesh nodes from communicating with each other through an AP.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> ap_isolation <0|1>
+# Default: False (0)
+ap_isolation: {{ ap_isolation | default(False) | string }}
+
+# Per-VLAN AP isolation settings.
+# Allows configuring AP isolation on a per-VLAN basis.
+# batctl <mesh_interface> vid <vid> ap_isolation <0|1>
+ap_isolation_by_vlan:
+{% if ap_isolation_by_vlan is defined and ap_isolation_by_vlan is iterable %}
+{% for vlan in ap_isolation_by_vlan %}
+  - vid: {{ vlan.vid }}
+    ap_isolation: {{ vlan.ap_isolation | default(False) | string }}
+{% endfor %}
+{% else %}
+  # No VLAN-specific AP isolation settings defined.
+  []
+{% endif %}
+
+# Enable/disable bonding mode.
+# Allows multiple mesh interfaces to bond together for redundancy.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> bonding <0|1>
+# Default: False (0)
+bonding: {{ bonding | default(False) | string }}
+
+# Enable/disable bridge loop avoidance (BLA).
+# Prevents loops in bridged mesh topologies. Requires compile-time support.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> bridge_loop_avoidance <0|1>
+# Default: False (0)
+bridge_loop_avoidance: {{ bridge_loop_avoidance | default(False) | string }}
+
+# Enable/disable distributed ARP table (DAT).
+# Caches ARP requests/responses across the mesh to reduce broadcast traffic.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> distributed_arp_table <0|1>
+# Default: False (0)
+distributed_arp_table: {{ distributed_arp_table | default(False) | string }}
+
+# Enable/disable fragmentation.
+# Allows splitting large packets for transmission over the mesh.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> fragmentation <0|1>
+# Default: False (0)
+fragmentation: {{ fragmentation | default(False) | string }}
+
+# Gateway mode selection.
+# Determines the role of this node in the BATMAN IV gateway selection process.
+# Values: 'off', 'client', 'server'
+# batctl <mesh_interface> gw_mode <mode>
+# Default: 'off'
+gateway_mode: {{ gateway_mode | default('off') }}
+
+# Gateway parameter for client or server mode.
+# For 'client': selection class (e.g., '20') or ECMP weight.
+# For 'server': advertised bandwidth (e.g., '10000', '5mbit/2mbit').
+# batctl <mesh_interface> gw_mode <mode> <param>
+# Default: 'off'
+gateway_param: {{ gateway_param | default('off') }}
+
+# Hop penalty applied to routes originating from this node.
+# Affects BATMAN IV routing metric. Range: 0-255.
+# batctl <mesh_interface> hop_penalty <value>
+# Default: 0
+hop_penalty: {{ hop_penalty | default(0) }}
+
+# Isolation mark value (and optional mask).
+# Used to isolate specific traffic types. Format: 'value[/mask]'.
+# Example: '0x00000001/0xffffffff' or '16'
+# batctl <mesh_interface> isolation_mark <mark>
+# Default: '' (empty/disabled)
+isolation_mark: {{ isolation_mark | default('') }}
+
+# Log levels for batman-adv.
+# Specifies which subsystems should log messages.
+# Values: none, batman, routes, tt, bla, dat, nc, mcast, tp, all
+# batctl <mesh_interface> loglevel <level1> <level2> ...
+# Default: [] (empty/all disabled)
+loglevel:
+{% if loglevel is defined and loglevel is iterable %}
+{% for level in loglevel %}
+  - {{ level }}
+{% endfor %}
+{% else %}
+  # No log levels defined.
+  []
+{% endif %}
+
+# Multicast fanout setting.
+# Maximum number of multicast-to-unicast copies per multicast packet.
+# batctl <mesh_interface> multicast_fanout <value>
+# Default: 0 (disabled/automatic)
+multicast_fanout: {{ multicast_fanout | default(0) }}
+
+# Enable/disable multicast force-flood.
+# Forces multicast packets to be flooded to all mesh nodes regardless of fanout.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> multicast_forceflood <0|1>
+# Default: False (0)
+multicast_forceflood: {{ multicast_forceflood | default(False) | string }}
+
+# Enable/disable network coding (NC).
+# Improves throughput in lossy networks by coding multiple packets together.
+# Values: 0 (disabled), 1 (enabled)
+# batctl <mesh_interface> network_coding <0|1>
+# Default: False (0)
+network_coding: {{ network_coding | default(False) | string }}
+
+# Originator interval in milliseconds.
+# Frequency at which originator messages (OGMs) are sent.
+# batctl <mesh_interface> orig_interval <ms>
+# Default: 1000
+orig_interval: {{ orig_interval | default(1000) }}
+
+# ELP (Election Loop Prevention) interval in milliseconds.
+# Interval for sending ELP packets on the mesh interface.
+# 0 leaves the kernel default.
+# batctl <mesh_interface> elp_interval <ms>
+# Default: 0
+elp_interval: {{ elp_interval | default(0) }}
+
+# ---------------------------------------------------------------------------
+# Hard Interface Specific Settings
+# ---------------------------------------------------------------------------
+
+# Hard interface hop penalty overrides.
+# Sets hop penalty for specific physical interfaces joining the mesh.
+# batctl <hardif> hop_penalty <value>
+# Default: [] (empty)
+hardif_settings:
+{% if hardif_settings is defined and hardif_settings is iterable %}
+{% for hardif in hardif_settings %}
+  - hardif: {{ hardif.hardif }}
+    hop_penalty: {{ hardif.hop_penalty }}
+{% endfor %}
+{% else %}
+  # No hard interface settings defined.
+  []
+{% endif %}
+
+# Hard interface throughput overrides.
+# Sets throughput limits for specific physical interfaces.
+# batctl <hardif> throughput_override <value>
+# Default: [] (empty)
+hardif_throughput:
+{% if hardif_throughput is defined and hardif_throughput is iterable %}
+{% for hardif in hardif_throughput %}
+  - hardif: {{ hardif.hardif }}
+    throughput_override: {{ hardif.throughput_override }}
+{% endfor %}
+{% else %}
+  # No hard interface throughput overrides defined.
+  []
+{% endif %}
+
+# Hard interface ELP intervals.
+# Sets custom ELP intervals for specific physical interfaces.
+# batctl <hardif> elp_interval <ms>
+# Default: [] (empty)
+hardif_elp_interval:
+{% if hardif_elp_interval is defined and hardif_elp_interval is iterable %}
+{% for hardif in hardif_elp_interval %}
+  - hardif: {{ hardif.hardif }}
+    elp_interval: {{ hardif.elp_interval }}
+{% endfor %}
+{% else %}
+  # No hard interface ELP intervals defined.
+  []
+{% endif %}

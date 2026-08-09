@@ -1,0 +1,110 @@
+{#
+  gztool Configuration Template
+  =============================
+  This template generates the configuration file for gztool, a GZIP file indexer,
+  compressor, and data retriever. It translates Ansible variables into gztool's
+  command-line style configuration variables (e.g., DEFAULT_COMPRESSION, FILES).
+
+  Every variable from the schema is documented below with its default value and
+  purpose. If a variable is not provided by Ansible, the template falls back to
+  the schema default to ensure valid output.
+#}
+
+# gztool: GZIP file indexer, compressor and data retriever
+# See gztool(1) man page for full details
+
+# Global default options
+# -----------------------------------------------
+# Compression level for new gzip files.
+# Range: 1 (fastest) to 9 (best compression).
+# Schema default: 6
+# -----------------------------------------------
+DEFAULT_COMPRESSION=-{{ (compression_level | default(6)) | int }}
+
+# Span in MiB between index points in the generated index files.
+# Schema default: 10
+# -----------------------------------------------
+DEFAULT_INDEX_SPAN=-s {{ (index_span | default(10)) | int }}
+
+# Output verbosity level for gztool operations.
+# Range: 0 (silent) to 5 (very verbose).
+# Schema default: 1
+# -----------------------------------------------
+DEFAULT_VERBOSITY=-v {{ (verbosity | default(1)) | int }}
+
+# Default suffix appended to output files when compressing/decompressing.
+# Schema default: '.gz'
+# -----------------------------------------------
+DEFAULT_OUTPUT_SUFFIX={{ output_suffix | default('.gz') | string | trim }}
+
+# Directory or path where index files (.gzi) will be stored.
+# Implies the -I flag if set. Empty string means use default naming (<file>.gzi).
+# Schema default: '' (empty)
+# -----------------------------------------------
+{% if (index_directory | default('')) | trim != '' %}
+DEFAULT_INDEX_DIR=-I "{{ (index_directory | default('')) }}"
+{% else %}
+# DEFAULT_INDEX_DIR is unset; gztool uses default <file>.gzi naming
+{% endif %}
+
+# Default actions and flags for index creation.
+# When -i is not specified, gztool defaults to index creation.
+# Controls how line info is encoded in the index:
+#   - 'unix': Standard Unix newlines (flag -x).
+#   - 'mac':  Old Mac CR characters (flag -X).
+#   - 'none': No line number info (flag -z).
+# Schema default: 'unix'
+# -----------------------------------------------
+{% set line_info = (index_line_info | default('unix') | string | lower) %}
+{% if line_info == 'unix' %}
+DEFAULT_INDEX_FLAGS=-x
+{% elif line_info == 'mac' %}
+DEFAULT_INDEX_FLAGS=-X
+{% elif line_info == 'none' %}
+DEFAULT_INDEX_FLAGS=-z
+{% else %}
+# DEFAULT_INDEX_FLAGS unset; gztool uses -x by default (recommended for text)
+DEFAULT_INDEX_FLAGS=-x
+{% endif %}
+
+# Supervision mode for still-growing files (e.g., logs).
+# If true, enables the -S flag (implicit -i for index mode).
+# If false or unset, supervision is disabled.
+# Schema default: False
+# -----------------------------------------------
+{% if supervision_enabled | default(False) | bool %}
+DEFAULT_SUPERVISION=-S
+{% else %}
+# DEFAULT_SUPERVISION omitted
+{% endif %}
+
+# Patching mode for corrupted or concatenated gzip streams.
+# If true, enables the -p flag to attempt recovery/patching.
+# If false or unset, strict mode is used.
+# Schema default: False
+# -----------------------------------------------
+{% if patching_enabled | default(False) | bool %}
+DEFAULT_PATCHING=-p
+{% else %}
+# DEFAULT_PATCHING omitted
+{% endif %}
+
+# Await time in seconds between reads in supervision/maintenance modes.
+# Used with flags like -ST or -Ec.
+# Schema default: 4
+# -----------------------------------------------
+DEFAULT_AWAIT=-a {{ (await_time | default(4)) | int }}
+
+# Batch mode: List of gzip files to index/process on startup.
+# Schema default: [] (empty list)
+# -----------------------------------------------
+{% set file_list = (files | default([]) | list) %}
+{% if file_list | length > 0 %}
+FILES=(
+{% for f in file_list %}
+    "{{ f }}"
+{% endfor %}
+)
+{% else %}
+FILES=()
+{% endif %}

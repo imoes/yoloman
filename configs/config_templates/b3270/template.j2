@@ -1,0 +1,86 @@
+{# ============================================================================ #}
+{# b3270 Configuration Template                                                 #}
+{#                                                                              #}
+{# This template generates the XML configuration file for b3270, a 3270 emulator. #}
+{# It connects to an IBM Mainframe host via Telnet or TN3270E.                   #}
+{#                                                                              #}
+{# Variables are sourced from the Ansible inventory/vars and mapped to schema   #}
+{# fields: host, port, lu_name, terminal_type, tls, file_transfer,              #}
+{# session_options, log_file.                                                   #}
+{# ============================================================================ #}
+
+{# --------------------------------------------------------------------------- #}
+{# IBM Host Connection Details                                                  #}
+{# --------------------------------------------------------------------------- #}
+
+{# IBM host hostname or IP address #}
+<host>{{ (host | default('')) | string }}</host>
+
+{# TCP port to connect to (23 for telnet, 992 for tn3270e+ssl) #}
+<port>{{ (port | default(23)) | int }}</port>
+
+{# Logon Unit (LU) name for TN3270E SNA mode #}
+<lu_name>{{ (lu_name | default('')) | string }}</lu_name>
+
+{# Terminal model type (e.g., 3278-2, 3278-3) #}
+<terminal_type>{{ (terminal_type | default('3278-2')) | string }}</terminal_type>
+
+{# --------------------------------------------------------------------------- #}
+{# TLS/SSL Security Configuration                                               #}
+{# --------------------------------------------------------------------------- #}
+
+{# Enable TLS encryption for the connection #}
+{# Note: TLS block is only emitted if tls.enabled is true.                  #}
+{% set tls_cfg = (tls | default({})) | default({}) %}
+{% if tls_cfg.enabled is true %}
+<tls>
+  {# Enable TLS encryption for the connection #}
+  <enabled>true</enabled>
+
+  {# Path to CA certificate for verifying server #}
+  {% if tls_cfg.ca_cert %}
+  <ca_cert>{{ (tls_cfg.ca_cert | default('')) | string }}</ca_cert>
+  {% endif %}
+
+  {# Path to client certificate for mutual TLS (optional) #}
+  {% if tls_cfg.client_cert %}
+  <client_cert>{{ (tls_cfg.client_cert | default('')) | string }}</client_cert>
+  {% endif %}
+
+  {# Path to client private key for mutual TLS (optional) #}
+  {% if tls_cfg.client_key %}
+  <client_key>{{ (tls_cfg.client_key | default('')) | string }}</client_key>
+  {% endif %}
+</tls>
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# File Transfer Support                                                        #}
+{# --------------------------------------------------------------------------- #}
+
+{# Enable IND$FILE file transfer support #}
+{# Note: Only emitted if explicitly enabled via schema default or variable. #}
+{% if (file_transfer | default(False)) is true %}
+<ind_file>true</ind_file>
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Session Options                                                              #}
+{# --------------------------------------------------------------------------- #}
+
+{# List of command-line options to pass to b3270 (without '-' prefix) #}
+{% set session_opts = (session_options | default([])) %}
+{% if session_opts | length > 0 %}
+{% for opt in session_opts %}
+{{ opt | trim }}
+{% endfor %}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Logging Configuration                                                        #}
+{# --------------------------------------------------------------------------- #}
+
+{# Path to log file (optional) #}
+{% if (log_file | default('')) | trim != '' %}
+<log_file>{{ (log_file | default('')) | string }}</log_file>
+{% endif %}

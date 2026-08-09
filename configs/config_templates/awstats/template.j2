@@ -1,0 +1,773 @@
+# AWSTATS CONFIGURATION FILE
+# This file configures the AWStats log analyzer. It must be placed in the AWStats
+# configuration directory (e.g., /etc/awstats/) and named according to the site,
+# e.g., awstats.www.example.com.conf.
+#
+# This template is self-documenting. Every parameter is preceded by a comment
+# explaining its purpose, valid values, and source description.
+
+#-----------------------------------------------------------------------------
+# MAIN SETUP SECTION (Required to make AWStats work)
+#-----------------------------------------------------------------------------
+
+# "LogFile" contains the web, ftp or mail server log file to analyze.
+# Possible values: A full path, or a relative path from awstats.pl directory.
+# Supports dynamic tags like %YYYY, %MM, %DD for rotating logs.
+# Also supports pipes for compressed logs (e.g., gzip -cd ... |).
+# Default: "/var/log/apache2/access.log"
+#
+LogFile="/var/log/apache2/access.log"
+
+
+# Enter the log file type you want to analyze.
+# Possible values:
+#  W - For a web log file
+#  S - For a streaming log file
+#  M - For a mail log file
+#  F - For an ftp log file
+# Default: "W"
+#
+LogType="W"
+
+
+# Enter here your log format (Must match your web server config).
+# Possible values: 1 (Apache combined), 2 (IIS W3C), 3 (Webstar), 4 (Apache common),
+# or a custom format string using AWStats tags (%host, %time1, etc.).
+# Default: 4
+#
+LogFormat=4
+
+
+# If your log field's separator is not a space, you can change this parameter.
+# This parameter is not used if LogFormat is a predefined value (1,2,3,4).
+# Default: " "
+#
+LogSeparator=" "
+
+
+# "SiteDomain" must contain the main domain name, or the main intranet web
+# server name, used to reach the web site.
+# If you share the same log file for several virtual web servers, this
+# parameter is used to tell AWStats to filter records for this virtual host name only.
+# Example: "www.domain.com"
+#
+SiteDomain="{{ site_domain | default('example.com') }}"
+
+
+# Enter here all other possible domain names, addresses or virtual host
+# aliases someone can use to access your site.
+# Use space between each value. Can include REGEX values.
+# Default includes localhost and 127.0.0.1 plus host_aliases from schema.
+#
+HostAliases="localhost 127.0.0.1 {{ host_aliases | default(['www.example.com', 'legacy.example.com']) | join(' ') }}"
+
+
+# If you want to have hosts reported by name instead of ip address, AWStats
+# needs to make reverse DNS lookups.
+# Possible values:
+# 0 - No DNS Lookup
+# 1 - DNS Lookup is fully enabled (Slow)
+# 2 - DNS Lookup is made only from static DNS cache file (Recommended)
+# Default: 2
+#
+DNSLookup=2
+
+
+# DynamicDNSLookup allows to resolve host names for items shown in html tables only.
+# Useful for large sites where full DNS lookup during analysis is too slow.
+# Possible values:
+# 0 - No dynamic DNS lookup
+# 1 - Dynamic DNS lookup enabled
+# 2 - Dynamic DNS lookup enabled (including static DNS cache file)
+# Default: 0
+#
+DynamicDNSLookup=0
+
+
+# When AWStats updates its statistics, it stores results in files (AWStats database).
+# Set this value to the directory where you want AWStats to save its database and
+# working files into.
+# Warning: This directory must be writable by the web server user if using CGI updates.
+# Example: "/var/lib/awstats"
+# Default: "."
+#
+DirData="/var/lib/awstats"
+
+
+# Relative or absolute web URL of your awstats cgi-bin directory.
+# Used only when AWStats is run from command line with -output option.
+# Default: "/cgi-bin"
+#
+DirCgi="/cgi-bin"
+
+
+# Relative or absolute web URL of your awstats icon directory.
+# Used when building static reports.
+# Default: "/awstats-icon"
+#
+DirIcons="/awstats-icon"
+
+
+# When this parameter is set to 1, AWStats adds a button on the report page to
+# allow to "update" statistics from a web browser.
+# WARNING: This runs AWStats as the web server user (e.g., nobody/www-data).
+# Ensure DirData is writable by this user.
+# Possible values: 0 or 1
+# Default: 0
+#
+AllowToUpdateStatsFromBrowser=0
+
+
+# AWStats saves and sorts its database on a monthly basis.
+# This parameter controls the visibility and availability of the "Full Year" view.
+# Possible values:
+#  0 - Never allowed
+#  1 - Allowed on CLI only, -Year- value in combo is not visible
+#  2 - Allowed on CLI only, -Year- value in combo is visible but not allowed (Default)
+#  3 - Possible on CLI and CGI
+#
+AllowFullYearView=2
+
+
+
+#-----------------------------------------------------------------------------
+# OPTIONAL SETUP SECTION (Not required but enhances AWStats's functionality)
+#-----------------------------------------------------------------------------
+
+# When the update process runs, AWStats can set a lock file to avoid
+# multiple update processes running simultaneously.
+# Possible values: 0 or 1
+# Default: 0
+#
+EnableLockForUpdate=0
+
+
+# AWStats can do reverse DNS lookups through a static DNS cache file.
+# This file is never changed manually and is never overwritten by AWStats.
+# Default: "dnscache.txt" (in DirData)
+#
+DNSStaticCacheFile="dnscache.txt"
+
+
+# AWStats can do reverse DNS lookups through a dynamic DNS cache file.
+# This file is erased and recreated after each statistics update process.
+# Default: "dnscachelastupdate.txt" (in DirData)
+#
+DNSLastUpdateCacheFile="dnscachelastupdate.txt"
+
+
+# You can specify specific IP addresses that should NOT be looked up in DNS.
+# Useful to skip internal IPs or known bots.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+SkipDNSLookupFor=""
+
+
+# Protect the config file from being read by AWStats when called from a browser
+# if the web user has not been authenticated.
+# Possible values: 0 or 1
+# Default: 0
+#
+AllowAccessFromWebToAuthenticatedUsersOnly=0
+
+
+# List of all authorized authenticated users to view statistics.
+# Used only if AllowAccessFromWebToAuthenticatedUsersOnly is set to 1.
+# Use space between values.
+# Default: ""
+#
+AllowAccessFromWebToFollowingAuthenticatedUsers=""
+
+
+# Restrict access to AWStats reports by IP address.
+# The IP address of the user reading the stats is checked against this list.
+# Use space between values. Ranges supported (e.g., 127.0.0.1 192.168.1.0-192.168.1.255).
+# Default: ""
+#
+AllowAccessFromWebToFollowingIPAddresses=""
+
+
+# If the "DirData" directory does not exist, AWStats returns an error.
+# Set this to 1 to allow AWStats to create it automatically.
+# Useful for dynamic DirData paths per user.
+# Possible values: 0 or 1
+# Default: 0
+#
+CreateDirDataIfNotExists=0
+
+
+# Choose in which format the AWStats history database is saved.
+# Possible values: text, xml
+# Note: XML format makes database files ~3x larger.
+# Default: text
+#
+BuildHistoryFormat=text
+
+
+# If you prefer having the report output pages be built as XML compliant pages.
+# Possible values: html, xhtml
+# Default: html
+#
+BuildReportFormat=html
+
+
+# AWStats database files need write permissions for both command line user
+# and web server user. This parameter allows saving database files with
+# permissions readable/writable by everyone to avoid permission issues.
+# Possible values: 0 or 1
+# Default: 0
+#
+SaveDatabaseFilesWithPermissionsForEveryone=0
+
+
+# AWStats can purge log file after analyzing it.
+# WARNING: This is destructive. Ensure you have backups or use LogFile rotation.
+# Possible values: 0 or 1
+# Default: 0
+#
+PurgeLogFile=0
+
+
+# When PurgeLogFile is set to 1, you can archive the processed log records
+# by setting this parameter to a suffix tag (e.g., %YYYY%MM%DD).
+# Default: 0
+#
+ArchiveLogRecords=0
+
+
+# If write errors occur, the historic file can be corrupted.
+# Set this to 1 to save the last non-corrupted file as a .bak file.
+# Possible values: 0 or 1
+# Default: 0
+#
+KeepBackupOfHistoricFiles=0
+
+
+# Default index page name for your web server.
+# Used to determine if a request is for the home page.
+# Default: "index.php index.html"
+#
+DefaultFile="index.php index.html"
+
+
+# Do not include access from clients that match following criteria.
+# If DNS lookup is done in log, enter hostnames. Else enter IPs.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+SkipHosts=""
+
+
+# Do not include access from clients with a user agent that match following criteria.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+SkipUserAgents=""
+
+
+# Use SkipFiles to ignore access to URLs that match one of following entries.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+SkipFiles=""
+
+
+# Use SkipReferrersBlackList if you want to exclude records coming from a SPAM referrer.
+# Parameter must receive a local file name containing rules.
+# WARNING: This feature makes AWStats run slower (up to 5x).
+# Default: ""
+#
+SkipReferrersBlackList=""
+
+
+# Include in stats, only accesses from hosts that match one of following entries.
+# Opposite of SkipHosts.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+OnlyHosts=""
+
+
+# Include in stats, only accesses from user agent that match one of following entries.
+# Opposite of SkipUserAgents.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+OnlyUserAgents=""
+
+
+# Include in stats, only accesses from authenticated users.
+# Useful for FTP logs or authenticated web sections.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+OnlyUsers=""
+
+
+# Include in stats, only accesses to URLs that match one of following entries.
+# Opposite of SkipFiles.
+# Use space between values. REGEX is supported.
+# Default: ""
+#
+OnlyFiles=""
+
+
+# Add here a list of kind of url (file extension) that must be counted as
+# "Hit only" and not as a "Page/Download".
+# Default: "css js class gif jpg jpeg png bmp ico rss xml swf eot woff woff2"
+#
+NotPageList="css js class gif jpg jpeg png bmp ico rss xml swf eot woff woff2"
+
+
+# By default, AWStats considers successful hits if HTTP code is 200 or 304.
+# You can add other codes (e.g., 302, 305) here.
+# Default: "200 304"
+#
+ValidHTTPCodes="200 304"
+
+
+# By default, AWStats considers successful mail transfers if return code is 1 or 250.
+# Default: "1 250"
+#
+ValidSMTPCodes="1 250"
+
+
+# AWStats only records info on 404 errors by default.
+# Add other codes (e.g., 400, 403) here to track more errors.
+# Default: "400 403 404"
+#
+TrapInfosForHTTPErrorCodes="400 403 404"
+
+
+# Some web servers consider logins with different case as same.
+# Set to 1 to normalize case for authenticated users.
+# Possible values: 0 or 1
+# Default: 0
+#
+AuthenticatedUsersNotCaseSensitive=0
+
+
+# Some web servers consider URLs with different case as same.
+# Set to 1 to normalize case for URLs.
+# Possible values: 0 or 1
+# Default: 0
+#
+URLNotCaseSensitive=0
+
+
+# Keep or remove the anchor string (e.g., #section) in URLs.
+# Possible values: 0 or 1
+# Default: 0
+#
+URLWithAnchor=0
+
+
+# In URL links, "?" is used for parameters. Some servers use other chars (; or ,).
+# Add extra separators here.
+# Default: "?;"
+#
+URLQuerySeparators="?;"
+
+
+# Keep or remove the query string to the URL in the statistics.
+# 0: URLs are cleaned (mypage.html). 1: Full URL kept (mypage.html?p=x).
+# Warning: Setting to 1 can dramatically increase memory usage.
+# Possible values: 0 or 1
+# Default: 0
+#
+URLWithQuery=0
+
+
+# When URLWithQuery is on, keep ONLY these parameters.
+# Default: ""
+#
+URLWithQueryWithOnlyFollowingParameters=""
+
+
+# When URLWithQuery is on, remove these parameters.
+# Default: ""
+#
+URLWithQueryWithoutFollowingParameters=""
+
+
+# Keep or remove the query string to the referrer URL.
+# 0: Cleaned. 1: Full URL kept.
+# Possible values: 0 or 1
+# Default: 0
+#
+URLReferrerWithQuery=0
+
+
+# AWStats can detect setup problems. Keep to 1.
+# Possible values: 0 or 1
+# Default: 1
+#
+WarningMessages=1
+
+
+# When an error occurs, AWStats outputs a message.
+# Set to a custom message to hide details (security).
+# Default: ""
+#
+ErrorMessages=""
+
+
+# AWStats debug mode. Not enabled by default for security.
+# Possible values: 0 or 1
+# Default: 0
+#
+DebugMessages=0
+
+
+# AWStats reports an error if the first NbOfLinesForCorruptedLog lines
+# do not match LogFormat. Increase this if worms/viruses cause bad records at start.
+# Default: 50
+#
+NbOfLinesForCorruptedLog=50
+
+
+# Use the name of another script in WrapperScript parameter if you use a wrapper.
+# Default: ""
+#
+WrapperScript=""
+
+
+# DecodeUA must be set to 1 if you use Roxen web server.
+# Roxen converts spaces in user agent to %20.
+# Possible values: 0 or 1
+# Default: 0
+#
+DecodeUA=0
+
+
+# MiscTrackerUrl allows AWStats to detect Javascript disabled, Screen size, etc.
+# Requires adding awstats_misc_tracker.js to HTML pages.
+# Default: "/js/awstats_misc_tracker.js"
+#
+MiscTrackerUrl="/js/awstats_misc_tracker.js"
+
+
+#-----------------------------------------------------------------------------
+# OPTIONAL ACCURACY SETUP SECTION (Not required but increase AWStats features)
+#-----------------------------------------------------------------------------
+
+# Define accuracy of detection (robots, browsers, os, referers, file types).
+# 0: No detection. 1: Medium. 2: Full (Slowest).
+# LevelForWormsDetection is usually kept at 0 to save CPU.
+
+LevelForBrowsersDetection=2
+LevelForOSDetection=2
+LevelForRefererAnalyze=2
+LevelForRobotsDetection=2
+LevelForSearchEnginesDetection=2
+LevelForKeywordsDetection=2
+LevelForFileTypesDetection=2
+LevelForWormsDetection=0
+
+
+
+#-----------------------------------------------------------------------------
+# OPTIONAL APPEARANCE SETUP SECTION (Not required but increase AWStats features)
+#-----------------------------------------------------------------------------
+
+# When you use AWStats as a CGI, reports can be shown in HTML frames.
+# Possible values: 0 or 1
+# Default: 1
+#
+UseFramesWhenCGI=1
+
+
+# Open detailed reports in a different window.
+# 0: Same window. 1: New window (except framed). 2: Always new window.
+# Default: 1
+#
+DetailedReportsOnNewWindows=1
+
+
+# Cache lifetime (in seconds) for HTTP headers.
+# Default: 0
+#
+Expires=0
+
+
+# Limit number of rows in HTML output to avoid large pages.
+# Default: 10000
+#
+MaxRowsInHTMLOutput=10000
+
+
+# Set your primary language (ISO-639-1 language codes).
+# Example: "en", "fr", "de", "auto".
+# Default: "en"
+#
+Lang="{{ language | default('en') }}"
+
+
+# Set the location of language files.
+# Default: "/usr/share/awstats/lang"
+#
+DirLang="/usr/share/awstats/lang"
+
+
+# Show menu header with reports' links.
+# Possible values: 0 or 1
+# Default: 1
+#
+ShowMenu=1
+
+
+# Report visibility in main page (ShowSummary, ShowMonthStats, etc.)
+# Codes: U=Visitors, V=Visits, P=Pages, H=Hits, B=Bandwidth, L=Last Access, E=Entry, X=Exit, C=Compression, M=MailSize
+
+# Show monthly summary
+ShowSummary=UVPHB
+
+# Show monthly chart
+ShowMonthStats=UVPHB
+
+# Show days of month chart
+ShowDaysOfMonthStats=VPHB
+
+# Show days of week chart
+ShowDaysOfWeekStats=PHB
+
+# Show hourly chart
+ShowHoursStats=PHB
+
+# Show domains/country chart
+ShowDomainsStats=PHB
+
+# Show hosts chart
+ShowHostsStats=PHBL
+
+# Show authenticated users chart
+ShowAuthenticatedUsers=0
+
+# Show robots chart
+ShowRobotsStats=HBL
+
+# Show worms chart
+ShowWormsStats=0
+
+# Show email senders chart
+ShowEMailSenders=0
+
+# Show email receivers chart
+ShowEMailReceivers=0
+
+# Show session chart
+ShowSessionsStats=1
+
+# Show pages-url chart
+ShowPagesStats=PBEX
+
+# Show file types chart
+ShowFileTypesStats=HB
+
+# Show file size chart
+ShowFileSizesStats=0
+
+# Show downloads chart
+ShowDownloadsStats=HB
+
+# Show operating systems chart
+ShowOSStats=1
+
+# Show browsers chart
+ShowBrowsersStats=1
+
+# Show screen size chart
+ShowScreenSizeStats=0
+
+# Show origin chart
+ShowOriginStats=PH
+
+# Show keyphrases chart
+ShowKeyphrasesStats=1
+
+# Show keywords chart
+ShowKeywordsStats=1
+
+# Show misc chart
+ShowMiscStats=a
+
+# Show http errors chart
+ShowHTTPErrorsStats=1
+
+# Show http error page details
+ShowHTTPErrorsPageDetail=R
+
+# Show smtp errors chart
+ShowSMTPErrorsStats=0
+
+# Show cluster report
+ShowClusterStats=0
+
+
+# Data array values for charts (1 to include, 0 to exclude)
+AddDataArrayMonthStats=1
+AddDataArrayShowDaysOfMonthStats=1
+AddDataArrayShowDaysOfWeekStats=1
+AddDataArrayShowHoursStats=1
+
+
+# Include hits on pages from same sites in Origin chart.
+# Possible values: 0 or 1
+# Default: 0
+#
+IncludeInternalLinksInOriginSection=0
+
+
+# Maximum number of lines shown for specific reports.
+MaxNbOfDomain = 10
+MinHitDomain  = 1
+MaxNbOfHostsShown = 10
+MinHitHost    = 1
+MaxNbOfLoginShown = 10
+MinHitLogin   = 1
+MaxNbOfRobotShown = 10
+MinHitRobot   = 1
+MaxNbOfDownloadsShown = 10
+MinHitDownloads = 1
+MaxNbOfPageShown = 10
+MinHitFile    = 1
+MaxNbOfOsShown = 10
+MinHitOs      = 1
+MaxNbOfBrowsersShown = 10
+MinHitBrowser = 1
+MaxNbOfScreenSizesShown = 5
+MinHitScreenSize = 1
+MaxNbOfWindowSizesShown = 5
+MinHitWindowSize = 1
+MaxNbOfRefererShown = 10
+MinHitRefer   = 1
+MaxNbOfKeyphrasesShown = 10
+MinHitKeyphrase = 1
+MaxNbOfKeywordsShown = 10
+MinHitKeyword = 1
+MaxNbOfEMailsShown = 20
+MinHitEMail   = 1
+
+
+# Choose if you want the week report to start on sunday or monday.
+# 0: Sunday. 1: Monday.
+# Default: 1
+#
+FirstDayOfWeek=1
+
+
+# List of visible flags that link to other language translations.
+# Use space separated language codes. Empty for no flags.
+# Default: ""
+#
+ShowFlagLinks=""
+
+
+# Enable clickable URLs in stats reports.
+# Possible values: 0 or 1
+# Default: 1
+#
+ShowLinksOnUrl=1
+
+
+# Root of all HTTPS links.
+# Use "/" if site is fully SSL. Empty if not used.
+# Default: ""
+#
+UseHTTPSLinkForUrl=""
+
+
+# Maximum length of URL part shown on stats page.
+# Default: 64
+#
+MaxLengthOfShownURL=64
+
+
+# HTML code added at the top of AWStats reports.
+# Default: ""
+#
+HTMLHeadSection=""
+
+
+# HTML code added at the end of AWStats reports.
+# Default: ""
+#
+HTMLEndSection=""
+
+
+# By default AWStats page contains meta tag robots=noindex,nofollow.
+# Set to 1 to allow indexing.
+# Possible values: 0 or 1
+# Default: 0
+#
+MetaRobot=0
+
+
+# Logo and LogoLink settings.
+Logo="awstats_logo6.png"
+LogoLink="http://www.awstats.org"
+
+
+# BarWidth and BarHeight for graphical charts.
+BarWidth   = 260
+BarHeight  = 90
+
+
+# CSS Style Sheet for AWStats.
+# Default: ""
+#
+StyleSheet=""
+
+
+# Color customization (if no StyleSheet).
+color_Background="FFFFFF"
+color_TableBGTitle="CCCCDD"
+color_TableTitle="000000"
+color_TableBG="CCCCDD"
+color_TableRowTitle="FFFFFF"
+color_TableBGRowTitle="ECECEC"
+color_TableBorder="ECECEC"
+color_text="000000"
+color_textpercent="606060"
+color_titletext="000000"
+color_weekend="EAEAEA"
+color_link="0011BB"
+color_hover="605040"
+color_u="FFAA66"
+color_v="F4F090"
+color_p="4477DD"
+color_h="66DDEE"
+color_k="2EA495"
+color_s="8888DD"
+color_e="CEC2E8"
+color_x="C1B2E2"
+
+
+
+#-----------------------------------------------------------------------------
+# PLUGINS
+#-----------------------------------------------------------------------------
+
+# Add here all plugin files you want to load.
+# Plugins are .pm files stored in the 'plugins' directory.
+
+# PLUGIN: HashFiles
+# DESCRIPTION: Increases DNS cache files loading speed.
+LoadPlugin="hashfiles"
+
+
+# PLUGIN: TimeZone
+# DESCRIPTION: Allow AWStats to adjust time stamps for a different timezone.
+# This plugin reduces AWStats speed by ~10%.
+# Syntax: LoadPlugin="timezone" or "timezone +offset" or "timezone CET"
+# Default Offset: 0 (UTC)
+#
+LoadPlugin="timezone +{{ timezone | default(0) }}"
+
+
+# Other plugins are commented out by default. Uncomment to enable.
+# LoadPlugin="tooltips"
+# LoadPlugin="ipv6"
+# LoadPlugin="geoip GEOIP_STANDARD /usr/share/GeoIP/GeoIP.dat"
+# LoadPlugin="geoip2_country /usr/share/GeoIP/GeoLite2-Country.mmdb"

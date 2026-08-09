@@ -1,0 +1,30 @@
+name: swdepot
+fqcn: community.general.swdepot
+collection: community.general
+short_description: Manage packages with swdepot package manager (HP-UX)
+description: Will install, upgrade and remove packages with swdepot package manager (HP-UX)
+options:
+  depot:
+    type: str
+    description: The source repository from which install or upgrade a package.
+  name:
+    type: str
+    required: true
+    aliases:
+    - pkg
+    description: package name.
+  state:
+    type: str
+    required: true
+    choices:
+    - present
+    - latest
+    - absent
+    description: whether to install (V(present), V(latest)), or remove (V(absent)) a package.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install a package\n  community.general.swdepot:\n    name: unzip-6.0\n    state:\
+  \ present\n    depot: 'repository:/path'\n\n- name: Install the latest version of a package\n  community.general.swdepot:\n\
+  \    name: unzip\n    state: latest\n    depot: 'repository:/path'\n\n- name: Remove a package\n  community.general.swdepot:\n\
+  \    name: unzip\n    state: absent\n"

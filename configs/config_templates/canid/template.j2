@@ -1,0 +1,54 @@
+# Global settings for CANID (Caching Additional Network Information Daemon)
+# Enables/disables daemon logging
+# log_level: debug|info|warn|error
+# log_file: path to the log file
+log_level = {{ log_level }}
+log_file = {{ log_file }}
+
+# Path to PID file
+pid_file = {{ pid_file }}
+
+# Number of worker processes
+worker_count = {{ worker_count }}
+
+# Maximum cache entries (0 = unlimited)
+max_cache_entries = {{ max_cache_entries }}
+
+# Cache entry TTL in seconds
+default_ttl = {{ default_ttl }}
+
+# Network interfaces to monitor
+{% for iface in interfaces %}# Interface: {{ iface.name }} — {{ iface.description }}
+monitor_interface = {{ iface.name }}{% if iface.enabled %} # enabled{% else %} # disabled{% endif %}
+{% endfor %}
+
+# Upstream DNS servers
+{% for upstream in upstream_servers %}# DNS upstream server: {{ upstream.address }} (port {{ upstream.port }})
+upstream_dns = {{ upstream.address }}:{{ upstream.port }}
+{% endfor %}
+
+# Cache storage backend
+[storage]
+type = {{ storage.type }}
+{% if storage.type == 'file' %}
+path = {{ storage.path }}
+{% elif storage.type == 'redis' %}
+host = {{ storage.host }}
+port = {{ storage.port }}
+db = {{ storage.db }}
+{% endif %}
+
+# Security: allow list for query sources (CIDR notation)
+{% if allow_sources %}# Allowed sources:
+{% for src in allow_sources %}allow_source = {{ src }}
+{% endfor %}
+{% else %}# No allowed sources defined (default = localhost only)
+{% endif %}
+
+# Feature toggles
+{% if enable_ipv6 %}enable_ipv6 = yes
+{% else %}enable_ipv6 = no
+{% endif %}
+{% if enable_dnssec_validation %}enable_dnssec_validation = yes
+{% else %}enable_dnssec_validation = no
+{% endif %}

@@ -1,0 +1,112 @@
+{
+  "listen_host": "0.0.0.0",
+  "listen_port": 4222,
+  "http_monitoring": {
+    "enabled": true,
+    "host": "127.0.0.1",
+    "port": 8222
+  },
+  "prometheus": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 7777
+  },
+  "cluster": {
+    "enabled": true,
+    "name": "prod-cluster",
+    "host": "0.0.0.0",
+    "port": 6222,
+    "routes": [
+      {
+        "host": "nats-1.internal.example.com",
+        "port": 6222
+      },
+      {
+        "host": "nats-2.internal.example.com",
+        "port": 6222
+      }
+    ],
+    "tls": {
+      "enabled": true,
+      "cert_file": "/etc/nats/tls/cluster.crt",
+      "key_file": "/etc/nats/tls/cluster.key",
+      "ca_file": "/etc/nats/tls/ca.crt"
+    }
+  },
+  "auth": {
+    "type": "users",
+    "users": [
+      {
+        "username": "app-prod",
+        "password": "supersecret123",
+        "permissions": {
+          "subscribe": [
+            "orders.>",
+            "users.>"
+          ],
+          "publish": [
+            "payments.>",
+            "events.>"
+          ]
+        }
+      },
+      {
+        "username": "monitoring",
+        "password": "monpass",
+        "permissions": {
+          "subscribe": [
+            "$SYS.>"
+          ],
+          "publish": []
+        }
+      }
+    ]
+  },
+  "log": {
+    "file": "/var/log/nats/nats.log"
+  },
+  "debug": false,
+  "limits": {
+    "max_connections": 10000,
+    "max_payload": "1M",
+    "max_control_line": 512
+  },
+  "jetstream": {
+    "enabled": true,
+    "store_dir": "/var/lib/nats/jetstream",
+    "max_mem": "2G",
+    "max_file": "50G"
+  },
+  "leafnodes": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 7422,
+    "remotes": [
+      {
+        "urls": [
+          "nats://hub.example.com:7422"
+        ],
+        "local_account": "global"
+      }
+    ]
+  },
+  "websocket": {
+    "enabled": true,
+    "host": "0.0.0.0",
+    "port": 8080,
+    "tls": {
+      "enabled": true,
+      "cert_file": "/etc/nats/tls/ws.crt",
+      "key_file": "/etc/nats/tls/ws.key",
+      "ca_file": "/etc/nats/tls/ca.crt"
+    }
+  },
+  "tls": {
+    "enabled": true,
+    "cert_file": "/etc/nats/tls/server.crt",
+    "key_file": "/etc/nats/tls/server.key",
+    "ca_file": "/etc/nats/tls/ca.crt",
+    "timeout": 5
+  },
+  "ldm_grace_period": "30s"
+}

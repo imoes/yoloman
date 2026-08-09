@@ -1,0 +1,97 @@
+{
+  "sample_values": {
+    "template": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- INDI configuration file \u2014 defines devices, drivers, and global options -->\n<drivers>\n{% for driver in drivers %}\n  <!-- Driver: {{ driver.name }} (enabled: {{ driver.enabled }}) -->\n  <driver name=\"{{ driver.name }}\" enabled=\"{{ 'true' if driver.enabled else 'false' }}\"{% if driver.library %} library=\"{{ driver.library }}\"{% endif %}>\n{% for device in driver.devices %}\n    <!-- Device: {{ device.name }} (unique ID: {{ device.uid }}) -->\n    <device name=\"{{ device.name }}\" uid=\"{{ device.uid }}\"{% if device.model %} model=\"{{ device.model }}\"{% endif %}{% if device.port %} port=\"{{ device.port }}\"{% endif %}{% if device.baud_rate %} baud_rate=\"{{ device.baud_rate }}\"{% endif %}{% if device.connection_type %} connection_type=\"{{ device.connection_type }}\"{% endif %}>\n{% for property in device.properties %}\n      <!-- Property: {{ property.name }} (type: {{ property.type }}) -->\n      <property name=\"{{ property.name }}\" type=\"{{ property.type }}\" value=\"{{ property.value }}\"/>\n{% endfor %}\n    </device>\n{% endfor %}\n  </driver>\n{% endfor %}\n</drivers>\n",
+    "values_schema": {
+      "drivers": {
+        "type": "list",
+        "default": [],
+        "description": "List of INDI drivers to configure (e.g., telescope, camera, filter wheel)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Driver name (e.g., 'indi_eq5_mount', 'indi_canon_ccd')"
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": false,
+              "description": "Whether this driver is enabled at startup"
+            },
+            "library": {
+              "type": "string",
+              "default": "",
+              "description": "Path to shared library file for the driver (optional)"
+            },
+            "devices": {
+              "type": "list",
+              "default": [],
+              "description": "Devices managed by this driver",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Human-readable device name"
+                  },
+                  "uid": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Unique device identifier (used internally)"
+                  },
+                  "model": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Device model string (optional)"
+                  },
+                  "port": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Serial port or network address (e.g., '/dev/ttyUSB0', '192.168.1.100')"
+                  },
+                  "baud_rate": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Serial baud rate (e.g., '9600', '115200') (optional)"
+                  },
+                  "connection_type": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Connection type: 'serial', 'ethernet', 'usb' (optional)"
+                  },
+                  "properties": {
+                    "type": "list",
+                    "default": [],
+                    "description": "Persistent property values for this device",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string",
+                          "default": "",
+                          "description": "Property name (e.g., 'ON_COORD_IN_SYNC', 'CCD_EXPOSURE')"
+                        },
+                        "type": {
+                          "type": "string",
+                          "default": "text",
+                          "description": "INDI property type: 'text', 'number', 'switch', 'light', 'blob'"
+                        },
+                        "value": {
+                          "type": "string",
+                          "default": "",
+                          "description": "Initial value(s) for the property (comma-separated for switches)"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

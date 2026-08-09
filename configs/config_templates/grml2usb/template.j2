@@ -1,0 +1,172 @@
+{# ============================================================================
+   grml2usb Configuration Template
+   ============================================================================
+   This template generates command-line arguments for the `grml2usb` utility,
+   which creates bootable USB devices from Grml ISO files.
+
+   Variables are drawn directly from the Ansible role's variable schema.
+   Every variable uses `| default(...)` to ensure safe rendering even if
+   the variable is undefined in the playbook context.
+   ============================================================================ #}
+
+{# ---------------------------------------------------------------------------
+   Boot Options: List of default boot options to append to the kernel line.
+   Uses %flavour to expand to the current Grml flavour name.
+   --------------------------------------------------------------------------- #}
+{# Check if the list is not empty and contains strings #}
+{% if bootoptions | default([]) | length > 0 %}
+# Default boot options to add (space-separated via --bootoptions flag)
+# Variables: bootoptions (list of strings)
+--bootoptions={{ (bootoptions | default([])) | join(' --bootoptions=') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Remove Boot Options: List of boot options (regex) to remove from existing config.
+   --------------------------------------------------------------------------- #}
+{% if remove_bootoptions | default([]) | length > 0 %}
+# Boot options to remove (regex allowed)
+# Variables: remove_bootoptions (list of strings/regex)
+{% for opt in remove_bootoptions | default([]) %}
+# Remove bootoption: {{ opt }}
+--remove-bootoption={{ opt }}
+{% endfor %}
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Bootloader Selection: Choose between syslinux (default) and grub.
+   --------------------------------------------------------------------------- #}
+{# If bootloader is explicitly set to 'grub', enable GRUB mode #}
+{% if bootloader | default('syslinux') == 'grub' %}
+# Use GRUB bootloader (instead of default syslinux)
+# Variables: bootloader (string: 'syslinux' or 'grub')
+--grub
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   GRUB MBR: Install GRUB to MBR instead of PBR (Partition Boot Record).
+   --------------------------------------------------------------------------- #}
+{% if grub_mbr | default(False) | bool %}
+# Install GRUB to MBR (instead of PBR)
+# Variables: grub_mbr (boolean)
+--grub-mbr
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   FAT16 Format: Force target partition formatting to FAT16 (DESTRUCTIVE).
+   --------------------------------------------------------------------------- #}
+{% if fat16 | default(False) | bool %}
+# Force FAT16 formatting of target device
+# WARNING: This destroys existing data on the target partition.
+# Variables: fat16 (boolean)
+--fat16
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Force: Skip interactive confirmations for potentially destructive actions.
+   --------------------------------------------------------------------------- #}
+{% if force | default(False) | bool %}
+# Force potentially destructive actions (skips confirmation)
+# Variables: force (boolean)
+--force
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   MBR Menu: Install MBR with integrated boot menu.
+   --------------------------------------------------------------------------- #}
+{% if mbr_menu | default(False) | bool %}
+# Install MBR with integrated boot menu
+# Variables: mbr_menu (boolean)
+--mbr-menu
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Quiet Mode: Suppress non-error output.
+   --------------------------------------------------------------------------- #}
+{% if quiet | default(False) | bool %}
+# Suppress non-error output
+# Variables: quiet (boolean)
+--quiet
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Skip Addons: Skip installation of /boot/addons directory.
+   --------------------------------------------------------------------------- #}
+{% if skip_addons | default(False) | bool %}
+# Skip installation of /boot/addons
+# Variables: skip_addons (boolean)
+--skip-addons
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Skip Bootflag: Skip verification of boot flag on target device.
+   --------------------------------------------------------------------------- #}
+{% if skip_bootflag | default(False) | bool %}
+# Skip verification of boot flag on target device
+# Variables: skip_bootflag (boolean)
+--skip-bootflag
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Skip GRUB Config: Skip generation of GRUB configuration files.
+   --------------------------------------------------------------------------- #}
+{% if skip_grub_config | default(False) | bool %}
+# Skip generation of GRUB configuration files
+# Variables: skip_grub_config (boolean)
+--skip-grub-config
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Skip MBR: Skip installation or modification of MBR.
+   --------------------------------------------------------------------------- #}
+{% if skip_mbr | default(False) | bool %}
+# Skip installation or modification of MBR
+# Variables: skip_mbr (boolean)
+--skip-mbr
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Skip SYSLINUX Config: Skip generation of SYSLINUX configuration files.
+   --------------------------------------------------------------------------- #}
+{% if skip_syslinux_config | default(False) | bool %}
+# Skip generation of SYSLINUX configuration files
+# Variables: skip_syslinux_config (boolean)
+--skip-syslinux-config
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Skip USB Check: Skip check verifying the device is removable.
+   --------------------------------------------------------------------------- #}
+{% if skip_usb_check | default(False) | bool %}
+# Skip check verifying device is removable
+# Variables: skip_usb_check (boolean)
+--skip-usb-check
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Syslinux MBR: Install syslinux's MBR instead of the default MBR.
+   --------------------------------------------------------------------------- #}
+{% if syslinux_mbr | default(False) | bool %}
+# Install syslinux' MBR (instead of default MBR)
+# Variables: syslinux_mbr (boolean)
+--syslinux-mbr
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Verbose Mode: Enable verbose output for debugging.
+   --------------------------------------------------------------------------- #}
+{% if verbose | default(False) | bool %}
+# Enable verbose mode
+# Variables: verbose (boolean)
+--verbose
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Runtime Parameters: ISO files and Target Device.
+   These are typically passed directly to the grml2usb command execution
+   in the Ansible task, but are documented here for completeness.
+   --------------------------------------------------------------------------- #}
+{# List of ISO files to install. First entry is the default boot entry. #}
+# ISOs: {{ (isos | default([])) | join(', ') }}
+
+{# Target device (e.g., /dev/sdX1) or directory. #}
+# Target Device: {{ device | default('') }}

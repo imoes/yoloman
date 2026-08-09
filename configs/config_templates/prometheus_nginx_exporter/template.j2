@@ -1,0 +1,32 @@
+# Configuration for the prometheus-nginx-exporter service
+# This file is managed by Ansible. Do not edit manually.
+
+# Binary path to execute
+# Schema: args (default: ['--nginx.scrape-uri=http://127.0.0.1:80/nginx_status'])
+# Description: Command-line arguments passed to the exporter.
+EXEC=/usr/bin/prometheus-nginx-exporter
+
+# Command-line arguments passed to the exporter
+# The default argument points to the local NGINX stub_status endpoint.
+# Override 'args' in inventory/playbook to change the target URI or add flags.
+# Schema: args (default: ['--nginx.scrape-uri=http://127.0.0.1:80/nginx_status'])
+# Description: Command-line arguments passed to the exporter. Must include at least one --nginx.scrape-uri pointing to a valid NGINX stub_status endpoint
+{% if args is defined %}
+ARGS="{{ args | join(' ') }}"
+{% else %}
+ARGS="{{ default_args | default(['--nginx.scrape-uri=http://127.0.0.1:80/nginx_status']) | join(' ') }}"
+{% endif %}
+
+# Optional environment variables for the service (e.g., proxies)
+# Schema: env (default: {})
+# Description: Optional environment variables (e.g., HTTP_PROXY, NO_PROXY). Each key-value pair will be exported to the service environment.
+# Note: In a systemd drop-in or systemd service file, these are typically handled via EnvironmentFile or Environment= directives.
+# This template exposes them here as a reference or for use in a custom service template wrapper.
+{% if env is defined and env | length > 0 %}
+# Environment variables provided:
+{% for key, value in env | dictsort %}
+# {{ key }}={{ value }}
+{% endfor %}
+{% else %}
+# No environment variables defined.
+{% endif %}

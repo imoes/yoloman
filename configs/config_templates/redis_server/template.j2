@@ -1,0 +1,346 @@
+# ==============================================================================
+# Redis Server Configuration Template
+# ==============================================================================
+# This template generates a production-ready redis-server.conf.
+# All variables are sourced from the Ansible role's variable scope.
+# Each directive is preceded by a comment derived from the schema description.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Network Settings
+# ------------------------------------------------------------------------------
+
+# IP address(es) Redis binds to (space-separated). Use '0.0.0.0' for all interfaces (not recommended without firewall).
+bind {{ bind_address | default('127.0.0.1') }}
+
+# TCP port Redis listens on.
+port {{ port | default(6379) }}
+
+# TCP listen backlog (max pending connections).
+tcp-backlog {{ tcp_backlog | default(511) }}
+
+# ------------------------------------------------------------------------------
+# Unix Socket (Local Connections)
+# ------------------------------------------------------------------------------
+
+# Unix socket path for local connections. Leave empty to disable.
+# If empty, the following directives are commented out to avoid errors.
+{% set _unix_socket_path = unix_socket_path | default('') %}
+{% if _unix_socket_path %}
+unixsocket {{ _unix_socket_path }}
+# Unix socket file permissions (octal). Only used if unix_socket_path is set.
+unixsocketperm {{ unix_socket_perms | default(700) }}
+{% else %}
+# unixsocket disabled
+# unixsocketperm disabled
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Connection Timeout & Keepalive
+# ------------------------------------------------------------------------------
+
+# Close connection after N seconds of inactivity (0 = disable timeout).
+timeout {{ timeout | default(0) }}
+
+# Send TCP keepalive every N seconds (0 = disable).
+tcp-keepalive {{ tcp_keepalive | default(300) }}
+
+# ------------------------------------------------------------------------------
+# General / Daemonization
+# ------------------------------------------------------------------------------
+
+# Run as a background daemon (set to true only if managed by supervisor/systemd).
+{% if daemonize | default(False) %}
+daemonize yes
+{% else %}
+daemonize no
+{% endif %}
+
+# Path to PID file.
+pidfile {{ pid_file | default('/var/run/redis/redis-server.pid') }}
+
+# Logging verbosity level.
+loglevel {{ log_level | default('notice') }}
+
+# Path to log file (use 'stdout' for console logging).
+logfile "{{ log_file | default('/var/log/redis/redis-server.log') }}"
+
+# Enable logging to syslog.
+{% if syslog_enabled | default(False) %}
+syslog-enabled yes
+{% else %}
+syslog-enabled no
+{% endif %}
+
+# Syslog program name (only used if syslog_enabled=true).
+{% if syslog_ident | default('redis') %}
+syslog-ident {{ syslog_ident | default('redis') }}
+{% endif %}
+
+# Syslog facility (only used if syslog_enabled=true).
+{% if syslog_facility | default('local0') %}
+syslog-facility {{ syslog_facility | default('local0') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Snapshotting (RDB Persistence)
+# ------------------------------------------------------------------------------
+
+# RDB snapshot filename.
+dbfilename {{ rdb_filename | default('dump.rdb') }}
+
+# Directory where RDB files are stored.
+dir {{ rdb_dir | default('/var/lib/redis') }}
+
+# RDB snapshot intervals (save <seconds> <keys>). Each object defines when to persist the dataset to disk.
+{% set _rdb_snapshots = rdb_snapshots | default([{'interval': 900, 'keys_changed': 1}, {'interval': 300, 'keys_changed': 10}, {'interval': 60, 'keys_changed': 10000}]) %}
+{% for snapshot in _rdb_snapshots %}
+save {{ snapshot.interval }} {{ snapshot.keys_changed }}
+{% endfor %}
+
+# Stop accepting writes if background save fails (prevents data loss).
+{% if stop_writes_on_bgsave_error | default(True) %}
+stop-writes-on-bgsave-error yes
+{% else %}
+stop-writes-on-bgsave-error no
+{% endif %}
+
+# Compress RDB files (use 'no' for high-throughput workloads with CPU bottleneck).
+{% if rdb_compression | default(True) %}
+rdbcompression yes
+{% else %}
+rdbcompression no
+{% endif %}
+
+# Enable RDB file checksum for integrity verification.
+{% if rdb_checksum | default(True) %}
+rdbchecksum yes
+{% else %}
+rdbchecksum no
+{% endif %}
+
+# Disable RDB persistence if the snapshot list is explicitly empty.
+{% if _rdb_snapshots | length == 0 %}
+save ""
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Append Only Mode (AOF Persistence)
+# ------------------------------------------------------------------------------
+
+# Enable Append-Only File (AOF) persistence for durability.
+{% if aof_enabled | default(True) %}
+appendonly yes
+{% else %}
+appendonly no
+{% endif %}
+
+# AOF filename.
+appendfilename "{{ aof_filename | default('appendonly.aof') }}"
+
+# How often to sync AOF to disk. 'everysec' balances durability and performance.
+appendfsync {{ aof_fsync_policy | default('everysec') }}
+
+# Avoid syncing during AOF rewrite (useful for high-load systems).
+{% if no_aof_fsync_on_rewrite | default(False) %}
+no-appendfsync-on-rewrite yes
+{% else %}
+no-appendfsync-on-rewrite no
+{% endif %}
+
+# Trigger AOF rewrite when size grows by this percentage since last rewrite.
+auto-aof-rewrite-percentage {{ auto_aof_rewrite_percentage | default(100) }}
+
+# Minimum AOF size required to trigger rewrite (supports suffixes: kb, mb, gb).
+auto-aof-rewrite-min-size {{ auto_aof_rewrite_min_size | default('64mb') }}
+
+# Load truncated AOF files on startup (prevents crash on corruption).
+{% if aof_load_truncated | default(True) %}
+aof-load-truncated yes
+{% else %}
+aof-load-truncated no
+{% endif %}
+
+# Use RDB preamble in AOF (improves restart time for large datasets).
+{% if aof_use_rdb_preamble | default(True) %}
+aof-use-rdb-preamble yes
+{% else %}
+aof-use-rdb-preamble no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Memory Management
+# ------------------------------------------------------------------------------
+
+# Max memory Redis can use (0 = unlimited). Supports suffixes: kb, mb, gb.
+maxmemory {{ max_memory | default('0') }}
+
+# Eviction policy when max_memory is reached.
+maxmemory-policy {{ max_memory_policy | default('noeviction') }}
+
+# Number of keys to sample for LRU/LFU eviction (higher = more accurate but slower).
+maxmemory-samples {{ max_memory_samples | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Lazy Freeing (Background Deletion)
+# ------------------------------------------------------------------------------
+
+# Use lazy free (background thread) for eviction (improves latency under memory pressure).
+{% if lazyfree_lazy_eviction | default(False) %}
+lazyfree-lazy-eviction yes
+{% else %}
+lazyfree-lazy-eviction no
+{% endif %}
+
+# Use lazy free for expired keys.
+{% if lazyfree_lazy_expire | default(False) %}
+lazyfree-lazy-expire yes
+{% else %}
+lazyfree-lazy-expire no
+{% endif %}
+
+# Use lazy free for DEL commands.
+{% if lazyfree_lazy_server_del | default(False) %}
+lazyfree-lazy-server-del yes
+{% else %}
+lazyfree-lazy-server-del no
+{% endif %}
+
+# Use lazy flush on replica during sync.
+{% if replica_lazy_flush | default(False) %}
+replica-lazy-flush yes
+{% else %}
+replica-lazy-flush no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Latency Monitoring
+# ------------------------------------------------------------------------------
+
+# Log events with latency > N ms (0 = disable latency monitoring).
+latency-monitor-threshold {{ latency_monitor_threshold | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Security
+# ------------------------------------------------------------------------------
+
+# Password for AUTH command (empty = no authentication).
+{% set _require_password = require_password | default('') %}
+{% if _require_password %}
+requirepass {{ _require_password }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Client Output Buffer Limits
+# ------------------------------------------------------------------------------
+
+# Per-client-class buffer limits (hard, soft limits in bytes + timeout).
+{% set _client_output_buffer_limits = client_output_buffer_limits | default([{'class': 'normal', 'hard': '0', 'soft': '0', 'seconds': 0}, {'class': 'replica', 'hard': '256mb', 'soft': '64mb', 'seconds': 60}, {'class': 'pubsub', 'hard': '32mb', 'soft': '8mb', 'seconds': 60}]) %}
+{% for client_limit in _client_output_buffer_limits %}
+client-output-buffer-limit {{ client_limit.class }} {{ client_limit.hard }} {{ client_limit.soft }} {{ client_limit.seconds }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Redis ACL (Access Control List)
+# ------------------------------------------------------------------------------
+
+# Path to ACL file (if using Redis ACLs).
+{% set _acl_file = acl_file | default('') %}
+{% if _acl_file %}
+aclfile {{ _acl_file }}
+{% endif %}
+
+# Default user configuration: 'disabled' = off, 'on' = requirepass, 'off' = no auth.
+{% set _default_user = default_user | default('disabled') %}
+{% if _default_user == 'disabled' %}
+user default off ~* +@all
+{% elif _default_user == 'off' %}
+user default on >none ~* +@all
+{% else %}
+user default {{ _default_user }} ~* +@all
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Slow Log
+# ------------------------------------------------------------------------------
+
+# Log commands taking > N microseconds (10000 = 10ms).
+slowlog-log-slower-than {{ slowlog_slower_than | default(10000) }}
+
+# Max number of slow log entries to retain.
+slowlog-max-len {{ slowlog_max_len | default(128) }}
+
+# ------------------------------------------------------------------------------
+# Event Notification
+# ------------------------------------------------------------------------------
+
+# Event notifications (e.g., 'AKE' = all events, empty = disabled).
+notify-keyspace-events "{{ notify_keyspace_events | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Advanced Data Structure Settings
+# ------------------------------------------------------------------------------
+
+# Max entries in hash before switching to hashtable.
+hash-max-ziplist-entries {{ hash_max_entries | default(512) }}
+
+# Max value size in hash before switching to hashtable (bytes).
+hash-max-ziplist-value {{ hash_max_value | default('64') }}
+
+# Max quicklist node size (supports: -5, -4, -3, -2, -1, N).
+list-max-ziplist-size {{ list_max_size | default('-2') }}
+
+# Number of quicklist nodes to compress (0 = none).
+list-compress-depth {{ list_compress_depth | default(0) }}
+
+# Max entries in set before switching to intset.
+set-max-intset-entries {{ set_max_entries | default(512) }}
+
+# Max entries in sorted set before switching to ziplist.
+zset-max-ziplist-entries {{ zset_max_entries | default(128) }}
+
+# Max value size in sorted set before switching to ziplist (bytes).
+zset-max-ziplist-value {{ zset_max_value | default('64') }}
+
+# Max bytes in stream node before splitting.
+stream-node-max-bytes {{ stream_node_max_bytes | default('4096') }}
+
+# Max entries in stream node before splitting.
+stream-node-max-entries {{ stream_node_max_entries | default(100) }}
+
+# Incrementally rehash keys in background (improves latency).
+{% if active_rehashing | default(True) %}
+activerehashing yes
+{% else %}
+activerehashing no
+{% endif %}
+
+# Max query buffer per client (supports suffixes: kb, mb, gb).
+client-query-buffer-limit {{ client_query_buffer_limit | default('1gb') }}
+
+# Max bulk request size (supports suffixes: kb, mb, gb).
+proto-max-bulk-len {{ proto_max_bulk_len | default('512mb') }}
+
+# Server frequency for internal tasks (higher = more responsive but more CPU).
+hz {{ hz | default(10) }}
+
+# Auto-adjust hz based on load (improves CPU efficiency).
+{% if dynamic_hz | default(True) %}
+dynamic-hz yes
+{% else %}
+dynamic-hz no
+{% endif %}
+
+# Sync AOF rewrite in chunks to reduce latency spikes.
+{% if aof_rewrite_incremental_fsync | default(True) %}
+aof-rewrite-incremental-fsync yes
+{% else %}
+aof-rewrite-incremental-fsync no
+{% endif %}
+
+# Sync RDB save in chunks to reduce latency spikes.
+{% if rdb_save_incremental_fsync | default(True) %}
+rdb-save-incremental-fsync yes
+{% else %}
+rdb-save-incremental-fsync no
+{% endif %}

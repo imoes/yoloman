@@ -1,0 +1,120 @@
+{
+  "fsid": {
+    "type": "string",
+    "default": "",
+    "description": "The unique cluster identifier (UUID). Required for new deployments."
+  },
+  "global_opts": {
+    "type": "object",
+    "default": {},
+    "description": "Additional arbitrary key-value global options for ceph.conf (e.g., 'log_file = /var/log/ceph/$cluster-$name.log')"
+  },
+  "mon_host": {
+    "type": "list",
+    "default": [],
+    "description": "List of initial monitor hostnames/IPs (used during bootstrapping or fallback)."
+  },
+  "mon_initial_members": {
+    "type": "list",
+    "default": [],
+    "description": "List of monitor names that are part of the initial quorum."
+  },
+  "mgr_modules_enabled": {
+    "type": "list",
+    "default": [
+      "dashboard",
+      "restful"
+    ],
+    "description": "List of ceph-mgr modules to enable. The 'cephadm' module must be enabled for orchestrator functionality."
+  },
+  "mds_data": {
+    "type": "string",
+    "default": "/var/lib/ceph/mds/ceph-$id",
+    "description": "Path to MDS data directory."
+  },
+  "osd_journal_size": {
+    "type": "number",
+    "default": 5120,
+    "description": "Journal size in MB for non-db journaling (legacy filestore); ignored for bluestore."
+  },
+  "osd_mkfs_type": {
+    "type": "string",
+    "default": "bluestore",
+    "description": "Filesystem type for OSD creation (e.g., 'bluestore', 'filestore')."
+  },
+  "osd_mkfs_options_xfs": {
+    "type": "string",
+    "default": "-f -i size=2048",
+    "description": "Extra options for mkfs.xfs when creating OSDs."
+  },
+  "osd_mount_options_xfs": {
+    "type": "string",
+    "default": "rw,noatime,inode64",
+    "description": "Mount options for XFS filesystems used by OSDs."
+  },
+  "rbd_cache": {
+    "type": "string",
+    "default": "enabled",
+    "description": "Enable RBD client-side caching (values: 'enabled' or 'disabled')."
+  },
+  "rbd_cache_writethrough_until_flush": {
+    "type": "string",
+    "default": "true",
+    "description": "If 'true', use writethrough mode until first flush (client-side)."
+  },
+  "orchestrator_enable_daemon_placement": {
+    "type": "bool",
+    "default": true,
+    "description": "When true, cephadm automatically places daemons (mon, mgr, osd, etc.) on hosts."
+  },
+  "orchestrator_inventory_refresh_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between inventory scans of hosts (0 = disabled)."
+  },
+  "orchestrator_service_spec_refresh_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between refresh of scheduled service specs (0 = disabled)."
+  },
+  "orchestrator_container_image_base": {
+    "type": "string",
+    "default": "docker.io/ceph/ceph:v18",
+    "description": "Base container image used by cephadm for deploying daemons."
+  },
+  "orchestrator_secure_monitoring_stack": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable secure TLS for the built-in monitoring stack (Prometheus, Grafana, Alertmanager)."
+  },
+  "prometheus_alertmanager_url": {
+    "type": "string",
+    "default": "",
+    "description": "Optional external Alertmanager URL for alerting integration (e.g., 'https://alertmanager.example.com')."
+  },
+  "prometheus_alertmanager_basic_user": {
+    "type": "string",
+    "default": "",
+    "description": "Basic auth username for Alertmanager (if used)."
+  },
+  "prometheus_alertmanager_basic_password": {
+    "type": "string",
+    "default": "",
+    "description": "Basic auth password for Alertmanager (if used)."
+  },
+  "orchestrator_inventory_sources": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for this inventory source (e.g., 'file', 'static', 'vmware')."
+      },
+      "path": {
+        "type": "string",
+        "description": "Path to inventory file or source config (e.g., '/etc/ceph/inventory.yml')."
+      }
+    },
+    "description": "List of custom inventory sources for cephadm. Each item defines a named source and its path."
+  }
+}

@@ -1,0 +1,132 @@
+; =============================================================================
+; dirsearch configuration template
+; =============================================================================
+; This file configures the dirsearch directory brute-forcing tool.
+; Fields are organized into sections: [general], [dictionary], [request],
+; [connection], [advanced], [view], [output].
+; =============================================================================
+
+; -----------------------------------------------------------------------------
+; [general]: Core scanning behavior
+; -----------------------------------------------------------------------------
+[general]
+
+; Number of threads used for scanning
+threads = {{ general_threads | default(25) }}
+
+; Enable recursive scanning
+recursive = {{ general_recursive | default(false) }}
+
+; Enable deep recursive scanning (scans all discovered directories recursively)
+deep-recursive = {{ general_deep_recursive | default(false) }}
+
+; Force recursive scanning regardless of robots.txt or config
+force-recursive = {{ general_force_recursive | default(false) }}
+
+; Status codes considered successful for recursion
+recursion-status = {{ general_recursion_status | default('200-399,401,403') }}
+
+; Maximum recursion depth (0 = unlimited)
+max-recursion-depth = {{ general_max_recursion_depth | default(0) }}
+
+; Subdirectories to exclude from recursion
+exclude-subdirs = {{ general_exclude_subdirs | default('%%ff/,.;/,..;/,;/,./,../,%%2e/,%%2e%%2e/') }}
+
+; Use random user agents
+random-user-agents = {{ general_random_user_agents | default(false) }}
+
+; Maximum time in seconds for the scan (0 = unlimited)
+max-time = {{ general_max_time | default(0) }}
+
+; Exit on connection errors
+exit-on-error = {{ general_exit_on_error | default(false) }}
+
+; -----------------------------------------------------------------------------
+; [dictionary]: Wordlist and extension handling
+; -----------------------------------------------------------------------------
+[dictionary]
+
+; Default file extensions to append to wordlist entries
+default-extensions = {{ dictionary_default_extensions | default('php,aspx,jsp,html,js') }}
+
+; Force appending extensions even when directory
+force-extensions = {{ dictionary_force_extensions | default(false) }}
+
+; Replace wordlist entries with extensions instead of appending
+overwrite-extensions = {{ dictionary_overwrite_extensions | default(false) }}
+
+; Convert dictionary entries to lowercase
+lowercase = {{ dictionary_lowercase | default(false) }}
+
+; Convert dictionary entries to uppercase
+uppercase = {{ dictionary_uppercase | default(false) }}
+
+; Capitalize first letter of dictionary entries
+capitalization = {{ dictionary_capitalization | default(false) }}
+
+; -----------------------------------------------------------------------------
+; [request]: HTTP request properties
+; -----------------------------------------------------------------------------
+[request]
+
+; HTTP method to use for requests
+http-method = {{ request_http_method | default('get') }}
+
+; Follow HTTP redirects
+follow-redirects = {{ request_follow_redirects | default(false) }}
+
+; -----------------------------------------------------------------------------
+; [connection]: Network timing and retries
+; -----------------------------------------------------------------------------
+[connection]
+
+; Request timeout in seconds
+timeout = {{ connection_timeout | default(7.5) }}
+
+; Delay between requests in seconds
+delay = {{ connection_delay | default(0) }}
+
+; Maximum requests per second (0 = unlimited)
+max-rate = {{ connection_max_rate | default(0) }}
+
+; Maximum number of request retries
+max-retries = {{ connection_max_retries | default(1) }}
+
+; -----------------------------------------------------------------------------
+; [advanced]: Advanced features
+; -----------------------------------------------------------------------------
+[advanced]
+
+; Crawl discovered URLs for more paths
+crawl = {{ advanced_crawl | default(false) }}
+
+; -----------------------------------------------------------------------------
+; [view]: Output display options
+; -----------------------------------------------------------------------------
+[view]
+
+; Show full URLs in output
+full-url = {{ view_full_url | default(false) }}
+
+; Suppress banner and progress information
+quiet-mode = {{ view_quiet_mode | default(false) }}
+
+; Enable colored output
+color = {{ view_color | default(true) }}
+
+; Show redirect chain in output
+show-redirects-history = {{ view_show_redirects_history | default(false) }}
+
+; -----------------------------------------------------------------------------
+; [output]: Report generation
+; -----------------------------------------------------------------------------
+[output]
+
+; Format for autosaved reports
+report-format = {{ output_report_format | default('plain') }}
+
+; Automatically save reports
+autosave-report = {{ output_autosave_report | default(true) }}
+
+; Folder where autosaved reports are stored
+autosave-report-folder = {{ output_autosave_report_folder | default('reports/') }}

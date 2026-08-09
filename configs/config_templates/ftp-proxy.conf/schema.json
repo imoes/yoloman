@@ -1,0 +1,191 @@
+{
+  "global": {
+    "type": "object",
+    "default": {
+      "port": 8021,
+      "interface": "0.0.0.0",
+      "log_level": "info"
+    },
+    "description": "Global runtime settings for the FTP proxy",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 8021,
+        "description": "Port on which the FTP proxy listens for client connections"
+      },
+      "interface": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address interface to bind the proxy to"
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "description": "Logging verbosity level (debug, info, warn, error)"
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "backend": "file",
+      "userdb": "/etc/ftp-proxy/users.db",
+      "ldap": {
+        "uri": "ldap://ldap.example.com",
+        "base": "dc=example,dc=com",
+        "bind_dn": "cn=proxy,dc=example,dc=com",
+        "bind_password": "",
+        "user_filter": "(&(objectClass=posixAccount)(uid=%u))"
+      }
+    },
+    "description": "Authentication configuration for FTP users",
+    "items": {
+      "backend": {
+        "type": "string",
+        "default": "file",
+        "description": "Authentication method: 'file' for local DB file or 'ldap' for directory service"
+      },
+      "userdb": {
+        "type": "string",
+        "default": "/etc/ftp-proxy/users.db",
+        "description": "Path to the user database file (used only when backend=file)",
+        "condition": "auth.backend == 'file'"
+      },
+      "ldap": {
+        "type": "object",
+        "description": "LDAP configuration (used only when backend=ldap)",
+        "condition": "auth.backend == 'ldap'",
+        "items": {
+          "uri": {
+            "type": "string",
+            "default": "ldap://ldap.example.com",
+            "description": "LDAP server URI (e.g., ldap://host or ldaps://host)"
+          },
+          "base": {
+            "type": "string",
+            "default": "dc=example,dc=com",
+            "description": "LDAP base DN for user lookups"
+          },
+          "bind_dn": {
+            "type": "string",
+            "default": "cn=proxy,dc=example,dc=com",
+            "description": "DN used to bind to the LDAP server"
+          },
+          "bind_password": {
+            "type": "string",
+            "default": "",
+            "description": "Password for LDAP bind (leave empty if using SASL or keytab)"
+          },
+          "user_filter": {
+            "type": "string",
+            "default": "(&(objectClass=posixAccount)(uid=%u))",
+            "description": "LDAP filter to locate user entries; '%u' replaced by username"
+          }
+        }
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "max_connections": 100,
+      "max_connections_per_ip": 5,
+      "idle_timeout": 300,
+      "transfer_timeout": 900
+    },
+    "description": "Resource and connection limits to prevent abuse",
+    "items": {
+      "max_connections": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum total concurrent connections"
+      },
+      "max_connections_per_ip": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum concurrent connections per client IP"
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds of inactivity before idle connections are closed"
+      },
+      "transfer_timeout": {
+        "type": "number",
+        "default": 900,
+        "description": "Seconds of inactivity during data transfer before aborting"
+      }
+    }
+  },
+  "upstream": {
+    "type": "object",
+    "default": {
+      "servers": [
+        {
+          "name": "primary",
+          "host": "ftp.example.com",
+          "port": 21,
+          "use_tls": true
+        }
+      ]
+    },
+    "description": "List of upstream FTP servers to proxy requests to",
+    "items": {
+      "servers": {
+        "type": "list",
+        "default": [
+          {
+            "name": "primary",
+            "host": "ftp.example.com",
+            "port": 21,
+            "use_tls": true
+          }
+        ],
+        "description": "Upstream servers; each entry defines a target FTP server",
+        "items": {
+          "type": "object",
+          "items": {
+            "name": {
+              "type": "string",
+              "description": "Unique identifier for this upstream server"
+            },
+            "host": {
+              "type": "string",
+              "description": "Hostname or IP address of the upstream FTP server"
+            },
+            "port": {
+              "type": "number",
+              "default": 21,
+              "description": "Port of the upstream FTP server"
+            },
+            "use_tls": {
+              "type": "bool",
+              "default": false,
+              "description": "Enable explicit FTP over TLS (FTPS) when connecting to this upstream"
+            }
+          }
+        }
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "file": "/var/log/ftp-proxy/ftp-proxy.log",
+      "syslog": true
+    },
+    "description": "Output destination for proxy logs",
+    "items": {
+      "file": {
+        "type": "string",
+        "default": "/var/log/ftp-proxy/ftp-proxy.log",
+        "description": "Path to log file; ignored if syslog is enabled"
+      },
+      "syslog": {
+        "type": "bool",
+        "default": true,
+        "description": "Send logs to system syslog instead of a dedicated log file"
+      }
+    }
+  }
+}

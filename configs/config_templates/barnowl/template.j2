@@ -1,0 +1,48 @@
+# Configuration file for barnowl (BarnOwl is a Zephyr client)
+# This file uses BarnOwl's native configuration syntax.
+# Variables are provided via Ansible facts or role defaults.
+
+# === Startup Behavior ===
+# Do not subscribe to zephyr messages on startup.
+# Default: False (subscribe by default)
+{% if no_subs | default(false) %}
+set no-subs
+{% endif %}
+
+# === Configuration Directory ===
+# Alternate configuration directory. Defaults to ~/.owl/ if empty.
+# Default: '' (empty string implies default path)
+{% if config_dir is defined and config_dir is not none and config_dir != '' %}
+set config-dir {{ config_dir | default('') }}
+{% endif %}
+
+# === TTY for Zephyr Location ===
+# TTY name to use for displaying the user's Zephyr location.
+# Default: '' (empty implies default behavior)
+{% if tty is defined and tty is not none and tty != '' %}
+set tty {{ tty | default('') }}
+{% endif %}
+
+# === Debug Mode ===
+# Enable debugging output. When enabled, debug messages are written to a file.
+# Default: False (debugging disabled)
+{% if debug | default(false) %}
+set debug 1
+
+# === Debug Output File ===
+# Path to the file where debug output is written.
+# Default: /var/tmp/barnowl-debug.PID
+{% if debug_file is defined and debug_file is not none %}
+set debug-file {{ debug_file | default('/var/tmp/barnowl-debug.PID') }}
+{% else %}
+set debug-file /var/tmp/barnowl-debug.PID
+{% endif %}
+{% endif %}
+
+# === Startup Commands ===
+# List of BarnOwl command-line commands to execute at startup.
+# These are executed after the configuration file is fully loaded.
+# Default: [] (empty list, no extra commands)
+{% for cmd in startup_commands | default([]) | list %}
+{{ cmd }}
+{% endfor %}

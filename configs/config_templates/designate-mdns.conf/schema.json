@@ -1,0 +1,213 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address on which the mdns service listens for DNS queries (e.g., 0.0.0.0, 127.0.0.1)"
+  },
+  "port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP/TCP port for DNS queries"
+  },
+  "max_response_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum DNS response size in bytes (for EDNS0)"
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes (parallel threads) to handle DNS queries"
+  },
+  "doh_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNS-over-HTTPS (DoH) support"
+  },
+  "doh_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Bind address for DoH (used only if doh_enabled=true)"
+  },
+  "doh_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port for DoH (used only if doh_enabled=true)"
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/designKey.pem",
+    "description": "Path to TLS certificate for DoH (required if doh_enabled=true)"
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/designKey.key",
+    "description": "Path to TLS private key for DoH (required if doh_enabled=true)"
+  },
+  "doh_max_conns": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrent DoH connections"
+  },
+  "upstream_dns_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream DNS servers for recursive resolution (IPv4 or IPv6 addresses with optional port, e.g., '8.8.8.8', '1.1.1.1#53')",
+    "items": {
+      "type": "string"
+    }
+  },
+  "enable_dnssec_validation": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable DNSSEC validation of responses from upstream servers"
+  },
+  "trust_anchor_file": {
+    "type": "string",
+    "default": "/etc/bind/root.key",
+    "description": "Path to trust anchor file (e.g., IANA root KSK) for DNSSEC validation"
+  },
+  "axfr_rate_limit": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum AXFR queries per source IP per minute (set 0 for unlimited)"
+  },
+  "max_axfr_concurrent": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum concurrent AXFR transfers"
+  },
+  "allowed_axfr_range": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated list of CIDR ranges allowed to perform AXFR (empty = allow all)"
+  },
+  "enable_pool_monitoring": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable health monitoring of pool targets (e.g., BIND, PowerDNS)"
+  },
+  "pool_monitor_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between pool health checks"
+  },
+  "pool_id": {
+    "type": "string",
+    "default": "default",
+    "description": "ID of the pool to monitor (relevant in multi-pool setups)"
+  },
+  "service_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the mdns service entirely"
+  },
+  "rpc_topic": {
+    "type": "string",
+    "default": "designate_messenger",
+    "description": "RPC topic (queue/exchange) used to communicate with other designate services"
+  },
+  "rpc_port": {
+    "type": "number",
+    "default": 5454,
+    "description": "Port for internal RPC communication (if applicable)"
+  },
+  "neg_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "TTL for negative responses (NXDOMAIN, NODATA) in seconds"
+  },
+  "soa_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "TTL for SOA records served by this mdns"
+  },
+  "soa_minimum": {
+    "type": "number",
+    "default": 600,
+    "description": "Minimum TTL for SOA records (used for NXDOMAIN caching)"
+  },
+  "soa_retry": {
+    "type": "number",
+    "default": 900,
+    "description": "Retry interval for secondary DNS refresh"
+  },
+  "soa_expire": {
+    "type": "number",
+    "default": 604800,
+    "description": "Expire time for zone data on secondaries"
+  },
+  "soa_refresh": {
+    "type": "number",
+    "default": 21600,
+    "description": "Refresh interval for secondary DNS"
+  },
+  "soa_primary_ns": {
+    "type": "string",
+    "default": "ns1.example.com.",
+    "description": "Primary nameserver (NS) to include in SOA records"
+  },
+  "soa_email": {
+    "type": "string",
+    "default": "hostmaster.example.com.",
+    "description": "Admin email (in DNS format) for SOA records"
+  },
+  "soa_additional_ns": {
+    "type": "list",
+    "default": [],
+    "description": "Additional NS records to include in the SOA authority section",
+    "items": {
+      "type": "string"
+    }
+  },
+  "api_endpoint": {
+    "type": "string",
+    "default": "http://127.0.0.1:9001/v2",
+    "description": "Designate central API endpoint (used by mdns to fetch zone data)"
+  },
+  "auth_type": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method for API connection ('none' or 'keystone')"
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://127.0.0.1/identity",
+    "description": "Keystone auth endpoint (if auth_type=keystone)"
+  },
+  "project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project name (if auth_type=keystone)"
+  },
+  "username": {
+    "type": "string",
+    "default": "designate",
+    "description": "Keystone username (if auth_type=keystone)"
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone password (if auth_type=keystone)"
+  },
+  "region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "Keystone region name (if auth_type=keystone)"
+  },
+  "api_tls_verify": {
+    "type": "boolean",
+    "default": false,
+    "description": "Verify TLS certificate for API connections (if enabled)"
+  },
+  "api_tls_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "CA bundle for API TLS verification (if api_tls_verify=true)"
+  }
+}

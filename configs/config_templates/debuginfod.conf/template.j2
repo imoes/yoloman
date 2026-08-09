@@ -1,0 +1,64 @@
+# Base directories for cached debug information
+{{ base_cache_dir }}
+
+# Where debuginfod stores downloaded debuginfo packages
+{{ executable_cache_dir }}
+
+# HTTP(S) base URLs for remote debuginfod servers (searched in order)
+{% if upstream_debuginfods %}# Upstream debuginfod servers
+upstream_urls:
+{% for url in upstream_debuginfods %}- {{ url }}
+{% endfor %}{% else %}# No upstream debuginfod servers configured
+upstream_urls: []
+{% endif %}
+
+# Port to listen on
+{{ port }}
+
+# Host interface to bind to (empty string binds to all interfaces)
+{{ bind_address }}
+
+# Maximum number of scanner threads
+{{ max_workers }}
+
+# Maximum size (in bytes) of the cache for downloaded debuginfo (0 = unlimited)
+{{ cache_size_limit }}
+
+# Maximum age (in seconds) for cached debuginfo before eviction (0 = never expire)
+{{ cache_ttl }}
+
+# Enable/disable pruning of stale cache entries
+{{ prune_cache }}
+
+# HTTP(S) proxy URL to use for outgoing connections (empty string = no proxy)
+{{ proxy_url }}
+
+# Path to CA certificate bundle for TLS verification (empty string = use system trust store)
+{{ cacert_path }}
+
+# Enable/disable strict TLS certificate verification
+{{ tls_verify }}
+
+# HTTP Basic Auth username for upstream servers (if needed)
+{% if upstream_auth_users %}# Upstream authentication users
+upstream_auth:
+{% for auth in upstream_auth_users %}- username: {{ auth.username }}
+  password: {{ auth.password }}
+{% endfor %}{% else %}# No upstream authentication configured
+upstream_auth: []
+endif
+
+# Enable/disable metrics endpoint at /metrics
+{{ metrics_enabled }}
+
+# Enable/disable verbose logging (true = debug level)
+{{ verbose }}
+
+# Log file path (empty string = log to stderr)
+{{ log_file }}
+
+# Rate-limiting: maximum number of concurrent downloads per client
+{{ max_downloads_per_client }}
+
+# Rate-limiting: maximum number of concurrent connections to upstream servers
+{{ max_upstream_connections }}

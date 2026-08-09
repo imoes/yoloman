@@ -1,0 +1,90 @@
+{
+  "snmp": {
+    "type": "object",
+    "default": {},
+    "description": "SNMP module configuration for ProFTPD",
+    "items": {
+      "community": {
+        "type": "string",
+        "default": "public",
+        "description": "SNMP community string (prefer a secure, non-default value in production)"
+      },
+      "location": {
+        "type": "string",
+        "default": "Server Room",
+        "description": "Physical location of the FTP server (used in sysLocation MIB)"
+      },
+      "contact": {
+        "type": "string",
+        "default": "admin@example.com",
+        "description": "Contact information for the server administrator (sysContact MIB)"
+      },
+      "log_level": {
+        "type": "number",
+        "default": 2,
+        "description": "SNMP daemon log verbosity (0\u20137; higher = more verbose)"
+      },
+      "trap_events": {
+        "type": "list",
+        "default": [],
+        "description": "List of events that trigger SNMP traps; common values: login, logout, upload, download, rename, delete",
+        "items": {
+          "type": "string",
+          "enum": [
+            "login",
+            "logout",
+            "upload",
+            "download",
+            "rename",
+            "delete",
+            "mkdir",
+            "rmdir",
+            "chdir",
+            "chmod"
+          ],
+          "description": "Event name to enable as a trap trigger"
+        }
+      },
+      "trap_destinations": {
+        "type": "list",
+        "default": [],
+        "description": "List of SNMP trap receiver hosts",
+        "items": {
+          "type": "object",
+          "description": "SNMP trap destination host",
+          "items": {
+            "host": {
+              "type": "string",
+              "default": "",
+              "description": "Hostname or IP address of the SNMP manager"
+            },
+            "port": {
+              "type": "number",
+              "default": 162,
+              "description": "UDP port for trap reception (standard: 162)"
+            },
+            "community": {
+              "type": "string",
+              "default": "public",
+              "description": "Community string to use when sending traps to this destination (optional; defaults to SNMPCommunity if omitted)"
+            }
+          }
+        }
+      },
+      "pid_file": {
+        "type": "string",
+        "default": "/var/run/proftpd-snmp.pid",
+        "description": "Path to the SNMP sub-daemon PID file"
+      },
+      "allowed_hosts": {
+        "type": "list",
+        "default": [],
+        "description": "List of hosts allowed to query SNMP (e.g., SNMP set/get requests); each item is a host spec (hostname, IP, or CIDR)",
+        "items": {
+          "type": "string",
+          "description": "Allowed host IP, hostname, or CIDR notation"
+        }
+      }
+    }
+  }
+}

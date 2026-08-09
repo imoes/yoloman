@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<!--
+  biometryd-bin D-Bus Bus Configuration Template
+  
+  This template generates a D-Bus busconfig.xml for the Ubuntu Touch
+  biometryd service. It defines access policies for the main service
+  and various device/identifier/template/operation interfaces.
+  
+  D-BUS POLICY EXPLANATION:
+  - "root" policy: Grants unrestricted access to the root user for
+    owning services, sending messages to destinations, and sending
+    messages to interfaces. This is typically used for system daemons
+    that need to be fully controlled by the system administrator.
+  - "default" policy: Defines access for all other users. It denies
+    owning the main service (preventing other processes from impersonating
+    it) but allows owning the operation observer interface (for monitoring).
+    It allows sending messages to all biometryd interfaces and destinations.
+  
+  SELF-DOCUMENTING NOTE:
+  All bus names are derived from schema fields with safe defaults.
+  Each field is commented above its usage in the XML.
+-->
+<busconfig>
+  <!--
+    Policy for the root user.
+    This grants root full control over the biometryd D-Bus services.
+  -->
+  <policy user="root">
+    <!--
+      Allow root to own (start/claim) the main service bus name.
+      Schema field: service_bus_name
+      Default: com.ubports.biometryd.Service
+    -->
+    <allow own="{{ service_bus_name | default('com.ubports.biometryd.Service') }}"/>
+    
+    <!--
+      Allow root to send messages to the main service bus name.
+    -->
+    <allow send_destination="{{ service_bus_name | default('com.ubports.biometryd.Service') }}"/>
+    
+    <!--
+      Allow root to send messages to the device interface bus name.
+      Schema field: device_bus_name
+      Default: com.ubports.biometryd.Device
+    -->
+    <allow send_destination="{{ device_bus_name | default('com.ubports.biometryd.Device') }}"/>
+    
+    <!--
+      Allow root to send messages to the identifier interface bus name.
+      Schema field: identifier_bus_name
+      Default: com.ubports.biometryd.Identifier
+    -->
+    <allow send_destination="{{ identifier_bus_name | default('com.ubports.biometryd.Identifier') }}"/>
+    
+    <!--
+      Allow root to send messages to the template store interface bus name.
+      Schema field: template_store_bus_name
+      Default: com.ubports.biometryd.TemplateStore
+    -->
+    <allow send_destination="{{ template_store_bus_name | default('com.ubports.biometryd.TemplateStore') }}"/>
+    
+    <!--
+      Allow root to send messages to the operation interface bus name.
+      Schema field: operation_bus_name
+      Default: com.ubports.biometryd.Operation
+    -->
+    <allow send_destination="{{ operation_bus_name | default('com.ubports.biometryd.Operation') }}"/>
+    
+    <!--
+      Allow root to send messages to the operation observer interface bus name.
+      Schema field: operation_observer_bus_name
+      Default: com.ubports.biometryd.Operation.Observer
+    -->
+    <allow send_destination="{{ operation_observer_bus_name | default('com.ubports.biometryd.Operation.Observer') }}"/>
+    
+    <!--
+      Allow root to send messages to the main service interface.
+    -->
+    <allow send_interface="{{ service_bus_name | default('com.ubports.biometryd.Service') }}"/>
+    
+    <!--
+      Allow root to send messages to the device interface.
+    -->
+    <allow send_interface="{{ device_bus_name | default('com.ubports.biometryd.Device') }}"/>
+    
+    <!--
+      Allow root to send messages to the identifier interface.
+    -->
+    <allow send_interface="{{ identifier_bus_name | default('com.ubports.biometryd.Identifier') }}"/>
+    
+    <!--
+      Allow root to send messages to the template store interface.
+    -->
+    <allow send_interface="{{ template_store_bus_name | default('com.ubports.biometryd.TemplateStore') }}"/>
+    
+    <!--
+      Allow root to send messages to the operation interface.
+    -->
+    <allow send_interface="{{ operation_bus_name | default('com.ubports.biometryd.Operation') }}"/>
+    
+    <!--
+      Allow root to send messages to the operation observer interface.
+    -->
+    <allow send_interface="{{ operation_observer_bus_name | default('com.ubports.biometryd.Operation.Observer') }}"/>
+  </policy>
+  
+  <!--
+    Default policy for all other users.
+    This restricts ownership of the main service (security) but allows
+    monitoring via the operation observer and sending commands to all interfaces.
+  -->
+  <policy context="default">
+    <!--
+      Deny non-root users from owning the main service bus name.
+      This prevents unauthorized processes from impersonating the biometryd daemon.
+    -->
+    <deny own="{{ service_bus_name | default('com.ubports.biometryd.Service') }}"/>
+    
+    <!--
+      Allow users to own the operation observer interface.
+      This enables monitoring of biometric operations without control over the service itself.
+    -->
+    <allow own="{{ operation_observer_bus_name | default('com.ubports.biometryd.Operation.Observer') }}"/>
+    
+    <!--
+      Allow users to send messages to the main service bus name.
+    -->
+    <allow send_destination="{{ service_bus_name | default('com.ubports.biometryd.Service') }}"/>
+    
+    <!--
+      Allow users to send messages to the device interface bus name.
+    -->
+    <allow send_destination="{{ device_bus_name | default('com.ubports.biometryd.Device') }}"/>
+    
+    <!--
+      Allow users to send messages to the identifier interface bus name.
+    -->
+    <allow send_destination="{{ identifier_bus_name | default('com.ubports.biometryd.Identifier') }}"/>
+    
+    <!--
+      Allow users to send messages to the template store interface bus name.
+    -->
+    <allow send_destination="{{ template_store_bus_name | default('com.ubports.biometryd.TemplateStore') }}"/>
+    
+    <!--
+      Allow users to send messages to the operation interface bus name.
+    -->
+    <allow send_destination="{{ operation_bus_name | default('com.ubports.biometryd.Operation') }}"/>
+    
+    <!--
+      Allow users to send messages to the operation observer interface bus name.
+    -->
+    <allow send_destination="{{ operation_observer_bus_name | default('com.ubports.biometryd.Operation.Observer') }}"/>
+    
+    <!--
+      Allow users to send messages to the main service interface.
+    -->
+    <allow send_interface="{{ service_bus_name | default('com.ubports.biometryd.Service') }}"/>
+    
+    <!--
+      Allow users to send messages to the device interface.
+    -->
+    <allow send_interface="{{ device_bus_name | default('com.ubports.biometryd.Device') }}"/>
+    
+    <!--
+      Allow users to send messages to the identifier interface.
+    -->
+    <allow send_interface="{{ identifier_bus_name | default('com.ubports.biometryd.Identifier') }}"/>
+    
+    <!--
+      Allow users to send messages to the template store interface.
+    -->
+    <allow send_interface="{{ template_store_bus_name | default('com.ubports.biometryd.TemplateStore') }}"/>
+    
+    <!--
+      Allow users to send messages to the operation interface.
+    -->
+    <allow send_interface="{{ operation_bus_name | default('com.ubports.biometryd.Operation') }}"/>
+    
+    <!--
+      Allow users to send messages to the operation observer interface.
+    -->
+    <allow send_interface="{{ operation_observer_bus_name | default('com.ubports.biometryd.Operation.Observer') }}"/>
+  </policy>
+</busconfig>

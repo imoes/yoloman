@@ -1,0 +1,44 @@
+# Droopy configuration file
+# Droopy is a simple web-based file uploader. This configuration file
+# controls the behavior of the Droopy service instance.
+
+# Directory to upload files to.
+# Specifies the local directory on the host where uploaded files are stored.
+# Default: current directory ('.')
+directory: {{ webdir | default('.') }}
+
+# Message displayed on the web interface.
+# A welcome or informational message shown to users on the upload page.
+# Default: empty string
+message: {{ message | default('') }}
+
+# Picture displayed on the web interface.
+# Path to an image file to display on the upload page.
+# Default: empty string
+picture: {{ picture | default('') }}
+
+# Provide download links for uploaded files.
+# If true, users can download files they (or others) have uploaded.
+# Value must be 'true' or 'false'.
+# Default: false
+dl: {{ dl | default(false) | lower }}
+
+# Authentication credentials (USER:PASS)
+# List of users allowed to upload files. Each entry in `auth_users`
+# defines a username and password. The format in the config file is
+# 'username:password' per line.
+# Default: empty list (no authentication)
+{% for user in auth_users | default([]) %}auth: {{ user.username }}:{{ user.password }}
+{% endfor %}
+
+# SSL/TLS configuration.
+# Path to the SSL PEM certificate file used to enable HTTPS.
+# Only applied if the Droopy process is started with the --ssl flag.
+# Default: empty string (no SSL)
+ssl: {{ ssl | default('') }}
+
+# File permissions mode for uploaded files.
+# Octal value (e.g., '0644', '0755') specifying permissions for
+# files saved to the `directory`.
+# Default: empty string (use system/umask default)
+chmod: {{ chmod | default('') }}

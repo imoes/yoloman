@@ -1,0 +1,74 @@
+# ==============================================================================
+# Osmocom PCU (Baseband Control Unit) Configuration Template
+# This template generates the osmo-pcu.cfg configuration file.
+# It is self-documenting: every directive is preceded by its schema description.
+# ==============================================================================
+
+# Global PCU settings section
+
+# Global logging level. Controls verbosity of messages logged to stderr/syslog.
+# Valid values: debug, notice, info, warning, error, fatal.
+log level all {{ log_level | default('info') }}
+
+# IP address used for RSL (Radio Signalling Link) connections to the BSC.
+# This is the local interface IP that osmo-pcu binds to for RSL traffic.
+rsl-ip {{ rsl_ip | default('127.0.0.1') }}
+
+# Type of BTS hardware or emulation backend (e.g., sysmobts, sysmoUsim, osmo-bts-trx).
+# Determines specific implementation details and capabilities of the radio subsystem.
+bts-type {{ bts_type | default('sysmobts') }}
+
+# Transceiver instance number (0-indexed). Used when multiple TRX units exist.
+# Selects which physical or virtual transceiver this PCU instance manages.
+trx nr {{ trx_nr | default(0) }}
+
+# Timeslot configuration block.
+# Iterates over the list of timeslot numbers to configure.
+# Each timeslot can be individually tuned, but TS0 has special control parameters.
+{% set ts_nr_list = ts_nr | default([0, 1, 2, 3, 4, 5, 6, 7]) %}
+{% for ts in ts_nr_list %}
+ts {{ ts }}
+
+{% if ts == 0 %}
+    # Timeslot 0 configuration type (typically 'PCU' or 'TCH/F').
+    # TS0 carries signaling and is critical for PCU operation.
+    type {{ ts0_type | default('PCU') }}
+
+    # Absolute RF channel number (ARFCN) for timeslot 0.
+    # Defines the frequency channel used for this timeslot.
+    arfcn {{ ts0_arfcn | default(51) }}
+
+    # Base Station Identity Code (BSIC) for timeslot 0 (6-bit value).
+    # Used for network identification and frequency re-use avoidance.
+    bsic {{ ts0_bsic | default(23) }}
+
+{% else %}
+    # For non-TS0 timeslots, we do not set type/arfcn/bsic here as they
+    # inherit or are configured globally/specifically elsewhere in osmo-bts.
+    # However, if the schema implies TS0 parameters should only apply to TS0,
+    # this block remains clean.
+{% endif %}
+{% endfor %}
+
+# Unix domain socket path for local management (e.g., by osmo-bsc or CLI tools).
+# Allows local processes to interact with the PCU for status and control.
+pcu-socket-path {{ pcu_sock_path | default('/var/run/osmocom/osmo-pcu.sock') }}
+
+# Local IP address to bind PCU socket (for remote management or proxy).
+# If empty or not set, the socket path is used for local communication.
+# This field is often used in conjunction with the socket path for networked access.
+local-ip {{ local_ip | default('127.0.0.1') }}
+
+# IP address of the Osmocom BSC (e.g., osmo-bsc) to connect for RSL and NSVC.
+# This is the remote BSC address that this PCU will establish connections to.
+osmo-bsc-ip {{ osmo_bsc_ip | default('127.0.0.1') }}
+
+# Port number of the BSC to connect (default 4242 for IPA/IP over IP).
+# Standard port for Osmocom BSC RSL/NSVC interfaces.
+osmo-bsc-port {{ osmo_bsc_port | default(4242) }}
+
+# Maximum number of PDCHs that may be dynamically allocated per cell.
+# Controls the capacity for data channels (Packet Data Channel) in GPRS/EDGE.
+max-pdch-alloc {{ max_pdch_alloc | default(8) }}
+
+# End of Osmocom PCU configuration

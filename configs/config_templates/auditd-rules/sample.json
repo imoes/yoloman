@@ -1,0 +1,64 @@
+{
+  "audit_rules": {
+    "syscall_rules": [
+      {
+        "description": "Monitor privileged commands (e.g., setuid binaries)",
+        "list": "exit",
+        "field": "arch",
+        "value": "b64",
+        "syscall": "execve"
+      },
+      {
+        "description": "Track use of capabilities",
+        "list": "exit",
+        "field": "arch",
+        "value": "b64",
+        "syscall": "capset"
+      },
+      {
+        "description": "Monitor file deletion attempts",
+        "list": "exit",
+        "field": "arch",
+        "value": "b64",
+        "syscall": "unlink"
+      }
+    ],
+    "watch_rules": [
+      {
+        "description": "Watch sudoers file for changes (security-critical)",
+        "path": "/etc/sudoers",
+        "permissions": "wa",
+        "key": "sudoers"
+      },
+      {
+        "description": "Monitor /etc/passwd and /etc/group for user changes",
+        "path": "/etc/passwd",
+        "permissions": "wa",
+        "key": "identity"
+      },
+      {
+        "description": "Monitor /etc/group for changes",
+        "path": "/etc/group",
+        "permissions": "wa",
+        "key": "identity"
+      },
+      {
+        "description": "Track executable file access in /bin and /usr/bin",
+        "path": "/bin",
+        "permissions": "x",
+        "key": "executables"
+      },
+      {
+        "description": "Track executable file access in /usr/bin",
+        "path": "/usr/bin",
+        "permissions": "x",
+        "key": "executables"
+      }
+    ],
+    "exclude_rules": [],
+    "max_buffers": 80,
+    "failure_mode": 2,
+    "log_format": "raw",
+    "rate_limit": 60
+  }
+}

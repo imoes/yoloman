@@ -1,0 +1,59 @@
+{
+  "work_dir": {
+    "type": "string",
+    "default": "/var/www/mrtg",
+    "description": "Directory where MRTG stores generated HTML pages, graphs (PNGs), and log files. Must be writable by the MRTG user."
+  },
+  "interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Polling interval in seconds. Standard is 300 (5 minutes). Must match cron/daemon schedule to avoid gaps or double-sampling."
+  },
+  "log_errors": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, write errors to the log file."
+  },
+  "log_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, send log messages to syslog."
+  },
+  "debug_opts": {
+    "type": "string",
+    "default": "",
+    "description": "Enable debug options. The argument is a comma-separated list of debug values: cfg, snpo, log, dir, base, tarp, fork, time. Empty string disables debugging.",
+    "enum": [
+      "cfg",
+      "snpo",
+      "log",
+      "dir",
+      "base",
+      "tarp",
+      "fork",
+      "time"
+    ]
+  },
+  "targets": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0_in",
+        "label": "eth0 Inbound",
+        "spec": "1.3.6.1.2.1.2.2.1.10.2:public@127.0.0.1",
+        "description": "Inbound traffic on eth0 (OID 1.3.6.1.2.1.2.2.1.10.2)",
+        "max_bytes": 125000000,
+        "growth": "none",
+        "traffic_unit": "bytes",
+        "options": [
+          "perminute",
+          "gauge",
+          "nosmooth"
+        ],
+        "title": "eth0 Inbound Traffic",
+        "page_top": "<H1>eth0 Inbound Traffic</H1>"
+      }
+    ],
+    "description": "List of target definitions to monitor."
+  }
+}

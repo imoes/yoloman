@@ -1,0 +1,161 @@
+[# =============================================================================]
+[# LCD4Linux Configuration File]
+[# This file defines the general behavior, layout, widgets, and backend options]
+[# for the LCD4Linux daemon.]
+[# =============================================================================]
+
+[# ---------------- General configuration -------------------------------------]
+[# Core LCD4Linux settings: which backend/driver to use, device path,]
+[# display dimensions, font, update frequency, and orientation.]
+[General]
+
+# Backend to use for LCD device
+# LCD driver backend (e.g., FBv5, G15, G19, HD44780, LCD2USB, SerialLCD, USBHID, X11).
+Backend = {{ (general | default({})).backend | default('FBv5') }}
+
+# Device path (e.g., /dev/lcd0 or USB bus info)
+# Device path (e.g., framebuffer, serial port, USB device).
+Device = {{ (general | default({})).device | default('/dev/fb0') }}
+
+# LCD width in pixels (or characters for text-only displays)
+# Display width in pixels (or characters for text-only displays).
+Width = {{ (general | default({})).width | default(128) }}
+
+# LCD height in pixels (or lines)
+# Display height in pixels (or lines).
+Height = {{ (general | default({})).height | default(64) }}
+
+# Font to use for text rendering (e.g., '7x13', 'fixed', 'miscfixed')
+# Font name for text rendering (must be loadable by the backend).
+Font = {{ (general | default({})).font | default('7x13') }}
+
+# Update interval in milliseconds
+# Global update interval in milliseconds.
+UpdateInterval = {{ (general | default({})).update_interval | default(500) }}
+
+# Flip display vertically
+# Flip the display vertically (useful for inverted mounting).
+FlipY = {{ (general | default({})).flip_y | default(False) | lower }}
+
+[# ---------------- Layout definition -----------------------------------------]
+[# Layout for each LCD line (rows 1–4). For 4-line displays, rows 5–8 are optional.]
+[Layout.Default]
+
+# Display refresh order and content
+# Content for the first line (supports widgets like $date, $time, $hostname, etc.).
+Row1 = {{ (layout | default({})).row1 | default('$date $time') }}
+
+# Content for the second line.
+Row2 = {{ (layout | default({})).row2 | default('$uptime') }}
+
+# Content for the third line.
+Row3 = {{ (layout | default({})).row3 | default('$load') }}
+
+# Content for the fourth line.
+Row4 = {{ (layout | default({})).row4 | default('$cpu $mem') }}
+
+# Optional rows 5–8 (list of up to 4 strings). Only used on 8-line displays.
+# Note: The list `layout.extra_rows` is iterated safely below.
+{% set extra = (layout | default({})).extra_rows | default([]) | list %}
+{% if extra | length >= 1 %}
+Row5 = {{ extra[0] }}
+{% endif %}
+{% if extra | length >= 2 %}
+Row6 = {{ extra[1] }}
+{% endif %}
+{% if extra | length >= 3 %}
+Row7 = {{ extra[2] }}
+{% endif %}
+{% if extra | length >= 4 %}
+Row8 = {{ extra[3] }}
+{% endif %}
+
+[# ---------------- Widget definitions ----------------------------------------]
+[# List of widget definitions. Each widget provides dynamic data to the display]
+[# (e.g., CPU, memory, network).]
+{% for widget in (widgets | default([])) %}
+# Widget: {{ widget.name }}
+[Widget.{{ widget.name }}]
+
+# Widget Type
+Type = {{ widget.type | default('') }}
+
+# Widget Driver
+Driver = {{ widget.driver | default('') }}
+
+# Widget Alignment
+{% if widget.align is defined %}
+Align = {{ widget.align }}
+{% endif %}
+
+# Widget Width
+{% if widget.width is defined %}
+Width = {{ widget.width }}
+{% endif %}
+
+# Widget Height
+{% if widget.height is defined %}
+Height = {{ widget.height }}
+{% endif %}
+
+# Widget X Position
+{% if widget.x is defined %}
+X = {{ widget.x }}
+{% endif %}
+
+# Widget Y Position
+{% if widget.y is defined %}
+Y = {{ widget.y }}
+{% endif %}
+
+# Widget Update Interval
+{% if widget.update_interval is defined %}
+UpdateInterval = {{ widget.update_interval }}
+{% endif %}
+
+# Widget Color
+{% if widget.color is defined %}
+Color = {{ widget.color }}
+{% endif %}
+
+# Widget Background Color
+{% if widget.bgcolor is defined %}
+BgColor = {{ widget.bgcolor }}
+{% endif %}
+
+# Widget Font
+{% if widget.font is defined %}
+Font = {{ widget.font }}
+{% endif %}
+
+# Widget Source
+{% if widget.source is defined %}
+Source = {{ widget.source }}
+{% endif %}
+
+# Widget Format
+{% if widget.format is defined %}
+Format = {{ widget.format }}
+{% endif %}
+
+# Widget OneLine Mode
+{% if widget.oneline is defined %}
+OneLine = {{ widget.oneline | lower }}
+{% endif %}
+
+# Widget Threshold
+{% if widget.threshold is defined %}
+Threshold = {{ widget.threshold }}
+{% endif %}
+
+{% endfor %}
+
+[# ---------------- Backend-specific options ----------------------------------]
+[# Backend-specific key-value options (e.g., for FBv5: 'Gamma=1.0', 'Invert=1').]
+{% set opts = (backend_options | default({})) %}
+{% if opts %}
+[Backend.{{ (general | default({})).backend | default('FBv5') }}]
+{% for key, value in opts | dict2items %}
+{{ key.value }} = {{ value.value }}
+{% endfor %}
+{% endif %}

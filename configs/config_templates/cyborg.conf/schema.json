@@ -1,0 +1,183 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/cyborg/cyborg.log",
+    "description": "Path to the log file for the Cyborg service."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/cyborg",
+    "description": "Directory where Cyborg log files are stored."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to send log output to syslog."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output for debugging and troubleshooting."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode for detailed logging."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy; commonly 'keystone' for OpenStack deployments."
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8775,
+      "workers": 1,
+      "enable_cors": false,
+      "cors_allowed_origins": []
+    },
+    "description": "API service configuration.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the API service listens on."
+      },
+      "port": {
+        "type": "number",
+        "default": 8775,
+        "description": "Port number for the API service."
+      },
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for the API service."
+      },
+      "enable_cors": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable Cross-Origin Resource Sharing (CORS) for API."
+      },
+      "cors_allowed_origins": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed origins for CORS requests.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "sqlite:////var/lib/cyborg/cyborg.sqlite"
+    },
+    "description": "Database connection configuration.",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "sqlite:////var/lib/cyborg/cyborg.sqlite",
+        "description": "Database connection URL (e.g., mysql+pymysql://user:pass@host/db)."
+      }
+    }
+  },
+  "notifications": {
+    "type": "object",
+    "default": {
+      "driver": "messagingv2",
+      "topics": []
+    },
+    "description": "Notification driver and topics configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "messagingv2",
+        "description": "Notification driver (e.g., 'messagingv2', 'log')."
+      },
+      "topics": {
+        "type": "list",
+        "default": [],
+        "description": "List of notification topics to publish to.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "resource_provider": {
+    "type": "object",
+    "default": {
+      "allocation_ratio": 16.0,
+      "inventories": [
+        {
+          "resource_class": "CUSTOM_ACCELERATOR_FPGA",
+          "amount": 0
+        }
+      ]
+    },
+    "description": "Resource provider inventory settings.",
+    "items": {
+      "allocation_ratio": {
+        "type": "number",
+        "default": 16.0,
+        "description": "Overcommitment ratio for accelerator resources (e.g., 16 for 16x overcommit)."
+      },
+      "inventories": {
+        "type": "list",
+        "default": [
+          {
+            "resource_class": "CUSTOM_ACCELERATOR_FPGA",
+            "amount": 0
+          }
+        ],
+        "description": "Default inventory definitions for accelerator resource classes.",
+        "items": {
+          "resource_class": {
+            "type": "string",
+            "default": "CUSTOM_ACCELERATOR_FPGA",
+            "description": "Name of the resource class (e.g., CUSTOM_ACCELERATOR_FPGA, CUSTOM_ACCELERATOR_GPU)."
+          },
+          "amount": {
+            "type": "number",
+            "default": 0,
+            "description": "Initial inventory amount for this resource class."
+          }
+        }
+      }
+    }
+  },
+  "accelerators": {
+    "type": "object",
+    "default": {
+      "backends": []
+    },
+    "description": "Accelerator backend configuration.",
+    "items": {
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of enabled accelerator backends.",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "default",
+            "description": "Backend name (used as section name)."
+          },
+          "driver": {
+            "type": "string",
+            "default": "cyborg.accelerator.drivers.fpga.intel.fpga_intel.FPGAIntelDriver",
+            "description": "Fully-qualified class path for the driver implementation."
+          },
+          "options": {
+            "type": "object",
+            "default": {},
+            "description": "Driver-specific configuration options as key-value pairs."
+          }
+        }
+      }
+    }
+  }
+}

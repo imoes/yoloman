@@ -1,0 +1,70 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/designate/designate-agent.log",
+    "description": "Path to the log file. Use 'stderr' to log to console."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "policy_file": {
+    "type": "string",
+    "default": "/etc/designate/policy.json",
+    "description": "Path to the OpenStack policy (RBAC) configuration file."
+  },
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the Designate agent service."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for the agent's internal RPC endpoint to bind to."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes to spawn for handling requests."
+  },
+  "backend_driver": {
+    "type": "string",
+    "default": "designate-mdns",
+    "description": "DNS backend driver to use. Common options: 'designate-mdns', 'bind9'."
+  },
+  "managed_resource_tenant_id": {
+    "type": "string",
+    "default": "",
+    "description": "Tenant ID to restrict zone management to (deprecated in recent releases; leave blank for multi-tenant)."
+  },
+  "backend_options": {
+    "type": "list",
+    "default": [],
+    "description": "Backend-specific configuration options (key-value pairs). Example: for mdns, {'mdns_service_id': '...', ...}; for bind9, {'rndc_host': '127.0.0.1', ...}.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "Configuration option name (e.g., 'rndc_host', 'mdns_service_id')"
+        },
+        "value": {
+          "type": "string",
+          "description": "Configuration value (string or number as string)"
+        }
+      }
+    }
+  },
+  "notification_driver": {
+    "type": "string",
+    "default": "noop",
+    "description": "Notification driver; use 'messagingv2' to send events to Oslo Messaging, 'noop' to disable."
+  },
+  "notification_topic": {
+    "type": "string",
+    "default": "designate_notifications",
+    "description": "Message bus topic to publish DNS change notifications to."
+  }
+}

@@ -1,0 +1,154 @@
+# ==============================================================================
+# Catgirl IRC Client Configuration
+#
+# This file configures the 'catgirl' IRC client. It defines connection parameters,
+# authentication methods (SASL), user identity, client behavior (logging, highlighting),
+# and external command helpers.
+#
+# All variables are sourced from the Ansible inventory/vars. Missing variables
+# fall back to the defaults defined in the schema to ensure a valid config.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Connection Settings
+# ------------------------------------------------------------------------------
+
+# IRC server hostname to connect to (required).
+# If empty, catgirl may prompt or fail depending on build/runtime.
+server-host = {{ host | default('') }}
+
+# IRC server port (default: 6697).
+# Common ports: 6667 (clear), 6697 (TLS).
+server-port = {{ port | default(6697) }}
+
+# Source address to bind when connecting (e.g., 0.0.0.0 or ::).
+# Use this to force IPv4 or IPv6 outgoing connections.
+server-bind = {{ bind | default('') }}
+
+# Path to TLS client certificate file (for CertFP/SASL EXTERNAL).
+tls-cert = {{ cert | default('') }}
+
+# Path to TLS client private key file (for CertFP/SASL EXTERNAL).
+tls-priv = {{ priv | default('') }}
+
+# Path to trusted self-signed certificate file.
+# If empty, standard CA bundle is used (or system trust store).
+tls-trust = {{ trust | default('') }}
+
+# ------------------------------------------------------------------------------
+# Authentication (SASL)
+# ------------------------------------------------------------------------------
+
+# SASL PLAIN authentication credentials in format 'user:pass'.
+# Leave 'pass' blank to prompt interactively.
+# Format: username:password
+sasl-plain = {{ sasl_plain | default('') }}
+
+# Enable SASL EXTERNAL (Certificate FingerPrint) authentication.
+# Typically used with tls-cert and tls-priv.
+sasl-external = {{ sasl_external | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# User Identity
+# ------------------------------------------------------------------------------
+
+# Username to use on the IRC server.
+# Used for identification and SASL PLAIN if sasl_plain is not set.
+user = {{ user | default('') }}
+
+# Real name (GNUSocial/IRC 'realname' field).
+# Displayed in WHOIS responses.
+real = {{ real | default('') }}
+
+# List of preferred nicknames (tried in order).
+# Each string in the list is a single nick OR multiple space-separated nicks.
+{% for nick in nick | default([]) %}
+nick = {{ nick }}
+{% endfor %}
+
+# User mode string to set on connect.
+# e.g., '+i' for invisible, '+w' for wallops.
+user-mode = {{ user_mode | default('') }}
+
+# ------------------------------------------------------------------------------
+# Channels & Server
+# ------------------------------------------------------------------------------
+
+# Initial comma-separated channel list to join on connect.
+# Optional keys can follow channels as space-separated values.
+# Example: '#linux,#dev secret1'
+join = {{ join | default('') }}
+
+# Server password.
+# Used if the network requires a PASS command before connecting.
+# Leave blank to prompt interactively.
+pass = {{ pass | default('') }}
+
+# ------------------------------------------------------------------------------
+# Client Behavior & UI
+# ------------------------------------------------------------------------------
+
+# List of case-insensitive glob patterns for message highlighting.
+# Messages matching these patterns trigger an alert.
+{% for pattern in highlight | default([]) %}
+highlight = {{ pattern }}
+{% endfor %}
+
+# List of case-insensitive glob patterns for message ignoring.
+# Messages matching these patterns are suppressed from display.
+{% for pattern in ignore | default([]) %}
+ignore = {{ pattern }}
+{% endfor %}
+
+# strftime(3) format for timestamps in the log/view.
+# Empty string disables timestamps.
+# Examples: '%X' (HH:MM:SS), '%T' (HH:MM:SS), '' (none).
+timestamp = {{ timestamp | default('%X') }}
+
+# Nick/channel color hash seed and bound.
+# Determines how nick/channel names are mapped to colors.
+# Format: 'seed,bound'. e.g., '0,75', '0,15', '0,0' (disable).
+hash = {{ hash | default('0,75') }}
+
+# ------------------------------------------------------------------------------
+# External Utilities (/copy, /open, notify)
+# ------------------------------------------------------------------------------
+
+# Utility and arguments for the /copy command.
+# Supports multiple entries. e.g., 'xclip -selection clipboard'
+{% for cmd in copy | default([]) %}
+copy = {{ cmd }}
+{% endfor %}
+
+# Utility and arguments for notifications.
+# Supports multiple entries. e.g., 'notify-send'
+{% for cmd in notify | default([]) %}
+notify = {{ cmd }}
+{% endfor %}
+
+# Utility and arguments for the /open command.
+# Supports multiple entries. e.g., 'xdg-open'
+{% for cmd in open | default([]) %}
+open = {{ cmd }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Logging & Debugging
+# ------------------------------------------------------------------------------
+
+# Enable logging to $XDG_DATA_HOME/catgirl/log/network/channel/YYYY-MM-DD.log.
+log = {{ log | default(False) | lower }}
+
+# Raise message visibility threshold to hide general events (joins, quits, etc.).
+# Useful for quiet listening.
+quiet = {{ quiet | default(False) | lower }}
+
+# Name or path for window state save file (preserves layout/buffers on restart).
+save = {{ save | default('') }}
+
+# Disable risky commands: /copy, /exec, /open, notify option, and manual.
+# Useful for kiosk or restricted modes.
+restrict = {{ restrict | default(False) | lower }}
+
+# Log raw IRC messages to <debug> window and stderr (if not a terminal).
+debug = {{ debug | default(False) | lower }}

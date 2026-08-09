@@ -1,0 +1,45 @@
+# Configuration file for feedbackd
+# Managed via gsettings keys: org.gnome.desktop.sound, org.sigxcpu.feedbackd, org.sigxcpu.feedbackd.application
+# This INI-style configuration controls system sound, haptic, and visual feedback events.
+
+[sound]
+# Sound theme used for sound events (e.g., 'freedesktop', 'hicolor')
+# Defaults to 'freedesktop' if not specified.
+sound-theme = {{ sound_theme | default('freedesktop') }}
+
+[feedbackd]
+# Overall feedback profile: 'full', 'quiet', or 'silent'.
+# - full: All feedback enabled.
+# - quiet: Haptic and visual feedback only.
+# - silent: No feedback at all.
+profile = {{ profile | default('full') }}
+
+# List of applications allowed to override the global feedback level.
+# For example, an alarm clock application might need to ring even if the system is 'silent'.
+# Defaults to an empty list if not provided.
+allow-important = {{ (allow_important | default([])) | join(',') }}
+
+# Prefer camera flash over status LED for visual feedback.
+# Set to true to use the camera flash; false to use the status LED.
+# Defaults to false.
+prefer-flash = {{ prefer_flash | default(False) | lower }}
+
+# Feedback theme name to override auto-detection.
+# Leave empty to allow the system to auto-detect the appropriate theme.
+# Defaults to empty string.
+theme = {{ theme | default('') }}
+
+# Maximum haptic motor strength, clamped to [0.0, 1.0].
+# Controls the intensity of haptic feedback vibrations.
+# Defaults to 0.5.
+max-haptic-strength = {{ max_haptic_strength | default(0.5) }}
+
+# Per-application feedback profiles.
+# Allows specific applications to define their own feedback profile,
+# overriding the global [feedbackd] profile.
+# Each entry expects an object with 'name' (the desktop file name)
+# and optionally 'profile'.
+{% for app in (application_profiles | default([])) %}
+[application:{{ app.name }}]
+profile = {{ app.profile | default('full') }}
+{% endfor %}

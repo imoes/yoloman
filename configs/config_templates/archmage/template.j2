@@ -1,0 +1,40 @@
+{# ArchMage service unit: CHM (Compiled HTML) file decompressor/extraction #}
+
+[Unit]
+Description=ArchMage CHM Decompression Service
+Documentation=man:archmage(1)
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+
+# Absolute path to the input .chm file to decompress.
+ExecStart=/usr/bin/archmage {{ (input_chm_file | default('/path/to/file.chm')) }} {{ (output_directory | default('/tmp/chm-extract')) }}
+
+# Ensure the output directory exists before extraction starts.
+# ArchMage may not create intermediate directories automatically.
+ExecStartPre=/bin/mkdir -p {{ (output_directory | default('/tmp/chm-extract')) }}
+
+# Restart policy: only on failure (if run as part of a timer or manual restart).
+Restart=on-failure
+
+# Standard output/error handling: log to systemd journal.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=archmage
+
+# Security hardening: restrict filesystem access.
+ProtectSystem=strict
+ProtectHome=read-only
+NoNewPrivileges=yes
+
+# Allow writing only to the specific output directory.
+ReadWritePaths={{ (output_directory | default('/tmp/chm-extract')) }}
+
+# Resource limits: constrain memory usage to prevent DoS.
+MemoryMax=256M
+MemorySwapMax=256M
+
+[Install]
+WantedBy=multi-user.target

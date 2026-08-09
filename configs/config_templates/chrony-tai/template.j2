@@ -1,0 +1,60 @@
+# Chrony TAI Configuration Template
+# This template configures chronyd for NTP synchronization with TAI (International Atomic Time) support.
+
+# Primary NTP server to synchronize time with.
+server {{ ntp_server | default('pool.ntp.org') }} iburst
+
+# List of additional NTP pools to include for redundancy.
+{% for pool_item in ntp_pools | default([]) %}
+# Additional NTP pool: {{ pool_item.name | default('unknown') }}
+pool {{ pool_item.hostname | default(pool_item.name | default('unknown')) }} iburst
+{% endfor %}
+
+# CIDR subnet from which clients may synchronize.
+allow {{ subnet | default('192.168.0.0/16') }}
+
+# Time zone setting that includes leap seconds for TAI time support.
+leapsectz {{ leapsec_tz | default('right/UTC') }}
+
+# Directory where chronyd logs will be written.
+logdir {{ log_dir | default('/var/log/chrony') }}
+log measurements statistics tracking
+
+# UDP port on which the NTP server listens.
+port {{ ntp_port | default(123) }}
+
+# Path to the file storing the system clock drift.
+driftfile {{ driftfile_path | default('/var/lib/chrony/drift') }}
+
+# Enable synchronization with the hardware RTC (if enabled).
+{% if enable_rtc | default(True) | bool %}
+rtcsync
+{% endif %}
+
+# Enable NTP command authentication using keys (requires keyfile).
+{% if enable_auth | default(False) | bool %}
+keyfile {{ keyfile_path | default('/etc/chrony/keys') }}
+{% else %}
+# Authentication disabled
+{% endif %}
+
+# Maximum time offset (in seconds) beyond which the clock is stepped at startup.
+# Also specifies the maximum number of steps allowed during initial slew.
+makestep {{ makestep_threshold | default(1.0) }} {{ max_steps | default(10) }}
+
+# Path to the leap second table file (required for TAI time reporting).
+leapfile {{ leapfile_path | default('/usr/share/zoneinfo/leap-seconds.list') }}
+
+# If enabled, use initstepslew to smoothly correct large initial offsets instead of stepping.
+{% if smooth_start | default(True) | bool %}
+initstepslew {{ max_slew_steps | default(3) }} {{ ntp_server | default('pool.ntp.org') }}
+{% endif %}
+
+# Enable chronyd to act as an NTP server for local clients (requires binding to localhost).
+{% if enable_server | default(True) | bool %}
+bindcmdaddress 127.0.0.1
+bindcmdaddress ::1
+{% endif %}
+
+# Port used for chronyd command interface.
+commandport {{ command_port | default(323) }}

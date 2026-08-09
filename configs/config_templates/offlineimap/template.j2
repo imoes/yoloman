@@ -1,0 +1,47 @@
+# OfflineIMAP configuration file
+# Generated from Jinja2 template — edit with care
+
+# Global settings
+[general]
+# Path to the accounts directory for metadata
+{% if accounts_dir is defined %}accountsdir = {{ accounts_dir }}{% else %}accountsdir = ~/.offlineimap/accounts{% endif %}
+
+# Maximum number of sync threads
+{% if maxsyncaccounts is defined %}maxsyncaccounts = {{ maxsyncaccounts }}{% else %}maxsyncaccounts = 2{% endif %}
+
+# UI to use (Quiet for non-interactive use)
+{% if ui is defined %}ui = {{ ui }}{% else %}ui = Quiet{% endif %}
+
+# Show progress bar in non-interactive mode
+{% if showmailstats is defined %}showmailstats = {{ 'yes' if showmailstats else 'no' }}{% else %}showmailstats = yes{% endif %}
+
+# Logging
+{% if logdir is defined %}logdir = {{ logdir }}{% else %}# logdir = ~/.offlineimap/logs{% endif %}
+{% iflogfile is defined %}logfile = {{ logfile }}{% else %}# logfile = ~/.offlineimap/offlineimap.log{% endif %}
+
+# Account-specific sections
+{% for account in accounts %}
+[Repository {{ account.name }}Remote]
+type = IMAP
+{% if account.remote_ssl %}ssl = yes{% else %}ssl = no{% endif %}
+{% if account.remote_host is defined %}remotehost = {{ account.remote_host }}{% else %}remotehost = mail.example.com{% endif %}
+{% if account.remote_port is defined %}remoteport = {{ account.remote_port }}{% else %}remoteport = 993{% endif %}
+{% if account.remote_user is defined %}remoteuser = {{ account.remote_user }}{% else %}remoteuser = user@example.com{% endif %}
+{% if account.remote_pass is defined %}remotepass = {{ account.remote_pass }}{% else %}# remotepass = your_password{% endif %}
+{% if account.remote_pass_command is defined %}remotepasscommand = {{ account.remote_pass_command }}{% endif %}
+{% if account.ssl_ca_path is defined %}ssl_ca_path = {{ account.ssl_ca_path }}{% endif %}
+{% if account.ssl_ca_file is defined %}ssl_ca_file = {{ account.ssl_ca_file }}{% endif %}
+{% if account.ssl_verify is defined %}ssl_verify = {{ 'cert' if account.ssl_verify == 'cert' else 'none' }}{% else %}ssl_verify = cert{% endif %}
+
+[Repository {{ account.name }}Local]
+type = Maildir
+{% if account.local_path is defined %}localfolders = {{ account.local_path }}{% else %}localfolders = ~/Mail/{{ account.name }}{% endif %}
+
+[Account {{ account.name }}]
+remoterepository = {{ account.name }}Remote
+localrepository = {{ account.name }}Local
+{% if account.autosync is defined %}autosync = {{ 'yes' if account.autosync else 'no' }}{% else %}autosync = yes{% endif %}
+{% if account.expunge is defined %}expunge = {{ 'yes' if account.expunge else 'no' }}{% else %}expunge = no{% endif %}
+{% if account.syncstatus is defined %}syncstatus = {{ 'yes' if account.syncstatus else 'no' }}{% else %}syncstatus = yes{% endif %}
+{% if account.maxaccountsyncs is defined %}maxaccountsyncs = {{ account.maxaccountsyncs }}{% endif %}
+{% endfor %}

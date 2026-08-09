@@ -1,0 +1,103 @@
+# ==============================================================================
+# PKCS#11 Daemon Configuration Template
+# ==============================================================================
+# This file configures the pkcs11-daemon. It defines network bindings, the
+# underlying PKCS#11 module, session limits, logging, and optional TLS.
+#
+# Variables used:
+#   - bind_address:    IP address to bind (default 127.0.0.1)
+#   - bind_port:       TCP port number (default 5555)
+#   - pkcs11_module_path: Absolute path to the .so library (default /usr/lib/softhsm/libsofthsm2.so)
+#   - timeout_seconds: Timeout in seconds for HSM ops (default 30)
+#   - max_sessions:    Concurrent session limit (default 100)
+#   - use_syslog:      Boolean to enable syslog (default True)
+#   - log_level:       Verbosity: debug/info/warn/error (default info)
+#   - extra_init_args: Dict of key=value pairs for module init (default {})
+#   - allowed_clients: List of allowed IPs/CIDRs (default [])
+#   - tls_enabled:     Boolean to enable TLS (default False)
+#   - tls_cert_file:   Path to TLS cert PEM (default /etc/pkcs11-daemon/tls.crt)
+#   - tls_key_file:    Path to TLS key PEM (default /etc/pkcs11-daemon/tls.key)
+#   - pid_file:        Path for PID file (default /run/pkcs11-daemon/pkcs11-daemon.pid)
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Network Binding
+# -----------------------------------------------------------------------------
+# IP address the daemon binds to. Use 0.0.0.0 to accept connections from any interface.
+bind_address = "{{ bind_address | default('127.0.0.1') }}"
+
+# TCP port for client connections.
+bind_port = {{ bind_port | default(5555) }}
+
+# -----------------------------------------------------------------------------
+# PKCS#11 Module Configuration
+# -----------------------------------------------------------------------------
+# Absolute path to the PKCS#11 module (e.g., SoftHSM or vendor HSM library).
+pkcs11_module_path = "{{ pkcs11_module_path | default('/usr/lib/softhsm/libsofthsm2.so') }}"
+
+# -----------------------------------------------------------------------------
+# Session & Timeout Limits
+# -----------------------------------------------------------------------------
+# Maximum time (in seconds) to wait for PKCS#11 operations before timing out.
+timeout_seconds = {{ timeout_seconds | default(30) }}
+
+# Maximum number of concurrent PKCS#11 sessions allowed.
+max_sessions = {{ max_sessions | default(100) }}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+# Whether to send logs to the system syslog daemon.
+# Values: true or false (lowercase).
+use_syslog = {{ use_syslog | default(True) | lower }}
+
+# Verbosity level for logging.
+# Values: debug, info, warn, error.
+log_level = "{{ log_level | default('info') }}"
+
+# -----------------------------------------------------------------------------
+# Optional PKCS#11 Module Initialization Arguments
+# -----------------------------------------------------------------------------
+# Key–value pairs for optional PKCS#11 module initialization (e.g., PIN, slot, model-specific flags).
+# Each key becomes init_arg_<key> = "<value>".
+{% if extra_init_args | default({}) %}
+{% for key, value in extra_init_args | default({}) | dict2items %}
+init_arg_{{ key }} = "{{ value }}"
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Access Control
+# -----------------------------------------------------------------------------
+# List of client IP addresses or CIDRs allowed to connect.
+# Leave empty to allow all clients.
+# If the list is not empty, one "allowed_client = ..." line is emitted per entry.
+{% if allowed_clients | default([]) | length > 0 %}
+{% for client in allowed_clients | default([]) %}
+allowed_client = "{{ client }}"
+{% endfor %}
+{% else %}
+# allowed_client = ""
+# No restrictions configured; all clients are allowed.
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# TLS Configuration (Optional)
+# -----------------------------------------------------------------------------
+# Enable TLS encryption for client connections.
+# If enabled, the certificate and key files must exist on disk.
+{% if tls_enabled | default(False) %}
+# TLS is enabled; specify certificate and key paths.
+tls_cert_file = "{{ tls_cert_file | default('/etc/pkcs11-daemon/tls.crt') }}"
+tls_key_file = "{{ tls_key_file | default('/etc/pkcs11-daemon/tls.key') }}"
+{% else %}
+# TLS is disabled; no certificate or key is required.
+# tls_cert_file = ""
+# tls_key_file = ""
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# PID File
+# -----------------------------------------------------------------------------
+# Path where the daemon writes its process ID file.
+pid_file = "{{ pid_file | default('/run/pkcs11-daemon/pkcs11-daemon.pid') }}"

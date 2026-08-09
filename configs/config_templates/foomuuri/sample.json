@@ -1,0 +1,93 @@
+{
+  "global": {
+    "log_level": "info",
+    "table_prefix": "foomuuri",
+    "default_action": "drop",
+    "enable_conntrack": true,
+    "syslog_facility": "local0"
+  },
+  "zones": [
+    {
+      "name": "lan",
+      "description": "Trusted internal LAN (workstations, servers)",
+      "interfaces": [
+        "eth1",
+        "br-lan"
+      ],
+      "trust_level": "internal",
+      "enable_stateful": true,
+      "default_policy": "accept",
+      "new_conn_rate_limit": 100,
+      "new_conn_rate_burst": 200,
+      "allowlisted_hosts": [
+        "192.168.10.0/24"
+      ]
+    },
+    {
+      "name": "wan",
+      "description": "Untrusted upstream (ISP/NAT)",
+      "interfaces": [
+        "eth0"
+      ],
+      "trust_level": "external",
+      "enable_stateful": true,
+      "default_policy": "drop",
+      "new_conn_rate_limit": 20,
+      "new_conn_rate_burst": 50,
+      "allowlisted_hosts": []
+    },
+    {
+      "name": "iot",
+      "description": "IoT segment (limited access, no internet)",
+      "interfaces": [
+        "eth2"
+      ],
+      "trust_level": "iot",
+      "enable_stateful": false,
+      "default_policy": "drop",
+      "new_conn_rate_limit": 10,
+      "new_conn_rate_burst": 15,
+      "allowlisted_hosts": [
+        "172.16.10.0/24"
+      ]
+    }
+  ],
+  "zone_pairs": [
+    {
+      "src": "lan",
+      "dst": "wan",
+      "enable_established": true,
+      "allowed_services": [
+        "tcp:80",
+        "tcp:443",
+        "udp:53",
+        "tcp:53",
+        "ping"
+      ],
+      "log_matches": false
+    },
+    {
+      "src": "lan",
+      "dst": "iot",
+      "enable_established": true,
+      "allowed_services": [
+        "tcp:8883",
+        "tcp:1883"
+      ],
+      "log_matches": false
+    },
+    {
+      "src": "wan",
+      "dst": "lan",
+      "enable_established": false,
+      "allowed_services": [],
+      "log_matches": false
+    }
+  ],
+  "raw_nft_commands": [
+    {
+      "description": "Custom rate-limit chain for ICMP",
+      "body": "add chain ip foomuuri icmp_limit {\n\ttype filter hook input priority -10; policy drop;\n\ticmp type echo-request limit rate 5/second accept\n}"
+    }
+  ]
+}

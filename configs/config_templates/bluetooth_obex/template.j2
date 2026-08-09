@@ -1,0 +1,110 @@
+# ==============================================================================
+# Bluetooth OBEX Server Configuration
+# ==============================================================================
+# This configuration file controls the behavior of the OBEX (Object Exchange)
+# service within the Bluetooth stack, allowing file transfers over Bluetooth.
+#
+# Syntax: INI-style key-value pairs.
+# See `man obexd` or upstream documentation for further details.
+# ==============================================================================
+
+[OBEX]
+
+# -----------------------------------------------------------------------------
+# obex_enabled (boolean): Enable the OBEX server to accept connections.
+# Default: True
+# -----------------------------------------------------------------------------
+Enabled={{ (obex_enabled | default(true)) | lower }}
+
+# -----------------------------------------------------------------------------
+# obex_root_path (string): Absolute path to the root directory where OBEX
+# file transfers are stored.
+# Default: /var/lib/bluetooth
+# -----------------------------------------------------------------------------
+Root={{ obex_root_path | default('/var/lib/bluetooth') }}
+
+# -----------------------------------------------------------------------------
+# obex_user (string): System user account under which the OBEX daemon process
+# runs.
+# Default: root
+# -----------------------------------------------------------------------------
+User={{ obex_user | default('root') }}
+
+# -----------------------------------------------------------------------------
+# obex_group (string): System group for the OBEX daemon process.
+# Default: root
+# -----------------------------------------------------------------------------
+Group={{ obex_group | default('root') }}
+
+# -----------------------------------------------------------------------------
+# obex_max_connections (integer): Maximum number of simultaneous OBEX
+# connections allowed.
+# Default: 4
+# -----------------------------------------------------------------------------
+MaxConnections={{ obex_max_connections | default(4) }}
+
+# -----------------------------------------------------------------------------
+# obex_auth_enabled (boolean): Require authentication before allowing file
+# transfers.
+# Default: True
+# -----------------------------------------------------------------------------
+Auth={{ (obex_auth_enabled | default(true)) | lower }}
+
+# -----------------------------------------------------------------------------
+# obex_encrypt_enabled (boolean): Require encryption for all OBEX sessions.
+# Note: Requires compatible devices on the other end.
+# Default: False
+# -----------------------------------------------------------------------------
+Encrypt={{ (obex_encrypt_enabled | default(false)) | lower }}
+
+# -----------------------------------------------------------------------------
+# obex_auto_accept (boolean): Automatically accept incoming OBEX file transfer
+# requests without prompting the user.
+# Default: False
+# -----------------------------------------------------------------------------
+AutoAccept={{ (obex_auto_accept | default(false)) | lower }}
+
+# -----------------------------------------------------------------------------
+# obex_allowed_peers (list): List of trusted Bluetooth device addresses
+# (MAC addresses) allowed to connect. Leave empty to allow all (not recommended
+# for security).
+# Default: []
+# -----------------------------------------------------------------------------
+{% if obex_allowed_peers | default([]) | length > 0 %}
+AllowedDevices={{ obex_allowed_peers | default([]) | join(', ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# obex_denied_peers (list): List of Bluetooth device addresses explicitly
+# denied from connecting.
+# Default: []
+# -----------------------------------------------------------------------------
+{% if obex_denied_peers | default([]) | length > 0 %}
+DeniedDevices={{ obex_denied_peers | default([]) | join(', ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# obex_log_level (integer): Verbosity level.
+#   0 = errors only
+#   1 = warnings + errors
+#   2 = info + warnings
+#   3 = debug (very verbose)
+# Default: 1
+# -----------------------------------------------------------------------------
+LogLevel={{ obex_log_level | default(1) }}
+
+# -----------------------------------------------------------------------------
+# obex_log_stderr (boolean): Send logs to standard error instead of syslog.
+# Useful for containers or debugging.
+# Default: False
+# -----------------------------------------------------------------------------
+LogToStderr={{ (obex_log_stderr | default(false)) | lower }}
+
+# -----------------------------------------------------------------------------
+# obex_log_file (string): Optional absolute path to a dedicated log file.
+# If omitted or empty, syslog is used.
+# Default: ''
+# -----------------------------------------------------------------------------
+{% if obex_log_file | default('') %}
+LogFile={{ obex_log_file | default('') }}
+{% endif %}

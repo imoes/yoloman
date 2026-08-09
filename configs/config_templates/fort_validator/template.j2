@@ -1,0 +1,67 @@
+# fort-validator configuration template
+# This file configures the RPKI Trust Anchor Locator (TAL) and Repository
+# validation engine (fort-validator). It controls network binding,
+# validation frequency, and logging.
+
+# IP address the RTR server binds to (e.g., '0.0.0.0' for all interfaces, '127.0.0.1' for localhost only).
+# Field: rtr_listen_addr
+listen_addr: {{ (rtr_listen_addr | default('127.0.0.1')) | string }}
+
+# TCP port the RTR server listens on (standard: 3323).
+# Field: rtr_listen_port
+listen_port: {{ (rtr_listen_port | default(3323)) | int }}
+
+# Whether to enable the RTR server. Set to false to run validation-only mode.
+# Field: enable_rtr
+enable_rtr: {{ (enable_rtr | default(true)) | lower }}
+
+# Maximum concurrent RTR client connections allowed.
+# Field: max_clients
+max_clients: {{ (max_clients | default(50)) | int }}
+
+# Time in seconds between successive RPKI validation runs (e.g., 3600 = every hour).
+# Field: poll_interval
+poll_interval: {{ (poll_interval | default(3600)) | int }}
+
+# Number of retries for fetching a repository before marking it unreachable.
+# Field: max_retries
+max_retries: {{ (max_retries | default(3)) | int }}
+
+# Timeout in seconds for HTTP(S) requests to RPKI repositories.
+# Field: request_timeout
+request_timeout: {{ (request_timeout | default(30)) | int }}
+
+# Absolute path to the directory where validated RPKI data is cached.
+# Field: local_cache_dir
+local_cache_dir: {{ (local_cache_dir | default('/var/lib/fort-validator/cache')) | string }}
+
+# Optional path to a CA certificate bundle for validating TLS connections to repositories. Leave empty to use system defaults.
+# Field: ca_cert_bundle
+ca_cert_bundle: {{ (ca_cert_bundle | default('')) | string }}
+
+# List of RPKI repositories to validate. Each entry includes a URI and optional settings.
+# Field: repositories
+repositories:
+{% for repo in (repositories | default([])) %}
+  - uri: {{ (repo.uri | default('')) | string }}
+    # Optional: custom HTTP headers for this repository (e.g., auth tokens)
+{% if (repo.headers | default({})) | length > 0 %}
+    headers:
+{% for k, v in (repo.headers | default({})) | dict2items %}
+      {{ k | string }}: {{ (v | default('')) | string }}
+{% endfor %}
+{% endif %}
+    enabled: {{ (repo.enabled | default(true)) | lower }}
+{% endfor %}
+
+# Minimum log level to record. Choices: debug, info, warn, error, critical.
+# Field: log_level
+log_level: {{ (log_level | default('info')) | string }}
+
+# Format of log output: human-readable 'text' or machine-processable 'json'.
+# Field: log_format
+log_format: {{ (log_format | default('text')) | string }}
+
+# Path to the log file. Use '-' to log to standard error.
+# Field: log_file
+log_file: {{ (log_file | default('/var/log/fort-validator/validator.log')) | string }}

@@ -1,0 +1,120 @@
+{#
+  KEA DHCPv4 Configuration for Memfile Lease Database
+  ===================================================
+  This template generates the JSON configuration for KEA's Dhcp4 subnet/server configuration.
+  It specifically configures the "memfile" lease database backend, which stores leases in memory
+  and periodically persists them to a CSV file on disk.
+  
+  SELF-DOCUMENTING: Every configuration block is preceded by a comment describing the field's
+  purpose and the schema default used if the variable is not provided by Ansible.
+  All variables use | default(D) to ensure safe rendering even when undefined.
+#}
+
+{
+  # Dhcp4 configuration block
+  "Dhcp4": {
+    # Lease database configuration for memfile backend.
+    # See: https://kea.isc.org/docs/kea.conf.html#lease-database
+    "lease-database": {
+      # Backend type identifier. Must be "memfile" for this configuration.
+      "type": "memfile",
+      
+      # Leases in memory are periodically compacted (LFC - Lease File Cleanup) and rewritten
+      # to the CSV file. This setting controls the interval in seconds between these operations.
+      # Schema: lease_database_lfc_interval
+      # Default: 600
+      "lfc-interval": {{ lease_database_lfc_interval | default(600) }},
+      
+      # Whether to persist lease data to disk. If false, leases are lost on server restart.
+      # Must be true to enable file-based backup and recovery.
+      # Schema: lease_database_persist
+      # Default: True
+      "persist": {{ lease_database_persist | default(true) }},
+      
+      # Path to the CSV file used for lease persistence when persist=true.
+      # Schema: lease_database_name
+      # Default: '/var/lib/kea/kea-leases4.csv'
+      "name": "{{ lease_database_name | default('/var/lib/kea/kea-leases4.csv') }}"
+    },
+
+    # Hooks libraries to load. Each entry specifies a shared object (library) and optional parameters.
+    # These are used for extending KEA functionality (e.g., stats, logging, custom logic).
+    # Schema: hooks_libraries
+    # Default: [] (empty list)
+    "hooks-libraries": [
+      {% for lib in hooks_libraries | default([]) | list %}{# Load a hook library #}
+      {
+        # Path to the shared library file.
+        "library": "{{ lib.library | default('') }}",
+        
+        {% if lib.parameters is defined and lib.parameters %}{# Optional hook-specific parameters #}
+        "parameters": {{ lib.parameters | to_json }},
+        {% else %}{# No parameters provided, use empty object #}
+        "parameters": {}
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ],
+
+    # Seconds to wait before reconnecting to the lease database after a disconnect.
+    # Only relevant for non-memfile DBs (e.g., mysql, postgresql) where connection drops occur.
+    # Kept for structural compatibility, but effectively ignored for memfile.
+    # Schema: reconnect_wait_time
+    # Default: 0
+    "reconnect-wait-time": {{ reconnect_wait_time | default(0) }},
+
+    # Interval between periodic writes of lease data to the file.
+    # Only effective when persist=true.
+    # Schema: db_interval
+    # Default: 3600
+    "database-interval": {{ db_interval | default(3600) }},
+
+    # Authentication configuration for database access.
+    # Not used by memfile, but accepted for config compatibility if switching backends.
+    # Schema: auth
+    # Default: {} (empty dict)
+    "auth": {{ auth | default({}) | to_json }},
+
+    # Logging configuration for KEA components.
+    # Defines logger names, severity levels, and output options (stdout, file, etc.).
+    # Schema: loggers
+    # Default: [{'name': 'kea-dhcp4', 'severity': 'INFO', 'debuglevel': 0}]
+    "loggers": [
+      {% for logger in loggers | default([{'name': 'kea-dhcp4', 'severity': 'INFO', 'debuglevel': 0}]) | list %}{# Configure a logger #}
+      {
+        # Name of the logger (e.g., 'kea-dhcp4', 'kea-dhcp6').
+        "name": "{{ logger.name | default('kea-dhcp4') }}",
+        
+        # Output options: where logs are sent and how they are handled.
+        "output_options": [
+          {
+            # Output destination: 'stdout', 'syslog', or a file path.
+            "output": "{{ logger.output | default('stdout') }}",
+            
+            {% if logger.max_size is defined and logger.max_size %}{# Maximum log file size (bytes) #}
+            # Maximum size of the log file before rotation, in bytes.
+            , "max-size": {{ logger.max_size }},
+            {% endif %}
+            
+            {% if logger.max_versions is defined and logger.max_versions %}{# Maximum number of rotated log files to keep #}
+            # Number of rotated log files to retain.
+            , "max-versions": {{ logger.max_versions }},
+            {% endif %}
+            
+            {% if logger.flush is defined and logger.flush is true %}{# Force flush after each write #}
+            # If true, flush the buffer after every log write.
+            , "flush": true
+            {% endif %}
+          }
+        ],
+        
+        # Minimum severity level for this logger (DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL).
+        "severity": "{{ logger.severity | default('INFO') }}",
+        
+        # Debug level for detailed debugging output (0 = off).
+        "debuglevel": {{ logger.debuglevel | default(0) }}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  }
+}

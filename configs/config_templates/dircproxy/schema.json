@@ -1,0 +1,179 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address (or hostname) the proxy listens on for client connections."
+  },
+  "port": {
+    "type": "number",
+    "default": 6667,
+    "description": "TCP port for incoming client connections."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/dircproxy/dircproxy.log",
+    "description": "Path to the log file (use /dev/stdout to log to stdout)."
+  },
+  "daemon": {
+    "type": "bool",
+    "default": true,
+    "description": "Run as a background daemon process."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "max_channels": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of channels a single client may auto-join."
+  },
+  "default_nick": {
+    "type": "string",
+    "default": "dircproxy",
+    "description": "Default nickname used when connecting to IRC servers, if the client doesn't provide one."
+  },
+  "default_user": {
+    "type": "string",
+    "default": "dircproxy",
+    "description": "Username (ident) used when connecting to IRC servers."
+  },
+  "default_realname": {
+    "type": "string",
+    "default": "dircproxy IRC proxy",
+    "description": "Real name (GECOS) field used when connecting to IRC servers."
+  },
+  "client_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity before disconnecting an idle client."
+  },
+  "server_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds of inactivity before disconnecting an idle server connection."
+  },
+  "reconnect_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait before retrying a failed server connection."
+  },
+  "max_reconnects": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of consecutive failed reconnection attempts before giving up."
+  },
+  "ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for all outgoing server connections (unless overridden per server)."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/dircproxy/ssl/client.crt",
+    "description": "Path to client certificate file (PEM format), required if SSL is enabled globally."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/dircproxy/ssl/client.key",
+    "description": "Path to client private key file (PEM format)."
+  },
+  "ssl_cafile": {
+    "type": "string",
+    "default": "/etc/dircproxy/ssl/ca.crt",
+    "description": "Path to CA certificate bundle (PEM format), used for server cert verification."
+  },
+  "server_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password used to authenticate to IRC servers (e.g., SASL or legacy pass). Leave blank to skip."
+  },
+  "servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "irc.libera.chat",
+        "port": 6697,
+        "ssl": true,
+        "ssl_verify": true,
+        "ssl_cafile": "/etc/dircproxy/ssl/ca.crt",
+        "autojoin": [
+          "#dircproxy",
+          "#help"
+        ]
+      }
+    ],
+    "description": "List of IRC servers to connect to. Each entry defines a server, its connection settings, and default autojoin channels.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "IRC server hostname or IP."
+      },
+      "port": {
+        "type": "number",
+        "default": 6667,
+        "description": "IRC server port (6697 is typical for SSL)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Server password (e.g., SASL PLAIN password or legacy server password)."
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Use SSL/TLS for this server connection."
+      },
+      "ssl_verify": {
+        "type": "bool",
+        "default": true,
+        "description": "Verify server certificate using CA file."
+      },
+      "ssl_cafile": {
+        "type": "string",
+        "default": "",
+        "description": "CA bundle path (overrides global ssl_cafile for this server)."
+      },
+      "autojoin": {
+        "type": "list",
+        "default": [
+          "#general"
+        ],
+        "description": "List of channels to auto-join (supports optional channel key: '#channel:key')."
+      }
+    }
+  },
+  "allow_clients": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of allowed client IPs/nets with optional passwords (whitelist). If empty, all clients are allowed.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Allowed client host/IP or CIDR subnet (e.g., '192.168.1.0/24')."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Client auth password (if omitted, no password required)."
+      }
+    }
+  },
+  "admin_password": {
+    "type": "string",
+    "default": "",
+    "description": "Shared password for administrative commands sent via client (e.g., /DIRCPROXY). Leave blank to disable."
+  },
+  "log_channels": {
+    "type": "bool",
+    "default": true,
+    "description": "Log public channel traffic."
+  },
+  "log_privates": {
+    "type": "bool",
+    "default": true,
+    "description": "Log private messages (if disabled, only server commands are logged)."
+  }
+}

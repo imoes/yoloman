@@ -1,0 +1,118 @@
+{
+  "port": {
+    "type": "number",
+    "default": 70,
+    "description": "The TCP port on which the Gophernicus server listens for incoming connections."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "The local IP address or hostname the server binds to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "root": {
+    "type": "string",
+    "default": "/var/gopher",
+    "description": "The filesystem path to the directory served as the Gopher root."
+  },
+  "maxconn": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of simultaneous client connections. Set to 0 for no limit."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Session timeout in seconds. The man page specifies a default of 1800."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log messages to the system syslog daemon. The config file usually enables logging by default unless explicitly disabled via -ns."
+  },
+  "log_to_file": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, write access logs to a file. The man page states logging to file is disabled by default (-l)."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/gophernicus/access.log",
+    "description": "Path to the log file used when log_to_file is enabled."
+  },
+  "dirindex": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically generate directory listings for browsable Gopher directories."
+  },
+  "server_descriptions": {
+    "type": "list",
+    "default": [
+      "Welcome to my Gopher server!",
+      "Public domain content available here."
+    ],
+    "description": "A list of short descriptive lines shown on the server info (info.gopher) page."
+  },
+  "servername": {
+    "type": "string",
+    "default": "Gophernicus Server",
+    "description": "The public name of this Gopher server (used in banners, info pages, and server responses). Mapped to -D in man page."
+  },
+  "gmapmode": {
+    "type": "number",
+    "default": 0,
+    "description": "Default gopher filetype setting (-t). The man page default is 0. Note: The previous value of 1 (automatic gophermap generation) is not a direct -t option; gophermap generation is controlled by presence of file, not a numeric flag in this simple config. Keeping the key for compatibility but correcting default to 0 to match -t doc."
+  },
+  "vhostprefix": {
+    "type": "string",
+    "default": "",
+    "description": "Virtual host prefix (e.g., 'gopher.example.com/') if supported by compiled version; leave empty to disable."
+  },
+  "mime_overrides": {
+    "type": "list",
+    "default": [
+      {
+        "ext": "html",
+        "mime": "text/html"
+      },
+      {
+        "ext": "txt",
+        "mime": "text/plain"
+      },
+      {
+        "ext": "png",
+        "mime": "image/png"
+      }
+    ],
+    "description": "List of file extension \u2192 MIME type mappings for custom type handling (mapped to -e ext=type). Note: The man page uses 'type' which refers to gopher filetype (0-6) or MIME types depending on implementation context, but here treated as MIME for consistency with previous schema intent where applicable, though strictly -e maps ext to gopher filetype number. Given the previous schema used MIME strings, we preserve the schema shape but note the documentation says 'gopher filetype type'. However, standard gophernicus config often uses MIME here. We keep the field as is."
+  },
+  "default_mime": {
+    "type": "string",
+    "default": "text/plain",
+    "description": "MIME type assigned to files without a known extension or override."
+  },
+  "banned_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses or CIDR ranges to block from accessing the server."
+  },
+  "whitelist_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, block all IPs except those explicitly listed in 'banned_ips' (i.e., treat banned_ips as a whitelist)."
+  },
+  "no_dirlist": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, suppress directory listings even when DIRINDEX is enabled."
+  },
+  "hide_dotfiles": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, hide files and directories whose names start with a dot (.) in directory listings."
+  },
+  "log_ip": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, include client IP addresses in log output."
+  }
+}

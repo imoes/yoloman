@@ -1,0 +1,140 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          osspd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: OSS Proxy Daemon: Userland OSS emulation
+# Description:       Daemon providing a userland implementation of OSS devices.
+#                    Currently it supports forwarding OSS sound streams to
+#                    PulseAudio and ALSA.
+### END INIT INFO
+
+# Author: Ralf Jung <post@ralfj.de>
+
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+DESC="OSS Proxy Daemon"
+NAME=osspd
+DAEMON=/usr/sbin/$NAME
+DAEMON_ARGS="--dsp-slave=/usr/lib/osspd/ossp-slave"
+# Absolute path to the PID file for the daemon process
+PIDFILE={{ pid_file | default('/var/run/osspd.pid') }}
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	start-stop-daemon --start --background --quiet --pidfile $PIDFILE --make-pidfile --exec $DAEMON --test > /dev/null \
+		|| return 1
+	# -f: run in foreground, start-stop-daemon does the forking - this is required to let start-stop-daemon handle the pidfile
+	# Start the daemon with the following options:
+	#   - log_level: Logging verbosity: 'debug', 'info', 'warn', or 'error'
+	#   - bind_addr: Network address to bind control interface to (empty = all interfaces)
+	#   - control_port: TCP port for the control interface (used for stats, reload, etc.)
+	#   - audio_ports: List of TCP ports for audio emulation (one per OSS device instance)
+	#   - max_clients: Maximum number of simultaneous client connections per audio port
+	#   - osss_compat_v4: Enable OSS v4.x compatibility mode (if supported); otherwise defaults to v3.9
+	#   - device_emulation: List of OSS devices to emulate (e.g., /dev/dsp, /dev/mixer)
+	#   - backend_dsp: Backend DSP implementation: 'alsa', 'jack', 'pipewire', or empty to auto-detect
+	#   - alsa_device: ALSA PCM device name (e.g., 'hw:0,0') when using ALSA backend
+	#   - jack_client_name: JACK client name when using JACK backend
+	#   - pipewire_node_name: PipeWire node name when using PipeWire backend
+	#   - realtime: Enable real-time scheduling for lower latency (requires CAP_SYS_NICE capability)
+	#   - realtime_priority: Real-time priority (1–99); higher = more urgent (1–10 is safe for non-root, 11+ needs privileges)
+	#   - buffer_size: Audio buffer size in frames (larger = more latency, more stability)
+	#   - periods: Number of periods in the audio ring buffer (typically 2 or 4)
+	#   - latency_compensation: Automatically adjust delay to compensate for system load variations
+	#   - work_dir: Working directory for temporary device nodes and emulation state
+	start-stop-daemon --start --background --quiet --pidfile $PIDFILE --make-pidfile --exec $DAEMON -- -f \
+		$DAEMON_ARGS \
+		--log-level={{ log_level | default('info') }} \
+		--bind-addr={{ bind_addr | default('') }} \
+		--control-port={{ control_port | default(9001) }} \
+		--audio-ports={{ audio_ports | default([9002, 9003]) | join(',') }} \
+		--max-clients={{ max_clients | default(64) }} \
+		--osss-compat-v4={{ osss_compat_v4 | default(False) | lower }} \
+		--device-emulation={{ device_emulation | default([{'device': '/dev/dsp', 'channels': 2, 'sample_rate': 48000, 'format': 'S16_LE'}]) | tojson }} \
+		--backend-dsp={{ backend_dsp | default('alsa') }} \
+		--alsa-device={{ alsa_device | default('hw:0') }} \
+		--jack-client-name={{ jack_client_name | default('osspd') }} \
+		--pipewire-node-name={{ pipewire_node_name | default('osspd') }} \
+		--realtime={{ realtime | default(True) | lower }} \
+		--realtime-priority={{ realtime_priority | default(85) }} \
+		--buffer-size={{ buffer_size | default(8192) }} \
+		--periods={{ periods | default(4) }} \
+		--latency-compensation={{ latency_compensation | default(True) | lower }} \
+		--work-dir={{ work_dir | default('/run/osspd') }} \
+		|| return 2
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+	# Stop the daemon
+	start-stop-daemon --stop --quiet --retry=TERM/30/KILL/5 --pidfile $PIDFILE --name $NAME
+	return "$?"
+}
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  status)
+	status_of_proc "$DAEMON" "$NAME" && exit 0 || exit $?
+	;;
+  restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+		# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
+esac

@@ -1,0 +1,48 @@
+# Cronolog configuration file
+# This template generates cronolog command-line arguments for each configured log stream.
+# Each log stream definition in the `log_streams` list produces a block of configuration.
+#
+# Schema fields:
+#   - log_streams (list): List of log stream configurations.
+#     - name (str): Optional human-readable name (comment only).
+#     - template (str): Path template for log file naming (strftime-like).
+#     - hardlink (str): Path for a hard link to the current log file.
+#     - symlink (str): Path for a symbolic link to the current log file.
+#     - prev_symlink (str): Path for a symbolic link to the previous log file.
+#     - period (str): Explicit rotation period (e.g., '1h', '1d').
+#     - delay (str): Delay before rotation within the period (e.g., '5m').
+#     - once_only (bool): If true, create a single non-rotating log file.
+
+{% for entry in log_streams | default([]) %}
+{# Log stream definition start #}
+{% if entry.name | default('') %}
+# Stream: {{ entry.name | default('') }}
+{% endif %}
+
+{# Template path for log file rotation. Required field, defaults to Apache-style daily rotation. #}
+{{ entry.template | default('/var/log/apache2/%Y/%m/%d/access.log') }}
+
+{% if entry.hardlink | default('') %}
+  # Hard link to current log file (via --hardlink)
+  --hardlink={{ entry.hardlink | default('') }}{% endif %}
+
+{% if entry.symlink | default('') %}
+  # Symbolic link to current log file (via --symlink)
+  --symlink={{ entry.symlink | default('') }}{% endif %}
+
+{% if entry.prev_symlink | default('') %}
+  # Symbolic link to previous log file (via --prev-symlink). Requires symlink to be set.
+  --prev-symlink={{ entry.prev_symlink | default('') }}{% endif %}
+
+{% if entry.period | default('') %}
+  # Explicit rotation period (e.g., '1h', '30m', '1d')
+  --period={{ entry.period | default('') }}{% endif %}
+
+{% if entry.delay | default('') %}
+  # Delay before rotation within period (e.g., '5m')
+  --delay={{ entry.delay | default('') }}{% endif %}
+
+{% if entry.once_only | default(False) %}
+  # Single static file (no rotation) (via --once-only)
+  --once-only{% endif %}
+{% endfor %}

@@ -1,0 +1,139 @@
+{
+  "server_info": {
+    "name": "irc.undernet.example",
+    "description": "Undernet IRC Server - US East",
+    "network_name": "Undernet"
+  },
+  "defaults": {
+    "max_users": 300,
+    "max_nick_length": 15,
+    "max_topic_length": 307,
+    "max_channel_len": 50,
+    "max_alias_len": 20,
+    "max_burst": 10,
+    "min_nick_length": 2,
+    "min_nick_time": 5
+  },
+  "listeners": [
+    {
+      "ip": "0.0.0.0",
+      "port": 6667,
+      "options": "0"
+    },
+    {
+      "ip": "0.0.0.0",
+      "port": 6697,
+      "options": "1"
+    },
+    {
+      "ip": "::",
+      "port": 6667,
+      "options": "0"
+    }
+  ],
+  "opers": [
+    {
+      "name": "Admin",
+      "password": "$6$rounds=5000$salt$hashed",
+      "host": "Admin@*.edu",
+      "class": "staff",
+      "flags": {
+        "can_gline": true,
+        "can_zline": true,
+        "can_rehash": true,
+        "can_die": true,
+        "can_restart": true,
+        "can_set": true
+      }
+    }
+  ],
+  "classes": [
+    {
+      "name": "staff",
+      "ping_time": 60,
+      "frequency": 120,
+      "max_users": 50
+    },
+    {
+      "name": "default",
+      "ping_time": 120,
+      "frequency": 180,
+      "max_users": 250
+    }
+  ],
+  "connects": [
+    {
+      "name": "irc2.undernet.example",
+      "host": "10.0.0.2",
+      "port": 7000,
+      "class": "default",
+      "password": "linkpass1",
+      "rpassword": "linkpass1",
+      "flags": {
+        "auto_conn": true,
+        "zip": false,
+        "ssl": true,
+        "hub": false,
+        "leaf": true
+      }
+    }
+  ],
+  "modules": [
+    {
+      "path": "modules/m_ircops.so"
+    },
+    {
+      "path": "modules/m_tls.so"
+    }
+  ],
+  "logs": [
+    {
+      "filename": "/var/log/ircd/ircd.log",
+      "level": 1
+    },
+    {
+      "filename": "/var/log/ircd/debug.log",
+      "level": 2
+    }
+  ],
+  "ssl": {
+    "enabled": true,
+    "cert_file": "/etc/ircd-ircu/certs/server.crt",
+    "key_file": "/etc/ircd-ircu/certs/server.key",
+    "cipher_list": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+    "verify_mode": 0
+  },
+  "hidden": {
+    "host": "hidden.undernet.example",
+    "user": "ircd",
+    "server": "irc.undernet.example"
+  },
+  "anti_flood": {
+    "max_sendq": 40960,
+    "max_accept": 12,
+    "flood_count": 6,
+    "flood_time": 60
+  },
+  "dns": {
+    "timeout": 5,
+    "retry": 3,
+    "cache_size": 2000
+  },
+  "kline": {
+    "duration": 86400
+  },
+  "zline": {
+    "duration": 86400
+  },
+  "server_linking": {
+    "enabled": true,
+    "name": "irc.undernet.example",
+    "hub": "irc.hub.undernet.example",
+    "port": 7000
+  },
+  "channel": {
+    "default_max_users": 100,
+    "default_topic_limit": 1,
+    "default_key_expire": 0
+  }
+}

@@ -1,0 +1,63 @@
+# CoreDHCP Server Configuration Template
+# This file is self-documenting: every directive is preceded by a comment
+# describing its purpose, sourced from the schema definition.
+
+# ==============================================================================
+# Section: Global Server Settings
+# ==============================================================================
+
+# Log verbosity level for server logs.
+# Accepted values: debug, info, warn, error.
+# Default: 'info'
+log {{ log_level | default('info') }}
+
+# Graceful shutdown timeout in seconds.
+# The server waits this many seconds for in-progress requests to complete
+# before force-exiting during shutdown.
+# Default: 5
+shutdown_timeout {{ shutdown_timeout | default(5) }}
+
+# Path to the file where active DHCP leases are persisted.
+# Enables lease continuity across server restarts.
+# Leave empty or undefined to disable persistence.
+# Default: '/var/lib/coredhcp/leases.dat'
+{% if lease_file | default('/var/lib/coredhcp/leases.dat') is not none and (lease_file | default('/var/lib/coredhcp/leases.dat')) | length > 0 %}
+leases {{ lease_file | default('/var/lib/coredhcp/leases.dat') }}
+{% else %}
+# leases <path>
+# (Persistence disabled)
+{% endif %}
+
+# ==============================================================================
+# Section: Listening Addresses
+# ==============================================================================
+
+# List of network addresses and ports the server listens on for DHCP requests.
+# Each entry is a dictionary with 'host' and 'port'.
+# Default: [{'host': '0.0.0.0', 'port': 67}, {'host': '::', 'port': 67}]
+{% for addr in (listen_addresses | default([{'host': '0.0.0.0', 'port': 67}, {'host': '::', 'port': 67}])) %}
+listen {{ addr.host }}:{{ addr.port }}
+{% endfor %}
+
+# ==============================================================================
+# Section: Plugin Configuration
+# ==============================================================================
+
+# Ordered list of plugins to enable, with optional space-separated arguments.
+# Plugins are loaded and executed in the order listed.
+# Default: [{'name': 'serverid', 'args': ['-file', '/etc/coredhcp/server-id']}, {'name': 'file', 'args': ['-file', '/etc/coredhcp/resolv.conf']}]
+{% for plugin in (plugins | default([{'name': 'serverid', 'args': ['-file', '/etc/coredhcp/server-id']}, {'name': 'file', 'args': ['-file', '/etc/coredhcp/resolv.conf']}])) %}
+plugin {{ plugin.name }}{% if plugin.args %} {{ plugin.args | join(' ') }}{% endif %}
+{% endfor %}
+
+# ==============================================================================
+# Section: Static Host Entries
+# ==============================================================================
+
+# Static host entries for fixed MAC → IP assignments.
+# Each entry is a dictionary with keys like 'hostname', 'mac', 'ipv4', 'ipv6'.
+# Format in output: host <hostname> <mac> [ipv4] [ipv6]
+# Default: [] (empty list)
+{% for host in (static_hosts | default([])) %}
+host {{ host.hostname }} {{ host.mac }}{% if host.ipv4 %} {{ host.ipv4 }}{% endif %}{% if host.ipv6 %} {{ host.ipv6 }}{% endif %}
+{% endfor %}

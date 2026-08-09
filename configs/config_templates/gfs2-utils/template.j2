@@ -1,0 +1,59 @@
+# GFS2 cluster configuration file
+# This file defines cluster-wide settings for GFS2 management tools.
+# It is used by gfs2-utils commands (e.g., gfs2_quota, gfs2_jadd) to interact
+# with the GFS2 distributed lock manager.
+#
+# IMPORTANT:
+# - This configuration is generally only required if you are NOT using a full cluster stack
+#   (like Pacemaker/Corosync or cman) that manages GFS2 automatically.
+# - If a cluster manager is running, it often generates or overrides this file.
+# - Ensure the underlying cluster infrastructure is active before creating/accessing GFS2 filesystems.
+#
+# Global GFS2 settings affecting all GFS2 operations on this node
+{# The 'global' variable is expected to be a dictionary/object. We default it to an empty dict {}
+   to safely access its properties even if it is not defined in the playbook. #}
+{% set global = global | default({}) %}
+
+{# Global GFS2 settings affecting all GFS2 operations on this node #}
+global {
+  # locking_type: Defines which locking protocol GFS2 uses.
+  # 0 = lock_nolock (no locking, for local/testing only),
+  # 1 = lock_dlm (standard DLM locking, used with cman/corosync),
+  # 2 = lock_flock (local file locking, for standalone testing).
+  # Default is usually 1 (lock_dlm) in enterprise environments.
+  locking_type = {{ (global | default({})).locking_type | default(1) }}
+
+  # lock_dump_threshold: If set, triggers a dump of the lock table to the system log
+  # once the number of active locks exceeds this value. Useful for debugging lock contention.
+  # Commented out by default to avoid excessive logging.
+  {% if (global | default({})).lock_dump_threshold is defined %}
+  # Only enable for debugging; can impact performance and disk space if logs are large.
+  lock_dump_threshold = {{ (global | default({})).lock_dump_threshold }}
+  {% endif %}
+
+  # log_file: Path to the log file for GFS2 user-space tools.
+  # If set to an empty string or omitted, logs may go to syslog or stderr.
+  log_file = "{{ (global | default({})).log_file | default('/var/log/gfs2.log') }}"
+
+  # log_level: Verbosity of the logs (0-4).
+  # 0 = none, 1 = error, 2 = warning, 3 = info, 4 = debug.
+  # Set to 1 or 2 for production to minimize noise; 4 for troubleshooting.
+  log_level = {{ (global | default({})).log_level | default(1) }}
+}
+
+# cluster_name: The name of the GFS2 cluster.
+# Only used if this node is managing GFS2 independently of a cluster manager.
+# If your environment uses cman, corosync, or pacemaker, this value is typically ignored
+# in favor of the cluster manager's configuration.
+{% if (global | default({})).cluster_name is defined and (global | default({})).cluster_name %}
+# Note: In a managed cluster environment, this field is usually redundant.
+cluster_name = "{{ (global | default({})).cluster_name }}"
+{% endif %}
+
+# lockspace_name: The name of the GFS2 lock space.
+# This allows multiple GFS2 clusters or filesystems to coexist on the same infrastructure
+# by separating their locking domains. Rarely needed in standard single-cluster deployments.
+{% if (global | default({})).lockspace_name is defined and (global | default({})).lockspace_name %}
+# Use this only if you need to isolate lock spaces from the default cluster name.
+lockspace_name = "{{ (global | default({})).lockspace_name }}"
+{% endif %}

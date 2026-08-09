@@ -1,0 +1,38 @@
+{
+  "validate_metadata": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable generation of the [Metadata] section for appstream-util validation rules."
+  },
+  "strict": {
+    "type": "bool",
+    "default": false,
+    "description": "Enforce strict compliance with AppStream specification during validation (equivalent to --strict in CLI)."
+  },
+  "allowed_languages": {
+    "type": "list",
+    "default": [
+      "en"
+    ],
+    "description": "List of ISO 639 language codes permitted in translations. Used by appstream-util validate to check locale usage."
+  },
+  "validation_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Custom validation rules as key=value pairs, e.g., 'IconRequired=true'. Each item must have 'key' and 'value' fields of string type. See appstream-util(1) --help and AppStream spec for valid keys/values. Note: This is *not* a direct config file format, but appstream-util accepts --rule KEY=VALUE on the command line, so we model external rule injection here for tooling automation purposes. Not a real on-disk config section, but useful for reproducible config generation (e.g., by CI)."
+  },
+  "validation_rules.items": {
+    "type": "object",
+    "description": "A single validation rule. Each rule is a key-value pair (both string). Keys and values must conform to appstream-util(1) --help syntax and AppStream spec (e.g., 'IconRequired', 'IconSizeMin=48')."
+  },
+  "validation_rules.items.key": {
+    "type": "string",
+    "default": "",
+    "description": "The validation rule key (e.g., IconRequired, IconSizeMin)."
+  },
+  "validation_rules.items.value": {
+    "type": "string",
+    "default": "",
+    "description": "The validation rule value (e.g., true, false, 48). Must be a string representation as expected by appstream-util."
+  }
+}

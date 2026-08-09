@@ -1,0 +1,54 @@
+name: redis_data_incr
+fqcn: community.general.redis_data_incr
+collection: community.general
+short_description: Increment keys in Redis
+description: Increment integers or float keys in Redis database and get new value. Default increment for
+  all keys is 1. For specific increments use the O(increment_int) and O(increment_float) options.
+options:
+  ca_certs:
+    type: str
+    description: Path to root certificates file. If not set and O(tls) is set to V(true), certifi ca-certificates
+      will be used.
+  increment_float:
+    type: float
+    description: Float amount to increment the key by. This only works with keys that contain float values
+      in their string representation.
+  increment_int:
+    type: int
+    description: Integer amount to increment the key by.
+  key:
+    type: str
+    required: true
+    description: Database key.
+  login_host:
+    type: str
+    default: localhost
+    description: Specify the target host running the database.
+  login_password:
+    type: str
+    description: Specify the password to authenticate with. Usually not used when target is localhost.
+  login_port:
+    type: int
+    default: 6379
+    description: Specify the port to connect to.
+  login_user:
+    type: str
+    description: Specify the user to authenticate with. Requires L(redis,https://pypi.org/project/redis)
+      >= 3.4.0.
+  tls:
+    type: bool
+    default: true
+    description: Specify whether or not to use TLS for the connection.
+  validate_certs:
+    type: bool
+    default: true
+    description: Specify whether or not to validate TLS certificates. This should only be turned off for
+      personally controlled sites or with C(localhost) as target.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Increment integer key foo on localhost with no username and print new value\n  community.general.redis_data_incr:\n\
+  \    login_host: localhost\n    login_password: supersecret\n    key: foo\n    increment_int: 1\n  register:\
+  \ result\n- name: Print new value\n  debug:\n    var: result.value\n\n- name: Increment float key foo\
+  \ by 20.4\n  community.general.redis_data_incr:\n    login_host: redishost\n    login_user: redisuser\n\
+  \    login_password: somepass\n    key: foo\n    increment_float: '20.4'\n"

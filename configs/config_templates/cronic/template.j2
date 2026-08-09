@@ -1,0 +1,17 @@
+{# cronic: wrapper script for cron jobs to suppress normal output, emit only on failure #}
+{# cronic executes the command and captures stdout/stderr/exit status #}
+{# Configuration: cronic itself is a shell script with no external config file. #}
+{# Behavior is controlled by shell options (-o errexit, -o nounset, -o xtrace) #}
+{# and optional user-defined logic for empty stdout handling. #}
+#!/bin/bash
+# Enable strict mode: exit on error, unset variable usage, and trace execution.
+set -o errexit -o nounset -o xtrace
+
+{% if error_on_empty_stdout | default(false) %}
+# Optional: treat empty stdout as an error condition.
+# Note: This is not part of cronic itself; the user must implement
+# the logic to detect empty stdout and exit non-zero in their
+# wrapped script if this option is enabled.
+{% endif %}
+# Execute the command passed as arguments to cronic.
+cronic "$@"

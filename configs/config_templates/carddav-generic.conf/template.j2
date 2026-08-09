@@ -1,0 +1,98 @@
+# CardDAV Generic Account Plugin Configuration
+# Defines CardDAV server connection settings and optional features
+
+[Account]
+# Type of the account — usually 'CardDAV' for this plugin.
+account_type={{ account_type | default('CardDAV') }}
+
+# User-visible name of the account (e.g., 'Work Contacts').
+account_name={{ account_name | default('Generic CardDAV Account') }}
+
+# Base URL of the CardDAV server (e.g., https://cards.example.com/carddav/).
+# Note: The schema field is 'carddav_url'; the key in this config format is 'endpoint'.
+endpoint={{ carddav_url | default('https://example.com/carddav/') }}
+
+# Username for authentication (leave blank if using OAuth or other token-based auth).
+username={{ user | default('') }}
+
+# Password reference string — e.g., a secret ID or 'keyring://...' for secure storage.
+# Never hardcode plain passwords.
+password={{ password_ref | default('') }}
+
+# Optional display name used when presenting contacts (e.g., 'My Work Address Book').
+{% if display_name_value | default('') | length > 0 %}
+display_name={{ display_name_value | default('') }}
+{% endif %}
+
+# Whether to enforce TLS (SSL) for the connection. Must be true in production.
+{% if use_ssl_value | default(True) %}
+use_ssl={{ use_ssl_value | default(True) }}
+{% endif %}
+
+# Whether to verify the server's TLS certificate (recommended: true).
+{% if verify_ssl_value | default(True) %}
+verify_ssl={{ verify_ssl_value | default(True) }}
+{% endif %}
+
+# Authentication method: 'Basic', 'Bearer', 'OAuth2', or custom.
+{% if auth_method_value | default('Basic') | length > 0 %}
+auth_method={{ auth_method_value | default('Basic') }}
+{% endif %}
+
+# Request timeout in seconds before the connection is aborted.
+{% if timeout_value | default(30) > 0 %}
+timeout={{ timeout_value | default(30) }}
+{% endif %}
+
+# Maximum number of concurrent HTTP connections to the CardDAV server.
+{% if max_connections_value | default(4) > 0 %}
+max_connections={{ max_connections_value | default(4) }}
+{% endif %}
+
+# List of HTTP methods allowed for CardDAV operations.
+{% if supported_methods_value | default(['GET', 'PROPFIND', 'REPORT']) | length > 0 %}
+supported_methods={{ supported_methods_value | default(['GET', 'PROPFIND', 'REPORT']) | join(', ') }}
+{% endif %}
+
+# List of custom HTTP headers to send with every request.
+{% for header in custom_headers | default([]) %}
+{{ header.name }}={{ header.value }}
+{% endfor %}
+
+[Cache]
+# Enable local caching of contact data (recommended for offline access and performance).
+cache_enabled={{ cache_enabled_value | default(True) }}
+
+# Filesystem path where cached contacts are stored.
+{% if cache_path_value | default('/var/cache/online-accounts/carddav/') | length > 0 %}
+cache_path={{ cache_path_value | default('/var/cache/online-accounts/carddav/') }}
+{% endif %}
+
+# Time-to-live for cache entries, in seconds.
+{% if cache_ttl_value | default(3600) > 0 %}
+cache_ttl={{ cache_ttl_value | default(3600) }}
+{% endif %}
+
+# Maximum cache size in bytes (50 MB default).
+{% if cache_max_size_value | default(52428800) > 0 %}
+cache_max_size={{ cache_max_size_value | default(52428800) }}
+{% endif %}
+
+[Sync]
+# Enable automatic background synchronization.
+sync_enabled={{ sync_enabled_value | default(True) }}
+
+# Sync frequency in seconds (e.g., 1800 = every 30 minutes).
+{% if sync_interval_value | default(1800) > 0 %}
+sync_interval={{ sync_interval_value | default(1800) }}
+{% endif %}
+
+# Trigger an immediate sync when network connectivity is restored.
+{% if sync_on_connect_value | default(True) %}
+sync_on_connect={{ sync_on_connect_value | default(True) }}
+{% endif %}
+
+# Allow sync while device is running on battery (set to true for critical use cases).
+{% if sync_on_battery_value | default(False) %}
+sync_on_battery={{ sync_on_battery_value | default(False) }}
+{% endif %}

@@ -1,0 +1,56 @@
+{# ============================================================================ #}
+{# deepin-album configuration file                                              #}
+{#                                                                              #}
+{# This file is read at application startup.                                    #}
+{# No command-line options are supported; all configuration is done here.       #}
+{#                                                                              #}
+{# Schema-driven defaults are applied automatically via Jinja2 default filters. #}
+{# Every variable reference is self-documented with its schema default.         #}
+{# ============================================================================ #}
+
+[General]
+
+# -------------------------------------------------------------------------- #
+# initial_path: Absolute or relative path to the initial image directory     #
+#               shown on launch. If empty, shows all known pictures.         #
+# -------------------------------------------------------------------------- #
+initial_path={{ initial_path | default('') }}
+
+# -------------------------------------------------------------------------- #
+# auto_import: If true, automatically imports new photos from import_dirs    #
+#              on startup.                                                     #
+# -------------------------------------------------------------------------- #
+auto_import={{ auto_import | default(false) }}
+
+# -------------------------------------------------------------------------- #
+# import_dirs: List of directories to monitor for new photos when            #
+#              auto_import is true. Each directory is commented out as a     #
+#              descriptive marker since this INI file does not support       #
+#              list values directly.                                         #
+# -------------------------------------------------------------------------- #
+{% for dir in (import_dirs | default([])) %}
+# Import directory: {{ dir }}
+{% endfor %}
+
+# -------------------------------------------------------------------------- #
+# thumbnail_cache_limit: Maximum size (in MB) for the thumbnail cache.       #
+#                       Use 0 for unlimited.                                 #
+# -------------------------------------------------------------------------- #
+thumbnail_cache_limit={{ thumbnail_cache_limit | default(512) }}
+
+# -------------------------------------------------------------------------- #
+# enable_face_recognition: Enable face recognition if the binary includes    #
+#                         support. No effect if unsupported.                 #
+# -------------------------------------------------------------------------- #
+enable_face_recognition={{ enable_face_recognition | default(false) }}
+
+# -------------------------------------------------------------------------- #
+# lang: Language code (e.g., en_US, zh_CN). Empty string means use system   #
+#       locale.                                                              #
+# -------------------------------------------------------------------------- #
+{% if (lang | default('')) %}
+# Language: {{ lang | default('') }}
+lang={{ lang | default('') }}
+{% else %}
+# Language: (system default)
+{% endif %}

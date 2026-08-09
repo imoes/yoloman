@@ -1,0 +1,34 @@
+# =============================================================================
+# Bup Configuration Template
+# =============================================================================
+# This template configures the Bup backup utility.
+#
+# Bup is a backup system based on git, designed for efficiency and speed.
+# It stores deduplicated backups in a local or remote repository.
+#
+# Variables used:
+#   bup_dir:              Path to the bup repository directory.
+#                         Corresponds to the -d/--bup-dir option or the BUP_DIR
+#                         environment variable.
+#   git_check_override:   If set to 'true', 'yes', or '1', bypasses git version
+#                         verification. Corresponds to the
+#                         BUP_ASSUME_GIT_VERSION_ISFINE environment variable.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Repository Directory
+# -----------------------------------------------------------------------------
+# Specifies the path where the bup repository is stored.
+# This is the primary storage location for all backup data.
+BUP_DIR={{ bup_dir | default('~/.bup') }}
+
+# -----------------------------------------------------------------------------
+# Git Version Verification Override
+# -----------------------------------------------------------------------------
+# By default, bup checks the installed git version for compatibility.
+# Set this variable to bypass that check.
+# Accepted values that enable the override: 'true', 'yes', '1'.
+# If empty or undefined, the standard git version check is performed.
+{% if git_check_override is defined and git_check_override | trim | lower in ['true', 'yes', '1'] %}
+BUP_ASSUME_GIT_VERSION_IS_FINE={{ git_check_override | trim }}
+{% endif %}

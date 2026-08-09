@@ -1,0 +1,43 @@
+name: getent
+fqcn: builtin.getent
+collection: builtin
+short_description: Query an NSS (Name Service Switch) database — passwd, group, hosts,
+  shadow, services, and so on — via the `getent` command, optionally for one specific
+  key (e.g
+description: 'Query an NSS (Name Service Switch) database — passwd, group, hosts,
+  shadow, services, and so on — via the `getent` command, optionally for one specific
+  key (e.g. a single username). Returns each matched line''s raw colon-separated fields
+  plus its name/key. Use this to check whether a user/group already exists (and with
+  what uid/gid/home/shell) before deciding to call a write-gated `user`/`group` module.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.getent. Same database/key parameters and colon-split
+  field semantics; result mirrors ansible_facts[''getent_<database>''].
+
+  - Chef: Ruby''s `Etc.getpwnam`/`Etc.getgrnam` (for passwd/group) in a recipe/library;
+  other databases would be queried by shelling out to getent directly.
+
+  - Puppet: no dedicated type; Puppet''s own `user`/`group` resources read this state
+  internally, but ad hoc queries are done via a custom fact or `generate()`.
+
+  - Salt: the `user.info`/`group.info` execution modules for passwd/group; other databases
+  via `cmd.run(''getent ...'')`.
+
+  - Terraform: not applicable — Terraform does not query remote NSS state directly;
+  this would be done via a `null_resource` provisioner shelling out to getent.'
+options:
+  database:
+    type: string
+    description: NSS database to query, e.g. "passwd", "group", "hosts", "shadow",
+      "services".
+    required: true
+  key:
+    type: string
+    description: Optional specific entry to look up, e.g. a username "deploy". Omit
+      to list every entry in that database (matches the getent CLI's own behavior).
+native: true
+writes: false
+runtime: native
+source: agent-registry

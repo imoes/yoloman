@@ -1,0 +1,155 @@
+# casync(1) archive index configuration file (Section 5)
+#
+# This file configures casync for creating (making) or restoring (extracting)
+# bootable or portable filesystem trees using chunked, deduplicated storage.
+# It is typically located next to the .cast index file or in a system config path.
+#
+# Structure:
+#   [Archive]      -> Global settings for the index (path, store, digest, etc.)
+#   [ArchiveOptions] -> Behavior flags for exclusion and extraction logic.
+#   [ArchiveFeatures] -> Metadata features to include or exclude during archive creation.
+
+[Archive]
+
+# Path to the directory or file to archive (during 'make') or extract to (during 'extract').
+# If not provided, defaults to the current directory ('.').
+# This is a required logical setting for the operation scope.
+Path={{ path | default('.') }}
+
+# Path to the chunk store directory containing the data chunks.
+# If the path is not absolute, it is treated as relative to the directory containing
+# this index file (or the current directory if the index is in the current dir).
+# Defaults to '.' which typically implies the default 'default.cast' store location.
+Store={{ store | default('.') }}
+
+# Digest algorithm used to identify chunks.
+# Supported values: 'sha512-256' (default, high integrity) or 'sha256' (faster, smaller headers).
+# Use 'sha512-256' for security-critical archives; 'sha256' for performance.
+Digest={{ digest | default('sha512-256') }}
+
+# Compression algorithm applied to chunks.
+# Supported values: 'zstd' (default, fast balance), 'xz' (high compression, slow), or 'gzip' (compatible).
+# 'zstd' is recommended for most use cases due to its speed and ratio.
+Compression={{ compression | default('zstd') }}
+
+# Chunk size configuration in the format [MIN:]AVG[:MAX].
+# Unit suffixes: K (kilobytes), M (megabytes), G (gigabytes).
+# Example: '64K' sets average to 64K; '32K:64K:128K' sets min/avg/max.
+# Smaller chunks improve deduplication but increase header size; larger chunks improve compression.
+ChunkSize={{ chunk_size | default('64K') }}
+
+# Optional seed file or directory used to improve deduplication and compression during 'make'
+# or to accelerate extraction during 'extract'.
+# Must be an absolute or relative path. If omitted, no seed is used.
+# Seeds should contain identical or similar data to the archive.
+{% if seed is defined %}
+Seed={{ seed | default('') }}
+{% endif %}
+
+# Maximum bandwidth rate limit for remote communication (e.g., when fetching chunks via NFS or HTTP).
+# Specified in bytes per second. A value of 0 means unlimited (default).
+# Useful to prevent casync from saturating network links during large extractions.
+{% if rate_limit_bps is defined %}
+RateLimitBps={{ rate_limit_bps | default(0) }}
+{% endif %}
+
+[ArchiveOptions]
+
+# Exclude files that have the chattr +d (nodump) flag set.
+# If true, files marked as 'nodump' will NOT be included in the archive.
+# Set to false to include these files regardless of their attributes.
+# Default: false (exclude nodump files).
+ExcludeNodump={{ exclude_nodump | default(false) | string | lower }}
+
+# Exclude submounts (e.g., /proc, /sys, /dev, bind mounts) during archiving.
+# If true, mounted filesystems inside the source tree are skipped to avoid
+# including volatile or internal kernel data.
+# Default: true (exclude submounts).
+ExcludeSubmounts={{ exclude_submounts | default(true) | string | lower }}
+
+# Respect .caexclude files in the source tree.
+# If true, casync looks for .caexclude files (similar to .gitignore) and excludes
+# patterns found there.
+# Default: true (respect exclude files).
+ExcludeFile={{ exclude_file | default(true) | string | lower }}
+
+# Create reflinks (CoW copies) from seed data during extraction.
+# Requires a filesystem that supports reflinks (e.g., Btrfs, APFS).
+# If true, identical data is shared at the block level rather than copied,
+# saving disk space and time.
+# Default: false.
+Reflink={{ reflink | default(false) | string | lower }}
+
+# Create hardlinks from seed data during extraction.
+# If true, files identical to those in the seed are hardlinked instead of copied.
+# Works on any filesystem but requires the seed and target to be on the same FS.
+# Default: true.
+Hardlink={{ hardlink | default(true) | string | lower }}
+
+# Create sparse files (holes) during extraction if the data contains blocks of zeros.
+# If true, zero-blocks are not allocated on disk, saving space for sparse data.
+# Default: false.
+PunchHoles={{ punch_holes | default(false) | string | lower }}
+
+# Delete files on the target disk that are NOT present in the archive after extraction.
+# If true, this performs a "clean" extraction, removing stale files.
+# Use with caution on directories with important user data not in the archive.
+# Default: false.
+Delete={{ delete | default(false) | string | lower }}
+
+# Undo the chattr +i (immutable) flag on files before removing them.
+# If true, casync will attempt to clear the immutable flag on files it needs to
+# delete (when Delete=true). This is necessary to remove immutable files on Linux.
+# Default: true.
+UndoImmutable={{ undo_immutable | default(true) | string | lower }}
+
+# Use the existing output directory as a seed during extraction.
+# If true, casync uses files already present in the destination directory as a
+# source for hardlinks/reflinks, speeding up extraction if the directory
+# already contains similar data.
+# Default: false.
+SeedOutput={{ seed_output | default(false) | string | lower }}
+
+# UID/GID shift setting for users/ownership remapping.
+# Values:
+#   'yes' : Automatically shift UIDs/GIDs to a safe range (typically 65536+).
+#   'no'  : Keep original UIDs/GIDs as stored in the archive.
+#   <number>: Add this numeric offset to all UIDs/GIDs (e.g., '65536').
+# If omitted, no shifting is performed (original IDs used).
+{% if uid_shift is defined %}
+UidShift={{ uid_shift | default('') }}
+{% endif %}
+
+# UID/GID range restriction during extraction.
+# Format: 'START:COUNT' (e.g., '0:65536').
+# Restricts which UIDs/GIDs from the archive are applied. Only IDs within this
+# range are extracted; others are ignored or mapped to nobody.
+# If omitted, no range restriction is applied.
+{% if uid_range is defined %}
+UidRange={{ uid_range | default('') }}
+{% endif %}
+
+[ArchiveFeatures]
+
+# Control which metadata features are stored in the archive.
+# This section maps directly to casync's --with= and --without= options.
+#
+# The 'archive_features' variable should be a list of strings.
+# - A string like 'unix' implies '--with=unix'.
+# - A string prefixed with '!' like '!fat' implies '--without=fat'.
+#
+# Common features: unix, xattrs, acl, selinux, fat, chattr, posix-acl, security.
+#
+# Default features include: unix, xattrs, acl, selinux.
+
+{% for feature in archive_features | default(['unix', 'xattrs', 'acl', 'selinux']) %}
+{% if feature.startswith('!') %}
+Without={{ feature[1:] | trim }}
+{% else %}
+With={{ feature | trim }}
+{% endif %}
+{% endfor %}
+
+# Note: Only --with= and --without= flags are supported in the config file.
+# Ensure the list 'archive_features' contains valid feature names supported by
+# the casync build you are using.

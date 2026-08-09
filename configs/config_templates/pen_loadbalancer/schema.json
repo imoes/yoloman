@@ -1,0 +1,93 @@
+{
+  "listen_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "The IP address the load balancer should listen on (e.g., 0.0.0.0 for all interfaces, or a specific IP)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 80,
+    "description": "The port number to listen on for incoming traffic."
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend servers to balance traffic across.",
+    "items": {
+      "host": {
+        "type": "string",
+        "required": true,
+        "description": "Hostname or IP address of the backend server."
+      },
+      "port": {
+        "type": "number",
+        "required": true,
+        "description": "Port number of the backend service."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable name for this server (used for logging/documentation)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "enum": [
+          "tcp",
+          "udp"
+        ],
+        "description": "Protocol used by this backend (tcp or udp)."
+      }
+    }
+  },
+  "method": {
+    "type": "string",
+    "default": "roundrobin",
+    "description": "Algorithm used to distribute traffic across backends."
+  },
+  "healthcheck_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between health checks. Set to 0 to disable health checks."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Connection timeout (in seconds) for backend connections."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum simultaneous connections allowed per backend. 0 = unlimited."
+  },
+  "transparent": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable transparent proxy mode to preserve client source IP (requires kernel support)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. If empty, logging goes to syslog."
+  },
+  "log_timestamps": {
+    "type": "bool",
+    "default": true,
+    "description": "Include timestamps in access log entries."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0 (quiet) to 3 (very verbose)."
+  },
+  "outbound_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address to use as source for connections to backends (for multi-homed systems)."
+  },
+  "sticky": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable sticky sessions using client source IP for session persistence."
+  }
+}

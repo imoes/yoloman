@@ -1,0 +1,21 @@
+# BIRD daemon configuration file for systemd
+#
+# This file is sourced by the BIRD systemd service unit to set
+# environment variables which control the daemon behavior.
+# It provides a self-documenting interface for configuring
+# the BIRD (Border Internal Routing Daemon) runtime account
+# and extra CLI arguments.
+#
+# BIRD_RUN_USER: User under which BIRD daemon runs.
+# Default: 'bird'
+BIRD_RUN_USER={{ run_user | default('bird') }}
+
+# BIRD_RUN_GROUP: Group under which BIRD daemon runs.
+# Default: 'bird'
+BIRD_RUN_GROUP={{ run_group | default('bird') }}
+
+# BIRD_ARGS: Additional arguments passed to the BIRD daemon via BIRD_ARGS.
+# If empty, this line is commented out to allow systemd defaults to prevail.
+{% if extra_args | default('') | length > 0 %}BIRD_ARGS={{ extra_args | default('') }}
+{% else %}#BIRD_ARGS=
+{% endif %}

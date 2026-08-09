@@ -1,0 +1,224 @@
+# ==============================================================================
+# PowerDNS Recursor Configuration Template
+# ==============================================================================
+# This template generates the `recursor.conf` file for the PowerDNS Recursor service.
+# It is self-documenting: every directive is preceded by a comment describing its
+# purpose and expected value, derived from the schema definition.
+# ==============================================================================
+
+# IPv4 address to bind for incoming DNS queries.
+# Default: 0.0.0.0 (all interfaces). Use '127.0.0.1' for loopback only.
+# Note: In PowerDNS Recursor, the primary bind address is set via `bind-address`.
+# If `bind_address_ipv6` is also set, the recursor listens on both.
+# To bind to a specific IPv4, set this field. To bind to all IPv4s, use 0.0.0.0.
+bind-address={{ bind_address | default('0.0.0.0') }}
+
+# IPv6 address to bind for incoming DNS queries.
+# Default: :: (all interfaces). Set to '' to disable IPv6 binding.
+# Note: Despite the name, this directive in PowerDNS Recursor config typically
+# controls the IPv6 bind address when used alongside or instead of bind-address.
+# If set to empty, IPv6 is disabled for listening.
+{% if (bind_address_ipv6 | default('::')) != '' %}
+bind-address-ipv6={{ bind_address_ipv6 | default('::') }}
+{% endif %}
+
+# UDP/TCP port to listen for DNS queries.
+# Default: 53.
+port={{ port | default(53) }}
+
+# Number of worker threads.
+# Default: 0 (automatic detection based on CPU cores, recommended).
+# Use a positive integer to pin to a specific number of threads.
+threads={{ threads | default(0) }}
+
+# Maximum number of simultaneous client TCP connections to accept.
+# Default: 10000.
+max-concurrent-connections={{ max_concurrent_connections | default(10000) }}
+
+# Maximum number of entries in the packet cache.
+# Default: 100000. Queries for identical records are served from this cache.
+packetcache-size={{ packetcache_size | default(100000) }}
+
+# Time-to-live (TTL) for entries in the packet cache (seconds).
+# Default: 60.
+packetcache-ttl={{ packetcache_ttl | default(60) }}
+
+# List of domains or patterns to block via query-time filtering.
+# Each entry blocks queries for the specified domain or suffix.
+# Supports wildcards like *.example.com.
+# If the list is empty, no domains are blocked via this directive.
+{% if block_domains | default([]) | length > 0 %}
+{% for domain in block_domains | default([]) %}
+# Blocked domain/pattern: {{ domain }}
+block-cache={{ domain }}
+{% endfor %}
+{% endif %}
+
+# CIDR ranges allowed to send queries to this resolver.
+# Default: ['0.0.0.0/0', '::/0'] (allow all).
+# SECURITY NOTE: Restrict this list in production to prevent open resolver abuse.
+allow-from={{ allow_from | default(['0.0.0.0/0', '::/0']) | join(', ') }}
+
+# Forward recursive queries to specific upstream resolvers for certain zones.
+# Format: zone=resolver;zone=resolver
+# Default: [] (no forwarding defined).
+# Example: [{'zone': 'example.com', 'resolver': '8.8.8.8'}]
+{% if forward_zones | default([]) | length > 0 %}
+# Forwarding zones:
+forward-zones={{ forward_zones | default([]) | map(attribute='zone') | zip(forward_zones | default([]) | map(attribute='resolver')) | map('join', '=') | join(';') }}
+{% endif %}
+
+# Enable DNSSEC validation of responses.
+# Default: true. Recommended for security to ensure response authenticity.
+dnssec={{ dnssec | default(True) | string | lower }}
+
+# Log verbosity level.
+# 0=quiet, 1=error, 2=warning, 3=notice, 4=info, 5=debug.
+# Default: 3 (notice) for production.
+loglevel={{ loglevel | default(3) }}
+
+# Path to write log output.
+# Default: '' (log to stderr).
+# If set, PowerDNS Recursor will write logs to this file.
+{% if logfile | default('') != '' %}
+# Log output to file
+logfile={{ logfile | default('') }}
+{% endif %}
+
+# Path for the query log.
+# Default: '/var/log/powerdns-recursor-query.log'.
+# Used when `query-log` is enabled.
+{% if query_log_file | default('/var/log/powerdns-recursor-query.log') != '' %}
+# Query log file path
+query-log-file={{ query_log_file | default('/var/log/powerdns-recursor-query.log') }}
+{% endif %}
+
+# Enable logging of every query.
+# Default: false.
+# WARNING: Enabling this can be very verbose and impact performance.
+query-log={{ query_log | default(False) | string | lower }}
+
+# Timeout for detecting the local address to use for outgoing queries (seconds).
+# Default: 10.
+query-local-address-timeout={{ query_local_address_timeout | default(10) }}
+
+# TTL for negative responses (NXDOMAIN/NODATA) in seconds.
+# Default: 3600.
+neg-cache-ttl={{ neg_cache_ttl | default(3600) }}
+
+# Local source address for outgoing queries.
+# Default: '0.0.0.0'. Use 'auto' for automatic selection.
+query-local-address={{ query_local_address | default('0.0.0.0') }}
+
+# Enable DNS64 (synthesizing AAAA records from A records for IPv6-only clients).
+# Default: false.
+dns64={{ dns64 | default(False) | string | lower }}
+
+# Prefix used for synthesized IPv6 addresses (RFC 6052 / RFC 6147).
+# Default: '64:ff9b::/96'.
+dns64-prefix={{ dns64_prefix | default('64:ff9b::/96') }}
+
+# Enable EDNS Client Subnet (ECS) processing.
+# Default: true. Preserves client location info upstream for better CDN resolution.
+edns-subnet-processing={{ edns_subnet_processing | default(True) | string | lower }}
+
+# Maximum subnet mask width for IPv4 ECS (e.g., 24 = /24).
+# Default: 24. Set to 0 to disable IPv4 ECS.
+edns-subnet-allow={{ edns_subnet_allow | default(24) }}
+
+# Maximum queries per second per source IP.
+# Default: 0 (unlimited).
+rate-limit={{ rate_limit | default(0) }}
+
+# Max number of queries to 'slip' (ignore) before rate-limiting kicks in.
+# Default: 10.
+slip-rate-limit={{ slip_rate_limit | default(10) }}
+
+# Enable the control API (for pdns_control and external tools).
+# Default: false.
+api={{ api | default(False) | string | lower }}
+
+# Base64-encoded secret key for API authentication.
+# Required if API is enabled.
+# Default: '' (empty).
+{% if api_key | default('') != '' %}
+# API authentication key
+api-key={{ api_key | default('') }}
+{% endif %}
+
+# Interface for API listener.
+# Default: '127.0.0.1'.
+api-listen={{ api_listen | default('127.0.0.1') }}
+
+# Port for the API.
+# Default: 8082.
+api-port={{ api_port | default(8082) }}
+
+# Enable the embedded webserver (serves stats, API, and admin interface).
+# Default: false.
+webserver={{ webserver | default(False) | string | lower }}
+
+# Interface for webserver.
+# Default: '127.0.0.1'.
+webserver-address={{ webserver_address | default('127.0.0.1') }}
+
+# Port for the webserver.
+# Default: 8082.
+webserver-port={{ webserver_port | default(8082) }}
+
+# Password for webserver auth (if set; otherwise API key is used).
+# Default: '' (empty).
+{% if webserver_password | default('') != '' %}
+# Webserver authentication password
+webserver-password={{ webserver_password | default('') }}
+{% endif %}
+
+# Local zone definitions (e.g., for split DNS or internal zones).
+# Format: "zone type" (e.g., "example.com static", "internal.lan forward 10.0.0.1").
+{% if local_zones | default([]) | length > 0 %}
+# Local zone definitions
+{% for zone in local_zones | default([]) %}
+# Local zone: {{ zone.zone }} type {{ zone.type }}
+local-zone={{ zone.zone }} {{ zone.type }}
+{% endfor %}
+{% endif %}
+
+# Static DNS records (A, AAAA, MX, TXT, etc.) for local zones.
+# Format: "name type data"
+{% if local_data | default([]) | length > 0 %}
+# Static DNS records
+{% for record in local_data | default([]) %}
+# Static record: {{ record.name }} {{ record.type }} {{ record.data }}
+local-data={{ record.name }} {{ record.type }} {{ record.data }}
+{% endfor %}
+{% endif %}
+
+# Serve RFC 1918 (private) reverse zones.
+# Default: true. Set to false to prevent recursion on private IP ranges.
+serve-rfc1918={{ serve_rfc1918 | default(True) | string | lower }}
+
+# Enable the packet cache (cache entire DNS responses).
+# Default: true.
+packet-cache={{ packet_cache | default(True) | string | lower }}
+
+# Enable negative caching (cache NXDOMAIN/NODATA responses).
+# Default: true.
+neg-cache={{ neg_cache | default(True) | string | lower }}
+
+# Maximum queries per second per source IP (alternative to rate-limit in some contexts).
+# Default: 0 (no limit).
+max-qps-per-ip={{ max_qps_per_ip | default(0) }}
+
+# CPU core affinity.
+# 0 = none, 1 = pin to core 0, etc.
+# Default: 0.
+cpu-affinity={{ cpu_affinity | default(0) }}
+
+# Multicast DNS mode.
+# Options: 'disabled', 'receiver', 'sender', or 'both'.
+# Default: 'disabled'.
+mdns-mode={{ mdns_mode | default('disabled') }}
+
+# Enable stub resolver mode (use /etc/resolv.conf for initial resolution).
+# Default: false.
+stub-resolver={{ stub_resolver | default(False) | string | lower }}

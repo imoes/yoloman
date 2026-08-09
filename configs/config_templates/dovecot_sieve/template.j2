@@ -1,0 +1,133 @@
+# =============================================================================
+# Dovecot ManageSieve / Sieve Configuration Template
+# =============================================================================
+# This template generates the configuration for Dovecot's Sieve plugin and
+# ManageSieve protocol support. It controls protocol enablement, service
+# listeners, script storage, extensions, and SSL settings.
+#
+# All variables must be defined in the Ansible inventory or role defaults.
+# Every variable reference uses `| default(...)` to prevent rendering errors
+# if a variable is omitted.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Protocol Configuration
+# -----------------------------------------------------------------------------
+# List of protocols to enable. Must include 'sieve' for ManageSieve support.
+# Supported protocols: imap, pop3, lmtp, sieve, managesieve, etc.
+protocols = {{ protocols | default(['imap', 'pop3', 'sieve']) | join(' ') }}
+
+# -----------------------------------------------------------------------------
+# ManageSieve Service Definition
+# -----------------------------------------------------------------------------
+# Defines the ManageSieve service block, including listeners for plain text
+# and SSL/TLS connections, and client limits.
+service managesieve {
+    # Socket listen configuration
+    #
+    # Plain text ManageSieve listener
+    inet_listener sieve {
+        # Port on which the ManageSieve service listens (plain text).
+        # Default is 4190 as per RFC 5815.
+        port = {{ managesieve_port | default(4190) }}
+    }
+
+    # SSL/TLS ManageSieve listener
+    # Only included if managesieve_ssl_port is set to a non-null value.
+    {% if (managesieve_ssl_port | default(4191)) is not none %}
+    inet_listener sieve-ssl {
+        # Port for ManageSieve over SSL/TLS.
+        # Default is 4191. Set to null or omit to disable this listener.
+        port = {{ managesieve_ssl_port | default(4191) }}
+    }
+    {% endif %}
+
+    # Process limits
+    # Maximum number of simultaneous ManageSieve client connections per process.
+    # This limits concurrency to prevent resource exhaustion.
+    max_clients = {{ managesieve_max_clients | default(100) }}
+}
+
+# -----------------------------------------------------------------------------
+# Sieve Script Storage & Defaults
+# -----------------------------------------------------------------------------
+# Configuration for where user Sieve scripts are stored and which script
+# acts as the default if no user-specific script is found.
+
+# Path (relative to mail_root) where user-specific Sieve scripts are stored.
+# This is the directory where dovecot looks for .sieve files per user.
+sieve = {{ sieve_script_path | default('~/.dovecot.sieve') }}
+
+# Name of the default script (without .sieve extension) to load for all users
+# if no personal script exists. Useful for global filtering rules applied to
+# everyone.
+sieve_default = {{ sieve_default_script | default('default.sieve') }}
+
+# Directory for global scripts (e.g., post-delivery filters).
+# Must be writable by the dovecot user (often dovecot:mail).
+# Scripts in this directory are typically compiled and linked from user dirs.
+sieve_global_dir = {{ sieve_global_dir | default('/var/lib/dovecot/sieve-global/') }}
+
+# -----------------------------------------------------------------------------
+# Sieve Extensions
+# -----------------------------------------------------------------------------
+# List of ManageSieve extensions to enable. These define the available
+# commands/actions in Sieve scripts (e.g., vacation for auto-replies).
+# Extensions must be compiled into Dovecot with the sieve plugin.
+sieve_extensions = {{ sieve_extensions | default(['fileinto', 'envelope', 'reject', 'vacation', 'date', 'mailbox']) | join(', ') }}
+
+# -----------------------------------------------------------------------------
+# Sieve Script Execution Order
+# -----------------------------------------------------------------------------
+# Lists of global Sieve scripts run before or after user scripts.
+# These are used for pre-filtering (e.g., spam detection) and
+# post-filtering (e.g., archiving).
+#
+# sieve_before: Scripts executed BEFORE user scripts.
+sieve_before = {{ sieve_before | default(['/var/lib/dovecot/sieve-before/global.sieve']) | join(' ') }}
+
+# sieve_after: Scripts executed AFTER user scripts.
+sieve_after = {{ sieve_after | default(['/var/lib/dovecot/sieve-after/global.sieve']) | join(' ') }}
+
+# -----------------------------------------------------------------------------
+# ManageSieve Logging
+# -----------------------------------------------------------------------------
+# Format string for ManageSieve logout logging.
+# Available variables: %i (bytes in), %o (bytes out), %r (time elapsed).
+# Helps in monitoring connection volume and duration.
+managesieve_logout_format = {{ managesieve_logout_format | default('bytes=%i/%o, time=%r') }}
+
+# -----------------------------------------------------------------------------
+# SSL/TLS Configuration for ManageSieve
+# -----------------------------------------------------------------------------
+# Controls whether SSL/TLS is enabled for the ManageSieve service and
+# specifies the certificates to use.
+#
+# ssl: Enable SSL/TLS. Options: yes, no, required.
+# If 'yes', SSL certificate and key paths must be provided.
+# Note: managesieve_ssl must have a default to avoid undefined errors.
+{% if (managesieve_ssl | default('yes')) != 'yes' %}# {% endif %}ssl = {{ managesieve_ssl | default('yes') }}
+
+{% if (managesieve_ssl | default('yes')) == 'yes' %}
+    # TLS certificate and key files
+    #
+    # Path to the SSL certificate file for ManageSieve connections.
+    # Dovecot reads this file at startup.
+    ssl_cert = <{{ ssl_cert_path | default('/etc/ssl/certs/dovecot.pem') }}
+
+    # Path to the SSL private key file for ManageSieve connections.
+    # Must be readable only by root/dovecot for security.
+    ssl_key = <{{ ssl_key_path | default('/etc/ssl/private/dovecot.pem') }}
+
+    # Minimum SSL/TLS protocol version to allow.
+    # Recommended: TLSv1.2 or TLSv1.3 for security compliance.
+    ssl_min_protocol = {{ ssl_min_protocol | default('TLSv1.2') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Authentication Mechanisms
+# -----------------------------------------------------------------------------
+# Authentication mechanisms supported for ManageSieve login.
+# Must match the mechanisms enabled in the general auth configuration.
+# Common values: plain, login, digest-md5, cram-md5, otp, gssapi.
+auth_mechanisms = {{ auth_mechanisms | default(['plain', 'login']) | join(' ') }}

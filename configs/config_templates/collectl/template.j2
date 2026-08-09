@@ -1,0 +1,170 @@
+# ============================================================================
+# collectl Configuration Template
+# ============================================================================
+#
+# collectl is a system performance collector. It captures metrics from
+# various subsystems (CPU, Disk, Network, Memory, etc.).
+#
+# This configuration file defines the default parameters for the daemon mode.
+# Most directives are commented out by default, meaning collectl uses
+# built-in defaults. To change a parameter, uncomment the line and modify
+# the value. To revert to defaults, comment the line out again.
+#
+# This template is self-documenting: every configurable field is preceded
+# by a comment explaining its purpose and default value.
+#
+# ============================================================================
+
+############################
+# daemon/service handling
+############################
+
+# DaemonCommands: The default command-line arguments used when collectl is
+# run in daemon mode (-D switch). This string sets the logging directory,
+# retention policy, rotation time, and subsystems to monitor.
+# -f: Specifies the directory where log files are stored.
+# -r00:00,RETENTION: Sets the log retention period. Format is HH:MM,DAYS.
+# -m: Enables summary mode (standard for daemon).
+# -F60: Rotates logs every 60 minutes (time-based).
+# -s+YZ: Adds 'y' (InfiniBand) and 'Z' (ZFS) subsystems to the core list.
+DaemonCommands = -f {{ dir | default('/var/log/collectl') }} -r00:00,{{ retention | default(7) }} -m -F60 -s+YZ
+
+# PidFile: The location of the PID file when running as a daemon.
+# Standard default; not overridden in the shipped config.
+#PidFile = {{ pidfile | default('/var/run/collectl.pid') }}
+
+# ReqDir: Directory to look for additional required files (e.g., formatit.pl).
+# Usually not needed if collectl is installed in standard locations.
+#ReqDir = /usr/share/collectl
+
+#       E x t r a    L i b r a r i e s
+#
+# If there are extra library locations that should be used, list them here.
+# This is rarely needed in standard installations.
+#Libraries =
+
+#	S t a n d a r d    U t i l i t i e s
+#
+# Override the default paths for standard utilities if they are not in the
+# system PATH. collectl defaults to searching /sbin and /usr/sbin.
+#Grep =    /bin/grep
+#Egrep =   /bin/egrep
+#Ps =      /bin/ps
+#Rpm =     /bin/rpm
+#Lspci =   /sbin/lspci
+#Lctl =    /usr/sbin/lctl
+
+#       I n f i b a n d    S u p p o r t
+#
+# Paths to InfiniBand utilities. collectl attempts to use 'perfquery' for
+# OpenFabric (OFED) environments and 'get_pcounter' or 'vstat' for others.
+# If these tools are not in the standard paths, uncomment and update them.
+#PQuery =   /usr/sbin/perfquery:/usr/bin/perfquery:/usr/local/ofed/bin/perfquery
+#PCounter = /usr/mellanox/bin/get_pcounter
+#VStat =    /usr/mellanox/bin/vstat:/usr/bin/vstat
+#OfedInfo = /usr/bin/ofed_info:/usr/local/ofed/bin/ofed_info
+
+#	D e f a u l t s
+#
+# Variables in this section control internal defaults. They are already set
+# within the collectl binary, so you generally do not need to change them.
+
+# SubsysCore: The core subsystems selected when the -s switch is omitted.
+# 'bcdfijlmnstx' covers basic, CPU, disk, file, inode, Java, library,
+# memory, network, process, socket, and TCP subsystems.
+#SubsysCore = bcdfijlmnstx
+
+# Interval: The default polling interval in seconds for the primary metric set.
+# Interval1 is typically the shortest interval.
+#Interval =     {{ interval | default(10) }}
+
+# Interval2: The polling interval for the second set of metrics (slower).
+# Interval2 =    60
+
+# Interval3: The polling interval for the third set of metrics (slowest).
+# Interval3 =   120
+
+# LustreSvcLunMax: Maximum Lustre service LUN size in GB. Partitions smaller
+# than this are ignored when using the -OD switch.
+#LustreSvcLunMax  = 10
+
+# LustreMaxBlkSize: Maximum block size to display in verbose mode for Lustre.
+# All block sizes are still read and recorded.
+#LustreMaxBlkSize = 512
+
+# LustreConfigInt: Frequency (in seconds) to check for Lustre configuration
+# changes.
+#LustreConfigInt = 1
+
+# InterConnectInt: Frequency (in seconds) to check for interconnect
+# configuration changes.
+#InterConnectInt = 900
+
+# Disk/Partition Exception Limits
+# LimSVC: Minimum partition Avg Service time (ms) to trigger exception.
+#LimSVC =         30
+
+# LimIOS: Minimum number of Disk or Partition I/Os to trigger exception.
+#LimIOS =         10
+
+# LimBool: Generate exception record if EITHER limit is exceeded (0=no, 1=yes).
+#LimBool =         0
+
+# LimLusKBS: Minimum number of Lustre OSS KB/sec to trigger exception.
+#LimLusKBS =     100
+
+# LimLusReints: Minimum number of Lustre MDS Reint operations to trigger exception.
+#LimLusReints = 1000
+
+# Socket I/O Defaults
+# Port: Default port for collectl socket communication.
+#Port =       2655
+
+# Timeout: Default timeout in seconds for socket connections.
+#Timeout =      10
+
+# MaxZlibErrors: Maximum allowable zlib errors in a single day or run before
+# collectl might complain or fail.
+#MaxZlibErrors = 20
+
+# DefNetSpeed: Default assumed network speed (Mbps) for checking bogus data.
+# Set to negative to disable this check.
+#DefNetSpeed=10000
+
+# TermHeight: Fixed terminal height if 'resize' utility is unavailable or
+# you prefer a fixed size.
+#TermHeight = 24
+
+# Resize: Path to the 'resize' utility to determine terminal height dynamically.
+Resize=/usr/bin/resize:/usr/X11R6/bin/resize
+
+# TimeHiResCheck: Set to 0 to disable Time:HiRes/glibc incompatibility checking.
+# TimeHiResCheck = 1
+
+# Environmental Monitoring (IPMI)
+# Ipmitool: Path to the ipmitool executable. Required for hardware monitoring.
+Ipmitool =  /usr/bin/ipmitool:/usr/local/bin/ipmitool:/opt/hptc/sbin/ipmitool
+
+# IpmiCache: Path to the IPMI cache file.
+IpmiCache = /var/run/collectl-ipmicache
+
+# IpmiTypes: Comma-separated list of IPMI sensor types to monitor (e.g., fan,
+# temp, current).
+IpmiTypes = fan,temp,current
+
+# Passwd: Path to the passwd file for UID-to-username mapping during process
+# monitoring. Defaults to /etc/passwd if not set.
+#Passwd = /etc/passwd
+
+# DiskMaxValue: If disk rates exceed this value after a reset (e.g., cciss
+# lun scan), reset ALL stats for that disk to 0. Set to -1 to disable.
+#DiskMaxValue=5000000
+
+# DiskFilter: Perl regular expression to filter disk devices. Only devices
+# matching this regex are monitored. CAUTION: White space is critical.
+# Default matches cciss, hd, sd, xvd, dm, emcpower, psv, nvme devices.
+#DiskFilter = /hd[ab] | sd[a-z]+ |dm-\d+ |xvd[a-z] |fio[a-z]+ | vd[a-z]+ |emcpower[a-z]+ |psv\d+ |nvme\d+n\d+ /
+
+# ProcReadTest: Set to 'no' to bypass the kernel /proc read efficiency test
+# on kernels 2.6.32+. A warning is generated if the test detects slowness.
+#ProcReadTest = yes

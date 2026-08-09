@@ -1,0 +1,134 @@
+# ==============================================================================
+# Booth Cluster Manager Configuration
+# ==============================================================================
+# This configuration file manages distributed cluster tickets for high-availability
+# services. Booth acts as an arbiter, granting exclusive ownership of "tickets"
+# (HA resources) to one site at a time based on defined rules.
+#
+# Structure:
+#   [general]   - Global daemon settings
+#   [auth]      - Authentication configuration (optional)
+#   [ticket:*]  - Individual HA resource definitions
+#   [server]    - Booth daemon network/peer configuration
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [general] Section: Global Daemon Settings
+# ------------------------------------------------------------------------------
+
+[general]
+# pid_file: Absolute path where Booth writes its process ID file.
+# Used to track the running daemon instance.
+# Default: /run/booth/booth.pid
+pid_file = {{ pid_file | default('/run/booth/booth.pid') }}
+
+# log_file: Absolute path to a log file.
+# Leave empty ('') to use the system syslog instead of a local file.
+# Default: '' (syslog)
+log_file = {{ log_file | default('') }}
+
+# log_level: Verbosity level for logging.
+# 0 = Error, 1 = Warn, 2 = Info, 3 = Debug.
+# Defaults to 2 (Info) if not specified.
+# Default: 2
+log_level = {{ log_level | default(2) }}
+
+# auth_timeout: Timeout (in seconds) for the authentication handshake.
+# Booth waits this long for auth responses from peers.
+# Default: 5
+auth_timeout = {{ auth_timeout | default(5) }}
+
+# ticket_timeout: Timeout (in seconds) to wait for responses when granting or
+# releasing tickets. Controls failover speed vs. safety.
+# Default: 10
+ticket_timeout = {{ ticket_timeout | default(10) }}
+
+# ------------------------------------------------------------------------------
+# [auth] Section: Authentication Configuration (Optional)
+# ------------------------------------------------------------------------------
+# If 'auth' is not defined or is null/empty in the schema, this block is skipped
+# and Booth runs without authentication (not recommended for production).
+
+{% set auth_config = auth | default(None) %}
+{% if auth_config is not none and auth_config.type is defined and auth_config.type %}
+[auth]
+# method: Authentication method used for cluster communication.
+# Supported values: 'file' (shared secret) or 'key' (PEM key pair).
+method = {{ auth_config.type | default('') }}
+
+{% if auth_config.type == 'file' %}
+# file: Path to the shared secret file used for HMAC signing.
+# Must be readable by the Booth daemon process and identical on all peers.
+# Default: ''
+file = {{ auth_config.file_path | default('') }}
+
+{% elif auth_config.type == 'key' %}
+# key: Path to the private key file (PEM format).
+# Used for asymmetric authentication. Corresponding public key should be
+# distributed to all peer nodes.
+# Default: ''
+key = {{ auth_config.key_path | default('') }}
+{% endif %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [ticket:*] Sections: High-Availability Ticket Definitions
+# ------------------------------------------------------------------------------
+# Each ticket defines a resource that Booth can manage. Booth ensures that
+# only ONE site holds the ticket at any given time.
+# The section name '[ticket:<name>]' identifies the ticket globally.
+
+{% set tickets_list = tickets | default([]) %}
+{% for ticket in tickets_list %}
+[ticket:{{ ticket.name | default('unnamed_ticket') }}]
+# description: (Comment only) Human-readable summary of this ticket's purpose.
+# Booth does not parse this line; it is for administrator reference.
+# Example: # VIP Address 192.168.1.100
+
+# site: List of sites (IP addresses or hostnames) eligible to hold this ticket.
+# Booth ensures mutual exclusion among these sites.
+{% if ticket.sites is defined and ticket.sites | length > 0 %}
+{% for site in ticket.sites %}
+site = {{ site | default('') }}
+{% endfor %}
+{% else %}
+# WARNING: No sites defined for ticket {{ ticket.name | default('unnamed_ticket') }}. This ticket cannot be
+# granted to any node. Verify your 'tickets' list schema.
+site = none
+{% endif %}
+
+# priority: Integer between 0 and 255.
+# Higher priority wins in tie-breaking scenarios (e.g., network partition).
+# Default: 128
+priority = {{ ticket.priority | default(128) }}
+
+# revoke_timeout: Timeout (in seconds) before re-granting the ticket after a
+# failover or revoke event. Prevents flapping.
+# Default: 0
+revoke_timeout = {{ ticket.revoke_timeout | default(0) }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# [server] Section: Booth Daemon Network Configuration
+# ------------------------------------------------------------------------------
+[server]
+# enabled: Whether the Booth daemon listens for connections and participates
+# in the cluster. Set to 'no' if this node is a passive observer or disabled.
+{% set server_cfg = server | default({'enabled': True, 'port': 9929, 'peers': []}) %}
+{% if (server_cfg | default({})).get('enabled', True) | default(True) %}
+enabled = yes
+{% else %}
+enabled = no
+{% endif %}
+
+# port: TCP port number the Booth daemon listens on for cluster communication.
+# Must be accessible by all peer nodes.
+# Default: 9929
+port = {{ (server_cfg | default({})).get('port', 9929) | default(9929) }}
+
+# peer: List of other Booth arbiter/seed node addresses.
+# Used for initial discovery and maintaining cluster quorum.
+{% set peers = (server_cfg | default({})).get('peers', []) | default([]) %}
+{% for peer in peers %}
+peer = {{ peer | default('') }}
+{% endfor %}

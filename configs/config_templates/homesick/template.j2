@@ -1,0 +1,50 @@
+# Homesick configuration
+# Global settings for the homesick tool
+#
+# This template generates a YAML configuration file for the 'homesick' dotfile manager.
+# It supports global boolean flags, path configuration, and a list of 'castles'
+# (git repositories containing dotfiles).
+
+# force: Overwrite files that already exist. (Default: false)
+{% if force | default(false) %}
+--force
+{% endif %}
+
+# pretend: Run but do not make any changes. (Default: false)
+{% if pretend | default(false) %}
+--pretend
+{% endif %}
+
+# quiet: Suppress status output. (Default: false)
+{% if quiet | default(false) %}
+--quiet
+{% endif %}
+
+# skip: Skip files that already exist. (Default: false)
+{% if skip | default(false) %}
+--skip
+{% endif %}
+
+# castle_path: The directory where castles are stored. (Default: '~/.homesick/repos')
+castle_path: {{ castle_path | default('~/.homesick/repos') }}
+
+# default_clone_url: A default git URL to clone castles from if not explicitly defined in the castle block.
+{% if default_clone_url | default('') | trim %}
+default_clone_url: {{ default_clone_url | default('') }}
+{% endif %}
+
+# castles: List of dotfile castles to track/symlink.
+# Each item is a map with name, path, repository, and optional autolink settings.
+{% for castle in castles | default([]) %}
+# --- Castle: {{ castle.name | default('unnamed') | string }} ---
+# name: The name of the castle (used as the git repo directory name and identifier).
+# path: The relative path from the home directory where the dotfiles should be symlinked.
+# repository: The git repository URL for the castle.
+# autolink: Automatically symlink the files upon cloning/linking. (Default: false)
+[{{ castle.name | default('unnamed') | string }}]
+path: {{ castle.path | default('') | string }}
+repository: {{ castle.repository | default('') | string }}
+{% if castle.autolink | default(false) %}
+autolink: true
+{% endif %}
+{% endfor %}

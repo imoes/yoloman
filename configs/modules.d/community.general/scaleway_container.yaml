@@ -1,0 +1,133 @@
+name: scaleway_container
+fqcn: community.general.scaleway_container
+collection: community.general
+short_description: Scaleway Container management
+description: This module manages container on Scaleway account.
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  container_timeout:
+    type: str
+    description: The length of time your handler can spend processing a request before being stopped.
+  description:
+    type: str
+    default: ''
+    description: Description of the container namespace.
+  environment_variables:
+    type: dict
+    default: {}
+    description: Environment variables of the container namespace. Injected in container at runtime.
+  max_concurrency:
+    type: int
+    description: Maximum number of connections per container. This parameter will be used to trigger autoscaling.
+  max_scale:
+    type: int
+    description: Maximum number of replicas for the container.
+  memory_limit:
+    type: int
+    description: Resources define performance characteristics of your container. They are allocated to
+      your container at runtime.
+  min_scale:
+    type: int
+    description: Minimum number of replicas for the container.
+  name:
+    type: str
+    required: true
+    description: Name of the container namespace.
+  namespace_id:
+    type: str
+    required: true
+    description: Container namespace identifier.
+  port:
+    type: int
+    description: Listen port used to expose the container.
+  privacy:
+    type: str
+    default: public
+    choices:
+    - public
+    - private
+    description: Privacy policies define whether a container can be executed anonymously. Choose V(public)
+      to enable anonymous execution, or V(private) to protect your container with an authentication mechanism
+      provided by the Scaleway API.
+  protocol:
+    type: str
+    default: http1
+    choices:
+    - http1
+    - h2c
+    description: Communication protocol of the container.
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  redeploy:
+    type: bool
+    default: false
+    description: Redeploy the container if update is required.
+  region:
+    type: str
+    required: true
+    choices:
+    - fr-par
+    - nl-ams
+    - pl-waw
+    description: Scaleway region to use (for example V(fr-par)).
+  registry_image:
+    type: str
+    required: true
+    description: The name of image used for the container.
+  secret_environment_variables:
+    type: dict
+    default: {}
+    description: Secret environment variables of the container namespace. Updating those values will not
+      output a C(changed) state in Ansible. Injected in container at runtime.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the container.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+  wait:
+    type: bool
+    default: true
+    description: Wait for the resource to reach its desired state before returning.
+  wait_sleep_time:
+    type: int
+    default: 3
+    description: Time to wait before every attempt to check the state of the resource.
+  wait_timeout:
+    type: int
+    default: 300
+    description: Time to wait for the resource to reach the expected state.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a container\n  community.general.scaleway_container:\n    namespace_id: '{{\
+  \ scw_container_namespace }}'\n    state: present\n    region: fr-par\n    name: my-awesome-container\n\
+  \    registry_image: rg.fr-par.scw.cloud/funcscwtestrgy2f9zw/nginx:latest\n    environment_variables:\n\
+  \      MY_VAR: my_value\n    secret_environment_variables:\n      MY_SECRET_VAR: my_secret_value\n \
+  \ register: container_creation_task\n\n- name: Make sure container is deleted\n  community.general.scaleway_container:\n\
+  \    namespace_id: '{{ scw_container_namespace }}'\n    state: absent\n    region: fr-par\n    name:\
+  \ my-awesome-container\n"

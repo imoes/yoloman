@@ -1,0 +1,46 @@
+[DEFAULT]
+# Log to syslog or file; use 'stderr' to log to console
+log_file = {{ log_file }}
+
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_level = {{ log_level }}
+
+# API endpoint for the Designate central service (must be reachable by agent)
+control_exchange = designate
+
+# Path to the policy file
+policy_file = {{ policy_file }}
+
+[agent]
+# Enable or disable the agent service
+enabled = {{ enabled | lower }}
+
+# Listen address for the agent's internal RPC endpoint
+host = {{ host }}
+
+# Number of workers for the agent process
+workers = {{ workers }}
+
+# Backend driver for DNS operations (e.g., 'bind9', 'designate-mdns')
+backend_driver = {{ backend_driver }}
+
+# List of DNS zones managed by this agent (comma-separated if using single string, but better as list)
+# Note: In newer versions, zones are discovered via API; this option may be deprecated
+# kept here only for older deployments that require explicit zone assignment
+managed_resource_tenant_id = {{ managed_resource_tenant_id | default('') }}
+
+# DNS backend-specific options (e.g., BIND9, MDNS, AWS Route 53, etc.)
+# For MDNS: `mdns_service_id`, `mdns_api_endpoint`, etc.
+# For BIND9: `rndc_host`, `rndc_port`, `rndc_secret`, `rndc_config_file`
+
+{% for backend_key, backend_value in backend_options.items() %}# {{ backend_key }}
+{{ backend_key }} = {{ backend_value }}
+{% endfor %}
+
+[oslo_messaging_notifications]
+# Notification driver for publishing DNS event notifications
+# Set to 'noop' if notifications not needed
+driver = {{ notification_driver }}
+
+# Topic for notifications (usually 'designate_notifications')
+topic = {{ notification_topic }}

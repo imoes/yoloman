@@ -1,0 +1,293 @@
+# Hybrid IRC Server Configuration Template
+# This template generates the configuration file for a Hybrid IRC daemon (ircd).
+# It is self-documenting: every block is preceded by a comment explaining its purpose
+# and mapping to the schema definition.
+
+# ==============================================================================
+# Server Identification
+# Schema field: serverinfo
+# Description: Server identification and network metadata.
+# Default: {'name': 'ircd.example.net', 'description': 'Hybrid 8 IRC Server', 'network_name': 'ExampleNet'}
+# ==============================================================================
+serverinfo {
+  # name: The hostname/identifier of this IRC server.
+  name = "{{ (serverinfo | default({'name': 'ircd.example.net'})).name }}";
+
+  # description: A textual description of the server.
+  description = "{{ (serverinfo | default({'description': 'Hybrid 8 IRC Server'})).description }}";
+
+  # network_name: The name of the IRC network this server belongs to.
+  network_name = "{{ (serverinfo | default({'network_name': 'ExampleNet'})).network_name }}";
+}
+
+# ==============================================================================
+# Network Listeners
+# Schema field: listen_items
+# Description: Network interfaces and ports for clients and servers to connect to.
+# Default: [{'host': '0.0.0.0', 'port': 6667, 'options': {'ssl': 'no'}}, {'host': '0.0.0.0', 'port': 6697, 'ssl': True, 'options': {'ssl': 'yes'}}]
+# ==============================================================================
+listen {
+  {% for item in (listen_items | default([{'host': '0.0.0.0', 'port': 6667, 'options': {'ssl': 'no'}}, {'host': '0.0.0.0', 'port': 6697, 'ssl': True, 'options': {'ssl': 'yes'}}])) %}
+  # Block for a specific listening address
+  host = "{{ (item | default({'host': '0.0.0.0'})).host }}";
+  port = {{ (item | default({'port': 6667})).port }};
+
+  {% if (item | default({})).ssl is defined %}
+  # SSL enabled for this listener?
+  ssl = {{ (item | default({})).ssl | lower }};
+  {% endif %}
+
+  {% if (item | default({})).options is defined %}
+  # Additional options for this listener (e.g., ssl, timeout)
+  options {
+    {% for opt_key, opt_val in (item | default({})).options | dict2items %}
+    # Option key-value pair
+    {{ opt_key }} = {{ opt_val | lower if opt_val is string and opt_val|lower in ['yes', 'no', 'true', 'false'] else opt_val }};
+    {% endfor %}
+  }
+  {% endif %}
+  {% endfor %}
+}
+
+# ==============================================================================
+# Global Settings
+# Schema field: global
+# Description: Global server behavior, resource limits, and security features.
+# Default: {'max_clients': 100, 'max_accept': 50, ...}
+# ==============================================================================
+global {
+  # max_clients: Maximum number of clients allowed to connect.
+  max_clients = {{ (global | default({'max_clients': 100})).max_clients }};
+
+  # max_accept: Maximum number of concurrent connection attempts.
+  max_accept = {{ (global | default({'max_accept': 50})).max_accept }};
+
+  # kline_address: Contact email for kline/unline requests.
+  kline_address = "{{ (global | default({'kline_address': 'ircd-admin@example.net'})).kline_address }}";
+
+  # antinode_expires: Time in seconds before anti-node-expiry bans expire.
+  antinode_expires = {{ (global | default({'antinode_expires': 3600})).antinode_expires }};
+
+  # enable_dcc_flood_protect: Protect against DCC flood attacks.
+  enable_dcc_flood_protect = {{ (global | default({'enable_dcc_flood_protect': True})).enable_dcc_flood_protect | lower }};
+
+  # enable_server_hiding: Hide server topology from clients.
+  enable_server_hiding = {{ (global | default({'enable_server_hiding': True})).enable_server_hiding | lower }};
+
+  # enable_cloaking: Enable client IP cloaking.
+  enable_cloaking = {{ (global | default({'enable_cloaking': True})).enable_cloaking | lower }};
+
+  # ident_timeout: Seconds to wait for IDENT response.
+  ident_timeout = {{ (global | default({'ident_timeout': 3})).ident_timeout }};
+
+  # max_hostname: Maximum length of allowed hostnames.
+  max_hostname = {{ (global | default({'max_hostname': 64})).max_hostname }};
+
+  # max_username: Maximum length of allowed usernames.
+  max_username = {{ (global | default({'max_username': 12})).max_username }};
+
+  # max_global_connections: Maximum connections from a single IP globally.
+  max_global_connections = {{ (global | default({'max_global_connections': 200})).max_global_connections }};
+
+  # min_nick_length: Minimum length for nicknames.
+  min_nick_length = {{ (global | default({'min_nick_length': 1})).min_nick_length }};
+
+  # max_nick_length: Maximum length for nicknames.
+  max_nick_length = {{ (global | default({'max_nick_length': 32})).max_nick_length }};
+
+  # min_user_length: Minimum length for usernames.
+  min_user_length = {{ (global | default({'min_user_length': 1})).min_user_length }};
+
+  # max_user_length: Maximum length for usernames.
+  max_user_length = {{ (global | default({'max_user_length': 10})).max_user_length }};
+
+  # max_ircd_restarts: Maximum number of restarts allowed.
+  max_ircd_restarts = {{ (global | default({'max_ircd_restarts': 5})).max_ircd_restarts }};
+
+  # max_unknown_connections: Max connections from unknown/unverified sources.
+  max_unknown_connections = {{ (global | default({'max_unknown_connections': 10})).max_unknown_connections }};
+
+  # enable_dns_check: Perform DNS lookups on connecting clients.
+  enable_dns_check = {{ (global | default({'enable_dns_check': True})).enable_dns_check | lower }};
+
+  # enable_no_ident: Allow connections without IDENT response.
+  enable_no_ident = {{ (global | default({'enable_no_ident': True})).enable_no_ident | lower }};
+
+  # enable_oper_only_mode: Restrict certain commands to operators.
+  enable_oper_only_mode = {{ (global | default({'enable_oper_only_mode': False})).enable_oper_only_mode | lower }};
+
+  # enable_oper_snotice: Send operator notices to operators.
+  enable_oper_snotice = {{ (global | default({'enable_oper_snotice': True})).enable_oper_snotice | lower }};
+
+  # enable_oper_snooper: Allow operators to snoop other connections.
+  enable_oper_snooper = {{ (global | default({'enable_oper_snooper': True})).enable_oper_snooper | lower }};
+
+  # enable_server_linking: Allow linking with other IRC servers.
+  enable_server_linking = {{ (global | default({'enable_server_linking': True})).enable_server_linking | lower }};
+
+  # enable_stats_oper: Restrict STATS command to operators.
+  enable_stats_oper = {{ (global | default({'enable_stats_oper': True})).enable_stats_oper | lower }};
+
+  # enable_admin_snotice: Send admin messages to operators via Snotice.
+  enable_admin_snotice = {{ (global | default({'enable_admin_snotice': True})).enable_admin_snotice | lower }};
+
+  # enable_admin_snooper: Allow admin snooping.
+  enable_admin_snooper = {{ (global | default({'enable_admin_snooper': True})).enable_admin_snooper | lower }};
+
+  # enable_admin_linking: Restrict server linking to admins.
+  enable_admin_linking = {{ (global | default({'enable_admin_linking': True})).enable_admin_linking | lower }};
+
+  # enable_admin_stats: Restrict specific stats to admins.
+  enable_admin_stats = {{ (global | default({'enable_admin_stats': True})).enable_admin_stats | lower }};
+}
+
+# ==============================================================================
+# IRC Operators
+# Schema field: operators
+# Description: IRC Operators (opers) with elevated privileges.
+# Default: [{'name': 'Admin', 'user': 'admin', 'host': 'admin@example.net', 'password': '...', 'sasl_auth': False, 'sasl_account': '', 'flags': ['kline', ...]}]
+# ==============================================================================
+{% for oper in (operators | default([{'name': 'Admin', 'user': 'admin', 'host': 'admin@example.net', 'password': '$6$rounds=5000$example$...', 'sasl_auth': False, 'sasl_account': '', 'flags': ['kline', 'unkline', 'die', 'restart', 'gline', 'glined', 'locop', 'remote', 'admin', 'oper', 'wallop']}])) %}
+oper {
+  # name: Operator nickname.
+  name = "{{ (oper | default({'name': 'Admin'})).name }}";
+
+  # user: Operator username (ident).
+  user = "{{ (oper | default({'user': 'admin'})).user }}";
+
+  # host: Operator hostname or wildcard.
+  host = "{{ (oper | default({'host': 'admin@example.net'})).host }}";
+
+  # password: Hashed password for operator authentication.
+  password = "{{ (oper | default({'password': '$6$rounds=5000$example$...'})).password }}";
+
+  # sasl_auth: Use SASL for authentication instead of password.
+  sasl_auth = {{ (oper | default({'sasl_auth': False})).sasl_auth | lower }};
+
+  # sasl_account: SASL account name if sasl_auth is true.
+  sasl_account = "{{ (oper | default({'sasl_account': ''})).sasl_account }}";
+
+  # flags: List of privileges granted to this operator.
+  flags {
+    {% for flag in (oper | default({'flags': ['kline', 'unkline', 'die', 'restart', 'gline', 'glined', 'locop', 'remote', 'admin', 'oper', 'wallop'] })).flags %}
+    {{ flag }};
+    {% endfor %}
+  }
+}
+{% endfor %}
+
+# ==============================================================================
+# Connection Classes
+# Schema field: classes
+# Description: Connection/resource classes used by 'allow' and 'oper' blocks.
+# Default: [{'name': 'staff', 'ping_time': 60, 'max_users': 20, 'sendq': 204800, ...}]
+# ==============================================================================
+{% for cls in (classes | default([{'name': 'staff', 'ping_time': 60, 'max_users': 20, 'sendq': 204800, 'recvq': 8192, 'max_links': 5, 'max_local': 20, 'max_global': 10, 'connect_freq': 60, 'min_clients': 1}])) %}
+class {
+  # name: Unique name for this class.
+  name = "{{ (cls | default({'name': 'staff'})).name }}";
+
+  # ping_time: Time in seconds before kicking idle users in this class.
+  ping_time = {{ (cls | default({'ping_time': 60})).ping_time }};
+
+  # max_users: Maximum number of users in this class.
+  max_users = {{ (cls | default({'max_users': 20})).max_users }};
+
+  # sendq: Send queue size in bytes.
+  sendq = {{ (cls | default({'sendq': 204800})).sendq }};
+
+  # recvq: Receive queue size in bytes.
+  recvq = {{ (cls | default({'recvq': 8192})).recvq }};
+
+  # max_links: Maximum number of server links allowed.
+  max_links = {{ (cls | default({'max_links': 5})).max_links }};
+
+  # max_local: Maximum number of local clients.
+  max_local = {{ (cls | default({'max_local': 20})).max_local }};
+
+  # max_global: Maximum number of global clients.
+  max_global = {{ (cls | default({'max_global': 10})).max_global }};
+
+  # connect_freq: Minimum time between connection attempts.
+  connect_freq = {{ (cls | default({'connect_freq': 60})).connect_freq }};
+
+  # min_clients: Minimum number of clients required to activate this class? (Depends on ircd version)
+  min_clients = {{ (cls | default({'min_clients': 1})).min_clients }};
+}
+{% endfor %}
+
+# ==============================================================================
+# Allow Rules
+# Schema field: allows
+# Description: Client connection permissions and rules.
+# Default: [{'ip': '*', 'hostname': '*', 'user': '*', 'max_per_ip': 3, 'class': 'staff', ...}]
+# ==============================================================================
+{% for allow in (allows | default([{'ip': '*', 'hostname': '*', 'user': '*', 'max_per_ip': 3, 'class': 'staff', 'password': '', 'spoof': '', 'spoof_notify': False, 'spoof_sasl': False, 'flags': []}])) %}
+allow {
+  # ip: IP address or CIDR to allow.
+  ip = "{{ (allow | default({'ip': '*'})).ip }}";
+
+  # hostname: Hostname or wildcard to match.
+  hostname = "{{ (allow | default({'hostname': '*'})).hostname }}";
+
+  # user: Username or wildcard to match.
+  user = "{{ (allow | default({'user': '*'})).user }}";
+
+  # max_per_ip: Maximum connections per IP address.
+  max_per_ip = {{ (allow | default({'max_per_ip': 3})).max_per_ip }};
+
+  # class: Class name to assign to matching clients.
+  class = "{{ (allow | default({'class': 'staff'})).class }}";
+
+  # password: Password required to connect (if any).
+  password = "{{ (allow | default({'password': ''})).password }}";
+
+  # spoof: Allowed spoofed hostname.
+  spoof = "{{ (allow | default({'spoof': ''})).spoof }}";
+
+  # spoof_notify: Send notification when spoofing occurs.
+  spoof_notify = {{ (allow | default({'spoof_notify': False})).spoof_notify | lower }};
+
+  # spoof_sasl: Use SASL for spoofing?
+  spoof_sasl = {{ (allow | default({'spoof_sasl': False})).spoof_sasl | lower }};
+
+  # flags: Flags for this allow rule (e.g., 'services', 'oper').
+  flags {
+    {% for flag in (allow | default({'flags': []})).flags %}
+    {{ flag }};
+    {% endfor %}
+  }
+}
+{% endfor %}
+
+# ==============================================================================
+# Deny Rules
+# Schema field: denies
+# Description: Ban or deny rules for specific connections.
+# Default: [{'ip': '192.168.0.0/16', 'hostname': '*.malware.example', 'user': 'spamuser', 'reason': 'Known spambot network'}]
+# ==============================================================================
+{% for deny in (denies | default([{'ip': '192.168.0.0/16', 'hostname': '*.malware.example', 'user': 'spamuser', 'reason': 'Known spambot network'}])) %}
+deny {
+  # ip: IP address or CIDR to deny.
+  ip = "{{ (deny | default({'ip': '192.168.0.0/16'})).ip }}";
+
+  # hostname: Hostname or wildcard to deny.
+  hostname = "{{ (deny | default({'hostname': '*.malware.example'})).hostname }}";
+
+  # user: Username to deny.
+  user = "{{ (deny | default({'user': 'spamuser'})).user }}";
+
+  # reason: Reason for the denial, shown to clients.
+  reason = "{{ (deny | default({'reason': 'Known spambot network'})).reason }}";
+}
+{% endfor %}
+
+# ==============================================================================
+# Included Config Files
+# Schema field: include_files
+# Description: Additional config file paths to include (e.g., SSL certs, channel rules).
+# Default: []
+# ==============================================================================
+{% for inc in (include_files | default([])) %}
+include "{{ inc }}";
+{% endfor %}

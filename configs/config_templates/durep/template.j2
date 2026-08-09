@@ -1,0 +1,116 @@
+#!/bin/sh
+
+# rolling disk usage reporting
+# uses durep to save disk usage reports
+# designed to be run each day from /etc/cron.daily
+# so that you can look back over the past week to try and isolate where
+# changes in disk space are happening
+# also takes a snapshot once a month for longer term changes
+# so that you can look back up to one year
+#
+# to get a copy of durep, try googling for "durep"
+# or use the durep package in debian
+#
+# tested and used on GNU Linux using bash
+# GNU cp option --target-directory used, might not work on non-GNU systems
+#
+# $Id: durep-rolling,v 1.7 2002-12-15 12:53:37+11 matthewa Exp matthewa $
+#
+# this cron script by Matthew Arnison <maffew@cat.org.au>
+# ideas pilfered from a backup script by Daniel O'Callaghan <danny@freebsd.org>
+#
+# to use: edit /etc/default/durep-rolling and add some filesystems
+# to be reported on each night
+
+# config
+
+LANG=C
+export LANG
+
+test -f /etc/default/durep-rolling || exit 0
+
+. /etc/default/durep-rolling
+
+# Path to the durep executable
+# Default: /usr/bin/durep
+test -x {{ DUREP | default('/usr/bin/durep') }} || exit 0
+
+# List of filesystems (mount points or paths) to monitor
+# Default: ['/', ]
+# Must be non-empty to proceed
+test -n "{{ FILESYSTEMS | default(['/']) | join(' ') }}" || exit 0
+
+# action
+
+DOW=`date +%a`         # Day of the week e.g. Mon
+DOM=`date +%d`         # Date of the Month e.g. 27
+MONTH=`date +%b`       # Just the month name, e.g. Aug
+
+for FS in {{ FILESYSTEMS | default(['/']) | join(' ') }}; do
+
+	# change slashes to underscores so that we can use the
+	# file system names as folder names
+	# only minimal protection but hopefully people won't put
+	# totally outlandish paths in FILESYSTEMS
+	FSSAFE=`echo $FS | tr '/' '_'`
+
+  ONEFS="-x"
+
+  if [ "$FS" = "." ] ; then
+     FS=/
+     unset ONEFS
+  fi
+
+	# Directory where durep stores its data and reports
+	# Default: /var/lib/durep-rolling
+	DUREP_TODAY="{{ DUREP_DATA_PATH | default('/var/lib/durep-rolling') }}/${FSSAFE}_$(date +%Y_%m_%d)_${DOW}_${DOM}"
+
+	# Enable verbose output (set to 'on' for debug)
+	# Default: off
+	if [ "{{ DEBUG | default('off') }}" = "on" ]; then
+
+		echo "FS \"$FS\""
+		echo "DUREP_TODAY \"$DUREP_TODAY\""
+		echo "."
+	
+	else
+
+		# Minimum file size in bytes to include in reports
+		# Default: 1024
+		$DUREP -td 2 -d 'durep-rolling' -hs {{ SIZE_CUTOFF | default(1024) }} -sf $DUREP_TODAY $ONEFS $FS > $DUREP_TODAY.Summary.txt
+ 
+# disable for now, needs a reimplementation for CGI when requested
+# I imagine something like following on the HTML page:
+#
+# Display filters: [x] all [ ] daily [ ] weekly [ ] monthly <UPDATE>
+#     (cd $DUREP_TODAY ; $POSTEXEC)
+# 
+# 		if [ $DOM = "01" ]; then # monthly snapshot
+# 			# being careful here not to create lots of duplicate
+# 			# subfolders if this script gets run more than once on
+# 			# the first day of the month
+# 			mkdir -p $DUREP_WEB_PATH/$FSSAFE/$MONTH
+# 
+# 			# --target-directory option is presumably only
+# 			# in GNU cp
+# 			cp -urp \
+# 			--target-directory=$DUREP_WEB_PATH/$FSSAFE/$MONTH \
+# 			$DUREP_TODAY/*
+# 		fi
+	
+	fi
+
+  # prune old database files
+  # Maximum age in days for report files to keep (older files are pruned)
+  # Default: 30
+  find "{{ DUREP_DATA_PATH | default('/var/lib/durep-rolling') }}" -type f -mtime "{{ DUREP_MAXAGE | default(30) }}" -print0 | \
+     xargs -0 -r rm
+
+  # copy the previous register file before the updating rebuild
+  test ! -f "{{ DUREP_DATA_PATH | default('/var/lib/durep-rolling') }}/durep.cds" ||
+     cp -a "{{ DUREP_DATA_PATH | default('/var/lib/durep-rolling') }}/durep.cds" "{{ DUREP_DATA_PATH | default('/var/lib/durep-rolling') }}/durep.cds.old"
+
+  # update the index
+  $DUREP -c "{{ DUREP_DATA_PATH | default('/var/lib/durep-rolling') }}"
+
+done

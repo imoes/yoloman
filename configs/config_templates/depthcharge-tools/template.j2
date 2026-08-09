@@ -1,0 +1,44 @@
+#!/bin/sh
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+# depthcharge-tools depthchargectl-bless sysvinit service
+# Copyright (C) 2020-2021 Alper Nebi Yasak <{{ maintainer_email | default('alpernebiyasak@gmail.com') }}|e>
+# See COPYRIGHT and LICENSE files for full copyright information.
+
+### BEGIN INIT INFO
+# Provides:          {{ service_name | default('depthcharge-tools') }}
+# Required-Start:    $remote_fs
+# Required-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:
+# Short-Description: Mark the current depthcharge partition as successful
+### END INIT INFO
+
+# Ensure the binary exists before proceeding.
+# Uses the configured binary path/name.
+{% set bp = binary_path | default('depthchargectl') %}
+if ! command -v {{ bp }} >/dev/null 2>/dev/null; then
+    exit 0
+fi
+
+# Check if the system booted via depthcharge (Chrome OS recovery/boot logic).
+# If "cros_secure" is not in the kernel command line, this script exits early.
+if ! grep "cros_secure" /proc/cmdline >/dev/null 2>/dev/null; then
+    # Not booted by depthcharge.
+    exit 0
+fi
+
+# Source LSB init functions if available for standard logging/status commands.
+if [ -f /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+fi
+
+case "$1" in
+    start|restart|reload|force-reload)
+        # Execute the bless command to mark the partition successful.
+        {{ bp }} bless
+        ;;
+    stop|status)
+        # This is not a daemon; stop/status are no-ops here.
+        ;;
+esac

@@ -1,0 +1,184 @@
+# ==============================================================================
+# Apache HTTP Server Configuration Template
+# ==============================================================================
+# This file is auto-generated. Do not edit manually.
+
+# ==============================================================================
+# Global Server Settings
+# ==============================================================================
+
+# ServerRoot: Top-level directory of Apache configuration.
+# Defines the root directory from which Apache will serve configuration files and other resources.
+ServerRoot {{ server_root | default('/etc/apache2') }}
+
+# PidFile: Path to the file where Apache writes its process ID.
+# Used by service management tools to identify and manage the Apache process.
+PidFile {{ pid_file | default('/var/run/apache2.pid') }}
+
+# Timeout: Number of seconds before receives and sends time out.
+# This limits the time a non-keepalive connection can be idle before being closed.
+Timeout {{ timeout | default(300) }}
+
+# KeepAlive: Whether to allow persistent connections.
+# Persistent connections allow multiple requests to be sent over a single TCP connection.
+KeepAlive {{ keepalive | default(true) | ternary('On', 'Off') }}
+
+{% if keepalive | default(true) %}
+# MaxKeepAliveRequests: Maximum number of requests allowed per persistent connection.
+# Set to 0 for unlimited requests (though practical limits usually apply).
+MaxKeepAliveRequests {{ max_keepalive_requests | default(100) }}
+
+# KeepAliveTimeout: Number of seconds Apache waits for the next request on a persistent connection.
+# If the client does not send a request within this time, the connection is closed.
+KeepAliveTimeout {{ keepalive_timeout | default(5) }}
+{% endif %}
+
+# User and Group: The user/group account under which Apache runs.
+# These must have sufficient permissions to bind to ports and access document roots.
+User {{ user | default('www-data') }}
+Group {{ group | default('www-data') }}
+
+# ServerAdmin: Email address displayed in server-generated error messages.
+# Used for contact information in error pages and log headers.
+ServerAdmin {{ server_admin | default('admin@example.com') }}
+
+# ServerName: Server hostname used for self-referencing URLs.
+# If empty or undefined, Apache will attempt to determine it dynamically, which may cause warnings.
+{% if (server_name | default('')) != '' %}
+ServerName {{ server_name | default('') }}
+{% endif %}
+
+# ==============================================================================
+# MIME and Logging Configuration
+# ==============================================================================
+
+# Define default MIME types.
+# Usually a system file mapping file extensions to content types.
+TypesConfig /etc/mime.types
+
+# DirectoryIndex: List of default filenames to serve when a directory is requested.
+# Apache will look for these files in the requested directory in the order specified.
+DirectoryIndex {{ directory_index | default(['index.html', 'index.htm', 'index.php']) | join(', ') }}
+
+# ErrorLog: Path to the global error log file.
+# All global errors not handled by VirtualHost-specific logs will be written here.
+ErrorLog {{ error_log | default('/var/log/apache2/error.log') }}
+
+# LogLevel: Verbosity level for error logging.
+# Options: debug, info, notice, warn, error, crit, alert, emerg.
+LogLevel {{ log_level | default('warn') }}
+
+# ==============================================================================
+# Module Configuration
+# ==============================================================================
+
+# Include additional module configuration files.
+# Useful for including fragmented configurations from other directories.
+# included_module_configs is a list of dicts with 'path' field.
+{% for module_conf in included_module_configs | default([]) %}
+Include {{ module_conf.path | default('') }}
+{% endfor %}
+
+# Load modules explicitly.
+# Each item must provide 'name' (module name) and 'path' (shared object path).
+# modules_to_load is a list of dicts with 'name' and 'path' fields.
+{% for module in modules_to_load | default([]) %}
+LoadModule {{ module.name | default('') }} {{ module.path | default('') }}
+{% endfor %}
+
+# ==============================================================================
+# Network Listening Configuration
+# ==============================================================================
+
+# Listen: IP address and port combinations Apache should bind to.
+# Supports IPv4, IPv6, and wildcard addresses.
+# listen_addresses is a list of strings (e.g., '80', '127.0.0.1:443').
+{% for listen_addr in listen_addresses | default(['*:80', '[::]:80']) %}
+Listen {{ listen_addr }}
+{% endfor %}
+
+# ==============================================================================
+# Virtual Host Definitions
+# ==============================================================================
+
+# Define Virtual Hosts blocks.
+# Each vhost item defines a <VirtualHost> container with its specific settings.
+# virtual_hosts is a list of dicts containing vhost configuration keys.
+{% for vhost in virtual_hosts | default([]) %}
+# Virtual Host: {{ vhost.server_name | default('default') }}
+<VirtualHost {{ vhost.address | default('_default_') }}:{{ vhost.port | default(80) }}>
+
+  # ServerName: The primary hostname for this virtual host.
+  ServerName {{ vhost.server_name | default('') }}
+
+  # ServerAlias: Alternative hostnames that resolve to this virtual host.
+  {% if (vhost.server_alias | default([])) | length > 0 %}
+  ServerAlias {{ vhost.server_alias | default([]) | join(', ') }}
+  {% endif %}
+
+  # DocumentRoot: The directory from which files are served for this host.
+  DocumentRoot {{ vhost.document_root | default('/var/www/html') }}
+
+  # ErrorLog: Per-vhost error log. Overrides global ErrorLog if defined.
+  {% if (vhost.error_log | default('')) != '' %}
+  ErrorLog {{ vhost.error_log | default('') }}
+  {% endif %}
+
+  # CustomLog: Per-vhost access log.
+  {% if (vhost.custom_log | default('')) != '' %}
+  CustomLog {{ vhost.custom_log | default('') }} {{ vhost.log_format | default('combined') }}
+  {% endif %}
+
+  # Directory Configuration: Access controls for the DocumentRoot.
+  {% if vhost.allow_override is defined %}
+  <Directory {{ vhost.document_root | default('/var/www/html') }}>
+    # Options: Which server features are enabled for this directory.
+    Options {{ vhost.options | default([]) | join(' ') }}
+    # AllowOverride: Which directives can be overridden by .htaccess files.
+    AllowOverride {{ vhost.allow_override | default('All') }}
+    Require all granted
+  </Directory>
+  {% endif %}
+
+  # Reverse Proxy Configuration: Forward requests to a backend application.
+  {% if (vhost.proxy_backend | default('')) != '' %}
+  # ProxyPass: Forwards the specified URL path to the backend.
+  ProxyPass / {{ vhost.proxy_backend | default('') }}/
+  ProxyPassReverse / {{ vhost.proxy_backend | default('') }}/
+  {% endif %}
+
+  # Load Balancing Configuration: Distribute requests across multiple backends.
+  {% if (vhost.balance_member_list | default([])) | length > 0 %}
+  # Proxy Balancer Definition
+  <Proxy "balancer://{{ vhost.balance_name | default('mycluster') }}">
+    {% for member in vhost.balance_member_list | default([]) %}
+    BalancerMember {{ member.url | default('') }} route={{ member.route | default('') }}
+    {% endfor %}
+    ProxySet stickysession=ROUTEID
+  </Proxy>
+  # ProxyPass to the balancer cluster
+  ProxyPass / balancer://{{ vhost.balance_name | default('mycluster') }}/ stickysession=ROUTEID
+  ProxyPassReverse / balancer://{{ vhost.balance_name | default('mycluster') }}/
+  {% endif %}
+
+</VirtualHost>
+{% endfor %}
+
+# ==============================================================================
+# Standalone Load Balancer Definitions
+# ==============================================================================
+
+# Define load balancer clusters that can be referenced by VirtualHosts.
+# These define the <Proxy> block but do not include ProxyPass directives.
+# load_balancers is a list of dicts with 'name', 'members', etc.
+{% for balancer in load_balancers | default([]) %}
+# Load Balancer Cluster: {{ balancer.name | default('unnamed') }}
+<Proxy "balancer://{{ balancer.name | default('unnamed') }}">
+  {% for member in balancer.members | default([]) %}
+  BalancerMember {{ member.url | default('') }} route={{ member.route | default('') }}
+  {% endfor %}
+  {% if (balancer.sticky_session | default('')) != '' %}
+  ProxySet stickysession={{ balancer.sticky_session | default('') }}
+  {% endif %}
+</Proxy>
+{% endfor %}

@@ -1,0 +1,113 @@
+# CiderWebmail Configuration Template
+#
+# This template configures CiderWebmail, a web-based email client.
+# It defines connections to IMAP/Managesieve servers, local storage paths,
+# and mail delivery settings.
+#
+# Variables are sourced from Ansible host/group vars or defaults provided in the schema.
+# All variables use the `| default(...)` filter to ensure safe rendering even if undefined.
+
+# ==========================================
+# Server Connection Settings
+# ==========================================
+
+# IMAP server hostname or IP address.
+# Typically points to Dovecot, Courier, or another IMAP server.
+# If port 993 is used, CiderWebmail automatically enables SSL/TLS.
+<server>
+    # IMAP server host (default: localhost)
+    # Source: imap.host
+    host {{ (imap | default({})).host | default('localhost') }}
+
+    # IMAP port (default: 143).
+    # Use 143 for STARTTLS or 993 for implicit SSL (IMAPS).
+    # Source: imap.port
+    port {{ (imap | default({})).port | default(143) }}
+</server>
+
+# ==========================================
+# Managesieve Configuration
+# ==========================================
+# Managesieve allows users to edit mail filtering rules (Sieve) via the web interface.
+# Requires a mail server with Managesieve support enabled (e.g., Dovecot with sieve/managesieve plugins).
+#
+# Modes:
+#   'on'       - User can edit everything (raw Sieve editor).
+#   'vacation' - User can only enable/disable vacation (out-of-office) rules.
+#   'off'      - Managesieve functionality is disabled.
+
+<managesieve>
+    # Managesieve mode (default: off)
+    # Source: managesieve.mode (implicit default)
+    mode off
+
+    # Managesieve server hostname or IP address (default: localhost).
+    # Source: managesieve.host
+    host {{ (managesieve | default({})).host | default('localhost') }}
+
+    # Managesieve port (default: 4190).
+    # Standard port for Managesieve as defined by IETF.
+    # Source: managesieve.port
+    port {{ (managesieve | default({})).port | default(4190) }}
+</managesieve>
+
+# ==========================================
+# General Application Settings
+# ==========================================
+
+# Default language for the frontend UI.
+# Example: en, de, fr, etc.
+# Source: language (implicit default: en)
+language en
+
+# Use the login username as the default "From" email address.
+# Enable (1) if users log in with their full email address (user@domain.tld).
+# Disable (0) if you prefer a generic "From" address.
+# Source: username_default_address (implicit default: 0)
+username_default_address 0
+
+# ==========================================
+# Mail Delivery Settings
+# ==========================================
+
+# Configuration for outgoing mail delivery.
+# Options:
+#   'sendmail' - Forks the local sendmail binary to deliver mail.
+#   'smtp'     - Connects to a remote SMTP server (requires 'host' and potentially 'port' if not default).
+<send>
+    # Delivery method (default: sendmail).
+    # Source: send.method (implicit default: sendmail)
+    method sendmail
+
+    # SMTP server host.
+    # Only relevant if method is set to 'smtp'.
+    # Uncomment and set if using SMTP delivery:
+    # host changeme
+</send>
+
+# ==========================================
+# Database Configuration (User Settings)
+# ==========================================
+
+# SQLite database connection for storing user-specific settings.
+# CiderWebmail uses SQLite for lightweight local storage of preferences.
+<Model::DB>
+    # Database connection string.
+    # Format: dbi:SQLite:path_to_db_file
+    # Default path: /var/lib/ciderwebmail/user_settings.sql
+    # Source: database.path
+    connect_info dbi:SQLite:{{ (database | default({})).path | default('/var/lib/ciderwebmail/user_settings.sql') }}
+</Model::DB>
+
+# ==========================================
+# Session Storage Configuration
+# ==========================================
+
+# Directory where session data (login state, temporary data) is stored.
+# Ensure this directory exists and is writable by the web server user.
+<Plugin::Session>
+    # Path to the session storage directory.
+    # Default: /var/lib/ciderwebmail/session
+    # Source: session.storage_path
+    storage {{ (session | default({})).storage_path | default('/var/lib/ciderwebmail/session') }}
+</Plugin::Session>

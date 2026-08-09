@@ -1,0 +1,303 @@
+{
+  "default_lease_time": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default lease duration (seconds) assigned to clients if they do not request a specific duration."
+  },
+  "max_lease_time": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum lease duration (seconds) the server will assign, regardless of client request."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "local7",
+    "description": "Syslog facility to use for DHCP server logs. Common values: local0 through local7, daemon, user."
+  },
+  "subnet4": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4 subnets to serve. Each subnet defines network, netmask, gateway, DNS, and optional reservations.",
+    "items": {
+      "network": {
+        "type": "string",
+        "description": "IPv4 network address (e.g., 192.168.1.0)."
+      },
+      "prefix": {
+        "type": "number",
+        "description": "Network prefix length (e.g., 24 for /24)."
+      },
+      "netmask": {
+        "type": "string",
+        "description": "Netmask in dotted-decimal (e.g., 255.255.255.0). Computed if prefix is given, but kept explicit for clarity."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive name for the subnet (used in comments)."
+      },
+      "gateway": {
+        "type": "string",
+        "description": "Default gateway/router IP for clients in this subnet."
+      },
+      "dns_servers": {
+        "type": "list",
+        "default": [
+          "8.8.8.8",
+          "8.8.4.4"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of DNS server IPs for clients."
+      },
+      "domain_name": {
+        "type": "string",
+        "default": "localdomain",
+        "description": "DNS domain name to assign to clients."
+      },
+      "ntp_servers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Optional list of NTP servers to offer via DHCP option 42."
+      },
+      "broadcast_address": {
+        "type": "string",
+        "default": "",
+        "description": "Optional broadcast address (e.g., 192.168.1.255). If omitted, computed from network/netmask."
+      },
+      "lease_time": {
+        "type": "number",
+        "default": null,
+        "description": "Override default-lease-time for this subnet. Null to inherit global."
+      },
+      "max_lease_time": {
+        "type": "number",
+        "default": null,
+        "description": "Override max-lease-time for this subnet. Defaults to lease_time if omitted."
+      },
+      "range_start": {
+        "type": "string",
+        "default": "",
+        "description": "First IP in dynamic address range (e.g., 192.168.1.100)."
+      },
+      "range_end": {
+        "type": "string",
+        "default": "",
+        "description": "Last IP in dynamic address range (e.g., 192.168.1.200). Required if using dynamic allocation."
+      },
+      "reservations": {
+        "type": "list",
+        "default": [],
+        "description": "Static reservations within this subnet (by MAC address).",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Descriptive name (optional)."
+          },
+          "mac": {
+            "type": "string",
+            "description": "MAC address in colon-separated format (e.g., AA:BB:CC:DD:EE:FF)."
+          },
+          "ip": {
+            "type": "string",
+            "description": "Static IP to assign to this MAC."
+          },
+          "hostname": {
+            "type": "string",
+            "default": "",
+            "description": "Optional hostname to assign via DHCP option 12."
+          },
+          "options": {
+            "type": "list",
+            "default": [],
+            "description": "Custom DHCP options (e.g., PXE, vendor-specific).",
+            "items": {
+              "code": {
+                "type": "string",
+                "description": "Option code (e.g., \"66\", \"150\", or \"vendor.cisco.code1\" \u2192 normalized)."
+              },
+              "value": {
+                "type": "string",
+                "description": "Option value (string, quoted, or numeric)."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "subnet6": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 subnets to serve (DHCPv6 only, not SLAAC).",
+    "items": {
+      "network": {
+        "type": "string",
+        "description": "IPv6 network address (e.g., 2001:db8:1::)."
+      },
+      "prefix": {
+        "type": "number",
+        "description": "Prefix length (e.g., 64)."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive name for the subnet (comment)."
+      },
+      "range_start": {
+        "type": "string",
+        "default": "",
+        "description": "First address in dynamic range (e.g., 2001:db8:1::1000)."
+      },
+      "range_end": {
+        "type": "string",
+        "default": "",
+        "description": "Last address in dynamic range."
+      },
+      "dns_servers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of IPv6 DNS servers."
+      },
+      "dns_search": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "DNS search domains (list of FQDNs)."
+      }
+    }
+  },
+  "pools": {
+    "type": "list",
+    "default": [],
+    "description": "Additional address pools (e.g., for VLANs, multi-homed interfaces).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Pool identifier (comment only)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description."
+      },
+      "network": {
+        "type": "string",
+        "description": "IPv4 network address (e.g., 10.0.2.0)."
+      },
+      "prefix": {
+        "type": "number",
+        "description": "Prefix length (e.g., 24)."
+      },
+      "range_start": {
+        "type": "string",
+        "description": "Start of dynamic range."
+      },
+      "range_end": {
+        "type": "string",
+        "description": "End of dynamic range."
+      },
+      "gateway": {
+        "type": "string",
+        "description": "Gateway for this pool."
+      },
+      "dns_servers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "DNS servers for this pool."
+      }
+    }
+  },
+  "static_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "Statically assigned hosts (outside subnets or fallback).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Descriptive name."
+      },
+      "mac": {
+        "type": "string",
+        "description": "MAC address."
+      },
+      "ip": {
+        "type": "string",
+        "description": "Static IP to assign."
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Optional hostname (DHCP option 12)."
+      }
+    }
+  },
+  "shared_networks": {
+    "type": "list",
+    "default": [],
+    "description": "Shared-network blocks for multi-homed or VLAN-aware setups.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Network name (e.g., \"CORP-VLANs\")."
+      },
+      "interfaces": {
+        "type": "list",
+        "default": [],
+        "description": "List of interface names (e.g., eth0, vlan10).",
+        "items": {
+          "type": "string"
+        }
+      },
+      "subnets": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPv4 subnets in this shared network.",
+        "items": {
+          "network": {
+            "type": "string",
+            "description": "Subnet network address."
+          },
+          "netmask": {
+            "type": "string",
+            "description": "Subnet netmask."
+          },
+          "gateway": {
+            "type": "string",
+            "description": "Subnet gateway."
+          },
+          "dns_servers": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          },
+          "range_start": {
+            "type": "string",
+            "default": "",
+            "description": "Dynamic range start."
+          },
+          "range_end": {
+            "type": "string",
+            "default": "",
+            "description": "Dynamic range end."
+          }
+        }
+      }
+    }
+  }
+}

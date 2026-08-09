@@ -1,0 +1,41 @@
+{# Full haproxy.cfg rendered from values — never hand-edited. TLS terminates on
+   the frontend when tls_enabled (HAProxy PEM = cert+key+chain in one file). #}
+global
+    log /dev/log local0
+    maxconn {{ maxconn }}
+    user {{ user }}
+    group {{ group }}
+    daemon
+{% if tls_enabled %}
+    ssl-default-bind-options ssl-min-ver {{ ssl_min_version|default('TLSv1.2') }}
+{% if ssl_ciphers|default('') %}
+    ssl-default-bind-ciphers {{ ssl_ciphers }}
+{% endif %}
+{% endif %}
+
+defaults
+    log {{ log_level }}
+    mode {{ mode }}
+    option httplog
+    timeout connect {{ timeout_connect }}
+    timeout client {{ timeout_client }}
+    timeout server {{ timeout_server }}
+
+frontend http_front
+    bind *:{{ http_port }}
+{% if tls_enabled %}
+    bind *:{{ https_port|default(443) }} ssl crt {{ ssl_cert_pem }}
+{% if redirect_to_https %}
+    http-request redirect scheme https code 301 unless { ssl_fc }
+{% endif %}
+{% if hsts|default(false) %}
+    http-response set-header Strict-Transport-Security "max-age=63072000; includeSubDomains"
+{% endif %}
+{% endif %}
+    default_backend {{ backend_name }}
+
+backend {{ backend_name }}
+    balance {{ balance_algorithm }}
+{% for server in backend_servers %}
+    server {{ server.name }} {{ server.address }}:{{ server.port }}{% if server.check %} check{% endif %}
+{% endfor %}

@@ -1,0 +1,282 @@
+# ==============================================================================
+# debootstrap configuration
+# ==============================================================================
+# This template documents and structures the command-line arguments passed
+# to the `debootstrap` utility, which bootstraps a base Debian/Ubuntu system.
+# It is intended for use in Ansible roles that automate system provisioning.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Suite to bootstrap (e.g., 'sid', 'bullseye', 'stable', 'testing')
+# Specifies which distribution suite to use as the base.
+# --------------------------------------------------------------------------
+debootstrap_suite: {{ suite | default('stable') }}
+
+# --------------------------------------------------------------------------
+# Target directory for the new system
+# Must be an absolute path where the bootstrapped root filesystem will be created.
+# --------------------------------------------------------------------------
+debootstrap_target: {{ target | default('/target') }}
+
+# --------------------------------------------------------------------------
+# Mirror URL
+# Source for package archives. Supports http://, https://, file:///, or ssh://.
+# --------------------------------------------------------------------------
+debootstrap_mirror: {{ mirror | default('http://deb.debian.org/debian') }}
+
+# --------------------------------------------------------------------------
+# Target architecture
+# Override the host architecture (e.g., 'amd64', 'arm64').
+# Required only if dpkg is unavailable to detect the host arch.
+# --------------------------------------------------------------------------
+{% if arch is defined %}
+debootstrap_arch: {{ arch | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Bootstrap variant
+# Defines the set of packages to install:
+#   - minbase: minimal set of required packages
+#   - buildd: packages suitable for building
+#   - fakechroot: for chroot environments
+# Empty string uses the default behavior (required + important packages).
+# --------------------------------------------------------------------------
+{% if variant is defined %}
+debootstrap_variant: {{ variant | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Archive components
+# Space or comma-separated components to include (e.g., 'main', 'contrib', 'non-free').
+# --------------------------------------------------------------------------
+{% if components is defined %}
+debootstrap_components: {{ components | default([]) | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Additional suites
+# Extra suites to pull packages from, such as 'backports'.
+# --------------------------------------------------------------------------
+{% if extra_suites is defined %}
+debootstrap_extra_suites: {{ extra_suites | default([]) | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Packages to include
+# Additional packages to force-install during bootstrap.
+# --------------------------------------------------------------------------
+{% if include is defined %}
+debootstrap_include: {{ include | default([]) | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Packages to exclude
+# Packages to omit from the installation.
+# ⚠️ WARNING: Avoid excluding essential packages as this may break the system.
+# --------------------------------------------------------------------------
+{% if exclude is defined %}
+debootstrap_exclude: {{ exclude | default([]) | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Merged /usr handling
+# Enable symlinks for /{bin,sbin,lib} -> /usr.
+# Default is true for most modern suites.
+# --------------------------------------------------------------------------
+{% if merged_usr is defined %}
+{% if merged_usr | default(true) | bool %}
+debootstrap_merged_usr: true
+{% else %}
+debootstrap_merged_usr: false
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Keyring override
+# Path to a custom GPG keyring file to validate Release files.
+# --------------------------------------------------------------------------
+{% if keyring is defined %}
+debootstrap_keyring: {{ keyring | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Disable signature checking
+# If true, disables OpenPGP signature verification for Release files.
+# Use with caution in untrusted environments.
+# --------------------------------------------------------------------------
+{% if no_check_sig is defined %}
+{% if no_check_sig | default(false) | bool %}
+debootstrap_no_check_sig: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Cache directory
+# Absolute path to store downloaded .deb files to avoid re-downloading.
+# --------------------------------------------------------------------------
+{% if cache_dir is defined %}
+debootstrap_cache_dir: {{ cache_dir | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Download only mode
+# If true, downloads packages but skips installation.
+# --------------------------------------------------------------------------
+{% if download_only is defined %}
+{% if download_only | default(false) | bool %}
+debootstrap_download_only: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Keep debootstrap directory
+# If true, retains the /debootstrap directory after successful installation.
+# Useful for debugging or running the second stage manually.
+# --------------------------------------------------------------------------
+{% if keep_debootstrap_dir is defined %}
+{% if keep_debootstrap_dir | default(false) | bool %}
+debootstrap_keep_debootstrap_dir: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Foreign mode (cross-architecture bootstrap)
+# If true, performs only the initial unpack phase.
+# Requires --second-stage to complete.
+# --------------------------------------------------------------------------
+{% if foreign is defined %}
+{% if foreign | default(false) | bool %}
+debootstrap_foreign: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Second stage completion
+# If true, runs the second stage of the bootstrap (post-unpack configuration).
+# Requires --foreign to have been run previously.
+# --------------------------------------------------------------------------
+{% if second_stage is defined %}
+{% if second_stage | default(false) | bool %}
+debootstrap_second_stage: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Second stage target directory
+# Subdirectory within the target where the second stage should run.
+# --------------------------------------------------------------------------
+{% if second_stage_target is defined %}
+debootstrap_second_stage_target: {{ second_stage_target | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Unpack tarball
+# Path to a pre-downloaded gzipped tarball of .deb files.
+# Overrides downloading from the mirror if specified.
+# --------------------------------------------------------------------------
+{% if unpack_tarball is defined %}
+debootstrap_unpack_tarball: {{ unpack_tarball | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Create tarball
+# Path to write a gzipped tarball of the downloaded .deb files.
+# Useful for caching or transporting the package cache.
+# --------------------------------------------------------------------------
+{% if make_tarball is defined %}
+debootstrap_make_tarball: {{ make_tarball | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Extractor override
+# Override the tool used to extract .deb files.
+# Options: 'dpkg-deb' (default) or 'ar'.
+# --------------------------------------------------------------------------
+{% if extractor is defined %}
+debootstrap_extractor: {{ extractor | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Verbose output
+# If true, enables verbose progress reporting during bootstrap.
+# --------------------------------------------------------------------------
+{% if verbose is defined %}
+{% if verbose | default(false) | bool %}
+debootstrap_verbose: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Print packages
+# If true, prints the list of packages to be installed and exits immediately.
+# Useful for dry-run verification.
+# --------------------------------------------------------------------------
+{% if print_debs is defined %}
+{% if print_debs | default(false) | bool %}
+debootstrap_print_debs: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Disable dependency resolution
+# If true, disables debootstrap's minimal dependency resolution logic.
+# --------------------------------------------------------------------------
+{% if no_resolve_deps is defined %}
+{% if no_resolve_deps | default(false) | bool %}
+debootstrap_no_resolve_deps: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Log extra dependencies
+# If true, records additional resolved dependencies in debootstrap.log.
+# --------------------------------------------------------------------------
+{% if log_extra_deps is defined %}
+{% if log_extra_deps | default(false) | bool %}
+debootstrap_log_extra_deps: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Skip TLS certificate verification
+# If true, skips verification of TLS certificates when using HTTPS mirrors.
+# --------------------------------------------------------------------------
+{% if no_check_certificate is defined %}
+{% if no_check_certificate | default(false) | bool %}
+debootstrap_no_check_certificate: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Client certificate path
+# Path to a PEM-formatted client certificate for mutual TLS authentication.
+# --------------------------------------------------------------------------
+{% if certificate is defined %}
+debootstrap_certificate: {{ certificate | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Client private key path
+# Path to a PEM-formatted private key for mutual TLS authentication.
+# --------------------------------------------------------------------------
+{% if private_key is defined %}
+debootstrap_private_key: {{ private_key | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Internal flag for debian-installer
+# Do not use unless specifically required by debian-installer scripts.
+# --------------------------------------------------------------------------
+{% if debian_installer is defined %}
+{% if debian_installer | default(false) | bool %}
+debootstrap_debian_installer: true
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# InRelease path override
+# Custom path to the InRelease file relative to the standard mirror structure.
+# --------------------------------------------------------------------------
+{% if inrelease_path is defined %}
+debootstrap_inrelease_path: {{ inrelease_path | default('') }}
+{% endif %}

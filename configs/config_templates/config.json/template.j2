@@ -1,0 +1,30 @@
+{# Cloudflare account email address (used with API key for authentication). #}
+"email": "{{ cloudflare_email | default('') }}",
+
+{# Cloudflare API key (Global API Key or Origin CA Key). Do not expose in logs or configs shared publicly. #}
+"key": "{{ cloudflare_api_key | default('') }}",
+
+{# List of domains and DNS records to manage with dynamic DNS. #}
+"domains": [
+{% for domain in domains | default([]) %}
+  {
+    "domain": "{{ domain.name | default('') }}",
+    "records": [
+{% for record in domain.records | default([]) %}
+      {
+        "name": "{{ record.name | default('') }}",
+        "type": "{{ record.type | default('A') }}",
+        "ttl": {{ record.ttl | default(300) }},
+        "proxied": {{ 'true' if record.proxied else 'false' }}
+      }{% if not loop.last %},{% endif %}
+{% endfor %}
+    ]
+  }{% if not loop.last %},{% endif %}
+{% endfor %}
+],
+
+{# Interval (in seconds) between dynamic DNS update checks. Minimum recommended: 60. #}
+"interval": {{ update_interval | default(300) }},
+
+{# Enable verbose debug logging for troubleshooting. #}
+"debug": {{ debug | default(False) | ternary('true', 'false') }}

@@ -1,0 +1,58 @@
+# knockd Configuration Template
+# Manages the daemon startup behavior, logging, and port-knock sequences.
+
+# -----------------------------------------------------------------------------
+# Startup Control
+# -----------------------------------------------------------------------------
+# Whether knockd should start automatically at boot (maps to START_KNOCKD=1/0).
+# 1 = start
+# anything else = don't start
+# PLEASE EDIT /etc/knockd.conf BEFORE ENABLING
+START_KNOCKD={{ start_at_init | default(False) | ternary(1, 0) }}
+
+# -----------------------------------------------------------------------------
+# Command Line Options
+# -----------------------------------------------------------------------------
+# Default network interface to use in the commented KNOCKD_OPTS line (e.g., 'eth1').
+#KNOCKD_OPTS="-i {{ default_interface | default('eth0') }}"
+
+# Verbose logging (useful for debugging).
+# When enabled, knockd logs detailed information about the knocking process.
+# This is typically passed via KNOCKD_OPTS as -v, but here we document it
+# or could set a specific verbose flag if the config format supported it directly.
+# Since knockd is CLI-based, verbose is usually a command-line flag.
+# If this template generates a config file that supports a verbose directive:
+verbose={{ verbose | default(False) }}
+
+# Path to the log file where knockd will write events.
+# Ensure the directory exists and is writable by the knockd user.
+logfile={{ log_file | default('/var/log/knockd.log') }}
+
+# -----------------------------------------------------------------------------
+# Port-Knock Sequences
+# -----------------------------------------------------------------------------
+# List of port-knock sequences (each sequence defines a name, ports to knock, and action(s) to trigger).
+# Each sequence in the list should be a dictionary with keys:
+#   - name: The sequence name (used in comments or for identification)
+#   - sequence: List of ports to knock (e.g., [1234, 5678, 9012])
+#   - order: Order of the ports (sequential, wsum, tscp, etc.)
+#   - tcpflags: TCP flags required (e.g., syn, ack, fin)
+#   - action: Action to take when the sequence is matched (e.g., 'iptables -A ...')
+#   - cmd: Command to execute (alternative to action)
+#
+# Example sequence entry:
+#   {
+#     "name": "ssh_knock",
+#     "sequence": "1234,5678,9012",
+#     "order": "sequential",
+#     "tcpflags": "syn",
+#     "action": "iptables -A INPUT -s %IP% -j ACCEPT"
+#   }
+
+[openSSH]
+{% for seq in sequence_list | default([]) %}
+{{ seq.name | default('sequence_' + loop.index | string) }} = {{ seq.sequence | default('') }}
+# Order: {{ seq.order | default('sequential') }}
+# TCP Flags: {{ seq.tcpflags | default('syn') }}
+# Action/Command: {{ seq.action | default(seq.cmd | default('none')) }}
+{% endfor %}

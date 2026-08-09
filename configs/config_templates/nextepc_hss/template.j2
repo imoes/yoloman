@@ -1,0 +1,100 @@
+# Home Subscriber Server (HSS) configuration for NextEPC
+# Global settings for the HSS service
+hss:
+  # FQDN of the HSS server (used in diameter peer identification)
+  fqdn: "{{ hss_fqdn }}"
+
+  # Realm (MCC+MNC) this HSS serves (e.g., 'mnc001.mcc001.3gppnetwork.org')
+  realm: "{{ hss_realm }}"
+
+  # Listening address for Diameter interface (S6a/S6d)
+  s6a:
+    # IP address to bind the Diameter server
+    ip: "{{ hss_s6a_ip }}"
+    # Port (standard: 3868)
+    port: {{ hss_s6a_port }}
+    # Hostname/FQDN advertised in Host-IP-Address AVP (optional; defaults to s6a.ip)
+{% if hss_s6a_host_ip_advertise is defined %}
+    host_ip_advertise: "{{ hss_s6a_host_ip_advertise }}"
+{% endif %}
+
+  # Database connection settings (typically MongoDB)
+  db:
+    # Database type ('mongodb')
+    type: "mongodb"
+    # Connection URI (e.g., mongodb://localhost:27017)
+    uri: "{{ hss_db_uri }}"
+    # Database name
+    name: "{{ hss_db_name }}"
+
+  # Authentication/Security settings
+  security:
+    # Enable integrity protection (e.g., for S6a)
+    integrity_protected: {{ hss_security_integrity_protected | string | lower }}
+    # Enable confidentiality protection (e.g., for S6a)
+    confidentiality_protected: {{ hss_security_confidentiality_protected | string | lower }}
+
+  # Subscription data defaults (applied to new subscribers)
+  subscription_defaults:
+    # Default APN configuration
+    default_apn:
+      # APN name
+      apn: "{{ hss_default_apn_apn }}"
+      # PDN type ('ipv4', 'ipv6', 'ipv4v6')
+      pdn_type: "{{ hss_default_apn_pdn_type }}"
+      # QCI (Quality of Service Class Identifier)
+      qci: {{ hss_default_apn_qci }}
+      # Allocation/Retention Priority (ARP)
+      arp: {{ hss_default_apn_arp }}
+      # AMBR (Aggregate Maximum Bit Rate) in kbps
+      ambr:
+        uplink: {{ hss_default_apn_ambr_uplink }}
+        downlink: {{ hss_default_apn_ambr_downlink }}
+
+  # MME peer list (for S6a connectivity)
+  mme_peers:
+{% for peer in hss_mme_peers %}
+    -
+      # FQDN of the MME
+      fqdn: "{{ peer.fqdn }}"
+      # IP address(es) of the MME
+      ip: "{{ peer.ip }}"
+      # Realm this MME serves (if different from global realm)
+{% if peer.realm is defined %}
+      realm: "{{ peer.realm }}"
+{% else %}
+      realm: "{{ hss_realm }}"
+{% endif %}
+{% endfor %}
+
+  # Logging configuration
+  logging:
+    # Log level: 'debug', 'info', 'warning', 'error', 'fatal'
+    level: "{{ hss_log_level }}"
+    # Path to log file
+{% if hss_log_file is defined %}
+    file: "{{ hss_log_file }}"
+{% else %}
+    file: "/var/log/nextepc/hss.log"
+{% endif %}
+    # Syslog facility (e.g., 'local0', 'daemon')
+    facility: "{{ hss_log_facility }}"
+
+  # Optional: Statistics and metrics endpoints
+{% if hss_metrics_enabled %}
+  metrics:
+    # Enable Prometheus-style metrics endpoint
+    enabled: true
+    # Listening port
+    port: {{ hss_metrics_port }}
+    # Path
+    path: "{{ hss_metrics_path }}"
+{% endif %}
+
+  # Optional: GDB debug support (rarely used in production)
+{% if hss_debug_gdb %}
+  debug:
+    gdb: true
+{% endif %}
+
+# End of HSS configuration

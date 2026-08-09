@@ -1,0 +1,141 @@
+{
+  "paths": {
+    "type": "object",
+    "description": "Directory and file paths used by HED",
+    "default": {
+      "vardir": "/var/lib/arc",
+      "logdir": "/var/log/arc",
+      "pidfile": "/run/arc/hed.pid"
+    },
+    "properties": {
+      "vardir": {
+        "type": "string",
+        "description": "Base directory for HED runtime and temporary data"
+      },
+      "logdir": {
+        "type": "string",
+        "description": "Directory for HED log files"
+      },
+      "pidfile": {
+        "type": "string",
+        "description": "Full path to PID file for the HED service"
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "description": "Performance and resource limits for the HED service",
+    "default": {
+      "worker_threads": 4,
+      "max_connections": 256,
+      "max_queue_size": 1024,
+      "connection_timeout": 30
+    },
+    "properties": {
+      "worker_threads": {
+        "type": "number",
+        "description": "Number of worker threads for request handling (recommend: CPU cores or slightly more)"
+      },
+      "max_connections": {
+        "type": "number",
+        "description": "Maximum number of simultaneous client connections allowed"
+      },
+      "max_queue_size": {
+        "type": "number",
+        "description": "Maximum number of pending requests in queue"
+      },
+      "connection_timeout": {
+        "type": "number",
+        "description": "Timeout (seconds) for idle client connections before being closed"
+      }
+    }
+  },
+  "options": {
+    "type": "object",
+    "description": "Operational toggles and security settings",
+    "default": {
+      "verbose": false,
+      "metrics_enabled": true,
+      "allowed_hosts": [
+        "localhost",
+        "127.0.0.1"
+      ]
+    },
+    "properties": {
+      "verbose": {
+        "type": "bool",
+        "description": "Enable verbose debug logging (not recommended in production)"
+      },
+      "metrics_enabled": {
+        "type": "bool",
+        "description": "Enable collection and reporting of internal health metrics"
+      },
+      "allowed_hosts": {
+        "type": "list",
+        "description": "List of hostnames or IP addresses permitted to query the health endpoint"
+      }
+    }
+  },
+  "endpoints": {
+    "type": "list",
+    "description": "List of HTTP endpoints to monitor for health status",
+    "default": [],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for this endpoint (used as section name)"
+        },
+        "host": {
+          "type": "string",
+          "description": "Target hostname or IP address"
+        },
+        "port": {
+          "type": "number",
+          "description": "TCP port number"
+        },
+        "path": {
+          "type": "string",
+          "description": "HTTP path for health check (e.g., /healthz)"
+        },
+        "interval": {
+          "type": "number",
+          "description": "Interval (seconds) between health checks"
+        },
+        "timeout": {
+          "type": "number",
+          "description": "Timeout (seconds) for each health check request"
+        },
+        "method": {
+          "type": "string",
+          "description": "HTTP method to use (e.g., GET, POST). Defaults to GET if omitted"
+        },
+        "expected_status": {
+          "type": "number",
+          "description": "Expected HTTP status code (e.g., 200). Defaults to 200 if omitted"
+        },
+        "username": {
+          "type": "string",
+          "description": "HTTP Basic Auth username (optional)"
+        },
+        "password": {
+          "type": "string",
+          "description": "HTTP Basic Auth password (optional)"
+        },
+        "insecure": {
+          "type": "bool",
+          "description": "Allow insecure TLS connections (e.g., self-signed certs). Only for HTTPS endpoints"
+        }
+      },
+      "required": [
+        "name",
+        "host",
+        "port",
+        "path",
+        "interval",
+        "timeout"
+      ]
+    }
+  }
+}

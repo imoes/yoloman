@@ -1,0 +1,91 @@
+# ==============================================================================
+# Pandora FMS Agent Configuration
+# ==============================================================================
+# This configuration file defines how the Pandora FMS Agent connects to the
+# central server and behaves locally. All variables are sourced from the Ansible
+# inventory/role defaults.
+
+# ------------------------------------------------------------------------------
+# Server Connection
+# ------------------------------------------------------------------------------
+
+# IP address or hostname of the Pandora FMS Server.
+# The agent connects to this address to send collected data.
+server_ip = {{ server_ip | default('127.0.0.1') }}
+
+# Port used to connect to the Pandora FMS Server.
+# Default is 41121, which is the standard Pandora FMS server port.
+server_port = {{ server_port | default(41121) }}
+
+# ------------------------------------------------------------------------------
+# Agent Identity
+# ------------------------------------------------------------------------------
+
+# Unique name of this agent (used to identify it on the server).
+# This name must be unique across all monitored hosts to avoid data collisions.
+agent_name = {{ agent_name | default('pandora_agent') }}
+
+# ------------------------------------------------------------------------------
+# Directory Structure
+# ------------------------------------------------------------------------------
+
+# Directory containing custom plugins.
+# The agent executes scripts in this directory as part of its monitoring cycle.
+plugin_directory = {{ plugin_directory | default('/var/lib/pandora/plugins') }}
+
+# Directory used for temporary data storage.
+# The agent caches data here before sending it to the server or processing it.
+temp_directory = {{ temp_directory | default('/var/spool/pandora/data_in') }}
+
+# ------------------------------------------------------------------------------
+# Monitoring Cycle
+# ------------------------------------------------------------------------------
+
+# Interval (in seconds) between monitoring cycles.
+# Determines how often the agent collects data and sends it to the server.
+interval = {{ interval | default(300) }}
+
+# ------------------------------------------------------------------------------
+# Logging and Debugging
+# ------------------------------------------------------------------------------
+
+# Enable verbose debug logging.
+# Set to '1' (true) to enable detailed logging for troubleshooting; '0' (false) for normal operation.
+debug_mode = {{ debug_mode | default(false) | lower }}
+
+# Path to the agent log file.
+# The agent writes its operational logs to this file.
+log_file = {{ log_file | default('/var/log/pandora/pandora_agent.log') }}
+
+# Minimum logging level.
+# Controls the verbosity of logs (e.g., 'info', 'warning', 'error').
+log_level = {{ log_level | default('info') }}
+
+# ------------------------------------------------------------------------------
+# Remote Configuration
+# ------------------------------------------------------------------------------
+
+# Allow server-side remote configuration updates.
+# If enabled, the agent can fetch its configuration from the Pandora FMS Server.
+remote_config = {{ remote_config | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Network Discovery
+# ------------------------------------------------------------------------------
+
+# Enable/Disable network discovery for automatic inventory.
+# Note: Network discovery is primarily a server-side feature; agent-side configuration
+# is limited. When disabled, the agent uses a static value of 0.
+{% if network_discovery is defined and network_discovery.enabled %}
+network_discovery = 1
+# Network range or interfaces to discover.
+network_discovery_network = {{ network_discovery.network | default('') }}
+# Interval in seconds for discovery scans.
+network_discovery_interval = {{ network_discovery.interval | default(60) }}
+# Timeout in seconds for discovery operations.
+network_discovery_timeout = {{ network_discovery.timeout | default(10) }}
+# Number of threads for discovery operations.
+network_discovery_threads = {{ network_discovery.threads | default(5) }}
+{% else %}
+network_discovery = 0
+{% endif %}

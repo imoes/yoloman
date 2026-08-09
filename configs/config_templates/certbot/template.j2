@@ -1,0 +1,28 @@
+# /etc/cron.d/certbot: crontab entries for the certbot package
+#
+# Schema: certbot
+# Purpose: Schedule automatic SSL/TLS certificate renewal via certbot.
+# This template configures a cron job that runs twice daily to check for
+# expiring certificates and renews them.
+#
+# Important Note!  This cronjob will NOT be executed if you are
+# running systemd as your init system.  If you are running systemd,
+# the cronjob.timer function takes precedence over this cronjob.  For
+# more details, see the systemd.timer manpage, or use systemctl show
+# certbot.timer.
+
+# SHELL: The shell used to execute commands.
+SHELL={{ certbot_shell | default('/bin/sh') }}
+
+# PATH: The path used to locate executable programs.
+PATH={{ certbot_path | default('/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin') }}
+
+# certbot_renewal_job: The main cron entry for certificate renewal.
+# Runs every 12 hours (0 */12 * * *).
+# Conditions:
+# 1. Runs as root.
+# 2. Checks if /usr/bin/certbot is executable.
+# 3. Checks if systemd is NOT running (to avoid duplication with systemd timer).
+# 4. Sleeps for a random interval (up to 43200 seconds / 12 hours) to stagger renewal across hosts.
+# 5. Executes certbot renew in quiet mode.
+0 */12 * * * root test -x {{ certbot_binary_path | default('/usr/bin/certbot') }} -a \! -d /run/systemd/system && perl -e 'sleep int(rand(43200))' && {{ certbot_binary_path | default('/usr/bin/certbot') }} -q renew {{ certbot_renew_flags | default('--no-random-sleep-on-renew') | default('') | trim }}

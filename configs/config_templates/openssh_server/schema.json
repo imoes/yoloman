@@ -1,0 +1,183 @@
+{
+  "ssh_port": {
+    "type": "number",
+    "default": 22,
+    "description": "Port number on which the SSH daemon listens for connections."
+  },
+  "address_family": {
+    "type": "string",
+    "default": "any",
+    "description": "IP address family: 'any', 'inet' (IPv4 only), or 'inet6' (IPv6 only)."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Specific IP address to bind to (e.g., '192.168.1.10'). Set to '0.0.0.0' for all interfaces."
+  },
+  "permit_root_login": {
+    "type": "string",
+    "default": "prohibit-password",
+    "description": "Root login policy: 'yes', 'prohibit-password', 'without-password', or 'no'."
+  },
+  "pubkey_authentication": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable public key (SSH key) authentication."
+  },
+  "password_authentication": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable password authentication. Not recommended for production if SSH keys are used."
+  },
+  "max_auth_tries": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of authentication attempts permitted per connection."
+  },
+  "authentication_methods": {
+    "type": "list",
+    "default": [
+      "publickey",
+      "password"
+    ],
+    "description": "Ordered list of authentication methods to accept (e.g., ['publickey', 'password']).",
+    "items": {
+      "type": "string",
+      "description": "An authentication method name (e.g., 'publickey', 'password', 'keyboard-interactive')."
+    }
+  },
+  "banner_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file whose contents are displayed before authentication (e.g., '/etc/issue.ssh'). Leave empty to disable."
+  },
+  "permit_user_environment": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow users to set environment variables via ~/.ssh/environment."
+  },
+  "client_alive_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between client alive messages (0 = disabled). Helps detect dead connections."
+  },
+  "client_alive_count_max": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of client alive messages allowed without response before disconnecting."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for logging (e.g., 'QUIET', 'FATAL', 'ERROR', 'INFO', 'VERBOSE', 'DEBUG').",
+    "enum": [
+      "ERROR",
+      "INFO",
+      "DEBUG"
+    ]
+  },
+  "log_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Include client IP address and other verbose details in logs."
+  },
+  "startup_rate_limit": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of unauthenticated connections allowed per minute per IP."
+  },
+  "ciphers": {
+    "type": "list",
+    "default": [
+      "chacha20-poly1305@openssh.com",
+      "aes256-gcm@openssh.com",
+      "aes128-gcm@openssh.com",
+      "aes256-ctr",
+      "aes192-ctr",
+      "aes128-ctr"
+    ],
+    "description": "Ordered list of supported ciphers (strong algorithms only).",
+    "items": {
+      "type": "string",
+      "description": "A cipher algorithm name."
+    }
+  },
+  "macs": {
+    "type": "list",
+    "default": [
+      "hmac-sha2-512-etm@openssh.com",
+      "hmac-sha2-256-etm@openssh.com",
+      "hmac-sha2-512",
+      "hmac-sha2-256"
+    ],
+    "description": "Ordered list of supported MACs (Message Authentication Codes).",
+    "items": {
+      "type": "string",
+      "description": "A MAC algorithm name."
+    }
+  },
+  "kex_algorithms": {
+    "type": "list",
+    "default": [
+      "curve25519-sha256",
+      "curve25519-sha256@libssh.org",
+      "diffie-hellman-group16-sha512",
+      "diffie-hellman-group18-sha512"
+    ],
+    "description": "Ordered list of key exchange algorithms (modern & secure only).",
+    "items": {
+      "type": "string",
+      "description": "A key exchange algorithm name."
+    }
+  },
+  "protocol": {
+    "type": "number",
+    "default": 2,
+    "description": "SSH protocol version (must be 2 for modern security)."
+  },
+  "strict_modes": {
+    "type": "bool",
+    "default": true,
+    "description": "Require strict permissions on user's key files and home directory (prevents misuse)."
+  },
+  "x11_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable X11 forwarding (graphical apps over SSH)."
+  },
+  "allow_tcp_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TCP port forwarding (tunneling)."
+  },
+  "allow_agent_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSH agent forwarding."
+  },
+  "gateway_ports": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow remote hosts to connect to ports forwarded for the client."
+  },
+  "sftp_subsystem": {
+    "type": "string",
+    "default": "/usr/lib/openssh/sftp-server",
+    "description": "Command or path to the SFTP subsystem."
+  },
+  "sftp_chroot_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of groups whose members will be chrooted to their home directories upon SFTP login.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the group (e.g., 'sftpusers')."
+      },
+      "chroot_path": {
+        "type": "string",
+        "description": "Absolute path to chroot directory (must be owned by root and not writable by group/others)."
+      }
+    }
+  }
+}

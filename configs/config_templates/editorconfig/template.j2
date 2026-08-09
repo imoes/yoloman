@@ -1,0 +1,88 @@
+# ==============================================================================
+# EditorConfig Root Configuration Template
+# ==============================================================================
+# This template generates a .editorconfig file. EditorConfig helps maintain
+# consistent coding styles across different editors and IDEs.
+#
+# The configuration is divided into a root section (global defaults) and
+# multiple file-sections targeting specific patterns.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# All variables use `| default(...)` to ensure safe rendering with empty contexts.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Settings (Root)
+# --------------------------------------------------------------------------
+
+# Stop searching for .editorconfig files in parent directories.
+# If set to true, this .editorconfig file applies to all files in this directory
+# and subdirectories. If false, the search continues up the directory tree.
+root = {{ root | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# Default Section (Applies to all files)
+# --------------------------------------------------------------------------
+
+[*]
+
+# Line ending style to use when creating or preserving files.
+# Valid values: 'lf' (Linux/macOS), 'cr' (Classic Mac), 'crlf' (Windows).
+end_of_line = {{ end_of_line | default('lf') }}
+
+# Character encoding for files.
+# Common values: 'utf-8', 'latin1', 'utf-8-bom', 'utf-16be', 'utf-16le'.
+charset = {{ charset | default('utf-8') }}
+
+# Whether to remove trailing whitespace characters from the end of lines.
+# true: Trailing whitespace is stripped.
+# false: Trailing whitespace is preserved.
+trim_trailing_whitespace = {{ trim_trailing_whitespace | default(true) | lower }}
+
+# Whether to ensure that files end with a newline character.
+# true: A newline is added if missing.
+# false: The file ending is not modified.
+insert_final_newline = {{ insert_final_newline | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# File-Specific Sections
+# --------------------------------------------------------------------------
+# Defines overrides for specific file patterns.
+# Each item in the 'sections' list corresponds to a block below.
+# If a property is not defined for a specific section, the global defaults above apply.
+
+{# Iterate over the sections list provided in the schema. #}
+{%- for section in sections | default([]) %}
+
+# -------------------------------------------------------------------------
+# Section: {{ section.description | default('Unnamed Section') }}
+# Pattern: {{ section.pattern | default('*') }}
+# -------------------------------------------------------------------------
+[{{ section.pattern | default('*') }}]
+
+{# Indentation style: 'space' or 'tab'. #}
+indent_style = {{ section.indent_style | default('space') }}
+
+{# Number of characters per indentation level. #}
+indent_size = {{ section.indent_size | default('space') }}
+
+{# Number of characters displayed for a tab character. #}
+tab_width = {{ section.tab_width | default(indent_size) }}
+
+{# Override line ending style for this specific section. #}
+end_of_line = {{ section.end_of_line | default(end_of_line) }}
+
+{# Override character encoding for this specific section. #}
+charset = {{ section.charset | default(charset) }}
+
+{# Override trailing whitespace removal for this specific section. #}
+trim_trailing_whitespace = {{ section.trim_trailing_whitespace | default(trim_trailing_whitespace) | lower }}
+
+{# Override final newline insertion for this specific section. #}
+insert_final_newline = {{ section.insert_final_newline | default(insert_final_newline) | lower }}
+
+{# Add a blank line between sections for readability, except after the last one. #}
+{%- if not loop.last %}
+
+{%- endif %}
+{%- endfor %}

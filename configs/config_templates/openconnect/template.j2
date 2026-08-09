@@ -1,0 +1,92 @@
+# ==============================================================================
+# OpenConnect Client Configuration Template
+# ==============================================================================
+# This template generates the hostgroup configuration file for OpenConnect.
+# Each block defines a remote VPN endpoint and its optional authentication parameters.
+#
+# Format reference (per OpenConnect man page):
+#   <hostname> [display_name] [authgroup] [cafile=<path>] [cert=<path>]
+#             [key=<path>] [proxy=<url>] [usergroup=<name>] [proto=<proto>]
+#             [auth=<method>]
+#
+# All variables are sourced from the `hosts` list defined in the role's variables.
+# Every field uses a safe default to prevent rendering errors if a key is missing.
+# ==============================================================================
+
+# Hosts list: List of VPN hostgroups to configure. Each entry defines a remote VPN endpoint and optional authentication parameters.
+# Default is an empty list, resulting in no configuration output.
+{% for host in (hosts | default([])) %}
+{# -------------------------------------------------------------------------- #}
+{# Hostname: The primary address or FQDN of the VPN gateway.                #}
+{# Required field. Defaults to empty string if missing (should be provided).  #}
+{# -------------------------------------------------------------------------- #}
+{{ (host | default({})).hostname | default('') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Display Name: A human-readable alias for this connection.                 #}
+{# Optional. If present, it follows the hostname.                            #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).display_name | default(false) %} {{ (host | default({})).display_name | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Auth Group: The authentication group or realm to use.                     #}
+{# Optional. Often used for multi-tenant VPN setups.                         #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).authgroup | default(false) %} {{ (host | default({})).authgroup | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# CA File: Path to the Certificate Authority file used to verify the VPN.   #}
+{# Optional. Syntax: cafile=<path>                                           #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).cafile | default(false) %} cafile={{ (host | default({})).cafile | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Client Cert: Path to the client TLS certificate.                          #}
+{# Optional. Syntax: cert=<path>                                             #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).cert | default(false) %} cert={{ (host | default({})).cert | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Client Key: Path to the private key corresponding to the client cert.     #}
+{# Optional. Syntax: key=<path>                                              #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).key | default(false) %} key={{ (host | default({})).key | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Proxy URL: HTTP/SOCKS proxy to tunnel the VPN through.                    #}
+{# Optional. Syntax: proxy=<url>                                             #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).proxy | default(false) %} proxy={{ (host | default({})).proxy | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# User Group: Logical group of users for policy assignment.                 #}
+{# Optional. Syntax: usergroup=<name>                                        #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).usergroup | default(false) %} usergroup={{ (host | default({})).usergroup | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Protocol: Force a specific protocol (tcp, udp, http, etc.).               #}
+{# Optional. Syntax: proto=<proto>                                           #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).proto | default(false) %} proto={{ (host | default({})).proto | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Authentication Method: e.g., cert, certificate, password, two-factor.     #}
+{# Optional. Syntax: auth=<method>                                           #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).auth | default(false) %} auth={{ (host | default({})).auth | default('') }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Port: Override the default VPN port (usually 443).                        #}
+{# Optional. Syntax: :port                                                   #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).port | default(false) %} :{{ (host | default({})).port | default(443) }}{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Comment: An optional trailing comment explaining this entry.              #}
+{# Optional. Syntax: # comment                                               #}
+{# -------------------------------------------------------------------------- #}
+{% if (host | default({})).comment | default(false) %} # {{ (host | default({})).comment | default('') }}{% endif %}
+
+{# End of hostgroup entry for: {{ (host | default({})).hostname | default('unknown') }}      #}
+{% endfor %}

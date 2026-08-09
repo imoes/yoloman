@@ -1,0 +1,74 @@
+name: dimensiondata_network
+fqcn: community.general.dimensiondata_network
+collection: community.general
+short_description: Create, update, and delete MCP 1.0 & 2.0 networks
+description: Create, update, and delete MCP 1.0 & 2.0 networks
+options:
+  description:
+    type: str
+    description: Additional description of the network domain.
+  location:
+    type: str
+    required: true
+    description: The target datacenter.
+  mcp_password:
+    type: str
+    description: The password used to authenticate to the CloudControl API. If not specified, will fall
+      back to E(MCP_PASSWORD) from environment variable or C(~/.dimensiondata). Required if O(mcp_user)
+      is specified.
+  mcp_user:
+    type: str
+    description: The username used to authenticate to the CloudControl API. If not specified, will fall
+      back to E(MCP_USER) from environment variable or C(~/.dimensiondata).
+  name:
+    type: str
+    required: true
+    description: The name of the network domain to create.
+  region:
+    type: str
+    default: na
+    description: The target region. Regions are defined in Apache libcloud project [libcloud/common/dimensiondata.py].
+      They are also listed in U(https://libcloud.readthedocs.io/en/latest/compute/drivers/dimensiondata.html).
+      Note that the default value C(na) stands for "North America". The module prepends C(dd-) to the
+      region choice.
+  service_plan:
+    type: str
+    default: ESSENTIALS
+    choices:
+    - ESSENTIALS
+    - ADVANCED
+    description: The service plan, either "ESSENTIALS" or "ADVANCED". MCP 2.0 Only.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Should the resource be present or absent.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on private
+      instances of the CloudControl API that use self-signed certificates.
+  wait:
+    type: bool
+    default: false
+    description: Should we wait for the task to complete before moving onto the next.
+  wait_poll_interval:
+    type: int
+    default: 2
+    description: The amount of time (in seconds) to wait between checks for task completion. Only applicable
+      if O(wait=true).
+  wait_time:
+    type: int
+    default: 600
+    description: The maximum amount of time (in seconds) to wait for the task to complete. Only applicable
+      if O(wait=true).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create an MCP 1.0 network\n  community.general.dimensiondata_network:\n    region:\
+  \ na\n    location: NA5\n    name: mynet\n\n- name: Create an MCP 2.0 network\n  community.general.dimensiondata_network:\n\
+  \    region: na\n    mcp_user: my_user\n    mcp_password: my_password\n    location: NA9\n    name:\
+  \ mynet\n    service_plan: ADVANCED\n\n- name: Delete a network\n  community.general.dimensiondata_network:\n\
+  \    region: na\n    location: NA1\n    name: mynet\n    state: absent\n"

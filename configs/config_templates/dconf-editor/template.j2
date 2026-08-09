@@ -1,0 +1,28 @@
+# dconf-editor CLI configuration wrapper
+# This template generates a shell script that launches the dconf-editor GUI application.
+# It ensures that variables are safely defaulted and provides clear documentation for the single
+# available configuration option.
+
+{% set warn_override = warn_override | default(False) | bool %}
+
+#!/usr/bin/env bash
+#
+# Self-documenting configuration for dconf-editor.
+#
+# Field: warn_override
+# Description: Whether to suppress the initial warning about changing settings.
+#              When False (default), dconf-editor shows a caution dialog because
+#              changing dconf keys can break desktop applications. Set to True
+#              to bypass this warning for advanced users or automation.
+#
+# Default: False
+
+{% if warn_override %}
+# Launch dconf-editor without showing the initial warning.
+# The flag --I-understand-that-changing-options-can-break-applications
+# is required to bypass the safety prompt.
+exec dconf-editor --I-understand-that-changing-options-can-break-applications "$@"
+{% else %}
+# Launch dconf-editor with the standard safety warning.
+exec dconf-editor "$@"
+{% endif %}

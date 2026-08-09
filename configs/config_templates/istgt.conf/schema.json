@@ -1,0 +1,132 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "Info",
+    "description": "Verbosity of logs: Debug, Info, Notice, Warn, Error, etc."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/istgt.pid",
+    "description": "Path to file where istgt will write its process ID."
+  },
+  "control_socket": {
+    "type": "string",
+    "default": "/var/run/istgt.control",
+    "description": "Path to UNIX socket for remote administration."
+  },
+  "allow_remote": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable remote management via the control socket."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum total number of simultaneous iSCSI connections."
+  },
+  "io_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "I/O operation timeout in seconds. Increase for slow disks or high latency."
+  },
+  "preallocate_memory": {
+    "type": "bool",
+    "default": false,
+    "description": "Preallocate buffers for data I/O (improves latency but uses more memory)."
+  },
+  "luns": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/var/lib/istgt/vdisk0",
+        "block_size": 512,
+        "read_only": false
+      }
+    ],
+    "description": "List of storage LUNs exposed by this target. Each must be a Disk (file or block device). Only the first LUN (LUN0) is defined in the first section; subsequent LUNs are defined in subsequent [StorageUnit*] sections if the template structure supported dynamic sections, but here they are all in one block. Note: The template uses a loop for LUNs but keeps them in the same [StorageUnit1] block which is technically invalid for multiple LUNs in istgt, but we are preserving structure. The schema description is kept general."
+  },
+  "serial": {
+    "type": "string",
+    "default": "ISTGT0001",
+    "description": "Unique serial number for the storage device (must be unique per LUN)."
+  },
+  "vendor": {
+    "type": "string",
+    "default": "ISTGT",
+    "description": "Vendor ID (max 8 characters)."
+  },
+  "product": {
+    "type": "string",
+    "default": "iSCSI Target",
+    "description": "Product ID (max 16 characters)."
+  },
+  "revision": {
+    "type": "string",
+    "default": "0001",
+    "description": "Product revision string (max 4 characters)."
+  },
+  "portals": {
+    "type": "list",
+    "default": [
+      {
+        "discovery": "Yes"
+      }
+    ],
+    "description": "List of network portals (IP:port pairs) on which to listen. Discovery setting controls whether portal appears in discovery responses."
+  },
+  "allowed_initiators": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed initiator IQNs (empty = allow all initiators). Use * for wildcard."
+  },
+  "auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of CHAP credentials for mutual authentication (empty = no authentication)."
+  },
+  "target_name": {
+    "type": "string",
+    "default": "iqn.2005-05.com.example:storage.target1",
+    "description": "Unique iSCSI target name (must follow IQN format: iqn.yyyy-mm.naming-authority:unique-name)."
+  },
+  "queue_depth": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum I/O operations queued per connection. Increase for high throughput workloads."
+  },
+  "data_digest": {
+    "type": "string",
+    "default": "CRC32C",
+    "description": "Digest algorithm for data payload integrity. Options: CRC32C, None."
+  },
+  "header_digest": {
+    "type": "string",
+    "default": "None",
+    "description": "Digest algorithm for iSCSI header integrity. Options: CRC32C, None."
+  },
+  "default_block_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Fallback block size for LUNs where detection fails. Typically 512."
+  },
+  "login_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time to wait for iSCSI login to complete (seconds)."
+  },
+  "max_connections_per_session": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of connections allowed per iSCSI session."
+  },
+  "send_target_name": {
+    "type": "bool",
+    "default": true,
+    "description": "Include TargetName in login response (required for most initiators)."
+  },
+  "suppress_target_name": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, suppress TargetName in discovery responses (advanced use only)."
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP or hostname to bind to"
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 9001,
+    "description": "TCP port for incoming worker connections"
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of concurrent worker processes"
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum requests per second (0 = no limit); helps prevent abuse"
+  },
+  "max_ttl": {
+    "type": "number",
+    "default": 2147483647,
+    "description": "Maximum allowed TTL in seconds (enforced upper bound)"
+  },
+  "default_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Default TTL (in seconds) applied when not specified"
+  },
+  "storage_driver": {
+    "type": "string",
+    "default": "sqlalchemy",
+    "description": "Backend storage driver; typically 'sqlalchemy' or 'designate_storage_sqlalchemy'"
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://designate:secret@localhost/designate?charset=utf8",
+    "description": "Database connection string (e.g., PostgreSQL or MySQL URI)"
+  },
+  "connection_recycle_time": {
+    "type": "number",
+    "default": 600,
+    "description": "Time (seconds) after which DB connections are recycled"
+  },
+  "pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of database connections in the pool"
+  },
+  "pool_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for acquiring a DB connection"
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Message broker connection string (e.g., RabbitMQ or Redis)"
+  },
+  "rpc_topic": {
+    "type": "string",
+    "default": "designate_worker",
+    "description": "Topic used for inter-service RPC communication"
+  },
+  "rpc_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker threads handling incoming RPC messages"
+  },
+  "service_worker_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Set to false to disable the worker service"
+  },
+  "status_period": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between status updates (e.g., heartbeat)"
+  },
+  "zone_types": {
+    "type": "list",
+    "default": [
+      "public",
+      "private"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of zone types (e.g., public, private) this worker processes"
+  },
+  "exclude_tenants": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of tenant IDs to exclude from processing (empty = process all)"
+  },
+  "max_records_per_zone": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum DNS records allowed per zone (enforcement limit)"
+  },
+  "max_transfers_per_cycle": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum concurrent zone transfers processed per worker cycle"
+  },
+  "background_maintenance": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable/disable background tasks like cleanup and consistency checks"
+  },
+  "pools": {
+    "type": "list",
+    "default": [
+      {
+        "id": "default",
+        "name": "Default Pool",
+        "driver": "bind9",
+        "nameservers": [
+          "ns1.example.com."
+        ],
+        "targets": [
+          {
+            "id": "primary",
+            "type": "bind9",
+            "host": "127.0.0.1",
+            "port": 53,
+            "username": "",
+            "api_endpoint": ""
+          }
+        ]
+      }
+    ],
+    "items": {
+      "id": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique pool identifier (used in section header)"
+      },
+      "name": {
+        "type": "string",
+        "default": "Default Pool",
+        "description": "Human-readable pool name"
+      },
+      "driver": {
+        "type": "string",
+        "default": "bind9",
+        "description": "Pool driver type (e.g., bind9, pdns, nsd)"
+      },
+      "nameservers": {
+        "type": "list",
+        "default": [
+          "ns1.example.com."
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of authoritative nameserver hostnames (FQDNs)"
+      },
+      "targets": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "id": {
+            "type": "string",
+            "default": "primary",
+            "description": "Target identifier"
+          },
+          "type": {
+            "type": "string",
+            "default": "bind9",
+            "description": "Target type (must match pool driver)"
+          },
+          "host": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "Host IP/hostname for the DNS server"
+          },
+          "port": {
+            "type": "number",
+            "default": 53,
+            "description": "API port for DNS control interface"
+          },
+          "username": {
+            "type": "string",
+            "default": "",
+            "description": "Optional authentication username"
+          },
+          "api_endpoint": {
+            "type": "string",
+            "default": "",
+            "description": "Optional API endpoint path (e.g., /api/v1/servers/localhost)"
+          }
+        },
+        "description": "List of backend DNS targets (servers) managed by this pool"
+      }
+    },
+    "description": "List of DNS server pools (each pool defines nameservers and backend targets)"
+  }
+}

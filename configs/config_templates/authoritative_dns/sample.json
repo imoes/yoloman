@@ -1,0 +1,58 @@
+{
+  "listen_address": "0.0.0.0",
+  "listen_port": 53,
+  "max_udp_size": 4096,
+  "tcp_fallback": true,
+  "min_negative_ttl": 60,
+  "max_connections": 0,
+  "chroot_dir": "/var/lib/gdnsd",
+  "user": "gdnsd",
+  "group": "gdnsd",
+  "tls": {
+    "enabled": false,
+    "listen_address": "",
+    "listen_port": 853,
+    "cert_file": "/etc/ssl/certs/gdnsd.crt",
+    "key_file": "/etc/ssl/private/gdnsd.key",
+    "protocols": [
+      "TLSv1.2",
+      "TLSv1.3"
+    ],
+    "ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+  },
+  "log": {
+    "syslog": true,
+    "file": "",
+    "level": "warn"
+  },
+  "zones": [
+    {
+      "name": "example.com",
+      "file": "example.com.zone",
+      "allow_axfr": [
+        "192.0.2.1",
+        "2001:db8::1"
+      ],
+      "allow_notify": [
+        "192.0.2.2"
+      ],
+      "dnssec": true,
+      "soa": {
+        "refresh": 7200,
+        "retry": 3600,
+        "expire": 1209600,
+        "minimum": 300,
+        "ttl": 600
+      }
+    },
+    {
+      "name": "2.0.192.in-addr.arpa",
+      "file": "192.0.2.zone",
+      "allow_axfr": [],
+      "allow_notify": [],
+      "dnssec": false
+    }
+  ],
+  "dynamic_updates": false,
+  "dynamic_update_zones": []
+}

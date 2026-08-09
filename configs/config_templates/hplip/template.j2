@@ -1,0 +1,93 @@
+# HPLIP (HP Linux Imaging and Printing) Configuration
+# This file configures the HPLIP suite, handling device detection, drivers,
+# scanning, and faxing for HP printers and multifunction devices.
+
+[hpssd]
+# HP Status Service daemon: Enable real-time device status monitoring via a background service.
+hpssd_enable = {{ hpssd_enabled | default(true) }}
+
+# Path to the HP Status Service PID file
+hpssd_pid_file = /var/run/hpssd.pid
+
+# Path to the HP Status Service log file
+hpssd_log_file = /var/log/hp/hpssd.log
+
+[hplip]
+# Version of the hplip.conf file format (should not be changed manually)
+file_version = 9
+
+# Automatically detect HP devices (printers, scanners, faxes) on the local network.
+auto_discovery_enabled = {{ auto_discovery_enabled | default(true) }}
+
+# Time (in seconds) to wait before timing out a device discovery attempt.
+discovery_timeout = {{ discovery_timeout | default(10) }}
+
+# Enable scanning over the network for HP network-enabled scanners/faxes.
+network_scan_enabled = {{ network_scan_enabled | default(true) }}
+
+# Enable fax support (requires a physical fax/modem device or IP fax service).
+fax_enabled = {{ fax_enabled | default(true) }}
+
+# Automatically install supported HP printers when detected.
+printer_auto_install_enabled = {{ printer_auto_install_enabled | default(true) }}
+
+# Path to directory containing HP CUPS drivers (preferred for newer devices).
+hpcups_dir = {{ hpcups_dir | default('/usr/share/hpcups') }}
+
+# Path to directory containing legacy hpijs drivers (for older devices).
+hpijs_dir = {{ hpijs_dir | default('/usr/share/hpijs') }}
+
+# Path where proprietary HP plugin modules are stored (e.g., firmware, advanced features).
+plugin_path = {{ plugin_path | default('/var/lib/hp/plugin') }}
+
+# Allow automatic download of required proprietary plugins from HP servers.
+plugin_download_enabled = {{ plugin_download_enabled | default(false) }}
+
+# List of USB vendor:product IDs allowed for device communication (format: vendor_id:product_id).
+allowed_usb_ids = {{ allowed_usb_ids | default(['03f0:0000']) | join('\n') }}
+
+# List of devices (vendor:product) to explicitly exclude from auto-configuration.
+blacklisted_devices = {{ blacklisted_devices | default([]) | join('\n') }}
+
+# HPLIP queue directory for job management
+queue_dir = /var/spool/hp
+
+# Maximum time (in seconds) to wait for a response from a device before aborting.
+device_timeout = {{ device_timeout | default(30) }}
+
+[refresh]
+# Interval (in minutes) between automatic device list refreshes.
+refresh_interval = {{ refresh_interval | default(5) }}
+
+# Enable periodic refresh of detected device list.
+refresh_enabled = {{ refresh_enabled | default(true) }}
+
+[scan]
+# Default scan resolution in DPI for new scan jobs (common values: 150, 300, 600).
+default_scan_resolution = {{ default_scan_resolution | default(300) }}
+
+# Default scan color mode (options: color, gray, lineart).
+default_scan_color_mode = {{ default_scan_color_mode | default('color') }}
+
+# Enable advanced features like TWAIN support, document feeding, and batch scanning.
+advanced_scan_features_enabled = {{ advanced_scan_features_enabled | default(true) }}
+
+[ fax ]
+# Default sender name used in fax headers.
+sender_name = {{ fax_sender_name | default('User') }}
+
+# Default sender fax number (optional, may be overridden per job).
+sender_fax_number = {{ fax_sender_fax_number | default('') }}
+
+# Enable sending faxes over IP/T.38 (requires network fax service support).
+ip_fax_enabled = {{ ip_fax_enabled | default(false) }}
+
+[ print ]
+# Default print quality (options: draft, normal, best).
+default_print_quality = {{ default_print_quality | default('normal') }}
+
+# Default paper size (options: a4, letter, legal, executive, etc.).
+default_paper_size = {{ default_paper_size | default('a4') }}
+
+# Enable two-sided (duplex) printing by default, if supported by the device.
+duplex_enabled = {{ duplex_enabled | default(false) }}

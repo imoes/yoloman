@@ -1,0 +1,91 @@
+# Mini-Buildd configuration file — main config for build daemon
+# See: https://mini-buildd.readthedocs.io/en/latest/config.html
+
+[mini-buildd]
+
+# Root directory where build artifacts, logs, and state are stored.
+base_dir = {{ base_dir | default('/var/lib/mini-buildd') }}
+
+# Directory for log files. If left blank, defaults to base_dir/logs.
+# Note: The config format does not support expression syntax for defaults,
+# so we compute the effective path here. If log_dir is empty, it resolves to base_dir/logs.
+{% set effective_log_dir = log_dir | default('') | trim %}
+{% if not effective_log_dir %}
+log_dir = {{ base_dir | default('/var/lib/mini-buildd') }}/logs
+{% else %}
+log_dir = {{ effective_log_dir }}
+{% endif %}
+
+# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.
+log_level = {{ log_level | default(2) }}
+
+# Maximum number of concurrent builds allowed.
+max_jobs = {{ max_jobs | default(1) }}
+
+# IP address the daemon binds to for its HTTP API and web UI.
+bind_address = {{ bind_address | default('127.0.0.1') }}
+
+# Port the daemon listens on for HTTP(S) requests.
+bind_port = {{ bind_port | default(8080) }}
+
+# Enable HTTPS for the web UI and API.
+use_ssl = {{ use_ssl | default(False) | lower }}
+
+# Path to SSL certificate file (only used if use_ssl=true).
+ssl_cert = {{ ssl_cert | default('/etc/mini-buildd/ssl/cert.pem') }}
+
+# Path to SSL private key file (only used if use_ssl=true).
+ssl_key = {{ ssl_key | default('/etc/mini-buildd/ssl/key.pem') }}
+
+# Maximum time (in seconds) allowed for a single build before timeout.
+build_timeout = {{ build_timeout | default(3600) }}
+
+# Minimum free disk space (MB) required to accept new builds.
+min_free_disk_mb = {{ min_free_disk_mb | default(1024) }}
+
+# Base URL template for Debian APT sources (supports {distro}, {suite}, {arch} placeholders).
+apt_sources_url = {{ apt_sources_url | default('http://deb.debian.org/debian') }}
+
+# List of paths to extra APT GPG keys (space-separated in rendered config).
+extra_apt_keys = {{ extra_apt_keys | default([]) | join(' ') | trim }}
+
+# List of supported distributions to build for. Each entry defines name, suites, and architectures.
+{% for dist in distributions | default([{'name': 'bookworm', 'suites': ['stable'], 'architectures': ['amd64', 'arm64']}]) %}
+[distribution:{{ dist.name }}]
+{% for suite in dist.suites %}
+suites = {{ suite }}
+{% endfor %}
+{% for arch in dist.architectures %}
+architectures = {{ arch }}
+{% endfor %}
+{% endfor %}
+
+# List of remote or local builders to use for builds.
+{% for builder in builders | default([{'name': 'local', 'host': 'localhost', 'port': 22, 'ssh_user': 'mini-buildd'}]) %}
+[builder:{{ builder.name }}]
+host = {{ builder.host | default('localhost') }}
+port = {{ builder.port | default(22) }}
+ssh_user = {{ builder.ssh_user | default('mini-buildd') }}
+{% if builder.ssh_key_file is defined %}
+ssh_key_file = {{ builder.ssh_key_file }}
+{% endif %}
+{% if builder.priority is defined %}
+priority = {{ builder.priority }}
+{% endif %}
+{% if builder.enabled is defined %}
+enabled = {{ builder.enabled | lower }}
+{% endif %}
+{% endfor %}
+
+# Full fingerprint (space-separated hex) of the key to sign the local APT repository.
+# Leave empty to skip signing.
+repo_sign_key_fingerprint = {{ repo_sign_key_fingerprint | default('') | trim }}
+
+# Distribution name used in the generated APT repository (e.g., 'stable', 'unstable').
+repo_distribution = {{ repo_distribution | default('unstable') }}
+
+# Enable HTTP Basic Authentication for the web UI and API.
+{% if enable_auth | default(False) %}
+auth_backend = basic
+auth_users_file = {{ auth_users_file | default('/etc/mini-buildd/htpasswd') }}
+{% endif %}

@@ -1,0 +1,277 @@
+{
+  "control_socket_path": {
+    "type": "string",
+    "default": "/run/kea/dhcp4-ctrl.sock",
+    "description": "Unix socket path for the Kea DHCP control socket."
+  },
+  "hooks_lease_file_path": {
+    "type": "string",
+    "default": "/usr/lib/x86_64-linux-gnu/kea/hooks/libdhcp_lease_file.so",
+    "description": "Path to the hooks library for lease file updates (e.g., CSV lease file logging)."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "eth0"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Network interface names to bind the DHCP server to (e.g., eth0, br0)."
+    },
+    "description": "List of network interfaces the DHCP server will listen on."
+  },
+  "interface_re_detect": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, Kea will re-detect interfaces periodically; usually false in stable environments."
+  },
+  "lease_database_type": {
+    "type": "string",
+    "default": "memfile",
+    "description": "Type of backend for storing lease data. 'memfile' stores leases in CSV files; 'mysql'/'postgresql' use relational databases."
+  },
+  "lease_database_name": {
+    "type": "string",
+    "default": "kea_dhcp4",
+    "description": "Name of the database (for SQL backends) or path to lease CSV file (for 'memfile')."
+  },
+  "lease_database_user": {
+    "type": "string",
+    "default": "kea_user",
+    "description": "Database user with access to the lease database (used when lease_database_type is mysql/postgresql)."
+  },
+  "lease_database_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the lease database user (used when lease_database_type is mysql/postgresql)."
+  },
+  "lease_database_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database server hostname (used when lease_database_type is mysql/postgresql)."
+  },
+  "lease_database_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Database server port (used when lease_database_type is mysql/postgresql)."
+  },
+  "lease_file_cleanup_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval in seconds between lease file cleanup cycles (used when lease_database_type is 'memfile')."
+  },
+  "dhcp_option_data": {
+    "type": "list",
+    "default": [
+      {
+        "name": "domain-name-servers",
+        "space": "dhcp4",
+        "data": "8.8.8.8, 8.8.4.4"
+      },
+      {
+        "name": "domain-name",
+        "space": "dhcp4",
+        "data": "example.com"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Option name (e.g., domain-name-servers, routers)."
+      },
+      "space": {
+        "type": "string",
+        "default": "dhcp4",
+        "description": "Option space (usually 'dhcp4')."
+      },
+      "data": {
+        "type": "string",
+        "description": "Option data as string (comma-separated for multi-values)."
+      }
+    },
+    "description": "Global DHCP options to include in responses (e.g., DNS servers, domain name)."
+  },
+  "subnets": {
+    "type": "list",
+    "default": [
+      {
+        "id": 1,
+        "network": "192.168.10.0",
+        "prefix": 24,
+        "pools": [
+          {
+            "start": "192.168.10.10",
+            "end": "192.168.10.200"
+          }
+        ],
+        "option_data": [
+          {
+            "name": "routers",
+            "space": "dhcp4",
+            "data": "192.168.10.1"
+          },
+          {
+            "name": "domain-name-servers",
+            "space": "dhcp4",
+            "data": "192.168.10.1"
+          }
+        ],
+        "valid_lifetime": 3600,
+        "min_valid_lifetime": 1800,
+        "max_valid_lifetime": 7200,
+        "renew_timer": 1800,
+        "rebind_timer": 2700,
+        "reservations": []
+      }
+    ],
+    "items": {
+      "id": {
+        "type": "number",
+        "description": "Unique subnet ID (must be unique across subnets)."
+      },
+      "network": {
+        "type": "string",
+        "description": "IPv4 network address (e.g., '192.168.10.0')."
+      },
+      "prefix": {
+        "type": "number",
+        "description": "CIDR prefix length (e.g., 24)."
+      },
+      "pools": {
+        "type": "list",
+        "items": {
+          "start": {
+            "type": "string",
+            "description": "Start of pool range (e.g., '192.168.10.10')."
+          },
+          "end": {
+            "type": "string",
+            "description": "End of pool range (e.g., '192.168.10.200')."
+          }
+        },
+        "description": "List of address pools in this subnet."
+      },
+      "option_data": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string"
+          },
+          "space": {
+            "type": "string"
+          },
+          "data": {
+            "type": "string"
+          }
+        },
+        "description": "Per-subnet options (override global options)."
+      },
+      "valid_lifetime": {
+        "type": "number",
+        "description": "Default lease lifetime in seconds (must be \u2265 min and \u2264 max)."
+      },
+      "min_valid_lifetime": {
+        "type": "number",
+        "description": "Minimum allowed lease lifetime (e.g., 1800)."
+      },
+      "max_valid_lifetime": {
+        "type": "number",
+        "description": "Maximum allowed lease lifetime (e.g., 7200)."
+      },
+      "renew_timer": {
+        "type": "number",
+        "default": null,
+        "description": "T1 renewal timer in seconds; defaults to 50% of valid_lifetime if omitted."
+      },
+      "rebind_timer": {
+        "type": "number",
+        "default": null,
+        "description": "T2 rebind timer in seconds; defaults to 80% of valid_lifetime if omitted."
+      },
+      "reservations": {
+        "type": "list",
+        "items": {
+          "mac": {
+            "type": "string",
+            "description": "Client MAC address (e.g., 'aa:bb:cc:dd:ee:ff')."
+          },
+          "hostname": {
+            "type": "string",
+            "description": "Reserved hostname."
+          },
+          "ip": {
+            "type": "string",
+            "description": "Reserved IP address."
+          }
+        },
+        "description": "Static host reservations in this subnet."
+      }
+    },
+    "description": "List of IPv4 subnets to serve. Each subnet defines pools, options, and reservations."
+  },
+  "server_id_type": {
+    "type": "string",
+    "default": "hardware",
+    "description": "Algorithm used to generate server identifier (Hardware MAC-based is standard for DHCPv4)."
+  },
+  "server_id_value": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit server identifier value (usually left blank and auto-generated when server_id_type='hardware')."
+  },
+  "default_valid_lifetime": {
+    "type": "number",
+    "default": 3600,
+    "description": "Global default lease lifetime in seconds for clients not covered by per-subnet values."
+  },
+  "default_renew_timer": {
+    "type": "number",
+    "default": 1800,
+    "description": "Global default T1 renewal timer (fraction of valid_lifetime)."
+  },
+  "default_rebind_timer": {
+    "type": "number",
+    "default": 2700,
+    "description": "Global default T2 rebind timer (fraction of valid_lifetime)."
+  },
+  "log_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Log severity for Kea DHCP4 process."
+  },
+  "log_global_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Global log severity (overrides per-logger if set)."
+  },
+  "log_output": {
+    "type": "string",
+    "default": "/var/log/kea/kea-dhcp4.log",
+    "description": "File path for log output."
+  },
+  "log_flush": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, flush log after each write (useful for debugging, may impact performance)."
+  },
+  "log_max_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum log file size in bytes before rotation (e.g., 10 MB)."
+  },
+  "log_max_ver": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of rotated log files to retain."
+  },
+  "log_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0\u201399); only used in DEBUG mode."
+  },
+  "log_global_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Global debug level (overrides per-logger if set)."
+  }
+}

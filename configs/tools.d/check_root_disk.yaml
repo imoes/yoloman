@@ -1,0 +1,13 @@
+name: check_root_disk
+description: "Root filesystem usage, Nagios/CheckMK-compatible (warn at 80%, critical at 90%). Exit code and perfdata follow the standard Nagios Plugin API, so this can be read the same way CheckMK/Nagios would read any check_* plugin."
+check:
+  - /bin/sh
+  - -c
+  - |
+    USED=$(df -P / | awk 'NR==2{gsub("%","",$5); print $5}')
+    if [ "$USED" -ge 90 ]; then STATUS="CRITICAL"; CODE=2
+    elif [ "$USED" -ge 80 ]; then STATUS="WARNING"; CODE=1
+    else STATUS="OK"; CODE=0
+    fi
+    echo "$STATUS - ${USED}% used | used=${USED}%;80;90;0;100"
+    exit $CODE

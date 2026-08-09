@@ -1,0 +1,99 @@
+# ==============================================================================
+# Collectd Configuration Template
+# ==============================================================================
+# This template generates the main configuration file for collectd,
+# a system statistics collection daemon. It handles plugin loading,
+# specific plugin configurations, logging, and inclusion of external fragments.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Path to collectd's log file.
+# Default: /var/log/collectd.log
+Logfile "{{ logfile | default('/var/log/collectd.log') }}"
+
+# Log verbosity level.
+# Valid levels: debug, notice, warning, error.
+# Use 'debug' for troubleshooting issues.
+# Default: info
+LogLevel "{{ log_level | default('info') }}"
+
+# ------------------------------------------------------------------------------
+# Hostname Resolution
+# ------------------------------------------------------------------------------
+
+# Enable or disable FQDN (Fully Qualified Domain Name) hostname resolution.
+# Disable this if DNS is unreliable or if running in containers without DNS.
+# Default: true
+FQDNLookup {{ fqdn_lookup | default(true) | lower }}
+
+# ------------------------------------------------------------------------------
+# Plugin Loading
+# ------------------------------------------------------------------------------
+
+# List of core collectd plugins to load.
+# Each plugin specified here must be present in the system's plugin directory.
+# Common plugins: cpu, load, memory, interface, disk, network, etc.
+# Default: ['cpu', 'load', 'memory', 'interface', 'disk']
+{% for plugin in plugins | default(['cpu', 'load', 'memory', 'interface', 'disk']) %}
+LoadPlugin "{{ plugin }}"
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Plugin-Specific Configurations
+# ------------------------------------------------------------------------------
+
+# List of plugin-specific configuration blocks.
+# Each element defines a plugin with its options.
+# Default: [] (empty list)
+{% for config_block in plugin_configs | default([]) %}
+{#
+  Generate a <Plugin "name"> block if a name is provided.
+  config_block is expected to be a mapping with 'name' and 'options'.
+#}
+{% if config_block.name is defined %}<Plugin "{{ config_block.name }}">
+{% endif %}
+
+{#
+  Iterate over the options for this plugin.
+  Note: config_block.options is expected to be a mapping (dict).
+  We use | dict2items to safely iterate in Jinja2 without Python method calls.
+#}
+{% for key, value in (config_block.options | default({})) | dict2items %}
+{# Print optional comment associated with this key if available #}
+{% if config_block.comments is mapping and config_block.comments[key] is defined %}
+  {# {{ config_block.comments[key] }} #}
+{% endif %}
+
+{#
+  Handle different value types:
+  - If the type is 'list', iterate items.
+  - Otherwise, emit key-value pair directly.
+#}
+{% if config_block.types is mapping and config_block.types[key] == 'list' %}
+  {# List handling: emit each item on its own line indented #}
+  {% for item in value %}  {{ key }} {{ item }}
+  {% endfor %}
+{% else %}
+  {# Scalar handling: emit key value #}
+  {{ key }} {{ value }}
+{% endif %}
+{% endfor %}
+
+{% if config_block.name is defined %}</Plugin>
+{% endif %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Include Fragments
+# ------------------------------------------------------------------------------
+
+# List of file paths to include as additional configuration fragments.
+# Useful for modular configuration (e.g., /etc/collectd/collectd.conf.d/*.conf).
+# Default: [] (empty list)
+{% for fragment in include_fragments | default([]) %}
+# Include additional configuration file: {{ fragment }}
+Include "{{ fragment }}"
+{% endfor %}

@@ -1,0 +1,44 @@
+# =============================================================================
+# fence-virtd configuration template
+# =============================================================================
+# fence-virtd is a fencing agent for Pacemaker/Corosync clusters that uses
+# libvirt to power-cycle virtual machines. This file configures the daemon's
+# networking (multicast listener) and its backend connection to libvirt.
+# =============================================================================
+
+fence_virtd {
+	# Listener type: "multicast" is the standard for cluster fencing.
+	listener = "multicast";
+
+	# Backend implementation: "libvirt" allows fencing via the libvirt API.
+	backend = "libvirt";
+}
+
+listeners {
+	multicast {
+		# Path to the pre-shared key file used for multicast authentication.
+		# The key must match the one configured in cluster fencing resources.
+		key_file = "{{ key_file | default('/etc/fence_virt.key') }}";
+
+		# IPv4 multicast group address for listener communication.
+		# Default is the standard address for fence-virtd; do not change unless
+		# all cluster nodes are configured to use a different multicast group.
+		address = "{{ address | default('225.0.0.12') }}";
+
+		# Network interface to bind the multicast listener to.
+		# This must be the interface where cluster nodes can reach each other
+		# for fencing messages. On systems using bridge networking for VMs,
+		# 'virbr0' is common, but it may need to be the physical interface
+		# (e.g., eth0) depending on the network topology.
+		interface = "{{ interface | default('virbr0') }}";
+	}
+}
+
+backends {
+	libvirt {
+		# libvirt connection URI for backend operations.
+		# Determines how fence-virtd connects to the libvirt daemon.
+		# 'qemu:///system' connects to the system-wide QEMU/KVM hypervisor.
+		uri = "{{ uri | default('qemu:///system') }}";
+	}
+}

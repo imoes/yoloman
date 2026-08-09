@@ -1,0 +1,14 @@
+# Ceph OSD System Tuning Parameters
+# This configuration applies kernel-level tuning parameters required for Ceph OSD daemons
+# to operate efficiently with high I/O concurrency and sufficient process limits.
+
+# fs_aio_max_nr: Maximum number of asynchronous I/O operations per process.
+# Ceph OSDs perform heavy asynchronous I/O; this limit must be raised well above default.
+# Type: integer
+fs.aio-max-nr = {{ fs_aio_max_nr | default(1048576) }}
+
+# kernel_pid_max: Maximum number of processes (PIDs) allowed on the system.
+# Ceph OSDs spawn many threads and processes for recovery, scrubbing, and replication;
+# this limit must be high enough to accommodate the expected load.
+# Type: integer
+kernel.pid_max = {{ kernel_pid_max | default(4194304) }}

@@ -1,0 +1,40 @@
+# =============================================================================
+# httpry daemon configuration
+# =============================================================================
+# This file configures the httpry HTTP packet sniffer daemon.
+# httpry captures HTTP traffic on a specified network interface and logs it.
+# =============================================================================
+
+# --- Network Interface ---
+# Network interface to capture traffic from (e.g., eth0, enp0s3).
+# Must have CAP_NET_RAW or root privileges to operate.
+interface: {{ interface | default('eth0') }}
+
+# --- Logging ---
+# Directory where log files are written.
+# Ensure write permissions for the daemon user specified below.
+log_dir: {{ log_dir | default('/var/log/httpry') }}
+
+# Enable verbose logging.
+# Recommended for troubleshooting; increases log detail.
+verbose: {{ verbose | default(False) | lower }}
+
+# Output format for log entries.
+# Valid values: 'normal' (human-readable text), 'json', 'csv'.
+output_format: {{ output_format | default('normal') }}
+
+# --- Privileges ---
+# System user to drop privileges to after startup.
+# Must exist on the system.
+user: {{ user | default('httpry') }}
+
+# System group to drop privileges to after startup.
+# Must exist on the system.
+group: {{ group | default('httpry') }}
+
+# --- Daemonization ---
+# Run as a background daemon (true) or foreground (false, e.g., for systemd).
+daemonize: {{ daemonize | default(True) | lower }}
+
+# Path to the PID file written by the daemon.
+pid_file: {{ pid_file | default('/var/run/httpry/httpry.pid') }}

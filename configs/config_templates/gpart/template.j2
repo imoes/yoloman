@@ -1,0 +1,146 @@
+# =============================================================================
+# gpart configuration file
+# =============================================================================
+# This file configures the 'gpart' partition table detection utility.
+# It defines the target device, scan parameters, filesystem modules to probe,
+# and output behavior.
+#
+# Directives are processed in order. String values are quoted if they contain
+# special characters, but typically passed through as-is. Boolean flags are
+# emitted as 'flag <name>' when enabled.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# device: Path to the block device or disk image file to scan (e.g., /dev/sda)
+# This is the primary target for partition detection.
+# -----------------------------------------------------------------------------
+device {{ device | default('') }}
+
+# -----------------------------------------------------------------------------
+# geometry: Disk geometry override as 'cylinders,heads,sectors' (no spaces)
+# Useful when the OS reports incorrect geometry or when scanning disk image files.
+# Format: <cylinders>,<heads>,<sectors>
+# -----------------------------------------------------------------------------
+geometry {{ geometry | default('') }}
+
+# -----------------------------------------------------------------------------
+# sector_size: Sector size in bytes (must be power of two: 512–16384)
+# Overrides the default sector size detected or assumed.
+# -----------------------------------------------------------------------------
+sector_size {{ sector_size | default(512) }}
+
+# -----------------------------------------------------------------------------
+# increment: Scan increment: integer, 's' (sector), 'h' (head), or 'c' (cylinder)
+# Controls the granularity of the scan loop.
+# -----------------------------------------------------------------------------
+increment {{ increment | default('h') }}
+
+# -----------------------------------------------------------------------------
+# skip_sectors: Number of sectors to skip before scanning starts
+# Useful for starting scans at specific offsets within a device.
+# -----------------------------------------------------------------------------
+skip_sectors {{ skip_sectors | default(0) }}
+
+# -----------------------------------------------------------------------------
+# max_sector: Last sector index to scan (0 = scan to end of device)
+# Limits the scan range. 0 disables the limit.
+# -----------------------------------------------------------------------------
+max_sector {{ max_sector | default(0) }}
+
+# -----------------------------------------------------------------------------
+# modules: Ordered list of filesystem modules to probe, each with optional weight
+# Supported: beos, bsddl, ext2, fat, hpfs, hmlvm, lswap, minix, ntfs, qnx4, reiserfs, s86dl, xfs
+# Each item in the list is a mapping with 'name' and optional 'weight'.
+# -----------------------------------------------------------------------------
+{% if modules is defined and modules | length > 0 %}
+{% for mod in modules %}
+module {{ mod.name }}{% if mod.weight is defined %} {{ mod.weight }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# write_device: Device or file path to write the guessed partition table to
+# WARNING: This action modifies disk images or devices. Use with extreme caution.
+# -----------------------------------------------------------------------------
+write_device {{ write_device | default('') }}
+
+# -----------------------------------------------------------------------------
+# backup_file: Path to backup file for current MBR before writing
+# If specified, the current MBR is backed up here before any write occurs.
+# -----------------------------------------------------------------------------
+backup_file {{ backup_file | default('') }}
+
+# -----------------------------------------------------------------------------
+# log_file: Path to log file; output written here even in quiet mode
+# Redirects diagnostic output to a file.
+# -----------------------------------------------------------------------------
+log_file {{ log_file | default('') }}
+
+# =============================================================================
+# Mode Flags
+# =============================================================================
+# These flags change the behavior of the scan process.
+
+# -----------------------------------------------------------------------------
+# full_scan: Enable full sector-by-sector scan (do not skip regions of guessed partitions)
+# When enabled, gpart scans every sector regardless of previous detections.
+# -----------------------------------------------------------------------------
+{% if full_scan | default(false) %}
+flag full_scan
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# check_mode: Enable comparison of guessed vs actual partition table
+# Exit code equals the number of differences found.
+# -----------------------------------------------------------------------------
+{% if check_mode | default(false) %}
+flag check_mode
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# do_not_guess: Skip scanning and only print current partition table
+# Requires verbose mode to show the raw table details.
+# -----------------------------------------------------------------------------
+{% if do_not_guess | default(false) %}
+flag do_not_guess
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# skip_extended: Do not attempt to recognize extended partition chains
+# Ignores logical partitions within extended partitions.
+# -----------------------------------------------------------------------------
+{% if skip_extended | default(false) %}
+flag skip_extended
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# do_not_get_geometry: Ignore geometry reported by the OS
+# Useful for disk image files where OS geometry is unavailable or misleading.
+# -----------------------------------------------------------------------------
+{% if do_not_get_geometry | default(false) %}
+flag do_not_get_geometry
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# interactive: Prompt the user before accepting each detected partition
+# Pauses execution for user confirmation at each candidate.
+# -----------------------------------------------------------------------------
+{% if interactive | default(false) %}
+flag interactive
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# quiet: Suppress normal output; exceptions written to log_file if set
+# Minimize console output. Errors still appear in log_file.
+# -----------------------------------------------------------------------------
+{% if quiet | default(false) %}
+flag quiet
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# verbose: Verbosity level; each increment adds detail (e.g., -vv = 2)
+# Repeats the 'verbose' flag <level> times.
+# -----------------------------------------------------------------------------
+{% for _ in range(0, verbose | default(0)) %}
+flag verbose
+{% endfor %}

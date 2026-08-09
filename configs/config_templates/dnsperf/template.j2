@@ -1,0 +1,129 @@
+# dnsperf command-line arguments
+# This file is a template for generating the dnsperf invocation command.
+# Each section below documents the corresponding dnsperf CLI flag.
+
+# -d <file>    Input data file path.
+#              Reads from stdin if not specified.
+-d {{ datafile | default('/dev/stdin') }}
+
+# -s <addr>    Server address to query.
+-s {{ server_addr | default('127.0.0.1') }}
+
+# -p <port>    Port on which to send DNS packets.
+#              Defaults to 53 for UDP/TCP, 853 for DoT, 443 for DoH.
+-p {{ port | default(53) }}
+
+# -f <family>  Address family: 'inet', 'inet6', or 'any'.
+-f {{ family | default('any') }}
+
+# -t <seconds> Request timeout in seconds.
+-t {{ timeout | default(5) }}
+
+# -Q <qps>     Maximum queries per second.
+#              Null or omitted means no limit.
+{% if max_qps is defined and max_qps %}-Q {{ max_qps }}
+{% endif %}
+
+# -q <count>   Maximum number of outstanding requests.
+-q {{ num_queries | default(100) }}
+
+# -c <count>   Number of simultaneous clients (sockets).
+-c {{ clients | default(1) }}
+
+# -T <count>   Number of send/receive thread pairs.
+-T {{ threads | default(1) }}
+
+# -a <addr>    Local address to bind to (e.g., '192.0.2.1').
+#              Omitted if not specified.
+{% if local_addr is defined and local_addr %}-a {{ local_addr }}
+{% endif %}
+
+# -x <port>    Local port to bind to.
+#              0 means wildcard.
+-x {{ local_port | default(0) }}
+
+# -m <mode>    Transport mode: 'udp', 'tcp', 'dot', or 'doh'.
+-m {{ mode | default('udp') }}
+
+# -b <size>    Socket buffer size in kilobytes.
+#              Omitted if not specified.
+{% if bufsize is defined and bufsize %}-b {{ bufsize }}
+{% endif %}
+
+# -S <interval> Interval in seconds to print per-interval statistics.
+#               Omitted if not specified.
+{% if stats_interval is defined and stats_interval %}-S {{ stats_interval }}
+{% endif %}
+
+# -l <seconds> Time limit in seconds for the test run.
+#              Omitted if not specified.
+{% if limit is defined and limit %}-l {{ limit }}
+{% endif %}
+
+# -n <count>   Maximum number of times to run through the input file.
+#              Omitted if not specified.
+{% if runs_through_file is defined and runs_through_file %}-n {{ runs_through_file }}
+{% endif %}
+
+# -e           Enable EDNS0 by setting OPT record.
+#              Only emitted if explicitly enabled.
+{% if edns | default(false) %}-e
+{% endif %}
+
+# -D           Set DO (DNSSEC OK) bit.
+#              Only emitted if explicitly enabled.
+{% if dnssec_ok | default(false) %}-D
+{% endif %}
+
+# -v           Enable verbose output.
+#              Only emitted if explicitly enabled.
+{% if verbose | default(false) %}-v
+{% endif %}
+
+# -y <spec>    TSIG key spec in format '[alg:]name:secret' (base64-encoded secret).
+#              Omitted if not specified.
+{% if tsig is defined and tsig %}-y {{ tsig }}
+{% endif %}
+
+# -O doh-uri=<uri> DNS-over-HTTPS URI.
+#                  Omitted if not specified.
+{% if doh_uri is defined and doh_uri %}-O doh-uri={{ doh_uri }}
+{% endif %}
+
+# -O doh-method=<method> HTTP method for DoH: 'GET' or 'POST'.
+#                        Omitted if not specified.
+{% if doh_method is defined and doh_method %}-O doh-method={{ doh_method }}
+{% endif %}
+
+# -O tls-sni=<sni> TLS Server Name Indication (SNI) for DoT/DoH.
+#                  Omitted if not specified.
+{% if tls_sni is defined and tls_sni %}-O tls-sni={{ tls_sni }}
+{% endif %}
+
+# -O suppress=<list> List of message types to suppress: timeouts, congestion,
+#                    sendfailed, sockready, unexpected (comma-separated).
+#                    Omitted if empty.
+{% if suppress | default([]) | length > 0 %}-O suppress={{ suppress | default([]) | join(',') }}
+{% endif %}
+
+# -O num-queries-per-conn=<count> Max queries per connection before reconnect
+#                                 (connection-oriented modes only).
+#                                 Omitted if not specified.
+{% if num_queries_per_conn is defined and num_queries_per_conn %}-O num-queries-per-conn={{ num_queries_per_conn }}
+{% endif %}
+
+# -O latency-histogram Enable detailed latency histogram output.
+#                      Only emitted if explicitly enabled.
+{% if latency_histogram | default(false) %}-O latency-histogram
+{% endif %}
+
+# -O verbose-interval-stats Change -S output to per-interval latency stats.
+#                           Only emitted if explicitly enabled.
+{% if verbose_interval_stats | default(false) %}-O verbose-interval-stats
+{% endif %}
+
+# -O qps-threshold-wait=<microseconds> Minimum microseconds between queries for nanosleep()
+#                                      — controls QPS precision.
+#                                      Omitted if not specified.
+{% if qps_threshold_wait is defined and qps_threshold_wait %}-O qps-threshold-wait={{ qps_threshold_wait }}
+{% endif %}

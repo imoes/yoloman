@@ -1,0 +1,89 @@
+[DEFAULT]
+# Logging configuration base directory
+# Schema: log_dir (not in fields, kept literal)
+log_dir = /var/log/masakari
+# Schema: log_file (not in fields, kept literal)
+log_file = masakari-host-monitor.log
+
+# Verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# Schema: log_level (not in fields, kept literal)
+log_level = INFO
+
+# API endpoint for Masakari API service
+# Composed from masakari_api_host and masakari_api_port.
+# Schema: masakari_api_host (default='127.0.0.1') desc='Hostname or IP address of the Masakari API service (e.g., controller node).'
+# Schema: masakari_api_port (default=8080) desc='Port on which the Masakari API service listens.'
+masakari_endpoint = http://{{ (masakari_api_host | default('127.0.0.1')) }}:{{ (masakari_api_port | default(8080)) }}
+
+# Authentication parameters for Masakari API
+# Schema: auth_url (default='http://127.0.0.1:5000/v3') desc='Keystone authentication endpoint URL (e.g., http://keystone-host:5000/v3).'
+auth_url = {{ (auth_url | default('http://127.0.0.1:5000/v3')) }}
+
+# Schema: project_name (default='services') desc='OpenStack project (tenant) name used by the Masakari service user.'
+project_name = {{ (project_name | default('services')) }}
+
+# Schema: service_user (default='masakari') desc='Username of the Masakari service user in Keystone.'
+username = {{ (service_user | default('masakari')) }}
+
+# Schema: service_password (default='') desc='Password for the Masakari service user (securely set via environment or vault).'
+password = {{ (service_password | default('')) }}
+
+# Schema: user_domain_name (default='Default') desc='Keystone domain name for the service user.'
+user_domain_name = {{ (user_domain_name | default('Default')) }}
+
+# Schema: project_domain_name (default='Default') desc='Keystone domain name for the service project.'
+project_domain_name = {{ (project_domain_name | default('Default')) }}
+
+# Region for OpenStack services
+# Schema: region_name (default='RegionOne') desc='OpenStack region where this host monitor operates.'
+region_name = {{ (region_name | default('RegionOne')) }}
+
+# Transport URL for RPC/messaging (e.g., rabbit://user:pass@host:5672/)
+# Schema: transport_url (default='rabbit://openstack:RABBIT_PASSWORD@127.0.0.1:5672/') desc='Messaging transport URL for RPC communication (e.g., RabbitMQ or other backend).'
+transport_url = {{ (transport_url | default('rabbit://openstack:RABBIT_PASSWORD@127.0.0.1:5672/')) }}
+
+# Path to PID file (not in schema fields, kept literal)
+pid_file = /var/run/masakari/masakari-host-monitor.pid
+
+# Interval (seconds) between host status checks
+# Schema: monitor_interval (default=10) desc='Interval (seconds) between checks of host health (e.g., via SSH or IPMI).'
+monitor_interval = {{ (monitor_interval | default(10)) }}
+
+# Time (seconds) to wait before declaring a host as failed
+# Schema: failure_detection_timeout (default=60) desc='Time (seconds) to wait before declaring a host as failed after repeated missed checks.'
+failure_detection_timeout = {{ (failure_detection_timeout | default(60)) }}
+
+# Interval (seconds) to wait before attempting recovery
+# Schema: recovery_retry_interval (default=30) desc='Interval (seconds) between automatic recovery attempts for a failed host.'
+recovery_retry_interval = {{ (recovery_retry_interval | default(30)) }}
+
+# Maximum number of automatic recovery attempts
+# Schema: max_recovery_attempts (default=3) desc='Maximum number of automatic VM evacuation/recovery attempts before giving up.'
+max_recovery_attempts = {{ (max_recovery_attempts | default(3)) }}
+
+# Enable/Disable automatic recovery
+# Schema: auto_recovery (default=True) desc='Enable or disable automatic host and VM recovery upon failure detection.'
+auto_recovery = {{ (auto_recovery | default(True) | lower) }}
+
+# Enable/Disable sending notifications on host failure
+# Schema: notification_driver (default='masakari.notifiers.api_notifier.ApiNotifier') desc='Primary notification driver to use (e.g., send alerts via Masakari API).'
+notification_driver = {{ (notification_driver | default('masakari.notifiers.api_notifier.ApiNotifier')) }}
+
+# Segment UUIDs to monitor (comma-separated); empty = all segments
+# Schema: segment_uuids (default=[]) desc='List of Masakari segment UUIDs to monitor. Empty = monitor all segments.'
+segment_uuids = {{ (segment_uuids | default([]) | join(', ')) }}
+
+# Health check endpoint (e.g., for self-monitoring)
+# Schema: health_check_enabled (default=True) desc='Enable built-in health check endpoint for container orchestrators (e.g., Kubernetes).'
+health_check_enabled = {{ (health_check_enabled | default(True) | lower) }}
+
+# Schema: health_check_interval (default=30) desc='Interval (seconds) between health check probes.'
+health_check_interval = {{ (health_check_interval | default(30)) }}
+
+# Schema: health_check_uri (default='http://0.0.0.0:5673/healthcheck') desc='Local URI for the built-in health check HTTP endpoint.'
+health_check_uri = {{ (health_check_uri | default('http://0.0.0.0:5673/healthcheck')) }}
+
+[oslo_concurrency]
+# Path to lock files (used for file-based locking)
+# Schema: lock_path (not in fields, kept literal)
+lock_path = /var/lib/masakari/lock

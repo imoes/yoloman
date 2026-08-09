@@ -1,0 +1,102 @@
+# ==============================================================================
+# gammu-smsdrc: Configuration for the Gammu SMS Daemon
+# ==============================================================================
+#
+# This file configures gammu-smsd, a daemon that sends and receives SMS messages
+# via GSM modems (USB, serial, Bluetooth, etc.) and optionally stores message
+# history in a local directory spool or a SQL database (MySQL/MariaDB/SQLite).
+#
+# Self-documentation note:
+# - Every setting is prefixed with a `#` comment derived from the schema.
+# - All variables use `| default(...)` to prevent render errors when optional
+#   variables are not provided in the Ansible inventory.
+# ==============================================================================
+
+[gammu]
+
+# Path to the SMS-capable device (e.g., /dev/ttyUSB0, /dev/ttyS0, /dev/ttyACM0)
+device = {{ device | default('/dev/ttyUSB0') }}
+
+# Communication speed (baud rate) for serial devices
+speed = {{ speed | default(115200) }}
+
+# Phone/modem model name — leave blank for autodetect (e.g., 'AT', 'Nokia5110')
+# If empty, gammu will try to auto-detect the connected device capabilities.
+model = {{ model | default('') }}
+
+# ------------------------------------------------------------------------------
+# [smsd]: Main SMS Daemon Section
+# ------------------------------------------------------------------------------
+
+[smsd]
+
+# Absolute path to the SMS daemon log file
+logfile = {{ logfile | default('/var/log/gammu-smsd.log') }}
+
+# Verbosity of logging:
+#   0 = none, 1 = errors only, 2 = errors + info, 3 = debug
+loglevel = {{ loglevel | default(2) }}
+
+# Seconds to wait between retries when sending a failed SMS
+sendsmsretryinterval = {{ sendsmsretryinterval | default(5) }}
+
+# Maximum number of times to retry sending a failed SMS before giving up
+sendsmsretries = {{ sendsmsretries | default(3) }}
+
+# Directory to archive successfully sent SMS
+sentfolder = {{ sentfolder | default('/var/spool/gammu/sent') }}
+
+# Directory to store incoming SMS (not used if database is enabled)
+inboxfolder = {{ inboxfolder | default('/var/spool/gammu/inbox') }}
+
+# Directory to store SMS that failed to send
+errorfolder = {{ errorfolder | default('/var/spool/gammu/error') }}
+
+# Enable Nokia PC-Suite compatibility mode (only for legacy Nokia devices)
+# true = enabled, false = disabled
+pcsuite = {{ pcsuite | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Database Configuration (Optional)
+# ------------------------------------------------------------------------------
+# If a database_driver is specified, gammu-smsd will store SMS queue and history
+# in the database instead of (or in addition to) the local spool folders.
+# Supported drivers: sqlite3, mysql, postgresql
+#
+# If no driver is specified, local spool folders (sentfolder, inboxfolder, etc.)
+# are used for storage.
+
+{% if database_driver | default('', true) %}
+# Database backend: 'mysql', 'postgresql', or 'sqlite3'
+# Leave empty to use local spool folders only
+database_driver = {{ database_driver | default('') }}
+
+# Database server hostname (ignored unless database_driver is set)
+database_host = {{ database_host | default('localhost') }}
+
+# Database server port (default 3306 for MySQL/MariaDB, 5432 for PostgreSQL)
+database_port = {{ database_port | default(3306) }}
+
+# Database username
+database_user = {{ database_user | default('gammu') }}
+
+# Database password (leave blank if none)
+database_password = {{ database_password | default('', true) }}
+
+# Name of the database used by Gammu SMS daemon
+database_name = {{ database_name | default('smsd') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Additional Devices (Optional / Redundancy)
+# ------------------------------------------------------------------------------
+# List of additional devices for redundancy/failover.
+# Each device entry should be a dictionary with keys: path, speed, model (optional).
+# Example inventory item: devices: [{path: '/dev/ttyUSB1', speed: 115200}, {path: '/dev/ttyUSB2', speed: 9600}]
+
+{% if devices is defined and devices | length > 0 %}
+# Additional devices for redundancy/failover
+{% for d in devices %}
+device{{ loop.index }} = {{ d.path | default('') }}, {{ d.speed | default(115200) }}{% if d.model is defined and d.model %}, {{ d.model }}{% endif %}
+{% endfor %}
+{% endif %}

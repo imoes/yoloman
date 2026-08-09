@@ -1,0 +1,211 @@
+{# ============================================================================ #}
+{# HAProxy Configuration Template                                                #}
+{# This template generates a complete `haproxy.cfg` file.                        #}
+{# It is self-documenting: every directive is preceded by a comment explaining    #}
+{# its purpose, derived from the Ansible role schema.                             #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Global Section: Process-wide defaults and runtime settings                   #}
+{# ---------------------------------------------------------------------------- #}
+global
+    # Log all messages to /dev/log using facility local0 (standard for HAProxy)
+    log /dev/log local0
+
+    # Maximum number of concurrent connections allowed for the entire HAProxy process.
+    # Prevents resource exhaustion by limiting total socket handles.
+    maxconn {{ global_maxconn | default(4096) }}
+
+    # Chroot directory for the HAProxy worker processes.
+    # Enhances security by isolating the process from the rest of the filesystem.
+    chroot /var/lib/haproxy
+
+    # User under which the HAProxy worker processes will run.
+    # Typically 'haproxy' is created specifically for this purpose.
+    user haproxy
+
+    # Group associated with the HAProxy worker processes.
+    group haproxy
+
+    # Run HAProxy in daemon mode (background process) if started directly.
+    # If managed by systemd, this is often ignored in favor of Type=forking or notify.
+    daemon
+
+    # Administrative socket path for external management (e.g., socat, socat scripts).
+    # Allows changing backend servers without restarting HAProxy.
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+
+    # Enforce strict SSL/TLS defaults for all bind lines that use SSL.
+    # Ensures minimum TLSv1.2 and disables session tickets for forward secrecy.
+    {%- if global_ssl_default_bind | default(True) %}
+    ssl-default-bind-options ssl-min-ver TLSv1.2 no-tls-tickets
+    {%- endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Defaults Section: Baseline settings for Frontends, Backends, and Listeners #}
+{# ---------------------------------------------------------------------------- #}
+defaults
+    # Inherit logging configuration from the global section.
+    log     global
+
+    # Default proxy mode for all sections below unless explicitly overridden.
+    # 'http' for Layer 7 (HTTP) processing, 'tcp' for Layer 4 (raw TCP).
+    mode    {{ defaults_mode | default('http') }}
+
+    # HTTP logging option: determines how requests are logged.
+    # 'httplog' provides detailed HTTP request/response logs.
+    # 'dontlognull' prevents logging of empty/null connections (keepalives).
+    option  {{ defaults_option_httplog | default('dontlognull') }}
+
+    # Maximum time to wait for a successful TCP connection to a backend server.
+    # Critical for failing fast if a backend is unreachable.
+    timeout connect {{ defaults_timeout_connect | default('5s') }}
+
+    # Maximum inactivity time (keep-alive timeout) on the client side.
+    # Controls how long HAProxy waits for a new request from the client.
+    timeout client  {{ defaults_timeout_client | default('50s') }}
+
+    # Maximum inactivity time (keep-alive timeout) on the backend server side.
+    # Controls how long HAProxy waits for a response from the server.
+    timeout server  {{ defaults_timeout_server | default('50s') }}
+
+    # Number of times HAProxy will retry connecting to a server if the connection fails.
+    retries         {{ defaults_retries | default(3) }}
+
+    # If a server fails, retry the request on another available server.
+    option          redispatch
+
+    # Close the server-side connection immediately after the response is sent to the client.
+    # Improves concurrency by freeing up backend resources faster.
+    option          http-server-close
+
+{# ---------------------------------------------------------------------------- #}
+{# Frontends: Entry points for incoming client traffic                         #}
+{# ---------------------------------------------------------------------------- #}
+{# Iterate over each frontend definition provided in the 'frontends' list.     #}
+{%- for frontend in frontends | default([]) %}
+
+frontend {{ frontend.name | default('unnamed_frontend') }}
+    # Bind address and port for this frontend.
+    # Defaults to listening on all interfaces (0.0.0.0) if bind_address is not set.
+    {%- if frontend.bind_address is defined and frontend.bind_address %}
+    bind {{ frontend.bind_address }}:{{ frontend.bind_port | default(80) }}
+    {%- else %}
+    bind *:{{ frontend.bind_port | default(80) }}
+    {%- endif %}
+
+    # If an SSL certificate is defined, bind an additional HTTPS listener.
+    # Defaults to port 443 if ssl_port is not specified.
+    {%- if frontend.ssl_cert is defined and frontend.ssl_cert %}
+    bind *:{{ frontend.ssl_port | default(443) }} ssl crt {{ frontend.ssl_cert }}
+    {%- endif %}
+
+    # Override the default mode for this specific frontend.
+    # Usually 'http' for web traffic, 'tcp' for non-HTTP protocols.
+    {%- if frontend.mode is defined and frontend.mode %}
+    mode {{ frontend.mode }}
+    {%- else %}
+    mode http
+    {%- endif %}
+
+    # Insert the 'X-Forwarded-For' header into the request sent to the backend.
+    # Essential for backends to know the original client IP address.
+    {%- if frontend.option_forwardfor | default(true) %}
+    option forwardfor
+    {%- endif %}
+
+    # Access Control Lists (ACLs): define named conditions for routing.
+    {%- if frontend.acl_rules is defined and frontend.acl_rules %}
+    {%- for acl in frontend.acl_rules %}
+    acl {{ acl.name }} {{ acl.condition }}
+    {%- endfor %}
+    {%- endif %}
+
+    # Routing rules: direct traffic to specific backends based on ACLs.
+    {%- if frontend.use_backend_rules is defined and frontend.use_backend_rules %}
+    {%- for rule in frontend.use_backend_rules %}
+    use_backend {{ rule.backend_name }} if {{ rule.condition_name }}
+    {%- endfor %}
+    {%- else %}
+    # Default backend: if no ACL matches, send traffic here.
+    # Falls back to the first backend defined in the frontends list if no default_backend is set.
+    default_backend {{ frontend.default_backend | default('default_backend') }}
+    {%- endif %}
+
+    # Optional per-frontend stats page.
+    {%- if frontend.stats_enable | default(false) %}
+    stats enable
+    stats uri {{ frontend.stats_uri | default('/stats') }}
+    stats refresh {{ frontend.stats_refresh | default('30s') }}
+    {%- endif %}
+
+{%- endfor %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Backends: Server pools (groups of actual servers)                           #}
+{# ---------------------------------------------------------------------------- #}
+{# Iterate over each backend definition provided in the 'backends' list.       #}
+{%- for backend in backends | default([]) %}
+
+backend {{ backend.name | default('unnamed_backend') }}
+    # Override the default mode for this backend.
+    mode {{ backend.mode | default('http') }}
+
+    # Load balancing algorithm (e.g., roundrobin, leastconn, source, uri).
+    balance {{ backend.balance | default('roundrobin') }}
+
+    # Health check configuration for HTTP servers.
+    {%- if backend.health_check_path is defined and backend.health_check_path %}
+    option httpchk GET {{ backend.health_check_path }}
+    {%- elif backend.health_check_port is defined %}
+    # Fallback health check: generic HTTP GET to root.
+    # Note: The Host header value might need adjustment based on virtual hosting.
+    option httpchk GET / HTTP/1.1\r\nHost:\ localhost
+    {%- endif %}
+
+    # Enable http-server-close if explicitly enabled for this backend (redundant if set in defaults, but explicit is safer).
+    {%- if backend.server_options | default(false) %}
+    option http-server-close
+    {%- endif %}
+
+    # Define individual servers within this backend pool.
+    {%- for server in backend.servers | default([]) %}
+    server {{ server.name }} {{ server.address }}:{{ server.port }}
+        # Perform health checks on this server.
+        {%- if server.check | default(true) %} check{%- endif %}
+        # Limit the maximum number of concurrent connections to this server.
+        {%- if server.maxconn is defined and server.maxconn %} maxconn {{ server.maxconn }}{%- endif %}
+        # Weight of this server for load balancing (higher = more traffic).
+        {%- if server.weight is defined and server.weight %} weight {{ server.weight }}{%- endif %}
+        # Mark this server as a backup: only receives traffic if primary servers are down.
+        {%- if server.backup | default(false) %} backup{%- endif %}
+    {%- endfor %}
+
+{%- endfor %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Stats Frontend: Dedicated listener for HAProxy's built-in Statistics UI    #}
+{# ---------------------------------------------------------------------------- #}
+{# This section creates a standalone 'listen' block dedicated to monitoring.   #}
+{%- if stats_frontend_enable | default(false) %}
+
+listen stats
+    # Listen on the specified port for statistics access.
+    bind *:{{ stats_frontend_port | default(9000) }}
+
+    # Enable the stats page.
+    stats enable
+
+    # URI path to access the stats page (e.g., /haproxy-stats).
+    stats uri {{ stats_frontend_uri | default('/haproxy-stats') }}
+
+    # Auto-refresh interval for the stats page UI.
+    stats refresh {{ stats_frontend_refresh | default('10s') }}
+
+    # Authentication for the stats page.
+    # Only configured if both username and password are provided and non-empty.
+    {%- if stats_frontend_auth_user is defined and stats_frontend_auth_user %}
+    stats auth {{ stats_frontend_auth_user }}:{{ stats_frontend_auth_pass | default('') }}
+    {%- endif %}
+
+{%- endif %}

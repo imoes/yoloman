@@ -1,0 +1,144 @@
+#!/bin/sh
+#
+# Unbound DNS Resolver Service Script
+#
+# This script manages the Unbound validating, recursive, and caching DNS
+# resolver. It handles starting, stopping, restarting, and reloading the
+# daemon, along with auxiliary tasks like chroot setup and trust anchor
+# updates.
+#
+# Configuration overrides can be placed in /etc/default/unbound.
+
+### BEGIN INIT INFO
+# Provides:          unbound
+# Required-Start:    $network $remote_fs $syslog
+# Required-Stop:     $network $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Validating, recursive, and caching DNS resolver
+### END INIT INFO
+
+# ---------------------------------------------------------------------------
+# Service Identity and Daemon Paths
+# ---------------------------------------------------------------------------
+
+# Name of the service/daemon.
+NAME="{{ name | default('unbound') }}"
+
+# Description of the service.
+DESC="{{ desc | default('DNS server') }}"
+
+# Path to the unbound daemon binary.
+DAEMON="{{ daemon | default('/usr/sbin/unbound') }}"
+
+# Path to the PID file for the unbound daemon.
+PIDFILE="{{ pidfile | default('/run/unbound.pid') }}"
+
+# Path to the unbound helper script.
+HELPER="{{ helper | default('/usr/libexec/unbound-helper') }}"
+
+# Ensure the daemon binary is executable before proceeding.
+test -x $DAEMON || exit 0
+
+# Set a standard PATH for execution contexts.
+export PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# Load LSB (Linux Standard Base) init functions for logging and status checks.
+. /lib/lsb/init-functions
+
+# ---------------------------------------------------------------------------
+# Daemon Options
+# ---------------------------------------------------------------------------
+
+# Default options passed to the unbound daemon.
+# This variable can be overridden by editing or creating /etc/default/unbound.
+DAEMON_OPTS=""
+
+if [ -f /etc/default/unbound ]; then
+    . /etc/default/unbound
+fi
+
+# ---------------------------------------------------------------------------
+# Service Control Logic
+# ---------------------------------------------------------------------------
+
+case "$1" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+
+        # Prepare the chroot environment if required by the configuration.
+        $HELPER chroot_setup
+
+        # Update root trust anchors and log any warnings or info messages.
+        $HELPER root_trust_anchor_update 2>&1 | tee /dev/fd/2 | logger -p daemon.info -t unbound
+
+        # Start the daemon using start-stop-daemon.
+        if start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --name $NAME --startas $DAEMON -- $DAEMON_OPTS; then
+            # Notify the system resolver configuration upon successful start.
+            $HELPER resolvconf_start
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+
+        # Stop the daemon, removing the PID file. Retry up to 5 times.
+        if start-stop-daemon --stop --quiet --oknodo --remove-pidfile --pidfile $PIDFILE --name $NAME --retry 5; then
+            # Clean up resolver configuration and chroot environment.
+            $HELPER resolvconf_stop
+            $HELPER chroot_teardown
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+
+    restart|force-reload)
+        log_daemon_msg "Restarting $DESC" "$NAME"
+
+        # Stop the current instance, removing the PID file.
+        start-stop-daemon --stop --quiet --remove-pidfile --pidfile $PIDFILE --name $NAME --retry 5
+
+        # Stop resolver configuration updates.
+        $HELPER resolvconf_stop
+
+        # Start the daemon again.
+        if start-stop-daemon --start --quiet --oknodo --pidfile $PIDFILE --name $NAME --startas $DAEMON -- $DAEMON_OPTS; then
+            # Re-setup chroot and notify resolver configuration.
+            $HELPER chroot_setup
+            $HELPER resolvconf_start
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+
+    reload)
+        log_daemon_msg "Reloading $DESC" "$NAME"
+
+        # Send SIGHUP to the daemon to reload configuration without stopping.
+        if start-stop-daemon --stop --pidfile $PIDFILE --name $NAME --signal 1; then
+            # Re-setup chroot environment if necessary after reload.
+            $HELPER chroot_setup
+            log_end_msg 0
+        else
+            log_end_msg 1
+        fi
+        ;;
+
+    status)
+        # Check the status of the daemon using its PID file.
+        status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+        ;;
+
+    *)
+        N=/etc/init.d/$NAME
+        echo "Usage: $N {start|stop|restart|status|reload|force-reload}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

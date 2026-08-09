@@ -1,0 +1,107 @@
+# Monado XR runtime configuration
+# Adjust paths, devices, and behavior for your system
+
+# Root directory for runtime data (logs, IPC, etc.)
+{% if runtime_path %}
+runtime_path: "{{ runtime_path }}"
+{% else %}
+runtime_path: "/tmp/monado"
+{% endif %}
+
+# IPC socket path (must be unique per instance)
+{% if ipc_socket_path %}
+ipc_socket_path: "{{ ipc_socket_path }}"
+{% else %}
+ipc_socket_path: "/tmp/monado-ipc"
+{% endif %}
+
+# Log level: "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
+{% if log_level %}
+log_level: "{{ log_level }}"
+{% else %}
+log_level: "INFO"
+{% endif %}
+
+# Enable verbose logging for debugging
+{% if verbose_logging %}
+verbose_logging: true
+{% else %}
+verbose_logging: false
+{% endif %}
+
+# Number of worker threads for background processing
+{% if worker_threads %}
+worker_threads: {{ worker_threads }}
+{% else %}
+worker_threads: 2
+{% endif %}
+
+# List of supported input devices
+{% if input_devices %}
+input_devices:
+{% for device in input_devices %}
+  - type: "{{ device.type }}"
+    name: "{{ device.name }}"
+    enabled: {% if device.enabled %}true{% else %}false{% endif %}
+{% if device.config %}
+    config:
+{% for key, val in device.config.items() %}
+      {{ key }}: {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+input_devices:
+  - type: "openxr"
+    name: "generic-openxr"
+    enabled: true
+    config:
+      timeout_ms: 1000
+{% endif %}
+
+# List of compositor layers (e.g., for debug overlays or HUDs)
+{% if compositor_layers %}
+compositor_layers:
+{% for layer in compositor_layers %}
+  - name: "{{ layer.name }}"
+    enabled: {% if layer.enabled %}true{% else %}false{% endif %}
+    type: "{{ layer.type }}"
+{% if layer.options %}
+    options:
+{% for key, val in layer.options.items() %}
+      {{ key }}: {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+compositor_layers:
+  - name: "debug-overlay"
+    enabled: false
+    type: "overlay"
+    options:
+      opacity: 0.7
+{% endif %}
+
+# Backend plugin configuration
+{% if backends %}
+backends:
+{% for backend in backends %}
+  - name: "{{ backend.name }}"
+    enabled: {% if backend.enabled %}true{% else %}false{% endif %}
+{% if backend.path %}
+    path: "{{ backend.path }}"
+{% endif %}
+{% if backend.config %}
+    config:
+{% for key, val in backend.config.items() %}
+      {{ key }}: {{ val }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% else %}
+backends:
+  - name: "openxr-ovr"
+    enabled: true
+    config:
+      display_refresh_rate: 72
+{% endif %}

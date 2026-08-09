@@ -1,0 +1,363 @@
+{
+  "kdc_db_dir": {
+    "type": "string",
+    "default": "/var/lib/heimdal-kdc",
+    "description": "Directory where the KDC database and related files are stored."
+  },
+  "kdc_db_mode": {
+    "type": "string",
+    "default": "kdc",
+    "description": "Base name for the lock file (e.g., 'kdc' \u2192 /path/kdc.lock)."
+  },
+  "kdc_port": {
+    "type": "number",
+    "default": 88,
+    "description": "Primary port for KDC service (default 88)."
+  },
+  "kdc_realm": {
+    "type": "string",
+    "default": "EXAMPLE.COM",
+    "description": "Default realm for the KDC instance."
+  },
+  "kdc_enable_audit": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable audit logging (records access to sensitive resources)."
+  },
+  "kdc_enable_http": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP interface for kadmin (remote administration over HTTPS)."
+  },
+  "kdc_enable_hprop": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hprop (replication) client functionality in KDC."
+  },
+  "kdc_enable_hpropd": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hpropd (replication daemon) to accept incoming propagation requests."
+  },
+  "kdc_enable_kadmin": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable kadmin service (remote administration via kadmin protocol)."
+  },
+  "kdc_enable_kadmin_local": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable kadmin.local (local-only administration, e.g., via kerberosd or scripts)."
+  },
+  "kdc_acl_file": {
+    "type": "string",
+    "default": "/etc/heimdal/kdc.acl",
+    "description": "Path to the ACL file defining access permissions for kadmin/kadmin.local."
+  },
+  "kdc_keytab_file": {
+    "type": "string",
+    "default": "/etc/heimdal/kdc.keytab",
+    "description": "Path to the KDC's keytab file containing its service keys."
+  },
+  "kdc_log_file": {
+    "type": "string",
+    "default": "/var/log/heimdal-kdc.log",
+    "description": "Path to the main KDC log file."
+  },
+  "kdc_max_life": {
+    "type": "number",
+    "default": 86400,
+    "description": "Default maximum lifetime (in seconds) for tickets (default: 24h)."
+  },
+  "kdc_max_renewable_life": {
+    "type": "number",
+    "default": 604800,
+    "description": "Default maximum renewable lifetime (in seconds) for tickets (default: 7d)."
+  },
+  "kdc_preauth_types": {
+    "type": "list",
+    "default": [
+      "pa-etype-info2",
+      "pa-pk-as-req"
+    ],
+    "description": "List of supported pre-authentication types (e.g., 'pa-etype-info2', 'pa-pk-as-req')."
+  },
+  "kdc_default_flags": {
+    "type": "list",
+    "default": [
+      "pre-auth",
+      "forwardable",
+      "renewable"
+    ],
+    "description": "Default ticket flags to set for new principals (e.g., 'pre-auth', 'forwardable')."
+  },
+  "kdc_listen": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces/addresses and optional ports/protocols to bind to for KDC traffic.",
+    "items": {
+      "interface": {
+        "type": "string",
+        "default": "",
+        "description": "Network interface name (e.g., eth0); if empty, use 'address' instead."
+      },
+      "address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind to (e.g., '127.0.0.1', '192.168.1.10')."
+      },
+      "port": {
+        "type": "number",
+        "default": 88,
+        "description": "Port to bind to (default 88)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "udp",
+        "description": "Protocol: 'udp', 'tcp', or 'both'."
+      },
+      "ssl_key_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL private key file (required only if SSL/TLS used on this listener)."
+      },
+      "ssl_cert_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate file (required only if SSL/TLS used on this listener)."
+      }
+    }
+  },
+  "kdc_realm_configs": {
+    "type": "list",
+    "default": [],
+    "description": "Per-realm override configurations (if multiple realms or non-default settings needed).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Kerberos realm name (e.g., 'EXAMPLE.COM')."
+      },
+      "database": {
+        "type": "string",
+        "default": "",
+        "description": "Per-realm database path; defaults to kdc.database if omitted."
+      },
+      "keytab": {
+        "type": "string",
+        "default": "",
+        "description": "Per-realm keytab path; defaults to kdc.keytab if omitted."
+      },
+      "max_life": {
+        "type": "number",
+        "default": "",
+        "description": "Per-realm ticket max lifetime (seconds); overrides global kdc.max_life."
+      },
+      "max_renewable_life": {
+        "type": "number",
+        "default": "",
+        "description": "Per-realm renewable lifetime (seconds); overrides global kdc.max_renewable_life."
+      },
+      "default_flags": {
+        "type": "list",
+        "default": [],
+        "description": "Per-realm default ticket flags; overrides kdc.default_flags."
+      },
+      "preauth_types": {
+        "type": "list",
+        "default": [],
+        "description": "Per-realm supported pre-auth types; overrides kdc.preauth_types."
+      },
+      "acl_file": {
+        "type": "string",
+        "default": "",
+        "description": "Per-realm ACL file path; overrides kdc.acl_file if present."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "",
+        "description": "Per-realm log file path; overrides kdc.log_file if present."
+      }
+    }
+  },
+  "kdc_hpropd": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "Hpropd (KDC replication daemon) settings.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable hpropd to accept incoming replication requests."
+      },
+      "port": {
+        "type": "number",
+        "default": 754,
+        "description": "TCP port for hpropd (default 754)."
+      },
+      "listen_address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Address hpropd binds to (default localhost for security)."
+      },
+      "acl_file": {
+        "type": "string",
+        "default": "/etc/heimdal/hpropd.acl",
+        "description": "ACL file for hpropd access control."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/heimdal-hpropd.log",
+        "description": "Hpropd log file path."
+      },
+      "ssl": {
+        "type": "bool",
+        "default": true,
+        "description": "Use SSL/TLS for hpropd connections (recommended)."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "/etc/heimdal/hpropd.key",
+        "description": "SSL private key file path."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "/etc/heimdal/hpropd.crt",
+        "description": "SSL certificate file path."
+      }
+    }
+  },
+  "kdc_http": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "HTTP interface for kadmin (remote admin via HTTP/S).",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTP kadmin server (requires SSL for production)."
+      },
+      "port": {
+        "type": "number",
+        "default": 749,
+        "description": "Port for HTTP kadmin server (default 749)."
+      },
+      "listen_address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Address to bind HTTP kadmin to (default localhost)."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "/etc/heimdal/kdc-http.key",
+        "description": "SSL private key file."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "/etc/heimdal/kdc-http.crt",
+        "description": "SSL certificate file."
+      },
+      "root": {
+        "type": "string",
+        "default": "/",
+        "description": "URL path prefix (e.g., '/' or '/kadmin')."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/heimdal-kdc-http.log",
+        "description": "HTTP kadmin log file."
+      }
+    }
+  },
+  "kdc_kadmin": {
+    "type": "object",
+    "default": {
+      "enabled": true
+    },
+    "description": "kadmin (remote admin) daemon settings.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable kadmin daemon (remote admin via kadmin protocol)."
+      },
+      "port": {
+        "type": "number",
+        "default": 749,
+        "description": "TCP port for kadmin (default 749)."
+      },
+      "listen_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Address to bind kadmin to."
+      },
+      "acl_file": {
+        "type": "string",
+        "default": "/etc/heimdal/kadmin.acl",
+        "description": "ACL file for kadmin access control."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/heimdal-kadmin.log",
+        "description": "kadmin daemon log file."
+      }
+    }
+  },
+  "kdc_kadmin_local": {
+    "type": "object",
+    "default": {
+      "enabled": true
+    },
+    "description": "kadmin.local (local-only admin) settings.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable kadmin.local (e.g., used by Heimdal tools like kadmin -l)."
+      },
+      "acl_file": {
+        "type": "string",
+        "default": "/etc/heimdal/kadmin.local.acl",
+        "description": "ACL file for kadmin.local."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/heimdal-kadmin.local.log",
+        "description": "kadmin.local log file."
+      }
+    }
+  },
+  "kdc_hprop": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "Hprop (replication) client settings \u2014 used to push DB changes to other KDCs.",
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable hprop client to send DB updates to replica KDCs."
+      },
+      "source": {
+        "type": "string",
+        "default": "/var/lib/heimdal-kdc/kdc.database",
+        "description": "Source database file (typically the primary KDC DB)."
+      },
+      "destinations": {
+        "type": "list",
+        "default": [],
+        "description": "List of replica KDC hostnames/IPs to push changes to."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/heimdal-hprop.log",
+        "description": "Hprop client log file."
+      }
+    }
+  }
+}

@@ -1,0 +1,152 @@
+{
+  "server_bin": {
+    "type": "string",
+    "default": "/usr/bin/remind",
+    "description": "Full path to the remind executable used to run the daemon."
+  },
+  "client_bin": {
+    "type": "string",
+    "default": "/usr/bin/remindclient",
+    "description": "Full path to the remind client executable (used for remote or interactive queries)."
+  },
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/remind",
+    "description": "Base directory for remind data files (e.g., reminder files, logs, cache)."
+  },
+  "rem_file": {
+    "type": "string",
+    "default": "/etc/remind/reminder.rem",
+    "description": "Path to the main reminder data file (e.g., .rem or .remind file)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a log file for daemon output (empty = no logging)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/remind/remind.pid",
+    "description": "Path to the PID file used when running in daemon mode."
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "remind",
+    "description": "User account to run the remind daemon as (for security isolation)."
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "remind",
+    "description": "Group to run the remind daemon as."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of background worker processes. Set to 0 for single-process mode."
+  },
+  "notify_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (in seconds) to wait for an alarm notification to execute before timing out."
+  },
+  "daemon_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to run remind as a background daemon (true) or as a foreground process (false)."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging for debugging and diagnostics."
+  },
+  "sound_on_alarm": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to play a sound when an alarm triggers."
+  },
+  "sound_cmd": {
+    "type": "string",
+    "default": "paplay /usr/share/sounds/alsa/Front_Center.wav",
+    "description": "Shell command to execute for alarm sound (only used if sound_on_alarm is enabled)."
+  },
+  "popup_on_alarm": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to show a desktop pop-up notification on alarm."
+  },
+  "popup_cmd": {
+    "type": "string",
+    "default": "notify-send 'Remind' '{{ message }}'",
+    "description": "Shell command template used to generate pop-up notifications (supports {{ message }} substitution)."
+  },
+  "notification_channels": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "A descriptive name for this channel (e.g., 'email', 'desktop', 'slack')."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "email",
+            "desktop",
+            "command"
+          ],
+          "description": "Type of notification channel."
+        },
+        "recipient": {
+          "type": "string",
+          "description": "Email recipient (required for email type)."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Email subject line (required for email type)."
+        },
+        "body_template": {
+          "type": "string",
+          "description": "Template for email body; use {{ message }}, {{ datetime }} placeholders (required for email type)."
+        },
+        "command": {
+          "type": "string",
+          "description": "Shell command template for command-type channels (supports {{ message }}, etc.)."
+        }
+      }
+    },
+    "description": "List of custom notification channels to trigger on alarms."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Time zone used to interpret and display times (e.g., 'America/Los_Angeles', 'UTC')."
+  },
+  "default_offset": {
+    "type": "number",
+    "default": 0,
+    "description": "Default time offset (in minutes) before an event to trigger a reminder (used for relative reminders)."
+  },
+  "enable_pre_reminders": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for 'REM n BEFORE ...' style reminders (i.e., relative to event start time)."
+  },
+  "holidays_files": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of paths to holiday definition files (e.g., /usr/share/remind/holidays/world.cal)."
+  },
+  "scripts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of paths to script files that define custom functions, macros, or logic."
+  }
+}

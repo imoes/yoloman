@@ -1,0 +1,88 @@
+# ==============================================================================
+# gsmartcontrol CLI Configuration
+#
+# This template generates command-line arguments for gsmartcontrol.
+# It is designed to be embedded in a service definition or wrapper script.
+# Every variable uses a default value to prevent rendering errors if undefined.
+# Boolean flags are only emitted if true; strings/numbers are emitted if non-empty.
+# ==============================================================================
+
+# --- Device Configuration ---
+
+# List of physical devices to add to gsmartcontrol.
+# Format: '<device>::<type>::<extra_args>'
+# Used with --no-scan to specify only certain drives.
+{% for device in (add_device | default([])) %}--add-device {{ device }}
+{% endfor %}
+
+# List of files containing smartctl output, interpreted as read-only virtual devices.
+{% for file in (add_virtual | default([])) %}--add-virtual {{ file }}
+{% endfor %}
+
+# --- Environment & Interface ---
+
+# Desktop environment for selecting the native su (sudo) mechanism.
+# Valid values: auto, kde, gnome, other.
+{% set desktop_val = desktop | default('auto') %}
+{% if desktop_val in ['auto', 'kde', 'gnome', 'other'] %}--desktop={{ desktop_val }}
+{% endif %}
+
+# X display to use (e.g., ':0').
+# Leave empty to use the default display.
+{% set display_val = display | default('') %}
+{% if display_val %}--display={{ display_val }}
+{% endif %}
+
+# --- Locale & Scanning ---
+
+# Disable use of system locale.
+{% if no_locale | default(false) | bool %}--no-locale
+{% endif %}
+
+# Skip automatic device scanning on startup.
+{% if no_scan | default(false) | bool %}--no-scan
+{% endif %}
+
+# --- Logging & Verbosity ---
+
+# Logging verbosity control.
+# Priority: verbose (-v) > quiet (-q) > verbosity_level (-b <n>)
+# If none are set, no flag is emitted (default behavior).
+
+{% if verbose | default(false) | bool %}-v
+{% elif quiet | default(false) | bool %}-q
+{% elif verbosity_level is defined %}
+# Set verbosity level (0–5). 0 is quiet, 5 is very verbose.
+# Ignored if verbose or quiet flags are explicitly set.
+-b {{ verbosity_level | default(0) | int }}
+{% endif %}
+
+# --- Help & Version ---
+
+# Show help options.
+{% if help | default(false) | bool %}--help
+{% endif %}
+
+# Show all help options (including advanced/hidden ones).
+{% if help_all | default(false) | bool %}--help-all
+{% endif %}
+
+# Show GTK+ specific options.
+{% if help_gtk | default(false) | bool %}--help-gtk
+{% endif %}
+
+# Show logging/debug specific options.
+{% if help_debug | default(false) | bool %}--help-debug
+{% endif %}
+
+# Display version information.
+{% if version | default(false) | bool %}-V
+{% endif %}
+
+# --- Debug ---
+
+# Disable path sanitization for debug purposes.
+# WARNING: This is not documented for general use and may expose sensitive paths.
+# Only enable for internal debugging.
+{% if no_sanitize | default(false) | bool %}# WARNING: Path sanitization disabled for debugging
+{% endif %}

@@ -1,0 +1,133 @@
+# Corosync Cluster Engine Configuration File
+#
+# This template generates a valid corosync.conf file. It is self-documenting:
+# every configuration directive is preceded by a comment explaining its purpose
+# and source field.
+
+# The name of the cluster. Must be identical on all nodes.
+name: {{ cluster_name | default('mycluster') }}
+
+# The transport protocol: 'udpu' (unicast) or 'udpm' (multicast).
+transport: {{ transport | default('udpu') }}
+
+# Unicast addresses for each node (required for udpu transport).
+# Each node object must contain 'ring0_addr' and 'nodeid'.
+{% if transport | default('udpu') == 'udpu' %}
+{% for node in nodes | default([{'ring0_addr': '192.168.1.10', 'nodeid': 1}, {'ring0_addr': '192.168.1.11', 'nodeid': 2}]) %}
+node {
+    # The IP address or hostname for this node's ring interface.
+    ring0_addr: {{ node.ring0_addr }}
+    # Unique numeric identifier for this node within the cluster.
+    nodeid: {{ node.nodeid }}
+}
+{% endfor %}
+{% endif %}
+
+# Totem protocol configuration: timing and ring settings.
+totem {
+    # Token timeout in milliseconds before declaring a node failed.
+    token: {{ (totem | default({'token': 10000})).token | default(10000) }}
+
+    # Number of token transmission retries before declaring loss.
+    token_retransmits_before_loss_const: {{ (totem | default({'token_retransmits_before_loss_const': 20})).token_retransmits_before_loss_const | default(20) }}
+
+    # Time in milliseconds to wait for a node to join before giving up.
+    join: {{ (totem | default({'join': 50})).join | default(50) }}
+
+    # Time in milliseconds to wait for consensus before declaring quorum lost.
+    consensus: {{ (totem | default({'consensus': 120})).consensus | default(120) }}
+
+    # Enable IPv6 support for the totem protocol.
+    ipv6: {{ (totem | default({'ipv6': False})).ipv6 | default(false) | ternary('yes', 'no') }}
+
+    # Version of the totem protocol to use (typically 2).
+    version: {{ (totem | default({'version': 2})).version | default(2) }}
+
+    # Maximum number of messages that can be pending in the queue.
+    max_messages: {{ (totem | default({'max_messages': 20})).max_messages | default(20) }}
+
+    # Ring Recovery Protocol mode: disabled, active, or passive.
+    rrp_mode: {{ (totem | default({'rrp_mode': 'disabled'})).rrp_mode | default('disabled') }}
+
+    # Network interface definition for the primary ring (ring 0).
+    interface {
+        # Ring number (0 is the primary ring).
+        ringnumber: {{ (interface | default({'ringnumber': 0})).ringnumber | default(0) }}
+
+        # Network address to bind to (subnet or host IP).
+        bindnetaddr: {{ (interface | default({'bindnetaddr': '192.168.1.0'})).bindnetaddr | default('192.168.1.0') }}
+
+        # Multicast address for the ring (required for udpm, optional for udpu).
+        {% if (interface | default({})).mcastaddr is defined and (interface | default({})).mcastaddr is not none %}
+        mcastaddr: {{ (interface | default({})).mcastaddr }}
+        {% endif %}
+
+        # Multicast port for ring communication.
+        mcastport: {{ (interface | default({'mcastport': 5405})).mcastport | default(5405) }}
+
+        # Time-to-live for multicast packets.
+        ttl: {{ (interface | default({'ttl': 1})).ttl | default(1) }}
+
+        # Link type: ipv4, ipv6, or ib (InfiniBand).
+        linktype: {{ (interface | default({'linktype': 'eth'})).linktype | default('eth') }}
+    }
+}
+
+# Logging configuration for the cluster engine.
+logging {
+    # Route logs to a specific log file.
+    # Note: The original template used 'yes' for boolean true in corosync.conf.
+    # We convert boolean True to 'yes' and False to 'no' for compliance.
+    to_logfile: {{ (logging | default({'to_logfile': True})).to_logfile | default(true) | ternary('yes', 'no') }}
+
+    # Path to the log file if to_logfile is yes.
+    logfile: {{ (logging | default({'logfile': '/var/log/cluster/corosync.log'})).logfile | default('/var/log/cluster/corosync.log') }}
+
+    # Log level: all, trace, debug, info, notice, warning, error, fatal.
+    log_level: {{ (logging | default({'log_level': 'info'})).log_level | default('info') }}
+
+    # Timestamp format: none, standard, or full.
+    log_timestamp: {{ (logging | default({'log_timestamp': 'none'})).log_timestamp | default('none') }}
+
+    # Also send logs to the system syslog daemon.
+    to_syslog: {{ (logging | default({'to_syslog': True})).to_syslog | default(true) | ternary('yes', 'no') }}
+
+    # Syslog facility (e.g., daemon, local0).
+    syslog_facility: {{ (logging | default({'syslog_facility': 'daemon'})).syslog_facility | default('daemon') }}
+}
+
+# Quorum device configuration (optional, for split-brain avoidance).
+# If quorum_device is defined, it must be a dict with provider, expected_votes, etc.
+{% if quorum_device is defined and quorum_device is not none %}
+quorum {
+    # Quorum device provider: fencer or net.
+    provider: {{ (quorum_device | default({})).provider | default('net') }}
+
+    # Voting policy setting (e.g., expected votes).
+    expected_votes: {{ (quorum_device | default({})).expected_votes | default(1) }}
+
+    # Two-node cluster specific voting policy setting.
+    two_node: {{ (quorum_device | default({})).two_node | default(false) | string | lower }}
+}
+{% endif %}
+
+# Service definitions: integrates Corosync with cluster managers like Pacemaker.
+service {
+    # Name of the service to integrate (e.g., pacemaker).
+    name: {{ (service | default({'name': 'pacemaker'})).name | default('pacemaker') }}
+
+    # Version of the service interface (typically 1).
+    ver: {{ (service | default({'ver': 1})).ver | default(1) }}
+}
+
+# Configuration for the aisexec process (runs services like Pacemaker).
+# Only included if enable_pacemaker is true.
+{% if enable_pacemaker | default(true) %}
+aisexec {
+    # User to run the aisexec process as.
+    user: {{ (aisexec | default({'user': 'root'})).user | default('root') }}
+
+    # Group to run the aisexec process as.
+    group: {{ (aisexec | default({'group': 'root'})).group | default('root') }}
+}
+{% endif %}

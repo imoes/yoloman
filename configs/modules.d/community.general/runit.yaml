@@ -1,0 +1,44 @@
+name: runit
+fqcn: community.general.runit
+collection: community.general
+short_description: Manage runit services
+description: Controls runit services on remote hosts using the sv utility.
+options:
+  enabled:
+    type: bool
+    description: Whether the service is enabled or not, if disabled it also implies stopped.
+  name:
+    type: str
+    required: true
+    description: Name of the service to manage.
+  service_dir:
+    type: str
+    default: /var/service
+    description: directory runsv watches for services
+  service_src:
+    type: str
+    default: /etc/sv
+    description: directory where services are defined, the source of symlinks to service_dir.
+  state:
+    type: str
+    choices:
+    - killed
+    - once
+    - reloaded
+    - restarted
+    - started
+    - stopped
+    description: V(started)/V(stopped) are idempotent actions that will not run commands unless necessary.  V(restarted)
+      will always bounce the service (sv restart) and V(killed) will always bounce the service (sv force-stop).
+      V(reloaded) will send a HUP (sv reload). V(once) will run a normally downed sv once (sv once), not
+      really an idempotent operation.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Start sv dnscache, if not running\n  community.general.runit:\n    name: dnscache\n\
+  \    state: started\n\n- name: Stop sv dnscache, if running\n  community.general.runit:\n    name: dnscache\n\
+  \    state: stopped\n\n- name: Kill sv dnscache, in all cases\n  community.general.runit:\n    name:\
+  \ dnscache\n    state: killed\n\n- name: Restart sv dnscache, in all cases\n  community.general.runit:\n\
+  \    name: dnscache\n    state: restarted\n\n- name: Reload sv dnscache, in all cases\n  community.general.runit:\n\
+  \    name: dnscache\n    state: reloaded\n\n- name: Use alternative sv directory location\n  community.general.runit:\n\
+  \    name: dnscache\n    state: reloaded\n    service_dir: /run/service\n"

@@ -1,0 +1,54 @@
+[downtimed]
+# Logging verbosity: 'debug', 'info', 'warning', 'error', or 'critical'.
+log_level = {{ log_level | default('info') }}
+
+# Path to the PID file for the downtimed daemon.
+pid_file = {{ pid_file | default('/var/run/downtimed/downtimed.pid') }}
+
+# Path to the log file for downtimed events.
+log_file = {{ log_file | default('/var/log/downtimed/downtimed.log') }}
+
+# Maximum number of concurrent service checks/downtime sessions allowed.
+max_sessions = {{ max_sessions | default(10) }}
+
+# Time (in seconds) between health checks for all services.
+check_interval = {{ check_interval | default(30) }}
+
+# Number of consecutive failed checks before marking a service as down.
+down_threshold = {{ down_threshold | default(5) }}
+
+# Number of consecutive successful checks before marking a service as up.
+up_threshold = {{ up_threshold | default(2) }}
+
+# Enable email notifications for service state changes.
+enable_email = {{ enable_email | default(False) }}
+
+# Recipient email address for downtimed notifications (required if enable_email=true).
+email_to = {{ email_to | default('') }}
+
+# SMTP server hostname for sending email notifications.
+smtp_server = {{ smtp_server | default('localhost') }}
+
+# SMTP server port (commonly 587 for TLS, 465 for SSL, or 25 for unencrypted).
+smtp_port = {{ smtp_port | default(587) }}
+
+# Enable TLS encryption for SMTP connection.
+smtp_tls = {{ smtp_tls | default(True) }}
+
+# SMTP username for authentication (leave empty if no auth required).
+smtp_user = {{ smtp_user | default('') }}
+
+# SMTP password for authentication (leave empty if no auth required).
+smtp_pass = {{ smtp_pass | default('') }}
+
+# List of services to monitor. Each service must specify host and port.
+[services]
+{% for svc in services | default([]) %}
+; Service: {{ svc.name }}
+{{ svc.name }}.host = {{ svc.host }}
+{{ svc.name }}.port = {{ svc.port }}
+{{ svc.name }}.proto = {{ svc.proto | default('tcp') }}
+{{ svc.name }}.timeout = {{ svc.timeout | default(5) }}
+{{ svc.name }}.interval = {{ svc.interval | default(30) }}
+{{ svc.name }}.down_after = {{ svc.down_after | default(3) }}
+{% endfor %}

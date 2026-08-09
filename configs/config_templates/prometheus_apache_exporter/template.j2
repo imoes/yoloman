@@ -1,0 +1,70 @@
+# /etc/default/prometheus-apache-exporter
+# Environment variables for the prometheus-apache-exporter service.
+# Used by systemd to start the exporter with specified options.
+#
+# This template is self-documenting: every variable reference includes
+# its schema default, and every directive is preceded by a comment
+# derived from the field description.
+
+# List of Apache server URLs (including path and query) to scrape metrics from.
+# Must include ?auto to enable machine-readable output.
+# Default: ['http://localhost/server-status?auto']
+{% if urls | default(['http://localhost/server-status?auto']) %}
+APACHE_EXPORTER_URLS="{{ (urls | default(['http://localhost/server-status?auto'])) | join(',') }}"
+{% endif %}
+
+# IP address the exporter should bind to for exposing metrics.
+# Default: 0.0.0.0
+APACHE_EXPORTER_WEB_LISTEN_ADDRESS="{{ (listen_address | default('0.0.0.0')) }}"
+
+# Port number the exporter listens on for Prometheus scraping.
+# Default: 9117
+APACHE_EXPORTER_WEB_PORT="{{ (port | default(9117)) | string }}"
+
+# Path to Apache's mod_status handler (before the ?auto query).
+# Default: /server-status
+APACHE_EXPORTER_PATH="{{ (status_path | default('/server-status')) }}"
+
+# If true, connect to Apache over HTTPS (do NOT confuse with exporter TLS
+# — exporter itself is always HTTP).
+# Default: false
+APACHE_EXPORTER_TLS_ENABLED="{{ (tls_enabled | default(false)) | string | lower }}"
+
+# Basic auth username to access Apache mod_status endpoint (if protected).
+# Default: (empty) — omitted if empty to avoid sending empty credentials.
+{% if auth_username | default('') %}
+APACHE_EXPORTER_AUTH_USERNAME="{{ (auth_username | default('')) }}"
+{% endif %}
+
+# Basic auth password to access Apache mod_status endpoint (if protected).
+# Default: (empty) — omitted if empty to avoid sending empty credentials.
+{% if auth_password | default('') %}
+APACHE_EXPORTER_AUTH_PASSWORD="{{ (auth_password | default('')) }}"
+{% endif %}
+
+# Seconds to wait before aborting a request to Apache (0 disables timeout).
+# Default: 2
+APACHE_EXPORTER_REQUEST_TIMEOUT="{{ (request_timeout | default(2)) | string }}"
+
+# Whether to collect SSL/TLS-related metrics (requires Apache SSL module and
+# proper configuration).
+# Default: true
+APACHE_EXPORTER_COLLECT_SSL="{{ (collect_ssl | default(true)) | string | lower }}"
+
+# Additional command-line flags to pass to the exporter (e.g., ['--no-collect-vhost']
+# to disable vhost metrics).
+# Default: (empty list) — omitted if empty.
+{% if extra_args | default([]) %}
+APACHE_EXPORTER_EXTRA_ARGS="{{ (extra_args | default([])) | join(' ') }}"
+{% endif %}
+
+# HTTP headers to attach to every request to Apache mod_status (e.g., for proxy
+# auth, custom headers).
+# Expects a list of objects with 'name' and 'value' keys.
+# Default: (empty list) — omitted if empty.
+{% if headers | default([]) %}
+{% for header in headers | default([]) %}
+# HTTP header: {{ (header | default({})).name }}
+APACHE_EXPORTER_HEADER_{{ ((header | default({})).name | default('') | upper | replace('-', '_')) }}="{{ (header | default({})).value | default('') }}"
+{% endfor %}
+{% endif %}

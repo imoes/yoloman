@@ -1,0 +1,46 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the earlyoom service. When disabled, earlyoom will not run at boot."
+  },
+  "memory_min_percent": {
+    "type": "number",
+    "default": 10,
+    "description": "Memory low threshold percentage. When free memory drops below this percentage of total RAM, earlyoom starts killing processes."
+  },
+  "swap_min_percent": {
+    "type": "number",
+    "default": 5,
+    "description": "Swap low threshold percentage. When free swap drops below this percentage of total swap, earlyoom becomes more aggressive (prefers killing memory hogs)."
+  },
+  "memory_min_kb": {
+    "type": "number",
+    "default": 51200,
+    "description": "Absolute minimum free memory threshold in kilobytes. If free memory falls below this, earlyoom acts regardless of percentage thresholds."
+  },
+  "prefer_mem_usage": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, prefer killing processes that use more memory (larger RSS). If false, prioritize killing processes with less OOM score adjustment (more protected)."
+  },
+  "prefer_oom_score_adj": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, prefer killing processes with more negative OOM score adjustments (i.e., more protected). Only effective when prefer_mem_usage is false."
+  },
+  "ignore_patterns": {
+    "type": "list",
+    "default": [
+      "/sbin/init",
+      "systemd",
+      "systemd-logind"
+    ],
+    "description": "List of command-line substrings. Processes whose full command line contains any of these strings will be skipped by earlyoom."
+  },
+  "cli_args": {
+    "type": "string",
+    "default": "-r 3600",
+    "description": "Options to pass to earlyoom. Defaults to '-r 3600' which reports memory status every hour."
+  }
+}

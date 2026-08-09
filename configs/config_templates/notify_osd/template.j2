@@ -1,0 +1,92 @@
+# ==============================================================================
+# notify-osd configuration file
+#
+# Controls the visual appearance and behavior of the Ubuntu notification daemon
+# (notify-osd). This file is sourced at startup.
+#
+# This template is self-documenting: every setting includes its schema description
+# as a comment and a safe default value.
+# ==============================================================================
+
+# --- Global Settings ---
+
+# Enable verbose debug logging to syslog (for troubleshooting only).
+# Type: boolean
+debug = {{ debug | default(false) | lower }}
+
+# Default time (in milliseconds) before a notification automatically disappears.
+# Type: integer
+default_timeout = {{ default_timeout | default(5000) }}
+
+# Maximum number of notifications shown simultaneously (older ones will be queued).
+# Type: integer
+max_visible = {{ max_visible | default(5) }}
+
+# --- Appearance Settings ---
+
+# Pango font description (e.g., "Ubuntu 11" or "DejaVu Sans Bold 12") for notification text.
+# Type: string
+font = "{{ font | default('Ubuntu 11') }}"
+
+# Hex color (RRGGBB) for notification message text.
+# Type: string
+text_color = "{{ text_color | default('000000') }}"
+
+# Hex color (RRGGBB) for notification background.
+# Type: string
+background_color = "{{ background_color | default('ffffff') }}"
+
+# Hex color (RRGGBB) for notification border.
+# Type: string
+border_color = "{{ border_color | default('cccccc') }}"
+
+# Size (in pixels) of the notification icons.
+# Type: integer
+icon_size = {{ icon_size | default(48) }}
+
+# Duration (ms) of the fade-in animation.
+# Type: integer
+fade_in_duration = {{ fade_in_duration | default(200) }}
+
+# Duration (ms) of the fade-out animation.
+# Type: integer
+fade_out_duration = {{ fade_out_duration | default(200) }}
+
+# --- Positioning Settings ---
+
+# Position on the screen where notifications appear.
+# Valid values: top-left, top-center, top-right, bottom-left, bottom-center,
+# bottom-right, center-left, center-right.
+# Type: string
+anchor = "{{ anchor | default('bottom-right') }}"
+
+# Distance (in pixels) between the notification and the screen edge.
+# Type: integer
+margin = {{ margin | default(20) }}
+
+# --- Behavior Settings ---
+
+# If true, queue new notifications instead of replacing visible ones when the
+# maximum visible limit is reached.
+# Type: boolean
+queue_notifications = {{ queue_notifications | default(true) | lower }}
+
+# --- Application-Specific Overrides ---
+
+# List of per-application notification settings to override global defaults.
+# This section iterates over a list of objects defined in the variable `app_overrides`.
+# Each object represents one application and should contain: name, timeout, icon.
+{% if app_overrides is defined and app_overrides | length > 0 %}
+{% for app in app_overrides %}
+
+# Overrides for the application named "{{ app.name | default('unknown') }}"
+[{{ app.name | default('unknown') }}]
+
+# Timeout for this specific application (milliseconds). Defaults to global if omitted.
+timeout = {{ app.timeout | default(omit) }}
+
+# Icon path or name for this application. Defaults to 'none' if omitted.
+icon = "{{ app.icon | default('none') }}"
+
+{% endfor %}
+{% endif %}

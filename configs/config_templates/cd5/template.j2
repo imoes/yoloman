@@ -1,0 +1,25 @@
+# cd5 configuration (Debian GNU/Linux)
+# This file configures the cd5(1) utility for CD-ROM integrity checking.
+# cd5 reads each track from the CD-ROM device and outputs the MD5 digest and size.
+# Note: cd5 currently hardcodes /dev/cdrom as the device; no runtime override exists.
+
+# Track list configuration (for documentation only; cd5 auto-detects tracks)
+# Each item describes a track's expected start and length in seconds.
+# Schema: track_list (list of dicts) | default=[]
+{% for track in (track_list | default([])) %}
+# Track {{ track.number | default('unknown') }}: start={{ (track.start_sec | default('N/A')) }}s, length={{ (track.length_sec | default('N/A')) }}s
+{% endfor %}
+
+# Verbose output (if supported by implementation; currently unused by upstream)
+# cd5 emits human-readable progress only to stderr on request.
+# Upstream does not expose a flag for verbosity — this is preserved for compatibility.
+# Schema: verbose (bool) | default=False
+{% if (verbose | default(false)) | bool %}
+# verbose = true
+{% endif %}
+
+# Output format: one line per track: "MD5=...,size=..."
+# cd5 emits no additional config options; this section documents expected output format.
+# Example output:
+# MD5=6a8f8c2e3c1b9e7a5d4f3e2c1b0a9d8c,size=2070720
+# MD5=d2e1c3b4a5f6e7d8c9b0a1f2e3d4c5b6,size=1981440

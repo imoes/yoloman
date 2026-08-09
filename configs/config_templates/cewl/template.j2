@@ -1,0 +1,141 @@
+# ==============================================================================
+# CeWL Wordlist Generator Configuration
+# ==============================================================================
+# This file configures CeWL (Custom Word List generator) to spider a target website
+# and extract words, emails, or metadata for use in password cracking or auditing.
+# See: https://www.owasp.org/index.php/CeWL
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Target Spider Configuration
+# --------------------------------------------------------------------------
+
+# The base URL to spider (required)
+url: {{ url | default('') }}
+
+# --------------------------------------------------------------------------
+# General Spider Options
+# --------------------------------------------------------------------------
+
+# Depth to spider to (0 = no recursion, 1 = only the initial page, etc.)
+depth: {{ depth | default(2) }}
+
+# Minimum word length to include in the generated wordlist
+min_word_length: {{ min_word_length | default(3) }}
+
+# Allow following external links that point to different domains
+# Set to True to enable off-site crawling
+offsite: {{ offsite | default(false) | lower }}
+
+# HTTP User-Agent string to use when making requests
+# Helps identify the spider to web server logs/firewalls
+user_agent: {{ user_agent | default('CeWL/6.2.1 (Robin Wood)') }}
+
+# --------------------------------------------------------------------------
+# Output & Extraction Options
+# --------------------------------------------------------------------------
+
+# Suppress wordlist output (useful when only extracting emails or metadata)
+# Set to True to disable generation of the main wordlist file
+no_words: {{ no_words | default(false) | lower }}
+
+# Extract email addresses found in 'mailto:' links and body text
+email: {{ email | default(false) | lower }}
+
+# Convert all extracted words to lowercase for consistency
+lowercase: {{ lowercase | default(false) | lower }}
+
+# Allow words that contain digits to be included in the output
+with_numbers: {{ with_numbers | default(false) | lower }}
+
+# Convert Latin-1 (ISO-8859-1) umlauts to ASCII equivalents
+# e.g., ä -> ae, ö -> oe, ü -> ue, ß -> ss
+convert_umlauts: {{ convert_umlauts | default(false) | lower }}
+
+# Extract embedded metadata from files (PDFs, images, etc.) using exiftool
+# Requires exiftool to be installed on the system
+meta: {{ meta | default(false) | lower }}
+
+# Show occurrence count for each extracted word in the output
+count: {{ count | default(false) | lower }}
+
+# Enable verbose output during execution (logs to stderr)
+verbose: {{ verbose | default(false) | lower }}
+
+# Enable debug output (more verbose than verbose, for troubleshooting)
+debug: {{ debug | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Output File Paths
+# --------------------------------------------------------------------------
+
+# Path to write the main wordlist
+output_file: {{ output_file | default('wordlist.txt') }}
+
+# Path to write extracted email addresses (if email=True)
+email_file: {{ email_file | default('emails.txt') }}
+
+# Path to write extracted metadata (if meta=True)
+meta_file: {{ meta_file | default('metadata.txt') }}
+
+# Temporary directory used by exiftool for metadata extraction
+# Must be writable by the user running CeWL
+meta_temp_dir: {{ meta_temp_dir | default('/tmp') }}
+
+# --------------------------------------------------------------------------
+# Authentication Settings
+# --------------------------------------------------------------------------
+
+# Authentication type for protected pages: 'basic' or 'digest'
+# If auth_type is provided, auth_user and auth_pass are also expected
+{% if auth_type | default('') %}
+auth_type: {{ auth_type }}
+auth_user: {{ auth_user | default('') }}
+auth_pass: {{ auth_pass | default('') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Proxy Configuration
+# --------------------------------------------------------------------------
+
+# Proxy host address (e.g., 127.0.0.1)
+# If proxy_host is provided, proxy_port is also expected
+{% if proxy_host | default('') %}
+proxy_host: {{ proxy_host }}
+proxy_port: {{ proxy_port | default(8080) }}
+
+# Proxy authentication credentials (if required by the proxy server)
+{% if proxy_username | default('') %}
+proxy_username: {{ proxy_username }}
+proxy_password: {{ proxy_password | default('') }}
+{% endif %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# HTTP Headers
+# --------------------------------------------------------------------------
+
+# Additional HTTP headers to send with each request
+# Format: "Name: value" (one per header entry in the list)
+{% if headers | default([]) %}
+# Additional HTTP headers
+{% for header in headers %}
+# header: {{ header }}
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Path Filtering
+# --------------------------------------------------------------------------
+
+# Path to a file containing URL paths to exclude from crawling (one per line)
+# Useful for ignoring admin panels, login forms, etc.
+{% if exclude_file | default('') %}
+exclude_file: {{ exclude_file }}
+{% endif %}
+
+# Regex pattern that paths must match to be followed during crawling
+# If provided, only paths matching this pattern will be crawled
+{% if allowed_pattern | default('') %}
+allowed_pattern: {{ allowed_pattern }}
+{% endif %}

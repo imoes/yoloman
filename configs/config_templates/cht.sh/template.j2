@@ -1,0 +1,102 @@
+# ==============================================
+# cht.sh - The "Cheat Sheet" Client Configuration
+# ==============================================
+# This configuration file controls the behavior of the cht.sh
+# command-line utility. It can be sourced by shell scripts
+# or used to set environment variables.
+# ==============================================
+
+# Mode of operation:
+# 'auto' (prefer local installation if available),
+# 'lite' (use remote server only, no local DB).
+# Default: auto
+CHT_MODE={{ (mode | default('auto')) | string }}
+
+# Prefix used in shell mode prompt.
+# For example, if set to 'cheats', the prompt becomes '<cheats>/<lang>>'.
+# Default: cht.sh
+CHT_SHELL_PROMPT_PREFIX={{ (shell_prompt_prefix | default('cht.sh')) | string }}
+
+# Enable automatic queries on selected text (stealth mode).
+# When 1, the script listens for selection events.
+# When 0, stealth mode is disabled.
+# Default: 0
+{% if stealth_mode is defined %}
+{% if stealth_mode %}
+CHT_STEALTH=1
+{% else %}
+CHT_STEALTH=0
+{% endif %}
+{% else %}
+CHT_STEALTH={{ (stealth_mode | default(false)) | ternary('1', '0') }}
+{% endif %}
+
+# Suppress the help message on shell mode startup.
+# When 1, the startup banner/help is hidden.
+# When 0, the help message is displayed.
+# Default: 0
+{% if hush is defined %}
+{% if hush %}
+CHT_HUSH=1
+{% else %}
+CHT_HUSH=0
+{% endif %}
+{% else %}
+CHT_HUSH={{ (hush | default(false)) | ternary('1', '0') }}
+{% endif %}
+
+# Unique session identifier for tracking queries across instances.
+# - 'reset': Starts a new session and forgets the previous one.
+# - 'remove': Deletes the session file entirely.
+# - <string>: Uses the provided ID as the session key.
+# - empty: Resets the session (same as 'reset').
+# Default: reset
+{% if session_id is defined %}
+{% if session_id is none or session_id == '' %}
+CHT_ID=reset
+{% elif session_id == 'remove' %}
+CHT_ID=remove
+{% else %}
+CHT_ID={{ session_id }}
+{% endif %}
+{% else %}
+CHT_ID=reset
+{% endif %}
+
+# Base URL of the cheat.sh server to query.
+# Useful for proxying through a local mirror or changing regions.
+# Default: https://cht.sh
+CHT_SERVER={{ (server_url | default('https://cht.sh')) | string }}
+
+# Local installation directory when using standalone mode.
+# If set, the client prefers this local directory for lookups.
+# Empty string means no local standalone directory is enforced.
+# Default: ''
+{% if standalone_dir is defined %}
+CHT_STANDALONE_DIR={{ (standalone_dir | default('')) | string }}
+{% else %}
+CHT_STANDALONE_DIR=
+{% endif %}
+
+# List of clipboard commands for copy operations.
+# The first available command in this list will be used to copy
+# the result to the system clipboard.
+# Examples: ['pbcopy', 'xclip -selection clipboard', 'wl-copy']
+# Default: []
+{% if clipboard_commands is defined and clipboard_commands is not none %}
+{% for cmd in clipboard_commands %}
+CHT_COPY_CMD={{ (cmd | default('')) | string }}
+{% endfor %}
+{% else %}
+# No clipboard commands configured.
+{% endif %}
+
+# Default language context for shell mode.
+# Prepend this language to queries if none is specified.
+# Example: 'python' -> queries without language are assumed to be python.
+# Default: ''
+{% if default_shell_lang is defined %}
+CHT_DEFAULT_SHELL_LANG={{ (default_shell_lang | default('')) | string }}
+{% else %}
+CHT_DEFAULT_SHELL_LANG=
+{% endif %}

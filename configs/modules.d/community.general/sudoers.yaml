@@ -1,0 +1,76 @@
+name: sudoers
+fqcn: community.general.sudoers
+collection: community.general
+short_description: Manage sudoers files
+description: This module allows for the manipulation of sudoers files.
+options:
+  commands:
+    type: list
+    description: The commands allowed by the sudoers rule. Multiple can be added by passing a list of
+      commands. Use V(ALL) for all commands.
+  group:
+    type: str
+    description: The name of the group for the sudoers rule. This option cannot be used in conjunction
+      with O(user).
+  host:
+    type: str
+    default: ALL
+    description: Specify the host the rule is for.
+  name:
+    type: str
+    required: true
+    description: The name of the sudoers rule. This will be used for the filename for the sudoers file
+      managed by this rule.
+  nopassword:
+    type: bool
+    default: true
+    description: Whether a password will be required to run the sudo'd command.
+  runas:
+    type: str
+    description: Specify the target user the command(s) will run as.
+  setenv:
+    type: bool
+    default: false
+    description: Whether to allow keeping the environment when command is run with sudo.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the rule should exist or not.
+  sudoers_path:
+    type: str
+    default: /etc/sudoers.d
+    description: The path which sudoers config files will be managed in.
+  user:
+    type: str
+    description: The name of the user for the sudoers rule. This option cannot be used in conjunction
+      with O(group).
+  validation:
+    type: str
+    default: detect
+    choices:
+    - absent
+    - detect
+    - required
+    description: If V(absent), the sudoers rule will be added without validation. If V(detect) and visudo
+      is available, then the sudoers rule will be validated by visudo. If V(required), visudo must be
+      available to validate the sudoers rule.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Allow the backup user to sudo /usr/local/bin/backup\n  community.general.sudoers:\n\
+  \    name: allow-backup\n    state: present\n    user: backup\n    commands: /usr/local/bin/backup\n\
+  \n- name: Allow the bob user to run any commands as alice with sudo -u alice\n  community.general.sudoers:\n\
+  \    name: bob-do-as-alice\n    state: present\n    user: bob\n    runas: alice\n    commands: ALL\n\
+  \n- name: >-\n    Allow the monitoring group to run sudo /usr/local/bin/gather-app-metrics\n    without\
+  \ requiring a password on the host called webserver\n  community.general.sudoers:\n    name: monitor-app\n\
+  \    group: monitoring\n    host: webserver\n    commands: /usr/local/bin/gather-app-metrics\n\n- name:\
+  \ >-\n    Allow the alice user to run sudo /bin/systemctl restart my-service or\n    sudo /bin/systemctl\
+  \ reload my-service, but a password is required\n  community.general.sudoers:\n    name: alice-service\n\
+  \    user: alice\n    commands:\n      - /bin/systemctl restart my-service\n      - /bin/systemctl reload\
+  \ my-service\n    nopassword: false\n\n- name: Revoke the previous sudo grants given to the alice user\n\
+  \  community.general.sudoers:\n    name: alice-service\n    state: absent\n\n- name: Allow alice to\
+  \ sudo /usr/local/bin/upload and keep env variables\n  community.general.sudoers:\n    name: allow-alice-upload\n\
+  \    user: alice\n    commands: /usr/local/bin/upload\n    setenv: true\n"

@@ -1,0 +1,391 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging and verbose output."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (implies debug if enabled)."
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "auth_type": "keystone",
+      "auth_url": "http://localhost:5000/v3",
+      "project_domain_name": "Default",
+      "project_name": "service",
+      "user_domain_name": "Default",
+      "username": "cloudkitty",
+      "password": "changeme"
+    },
+    "description": "Authentication backend configuration.",
+    "items": {
+      "auth_type": {
+        "type": "string",
+        "default": "keystone",
+        "description": "Authentication method (e.g., keystone, none)."
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://localhost:5000/v3",
+        "description": "Keystone endpoint URL."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone project domain name."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Keystone project name."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone user domain name."
+      },
+      "username": {
+        "type": "string",
+        "default": "cloudkitty",
+        "description": "Keystone username."
+      },
+      "password": {
+        "type": "string",
+        "default": "changeme",
+        "description": "Keystone password (securely set in production)."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "backend": "sqlalchemy",
+      "connection": "mysql+pymysql://cloudkitty:cloudkitty@localhost/cloudkitty",
+      "retry_attempts": 3,
+      "retry_delay": 5
+    },
+    "description": "Storage backend configuration.",
+    "items": {
+      "backend": {
+        "type": "string",
+        "default": "sqlalchemy",
+        "description": "Storage backend module name (e.g., sqlalchemy, elasticsearch)."
+      },
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://cloudkitty:cloudkitty@localhost/cloudkitty",
+        "description": "Database connection string."
+      },
+      "retry_attempts": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of storage operation retries on failure."
+      },
+      "retry_delay": {
+        "type": "number",
+        "default": 5,
+        "description": "Delay between retries (seconds)."
+      }
+    }
+  },
+  "prometheus": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "endpoint": "http://localhost:9090",
+      "query_path": "/api/v1/query"
+    },
+    "description": "Prometheus collector configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable Prometheus collector."
+      },
+      "endpoint": {
+        "type": "string",
+        "default": "http://localhost:9090",
+        "description": "Prometheus server endpoint URL."
+      },
+      "query_path": {
+        "type": "string",
+        "default": "/api/v1/query",
+        "description": "Path to Prometheus query API endpoint."
+      }
+    }
+  },
+  "collector": {
+    "type": "object",
+    "default": {
+      "metrics": [
+        "cpu",
+        "memory.usage",
+        "disk.root.size"
+      ]
+    },
+    "description": "Metrics collection configuration.",
+    "items": {
+      "metrics": {
+        "type": "list",
+        "default": [
+          "cpu",
+          "memory.usage",
+          "disk.root.size"
+        ],
+        "description": "List of metrics to collect from nova or other sources.",
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "cpu",
+            "description": "Metric name (e.g., cpu, memory.usage, disk.root.size)."
+          }
+        }
+      }
+    }
+  },
+  "fetcher": {
+    "type": "object",
+    "default": {
+      "module": "nova"
+    },
+    "description": "Metrics fetcher module configuration.",
+    "items": {
+      "module": {
+        "type": "string",
+        "default": "nova",
+        "description": "Fetcher plugin module (e.g., nova, gnocchi, prometheus)."
+      }
+    }
+  },
+  "reporting": {
+    "type": "object",
+    "default": {
+      "report_dir": "/var/lib/cloudkitty/reports",
+      "report_period": "month"
+    },
+    "description": "Monthly reporting configuration.",
+    "items": {
+      "report_dir": {
+        "type": "string",
+        "default": "/var/lib/cloudkitty/reports",
+        "description": "Directory to write generated reports."
+      },
+      "report_period": {
+        "type": "string",
+        "default": "month",
+        "description": "Reporting period (e.g., month, week, day)."
+      }
+    }
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8889,
+      "ssl_cert": "",
+      "ssl_key": "",
+      "workers": 1,
+      "enable_cors": false
+    },
+    "description": "CloudKitty API server configuration.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind the API server to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8889,
+        "description": "Port to listen on for the API server."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate (empty = no TLS)."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL private key."
+      },
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of gunicorn workers for the API service."
+      },
+      "enable_cors": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable Cross-Origin Resource Sharing (CORS) headers."
+      }
+    }
+  },
+  "cinder": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "endpoint_type": "publicURL"
+    },
+    "description": "Cinder volume service integration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Cinder volume rating."
+      },
+      "endpoint_type": {
+        "type": "string",
+        "default": "publicURL",
+        "description": "Cinder endpoint type (e.g., publicURL, internalURL)."
+      }
+    }
+  },
+  "glance": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "endpoint_type": "publicURL"
+    },
+    "description": "Glance image service integration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Glance image rating."
+      },
+      "endpoint_type": {
+        "type": "string",
+        "default": "publicURL",
+        "description": "Glance endpoint type."
+      }
+    }
+  },
+  "keystone": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "endpoint_type": "publicURL"
+    },
+    "description": "Keystone identity service integration (legacy; prefer [auth] block).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Keystone integration."
+      },
+      "endpoint_type": {
+        "type": "string",
+        "default": "publicURL",
+        "description": "Keystone endpoint type."
+      }
+    }
+  },
+  "neutron": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "endpoint_type": "publicURL"
+    },
+    "description": "Neutron networking service integration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Neutron network rating."
+      },
+      "endpoint_type": {
+        "type": "string",
+        "default": "publicURL",
+        "description": "Neutron endpoint type."
+      }
+    }
+  },
+  "nova": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "endpoint_type": "publicURL"
+    },
+    "description": "Nova compute service integration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Nova compute rating."
+      },
+      "endpoint_type": {
+        "type": "string",
+        "default": "publicURL",
+        "description": "Nova endpoint type."
+      }
+    }
+  },
+  "modules": {
+    "type": "object",
+    "default": {
+      "enabled_modules": [
+        "rating.module.prometheus",
+        "rating.module.flat"
+      ]
+    },
+    "description": "Enabled rating modules.",
+    "items": {
+      "enabled_modules": {
+        "type": "list",
+        "default": [
+          "rating.module.prometheus",
+          "rating.module.flat"
+        ],
+        "description": "List of rating modules to load (e.g., flat, prometheus, tiered).",
+        "items": {
+          "type": {
+            "type": "string",
+            "default": "flat",
+            "description": "Rating module import path (e.g., rating.module.flat)."
+          }
+        }
+      }
+    }
+  },
+  "collectors": {
+    "type": "object",
+    "default": {
+      "nova": {
+        "enabled": true,
+        "interval": 3600,
+        "endpoint": "http://localhost:8774/v2.1"
+      }
+    },
+    "description": "Per-collector custom configuration blocks.",
+    "items": {
+      "type": "object",
+      "description": "Named collector configuration.",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "nova",
+          "description": "Collector name (used as section header)."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable this collector."
+        },
+        "interval": {
+          "type": "number",
+          "default": 3600,
+          "description": "Collection interval in seconds."
+        },
+        "endpoint": {
+          "type": "string",
+          "default": "http://localhost:8774/v2.1",
+          "description": "Source endpoint (e.g., Nova endpoint for Nova collector)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,115 @@
+{
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address to bind the web server to (e.g., '0.0.0.0' for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port number for HTTP requests."
+  },
+  "document_root": {
+    "type": "string",
+    "default": "/var/www/hunchentoot",
+    "description": "Filesystem path where static files are served from. Set to empty string ('') or omit to disable static file serving."
+  },
+  "default_content_type": {
+    "type": "string",
+    "default": "text/html; charset=utf-8",
+    "description": "Default MIME type sent in the Content-Type header for dynamic responses."
+  },
+  "enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable HTTPS support."
+  },
+  "ssl_certificate_file": {
+    "type": "string",
+    "default": "/etc/hunchentoot/ssl/cert.pem",
+    "description": "Path to SSL certificate file (PEM format). Required if SSL enabled.",
+    "required_if": "enable_ssl"
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/hunchentoot/ssl/key.pem",
+    "description": "Path to SSL private key file (PEM format). Required if SSL enabled.",
+    "required_if": "enable_ssl"
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "TCP port number for HTTPS requests (only used if SSL enabled)."
+  },
+  "max_threads": {
+    "type": "number",
+    "default": 32,
+    "description": "Maximum number of concurrent request-handling threads."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of simultaneous HTTP connections allowed."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds before idle connections are closed."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logging."
+  },
+  "custom_log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file where server logs will be appended. Leave empty to log to stdout/stderr."
+  },
+  "extra_mime_types": {
+    "type": "list",
+    "default": [],
+    "description": "Additional MIME type mappings for static file extensions.",
+    "items": {
+      "extension": {
+        "type": "string",
+        "default": "",
+        "description": "File extension including dot (e.g., '.wasm')."
+      },
+      "mime_type": {
+        "type": "string",
+        "default": "",
+        "description": "Full MIME type string (e.g., 'application/wasm')."
+      }
+    }
+  },
+  "directory_template": {
+    "type": "string",
+    "default": "nil",
+    "description": "Name of a Common Lisp symbol that defines a custom directory listing template (e.g., 'my-app::my-dir-template'). Set to 'nil' for default listing."
+  },
+  "routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of URL routes and their handler functions.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "URL prefix to match (e.g., '/api')."
+      },
+      "handler": {
+        "type": "string",
+        "default": "",
+        "description": "Common Lisp function name (symbol) that handles the request."
+      }
+    }
+  },
+  "library_paths": {
+    "type": "list",
+    "default": [
+      "/usr/share/common-lisp/source/hunchentoot/hunchentoot.lisp"
+    ],
+    "description": "List of paths to load before startup (e.g., additional system libraries)."
+  }
+}

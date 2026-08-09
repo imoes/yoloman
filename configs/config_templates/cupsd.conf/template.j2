@@ -1,0 +1,169 @@
+# CUPS (Common Unix Printing System) daemon configuration
+# This template generates a valid cupsd.conf file using Ansible variables.
+# Each directive is commented with its schema description for self-documentation.
+
+# -----------------------------------------------------------------------------
+# Network Listeners
+# -----------------------------------------------------------------------------
+
+# IP address CUPS listens on for incoming connections (use 127.0.0.1 for localhost only).
+Listen {{ listen_address | default('0.0.0.0') }}:{{ listen_port | default(631) }}
+
+{% if listen_local_only | default(False) | bool %}
+# If true, restricts listening to the Unix socket only (enhances security).
+# Explicit local socket binding when ListenLocalSocketOnly is enabled.
+Listen /run/cups/cups.sock
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Server Identification
+# -----------------------------------------------------------------------------
+
+# Hostname advertised for this CUPS server (for DNS-SD and web UI).
+ServerName {{ server_name | default('localhost') }}
+
+# Email address of the CUPS server administrator.
+ServerAdmin {{ server_admin | default('root@localhost') }}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Verbosity level for logging.
+LogLevel {{ log_level | default('info') }}
+
+# Path to the file where access logs are stored.
+AccessLog {{ access_log_path | default('/var/log/cups/access_log') }}
+
+# Path to the file where error logs are stored.
+ErrorLog {{ error_log_path | default('/var/log/cups/error_log') }}
+
+# Path to the file where page logs are stored.
+PageLog {{ page_log_path | default('/var/log/cups/page_log') }}
+
+# Filter rules for log processing (e.g., MIME handling).
+{% for filter in log_filters | default([]) %}
+# Filter for {{ filter.name | default('unknown') }}: {{ filter.type | default('none') }}
+{{ filter.name | default('') }} {{ filter.type | default('') }} {{ filter.command | default('') }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Printer Sharing and Browsing
+# -----------------------------------------------------------------------------
+
+# Enable/discover printers via DNS-SD and web interface.
+Browsing {{ browsing_enabled | default(True) | bool | ternary('Yes', 'No') }}
+
+# Allow shared printers to be accessed by remote clients.
+DefaultShared {{ shared_printers | default(True) | bool | ternary('Yes', 'No') }}
+
+# -----------------------------------------------------------------------------
+# Connection Limits
+# -----------------------------------------------------------------------------
+
+# Maximum concurrent connections allowed per client IP.
+MaxClientsPerHost {{ max_clients_per_host | default(10) }}
+
+# Total maximum number of concurrent client connections.
+MaxClients {{ max_clients | default(100) }}
+
+# Maximum time (in seconds) jobs can be held before automatic deletion (0 = unlimited).
+MaxHoldTime {{ max_hold_time | default(0) }}
+
+# Maximum time (in seconds) a job can remain active (0 = unlimited).
+MaxJobTime {{ max_job_time | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Authentication and Security
+# -----------------------------------------------------------------------------
+
+# Default authentication method for administrative and web operations.
+DefaultAuthType {{ default_auth_type | default('Basic') }}
+
+# -----------------------------------------------------------------------------
+# Web Interface
+# -----------------------------------------------------------------------------
+
+# Enable/disable the built-in web interface.
+WebInterface {{ web_interface_enabled | default(True) | bool | ternary('Yes', 'No') }}
+
+# -----------------------------------------------------------------------------
+# HTTPS/TLS Configuration
+# -----------------------------------------------------------------------------
+
+# Port for HTTPS/IPP-over-TLS (set to 0 to disable TLS).
+Port {{ https_port | default(443) }}
+
+{% if server_certificate | default('/etc/ssl/certs/cups.pem') and server_key | default('/etc/ssl/private/cups.pem') %}
+# SSL/TLS configuration
+# Path to the SSL/TLS server certificate file.
+ServerCertificate {{ server_certificate | default('/etc/ssl/certs/cups.pem') }}
+
+# Path to the SSL/TLS server private key file.
+ServerKey {{ server_key | default('/etc/ssl/private/cups.pem') }}
+{% endif %}
+
+# Comma-separated list of paths to trusted CA certificate files for TLS.
+{% if trusted_certificates | default([]) | length > 0 %}
+TLSTrustedCAs {{ trusted_certificates | default([]) | join(', ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Access Control Realms
+# -----------------------------------------------------------------------------
+
+# Access control rules for different CUPS locations (e.g., /admin, /admin/conf).
+{% for realm in auth_realms | default([]) %}
+# Authentication realm: {{ realm.name | default('unnamed') }}
+<Location {{ realm.location | default('/') }}>
+  Order {{ realm.order | default([]) | join(', ') }}
+
+  {% if realm.allow_list | default([]) %}
+  {% for allow_pattern in realm.allow_list %}
+  Allow {{ allow_pattern }}
+  {% endfor %}
+  {% endif %}
+
+  {% if realm.deny_list | default([]) %}
+  {% for deny_pattern in realm.deny_list %}
+  Deny {{ deny_pattern }}
+  {% endfor %}
+  {% endif %}
+
+  {% if realm.auth_type | default('None') != 'None' %}
+  Require user {{ realm.require_user | default([]) | join(', ') }}
+  {% endif %}
+</Location>
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Printer Policies
+# -----------------------------------------------------------------------------
+
+# Printer job policies (e.g., for default, admin, or custom queues).
+{% for policy in policies | default([]) %}
+# Policy: {{ policy.name | default('unnamed') }}
+<Policy {{ policy.name | default('unnamed') }}>
+  {% if policy.jobs | default([]) %}
+  {% for job_limit in policy.jobs %}
+  {{ job_limit.type | default('') | lower }}JobTime {{ job_limit.value | default(0) }}
+  {% endfor %}
+  {% endif %}
+
+  {% if policy.operations | default([]) %}
+  {% for op in policy.operations %}
+  {{ op | lower }}
+  {% endfor %}
+  {% endif %}
+</Policy>
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Default Printer Options
+# -----------------------------------------------------------------------------
+
+# Global default options applied to newly added printers.
+{% for option in default_printer_options | default([]) %}
+# Default printer option: {{ option.name | default('') }}={{ option.value | default('') }}
+{{ option.name | default('') }} {{ option.value | default('') }}
+{% endfor %}

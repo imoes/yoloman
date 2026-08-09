@@ -1,0 +1,12 @@
+# Email address to receive error mail from cron.
+# If the cron job encounters an error (e.g. collection failure), the output
+# is mailed to this address. Defaults to the system 'root' user if not set.
+MAILTO={{ mailto | default('root') }}
+
+# Note: if you change the collection interval here, you MUST edit
+# /etc/cricket/config/Defaults to adjust the collection interval there as well.
+# You may also have to rebuild any existing RRDs.
+
+# Cron entry to run the cricket subtree collector every 5 minutes.
+# This command verifies the executable exists before running the collection script.
+*/5 * * * *    cricket test -x /usr/share/cricket/collect-subtrees && /usr/share/cricket/collect-subtrees ALL

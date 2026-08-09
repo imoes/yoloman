@@ -1,0 +1,123 @@
+# ==============================================================================
+# debusine-worker configuration file
+# ==============================================================================
+# This file configures the debusine build worker. Each variable controls a specific
+# aspect of the worker's behavior, including identification, server connection,
+# build constraints, and health endpoints.
+#
+# Variable names map directly to environment variables consumed by the worker process.
+# All fields use the `default()` filter to ensure safe rendering even when
+# the corresponding Ansible variable is undefined.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# worker_id: Unique identifier for this worker; if unset, generated from hostname.
+# --------------------------------------------------------------------------
+WORKER_ID={{ worker_id | default('') }}
+
+# --------------------------------------------------------------------------
+# server_url: HTTP(S) URL of the debusine server API endpoint.
+# --------------------------------------------------------------------------
+SERVER_URL={{ server_url | default('https://debusine.example.com') }}
+
+# --------------------------------------------------------------------------
+# worker_token: Authentication token shared with the debusine server.
+# --------------------------------------------------------------------------
+WORKER_TOKEN={{ worker_token | default('') }}
+
+# --------------------------------------------------------------------------
+# worker_concurrency: Maximum number of concurrent work items the worker may handle.
+# --------------------------------------------------------------------------
+WORKER_CONCURRENCY={{ worker_concurrency | default(1) }}
+
+# --------------------------------------------------------------------------
+# log_level: Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+# --------------------------------------------------------------------------
+LOG_LEVEL={{ log_level | default('INFO') | upper }}
+
+# --------------------------------------------------------------------------
+# storage_root: Root directory for temporary build artifacts.
+# --------------------------------------------------------------------------
+STORAGE_ROOT={{ storage_root | default('/var/lib/debusine-worker') }}
+
+# --------------------------------------------------------------------------
+# build_timeout: Maximum seconds allowed per work item before it is terminated.
+# --------------------------------------------------------------------------
+BUILD_TIMEOUT={{ build_timeout | default(7200) }}
+
+# --------------------------------------------------------------------------
+# http_proxy: Optional HTTP proxy URL (e.g., http://proxy.example.com:3128).
+# --------------------------------------------------------------------------
+HTTP_PROXY={{ http_proxy | default('') }}
+
+# --------------------------------------------------------------------------
+# https_proxy: Optional HTTPS proxy URL.
+# --------------------------------------------------------------------------
+HTTPS_PROXY={{ https_proxy | default('') }}
+
+# --------------------------------------------------------------------------
+# no_proxy: Comma-separated list of hosts or suffixes exempt from proxying.
+# --------------------------------------------------------------------------
+NO_PROXY={{ no_proxy | default('') }}
+
+# --------------------------------------------------------------------------
+# allowed_architectures: List of CPU architectures this worker may build for
+# (e.g., ['amd64', 'arm64']). Joined with commas for the config format.
+# --------------------------------------------------------------------------
+{% if allowed_architectures is defined and allowed_architectures | length > 0 %}
+ALLOWED_ARCHITECTURES={{ allowed_architectures | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# allowed_series: List of Debian release series allowed (e.g., ['bookworm', 'bullseye']).
+# Joined with commas for the config format.
+# --------------------------------------------------------------------------
+{% if allowed_series is defined and allowed_series | length > 0 %}
+ALLOWED_SERIES={{ allowed_series | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# allowed_components: List of allowed Debian components (e.g., ['main', 'contrib', 'non-free']).
+# Joined with commas for the config format.
+# --------------------------------------------------------------------------
+{% if allowed_components is defined and allowed_components | length > 0 %}
+ALLOWED_COMPONENTS={{ allowed_components | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# max_artifact_size_mb: Maximum size in MiB for each generated build artifact.
+# --------------------------------------------------------------------------
+MAX_ARTIFACT_SIZE_MB={{ max_artifact_size_mb | default(512) }}
+
+# --------------------------------------------------------------------------
+# health_port: Port for the /healthz HTTP endpoint; set to 0 to disable.
+# --------------------------------------------------------------------------
+HEALTH_PORT={{ health_port | default(8080) }}
+
+# --------------------------------------------------------------------------
+# metrics_port: Port for the /metrics Prometheus endpoint; set to 0 to disable.
+# --------------------------------------------------------------------------
+METRICS_PORT={{ metrics_port | default(9090) }}
+
+# --------------------------------------------------------------------------
+# allowed_signers: Space-separated list of GPG key fingerprints authorized to sign builds.
+# Joined with spaces for the config format.
+# --------------------------------------------------------------------------
+{% if allowed_signers is defined and allowed_signers | length > 0 %}
+ALLOWED_SIGNERS={{ allowed_signers | join(' ') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# disable_signing: Whether to skip GPG signing of build artifacts (dangerous, mainly for testing).
+# --------------------------------------------------------------------------
+DISABLE_SIGNING={{ disable_signing | default(False) | ternary('true', 'false') }}
+
+# --------------------------------------------------------------------------
+# worker_env: Extra environment variables for the worker process (KEY=VALUE pairs).
+# Each entry is emitted on its own line.
+# --------------------------------------------------------------------------
+{% if worker_env is defined and worker_env | length > 0 %}
+{% for env_entry in worker_env %}
+{{ env_entry }}
+{% endfor %}
+{% endif %}

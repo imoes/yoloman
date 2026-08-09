@@ -1,0 +1,83 @@
+# -*- shell-script -*-
+#
+#  Configuration file for ferm(1) — Netfilter firewall rules.
+#  This template is self-documenting: every directive is preceded
+#  by a comment explaining its schema field, default, and purpose.
+#
+#  Global domain context: apply rules for both IPv4 and IPv6.
+domain (ip ip6) {
+    table filter {
+        # INPUT chain: traffic destined for this host.
+        chain INPUT {
+            # default_input_policy: Default policy for incoming traffic on the INPUT chain.
+            # Chooses 'DROP' (secure, blocks everything not explicitly allowed)
+            # or 'ACCEPT' (permissive, allows everything not explicitly blocked).
+            # Enum: ACCEPT, DROP. Default: DROP.
+            policy {{ default_input_policy | default('DROP') }};
+
+            # Connection tracking: drop packets with invalid state.
+            mod state state INVALID DROP;
+
+            # Connection tracking: allow packets belonging to established or related connections.
+            # This is essential for stateful firewall operation.
+            mod state state (ESTABLISHED RELATED) ACCEPT;
+
+            # Allow all traffic on the loopback interface (lo).
+            # Local services communicating via 127.0.0.1 or ::1 require this.
+            interface lo ACCEPT;
+
+            # ICMP handling: controls whether the host responds to ping requests.
+            # icmp_allow (default True): If true, ICMP echo-request and echo-reply are permitted.
+            # icmp_accept_rule (default 'ACCEPT'): The action applied to ICMP traffic when enabled.
+            {% if icmp_allow | default(true) | bool %}
+            # Respond to ping (ICMP echo-request/echo-reply) to enable network diagnostics.
+            proto icmp {{ icmp_accept_rule | default('ACCEPT') }};
+            {% endif %}
+
+            # IPsec support: allow IKE (port 500) for key exchange.
+            proto udp dport 500 ACCEPT;
+
+            # IPsec protocols: ESP and AH are required for encrypted IP traffic.
+            # The @if block uses ferm's internal syntax to conditionally include AH
+            # for IPv4, while ESP is always required for IPsec.
+            @if @eq($DOMAIN, ip) {
+              proto (esp ah) ACCEPT;
+            } @else {
+              proto (esp) ACCEPT;
+            }
+
+            # SSH access: allow incoming SSH connections on the standard 'ssh' port.
+            proto tcp dport ssh ACCEPT;
+        }
+
+        # OUTPUT chain: traffic originating from this host.
+        chain OUTPUT {
+            # default_output_policy: Default policy for outgoing traffic on the OUTPUT chain.
+            # 'ACCEPT' is typical for servers to allow updates, DNS queries, etc.
+            # 'DROP' increases security but may break functionality.
+            # Enum: ACCEPT, DROP. Default: ACCEPT.
+            policy {{ default_output_policy | default('ACCEPT') }};
+
+            # Connection tracking: allow return traffic for established outbound connections.
+            mod state state (ESTABLISHED RELATED) ACCEPT;
+        }
+
+        # FORWARD chain: traffic passing through this host (router/NAT).
+        chain FORWARD {
+            # default_forward_policy: Default policy for forwarded traffic.
+            # 'DROP' is recommended unless this host acts as a router or gateway.
+            # Enum: ACCEPT, DROP. Default: DROP.
+            policy {{ default_forward_policy | default('DROP') }};
+
+            # Connection tracking: drop invalid forwarded packets.
+            mod state state INVALID DROP;
+
+            # Connection tracking: allow forwarded traffic for established/related sessions.
+            mod state state (ESTABLISHED RELATED) ACCEPT;
+        }
+    }
+}
+
+# Include additional rules from the ferm.d/ drop-in directory.
+# Place custom rule files (ending in .f) in /etc/ferm/ferm.d/ to extend this configuration.
+@include ferm.d/;

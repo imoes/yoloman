@@ -1,0 +1,201 @@
+# ==============================================================================
+# htdig.conf - Configuration for htdig web crawler and search engine
+#
+# This template configures the core directories, crawling behavior, search
+# parameters, and indexing options for htdig. All variable references use
+# 'config' as the parent mapping, with safe defaults provided via Jinja2
+# default() filter to ensure the template renders correctly even if some
+# configuration items are missing.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Directory Configuration
+# ------------------------------------------------------------------------------
+
+# Database directories for index storage, search results, and temporary files.
+# Defaults to '/var/lib/htdig' if not specified.
+db_dir: {{ (config | default({})).db_dir | default('/var/lib/htdig') }}
+
+# Directory where compiled HTML documents and parsed documents are stored.
+# Defaults to '/var/lib/htdig/db' if not specified.
+common_dir: {{ (config | default({})).common_dir | default('/var/lib/htdig/db') }}
+
+# Path to the word database directory.
+# Defaults to '/var/lib/htdig/word' if not specified.
+word_db_dir: {{ (config | default({})).word_db_dir | default('/var/lib/htdig/word') }}
+
+# Where to store the final HTML output (e.g., search results).
+# Defaults to '/var/lib/htdig/htsearch' if not specified.
+result_dir: {{ (config | default({})).result_dir | default('/var/lib/htdig/htsearch') }}
+
+# ------------------------------------------------------------------------------
+# Server Configuration
+# ------------------------------------------------------------------------------
+
+# URL of the server hosting the search interface (must include trailing slash).
+# This is used for generating links in search results. Defaults to 'http://localhost/'.
+server_url: {{ (config | default({})).server_url | default('http://localhost/') }}
+
+# Hostname or IP of the machine running htdig (used for generation of absolute URLs).
+# Defaults to 'localhost' if not specified.
+hostname: {{ (config | default({})).hostname | default('localhost') }}
+
+# Port used by the Web server (if different from default, e.g., 8080).
+# Defaults to 80.
+port: {{ (config | default({})).port | default(80) }}
+
+# Path to the CGI script used for search interface (relative to server_url or absolute).
+# Defaults to '/htsearch' if not specified.
+cgi_url: {{ (config | default({})).cgi_url | default('/htsearch') }}
+
+# ------------------------------------------------------------------------------
+# Crawling Behavior Configuration
+# ------------------------------------------------------------------------------
+
+# Maximum number of documents to crawl.
+# Defaults to 0 (no limit) if not specified.
+crawl_limit: {{ (config | default({})).crawl_limit | default(0) }}
+
+# Maximum depth of link following during crawl (0 = no limit).
+# Defaults to 3.
+crawl_depth: {{ (config | default({})).crawl_depth | default(3) }}
+
+# Maximum number of URLs to crawl before stopping (0 = no limit).
+# Defaults to 1000.
+crawl_url_limit: {{ (config | default({})).crawl_url_limit | default(1000) }}
+
+# Time in seconds between successive requests to same host (prevents server overload).
+# Defaults to 1.
+crawl_delay: {{ (config | default({})).crawl_delay | default(1) }}
+
+# Maximum size (in KB) of a document to parse (0 = unlimited).
+# Defaults to 0.
+max_document_size: {{ (config | default({})).max_document_size | default(0) }}
+
+# Number of concurrent fetcher processes (workers); must be >= 1.
+# Defaults to 1.
+number_of_workers: {{ (config | default({})).number_of_workers | default(1) }}
+
+# Enable or disable automatic URL exclusion via robots.txt.
+# Accepts true/false. Defaults to true.
+robot_enabled: {{ ((config | default({})).robot_enabled | default(true)) | lower }}
+
+# ------------------------------------------------------------------------------
+# URL Filtering Configuration
+# ------------------------------------------------------------------------------
+
+# List of additional URLs to start crawling from.
+# If the list is empty or not provided, no start URLs are added.
+{% set start_urls = (config | default({})).start_urls | default([]) %}
+{% for url in start_urls %}
+start_url: {{ url }}
+{% endfor %}
+
+# List of URLs or patterns to exclude from crawling.
+# If the list is empty or not provided, no exclusions are added.
+{% set exclude_urls = (config | default({})).exclude_urls | default([]) %}
+{% for pattern in exclude_urls %}
+exclude_urls: {{ pattern }}
+{% endfor %}
+
+# List of URL patterns to require for inclusion (if set, only URLs matching are indexed).
+# If the list is empty or not provided, no requirements are added.
+{% set require_urls = (config | default({})).require_urls | default([]) %}
+{% for pattern in require_urls %}
+require_urls: {{ pattern }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Search and Indexing Configuration
+# ------------------------------------------------------------------------------
+
+# List of file extensions to index (others are ignored); empty = all.
+# Defaults to an empty list (index all).
+{% set cgi_extension_filter = (config | default({})).cgi_extension_filter | default([]) %}
+cgi_extension_filter: {{ cgi_extension_filter | join(', ') }}
+
+# Comma-separated list of headers to ignore (case-insensitive).
+# Defaults to an empty list (no headers ignored).
+{% set ignore_headers = (config | default({})).ignore_headers | default([]) %}
+ignore_headers: {{ ignore_headers | join(', ') }}
+
+# Maximum number of results returned per page.
+# Defaults to 10.
+results_per_page: {{ (config | default({})).results_per_page | default(10) }}
+
+# Maximum number of results shown in summary list (0 = unlimited).
+# Defaults to 0.
+max_matches: {{ (config | default({})).max_matches | default(0) }}
+
+# Score threshold below which results are not shown (0 = none).
+# Defaults to 0.
+minimum_score: {{ (config | default({})).minimum_score | default(0) }}
+
+# Sorting method for results: 'score' or 'date'.
+# Defaults to 'score'.
+results_sort: {{ (config | default({})).results_sort | default('score') }}
+
+# Enable or disable stemming in search queries.
+# Accepts true/false. Defaults to true.
+stemming_enabled: {{ ((config | default({})).stemming_enabled | default(true)) | lower }}
+
+# Enable or disable phrase searching.
+# Accepts true/false. Defaults to true.
+phrase_search_enabled: {{ ((config | default({})).phrase_search_enabled | default(true)) | lower }}
+
+# Enable or disable fuzzy matching (e.g., 'cat' matches 'cats').
+# Accepts true/false. Defaults to false.
+fuzzy_search_enabled: {{ ((config | default({})).fuzzy_search_enabled | default(false)) | lower }}
+
+# Language for stop-word and stemming rules (e.g., 'en', 'de').
+# Defaults to 'en'.
+language: {{ (config | default({})).language | default('en') }}
+
+# Path to custom stop-words file (optional).
+# Empty if not specified.
+stop_words_file: {{ (config | default({})).stop_words_file | default('') }}
+
+# Maximum length (in chars) of a word stored in word database.
+# Defaults to 40.
+word_length_max: {{ (config | default({})).word_length_max | default(40) }}
+
+# Minimum length (in chars) of a word to index.
+# Defaults to 3.
+word_length_min: {{ (config | default({})).word_length_min | default(3) }}
+
+# Enable or disable title indexing.
+# Accepts true/false. Defaults to true.
+title_indexing: {{ ((config | default({})).title_indexing | default(true)) | lower }}
+
+# Enable or disable full-text indexing.
+# Accepts true/false. Defaults to true.
+full_indexing: {{ ((config | default({})).full_indexing | default(true)) | lower }}
+
+# Enable or disable attribute indexing (e.g., alt, href).
+# Accepts true/false. Defaults to false.
+attribute_indexing: {{ ((config | default({})).attribute_indexing | default(false)) | lower }}
+
+# Comma-separated list of HTML attributes to index (e.g., 'alt,title').
+# Defaults to an empty list (no attributes indexed).
+{% set index_attributes = (config | default({})).index_attributes | default([]) %}
+index_attributes: {{ index_attributes | join(',') }}
+
+# Enable or disable word proximity scoring.
+# Accepts true/false. Defaults to true.
+proximity_scoring: {{ ((config | default({})).proximity_scoring | default(true)) | lower }}
+
+# Weight for title vs body scoring (0.0–1.0); higher = more weight to titles.
+# Defaults to 0.8.
+title_weight: {{ (config | default({})).title_weight | default(0.8) }}
+
+# Default search operator: 'and' or 'or'.
+# Defaults to 'and'.
+search_operator: {{ (config | default({})).search_operator | default('and') }}
+
+# Enable or disable automatic truncation of search terms.
+# Accepts true/false. Defaults to true.
+truncation_enabled: {{ ((config | default({})).truncation_enabled | default(true)) | lower }}
+
+# Enable or disable word stemming during search.
+# Accepts true/false. Defaults to true.
+stemming_search_enabled: {{ ((config | default({})).stemming_search_enabled | default(true)) | lower }}

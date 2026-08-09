@@ -1,0 +1,209 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level for scheduler messages (debug, info, warning, error, critical)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to scheduler log file; empty string logs to stderr"
+  },
+  "state_path": {
+    "type": "string",
+    "default": "/var/lib/cinder",
+    "description": "Base directory for scheduler state, lock files, and temporary data"
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:RABBIT_PASSWORD@controller:5672/",
+    "description": "Message broker connection URL (e.g., RabbitMQ or Redis)"
+  },
+  "default_volume_type": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the default volume type to use when not specified"
+  },
+  "max_gigs_per_tenant": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum total size (in GB) of volumes that can be created per tenant"
+  },
+  "max_snapshots_per_tenant": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of snapshots a tenant can create"
+  },
+  "max_backups_per_tenant": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of backups a tenant can create"
+  },
+  "max_backup_gigs": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum total backup size (in GB) allowed per tenant"
+  },
+  "default_volume_type_create": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically create the default volume type if missing"
+  },
+  "scheduler_default_filters": {
+    "type": "list",
+    "default": [
+      "AvailabilityZoneFilter",
+      "CapacityFilter",
+      "CapabilitesFilter",
+      "ImagePropertiesFilter",
+      "ServerGroupAntiAffinityFilter",
+      "ServerGroupAffinityFilter"
+    ],
+    "description": "List of scheduler filter classes to apply when selecting a host"
+  },
+  "scheduler_default_weighers": {
+    "type": "list",
+    "default": [
+      "WeightedSumWeigher"
+    ],
+    "description": "List of scheduler weigher classes to rank hosts after filtering"
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of separate scheduler worker processes (for horizontal scaling)"
+  },
+  "api_rate_limit": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable rate limiting on scheduler API endpoints"
+  },
+  "api_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging of all API requests and responses"
+  },
+  "volume_allocate_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry volume allocation before failing"
+  },
+  "volume_allocate_retry_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait between volume allocation retries"
+  },
+  "enable_cross_tenant_clone": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow cloning volumes across tenants (requires backend support)"
+  },
+  "enable_cross_tenant_snapshot_restore": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow restoring volumes from snapshots owned by other tenants"
+  },
+  "enable_consistency_groups": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable consistency group operations (for application-consistent snapshots)"
+  },
+  "enable_replication": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable volume replication across backends or sites"
+  },
+  "enable_backup": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable volume backup service (requires cinder-backup)"
+  },
+  "migration_confirm_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Seconds to wait for a volume migration confirmation before auto-aborting"
+  },
+  "scheduler_host_subset_size": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of best hosts to randomly choose from after filtering (>=1)"
+  },
+  "scheduler_use_bare_host": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable weighting; select the first matching host after filtering"
+  },
+  "scheduler_available_backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend names to consider for scheduling (empty = all enabled)"
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "lvm",
+        "driver": "cinder.volume.drivers.lvm.LVMVolumeDriver",
+        "target_ip": "192.168.1.100",
+        "options": {
+          "volume_group": "cinder-volumes",
+          "target_protocol": "iscsi",
+          "target_helper": "lioadm",
+          "lvm_type": "thin",
+          "iscsi_ip_address": "192.168.1.100",
+          "iscsi_port": 3260,
+          "iscsi_helper": "tgtadm"
+        }
+      }
+    ],
+    "description": "List of storage backends to register with the scheduler",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Backend name (must match section name in cinder.conf)"
+      },
+      "driver": {
+        "type": "string",
+        "description": "Fully qualified class path of the volume driver"
+      },
+      "target_ip": {
+        "type": "string",
+        "description": "IP address of the backend iSCSI/NFS target (optional)"
+      },
+      "options": {
+        "type": "object",
+        "description": "Backend-specific configuration key-value pairs",
+        "keys": {
+          "type": "string"
+        },
+        "values": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "availability_zones": {
+    "type": "object",
+    "default": {
+      "nova": [
+        "lvm"
+      ]
+    },
+    "description": "Mapping of availability zones to lists of backend names (for zone-aware scheduling)",
+    "keys": {
+      "type": "string",
+      "description": "Availability zone name"
+    },
+    "values": {
+      "type": "list",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable full debug logging (verbose, for troubleshooting only)"
+  }
+}

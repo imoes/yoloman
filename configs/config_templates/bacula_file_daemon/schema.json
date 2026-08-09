@@ -1,0 +1,239 @@
+{
+  "fd_name": {
+    "type": "string",
+    "default": "FileDaemon",
+    "description": "Unique name of this File Daemon \u2014 must match what the Director expects."
+  },
+  "fd_port": {
+    "type": "number",
+    "default": 9102,
+    "description": "TCP port on which the File Daemon listens for Director connections."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/bacula/bacula-fd.log",
+    "description": "Path to the File Daemon's main log file."
+  },
+  "pid_directory": {
+    "type": "string",
+    "default": "/run/bacula",
+    "description": "Directory where the FD writes its process ID file."
+  },
+  "max_concurrent_jobs": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of backup/restore jobs this daemon can run simultaneously."
+  },
+  "working_directory": {
+    "type": "string",
+    "default": "/var/lib/bacula",
+    "description": "Working directory for temporary files, spooling, and working storage."
+  },
+  "fd_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "List of addresses the FD binds to. Usually 127.0.0.1 (localhost) for security."
+  },
+  "directors": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Director",
+        "address": "127.0.0.1",
+        "fd_port": 9101,
+        "password": "director-password",
+        "tls_enable": true
+      }
+    ],
+    "description": "List of Directors authorized to connect to this File Daemon. Each entry must match the Director's configuration.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "Director",
+        "description": "Name of the Director (must match Director resource name)."
+      },
+      "address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address or hostname of the Director."
+      },
+      "fd_port": {
+        "type": "number",
+        "default": 9101,
+        "description": "Port the Director uses to connect to this File Daemon (typically 9101)."
+      },
+      "password": {
+        "type": "string",
+        "default": "director-password",
+        "description": "Shared secret password used for Director authentication."
+      },
+      "tls_enable": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to require TLS encryption for this Director connection."
+      },
+      "tls_ca_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to CA certificate for TLS (optional; leave empty if not using TLS auth)."
+      },
+      "tls_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to this daemon's TLS certificate (optional)."
+      },
+      "tls_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to this daemon's TLS private key (optional)."
+      }
+    }
+  },
+  "catalog": {
+    "type": "object",
+    "default": null,
+    "description": "Optional catalog configuration for metadata lookup during restores.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "MyCatalog",
+        "description": "Name of the catalog resource."
+      },
+      "db_address": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database host address."
+      },
+      "db_port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Database port (e.g., 5432 for PostgreSQL)."
+      },
+      "db_name": {
+        "type": "string",
+        "default": "bacula",
+        "description": "Name of the Bacula database."
+      },
+      "db_user": {
+        "type": "string",
+        "default": "bacula",
+        "description": "Database user for Bacula access."
+      },
+      "db_password": {
+        "type": "string",
+        "default": "",
+        "description": "Database password for Bacula user."
+      }
+    }
+  },
+  "messages": {
+    "type": "object",
+    "default": {
+      "Standard": {
+        "type": "daemon",
+        "target": "127.0.0.1 9103",
+        "level": "all, !skipped, !saved"
+      }
+    },
+    "description": "Message destinations (console, mail, append, catalog). Each key is a messages block name.",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "daemon",
+          "console",
+          "mail",
+          "append",
+          "catalog"
+        ],
+        "description": "Type of message destination."
+      },
+      "target": {
+        "type": "string",
+        "default": "",
+        "description": "Target for the message (e.g., address:port, file path, or email)."
+      },
+      "level": {
+        "type": "string",
+        "default": "",
+        "description": "Message severity level filter (e.g., 'all, !skipped')."
+      }
+    }
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS globally for all FD connections (overrides per-director if true)."
+  },
+  "tls_ca_cert_file": {
+    "type": "string",
+    "default": "/etc/bacula/ssl/certs/bacula-ca.crt",
+    "description": "Path to CA certificate for TLS verification."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/bacula/ssl/certs/bacula-fd.crt",
+    "description": "Path to File Daemon's TLS certificate."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/bacula/ssl/private/bacula-fd.key",
+    "description": "Path to File Daemon's TLS private key."
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugins to load for enhanced backup functionality (e.g., VSS, LVM, etc.).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Plugin name (must be unique)."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the shared library (.so) for the plugin."
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value configuration options for the plugin."
+      }
+    }
+  },
+  "autochanger": {
+    "type": "object",
+    "default": null,
+    "description": "Autochanger/robotic library definition (rare \u2014 only if FD also acts as Storage Daemon).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the autochanger resource."
+      },
+      "changer_command": {
+        "type": "string",
+        "default": "",
+        "description": "Command/script used to control the autochanger mechanism."
+      },
+      "changer_device": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the autochanger device (e.g., /dev/sg1)."
+      },
+      "devices": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Name of the device referenced."
+          }
+        }
+      }
+    }
+  }
+}

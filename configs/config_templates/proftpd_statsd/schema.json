@@ -1,0 +1,83 @@
+{
+  "statsd_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Hostname or IP address of the StatsD server to send metrics to."
+  },
+  "statsd_port": {
+    "type": "number",
+    "default": 8125,
+    "description": "UDP port on which StatsD listens (commonly 8125)."
+  },
+  "statsd_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Optional prefix for all metric names (e.g., 'proftpd.prod' for namespace separation)."
+  },
+  "statsd_transport": {
+    "type": "string",
+    "default": "udp",
+    "description": "Transport protocol to use for sending metrics: 'udp' (faster, lossy) or 'tcp' (reliable)."
+  },
+  "statsd_flush_interval": {
+    "type": "number",
+    "default": 1000,
+    "description": "Interval (in milliseconds) between metric flushes to StatsD. Set to override default (1000 ms)."
+  },
+  "statsd_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for the module (logs metric payloads to ProFTPD log)."
+  },
+  "enabled_metrics": {
+    "type": "list",
+    "default": [
+      "session.count",
+      "session.duration",
+      "session.bytes_sent",
+      "session.bytes_recv",
+      "auth.success",
+      "auth.failure",
+      "cmd.count"
+    ],
+    "description": "List of metric types to emit. Choose from: session.count, session.duration, session.bytes_sent, session.bytes_recv, auth.success, auth.failure, cmd.count.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "session.count",
+        "session.duration",
+        "session.bytes_sent",
+        "session.bytes_recv",
+        "auth.success",
+        "auth.failure",
+        "cmd.count"
+      ]
+    }
+  },
+  "statsd_tags": {
+    "type": "object",
+    "default": {},
+    "description": "Static key-value tags to attach to every metric (e.g., environment=prod, service=ftp).",
+    "additionalProperties": {
+      "type": "string"
+    }
+  },
+  "histogram_buckets": {
+    "type": "list",
+    "default": [
+      0.001,
+      0.005,
+      0.01,
+      0.05,
+      0.1,
+      0.5,
+      1.0,
+      5.0
+    ],
+    "description": "Histogram bucket boundaries (in seconds) for timing-based metrics like session.duration. Values must be positive numbers.",
+    "items": {
+      "type": "number",
+      "description": "Upper boundary (in seconds) for a histogram bucket."
+    }
+  }
+}

@@ -1,0 +1,58 @@
+name: github_release
+fqcn: community.general.github_release
+collection: community.general
+short_description: Interact with GitHub Releases
+description: Fetch metadata about GitHub Releases
+options:
+  action:
+    type: str
+    required: true
+    choices:
+    - latest_release
+    - create_release
+    description: Action to perform
+  body:
+    type: str
+    description: Description of the release when creating a release
+  draft:
+    type: bool
+    default: false
+    description: Sets if the release is a draft or not. (boolean)
+  name:
+    type: str
+    description: Name of release when creating a release
+  password:
+    type: str
+    description: The GitHub account password for the user. Mutually exclusive with O(token).
+  prerelease:
+    type: bool
+    default: false
+    description: Sets if the release is a prerelease or not. (boolean)
+  repo:
+    type: str
+    required: true
+    description: Repository name
+  tag:
+    type: str
+    description: Tag name when creating a release. Required when using O(action=create_release).
+  target:
+    type: str
+    description: Target of release when creating a release
+  token:
+    type: str
+    description: GitHub Personal Access Token for authenticating. Mutually exclusive with O(password).
+  user:
+    type: str
+    required: true
+    description: The GitHub account that owns the repository
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Get latest release of a public repository\n  community.general.github_release:\n\
+  \    user: ansible\n    repo: ansible\n    action: latest_release\n\n- name: Get latest release of testuseer/testrepo\n\
+  \  community.general.github_release:\n    token: tokenabc1234567890\n    user: testuser\n    repo: testrepo\n\
+  \    action: latest_release\n\n- name: Get latest release of test repo using username and password\n\
+  \  community.general.github_release:\n    user: testuser\n    password: secret123\n    repo: testrepo\n\
+  \    action: latest_release\n\n- name: Create a new release\n  community.general.github_release:\n \
+  \   token: tokenabc1234567890\n    user: testuser\n    repo: testrepo\n    action: create_release\n\
+  \    tag: test\n    target: master\n    name: My Release\n    body: Some description\n\n"

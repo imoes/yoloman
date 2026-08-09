@@ -1,0 +1,35 @@
+{# ============================================================================ #}
+{# entangle.conf - Configuration for Entangle (Tethered Camera Control System)   #}
+{#                                                                              #}
+{# This file controls global behavior and notification endpoints for the        #}
+{# Entangle daemon. It is structured as an INI-like configuration file.         #}
+{#                                                                              #}
+{# Self-documenting: read the comments above each directive to understand       #}
+{# what each variable does and how it maps to the Ansible schema.               #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# [main] Section                                                             #}
+{# -------------------------------------------------------------------------- #}
+{# Global settings for the Entangle system.                                   #}
+{# This block is populated from raw content provided by the 'global_settings' #}
+{# schema field. If empty, no [main] section is emitted.                      #}
+{# -------------------------------------------------------------------------- #}
+{% if global_settings | default('') | trim | length > 0 %}
+{{ global_settings | default('') | trim }}
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# [notifications] Section                                                    #}
+{# -------------------------------------------------------------------------- #}
+{# Notification endpoints for system alerts.                                  #}
+{# Each item in the 'notifications' list defines an endpoint.                 #}
+{# Expected format per item: { type: <string>, endpoint: <string> }          #}
+{# Example: type='email', endpoint='admin@example.com'                        #}
+{# -------------------------------------------------------------------------- #}
+{% if notifications | default([]) | length > 0 %}
+[notifications]
+{% for notice in notifications | default([]) %}
+  {{ notice.type }} = {{ notice.endpoint }}
+{% endfor %}
+{% endif %}

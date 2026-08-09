@@ -1,0 +1,67 @@
+{# ============================================================================= #}
+{# fxload configuration template for Debian/Linux hotplug USB firmware loading    #}
+{#                                                                             #}
+{# This template generates a list of fxload invocation directives, one per     #}
+{# device defined in the `devices` list. Each device block configures a single #}
+{# firmware load operation (e.g. for Analog Devices/FX2 USB controllers).      #}
+{#                                                                             #}
+{# Variables:                                                                  #}
+{#   devices (list of dicts): List of device-specific configurations.          #}
+{#                                                                             #}
+{# Usage in Ansible:                                                           #}
+{#   - hosts: target                                                           #}
+{#     vars:                                                                   #}
+{#       devices:                                                              #}
+{#         - devpath: /proc/bus/usb/001/002                                   #}
+{#           hexfile: /usr/share/usb/firmware.hex                             #}
+{#           type: fx2                                                        #}
+{#     tasks:                                                                  #}
+{#       - template: src=fxload.conf.j2 dst=/etc/hotplug/fxload.conf           #}
+{# ============================================================================= #}
+
+# Device firmware loading rules
+# Each subsequent block corresponds to one entry in the `devices` list.
+
+{% for device in (devices | default([])) %}
+# Device: {{ (device.devpath | default('')) if (device.devpath | default('')) else '(auto from DEVICE env)' }}
+
+{# Firmware image path (Intel HEX file) #}
+{% if device.hexfile is defined and device.hexfile %}
+-I {{ device.hexfile | default('') }}
+{% endif %}
+
+{# Second-stage loader hex file (for external memory/EEPROM) #}
+{% if device.loader is defined and device.loader %}
+-s {{ device.loader | default('a3load.hex') }}
+{% endif %}
+
+{# Controller type: an21, fx, fx2, fx2lp #}
+{% if device.type is defined and device.type %}
+-t {{ device.type | default('fx') }}
+{% endif %}
+
+{# EEPROM config byte (for I2C boot) #}
+{% if device.config is defined and device.config is number and device.config != 0 %}
+-c {{ device.config | default(0) }}
+{% endif %}
+
+{# Create symbolic link to device node #}
+{% if device.symlink is defined and device.symlink %}
+-L {{ device.symlink | default('') }}
+{% endif %}
+
+{# Unix permissions for the device node #}
+{% if device.mode is defined and device.mode %}
+-m {{ device.mode | default('') }}
+{% endif %}
+
+{# Verbose output level (0=quiet, 1=-v, 2=-vv, 3=-vvv) #}
+{% if device.verbose is defined and device.verbose > 0 %}
+{% for i in range(device.verbose | default(0)) %}-v{% endfor %}
+{% endif %}
+
+{# Log to syslog instead of stderr #}
+{% if device.log_to_syslog is defined and device.log_to_syslog %}
+-l
+{% endif %}
+{% endfor %}

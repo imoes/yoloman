@@ -1,0 +1,113 @@
+#!/bin/sh
+#
+# ============================================================
+# radioclkd Init Script
+# Controls the Simple Radio NTP Reference Clock Daemon.
+# ============================================================
+#
+### BEGIN INIT INFO
+# Provides:          radioclk
+# Required-Start:    $local_fs $remote_fs $network
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start simple radio NTP reference clock daemon
+# Description: Start simple radio NTP reference clock daemon
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+# System paths for daemon binaries and utilities
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# Path to the radioclkd binary
+DAEMON=/usr/sbin/radioclkd
+
+# Base name of the service
+NAME=radioclkd
+
+# Human-readable description used in status messages
+DESC="Radio Clock daemon"
+
+# Path to the default configuration file for runtime arguments
+DEFAULTS=/etc/default/radioclk
+
+# Path to the PID file created by the daemon
+PIDFILE=/var/run/$NAME.pid
+
+# Verify the daemon executable exists and is executable; exit if not
+test -x "$DAEMON" || exit 5
+
+# Exit immediately if any command fails
+set -e
+
+# Load default variables from the config file if it exists
+if [ -e "$DEFAULTS" ] ; then
+	. "$DEFAULTS"
+fi
+
+# PORT: Port or device path passed to radioclkd. Usually a serial device (e.g., /dev/ttyUSB0) or empty if configured via /etc/radioclk.conf.
+# Check if the PORT (device path or port number) is configured.
+# If PORT is empty or unset, the daemon cannot run meaningful work.
+{% set port = PORT | default('') %}
+{% if port == '' %}
+printf "You need to edit $DEFAULTS before using $NAME.\n"
+exit 0
+{% else %}
+
+# Handle service control commands
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	# Start the daemon with the configured PORT argument
+	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" -- {{ port | default('') | quote }}
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	# Stop the running daemon instance
+	start-stop-daemon --oknodo --stop --quiet --pidfile "$PIDFILE" --exec "$DAEMON"
+	echo "$NAME."
+	;;
+  #reload)
+	#
+	#	If the daemon can reload its config files on the fly
+	#	for example by sending it SIGHUP, do it here.
+	#
+	#	If the daemon responds to changes in its config file
+	#	directly anyway, make this a do-nothing entry.
+	#
+	# echo "Reloading $DESC configuration files."
+	# start-stop-daemon --stop --signal 1 --quiet --pidfile \
+	#	/var/run/$NAME.pid --exec "$DAEMON"
+  #;;
+  restart|force-reload)
+	#
+	#	If the "reload" option is implemented, move the "force-reload"
+	#	option to the "reload" entry above. If not, "force-reload" is
+	#	just the same as "restart".
+	#
+	echo -n "Restarting $DESC: "
+	# First, stop the current instance
+	start-stop-daemon --stop --quiet --pidfile "$PIDFILE" --exec "$DAEMON"
+	# Brief pause to ensure the process has exited and port/device is released
+	sleep 1
+	# Then, start it again with the configured PORT argument
+	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" -- {{ port | default('') | quote }}
+	echo "$NAME."
+	;;
+  status)
+	# Report the current status of the daemon
+	status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME" && exit 0 || exit $?
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+{% endif %}
+
+exit 0

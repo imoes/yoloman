@@ -1,0 +1,46 @@
+{# ============================================================ #}
+{# ClamAV Clamdscan CLI wrapper configuration                   #}
+{# This template generates a shell command line for `clamdscan`.  #}
+{# It handles boolean flags, path quoting, and compound options   #}
+{# like --ping with an optional interval.                        #}
+{# ============================================================ #}
+
+{# --fdpass: Pass file descriptor to clamd instead of streaming. Local socket only. #}
+{% if fdpass | default(False) %}--fdpass {% endif %}
+{# --stream: Force file streaming to clamd (overrides --fdpass). #}
+{% if stream | default(False) %}--stream {% endif %}
+{# --multiscan: Enable parallel scanning using multiple threads. #}
+{% if multiscan | default(False) %}--multiscan {% endif %}
+{# --allmatch: Continue scanning after finding the first match. #}
+{% if allmatch | default(False) %}--allmatch {% endif %}
+{# -v: Verbose output. #}
+{% if verbose | default(False) %}-v {% endif %}
+{# --quiet: Only output error messages. #}
+{% if quiet | default(False) %}--quiet {% endif %}
+{# --stdout: Write messages to stdout (except libclamav output). #}
+{% if stdout | default(False) %}--stdout {% endif %}
+{# -l <path>: Log file path. #}
+{% if log_file | default('') %}-l {{ log_file | quote }} {% endif %}
+{# -c <path>: Clamd configuration file to use. #}
+{% if config_file | default('') %}-c {{ config_file | quote }} {% endif %}
+{# --remove: Remove infected files (DANGEROUS). #}
+{% if remove | default(False) %}--remove {% endif %}
+{# --move=<dir>: Move infected files to this directory. #}
+{% if move_dir | default('') %}--move={{ move_dir | quote }} {% endif %}
+{# --copy=<dir>: Copy infected files to this directory. #}
+{% if copy_dir | default('') %}--copy={{ copy_dir | quote }} {% endif %}
+{# --no-summary: Suppress the final scan summary output. #}
+{% if no_summary | default(False) %}--no-summary {% endif %}
+{# --reload: Request clamd to reload virus signatures. #}
+{% if reload | default(False) %}--reload {% endif %}
+{# -i: Only print files that are infected. #}
+{% if infected_only | default(False) %}-i {% endif %}
+{# --ping=N[:N]: Max ping attempts and interval between them. #}
+{% if ping_attempts | default(3) is number %}--ping={{ ping_attempts | default(3) }}{% if ping_interval | default(1) is number %}:{{ ping_interval | default(1) }}{% endif %} {% endif %}
+{# --wait: Wait up to 30 seconds for clamd to start. #}
+{% if wait | default(False) %}--wait {% endif %}
+{# -f <path>: Read targets from a file (newline-separated). #}
+{% if file_list | default('') %}-f {{ file_list | quote }} {% endif %}
+
+{# Targets: The actual files, directories, or '-' for stdin to scan. #}
+{{ targets | default([]) | join(' ') }}

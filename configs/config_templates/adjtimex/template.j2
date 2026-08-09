@@ -1,0 +1,56 @@
+#!/bin/sh
+#
+# Run ADJTIMEX at startup.
+#
+# This script configures kernel time synchronization parameters using `adjtimex`.
+# It reads default values from the template (or Ansible variables) and allows
+# overriding them via /etc/default/adjtimex.
+#
+# Self-documenting fields:
+# - tick: Kernel tick value in microseconds (default: 10000).
+# - freq: Frequency offset in parts per million (default: 0).
+
+### BEGIN INIT INFO
+# Provides:          adjtimex
+# Required-Start:    $local_fs
+# Required-Stop:     
+# Should-Start:      
+# Should-Stop:       
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: set the kernel time variables
+# Description:       set the kernel time variables
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+test -x /usr/sbin/adjtimex  || exit 0
+
+# default values
+# tick: Kernel tick value (in microseconds) passed to adjtimex -tick.
+TICK={{ tick | default(10000) }}
+# freq: Frequency offset passed to adjtimex -frequency.
+FREQ={{ freq | default(0) }}
+ 
+# values in $cfg take precedence over the values here
+cfg=/etc/default/adjtimex
+
+test -r $cfg || exit 0
+. $cfg
+
+case "$1" in
+  start|restart|force-reload)
+    echo -n "Regulating system clock..."
+    /usr/sbin/adjtimex -tick "$TICK" -frequency "$FREQ"
+    echo "done."
+    ;;
+  stop|status)
+    ;;
+  *)
+    echo "/etc/init.d/adjtimex: unknown command $1" >&2
+    echo "Usage: /etc/init.d/adjtimex {start|stop|restart|force-reload}" >&2
+    exit 3
+    ;;
+esac
+
+exit 0

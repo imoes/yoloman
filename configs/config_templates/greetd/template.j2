@@ -1,0 +1,83 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          greetd
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:    $local_fs $remote_fs
+# Default-Start:    2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: The greetd login manager
+### END INIT INFO
+
+set -e
+
+DEFAULT_DISPLAY_MANAGER_FILE=/etc/X11/default-display-manager
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# Path to the greetd daemon binary
+# Default: /usr/sbin/greetd
+DAEMON={{ (DAEMON | default('/usr/sbin/greetd')) | string }}
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+# Arguments for starting the daemon:
+# --background: run in background
+# --exec: path to the daemon to execute
+# --name: name for the process
+# --startas: the exact path to start
+SSD_START_ARGS="--background --exec $DAEMON --name $(basename $DAEMON) --startas $DAEMON"
+
+# Arguments for stopping the daemon:
+# --exec: path to the daemon
+# --name: name of the process
+# --retry TERM/5/TERM/5: send TERM, wait 5s, send TERM again, wait 5s
+SSD_STOP_ARGS="--exec $DAEMON --name $(basename $DAEMON) --retry TERM/5/TERM/5"
+
+case "$1" in
+  start)
+    # Check if greetd is set as the default display manager
+    # If the default-display-manager file exists and points to a different daemon, do not start
+    if [ -e $DEFAULT_DISPLAY_MANAGER_FILE ] &&
+       [ "$(cat $DEFAULT_DISPLAY_MANAGER_FILE)" != "$DAEMON" ]; then
+      echo "Not starting greetd; it is not the default" \
+        "display manager."
+    else
+      log_daemon_msg "Starting greetd" "greetd"
+      start-stop-daemon --start --quiet $SSD_START_ARGS \
+        || log_progress_msg "already running"
+      log_end_msg 0
+    fi
+  ;;
+
+  restart)
+    /etc/init.d/greetd stop
+    /etc/init.d/greetd start
+  ;;
+
+  force-reload)
+    /etc/init.d/greetd restart
+  ;;
+
+  stop)
+    log_daemon_msg "Stopping greetd" "greetd"
+    start-stop-daemon --stop --quiet --oknodo $SSD_STOP_ARGS
+    SSD_RES=$?
+    if [ $SSD_RES -eq 1 ]; then
+      log_progress_msg "not running"
+    fi
+    if [ $SSD_RES -eq 2 ]; then
+      log_progress_msg "not responding to TERM signals"
+    fi
+    log_end_msg 0
+  ;;
+
+  *)
+    echo "Usage: /etc/init.d/greetd {start|stop|restart|force-reload}"
+    exit 1
+    ;;
+esac
+
+exit 0

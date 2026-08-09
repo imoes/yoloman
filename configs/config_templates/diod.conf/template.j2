@@ -1,0 +1,24 @@
+# diod.conf — main configuration file for diod (DIOD: Diod Is Other Daemon)
+# Listen addresses and ports for the diod server
+listen = { "{{ host }}:{{ port }}" }
+
+# Path to the root export directory
+export_root = "{{ export_root }}"
+
+# Maximum number of simultaneous client connections
+max_clients = {{ max_clients }}
+
+# Enable or disable verbose logging
+verbose = {{ verbose | lower }}
+
+# Export configuration block — repeated for each export
+{% for export in exports %}# Export: {{ export.name }}
+[{{ export.name }}]
+path = {{ export.path }}
+read_only = {{ export.read_only | lower }}
+{% if export.allowed_hosts is defined and export.allowed_hosts %}
+allowed_hosts = {{ export.allowed_hosts | join(', ') }}
+{% else %}
+allowed_hosts = *
+{% endif %}
+{% endfor %}

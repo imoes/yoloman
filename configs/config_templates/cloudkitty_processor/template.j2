@@ -1,0 +1,129 @@
+[DEFAULT]
+# Enable verbose debug logging; disable in production
+debug = {{ debug }}
+# Directory where log files are written; empty string logs to stdout only
+log_dir = {{ log_dir }}
+# oslo.messaging transport URL for RabbitMQ/AMQP broker
+transport_url = {{ transport_url }}
+
+[database]
+# SQLAlchemy connection string for the CloudKitty database
+connection = {{ db_connection }}
+# Maximum number of persistent DB connections in the pool
+max_pool_size = {{ db_max_pool_size }}
+# Connections allowed above max_pool_size before the caller blocks
+max_overflow = {{ db_max_overflow }}
+
+[keystone_authtoken]
+# Public Keystone endpoint returned in WWW-Authenticate challenges
+www_authenticate_uri = {{ keystone_public_url }}
+# Internal Keystone endpoint used for service-to-service auth
+auth_url = {{ keystone_auth_url }}
+# Authentication plugin type
+auth_type = password
+# Domain that owns the service project
+project_domain_name = {{ keystone_project_domain_name }}
+# Domain that owns the service user
+user_domain_name = {{ keystone_user_domain_name }}
+# Project that owns the CloudKitty service user
+project_name = {{ keystone_project_name }}
+# CloudKitty service user name
+username = {{ keystone_username }}
+# CloudKitty service user password
+password = {{ keystone_password }}
+# Memcached servers for Keystone token caching (host:port)
+memcached_servers = {{ memcached_servers | join(',') }}
+
+[oslo_concurrency]
+# Directory for oslo.concurrency file-based locks
+lock_path = {{ oslo_lock_path }}
+
+[oslo_messaging_notifications]
+# Notification transport driver
+driver = messagingv2
+
+[collect]
+# Telemetry collector backend: gnocchi, monasca, or prometheus
+collector = {{ collector }}
+# OpenStack attribute used as the billing scope identifier
+scope_key = {{ collect_scope_key }}
+# Absolute path to the metrics YAML file (defines what to collect and how to rate)
+metrics_conf = {{ metrics_conf }}
+# Telemetry collection granularity in seconds (must match the backend archive policy)
+period = {{ collect_period }}
+# Number of consecutive periods fetched per processing cycle
+window = {{ collect_window }}
+
+[fetcher_keystone]
+# Authentication plugin for the Keystone scope fetcher
+auth_type = password
+# Keystone auth URL for scope fetcher
+auth_url = {{ keystone_auth_url }}
+# Service user for scope fetcher
+username = {{ keystone_username }}
+# Service user password for scope fetcher
+password = {{ keystone_password }}
+# Service project for scope fetcher
+project_name = {{ keystone_project_name }}
+# Service project domain for scope fetcher
+project_domain_name = {{ keystone_project_domain_name }}
+# Service user domain for scope fetcher
+user_domain_name = {{ keystone_user_domain_name }}
+# Keystone role a project must have to be included in rating; empty = rate all projects
+scope_attribute = {{ fetcher_scope_attribute }}
+
+[storage]
+# Backend where rated data is persisted: influxdb, v2_gnocchi, elasticsearch, opensearch
+backend = {{ storage_backend }}
+# Storage API version; use 2 for all current backends
+version = {{ storage_version }}
+
+{% if storage_backend == 'influxdb' %}
+[storage_influxdb]
+# InfluxDB hostname or IP
+host = {{ influxdb_host }}
+# InfluxDB HTTP API port
+port = {{ influxdb_port }}
+# InfluxDB database that holds rated data
+database = {{ influxdb_database }}
+# InfluxDB user
+username = {{ influxdb_username }}
+# InfluxDB password
+password = {{ influxdb_password }}
+{% endif %}
+
+{% if collector == 'gnocchi' %}
+[collector_gnocchi]
+# Explicit Gnocchi API endpoint; empty = auto-discover from Keystone catalog
+endpoint = {{ gnocchi_endpoint }}
+# Authentication plugin for Gnocchi collector
+auth_type = password
+# Keystone auth URL for Gnocchi collector
+auth_url = {{ keystone_auth_url }}
+# Service user for Gnocchi collector
+username = {{ keystone_username }}
+# Service user password for Gnocchi collector
+password = {{ keystone_password }}
+# Service project for Gnocchi collector
+project_name = {{ keystone_project_name }}
+# Service project domain for Gnocchi collector
+project_domain_name = {{ keystone_project_domain_name }}
+# Service user domain for Gnocchi collector
+user_domain_name = {{ keystone_user_domain_name }}
+# Aggregation granularity in seconds; must match the Gnocchi archive policy and collect.period
+granularity = {{ gnocchi_granularity }}
+{% endif %}
+
+[orchestrator]
+# Number of parallel rating worker threads; scale with CPU count and tenant volume
+max_workers = {{ orchestrator_max_workers }}
+# Backend used to discover projects that should be rated
+tenants_fetcher = {{ tenant_fetcher_backend }}
+
+[output]
+# Ordered, comma-separated list of rating modules applied to collected telemetry
+pipeline = {{ rating_pipeline | join(',') }}
+
+[hashmap]
+# Database for the hashmap rating module; typically the same as the main DB
+database_connection = {{ db_connection }}

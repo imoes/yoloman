@@ -1,0 +1,115 @@
+# Dropbear SSH server configuration
+# Run as a daemon; options control behavior, security, and listening behavior
+
+# Listen on specified addresses and ports (format: [address:]port)
+# Multiple listeners can be specified; defaults to 22 on all interfaces
+{% for listener in listeners %}# Listen on {{ listener.address }}:{{ listener.port }}
+PORT={{ listener.port }}
+{% if listener.address != '' %}HOST={{ listener.address }}
+{% endif %}{% endfor %}
+
+# Path to host keys for SSH protocol
+# Required: at least one DSS or ECDSA/RSA key; defaults to /etc/dropbear/dropbear_{dsa,rsa,ecdsa}_host_key
+{% if rsa_key_path %}# Use custom RSA host key
+RSAKEY={{ rsa_key_path }}
+{% endif %}{% if dss_key_path %}# Use custom DSS host key
+DSSKEY={{ dss_key_path }}
+{% endif %}{% if ecdsa_key_path %}# Use custom ECDSA host key
+ECDSAKEY={{ ecdsa_key_path }}
+{% endif %}
+
+# Authentication behavior
+# Disable password auth if using keys only; allow root login at operator discretion
+{% if disable_password_auth %}# Disable password authentication (force key-based only)
+NOBANNER=1
+PAM_AUTH=no
+{% else %}# Allow password authentication
+PAM_AUTH=yes
+{% endif %}
+
+# Allow root login? (not recommended in insecure environments)
+{% if allow_root_login %}# Permit root login (security-sensitive: usually disabled)
+PERMIT_ROOT_LOGIN=yes
+{% else %}# Deny root login (recommended)
+PERMIT_ROOT_LOGIN=no
+{% endif %}
+
+# Session and idle timeout behavior
+# Terminate inactive sessions after specified seconds
+{% if idle_timeout %}# Terminate idle sessions after {{ idle_timeout }} seconds
+IDLE_TIMEOUT={{ idle_timeout }}
+{% endif %}
+
+# Max authentication attempts before disconnect
+# Reduce to mitigate brute-force attempts
+{% if max_auth_tries %}# Limit authentication attempts to {{ max_auth_tries }}
+MAX_AUTH_TRIES={{ max_auth_tries }}
+{% endif %}
+
+# Logging verbosity (0=quiet, 1=normal, 2=verbose, 3=debug)
+# Increase only when troubleshooting
+{% if log_level %}# Log verbosity level: {{ log_level }}
+LOG_LEVEL={{ log_level }}
+{% endif %}
+
+# Banner (motd) file shown before authentication
+# Optional; specify path or leave blank to use system default
+{% if banner_path %}# Display custom banner from {{ banner_path }}
+BANNER={{ banner_path }}
+{% endif %}
+
+# Disable legacy protocols/ciphers (security hardening)
+# Dropbear disables weak options by default; override only if needed for legacy clients
+{% if enable_legacy_ciphers %}# Allow legacy ciphers (not recommended)
+CIPHERS={{ ciphers_list | join(':') }}
+{% else %}# Enforce modern cipher suite only
+CIPHERS=aes256-ctr,aes192-ctr,aes128-ctr,aes256-cbc,aes128-cbc,3des-ctr,3des-cbc
+{% endif %}
+
+# Key exchange algorithms (KEX)
+{% if enable_legacy_kex %}# Allow legacy KEX (not recommended)
+KEX={{ kex_list | join(':') }}
+{% else %}# Modern KEX only
+KEX=curve25519-sha256@libssh.org,ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,diffie-hellman-group-exchange-sha256,diffie-hellman-group14-sha256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512
+{% endif %}
+
+# MAC algorithms
+{% if enable_legacy_macs %}# Allow legacy MACs (not recommended)
+MACS={{ macs_list | join(':') }}
+{% else %}# Modern MACs only
+MACS=hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,hmac-sha1
+{% endif %}
+
+# Allow TCP forwarding? (often disabled for hardening)
+# Set to 0 to disable (1=allow, 0=deny)
+{% if allow_tcp_forwarding %}# Permit TCP forwarding
+ALLOW_TCP_FORWARDING=1
+{% else %}# Deny TCP forwarding (recommended)
+ALLOW_TCP_FORWARDING=0
+{% endif %}
+
+# Allow X11 forwarding? (typically disabled unless needed)
+{% if allow_x11_forwarding %}# Permit X11 forwarding
+ALLOW_X11_FORWARDING=1
+{% else %}# Deny X11 forwarding (recommended)
+ALLOW_X11_FORWARDING=0
+{% endif %}
+
+# Allow agent forwarding? (requires careful trust boundaries)
+{% if allow_agent_forwarding %}# Permit SSH agent forwarding
+ALLOW_AGENT_FORWARDING=1
+{% else %}# Deny agent forwarding (recommended)
+ALLOW_AGENT_FORWARDING=0
+{% endif %}
+
+# Force specific command for all sessions (e.g., restricted shell)
+# Leave blank unless enforcing a restricted environment
+{% if forced_command %}# Enforce command: {{ forced_command }}
+FORCED_COMMAND={{ forced_command }}
+{% endif %}
+
+# Keepalive interval (seconds) for client detection
+# 0 = disable keepalive
+{% if keepalive_interval %}# Send keepalive every {{ keepalive_interval }} seconds
+KEEPALIVE={{ keepalive_interval }}
+{% endif %}

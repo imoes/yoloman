@@ -1,0 +1,23 @@
+# /etc/daemon.conf: system-wide daemon(1) configuration.
+# See daemon(1) or daemon.conf(5) for full documentation.
+#
+# This file defines global defaults and per-daemon rules.
+# It is self-documenting: every directive is explained below.
+
+# PATH=<value>
+# Default PATH value appended to the daemon's environment.
+# Used by all daemons unless overridden in their specific rule.
+PATH={{ path_default | default('$PATH:~/bin') }}
+
+# <name|"*"> option=value [, option=value ...]
+# The wildcard '*' sets defaults for ALL named daemons defined below.
+# The pidfiles option specifies the directory where PID files are stored
+# for daemons using the wildcard '*' definition.
+* pidfiles={{ pidfiles_default | default('~/.pidfiles') }}
+
+# <name> option=value [, option=value ...]
+# A named daemon rule. 'name' is the identifier for the daemon.
+# The 'respawn' option tells the supervisor to restart the daemon if it exits.
+# The 'command' option specifies the default command path to execute.
+# The 'args' option can append arguments to the command (not shown here as default args are empty).
+name respawn,command={{ command_default | default('/usr/bin/command') }}

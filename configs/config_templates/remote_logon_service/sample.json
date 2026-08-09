@@ -1,0 +1,50 @@
+{
+  "bus_address": "auto",
+  "pid_file": "/run/remote-logon/remote-logon.pid",
+  "max_connection_attempts": 3,
+  "connection_timeout": 5,
+  "scan_interval": 60,
+  "enable_logging": true,
+  "log_level": 2,
+  "cache_dir": "/var/cache/remote-logon",
+  "cache_ttl": 300,
+  "trusted_servers": [
+    "dc1.example.com",
+    "dc2.example.com"
+  ],
+  "server_groups": [
+    {
+      "name": "primary",
+      "weight": 10,
+      "hosts": [
+        {
+          "hostname": "dc1.example.com",
+          "port": 636,
+          "tls": true
+        },
+        {
+          "hostname": "dc2.example.com",
+          "port": 636,
+          "tls": true
+        }
+      ],
+      "filter": "only_trusted"
+    },
+    {
+      "name": "fallback",
+      "weight": 1,
+      "hosts": [
+        {
+          "hostname": "backup.example.com",
+          "port": 389
+        }
+      ],
+      "filter": "all"
+    }
+  ],
+  "credentials_file": "/etc/remote-logon/credentials.json",
+  "enable_tls": true,
+  "ca_cert_path": "/etc/ssl/certs/ca-certificates.crt",
+  "client_cert_path": "/etc/remote-logon/client.crt",
+  "client_key_path": "/etc/remote-logon/client.key"
+}

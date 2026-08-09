@@ -1,0 +1,67 @@
+# gitlint configuration file
+#
+# This file configures the 'gitlint' tool for linting Git commit messages and
+# the first line of Git commits (subject lines). It uses an INI-style format.
+# Each section corresponds to a specific aspect of gitlint's behavior.
+#
+# Variables are enriched with their schema defaults to ensure the configuration
+# is self-documenting and safe to reuse without external context.
+
+# --- General Options ---
+
+{# target: Path to the target git repository. Default is current directory. #}
+[general]
+target = {{ (target | default('.')) }}
+
+# --- Rule Configuration ---
+
+{# rules: List of rules to configure. Each rule has id (required), enabled (bool), and options (dict). #}
+# This section allows enabling/disabling specific linters and setting their options.
+[rule]
+{%- if rules is defined and rules | length > 0 %}
+{# Iterate over the list of rule definitions provided in the schema #}
+{%- for rule in rules %}
+# Rule: {{ rule.id }} (enabled: {{ rule.enabled | default(true) | string | lower }})
+{{ rule.id }} = {{ rule.enabled | default(true) | string | lower }}
+{%- if rule.options is defined and rule.options %}
+{# Iterate over the options dictionary for the current rule #}
+{%- for opt_name, opt_value in rule.options | dict2items %}
+{{ rule.id }}.{{ opt_name.key }} = {{ opt_value.value }}
+{%- endfor %}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
+
+# --- Extra Paths ---
+
+{# extra_paths: Comma-separated list of paths (directories or Python modules) with user-defined or contrib rules. #}
+[extra]
+{%- if extra_paths is defined and extra_paths | length > 0 %}
+paths = {{ extra_paths | join(',') }}
+{%- endif %}
+
+# --- Ignored Rules ---
+
+{# ignore_rules: List of rule IDs or names to ignore (comma-separated). #}
+# Rules listed here will be skipped during linting.
+[ignore]
+{%- if ignore_rules is defined and ignore_rules | length > 0 %}
+rules = {{ ignore_rules | join(',') }}
+{%- endif %}
+
+# --- Contrib Rules ---
+
+{# contrib_rules: List of contrib rule IDs or names to enable. #}
+# These are optional community-contributed rules.
+[contrib]
+{%- if contrib_rules is defined and contrib_rules | length > 0 %}
+enabled = {{ contrib_rules | join(',') }}
+{%- endif %}
+
+# --- Verbosity ---
+
+{# verbose: Verbosity level (1=v, 2=vv, 3=vvv). Default 3. #}
+[verbosity]
+{%- if verbose is defined %}
+level = {{ verbose | default(3) | int }}
+{%- endif %}

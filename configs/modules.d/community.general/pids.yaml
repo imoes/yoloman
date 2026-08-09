@@ -1,0 +1,25 @@
+name: pids
+fqcn: community.general.pids
+collection: community.general
+short_description: Retrieves process IDs list if the process is running otherwise return empty list
+description: Retrieves a list of PIDs of given process name in Ansible controller/controlled machines.Returns
+  an empty list if no process in that name exists.
+options:
+  ignore_case:
+    type: bool
+    default: false
+    description: Ignore case in pattern if using the O(pattern) option.
+  name:
+    type: str
+    description: The name of the process(es) you want to get PID(s) for.
+  pattern:
+    type: str
+    description: The pattern (regular expression) to match the process(es) you want to get PID(s) for.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Pass the process name\n- name: Getting process IDs of the process\n  community.general.pids:\n\
+  \      name: python\n  register: pids_of_python\n\n- name: Printing the process IDs obtained\n  ansible.builtin.debug:\n\
+  \    msg: \"PIDS of python:{{pids_of_python.pids|join(',')}}\"\n\n- name: Getting process IDs of processes\
+  \ matching pattern\n  community.general.pids:\n    pattern: python(2(\\.7)?|3(\\.6)?)?\\s+myapp\\.py\n\
+  \  register: myapp_pids\n"

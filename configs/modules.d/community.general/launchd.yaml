@@ -1,0 +1,45 @@
+name: launchd
+fqcn: community.general.launchd
+collection: community.general
+short_description: Manage macOS services
+description: Manage launchd services on target macOS hosts.
+options:
+  enabled:
+    type: bool
+    description: Whether the service should start on boot. B(At least one of state and enabled are required.)
+  force_stop:
+    type: bool
+    default: false
+    description: Whether the service should not be restarted automatically by launchd. Services might
+      have the 'KeepAlive' attribute set to true in a launchd configuration. In case this is set to true,
+      stopping a service will cause that launchd starts the service again. Set this option to V(true)
+      to let this module change the 'KeepAlive' attribute to V(false).
+  name:
+    type: str
+    required: true
+    description: Name of the service.
+  state:
+    type: str
+    choices:
+    - reloaded
+    - restarted
+    - started
+    - stopped
+    - unloaded
+    description: V(started)/V(stopped) are idempotent actions that will not run commands unless necessary.
+      Launchd does not support V(restarted) nor V(reloaded) natively. These will trigger a stop/start
+      (restarted) or an unload/load (reloaded). V(restarted) unloads and loads the service before start
+      to ensure that the latest job definition (plist) is used. V(reloaded) unloads and loads the service
+      to ensure that the latest job definition (plist) is used. Whether a service is started or stopped
+      depends on the content of the definition file.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Make sure spotify webhelper is started\n  community.general.launchd:\n    name: com.spotify.webhelper\n\
+  \    state: started\n\n- name: Deploy custom memcached job definition\n  template:\n    src: org.memcached.plist.j2\n\
+  \    dest: /Library/LaunchDaemons/org.memcached.plist\n\n- name: Run memcached\n  community.general.launchd:\n\
+  \    name: org.memcached\n    state: started\n\n- name: Stop memcached\n  community.general.launchd:\n\
+  \    name: org.memcached\n    state: stopped\n\n- name: Stop memcached\n  community.general.launchd:\n\
+  \    name: org.memcached\n    state: stopped\n    force_stop: true\n\n- name: Restart memcached\n  community.general.launchd:\n\
+  \    name: org.memcached\n    state: restarted\n\n- name: Unload memcached\n  community.general.launchd:\n\
+  \    name: org.memcached\n    state: unloaded\n"

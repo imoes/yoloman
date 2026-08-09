@@ -1,0 +1,58 @@
+# SNTP configuration file — controls standalone NTP synchronization
+# Server(s) to query for time
+{% for server in servers %}server {{ server.host }}{% if server.port != 123 %} port {{ server.port }}{% endif %}{% if server.key_id is defined %} key {{ server.key_id }}{% endif %}
+{% endfor %}
+
+# Interface to bind to (empty = all interfaces)
+{% if interface %}interface {{ interface }}
+{% endif %}
+
+# Enable verbose logging
+{% if logging.verbose %}logging all
+{% elif logging.normal %}logging standard
+{% elif logging.quiet %}logging quiet
+{% endif %}
+
+# Path to log file
+{% if logging.logfile %}logfile {{ logging.logfile }}
+{% endif %}
+
+# Initial time offset limit (seconds) — sync only if within this tolerance
+offsetlimit {{ offset_limit }}
+
+# Maximum number of retries per server
+maxsamples {{ max_samples }}
+
+# Enable strict mode (reject servers with large offset jumps)
+{% if strict %}strict
+{% endif %}
+
+# Allow leap seconds to be applied
+{% if leap_smear %}leapsmear
+{% endif %}
+
+# Trusted key IDs for authenticated NTP (if using keys)
+{% if trusted_keys %}trustedkey {% for key_id in trusted_keys %}{{ key_id }} {% endfor %}
+{% endif %}
+
+# Request key ID (for authenticated queries, if enabled)
+{% if request_key_id is defined %}requestkey {{ request_key_id }}
+{% endif %}
+
+# Key file path (only needed if authentication is used)
+{% if keys_file %}keys {{ keys_file }}
+{% endif %}
+
+# Timeout for server responses (seconds)
+timeout {{ timeout }}
+
+# Poll interval for periodic sync (seconds)
+poll {{ poll_interval }}
+
+# Initial burst mode (send multiple packets on first sync)
+{% if burst %}burst
+{% endif %}
+
+# Delay before first sync (seconds) — useful for boot-time timing
+{% if initial_delay %}initialdelay {{ initial_delay }}
+{% endif %}

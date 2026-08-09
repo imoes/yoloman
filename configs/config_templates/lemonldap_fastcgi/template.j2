@@ -1,0 +1,35 @@
+[main]
+; Global configuration options for LemonLDAP::NG FastCGI server
+logLevel = {{ main.log_level }}
+; Path to the shared configuration storage (e.g., in local JSON, YAML, or DB)
+configStorage = {{ main.config_storage | to_json }}
+; Session storage backend configuration
+sessionStorage = {{ main.session_storage | to_json }}
+; Portal URL (public-facing URL used for authentication flows)
+portalUrl = {{ main.portal_url }}
+; Management URL (used for admin UI — optional, may be same as portalUrl)
+{% if main.management_url %}managementUrl = {{ main.management_url }}{% endif %}
+; Timeout (seconds) for backend requests (e.g., to configuration backend)
+requestTimeout = {{ main.request_timeout }}
+
+[fastcgi]
+; FastCGI-specific parameters
+; Number of worker processes (for preforking mode)
+{% if fastcgi.workers > 0 %}workers = {{ fastcgi.workers }}{% endif %}
+; Port(s) or socket(s) to bind to — supports multiple entries
+{% for port in fastcgi.ports %}port = {{ port }}{% endfor %}
+{% for socket in fastcgi.sockets %}socket = {{ socket }}{% endfor %}
+; User and group to drop privileges to (Unix only)
+user = {{ fastcgi.user }}
+group = {{ fastcgi.group }}
+; Enable PID file generation
+{% if fastcgi.pid_file %}pidFile = {{ fastcgi.pid_file }}{% endif %}
+; Enable graceful reload on SIGHUP
+{% if fastcgi.graceful_reload %}gracefulReload = {{ fastcgi.graceful_reload }}{% endif %}
+
+[logger]
+; Logging backend configuration
+{% if logger.backend %}backend = {{ logger.backend }}{% endif %}
+{% if logger.level %}level = {{ logger.level }}{% endif %}
+{% if logger.format %}format = {{ logger.format }}{% endif %}
+{% if logger.file %}file = {{ logger.file }}{% endif %}

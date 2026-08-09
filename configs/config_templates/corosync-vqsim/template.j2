@@ -1,0 +1,112 @@
+{# ============================================================================
+# corosync-vqsim Configuration Template
+# ============================================================================
+# This file is the configuration for the corosync-vqsim tool.
+# It reuses the standard corosync.conf format but is specifically tailored
+# for the virtual quorum simulation mode (vqsim).
+#
+# Self-documenting: Every directive is preceded by a comment describing
+# its purpose, source variable, and default value.
+# ============================================================================ #}
+
+# ============================================================================
+# Global Configuration Block
+# ============================================================================
+# Root configuration container. vqsim expects version 2 format.
+config {
+  # Version of this configuration format.
+  # Variable: N/A (Fixed for vqsim)
+  # Default: 2
+  version: 2
+
+  # ============================================================================
+  # Logging Configuration
+  # ============================================================================
+  # Controls how vqsim emits log messages.
+  # Note: vqsim largely ignores these settings as it is a simulation tool,
+  # but they are preserved for compatibility with standard corosync configs.
+  logging {
+
+    # Enable logging of source file and line number.
+    # Variable: logging_fileline
+    # Default: False
+    # Description: Enable logging of source file and line number (ignored by vqsim)
+    fileline: {{ (logging_fileline | default(false)) | lower }}
+
+    # Send log output to standard error (stderr).
+    # Variable: logging_to_stderr
+    # Default: False
+    # Description: Send log output to standard error (ignored by vqsim)
+    to_stderr: {{ (logging_to_stderr | default(false)) | lower }}
+
+    # Send log output to a log file.
+    # Variable: logging_to_logfile
+    # Default: False
+    # Description: Send log output to a log file (ignored by vqsim, but required to set logfile)
+    to_logfile: {{ (logging_to_logfile | default(false)) | lower }}
+
+    # Path to the log file.
+    # Variable: logging_logfile
+    # Default: /var/log/corosync.log
+    # Description: Path to log file if logging_to_logfile is true (ignored by vqsim)
+    {% if (logging_to_logfile | default(false)) %}
+    logfile: {{ logging_logfile | default('/var/log/corosync.log') }}
+    {% endif %}
+
+    # Enable debug logging.
+    # Variable: logging_debug
+    # Default: False
+    # Description: Enable debug logging (ignored by vqsim)
+    log_debug: {{ (logging_debug | default(false)) | lower }}
+
+    # Prefix log lines with timestamp.
+    # Variable: logging_timestamp
+    # Default: False
+    # Description: Prefix log lines with timestamp (ignored by vqsim)
+    log_timestamp: {{ (logging_timestamp | default(false)) | lower }}
+  }
+}
+
+# ============================================================================
+# Node Definitions for vqsim
+# ============================================================================
+# vqsim simulates a cluster of nodes. Each node in this list represents
+# a simulated cluster member.
+#
+# IMPORTANT: vqsim uses ONLY 'nodeid' and 'votes' to determine quorum behavior.
+# IP address fields (ring0_addr, mcastaddr, etc.) are IGNORED by vqsim
+# but are retained in this template for structural compatibility with
+# real corosync configurations if this template is ever reused for that purpose.
+#
+# Each node must have a unique 'nodeid'.
+
+{% for node in (nodes | default([])) %}
+# --- Simulated Node Definition ---
+# Iteration: Loop index is {{ loop.index }}
+
+nodelist {
+  node {
+    # Node identifier (REQUIRED).
+    # Variable: node.nodeid
+    # Default: N/A (Must be provided in schema)
+    # Description: List of nodes for vqsim to simulate. Each node must have nodeid. Only nodeid and votes affect behavior; IP fields are ignored by vqsim.
+    nodeid: {{ node.nodeid }}
+
+    # Optional: Number of votes for this node.
+    # Variable: node.votes
+    # Default: 1 (if not specified)
+    # Description: List of nodes for vqsim to simulate. Each node must have nodeid. Only nodeid and votes affect behavior; IP fields are ignored by vqsim.
+    {% if node.votes is defined %}
+    votes: {{ node.votes }}
+    {% endif %}
+
+    # Optional: IP address (ignored by vqsim).
+    # Variable: node.ring0_addr
+    # Default: None
+    # Description: List of nodes for vqsim to simulate. Each node must have nodeid. Only nodeid and votes affect behavior; IP fields are ignored by vqsim.
+    {% if node.ring0_addr is defined %}
+    ring0_addr: {{ node.ring0_addr }}
+    {% endif %}
+  }
+}
+{% endfor %}

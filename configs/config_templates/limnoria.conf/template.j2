@@ -1,0 +1,125 @@
+# Limnoria IRC bot configuration file
+# Generated from Ansible Jinja2 template.
+# Self-documenting: every directive is preceded by its schema description and uses safe variable defaults.
+
+# Core bot identity and connection settings.
+# Schema field: bot (dict/object)
+{% set bot = bot | default({}) %}
+bot:
+  # The nickname the bot uses on IRC
+  nick: {{ bot.nick | default('Limnoria') }}
+  # The user/host part of the bot's IRC identity (e.g., 'limnoria')
+  user: {{ bot.user | default('limnoria') }}
+  # The realname/ident field shown in WHOIS
+  realname: {{ bot.realname | default('Limnoria Bot') }}
+  # Primary IRC server hostname or IP
+  server: {{ bot.server | default('irc.libera.chat') }}
+  # Primary IRC server port (usually 6667 or 6697)
+  port: {{ bot.port | default(6667) }}
+  # Server connection password (if required by the network)
+  password: {{ bot.password | default('') }}
+  # Enable SSL/TLS for the server connection
+  use_ssl: {{ bot.use_ssl | default(false) }}
+  # Use a SOCKS/HTTP proxy for the connection
+  use_proxy: {{ bot.use_proxy | default(false) }}
+  # Proxy server hostname
+  proxy_host: {{ bot.proxy_host | default('') }}
+  # Proxy server port
+  proxy_port: {{ bot.proxy_port | default(0) }}
+  # Proxy authentication username (if required)
+  proxy_user: {{ bot.proxy_user | default('') }}
+  # Proxy authentication password (if required)
+  proxy_password: {{ bot.proxy_password | default('') }}
+
+# List of channels the bot will auto-join on connect.
+# Schema field: channels (list of objects)
+{% set channels = channels | default([]) %}
+channels:
+{% for channel in channels %}
+  # Channel name (e.g., '#general')
+  - name: {{ channel.name | default('') }}
+    # Channel key/passphrase (if the channel is secured)
+    key: {{ channel.key | default('') }}
+{% endfor %}
+
+# List of IRC hostmasks (e.g., user!*@host) with full administrative access.
+# Schema field: admins (list of strings)
+{% set admins = admins | default([]) %}
+admins:
+{% for admin in admins %}
+  # Admin hostmask
+  - {{ admin | default('') }}
+{% endfor %}
+
+# Prefix used to invoke bot commands (e.g., '!help').
+# Schema field: command_prefix (string)
+command_prefix: {{ command_prefix | default('!') }}
+
+# Default timezone (IANA name, e.g., 'America/New_York', or 'UTC').
+# Schema field: timezone (string)
+timezone: {{ timezone | default('UTC') }}
+
+# Logging configuration.
+# Schema field: logging (dict/object)
+{% set logging = logging | default({}) %}
+logging:
+  # Enable logging to the specified path
+  enabled: {{ logging.enabled | default(true) }}
+  # Log file path
+  path: {{ logging.path | default('/var/log/limnoria/limnoria.log') }}
+  # Log message format string
+  format: {{ logging.format | default('%(asctime)s %(levelname)s %(name)s: %(message)s') }}
+  # Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: {{ logging.level | default('INFO') }}
+
+# List of plugins to load and their activation status.
+# Schema field: plugins (list of objects)
+{% set plugins = plugins | default([]) %}
+plugins:
+{% for plugin in plugins %}
+  # Plugin name
+  - name: {{ plugin.name | default('') }}
+    # Whether the plugin is enabled
+    enabled: {{ plugin.enabled | default(false) }}
+{% endfor %}
+
+# Per-plugin configuration blocks (optional, omitted if no config present).
+# Note: Iterates mapping safely using dict2items to avoid Python .items() method calls.
+{% for plugin in plugins if plugin.config is mapping %}
+{% set plugin_name_safe = plugin.name | default('unnamed') | replace('.', '_') %}
+{{ plugin_name_safe }}:
+{% for item in plugin.config | dict2items %}
+  # {{ item.key }}: {{ item.value | to_json }}
+  {{ item.key }}: {{ item.value | to_json }}
+{% endfor %}
+{% endfor %}
+
+# Rate limiting and flood control settings.
+# Schema field: limits (dict/object)
+{% set limits = limits | default({}) %}
+limits:
+  # Minimum seconds between messages (flood protection)
+  flood_rate: {{ limits.flood_rate | default(0.5) }}
+  # Maximum burst of messages before rate limiting kicks in
+  flood_burst: {{ limits.flood_burst | default(3) }}
+  # Maximum messages per minute allowed
+  max_messages_per_minute: {{ limits.max_messages_per_minute | default(0) }}
+
+# Database connection settings.
+# Schema field: database (dict/object)
+{% set database = database | default({}) %}
+database:
+  # Database URL/connection string (e.g., 'sqlite:////var/lib/limnoria/bot.db')
+  # This string is constructed from the database sub-fields. If 'url' is explicitly
+  # provided in the schema, it takes precedence; otherwise it is built from the
+  # connection parameters to allow peer injection.
+  url: {{ database.url | default((database.host | default('') ~ ':' ~ database.port | default('') ~ '/' ~ database.name | default('')) | replace(':/', '://')) }}
+
+# Bot interface language (locale code).
+# Schema field: language (string)
+language: {{ language | default('en_US') }}
+
+# Enable debug mode (verbose output, stack traces).
+# Schema field: debug (boolean)
+# Note: The original template accessed .enabled; here we treat the field itself as the boolean flag.
+debug: {{ debug | default(false) }}

@@ -1,0 +1,158 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the fwupd daemon should start automatically."
+  },
+  "staging_dir": {
+    "type": "string",
+    "default": "/var/lib/fwupd/staging",
+    "description": "Directory where firmware images are staged before installation."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/fwupd",
+    "description": "Directory for cached firmware metadata and checksums."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/fwupd",
+    "description": "Directory for daemon and plugin logs."
+  },
+  "firmware_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Optional local directory to serve firmware files from (leave blank to use remote repos like LVFS)."
+  },
+  "firmware_channels": {
+    "type": "list",
+    "default": [
+      {
+        "name": "stable",
+        "remote": "https://fwupd.org/lvfs/firmware.xml.gz"
+      },
+      {
+        "name": "testing",
+        "remote": "https://fwupd.org/lvfs/firmware-testing.xml.gz"
+      },
+      {
+        "name": "unstable",
+        "remote": "https://fwupd.org/lvfs/firmware-unstable.xml.gz"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Channel name (stable, testing, unstable)"
+      },
+      "remote": {
+        "type": "string",
+        "description": "URL of the remote metadata feed for this channel"
+      }
+    },
+    "description": "Configure firmware update channels. Each channel maps to a remote metadata feed."
+  },
+  "show_version_in_gui": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether firmware versions should appear in GUI update notifications."
+  },
+  "firmware_verification": {
+    "type": "bool",
+    "default": true,
+    "description": "Require verified firmware signatures. Enabling is strongly recommended for security."
+  },
+  "min_power": {
+    "type": "number",
+    "default": 10,
+    "description": "Minimum battery percentage (0\u2013100) required to proceed with firmware updates. Set to 0 to disable."
+  },
+  "min_time": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum time remaining on battery (seconds) before updates are allowed. Set to 0 to disable."
+  },
+  "max_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retry attempts for a failed firmware update."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before retrying a failed update."
+  },
+  "automatic_background_updates": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic background update checks and installations (when system is idle)."
+  },
+  "suppress_power_screen": {
+    "type": "bool",
+    "default": true,
+    "description": "Suppress power-saving features (e.g., screen blanking) during long-running firmware updates."
+  },
+  "ignored_device_flags": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Device flag (e.g., 'internal', 'require-ac') to ignore globally"
+    },
+    "description": "List of device flags to ignore (useful for known-bad firmware scenarios)."
+  },
+  "ignored_device_gids": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Hardware GId (e.g., 'usb:046d:c52b') of devices to exclude from updates."
+    },
+    "description": "List of hardware device IDs to completely skip during updates."
+  },
+  "debug_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (for troubleshooting only)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 0=error, 1=warning, 2=info, 3=debug."
+  },
+  "local_metadata_signing": {
+    "type": "bool",
+    "default": false,
+    "description": "Use local signing keys for firmware metadata (advanced; not needed for LVFS)."
+  },
+  "local_metadata_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to private signing key (required if local_metadata_signing=true)."
+  },
+  "lvfs_testing": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable testing firmware from LVFS (Linux Vendor Firmware Service). Usually disabled in production."
+  },
+  "max_firmware_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum firmware file size (bytes) allowed for download. 0 = no limit. Recommend \u22641073741824 (1 GiB)."
+  },
+  "device_reenumerate": {
+    "type": "bool",
+    "default": true,
+    "description": "Re-enumerate device (trigger USB/HID reprobe) after firmware update if needed."
+  },
+  "offline_updates": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable offline update mode (for OEM imaging, pre-installation in initramfs)."
+  },
+  "offline_update_lock_file": {
+    "type": "string",
+    "default": "/run/fwupd/offline-update.lock",
+    "description": "Lock file path used to prevent concurrent offline update attempts."
+  }
+}

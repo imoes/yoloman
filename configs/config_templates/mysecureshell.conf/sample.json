@@ -1,0 +1,75 @@
+{
+  "debug_mode": false,
+  "log_level": 2,
+  "log_path": "/var/log/mysecureshell.log",
+  "max_conn_per_ip": 5,
+  "max_conn_per_user": 3,
+  "ssh_port": 2222,
+  "listen_addr": "0.0.0.0",
+  "chroot_path": "/var/chroot/mysecureshell",
+  "sftp_enabled": true,
+  "scp_enabled": false,
+  "password_auth": true,
+  "pub_key_auth": true,
+  "login_timeout": 30,
+  "max_auth_tries": 6,
+  "banner_enabled": true,
+  "banner_path": "/etc/mysecureshell/banner.txt",
+  "users": [
+    {
+      "name": "alice",
+      "home": "/alice",
+      "shell": "/bin/false",
+      "groups": [
+        "sftpusers"
+      ],
+      "password": "{crypt}x",
+      "pub_key": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... alice@example.com",
+      "upload_quota_mb": 1024
+    },
+    {
+      "name": "bob",
+      "home": "/bob",
+      "shell": "/bin/false",
+      "groups": [
+        "sftpusers"
+      ],
+      "password": "{crypt}$6$rounds=656000$...",
+      "upload_quota_mb": 500
+    }
+  ],
+  "groups": [
+    {
+      "name": "sftpusers",
+      "upload_quota_mb": 2000
+    }
+  ],
+  "allowed_ips": [
+    "192.168.1.0/24",
+    "10.0.0.0/8"
+  ],
+  "denied_ips": [
+    "192.168.1.66/32"
+  ],
+  "directory_permissions": [
+    {
+      "path": "/incoming",
+      "mode": "1777",
+      "owner": "root",
+      "group": "sftpusers",
+      "max_files": 10000,
+      "max_size": 5000
+    }
+  ],
+  "sftp_subsystem": {
+    "command": "internal-sftp",
+    "args": [
+      "-u",
+      "0002",
+      "-f",
+      "LOCAL",
+      "-l",
+      "INFO"
+    ]
+  }
+}

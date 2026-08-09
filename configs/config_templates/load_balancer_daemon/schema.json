@@ -1,0 +1,227 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address on which lbcd listens for incoming load reports."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 11784,
+    "description": "UDP port to receive load reports from backend nodes."
+  },
+  "report_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "How often (in seconds) backend nodes should send load reports."
+  },
+  "report_max_age": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum age (in seconds) of a received load report before it is discarded."
+  },
+  "cache_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Time-to-live (in seconds) for cached load entries."
+  },
+  "allowed_subnets": {
+    "type": "list",
+    "default": [
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16"
+    ],
+    "description": "List of allowed IP subnets (CIDR notation) permitted to send load reports.",
+    "items": {
+      "type": "string",
+      "pattern": "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$"
+    }
+  },
+  "strict_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, only accept load reports from IPs in `allowed_subnets`."
+  },
+  "log_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to stderr or syslog."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/lbcd.pid",
+    "description": "Path to write the daemon\u2019s PID file."
+  },
+  "status_file": {
+    "type": "string",
+    "default": "/var/run/lbcd_status.json",
+    "description": "Path to write the current load status in JSON for external tools."
+  },
+  "max_reporters": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of concurrent reporter nodes allowed."
+  },
+  "class_weights": {
+    "type": "list",
+    "default": [
+      {
+        "class": "cpu",
+        "weight": 0.5,
+        "description": "CPU load factor"
+      },
+      {
+        "class": "mem",
+        "weight": 0.3,
+        "description": "Memory pressure factor"
+      },
+      {
+        "class": "net",
+        "weight": 0.2,
+        "description": "Network I/O factor"
+      }
+    ],
+    "description": "Weight configuration for computing overall system load score from metric classes.",
+    "items": {
+      "class": {
+        "type": "string",
+        "description": "Name of the metric class (e.g., cpu, mem, net)."
+      },
+      "weight": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Relative weight (0.0\u20131.0) for this class in the aggregated load score."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description for this class."
+      }
+    }
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "web-1",
+        "host": "10.0.1.10",
+        "port": 80,
+        "protocol": "http",
+        "weight": 1.0,
+        "enabled": true
+      },
+      {
+        "name": "web-2",
+        "host": "10.0.1.11",
+        "port": 80,
+        "protocol": "http",
+        "weight": 1.0,
+        "enabled": true
+      }
+    ],
+    "description": "List of backend services that receive traffic based on load decisions.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for this backend."
+      },
+      "host": {
+        "type": "string",
+        "description": "IP address or hostname of the backend."
+      },
+      "port": {
+        "type": "number",
+        "minimum": 1,
+        "maximum": 65535,
+        "description": "Port number of the backend service."
+      },
+      "protocol": {
+        "type": "string",
+        "enum": [
+          "http",
+          "https",
+          "tcp",
+          "udp"
+        ],
+        "description": "Protocol used to connect to this backend."
+      },
+      "weight": {
+        "type": "number",
+        "minimum": 0,
+        "description": "Traffic weight relative to other backends (higher = more traffic)."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "If false, backend is excluded from load balancing decisions."
+      }
+    }
+  },
+  "health_check": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "timeout": 5,
+      "interval": 15,
+      "max_failures": 2
+    },
+    "description": "Settings for proactive health checks of backends.",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable automatic health checks for backends."
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Health check request timeout (seconds)."
+      },
+      "interval": {
+        "type": "number",
+        "description": "Seconds between health checks."
+      },
+      "max_failures": {
+        "type": "number",
+        "description": "Failures before backend is marked unhealthy."
+      }
+    },
+    "required": [
+      "enabled",
+      "timeout",
+      "interval",
+      "max_failures"
+    ]
+  },
+  "alerts": {
+    "type": "list",
+    "default": [],
+    "description": "List of alert endpoints to notify on backend status changes (e.g., down/up).",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "webhook",
+          "slack",
+          "pagerduty",
+          "email"
+        ],
+        "description": "Alert channel type."
+      },
+      "endpoint": {
+        "type": "string",
+        "description": "URL or address (e.g., https://hooks.slack.com/..., mailto:user@domain.com)."
+      },
+      "method": {
+        "type": "string",
+        "enum": [
+          "POST",
+          "GET"
+        ],
+        "default": "POST",
+        "description": "HTTP method for webhook alerts."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Alert request timeout (seconds)."
+      }
+    }
+  }
+}

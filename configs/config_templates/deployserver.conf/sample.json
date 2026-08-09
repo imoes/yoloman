@@ -1,0 +1,77 @@
+{
+  "server": {
+    "host": "deployserver.debian-edu",
+    "http_port": 8080,
+    "base_dir": "/srv/debian-edu/deploy",
+    "ssl_enabled": false,
+    "https_port": 8443
+  },
+  "pxe": {
+    "enabled": true,
+    "root": "/srv/tftp",
+    "timeout": 30,
+    "kernel_args": "vga=791 quiet splash",
+    "profiles": [
+      {
+        "name": "debian-stable",
+        "kernel": "vmlinuz-6.1.0-18-amd64",
+        "initrd": "initrd.img-6.1.0-18-amd64",
+        "cmdline": [
+          "auto",
+          "priority=critical",
+          "interface=auto"
+        ]
+      },
+      {
+        "name": "debian-testing",
+        "kernel": "vmlinuz-6.5.0-trunk-amd64",
+        "initrd": "initrd.img-6.5.0-trunk-amd64",
+        "cmdline": [
+          "auto",
+          "priority=critical",
+          "interface=auto",
+          "suite=testing"
+        ]
+      }
+    ]
+  },
+  "dhcp": {
+    "enabled": true,
+    "interface": "eth0",
+    "network": "10.0.0.0/24",
+    "gateway": "10.0.0.1",
+    "dns_servers": [
+      "10.0.0.1",
+      "8.8.8.8"
+    ],
+    "ip_start": "10.0.0.100",
+    "ip_end": "10.0.0.200",
+    "max_lease_time": 86400
+  },
+  "logging": {
+    "level": "INFO",
+    "logfile": "/var/log/debian-edu/deployserver.log"
+  },
+  "workstation": {
+    "default_profile": "debian-stable",
+    "profiles": [
+      {
+        "name": "debian-stable",
+        "rootfs": "/srv/debian-edu/deploy/images/debian-stable.img",
+        "packages": [
+          "openssh-server",
+          "debian-edu-config"
+        ],
+        "post_install": "/usr/share/debian-edu/install/02-add-debian-edu-users"
+      },
+      {
+        "name": "debian-testing",
+        "rootfs": "/srv/debian-edu/deploy/images/debian-testing.img",
+        "packages": [
+          "openssh-server"
+        ],
+        "post_install": "apt-get install -y debian-edu-test"
+      }
+    ]
+  }
+}

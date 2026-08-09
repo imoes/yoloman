@@ -1,0 +1,131 @@
+name: keycloak_clientscope
+fqcn: community.general.keycloak_clientscope
+collection: community.general
+short_description: Allows administration of Keycloak client_scopes via Keycloak API
+description: This module allows you to add, remove or modify Keycloak client_scopes via the Keycloak REST
+  API. It requires access to the REST API via OpenID Connect; the user connecting and the client being
+  used must have the requisite access rights. In a default Keycloak installation, admin-cli and an admin
+  user would work, as would a separate client definition with the scope tailored to your needs and a user
+  having the expected roles. The names of module options are snake_cased versions of the camelCase ones
+  found in the Keycloak API and its documentation at U(https://www.keycloak.org/docs-api/8.0/rest-api/index.html).
+  Attributes are multi-valued in the Keycloak API. All attributes are lists of individual values and will
+  be returned that way by this module. You may pass single values for attributes when calling the module,
+  and this will be translated into a list suitable for the API. When updating a client_scope, where possible
+  provide the client_scope ID to the module. This removes a lookup to the API to translate the name into
+  the client_scope ID.
+options:
+  attributes:
+    type: dict
+    description: A dict of key/value pairs to set as custom attributes for the client_scope. Values may
+      be single values (for example a string) or a list of strings.
+  auth_client_id:
+    type: str
+    default: admin-cli
+    description: OpenID Connect C(client_id) to authenticate to the API with.
+  auth_client_secret:
+    type: str
+    description: Client Secret to use in conjunction with O(auth_client_id) (if required).
+  auth_keycloak_url:
+    type: str
+    required: true
+    aliases:
+    - url
+    description: URL to the Keycloak instance.
+  auth_password:
+    type: str
+    aliases:
+    - password
+    description: Password to authenticate for API access with.
+  auth_realm:
+    type: str
+    description: Keycloak realm name to authenticate to for API access.
+  auth_username:
+    type: str
+    aliases:
+    - username
+    description: Username to authenticate for API access with.
+  connection_timeout:
+    type: int
+    default: 10
+    description: Controls the HTTP connections timeout period (in seconds) to Keycloak API.
+  description:
+    type: str
+    description: Description for this client_scope. This parameter is not required for updating or deleting
+      a client_scope.
+  http_agent:
+    type: str
+    default: Ansible
+    description: Configures the HTTP User-Agent header.
+  id:
+    type: str
+    description: The unique identifier for this client_scope. This parameter is not required for updating
+      or deleting a client_scope but providing it will reduce the number of API calls required.
+  name:
+    type: str
+    description: Name of the client_scope. This parameter is required only when creating or updating the
+      client_scope.
+  protocol:
+    type: str
+    choices:
+    - openid-connect
+    - saml
+    - wsfed
+    description: Type of client.
+  protocol_mappers:
+    type: list
+    aliases:
+    - protocolMappers
+    description: A list of dicts defining protocol mappers for this client. This is 'protocolMappers'
+      in the Keycloak REST API.
+  realm:
+    type: str
+    default: master
+    description: They Keycloak realm under which this client_scope resides.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: State of the client_scope. On V(present), the client_scope will be created if it does
+      not yet exist, or updated with the parameters you provide. On V(absent), the client_scope will be
+      removed if it exists.
+  token:
+    type: str
+    description: Authentication token for Keycloak API.
+  validate_certs:
+    type: bool
+    default: true
+    description: Verify TLS certificates (do not disable this in production).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a Keycloak client_scopes, authentication with credentials\n  community.general.keycloak_clientscope:\n\
+  \    name: my-new-kc-clientscope\n    realm: MyCustomRealm\n    state: present\n    auth_client_id:\
+  \ admin-cli\n    auth_keycloak_url: https://auth.example.com/auth\n    auth_realm: master\n    auth_username:\
+  \ USERNAME\n    auth_password: PASSWORD\n  delegate_to: localhost\n\n- name: Create a Keycloak client_scopes,\
+  \ authentication with token\n  community.general.keycloak_clientscope:\n    name: my-new-kc-clientscope\n\
+  \    realm: MyCustomRealm\n    state: present\n    auth_client_id: admin-cli\n    auth_keycloak_url:\
+  \ https://auth.example.com/auth\n    token: TOKEN\n  delegate_to: localhost\n\n- name: Delete a keycloak\
+  \ client_scopes\n  community.general.keycloak_clientscope:\n    id: '9d59aa76-2755-48c6-b1af-beb70a82c3cd'\n\
+  \    state: absent\n    realm: MyCustomRealm\n    auth_client_id: admin-cli\n    auth_keycloak_url:\
+  \ https://auth.example.com/auth\n    auth_realm: master\n    auth_username: USERNAME\n    auth_password:\
+  \ PASSWORD\n  delegate_to: localhost\n\n- name: Delete a Keycloak client_scope based on name\n  community.general.keycloak_clientscope:\n\
+  \    name: my-clientscope-for-deletion\n    state: absent\n    auth_client_id: admin-cli\n    auth_keycloak_url:\
+  \ https://auth.example.com/auth\n    auth_realm: master\n    auth_username: USERNAME\n    auth_password:\
+  \ PASSWORD\n  delegate_to: localhost\n\n- name: Update the name of a Keycloak client_scope\n  community.general.keycloak_clientscope:\n\
+  \    id: '9d59aa76-2755-48c6-b1af-beb70a82c3cd'\n    name: an-updated-kc-clientscope-name\n    state:\
+  \ present\n    auth_client_id: admin-cli\n    auth_keycloak_url: https://auth.example.com/auth\n   \
+  \ auth_realm: master\n    auth_username: USERNAME\n    auth_password: PASSWORD\n  delegate_to: localhost\n\
+  \n- name: Create a Keycloak client_scope with some custom attributes\n  community.general.keycloak_clientscope:\n\
+  \    auth_client_id: admin-cli\n    auth_keycloak_url: https://auth.example.com/auth\n    auth_realm:\
+  \ master\n    auth_username: USERNAME\n    auth_password: PASSWORD\n    name: my-new_clientscope\n \
+  \   description: description-of-clientscope\n    protocol: openid-connect\n    protocol_mappers:\n \
+  \     - config:\n          access.token.claim: true\n          claim.name: \"family_name\"\n       \
+  \   id.token.claim: true\n          jsonType.label: String\n          user.attribute: lastName\n   \
+  \       userinfo.token.claim: true\n        name: family name\n        protocol: openid-connect\n  \
+  \      protocolMapper: oidc-usermodel-property-mapper\n      - config:\n          attribute.name: Role\n\
+  \          attribute.nameformat: Basic\n          single: false\n        name: role list\n        protocol:\
+  \ saml\n        protocolMapper: saml-role-list-mapper\n    attributes:\n        attrib1: value1\n  \
+  \      attrib2: value2\n        attrib3:\n            - with\n            - numerous\n            -\
+  \ individual\n            - list\n            - items\n  delegate_to: localhost\n"

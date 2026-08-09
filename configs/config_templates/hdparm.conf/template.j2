@@ -1,0 +1,111 @@
+# hdparm configuration template
+# This file configures hdparm (hard drive parameter settings) for Linux systems.
+# It supports global defaults and per-device overrides.
+#
+# Format:
+# Global options (applied to all devices):
+#   option = value
+#
+# Device-specific blocks:
+#   /dev/sdX {
+#       option = value
+#       ...
+#   }
+
+# Global acoustic management level.
+# 0=off, 1–127=quiet, 128–254=performance.
+# Default: 128
+acoustic_management = {{ acoustic_management | default(128) }}
+
+# Global Advanced Power Management (APM) level.
+# 1=lowest power, 254=highest performance, 255=off.
+# Default: 128
+apm = {{ apm_level | default(128) }}
+
+# Global write-back caching setting.
+# 'on' enables write caching, 'off' disables it.
+# Default: 'on'
+write_cache = {{ write_cache | default('on') }}
+
+# Global standby (spindown) timeout in seconds.
+# 0=disabled, max 7200 with encoding.
+# Default: 60
+spindown_time = {{ standby_timeout | default(60) }}
+
+# Global deep sleep level.
+# 0=off, >0 enables deep sleep (limited hardware support).
+# Default: 0
+# Note: hdparm does not have a direct 'deep_sleep' flag in all versions;
+# this template maps it to a comment or skips if not directly supported by the global syntax.
+# However, hdparm.conf does not support a global 'deep_sleep' keyword directly.
+# We will omit it from the global section as it's typically a device-specific or non-existent global cmd.
+# If intended for future compatibility, it can be noted in a comment.
+# deep_sleep is not a standard global hdparm.conf directive.
+
+# Global read-ahead buffer size in 512-byte sectors.
+# Default: 256
+# Note: In newer kernels, read-ahead is managed by the block layer, not hdparm.
+# This setting is legacy but still parsed by hdparm for compatibility.
+read_ahead_sectors = {{ read_ahead_sectors | default(256) }}
+
+# Global DMA (Direct Memory Access) setting.
+# 'on' enables DMA, 'off' disables it.
+# Default: 'on'
+dma = {{ dma_enabled | default('on') }}
+
+# Global multi-sector I/O setting.
+# Number of sectors per command, 1–16.
+# Default: 16
+mult_sect_io = {{ multi_sector_io | default(16) }}
+
+# Global power settings reapplied on system resume.
+# If true, power settings are re-applied after PM resume.
+# Default: False
+# Note: This is handled by the init script/pm-utils hook, not a hdparm.conf directive directly.
+# We log it as a comment for documentation purposes.
+# global_power_during_resume = {{ global_power_during_resume | default(False) }}
+
+# Device-specific configurations
+# Iterates over the 'devices' list provided in the schema.
+# Each device block applies the specified options to the named block device.
+{% for device_cfg in devices | default([]) %}
+# Configuration for device: {{ device_cfg.device | default('unknown') }}
+{% if device_cfg.device %}
+{{ device_cfg.device }} {
+    # Acoustic management for this device
+    {% if device_cfg.acoustic_management is defined %}
+    acoustic_management = {{ device_cfg.acoustic_management | default(128) }}
+    {% endif %}
+
+    # APM level for this device
+    {% if device_cfg.apm_level is defined %}
+    apm = {{ device_cfg.apm_level | default(128) }}
+    {% endif %}
+
+    # Write cache for this device
+    {% if device_cfg.write_cache is defined %}
+    write_cache = {{ device_cfg.write_cache | default('on') }}
+    {% endif %}
+
+    # Standby timeout for this device
+    {% if device_cfg.standby_timeout is defined %}
+    spindown_time = {{ device_cfg.standby_timeout | default(60) }}
+    {% endif %}
+
+    # Read-ahead sectors for this device
+    {% if device_cfg.read_ahead_sectors is defined %}
+    read_ahead_sectors = {{ device_cfg.read_ahead_sectors | default(256) }}
+    {% endif %}
+
+    # DMA setting for this device
+    {% if device_cfg.dma_enabled is defined %}
+    dma = {{ device_cfg.dma_enabled | default('on') }}
+    {% endif %}
+
+    # Multi-sector I/O for this device
+    {% if device_cfg.multi_sector_io is defined %}
+    mult_sect_io = {{ device_cfg.multi_sector_io | default(16) }}
+    {% endif %}
+}
+{% endif %}
+{% endfor %}

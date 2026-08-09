@@ -1,0 +1,77 @@
+# hitch.conf — Global TLS termination proxy configuration for Hitch
+# Listen on the specified frontend port
+bind = [ "{{ frontend_host }}:{{ frontend_port }}" ]
+
+# Backend upstream servers (load-balanced via round-robin by default)
+{% for upstream in upstreams %}# Upstream server: {{ upstream.name }}
+backend = [ "{{ upstream.host }}:{{ upstream.port }}" ]
+{% endfor %}
+
+# TLS cipher suites (preferred order)
+ciphers = "{{ ciphers }}"
+
+# Protocol options
+{% if prefer_server_ciphers %}# Prefer server cipher order (stronger security)
+prefer-server-ciphers = on
+{% else %}prefer-server-ciphers = off
+{% endif %}
+
+# Worker process management
+{% if worker_processes is defined %}# Number of worker processes (0 = auto-detect CPU cores)
+workers = {{ worker_processes }}
+{% endif %}
+
+# Logging
+{% if log_file is defined %}# Write logs to specified file
+log-file = "{{ log_file }}"
+{% endif %}
+# Log level: debug, info, notice, warning, err
+log-level = "{{ log_level }}"
+
+# SSL session resumption settings
+{% if ssl_session_cache_enabled %}# Enable SSL session caching
+ssl-session-cache = on
+{% else %}ssl-session-cache = off
+{% endif %}
+ssl-session-cache-size = {{ ssl_session_cache_size }}
+
+# OCSP stapling (for certificates with OCSP URIs)
+{% if ocsp_responder_urls %}# OCSP stapling: responder URLs
+{% for url in ocsp_responder_urls %}ocsp-responder = "{{ url }}"
+{% endfor %}
+{% endif %}
+
+# Certificate files and SNI mapping
+{% for cert in certificates %}# Certificate: {{ cert.name }}
+pem-file = "{{ cert.pem_path }}"
+{% if cert.sni_names %}# SNI hostnames
+{% for name in cert.sni_names %}sni-name = "{{ name }}"
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Health checks for backends
+{% if health_check_interval > 0 %}# Backend health check: interval (seconds)
+health-check-interval = {{ health_check_interval }}
+{% endif %}
+
+# SSL options
+{% if ssl_options %}# Additional SSL options
+{% for opt in ssl_options %}ssl-option = {{ opt }}
+{% endfor %}
+{% endif %}
+
+# TCP keepalive settings (for frontend connections)
+{% if tcp_keepalive_enabled %}tcp-keepalive = on
+tcp-keepalive-interval = {{ tcp_keepalive_interval }}
+{% else %}tcp-keepalive = off
+{% endif %}
+
+# Graceful shutdown timeout (seconds)
+shutdown-timeout = {{ shutdown_timeout }}
+
+# Use system TLS engine if available (e.g., OpenSSL 3.0 providers)
+{% if use_system_tls_engine %}# Use system TLS engine
+use-system-tls-engine = on
+{% else %}use-system-tls-engine = off
+{% endif %}

@@ -1,0 +1,79 @@
+name: iptables
+fqcn: builtin.iptables
+collection: builtin
+short_description: Ensure a netfilter rule is present or absent in a given table/chain,
+  via `iptables`
+description: 'Ensure a netfilter rule is present or absent in a given table/chain,
+  via `iptables`. Idempotent through `iptables -C` (the check flag purpose-built for
+  idempotent scripting) — only calls -A/-I/-D when the exact rule''s presence doesn''t
+  already match state. Supports check_mode via dry_run=true (the check itself is read-only
+  and always runs, even under dry_run, to report accurately what would change). A
+  focused subset of real Ansible''s ~40 iptables parameters: protocol/source/destination/ports/interfaces/jump/comment
+  cover the common case — conntrack state matching, NAT-specific options, and numeric
+  rule positioning are not implemented here.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.iptables. Same table/chain/protocol/source/destination/source_port/destination_port/in_interface/out_interface/jump/comment/action/state
+  parameter names.
+
+  - Chef: the `iptables_rule` resource.
+
+  - Puppet: the puppetlabs-firewall module''s `firewall` type.
+
+  - Salt: the `iptables.append`/`iptables.insert`/`iptables.delete` execution modules.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s kernel
+  firewall state.'
+options:
+  action:
+    type: string
+    choices:
+    - append
+    - insert
+    description: Where to place a new rule. Default "append".
+  chain:
+    type: string
+    description: Chain name, e.g. "INPUT", "FORWARD", or a custom chain.
+    required: true
+  comment:
+    type: string
+    description: Optional comment attached to the rule via the comment match module.
+  destination:
+    type: string
+    description: Destination address/CIDR to match.
+  destination_port:
+    type: string
+    description: Destination port to match (requires protocol tcp or udp).
+  in_interface:
+    type: string
+    description: Input interface to match.
+  jump:
+    type: string
+    description: Target, e.g. "ACCEPT", "DROP", "REJECT". Required for state=present.
+  out_interface:
+    type: string
+    description: Output interface to match.
+  protocol:
+    type: string
+    description: Protocol to match, e.g. "tcp", "udp", "icmp".
+  source:
+    type: string
+    description: Source address/CIDR to match.
+  source_port:
+    type: string
+    description: Source port to match (requires protocol tcp or udp).
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the rule should be present or absent. Default "present".
+  table:
+    type: string
+    description: Netfilter table. Default "filter".
+native: true
+writes: true
+runtime: native
+source: agent-registry

@@ -1,0 +1,85 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          {{ provides | default('gfmd') }}
+# Required-Start:    $local_fs $remote_fs $network $time
+# Required-Stop:     $local_fs $remote_fs $network $time
+# Should-Start:      $syslog
+# Should-Stop:       $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ short_description | default('Gfarm filesystem metaserver') }}
+# Description: {{ description | default('Gfarm file system metadata server') }}
+### END INIT INFO
+
+# --- Service Configuration Variables ---
+# PATH must include standard binary locations for init script execution
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# DESC: Human-readable description used in log messages
+DESC="{{ desc | default('Gfarm filesystem metaserver') }}"
+
+# NAME: The service binary name and identifier; used to derive daemon path
+NAME={{ name | default('gfmd') }}
+
+# DAEMON: Full path to the executable binary
+DAEMON=/usr/sbin/$NAME
+
+# PIDFILE: Path to the PID file (PID file base name + .pid extension)
+PIDFILE=/var/run/{{ pidfile | default('gfmd') }}.pid
+
+# CONFIG: Path to the main Gfarm metaserver configuration file
+CONFIG=/etc/gfarm2.conf
+
+# OPTIONS: Additional command-line options passed to the daemon
+OPTIONS=
+
+# --- Pre-flight Checks ---
+# Verify the daemon binary exists; exit if missing to avoid runtime errors
+test -f $DAEMON || exit 0
+# Verify the configuration file exists; exit if missing to prevent daemon crash
+test -f $CONFIG || exit 0
+
+# Source LSB init functions for standard logging and status commands
+. /lib/lsb/init-functions
+
+# --- Init Script Actions ---
+case "$1" in
+  start)
+    # Start the Gfarm metaserver daemon
+    log_daemon_msg "Starting $DESC: $NAME"
+    start-stop-daemon --quiet --start \
+               --pidfile $PIDFILE --exec $DAEMON -- -P $PIDFILE $OPTIONS
+    case "$?" in
+      0) log_end_msg 0 ;;
+      1) log_progress_msg "already started"
+         log_end_msg 0 ;;
+      *) log_end_msg 1 ;;
+    esac
+    ;;
+  stop)
+    # Stop the Gfarm metaserver daemon
+    log_daemon_msg "Stopping $DESC" "$NAME"
+    start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+    case "$?" in
+      0) log_end_msg 0 ;;
+      1) log_progress_msg "already stopped"
+         log_end_msg 0 ;;
+      *) log_end_msg 1 ;;
+    esac
+    ;;
+  restart|force-reload)
+    # Restart the service by stopping then starting
+    $0 stop
+    $0 start
+    ;;
+  status)
+    # Check the status of the daemon
+    status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+    ;;
+  *)
+    # Show usage instructions for invalid arguments
+    echo "Usage: /etc/init.d/$SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
+    exit 1
+    ;;
+esac

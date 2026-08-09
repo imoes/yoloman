@@ -1,0 +1,84 @@
+# =============================================================================
+# clangd-17 Configuration
+# =============================================================================
+# This file configures the clangd language server (LLVM project).
+# Syntax: YAML, per https://clangd.llvm.org/config.html
+#
+# Self-documenting: every directive is preceded by its schema description.
+# Variables use safe defaults to prevent render failures if roles don't supply them.
+# =============================================================================
+
+# Path to a single file to parse in isolation (instead of running as LSP server).
+# Overrides other settings.
+{% if check_file is defined or check_file | default('') | length > 0 %}
+Check: "{{ check_file | default('') }}"
+{% endif %}
+
+# Path to directory containing compile_commands.json. clangd searches parent paths if invalid.
+{% if compile_commands_dir is defined or compile_commands_dir | default('') | length > 0 %}
+CompileCommandsDir: "{{ compile_commands_dir | default('') }}"
+{% endif %}
+
+# Enable clang-tidy diagnostics.
+{% if clang_tidy is defined %}
+ClangTidy: {{ clang_tidy | default(False) | bool | string | lower }}
+{% endif %}
+
+# Build and persist background index on disk.
+{% if background_index is defined %}
+BackgroundIndex: {{ background_index | default(True) | bool | string | lower }}
+{% endif %}
+
+# Thread priority for background index: 'background', 'low', or 'normal'.
+# The effect of this flag is OS-specific. 'background' runs on idle CPU time.
+{% if background_index_priority is defined %}
+BackgroundIndexPriority: "{{ background_index_priority | default('background') }}"
+{% endif %}
+
+# Glob patterns for compiler drivers that clangd may safely execute.
+# Each glob is matched against the driver basename.
+{% if removed is defined and removed is iterable and (removed | length) > 0 %}
+RemovedDrivers:
+{% for pattern in removed %}  - "{{ pattern }}"
+{% endfor %}
+{% endif %}
+
+# List of client/server path mappings. Each entry is of form 'client_path=server_path'.
+# First match wins for a given file path.
+{% if path_mappings is defined and path_mappings is iterable and (path_mappings | length) > 0 %}
+PathMappings:
+{% for mapping in path_mappings %}  - "{{ mapping }}"
+{% endfor %}
+{% endif %}
+
+# Enable loading user and project YAML config (always effective in config files).
+{% if enable_config is defined %}
+EnableConfig: {{ enable_config | default(True) | bool | string | lower }}
+{% endif %}
+
+# Log verbosity: 'error', 'info', or 'verbose'.
+# Logs written to stderr.
+{% if log is defined %}
+Log: "{{ log | default('error') }}"
+{% endif %}
+
+# Override client-negotiated offset encoding: 'utf-8', 'utf-16', or 'utf-32'.
+{% if offset_encoding is defined %}
+OffsetEncoding: "{{ offset_encoding | default('utf-8') }}"
+{% endif %}
+
+# Where to store precompiled headers: 'memory' (faster, higher memory) or 'disk' (persistent).
+{% if pch_storage is defined %}
+PchStorage: "{{ pch_storage | default('memory') }}"
+{% endif %}
+
+# Enable periodic memory release via malloc_trim(3).
+{% if malloc_trim is defined %}
+MallocTrim: {{ malloc_trim | default(False) | bool | string | lower }}
+{% endif %}
+
+# Number of async worker threads (background index shares pool).
+# 0 means default (CPU-dependent).
+{% if workers is defined %}
+Workers: {{ workers | default(0) }}
+{% endif %}

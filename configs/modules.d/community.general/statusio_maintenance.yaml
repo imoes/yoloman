@@ -1,0 +1,104 @@
+name: statusio_maintenance
+fqcn: community.general.statusio_maintenance
+collection: community.general
+short_description: Create maintenance windows for your status.io dashboard
+description: Creates a maintenance window for status.io Deletes a maintenance window for status.io
+options:
+  all_infrastructure_affected:
+    type: bool
+    default: false
+    description: If it affects all components and containers
+  api_id:
+    type: str
+    required: true
+    description: Your unique API ID from status.io
+  api_key:
+    type: str
+    required: true
+    description: Your unique API Key from status.io
+  automation:
+    type: bool
+    default: false
+    description: Automatically start and end the maintenance window
+  components:
+    type: list
+    aliases:
+    - component
+    description: The given name of your component (server name)
+  containers:
+    type: list
+    aliases:
+    - container
+    description: The given name of your container (data center)
+  desc:
+    type: str
+    default: Created by Ansible
+    description: Message describing the maintenance window
+  maintenance_id:
+    type: str
+    description: The maintenance id number when deleting a maintenance window
+  maintenance_notify_1_hr:
+    type: bool
+    default: false
+    description: Notify subscribers 1 hour before maintenance start time
+  maintenance_notify_24_hr:
+    type: bool
+    default: false
+    description: Notify subscribers 24 hours before maintenance start time
+  maintenance_notify_72_hr:
+    type: bool
+    default: false
+    description: Notify subscribers 72 hours before maintenance start time
+  maintenance_notify_now:
+    type: bool
+    default: false
+    description: Notify subscribers now
+  minutes:
+    type: int
+    default: 10
+    description: The length of time in UTC that the maintenance will run (starting from playbook runtime)
+  start_date:
+    type: str
+    description: Date maintenance is expected to start (Month/Day/Year) (UTC) End Date is worked out from
+      start_date + minutes
+  start_time:
+    type: str
+    description: Time maintenance is expected to start (Hour:Minutes) (UTC) End Time is worked out from
+      start_time + minutes
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Desired state of the package.
+  statuspage:
+    type: str
+    required: true
+    description: Your unique StatusPage ID from status.io
+  title:
+    type: str
+    default: A new maintenance window
+    description: A descriptive title for the maintenance window
+  url:
+    type: str
+    default: https://api.status.io
+    description: Status.io API URL. A private apiary can be used instead.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a maintenance window for 10 minutes on server1, with automation to stop the\
+  \ maintenance\n  community.general.statusio_maintenance:\n    title: Router Upgrade from ansible\n \
+  \   desc: Performing a Router Upgrade\n    components: server1.example.com\n    api_id: api_id\n   \
+  \ api_key: api_key\n    statuspage: statuspage_id\n    maintenance_notify_1_hr: true\n    automation:\
+  \ true\n\n- name: Create a maintenance window for 60 minutes on server1 and server2\n  community.general.statusio_maintenance:\n\
+  \    title: Routine maintenance\n    desc: Some security updates\n    components:\n      - server1.example.com\n\
+  \      - server2.example.com\n    minutes: 60\n    api_id: api_id\n    api_key: api_key\n    statuspage:\
+  \ statuspage_id\n    maintenance_notify_1_hr: true\n    automation: true\n  delegate_to: localhost\n\
+  \n- name: Create a future maintenance window for 24 hours to all hosts inside the Primary Data Center\n\
+  \  community.general.statusio_maintenance:\n    title: Data center downtime\n    desc: Performing a\
+  \ Upgrade to our data center\n    components: Primary Data Center\n    api_id: api_id\n    api_key:\
+  \ api_key\n    statuspage: statuspage_id\n    start_date: 01/01/2016\n    start_time: 12:00\n    minutes:\
+  \ 1440\n\n- name: Delete a maintenance window\n  community.general.statusio_maintenance:\n    title:\
+  \ Remove a maintenance window\n    maintenance_id: 561f90faf74bc94a4700087b\n    statuspage: statuspage_id\n\
+  \    api_id: api_id\n    api_key: api_key\n    state: absent\n\n"

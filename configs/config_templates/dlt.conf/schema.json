@@ -1,0 +1,154 @@
+{
+  "general.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the dlt-daemon service"
+  },
+  "general.level": {
+    "type": "number",
+    "default": 4,
+    "description": "Verbosity level: 0 (none) to 7 (debug); higher means more verbose logging"
+  },
+  "general.path": {
+    "type": "string",
+    "default": "/var/log/dlt",
+    "description": "Absolute path to the directory where log files are stored"
+  },
+  "general.max_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (in bytes) per log file before rotation (10 MB default)"
+  },
+  "general.max_files": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain"
+  },
+  "general.rotate": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic log file rotation when size limit is reached"
+  },
+  "general.flush": {
+    "type": "bool",
+    "default": false,
+    "description": "Force immediate disk write for each log message (use with caution \u2014 may impact performance)"
+  },
+  "general.rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum log entries per second; set to 0 to disable rate limiting"
+  },
+  "general.hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Override auto-detected hostname in log messages (empty = use system hostname)"
+  },
+  "ipc.socket_path": {
+    "type": "string",
+    "default": "/var/run/dlt",
+    "description": "Absolute path to the directory for IPC Unix sockets"
+  },
+  "ipc.shm_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable shared memory transport for efficient inter-process communication"
+  },
+  "ipc.shm_max_size": {
+    "type": "number",
+    "default": 2097152,
+    "description": "Maximum size (in bytes) of the shared memory segment (2 MB default)"
+  },
+  "storage.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable persistent storage of logs (e.g., to local filesystem)"
+  },
+  "storage.path": {
+    "type": "string",
+    "default": "/var/lib/dlt",
+    "description": "Absolute path to the directory for persistent storage"
+  },
+  "storage.compress": {
+    "type": "bool",
+    "default": true,
+    "description": "Compress stored log files (uses gzip compression)"
+  },
+  "storage.max_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum total size (in bytes) of stored logs; 0 = unlimited (100 MB default)"
+  },
+  "storage.min_free_space": {
+    "type": "number",
+    "default": 52428800,
+    "description": "Stop storing logs when free disk space falls below this value (50 MB default)"
+  },
+  "mgmt.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the HTTP management interface (not recommended for untrusted networks)"
+  },
+  "mgmt.port": {
+    "type": "number",
+    "default": 31322,
+    "description": "TCP port for the HTTP management interface"
+  },
+  "mgmt.tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the management interface"
+  },
+  "mgmt.cert_file": {
+    "type": "string",
+    "default": "/etc/dlt/cert.pem",
+    "description": "Path to the TLS certificate file (PEM format)"
+  },
+  "mgmt.key_file": {
+    "type": "string",
+    "default": "/etc/dlt/key.pem",
+    "description": "Path to the TLS private key file (PEM format)"
+  },
+  "filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of filters to control which messages are logged (by ECU, Application ID, and Context ID)",
+    "items": {
+      "ecu": {
+        "type": "string",
+        "description": "ECU identifier (e.g., 'ECU1')"
+      },
+      "apid": {
+        "type": "string",
+        "description": "Application ID (4-character ASCII string)"
+      },
+      "ctid": {
+        "type": "string",
+        "description": "Context ID (4-character ASCII string)"
+      }
+    }
+  },
+  "receivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote DLT receivers (daemons) to forward logs to",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the remote receiver"
+      },
+      "port": {
+        "type": "number",
+        "description": "UDP/TCP port of the remote receiver (typically 31322)"
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "tcp",
+          "udp"
+        ],
+        "description": "Transport protocol to use (tcp or udp)"
+      }
+    }
+  }
+}

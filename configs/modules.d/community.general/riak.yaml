@@ -1,0 +1,52 @@
+name: riak
+fqcn: community.general.riak
+collection: community.general
+short_description: This module handles some common Riak operations
+description: This module can be used to join nodes to a cluster, check the status of the cluster.
+options:
+  command:
+    type: str
+    choices:
+    - ping
+    - kv_test
+    - join
+    - plan
+    - commit
+    description: The command you would like to perform against the cluster.
+  config_dir:
+    type: path
+    default: /etc/riak
+    description: The path to the riak configuration directory
+  http_conn:
+    type: str
+    default: 127.0.0.1:8098
+    description: The ip address and port that is listening for Riak HTTP queries
+  target_node:
+    type: str
+    default: riak@127.0.0.1
+    description: The target node for certain operations (join, ping)
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+  wait_for_handoffs:
+    type: int
+    default: 0
+    description: Number of seconds to wait for handoffs to complete.
+  wait_for_ring:
+    type: int
+    default: 0
+    description: Number of seconds to wait for all nodes to agree on the ring.
+  wait_for_service:
+    type: str
+    choices:
+    - kv
+    description: Waits for a riak service to come online before continuing.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: \"Join's a Riak node to another node\"\n  community.general.riak:\n    command: join\n\
+  \    target_node: riak@10.1.1.1\n\n- name: Wait for handoffs to finish. Use with async and poll.\n \
+  \ community.general.riak:\n    wait_for_handoffs: true\n\n- name: Wait for riak_kv service to startup\n\
+  \  community.general.riak:\n    wait_for_service: kv\n"

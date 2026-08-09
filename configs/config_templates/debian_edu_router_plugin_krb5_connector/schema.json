@@ -1,0 +1,213 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Toggle the Kerberos connector plugin on or off."
+  },
+  "krb5_conf": {
+    "type": "string",
+    "default": "/etc/krb5.conf",
+    "description": "Path to the main Kerberos configuration file (krb5.conf)."
+  },
+  "keytab_path": {
+    "type": "string",
+    "default": "/etc/krb5kdc/service.keytab",
+    "description": "Path to the Kerberos keytab file used by the service."
+  },
+  "service_principal": {
+    "type": "string",
+    "default": "HTTP/router.example.com@EXAMPLE.COM",
+    "description": "The Kerberos service principal for this router."
+  },
+  "realm": {
+    "type": "string",
+    "default": "EXAMPLE.COM",
+    "description": "The Kerberos realm this connector serves."
+  },
+  "kdcs": {
+    "type": "list",
+    "default": [
+      {
+        "host": "kdc.example.com",
+        "port": null
+      }
+    ],
+    "description": "List of KDC servers. At least one is required; ports are optional (default 88).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "KDC hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "default": null,
+        "description": "KDC port (typically 88). Use null for default."
+      }
+    }
+  },
+  "admin_server": {
+    "type": "object",
+    "default": {
+      "host": "kdc.example.com",
+      "port": null
+    },
+    "description": "Kerberos administration server for realm management.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Admin server hostname."
+      },
+      "port": {
+        "type": "number",
+        "default": null,
+        "description": "Admin port (typically 749). Use null for default."
+      }
+    }
+  },
+  "default_lifetime": {
+    "type": "number",
+    "default": 24,
+    "description": "Default ticket lifetime in hours (must be \u2265 1)."
+  },
+  "max_renewable_lifetime": {
+    "type": "number",
+    "default": 168,
+    "description": "Maximum renewable ticket lifetime in hours (must be \u2265 default_lifetime)."
+  },
+  "enable_dns_realms": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS SRV record lookups for realm discovery."
+  },
+  "canonicalize": {
+    "type": "bool",
+    "default": true,
+    "description": "Canonicalize hostnames in principal names (e.g., resolve CNAMEs)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity for the plugin."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/krb5-connector.log",
+    "description": "Path to plugin log file. Use 'syslog' to send logs to system logger."
+  },
+  "ldaps": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of LDAP servers for principal/user lookup (e.g., in distributed deployments).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "LDAP server hostname or IP."
+      },
+      "port": {
+        "type": "number",
+        "default": null,
+        "description": "LDAP port (389 for unencrypted, 636 for LDAPS). Use null for default."
+      }
+    }
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "DN to bind as for LDAP (empty for anonymous bind)."
+  },
+  "ldap_bind_password_file": {
+    "type": "string",
+    "default": "/etc/krb5-connector/ldap_bind_password",
+    "description": "Path to file containing LDAP bind password (if used)."
+  },
+  "ldap_search_base": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "LDAP search base for user/principal entries."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(krbPrincipalName=%u)",
+    "description": "LDAP filter for user lookup. %u will be replaced by the principal name."
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for LDAP/KDC connections where supported."
+  },
+  "ca_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for TLS trust validation."
+  },
+  "client_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional client certificate for mutual TLS (PEM format)."
+  },
+  "client_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional client private key for mutual TLS (PEM format)."
+  },
+  "verify_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable OCSP/CRL certificate revocation checks."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum concurrent network connections to Kerberos services."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Connection timeout in seconds (0 for infinite)."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time to wait for a full Kerberos request (seconds)."
+  },
+  "retry_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries for transient failures."
+  },
+  "fallback_to_tcp": {
+    "type": "bool",
+    "default": true,
+    "description": "Fall back to TCP if UDP response is truncated."
+  },
+  "prefer_udp": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefer UDP when packet size permits (reduces overhead)."
+  },
+  "enable_fast": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable FAST (Anonymous or authenticated armor) for secure authentication."
+  },
+  "fast_armor_cache": {
+    "type": "string",
+    "default": "FILE:/tmp/krb5_fast_armor",
+    "description": "Cache location for FAST armor tickets (e.g., FILE:/path)."
+  },
+  "preauth_types": {
+    "type": "list",
+    "default": [
+      "18",
+      "19"
+    ],
+    "description": "Ordered list of preauth type OIDs/numbers to offer (e.g., PA-ETYPE-INFO2=18, PA-PW-SALT=19).",
+    "items": {
+      "type": "string",
+      "description": "Preauth type identifier (numeric or OID)."
+    }
+  }
+}

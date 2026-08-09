@@ -1,0 +1,53 @@
+name: xbps
+fqcn: community.general.xbps
+collection: community.general
+short_description: Manage packages with XBPS
+description: Manage packages with the XBPS package manager.
+options:
+  name:
+    type: list
+    aliases:
+    - pkg
+    - package
+    description: Name of the package to install, upgrade, or remove.
+  recurse:
+    type: bool
+    default: false
+    description: When removing a package, also remove its dependencies, provided that they are not required
+      by other packages and were not explicitly installed by a user.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - latest
+    - installed
+    - removed
+    description: Desired state of the package.
+  update_cache:
+    type: bool
+    default: true
+    description: Whether or not to refresh the master package lists. This can be run as part of a package
+      installation or as a separate step.
+  upgrade:
+    type: bool
+    default: false
+    description: Whether or not to upgrade whole system
+  upgrade_xbps:
+    type: bool
+    default: true
+    description: Whether or not to upgrade the xbps package when necessary. Before installing new packages,
+      xbps requires the user to update the xbps package itself. Thus when this option is set to V(false),
+      upgrades and installations will fail when xbps is not up to date.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install package foo (automatically updating the xbps package if needed)\n  community.general.xbps:\n\
+  \    name: foo\n    state: present\n\n- name: Upgrade package foo\n  community.general.xbps:\n    name:\
+  \ foo\n    state: latest\n    update_cache: true\n\n- name: Remove packages foo and bar\n  community.general.xbps:\n\
+  \    name:\n      - foo\n      - bar\n    state: absent\n\n- name: Recursively remove package foo\n\
+  \  community.general.xbps:\n    name: foo\n    state: absent\n    recurse: true\n\n- name: Update package\
+  \ cache\n  community.general.xbps:\n    update_cache: true\n\n- name: Upgrade packages\n  community.general.xbps:\n\
+  \    upgrade: true\n\n- name: Install a package, failing if the xbps package is out of date\n  community.general.xbps:\n\
+  \    name: foo\n    state: present\n    upgrade_xbps: false\n"

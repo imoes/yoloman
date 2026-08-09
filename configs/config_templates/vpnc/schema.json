@@ -1,0 +1,122 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "tun0",
+    "description": "Network interface name to create for the VPN (e.g., tun0)."
+  },
+  "gateway": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname of the VPN gateway."
+  },
+  "psk": {
+    "type": "string",
+    "default": "",
+    "description": "Pre-shared key (PSK) for IPSec authentication. If empty, you will be prompted at runtime."
+  },
+  "ike_dh_group": {
+    "type": "string",
+    "default": "modp1536",
+    "description": "IKE Diffie-Hellman group for key exchange. Common: modp1024, modp1536, modp2048."
+  },
+  "ike_authmode": {
+    "type": "string",
+    "default": "psk",
+    "description": "IKE authentication mode. Only 'psk' is typically used for vpnc.",
+    "enum": [
+      "psk",
+      "cert",
+      "hybrid"
+    ]
+  },
+  "ike_encryption": {
+    "type": "string",
+    "default": "aes",
+    "description": "IKE phase 1 encryption algorithm. Supported: aes, 3des, des."
+  },
+  "ike_hash": {
+    "type": "string",
+    "default": "sha1",
+    "description": "IKE phase 1 hash algorithm. Supported: sha1, md5."
+  },
+  "ike_lifetime": {
+    "type": "number",
+    "default": 28800,
+    "description": "IKE phase 1 SA lifetime in seconds."
+  },
+  "ipsec_encryption": {
+    "type": "string",
+    "default": "aes",
+    "description": "IPSec (phase 2) encryption algorithm. Supported: aes, 3des."
+  },
+  "ipsec_hash": {
+    "type": "string",
+    "default": "sha1",
+    "description": "IPSec (phase 2) hash algorithm. Supported: sha1, md5."
+  },
+  "ipsec_pfs": {
+    "type": "string",
+    "default": "modp1024",
+    "description": "Perfect Forward Secrecy (PFS) DH group. Use 'off' to disable."
+  },
+  "ipsec_lifetime": {
+    "type": "number",
+    "default": 3600,
+    "description": "IPSec (phase 2) SA lifetime in seconds."
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Local endpoint IP address. Leave blank for auto."
+  },
+  "local_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Local UDP port to use for NAT-T. 0 means auto."
+  },
+  "ipsec_payload": {
+    "type": "string",
+    "default": "tunnel",
+    "description": "IPSec payload mode: 'tunnel' (default) or 'transport'."
+  },
+  "natt_mode": {
+    "type": "string",
+    "default": "on",
+    "description": "Enable Cisco NAT Traversal. Set to 'off' if not behind NAT."
+  },
+  "domain": {
+    "type": "list",
+    "default": [],
+    "description": "DNS suffixes to append to domain names. vpnc treats this as Domain directive (multiple allowed, but template joins as single line)."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS server IPs to configure for the VPN. If empty, servers are set by the VPN gateway (if supported)."
+  },
+  "routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of subnets to route through the VPN. Each route creates a Subnet directive."
+  },
+  "no_nat": {
+    "type": "list",
+    "default": [],
+    "description": "List of subnets to reach *directly* (not via VPN). Creates No NAT directives."
+  },
+  "xauth_username": {
+    "type": "string",
+    "default": "",
+    "description": "XAuth username for secondary authentication (if required by gateway)."
+  },
+  "xauth_password": {
+    "type": "string",
+    "default": "",
+    "description": "XAuth password. If empty, prompt at runtime."
+  },
+  "proxy_arp": {
+    "type": "string",
+    "default": "on",
+    "description": "Enable proxy ARP on the VPN interface."
+  }
+}

@@ -1,0 +1,132 @@
+# ============================================================================
+# Apertium-APY Service Configuration Template
+# ============================================================================
+# This template generates a shell environment file to be sourced by init
+# scripts, systemd drop-in files, or supervisor daemons that manage the
+# apertium-apy binary.
+#
+# All variables are prefixed with APY_ to avoid namespace collisions.
+# Defaults are applied inline for every variable to ensure the rendered
+# output is always valid, even if the calling role omits specific fields.
+#
+# Self-documenting: every directive has a comment explaining its purpose
+# and the corresponding schema description.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Host Binding
+# IP address or hostname the service should bind to (e.g., '0.0.0.0' for all
+# interfaces). Use '127.0.0.1' for local-only access.
+# ----------------------------------------------------------------------------
+APY_HOST="{{ host | default('127.0.0.1') }}"
+
+# ----------------------------------------------------------------------------
+# TCP Port
+# TCP port number for the APY service to listen on.
+# ----------------------------------------------------------------------------
+APY_PORT="{{ port | default(2737) }}"
+
+# ----------------------------------------------------------------------------
+# Workers
+# Number of worker processes (0 = auto-detect based on CPU cores).
+# Set to 1 for development/testing to simplify debugging.
+# ----------------------------------------------------------------------------
+APY_WORKERS="{{ workers | default(0) }}"
+
+# ----------------------------------------------------------------------------
+# Max Requests
+# Maximum number of requests a worker handles before being restarted.
+# This prevents memory leaks in long-running worker processes.
+# ----------------------------------------------------------------------------
+APY_MAX_REQUESTS="{{ max_requests | default(10000) }}"
+
+# ----------------------------------------------------------------------------
+# Timeout
+# Request timeout in seconds. Increase this value for complex translations
+# or large text inputs that may take longer to process.
+# ----------------------------------------------------------------------------
+APY_TIMEOUT="{{ timeout | default(30) }}"
+
+# ----------------------------------------------------------------------------
+# Log Level
+# Verbosity of logging output: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+# ----------------------------------------------------------------------------
+APY_LOGLEVEL="{{ loglevel | default('INFO') }}"
+
+# ----------------------------------------------------------------------------
+# Log File
+# Path to log file. If empty, logs are written to standard output (stdout).
+# ----------------------------------------------------------------------------
+APY_LOGFILE="{{ log_file | default('') }}"
+
+# ----------------------------------------------------------------------------
+# PID File
+# Path to store the process ID file, used by init systems for service
+# control (start/stop/status/restart).
+# ----------------------------------------------------------------------------
+APY_PIDFILE="{{ pid_file | default('/run/apertium-apy.pid') }}"
+
+# ----------------------------------------------------------------------------
+# Language Pairs
+# List of language pairs (e.g., ['eng-spa', 'fra-deu']) to expose.
+# If empty, all installed language pairs on the system are exposed.
+# Rendered as a comma-separated string.
+# ----------------------------------------------------------------------------
+APY_LANGPAIRS="{{ (langpairs | default([])) | join(',') }}"
+
+# ----------------------------------------------------------------------------
+# Whitelist
+# Optional list of language pairs to whitelist. Overrides `langpairs` if set.
+# Empty means no restriction (uses all pairs from langpairs or auto-discovered).
+# Rendered as a comma-separated string.
+# ----------------------------------------------------------------------------
+APY_WHITELIST="{{ (whitelist | default([])) | join(',') }}"
+
+# ----------------------------------------------------------------------------
+# Preload
+# Whether to pre-load translation models at service startup.
+# Setting to 'true' improves first-request latency at the cost of startup time.
+# ----------------------------------------------------------------------------
+APY_PRELOAD="{{ preload | default(True) | lower }}"
+
+# ----------------------------------------------------------------------------
+# Max Memory
+# Maximum memory (in MB) allowed per worker process.
+# Workers exceeding this limit will be automatically restarted.
+# ----------------------------------------------------------------------------
+APY_MAXMEMORY="{{ max_memory | default(2048) }}"
+
+# ----------------------------------------------------------------------------
+# Keepalive
+# Enable HTTP/1.1 keep-alive connections for improved performance with
+# persistent client connections.
+# ----------------------------------------------------------------------------
+APY_KEEPALIVE="{{ keepalive | default(True) | lower }}"
+
+# ----------------------------------------------------------------------------
+# Base Path
+# Base URL path for API endpoints (e.g., '/translator' -> /translator/listPairs).
+# ----------------------------------------------------------------------------
+APY_PATH="{{ path | default('/translator') }}"
+
+# ----------------------------------------------------------------------------
+# CORS
+# Enable Cross-Origin Resource Sharing (CORS) headers for browser-based
+# clients. Useful when the APY service is accessed from a web frontend
+# hosted on a different domain.
+# ----------------------------------------------------------------------------
+APY_CORS="{{ cors | default(True) | lower }}"
+
+# ----------------------------------------------------------------------------
+# Server Header
+# Optional custom value for the HTTP 'Server' response header.
+# Leave empty to use the default Apertium-APY server signature.
+# ----------------------------------------------------------------------------
+APY_SERVERHEADER="{{ server_header | default('') }}"
+
+# ----------------------------------------------------------------------------
+# Extra Args
+# Additional command-line arguments to pass directly to the apertium-apy
+# binary (e.g., '--mode server'). Use with caution.
+# ----------------------------------------------------------------------------
+APY_EXTRA_ARGS="{{ extra_args | default('') }}"

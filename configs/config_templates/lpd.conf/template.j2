@@ -1,0 +1,49 @@
+[# /etc/lpd.conf: main configuration for the line printer daemon (LPD) #]
+
+# Global LPD settings
+[global]
+# Enable or disable the LPD service
+debug = {{ debug }}
+# Maximum number of simultaneous print jobs
+max_jobs = {{ max_jobs }}
+# User under which LPD runs
+lpd_user = {{ lpd_user }}
+# Path to the spool directory
+spool_dir = {{ spool_dir }}
+# Hostname or IP to bind the LPD service to (empty = all interfaces)
+bind_address = {{ bind_address }}
+# Port to listen on
+port = {{ port }}
+# Enable or disable printing from remote hosts
+remote_enable = {{ remote_enable }}
+# Enable or disable access logging
+log_access = {{ log_access }}
+
+# Printcap file location
+printcap = {{ printcap }}
+
+# Path to the log file
+log_file = {{ log_file }}
+
+# Per-queue configuration sections
+{% for queue in queues %}
+[{{ queue.name }}]
+# Description of the queue
+comment = {{ queue.comment|default('') }}
+# Path to the spool directory for this queue (optional — overrides global if set)
+spool_dir = {{ queue.spool_dir|default('') }}
+# Backend command or device for this queue (e.g., /dev/lp0, or lpr command)
+device = {{ queue.device }}
+# Printer driver or filter (optional)
+filter = {{ queue.filter|default('') }}
+# Enable or disable this queue
+enabled = {{ queue.enabled }}
+# Maximum job size in bytes (0 = unlimited)
+max_job_size = {{ queue.max_job_size }}
+# Allowed users (empty = all); comma-separated list or group names prefixed with @
+allowed_users = {{ queue.allowed_users|default('')|join(', ') }}
+# Denied users (empty = none); comma-separated list or group names prefixed with @
+denied_users = {{ queue.denied_users|default('')|join(', ') }}
+# Enable or disable job holding by default
+hold_job = {{ queue.hold_job|default(false) }}
+{% endfor %}

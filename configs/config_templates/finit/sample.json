@@ -1,0 +1,47 @@
+{
+  "runlevel_default": 2,
+  "syslog_enable": false,
+  "loglevel": 3,
+  "console_device": "",
+  "hostname": "",
+  "runlevels": [
+    {
+      "number": 3,
+      "services": [
+        "network",
+        "sshd",
+        "crond"
+      ]
+    },
+    {
+      "number": 5,
+      "services": [
+        "network",
+        "sshd",
+        "crond",
+        "display-manager"
+      ]
+    }
+  ],
+  "services": [
+    {
+      "name": "network",
+      "cmd": "/usr/sbin/networkctl enable --global",
+      "pidfile": "/run/network/networkctl.pid",
+      "network_required": true,
+      "early_boot": false
+    },
+    {
+      "name": "sshd",
+      "cmd": "/usr/sbin/sshd -D",
+      "restart_delay": 3,
+      "start_timeout": 5,
+      "restart_limit": 3
+    },
+    {
+      "name": "crond",
+      "cmd": "/usr/sbin/crond -n",
+      "depends_on": "network"
+    }
+  ]
+}

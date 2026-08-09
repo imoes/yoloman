@@ -1,0 +1,93 @@
+# IP address for the proxy to listen on (e.g., '0.0.0.0' for all interfaces)
+listen = {{ (listen_addr | default('0.0.0.0')) }}:{{ (listen_port | default(8080)) }}
+
+# Name identifying this proxy instance’s backend group
+backend = {{ (backend_name | default('default')) }}
+
+# Maximum number of concurrent client connections allowed
+max_connections = {{ (max_connections | default(4096)) }}
+
+# Enable transparent proxy mode (typically used when proxy sits in-line on the network path)
+transparent = {{ (transparent | default(False)) | lower }}
+
+# Enable PROXY protocol to preserve client IP when proxying through another proxy
+{% if (proxy_protocol | default(False)) %}
+proxy_protocol = on
+{% else %}
+proxy_protocol = off
+{% endif %}
+
+# Timeout (seconds) for establishing connection to backend servers
+timeout_connect = {{ (timeout_connect | default(5)) }}
+
+# Timeout (seconds) waiting for response from backend servers
+timeout_server = {{ (timeout_server | default(60)) }}
+
+# Verbosity level for logs (debug, info, notice, warning, error)
+log_level = {{ (log_level | default('notice')) }}
+
+# Path to the log file (if not specified, logs to stdout)
+log_file = {{ (log_file | default('/var/log/ffproxy/ffproxy.log')) }}
+
+# Path to the PID file
+pid_file = {{ (pid_file | default('/run/ffproxy/ffproxy.pid')) }}
+
+# List of backend servers to proxy requests to
+{% for server in (backend_servers | default([])) %}
+# Backend server: {{ (server | default({})) | attr('name') | default('default') }}
+[backend:{{ (server | default({})) | attr('name') | default('default') }}]
+address = {{ (server | default({})) | attr('address') | default('127.0.0.1') }}:{{ (server | default({})) | attr('port') | default(80) }}
+weight = {{ (server | default({})) | attr('weight') | default(1) }}
+{% if (server | default({})) | attr('backup') is defined and (server | default({})) | attr('backup') is not none %}
+# Whether this server is a backup (only used if primary servers fail)
+backup = {{ (server | default({})) | attr('backup') | lower }}
+{% endif %}
+{% if (server | default({})) | attr('check') is defined and (server | default({})) | attr('check') is not none %}
+# Health check configuration for this server
+check = {{ (server | default({})) | attr('check') | lower }}
+{% endif %}
+{% if (server | default({})) | attr('max_connections') is defined and (server | default({})) | attr('max_connections') is not none %}
+# Maximum connections for this specific backend server
+max_connections = {{ (server | default({})) | attr('max_connections') }}
+{% endif %}
+{% endfor %}
+
+{% if (ssl_enabled | default(False)) %}
+[ssl]
+# IP address for SSL listener (ignored unless ssl_enabled)
+listen_ssl = {{ (ssl_listen_addr | default('0.0.0.0')) }}:{{ (ssl_listen_port | default(8443)) }}
+# Path to the SSL certificate file
+cert = {{ (ssl_cert_path | default('/etc/ffproxy/ssl/server.crt')) }}
+# Path to the SSL private key file
+key = {{ (ssl_key_path | default('/etc/ffproxy/ssl/server.key')) }}
+# Colon- or space-separated list of allowed SSL ciphers (fallback to defaults if omitted)
+{% if (ssl_ciphers | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256')) %}
+ciphers = {{ (ssl_ciphers | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256')) }}
+{% endif %}
+# List of allowed SSL/TLS protocols
+{% if (ssl_protocols | default(['TLSv1.2', 'TLSv1.3'])) %}
+protocols = {{ (ssl_protocols | default(['TLSv1.2', 'TLSv1.3'])) | join(' ') }}
+{% endif %}
+# Prefer server cipher order over client order during TLS handshake
+{% if (ssl_prefer_server_ciphers | default(True)) %}
+prefer_server_ciphers = {{ (ssl_prefer_server_ciphers | default(True)) | lower }}
+{% endif %}
+{% endif %}
+
+{% if (acl_rules | default([])) %}
+[acl]
+# Access control rules for routing or blocking traffic
+{% for rule in (acl_rules | default([])) %}
+# ACL rule: {{ (rule | default({})) | attr('name') | default('rule_' + loop.index0|string) }}
+{{ (rule | default({})) | attr('name') | default('rule_' + loop.index0|string) }} = {{ (rule | default({})) | attr('pattern') | default('') }}
+{% endfor %}
+{% endif %}
+
+{% if (rate_limits | default([])) %}
+[rate_limit]
+# Per-ACL or per-group rate limiting rules
+{% for lim in (rate_limits | default([])) %}
+# Rate limit: {{ (lim | default({})) | attr('name') | default('limit_' + loop.index0|string) }}
+{{ (lim | default({})) | attr('name') | default('limit_' + loop.index0|string) }} = {{ (lim | default({})) | attr('requests') | default(0) }}/{{ (lim | default({})) | attr('window') | default(60) }}s
+{% endfor %}
+{% endif %}

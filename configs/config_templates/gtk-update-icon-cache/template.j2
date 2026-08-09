@@ -1,0 +1,36 @@
+{# ============================================================================= #}
+{# gtk-update-icon-cache(1) Configuration Template                               #}
+{# This template generates a configuration snippet or script arguments for        #}
+{# gtk-update-icon-cache, which scans icon theme directories to build/update      #}
+{# the icon caches (index.theme).                                                 #}
+{#                                                                                #}
+{# Variables are sourced from the Ansible role variables, with safe defaults      #}
+{# applied via Jinja2 filters to prevent rendering errors.                        #}
+{# ============================================================================= #}
+
+{# --- Icon Theme Path Configuration --- #}
+{# Path to the top-level icon theme directory.                                 #}
+{# The directory must contain an index.theme file to be processed.             #}
+{# Default: /usr/share/icons/hicolor                                           #}
+{# If this is meant to be a config file line, ensure the format matches the   #}
+{# target application. Here it is rendered as a standalone path.              #}
+{{ (icon_theme_path | default('/usr/share/icons/hicolor')) | string }}
+
+{# --- Options Configuration --- #}
+{# List of command-line options to pass to gtk-update-icon-cache.          #}
+{# Each item is a string corresponding to a known flag (e.g., 'force').   #}
+{# The template converts these logical names into their respective        #}
+{# command-line flags (-f, -t, -i, etc.). If the list is empty, nothing   #}
+{# is rendered below.                                                     #}
+{% for opt in (options | default([])) %}
+{# Convert the logical option name to its corresponding CLI flag(s).    #}
+{# Only one flag variant is emitted per option to avoid duplicates.     #}
+{% if opt == 'force' %}-f
+{% elif opt == 'ignore_theme_index' %}-t
+{% elif opt == 'index_only' %}-i
+{% elif opt == 'include_image_data' %}--include-image-data
+{% elif opt == 'quiet' %}-q
+{% elif opt == 'validate' %}-v
+{% else %}# Unknown option: {{ opt }}
+{% endif %}
+{% endfor %}

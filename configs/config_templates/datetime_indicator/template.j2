@@ -1,0 +1,97 @@
+# Configuration for Lomiri DateTime Indicator
+# =============================================
+# This template configures the Lomiri DateTime indicator applet.
+# It controls the appearance of the clock, calendar popup, and weather display.
+
+# Enable/disable the entire DateTime indicator applet in the system panel.
+# Valid values: true, false.
+# Default: true.
+enabled={{ enabled | default(true) }}
+
+# Custom clock format string using strftime directives.
+# Examples: '%H:%M', '%I:%M %p', '%H:%M:%S'.
+# Leave empty to use the system's default clock format.
+# The value is JSON-encoded to safely handle special characters (quotes, backslashes).
+clock_format={{ clock_format | default('') | tojson }}
+
+# Display time in 24-hour format (e.g., 14:30) instead of 12-hour (e.g., 02:30 PM).
+# Valid values: true, false.
+# Default: true.
+clock_use_24h={{ clock_use_24h | default(true) }}
+
+# Show seconds in the clock display, if supported by the configured format.
+# Valid values: true, false.
+# Default: false.
+clock_show_seconds={{ clock_show_seconds | default(false) }}
+
+# Display the current date below the time in the clock area.
+# Valid values: true, false.
+# Default: true.
+clock_show_date={{ clock_show_date | default(true) }}
+
+# Enable the calendar popup when clicking the DateTime indicator.
+# Valid values: true, false.
+# Default: true.
+calendar_enabled={{ calendar_enabled | default(true) }}
+
+# Show upcoming events from the system’s default calendar application in the popup.
+# Valid values: true, false.
+# Default: true.
+calendar_show_events={{ calendar_show_events | default(true) }}
+
+# Maximum number of upcoming events to display in the calendar popup.
+# Must be a positive integer.
+# Default: 5.
+calendar_max_events={{ calendar_max_events | default(5) }}
+
+# Timezone display mode for the clock.
+# Options:
+#   - 'local': Display current local time only.
+#   - 'home':  Display home timezone time (requires clock_home_timezone).
+#   - 'both':  Display both local and home timezone times.
+# Valid values: 'local', 'home', 'both'.
+# Default: 'local'.
+clock_timezone_mode={{ clock_timezone_mode | default('local') }}
+
+# Home timezone identifier (IANA timezone name, e.g., 'Europe/London').
+# Required when clock_timezone_mode is 'home' or 'both'.
+# The value is JSON-encoded to safely handle special characters.
+clock_home_timezone={{ clock_home_timezone | default('') | tojson }}
+
+# Format for dates displayed in the calendar view.
+# Uses strftime syntax. Example: '%A, %B %d' results in 'Monday, January 15'.
+# The value is JSON-encoded to safely handle special characters.
+calendar_date_format={{ calendar_date_format | default('%A, %B %d') | tojson }}
+
+# Format for event times displayed in the calendar view.
+# Uses strftime syntax. Example: '%H:%M' results in '14:30'.
+# The value is JSON-encoded to safely handle special characters.
+calendar_time_format={{ calendar_time_format | default('%H:%M') | tojson }}
+
+# List of additional calendar event sources to display (e.g., iCal files or webcal feeds).
+# Each source is a map with keys: 'type', 'name', 'url_or_path'.
+# 'type': 'file' for local files, 'webcal' for web feeds.
+# 'name': A human-readable label for the source.
+# 'url_or_path': The path to the local file or URL of the web feed.
+{% for source in event_sources | default([]) %}event_source_{{ loop.index0 }}_type={{ source.type | tojson }}
+event_source_{{ loop.index0 }}_name={{ source.name | tojson }}
+event_source_{{ loop.index0 }}_url_or_path={{ source.url_or_path | tojson }}
+{% endfor %}
+
+# Show current weather forecast in the calendar popup.
+# Requires a weather-indicator backend service to be running.
+# Valid values: true, false.
+# Default: false.
+calendar_show_weather={{ calendar_show_weather | default(false) }}
+
+# Weather location identifier (e.g., OpenWeatherMap City ID).
+# Required when calendar_show_weather is true.
+# The value is JSON-encoded to safely handle special characters.
+weather_location_id={{ weather_location_id | default('') | tojson }}
+
+# Units for weather display.
+# Options:
+#   - 'metric': Temperature in °C, wind speed in m/s.
+#   - 'imperial': Temperature in °F, wind speed in mph.
+# Default: 'metric'.
+weather_units={{ weather_units | default('metric') }}

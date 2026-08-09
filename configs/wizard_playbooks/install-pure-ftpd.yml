@@ -1,0 +1,65 @@
+- name: install-pure-ftpd
+  hosts: all
+  become: true
+  vars:
+    tls: true
+    ipv6: false
+    port: 21
+    min_uid: 1000
+    timeout: 300
+    force_tls: true
+    standalone: true
+    max_clients: 30
+    public_host: ""
+    bind_address: "0.0.0.0"
+    ldap_configs: []
+    custom_settings: {}
+    passive_port_max: 40100
+    passive_port_min: 40000
+    tls_cipher_suite: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+    anonymous_enabled: false
+    max_clients_per_ip: 5
+    require_valid_shell: true
+    unix_authentication: true
+    tls_certificate_path: "/etc/ssl/private/pure-ftpd.pem"
+    _dest: "/etc/pure-ftpd/pure-ftpd.conf"
+    _service: "pure-ftpd"
+    _packages: ["pure-ftpd"]
+  tasks:
+    - name: Install Pure-FTPd Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: pure-ftpd.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        tls: "{{ tls }}"
+        ipv6: "{{ ipv6 }}"
+        port: "{{ port }}"
+        min_uid: "{{ min_uid }}"
+        timeout: "{{ timeout }}"
+        force_tls: "{{ force_tls }}"
+        standalone: "{{ standalone }}"
+        max_clients: "{{ max_clients }}"
+        public_host: "{{ public_host }}"
+        bind_address: "{{ bind_address }}"
+        ldap_configs: "{{ ldap_configs }}"
+        custom_settings: "{{ custom_settings }}"
+        passive_port_max: "{{ passive_port_max }}"
+        passive_port_min: "{{ passive_port_min }}"
+        tls_cipher_suite: "{{ tls_cipher_suite }}"
+        anonymous_enabled: "{{ anonymous_enabled }}"
+        max_clients_per_ip: "{{ max_clients_per_ip }}"
+        require_valid_shell: "{{ require_valid_shell }}"
+        unix_authentication: "{{ unix_authentication }}"
+        tls_certificate_path: "{{ tls_certificate_path }}"
+
+    - name: Enable and restart Pure-FTPd Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

@@ -1,0 +1,110 @@
+{
+  "bind_port": 53,
+  "bind_listen_on_ipv4": true,
+  "bind_listen_on": [
+    "127.0.0.1",
+    "10.0.0.5"
+  ],
+  "bind_listen_on_ipv6": false,
+  "bind_listen_on_v6": [],
+  "bind_directory": "/var/cache/bind",
+  "bind_pid_file": "/run/named/named.pid",
+  "bind_recursion": true,
+  "bind_allow_query": [
+    "any"
+  ],
+  "bind_forwarders": [
+    "8.8.8.8",
+    "8.8.4.4"
+  ],
+  "bind_forward_only": false,
+  "bind_dnssec_enabled": false,
+  "bind_dnssec_validation": true,
+  "bind_accept_foreign": false,
+  "bind_max_cache_size": "256M",
+  "bind_log_queries": false,
+  "bind_logging_channels": [
+    {
+      "name": "queries",
+      "file": "/var/log/bind/queries.log",
+      "max_size": "50m",
+      "versions": 4,
+      "print_time": true,
+      "severity": "info"
+    },
+    {
+      "name": "default",
+      "syslog": "daemon"
+    }
+  ],
+  "bind_logging_categories": [
+    {
+      "name": "queries",
+      "channels": [
+        "queries"
+      ]
+    }
+  ],
+  "bind_acls": [
+    {
+      "name": "trusted",
+      "items": [
+        "10.0.0.0/8",
+        "127.0.0.0/8"
+      ]
+    },
+    {
+      "name": "localnets",
+      "items": [
+        "10.0.0.0/8",
+        "192.168.0.0/16",
+        "172.16.0.0/12"
+      ]
+    }
+  ],
+  "bind_trusted_keys": [],
+  "bind_zones": [
+    {
+      "name": "example.com",
+      "type": "master",
+      "file": "db.example.com",
+      "allow_transfer": [
+        "trusted"
+      ]
+    },
+    {
+      "name": "0.10.in-addr.arpa",
+      "type": "master",
+      "file": "db.10.0",
+      "allow_transfer": [
+        "trusted"
+      ]
+    },
+    {
+      "name": "internal.example.com",
+      "type": "slave",
+      "file": "db.internal.example.com",
+      "masters": [
+        "10.0.0.10"
+      ],
+      "allow_transfer": []
+    }
+  ],
+  "bind_views": [
+    {
+      "name": "internal",
+      "match_clients": [
+        "10.0.0.0/8",
+        "127.0.0.0/8"
+      ],
+      "recursion": true,
+      "zones": [
+        {
+          "name": "internal.example.com",
+          "type": "master",
+          "file": "db.internal.example.com"
+        }
+      ]
+    }
+  ]
+}

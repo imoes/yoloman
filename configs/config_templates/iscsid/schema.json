@@ -1,0 +1,91 @@
+{
+  "log_level": {
+    "type": "number",
+    "default": 7,
+    "description": "Logging verbosity (0-8); 8 is most verbose."
+  },
+  "node_session_timeo_replacement_timeout": {
+    "type": "number",
+    "default": 12,
+    "description": "Time in seconds before replacing a failed session."
+  },
+  "node_session_initial_cmdsn": {
+    "type": "number",
+    "default": 0,
+    "description": "Initial Command Sequence Number."
+  },
+  "node_session_initial_login_retry_max": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of login retries."
+  },
+  "node_session_cmds_max": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of commands."
+  },
+  "node_session_queue_depth": {
+    "type": "number",
+    "default": 32,
+    "description": "Queue depth."
+  },
+  "node_session_iscsi_initial_r2t": {
+    "type": "string",
+    "default": "No",
+    "description": "Initial Ready To Transfer."
+  },
+  "node_session_iscsi_immediate_data": {
+    "type": "string",
+    "default": "Yes",
+    "description": "Immediate Data."
+  },
+  "node_session_iscsi_first_burst_length": {
+    "type": "number",
+    "default": 262144,
+    "description": "First Burst Length."
+  },
+  "node_session_iscsi_max_burst_length": {
+    "type": "number",
+    "default": 16776192,
+    "description": "Max Burst Length."
+  },
+  "node_session_iscsi_default_time2retain": {
+    "type": "number",
+    "default": 0,
+    "description": "Default Time2Retain."
+  },
+  "node_session_iscsi_default_time2wait": {
+    "type": "number",
+    "default": 2,
+    "description": "Default Time2Wait."
+  },
+  "node_session_iscsi_max_connections": {
+    "type": "number",
+    "default": 1,
+    "description": "Max Connections."
+  },
+  "node_session_iscsi_max_outstanding_r2t": {
+    "type": "number",
+    "default": 1,
+    "description": "Max Outstanding R2T."
+  },
+  "node_session_iscsi_erl": {
+    "type": "number",
+    "default": 0,
+    "description": "Error Recovery Level."
+  },
+  "static_discovery_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of static discovery addresses (e.g., ['192.168.1.100:3260'])."
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of iSCSI targets to configure for discovery/session management by iscsid. Note: iscsid manages the initiator side (client), not the target side (server). This template is structured for iscsid(8) configuration which targets the initiator database (/var/lib/iscsi/nodes). If the intent was to configure tgtd (the iSCSI target server), this template is fundamentally incorrect for the package 'iscsid'. However, based on the package name 'iscsid', this reflects the actual daemon's config format. If the user intended to configure the iSCSI TARGET server (tgtd), they should use the 'tgtd' package. Assuming 'iscsid' means the open-iscsi daemon (initiator), this template is valid for iscsid. BUT, looking at the previous template, it was clearly for tgtd (target). The prompt asks to correct based on 'iscsid'. iscsid(8) is the initiator. The previous template was for a TARGET. This is a conflict. \n\nRE-EVALUATION: The prompt says 'Package/service: iscsid'. \nThe previous template was for `tgtd` (target). \nThe man page provided is `iscsid(8)` which is the OPEN-ISCSI DAEMON (Initiator). \nHowever, often in Ansible/Configuration contexts, 'iscsid' might be confused with the target daemon. \nBUT, the rule is: Review against the authoritative man page. The man page is `iscsid(8)`. This is the initiator. \nThe previous template was completely wrong for `iscsid` because it was for `tgtd`. \nTherefore, I must replace the `tgtd` template with an `iscsid` template.\n\nWait, if the user is using 'iscsid' they likely want to configure the initiator. \nThe previous template had `targets` with `backing_store`. Initiators do NOT have backing stores. \nThis suggests the user *intended* to configure a target, but named the package wrong, OR they want to configure the initiator. \nGiven the strict instruction "
+  },
+  "removed": {
+    "type": "list",
+    "description": "The entire previous template was for 'tgtd' (iSCSI Target daemon), not 'iscsid' (iSCSI Initiator daemon). The variables `default_auth_type`, `default_auth_secret`, `bind_addresses`, `targets`, `driver`, `backing_store`, `luns`, `initiators`, `chap`, `write_cache`, `nacl` are all specific to `tgtd` and are hallucinated/incorrect for `iscsid`."
+  }
+}

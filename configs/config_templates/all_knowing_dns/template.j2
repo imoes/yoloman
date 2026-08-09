@@ -1,0 +1,149 @@
+# all-knowing-dns configuration template
+# Provides low-latency, minimal-resource reverse DNS lookups for IPv6 prefixes.
+#
+# This template is SELF-DOCUMENTING: every directive is preceded by its
+# schema description and the Jinja2 variable it maps to. All variables
+# use explicit defaults to prevent rendering errors when the caller
+# omits optional fields.
+
+# -----------------------------------------------------------------------------
+# Basic server settings
+# -----------------------------------------------------------------------------
+
+# IPv6 address the server binds to (use '::' for all interfaces).
+# Variable: listen_address (default: '::')
+listen_address = "{{ (listen_address | default('::')) | string }}"
+
+# UDP/TCP port for DNS queries (standard: 53).
+# Variable: listen_port (default: 53)
+listen_port = {{ (listen_port | default(53)) | int }}
+
+# -----------------------------------------------------------------------------
+# Zone files
+# -----------------------------------------------------------------------------
+
+# Directory containing IPv6 reverse zone files (e.g., 2001.db, 2001:db8.rev).
+# Variable: zone_dir (default: '/var/lib/all-knowing-dns/zonefiles')
+zone_dir = "{{ (zone_dir | default('/var/lib/all-knowing-dns/zonefiles')) | string }}"
+
+# -----------------------------------------------------------------------------
+# Connection limits
+# -----------------------------------------------------------------------------
+
+# Maximum simultaneous client connections.
+# Variable: max_connections (default: 1024)
+max_connections = {{ (max_connections | default(1024)) | int }}
+
+# -----------------------------------------------------------------------------
+# Logging
+# -----------------------------------------------------------------------------
+
+# Verbosity level: 0 (errors only), 1 (warnings), 2 (info), 3 (debug).
+# Variable: log_level (default: 2)
+log_level = {{ (log_level | default(2)) | int }}
+
+# Path to write query logs (leave blank to disable).
+# Variable: query_log_file (default: '')
+# Only emit this directive if the path is non-empty.
+{% set qlf = (query_log_file | default('')) | string %}
+{% if qlf %}
+# Path to write query logs (leave blank to disable).
+# Variable: query_log_file
+query_log_file = "{{ qlf }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Statistics endpoint
+# -----------------------------------------------------------------------------
+
+# Enable HTTP statistics endpoint (port 8080).
+# Variable: stats_enabled (default: False)
+# If enabled, the server exposes an HTTP API on port 8080.
+{% set stats_en = (stats_enabled | default(false)) | bool %}
+{% if stats_en %}
+# Enable HTTP statistics endpoint (port 8080).
+# Variable: stats_enabled
+stats_enabled = true
+
+# Bind the stats endpoint to this address (ignored if stats_enabled is false).
+# Variable: stats_host (default: '127.0.0.1')
+stats_host = "{{ (stats_host | default('127.0.0.1')) | string }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Zone reloading behavior
+# -----------------------------------------------------------------------------
+
+# Seconds between checks for updated zone files.
+# Variable: zone_refresh_interval (default: 300)
+zone_refresh_interval = {{ (zone_refresh_interval | default(300)) | int }}
+
+# -----------------------------------------------------------------------------
+# Negative cache TTL
+# -----------------------------------------------------------------------------
+
+# TTL (seconds) for negative cache entries (NXDOMAIN).
+# Variable: neg_ttl (default: 600)
+neg_ttl = {{ (neg_ttl | default(600)) | int }}
+
+# -----------------------------------------------------------------------------
+# Upstream forwarding rules
+# -----------------------------------------------------------------------------
+
+# List of forwarding rules: forward queries for specific IPv6 prefixes to
+# another resolver.
+# Variable: upstream_servers (default: [])
+# Each item is a mapping with keys 'network' and 'target'.
+{% set upstreams = (upstream_servers | default([])) %}
+{% if upstreams | length > 0 %}
+# Forwarding rules: if upstream is configured, forward unknown queries.
+# Variable: upstream_servers
+{% for upstream in upstreams %}
+# Forward queries for {{ (upstream.network | default('')) }} to {{ (upstream.target | default('')) }}
+forward_rule = "{{ upstream.network | default('') }} {{ upstream.target | default('') }}"
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Access control
+# -----------------------------------------------------------------------------
+
+# List of allowed client networks (CIDR notation). Leave empty to allow all.
+# Variable: allowed_clients (default: [])
+# Each item is a string representing a CIDR block.
+{% set clients = (allowed_clients | default([])) %}
+{% if clients | length > 0 %}
+# Optional: list of allowed client networks (CIDR notation, one per line)
+# Variable: allowed_clients
+# Restrict queries to these networks
+{% for client in clients %}
+allow_client = "{{ client | string }}"
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# DNSSEC
+# -----------------------------------------------------------------------------
+
+# Enable DNSSEC validation for reverse records.
+# Variable: dnssec_enabled (default: False)
+{% set dnssec_en = (dnssec_enabled | default(false)) | bool %}
+{% if dnssec_en %}
+# Optional: DNSSEC validation (only checks RRSIG for reverse records)
+# Variable: dnssec_enabled
+dnssec_enabled = true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# EDNS0 Padding
+# -----------------------------------------------------------------------------
+
+# EDNS0 padding size (0=disabled, 128=recommended for privacy).
+# Variable: edns_padding (default: 0)
+# Only emit if non-zero, as 0 effectively disables the feature.
+{% set edns_pad = ((edns_padding | default(0)) | int) %}
+{% if edns_pad > 0 %}
+# Optional: EDNS0 padding for privacy (0 = disable, 128 = recommended)
+# Variable: edns_padding
+edns_padding = {{ edns_pad }}
+{% endif %}

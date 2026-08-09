@@ -1,0 +1,27 @@
+# Digimend DKMS Blacklist Configuration
+# This file configures the kernel to blacklist specific HID (Human Interface Device) modules
+# that are known to conflict with the digimend-dkms driver.
+# digimend provides updated drivers for graphics tablets and similar devices.
+# If these modules are loaded, they may prevent digimend from properly controlling
+# the hardware or cause duplicate input events.
+#
+# Each line below blacklists a specific kernel module by name.
+
+# Blacklist directive for hid-kye module.
+# KYE Systems is a manufacturer of graphics tablets; their in-kernel driver may
+# conflict with digimend's out-of-tree driver.
+blacklist {{ blacklist_hid_kye | default('hid-kye') }}
+
+# Blacklist directive for hid-polostar module.
+# Polostar is another tablet manufacturer; this module is blacklisted to ensure
+# digimend takes control of compatible hardware.
+blacklist {{ blacklist_hid_polostar | default('hid-polostar') }}
+
+# Blacklist directive for hid-uclogic module.
+# UC-Logic is a major tablet manufacturer whose kernel driver is replaced by digimend.
+blacklist {{ blacklist_hid_uclogic | default('hid-uclogic') }}
+
+# Blacklist directive for hid-viewsonic module.
+# Viewsonic tablets using UC-Logic or similar chips are managed by digimend instead
+# of this in-kernel module.
+blacklist {{ blacklist_hid_viewsonic | default('hid-viewsonic') }}

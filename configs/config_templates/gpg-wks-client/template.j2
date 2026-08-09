@@ -1,0 +1,101 @@
+# =============================================================================
+# gpg-wks-client configuration template
+# =============================================================================
+# This template generates a shell-compatible environment file for gpg-wks-client.
+# gpg-wks-client itself does not read a persistent config file; instead, wrapper
+# scripts or service units source these variables to pass CLI options.
+#
+# Each variable corresponds to a command-line flag documented in gpg-wks-client(1).
+# Defaults are applied inline where the variable is undefined.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Option: --send
+# Description: Enable --send: dispatch created request mails using sendmail
+# -----------------------------------------------------------------------------
+{% if send_enabled | default(false) | bool %}
+# When enabled, gpg-wks-client will invoke sendmail to send generated WKS request
+# emails automatically.
+SEND_ENABLED=true
+{% else %}
+SEND_ENABLED=false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Option: --with-colons
+# Description: Enable --with-colons: use colon-delimited output for domain support checks
+# -----------------------------------------------------------------------------
+{% if with_colons | default(false) | bool %}
+# When enabled, the output format for commands like --supported uses colon-separated
+# fields, which is easier to parse programmatically.
+WITH_COLONS=true
+{% else %}
+WITH_COLONS=false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Option: --output / -o
+# Description: Path to write output (e.g., for --check or --create); use '-' for stdout
+# -----------------------------------------------------------------------------
+# If output_file is empty or undefined, gpg-wks-client defaults to stdout or
+# internal handling. Explicitly setting it here overrides that behavior.
+OUTPUT_FILE='{{ output_file | default("") }}'
+
+# -----------------------------------------------------------------------------
+# Option: --status-fd
+# Description: File descriptor number for status messages (0 = disabled)
+# -----------------------------------------------------------------------------
+# Set to a valid file descriptor (e.g., 3) to redirect status logs to a pipe or
+# file. Set to 0 (default) to disable status message output.
+STATUS_FD={{ status_fd | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Option: -C / --directory
+# Description: Top-level directory for --mirror, --install-key, and --remove-key operations
+# -----------------------------------------------------------------------------
+# Specifies the base directory where WKD-related files (keys, mirrors, revocations)
+# are stored. Defaults to 'openpgpkey' if not specified or empty.
+WKD_DIR='{{ directory | default("openpgpkey") }}'
+
+# -----------------------------------------------------------------------------
+# Option: --blacklist
+# Description: Path to a file listing email addresses to exclude from mirror operations
+# -----------------------------------------------------------------------------
+# If specified, gpg-wks-client will skip any email addresses listed in this file
+# during mirror or bulk operations. Empty means no blacklist is used.
+BLACKLIST_FILE='{{ blacklist_file | default("") }}'
+
+# -----------------------------------------------------------------------------
+# Option: --add-revocs / --no-add-revocs
+# Description: Append revocation certificates when installing keys (default: true)
+# -----------------------------------------------------------------------------
+# Controls whether revocation certificates are automatically attached during key
+# installation. Useful for ensuring recipients have revocation info.
+{% if add_revocs | default(true) | bool %}
+ADD_REVOCATIONS=true
+{% else %}
+ADD_REVOCATIONS=false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Option: --verbose
+# Description: Enable verbose informational output
+# -----------------------------------------------------------------------------
+# Provides detailed logging of operations. Can be overridden by quiet mode.
+{% if verbose | default(false) | bool %}
+VERBOSE=true
+{% else %}
+VERBOSE=false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Option: --quiet
+# Description: Disable almost all informational output (overrides verbose)
+# -----------------------------------------------------------------------------
+# Suppresses informational messages for minimal output. Takes precedence over
+# verbose mode if both are enabled.
+{% if quiet | default(false) | bool %}
+QUIET=true
+{% else %}
+QUIET=false
+{% endif %}

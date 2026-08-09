@@ -1,0 +1,44 @@
+{
+  "listen_addr": "0.0.0.0",
+  "listen_port": 8443,
+  "worker_processes": 2,
+  "max_connections": 2048,
+  "ssl_enabled": true,
+  "ssl_cert_file": "/etc/ssl/certs/myapp.crt",
+  "ssl_key_file": "/etc/ssl/private/myapp.key",
+  "h2c_enabled": false,
+  "request_buffer_size": 65536,
+  "response_buffer_size": 262144,
+  "timeout_idle": 600,
+  "timeout_request": 30,
+  "timeout_response": 300,
+  "log_level": "info",
+  "log_file": "/var/log/nghttp2/server.log",
+  "access_log_format": "combined_json",
+  "static_dirs": [
+    {
+      "path": "/var/www/static",
+      "prefix": "/static"
+    },
+    {
+      "path": "/var/www/docs",
+      "prefix": "/docs"
+    }
+  ],
+  "upstreams": [
+    {
+      "name": "backend-api",
+      "host": "127.0.0.1",
+      "port": 8080
+    },
+    {
+      "name": "backend-web",
+      "host": "127.0.0.1",
+      "port": 3000
+    }
+  ],
+  "default_upstream": "backend-api",
+  "initial_window_size": 65535,
+  "max_frame_size": 16384,
+  "server_push_enabled": false
+}

@@ -1,0 +1,20 @@
+# Argus log rotation configuration.
+# Manages how argus log files are rotated, compressed, and retained.
+#
+# This template generates an `etc/logrotate.d/argus` style configuration block
+# tailored for the Argus Network Security Monitor.
+
+/var/log/{{ log_path | default('argus/argus.out') }} {
+    # {{ rotate_count | default(14) }}: Number of rotated log files to keep.
+    # The service retains this many historical copies before deleting the oldest.
+    rotate {{ rotate_count | default(14) }}
+
+    # Rotate the log file once every day.
+    daily
+
+    # Compress old log files using gzip to save disk space.
+    compress
+
+    # Do not produce an error if the log file is missing.
+    missingok
+}

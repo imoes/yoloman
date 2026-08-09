@@ -1,0 +1,136 @@
+{
+  "pps_device": {
+    "type": "string",
+    "default": "/dev/pps0",
+    "description": "PPS device file (e.g., /dev/pps0) connected to the kernel PPS API."
+  },
+  "pps_offset": {
+    "type": "number",
+    "default": 0.0,
+    "description": "Offset (in seconds) to apply to the PPS signal, typically for cable length or hardware delays."
+  },
+  "pps_flag1": {
+    "type": "number",
+    "default": 0,
+    "description": "PPS flag bits (0 or 1). Set to 1 if the PPS signal is active on the rising edge."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "0.pool.ntp.org",
+        "prefer": false,
+        "key_id": null
+      },
+      {
+        "hostname": "1.pool.ntp.org",
+        "prefer": false,
+        "key_id": null
+      },
+      {
+        "hostname": "2.pool.ntp.org",
+        "prefer": false,
+        "key_id": null
+      },
+      {
+        "hostname": "3.pool.ntp.org",
+        "prefer": false,
+        "key_id": null
+      }
+    ],
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "Hostname or IP of the NTP server."
+      },
+      "prefer": {
+        "type": "bool",
+        "description": "Mark this server as preferred (iburst prefer)."
+      },
+      "key_id": {
+        "type": "number or null",
+        "description": "Authentication key ID (null if no auth needed)."
+      }
+    },
+    "description": "List of NTP servers used for fallback and initial synchronization. At least one is recommended."
+  },
+  "enable_ntp_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NTP server authentication (requires trusted keys)."
+  },
+  "ntp_auth_keys": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "id": {
+        "type": "number",
+        "description": "Key ID (1\u201365535)."
+      },
+      "secret": {
+        "type": "string",
+        "description": "MD5 secret (no spaces or special characters)."
+      }
+    },
+    "description": "List of NTP authentication keys. Required only if enable_ntp_auth is true."
+  },
+  "ntp_trusted_keys": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "number"
+    },
+    "description": "List of key IDs trusted for NTP authentication (must match entries in ntp_auth_keys)."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/chrony",
+    "description": "Directory for chronyd log files."
+  },
+  "drift_file": {
+    "type": "string",
+    "default": "/var/lib/chrony/chrony.drift",
+    "description": "Path to the file storing the RTC drift compensation."
+  },
+  "rtc_file": {
+    "type": "string",
+    "default": "/var/lib/chrony/chrony.rtc",
+    "description": "Path to the file tracking RTC adjustments."
+  },
+  "init_stepslew_threshold": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum offset (in seconds) for initial step slew during startup. Larger offsets cause step instead of slew."
+  },
+  "makestep_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Maximum offset (in seconds) allowed before chronyd steps the clock (instead of slewing)."
+  },
+  "makestep_burst_limit": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of steps allowed within makestep_threshold before chronyd refuses to step further."
+  },
+  "rtcalibration_interval": {
+    "type": "number",
+    "default": 600,
+    "description": "Interval (in seconds) between RTC calibration measurements (0 = disable)."
+  },
+  "allow_ntp_clients": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of networks or hosts allowed to query this chrony instance (e.g., '192.168.1.0/24'). Empty = localhost-only."
+  },
+  "hwtimestamp_interfaces": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of network interfaces for hardware timestamping. Empty or ['all'] enables for all interfaces."
+  }
+}

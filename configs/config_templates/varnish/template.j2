@@ -1,0 +1,24 @@
+# Varnish NCSA log rotation configuration
+# Manages rotation of the Varnish NCSA log file.
+/var/log/varnish/varnishncsa.log {
+    # Rotate the log file daily
+    daily
+
+    # Keep 7 rotated log files before deleting oldest
+    rotate 7
+
+    # Do not raise an error if the log file is missing
+    missingok
+
+    # Compress rotated log files with gzip
+    compress
+
+    # Delay compression of the most recently rotated log file until the next rotation cycle
+    delaycompress
+
+    # Execute the following commands after the log file is rotated
+    postrotate
+        # Attempt to gracefully restart or reload the varnishncsa service to reopen the new log file
+        systemctl try-reload-or-restart varnishncsa.service
+    endscript
+}

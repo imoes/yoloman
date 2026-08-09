@@ -1,0 +1,22 @@
+# /etc/default/isc-dhcp-relay — configuration for the ISC DHCP relay daemon (dhcrelay)
+#
+# This file is managed by Ansible. Do not edit manually.
+# It defines the DHCP servers to relay to, the interfaces to listen on,
+# and any additional command-line options for the daemon.
+
+# Space-separated list of DHCP server addresses to which requests will be forwarded.
+# At least one server is required for the relay to function.
+# If empty, the service will likely start but drop all relayed packets.
+SERVERS="{{ servers | default([]) | join(' ') }}"
+
+# Interface(s) on which dhcrelay listens for incoming DHCP requests.
+# Space-separated list of interface names (e.g., 'eth0 eth1').
+# Use '-' to listen on all interfaces (not recommended for security).
+# At least one interface is required.
+INTERFACES="{{ interfaces | default([]) | join(' ') }}"
+
+# Additional options passed directly to dhcrelay(8).
+# Use sparingly—prefer structured settings when possible.
+# Examples: ['--no-pid'], ['-i', '-I', '44']
+# See dhcrelay(8) man page for the full list of supported flags.
+OPTIONS="{{ options | default([]) | join(' ') }}"

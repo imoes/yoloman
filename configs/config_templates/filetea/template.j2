@@ -1,0 +1,169 @@
+# =============================================================================
+# Filetea Configuration Template
+# =============================================================================
+# This is an Ansible Jinja2 template for generating the Filetea configuration file.
+# Filetea is a secure, decentralized file-sharing service. The configuration follows
+# the GLib key-value file parser syntax, organized into groups: [node], [http],
+# [https], [transfer], and [log].
+#
+# Each configuration option includes a default value derived from the schema.
+# If a variable is not provided in the Ansible inventory or vars, the default
+# will be used. This ensures the configuration is always valid and self-documenting.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# [node] Group: Global Node Configuration
+# -----------------------------------------------------------------------------
+# Defines the identity and basic operational parameters of this Filetea instance.
+[node]
+
+# Short string that identifies the node. Used in generated URLs and peer relay.
+# Default: 1a0
+id={{ node_id | default('1a0') }}
+
+# The 'standalone' property tells Filetea whether to run its own Web server
+# (true) or use an external server for serving static HTML content (false).
+# Currently, only standalone mode is supported, so this is ignored by now.
+# Default: true
+#standalone=true
+
+# Maximum global input bandwidth for the node, in kilobytes.
+# Float values are accepted.
+# Default is 0 (unlimited).
+max-bandwidth-in=0.0
+
+# Maximum global output bandwidth for the node, in kilobytes.
+# Float values are accepted.
+# Default is 0 (unlimited).
+max-bandwidth-out=0.0
+
+# The 'source-id-start-depth' property specifies the initial depth of
+# the hashes created for shared files. It is a number between 10 and 19.
+# Short depths can increment the chance of collision (in which case the node
+# automatically increments the depth) and could damage anonimity (an attacker
+# could brute force to find shared files); while large depths result in
+# longer urls.
+# Default: 19
+source-id-start-depth=19
+
+# The 'user' and 'group' properties specify the user/group that will
+# own the process after 'root' drops privileges.
+# The 'group' property is not currently implemented.
+user=filetea
+group=filetea
+
+# 'pid-file' property sets the absolute filename where daemon's
+# PID is written. Comment it or leave it blank to disable.
+# Default: /var/run/filetea.pid
+pid-file=/var/run/filetea.pid
+
+# 'jquery-dir' specifies the absolute path to the directory where the
+# jquery javascript file resides. The directory must contain a file
+# named 'jquery.min.js'.
+# Default: /usr/share/javascript/jquery/
+#jquery-dir=/usr/share/javascript/jquery/
+
+# -----------------------------------------------------------------------------
+# [http] Group: HTTP Service Configuration
+# -----------------------------------------------------------------------------
+# Configures the plain HTTP listener for Filetea.
+[http]
+
+# 'enabled' property activates/deactivates plain HTTP service.
+# Default: true
+enabled=true
+
+# TCP port the HTTP service listens on.
+# Default: 8080
+port={{ port | default(8080) }}
+
+# 'force-https' tells FileTea whether to redirect all non-HTTPS
+# traffic to the HTTPS service instead. If this property is set to
+# 'true', the HTTPS service should be enabled in the [https] section.
+# Default: false
+force-https={{ https_enabled | default(False) }}
+
+# Optional URL prefix for deployment behind a reverse proxy (e.g., '/files'
+# when proxied at https://example.com/files). Leave empty for root domain.
+# If set, this value is typically prepended to the base_url or used as the
+# external base URL.
+# Default: ''
+external-base-url={{ base_url | default('') }}
+
+# -----------------------------------------------------------------------------
+# [https] Group: HTTPS/TLS Service Configuration
+# -----------------------------------------------------------------------------
+# Configures the secure HTTPS listener for Filetea.
+[https]
+
+# Enable HTTPS/TLS encryption. If true, SSL certificate and key paths must be configured.
+# Default: false
+enabled={{ https_enabled | default(False) }}
+
+# TCP port the HTTPS service listens on.
+# Default: 4430
+port={{ https_port | default(4430) }}
+
+# Absolute path to the SSL certificate file (PEM format). Required when https_enabled is true.
+# Default: /etc/ssl/certs/ssl-cert-snakeoil.pem
+cert={{ ssl_cert | default('/etc/ssl/certs/ssl-cert-snakeoil.pem') }}
+
+# Absolute path to the SSL private key (PEM format). Required when https_enabled is true.
+# Default: /etc/ssl/private/ssl-cert-snakeoil.key
+key={{ ssl_key | default('/etc/ssl/private/ssl-cert-snakeoil.key') }}
+
+# 'dh-depth' specifies the bit depth of the Diffie-Hellman parameters
+# to use in SSL/TLS. The parameters will be created randomly upon
+# daemon startup.
+# A value of '0' disables it.
+#dh-depth=0
+
+# -----------------------------------------------------------------------------
+# [transfer] Group: Transfer-Specific Configuration
+# -----------------------------------------------------------------------------
+# Options specific to active file transfers between two peers.
+[transfer]
+
+# Maximum input bandwidth for a single transfer, in kilobytes.
+# Float values are accepted.
+# Default is 0 (unlimited).
+max-bandwidth-in=0.0
+
+# Maximum output bandwidth for a single transfer, in kilobytes.
+# Float values are accepted.
+# Default is 0 (unlimited).
+max-bandwidth-out=0.0
+
+# -----------------------------------------------------------------------------
+# [log] Group: Logging Configuration
+# -----------------------------------------------------------------------------
+# Options related to daemon and HTTP message logging.
+[log]
+
+# 'http-log-file' option specifies the filename where to append HTTP
+# access log entries in an Apache-like format.
+# Leave it blank to disable web access logging (the default).
+# Default: /var/log/filetea/access.log
+http-log-file=/var/log/filetea/access.log
+
+# -----------------------------------------------------------------------------
+# Peer Nodes Configuration
+# -----------------------------------------------------------------------------
+# Group names starting with 'peer-' represent other nodes available
+# for relaying download requests. Each of these groups MUST specify an
+# 'id' property and an 'url' property. Download requests will be
+# redirected to the specific node whose 'id' is encoded in the url of
+# the requested file. Multiple peer nodes can be specified, each in
+# its own group.
+#
+# Note: Relying requests to peer nodes is not currently implemented.
+
+# Sample peer-node with id 'abc'.
+#[peer-abc]
+#id=abc
+#url=http://some.other.node.net:8080
+
+# Sample peer-node with id 'xyz'.
+#[peer-xyz]
+#id=xyz
+#url=https://some.other.node1.net

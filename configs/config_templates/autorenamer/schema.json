@@ -1,0 +1,134 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (recommended for initial setup or troubleshooting)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/autorenamer/autorenamer.log",
+    "description": "Path to the main log file. Must be writable by the autorenamer service."
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum size (in megabytes) of the log file before rotation."
+  },
+  "max_log_backups": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to keep."
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/tmp/autorenamer",
+    "description": "Directory used for temporary files during renaming (e.g., during atomic moves)."
+  },
+  "source_dir": {
+    "type": "string",
+    "default": "/media/videos",
+    "description": "Root directory to scan recursively for files to rename."
+  },
+  "dest_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Target directory for renamed files. Leave empty to rename files in-place."
+  },
+  "create_dest_dir": {
+    "type": "bool",
+    "default": true,
+    "description": "Create destination directory if it does not exist."
+  },
+  "filename_pattern": {
+    "type": "string",
+    "default": "{title}\\.S{season:02d}E{episode:02d}.*\\.{ext}$",
+    "description": "Regex pattern to extract structured data from existing filenames."
+  },
+  "output_pattern": {
+    "type": "string",
+    "default": "{title} - S{season:02d}E{episode:02d}.{ext}",
+    "description": "Jinja-style format for generating new filenames from extracted fields."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to process files concurrently."
+  },
+  "max_file_size_mb": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum file size (in MB) to process. Set to 0 to disable size limit."
+  },
+  "recursive_scan": {
+    "type": "bool",
+    "default": true,
+    "description": "Recursively scan subdirectories under source_dir."
+  },
+  "include_hidden": {
+    "type": "bool",
+    "default": false,
+    "description": "Process hidden files (those starting with '.')."
+  },
+  "file_extensions": {
+    "type": "list",
+    "default": [
+      ".mp4",
+      ".mkv",
+      ".avi",
+      ".mov"
+    ],
+    "description": "List of file extensions to consider for renaming. Only files with these extensions will be processed."
+  },
+  "exclude_patterns": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "regex": {
+        "type": "string",
+        "description": "A regex pattern to match full file paths that should be skipped."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the exclusion rule."
+      }
+    },
+    "description": "List of regex patterns for files/directories to skip during scanning."
+  },
+  "rename_rules": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "description": {
+        "type": "string",
+        "description": "Brief description of the rule's purpose."
+      },
+      "condition": {
+        "type": "string",
+        "default": "",
+        "description": "Jinja2 expression (evaluated as boolean) to decide whether rule applies (e.g., `{season} is none or {season} == 0`)."
+      },
+      "then": {
+        "type": "string",
+        "default": "",
+        "description": "Output pattern to use if condition is true (e.g., `{title} - Special.{ext}`)."
+      },
+      "else": {
+        "type": "string",
+        "default": "",
+        "description": "Output pattern to use if condition is false (e.g., `{title} - {season}x{episode}.{ext}`)."
+      }
+    },
+    "description": "Conditional renaming rules evaluated in order. Use to handle special cases (e.g., specials, multi-episode files)."
+  },
+  "mtime_handling": {
+    "type": "string",
+    "default": "preserve",
+    "description": "How to handle file modification times. Options: 'preserve' (keep original), 'use_file_date' (set from parsed metadata), 'use_current' (set to current time)."
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "Preview actions without actually renaming files. Logs would show what would change."
+  }
+}

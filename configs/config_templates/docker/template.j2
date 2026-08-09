@@ -1,0 +1,222 @@
+{# ============================================================================== #}
+{# Docker Engine Daemon Configuration File (daemon.json)                         #}
+{# Self-documenting template enriched for Ansible.                               #}
+{# See schema defaults below for each field.                                     #}
+{# ============================================================================== #}
+
+{
+{# Enable IPv6 networking for Docker containers. #}
+{# Schema: ipv6_enable, default: False #}
+{%- if ipv6_enable | default(False) %}
+  "ipv6": true,
+{%- else %}
+  "ipv6": false,
+{%- endif %}
+
+{# List of default address pools for automatic network creation. #}
+{# Schema: default_address_pool, default: [] #}
+{%- set _default_address_pool = default_address_pool | default([]) %}
+{%- if _default_address_pool | length > 0 %}
+  "default-address-pools": [
+  {%- for pool in _default_address_pool %}
+    {"base": "{{ (pool | default({})).base | default('10.100.0.0/16') }}", "size": {{ (pool | default({})).size | default(24) }} }{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# List of socket URLs, TCP addresses, or file descriptors for Docker daemon to listen on. #}
+{# Schema: host, default: ['unix:///var/run/docker.sock'] #}
+{%- set _host = host | default(['unix:///var/run/docker.sock']) %}
+{%- if _host | length > 0 %}
+  "hosts": [
+  {%- for h in _host %}
+    "{{ h }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# Logging driver for containers (e.g., json-file, syslog, journald, fluentd). #}
+{# Schema: log_driver, default: 'json-file' #}
+{%- set _log_driver = log_driver | default('json-file') %}
+  "log-driver": "{{ _log_driver }}",
+
+{# Key-value options for the selected log driver (e.g., max-size: 10m, max-file: 3). #}
+{# Schema: log_opts, default: [] #}
+{%- set _log_opts = log_opts | default([]) %}
+{%- if _log_opts | length > 0 %}
+  "log-opts": {
+  {%- for key, val in _log_opts | dict2items %}
+    "{{ key.value }}": "{{ val.value }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  },
+{%- endif %}
+
+{# List of registry mirrors to use when pulling images (for improved speed/reliability). #}
+{# Schema: registry_mirrors, default: [] #}
+{%- set _registry_mirrors = registry_mirrors | default([]) %}
+{%- if _registry_mirrors | length > 0 %}
+  "registry-mirrors": [
+  {%- for m in _registry_mirrors %}
+    "{{ m }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# List of registries allowed without secure TLS (for internal or development use). #}
+{# Schema: insecure_registries, default: [] #}
+{%- set _insecure_registries = insecure_registries | default([]) %}
+{%- if _insecure_registries | length > 0 %}
+  "insecure-registries": [
+  {%- for reg in _insecure_registries %}
+    "{{ reg }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# Storage driver to use for container filesystem (e.g., overlay2, vfs, btrfs). #}
+{# Schema: storage_driver, default: 'overlay2' #}
+{%- set _storage_driver = storage_driver | default('overlay2') %}
+  "storage-driver": "{{ _storage_driver }}",
+
+{# Root directory for Docker data (images, containers, volumes, etc.). #}
+{# Schema: data_root, default: '/var/lib/docker' #}
+{%- set _data_root = data_root | default('/var/lib/docker') %}
+  "data-root": "{{ _data_root }}",
+
+{# Keep containers running when the Docker daemon is stopped or restarted. #}
+{# Schema: live_restore, default: False #}
+{%- set _live_restore = live_restore | default(False) %}
+  "live-restore": {{ _live_restore | string | lower }},
+
+{# List of DNS servers for containers. #}
+{# Schema: dns, default: [] #}
+{%- set _dns = dns | default([]) %}
+{%- if _dns | length > 0 %}
+  "dns": [
+  {%- for d in _dns %}
+    "{{ d }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# List of DNS search domains for containers. #}
+{# Schema: dns_search, default: [] #}
+{%- set _dns_search = dns_search | default([]) %}
+{%- if _dns_search | length > 0 %}
+  "dns-search": [
+  {%- for s in _dns_search %}
+    "{{ s }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# IPv4 subnet for container IPs (e.g., 172.20.0.0/16). #}
+{# Schema: fixed_cidr, default: '' #}
+{%- set _fixed_cidr = fixed_cidr | default('') %}
+{%- if _fixed_cidr %}
+  "fixed-cidr": "{{ _fixed_cidr }}",
+{%- endif %}
+
+{# IPv6 subnet for container IPs (e.g., 2001:db8:1::/64). #}
+{# Schema: fixed_cidr_v6, default: '' #}
+{%- set _fixed_cidr_v6 = fixed_cidr_v6 | default('') %}
+{%- if _fixed_cidr_v6 %}
+  "fixed-cidr-v6": "{{ _fixed_cidr_v6 }}",
+{%- endif %}
+
+{# Name of the default container runtime (e.g., runc, crun). #}
+{# Schema: default_runtime, default: 'runc' #}
+{%- set _default_runtime = default_runtime | default('runc') %}
+  "default-runtime": "{{ _default_runtime }}",
+
+{# List of additional container runtimes (e.g., for gVisor, kata-containers). #}
+{# Schema: runtimes, default: [] #}
+{%- set _runtimes = runtimes | default([]) %}
+{%- if _runtimes | length > 0 %}
+  "runtimes": {
+  {%- for rt in _runtimes %}
+    {{- (rt | default({})).name | default('custom') | quote }}: {
+      "path": "{{ (rt | default({})).path | default('') }}",
+      "runtimeArgs": {{ (rt | default({})).args | default([]) | tojson }}
+    }{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  },
+{%- endif %}
+
+{# Cgroup driver used by Docker (must match containerd/cRI-O if used). #}
+{# Schema: exec_opt_cgroup_driver, default: 'systemd' #}
+{%- set _exec_opt_cgroup_driver = exec_opt_cgroup_driver | default('systemd') %}
+  "exec-opts": {
+    "cgroup-driver": "{{ _exec_opt_cgroup_driver }}"
+  },
+
+{# Maximum number of concurrent pull operations per image. #}
+{# Schema: max_concurrent_downloads, default: 3 #}
+{%- set _max_concurrent_downloads = max_concurrent_downloads | default(3) %}
+  "max-concurrent-downloads": {{ _max_concurrent_downloads }},
+
+{# Maximum number of concurrent push operations per image. #}
+{# Schema: max_concurrent_uploads, default: 5 #}
+{%- set _max_concurrent_uploads = max_concurrent_uploads | default(5) %}
+  "max-concurrent-uploads": {{ _max_concurrent_uploads }},
+
+{# Maximum retry attempts for a single download layer. #}
+{# Schema: max_download_attempts, default: 5 #}
+{%- set _max_download_attempts = max_download_attempts | default(5) %}
+  "max-download-attempts": {{ _max_download_attempts }},
+
+{# Default ulimits applied to all containers (overrideable per container). #}
+{# Schema: default_ulimits, default: [] #}
+{%- set _default_ulimits = default_ulimits | default([]) %}
+{%- if _default_ulimits | length > 0 %}
+  "default-ulimits": {
+  {%- for ul in _default_ulimits %}
+    {{- (ul | default({})).name | default('nofile') | quote }}: {
+      "Name": "{{ (ul | default({})).name | default('nofile') }}",
+      "Hard": {{ (ul | default({})).hard | default(65536) }},
+      "Soft": {{ (ul | default({})).soft | default(65536) }}
+    }{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  },
+{%- endif %}
+
+{# Enable debug logging in the Docker daemon. #}
+{# Schema: debug, default: False #}
+{%- set _debug = debug | default(False) %}
+  "debug": {{ _debug | string | lower }},
+
+{# Enable user namespace remapping. Set to 'default' for subuid/subgid mapping. #}
+{# Schema: userns_mode, default: '' #}
+{%- set _userns_mode = userns_mode | default('') %}
+{%- if _userns_mode %}
+  "userns-remap": "{{ _userns_mode }}",
+{%- endif %}
+
+{# Custom metadata labels for the Docker daemon (shown in `docker info`). #}
+{# Schema: labels, default: [] #}
+{%- set _labels = labels | default([]) %}
+{%- if _labels | length > 0 %}
+  "labels": [
+  {%- for lbl in _labels %}
+    "{{ lbl }}"{{ "," if not loop.last else "" }}
+  {%- endfor %}
+  ],
+{%- endif %}
+
+{# Disable OOM killer for containers (dangerous; may cause host instability). #}
+{# Schema: disable_oom_killer, default: False #}
+{%- set _disable_oom_killer = disable_oom_killer | default(False) %}
+  "disable-oom-killer": {{ _disable_oom_killer | string | lower }},
+
+{# Raw JSON for plugin configuration (advanced use only). #}
+{# Schema: plugins, default: [] #}
+{%- set _plugins = plugins | default([]) %}
+{%- if _plugins %}
+  "plugins": {{ _plugins | tojson }},
+{%- endif %}
+
+{# Enable experimental features (not for production). #}
+{# Schema: experimental, default: False #}
+{%- set _experimental = experimental | default(False) %}
+  "experimental": {{ _experimental | string | lower }}
+}

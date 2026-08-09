@@ -1,0 +1,17 @@
+# Corkscrew ProxyCommand configuration for SSH.
+# This template generates a corkscrew configuration file used by SSH's ProxyCommand directive
+# to tunnel connections through an HTTP proxy server that supports the CONNECT method.
+
+[ssh]
+
+# Hostname or IP address of the HTTP proxy server that supports the CONNECT method.
+ProxyCommand = corkscrew {{ (proxy_host | default('proxy.example.com')) | string }} {{ (proxy_port | default(3128)) | int }} %h %p
+
+# Path to an optional authentication file containing 'username:password' on a single line.
+# Leave empty to omit authentication. If provided, the path should be absolute and readable by the user.
+{%- if auth_file | default('') %}
+ProxyCommand = corkscrew {{ (proxy_host | default('proxy.example.com')) | string }} {{ (proxy_port | default(3128)) | int }} %h %p {{ (auth_file | default('')) | string }}
+{%- else %}
+# No authentication file specified; corkscrew will connect without credentials.
+ProxyCommand = corkscrew {{ (proxy_host | default('proxy.example.com')) | string }} {{ (proxy_port | default(3128)) | int }} %h %p
+{%- endif %}

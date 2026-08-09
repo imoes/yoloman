@@ -1,0 +1,11 @@
+# Defaults for dnsproxy initscript and systemd
+# sourced by /etc/init.d/dnsproxy and /lib/systemd/system/dnsproxy.service
+# installed at the directory containing the config file by the maintainer scripts
+# Note: We extract the directory path manually since Jinja2 has no dirname filter.
+# config_file_path: default='/etc/dnsproxy.conf'
+# Path to the main dnsproxy configuration file
+# Extract directory from the path (e.g. /etc/dnsproxy.conf -> /etc)
+{% set config_dir = (config_file_path | default('/etc/dnsproxy.conf')).rsplit('/', 1)[0] | default('/etc') %}
+
+# Additional options that are passed to the Daemon
+DAEMON_OPTS="-c {{ config_file_path | default('/etc/dnsproxy.conf') }}"

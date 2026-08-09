@@ -1,0 +1,53 @@
+# FreeDiameter main configuration file
+# Identity of this Diameter node
+Identity: {{ identity }}
+
+# Realm in which this node resides
+Realm: {{ realm }}
+
+# Protocol addresses this node listens on (IPv4/IPv6)
+# Multiple ListenAddr lines allowed; one per interface/port
+{% for addr in listen_addrs %}
+ListenAddr: {{ addr }}
+{% endfor %}
+
+# Port for Diameter base protocol (default: 3868)
+# Override only if needed (e.g., testing, port conflict)
+{% if port is defined %}
+Port: {{ port }}
+{% endif %}
+
+# TLS configuration: enable with 'yes' to support secure connections
+# Certificate and key paths required for TLS
+{% if tls_enabled | default(false) %}
+TLS: yes
+TLSCertFile: {{ tls_cert_file }}
+TLSKeyFile: {{ tls_key_file }}
+{% if tls_ca_file is defined %}
+TLSCACertFile: {{ tls_ca_file }}
+{% endif %}
+{% else %}
+TLS: no
+{% endif %}
+
+# Peers ( Diameter nodes this daemon connects to or accepts from )
+# Format: Peer: <hostname or IP> <port> <realm> <auth_app_ids...>
+# auth_app_ids: optional list of Application IDs for authentication (e.g., 16777250)
+{% for peer in peers %}
+Peer: {{ peer.host }} {{ peer.port }} {{ peer.realm }}{{ ' ' + peer.auth_app_ids | join(' ') if peer.auth_app_ids is defined and peer.auth_app_ids | length > 0 else '' }}
+{% endfor %}
+
+# Loadable extensions (modules) — specify absolute or search-path relative path
+# Common modules: libfreediameter-radius.so, libfreediameter-s6a.so, libfreediameter-mw.so
+{% for ext in extensions %}
+Extension: {{ ext.path }}
+{% endfor %}
+
+# Logging configuration
+# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
+LogLevel: {{ log_level }}
+
+# Log file (stdout if not set)
+{% if log_file is defined %}
+LogFile: {{ log_file }}
+{% endif %}

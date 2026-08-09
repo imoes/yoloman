@@ -1,0 +1,100 @@
+# Bacula File Daemon configuration file
+# This daemon is installed on each machine to be backed up
+# and listens for connections from the Director.
+
+# Unique name of this File Daemon — must match what the Director expects.
+Name = {{ fd_name | default('FileDaemon') }}
+
+# TCP port on which the File Daemon listens for Director connections.
+FDport = {{ fd_port | default(9102) }}
+
+# Path to the File Daemon's main log file.
+LogFile = {{ log_file | default('/var/log/bacula/bacula-fd.log') }}
+
+# Directory where the FD writes its process ID file.
+PidDirectory = {{ pid_directory | default('/run/bacula') }}
+
+# Maximum number of backup/restore jobs this daemon can run simultaneously.
+MaximumConcurrentJobs = {{ max_concurrent_jobs | default(5) }}
+
+# Working directory for temporary files, spooling, and working storage.
+WorkingDirectory = {{ working_directory | default('/var/lib/bacula') }}
+
+# List of addresses the FD binds to. Usually 127.0.0.1 (localhost) for security.
+# Formats as: Address = "IP1"; Address = "IP2";
+{% for addr in (fd_addresses | default(['127.0.0.1'])) %}
+Address = "{{ addr }}"
+{% endfor %}
+
+# List of Directors authorized to connect to this File Daemon.
+# Each entry must match the Director's configuration.
+{% for director in (directors | default([{'name': 'Director', 'address': '127.0.0.1', 'fd_port': 9101, 'password': 'director-password', 'tls_enable': True}])) %}
+# Director {{ director.name | default('Director') }} is authorized to connect and manage backups
+Director {
+  Name = {{ director.name | default('Director') }}
+  DirectorAddress = {{ director.address | default('127.0.0.1') }}
+  FDport = {{ director.fd_port | default(9101) }}
+  Password = "{{ director.password | default('director-password') }}"
+  TLSEnable = {{ director.tls_enable | default(true) | lower }}
+}
+{% endfor %}
+
+# Optional catalog configuration for metadata lookup during restores.
+{% if catalog is mapping %}
+Catalog {
+  Name = {{ catalog.name | default('Catalog') }}
+  DBAddress = {{ (catalog | default({})).db_address | default('127.0.0.1') }}
+  DBPort = {{ (catalog | default({})).db_port | default(0) }}
+  DBName = {{ (catalog | default({})).db_name | default('bacula') }}
+  DBUser = "{{ (catalog | default({})).db_user | default('bacula') }}"
+  DBPassword = "{{ (catalog | default({})).db_password | default('password') }}"
+}
+{% endif %}
+
+# Message destinations (console, mail, append, catalog).
+# Each key is a messages block name.
+{% for msg_key, dest in (messages | default({'Standard': {'type': 'daemon', 'target': '127.0.0.1 9103', 'level': 'all, !skipped, !saved'}})) | dict2items %}
+# {{ msg_key | upper }} messages sent to {{ (dest.value | default({})).type | default('daemon') | lower }} {{ (dest.value | default({})).target | default('127.0.0.1 9103') }}
+Messages {
+  Name = {{ msg_key | default('Standard') }}
+  {{ (dest.value | default({})).type | default('daemon') | lower }} = {{ (dest.value | default({})).target | default('127.0.0.1 9103') }}
+  {% if (dest.value | default({})).level is string %}
+  Level = {{ (dest.value | default({})).level | default('all, !skipped, !saved') }}
+  {% endif %}
+  console = all, !skipped, !saved
+  append = {{ append_log | default('/var/log/bacula/bacula.log') }}
+  mail = {{ mail_to | default('root@localhost') }} = all, !skipped
+  catalog = all
+}
+{% endfor %}
+
+# Enable TLS globally for all FD connections (overrides per-director if true).
+{% if tls_enabled | default(true) %}
+# TLS is enabled globally — all connections require encryption
+TLSEnable = true
+TLSCACertificateFile = {{ tls_ca_cert_file | default('/etc/bacula/ssl/certs/bacula-ca.crt') }}
+TLSCertificateFile = {{ tls_cert_file | default('/etc/bacula/ssl/certs/bacula-fd.crt') }}
+TLSKeyFile = {{ tls_key_file | default('/etc/bacula/ssl/private/bacula-fd.key') }}
+{% endif %}
+
+# List of plugins to load for enhanced backup functionality.
+# Each plugin must have a name and a library path.
+{% for plugin in (plugins | default([])) %}
+# Plugin {{ (plugin | default({})).name | default('plugin') }} loaded from {{ (plugin | default({})).path | default('none') }}
+Plugin {
+  Name = {{ (plugin | default({})).name | default('plugin') }}
+  Library = {{ (plugin | default({})).path | default('none') }}
+}
+{% endfor %}
+
+# Autochanger/robotic library definition (rare — only if FD also acts as Storage Daemon).
+{% if autochanger is mapping %}
+Autochanger {
+  Name = {{ autochanger.name | default('Autochanger') }}
+  ChangerCommand = {{ (autochanger | default({})).changer_command | default('') }}
+  ChangerDevice = {{ (autochanger | default({})).changer_device | default('') }}
+  {% if (autochanger | default({})).devices is iterable and (autochanger | default({})).devices | length > 0 %}
+  Device = {{ (autochanger.devices | default([]))[0].name | default('') }}
+  {% endif %}
+}
+{% endif %}

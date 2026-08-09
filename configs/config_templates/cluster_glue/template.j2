@@ -1,0 +1,156 @@
+<?xml version="1.0"?>
+{# cluster: Root element for the cman/rgmanager cluster configuration.
+   The 'name' attribute must be identical on every cluster node to form a single logical cluster.
+   The 'config_version' attribute is an integer counter; increment by 1 on every change and
+   distribute the updated file to all nodes to ensure consistent configuration across the quorum. #}
+<cluster name="{{ cluster_name | default('mycluster') }}"
+         config_version="{{ config_version | default(1) }}">
+
+  {# logging: Controls the verbosity of cluster daemon messages in syslog.
+     Set to 'on' only during active troubleshooting, as it generates high-volume output.
+     Default is 'off' for production stability. #}
+  <logging debug="{{ 'on' if logging_debug | default(False) else 'off' }}"/>
+
+  {# cman: Core cluster manager configuration.
+     keyfile: Path to the shared HMAC authentication key (created via cman_keyfile or create_cluster_conf).
+              Must be identical and readable by cluster processes on every node.
+     expected_votes: Integer count of votes required for quorum. For N nodes with 1 vote each,
+                     set to N. If two_node is true, this relaxes to 1 automatically to prevent
+                     split-brain in 2-node setups without a QDevice.
+     two_node: Boolean flag. Set to true if the cluster has exactly 2 nodes. #}
+  <cman keyfile="{{ cman_keyfile | default('/etc/cluster/authkey') }}"
+        expected_votes="{{ expected_votes | default(2) }}"
+        two_node="{{ '1' if two_node | default(False) else '0' }}"/>
+
+  {# clusternodes: Defines the members of the cluster.
+     Each node must have a unique 'nodeid' and a 'name' matching the node's hostname or FQDN.
+     'votes' usually defaults to 1 per node unless specialized hardware dictates otherwise.
+     Each node references one or more fencing methods (STONITH agents) to power-cycle itself
+     if it becomes unresponsive or is suspected of split-brain. #}
+  <clusternodes>
+    {% for node in nodes | default([]) %}
+    {# clusternode: Individual node entry.
+       nodeid: Unique integer ID for this node within the cluster.
+       votes: Number of votes this node contributes to quorum.
+       fence_device: Name of the fencing device (defined in <fencedevices>) used to fence this node. #}
+    <clusternode name="{{ node.name }}"
+                 votes="{{ node.votes | default(1) }}"
+                 nodeid="{{ node.nodeid }}">
+      <fence>
+        {# method: A fencing action. name="1" is typically the primary method.
+           Multiple methods can be defined for fallback agents. #}
+        <method name="1">
+          {# device: References the fencedevice name defined in the <fencedevices> section. #}
+          <device name="{{ node.fence_device }}"/>
+        </method>
+      </fence>
+    </clusternode>
+    {% endfor %}
+  </clusternodes>
+
+  {# fencedevices: Defines STONITH (Shoot The Other Node In The Head) fencing agents.
+     Each entry corresponds to an out-of-band management interface (IPMI, iLO, iDRAC, APC, etc.).
+     The 'agent' attribute must match an installed binary (e.g., fence_ipmilan, fence_apc) in $PATH.
+     Credentials and IP addresses for the management interface are stored here. #}
+  <fencedevices>
+    {% for fd in fence_devices | default([]) %}
+    {# fencedevice: Fencing agent definition.
+       name: Unique identifier for this fencing device, referenced by nodes.
+       agent: The fence agent binary name (e.g., fence_ipmilan, fence_virsh).
+       ipaddr: Management interface IP address.
+       login: Username for the management interface.
+       passwd: Password for the management interface.
+       lanplus: Boolean (1/0). Set to 1 for IPMI v2 / iLO / iDRAC (enhanced security); 0 for legacy IPMI v1. #}
+    <fencedevice name="{{ fd.name }}"
+                 agent="{{ fd.agent }}"
+                 ipaddr="{{ fd.ipaddr }}"
+                 login="{{ fd.login }}"
+                 passwd="{{ fd.passwd }}"
+                 lanplus="{{ '1' if fd.lanplus | default(False) else '0' }}"/>
+    {% endfor %}
+  </fencedevices>
+
+  {# rm: Resource Manager block. Contains failover domains, resources (IPs, filesystems), and services.
+     This section defines what runs on the cluster and how it fails over. #}
+  <rm>
+    {# failoverdomains: Named groups of nodes with a defined priority order.
+       Services are assigned to a failover domain to restrict which nodes they can run on
+       and in what order they attempt to start.
+       ordered: If true (1), nodes are tried in priority order.
+       restricted: If true (1), the service will NOT run on nodes not listed in the domain. #}
+    <failoverdomains>
+      {% for domain in failover_domains | default([]) %}
+      {# failoverdomain: Domain definition.
+         name: Unique name for the domain.
+         ordered: Boolean (1/0).
+         restricted: Boolean (1/0). #}
+      <failoverdomain name="{{ domain.name }}"
+                      ordered="{{ '1' if domain.ordered | default(False) else '0' }}"
+                      restricted="{{ '1' if domain.restricted | default(False) else '0' }}">
+        {# failoverdomainnode: Specific node entry within the domain.
+           name: The node name (must match a clusternode name).
+           priority: Integer. Lower numbers = higher preference (1 is tried first). #}
+        {% for dn in domain.nodes | default([]) %}
+        <failoverdomainnode name="{{ dn.name }}"
+                            priority="{{ dn.priority | default(1) }}"/>
+        {% endfor %}
+      </failoverdomain>
+      {% endfor %}
+    </failoverdomains>
+
+    {# resources: Global pool of cluster resources (floating IPs, filesystems).
+       Services reference these resources by name/ID. #}
+    <resources>
+      {# ip: Floating IP address resource.
+         address: The IP address to float.
+         monitor_link: If true (1), the resource fails if the underlying NIC loses carrier
+                       (link down), triggering a failover to the standby node. #}
+      {% for vip in vip_resources | default([]) %}
+      <ip address="{{ vip.address }}"
+          monitor_link="{{ '1' if vip.monitor_link | default(False) else '0' }}"/>
+      {% endfor %}
+
+      {# fs: Shared filesystem resource (typically mounted from SAN/iSCSI/NFS).
+         name: Unique identifier for this filesystem resource.
+         device: Block device path (e.g., /dev/sdb1).
+         mountpoint: Local directory where the filesystem is mounted.
+         fstype: Filesystem type (e.g., ext4, xfs).
+         force_unmount: If true (1), forcibly unmounts the filesystem (killing open files)
+                        during failover if a graceful unmount fails. #}
+      {% for fs in fs_resources | default([]) %}
+      <fs name="{{ fs.name }}"
+          device="{{ fs.device }}"
+          mountpoint="{{ fs.mountpoint }}"
+          fstype="{{ fs.fstype }}"
+          force_unmount="{{ '1' if fs.force_unmount | default(False) else '0' }}"/>
+      {% endfor %}
+    </resources>
+
+    {# service: High-availability service definition.
+       Binds floating IPs and filesystems into a named service that migrates together.
+       domain: The failover domain this service belongs to.
+       recovery: Strategy on failure:
+                 'relocate': Move to the next available node in the domain.
+                 'restart': Try to restart on the same node.
+                 'disable': Leave the service stopped; requires manual intervention. #}
+    {% for svc in services | default([]) %}
+    <service name="{{ svc.name }}"
+             domain="{{ svc.domain }}"
+             recovery="{{ svc.recovery | default('relocate') }}">
+      {# ip: Reference to an IP resource defined in <resources>.
+         ref: The name/address of the IP resource. #}
+      {% for ip_ref in svc.ip_refs | default([]) %}
+      <ip ref="{{ ip_ref }}"/>
+      {% endfor %}
+
+      {# fs: Reference to a filesystem resource defined in <resources>.
+         ref: The name of the filesystem resource. #}
+      {% for fs_ref in svc.fs_refs | default([]) %}
+      <fs ref="{{ fs_ref }}"/>
+      {% endfor %}
+    </service>
+    {% endfor %}
+
+  </rm>
+
+</cluster>

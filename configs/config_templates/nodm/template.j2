@@ -1,0 +1,101 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:       nodm
+# Should-Start:   bluetooth
+# Required-Start: $remote_fs
+# Required-Stop:
+# Default-Start:  2 3 4 5
+# Default-Stop:
+# Description: Display Manager for automatic session logins
+# Short-Description: No Display Manager
+### END INIT INFO
+
+
+set -e
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DESC="Automatic Display Manager"
+NAME=nodm
+PIDDIR=/var/run/
+PIDFILE=${PIDDIR}/${NAME}.pid
+
+# Enable or disable automatic display manager startup on boot.
+# Default: false
+NODM_ENABLED={{ enabled | default(false) }}
+
+# Always use virtual terminal 7 for the X server.
+NODM_FIRST_VT=7
+
+# Command or script to execute as the user session (e.g., desktop environment launcher).
+# Default: /etc/X11/Xsession
+NODM_XSESSION={{ xsession | default('/etc/X11/Xsession') }}
+
+# Command-line arguments passed to the X server when starting.
+# Default: -nolisten tcp
+NODM_OPTIONS={{ xserver_options | default('-nolisten tcp') }}
+
+# Username to automatically log in. Must exist on the system.
+# Default: '' (empty, usually implies current or default user behavior depending on nodm version)
+NODM_USER={{ user | default('') }}
+
+# Minimum time in seconds before a session is considered stable.
+NODM_MIN_SESSION_TIME=60
+
+# Timeout in seconds for X server startup.
+NODM_X_TIMEOUT=300
+
+if [ -f /etc/default/$NAME ]
+then
+	. /etc/default/$NAME
+fi
+
+export NODM_XSESSION NODM_X_OPTIONS NODM_USER NODM_MIN_SESSION_TIME NODM_FIRST_VT NODM_X_TIMEOUT
+
+# If you change the user to a non-root user, make sure you
+# set allowed_users=anybody in /etc/X11/Xwrapper.config
+
+# Gracefully exit if the package or its dependencies have been removed (but not purged).
+[ -x /usr/sbin/nodm -a -x "$NODM_XSESSION" ] || exit 0
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+. /lib/lsb/init-functions
+
+
+case "$1" in
+	start)
+		if [ -x /bin/plymouth ]; then
+			/bin/plymouth quit || true
+		fi
+		[ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
+		if [ "$NODM_ENABLED" = "no" ] || [ "$NODM_ENABLED" = "false" ]
+		then
+			log_warning_msg "Not starting $NAME because NODM_ENABLED is '$NODM_ENABLED' in /etc/default/$NAME"
+		else
+			start-stop-daemon --start --quiet --oknodo --pidfile ${PIDFILE} --make-pidfile --background --exec /usr/sbin/nodm -- ${NODM_OPTIONS}
+		fi
+		[ "$VERBOSE" != no ] && log_end_msg $?
+		;;
+	stop)
+		[ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
+		start-stop-daemon --stop --quiet --retry 10 --pidfile ${PIDFILE} --oknodo
+		rm -f ${PIDFILE}
+		[ "$VERBOSE" != no ] && log_end_msg $?
+		;;
+	restart|force-reload)
+		$0 stop
+		$0 start
+		;;
+	status)
+		status_of_proc -p ${PIDFILE} /usr/sbin/nodm nodm && exit 0 || exit $?
+		;;
+	*)
+		echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
+		exit 1
+		;;
+esac
+
+
+exit 0

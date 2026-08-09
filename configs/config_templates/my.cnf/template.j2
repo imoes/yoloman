@@ -1,0 +1,91 @@
+[mysqld]
+# Bind to localhost (or all interfaces if false)
+bind-address = {{ server.bind_address }}
+
+# Port number for MySQL client connections
+port = {{ server.port }}
+
+# Maximum number of simultaneous client connections
+max_connections = {{ server.max_connections }}
+
+# Maximum size of a single packet or row
+max_allowed_packet = {{ server.max_allowed_packet }}
+
+# Timeout (in seconds) for closing idle connections
+timeout_connect = {{ server.timeout_connect }}
+
+# Timeout (in seconds) for closing connections with no activity
+timeout_wait = {{ server.timeout_wait }}
+
+# Timeout (in seconds) for closing connections with no activity after first read
+timeout_read = {{ server.timeout_read }}
+
+# Timeout (in seconds) for closing connections with no activity after write
+timeout_write = {{ server.timeout_write }}
+
+# InnoDB buffer pool size — caches data and indexes in memory
+innodb_buffer_pool_size = {{ storage.innodb_buffer_pool_size }}
+
+# InnoDB log file size — larger = better for write-heavy workloads
+innodb_log_file_size = {{ storage.innodb_log_file_size }}
+
+# InnoDB log buffer size — size of buffer for writes to log files
+innodb_log_buffer_size = {{ storage.innodb_log_buffer_size }}
+
+# InnoDB flush method — controls how data is flushed to disk
+innodb_flush_method = {{ storage.innodb_flush_method }}
+
+# Path to data directory
+data_directory = {{ storage.data_directory }}
+
+# Enable binary logging for replication and point-in-time recovery
+{% if replication.enabled %}log_bin = {{ replication.log_bin }}
+binlog_format = {{ replication.binlog_format }}
+server_id = {{ replication.server_id }}
+{% endif %}
+
+# TLS/SSL configuration — required for secure connections
+{% if ssl.enabled %}ssl_cert = {{ ssl.cert_path }}
+ssl_key = {{ ssl.key_path }}
+ssl_ca = {{ ssl.ca_path }}
+{% endif %}
+
+# Character set and collation defaults
+character_set_server = {{ charsets.character_set_server }}
+collation_server = {{ charsets.collation_server }}
+
+# Logging — general query log and slow query log
+{% if logging.general_log %}general_log = {{ logging.general_log | lower }}
+general_log_file = {{ logging.general_log_file }}
+{% endif %}
+{% if logging.slow_query_log %}slow_query_log = {{ logging.slow_query_log | lower }}
+slow_query_log_file = {{ logging.slow_query_log_file }}
+long_query_time = {{ logging.long_query_time }}
+{% endif %}
+
+# Table and temporary table limits
+max_heap_table_size = {{ limits.max_heap_table_size }}
+tmp_table_size = {{ limits.tmp_table_size }}
+
+# Thread caching — reuse threads to reduce overhead on new connections
+thread_cache_size = {{ limits.thread_cache_size }}
+
+# Join and sort buffer sizes
+join_buffer_size = {{ limits.join_buffer_size }}
+sort_buffer_size = {{ limits.sort_buffer_size }}
+read_buffer_size = {{ limits.read_buffer_size }}
+read_rnd_buffer_size = {{ limits.read_rnd_buffer_size }}
+
+# Default storage engine
+default_storage_engine = {{ defaults.default_storage_engine }}
+
+# Skip symbolic links for data directory safety
+{% if security.skip_symbolic_links %}skip-symbolic-links
+{% endif %}
+
+[client]
+# Default client port
+port = {{ client.port }}
+
+# Default client socket path
+socket = {{ client.socket }}

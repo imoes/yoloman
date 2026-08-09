@@ -1,0 +1,65 @@
+# Enable daemon mode
+mode daemon
+
+# Listen address for HTTP server
+host 0.0.0.0
+
+# Port for HTTP server
+port 10041
+
+# Directory where database files are stored
+db_path /var/lib/groonga/db
+
+# Maximum number of simultaneous connections
+max_connections 100
+
+# Request timeout in seconds
+request_timeout 60
+
+# Log level: debug, info, notice, warning, error
+log_level notice
+
+# Enable query log
+query_log yes
+
+# Enable access log
+access_log yes
+
+# Log directory
+log_dir /var/log/groonga
+
+# Maximum number of records returned in a single search result
+search_max_n_records 10000
+
+# Enable thread pool for parallel processing
+use_thread_pool yes
+
+# Number of worker threads
+n_workers 4
+
+# Enable SSL/TLS support
+ssl_enabled no
+
+# SSL certificate file path
+ssl_cert_path /etc/groonga/ssl/server.crt
+
+# SSL private key file path
+ssl_key_path /etc/groonga/ssl/server.key
+
+# Virtual hosts configuration (repeated block)
+{% for vhost in vhosts %}
+# Virtual host: {{ vhost.name }}
+{% if vhost.name %}virtual_host {{ vhost.name }}{% endif %}
+{% if vhost.host %}host {{ vhost.host }}{% endif %}
+{% if vhost.port %}port {{ vhost.port }}{% endif %}
+{% if vhost.db_path %}db_path {{ vhost.db_path }}{% endif %}
+{% if vhost.ssl_enabled is defined %}ssl_enabled {{ 'yes' if vhost.ssl_enabled else 'no' }}{% endif %}
+{% if vhost.ssl_cert_path %}ssl_cert_path {{ vhost.ssl_cert_path }}{% endif %}
+{% if vhost.ssl_key_path %}ssl_key_path {{ vhost.ssl_key_path }}{% endif %}
+{% endfor %}
+
+# Predefined plugins
+{% for plugin in plugins %}
+# Load plugin: {{ plugin.name }}
+plugin_load {{ plugin.name }}
+{% endfor %}

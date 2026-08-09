@@ -1,0 +1,61 @@
+# Global server configuration
+ServerName "{{ server_name }}"
+ServerType {{ server_type }}
+DeferIdent {{ defer_ident | lower }}
+
+# Default root directory for FTP sessions
+DefaultRoot ~ ftpusers
+
+# Port to listen on
+Port {{ listen_port }}
+
+# Maximum connections per IP
+MaxClients {{ max_clients }}
+
+# Allow/deny by host
+{% for rule in host_rules %}
+# {{ rule.comment or 'Host access rule' }}
+{% if rule.allow %}AllowUser {{ rule.user }}
+{% else %}DenyUser {{ rule.user }}
+{% endif %}
+{% endfor %}
+
+# Passive port range for passive FTP
+PassivePorts {{ passive_ports.start }} {{ passive_ports.end }}
+
+# TLS configuration
+{% if tls.enabled %}
+# Enable TLS
+{% if tls.config_file %}TLSEngine on
+TLSProtocol {{ tls.protocol }}
+TLSOptions {{ tls.options | join(' ') }}
+TLSRequired {{ 'on' if tls.required else 'off' }}
+TLSRSACertFile {{ tls.cert_file }}
+TLSRSAPrivateKeyFile {{ tls.key_file }}
+{% if tls.ca_file %}TLSCACertificateFile {{ tls.ca_file }}
+{% endif %}
+{% else %}TLSConfigFile {{ tls.config_file }}
+{% endif %}
+{% endif %}
+
+# Load the proxy module
+{% if mod_proxy.enabled %}# Enable mod_proxy
+LoadModule mod_proxy.c
+
+# Proxy backends
+{% for backend in mod_proxy.backends %}
+# Proxy backend: {{ backend.name or 'unnamed' }}
+{% if backend.protocol == 'ftp' %}ProxyRemote ftp://{{ backend.host }}:{{ backend.port }}/
+{% elif backend.protocol == 'http' %}ProxyRemote http://{{ backend.host }}:{{ backend.port }}/
+{% elif backend.protocol == 'https' %}ProxyRemote https://{{ backend.host }}:{{ backend.port }}/
+{% endif %}
+{% endfor %}
+
+# Proxy authentication and timeout
+ProxyAuthMethods {{ mod_proxy.auth_methods | join(' ') }}
+ProxyTimeout {{ mod_proxy.timeout }}
+{% endif %}
+
+# Logging
+SystemLog {{ system_log }}
+TransferLog {{ transfer_log }}

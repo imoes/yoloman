@@ -1,0 +1,47 @@
+#!/bin/sh
+# Shell script for the aptitude-robot automated package maintenance utility.
+# This script is sourced by cron to perform daily package updates.
+
+# Source the environment configuration file.
+# The variable `config_file` specifies the filename (without path) of the shell config file
+# located in /etc/default/ to source environment variables from.
+# Default value: 'aptitude-robot'
+# Path: /etc/default/{{ config_file | default('aptitude-robot') }}
+if [ -f /etc/default/{{ config_file | default('aptitude-robot') }} ] ; then
+    . /etc/default/{{ config_file | default('aptitude-robot') }}
+else
+    :
+fi
+
+# Check if the robot is enabled to run daily.
+# If RUN_DAILY is set to "no", the script exits immediately.
+# Note: The variable `RUN_DAILY` is expected to be defined in the sourced config.
+if [ "$RUN_DAILY" = "no" ]; then
+    exit
+fi
+
+# Helper function to run a command only if it is executable.
+# This prevents errors if a script is missing or not executable.
+run_if_executable () {
+    if [ -x "$1" ] ; then
+        "$@"
+    else
+        :
+    fi
+}
+
+# Execute the random-delay script to introduce a jitter before running updates.
+# The maximum random delay (in seconds) is passed via the environment variable
+# specified by `max_random_delay_env_var`. This helps avoid thundering herd
+# effects on package mirrors.
+# Default env var name: 'MAX_RANDOM_DELAY_SECONDS'
+run_if_executable /usr/share/aptitude-robot/random-delay ${{ max_random_delay_env_var | default('MAX_RANDOM_DELAY_SECONDS') }}
+
+# Execute the main aptitude-robot session.
+# If SUPPRESS_CRON_MAILS is set to "yes", suppress mail output from the session.
+# Note: The variable `SUPPRESS_CRON_MAILS` is expected to be defined in the sourced config.
+if [ "$SUPPRESS_CRON_MAILS" = yes ]; then
+    run_if_executable /usr/sbin/aptitude-robot-session || true
+else
+    run_if_executable /usr/sbin/aptitude-robot-session
+fi

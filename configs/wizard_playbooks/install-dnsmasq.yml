@@ -1,0 +1,31 @@
+- name: install-dnsmasq
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/dnsmasq.conf"
+    _service: "dnsmasq"
+    _packages:
+      - dnsmasq
+    config_dir: "/etc/dnsmasq.d"
+  tasks:
+    - name: Install dnsmasq
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: dnsmasq.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        config_dir: "{{ config_dir }}"
+
+    - name: Validate configuration
+      ansible.builtin.command: dnsmasq --test
+
+    - name: Enable and restart dnsmasq
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

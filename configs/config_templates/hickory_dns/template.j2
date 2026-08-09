@@ -1,0 +1,184 @@
+# =============================================================================
+# Hickory DNS Server Configuration
+# =============================================================================
+# This template generates the configuration file for the Hickory DNS server.
+# It supports multiple operation modes (resolver, forwarder, cache-only),
+# encrypted listeners (DoH, DoT), authoritative zones, and security hardening.
+#
+# All variables are sourced from Ansible facts/role variables.
+# Defaults are applied inline to ensure the template renders correctly even
+# if a variable is undefined in the playbook.
+# =============================================================================
+
+# [General]
+# Logging verbosity: trace, debug, info, warn, error, or off.
+log_level = "{{ log_level | default('info') }}"
+
+# [General]
+# Server operation mode:
+# - resolver: Full recursive resolution using upstreams.
+# - forwarder: Recursive resolution with custom upstreams (similar to resolver but implies forwarding).
+# - cache-only: Caches responses but does not perform recursive resolution itself (relies on system or external).
+mode = "{{ mode | default('resolver') }}"
+
+# =============================================================================
+# DNS over HTTPS (DoH) Configuration
+# =============================================================================
+# DoH allows DNS queries to be sent over HTTPS, providing privacy and security.
+[doh]
+# Enable the DoH listener.
+enabled = {{ doh_enabled | default(false) | lower }}
+
+{% if doh_enabled | default(false) %}
+# IP:port for the DoH listener.
+# Requires valid TLS credentials (cert and key).
+address = "{{ doh_address | default('127.0.0.1:443') }}"
+
+# [doh TLS]
+# Path to the TLS certificate file (PEM format) for the DoH listener.
+cert = "{{ doh_cert_path | default('/etc/hickory-dns/certs/doh.crt') }}"
+
+# [doh TLS]
+# Path to the TLS private key file (PEM format) for the DoH listener.
+key = "{{ doh_key_path | default('/etc/hickory-dns/certs/doh.key') }}"
+{% endif %}
+
+# =============================================================================
+# DNS over TLS (DoT) Configuration
+# =============================================================================
+# DoT encapsulates DNS queries in TLS connections (typically port 853).
+[dot]
+# Enable the DoT listener.
+enabled = {{ dot_enabled | default(false) | lower }}
+
+{% if dot_enabled | default(false) %}
+# IP:port for the DoT listener.
+# Requires valid TLS credentials (cert and key).
+address = "{{ dot_address | default('127.0.0.1:853') }}"
+
+# [dot TLS]
+# Path to the TLS certificate file (PEM format) for the DoT listener.
+cert = "{{ dot_cert_path | default('/etc/hickory-dns/certs/dot.crt') }}"
+
+# [dot TLS]
+# Path to the TLS private key file (PEM format) for the DoT listener.
+key = "{{ dot_key_path | default('/etc/hickory-dns/certs/dot.key') }}"
+{% endif %}
+
+# =============================================================================
+# TCP Listener Configuration
+# =============================================================================
+[tcp]
+# Enable the TCP DNS listener. TCP is required for large responses and zone transfers.
+enabled = true
+
+# IP:port for the TCP DNS listener.
+address = "{{ tcp_address | default('0.0.0.0:53') }}"
+
+{% if tcp_idle_timeout | default(300) > 0 %}
+# Idle connection timeout in seconds.
+# Set to 0 to disable the timeout (keep connections open indefinitely).
+idle_timeout = {{ tcp_idle_timeout | default(300) }}
+{% endif %}
+
+# =============================================================================
+# UDP Listener Configuration
+# =============================================================================
+[udp]
+# Enable the UDP DNS listener. UDP is the primary transport for standard DNS.
+enabled = true
+
+# IP:port for the UDP DNS listener.
+address = "{{ udp_address | default('0.0.0.0:53') }}"
+
+# Maximum UDP message size in bytes.
+# RFC 8467 recommends supporting up to 4096 bytes for DNS over UDP.
+max_message_size = {{ udp_max_message_size | default(4096) }}
+
+# =============================================================================
+# Recursive Resolver (Recursor) Configuration
+# =============================================================================
+# These settings apply when `mode` is set to 'resolver'.
+# The recursor forwards queries to upstream DNS servers to resolve names.
+{% if mode | default('resolver') == "resolver" %}
+[recursor]
+# List of upstream DNS resolvers (IP:port or hostname:port).
+# Hickory DNS will query these servers if the answer is not in its cache.
+upstreams = [
+{% for upstream in upstreams | default(['1.1.1.1:53', '1.0.0.1:53']) %}
+  "{{ upstream }}",
+{% endfor %}
+]
+
+# Maximum time (seconds) to wait for a response from an upstream resolver.
+query_timeout = {{ recursor_query_timeout | default(5) }}
+
+# Maximum number of simultaneous recursive queries allowed.
+max_concurrent_queries = {{ recursor_max_concurrent_queries | default(2048) }}
+
+# Enable DNSSEC validation of responses.
+# Requires a valid trust anchor (root key file) to be secure.
+validate = {{ recursor_validate | default(true) | lower }}
+
+{% if root_ksk_path | default('/etc/hickory-dns/ksk-keyset-20170711.txt') %}
+# Path to the root key signing key set file.
+# If omitted, Hickory DNS uses built-in trust anchors.
+root_key_file = "{{ root_ksk_path | default('/etc/hickory-dns/ksk-keyset-20170711.txt') }}"
+{% endif %}
+{% endif %}
+
+# =============================================================================
+# Authoritative Zone Configuration
+# =============================================================================
+# Static zone definitions allow Hickory DNS to serve as an authoritative
+# nameserver for specific domains.
+{% if zones | default([]) is iterable and (zones | default([])) | length > 0 %}
+[zones]
+{% for zone in zones | default([]) %}
+[zones.{{ (zone.name | default('zone_' + loop.index | string)) | replace(".", "_") | default("zone_" + loop.index | string) }}]
+# Path to the zone file on disk.
+file = "{{ zone.file | default('') }}"
+# Zone type: 'authoritative' or 'slave'.
+type = "{{ zone.type | default('authoritative') }}"
+{% if zone.axfr_source | default('') %}
+# Address of the master server for AXFR (zone transfer) if this is a slave zone.
+axfr_source = "{{ zone.axfr_source }}"
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# =============================================================================
+# Security Hardening
+# =============================================================================
+[security]
+
+{% if rrld_enabled | default(false) %}
+# Enable Response Rate Limiting (RRL).
+# Mitigates DNS amplification attacks by limiting responses per client.
+response_rate_limiting = true
+
+# Maximum responses allowed per client window before rate limiting kicks in.
+max_responses_per_window = {{ rrld_max_responses | default(20) }}
+{% else %}
+response_rate_limiting = false
+{% endif %}
+
+# Drop oversized or malformed packets without sending error responses.
+# Improves resilience against DoS attacks.
+drop_quietly = {{ drop_quietly | default(true) | lower }}
+
+# =============================================================================
+# Server Identity
+# =============================================================================
+
+{% if server_id | default('') %}
+# Server identifier string.
+# Used for EDNS Client Subnet scope and general server identification.
+server_id = "{{ server_id }}"
+{% endif %}
+
+{% if soa_mname | default('') %}
+# Primary nameserver hostname for SOA (Start of Authority) records.
+# Used in authoritative zones to specify the primary NS.
+soa_mname = "{{ soa_mname }}"
+{% endif %}

@@ -1,0 +1,175 @@
+{
+  "bundle_dir": {
+    "type": "string",
+    "default": "/var/lib/containers/storage/bundle",
+    "description": "Base directory for OCI bundle data (runtime-generated files, state, etc.)."
+  },
+  "rootfs": {
+    "type": "string",
+    "default": "/var/lib/containers/storage/rootfs",
+    "description": "Default root filesystem path for containers when not specified in container config."
+  },
+  "seccomp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable seccomp syscall filtering for containers."
+  },
+  "apparmor": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable AppArmor mandatory access control for containers (Linux only)."
+  },
+  "selinux": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable SELinux labeling for containers (Linux only)."
+  },
+  "capabilities": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable POSIX capabilities management for containers."
+  },
+  "seccomp_profile": {
+    "type": "string",
+    "default": "/etc/crun/seccomp.json",
+    "description": "Path to the JSON file defining allowed/denied syscalls when seccomp is enabled."
+  },
+  "apparmor_profile": {
+    "type": "string",
+    "default": "crun-default",
+    "description": "Name of the AppArmor profile to apply to containers when AppArmor is enabled."
+  },
+  "selinux_label": {
+    "type": "string",
+    "default": "system_u:system_r:container_t:s0:c0,c1",
+    "description": "Default SELinux label to apply to container processes and files when SELinux is enabled."
+  },
+  "cap_drop": {
+    "type": "list",
+    "default": [
+      "CAP_SYS_ADMIN",
+      "CAP_NET_RAW"
+    ],
+    "description": "List of capabilities to drop by default in all containers (e.g., ['CAP_SYS_ADMIN'])."
+  },
+  "cap_add": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional capabilities to grant to containers (e.g., ['NET_BIND_SERVICE'])."
+  },
+  "default_uid": {
+    "type": "number",
+    "default": 1000,
+    "description": "Default UID used for the container's init process when no user is specified."
+  },
+  "default_gid": {
+    "type": "number",
+    "default": 1000,
+    "description": "Default GID used for the container's init process when no group is specified."
+  },
+  "crio_compatibility": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable compatibility mode for CRI-O (e.g., handle CRI-specific annotations)."
+  },
+  "podman_compatibility": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable compatibility mode for Podman (e.g., support Podman-specific config keys)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'warn', 'error', 'fatal', or 'panic'.",
+    "enum": [
+      "debug",
+      "info",
+      "error"
+    ]
+  },
+  "log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Empty string disables file logging (stdout only)."
+  },
+  "log_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum size (in MB) per log file before rotation."
+  },
+  "log_files": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of rotated log files to keep."
+  },
+  "systemd_cgroup": {
+    "type": "bool",
+    "default": false,
+    "description": "Use systemd for cgroup management instead of cgroupfs (requires systemd)."
+  },
+  "cgroup_manager": {
+    "type": "string",
+    "default": "cgroupfs",
+    "description": "Cgroup driver: 'systemd' or 'cgroupfs'. Used only if systemd_cgroup is false.",
+    "enum": [
+      "cgroupfs",
+      "systemd",
+      "disabled"
+    ]
+  },
+  "annotations": {
+    "type": "list",
+    "default": [],
+    "description": "Key-value pairs added to container metadata (e.g., for debugging or automation).",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "Annotation key (e.g., 'io.podman.debug')"
+      },
+      "value": {
+        "type": "string",
+        "description": "Annotation value (e.g., 'true')"
+      }
+    }
+  },
+  "prestart_hooks": {
+    "type": "list",
+    "default": [],
+    "description": "Commands to run before the container process starts (e.g., setup scripts).",
+    "items": {
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of the hook"
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the hook executable"
+      },
+      "args": {
+        "type": "list",
+        "description": "Optional arguments to pass to the hook (list of strings)",
+        "default": []
+      }
+    }
+  },
+  "poststop_hooks": {
+    "type": "list",
+    "default": [],
+    "description": "Commands to run after the container stops (e.g., cleanup scripts).",
+    "items": {
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of the hook"
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the hook executable"
+      },
+      "args": {
+        "type": "list",
+        "description": "Optional arguments to pass to the hook (list of strings)",
+        "default": []
+      }
+    }
+  }
+}

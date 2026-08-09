@@ -1,0 +1,40 @@
+/** Matches bossman/api/system_settings.py's SystemSettingsOut — currently
+ * just the global "YOLO-MAN" mode switch (Block L2, the project's own
+ * namesake: "You Only Look Once"). When on, every new orchestration plan
+ * link activates immediately, bypassing its own require_approval/
+ * auto_apply. Human-only: no MCP tool can set this. */
+export interface SystemSettings {
+  yolo_mode: boolean;
+  /** Bossman-wide HTTP(S) proxy for `helm` chart pulls (helm runs on the
+   * agent host; an internet OCI registry like bitnami is unreachable from a
+   * host behind a corp firewall). Empty = no proxy. See SetHelmProxyInput. */
+  helm_http_proxy: string;
+  helm_no_proxy: string;
+  /** PXE netboot gate. The secret's plaintext is never sent to the client — only
+   * whether one is set (netboot_secret_set) and the enable toggle. See SetNetbootInput. */
+  netboot_enabled: boolean;
+  netboot_secret_set: boolean;
+  /** Event/run history auto-purge window in days; 0 = keep forever. Housekeeping
+   * prunes runbook_runs + audit_log older than this. See SetRetentionIn. */
+  run_retention_days: number;
+  updated_by: string | null;
+  updated_at: string;
+}
+
+/** Matches bossman/api/system_settings.py's SetYoloModeIn. */
+export interface SetYoloModeInput {
+  enabled: boolean;
+}
+
+/** Matches bossman/api/system_settings.py's SetHelmProxyIn. */
+export interface SetHelmProxyInput {
+  http_proxy: string;
+  no_proxy: string;
+}
+
+/** Matches bossman/api/system_settings.py's SetNetbootIn. Omit `secret` to keep the
+ * existing one; send "" to clear it. */
+export interface SetNetbootInput {
+  enabled: boolean;
+  secret?: string;
+}

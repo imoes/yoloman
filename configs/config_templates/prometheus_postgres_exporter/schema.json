@@ -1,0 +1,94 @@
+{
+  "target_dsns": {
+    "type": "list",
+    "default": [],
+    "description": "List of PostgreSQL DSNs (connection strings) to monitor. Each DSN follows format: postgresql://user:pass@host:port/dbname?sslmode=disable",
+    "items": {
+      "type": "string",
+      "description": "A PostgreSQL connection string (DSN). Example: postgresql://postgres:secret@localhost:5432/postgres?sslmode=disable"
+    }
+  },
+  "timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum seconds to wait for a PostgreSQL connection per scrape before timing out."
+  },
+  "disabled_collectors": {
+    "type": "list",
+    "default": [],
+    "description": "List of collector names to disable. Use '--no-collector help' to list available collectors.",
+    "items": {
+      "type": "string",
+      "description": "Name of a collector to disable (e.g., 'bgwriter', 'database', 'process')"
+    }
+  },
+  "enabled_collectors": {
+    "type": "list",
+    "default": [],
+    "description": "List of collector names to *only* enable (overrides default enabled set). If empty, most collectors are enabled by default.",
+    "items": {
+      "type": "string",
+      "description": "Name of a collector to enable (e.g., 'stat_activity', 'replication')"
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of exporter logs. One of: debug, info, warn, error."
+  },
+  "web_listen_address": {
+    "type": "string",
+    "default": "0.0.0.0:9187",
+    "description": "Network interface and port to expose metrics (e.g., '127.0.0.1:9187' to restrict to local host)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate file for HTTPS on the exporter endpoint. Leave empty to disable TLS."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key file (must accompany tls_cert_file)."
+  },
+  "basic_auth_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for basic auth on the /metrics endpoint. Leave empty to disable auth."
+  },
+  "basic_auth_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for basic auth on the /metrics endpoint. Must be set if basic_auth_user is set."
+  },
+  "query_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to custom YAML file defining additional queries/metrics. See upstream docs for format."
+  },
+  "pg_version": {
+    "type": "string",
+    "default": "",
+    "description": "Explicitly set PostgreSQL version (e.g., '14.0') to override auto-detection. Useful for proxy layers (e.g., pgBouncer)."
+  },
+  "export_database_size": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable collection of per-database size (uses pg_database.datsize). Slight performance impact."
+  },
+  "export_table_bloat": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable estimation of table bloat (requires pg_stat_statements extension). May be slow on large schemas."
+  },
+  "wal_lag_warning": {
+    "type": "number",
+    "default": 100000000,
+    "description": "Minimum WAL lag (in bytes) to trigger a warning alert for streaming replication."
+  },
+  "wal_lag_critical": {
+    "type": "number",
+    "default": 1000000000,
+    "description": "Minimum WAL lag (in bytes) to trigger a critical alert for streaming replication."
+  }
+}

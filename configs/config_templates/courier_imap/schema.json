@@ -1,0 +1,142 @@
+{
+  "max_daemon": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of IMAP daemon processes allowed system-wide."
+  },
+  "max_per_ip": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of concurrent IMAP connections per IP address."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Logging verbosity: 0 (quiet), 1 (normal), 2 (debug)."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL/TLS support for IMAP connections."
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 993,
+    "description": "Port number for SSL/TLS-enabled IMAP (standard port: 993)."
+  },
+  "ssl_certificate_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/courier-imap.pem",
+    "description": "Path to the SSL certificate and private key (PEM format)."
+  },
+  "ssl_ca_certificate_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to CA certificate for client certificate verification."
+  },
+  "ssl_require_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Require authentication only over SSL/TLS (prevent plaintext passwords)."
+  },
+  "auth_modules": {
+    "type": "list",
+    "default": [
+      "authldap",
+      "authpam"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "authpam",
+        "authldap",
+        "authmysql",
+        "authpgsql",
+        "authuserdb"
+      ],
+      "description": "Authentication backend modules; choose based on your identity provider."
+    },
+    "description": "Ordered list of authentication modules to load."
+  },
+  "enabled_extensions": {
+    "type": "list",
+    "default": [
+      "IMAP4rev1",
+      "IDLE",
+      "LISTEXT",
+      "LITERAL+",
+      "CHILDREN"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "IMAP4rev1",
+        "IDLE",
+        "LISTEXT",
+        "LITERAL+",
+        "CHILDREN"
+      ],
+      "description": "IMAP extension names to advertise (IMAP4rev1 is mandatory)."
+    },
+    "description": "List of IMAP extensions to enable and announce in CAPABILITY."
+  },
+  "mail_root": {
+    "type": "string",
+    "default": "/var/mail",
+    "description": "Top-level directory where user mailboxes are stored (must match MTA spool path)."
+  },
+  "mail_format": {
+    "type": "string",
+    "default": "maildir",
+    "description": "Mail storage format: 'maildir' (per-message files) or 'mbox' (single file per mailbox)."
+  },
+  "imapd_startup_wait": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for daemon startup (internal timeout)."
+  },
+  "imapd_login_wait": {
+    "type": "number",
+    "default": 120,
+    "description": "Seconds to wait for client authentication before disconnecting."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum allowed message size in bytes (0 = unlimited)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds before an idle IMAP connection times out (requires IDLE extension)."
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Allowed IP addresses or hostnames (CIDR notation allowed)."
+    },
+    "description": "List of trusted hosts/IPs allowed to connect (empty = all hosts)."
+  },
+  "require_ssl_for_plaintext": {
+    "type": "bool",
+    "default": true,
+    "description": "Disallow plaintext authentication if SSL/TLS is not in use."
+  },
+  "enable_quota": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IMAP QUOTA extension to report and enforce mailbox size limits."
+  },
+  "enable_acl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IMAP ACL extension for folder-level access control."
+  },
+  "extra_options": {
+    "type": "object",
+    "default": {},
+    "description": "Map of additional key=value-style configuration directives."
+  }
+}

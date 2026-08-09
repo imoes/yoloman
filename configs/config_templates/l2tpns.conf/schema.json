@@ -1,0 +1,156 @@
+{
+  "listen_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind L2TP control port (UDP 1701). Use 0.0.0.0 to listen on all interfaces."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of concurrent L2TP sessions allowed."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logs: 0=none, 1=fatal, 2=error, 3=warning, 4=info, 5=debug."
+  },
+  "lac_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Run in LAC (Access Concentrator) mode instead of LNS (Network Server) mode. Rarely needed for typical VPN setups."
+  },
+  "control_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret for authenticating L2TP control channel messages. Required for peer trust."
+  },
+  "data_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret for L2TP data channel encryption (optional). Leave empty to disable data channel auth."
+  },
+  "tunnel_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle timeout (in seconds) for L2TP tunnels before they are torn down."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Idle timeout (in seconds) for individual PPP sessions."
+  },
+  "ipcomp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IP payload compression for L2TP data traffic (may reduce CPU load but increase latency)."
+  },
+  "multilink": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PPP multilink to bundle multiple PPP sessions (useful for load balancing)."
+  },
+  "ip_pool": {
+    "type": "list",
+    "default": [
+      "192.168.100.0/24"
+    ],
+    "description": "IPv4 address ranges (CIDR or start-end) to allocate to clients."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "DNS servers to push to connected clients (optional)."
+  },
+  "wins_servers": {
+    "type": "list",
+    "default": [],
+    "description": "WINS servers to push to clients (optional, mostly for legacy Windows compatibility)."
+  },
+  "default_route": {
+    "type": "bool",
+    "default": true,
+    "description": "Push a default route (0.0.0.0/0) to clients, forcing all traffic through the tunnel."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "Static user accounts with per-user configuration.",
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for PPP authentication."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for PPP authentication (plaintext)."
+      },
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "Static IP address assigned to this user (optional; empty = use IP pool)."
+      },
+      "description": {
+        "type": "string",
+        "default": "user account",
+        "description": "Human-readable description for documentation."
+      },
+      "mschapv2": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable MS-CHAPv2 authentication for this user instead of PAP."
+      },
+      "session_timeout": {
+        "type": "number",
+        "default": 0,
+        "description": "Per-user session timeout (seconds); 0 = use global default."
+      },
+      "ip_pool": {
+        "type": "string",
+        "default": "",
+        "description": "Custom IP pool name for this user (if multiple pools defined elsewhere; not standard in l2tpns)."
+      },
+      "rate_limit": {
+        "type": "string",
+        "default": "",
+        "description": "Upload/download rate limit in kbps (e.g., '1024:512' = 1024 up, 512 down)."
+      }
+    }
+  },
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "Predefined trusted peer hosts (e.g., for L2TP interconnection or static LNS/LAC pairing).",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of the trusted peer."
+      },
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "Local IP to use for the peer tunnel (optional; auto-detected otherwise)."
+      },
+      "secret": {
+        "type": "string",
+        "default": "",
+        "description": "Secret for peer authentication; if empty, uses global control_secret."
+      },
+      "description": {
+        "type": "string",
+        "default": "static host",
+        "description": "Human-readable description."
+      },
+      "mschapv2": {
+        "type": "bool",
+        "default": true,
+        "description": "Force MS-CHAPv2 for host authentication (not typically used for L2TP hosts)."
+      }
+    }
+  }
+}

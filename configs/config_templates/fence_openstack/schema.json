@@ -1,0 +1,86 @@
+{
+  "auth_version": {
+    "type": "string",
+    "default": "3",
+    "description": "OpenStack Identity API version (typically '2' or '3'). Use '3' for modern deployments."
+  },
+  "region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "OpenStack region containing the Nova compute resources to fence."
+  },
+  "auth_url": {
+    "type": "string",
+    "default": "https://identity.example.com:5000/v3",
+    "description": "Keystone identity endpoint URL. Must include the path and version."
+  },
+  "project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "Project (tenant) name for the service account used to perform fencing."
+  },
+  "project_id": {
+    "type": "string",
+    "default": "",
+    "description": "Optional project (tenant) ID. Use if you want to avoid name lookup (e.g., for multi-region or name collisions)."
+  },
+  "username": {
+    "type": "string",
+    "default": "nova-fencer",
+    "description": "Service account username with Nova 'admin' role on target project."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the service account. Should be stored securely (e.g., via vault or file permissions)."
+  },
+  "domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name for user/project (required for Keystone v3+). Leave empty if using v2.0."
+  },
+  "trust_id": {
+    "type": "string",
+    "default": "",
+    "description": "Optional trust ID for delegation (used in advanced trust-scoped scenarios)."
+  },
+  "insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip SSL certificate verification. Only enable in lab/test environments."
+  },
+  "ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle file for TLS verification. Omit if using system CA store."
+  },
+  "nova_endpoint": {
+    "type": "string",
+    "default": "",
+    "description": "Override Nova service endpoint (e.g., 'https://nova.region.example.com:8774/v2.1'). Defaults to catalog lookup."
+  },
+  "retry_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Total timeout (in seconds) for a fencing operation (sum of retries)."
+  },
+  "retry_count": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of retry attempts per fencing action."
+  },
+  "retry_max_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum delay (in seconds) between retries. Delay increases exponentially up to this value."
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of Nova server (VM) UUIDs to fence. Typically populated automatically by the cluster manager when fencing is invoked. Provided here only for documentation.",
+    "items": {
+      "type": "string",
+      "description": "Nova server (instance) UUID to fence."
+    }
+  }
+}

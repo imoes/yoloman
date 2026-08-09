@@ -1,0 +1,33 @@
+{# ============================================================================= #}
+{# compface configuration template                                                 #}
+{# This template configures compface/uncompface for face image processing.         #}
+{# compface is used to compress 48x48x3 face images into a compact format;         #}
+{# uncompface decompresses them back, optionally to XBM format.                    #}
+{#                                                                                 #}
+{# Schema Fields:                                                                  #}
+{#   - format: 'compressed' or 'xbm' (default: 'compressed')                       #}
+{#     Controls output format. 'xbm' is only valid/meaningful for uncompface.      #}
+{#   - file_pairs: list of dicts with 'input' and 'output' (default: [])           #}
+{#     Pairs of input/output files to process. Each entry defaults '-' for both if  #}
+{#     omitted, meaning stdin/stdout. If empty, no file processing is configured.    #}
+{# ============================================================================= #}
+
+{# Output format directive                                                     #}
+{# Sets whether to output XBM (X11 Bitmap) or the standard compressed face format.  #}
+{# This setting is primarily relevant for uncompface; compface always outputs        #}
+{# its native compressed format regardless.                                        #}
+{% if format | default('compressed') == 'xbm' %}
+XBM_OUTPUT = true
+{% else %}
+XBM_OUTPUT = false
+{% endif %}
+
+{# Input/output file pairs                                                       #}
+{# Each pair specifies an input file and an output file. If a field is omitted      #}
+{# or empty, '-' (stdin/stdout) is assumed. An empty file_pairs list results in     #}
+{# no file-processing directives being emitted.                                    #}
+{% for pair in file_pairs | default([]) %}
+# Input file: {{ pair.input | default('-') }}
+# Output file: {{ pair.output | default('-') }}
+{{ pair.input | default('-') }} {{ pair.output | default('-') }}
+{% endfor %}

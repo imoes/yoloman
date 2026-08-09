@@ -1,0 +1,245 @@
+# /etc/hcxdumptool/config (hcxdumptool runtime configuration)
+# This file is managed by Ansible. Do not edit manually.
+# All variables are drawn from the Ansible inventory/role variables with safe defaults.
+
+# === Interface & Output ===
+
+# interface: Wireless interface name (e.g., wlan0); monitor mode is auto-enabled.
+-i {{ interface | default('') }}
+
+# output_file: Output file path; '-' for stdout, '+' for stdout with radiotap header.
+-o {{ output_file | default('') }}
+
+# === Capture Parameters ===
+
+# frames: Bitmask of frame types to capture: 1 (MGT), 2 (EAP/EAPOL) = default 3.
+# Additional bits: 4=IPv4, 8=IPv6, 16=WEP, 32=WPA, 64=AWDL
+-f {{ frames | default('3') }}
+
+# frequency: Channel (≤1000) or frequency in MHz (>1000); 0 = auto.
+-c {{ frequency | default('0') }}
+
+# scanlist: Predefined scanlist (0=auto, 1–4=2.4/5/combined).
+-s {{ scanlist | default('0') }}
+
+# dwell_time: Time (seconds) to stay on frequency before hopping.
+-t {{ dwell_time | default('4') }}
+
+# reason_code: Deauthentication/disassociation reason code (e.g., 7 = CLASS3_FRAME).
+--reason_code={{ reason_code | default('7') }}
+
+# eapol_timeout: EAPOL timeout in microseconds.
+--eapoltimeout={{ eapol_timeout | default('20000') }}
+
+# eapoleap_timeout: EAP EAPOL timeout in microseconds over entire sequence.
+--eapoleaptimeout={{ eapoleap_timeout | default('2500000') }}
+
+# stop_client_m2_attacks: Stop client M2 attacks after receiving N M2 frames (0 = unlimited).
+--stop_client_m2_attacks={{ stop_client_m2_attacks | default('0') }}
+
+# stop_ap_attacks: Stop AP attacks after receiving N BEACONs.
+--stop_ap_attacks={{ stop_ap_attacks | default('600') }}
+
+# resume_ap_attacks: Resume AP attacks after N BEACONs (e.g., ~10 days at 1 BEACON/s).
+--resume_ap_attacks={{ resume_ap_attacks | default('864000') }}
+
+# weak_candidate: Pre-shared key (8–63 chars) for weak PSK alerting (saved to pcapng).
+--weakcandidate='{{ weak_candidate | default('12345678') }}'
+
+# === Beacon & ESSID Options ===
+
+# active_beacon: Transmit beacon from collected ESSIDs every 10s.
+{% if active_beacon | default(false) | bool %}
+--active_beacon
+{% endif %}
+
+# flood_beacon: Transmit beacon on every received beacon (ap-less attack).
+{% if flood_beacon | default(false) | bool %}
+--flood_beacon
+{% endif %}
+
+# essidlist: Path to file with ESSIDs to beacon (max 256 entries).
+{% if essidlist | default('') %}
+--essidlist={{ essidlist | default('') }}
+{% endif %}
+
+# essidlist_wpaent: Path to WPA-Enterprise-only ESSIDs file.
+{% if essidlist_wpaent | default('') %}
+--essidlist_wpaent={{ essidlist_wpaent | default('') }}
+{% endif %}
+
+# beacon_params: Hex string of TLV IEs (max 50); tags 0/3 ignored/overwritten.
+--beaconparams='{{ beacon_params | default('') }}'
+
+# wpaent: Announce WPA-Enterprise in beacons/probe responses.
+{% if wpaent | default(false) | bool %}
+--wpaent
+{% endif %}
+
+# === Filter & Target Options ===
+
+# bpfc: Path to kernel-space BPF file.
+{% if bpfc | default('') %}
+--bpfc={{ bpfc | default('') }}
+{% endif %}
+
+# filter_mode: Filter mode: 0=ignore, 1=protect, 2=target.
+--filtermode={{ filter_mode | default('0') }}
+
+# filterlist_ap: Path to AP filter list or single MAC.
+{% if filterlist_ap | default('') %}
+--filterlist_ap={{ filterlist_ap | default('') }}
+{% endif %}
+
+# filterlist_client: Path to client filter list or single MAC.
+{% if filterlist_client | default('') %}
+--filterlist_client={{ filterlist_client | default('') }}
+{% endif %}
+
+# filterlist_ap_vendor: Path to AP OUI (3-byte) filter list.
+{% if filterlist_ap_vendor | default('') %}
+--filterlist_ap_vendor={{ filterlist_ap_vendor | default('') }}
+{% endif %}
+
+# filterlist_client_vendor: Path to client OUI (3-byte) filter list.
+{% if filterlist_client_vendor | default('') %}
+--filterlist_client_vendor={{ filterlist_client_vendor | default('') }}
+{% endif %}
+
+# do_targetscan: Target AP MAC to scan (others hidden).
+--do_targetscan={{ do_targetscan | default('') }}
+
+# do_rcascan: Perform radio channel scan on startup.
+{% if do_rcascan | default(false) | bool %}
+--do_rcascan
+{% endif %}
+
+# rcascan_max: Maximum lines shown in RCASCAN.
+--rcascan_max={{ rcascan_max | default('256') }}
+
+# rcascan_order: RCASCAN sort order: 0=PROBERESPONSE, 1=BEACON, 2=CHANNEL.
+--rcascan_order={{ rcascan_order | default('0') }}
+
+# === Attack Control ===
+
+# disable_client_attacks: Skip client attacks (ap-less M2).
+{% if disable_client_attacks | default(false) | bool %}
+--disable_client_attacks
+{% endif %}
+
+# disable_ap_attacks: Skip AP attacks (PMKID, connected clients).
+{% if disable_ap_attacks | default(false) | bool %}
+--disable_ap_attacks
+{% endif %}
+
+# disable_deauthentication: Skip deauthentication/disassociation frames.
+{% if disable_deauthentication | default(false) | bool %}
+--disable_deauthentication
+{% endif %}
+
+# silent: Passive mode — no transmission.
+{% if silent | default(false) | bool %}
+--silent
+{% endif %}
+
+# === GPS & NMEA ===
+
+# use_gps_device: GPS device path (e.g., /dev/ttyUSB0).
+{% if use_gps_device | default('') %}
+--use_gps_device={{ use_gps_device | default('') }}
+{% endif %}
+
+# use_gpsd: Use GPSD daemon for GPS data.
+{% if use_gpsd | default(false) | bool %}
+--use_gpsd
+{% endif %}
+
+# nmea_output_file: Output NMEA log file path.
+--nmea={{ nmea_output_file | default('') }}
+
+# === GPIO & System ===
+
+# gpio_button: Raspberry Pi GPIO pin for button (2–27); 0 = disabled.
+{% if gpio_button | default('0') != '0' %}
+--gpio_button={{ gpio_button | default('0') }}
+{% endif %}
+
+# gpio_statusled: Raspberry Pi GPIO pin for status LED (2–27); 0 = disabled.
+{% if gpio_statusled | default('0') != '0' %}
+--gpio_statusled={{ gpio_statusled | default('0') }}
+{% endif %}
+
+# gpio_statusled_interval: GPIO LED flash interval in seconds.
+--gpio_statusled_intervall={{ gpio_statusled_interval | default('5') }}
+
+# timeout_minutes: Timeout in minutes (0 = disabled).
+--tot={{ timeout_minutes | default('0') }}
+
+# error_max: Terminate after N errors (0 = unlimited).
+--error_max={{ error_max | default('100') }}
+
+# reboot: Reboot system on exit.
+{% if reboot | default(false) | bool %}
+--reboot
+{% endif %}
+
+# poweroff: Power off system on exit.
+{% if poweroff | default(false) | bool %}
+--poweroff
+{% endif %}
+
+# === Status & Network ===
+
+# enable_status: Bitmask for real-time status display (bit 0–10).
+--enable_status={{ enable_status | default('0') }}
+
+# status_ip: IP for status server/client (multicast or unicast).
+--ip={{ status_ip | default('224.0.0.255') }}
+
+# server_port: Status server port (1–65535).
+--server_port={{ server_port | default('60123') }}
+
+# client_port: Status client port (1–65535).
+--client_port={{ client_port | default('60123') }}
+
+# === Diagnostic & EAP Options ===
+
+# force_interface: Bypass ioctl checks (dangerous on virtual interfaces).
+{% if force_interface | default(false) | bool %}
+--force_interface
+{% endif %}
+
+# check_driver: Run driver capability checks only.
+{% if check_driver | default(false) | bool %}
+--check_driver
+{% endif %}
+
+# check_injection: Run injection tests only.
+{% if check_injection | default(false) | bool %}
+--check_injection
+{% endif %}
+
+# eapreq: EAP request sequence (max 20) as hex string with mode prefix.
+{% if eapreq | default('') %}
+--eapreq={{ eapreq | default('') }}
+{% endif %}
+
+# eapreq_follownak: Follow requested Auth Type in Legacy NAK.
+{% if eapreq_follownak | default(false) | bool %}
+--eapreq_follownak
+{% endif %}
+
+# eaptlstun: Enable TLS tunnel (requires cert/key).
+{% if eaptlstun | default(false) | bool %}
+--eaptlstun
+{% endif %}
+
+# eap_server_cert: EAP TLS server certificate (PEM).
+{% if eap_server_cert | default('') %}
+--eap_server_cert={{ eap_server_cert | default('') }}
+{% endif %}
+
+# eap_server_key: EAP TLS server private key (PEM).
+{% if eap_server_key | default('') %}
+--eap_server_key={{ eap_server_key | default('') }}
+{% endif %}

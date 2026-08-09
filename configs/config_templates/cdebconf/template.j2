@@ -1,0 +1,172 @@
+// cdebconf configuration template
+// This file configures the cdebconf package (Debian Configuration and Dialog Frontend).
+// It defines module paths, frontend drivers, template databases, and config database instances.
+// The format is a custom "bind-8 like" syntax with C-style comments.
+
+// Global settings
+global {
+  // Module paths: directories where cdebconf looks for frontend and database modules
+  module_path {
+    // Path to frontend modules directory
+    frontend "{{ cdebconf_module_path_frontend | default('/usr/lib/cdebconf/frontend') }}";
+    // Path to database modules directory
+    database "{{ cdebconf_module_path_database | default('/usr/lib/cdebconf/db') }}";
+  };
+
+  // Default instance names for frontend, template DB, and config DB
+  default {
+    // Frontend instance name
+    frontend "{{ cdebconf_frontend_instance | default('default_fe') }}";
+    // Main template database instance name
+    template "{{ cdebconf_template_instance_templatedb | default('templatedb') }}";
+    // Main config database instance name
+    config "{{ cdebconf_config_instance_configdb | default('configdb') }}";
+  };
+};
+
+// Frontend configuration block
+frontend {
+  // Define the frontend instance
+  instance "{{ cdebconf_frontend_instance | default('default_fe') }}" {
+    // Frontend driver type (e.g., 'text', 'readline', 'noninteractive')
+    driver "{{ cdebconf_frontend_driver | default('text') }}";
+  };
+};
+
+// Template database configuration block
+template {
+  // Main template database instance
+  instance "{{ cdebconf_template_instance_templatedb | default('templatedb') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to main templates database file
+    path "{{ cdebconf_template_path_templatedb | default('/var/lib/cdebconf/templates.dat') }}";
+  };
+
+  // Target template database instance (used during system installation/target setup)
+  instance "{{ cdebconf_template_instance_target_templatedb | default('target_templatedb') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to target templates database file
+    path "{{ cdebconf_template_path_target_templatedb | default('/target/var/cache/debconf/templates.dat') }}";
+  };
+
+  // Installer template database instance (used during the Debian installer phase)
+  instance "{{ cdebconf_template_instance_di_templatedb | default('di_templatedb') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to installer templates database file
+    path "{{ cdebconf_template_path_di_templatedb | default('/var/log/installer/cdebconf/templates.dat') }}";
+  };
+
+  // Old template database instance (legacy compatibility)
+  instance "{{ cdebconf_template_instance_old_templatedb | default('old_templatedb') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to old templates database file
+    path "{{ cdebconf_template_path_old_templatedb | default('/var/cache/debconf/templates.dat') }}";
+  };
+};
+
+// Config database configuration block
+config {
+  // General config database instance (stores non-password questions)
+  instance "{{ cdebconf_config_instance_config_gen_db | default('config_gen_db') }}" {
+    // Template database driver type (used for loading questions)
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to questions database file
+    path "/var/lib/cdebconf/questions.dat";
+    // File permissions for the database
+    mode 644;
+    // Types of questions to reject (e.g., password types are stored separately)
+    reject_types { "password"; };
+  };
+
+  // Password config database instance (stores password answers securely)
+  instance "{{ cdebconf_config_instance_config_passwd_db | default('config_passwd_db') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to passwords database file
+    path "/var/lib/cdebconf/passwords.dat";
+    // File permissions for the password database (restrictive)
+    mode 600;
+    // Types of questions to accept (password types)
+    accept_types { "password"; };
+  };
+
+  // Main config database instance (stacked from gen and passwd)
+  instance "{{ cdebconf_config_instance_configdb | default('configdb') }}" {
+    // Stack driver combines multiple databases
+    driver "stack";
+    // List of databases to stack (general first, then password)
+    stack { "{{ cdebconf_config_instance_config_gen_db | default('config_gen_db') }}"; "{{ cdebconf_config_instance_config_passwd_db | default('config_passwd_db') }}"; };
+  };
+
+  // Target general config database instance (for target system during install)
+  instance "{{ cdebconf_config_instance_target_config_gen_db | default('target_config_gen_db') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to target config database file
+    path "/target/var/cache/debconf/config.dat";
+    // Reject password types
+    reject_types { "password"; };
+  };
+
+  // Target password config database instance (for target system during install)
+  instance "{{ cdebconf_config_instance_target_config_passwd_db | default('target_config_passwd_db') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to target passwords database file
+    path "/target/var/cache/debconf/passwords.dat";
+    // Accept password types
+    accept_types { "password"; };
+  };
+
+  // Target config database instance (stacked for target system)
+  instance "{{ cdebconf_config_instance_target_configdb | default('target_configdb') }}" {
+    // Stack driver combines target general and password databases
+    driver "stack";
+    // List of databases to stack
+    stack { "{{ cdebconf_config_instance_target_config_gen_db | default('target_config_gen_db') }}"; "{{ cdebconf_config_instance_target_config_passwd_db | default('target_config_passwd_db') }}"; };
+    // Associated template database for target system
+    template "{{ cdebconf_template_instance_target_templatedb | default('target_templatedb') }}";
+  };
+
+  // Old general config database instance (legacy)
+  instance "{{ cdebconf_config_instance_old_config_gen_db | default('old_config_gen_db') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to old config database file
+    path "/var/cache/debconf/config.dat";
+    // Reject password types
+    reject_types { "password"; };
+  };
+
+  // Old password config database instance (legacy)
+  instance "{{ cdebconf_config_instance_old_config_passwd_db | default('old_config_passwd_db') }}" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to old passwords database file
+    path "/var/cache/debconf/passwords.dat";
+    // Accept password types
+    accept_types { "password"; };
+  };
+
+  // Old config database instance (stacked for legacy compatibility)
+  instance "old_configdb" {
+    // Stack driver
+    driver "stack";
+    // List of databases to stack
+    stack { "{{ cdebconf_config_instance_old_config_gen_db | default('old_config_gen_db') }}"; "{{ cdebconf_config_instance_old_config_passwd_db | default('old_config_passwd_db') }}"; };
+  };
+
+  // Installer config database instance (for Debian installer environment)
+  instance "di_configdb" {
+    // Template database driver type
+    driver "{{ cdebconf_template_driver | default('rfc822db') }}";
+    // Path to installer questions database file
+    path "/var/log/installer/cdebconf/questions.dat";
+    // Associated template database for installer
+    template "{{ cdebconf_template_instance_di_templatedb | default('di_templatedb') }}";
+  };
+};

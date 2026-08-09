@@ -1,0 +1,63 @@
+# Geoclue configuration file
+# This template manages the main geoclue.conf configuration for the Geoclue2 geolocation service.
+# It handles agent whitelisting and provider enablement/configuration.
+
+[agent]
+# Whitelist of desktop IDs (without .desktop part) of all agents we recognise, separated by ';'
+# The 'agent' field is a mapping containing a 'whitelist' list.
+whitelist={% set _whitelist = (agent | default({})).whitelist | default([]) %}{% if _whitelist %}{% for _agent_id in _whitelist %}{{ _agent_id }};{% endfor %}{% endif %}
+
+[3g]
+# Enablement flag for the 3G cellular geolocation provider
+# Checks the 'providers' list for an entry named '3g'. Defaults to true if not found or missing.
+enabled={% set _3g = (providers | default([]) | selectattr('name', 'equalto', '3g') | list | first | default({})) %}{{ _3g.enabled | default(true) | lower }}
+
+[cdma]
+# Enablement flag for the CDMA cellular geolocation provider
+# Checks the 'providers' list for an entry named 'cdma'. Defaults to true if not found or missing.
+enabled={% set _cdma = (providers | default([]) | selectattr('name', 'equalto', 'cdma') | list | first | default({})) %}{{ _cdma.enabled | default(true) | lower }}
+
+[modem-gps]
+# Enablement flag for the modem-based GPS geolocation provider
+# Checks the 'providers' list for an entry named 'modem-gps'. Defaults to true if not found or missing.
+enabled={% set _modem_gps = (providers | default([]) | selectattr('name', 'equalto', 'modem-gps') | list | first | default({})) %}{{ _modem_gps.enabled | default(true) | lower }}
+
+[wifi]
+# Enablement flag for the Wi-Fi based geolocation provider
+# Checks the 'providers' list for an entry named 'wifi'. Defaults to true if not found or missing.
+enabled={% set _wifi = (providers | default([]) | selectattr('name', 'equalto', 'wifi') | list | first | default({})) %}{{ _wifi.enabled | default(true) | lower }}
+
+# Wi-Fi geolocation provider detailed configuration
+{% set wifi_cfg = (providers | default([]) | selectattr('name', 'equalto', 'wifi') | list | first | default({})) %}
+{% if wifi_cfg %}
+# Base URL for the Wi-Fi geolocation service
+url={{ wifi_cfg.url | default('https://location.services.mozilla.com/v1/geolocate?key=YOUR_KEY') }}
+
+# Enable submission of Wi-Fi scan data to improve location accuracy
+submit-data={{ wifi_cfg.submit_data | default(false) | lower }}
+
+# URL endpoint for submitting Wi-Fi location data
+submission-url={{ wifi_cfg.submission_url | default('https://location.services.mozilla.com/v2/geosubmit?key=YOUR_KEY') }}
+
+# Nickname identifier for the submission source
+submission-nick={{ wifi_cfg.submission_nick | default('geoclue') }}
+{% endif %}
+
+[compass]
+# Enablement flag for the compass/magnetometer geolocation provider
+# Checks the 'providers' list for an entry named 'compass'. Defaults to true if not found or missing.
+enabled={% set _compass = (providers | default([]) | selectattr('name', 'equalto', 'compass') | list | first | default({})) %}{{ _compass.enabled | default(true) | lower }}
+
+[static-source]
+# Enablement flag for the static/manual geolocation provider
+# Checks the 'providers' list for an entry named 'static-source'. Defaults to true if not found or missing.
+enabled={% set _static = (providers | default([]) | selectattr('name', 'equalto', 'static-source') | list | first | default({})) %}{{ _static.enabled | default(true) | lower }}
+
+[network-nmea]
+# Enablement flag for the Network NMEA geolocation provider
+# Checks the 'providers' list for an entry named 'network-nmea'. Defaults to true if not found or missing.
+enabled={% set _nmea = (providers | default([]) | selectattr('name', 'equalto', 'network-nmea') | list | first | default({})) %}{{ _nmea.enabled | default(true) | lower }}
+
+# Socket path for the NMEA data stream
+# Accesses nested config.nmea_socket from the 'network-nmea' provider entry.
+nmea-socket={% set _nmea_cfg = ((providers | default([]) | selectattr('name', 'equalto', 'network-nmea') | list | first | default({})) | default({})).config | default({}) %}{{ _nmea_cfg.nmea_socket | default('/var/run/gps-share.sock') }}

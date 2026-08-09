@@ -1,0 +1,42 @@
+# Configuration for budgie-control-center overview startup
+# /etc/budgie-control-center.conf
+
+[General]
+# Show the overview on startup instead of last used panel
+# Default: true
+ShowOverview={{ overview_on_startup | default(true) | lower }}
+
+# Initial search query string to pre-fill in the overview search bar
+# Empty means no pre-fill.
+{% set st = search_term | default('') %}
+{% if st | length > 0 %}
+# Search term to pre-fill in the search bar (if non-empty, overrides default)
+SearchTerm={{ st | string }}
+{% endif %}
+
+# Panel name to open by default when launching budgie-control-center without arguments
+# Must be one of the documented panel identifiers (e.g., 'overview', 'power', etc.).
+# If omitted or invalid, falls back to 'overview'.
+{% set dp = default_panel | default('') %}
+{% if dp | length > 0 %}
+# Default panel to open when started without arguments (must be one of the documented panel names)
+# If omitted or invalid, falls back to 'overview'
+DefaultPanel={{ dp | string }}
+{% endif %}
+
+[Startup]
+# Whether to restore the last open panel and tab on next launch
+# Overrides DefaultPanel when true.
+# Default: false
+RestoreLastSession={{ restore_last_session | default(false) | lower }}
+
+[Hidden]
+# List of panel names to hide from the overview UI
+# Does NOT disable CLI access to those panels.
+# Rendered as space-separated values.
+{% set ep = excluded_panels | default([]) %}
+{% if ep is defined and ep | length > 0 %}
+# List of panels explicitly excluded from the overview (space-separated panel names)
+# Only affects UI visibility; panels remain accessible via CLI
+ExcludedPanels={{ ep | join(' ') }}
+{% endif %}

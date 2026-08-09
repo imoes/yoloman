@@ -1,0 +1,159 @@
+# ============================================================
+# Prometheus Alertmanager Configuration
+#
+# This template generates the `alertmanager.yml` configuration file.
+# It supports global settings (listening address, SMTP) and
+# structured routing/notification definitions provided via Ansible variables.
+#
+# All variables use explicit defaults to ensure the configuration
+# remains valid even when optional features (like SMTP or Slack)
+# are not configured in the inventory.
+# ============================================================
+
+# --- Global Settings ---
+
+# Address on which Alertmanager listens for incoming alerts and UI traffic.
+# Default: 0.0.0.0:9093
+alertmanager_listen_address: '{{ alertmanager_listen_address | default("0.0.0.0:9093") }}'
+
+# Global configuration block for Alertmanager.
+global:
+  # SMTP smarthost used for sending email notifications (e.g., 'smtp.example.com:587').
+  # If empty, SMTP notifications will not be configured.
+  smtp_smarthost: '{{ global_smtp_smarthost | default("") }}'
+
+  # SMTP identity to use as the "From" address for email notifications.
+  # Optional: only include if configured.
+  {%- if global_smtp_from is defined and global_smtp_from %}
+  smtp_from: '{{ global_smtp_from | string }}'
+  {%- endif %}
+
+  # SMTP authentication username.
+  # Optional: only include if configured.
+  {%- if global_smtp_auth_username is defined and global_smtp_auth_username %}
+  smtp_auth_username: '{{ global_smtp_auth_username | string }}'
+  {%- endif %}
+
+  # SMTP authentication password.
+  # Optional: only include if configured.
+  {%- if global_smtp_auth_password is defined and global_smtp_auth_password %}
+  smtp_auth_password: '{{ global_smtp_auth_password | string }}'
+  {%- endif %}
+
+  # Boolean to require TLS for SMTP connections.
+  # Optional: only include if explicitly set. Defaults to true in Alertmanager if omitted,
+  # but here we only emit if explicitly provided by the user.
+  {%- if global_smtp_require_tls is defined %}
+  smtp_require_tls: {{ global_smtp_require_tls | lower }}
+  {%- endif %}
+
+  # Slack API URL for sending Slack notifications.
+  # Optional: only include if configured.
+  {%- if global_slack_api_url is defined and global_slack_api_url %}
+  slack_api_url: '{{ global_slack_api_url | string }}'
+  {%- endif %}
+
+  # OpsGenie API Key.
+  # Optional: only include if configured.
+  {%- if global_opsgenie_api_key is defined and global_opsgenie_api_key %}
+  opsgenie_api_key: '{{ global_opsgenie_api_key | string }}'
+  {%- endif %}
+
+  # OpsGenie API URL.
+  # Optional: only include if configured.
+  {%- if global_opsgenie_api_url is defined and global_opsgenie_api_url %}
+  opsgenie_api_url: '{{ global_opsgenie_api_url | string }}'
+  {%- endif %}
+
+  # PagerDuty Routing Key.
+  # Optional: only include if configured.
+  {%- if global_pagerduty_routing_key is defined and global_pagerduty_routing_key %}
+  pagerduty_routing_key: '{{ global_pagerduty_routing_key | string }}'
+  {%- endif %}
+
+  # Telegram Bot Token.
+  # Optional: only include if configured.
+  {%- if global_telegram_token is defined and global_telegram_token %}
+  telegram_bot_token: '{{ global_telegram_token | string }}'
+  {%- endif %}
+
+  # Telegram Chat ID for receiving alerts.
+  # Optional: only include if configured.
+  {%- if global_telegram_chat_id is defined and global_telegram_chat_id %}
+  telegram_chat_id: '{{ global_telegram_chat_id | string }}'
+  {%- endif %}
+
+  # VictorOps API Key.
+  # Optional: only include if configured.
+  {%- if global_victorops_api_key is defined and global_victorops_api_key %}
+  victorops_api_key: '{{ global_victorops_api_key | string }}'
+  {%- endif %}
+
+  # VictorOps Routing Key.
+  # Optional: only include if configured.
+  {%- if global_victorops_routing_key is defined and global_victorops_routing_key %}
+  victorops_routing_key: '{{ global_victorops_routing_key | string }}'
+  {%- endif %}
+
+# Templates for notifications.
+# List of .tmpl file paths to be loaded by Alertmanager.
+# Optional: only include if templates are defined.
+{%- if templates is defined and templates | length > 0 %}
+templates:
+  {%- for tmpl in templates %}
+  - '{{ tmpl | string }}'
+  {%- endfor %}
+{%- endif %}
+
+# Route configuration: how alerts are routed to receivers.
+# Defines the tree of alert matching and grouping.
+route:
+  # Default receiver to send unmatched alerts to.
+  receiver: '{{ route_receiver | default("default-receiver") }}'
+
+  # List of labels to group alerts by.
+  # If not provided, alerts are not grouped (each alert is separate).
+  {%- if group_by is defined and group_by | length > 0 %}
+  group_by:
+    {%- for label in group_by %}
+    - '{{ label | string }}'
+    {%- endfor %}
+  {%- else %}
+  group_by: []
+  {%- endif %}
+
+  # Time to wait to group alerts of the same label into a single notification.
+  # Format: Go duration string (e.g., '10s', '5m').
+  group_wait: '{{ group_wait | default("30s") }}'
+
+  # Time to wait between sending subsequent notifications in a group.
+  # Format: Go duration string.
+  group_interval: '{{ group_interval | default("5m") }}'
+
+  # Time to wait before retrying a failed notification.
+  # Format: Go duration string.
+  repeat_interval: '{{ repeat_interval | default("4h") }}'
+
+  # Child routes. Allows for complex routing logic (e.g., specific teams getting specific alerts).
+  {%- if routes is defined and routes | length > 0 %}
+  routes:
+    {%- for route in routes %}
+    - receiver: '{{ route.receiver | default("default-receiver") }}'
+      {%- if route.group_by is defined %}
+      group_by:
+        {%- for label in route.group_by %}
+        - '{{ label | string }}'
+        {%- endfor %}
+      {%- endif %}
+      {%- if route.match is defined %}
+      match:
+        {%- for k, v in route.match | dict2items %}
+        {{ k }}: '{{ v | string }}'
+        {%- endfor %}
+      {%- endif %}
+      {%- if route.continue is defined %}
+      continue: {{ route.continue }}
+      {%- endif %}
+      # Add further fields as needed (match_re, inhibit_rules, etc.)
+    {%- endfor %}
+  {%- endif %}

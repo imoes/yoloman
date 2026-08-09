@@ -1,0 +1,16 @@
+# /etc/dhcping.conf - Configuration for dhcping monitoring
+# This file defines a list of DHCP clients that dhcping will monitor.
+# Each entry mimics the syntax of a static reservation in dhcpd.conf (ISC DHCP Server),
+# containing the hostname, MAC address, and fixed IP address.
+
+{% for host in hosts | default([]) %}
+# Definition for DHCP client: {{ host.name | default('unknown') }}
+# This block specifies the expected hardware (MAC) address and the IP address
+# that this client should receive/be using, allowing dhcping to validate lease status.
+host {{ host.name | default('') }} {
+  # The MAC address of the client's network interface card (IEEE 802 address)
+  hardware ethernet {{ host.mac | default('00:00:00:00:00:00') }};
+  # The fixed IP address associated with this host reservation
+  fixed-address {{ host.ip | default('0.0.0.0') }};
+}
+{% endfor %}

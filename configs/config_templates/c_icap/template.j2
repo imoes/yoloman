@@ -1,0 +1,160 @@
+# ==============================================================================
+# c-icap Server Configuration Template
+# ==============================================================================
+# This file configures the ICAP (Internet Content Adaptation Protocol) server.
+# It defines network binding, worker processes, logging, security, and ICAP
+# services/modules.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Global Server Identity and Binding
+# ------------------------------------------------------------------------------
+
+# The server name reported in HTTP headers and logs.
+ServerName {{ server_name | default('c-icap-server') }}
+
+# Server identification string (e.g., product name and version) shown in the Server header.
+# Note: This template injects the version variable if available, otherwise uses the default schema value.
+ServerIdent {{ (c_icap_version | default('unknown')) | default('c-icap/unknown') }}
+
+# Email address of the server administrator, used in error pages and headers.
+ServerAdmin {{ server_admin | default('webmaster@localhost') }}
+
+# IP address the server binds to (e.g., '0.0.0.0' or a specific interface IP). Use '*' for all interfaces.
+ServerIP {{ server_ip | default('*') }}
+
+# TCP port on which the ICAP server listens for incoming connections.
+ServerPort {{ server_port | default(1344) }}
+
+# ------------------------------------------------------------------------------
+# Timeout and Connection Settings
+# ------------------------------------------------------------------------------
+
+# Maximum idle time (seconds) before closing a connection.
+Timeout {{ timeout | default(300) }}
+
+# Timeout (seconds) for establishing a connection to a remote service or peer.
+ConnectTimeout {{ connect_timeout | default(30) }}
+
+# Time (seconds) to wait before retrying a failed connection to a remote service.
+ConnectRetryInterval {{ connect_retry_interval | default(10) }}
+
+# Maximum number of requests allowed over a single persistent (keep-alive) connection.
+MaxKeepAliveRequests {{ max_keepalive_requests | default(100) }}
+
+# Time (seconds) to keep a keep-alive connection open before closing.
+KeepAliveTimeout {{ keepalive_timeout | default(300) }}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Directory where log files are stored.
+LogDir {{ log_dir | default('/var/log/c-icap') }}
+
+# Debug verbosity level (0=none, 10=max); typically 0 in production.
+DebugLevel {{ debug_level | default(0) }}
+
+# Minimum severity level for logging messages: 'emerg', 'alert', 'crit', 'error', 'warn', 'notice', 'info', 'debug'.
+LogLevel {{ log_level | default('info') }}
+
+# Full path to the PID file used to track the main server process.
+PidFile {{ pid_file | default('/var/run/c-icap/c-icap.pid') }}
+
+# ------------------------------------------------------------------------------
+# Memory and Worker Tuning
+# ------------------------------------------------------------------------------
+
+# Number of worker threads created per server process.
+ThreadsPerChild {{ threads_per_child | default(10) }}
+
+# Maximum number of server processes to spawn.
+MaxServers {{ max_servers | default(5) }}
+
+# Minimum number of idle threads to maintain across all processes.
+MinSpareThreads {{ min_spare_threads | default(10) }}
+
+# Maximum number of idle threads allowed before killing extra threads.
+MaxSpareThreads {{ max_spare_threads | default(50) }}
+
+# Maximum number of requests a worker thread will serve before terminating and being replaced.
+MaxRequestsPerChild {{ max_requests_per_child | default(10000) }}
+
+# ------------------------------------------------------------------------------
+# Access Control Defaults
+# ------------------------------------------------------------------------------
+
+# Default access control policy: 'deny all' or 'allow all' or custom ACL references.
+AccessControlList {{ access_control_list | default('allow all') }}
+
+# ------------------------------------------------------------------------------
+# Modules
+# ------------------------------------------------------------------------------
+# Loads ICAP modules defined in the `modules` list. Each module must have a `name` and `path`.
+{% for module in modules | default([]) %}
+# Load {{ module.name }} module ({{ module.description | default('No description provided') }})
+LoadModule {{ module.name }} {{ module.path }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# ICAP Services
+# ------------------------------------------------------------------------------
+# Registers ICAP services defined in the `services` list. Each service requires a `name`, `type`, and `module`.
+# Additional key-value options can be specified in `service.options`.
+{% for service in services | default([]) %}
+# ICAP service: {{ service.name }}
+Service {{ service.name }} {{ service.type }}
+ServiceModule {{ service.name }} {{ service.module }}
+
+{% for option in service.options | default([]) %}
+# Option for {{ service.name }}: {{ option.key }}
+{{ option.key }} {{ option.value }}
+{% endfor %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Custom Headers
+# ------------------------------------------------------------------------------
+
+# Custom HTTP request headers to inject into requests sent to ICAP services.
+{% for header in request_headers | default([]) %}
+# Add request header: {{ header.name }}
+RequestHeader add {{ header.name }} {{ header.value }}
+{% endfor %}
+
+# Custom HTTP response headers to inject into client responses.
+{% for header in response_headers | default([]) %}
+# Add response header: {{ header.name }}
+ResponseHeader add {{ header.name }} {{ header.value }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Access Control Lists (ACLs)
+# ------------------------------------------------------------------------------
+# Defines ACLs for use in service routing and security rules.
+# Each ACL needs a `name`, `match_type`, and `pattern`.
+{% for acl in acls | default([]) %}
+# ACL: {{ acl.name }}
+ACL {{ acl.name }} {{ acl.match_type }} {{ acl.pattern }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Routing Rules
+# ------------------------------------------------------------------------------
+# Service routing rules: map traffic to ICAP services based on conditions.
+# Each rule needs a `name`, optional `condition`, `action`, and `service_name`.
+{% for rule in rules | default([]) %}
+# Rule: {{ rule.name }}
+{% if rule.condition %}{{ rule.condition }} {% endif %}{{ rule.action }} {{ rule.service_name }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Security Hardening
+# ------------------------------------------------------------------------------
+
+# If enabled, runs the server in a restricted mode (e.g., no unsafe features, stricter permissions).
+{% if enable_safe_mode | default(True) | bool %}SafeMode on{% else %}SafeMode off{% endif %}
+
+# If enabled, the server drops into a chroot jail at startup for security isolation.
+# Specifies the directory to use as the chroot jail if chroot is enabled.
+{% if enable_chroot | default(False) | bool %}Chroot {{ chroot_dir | default('/var/lib/c-icap') }}{% else %}Chroot off{% endif %}

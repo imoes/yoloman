@@ -1,0 +1,145 @@
+# ============================================================================
+# Bochs BIOS/Configuration Template
+# ============================================================================
+# This file configures the Bochs x86 PC emulator.
+# All values are driven by Ansible variables with safe defaults.
+# See schema fields: bochs_romimage_path, bochs_memory_mb, bochs_vga_romimage_path,
+# bochs_floppya_path, bochs_ata0_slave_path, bochs_ips
+# ============================================================================
+
+# [config] Text-mode configuration interface
+config_interface: textconfig
+
+# [gui] Display library backend
+display_library: sdl
+
+# [romimage] Path to the Bochs BIOS image (ROM).
+# Required for x86 boot.
+romimage: file={{ bochs_romimage_path | default('/usr/share/bochs/BIOS-bochs-latest') }}, address=0xf0000
+
+# [megs] Amount of RAM to allocate for the emulated machine in megabytes.
+megs: {{ bochs_memory_mb | default(32) }}
+
+# [vgaromimage] Path to the VGA BIOS image.
+vgaromimage: file={{ bochs_vga_romimage_path | default('/usr/share/vgabios/vgabios.bin') }}
+
+# [floppya] Floppy drive A configuration.
+# 1_44 indicates a 1.44MB 3.5" floppy image/device.
+# status=inserted means it is presented as loaded at boot.
+floppya: 1_44={{ bochs_floppya_path | default('/dev/fd0') }}, status=inserted
+
+# [ata] ATA controller configuration.
+# ata0: Primary IDE channel (enabled)
+# ata1: Secondary IDE channel (disabled)
+# ata2: Tertiary IDE channel (disabled, often used by SATA emulation)
+# ata3: Quaternary IDE channel (disabled)
+ata0: enabled=1, ioaddr1=0x1f0, ioaddr2=0x3f0, irq=14
+ata1: enabled=0, ioaddr1=0x170, ioaddr2=0x370, irq=15
+ata2: enabled=0, ioaddr1=0x1e8, ioaddr2=0x3e0, irq=11
+ata3: enabled=0, ioaddr1=0x168, ioaddr2=0x360, irq=9
+
+# [ata0-slave] CD-ROM drive attached to the slave position of ATA0.
+# Typically used for installation media or data ISOs.
+ata0-slave: type=cdrom, path="{{ bochs_ata0_slave_path | default('/dev/cdrom') }}", status=inserted
+
+# [boot] Boot device order.
+# Attempts to boot from CD-ROM first (as defined by ata0-slave).
+boot: cdrom
+
+# [cpu] Emulated Instructions Per Second (IPS).
+# Controls the speed of the emulated CPU. Higher values = faster execution.
+ips: {{ bochs_ips | default(1000000) }}
+
+# [floppy] Floppy drive options.
+# floppy_bootsig_check: disabled=0 enables the 0xAA55 boot signature check.
+# This prevents booting from non-bootable floppy images.
+floppy_bootsig_check: disabled=0
+
+# [log] Standard output logging.
+# Sending logs to /dev/stdout allows the emulator output to be captured
+# by the container or system journal.
+log: /dev/stdout
+
+# [panic] Action to take when a virtual machine panic occurs.
+# action=ask pauses execution and waits for debugger input.
+panic: action=ask
+
+# [error] Action to take on emulated hardware errors.
+# action=report logs the error but continues execution.
+error: action=report
+
+# [info] Action to take on informational messages.
+# action=report logs the info message.
+info: action=report
+
+# [debug] Action to take on debug messages.
+# action=ignore silences debug output for production runs.
+debug: action=ignore
+
+# [debugger_log] Log file for the debugger output.
+# '-' indicates standard error or console.
+debugger_log: -
+
+# [serial] Serial port 1 (COM1) configuration.
+# Connected to a host pseudo-terminal for console access or guest I/O.
+com1: enabled=1, dev=/dev/ttyS0
+
+# [parallel] Parallel port 1 (LPT1) configuration.
+# Connected to the host's first parallel device (if available).
+parport1: enabled=1, file="/dev/lp0"
+
+# [sound] SB16 Sound Blaster 16 emulation.
+# Configures MIDI and Wave output devices.
+# Note: These paths may not exist on all hosts; configure accordingly.
+sb16: midimode=1, midi=/dev/midi00, wavemode=1, wave=/dev/dsp, loglevel=2, log=/dev/stdout, dmatimer=600000
+
+# [display] Display update interval in microseconds.
+# Lower values make the screen update more frequently (smoother but slower).
+vga_update_interval: 300000
+
+# [keyboard] Keyboard emulation options.
+# Delay between characters in serial mode (microseconds).
+keyboard_serial_delay: 250
+# Delay for pasting text into the emulator (microseconds).
+keyboard_paste_delay: 100000
+# Delay for floppy command execution (milliseconds).
+floppy_command_delay: 500
+
+# [mouse] Mouse support.
+mouse: enabled=1
+
+# [colormap] Private colormap support.
+private_colormap: enabled=0
+
+# [network] Ne2k Ethernet adapter (Commented out by default).
+# To enable, uncomment and set ethdev to the host bridge interface.
+# ne2k: ioaddr=0x240, irq=9, mac=b0:c4:20:00:00:00, ethmod=linux, ethdev=eth0
+
+# [keyboard_map] Keyboard mapping file (Commented out by default).
+# Uncomment and set to a valid keymap file for non-US layouts.
+# keyboard_mapping: enabled=0, map=/usr/share/bochs/keymaps/x11-pc-de.map
+
+# [keyboard_type] Keyboard type switch.
+# keyboard_type: mf
+
+# [shortcut] User shortcut key.
+# user_shortcut: keys=ctrlaltdel
+
+# [magic_break] Magic break key handler.
+# magic_break: enabled=1
+
+# [cmosimage] CMOS RAM image file.
+# cmosimage: cmos.img
+
+# [load32bitOSImage] Load a 32-bit OS image directly.
+# load32bitOSImage: os=nullkernel, path=../kernel.img, iolog=../vga_io.log
+# load32bitOSImage: os=linux, path=../linux.img, iolog=../vga_io.log, initrd=../initrd.img
+
+# [chipset] i440fx chipset support.
+# i440fxsupport: enabled=1
+
+# [usb] USB controller 1 configuration.
+usb1: enabled=1, ioaddr=0xFF80, irq=10
+
+# [snapshot] Text mode snapshot check (Commented out by default).
+# text_snapshot_check: enable

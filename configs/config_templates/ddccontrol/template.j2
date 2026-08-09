@@ -1,0 +1,55 @@
+{# ============================================================================== #}
+{# ddccontrol configuration file                                                      #}
+{#                                                                                    #}
+{# This template generates a command-line configuration string for the `ddccontrol`   #}
+{# utility, which is used to configure DDC/CI enabled monitors.                     #}
+{#                                                                                    #}
+{# Variables:                                                                          #}
+{#   controls         - List of control configurations. Each item specifies device,   #}
+{#                      control ID, and optional value to write.                      #}
+{#   verbosity        - Verbosity level (0 = no -v flag).                             #}
+{#   force            - Force operation without validity checks.                      #}
+{#   save             - Save settings after execution.                                #}
+{#   database_dir     - Path to the ddccontrol-db directory.                          #}
+{# ============================================================================== #}
+
+{# --- Control Items --- #}
+{# Each item in the 'controls' list generates a command segment for a specific monitor #}
+{# control. The format generally follows: dev:<path> -r <ctrl> -w <value>             #}
+
+{% if (controls | default([])) | length > 0 %}
+{% for item in controls | default([]) %}
+{# item.device: i2c device path (e.g., /dev/i2c-0) #}
+{# If device is not defined, we use the default behavior (-p) instead of failing    #}
+{%- if item.device is defined %}dev:{{ item.device }}{% else %}-p{% endif -%}
+
+{# item.ctrl: control ID (0-255) #}
+{# If ctrl is not defined, we use the default read mode (-d)                        #}
+{%- if item.ctrl is defined %}-r {{ item.ctrl }}{% else %}-d{% endif -%}
+
+{# item.value: optional value to write #}
+{# If value is defined, we append the write flag (-w)                               #}
+{%- if item.value is defined %}-w {{ item.value }}{% endif -%}
+{% endfor %}
+{% endif %}
+
+{# --- Global Options --- #}
+{# These flags apply to the entire operation and are emitted if their conditions are #}
+{# met. They follow the control items.                                               #}
+
+{# verbosity: Increase verbosity. Multiple -v flags are not emitted per documented  #}
+{# behavior, but the logic implies -v is added if verbosity > 0.                    #}
+{%- if (verbosity | default(0)) | int > 0 %} -v{% endif -%}
+
+{# force: Force operation without validity checks. Emits -f if true.                #}
+{%- if force | default(false) | bool %} -f{% endif -%}
+
+{# save: Save settings. Emits -s if true.                                           #}
+{%- if save | default(false) | bool %} -s{% endif -%}
+
+{# Custom database directory: Uses default if omitted, and emits -b only if set to  #}
+{# a non-default value.                                                             #}
+{%- if (database_dir | default('/usr/share/ddccontrol-db')) != '/usr/share/ddccontrol-db' %} -b {{ database_dir | default('/usr/share/ddccontrol-db') }}{% endif -%}
+
+{# Ensure there is no trailing newline or garbage, but allow the config to be       #}
+{# printed as a clean command line argument.                                        #}

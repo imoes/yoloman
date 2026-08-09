@@ -1,0 +1,50 @@
+# debspawn global configuration
+# This file configures the debspawn tool, a lightweight Debian chroot/container
+# builder and runner. All settings are optional; if omitted, debspawn falls back
+# to its built-in defaults.
+
+# Location for stored container images.
+# debspawn stores pre-built OS images here for faster instantiation.
+OSImagesDir = "{{ OSTemplatesDir | default('/var/lib/debspawn/images') }}"
+
+# Default output directory for build artifacts.
+# Where build logs and result files are written after a build completes.
+ResultsDir = "{{ ResultsDir | default('/var/lib/debspawn/results') }}"
+
+# Location for debspawn's package cache.
+# Shared APT cache directory to avoid redundant package downloads across builds.
+APTCacheDir = "{{ APTCacheDir | default('/var/cache/debspawn/apt') }}"
+
+# Directory for pre-injected package files.
+# Place .deb packages here to be automatically installed into targets.
+# Can contain root-level files or per-image subdirectories.
+InjectedPkgsDir = "{{ InjectedPkgsDir | default('/var/lib/debspawn/injected-pkgs') }}"
+
+# Temporary data location.
+# Working directory for intermediate files during bootstrap and build processes.
+TempDir = "{{ TempDir | default('/var/tmp/debspawn') }}"
+
+# Default variant for bootstrapping with debootstrap.
+# Passed to debootstrap's --variant flag. Common values: 'minbase', 'buildd', 'scratch'.
+# Set to 'none' to disable variant selection entirely.
+DefaultBootstrapVariant = "{{ DefaultBootstrapVariant | default('buildd') }}"
+
+# System call filter for containers.
+# List of system call names or set names passed to systemd-nspawn --system-call-filter=.
+# Common sets: 'compat' (standard compatibility), 'nspawn-default' (nspawn defaults).
+SyscallFilter = "{{ SyscallFilter | default(['compat']) | join(',') }}"
+
+# Allow unsafe options in debspawn run.
+# If true, permits mounting of host directories like /dev or /proc into containers.
+# Enable only if you trust the container workload and understand the security implications.
+AllowUnsafePermissions = {{ AllowUnsafePermissions | default(false) | lower }}
+
+# Enable or disable local APT package caching.
+# If false, debspawn will not manage or use its local APT cache directory (APTCacheDir).
+# Useful for read-only or immutable cache environments.
+CachePackages = {{ CachePackages | default(true) | lower }}
+
+# Bootstrap tool to use.
+# The program used to create the base filesystem. Must be compatible with debootstrap's interface.
+# Examples: 'debootstrap', 'mmdebstrap', 'fakechroot'.
+BootstrapTool = "{{ BootstrapTool | default('debootstrap') }}"

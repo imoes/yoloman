@@ -1,0 +1,89 @@
+{
+  "base_domain": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Default domain used for internal reference when no specific domain context is available."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging; recommended values: debug, info, warning, error."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a log file. Leave empty to log to stderr instead."
+  },
+  "server_host": {
+    "type": "string",
+    "default": "whois.internic.net",
+    "description": "Default WHOIS server hostname used for queries without domain-specific overrides."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 43,
+    "description": "Port number on which the WHOIS server listens (standard is 43)."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum seconds to wait for connection before timing out."
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to attempt IPv6 connections to WHOIS servers when available."
+  },
+  "cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of repeated queries for improved performance and reduced server load."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/gwhois",
+    "description": "Directory path where cached WHOIS responses will be stored."
+  },
+  "cache_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time-to-live for cached entries, in seconds. Entries older than this will be refreshed."
+  },
+  "cache_max_entries": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of entries allowed in the cache."
+  },
+  "response_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of domain-specific override rules that match incoming queries to custom WHOIS servers.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "A descriptive name for this rule (e.g., 'example-org')."
+      },
+      "pattern": {
+        "type": "string",
+        "default": "",
+        "description": "Regex or simple wildcard pattern to match domain names against (e.g., '*.example.com' or '^test-.*\\.')."
+      },
+      "server_host": {
+        "type": "string",
+        "default": "",
+        "description": "WHOIS server to use for matching domains."
+      },
+      "server_port": {
+        "type": "number",
+        "default": 43,
+        "description": "Port for the custom server (optional; defaults to 43 if omitted)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Per-query timeout (in seconds) for this rule (optional; defaults to global connect_timeout if omitted)."
+      }
+    }
+  }
+}

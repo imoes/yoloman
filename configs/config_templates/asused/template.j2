@@ -1,0 +1,90 @@
+# asused configuration template
+# asused is a CLI utility for querying RIPE NCC Whois data.
+# It does NOT provide network services (no listening ports),
+# nor does it require external databases, caches, or message queues.
+# This template generates command-line arguments for the asused binary.
+
+# ===========================================================================
+# Connection Settings
+# ===========================================================================
+
+# Whois server hostname to query (RIPE NCC default).
+# If omitted, defaults to 'whois.ripe.net'.
+--host {{ (host | default('whois.ripe.net')) }}
+
+# Port number for the Whois server connection.
+# Standard Whois port is 43.
+--port {{ (port | default(43)) }}
+
+# Registry identifier (e.g., RIPE-NCC, LIR name) to locate allocations.
+# '.' is translated to '-' in uppercase by the application logic.
+{% set _regid = (regid | default('')) %}
+{% if _regid %}
+--reg {{ _regid }}
+{% endif %}
+
+# ===========================================================================
+# Output Control Flags
+# ===========================================================================
+
+# Shorthand for --overlap --status --aw.
+{% if ((options | default({})).all | default(false)) %}
+--all
+{% endif %}
+
+# Validate networks under allocation and report valid/invalid entries.
+{% if ((options | default({})).approval | default(false)) %}
+--approval
+{% endif %}
+
+# Only report invalid networks under --approval.
+{% if ((options | default({})).aw | default(false)) %}
+--aw
+{% endif %}
+
+# Print assignments under allocations with size, date, netname, and status.
+{% if ((options | default({})).assign | default(false)) %}
+--assign
+{% endif %}
+
+# Detect and report overlapping assignments.
+{% if ((options | default({})).overlap | default(false)) %}
+--overlap
+{% endif %}
+
+# Report assignments with non-standard status attributes.
+{% if ((options | default({})).status | default(false)) %}
+--status
+{% endif %}
+
+# Print admin-c and tech-c for all inetnum objects.
+{% if ((options | default({})).contacts | default(false)) %}
+--contacts
+{% endif %}
+
+# Expected netname for --approval/--aw checks; matches against allocation netname.
+# Defaults to 'ALLOCATED PA'.
+{% set _na = ((options | default({})).na | default('ALLOCATED PA')) %}
+{% if _na %}
+--na {{ _na }}
+{% endif %}
+
+# Append allocation status (PA/PI/UN/--/MISSING) to --assign output.
+{% if ((options | default({})).pipa | default(false)) %}
+--pipa
+{% endif %}
+
+# ===========================================================================
+# Positional Argument
+# ===========================================================================
+
+# Positional argument: either regid or prefix (e.g., 192.0.2.0/24).
+# This is a REQUIRED argument. If missing, the command fails.
+{% set _arg = (arg | default('')) %}
+{% if _arg %}
+{{ _arg }}
+{% else %}
+# ERROR: missing regid or prefix argument
+# A valid regid or IP prefix must be provided to query the Whois server.
+ERROR: missing regid or prefix argument
+{% endif %}

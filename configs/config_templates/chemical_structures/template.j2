@@ -1,0 +1,57 @@
+# Chemical Structures Web Service Configuration
+[server]
+# Host interface to bind the HTTP server to
+host = {{ server.host }}
+# Port to listen on
+port = {{ server.port }}
+# Maximum number of simultaneous connections
+max_connections = {{ server.max_connections }}
+# Enable TLS (HTTPS) — set to `true` to use HTTPS
+use_tls = {{ server.use_tls | lower }}
+
+[ssl]
+# Path to SSL certificate file (required if use_tls = true)
+certfile = {{ ssl.certfile | default('/etc/chemical-structures/ssl/cert.pem') }}
+# Path to SSL private key file (required if use_tls = true)
+keyfile = {{ ssl.keyfile | default('/etc/chemical-structures/ssl/key.pem') }}
+
+[database]
+# Database backend type (e.g., sqlite, postgresql)
+type = {{ database.type }}
+# Path to SQLite database file (if type = sqlite)
+path = {{ database.path }}
+# PostgreSQL connection string (if type = postgresql)
+connection_string = {{ database.connection_string | default('postgresql://user:pass@localhost/chemical_structures') }}
+
+[cache]
+# Enable caching of computed structures
+enabled = {{ cache.enabled | lower }}
+# Cache backend type (e.g., redis, memory)
+type = {{ cache.type }}
+# Redis connection URL (if type = redis)
+redis_url = {{ cache.redis_url | default('redis://localhost:6379/0') }}
+# Maximum number of entries in in-memory cache (if type = memory)
+max_size = {{ cache.max_size }}
+
+[workers]
+# Number of worker processes for parallel structure processing
+count = {{ workers.count }}
+# Timeout (seconds) for worker requests
+request_timeout = {{ workers.request_timeout }}
+
+[logging]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = {{ logging.level }}
+# Path to log file
+file = {{ logging.file }}
+
+[services]
+# Enable the PubChem fallback service
+pubchem_enabled = {{ services.pubchem_enabled | lower }}
+# Timeout (seconds) for external service calls
+service_timeout = {{ services.service_timeout }}
+
+# List of allowed client origins (for CORS)
+{% for origin in cors.origins %}# Origin #{{ loop.index }}
+allowed_origin_{{ loop.index }} = {{ origin.host }}{% if origin.port %}:{{ origin.port }}{% endif %}
+{% endfor %}

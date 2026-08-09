@@ -1,0 +1,98 @@
+{
+  "worker_processes": {
+    "type": "string",
+    "default": "auto",
+    "description": "Number of worker processes; 'auto' uses CPU count"
+  },
+  "servers": {
+    "type": "list",
+    "default": [
+      {
+        "name": [
+          "localhost"
+        ],
+        "root": "/var/www/html",
+        "index": [
+          "index.html",
+          "index.htm"
+        ],
+        "listen": "80",
+        "ssl": false,
+        "ssl_certificate": "/etc/ssl/certs/server.crt",
+        "ssl_certificate_key": "/etc/ssl/private/server.key",
+        "locations": []
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "list",
+        "default": [
+          "localhost"
+        ],
+        "description": "Domain name(s) for this virtual host (e.g., ['example.com', 'www.example.com'])"
+      },
+      "listen": {
+        "type": "string",
+        "default": "80",
+        "description": "IP and port to listen on (e.g., '80', '[::]:80', or '443' with SSL)"
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTPS for this virtual host"
+      },
+      "ssl_certificate": {
+        "type": "string",
+        "default": "/etc/ssl/certs/server.crt",
+        "description": "Path to SSL certificate file (required if ssl=true)",
+        "depends_on": "ssl"
+      },
+      "ssl_certificate_key": {
+        "type": "string",
+        "default": "/etc/ssl/private/server.key",
+        "description": "Path to SSL private key file (required if ssl=true)",
+        "depends_on": "ssl"
+      },
+      "root": {
+        "type": "string",
+        "default": "/var/www/html",
+        "description": "Document root directory (absolute path)"
+      },
+      "index": {
+        "type": "list",
+        "default": [
+          "index.html",
+          "index.htm"
+        ],
+        "description": "List of index files to try (in order)"
+      },
+      "locations": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/",
+            "description": "URL path prefix to match (e.g., '/api', '/static/', '~ ^/admin')"
+          },
+          "alias": {
+            "type": "string",
+            "default": null,
+            "description": "If present, serves files from this filesystem path instead of root (for exact path mapping)",
+            "conflicts_with": [
+              "proxy_pass"
+            ]
+          },
+          "proxy_pass": {
+            "type": "string",
+            "default": null,
+            "description": "If present, forwards requests to this upstream URL (e.g., 'http://localhost:3000')",
+            "conflicts_with": [
+              "alias"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

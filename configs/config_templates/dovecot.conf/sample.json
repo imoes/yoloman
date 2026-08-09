@@ -1,0 +1,128 @@
+{
+  "protocols": [
+    "imap",
+    "pop3"
+  ],
+  "listen": [
+    "*",
+    "::"
+  ],
+  "base_dir": "/var/run/dovecot",
+  "mail_location": "maildir:~/Maildir",
+  "ssl": "yes",
+  "ssl_cert": "/etc/ssl/certs/dovecot.pem",
+  "ssl_key": "/etc/ssl/private/dovecot.pem",
+  "mail_uid": 5000,
+  "mail_gid": 5000,
+  "first_valid_uid": 5000,
+  "last_valid_gid": 5000,
+  "auth_mechanisms": [
+    "plain",
+    "login"
+  ],
+  "passdbs": [
+    {
+      "driver": "passwd-file",
+      "args": {
+        "scheme": "crypt",
+        "password": "/etc/dovecot/passwd"
+      },
+      "description": "System passwd file (shadow-style auth)"
+    }
+  ],
+  "userdbs": [
+    {
+      "driver": "static",
+      "args": {
+        "user": "vmail",
+        "group": "vmail",
+        "home": "/var/vmail/%u",
+        "mail": "maildir:/var/vmail/%u/Maildir"
+      },
+      "description": "Static userdb (common for virtual users)"
+    }
+  ],
+  "log_path": "/var/log/dovecot/dovecot.log",
+  "info_log_path": "/var/log/dovecot/dovecot-info.log",
+  "login_log_format_elements": [
+    "user=<%u>",
+    "method=%m",
+    "rip=%r",
+    "lip=%l"
+  ],
+  "mail_max_userip_connections": 20,
+  "mail_plugins": [
+    "imap_quota"
+  ],
+  "services": [
+    {
+      "name": "imap",
+      "unix_listener": [
+        {
+          "path": "imap-login",
+          "user": "dovecot",
+          "group": "dovecot",
+          "mode": "0666"
+        }
+      ],
+      "inet_listener": [
+        {
+          "name": "imap",
+          "port": 143
+        },
+        {
+          "name": "imaps",
+          "port": 993,
+          "ssl": "yes"
+        }
+      ]
+    },
+    {
+      "name": "pop3",
+      "unix_listener": [
+        {
+          "path": "pop3-login",
+          "user": "dovecot",
+          "group": "dovecot",
+          "mode": "0666"
+        }
+      ],
+      "inet_listener": [
+        {
+          "name": "pop3",
+          "port": 110
+        },
+        {
+          "name": "pop3s",
+          "port": 995,
+          "ssl": "yes"
+        }
+      ]
+    },
+    {
+      "name": "lmtp",
+      "unix_listener": [
+        {
+          "path": "private/lmtp",
+          "user": "vmail",
+          "group": "vmail",
+          "mode": "0600"
+        }
+      ]
+    }
+  ],
+  "namespaces": [
+    {
+      "name": "",
+      "type": "private",
+      "prefix": "",
+      "location": "maildir:~/Maildir"
+    },
+    {
+      "name": "public",
+      "type": "public",
+      "prefix": "Public/",
+      "location": "maildir:/var/mail/public"
+    }
+  ]
+}

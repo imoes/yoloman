@@ -1,0 +1,28 @@
+[backblaze]
+
+# Account credentials
+# Required: Backblaze account ID (12-character hex string)
+# This unique identifier links the client to your Backblaze B2 Cloud Storage account.
+account_id = {{ account_id | default('') }}
+
+# Required: Backblaze application key (generated from the Backblaze dashboard)
+# This secret key authorizes API requests. Keep this value secure and do not commit it to version control.
+application_key = {{ application_key | default('') }}
+
+# Default bucket settings (optional overrides)
+# Default bucket name for upload/download operations
+# Must be explicitly set or passed per-command. If empty, commands must specify a bucket explicitly.
+{% if default_bucket_name is defined and default_bucket_name | trim | length > 0 %}default_bucket = {{ default_bucket_name | trim }}
+{% endif %}
+
+# Proxy configuration (optional)
+# Optional HTTP/HTTPS proxy URL (e.g., 'http://proxy.example.com:8080')
+# If set, all Backblaze API traffic will be routed through this proxy.
+{% if proxy_url is defined and proxy_url | trim | length > 0 %}proxy_url = {{ proxy_url | trim }}
+{% endif %}
+
+# Logging verbosity (optional, defaults to INFO)
+# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL
+# Controls the amount of detail written to the log output.
+{% if log_level is defined and log_level | trim | length > 0 %}log_level = {{ log_level | trim | upper }}
+{% endif %}

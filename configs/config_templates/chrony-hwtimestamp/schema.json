@@ -1,0 +1,77 @@
+{
+  "hw_timestamp_interface": {
+    "type": "string",
+    "default": "all",
+    "description": "Network interface name (e.g., 'eth0') or 'all' to enable hardware timestamping on all interfaces."
+  },
+  "hw_timestamp_minpoll": {
+    "type": "number",
+    "default": 6,
+    "description": "Minimum polling interval (log2 seconds) for hardware timestamping checks. Increase if timestamping failures occur (e.g., 7 = 128s)."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.pool.ntp.org"
+      },
+      {
+        "host": "1.pool.ntp.org"
+      },
+      {
+        "host": "2.pool.ntp.org"
+      },
+      {
+        "host": "3.pool.ntp.org"
+      }
+    ],
+    "description": "List of NTP servers to synchronize with. Include optional metadata for clarity.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "NTP server hostname or IP address."
+      },
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable name for the server (e.g., 'primary-ntp')."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional description (e.g., 'stratum-1 server in US-East')."
+      },
+      "prefer": {
+        "type": "bool",
+        "default": false,
+        "description": "Mark this server as preferred (used more heavily by chronyd during selection)."
+      },
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "Optional NTP authentication key ID (must be defined in /etc/chrony/chrony.keys)."
+      }
+    }
+  },
+  "ntp_pool": {
+    "type": "string",
+    "default": "",
+    "description": "Optional NTP pool domain (e.g., 'pool.ntp.org') to use as fallback sources."
+  },
+  "local_reference_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable local reference clock (PHC) as a fallback time source when external servers are unavailable."
+  },
+  "debug_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging (measurements, statistics, tracking) for troubleshooting hardware timestamping."
+  },
+  "bind_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Optional specific network interface (e.g., 'eth0') to bind the NTP service to. Required when hardware timestamping is interface-specific."
+  }
+}

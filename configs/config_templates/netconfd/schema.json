@@ -1,0 +1,146 @@
+{
+  "enable_ssh": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NETCONF access over SSH (RFC 6241 default transport)."
+  },
+  "ssh_listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (or hostname) on which to listen for SSH-based NETCONF connections."
+  },
+  "ssh_listen_port": {
+    "type": "number",
+    "default": 830,
+    "description": "TCP port for SSH-based NETCONF (IANA-assigned default: 830)."
+  },
+  "ssh_host_key_file": {
+    "type": "string",
+    "default": "/etc/ssh/ssh_host_rsa_key",
+    "description": "Path to SSH server host private key (RSA, ECDSA, or Ed25519). Leave unset to use system default."
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NETCONF over TLS (RFC 7589). Requires TLS certificate and key."
+  },
+  "tls_listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind for TLS-based NETCONF (only used if enable_tls = true)."
+  },
+  "tls_listen_port": {
+    "type": "number",
+    "default": 6513,
+    "description": "TCP port for TLS-based NETCONF (IANA-assigned default: 6513)."
+  },
+  "tls_server_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS server certificate (PEM format, required if enable_tls = true)."
+  },
+  "tls_server_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS server private key (PEM format, required if enable_tls = true)."
+  },
+  "tls_ca_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for client verification (PEM format, optional but recommended if enable_tls = true)."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "key-based",
+    "description": "Authentication method for NETCONF sessions."
+  },
+  "allowed_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of users explicitly allowed to connect via NETCONF (ignored if auth-method = key-based with no restriction).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "System username allowed to access NETCONF."
+      }
+    }
+  },
+  "lock_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait before automatically releasing a held configuration lock (0 = no timeout)."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent NETCONF sessions."
+  },
+  "enable_nmda": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for NETCONF Data Models with Defaults (NMDA, RFC 8526)."
+  },
+  "with_defaults_mode": {
+    "type": "string",
+    "default": "report-all",
+    "description": "Default behavior for ietf-netconf-with-defaults (RFC 6243).",
+    "enum": [
+      "report-all",
+      "trim",
+      "explicit"
+    ]
+  },
+  "yang_module_paths": {
+    "type": "list",
+    "default": [
+      "/usr/share/yang/modules",
+      "/usr/local/share/yang/modules"
+    ],
+    "description": "Search paths for YANG modules (semicolon or space-separated in some implementations, but list per line here).",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Directory containing YANG modules (*.yang files)."
+      }
+    }
+  },
+  "custom_rpcs": {
+    "type": "list",
+    "default": [],
+    "description": "Custom RPC module definitions (e.g., vendor-specific operations).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable name for the RPC module."
+      },
+      "module": {
+        "type": "string",
+        "description": "YANG module name implementing the RPC (e.g., 'example-vendor')."
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the YANG module file (optional if on YANG path)."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum severity level for log messages.",
+    "enum": [
+      "off",
+      "error",
+      "warn",
+      "info",
+      "debug",
+      "debug2",
+      "debug3",
+      "debug4"
+    ]
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file for log output (if omitted, use syslog/ stderr)."
+  }
+}

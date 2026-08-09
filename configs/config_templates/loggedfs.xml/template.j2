@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<!-- ================================================================= -->
+<!-- loggedfs.xml: Configuration for loggedfs filesystem event logger -->
+<!-- ================================================================= -->
+<!-- This file configures the loggedfs daemon to monitor filesystem -->
+<!-- events on a specific mount point and log them via syslog or a -->
+<!-- dedicated file. -->
+<!-- ================================================================= -->
+<config>
+  <!-- mount_point: Root directory path to monitor for filesystem events -->
+  <!-- Default: /data -->
+  <path>{{ mount_point | default('/data') }}</path>
+
+  <!-- backend: Logging destination type ('syslog' or 'file') -->
+  <!-- Default: syslog -->
+  <backend>{{ backend | default('syslog') }}</backend>
+
+  {# Conditional block: Only emit log file path if backend is 'file' #}
+  {% if backend | default('syslog') == 'file' %}
+  <!-- log_file_path: Path to the dedicated log file (only used if backend is 'file') -->
+  <!-- Default: /var/log/loggedfs.log -->
+  <logfile>{{ log_file_path | default('/var/log/loggedfs.log') }}</logfile>
+  {% endif %}
+
+  <!-- verbose: Log verbosity level (0=ERROR, 1=WARN, 2=INFO, 3=DEBUG) -->
+  <!-- Default: 2 -->
+  <verbose>{{ verbose | default(2) }}</verbose>
+
+  <!-- json_output: Whether to emit each log entry as a structured JSON line (overrides prefix) -->
+  <!-- Default: False -->
+  <json>{{ json_output | default(False) }}</json>
+
+  <!-- log_prefix: String prefix added before each log line (ignored if json_output is true) -->
+  <!-- Default: [loggedfs] -->
+  <prefix>{{ log_prefix | default('[loggedfs]') }}</prefix>
+
+  <!-- max_log_size: Maximum size in bytes for a single log file before rotation -->
+  <!-- Default: 104857600 (100 MB) -->
+  <maxsize>{{ max_log_size | default(104857600) }}</maxsize>
+
+  <!-- max_log_files: Maximum number of rotated log files to retain -->
+  <!-- Default: 5 -->
+  <maxfiles>{{ max_log_files | default(5) }}</maxfiles>
+
+  <!-- operations: List of filesystem operations to log -->
+  <!-- If omitted or empty, all operations are logged -->
+  <!-- Default: ['read', 'write', 'open', 'mkdir', 'rmdir', 'rename', 'unlink', 'chmod', 'chown'] -->
+  <operations>
+    {# Iterate over the list of operations provided by the schema #}
+    {% for op in log_operations | default(['read', 'write', 'open', 'mkdir', 'rmdir', 'rename', 'unlink', 'chmod', 'chown']) %}
+    <!-- Operation to log: {{ op }} -->
+    <op>{{ op }}</op>
+    {% endfor %}
+  </operations>
+
+  <!-- exclude: List of path patterns (supports globs like * and ?) to exclude from logging -->
+  <!-- Default: ['/proc/*', '/sys/*', '/dev/*'] -->
+  <exclude>
+    {# Iterate over the list of exclude patterns provided by the schema #}
+    {% for pattern in exclude_paths | default(['/proc/*', '/sys/*', '/dev/*']) %}
+    <!-- Exclude path pattern: {{ pattern }} -->
+    <path>{{ pattern }}</path>
+    {% endfor %}
+  </exclude>
+
+  <!-- follow_symlinks: Whether to follow symbolic links when monitoring directory trees -->
+  <!-- Default: False -->
+  <follow_symlinks>{{ follow_symlinks | default(False) }}</follow_symlinks>
+
+  <!-- log_metadata: Whether to log metadata changes (e.g., permissions, ownership, timestamps) -->
+  <!-- Default: True -->
+  <log_metadata>{{ log_metadata | default(True) }}</log_metadata>
+</config>

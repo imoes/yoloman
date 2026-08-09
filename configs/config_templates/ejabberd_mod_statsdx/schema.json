@@ -1,0 +1,97 @@
+{
+  "statsd": {
+    "type": "object",
+    "description": "Configuration for StatsD backend: host, port, and behavior.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Hostname or IP address of the StatsD server to send metrics to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8125,
+        "description": "UDP port on which the StatsD server listens for metrics."
+      },
+      "protocol": {
+        "type": "string",
+        "enum": [
+          "statsd",
+          "datadog"
+        ],
+        "default": "statsd",
+        "description": "Protocol variant: 'statsd' (standard UDP), or 'datadog' (supports tags)."
+      },
+      "prefix": {
+        "type": "string",
+        "default": "ejabberd",
+        "description": "Prefix prepended to all metric names (e.g., 'ejabberd.prod' \u2192 'ejabberd.prod.sessions.active')."
+      },
+      "flush_interval": {
+        "type": "number",
+        "default": 1000,
+        "description": "Time interval (in milliseconds) between metric flushes to StatsD."
+      },
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether the StatsD module is active. Disable to stop metric reporting without removing the module."
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable verbose logging of StatsD packets for troubleshooting."
+      },
+      "metric_types": {
+        "type": "list",
+        "default": [],
+        "description": "Optional list of custom metric types to override defaults (e.g., ['counter', 'gauge', 'timer']). Leave empty for defaults.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "counter",
+            "gauge",
+            "timer",
+            "histogram",
+            "set"
+          ]
+        }
+      },
+      "stats_filter": {
+        "type": "object",
+        "default": {
+          "enabled": false,
+          "include": []
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable filtering to send only selected stat categories."
+          },
+          "include": {
+            "type": "list",
+            "default": [],
+            "description": "List of stat categories to include (e.g., users, roster, muc, s2s, vcard, disco).",
+            "items": {
+              "type": "string",
+              "enum": [
+                "users",
+                "roster",
+                "muc",
+                "s2s",
+                "c2s",
+                "vcard",
+                "disco",
+                "offline",
+                "pubsub",
+                "bosh",
+                "websocket"
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

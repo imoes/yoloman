@@ -1,0 +1,58 @@
+- name: install-fail2ban
+  hosts: all
+  become: true
+  vars:
+    mta: "sendmail"
+    sender: "fail2ban@localhost"
+    backend: "auto"
+    bantime: 600
+    findtime: 600
+    maxretry: 5
+    defaction: "iptables-multiport"
+    destemail: "root@localhost"
+    logtarget: "/var/log/fail2ban.log"
+    sshd_port: "ssh"
+    sendername: "Fail2Ban"
+    custom_jails: []
+    sshd_bantime: 600
+    sshd_enabled: true
+    sshd_logpath: "/var/log/auth.log"
+    sshd_findtime: 600
+    sshd_maxretry: 5
+    syslogfacility: "daemon"
+  tasks:
+    - name: Install Fail2ban
+      ansible.builtin.package:
+        name: ["fail2ban"]
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: fail2ban.j2
+        dest: "/etc/fail2ban/jail.local"
+        mode: "0644"
+      vars:
+        mta: "{{ mta }}"
+        sender: "{{ sender }}"
+        backend: "{{ backend }}"
+        bantime: "{{ bantime }}"
+        findtime: "{{ findtime }}"
+        maxretry: "{{ maxretry }}"
+        defaction: "{{ defaction }}"
+        destemail: "{{ destemail }}"
+        logtarget: "{{ logtarget }}"
+        sshd_port: "{{ sshd_port }}"
+        sendername: "{{ sendername }}"
+        custom_jails: "{{ custom_jails }}"
+        sshd_bantime: "{{ sshd_bantime }}"
+        sshd_enabled: "{{ sshd_enabled }}"
+        sshd_logpath: "{{ sshd_logpath }}"
+        sshd_findtime: "{{ sshd_findtime }}"
+        sshd_maxretry: "{{ sshd_maxretry }}"
+        syslogfacility: "{{ syslogfacility }}"
+
+    - name: Enable and restart Fail2ban
+      ansible.builtin.service:
+        name: "fail2ban"
+        state: restarted
+        enabled: true

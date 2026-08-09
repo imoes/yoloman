@@ -1,0 +1,62 @@
+{# fp-units-castle-game-engine: Free Pascal units configuration for Castle Game Engine #}
+{# This template configures the FPC compiler to locate Castle Game Engine units. #}
+{# It handles architecture-specific ABI suffixes (GNU ABI for Linux targets). #}
+
+{# -------------------------------------------------------------------------- #}
+{# ARM EL (little-endian) targets: GNU ABI suffix is 'gnueabi'              #}
+{# -------------------------------------------------------------------------- #}
+{# UNDEF CGE_FULL_TARGET: Reset any previous definition to ensure clean state. #}
+#UNDEF CGE_FULL_TARGET
+
+{# IFDEF CPUARMEL: Check if the target is ARM EL. #}
+{# DEFINE CGE_FULL_TARGET: Mark that we have handled the target. #}
+{# -Fu: Add the specified path to the FPC unit search path. #}
+{# Path structure: /usr/lib/<target>-<abi>/castle-game-engine/fp-units/<version> #}
+{# cge_arm_gnu_abi: The GNU ABI suffix for ARM EL targets. #}
+{# Default: 'gnueabi' #}
+#IFDEF CPUARMEL
+#DEFINE CGE_FULL_TARGET
+-Fu/usr/lib/$fpctarget-{{ cge_arm_gnu_abi | default('gnueabi') }}/castle-game-engine/fp-units/$fpcversion
+#ENDIF
+
+{# -------------------------------------------------------------------------- #}
+{# ARM HF (hard-float) targets: GNU ABI suffix is 'gnueabihf'               #}
+{# -------------------------------------------------------------------------- #}
+{# UNDEF CGE_FULL_TARGET: (Implicitly handled by previous IFDEF, but explicit check here for clarity if needed) #}
+{# IFDEF CPUARMHF: Check if the target is ARM HF. #}
+{# DEFINE CGE_FULL_TARGET: Mark that we have handled the target. #}
+{# -Fu: Add the specified path to the FPC unit search path. #}
+{# cge_armhf_gnu_abi: The GNU ABI suffix for ARM HF targets. #}
+{# Default: 'gnueabihf' #}
+#IFDEF CPUARMHF
+#DEFINE CGE_FULL_TARGET
+-Fu/usr/lib/$fpctarget-{{ cge_armhf_gnu_abi | default('gnueabihf') }}/castle-game-engine/fp-units/$fpcversion
+#ENDIF
+
+{# -------------------------------------------------------------------------- #}
+{# PowerPC 64-bit LE targets: GNU ABI suffix is 'gnu'                       #}
+{# -------------------------------------------------------------------------- #}
+{# IFDEF CPUPOWERPC64: Check if the target is PowerPC 64-bit LE. #}
+{# DEFINE CGE_FULL_TARGET: Mark that we have handled the target. #}
+{# -Fu: Add the specified path to the FPC unit search path. #}
+{# cge_default_gnu_abi: The default GNU ABI suffix for non-ARM and non-PPC64LE targets. #}
+{# Default: 'gnu' #}
+{# Note: The path uses $fpccpule for CPU and $fpcos for OS, unlike ARM which uses $fpctarget. #}
+#IFDEF CPUPOWERPC64
+#DEFINE CGE_FULL_TARGET
+-Fu/usr/lib/$fpccpule-$fpcos-{{ cge_default_gnu_abi | default('gnu') }}/castle-game-engine/fp-units/$fpcversion
+#ENDIF
+
+{# -------------------------------------------------------------------------- #}
+{# Default fallback: Non-ARM, non-PPC64LE targets                           #}
+{# -------------------------------------------------------------------------- #}
+{# IFNDEF CGE_FULL_TARGET: If no specific target path was defined above, use the default. #}
+{# DEFINE CGE_FULL_TARGET: Mark that we have handled the target. #}
+{# -Fu: Add the specified path to the FPC unit search path. #}
+{# cge_default_gnu_abi: The default GNU ABI suffix. #}
+{# Default: 'gnu' #}
+{# Path structure: /usr/lib/<target>-<abi>/castle-game-engine/fp-units/<version> #}
+#IFNDEF CGE_FULL_TARGET
+#DEFINE CGE_FULL_TARGET
+-Fu/usr/lib/$fpctarget-{{ cge_default_gnu_abi | default('gnu') }}/castle-game-engine/fp-units/$fpcversion
+#ENDIF

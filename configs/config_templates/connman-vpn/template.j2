@@ -1,0 +1,21 @@
+# connman-vpn.conf — configuration for ConnMan-VPN daemon
+# Self-documented: every directive is preceded by its schema description and source field.
+# All values default to the schema defaults if not provided by the role.
+
+# List of source files to enable debug output for (e.g., ['vpn/vpn-provider.c']).
+# Empty list disables file-specific debug filtering (use empty list or omit variable).
+# Maps to the -d[file[,...]] command-line option.
+{% if debug_files | default([]) | length > 0 %}
+Debug={{ debug_files | join(',') }}
+{% endif %}
+
+# If true, disables daemonization (equivalent to -n flag).
+# Log output goes to controlling terminal and syslog.
+# Maps to the -n/--nodaemon command-line option.
+{% if nodaemon | default(false) %}
+Nodaemon=true
+{% endif %}
+
+# Plugin-specific settings are *not* in this file — they live in per-provider config files:
+# /etc/connman/vpn-provider.conf — see connman-vpn-provider.config(5)
+# This template does not generate those files.

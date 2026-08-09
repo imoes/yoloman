@@ -1,0 +1,129 @@
+# Copyright (C) 2010-2023 Pädagogisches Landesinstitut Rheinland-Pfalz
+# Copyright (C) 2022-2023 Mike Gabriel <mike.gabriel@das-netzwerkteam.de>
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the
+# Free Software Foundation, Inc.,
+# 51 Franklin St, Fifth Floor, Boston, MA 02110-1301, USA.
+
+# ==============================================================================
+# debian-edu-router-fai configuration template
+# ==============================================================================
+#
+# This file configures the FAI (Fully Automatic Installation) deployment
+# server for Debian Edu Router installers. It controls the TFTP/HTTP
+# deployment parameters, the APT mirror used for building the installer
+# chroots, and the language/localization settings for the resulting
+# installation media.
+#
+# Variables are sourced from the Ansible inventory/group_vars. If a
+# variable is undefined, the template falls back to the schema default
+# to ensure valid output.
+#
+# ==============================================================================
+
+# --- FAI Server & Logging Configuration ---
+#
+# fai_logserver: FAI server hostname (FQDN) used for pushing installation
+# logs from clients during PXE boot. If left empty, FAI's savelog feature
+# is disabled.
+# fai_loguser: The system user on the FAI log server that receives the
+# logs. This user must have SSH key access and appropriate directory
+# permissions created manually before generating the chroot.
+# deployment_server: Internal variable derived from fai_logserver. Points
+# to the FAI deployment server URL.
+
+# Note: The original template commented out these lines. We leave them
+# commented to preserve the "manual step" warning structure, but populate
+# the values so they are ready for use if the comments are removed.
+{% if fai_logserver | default('') | length > 0 %}
+fai_logserver="{{ fai_logserver }}"
+{% else %}
+#fai_logserver=""
+{% endif %}
+
+{% if fai_loguser | default('') | length > 0 %}
+fai_loguser='{{ fai_loguser }}'
+{% else %}
+#fai_loguser=''
+{% endif %}
+
+# deployment_server is typically derived from fai_logserver
+{% if fai_logserver | default('') | length > 0 %}
+deployment_server=${fai_logserver}
+{% else %}
+#deployment_server=
+{% endif %}
+
+# --- Deployment & Repository Configuration ---
+#
+# mirrorurl: The APT mirror URL used by debootstrap to build the FAI
+# installer chroots. Ensure this mirror is reachable by the host running
+# the installer build scripts.
+mirrorurl={{ mirrorurl | default('http://deb.debian.org/debian') }}
+
+# tftpdir: The directory on the deployment server where TFTP configuration
+# files (kernel, initrd, iPXE scripts) are stored. This directory must be
+# accessible by the TFTP server (e.g., in.tftpd or dnsmasq).
+tftpdir={{ tftpdir | default('/srv/tftp') }}
+
+# --- Installer Generation Parameters ---
+#
+# codenames: Space-separated list of Debian codenames (e.g., trixie, bookworm)
+# for which FAI installers should be built. Multiple codenames allow
+# maintaining installers for different Debian releases simultaneously.
+codenames="{{ codenames | default('trixie') }}"
+
+# default_codename: The codename used as the default boot entry in the iPXE
+# menu. Defaults to the first codename in the codenames list if not specified.
+default_codename="{{ default_codename | default('trixie') }}"
+
+# archs: Space-separated list of CPU architectures (e.g., amd64, i386) for
+# which to build installer chroots. Note: Building non-native architectures
+# requires qemu-user-static and may be significantly slower.
+archs="{{ archs | default('amd64 i386') }}"
+
+# default_arch: The architecture used as the default boot entry in the iPXE
+# menu. Defaults to the first architecture in the archs list if not specified.
+default_arch="{{ default_arch | default('amd64') }}"
+
+# --- Localization Settings ---
+#
+# supported_locales: Space-separated list of UTF-8 locales that the installer
+# will offer to the user. Ensure that the debian-edu-router-fai package has
+# been translated into these languages.
+supported_locales="{{ supported_locales | default('C.UTF-8 de_DE.UTF-8') }}"
+
+# default_locale: The default locale/language selected in the installer.
+# This locale will be used if the user does not explicitly choose one.
+default_locale="{{ default_locale | default('C.UTF-8') }}"
+
+# --- Security & Identity ---
+#
+# rootpw: A hashed password (MD5 or SHA-512) for the root account on devices
+# installed via FAI. If empty, the installer may prompt for a password or
+# use a default mechanism. Use `mkpasswd -m sha-512` to generate a hash.
+#
+# school_tag: A short text tag identifying the school or institution. Used
+# for branding or organizational separation in FAI configurations.
+{% if rootpw | default('') | length > 0 %}
+rootpw='{{ rootpw }}'
+{% else %}
+#rootpw=''
+{% endif %}
+
+{% if school_tag | default('') | length > 0 %}
+school_tag='{{ school_tag }}'
+{% else %}
+#school_tag=''
+{% endif %}

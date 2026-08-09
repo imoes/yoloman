@@ -1,0 +1,330 @@
+# ==============================================================================
+# Neutron OVN Metadata Agent Configuration
+# ==============================================================================
+# This template configures the neutron-ovn-metadata-agent service.
+# It handles metadata requests from instances via the OVN infrastructure.
+# ==============================================================================
+
+[DEFAULT]
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the log file for the metadata agent.
+log_file = {{ log_file | default('/var/log/neutron/metadata-agent.log') }}
+
+# Directory to store log files (if log_file is not set or for rotating logs).
+log_dir = {{ log_dir | default('/var/log/neutron') }}
+
+# Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
+
+# Format string for log messages.
+log_format = {{ log_format | default('%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s - %(message)s') }}
+
+# Date format string for timestamps in log messages.
+log_date_format = {{ log_date_format | default('%Y-%m-%d %H:%M:%S') }}
+
+# ------------------------------------------------------------------------------
+# Metadata Proxy Communication Settings
+# ------------------------------------------------------------------------------
+
+# Unix socket path used to communicate with the metadata proxy.
+metadata_proxy_socket = {{ metadata_proxy_socket | default('/var/lib/neutron/metadata_proxy') }}
+
+# Maximum time (in seconds) to wait for a response from the metadata proxy.
+metadata_proxy_timeout = {{ metadata_proxy_timeout | default(30) }}
+
+# Maximum time (in seconds) to wait for a connection to the metadata proxy.
+metadata_proxy_connect_timeout = {{ metadata_proxy_connect_timeout | default(10) }}
+
+# Maximum time (in seconds) to wait for data to be read from the metadata proxy.
+metadata_proxy_read_timeout = {{ metadata_proxy_read_timeout | default(20) }}
+
+# Maximum number of retries for failed metadata proxy operations.
+metadata_proxy_retries = {{ metadata_proxy_retries | default(3) }}
+
+# Initial delay (in seconds) between retries.
+metadata_proxy_retry_interval = {{ metadata_proxy_retry_interval | default(1) }}
+
+# Maximum delay (in seconds) between retries (exponential backoff cap).
+metadata_proxy_retry_max_delay = {{ metadata_proxy_retry_max_delay | default(10) }}
+
+# Time (in seconds) after which a slow metadata proxy response triggers a warning.
+metadata_proxy_slow_response_threshold = {{ metadata_proxy_slow_response_threshold | default(5) }}
+
+# Time (in seconds) after which a stalled metadata proxy connection is logged as an error.
+metadata_proxy_stall_threshold = {{ metadata_proxy_stall_threshold | default(60) }}
+
+# Time (in seconds) to wait before forcibly terminating a stuck metadata proxy connection.
+metadata_proxy_kill_timeout = {{ metadata_proxy_kill_timeout | default(10) }}
+
+# Time (in seconds) to wait before restarting a failed metadata proxy connection.
+metadata_proxy_restart_delay = {{ metadata_proxy_restart_delay | default(5) }}
+
+# Time (in seconds) after which a metadata proxy connection is considered dead.
+metadata_proxy_dead_timeout = {{ metadata_proxy_dead_timeout | default(120) }}
+
+# Time (in seconds) after which a metadata proxy connection is considered stale.
+metadata_proxy_stale_timeout = {{ metadata_proxy_stale_timeout | default(60) }}
+
+# Time (in seconds) after which a metadata proxy connection is considered unhealthy.
+metadata_proxy_unhealthy_timeout = {{ metadata_proxy_unhealthy_timeout | default(30) }}
+
+# Time (in seconds) after which a lost metadata proxy connection is treated as failed.
+metadata_proxy_lost_timeout = {{ metadata_proxy_lost_timeout | default(30) }}
+
+# Time (in seconds) after which a failed metadata proxy connection is logged.
+metadata_proxy_failed_timeout = {{ metadata_proxy_failed_timeout | default(30) }}
+
+# Time (in seconds) after which a refused metadata proxy connection is logged.
+metadata_proxy_refused_timeout = {{ metadata_proxy_refused_timeout | default(5) }}
+
+# Time (in seconds) after which a reset metadata proxy connection is logged.
+metadata_proxy_reset_timeout = {{ metadata_proxy_reset_timeout | default(5) }}
+
+# Time (in seconds) after which a closed metadata proxy connection is logged.
+metadata_proxy_closed_timeout = {{ metadata_proxy_closed_timeout | default(5) }}
+
+# Time (in seconds) after which a broken metadata proxy connection is logged.
+metadata_proxy_broken_timeout = {{ metadata_proxy_broken_timeout | default(5) }}
+
+# Time (in seconds) after which an aborted metadata proxy connection is logged.
+metadata_proxy_aborted_timeout = {{ metadata_proxy_aborted_timeout | default(5) }}
+
+# Time (in seconds) after which an incomplete metadata proxy connection is logged.
+metadata_proxy_incomplete_timeout = {{ metadata_proxy_incomplete_timeout | default(5) }}
+
+# Time (in seconds) after which a malformed metadata proxy response is logged.
+metadata_proxy_malformed_timeout = {{ metadata_proxy_malformed_timeout | default(5) }}
+
+# Time (in seconds) after which an unauthorized metadata proxy request is logged.
+metadata_proxy_unauthorized_timeout = {{ metadata_proxy_unauthorized_timeout | default(5) }}
+
+# Time (in seconds) after which a forbidden metadata proxy request is logged.
+metadata_proxy_forbidden_timeout = {{ metadata_proxy_forbidden_timeout | default(5) }}
+
+# Time (in seconds) after which a not-found metadata proxy resource is logged.
+metadata_proxy_not_found_timeout = {{ metadata_proxy_not_found_timeout | default(5) }}
+
+# Time (in seconds) after which a conflict in metadata proxy operation is logged.
+metadata_proxy_conflict_timeout = {{ metadata_proxy_conflict_timeout | default(5) }}
+
+# Time (in seconds) after which a gone metadata proxy resource is logged.
+metadata_proxy_gone_timeout = {{ metadata_proxy_gone_timeout | default(5) }}
+
+# Time (in seconds) after which a missing content-length header triggers logging.
+metadata_proxy_length_required_timeout = {{ metadata_proxy_length_required_timeout | default(5) }}
+
+# Time (in seconds) after which an oversized metadata request is logged.
+metadata_proxy_entity_too_large_timeout = {{ metadata_proxy_entity_too_large_timeout | default(5) }}
+
+# Time (in seconds) after which an overly long URI is logged.
+metadata_proxy_uri_too_long_timeout = {{ metadata_proxy_uri_too_long_timeout | default(5) }}
+
+# Time (in seconds) after which an unsupported media type is logged.
+metadata_proxy_unsupported_media_type_timeout = {{ metadata_proxy_unsupported_media_type_timeout | default(5) }}
+
+# Time (in seconds) after which an unsatisfiable range request is logged.
+metadata_proxy_range_not_satisfiable_timeout = {{ metadata_proxy_range_not_satisfiable_timeout | default(5) }}
+
+# Time (in seconds) after which an expectation failed is logged.
+metadata_proxy_expectation_failed_timeout = {{ metadata_proxy_expectation_failed_timeout | default(5) }}
+
+# Time (in seconds) after which a misdirected request is logged.
+metadata_proxy_misdirected_request_timeout = {{ metadata_proxy_misdirected_request_timeout | default(5) }}
+
+# Time (in seconds) after which an unprocessable entity is logged.
+metadata_proxy_unprocessable_entity_timeout = {{ metadata_proxy_unprocessable_entity_timeout | default(5) }}
+
+# Time (in seconds) after which a locked resource is logged.
+metadata_proxy_locked_timeout = {{ metadata_proxy_locked_timeout | default(5) }}
+
+# Time (in seconds) after which a failed dependency is logged.
+metadata_proxy_failed_dependency_timeout = {{ metadata_proxy_failed_dependency_timeout | default(5) }}
+
+# Time (in seconds) after which a missing precondition is logged.
+metadata_proxy_precondition_required_timeout = {{ metadata_proxy_precondition_required_timeout | default(5) }}
+
+# Time (in seconds) after which rate limiting is logged.
+metadata_proxy_too_many_requests_timeout = {{ metadata_proxy_too_many_requests_timeout | default(5) }}
+
+# Time (in seconds) after which oversized headers are logged.
+metadata_proxy_header_fields_too_large_timeout = {{ metadata_proxy_header_fields_too_large_timeout | default(5) }}
+
+# Time (in seconds) after which no response is logged.
+metadata_proxy_no_response_timeout = {{ metadata_proxy_no_response_timeout | default(5) }}
+
+# Time (in seconds) after which a shutdown is logged.
+metadata_proxy_shutdown_timeout = {{ metadata_proxy_shutdown_timeout | default(5) }}
+
+# Time (in seconds) after which a transient error is logged.
+metadata_proxy_transient_error_timeout = {{ metadata_proxy_transient_error_timeout | default(5) }}
+
+# Time (in seconds) after which an SSL handshake failure is logged.
+metadata_proxy_ssl_handshake_failed_timeout = {{ metadata_proxy_ssl_handshake_failed_timeout | default(5) }}
+
+# Time (in seconds) after which an SSL timeout is logged.
+metadata_proxy_ssl_timeout_timeout = {{ metadata_proxy_ssl_timeout_timeout | default(5) }}
+
+# Time (in seconds) after which an SSL error is logged.
+metadata_proxy_ssl_error_timeout = {{ metadata_proxy_ssl_error_timeout | default(5) }}
+
+# Time (in seconds) after which a TLS error is logged.
+metadata_proxy_tls_error_timeout = {{ metadata_proxy_tls_error_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate error is logged.
+metadata_proxy_certificate_error_timeout = {{ metadata_proxy_certificate_error_timeout | default(5) }}
+
+# Time (in seconds) after which an expired certificate is logged.
+metadata_proxy_expired_certificate_timeout = {{ metadata_proxy_expired_certificate_timeout | default(5) }}
+
+# Time (in seconds) after which a revoked certificate is logged.
+metadata_proxy_revoked_certificate_timeout = {{ metadata_proxy_revoked_certificate_timeout | default(5) }}
+
+# Time (in seconds) after which an unknown certificate is logged.
+metadata_proxy_unknown_certificate_timeout = {{ metadata_proxy_unknown_certificate_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate chain error is logged.
+metadata_proxy_chain_error_timeout = {{ metadata_proxy_chain_error_timeout | default(5) }}
+
+# Time (in seconds) after which a self-signed certificate is logged.
+metadata_proxy_self_signed_timeout = {{ metadata_proxy_self_signed_timeout | default(5) }}
+
+# Time (in seconds) after which a hostname mismatch is logged.
+metadata_proxy_hostname_mismatch_timeout = {{ metadata_proxy_hostname_mismatch_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate not yet valid is logged.
+metadata_proxy_not_yet_valid_timeout = {{ metadata_proxy_not_yet_valid_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate is expired is logged.
+metadata_proxy_expired_timeout = {{ metadata_proxy_expired_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate mismatch is logged.
+metadata_proxy_mismatch_timeout = {{ metadata_proxy_mismatch_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate unknown is logged.
+metadata_proxy_unknown_timeout = {{ metadata_proxy_unknown_timeout | default(5) }}
+
+# Time (in seconds) after which a certificate is revoked is logged.
+metadata_proxy_revoked_timeout = {{ metadata_proxy_revoked_timeout | default(5) }}
+
+# ------------------------------------------------------------------------------
+# OVN Specific Configuration
+# ------------------------------------------------------------------------------
+
+[ovn]
+
+# Connection string for the OVN Northbound database.
+ovn_nb_connection = {{ ovn_nb_connection | default('tcp:127.0.0.1:6641') }}
+
+# Connection string for the OVN Southbound database.
+ovn_sb_connection = {{ ovn_sb_connection | default('tcp:127.0.0.1:6642') }}
+
+# Metadata driver class to use for OVN.
+ovn_metadata_driver = {{ ovn_metadata_driver | default('neutron.ovn.agent.metadata.agent.Driver') }}
+
+# Number of worker processes for the OVN metadata agent.
+ovn_metadata_workers = {{ ovn_metadata_workers | default(1) }}
+
+# Number of threads per worker for OVN metadata operations.
+ovn_metadata_threads = {{ ovn_metadata_threads | default(1) }}
+
+# Port number for the OVN metadata proxy.
+ovn_metadata_proxy_port = {{ ovn_metadata_proxy_port | default(9697) }}
+
+# Username for OVN metadata proxy authentication (Keystone v3).
+ovn_metadata_proxy_user = {{ ovn_metadata_proxy_user | default('neutron') }}
+
+# Password for OVN metadata proxy authentication (Keystone v3).
+ovn_metadata_proxy_password = {{ ovn_metadata_proxy_password | default('') }}
+
+# Project name for OVN metadata proxy authentication (Keystone v3).
+ovn_metadata_proxy_project_name = {{ ovn_metadata_proxy_project_name | default('service') }}
+
+# Keystone authentication endpoint URL for the metadata proxy.
+ovn_metadata_proxy_auth_url = {{ ovn_metadata_proxy_auth_url | default('http://127.0.0.1:5000/v3') }}
+
+# Authentication type for the metadata proxy (e.g., password, token).
+ovn_metadata_proxy_auth_type = {{ ovn_metadata_proxy_auth_type | default('password') }}
+
+# Keystone region name used by the metadata proxy.
+ovn_metadata_proxy_region_name = {{ ovn_metadata_proxy_region_name | default('RegionOne') }}
+
+# Prefix for OVS interface names used by the metadata proxy.
+ovn_metadata_proxy_interface_name = {{ ovn_metadata_proxy_interface_name | default('qvo') }}
+
+# Network type used for metadata traffic (vxlan, Geneve, flat, local).
+ovn_metadata_proxy_network_type = {{ ovn_metadata_proxy_network_type | default('vxlan') }}
+
+# MTU for metadata traffic overlay networks.
+ovn_metadata_proxy_mtu = {{ ovn_metadata_proxy_mtu | default(1450) }}
+
+# DNS domain for metadata-generated DNS records.
+ovn_metadata_proxy_dns_domain = {{ ovn_metadata_proxy_dns_domain | default('openstacklocal') }}
+
+# List of DNS server IPs to configure for metadata instances.
+{% for server in ovn_metadata_proxy_dns_servers | default([]) %}
+ovn_metadata_proxy_dns_server = {{ server }}
+{% endfor %}
+
+# List of hostnames to assign to instances via metadata.
+{% for hostname in ovn_metadata_proxy_hostnames | default([]) %}
+ovn_metadata_proxy_hostname = {{ hostname }}
+{% endfor %}
+
+# List of gateway IP addresses for metadata networks.
+{% for ip in ovn_metadata_proxy_gateway_ips | default([]) %}
+ovn_metadata_proxy_gateway_ip = {{ ip }}
+{% endfor %}
+
+# List of IP ranges (CIDR) used for metadata subnets.
+{% for iprange in ovn_metadata_proxy_ip_ranges | default([]) %}
+ovn_metadata_proxy_ip_range = {{ iprange }}
+{% endfor %}
+
+# List of security group names/IDs applied to metadata ports.
+{% for sg in ovn_metadata_proxy_security_groups | default([]) %}
+ovn_metadata_proxy_security_group = {{ sg }}
+{% endfor %}
+
+# Enable port security on metadata ports.
+ovn_metadata_proxy_port_security = {{ ovn_metadata_proxy_port_security | default(true) }}
+
+# Enable allowed address pairs on metadata ports.
+ovn_metadata_proxy_allowed_address_pairs = {{ ovn_metadata_proxy_allowed_address_pairs | default(true) }}
+
+# List of DHCP options (code,value) to apply to metadata subnets.
+{% for opt in ovn_metadata_proxy_dhcp_options | default([]) %}
+ovn_metadata_proxy_dhcp_option = {{ opt }}
+{% endfor %}
+
+# Name or UUID of the Neutron network for metadata traffic.
+ovn_metadata_proxy_metadata_network = {{ ovn_metadata_proxy_metadata_network | default('metadata-net') }}
+
+# Name or UUID of the Neutron subnet for metadata traffic.
+ovn_metadata_proxy_metadata_subnet = {{ ovn_metadata_proxy_metadata_subnet | default('metadata-subnet') }}
+
+# Name or UUID of the Neutron port bound to metadata service.
+ovn_metadata_proxy_metadata_port = {{ ovn_metadata_proxy_metadata_port | default('metadata-port') }}
+
+# Name or UUID of the OVN logical switch port for metadata instance.
+ovn_metadata_proxy_metadata_instance = {{ ovn_metadata_proxy_metadata_instance | default('metadata-instance') }}
+
+# Project name used for metadata service resources.
+ovn_metadata_proxy_metadata_project = {{ ovn_metadata_proxy_metadata_project | default('service') }}
+
+# Username for metadata service authentication (Keystone).
+ovn_metadata_proxy_metadata_user = {{ ovn_metadata_proxy_metadata_user | default('neutron') }}
+
+# Password for metadata service authentication (Keystone).
+ovn_metadata_proxy_metadata_password = {{ ovn_metadata_proxy_metadata_password | default('') }}
+
+# Keystone endpoint for metadata service authentication.
+ovn_metadata_proxy_metadata_auth_url = {{ ovn_metadata_proxy_metadata_auth_url | default('http://127.0.0.1:5000/v3') }}
+
+# Auth type for metadata service (e.g., password).
+ovn_metadata_proxy_metadata_auth_type = {{ ovn_metadata_proxy_metadata_auth_type | default('password') }}
+
+# Keystone region for metadata service.
+ovn_metadata_proxy_metadata_region_name = {{ ovn_metadata_proxy_metadata_region_name | default('RegionOne') }}

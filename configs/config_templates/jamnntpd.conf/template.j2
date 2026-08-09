@@ -1,0 +1,75 @@
+# ==============================================================================
+# JAMNNTPD Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the `jamnntpd` NTP daemon.
+# It is structured into sections: [general], [server], [broadcast_peers], [peers],
+# [security], and [leap_seconds].
+#
+# All variables use Jinja2 defaults derived from the package schema to ensure
+# the template renders correctly even if specific variables are undefined in
+# the Ansible play.
+# ==============================================================================
+
+[general]
+
+# Whether to start the jamnntpd daemon automatically.
+enabled = {{ (general | default({})).enabled | default(true) | lower }}
+
+# Network interface or IP address to bind the server to. Use '0.0.0.0' to listen
+# on all interfaces.
+interface = {{ (general | default({})).interface | default('0.0.0.0') }}
+
+# Verbosity of logs: 0 = quiet, 5 = debug. Recommended: 3 (info).
+log_level = {{ (general | default({})).log_level | default(3) }}
+
+# Interval (in seconds) between automatic time synchronization attempts.
+sync_interval = {{ (general | default({})).sync_interval | default(60) }}
+
+[server]
+
+# UDP port to listen on for NTP client requests. Must be 123 for standard NTP.
+port = {{ (server | default({})).port | default(123) }}
+
+# Maximum number of simultaneous client connections allowed.
+max_connections = {{ (server | default({})).max_connections | default(1000) }}
+
+# Enable or disable broadcast/multicast time announcements to local subnet.
+broadcast_enabled = {{ (server | default({})).broadcast_enabled | default(false) | lower }}
+
+{% if (server | default({})).broadcast_enabled is sameas true %}
+[broadcast_peers]
+
+# List of broadcast/multicast peer groups (e.g., subnet addresses) to announce
+# time to.
+{% for peer in (server | default({})).broadcast_peers | default([]) %}
+# Peer {{ loop.index }}: {{ peer.address | default('0.0.0.0') }} (interval: {{ peer.interval | default(64) }}s)
+{{ peer.address | default('0.0.0.0') }} = {{ peer.interval | default(64) }}
+{% endfor %}
+{% endif %}
+
+[peers]
+
+# List of trusted NTP peers (servers) to synchronize with.
+{% for peer in (server | default({})).peers | default([]) %}
+# Peer {{ loop.index }}: {{ peer.host | default('0.0.0.0') }} (key_id: {{ peer.key_id | default('none') }})
+{{ peer.host | default('0.0.0.0') }} = {{ peer.key_id | default('none') }}
+{% endfor %}
+
+[security]
+
+# Enable cryptographic authentication for client and peer connections.
+auth_enabled = {{ (security | default({})).auth_enabled | default(false) | lower }}
+
+# Absolute path to the NTP keys file (used only if auth is enabled).
+keys_file = {{ (security | default({})).keys_file | default('/etc/jamnntpd/ntp.keys') }}
+
+# Key ID to trust for server authentication (must exist in keys_file).
+trusted_key = {{ (security | default({})).trusted_key | default(1) }}
+
+[leap_seconds]
+
+# Absolute path to leap seconds data file (optional, auto-downloaded if empty).
+leapfile = {{ (leap_seconds | default({})).leapfile | default('/etc/jamnntpd/leap-seconds.list') }}
+
+# Automatically insert leap seconds at 23:59:60 UTC on designated dates.
+auto_leap = {{ (leap_seconds | default({})).auto_leap | default(true) | lower }}

@@ -1,0 +1,141 @@
+{
+  "frontend_host": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address or hostname to bind the frontend listener (e.g., 0.0.0.0, ::, or * for all interfaces)."
+  },
+  "frontend_port": {
+    "type": "number",
+    "default": 443,
+    "description": "Port number for the frontend TLS listener (commonly 443 for HTTPS)."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend servers to proxy requests to (must contain at least one upstream).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable identifier for the upstream (used in comments)."
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "IP address or hostname of the backend server."
+        },
+        "port": {
+          "type": "number",
+          "default": 8080,
+          "description": "Port number of the backend server (e.g., HTTP app port)."
+        }
+      }
+    }
+  },
+  "ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384",
+    "description": "Ordered list of allowed TLS ciphers (OpenSSL cipher string format)."
+  },
+  "prefer_server_ciphers": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, prefer the server\u2019s cipher order over the client\u2019s. Recommended for stronger security."
+  },
+  "worker_processes": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes (set to 0 to auto-detect and use one per CPU core)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file (e.g., /var/log/hitch/hitch.log). If empty, logs go to stdout/stderr."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity level of logs (debug = most verbose, err = least)."
+  },
+  "ssl_session_cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL session caching for improved handshake performance."
+  },
+  "ssl_session_cache_size": {
+    "type": "number",
+    "default": 50000,
+    "description": "Maximum number of SSL sessions to cache."
+  },
+  "ocsp_responder_urls": {
+    "type": "list",
+    "default": [],
+    "description": "List of OCSP responder URLs for stapling (if certificates support OCSP).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "certificates": {
+    "type": "list",
+    "default": [],
+    "description": "List of TLS certificates to load (required for TLS termination).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Optional name for the certificate (used in comments)."
+        },
+        "pem_path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to the PEM file containing the certificate and private key."
+        },
+        "sni_names": {
+          "type": "list",
+          "default": [],
+          "description": "List of SNI hostnames this certificate serves (e.g., ['example.com', 'www.example.com']).",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval (seconds) between backend health checks (0 = disable health checks)."
+  },
+  "ssl_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional OpenSSL-style SSL options (e.g., ['no-sslv3', 'single-dh-use']).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "tcp_keepalive_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP keepalive on frontend connections (helps detect dead client connections)."
+  },
+  "tcp_keepalive_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between TCP keepalive probes."
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait for active connections to drain during graceful shutdown."
+  },
+  "use_system_tls_engine": {
+    "type": "bool",
+    "default": false,
+    "description": "Use the system-provided TLS engine (e.g., OpenSSL 3.0 providers) instead of built-in engine."
+  }
+}

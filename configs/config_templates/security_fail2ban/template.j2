@@ -1,0 +1,120 @@
+# ============================================================================
+# Fail2Ban Global Configuration
+# ============================================================================
+# This template configures the [DEFAULT] section of Fail2Ban's main configuration
+# file (usually /etc/fail2ban/jail.conf or /etc/fail2ban/jail.local).
+# It also generates dynamic [jail.<name>] sections based on the 'jails' list.
+#
+# All variables use Jinja2's default filter to ensure safe rendering with
+# schema-provided fallbacks. Comments describe the purpose of each setting
+# to make this configuration self-documenting.
+# ============================================================================
+
+[DEFAULT]
+
+# Target for Fail2Ban logs: file path (e.g., /var/log/fail2ban.log), SYSLOG, or STDERR
+logtarget = {{ logtarget | default('/var/log/fail2ban.log') }}
+
+# Syslog facility to use when logging to syslog (e.g., auth, daemon, local0)
+# Only applies if logtarget includes SYSLOG.
+syslogfacility = {{ syslogfacility | default('daemon') }}
+
+# Logging verbosity: 0=ERROR, 1=WARNING, 2=INFO, 3=DEBUG
+loglevel = {{ loglevel | default(3) }}
+
+# Duration (in seconds) a host remains banned after triggering the limit
+bantime = {{ bantime | default(600) }}
+
+# Time window (in seconds) during which failures are counted toward the ban threshold
+findtime = {{ findtime | default(600) }}
+
+# Maximum number of failures within `findtime` before banning the host
+maxretry = {{ maxretry | default(5) }}
+
+# Log monitoring backend: auto, inotify, poll, systemd, etc.
+backend = {{ backend | default('auto') }}
+
+# Default action to ban an IP (e.g., iptables-multiport, firewalld-multiport-port, iptables-ipset-proto6)
+banaction = {{ banaction | default('iptables-multiport') }}
+
+# Action used when 'port=all' (e.g., iptables-allports, firewalld-allports)
+banaction_allports = {{ banaction_allports | default('iptables-allports') }}
+
+# Action to unban a previously banned IP
+unbanaction = {{ unbanaction | default('iptables-delchain') }}
+
+# Firewall chain for iptables rules (e.g., INPUT, FORWARD, OUTPUT)
+chain = {{ chain | default('INPUT') }}
+
+# Protocol(s) to monitor: tcp, udp, or tcpudp
+protocol = {{ protocol | default('tcp') }}
+
+# Default port(s) to protect (e.g., 'ssh', '22,23', or 'sshd')
+port = {{ default_port | default('ssh') }}
+
+# Whether to perform reverse DNS lookups on IPs; enable only if needed
+use_dns = {{ use_dns | default(false) }}
+
+# List of IP addresses or networks that will never be banned
+ignoreip = {{ ignoreip | default(['127.0.0.1/8', '::1']) | join(', ') }}
+
+# Mail transfer agent for sending alerts: sendmail, postfix, or smtp
+mta = {{ mta | default('sendmail') }}
+
+# Recipient email address for ban/unban alerts
+destemail = {{ destemail | default('root@localhost') }}
+
+# Sender name in ban alerts
+sendername = {{ sendername | default('Fail2Ban') }}
+
+# Sender email address for alerts. Uses the system hostname if available.
+sender = {{ sender | default('fail2ban@localhost') }}
+
+# ============================================================================
+# Jail Definitions
+# ============================================================================
+# Dynamic sections generated for each jail in the 'jails' list.
+# Each jail protects a specific service or log source.
+# ============================================================================
+
+{% for jail in jails | default([]) %}
+# --- Jail: {{ jail.name | default('unnamed') }} ---
+[{{ jail.name | default('unnamed') }}]
+
+# Enable or disable this jail
+enabled = {{ jail.enabled | default(true) }}
+
+# Port(s) to monitor for this jail. Overrides the global port setting.
+port = {{ jail.port | default('') }}
+
+# Filter name to use. This corresponds to a filter file in the filter.d directory.
+filter = {{ jail.filter | default('') }}
+
+# Log path(s) to monitor for this jail. Can be a single file or space-separated list.
+logpath = {{ jail.logpath | default('/var/log/fail2ban.log') }}
+
+# Maximum failures before ban for this specific jail. Overrides global maxretry.
+maxretry = {{ jail.maxretry | default(maxretry | default(5)) }}
+
+# Time window for counting failures for this specific jail. Overrides global findtime.
+findtime = {{ jail.findtime | default(findtime | default(600)) }}
+
+# Ban duration for this jail. Overrides global bantime.
+bantime = {{ jail.bantime | default(bantime | default(600)) }}
+
+# Firewall action for this jail. Overrides global banaction.
+banaction = {{ jail.banaction | default(banaction | default('iptables-multiport')) }}
+
+# Specific action command for this jail.
+action = {{ jail.action | default('') }}
+
+# Jail-specific whitelist.
+ignoreip = {{ jail.ignoreip | default(ignoreip | default(['127.0.0.1/8', '::1'])) | join(', ') }}
+
+# Jail-specific backend override.
+backend = {{ jail.backend | default(backend | default('auto')) }}
+
+# Jail-specific protocol override.
+protocol = {{ jail.protocol | default(protocol | default('tcp')) }}
+
+{% endfor %}

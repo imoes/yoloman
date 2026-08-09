@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Skip if systemd is running.
+# This script is a wrapper to trigger dpkg database maintenance.
+# It exits immediately if systemd is active, as systemd handles the
+# dpkg database backup via dpkg-db-backup.timer/service.
+if [ -d /run/systemd/system ]; then
+  exit 0
+fi
+
+# Path to the dpkg database backup executable.
+# Default: /usr/libexec/dpkg/dpkg-db-backup
+{{ dpkg_db_backup_command | default('/usr/libexec/dpkg/dpkg-db-backup') }}

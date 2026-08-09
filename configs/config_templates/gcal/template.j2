@@ -1,0 +1,55 @@
+{# gcal configuration for command-line calendar and holiday computation #}
+# This file contains command-line options for the gcal utility.
+# One option per line.
+
+# Default year for calendar output (0 = current year)
+--year={{ (default_year | default(0)) | int }}
+
+# Default month for calendar output (0 = current month)
+--month={{ (default_month | default(0)) | int }}
+
+# Enable built-in holiday list
+# If show_holidays is true, enables --show-holidays; if false, --no-show-holidays
+{% if show_holidays | default(true) | bool %}
+--show-holidays
+{% else %}
+--no-show-holidays
+{% endif %}
+
+# Country for holiday list
+# ISO 3166-1 alpha-2 country code (e.g., 'DE', 'US', 'GB')
+--country={{ (holiday_country | default('DE')) | string }}
+
+# Output format: 'standard', 'html', 'ical', 'icalendar'
+# Selects the output style for the calendar
+--format={{ (output_format | default('standard')) | string }}
+
+# Use Julian calendar before Gregorian transition
+# If true, uses Julian calendar for pre-transition dates
+{% if julian_first | default(true) | bool %}
+--julian-first
+{% else %}
+--no-julian-first
+{% endif %}
+
+# Use Gregorian calendar after Julian transition
+# If true, uses Gregorian calendar for post-transition dates
+{% if gregorian_first | default(true) | bool %}
+--gregorian-first
+{% else %}
+--no-gregorian-first
+{% endif %}
+
+# First day of week: 'monday' or 'sunday'
+# Controls the display order of the week in the calendar output
+--week={{ (week_start | default('sunday')) | string }}
+
+# Language for holiday names and weekday names
+# ISO 639-1 language code (e.g., 'en', 'de', 'fr')
+--lang={{ (language | default('en')) | string }}
+
+# Extra command-line options
+# List of additional arguments to pass to gcal (e.g., '--no-title')
+{% for extra_arg in extra_options | default([]) %}
+{{ extra_arg | string }}
+{% endfor %}

@@ -1,0 +1,73 @@
+# 2ping server configuration — listen on the specified interface and port, enforce a Class-B network configuration.
+[2ping]
+# Bind to a specific interface (IPv4 or IPv6) for incoming connections
+interface = {{ interface }}
+
+# Listen on the specified port (default: 402)
+port = {{ port }}
+
+# Enforce Class-B network restrictions: allow only /16 networks (255.255.0.0 for IPv4)
+# For IPv4: restrict to Class-B CIDR (/16 = 255.255.0.0 netmask)
+# For IPv6: restrict to /64 or larger (as Class-B equivalent is roughly /64 for IPv6)
+{% if allow_ipv4 is defined and allow_ipv4 %}
+# Allow IPv4 traffic
+allow_ipv4 = yes
+{% else %}
+# Disable IPv4 traffic
+allow_ipv4 = no
+{% endif %}
+{% if allow_ipv6 is defined and allow_ipv6 %}
+# Allow IPv6 traffic
+allow_ipv6 = yes
+{% else %}
+# Disable IPv6 traffic
+allow_ipv6 = no
+{% endif %}
+
+# Allowed networks (list of CIDR notations). Defaults to all Class-B for IPv4.
+# Each entry must be a valid CIDR (e.g., 10.0.0.0/16, 172.16.0.0/12 is not Class-B, so excluded by default)
+{% for network in allowed_networks %}
+network = {{ network }}
+{% endfor %}
+
+# Log level: debug, info, notice, warning, error, critical, alert, emergency
+{% if log_level is defined and log_level %}
+log_level = {{ log_level }}
+{% else %}
+log_level = notice
+{% endif %}
+
+# Log file path (leave empty for syslog)
+{% if log_file is defined and log_file %}
+log_file = {{ log_file }}
+{% endif %}
+
+# Enable SSL/TLS (requires certificate and key)
+{% if ssl_enabled is defined and ssl_enabled %}
+ssl = yes
+ssl_cert = {{ ssl_cert }}
+ssl_key = {{ ssl_key }}
+{% else %}
+ssl = no
+{% endif %}
+
+# Maximum ping rate (per source IP, per second) — prevents abuse
+{% if max_rate is defined and max_rate %}
+max_rate = {{ max_rate }}
+{% else %}
+max_rate = 10
+{% endif %}
+
+# Response timeout in seconds
+{% if timeout is defined and timeout %}
+timeout = {{ timeout }}
+{% else %}
+timeout = 5
+{% endif %}
+
+# Require source IP to match destination IP (e.g., for symmetric routing checks)
+{% if require_symmetric is defined and require_symmetric %}
+require_symmetric = yes
+{% else %}
+require_symmetric = no
+{% endif %}

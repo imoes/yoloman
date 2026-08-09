@@ -1,0 +1,61 @@
+# ============================================================================
+# Configuration for bruteforce-luks service
+# ============================================================================
+# This file configures the bruteforce-luks utility, which performs offline
+# LUKS volume decryption via dictionary or brute-force attacks.
+# ============================================================================
+
+# --- LUKS Volume Target -----------------------------------------------------
+# Path to the LUKS volume (block device or header dump file).
+# This is the primary target for the attack.
+DEVICE: {{ device_path | default('/dev/sda1') }}
+
+# --- Attack Mode Configuration ----------------------------------------------
+# The service supports two modes: dictionary and brute-force.
+# If a dictionary_file is provided, dictionary mode is used.
+# Otherwise, brute-force mode is active using the charset/length parameters.
+
+{% if (dictionary_file | default('')) | trim | length > 0 %}
+# Dictionary file path (dictionary attack mode)
+# The file must contain one password candidate per line.
+DICTIONARY_FILE: {{ dictionary_file | default('') }}
+{% else %}
+# Brute-force mode parameters
+# These parameters define the search space for password candidates.
+
+# Fixed beginning of password to prepend to generated candidates.
+# For example, if beginning='p' and charset='abc', candidates start with 'pa', 'pb', 'pc'.
+BEGINNING: {{ beginning | default('') }}
+
+# Fixed ending of password to append to generated candidates.
+# For example, if end='s' and charset='abc', candidates end with 'as', 'bs', 'cs'.
+END: {{ end | default('') }}
+
+# Minimum total password length including beginning and end.
+# The middle portion is generated from the CHARSET based on this and MAX_LENGTH.
+MIN_LENGTH: {{ min_length | default(1) }}
+
+# Maximum total password length including beginning and end.
+MAX_LENGTH: {{ max_length | default(8) }}
+
+# Character set used to generate the middle portion of passwords.
+# The utility will generate all combinations within MIN_LENGTH and MAX_LENGTH
+# using this charset, sandwiched between BEGINNING and END.
+CHARSET: {{ charset | default('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') }}
+{% endif %}
+
+# --- Parallelism ------------------------------------------------------------
+# Number of parallel threads to use for generating/testing candidates.
+# Higher values speed up the attack but consume more CPU.
+THREADS: {{ threads | default(1) }}
+
+# --- Progress Reporting -----------------------------------------------------
+# Seconds between automatic progress reports to stdout/stderr.
+# Set to 0 to disable automatic reports. Useful for long-running jobs.
+REPORT_INTERVAL: {{ report_interval | default(0) }}
+
+# --- State Persistence ------------------------------------------------------
+# Path to a state file for session persistence.
+# If non-empty, the tool will save its progress here and can resume from it.
+# If empty, no persistence is used; the tool runs until completion or interruption.
+STATE_FILE: {{ state_file | default('') }}

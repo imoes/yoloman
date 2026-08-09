@@ -1,0 +1,192 @@
+{
+  "backup_dirs": {
+    "type": "list",
+    "default": [
+      "/home",
+      "/etc",
+      "/var/www"
+    ],
+    "description": "List of directories to back up. Each path must exist and be readable."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "{{ ansible_fqdn | default('localhost') }}",
+    "description": "Hostname used to identify this machine in backup filenames."
+  },
+  "tarball_date_format": {
+    "type": "string",
+    "default": "%Y-%m-%d",
+    "description": "Date format used for tarball filename suffixes (e.g., %Y-%m-%d for YYYY-MM-DD)."
+  },
+  "compression": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression method: 'none', 'gzip', 'bzip2', or 'xz'."
+  },
+  "compress_extensions": {
+    "type": "string",
+    "default": ".gz .bz2 .xz",
+    "description": "File extensions recognized as compressed (space-separated)."
+  },
+  "compression_level": {
+    "type": "number",
+    "default": 6,
+    "description": "Compression level (1\u20139). Higher = more compression, slower."
+  },
+  "repository_root": {
+    "type": "string",
+    "default": "/var/backups",
+    "description": "Base directory where backups are stored locally."
+  },
+  "repository_subdir": {
+    "type": "string",
+    "default": "backup-manager",
+    "description": "Subdirectory under repository_root for this tool's backups."
+  },
+  "use_tar_prefix": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefix tar archives with hostname and date (e.g., hostname-YYYY-MM-DD.tar.gz)."
+  },
+  "delete_after_backup": {
+    "type": "bool",
+    "default": false,
+    "description": "Delete local tarball immediately after successful remote sync (for space-constrained systems)."
+  },
+  "oldest_file_days": {
+    "type": "number",
+    "default": 0,
+    "description": "Remove local backups older than N days (0 = disable aging)."
+  },
+  "max_backup_days": {
+    "type": "number",
+    "default": 0,
+    "description": "Remove remote backups older than N days (0 = disable aging)."
+  },
+  "use_rsync": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable rsync-based remote backups (requires valid SSH access)."
+  },
+  "rsync_host": {
+    "type": "string",
+    "default": "backup.example.com",
+    "description": "Remote host for rsync backup destination."
+  },
+  "rsync_user": {
+    "type": "string",
+    "default": "backup",
+    "description": "User account used for rsync over SSH."
+  },
+  "rsync_port": {
+    "type": "number",
+    "default": 22,
+    "description": "SSH port for remote rsync connection."
+  },
+  "rsync_path": {
+    "type": "string",
+    "default": "/backups/remote",
+    "description": "Absolute path on remote host where backups are stored."
+  },
+  "rsync_options": {
+    "type": "list",
+    "default": [
+      "-az",
+      "--delete"
+    ],
+    "description": "Additional rsync options (space-separated in config, provided as list)."
+  },
+  "export_databases": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable database dump + backup (supports MySQL, PostgreSQL)."
+  },
+  "databases": {
+    "type": "list",
+    "default": [],
+    "description": "List of databases to dump and include in backup.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "mysql",
+          "description": "Database type: 'mysql' or 'postgresql'."
+        },
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Database server hostname or IP."
+        },
+        "user": {
+          "type": "string",
+          "default": "root",
+          "description": "Database user with dump privileges."
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Database password. If empty, tool tries ~/.my.cnf or .pgpass."
+        },
+        "name": {
+          "type": "string",
+          "default": "*",
+          "description": "Database name to dump. Use '*' to dump all databases."
+        },
+        "port": {
+          "type": "number",
+          "default": null,
+          "description": "Port (default: 3306 for MySQL, 5432 for PostgreSQL). Set to null for default."
+        },
+        "file": {
+          "type": "string",
+          "default": "db_dump.sql",
+          "description": "Filename for the database dump (relative to temp dir)."
+        }
+      }
+    }
+  },
+  "ssh_key": {
+    "type": "string",
+    "default": "/etc/backup-manager/id_rsa",
+    "description": "Path to private SSH key used for rsync or database remote access."
+  },
+  "ssh_options": {
+    "type": "list",
+    "default": [
+      "-o StrictHostKeyChecking=no",
+      "-o BatchMode=yes"
+    ],
+    "description": "Additional SSH options (space-separated in config, list here)."
+  },
+  "mail_alert": {
+    "type": "bool",
+    "default": true,
+    "description": "Send email alert on backup success/failure."
+  },
+  "mail_address": {
+    "type": "string",
+    "default": "admin@example.com",
+    "description": "Recipient email address for alerts."
+  },
+  "mail_subject_prefix": {
+    "type": "string",
+    "default": "[Backup]",
+    "description": "Prefix added to alert email subject line."
+  },
+  "mail_from": {
+    "type": "string",
+    "default": "backup-manager@localhost",
+    "description": "Sender email address."
+  },
+  "pre_backup_hook": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to script to run before backup (e.g., to freeze filesystem or stop services)."
+  },
+  "post_backup_hook": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to script to run after backup (e.g., cleanup, notification, or upload)."
+  }
+}

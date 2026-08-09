@@ -1,0 +1,148 @@
+{# ============================================================================ #}
+{# archvsync.conf — Self-documenting configuration for the archvsync service     #}
+{#                                                                                #}
+{# This template generates a configuration file for archvsync. Despite the name   #}
+{# resembling 'Arch Linux', the schema directives (distributions, components,     #}
+{# sync_installer, generate_metaindex) and the provided default values            #}
+{# (bullseye, main/contrib/non-free) strongly indicate this configuration is     #}
+{# intended for a DEBIAN/UBUNTU-style APT mirror synchronization tool (such as    #}
+{# apt-mirror, dpkg-snapshot, or a custom rsync-based wrapper).                   #}
+{#                                                                                #}
+{# To avoid breaking existing deployments that rely on these Debian-specific      #}
+{# concepts, this template preserves the Debian-centric directive names and       #}
+{# defaults while correcting the file header and comments to accurately reflect   #}
+{# the Debian mirror context.                                                     #}
+{# ============================================================================ #}
+
+# -----------------------------------------------------------------------------
+# Enable or disable the archvsync service. Set to false to pause mirroring
+# without uninstalling.
+# -----------------------------------------------------------------------------
+enabled: {{ enabled | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Absolute path to the root directory where the Debian mirror will be stored.
+# Ensure sufficient disk space (≥1TB recommended).
+# -----------------------------------------------------------------------------
+mirror_root: {{ mirror_root | default('/srv/mirror/debian') }}
+
+# -----------------------------------------------------------------------------
+# Maximum number of concurrent rsync jobs. Higher values increase speed but
+# use more CPU and network bandwidth.
+# -----------------------------------------------------------------------------
+max_rsync_jobs: {{ max_rsync_jobs | default(4) }}
+
+# -----------------------------------------------------------------------------
+# Per-job bandwidth limit in KB/s. Set to 0 for unlimited. Use e.g., 1024
+# for 1 MB/s per job.
+# -----------------------------------------------------------------------------
+max_bandwidth_per_job_kb: {{ max_bandwidth_per_job_kb | default(0) }}
+
+# -----------------------------------------------------------------------------
+# List of CPU architectures to mirror. Common choices: amd64, i386, arm64,
+# armhf. Add only what you need to save space.
+# -----------------------------------------------------------------------------
+architectures: [{% for arch in (architectures | default(['amd64', 'i386'])) %} '{{ arch }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+
+# -----------------------------------------------------------------------------
+# List of Debian releases and suites to mirror (e.g., stable, testing,
+# version codenames). Use 'stable' only if you want automatic updates.
+# -----------------------------------------------------------------------------
+distributions: [{% for dist in (distributions | default(['bullseye', 'bullseye-updates', 'bullseye-security'])) %} '{{ dist }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+
+# -----------------------------------------------------------------------------
+# Debian repository components to include. 'main' is free software only; add
+# 'contrib' and 'non-free' for firmware and non-free drivers.
+# -----------------------------------------------------------------------------
+components: [{% for comp in (components | default(['main', 'contrib', 'non-free'])) %} '{{ comp }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+
+# -----------------------------------------------------------------------------
+# Whether to download source packages. Source mirrors require significantly
+# more disk space and bandwidth.
+# -----------------------------------------------------------------------------
+sync_sources: {{ sync_sources | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Include installer images (e.g., netinst ISOs). Recommended for full public
+# mirrors.
+# -----------------------------------------------------------------------------
+sync_installer: {{ sync_installer | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Delete files from the local mirror if they no longer exist upstream. Enable
+# only for strict mirrors after initial sync.
+# -----------------------------------------------------------------------------
+delete_missing: {{ delete_missing | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# List of upstream mirrors to sync from. Prefer rsync over HTTP for
+# efficiency. Add mirrors geographically close to you.
+# -----------------------------------------------------------------------------
+{% for upstream in (upstreams | default(['rsync://ftp.debian.org/debian/'])) %}
+upstream: {{ upstream }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Optional path to log file (e.g., '/var/log/archvsync.log'). Leave blank to
+# use syslog instead.
+# -----------------------------------------------------------------------------
+{% if log_file | default('') %}
+log_file: {{ log_file | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Email address for status and error notifications (e.g., sync failures).
+# -----------------------------------------------------------------------------
+admin_email: {{ admin_email | default('mirror-admin@example.com') }}
+
+# -----------------------------------------------------------------------------
+# Enable the background cron job to check for updates and run sync periodically.
+# -----------------------------------------------------------------------------
+run_cron: {{ run_cron | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Cron schedule in standard cron format (5 fields: minute hour day month
+# weekday). Default runs daily at 02:00.
+# -----------------------------------------------------------------------------
+{% if run_cron | default(true) %}
+cron_schedule: {{ cron_schedule | default('0 2 * * *') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Path to lock file used to prevent multiple concurrent sync runs.
+# -----------------------------------------------------------------------------
+lock_file: {{ lock_file | default('/var/lock/archvsync.lock') }}
+
+# -----------------------------------------------------------------------------
+# HTTP/FTP proxy URL for outbound connections (e.g., 'http://proxy.company.com:8080').
+# Leave blank if no proxy is needed.
+# -----------------------------------------------------------------------------
+{% if proxy | default('') %}
+proxy: {{ proxy | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Additional rsync options to include in sync commands. Customize for
+# performance or debugging.
+# -----------------------------------------------------------------------------
+rsync_extra_opts: [{% for opt in (rsync_extra_opts | default(['--delete-after', '--compress'])) %} '{{ opt }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+
+# -----------------------------------------------------------------------------
+# Alert if metadata (e.g., Release files) are older than this many hours.
+# Helps detect sync failures.
+# -----------------------------------------------------------------------------
+max_metadata_age_hours: {{ max_metadata_age_hours | default(72) }}
+
+# -----------------------------------------------------------------------------
+# Generate Packages, Sources, and Release index files (required for apt
+# clients to use the mirror).
+# -----------------------------------------------------------------------------
+generate_metaindex: {{ generate_metaindex | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Path to an optional script that runs after each successful sync (e.g., to
+# trigger CDN purge or send custom notifications).
+# -----------------------------------------------------------------------------
+{% if post_sync_script | default('') %}
+post_sync_script: {{ post_sync_script | default('') }}
+{% endif %}

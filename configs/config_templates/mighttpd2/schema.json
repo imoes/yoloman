@@ -1,0 +1,157 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the server to (e.g., 127.0.0.1, 0.0.0.0, or IPv6 address)"
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port to listen on for incoming HTTP requests"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of concurrent connections the server will accept"
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads (0 = auto-detect based on CPU cores)"
+  },
+  "request_header_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to wait for request headers before timing out"
+  },
+  "request_body_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to wait for request body upload before timing out"
+  },
+  "response_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to send the full response before timing out"
+  },
+  "max_request_body_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum allowed size of request body in bytes (0 = unlimited)"
+  },
+  "compression_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for responses (reduces bandwidth, increases CPU usage)"
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (HTTPS) \u2014 requires valid certificate and key files"
+  },
+  "tls_certificate_path": {
+    "type": "string",
+    "default": "/etc/mighttpd2/tls/cert.pem",
+    "description": "File path to the TLS certificate (PEM format)"
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/mighttpd2/tls/key.pem",
+    "description": "File path to the TLS private key (PEM format)"
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "/var/log/mighttpd2/access.log",
+    "description": "Path to the access log file (empty string to disable access logging)"
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/mighttpd2/error.log",
+    "description": "Path to the error log file (empty string to disable error logging)"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level"
+  },
+  "mime_types_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom MIME types file path (leave empty to use built-in defaults)"
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Virtual host name (e.g., example.com or *.example.com)"
+      },
+      "document_root": {
+        "type": "string",
+        "default": "/var/www/default",
+        "description": "Filesystem path to serve static content for this host"
+      },
+      "index_files": {
+        "type": "list",
+        "default": [
+          "index.html",
+          "index.htm"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of filenames to try as index files (in order)"
+      },
+      "enable_directory_listing": {
+        "type": "bool",
+        "default": false,
+        "description": "Show directory listing when no index file is found"
+      }
+    },
+    "description": "List of virtual host configurations"
+  },
+  "static_cache_time": {
+    "type": "number",
+    "default": 300,
+    "description": "Cache duration (seconds) for static assets (0 = disable caching headers)"
+  },
+  "http2_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP/2 protocol (requires TLS)"
+  },
+  "shutdown_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for graceful shutdown (in-flight requests complete)"
+  },
+  "x_frame_options_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Include 'X-Frame-Options: SAMEORIGIN' header to prevent clickjacking"
+  },
+  "x_content_type_options_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Include 'X-Content-Type-Options: nosniff' header to prevent MIME-type sniffing"
+  },
+  "custom_headers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "X-Custom-Header",
+        "description": "HTTP header name"
+      },
+      "value": {
+        "type": "string",
+        "default": "custom-value",
+        "description": "HTTP header value"
+      }
+    },
+    "description": "Additional HTTP headers to include in all responses"
+  }
+}

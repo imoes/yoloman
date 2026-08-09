@@ -1,0 +1,123 @@
+{
+  "qdevice_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the qdevice server."
+  },
+  "qdevice_port": {
+    "type": "number",
+    "default": 5403,
+    "description": "TCP port on which the qdevice daemon listens (default: 5403)."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/corosync/qdevice/net/ssl/qdevice-ca.crt",
+    "description": "Path to the TLS CA certificate used to verify the qnetd server."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/corosync/qdevice/net/ssl/qdevice.crt",
+    "description": "Path to the qdevice's TLS certificate (for mutual authentication)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/corosync/qdevice/net/ssl/qdevice.key",
+    "description": "Path to the qdevice's TLS private key."
+  },
+  "algorithm": {
+    "type": "string",
+    "default": "ffsplit",
+    "description": "Quorum algorithm: 'ffsplit' (fault-tolerant, requires > 50% nodes + qdevice) or 'lms' (simple, requires qdevice to break tie)."
+  },
+  "tie_breaker_node_id": {
+    "type": "number",
+    "default": 0,
+    "description": "Node ID used to break ties in quorum calculations (typically highest node ID in cluster)."
+  },
+  "heuristics_mode": {
+    "type": "string",
+    "default": "sync",
+    "description": "Heuristic execution mode: 'sync' (wait for results) or 'async' (non-blocking)."
+  },
+  "heuristics": {
+    "type": "list",
+    "default": [],
+    "description": "List of heuristics to run; each script's exit status contributes to quorum (non-zero = vote down).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Identifier for the heuristic (must be unique).",
+        "default": "check_disk"
+      },
+      "interval": {
+        "type": "number",
+        "description": "Interval in milliseconds between heuristic runs.",
+        "default": 2000
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Timeout in milliseconds after which the heuristic is considered failed.",
+        "default": 500
+      },
+      "program": {
+        "type": "string",
+        "description": "Path to the executable script or binary.",
+        "default": "/usr/local/bin/check-disk.sh"
+      },
+      "args": {
+        "type": "list",
+        "description": "Optional list of arguments passed to the heuristic program.",
+        "default": []
+      },
+      "score": {
+        "type": "number",
+        "description": "Vote weight when heuristic passes (positive = vote up, negative = vote down). Defaults to \u00b11 depending on algorithm.",
+        "default": 1
+      }
+    }
+  },
+  "qnetd_host": {
+    "type": "string",
+    "default": "same as qdevice_host",
+    "description": "Host of the qnetd server (if remote). Usually same as qdevice_host unless using a dedicated qnetd."
+  },
+  "qnetd_port": {
+    "type": "number",
+    "default": "same as qdevice_port",
+    "description": "Port of the qnetd server (if remote). Usually same as qdevice_port unless configured otherwise."
+  },
+  "tls_mode": {
+    "type": "string",
+    "default": "on",
+    "description": "TLS enforcement: 'on' (required), 'off' (disabled), or 'strict' (require client cert).",
+    "enum": [
+      "on",
+      "off"
+    ]
+  },
+  "logging_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0 (error), 1 (warning), 2 (info), 3 (debug)."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 3000,
+    "description": "Milliseconds to wait for connection to qnetd before failing."
+  },
+  "reconnect_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between reconnection attempts to qnetd after failure."
+  },
+  "quorum_votes": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of votes the qdevice contributes when quorum is active."
+  },
+  "heuristics_votes": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, heuristic results may override static quorum votes (algorithm-dependent)."
+  }
+}

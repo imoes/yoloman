@@ -1,0 +1,64 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the mptcpd daemon at boot."
+  },
+  "path_manager": {
+    "type": "string",
+    "default": "addr_adv",
+    "description": "Path manager plugin to load (e.g., addr_adv, subflow). Must match a plugin filename in plugin-dir.",
+    "enum": [
+      "addr_adv",
+      "subflow"
+    ]
+  },
+  "log_target": {
+    "type": "string",
+    "default": "stderr",
+    "description": "Logging target: stderr, syslog, journal, or null.",
+    "enum": [
+      "stderr",
+      "syslog",
+      "journal",
+      "null"
+    ]
+  },
+  "plugin_dir": {
+    "type": "string",
+    "default": "/usr/lib/x86_64-linux-gnu/mptcpd",
+    "description": "Directory containing mptcpd plugin modules."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logging. Options: debug, info, notice, warning, error, critical. Lower levels = more verbose."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write log output (e.g., /var/log/mptcpd.log). If empty, logs only to stderr."
+  },
+  "allowed_interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "enabled": true,
+        "priority": 10,
+        "addr_type": "ipv4"
+      }
+    ],
+    "description": "List of network interfaces allowed for MPTCP path management. Each interface can be enabled/disabled and assigned a priority."
+  },
+  "socket_opts": {
+    "type": "object",
+    "default": "{}",
+    "description": "Optional low-level socket options for MPTCP connections (e.g., mptcp.nodelay, net.ipv4.tcp_congestion_control). Use only if you understand MPTCP internals."
+  },
+  "custom_paths": {
+    "type": "list",
+    "default": [],
+    "description": "Override default routing for specific destinations (e.g., force all traffic to a subnet via a specific interface)."
+  }
+}

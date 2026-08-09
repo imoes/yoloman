@@ -1,0 +1,101 @@
+# ============================================================================
+# Groonga HTTP Server Configuration
+# ============================================================================
+# This template configures the groonga-httpd service.
+# All variables must be provided via Ansible variables or defaults defined here.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Daemon User / Group (Optional)
+# ---------------------------------------------------------------------------
+# The operating system user account under which the groonga HTTP server runs.
+# Set to 'groonga' to use the dedicated service account, or leave commented to use defaults.
+#USER={{ groonga_server_http_user | default('groonga') }}
+
+# The operating system group associated with the daemon user.
+#GROUP={{ groonga_server_http_group | default('groonga') }}
+
+# ---------------------------------------------------------------------------
+# Network Binding
+# ---------------------------------------------------------------------------
+# The IP address the groonga HTTP server binds to.
+# '127.0.0.1' restricts access to localhost; use '0.0.0.0' for all interfaces.
+# Schema Description: The IP address the groonga HTTP server binds to.
+ADDRESS={{ groonga_server_http_address | default('127.0.0.1') }}
+
+# The TCP port the groonga HTTP server listens on.
+# Default is 10043, the standard Groonga HTTP API port.
+# Schema Description: The port the groonga HTTP server listens on.
+PORT={{ groonga_server_http_port | default(10043) }}
+
+# ---------------------------------------------------------------------------
+# Database Path
+# ---------------------------------------------------------------------------
+# Path to the Groonga database file/directory.
+# This is the persistent storage location for the Groonga data store.
+# Schema Description: Path to the Groonga database file.
+DATABASE={{ groonga_server_http_database | default('/var/lib/groonga/db/db') }}
+
+# ---------------------------------------------------------------------------
+# Logging & PID Files
+# ---------------------------------------------------------------------------
+# Path to the main log file for the Groonga HTTP server process.
+# Ensure the directory exists and is writable by the daemon user.
+# Schema Description: Path to the Groonga HTTP server log file.
+LOG_PATH={{ groonga_server_http_log_path | default('/var/log/groonga/groonga-http.log') }}
+
+# Path to the PID file for the Groonga HTTP server process.
+# Used by init systems to manage the service lifecycle.
+# Schema Description: Path to the PID file for the Groonga HTTP server process.
+PID_PATH={{ groonga_server_http_pid_path | default('/run/groonga/groonga-http.pid') }}
+
+# Path to the query log file.
+# Logs all incoming search/query requests for analysis and debugging.
+# Schema Description: Path to the query log file.
+QUERY_LOG_PATH={{ groonga_server_http_query_log_path | default('/var/log/groonga/query-http.log') }}
+
+# ---------------------------------------------------------------------------
+# Tuning & Features
+# ---------------------------------------------------------------------------
+
+# Enable or disable the groonga daemon.
+# Set to 'yes' to start the service, 'no' to disable it.
+# Comment out to use system defaults.
+ENABLE=yes
+
+# Set the threshold value to force sequential search for in_values()
+# When the match ratio exceeds this value, Groonga switches from index-based
+# to sequential scanning for `in_values()` queries.
+# Schema Description: Threshold ratio for forcing sequential search in `in_values()`.
+GRN_IN_VALUES_TOO_MANY_INDEX_MATCH_RATIO={{ groonga_server_http_grn_in_values_too_many_index_match_ratio | default(0.01) }}
+
+# Set the threshold value to force sequential search for between()
+# Similar to in_values, this controls the switch to sequential scanning
+# for range queries using `between()`.
+# Schema Description: Threshold ratio for forcing sequential search in `between()`.
+GRN_BETWEEN_TOO_MANY_INDEX_MATCH_RATIO={{ groonga_server_http_grn_between_too_many_index_match_ratio | default(0.01) }}
+
+# Define this variable to disable skipping posting list (default: yes)
+# Uncomment to disable: #GRN_II_CURSOR_SET_MIN_ENABLE=no
+
+# Define this variable to disable chunk split on offline index construction (default: yes)
+# Uncomment to disable: #GRN_INDEX_CHUNK_SPLIT_ENABLE=no
+
+# Set "yes" to enable chunked tokenize feature using MeCab.
+# Requires MeCab to be installed and configured.
+# Options: 'yes' or 'no'.
+# Schema Description: Set to 'yes' to enable chunked tokenize feature (meCab).
+GRN_MECAB_CHUNKED_TOKENIZE_ENABLED={{ groonga_server_http_grn_mecab_chunked_tokenize_enabled | default('no') }}
+
+# Set the threshold value for chunk size (default: 8192)
+# Controls the maximum chunk size for MeCab tokenization.
+# Note: Not in schema, so we only emit if explicitly defined by user, otherwise omitted.
+{% if groonga_server_http_grn_mecab_chunk_size_threshold is defined %}
+GRN_MECAB_CHUNK_SIZE_THRESHOLD={{ groonga_server_http_grn_mecab_chunk_size_threshold | default(8192) }}
+{% endif %}
+
+# Set the max N segments for tiny index column (default: 512)
+# Uncomment to override: #GRN_II_MAX_N_SEGMENTS_TINY=512
+
+# Set the max N chunks for tiny index column (default: 1024)
+# Uncomment to override: #GRN_II_MAX_N_CHUNKS_TINY=1024

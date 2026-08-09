@@ -1,0 +1,192 @@
+# Pin the project name instead of letting Compose derive it from the directory.
+# The running stack is `agentic-mcp` but this repo lives in a directory named
+# `yolo-man`, so a plain `docker compose up -d --build` built a SECOND, parallel
+# stack (yolo-man-db-1, yolo-man-bossman-1, …) and then died with
+# "Bind for 0.0.0.0:55433 failed: port is already allocated" — the real db was
+# already holding the port. Worse than the error: had the ports been free, it
+# would have come up quietly against an empty database.
+name: agentic-mcp
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: bossman
+      POSTGRES_PASSWORD: bossman
+      POSTGRES_DB: bossman
+    volumes:
+      - bossman-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bossman -d bossman"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: ./bossman
+    environment:
+      BOSSMAN_DATABASE_URL: postgresql+asyncpg://bossman:bossman@db:5432/bossman
+    command: ["uv", "run", "alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  seed:
+    build: ./bossman
+    environment:
+      BOSSMAN_DATABASE_URL: postgresql+asyncpg://bossman:bossman@db:5432/bossman
+      SEED_ADMIN_USERNAME: admin
+      SEED_ADMIN_PASSWORD: admin123
+    command: ["uv", "run", "python", "scripts/seed_admin.py"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  bossman:
+    build: ./bossman
+    environment:
+      BOSSMAN_DATABASE_URL: postgresql+asyncpg://bossman:bossman@db:5432/bossman
+      BOSSMAN_CLIENT_KEY_PATH: /app/data/tls/bossman-client.key
+      BOSSMAN_CLIENT_CERT_PATH: /app/data/tls/bossman-client.crt
+      # Secrets-vault key on the persistent volume too — regenerating it would
+      # make every stored ciphertext undecryptable. (Set BOSSMAN_VAULT_KEY to
+      # pin an explicit key instead.)
+      BOSSMAN_VAULT_KEY_PATH: /app/data/tls/vault.key
+      BOSSMAN_PLANS_DIR: /app/plans
+      BOSSMAN_CONFIG_TEMPLATES_DIR: /app/config-templates
+      BOSSMAN_JWT_SECRET: dev-only-not-for-production
+      # Enrollment is open (no secret). Enrolling a real host needs
+      # BOSSMAN_PUBLIC_URL set to a reachable address, which is host-specific
+      # and belongs in docker-compose.override.yml.
+      # PXE nested-virt lab (opt-in). Empty pxe-container → the /vm/* endpoints 503 and the docker-socket
+      # mount below stays inert; set BOSSMAN_PXE_CONTAINER=agentic-mcp-pxe (and run the `pxe` profile) to
+      # enable it. NETBOOT_SECRET also gates /netboot/checkin; IMAGE_BASE_URL is the pxe HTTP root the
+      # target fetches images from. See docs/pxe-baremetal-imaging.md.
+      BOSSMAN_PXE_CONTAINER: ${BOSSMAN_PXE_CONTAINER:-}
+      BOSSMAN_PXE_VNC_HOST: ${BOSSMAN_PXE_VNC_HOST:-192.0.2.130}
+      BOSSMAN_NETBOOT_SECRET: ${BOSSMAN_NETBOOT_SECRET:-}
+      BOSSMAN_IMAGE_BASE_URL: ${BOSSMAN_IMAGE_BASE_URL:-}
+    command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # Event Console (gap #2): expose the passive syslog/SNMP-trap UDP listeners.
+    # Privileged 514/162 on the host map to the unprivileged in-container ports;
+    # point devices' syslog/trap sinks at this host.
+    ports:
+      - "514:1514/udp"
+      - "162:1162/udp"
+    volumes:
+      - ${PWD}/bossman/plans:/app/plans:ro
+      # RW so Bossman itself can create a package's config files (codec /
+      # directives / template / enum) via the on-demand qualify endpoint — the
+      # same artifacts the host batch writes; both target these repo configs.
+      - ${PWD}/configs/config_templates:/app/config-templates
+      - ${PWD}/configs/config_codecs.json:/app/config_codecs.json
+      - ${PWD}/configs/config_directives.json:/app/config_directives.json
+      - ${PWD}/configs/package_catalog.json:/app/package_catalog.json
+      - ${PWD}/configs/package_doc_audit.json:/app/package_doc_audit.json:ro
+      # The whole configs/ tree, RW — the on-demand qualify endpoint runs the
+      # qualify scripts in-container with AGENTIC_CONFIGS_DIR=/app/configs, so they
+      # write templates/codecs/directives/catalog + their .state files straight
+      # into the repo configs (same files the app serves from the mounts above).
+      - ${PWD}/configs:/app/configs
+      # Generated Ansible playbooks that seed the installation-wizard runbooks
+      # (scripts/wizards_to_playbooks.py output; wizard_seed reads them here).
+      - ${PWD}/configs/wizard_playbooks:/app/wizard_playbooks:ro
+      - bossman-tls:/app/data/tls
+      # Persist the downloaded CVE feed (+ its parsed descriptions) across
+      # restarts/rebuilds so it isn't re-fetched (78MB) and CVE descriptions
+      # survive a container restart.
+      - bossman-cve-cache:/etc/bossman/cve-cache
+      # Captured disk images (image_store_dir): shared with the pxe container, which serves them over HTTP.
+      - bossman-images:/etc/bossman/images
+      # Lets Bossman `docker exec` into the pxe container to drive QEMU (services/vm_lab.py). Privileged
+      # (host docker socket) — only meaningful with BOSSMAN_PXE_CONTAINER set; inert otherwise.
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      seed:
+        condition: service_completed_successfully
+
+  bossman-ui:
+    build: ./bossman-ui
+    depends_on:
+      - bossman
+
+  # Block K6 — the Bossman-side poller agent: a normal agentic-mcpd with SNMP/
+  # SSH CLI tools, so SNMP/SSH checks can run against agent-less devices. It
+  # self-enrolls on first boot and is then polled like any other host.
+  bossman-poller:
+    build:
+      context: .
+      dockerfile: deploy/poller/Dockerfile
+    environment:
+      ENROLL_URL: http://bossman:8000
+      POLLER_NAME: bossman-poller
+      POLLER_ADDRESS: bossman-poller:8010
+    volumes:
+      - bossman-poller-conf:/etc/agentic-mcp
+      - bossman-poller-data:/var/lib/agentic-mcp
+    depends_on:
+      - bossman
+
+  # PXE bare-metal lab: dnsmasq DHCP+TFTP, an HTTP server for the PE squashfs + images + agent.deb, and a
+  # nested-virt QEMU with a noVNC console. Opt-in via the `pxe` profile (it needs host networking on ens19,
+  # /dev/kvm, and a netboot secret — it must NOT start on a plain `docker compose up`). See
+  # docs/pxe-baremetal-imaging.md. Host-specific NIC/IP/secret/DHCP settings live in the override file.
+  pxe:
+    profiles: ["pxe"]
+    container_name: agentic-mcp-pxe   # stable name so Bossman can `docker exec` it (BOSSMAN_PXE_CONTAINER)
+    build:
+      context: .
+      dockerfile: deploy/pxe/Dockerfile
+    # DHCP/TFTP are layer-2 on a specific segment (ens19) — a bridged container can't serve them.
+    network_mode: host
+    # Privileged: this lab container already does nested-virt (/dev/kvm) + host networking, and the
+    # image IMPORT needs qemu-nbd — which requires loading the `nbd` kernel module and accessing
+    # /dev/nbd* (block-device + SYS_ADMIN territory). Simplest correct posture for a bare-metal imaging
+    # lab on the operator's own host. /lib/modules is mounted so `modprobe nbd` finds the module.
+    privileged: true
+    devices:
+      - /dev/kvm            # nested-virt QEMU
+    cap_add:
+      - NET_ADMIN
+    environment:
+      BOSSMAN_URL: http://bossman:8000
+      PXE_INTERFACE: ens19
+      PXE_LISTEN_IP: 192.0.2.130
+      DHCP_MODE: proxy      # proxy | full
+      # Netboot secret is WebUI-managed (Settings → PXE netboot); the container fetches it via
+      # GET /netboot/config with its agent token — not an env here.
+      # QEMU lab (vm-control.sh): where install ISOs and template/target disks live, and the L2 bridge
+      # on ens19 a diskless PXE-test VM attaches to (create it on the host, enslave ens19).
+      ISO_DIR: /srv/iso
+      DISK_DIR: /srv/templates
+      VM_BRIDGE: ${PXE_VM_BRIDGE:-br-ens19}
+    volumes:
+      - bossman-images:/srv/http/images   # the same bytes Bossman writes to /etc/bossman/images
+      - pxe-tftp:/srv/tftp
+      - pxe-pe:/pe-root
+      # Bind mounts for the QEMU install path (ISO to install from, template disk to install into):
+      - ${PWD}/deploy/pxe/iso:/srv/iso
+      - ${PWD}/deploy/pxe/templates:/srv/templates
+      # Node-agent config + state, so the enrollment/token survive a restart (managed-host mode).
+      - pxe-agent-conf:/etc/agentic-mcp
+      - pxe-agent-data:/var/lib/agentic-mcp
+      # So `modprobe nbd` (for the qemu-nbd image import) finds the module for the host kernel.
+      - /lib/modules:/lib/modules:ro
+      # NB: host /dev is deliberately NOT mounted. That would expose the HOST's real disks (sda/sdb) and
+      # LVM VGs to a privileged container running vgchange — a foot-gun that can deactivate the host's own
+      # volumes. Instead the import creates the nbd device nodes it needs (mknod) and activates only the
+      # source's VG (vgchange --mknodes), so the host's disks stay invisible. See deploy/pxe/import-image.sh.
+
+volumes:
+  bossman-db-data:
+  bossman-tls:
+  bossman-cve-cache:
+  bossman-poller-conf:
+  bossman-poller-data:
+  bossman-images:
+  pxe-tftp:
+  pxe-pe:
+  pxe-agent-conf:
+  pxe-agent-data:

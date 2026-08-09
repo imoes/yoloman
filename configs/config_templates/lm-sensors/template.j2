@@ -1,0 +1,53 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          lm-sensors
+# Required-Start:    $remote_fs
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: lm-sensors
+# Description:       hardware health monitoring
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+[ -f /etc/default/rcS ] && . /etc/default/rcS
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+
+# Path to the lm-sensors binary executable.
+# Schema default: /usr/bin/sensors
+PROGRAM={{ (sensors_binary | default('/usr/bin/sensors')) | quote }}
+
+test -x "$PROGRAM" || exit 0
+
+case "$1" in
+  start)
+	log_action_begin_msg "Setting sensors limits"
+	if [ "$VERBOSE" = "no" ]; then
+		# Apply sensor configuration (-s) and dump values
+		/usr/bin/sensors -s 1> /dev/null 2> /dev/null
+		/usr/bin/sensors 1> /dev/null 2> /dev/null
+	else
+		# Verbose mode: output sensor readings to stdout
+		/usr/bin/sensors -s
+		/usr/bin/sensors > /dev/null
+	fi
+	log_action_end_msg 0
+	;;
+  stop)
+	;;
+  force-reload|restart)
+	# Restart implies re-running the start logic
+	$0 start
+	;;
+  status)
+	# Status is a no-op in this script, simply exit success
+	exit 0
+	;;
+  *)
+	log_success_msg "Usage: /etc/init.d/lm-sensors {start|stop|restart|force-reload|status}"
+	exit 1
+esac
+
+exit 0

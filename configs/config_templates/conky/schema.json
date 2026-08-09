@@ -1,0 +1,189 @@
+{
+  "update_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "How often (in seconds) conky refreshes its display."
+  },
+  "font": {
+    "type": "string",
+    "default": "DejaVu Sans Mono:size=10",
+    "description": "Font to use for text rendering (Pango font description)."
+  },
+  "colors": {
+    "type": "object",
+    "default": {
+      "primary": "#7AA6C7",
+      "secondary": "#BB9AF7",
+      "alert": "#F7768E",
+      "default_text": "#E0AF68"
+    },
+    "description": "Color scheme for UI elements \u2014 can be named X11 colors (e.g., 'white') or hex (#RRGGBB).",
+    "items": {
+      "primary": {
+        "type": "string",
+        "default": "#7AA6C7",
+        "description": "Primary accent color (e.g., headers)."
+      },
+      "secondary": {
+        "type": "string",
+        "default": "#BB9AF7",
+        "description": "Secondary color (e.g., labels)."
+      },
+      "alert": {
+        "type": "string",
+        "default": "#F7768E",
+        "description": "Color for warnings or critical values."
+      },
+      "default_text": {
+        "type": "string",
+        "default": "#E0AF68",
+        "description": "Default text color."
+      }
+    }
+  },
+  "alignment": {
+    "type": "string",
+    "default": "top_right",
+    "description": "Where the conky window appears on screen.",
+    "enum": [
+      "top_left",
+      "top_middle",
+      "top_right",
+      "middle_left",
+      "middle_middle",
+      "middle_right",
+      "bottom_left",
+      "bottom_middle",
+      "bottom_right",
+      "none",
+      "top",
+      "left",
+      "right",
+      "bottom",
+      "center"
+    ]
+  },
+  "gap_x": {
+    "type": "number",
+    "default": 10,
+    "description": "Horizontal gap (px) between the window edge and screen edge."
+  },
+  "gap_y": {
+    "type": "number",
+    "default": 10,
+    "description": "Vertical gap (px) between the window edge and screen edge."
+  },
+  "minimum_width": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum width (px) of conky window. 0 = auto."
+  },
+  "minimum_height": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum height (px) of conky window. 0 = auto."
+  },
+  "use_xft": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Xft (anti-aliased fonts) support. Required for complex fonts."
+  },
+  "override_utf8_locale": {
+    "type": "bool",
+    "default": true,
+    "description": "Force UTF-8 locale for proper Unicode character rendering."
+  },
+  "custom_variables": {
+    "type": "list",
+    "default": [],
+    "description": "List of user-defined variables (key-value pairs) for reuse in monitor blocks.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Variable name (used as ${custom_name} in config)."
+      },
+      "value": {
+        "type": "string",
+        "description": "Value of the variable."
+      }
+    }
+  },
+  "monitor_blocks": {
+    "type": "list",
+    "default": [
+      {
+        "type": "time"
+      },
+      {
+        "type": "cpu"
+      },
+      {
+        "type": "mem"
+      },
+      {
+        "type": "disk",
+        "disks": [
+          {
+            "path": "/"
+          }
+        ]
+      },
+      {
+        "type": "net",
+        "net_if": "eth0"
+      }
+    ],
+    "description": "Ordered list of monitor sections to display. Each block defines content and parameters.",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "text",
+          "cpu",
+          "mem",
+          "swap",
+          "disk",
+          "net",
+          "process",
+          "time",
+          "custom"
+        ],
+        "description": "Type of block to render."
+      },
+      "content": {
+        "type": "string",
+        "description": "Raw text (for 'text' blocks). Escape newlines and quotes as needed."
+      },
+      "disks": {
+        "type": "list",
+        "description": "List of filesystem paths to monitor (for 'disk' blocks).",
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/",
+            "description": "Mount point or path to filesystem."
+          }
+        }
+      },
+      "net_if": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Network interface to monitor (for 'net' blocks)."
+      },
+      "processes": {
+        "type": "list",
+        "description": "List of process info entries (for 'process' blocks).",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Label for the process (ignored by conky, for your reference)."
+          }
+        }
+      },
+      "script": {
+        "type": "string",
+        "description": "Shell or Lua command to execute (for 'custom' blocks)."
+      }
+    }
+  }
+}

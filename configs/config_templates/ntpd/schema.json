@@ -1,0 +1,112 @@
+{
+  "logging_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging of NTP events (e.g., synchronization changes) to syslog."
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of NTP servers to synchronize with. At least one is recommended for basic operation.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the NTP server."
+        },
+        "port": {
+          "type": "number",
+          "default": 123,
+          "description": "UDP port number for NTP (standard is 123)."
+        },
+        "flags": {
+          "type": "string",
+          "default": "",
+          "description": "Additional flags (e.g., 'iburst', 'prefer', 'noquery')."
+        }
+      }
+    }
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of local addresses to bind the NTP daemon for client queries. By default, only loopback is used unless server_mode is enabled.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "default": "",
+          "description": "IPv4 or IPv6 address to bind (e.g., '192.168.1.100', '::1')."
+        },
+        "port": {
+          "type": "number",
+          "default": null,
+          "description": "Optional UDP port (default: 123)."
+        }
+      }
+    }
+  },
+  "server_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the NTP server mode (accept and respond to client queries). Requires listen on '*' if enabled."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of networks or hosts explicitly permitted to query this NTP server. Applies only when server_mode is enabled.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "IPv4 or IPv6 network (e.g., '192.168.0.0', '2001:db8::')."
+        },
+        "mask": {
+          "type": "number",
+          "default": null,
+          "description": "Prefix length (e.g., 24 for IPv4, 64 for IPv6). If omitted, assumes full host."
+        }
+      }
+    }
+  },
+  "restricted_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of networks or hosts explicitly denied from querying this NTP server.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Network or host to restrict."
+        },
+        "mask": {
+          "type": "number",
+          "default": null,
+          "description": "Prefix length for subnet masks."
+        }
+      }
+    }
+  },
+  "leapfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to leap seconds file (e.g., '/usr/share/zoneinfo/leap-seconds.list'). Optional; if omitted, OpenNTPD uses built-in leap seconds table."
+  },
+  "no_initial_step": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip initial time step on startup (use slew instead), preventing large clock jumps. Recommended for servers."
+  },
+  "strict_sync": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable strict synchronization: reject servers with suspicious offsets or high dispersion."
+  }
+}

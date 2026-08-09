@@ -1,0 +1,47 @@
+# ============================================================================
+# ejabberd_mod_filter configuration template
+# ============================================================================
+# This template generates the configuration for the ejabberd_mod_filter module,
+# which provides packet filtering capabilities for XMPP traffic.
+#
+# Schema Fields:
+#   enabled (bool):   Enable or disable the ejabberd_mod_filter module globally. (Default: True)
+#   rules (list):     List of packet filtering rules. Each rule defines how to handle
+#                     matching packets using access control or custom filters. (Default: [])
+#   removed (list):   List of variables removed due to lack of documentation support.
+#
+# Configuration Rules:
+#   - Rules are evaluated in order; the first match wins.
+#   - Use 'access' to tie rules to ejabberd's access control system.
+#   - Use 'filter' for custom filtering logic.
+# ============================================================================
+
+# Global module enablement
+{# enabled: Enable or disable the ejabberd_mod_filter module globally. #}
+mod_filter:
+  enabled: {{ enabled | default(true) | lower }}
+
+  # List of packet filtering rules. (Default: [])
+  # Each rule defines how to handle matching packets.
+  # Rules are evaluated in order; first match wins.
+  rules:
+{# rules: List of packet filtering rules. Each rule defines how to handle matching packets. #}
+{% for rule in rules | default([]) %}
+    # Rule: {{ rule.name | default('unnamed_rule') }}
+    # Type determines whether this rule uses ejabberd access lists or a custom filter function.
+    '{{ rule.name | default('rule_' + loop.index|string) }}':
+      # Type: 'access' uses ejabberd's access control lists; 'filter' uses a custom filter.
+      # Default type is 'access'.
+      type: {{ rule.type | default('access') }}
+{% if rule.type == 'access' %}
+      # Access: Name of the ejabberd access rule to apply.
+      access: {{ rule.access | default('') }}
+{% else %}
+      # Filter: Name of the custom filter function to apply.
+      filter: {{ rule.filter | default('') }}
+{% endif %}
+{% endfor %}
+
+# Note: The following schema field is deprecated/removed and no longer supported.
+# It is preserved here for reference only.
+# removed: {{ removed | default([]) | tojson }}

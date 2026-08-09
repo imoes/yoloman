@@ -1,0 +1,80 @@
+# Global settings for Icinga 2
+
+# Log file location and verbosity
+log_file = "/var/log/icinga2/icinga2.log"
+log_level = {{ log_level }}
+
+# Timestamp format for log entries
+log_timestamp_format = "%Y-%m-%d %H:%M:%S %z"
+
+# Enable or disable the API endpoint
+enable_api = {{ enable_api }}
+
+# API endpoint bind host and port
+api_bind_host = "{{ api_bind_host }}"
+api_bind_port = {{ api_bind_port }}
+
+# Enable or disable the notification feature
+enable_notifications = {{ enable_notifications }}
+
+# Command endpoint (used for agent communication)
+command_endpoint = "{{ command_endpoint }}"
+
+# Buffering settings for event notifications
+event_buffer_max_age = {{ event_buffer_max_age }}
+event_buffer_max_items = {{ event_buffer_max_items }}
+
+# Paths for state and cache files
+vars_state_file = "/var/lib/icinga2/icinga2.state"
+vars_cache_file = "/var/lib/icinga2/icinga2.cache"
+
+# Paths for log rotation and pid
+pid_file = "/run/icinga2/icinga2.pid"
+
+# Zone and endpoint definitions (for distributed monitoring)
+{% for zone in zones %}
+zone "{{ zone.name }}" {
+  {% if zone.parent_zone %}
+  parent = "{{ zone.parent_zone }}"
+  {% endif %}
+  {% if zone.endpoints %}
+  endpoints = [{{ zone.endpoints | join(', ') | replace('"', '""') }}]
+  {% endif %}
+}
+{% endfor %}
+
+# Endpoint definitions
+{% for endpoint in endpoints %}
+endpoint "{{ endpoint.name }}" {
+  host = "{{ endpoint.host }}"
+  port = {{ endpoint.port }}
+}
+{% endfor %}
+
+# Zone assignment: which endpoints belong to which zones
+{% for zone in zones %}
+{% if zone.endpoints %}
+zone "{{ zone.name }}" {
+  endpoints = [{{ zone.endpoints | join(', ') | replace('"', '""') }}]
+}
+{% endif %}
+{% endfor %}
+
+# Global macros (optional custom variables)
+{% for macro in macros %}
+vars.{{ macro.name }} = {{ macro.value | tojson }}
+{% endfor %}
+
+# Library paths (e.g., for plugins or custom scripts)
+plugin_dir = "/usr/lib/icinga2/plugins"
+pkg_data_dir = "/usr/share/icinga2"
+
+# Enable/disable features like IDO or Graphite (not full config, just enable flags)
+{% for feature_name, enabled in features.items() %}
+{% if enabled is string %}  # e.g., 'IDO' or 'Graphite'
+{% endif %}
+{{ feature_name }} = {{ enabled }}
+{% endfor %}
+
+# Timeperiods, templates, and host/service definitions are typically in separate files
+# This file focuses on global options, API, zones/endpoints, and logging.

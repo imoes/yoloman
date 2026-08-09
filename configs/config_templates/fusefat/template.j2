@@ -1,0 +1,32 @@
+# {{ var.disk_image }}
+{{ var.disk_image | default('disk_image') | indent(0) }}
+
+# {{ var.mountpoint }}
+{{ var.mountpoint | default('mountpoint') | indent(0) }}
+
+# mount options
+{% set opts = [] %}
+{% if var.readonly %}
+  {% set _ = opts.append('ro') %}
+{% endif %}
+{% if var.force %}
+  {% set _ = opts.append('force') %}
+{% endif %}
+{% if var.readwrite and not var.readonly and not var.force %}
+  {% set _ = opts.append('rw') %}
+{% endif %}
+{% if var.readwrite and var.force %}
+  {% set _ = opts.append('rw+') %}
+{% endif %}
+{% if var.debug %}
+  {% set _ = opts.append('debug') %}
+{% endif %}
+{% if var.foreground %}
+  {% set _ = opts.append('foreground') %}
+{% endif %}
+{% if var.singlethread %}
+  {% set _ = opts.append('nothreads') %}
+{% endif %}
+{% if opts | length > 0 %}
+-o {{ opts | join(',') }}
+{% endif %}

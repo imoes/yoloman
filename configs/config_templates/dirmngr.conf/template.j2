@@ -1,0 +1,56 @@
+# Configuration for dirmngr (GNU Dirmngr - Directory Manager for OpenPGP)
+# This file configures the behavior of the OpenPGP keyserver lookup service.
+
+# --- Keyserver Configuration ---
+
+# List of keyserver hosts (HKP/HTTPS) to use for key lookup.
+# Each item must specify 'host'; 'port' is optional and defaults to 80 for HTTP
+# or 443 for HTTPS if omitted.
+# Format: keyserver <host>[:<port>]
+{% for ks in (keyservers | default([{'host': 'keyserver.ubuntu.com', 'port': 80}, {'host': 'hkps.pool.sks-keyservers.net', 'port': 443}])) %}
+keyserver {{ ks.host }}{% if ks.port is defined and ks.port %}:{{ ks.port }}{% endif %}
+{% endfor %}
+
+# --- Agent Configuration ---
+
+# Explicit path to gpg-agent's Unix socket (e.g., '/run/user/1000/gnupg/S.gpg-agent').
+# Usually auto-detected; leave empty to omit.
+{% set gpg_socket = gpg_agent_socket | default('') %}
+{% if gpg_socket %}
+gpg-agent-socket {{ gpg_socket }}
+{% endif %}
+
+# --- Optional Settings (Commented Out by Default) ---
+
+# Enable debug output (off by default)
+# debug-level info
+
+# Use standard LDAP ports for keyserver lookups
+# hkp-cacert /etc/ssl/certs/ca-certificates.crt
+
+# Allow fallback to insecure HTTP if HTTPS fails (off by default)
+# hkp-http
+
+# Enable DNS-based keyserver discovery (RFC 6193)
+# dns
+
+# Set maximum number of concurrent connections
+# max-connections 10
+
+# Set timeout for network operations (seconds)
+# resolver-timeout 30
+
+# Enable key validation against CA certificate chain
+# check-trust-db
+
+# Enable keyring caching (on by default)
+# keyring-caching yes
+
+# Allow loopback pinentry (for headless/GUI-less environments)
+# allow-loopback-pinentry
+
+# Disable IPv6 (off by default)
+# disable-ipv6
+
+# Set batch mode (non-interactive, for scripting)
+# batch

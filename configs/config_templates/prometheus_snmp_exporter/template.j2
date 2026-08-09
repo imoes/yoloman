@@ -1,0 +1,73 @@
+# SNMP Exporter configuration for Prometheus
+# See: https://github.com/prometheus/snmp_exporter
+#
+# This template generates a prometheus_snmp_exporter configuration file.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and source schema field.
+
+global:
+  # How often (in seconds) to scrape each SNMP target.
+  scan_interval: {{ (scan_interval | default(60)) | string }}
+
+  # Maximum time (in seconds) to wait for a response from an SNMP device.
+  timeout: {{ (timeout | default(20)) | string }}
+
+  # Number of times to retry a failed SNMP request before marking it as failed.
+  retries: {{ (retries | default(3)) | string }}
+
+# SNMP module definitions
+# Each module defines how to poll a specific device type or MIB set.
+# The 'modules' field is a list of dictionaries. We iterate over it directly
+# since schema defines it as a list (type: list).
+modules:
+{% for module in (modules | default([])) %}
+{% set key = module.name | default('unnamed_module') %}
+  {{ key }}:
+    # SNMP version: 2c, 3, or '1' (legacy).
+    version: {{ (module.version | default('2c')) | string }}
+
+    # SNMP community string (used only for v2c and v1).
+    community: {{ (module.community | default('public')) | string }}
+
+    # SNMPv3 specific settings are only rendered if version is explicitly '3'.
+    {% if module.version == '3' %}
+    # Authentication and privacy settings for SNMPv3.
+    # Authentication protocol: 'MD5', 'SHA', 'SHA-224', 'SHA-256', 'SHA-384', 'SHA-512'.
+    auth_protocol: {{ (module.auth_protocol | default('SHA')) | string }}
+
+    # Privacy (encryption) protocol: 'DES', 'AES', 'AES-192', 'AES-256', '3DES', 'NONE'.
+    priv_protocol: {{ (module.priv_protocol | default('DES')) | string }}
+
+    # Authentication level: 'noAuthNoPriv', 'authNoPriv', 'authPriv'.
+    auth_level: {{ (module.auth_level | default('noAuthNoPriv')) | string }}
+
+    # Username for authentication (required if auth_level is authNoPriv or authPriv).
+    {% if module.auth_level in ['authNoPriv', 'authPriv'] %}
+    auth_name: {{ (module.auth_name | default('')) | string }}
+    {% endif %}
+
+    # Username for privacy/encryption (required if auth_level is authPriv).
+    {% if module.auth_level == 'authPriv' %}
+    priv_name: {{ (module.priv_name | default('')) | string }}
+    {% endif %}
+
+    # Optional context name for SNMPv3.
+    {% if (module.context_name is defined) and (module.context_name is not none) %}
+    context_name: {{ (module.context_name | default('')) | string }}
+    {% endif %}
+    {% endif %}
+
+    # List of MIBs to load for this module.
+    # Default is ['ALL'] if not specified.
+    mibs:
+{% for mib in (module.mibs | default(['ALL'])) %}
+      - {{ mib }}
+{% endfor %}
+
+    # List of OIDs to walk for this module.
+    # Default is ['1.3.6.1.2.1'] (IF-MIB) if not specified.
+    walk:
+{% for walk_oid in (module.walk | default(['1.3.6.1.2.1'])) %}
+      - {{ walk_oid }}
+{% endfor %}
+{% endfor %}

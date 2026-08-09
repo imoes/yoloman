@@ -1,0 +1,108 @@
+# =============================================================================
+# Low Memory Monitor Configuration
+# =============================================================================
+# This file configures the low-memory-monitor service, which watches system
+# memory usage and takes defined actions (log, notify, kill, reboot) when
+# thresholds are crossed.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# enabled: Enable or disable the low memory monitor.
+# -----------------------------------------------------------------------------
+{% if (enabled | default(true)) | bool %}
+enabled = yes
+{% else %}
+enabled = no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# interval: Time in seconds between consecutive memory checks.
+# -----------------------------------------------------------------------------
+interval = {{ (interval | default(10)) | int }}
+
+# -----------------------------------------------------------------------------
+# min_free_mb: Minimum free memory in megabytes below which the monitor
+# triggers an alert.
+# -----------------------------------------------------------------------------
+min_free_mb = {{ (min_free_mb | default(256)) | int }}
+
+# -----------------------------------------------------------------------------
+# min_free_percent: Minimum free memory percentage (0–100) below which the
+# monitor triggers an alert.
+# -----------------------------------------------------------------------------
+min_free_percent = {{ (min_free_percent | default(5)) | int }}
+
+# -----------------------------------------------------------------------------
+# actions: List of actions to execute when low memory is detected. Each action
+# defines the type (log, notify, kill, reboot) and target.
+# -----------------------------------------------------------------------------
+{% set actions_list = actions | default([]) %}
+{% if actions_list | length > 0 %}
+{% for action in actions_list %}
+action_{{ loop.index }} = {{ action.type }}:{{ action.target }}{% if action.args %}:{{ action.args }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# log_file: Path to log file (use '-' to log to stdout).
+# -----------------------------------------------------------------------------
+log_file = {{ log_file | default('/var/log/low-memory-monitor.log') }}
+
+# -----------------------------------------------------------------------------
+# verbose: Enable verbose logging for debugging.
+# -----------------------------------------------------------------------------
+{% if (verbose | default(false)) | bool %}
+verbose = yes
+{% else %}
+verbose = no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# kill_threshold: Minimum OOM score adjustment below which processes are
+# protected from being killed (range: -1000 to +1000; lower = more protected).
+# -----------------------------------------------------------------------------
+kill_threshold = {{ (kill_threshold | default(-500)) | int }}
+
+# -----------------------------------------------------------------------------
+# max_kills: Maximum number of processes to kill per low-memory event
+# (0 = no limit).
+# -----------------------------------------------------------------------------
+max_kills = {{ (max_kills | default(3)) | int }}
+
+# -----------------------------------------------------------------------------
+# pid_whitelist: List of process IDs to never kill (e.g., [1] for init).
+# -----------------------------------------------------------------------------
+{% set pid_whitelist_list = pid_whitelist | default([]) %}
+{% if pid_whitelist_list | length > 0 %}
+pid_whitelist = {{ pid_whitelist_list | join(',') }}
+{% else %}
+pid_whitelist = none
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# protected_patterns: List of regex patterns. Processes matching any pattern
+# will never be killed.
+# -----------------------------------------------------------------------------
+{% set protected_patterns_list = protected_patterns | default(['systemd', 'sshd', 'low-memory-monitor']) %}
+{% if protected_patterns_list | length > 0 %}
+{% for pattern in protected_patterns_list %}
+protected_pattern_{{ loop.index }} = {{ pattern }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# memory_pressure_threshold: Memory pressure rate (in kbps) above which
+# aggressive actions (e.g., more aggressive kill policies) are triggered.
+# 0 = disable memory pressure detection.
+# -----------------------------------------------------------------------------
+memory_pressure_threshold = {{ (memory_pressure_threshold | default(0)) | int }}
+
+# -----------------------------------------------------------------------------
+# disable_oom_killer: Disable the kernel OOM killer (dangerous — may lead to
+# system deadlock).
+# -----------------------------------------------------------------------------
+{% if (disable_oom_killer | default(false)) | bool %}
+disable_oom_killer = yes
+{% else %}
+disable_oom_killer = no
+{% endif %}

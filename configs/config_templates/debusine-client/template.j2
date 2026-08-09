@@ -1,0 +1,30 @@
+# debusine-client configuration
+#
+# This file configures the debusine-client tool.
+# Fields:
+#   allow_dcut: boolean - Whether to allow Debian Copy-Under Test builds.
+#   codenames: list of strings - Comma-separated list of valid Debian codenames.
+#   valid_commands: list of strings - List of allowed commands for the client.
+
+{
+    # allow_dcut: Whether to allow DCUT (Debian Copy-Under Test) builds.
+    # Default: False
+    "allow_dcut": {{ allow_dcut | default(false) | lower }},
+
+    # codenames: Comma-separated list of Debian codenames the client should consider valid.
+    # Default: debian
+    "codenames": {{ (codenames | default(['debian'])) | map('tojson') | join(', ') }},
+
+    # hooks: [Internal/Hardcoded] Fixed list of hooks managed by the package.
+    "hooks": [
+        "debusine-check-workflow",
+        "checksum",
+        "suite-mismatch",
+        "gpg",
+        "debusine-create-workflow"
+    ],
+
+    # valid_commands: List of valid commands for the debusine client.
+    # Default: [] (empty list)
+    "valid_commands": {{ valid_commands | default([]) | tojson }}
+}

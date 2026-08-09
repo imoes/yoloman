@@ -1,0 +1,25 @@
+# Passenger configuration fragment for Apache.
+# This block ensures Passenger is enabled and sets the document root for
+# the managed application assets.
+
+# <Location "/favicon.ico">
+#   SetHandler None
+#   Disable caching or handling of favicon.ico specifically if needed.
+# </Location>
+
+# Block to conditionally load Passenger settings if the module is available.
+<IfModule mod_passenger.c>
+  # Enable Passenger for this context.
+  PassengerEnabled On
+
+  # Specify the Python interpreter to use for the WSGI application.
+  # Adjust if your environment uses a different Python version or virtualenv.
+  PassengerPython /usr/bin/python3
+
+  # Define the document root directory for Passenger-managed application assets.
+  # This path is controlled by the `passenger_root` variable.
+  <Directory "{{ passenger_root | default('/var/lib/dicoweb/passenger') }}">
+    # Allow access to all resources in this directory.
+    Require all granted
+  </Directory>
+</IfModule>

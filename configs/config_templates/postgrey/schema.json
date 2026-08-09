@@ -1,0 +1,102 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which postgrey listens for incoming SMTP connections from Postfix. Usually localhost."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 10023,
+    "description": "TCP port number for postgrey to bind to. Default Postfix port for greylisting is 10023."
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "postgrey",
+    "description": "System user account to run the postgrey daemon under. Should have read/write access to the database file."
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "",
+    "description": "Optional system group to run the daemon under. If empty, uses the primary group of `run_as_user`."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/postgrey/postgrey.db",
+    "description": "Path to the database file used for storing greylisting records. SQLite is used by default."
+  },
+  "db_engine": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database engine: 'sqlite', 'mysql', or 'postgres'. SQLite is standard for most Postfix setups."
+  },
+  "whitelist_clients_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Time (in seconds) before greylisting is skipped for whitelisted clients. Set to 0 to skip greylisting entirely for them."
+  },
+  "whitelist_recipients_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Time (in seconds) before greylisting is skipped for whitelisted recipients. Set to 0 to disable greylisting for them."
+  },
+  "whitelist_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPs, CIDR ranges, or hostnames to whitelist from greylisting."
+  },
+  "whitelist_sender_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of sender domains (exact or regex) to whitelist."
+  },
+  "whitelist_sender_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of exact sender email addresses or patterns to whitelist."
+  },
+  "whitelist_recipient_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of recipient domains to whitelist."
+  },
+  "whitelist_recipient_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "List of exact recipient email addresses to whitelist."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, log to system syslog. If false, log to file instead."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/postgrey.log",
+    "description": "Path to log file when syslog is disabled. Ignored if syslog is enabled."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0 (quiet), 1 (normal), 2 (verbose). Set higher if troubleshooting."
+  },
+  "greylist_seconds": {
+    "type": "number",
+    "default": 300,
+    "description": "Minimum seconds to wait before accepting mail from a new sender. Typical value: 300 (5 minutes)."
+  },
+  "greylist_max_age": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum seconds after which greylisting records expire (i.e., after how long a sender must re-greylist)."
+  },
+  "whitelist_postfix_smtpd": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, skip greylisting for mail submitted via postfix local smtpd."
+  },
+  "postgrey_text": {
+    "type": "string",
+    "default": "Delayed by postgrey",
+    "description": "Custom greylist rejection message text. Used only if set (non-empty)."
+  }
+}

@@ -1,0 +1,112 @@
+; ============================================================================
+; Ceph Monitor Configuration
+; ============================================================================
+; This file configures the Ceph Monitor (MON) daemon. It controls cluster
+; identity, network binding, authentication, logging, quorum behavior, and
+; data storage.
+;
+; Variables are sourced from Ansible host/group vars. Every variable uses
+; a Jinja2 `default()` filter to ensure a safe fallback if the variable
+; is undefined.
+; ============================================================================
+
+[global]
+; Unique cluster ID (UUID) for the Ceph cluster. Required for new deployments.
+; Must be unique across all Ceph clusters to avoid identity collisions.
+fsid = {{ fsid | default('') }}
+
+; Hostnames or IPs of the initial monitor nodes. Used to bootstrap the initial quorum.
+; Comma-separated list. These nodes form the first stage of the cluster.
+mon_initial_members = {{ mon_initial_members | default([]) | join(', ') }}
+
+; All monitor hostnames or IPs reachable by clients and other monitors.
+; Should include *all* mons (not just initial ones) to ensure clients
+; can find the current monitor quorum.
+mon_host = {{ mon_host | default([]) | join(', ') }}
+
+; CIDR subnet for client-facing network (e.g., 192.168.1.0/24).
+; Optional but strongly recommended for multi-homed setups to separate
+; client traffic from internal cluster traffic.
+public_network = {{ public_network | default('') }}
+
+; CIDR subnet for internal cluster communication (monitor-to-monitor, OSD heartbeats).
+; Optional but recommended for performance isolation. Keeps internal Ceph
+; traffic off the public network.
+cluster_network = {{ cluster_network | default('') }}
+
+; Authentication protocol required for cluster daemons (mon-to-mon).
+; Set to 'none' only for testing. 'cephx' is the standard secure mode.
+auth_cluster_required = {{ auth_cluster_required | default('cephx') }}
+
+; Authentication protocol required for services (e.g., MDS, RBD).
+; Controls which auth scheme OSDs and MDSs must use when talking to monitors.
+auth_service_required = {{ auth_service_required | default('cephx') }}
+
+; Authentication protocol required for clients.
+; Controls which auth scheme client daemons (rbd, rados, ceph-fuse, etc.) must use.
+auth_client_required = {{ auth_client_required | default('cephx') }}
+
+; Path and format for log files. Supports $name (service name) and $pid placeholders.
+; Logs are typically rotated by external tools or systemd-journald.
+log_file = {{ log_file | default('/var/log/ceph/ceph-$name.$pid.log') }}
+
+; Bind monitor’s messaging layer to IPv4 addresses.
+; Enable if your cluster uses IPv4 networking.
+ms_bind_ipv4 = {{ ms_bind_ipv4 | default(true) | ternary('true', 'false') }}
+
+; Bind monitor’s messaging layer to IPv6 addresses.
+; Enable only if your cluster uses IPv6-only or dual-stack networking.
+ms_bind_ipv6 = {{ ms_bind_ipv6 | default(false) | ternary('true', 'false') }}
+
+[mon]
+; Local filesystem path where monitor data (WAL + DB) is stored.
+; Use $id to substitute monitor ID (e.g., mon.a, mon.b).
+; Ensure the directory exists and has correct permissions (ceph:ceph).
+mon_data = {{ mon_data | default('/var/lib/ceph/mon/ceph-$id') }}
+
+; Maximum allowed clock drift (in seconds) between monitors before quorum warnings or failures occur.
+; Tighter values (e.g., 0.05–0.1) are recommended for production to ensure consistency.
+mon_clock_drift_allowed = {{ mon_clock_drift_allowed | default(0.05) }}
+
+; Time (in seconds) to wait before re-checking clock drift after a warning.
+; Prevents log spam when drift is intermittent.
+mon_clock_drift_warn_backoff = {{ mon_clock_drift_warn_backoff | default(10) }}
+
+; Duration (in seconds) of the primary monitor lease.
+; Longer values increase resilience to transient network failures but delay failover detection.
+mon_lease = {{ mon_lease | default(15) }}
+
+; Interval (in seconds) between lease renewal attempts by the primary monitor.
+mon_lease_renew_interval = {{ mon_lease_renew_interval | default(10) }}
+
+; Timeout (in seconds) to wait for acknowledgment of a lease request from the secondary monitors.
+mon_lease_ack_timeout = {{ mon_lease_ack_timeout | default(20) }}
+
+; Minimum number of OSDs that must report an OSD as down before the monitor considers it down.
+; Prevents false positives in large clusters where single OSDs may drop packets.
+mon_osd_min_down_reporters = {{ mon_osd_min_down_reporters | default(1) }}
+
+; CRUSH subtree level to consider when reporting OSD down.
+; Common values: 'host', 'rack', 'root'. Determines how OSD failures are aggregated.
+mon_osd_reporter_subtree_level = {{ mon_osd_reporter_subtree_level | default('host') }}
+
+; Hints for monitor database size tuning (0 = auto).
+; Only relevant for legacy filestore mons. Bluestore manages its own space.
+mon_data_size_hint = {{ mon_data_size_hint | default(0) }}
+
+; ============================================================================
+; Additional Services
+; ============================================================================
+; Optional: Append custom service sections (e.g., MDS, RGW overrides).
+; Each item in `additional_services` must have `name` (section name) and
+; `options` (dictionary of key=value pairs).
+
+{% for svc in additional_services | default([]) %}
+; Custom service section: {{ svc.name | default('unknown') }}
+[{{ svc.name | default('unknown') }}]
+{% for key, value in svc.options | default({}) | dict2items %}
+; Key: {{ key.key }}
+; Value: {{ key.value }}
+{{ key.key }} = {{ key.value }}
+{% endfor %}
+{% endfor %}

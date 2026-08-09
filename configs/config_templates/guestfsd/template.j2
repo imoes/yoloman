@@ -1,0 +1,37 @@
+# Enable or disable the Guest Filesystem Daemon
+# Schema: enabled (bool, default=True) - Enable the Guest Filesystem Daemon at boot.
+GUESTFSD_ENABLED={{ (enabled | default(True)) | string | lower }}
+
+# User to run the daemon as for security isolation
+# Schema: user (string, default='nobody') - System user to run the guestfsd daemon as for security isolation.
+GUESTFSD_USER={{ user | default('nobody') }}
+
+# Group to run the daemon as for security isolation
+# Schema: group (string, default='nogroup') - System group to run the guestfsd daemon as for security isolation.
+GUESTFSD_GROUP={{ group | default('nogroup') }}
+
+# Path to the virtio-serial port device used for communication with the guest VM
+# Schema: virtio_path (string, default='/dev/virtio-ports/org.guestfsd.0') - Path to the virtio-serial port device used for communication with the guest VM.
+GUESTFSD_VIRTIO_PATH={{ virtio_path | default('/dev/virtio-ports/org.guestfsd.0') }}
+
+# Maximum number of concurrent filesystem mounts supported by the daemon
+# Schema: max_mounts (int, default=10) - Maximum number of concurrent filesystem mounts supported by the daemon.
+GUESTFSD_MAX_MOUNTS={{ max_mounts | default(10) }}
+
+# Logging verbosity level
+# Schema: log_level (int, default=2) - Verbosity level: 0=errors only, 1=warnings+errors, 2=information+warnings+errors (default), 3=debug+info+warnings+errors.
+GUESTFSD_LOG_LEVEL={{ log_level | default(2) }}
+
+# Optional: additional filesystem mount options to apply (e.g., `ro`, `noexec`)
+# Schema: mount_opts (list, default=[]) - Additional filesystem mount options to apply (e.g., `ro`, `noexec`).
+GUESTFSD_MOUNT_OPTS="{{ (mount_opts | default([])) | join(' ') }}"
+
+# List of allowed host filesystem paths for bind-mounting into guests
+# Each entry creates a dedicated environment variable GUESTFSD_ALLOWED_PATH_<index>=<path>
+# Schema: allowed_host_paths (list, default=[]) - Host filesystem paths allowed for bind-mounting into guests. Each entry creates a dedicated environment variable.
+{% for path in (allowed_host_paths | default([])) %}GUESTFSD_ALLOWED_PATH_{{ loop.index }}={{ path }}
+{% endfor %}
+
+# Optional: custom systemd service environment drop-in directory
+# Schema: systemd_env_dir (string, default='') - Optional path to a systemd drop-in directory for custom environment overrides (e.g., `/etc/systemd/system/guestfsd.service.d/env`).
+{% if (systemd_env_dir | default('')) %}GUESTFSD_SYSTEMD_ENV_DIR={{ systemd_env_dir | default('') }}{% endif %}

@@ -1,0 +1,153 @@
+# FusionInventory agent configuration file
+# This file is managed by Ansible and should not be edited manually.
+
+# ---------------------------------------------------------------------------
+# Main section: General agent behavior and connection settings
+# ---------------------------------------------------------------------------
+[main]
+
+# Enable the FusionInventory agent to run and send inventory reports.
+# Type: boolean
+enabled = {{ enabled | default(True) | lower }}
+
+# Log verbosity: 0 (quiet), 1 (info), 2 (debug).
+# Type: integer
+# Default: 0
+debug = {{ debug_level | default(0) }}
+
+# Absolute path to the agent log file.
+# Type: string
+# Default: /var/log/fusioninventory-agent/fusioninventory-agent.log
+# The directory must exist and be writable by the agent user.
+logfile = {{ log_file | default('/var/log/fusioninventory-agent/fusioninventory-agent.log') }}
+
+# URL of the FusionInventory server to which inventory and task responses are sent.
+# Type: string
+# Default: http://fusioninventory-server/fusioninventory/
+server = {{ server_url | default('http://fusioninventory-server/fusioninventory/') }}
+
+# Interval (in seconds) between automatic inventory runs.
+# Set to 0 for on-demand only (agent runs once and exits, or waits for remote trigger).
+# Type: integer
+# Default: 3600
+interval = {{ inventory_interval | default(3600) }}
+
+# Maximum time (in seconds) to wait for server connections or agent plugins before timing out.
+# Type: integer
+# Default: 300
+timeout = {{ timeout | default(300) }}
+
+# System user account under which the agent processes run.
+# Must have sufficient privileges for inventory collection.
+# Type: string
+# Default: root
+user = {{ user | default('root') }}
+
+# System group under which the agent processes run.
+# Type: string
+# Default: root
+group = {{ group | default('root') }}
+
+# Maximum log file size (in MB) before rotation.
+# Set to 0 to disable log rotation entirely.
+# Type: integer
+# Default: 10
+log_size = {{ log_size | default(10) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS Options: Secure communication with the server
+# ---------------------------------------------------------------------------
+
+# Conditionally enable SSL/TLS if the user explicitly enables it or if
+# the server URL scheme is https://. This ensures encrypted transport.
+{% if ssl_enabled | default(False) %}
+
+# Enable SSL/TLS for communication with the server (1 = on).
+ssl = 1
+
+# Absolute path to the client certificate (PEM format) for mutual TLS
+# authentication. Required if the server mandates client cert verification.
+# Type: string (path)
+ssl_cert = {{ ssl_cert_path | default('') }}
+
+# Absolute path to the client private key (PEM format) corresponding to
+# the certificate provided above.
+# Type: string (path)
+ssl_key = {{ ssl_key_path | default('') }}
+
+# Absolute path to the CA certificate bundle used to verify the server's
+# certificate. Ensures the agent connects to a trusted server.
+# Type: string (path)
+# Default: /etc/ssl/certs/ca-certificates.crt
+ssl_ca_cert = {{ ssl_ca_cert_path | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# Allow self-signed certificates on the server (1 = allow, 0 = strict).
+# Insecure; only for test environments or internal PKIs without public trust.
+# Type: boolean
+ssl_allow_self_signed = {{ ssl_allow_self_signed | default(False) | lower }}
+
+{% else %}
+
+# SSL/TLS is disabled; the agent will use plain HTTP.
+ssl = 0
+
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Tags: Attach metadata to inventory reports
+# ---------------------------------------------------------------------------
+
+# Comma-separated list of tags to attach to all inventory reports from this
+# agent (e.g., 'production', 'webserver'). Useful for filtering in the OCS
+# or FusionInventory web console.
+# Type: list of strings
+# Default: [] (empty)
+{% if extra_tags | default([]) | length > 0 %}
+tags = {{ extra_tags | default([]) | join(', ') }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Plugins: Per-plugin configuration blocks
+# ---------------------------------------------------------------------------
+
+# List of active plugins and their per-plugin configuration.
+# Each plugin appears as a [plugin:NAME] section below.
+# Available plugins include: inventory, netdiscovery, network, wakeonlan, esx, etc.
+# Type: list of mappings
+# Default: [] (empty)
+{% for plugin in plugins | default([]) %}
+
+# Plugin: {{ plugin.name | default('unknown') }}
+[plugin:{{ plugin.name | default('unknown') }}]
+
+# Enable or disable this specific plugin (1 = on, 0 = off).
+enabled = {{ plugin.enabled | default(False) | lower }}
+
+# Per-plugin key-value configuration options.
+# If the plugin has additional settings, they are emitted here.
+{% if plugin.config is defined and plugin.config %}
+{% for key, value in plugin.config | dict2items %}
+{{ key.key }} = {{ key.value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Local Execution Hooks: Pre/Post inventory commands
+# ---------------------------------------------------------------------------
+
+# Shell command to execute before each inventory run.
+# Use this for cleanup scripts, backup triggers, or state preparation.
+# Type: string (shell command)
+# Default: '' (empty/disabled)
+{% if pre_inventory_cmd | default('') %}
+pre_inventory_cmd = {{ pre_inventory_cmd | default('') }}
+{% endif %}
+
+# Shell command to execute after each inventory run.
+# Use this for alerting, logging aggregation, or notification triggers.
+# Type: string (shell command)
+# Default: '' (empty/disabled)
+{% if post_inventory_cmd | default('') %}
+post_inventory_cmd = {{ post_inventory_cmd | default('') }}
+{% endif %}

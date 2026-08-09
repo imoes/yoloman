@@ -1,0 +1,107 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          firewall
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: Initialize iptables firewall via pyroman
+# Description: Initialize iptables firewall via pyroman
+### END INIT INFO
+
+# Author: Erich Schubert <erich@debian.org>
+
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+# Description of the service.
+DESC="{{ desc | default('Pyroman firewall') }}"
+
+# Name of the package/daemon.
+NAME={{ name | default('pyroman') }}
+
+DAEMON=/usr/sbin/$NAME
+
+# Arguments passed to the daemon.
+DAEMON_ARGS="{{ daemon_args | default('--init') }}"
+
+SCRIPTNAME=/etc/init.d/$NAME
+
+# Exit if the package is not installed
+[ -x "$DAEMON" ] || exit 0
+
+#
+# Function that starts the daemon/service
+#
+do_start()
+{
+	# Return
+	#   0 if daemon has been started
+	#   1 if daemon was already running
+	#   2 if daemon could not be started
+	$DAEMON $DAEMON_ARGS || return 2
+	return 0
+}
+
+#
+# Function that stops the daemon/service
+#
+do_stop()
+{
+	# Return
+	#   0 if daemon has been stopped
+	#   1 if daemon was already stopped
+	#   2 if daemon could not be stopped
+	#   other if a failure occurred
+
+	# there is no "stop" defined, this is not a daemon
+	return 1
+}
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC"
+	do_start
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case "$?" in
+		0|1) log_end_msg 0 ;;
+		2) log_end_msg 1 ;;
+	esac
+	;;
+  restart|force-reload)
+	#
+	# If the "reload" option is implemented then remove the
+	# 'force-reload' alias
+	#
+	log_daemon_msg "Restarting $DESC"
+	do_stop
+	case "$?" in
+	  0|1)
+		do_start
+		case "$?" in
+			0) log_end_msg 0 ;;
+			1) log_end_msg 1 ;; # Old process is still running
+			*) log_end_msg 1 ;; # Failed to start
+		esac
+		;;
+	  *)
+	  	# Failed to stop
+		log_end_msg 1
+		;;
+	esac
+	;;
+  *)
+	echo "Usage: $SCRIPTNAME {start|stop|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
+
+:

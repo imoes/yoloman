@@ -1,0 +1,41 @@
+name: logstash_plugin
+fqcn: community.general.logstash_plugin
+collection: community.general
+short_description: Manage Logstash plugins
+description: Manages Logstash plugins.
+options:
+  name:
+    type: str
+    required: true
+    description: Install plugin with that name.
+  plugin_bin:
+    type: path
+    default: /usr/share/logstash/bin/logstash-plugin
+    description: Specify logstash-plugin to use for plugin management.
+  proxy_host:
+    type: str
+    description: Proxy host to use during plugin installation.
+  proxy_port:
+    type: str
+    description: Proxy port to use during plugin installation.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Apply plugin state.
+  version:
+    type: str
+    description: Specify plugin Version of the plugin to install. If plugin exists with previous version,
+      it will NOT be updated.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install Logstash beats input plugin\n  community.general.logstash_plugin:\n    state:\
+  \ present\n    name: logstash-input-beats\n\n- name: Install specific version of a plugin\n  community.general.logstash_plugin:\n\
+  \    state: present\n    name: logstash-input-syslog\n    version: '3.2.0'\n\n- name: Uninstall Logstash\
+  \ plugin\n  community.general.logstash_plugin:\n    state: absent\n    name: logstash-filter-multiline\n\
+  \n- name: Install Logstash plugin with alternate heap size\n  community.general.logstash_plugin:\n \
+  \   state: present\n    name: logstash-input-beats\n  environment:\n    LS_JAVA_OPTS: \"-Xms256m -Xmx256m\"\
+  \n"

@@ -1,0 +1,44 @@
+# /etc/fiche/fiche.conf
+# Production configuration for fiche — a pastebin-style service that accepts text uploads
+# and serves them via short URLs constructed from a domain name.
+# All fields below map directly to the fiche(1) command-line options.
+
+# -o : Output directory where received text will be stored on disk.
+#      Must be writable by the 'user' account.
+-o {{ output_dir | default('/var/lib/fiche') }}
+
+# -p : TCP port the daemon listens on for incoming paste uploads.
+-p {{ port | default(9999) }}
+
+# -d : Domain used to construct public URLs for uploaded pastes.
+#      Example: 'example.com' results in 'example.com/<slug>'.
+#      This is required for the generated links to be valid.
+-d {{ domain | default('') }}
+
+# -s : Number of characters in the generated URL slug.
+#      Minimum recommended value is 3 to avoid collisions.
+-s {{ slug_size | default(4) }}
+
+# -u : Unix user account under which files are written to disk.
+#      Ensure this user has write permissions to output_dir and log_file.
+-u {{ user | default('nobody') }}
+
+# -B : Maximum allowed uploaded file size in bytes.
+#      Defaults to 32768 bytes (32 KB).
+-B {{ max_file_size | default(32768) }}
+
+# -l : Path to the log file for fiche events.
+#      Ensure the 'user' account can write to this file and its parent directory.
+-l {{ log_file | default('/var/log/fiche.log') }}
+
+# -b : Path to a file containing one banned IP address per line.
+#      Clients whose IP matches this list will be rejected.
+-b {{ ban_file | default('/etc/fiche/banned_ips') }}
+
+# -w : Path to a file containing one allowed IP address per line.
+#      Used only when whitelist mode (-W) is enabled.
+-w {{ whitelist_file | default('/etc/fiche/whitelist') }}
+
+# -W : Enable whitelist mode.
+#      If defined and true, only IPs present in the whitelist_file are permitted to upload.
+{% if enable_whitelist | default(false) %}-W{% endif %}

@@ -1,0 +1,81 @@
+[DEFAULT]
+# Absolute path to the log file for the notification agent.
+log_file = {{ log_file | default('/var/log/ceilometer/agent-notification.log') }}
+
+# Enable or disable debug-level logging.
+# When true, enables detailed internal state and tracing information.
+debug = {{ debug | default(false) | lower }}
+
+# Enable or disable verbose logging.
+# Includes request/response details and intermediate processing steps.
+verbose = {{ verbose | default(true) | lower }}
+
+# Number of worker processes to handle incoming notifications.
+# Increase for higher throughput; typically matches CPU core count.
+workers = {{ workers | default(1) }}
+
+# Message bus transport URL (e.g., RabbitMQ, Kafka).
+# Used to consume OpenStack notifications from the message queue.
+transport_url = {{ transport_url | default('rabbit://openstack:password@localhost:5672/') }}
+
+[pipeline_sources]
+# List of notification sources (handlers) to enable.
+# Each item corresponds to a Ceilometer source configuration block.
+# Common sources: compute, image, volume, network.
+{% for source in sources | default(['compute', 'image', 'volume', 'network']) %}{{ source }}
+{% endfor %}
+
+[notification]
+# List of AMQP notification topics to subscribe to.
+# Typically includes 'notifications' for all, or specific severity levels like 'notifications.info'.
+{% for topic in topics | default(['notifications', 'notifications.info', 'notifications.error', 'notifications.warn', 'notifications.debug']) %}topics = {{ topic }}
+{% endfor %}
+
+# Maximum events per second per worker to rate-limit.
+# 0 = unlimited. Prevents overwhelming the system during high-load bursts.
+rate_limit = {{ rate_limit | default(0) }}
+
+# Maximum number of events to batch before writing to storage.
+# Larger batches improve DB write efficiency but increase memory use.
+batch_size = {{ batch_size | default(10) }}
+
+[storage]
+# Backend storage URL for event data.
+# Supports MongoDB, SQLAlchemy (MySQL, PostgreSQL, etc.).
+# Example: 'mongodb://ceilometer:password@localhost:27017/ceilometer'
+url = {{ storage_url | default('mongodb://ceilometer:password@localhost:27017/ceilometer') }}
+
+# Enable automatic expiration of old event data.
+# Requires backend support for TTL (e.g., MongoDB or SQLAlchemy with appropriate driver).
+enable_ttl = {{ enable_ttl | default(false) | lower }}
+
+# Time in seconds after which events are automatically deleted (if TTL enabled).
+# Default: 1209600 seconds (14 days).
+time_to_live = {{ time_to_live | default(1209600) }}
+
+[keystone_authtoken]
+# Keystone authentication endpoint URL.
+# Ceilometer uses this to validate tokens and lookup identity info.
+auth_url = {{ keystone_auth_url | default('http://localhost:5000/v3') }}
+
+# Authentication method used.
+# Typically 'password' for service account authentication.
+auth_type = {{ keystone_auth_type | default('password') }}
+
+# Keystone domain name for the project.
+# The project domain where the service project resides.
+project_domain_name = {{ keystone_project_domain | default('Default') }}
+
+# Keystone service project name.
+# The project in which the Ceilometer service user operates.
+project_name = {{ keystone_project_name | default('services') }}
+
+# Keystone domain name for the service user.
+# The user domain where the Ceilometer user account exists.
+user_domain_name = {{ keystone_user_domain | default('Default') }}
+
+# Service username for Ceilometer in Keystone.
+username = {{ keystone_username | default('ceilometer') }}
+
+# Password for the Ceilometer service user in Keystone.
+password = {{ keystone_password | default('ceilometer_password') }}

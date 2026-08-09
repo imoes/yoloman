@@ -1,0 +1,28 @@
+# Kerberos KDC database location
+kdcdefaults = {
+  kdc_ports = {{ kdcdefaults.kdc_ports | join(', ') }}
+  kdc_tcp_ports = {{ kdcdefaults.kdc_tcp_ports | join(', ') }}
+}
+
+[realms]
+{% for realm in realms %}# Realm: {{ realm.name }}
+{{ realm.name }} = {
+  database_name = {{ realm.database_name }}
+  admin_keytab = {{ realm.admin_keytab }}
+  acl_file = {{ realm.acl_file }}
+  key_stash_file = {{ realm.key_stash_file }}
+  kdc_ports = {{ realm.kdc_ports | join(', ') }}
+  max_life = {{ realm.max_life }}
+  max_renewable_life = {{ realm.max_renewable_life }}
+  master_key_type = {{ realm.master_key_type }}
+  supported_enctypes = {{ realm.supported_enctypes | join(':') }}
+{% if realm.extra_params %}
+{% for key, val in realm.extra_params.items() %}  {{ key }} = {{ val }}
+{% endfor %}{% endif %}}
+{% endfor %}
+
+[logging]
+# Logging configuration for KDC and admin server
+  kdc = {{ logging.kdc }}
+  admin_server = {{ logging.admin_server }}
+  default = {{ logging.default }}

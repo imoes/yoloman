@@ -1,0 +1,209 @@
+# QEMU/KVM configuration file
+# This template configures unprivileged QEMU, networking, storage, security,
+# resource limits, logging, and various VM features.
+# Variables are sourced from the Ansible role's vars/defaults.
+
+# =========================================================================
+# User Namespace & Execution Identity
+# =========================================================================
+
+# Enable user namespace mapping for unprivileged QEMU processes.
+# When enabled, QEMU runs as a specific user/group rather than root.
+{% if enable_userns | default(false) %}
+# User namespace is enabled; QEMU will run as the configured user/group.
+user = "{{ user | default('qemu') }}"
+group = "{{ group | default('qemu') }}"
+{% else %}
+# User namespace is disabled; QEMU uses system defaults (likely root or service user).
+{% endif %}
+
+# =========================================================================
+# Network Configuration
+# =========================================================================
+
+# Enable bridged network mode instead of user-mode (slirp) networking.
+# Bridged mode requires a pre-configured bridge interface and helper script.
+{% if network_bridge | default(true) %}
+# Using bridged networking.
+# Path to the bridge helper script for user permission checks.
+network_script = "{{ network_script | default('/etc/qemu/qemu-bridge-helper.sh') }}"
+# Default bridge interface to attach VM network interfaces to.
+network_interface = "{{ network_interface | default('virbr0') }}"
+{% else %}
+# Using user-mode (slirp) networking.
+# QEMU network backend driver (e.g., user, tap, bridge).
+# Note: In user mode, 'user' is the typical backend.
+network_driver = "{{ network_driver | default('user') }}"
+{% endif %}
+
+# =========================================================================
+# Storage Backend Paths
+# =========================================================================
+
+# List of custom storage pools (directories) for VM disk images.
+# If empty, the system falls back to the default path.
+{% if storage_pools | default([]) | length > 0 %}
+# Custom storage pools defined:
+{% for pool in storage_pools | default([]) %}
+# Pool name: {{ (pool.name | default('unnamed')) | string }}
+# Pool absolute path: {{ (pool.path | default('/var/lib/libvirt/images')) | string }}
+storage_pool_{{ loop.index }}_path = "{{ (pool.path | default('/var/lib/libvirt/images')) | string }}"
+{% endfor %}
+{% else %}
+# No custom storage pools; using the default path for VM images.
+storage_default_path = "{{ storage_default_path | default('/var/lib/libvirt/images') }}"
+{% endif %}
+
+# =========================================================================
+# Security and Isolation
+# =========================================================================
+
+# Enable seccomp sandboxing to restrict syscalls available to the QEMU process.
+# This enhances security by limiting the kernel surface area.
+{% if seccomp_sandbox | default(true) %}
+seccomp_sandbox = "on"
+{% else %}
+seccomp_sandbox = "off"
+{% endif %}
+
+# AppArmor profile name to apply to QEMU processes.
+# Requires AppArmor kernel support. Set to empty or omit to disable.
+{% if apparmor_profile | default('qemu-qemu') %}
+apparmor_profile = "{{ apparmor_profile | default('qemu-qemu') }}"
+{% else %}
+# AppArmor is disabled for QEMU processes.
+{% endif %}
+
+# =========================================================================
+# Resource Limits
+# =========================================================================
+
+# Maximum number of virtual CPUs per VM.
+vcpu_limit = {{ vcpu_limit | default(255) }}
+
+# Maximum RAM (in MB) per VM. Set to 0 for unlimited.
+memory_limit_mb = {{ memory_limit_mb | default(262144) }}
+
+# Maximum number of devices allowed per VM (disks, NICs, etc.).
+max_devices = {{ max_devices | default(256) }}
+
+# =========================================================================
+# Logging Configuration
+# =========================================================================
+
+# Global logging level (e.g., DEBUG, INFO, WARNING, ERROR).
+log_level = "{{ log_level | default('INFO') }}"
+
+# Comma-separated list of log destinations (e.g., file:/path, stderr).
+log_outputs = "{{ log_outputs | default('file:/var/log/qemu/qemu.log') }}"
+
+# =========================================================================
+# Audio Backend
+# =========================================================================
+
+# Default audio backend driver (e.g., pa, alsa, oss, none).
+audio_driver = "{{ audio_driver | default('pa') }}"
+
+# =========================================================================
+# TLS/Encryption for Remote Display
+# =========================================================================
+
+# Enable TLS-encrypted remote display (VNC/SPICE).
+{% if tls_enabled | default(false) %}
+# TLS is enabled. Configure base port and certificate directory.
+tls_port = {{ tls_port | default(61000) }}
+tls_cert_dir = "{{ tls_cert_dir | default('/etc/pki/qemu') }}"
+{% else %}
+# TLS is disabled; remote display connections will be unencrypted or disabled.
+tls_port = 0
+{% endif %}
+
+# =========================================================================
+# USB Device Passthrough / Redirection
+# =========================================================================
+
+# Enable USB redirection server for client-side USB device forwarding.
+{% if usb_redir_enabled | default(false) %}
+# USB redirection is enabled.
+usb_redir_port = {{ usb_redir_port | default(8000) }}
+# Optional space-separated list of vendor:product IDs to allow.
+usb_redir_filter = "{{ (usb_redir_filter | default('')) | string }}"
+{% else %}
+# USB redirection is disabled.
+usb_redir_port = 0
+{% endif %}
+
+# =========================================================================
+# Console Defaults
+# =========================================================================
+
+# Console display mode ('text', 'spice', 'none').
+console_mode = "{{ console_mode | default('text') }}"
+
+# Directory to store serial/parallel console logs.
+console_log_path = "{{ console_log_path | default('/var/log/qemu/console') }}"
+
+# =========================================================================
+# Live Migration Settings
+# =========================================================================
+
+# Settings for live VM migration.
+# If empty, migration support is disabled.
+{% if migration | default({}) | length > 0 %}
+# Migration is enabled with custom settings.
+migration_host = "{{ (migration | default({})).host | default('localhost') }}"
+migration_port_min = {{ (migration | default({})).port_min | default(49152) }}
+migration_port_max = {{ (migration | default({})).port_max | default(49216) }}
+{% else %}
+# Migration is disabled; using default port range placeholders.
+migration_host = "{{ 'localhost' }}"
+migration_port_min = {{ 49152 }}
+migration_port_max = {{ 49216 }}
+{% endif %}
+
+# =========================================================================
+# Watchdog Policy
+# =========================================================================
+
+# Action taken when the virtual watchdog timer expires (e.g., reset, shutdown, poweroff, debug).
+watchdog_action = "{{ watchdog_action | default('reset') }}"
+
+# =========================================================================
+# Default Machine Type
+# =========================================================================
+
+# Default machine type (e.g., pc, pc-i440fx-7.2, q35) for VMs without explicit specification.
+{% if default_machine_type | default('pc') %}
+default_machine_type = "{{ default_machine_type | default('pc') }}"
+{% else %}
+# Fallback to standard PC machine type.
+default_machine_type = "pc"
+{% endif %}
+
+# =========================================================================
+# Device Hotplug Support
+# =========================================================================
+
+# Allow adding/removing devices to a running VM (e.g., via QMP).
+{% if device_hotplug | default(true) %}
+allow_device_hotplug = true
+{% else %}
+allow_device_hotplug = false
+{% endif %}
+
+# =========================================================================
+# NUMA Support
+# =========================================================================
+
+# Enable NUMA topology exposure to guests and memory policies.
+{% if numa_enabled | default(false) %}
+# NUMA is enabled.
+# NUMA memory allocation policy (e.g., 'strict', 'interleave', 'bind').
+numa_mode = "{{ numa_mode | default('strict') }}"
+# NUMA memory policy for guest RAM (e.g., 'interleave', 'bind', 'prefer').
+numa_mem_mode = "{{ numa_mem_mode | default('interleave') }}"
+{% else %}
+# NUMA is disabled; VMs will see a single-node topology.
+numa_mode = "none"
+numa_mem_mode = "none"
+{% endif %}

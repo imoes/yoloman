@@ -1,0 +1,84 @@
+{# Axel configuration file #}
+{# System-wide: /etc/axelrc | User-specific: ~/.axelrc #}
+{# Long options only if platform supports getopt_long (e.g., GNU libc) #}
+
+# Maximum number of connections to use per download.
+# desc='Maximum number of connections to use per download.'
+num-connections = {{ (axel | default({})).num_connections | default(4) }}
+
+# Maximum average download speed in bytes per second (0 = unlimited).
+# desc='Maximum average download speed in bytes per second (0 = unlimited).'
+max-speed = {{ (axel | default({})).max_speed | default(0) }}
+
+# Maximum number of HTTP redirections to follow.
+# desc='Maximum number of HTTP redirections to follow.'
+max-redirect = {{ (axel | default({})).max_redirect | default(20) }}
+
+# I/O and connection timeout in seconds.
+# desc='I/O and connection timeout in seconds.'
+timeout = {{ (axel | default({})).timeout | default(30) }}
+
+# Use only IPv4 for connections.
+# desc='Use only IPv4 for connections.'
+{% if (axel | default({})).ipv4 | default(false) %}
+ipv4
+{% endif %}
+
+# Use only IPv6 for connections.
+# desc='Use only IPv6 for connections.'
+{% if (axel | default({})).ipv6 | default(false) %}
+ipv6
+{% endif %}
+
+# Disable all proxy usage.
+# desc='Disable all proxy usage.'
+{% if (axel | default({})).no_proxy | default(false) %}
+no-proxy
+{% endif %}
+
+# Disable SSL/TLS certificate verification.
+# desc='Disable SSL/TLS certificate verification.'
+{% if (axel | default({})).insecure | default(false) %}
+insecure
+{% endif %}
+
+# Skip download if destination file already exists (no state file present).
+# desc='Skip download if destination file already exists (no state file present).'
+{% if (axel | default({})).no_clobber | default(false) %}
+no-clobber
+{% endif %}
+
+# Suppress all stdout output.
+# desc='Suppress all stdout output.'
+{% if (axel | default({})).quiet | default(false) %}
+quiet
+{% else %}
+# Verbosity level (>0 adds verbose lines, one per level).
+# desc='Verbosity level (0 = quiet unless `quiet` is set; >0 adds `verbose` lines, one per level).'
+{% if (axel | default({})).verbose | default(0) > 0 %}
+{% set v_level = (axel | default({})).verbose | default(0) %}
+{% for i in range(v_level) %}
+verbose
+{% endfor %}
+{% endif %}
+{% endif %}
+
+# Enable alternate progress bar display.
+# desc='Enable alternate progress bar display.'
+{% if (axel | default({})).alternate | default(false) %}
+alternate
+{% endif %}
+
+# List of HTTP headers to add (format: "Header: Value").
+# desc='List of HTTP headers to add (format: "Header: Value").'
+{% for header in (axel | default({})).headers | default([]) %}
+header = {{ header }}
+{% endfor %}
+
+# Custom User-Agent string. Leave empty to use default.
+# desc='Custom User-Agent string. Leave empty to use default (includes Axel version and platform).'
+user-agent = {{ (axel | default({})).user_agent | default('') }}
+
+# Default number of mirrors to use when `-S` mirror search is invoked.
+# desc='Default number of mirrors to use when `-S` mirror search is invoked.'
+search = {{ (axel | default({})).search_default | default(0) }}

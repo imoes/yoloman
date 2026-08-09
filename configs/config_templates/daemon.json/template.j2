@@ -1,0 +1,104 @@
+{# ============================================================================== #}
+{# Docker Daemon Configuration Template (daemon.json)                              #}
+{# This template generates a valid JSON configuration file for the Docker daemon.   #}
+{# Every field includes a Jinja2 `default()` filter to ensure safe rendering even    #}
+{# when the corresponding variable is undefined in the Ansible playbook.             #}
+{# Comments correspond to the schema descriptions for self-documentation.           #}
+{# ============================================================================== #}
+{
+  {# registry_mirrors: List of registry mirror URLs (e.g., https://mirror.gcr.io) to try before the default Docker Hub. #}
+  "registry-mirrors": {{ (registry_mirrors | default([])) | tojson }},
+
+  {# insecure_registries: List of registry hostnames (and optionally ports) to allow insecure HTTP or TLS with unverified certificates. #}
+  "insecure-registries": {{ (insecure_registries | default([])) | tojson }},
+
+  {# default_runtime: Name of the default container runtime to use (e.g., runc, nvidia). #}
+  "default-runtime": "{{ default_runtime | default('runc') }}",
+
+  {# runtimes: Additional container runtimes with custom configurations. #}
+  "runtimes": {{ (runtimes | default({})) | tojson }},
+
+  {# storage_driver: Storage driver to use for images and containers (e.g., overlay2, vfs, zfs). #}
+  "storage-driver": "{{ storage_driver | default('overlay2') }}",
+
+  {# storage_opts: Driver-specific options as key-value pairs (e.g., ['overlay2.override_kernel_check=true']). #}
+  "storage-opts": {{ (storage_opts | default([])) | tojson }},
+
+  {# live_restore: Whether to keep containers running when the Docker daemon stops or restarts. #}
+  "live-restore": {{ (live_restore | default(False)) | lower }},
+
+  {# userland_proxy: Whether to use Docker's userland proxy for port mapping (required for some edge cases). #}
+  "userland-proxy": {{ (userland_proxy | default(True)) | lower }},
+
+  {# ipv6: Enable IPv6 networking support (required for IPv6 container addressing). #}
+  "ipv6": {{ (ipv6 | default(False)) | lower }},
+
+  {# fixed_cidr_v6: IPv6 subnet for container allocation when IPv6 is enabled. #}
+  "fixed-cidr-v6": "{{ fixed_cidr_v6 | default('2001:db8:1::/64') }}",
+
+  {# dns: List of DNS server IP addresses to configure inside containers. #}
+  "dns": {{ (dns | default([])) | tojson }},
+
+  {# dns_search: List of DNS search domains to configure inside containers. #}
+  "dns-search": {{ (dns_search | default([])) | tojson }},
+
+  {# labels: List of labels describing node or host characteristics (e.g., ['node=worker1', 'disk=ssd']). #}
+  "labels": {{ (labels | default([])) | tojson }},
+
+  {# log_driver: Default logging driver for containers (e.g., json-file, syslog, journald). #}
+  "log-driver": "{{ log_driver | default('json-file') }}",
+
+  {# log_opts: Logging driver options as key=value pairs (e.g., ['max-size=10m', 'max-file=3']). #}
+  "log-opts": {{ (log_opts | default(['max-size=10m', 'max-file=3'])) | tojson }},
+
+  {# max_concurrent_downloads: Maximum number of concurrent downloads per image pull (higher = faster pulls but more network use). #}
+  "max-concurrent-downloads": {{ (max_concurrent_downloads | default(3)) | int }},
+
+  {# max_concurrent_uploads: Maximum number of concurrent uploads per image push. #}
+  "max-concurrent-uploads": {{ (max_concurrent_uploads | default(5)) | int }},
+
+  {# default_ulimits: Default resource limits (ulimits) for containers (e.g., [{'Name': 'nofile', 'Hard': 65536, 'Soft': 65536}]). #}
+  "default-ulimits": {{ (default_ulimits | default([])) | tojson }},
+
+  {# features: Feature flags to enable experimental containerd features. #}
+  "features": {{ (features | default({})) | tojson }},
+
+  {# max_concurrent_updates: Maximum number of concurrent image update operations (e.g., for Swarm updates). #}
+  "max-concurrent-updates": {{ (max_concurrent_updates | default(1)) | int }},
+
+  {# max_containers: Maximum number of containers allowed to run simultaneously (0 = unlimited). #}
+  "max-containers": {{ (max_containers | default(0)) | int }},
+
+  {# debug: Enable verbose debug logging for troubleshooting. #}
+  "debug": {{ (debug | default(False)) | lower }},
+
+  {# data_root: Root directory for Docker persistent data (images, volumes, etc.). #}
+  "data-root": "{{ data_root | default('/var/lib/docker') }}",
+
+  {# exec_root: Root directory for exec-related temporary files. #}
+  "exec-root": "{{ exec_root | default('/run/docker') }}",
+
+  {# pidfile: Path to the Docker daemon PID file. #}
+  "pidfile": "{{ pidfile | default('/run/docker.pid') }}",
+
+  {# containerd: Path to the containerd socket (typically auto-detected). #}
+  "containerd": "{{ containerd | default('/run/containerd/containerd.sock') }}",
+
+  {# bip: Bridge IP address and CIDR (e.g., 172.17.0.1/16) for the default docker0 bridge network. #}
+  "bip": "{{ bip | default('') }}",
+
+  {# fixed_cidr: IPv4 subnet for Docker-assigned container IPs when using the default bridge. #}
+  "fixed-cidr": "{{ fixed_cidr | default('') }}",
+
+  {# mtu: Maximum Transmission Unit for the default bridge network. #}
+  "mtu": {{ (mtu | default(1500)) | int }},
+
+  {# default_gateway: IPv4 default gateway for containers on the default bridge. #}
+  "default-gateway": "{{ default_gateway | default('') }}",
+
+  {# default_gateway_v6: IPv6 default gateway for containers on the default bridge. #}
+  "default-gateway-v6": "{{ default_gateway_v6 | default('') }}",
+
+  {# bridge: Name of the default bridge interface (use 'none' to disable bridge networking). #}
+  "bridge": "{{ bridge | default('docker0') }}"
+}

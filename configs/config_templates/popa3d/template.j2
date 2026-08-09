@@ -1,0 +1,95 @@
+# =============================================================================
+# popa3d configuration template
+# =============================================================================
+#
+# This template generates the configuration file for popa3d, a POP3 daemon.
+# It covers logging, mail spooling, security (TLS, SASL, chroot), connection
+# limits, and operational parameters.
+#
+# Each directive is preceded by a comment derived from the schema description
+# to ensure the configuration is self-documenting.
+# =============================================================================
+
+# Log verbosity: 0 = silent, 1 = normal, 2 = verbose
+loglevel {{ loglevel | default(1) }}
+
+# Directory where user mailboxes (mbox or maildir) are stored
+spooldir {{ spooldir | default('/var/spool/mail') }}
+
+# System user the POP3 daemon runs as (for privilege dropping)
+daemon_user {{ daemon_user | default('popper') }}
+
+# System group the POP3 daemon runs as (for privilege dropping)
+daemon_group {{ daemon_group | default('mail') }}
+
+# Maximum number of simultaneous client connections
+max_connections {{ max_connections | default(50) }}
+
+# Seconds of inactivity before disconnecting a client
+idle_timeout {{ idle_timeout | default(300) }}
+
+# Enable TLS encryption for secure connections
+tls_enabled {{ tls_enabled | default(True) }}
+
+{% if tls_enabled | default(True) %}
+# Path to TLS certificate file (PEM format)
+tls_certfile {{ tls_certfile | default('/etc/ssl/certs/pop3.crt') }}
+
+# Path to TLS private key file (PEM format)
+tls_keyfile {{ tls_keyfile | default('/etc/ssl/private/pop3.key') }}
+{% endif %}
+
+{% if allowed_hosts | default([]) | length > 0 %}
+# List of permitted client hosts (leave empty to allow all)
+allowed_hosts {{ allowed_hosts | default([]) | join('\n') }}
+{% endif %}
+
+{% if denied_hosts | default([]) | length > 0 %}
+# List of blocked client hosts (leave empty to deny none)
+denied_hosts {{ denied_hosts | default([]) | join('\n') }}
+{% endif %}
+
+# Enable debug mode (logs extensive detail)
+debug {{ debug | default(False) }}
+
+# Enable chroot jail for enhanced security
+chroot_enabled {{ chroot_enabled | default(True) }}
+
+{% if chroot_enabled | default(True) %}
+# Root directory for the chroot jail (must be populated)
+chroot_dir {{ chroot_dir | default('/var/chroot/popper') }}
+{% endif %}
+
+# Enable the POP3 TOP command (allows partial message retrieval)
+top_enabled {{ top_enabled | default(True) }}
+
+# Enable the POP3 UIDL command (unique message identifiers)
+uidl_enabled {{ uidl_enabled | default(True) }}
+
+# Enable SASL authentication (e.g., for PLAIN/LOGIN over TLS)
+sasl_enabled {{ sasl_enabled | default(False) }}
+
+{% if sasl_enabled | default(False) %}
+# Path to SASL password database file
+sasl_db_path {{ sasl_db_path | default('/etc/sasldb2') }}
+{% endif %}
+
+# Log failed login attempts (useful for security auditing)
+log_failed {{ log_failed | default(True) }}
+
+# Maximum failed login attempts before locking the account
+max_failed_attempts {{ max_failed_attempts | default(5) }}
+
+# Seconds to lock out an account after max failed attempts
+lockout_duration {{ lockout_duration | default(600) }}
+
+# Use Maildir format (one file per message) instead of mbox (one file per mailbox)
+maildir_format {{ maildir_format | default(False) }}
+
+# Enable per-user mailbox size quotas
+quota_enabled {{ quota_enabled | default(False) }}
+
+{% if quota_enabled | default(False) %}
+# Directory for quota tracking files
+quota_dir {{ quota_dir | default('/var/spool/quota') }}
+{% endif %}

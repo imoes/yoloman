@@ -1,0 +1,120 @@
+# PostgreSQL Permission Audit Service Configuration
+# This configuration file controls the auditing behavior for database permissions.
+# It defines logging, connection to the PostgreSQL catalog, schema filtering,
+# specific table audit rules, and notification endpoints.
+
+# ==========================================
+# General Audit Settings
+# ==========================================
+
+# Enable or disable permission auditing.
+# When disabled, no audits are performed, but the service remains running.
+# Default: true
+audit_enabled = {{ audit_enabled | default(True) | ternary('yes', 'no') }}
+
+# Absolute path to the directory where permission audit logs are stored.
+# Ensure the service user has write permissions to this directory.
+# Default: /var/log/pg_permissions
+log_directory = {{ log_directory | default('/var/log/pg_permissions') }}
+
+# Maximum size (in megabytes) per log file before it is rotated.
+# Default: 100
+max_log_file_size = {{ max_log_file_size | default(100) }}
+
+# Number of rotated (compressed) log files to keep.
+# Default: 5
+retained_log_files = {{ retained_log_files | default(5) }}
+
+# ==========================================
+# Database Connection Settings
+# ==========================================
+
+# Connection parameters for the PostgreSQL server.
+# These settings allow the audit service to read system catalogs (e.g., pg_authid, pg_class).
+[connection]
+
+# PostgreSQL server host (IP or hostname).
+# Default: localhost
+host = {{ conn_host | default('localhost') }}
+
+# PostgreSQL server port.
+# Default: 5432
+port = {{ conn_port | default(5432) }}
+
+# Database name to connect to.
+# Should contain the system catalog (e.g., 'postgres').
+# Default: postgres
+database = {{ conn_database | default('postgres') }}
+
+# Database user for audit operations.
+# Must have sufficient privileges to read pg_catalog tables.
+# Default: pg_permissions_audit
+user = {{ conn_user | default('pg_permissions_audit') }}
+
+# SSL mode for the connection.
+# Valid values: disable, allow, prefer, require, verify-ca, verify-full.
+# Default: prefer
+sslmode = {{ conn_sslmode | default('prefer') }}
+
+# ==========================================
+# Schema Filtering
+# ==========================================
+
+# Schema filters — only audit tables in these schemas.
+# Tables outside these schemas are ignored.
+# Leave empty to audit all schemas.
+# Default: ['public']
+[schema_filter]
+include_schemas = 
+{% if (include_schemas | default([])) | length > 0 %}
+{% for schema in include_schemas | default([]) %}
+  {{ schema }}
+{% endfor %}
+{% endif %}
+
+# ==========================================
+# Audit Rules
+# ==========================================
+
+# Table-specific audit rules — override defaults per table.
+# Each rule defines whether to enable/disable auditing and the audit mode (e.g., SELECT, ALL) for a specific table.
+# Default: [] (empty, meaning no specific overrides)
+[audit_rules]
+{% for rule in audit_rules | default([]) %}
+# Audit rule for {{ rule.table }} in schema {{ rule.schema }}
+{% if rule.enabled | default(True) %}
+{{ rule.schema }}.{{ rule.table }} = {{ rule.audit_mode | default('ALL') }}
+{% else %}
+# {{ rule.schema }}.{{ rule.table }} = {{ rule.audit_mode | default('ALL') }} (disabled)
+{% endif %}
+{% endfor %}
+
+# ==========================================
+# Notification Endpoints
+# ==========================================
+
+# Notification endpoints (optional)
+# Configure how the service alerts administrators of critical permission changes
+# (e.g., GRANT TO PUBLIC, superuser grants).
+[notifications]
+
+# Enable email alerts for critical permission changes.
+# Default: false
+{% if email_notifications | default(False) %}
+email_enabled = yes
+# List of email addresses to notify when an alert is triggered.
+# Default: [] (empty)
+email_recipients = {{ email_recipients | default([]) | join(', ') }}
+{% else %}
+email_enabled = no
+{% endif %}
+
+# Enable webhook notifications (e.g., Slack, Teams).
+# List of webhook URLs to POST audit events to.
+# Default: [] (empty)
+{% if webhook_urls | default([]) | length > 0 %}
+webhook_enabled = yes
+webhook_urls = {{ webhook_urls | default([]) | join(', ') }}
+{% else %}
+webhook_enabled = no
+{% endif %}

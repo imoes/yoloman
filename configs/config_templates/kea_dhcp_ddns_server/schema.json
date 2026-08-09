@@ -1,0 +1,179 @@
+{
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker threads for handling incoming requests."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [
+      {
+        "ip": "127.0.0.1",
+        "port": 53
+      }
+    ],
+    "description": "List of DNS servers to send DDNS update requests to.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address of the DNS server."
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "UDP/TCP port number of the DNS server."
+      }
+    }
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS zones to manage updates for.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "FQDN of the DNS zone (must end with a dot, e.g., \"example.com.\")."
+      },
+      "key_name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the TSIG key used to authenticate updates (must match a key in kea-dhcp4-server or kea-dhcp6-server)."
+      },
+      "backend": {
+        "type": "string",
+        "default": "memfile",
+        "enum": [
+          "memfile",
+          "mysql",
+          "postgresql"
+        ],
+        "description": "Backend database type for DDNS records (memfile = in-memory, ephemeral; databases = persistent)."
+      },
+      "update_counter": {
+        "type": "object",
+        "optional": true,
+        "description": "Optional: Configuration for per-domain update counters (for monitoring).",
+        "fields": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Name of the update counter."
+          },
+          "key": {
+            "type": "string",
+            "default": "",
+            "description": "Key used to index/update the counter."
+          }
+        }
+      },
+      "dns_servers": {
+        "type": "list",
+        "optional": true,
+        "description": "Override the global DNS servers for this domain only.",
+        "items": {
+          "ip": {
+            "type": "string",
+            "default": ""
+          },
+          "port": {
+            "type": "number",
+            "default": 53
+          }
+        }
+      },
+      "control_channel": {
+        "type": "object",
+        "optional": true,
+        "description": "Optional: Unix socket for per-domain control channel.",
+        "fields": {
+          "socket_name": {
+            "type": "string",
+            "default": "/run/kea/ddns-control-{{ domain.name | replace('.', '_') }}.sock",
+            "description": "Path to Unix control socket."
+          }
+        }
+      }
+    }
+  },
+  "statistics_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval (in seconds) for emitting DDNS statistics. Set to 0 to disable."
+  },
+  "json_pretty_print": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to format JSON output with indentation (helps readability)."
+  },
+  "reconfigure_processing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable/disable dynamic reconfiguration via SIGHUP."
+  },
+  "log_output": {
+    "type": "string",
+    "default": "stderr",
+    "description": "Output destination for logs (stderr, syslog, or file path)."
+  },
+  "log_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum log severity level (messages at this level and above are logged)."
+  },
+  "log_debuglevel": {
+    "type": "number",
+    "default": 99,
+    "description": "Debug level (0\u201399); higher = more verbose. Ignored unless severity is DEBUG."
+  },
+  "log_trace_output": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: Path to trace output file. If empty, trace output goes to main log."
+  },
+  "control_channel": {
+    "type": "object",
+    "optional": true,
+    "description": "Configuration for the main control channel socket.",
+    "fields": {
+      "socket_name": {
+        "type": "string",
+        "default": "/run/kea/ddns-ctrl.sock",
+        "description": "Unix socket path for the control API."
+      }
+    }
+  },
+  "hooks_libraries": {
+    "type": "list",
+    "default": [],
+    "description": "List of shared libraries (hooks) to load.",
+    "items": {
+      "library": {
+        "type": "string",
+        "default": "",
+        "description": "Path or name of the hook library (e.g., \"libdhcp_host_cmds.so\")."
+      },
+      "parameters": {
+        "type": "string",
+        "optional": true,
+        "description": "JSON string of parameters for the library (must be valid JSON)."
+      }
+    }
+  },
+  "lease_file": {
+    "type": "string",
+    "optional": true,
+    "description": "Path to the lease file (only relevant when using file-based backend)."
+  },
+  "max_queue_size": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of pending DNS update requests queued before dropping."
+  },
+  "ttl": {
+    "type": "number",
+    "default": 1200,
+    "description": "Time-to-live (in seconds) for dynamic DNS entries."
+  }
+}

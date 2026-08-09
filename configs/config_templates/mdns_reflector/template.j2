@@ -1,0 +1,117 @@
+# mDNS Reflector Configuration Template
+# This template generates the configuration file for an mDNS reflector service.
+# It supports IPv4 and IPv6 multicast, caching, rate limiting, and domain filtering.
+
+# List of network interfaces on which to listen for mDNS traffic.
+# Default: ['eth0']
+interfaces: {{ interfaces | default(['eth0']) | join(', ') }}
+
+# IPv4 multicast group address used for mDNS (RFC 6762).
+# Default: '224.0.0.251'
+mcast_group: '{{ mcast_group | default("224.0.0.251") }}'
+
+# UDP port to bind for mDNS queries and responses.
+# Default: 5353
+port: {{ port | default(5353) }}
+
+# Enable support for IPv6 mDNS (requires mcast_group_v6).
+# Default: false
+ipv6_enabled: {{ ipv6_enabled | default(false) | lower }}
+
+# IPv6 multicast group address for mDNS (link-local scope).
+# Only used if ipv6_enabled is true.
+# Default: 'ff02::fb'
+{% if ipv6_enabled | default(false) %}
+mcast_group_v6: '{{ mcast_group_v6 | default("ff02::fb") }}'
+{% endif %}
+
+# Maximum time (seconds) to cache positive mDNS responses.
+# Prevents stale responses from propagating.
+# Default: 120
+max_cache_ttl: {{ max_cache_ttl | default(120) }}
+
+# Time (seconds) to cache negative (NXDOMAIN/NODATA) responses.
+# Default: 10
+negative_cache_ttl: {{ negative_cache_ttl | default(10) }}
+
+# Verbosity of logging: debug, info, warn, or error.
+# Default: 'info'
+log_level: '{{ log_level | default("info") }}'
+
+# Path to log file. Leave empty to log to syslog/terminal.
+# Default: ''
+{% if log_file | default('') %}
+log_file: '{{ log_file | default("") }}'
+{% endif %}
+
+# Number of worker threads. 0 = auto-detect (recommended).
+# Default: 0
+{% if worker_threads | default(0) == 0 %}
+worker_threads: auto
+{% else %}
+worker_threads: {{ worker_threads | default(0) }}
+{% endif %}
+
+# Maximum mDNS queries per second per source IP.
+# Set to 0 for no limit.
+# Default: 100
+rate_limit_qps: {{ rate_limit_qps | default(100) }}
+
+# Per-interface rate limits to override global rate_limit_qps.
+# Default: []
+{% if rate_limits_by_iface | default([]) %}
+# Per-interface rate limits (overrides global rate_limit_qps)
+{% for rule in rate_limits_by_iface | default([]) %}
+{% if rule.interface is defined %}
+rate_limit_iface: {{ rule.interface }}:{{ rule.rate_limit_qps }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# List of domain suffixes to exclude from reflection.
+# Example: ["_apple-music._tcp.local", "local", "home.arpa"]
+# Default: []
+{% if blacklist_domains | default([]) %}
+# Blacklisted domains (no mDNS reflection for these)
+{% for domain in blacklist_domains | default([]) %}
+deny_domain: {{ domain }}
+{% endfor %}
+{% endif %}
+
+# If non-empty, only domains in this list will be reflected.
+# Blacklist is ignored when this list is active.
+# Default: []
+{% if whitelist_domains | default([]) %}
+# Whitelisted domains (only these are reflected)
+{% for domain in whitelist_domains | default([]) %}
+allow_domain: {{ domain }}
+{% endfor %}
+{% endif %}
+
+# Reflect service discovery records.
+# Example: _http._tcp.local → http.local
+# Default: true
+service_reflection: {{ service_reflection | default(true) | lower }}
+
+# Reflect PTR records for reverse DNS.
+# Example: .in-addr.arpa / .ip6.arpa
+# Default: true
+ptr_reflection: {{ ptr_reflection | default(true) | lower }}
+
+# TTL (seconds) applied to reflected A/AAAA records.
+# Default: 75
+record_ttl: {{ record_ttl | default(75) }}
+
+# Optional source IP address for outgoing mDNS packets.
+# Useful for multi-homed hosts to specify the source address.
+# Default: ''
+{% if bind_addr | default('') %}
+bind_addr: '{{ bind_addr | default("") }}'
+{% endif %}
+
+# If >0, force this TTL on all reflected records.
+# Ignores original TTL.
+# Default: 0
+{% if override_ttl | default(0) > 0 %}
+ttl_override: {{ override_ttl | default(0) }}
+{% endif %}

@@ -1,0 +1,325 @@
+.bm-shell {
+  display: flex;
+  height: 100vh;
+  // Pin the whole app to the viewport: without this, a nav taller than the
+  // window (Setup expanded) overflows and makes the *document* scroll, so
+  // wheeling anywhere — including over the docked assistant — moved the entire
+  // shell. The only scroll regions are .bm-main and the nav (below).
+  overflow: hidden;
+}
+
+.bm-nav {
+  width: 220px;
+  flex: none;
+  background: var(--bm-black);
+  color: #e6e6e6;
+  display: flex;
+  flex-direction: column;
+  border-top: 5px solid transparent;
+  border-image: var(--bm-tricolor) 1;
+  // A long nav (Setup expanded) scrolls within itself instead of stretching
+  // the document; min-height:0 lets it actually shrink to the flex row.
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.bm-nav-head {
+  padding: 20px 16px 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+// Rastafari signature under the brand block — the tricolour identity rule.
+.bm-nav-head::after {
+  content: '';
+  display: block;
+  height: 3px;
+  margin-top: 10px;
+  border-radius: 2px;
+  background: var(--bm-tricolor);
+}
+
+.bm-brand-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 8px;
+}
+
+.bm-brand {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.bm-brand-sub {
+  font-size: 11px;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.bm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  // 9px (not 10) so the largest workspace tree — Monitor's 11 entries — plus the brand, switcher, title
+  // and footer still fit a 720px viewport without the nav needing its own scrollbar.
+  padding: 9px 16px;
+  color: inherit;
+  text-decoration: none;
+  font-size: 14px;
+  opacity: 0.85;
+  border-left: 3px solid transparent;
+}
+
+.bm-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  opacity: 1;
+}
+
+.bm-nav-item-active {
+  opacity: 1;
+  border-left-color: var(--bm-green);
+  background: rgba(30, 150, 0, 0.12);
+}
+
+.bm-nav-icon {
+  font-size: 20px;
+  width: 20px;
+  height: 20px;
+}
+
+// Workspace switcher — a quiet row of five icons under the brand. It is the ONE control that changes what
+// the source list shows, so it reads as chrome (no colour until active), per design-philosophy §4.
+.bm-ws-bar {
+  display: flex;
+  gap: 2px;
+  padding: 10px 12px 0;
+}
+
+.bm-ws-btn {
+  flex: 1 1 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 0;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  color: inherit;
+  opacity: 0.55;
+  cursor: pointer;
+}
+.bm-ws-btn:hover { opacity: 0.9; background: rgba(255, 255, 255, 0.06); }
+.bm-ws-btn-active {
+  opacity: 1;
+  background: rgba(30, 150, 0, 0.16);
+  box-shadow: inset 0 -2px 0 var(--bm-green);
+}
+
+// The active workspace's name + one-line purpose, so the tree below is never ambiguous.
+.bm-ws-title {
+  padding: 10px 16px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.bm-ws-name {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.55;
+}
+.bm-ws-hint {
+  font-size: 11px;
+  opacity: 0.35;
+}
+
+// Help lives in the footer so it stays one click from anywhere without costing a nav row.
+.bm-help {
+  color: inherit;
+  opacity: 0.7;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 6px;
+}
+.bm-help:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+
+// "Setup" group header — a button styled like a nav item.
+.bm-nav-group {
+  width: 100%;
+  background: none;
+  border: none;
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+}
+
+.bm-nav-caret {
+  margin-left: auto;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+.bm-caret-open { transform: rotate(180deg); }
+
+.bm-logout {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  opacity: 0.7;
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 6px;
+}
+.bm-logout:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+
+// Sub-items under the Setup group get a little extra indent.
+.bm-nav-sub {
+  padding-left: 34px;
+  font-size: 13px;
+}
+
+.bm-nav-footer {
+  margin-top: auto;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 12px;
+}
+
+.bm-user {
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Right side: content area above, the AI chat dock docked below (Block K).
+.bm-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative; // anchor for the Event Console badge
+}
+
+/* Event Console — floating, top-right corner, above page content. */
+.bm-eventconsole {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  z-index: 40;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 9px;
+  border-radius: 20px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover { opacity: 1; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18); }
+
+  &.bm-ec-active {
+    opacity: 1;
+    border-color: color-mix(in srgb, #f9a825 60%, transparent);
+    background: color-mix(in srgb, #f9a825 16%, var(--mat-sys-surface));
+  }
+}
+
+/* Event Browser popup (opened from the header badge) */
+.bm-ebpop-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+.bm-ebpop {
+  position: fixed;
+  top: 4vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, 94vw);
+  height: 90vh;
+  z-index: 1001;
+  background: var(--mat-sys-surface);
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  overflow: auto;
+}
+.bm-ebpop-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  border: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface);
+  color: inherit;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.bm-ebpop-close:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 8%, transparent); }
+
+.bm-ec-badge {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #e53935;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
+
+.bm-main {
+  flex: 1;
+  overflow: auto;
+  background: var(--mat-sys-surface);
+}
+
+/* P5: global Ctrl/Cmd+K fleet-search overlay */
+.bm-gsearch-scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+.bm-gsearch {
+  position: fixed;
+  top: 12vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(760px, 92vw);
+  z-index: 1001;
+}
+.bm-gsearch-hint {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 12px;
+  opacity: 0.6;
+  color: #fff;
+}
+
+/* Print / Save-as-PDF: drop the nav + assistant so only the page content prints. */
+@media print {
+  .bm-nav, app-chat-dock { display: none !important; }
+  .bm-content { margin-left: 0 !important; }
+}

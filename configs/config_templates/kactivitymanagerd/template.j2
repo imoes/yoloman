@@ -1,0 +1,67 @@
+# Systemd service unit for kactivitymanagerd — manages KDE user activities (history, bookmarks, etc.)
+#
+# This template generates a valid systemd user service unit for the KDE Activity Manager daemon.
+# It is self-documenting: every directive is preceded by a comment explaining its purpose
+# and the corresponding schema field's description.
+
+[Unit]
+# Description provided by the system service definition
+Description=User Activity Management Service
+# Documentation link to the manual page for kactivitymanagerd
+Documentation=man:kactivitymanagerd(1)
+# Ensure this service starts only after the graphical session is ready
+After=graphical-session.target
+# Ensure this service is part of the graphical session lifecycle (stops when session ends)
+PartOf=graphical-session.target
+
+[Service]
+# Service type for user sessions: systemd manages the lifecycle based on the session state
+Type=Session
+
+# ExecStart: Absolute path to the kactivitymanagerd executable. Usually installed by the kactivitymanagerd package.
+ExecStart={{ (kactivitymanagerd | default({})).exec_start | default('/usr/bin/kactivitymanagerd') }}
+
+# Environment: Set the Qt Quick Controls style to Plasma for consistent UI rendering
+Environment="QT_QUICK_CONTROLS_STYLE=Plasma"
+# Environment: Flag indicating a full KDE session is active
+Environment="KDE_FULL_SESSION=true"
+# Environment: Version of the KDE session (typically 6 for KDE Plasma 6)
+Environment="KDE_SESSION_VERSION=6"
+
+# EnvironmentFile: Optional file containing additional environment variables.
+# The dash '-' prefix makes it optional (no error if file is missing).
+# Resolved at template render time or left as an Ansible/Jinja variable if needed.
+EnvironmentFile=-@CMAKE_INSTALL_FULL_KDESYSCONFDIR@/environment.d/kactivitymanagerd.conf
+
+# Restart policy: restart the service if it fails unexpectedly
+Restart=on-failure
+# Delay before restarting the service (in seconds) to prevent flapping
+RestartSec=5
+
+# Security hardening: Prevent the service from gaining new privileges
+NoNewPrivileges=true
+# Security hardening: Make the file system read-only, except for paths explicitly allowed
+ProtectSystem=strict
+# Security hardening: Restrict access to home directories
+ProtectHome=read-only
+
+# Security hardening: Explicitly allow read-write access to runtime, cache, and config directories.
+# These paths are derived from the schema fields, ensuring the service can persist state
+# without violating the strict file system protection.
+
+# Runtime directory: Runtime directory for temporary/state files (e.g., IPC sockets).
+# Typically resolved at runtime from XDG_RUNTIME_DIR.
+ReadWritePaths={{ (kactivitymanagerd | default({})).runtime_dir | default('${XDG_RUNTIME_DIR}/kactivitymanagerd') }}
+
+# Cache directory: Cache directory for non-essential persisted data (e.g., thumbnails, transient activity metadata).
+ReadWritePaths={{ (kactivitymanagerd | default({})).cache_dir | default('${XDG_CACHE_HOME}/kactivitymanagerd') }}
+
+# Config directory: Configuration directory for user-specific activity settings and rules.
+ReadWritePaths={{ (kactivitymanagerd | default({})).config_dir | default('${XDG_CONFIG_HOME}/kactivitymanagerd') }}
+
+# Logging: Identifier used for syslog/journal messages, helps in filtering logs
+SyslogIdentifier=kactivitymanagerd
+
+[Install]
+# Install this service so it starts when the graphical session target is reached
+WantedBy=graphical-session.target

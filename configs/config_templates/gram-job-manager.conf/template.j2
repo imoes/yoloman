@@ -1,0 +1,68 @@
+# Globus GRAM Job Manager configuration
+# This file controls the behavior of the Globus GRAM Job Manager service
+# See globus-gram-job-manager(8) and https:// Globus Toolkit documentation for details
+
+# Hostname or IP address to bind to. Leave empty to bind to all interfaces.
+Host: {{ (host | default('')) | trim }}
+
+# TCP port on which the GRAM Job Manager service listens.
+Port: {{ port | default(2119) }}
+
+# Maximum number of simultaneous client connections allowed.
+MaxConnections: {{ max_connections | default(200) }}
+
+# Maximum number of concurrent job management operations (e.g., cancel, status).
+MaxOperations: {{ max_operations | default(100) }}
+
+# Host:port of the GridFTP server used for data staging. Leave empty if not used.
+GridFTPServer: {{ (gridftp_server | default('')) | trim }}
+
+# Timeout in seconds for job submission and status queries.
+Timeout: {{ timeout | default(300) }}
+
+# Enable detailed debug logging for troubleshooting.
+VerboseLogging: {{ verbose_logging | default(False) | lower }}
+
+# Directory for spooling job metadata and temporary files.
+JobSpoolDir: {{ job_spool_dir | default('/var/lib/globus/gram_job_manager/spool') }}
+
+# Maximum number of job state records kept in memory for fast lookup.
+JobStateCacheSize: {{ job_state_cache_size | default(10000) }}
+
+# List of names of resource managers permitted to accept jobs from this manager
+# (e.g., PBS, SLURM).
+AllowedResourceManagers:
+{% for rm in (allowed_resource_managers | default([])) %}  - {{ rm }}
+{% endfor %}
+
+# Enable automatic GSI proxy credential renewal via gssproxy.
+UseCredentialRenewal: {{ use_credential_renewal | default(False) | lower }}
+
+# Path to the gssproxy configuration file (used only if credential renewal is enabled).
+CredentialRenewalConfig: {{ credential_renewal_config | default('/etc/gssproxy/gssproxy.conf') }}
+
+# Environment variables to export to all job processes. Each entry specifies name=value.
+# Entries are expected to be simple strings in the form "KEY=VALUE".
+Environment:
+{% for env_entry in (environment | default([])) %}  {{ env_entry }}
+{% endfor %}
+
+# Scripts to invoke before (pre) or after (post) each job execution.
+# Entries are expected to be objects with 'type' (pre/post) and 'script' (path) keys.
+JobWrappers:
+{% for wrapper in (job_wrappers | default([])) %}
+  {{ wrapper.type }}: {{ wrapper.script }}
+{% endfor %}
+
+# Authentication mechanism. Options: 'proxy' (GSI proxy), 'gridmap' (user mapping),
+# or 'x509_proxy' (direct proxy path).
+AuthMethod: {{ auth_method | default('proxy') }}
+
+# Path to the GSI proxy certificate file (used only when AuthMethod = 'x509_proxy').
+ProxyPath: {{ proxy_path | default('/tmp/x509up_u0') }}
+
+# Enable batch submission of multiple jobs in one request.
+EnableJobAggregation: {{ enable_job_aggregation | default(False) | lower }}
+
+# Maximum number of jobs per aggregation batch (used only if job aggregation is enabled).
+MaxJobsPerBatch: {{ max_jobs_per_batch | default(50) }}

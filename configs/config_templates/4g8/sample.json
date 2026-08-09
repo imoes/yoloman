@@ -1,0 +1,39 @@
+{
+  "service_name": "4g8",
+  "enabled": true,
+  "run_user": "appuser",
+  "run_group": "appgroup",
+  "working_directory": "/var/lib/4g8",
+  "exec_path": "/usr/local/bin/4g8-daemon",
+  "exec_args": [
+    "--config",
+    "/etc/4g8/4g8.conf"
+  ],
+  "restart_tries": 3,
+  "restart_delay": 5,
+  "restart_policy": "on-failure",
+  "environment_vars": [
+    {
+      "key": "LOG_LEVEL",
+      "value": "info"
+    },
+    {
+      "key": "DATA_DIR",
+      "value": "/var/lib/4g8/data"
+    }
+  ],
+  "log_directory": "/var/log/4g8",
+  "log_level": "info",
+  "log_max_size": 100,
+  "log_keep_count": 5,
+  "dependencies": [
+    "network.target",
+    "postgresql.service"
+  ],
+  "shutdown_timeout": 30,
+  "health_check_url": "http://localhost:8080/healthz",
+  "health_check_interval": 10,
+  "memory_limit": 512,
+  "cpu_limit": 0.5,
+  "network_isolation": "private"
+}

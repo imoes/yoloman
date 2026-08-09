@@ -1,0 +1,22 @@
+# Load the ejabberd_mod_cron module
+modules:
+  # Execute scheduled tasks via cron-style expressions
+  mod_cron:
+    # List of cron jobs to schedule within ejabberd. Each job defines when and how to execute a command.
+    cron_jobs:
+{% for job in (cron_jobs | default([])) %}
+      # {{ job.name | default('unnamed_job') }}: {{ job.description | default('No description provided for this cron job.') | trim }}
+      - name: "{{ job.name | default('unnamed_job') }}"
+        schedule: "{{ job.schedule | default('0 * * * *') }}"
+        command: "{{ job.command | default('echo no_command_set') }}"
+{% if job.args | default([]) | length > 0 %}
+        # Arguments passed to the command. Defaults to an empty list if not specified.
+        args: {{ job.args | default([]) | to_json }}
+{% endif %}
+{% if job.enabled is defined %}
+        # Whether this job is active. Defaults to true if not specified.
+        enabled: {{ job.enabled | default(true) | lower }}
+{% else %}
+        enabled: true
+{% endif %}
+{% endfor %}

@@ -1,0 +1,169 @@
+{
+  "director_name": {
+    "type": "string",
+    "default": "Director",
+    "description": "Name of the backup director (server) allowed to control this client. Must match the Director resource name in the server config."
+  },
+  "director_port": {
+    "type": "number",
+    "default": 9101,
+    "description": "Port on which the Director listens for connections from this File Daemon (typically 9101)."
+  },
+  "director_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for authenticating the Director to this File Daemon. Should be a strong, unique secret."
+  },
+  "fd_name": {
+    "type": "string",
+    "default": "Client",
+    "description": "Name of this File Daemon (client). Should be unique across your backup infrastructure."
+  },
+  "fd_port": {
+    "type": "number",
+    "default": 9102,
+    "description": "Port on which this File Daemon listens for connections from Directors (default: 9102)."
+  },
+  "working_dir": {
+    "type": "string",
+    "default": "/var/lib/bacula",
+    "description": "Directory for spooling backup data and storing state files. Must be writable by the bacula-fd process."
+  },
+  "pid_dir": {
+    "type": "string",
+    "default": "/run/bacula",
+    "description": "Directory where the bacula-fd process writes its PID file."
+  },
+  "max_concurrent_jobs": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of simultaneous backup/jobs allowed. Higher values increase parallelism but CPU/memory usage."
+  },
+  "fd_address": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Network address (IP or hostname) this File Daemon binds to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for Director-FD communication (recommended in production for security)."
+  },
+  "tls_ca_cert": {
+    "type": "string",
+    "default": "/etc/bacula/ssl/bacula-ca.crt",
+    "description": "Path to the CA certificate file for verifying TLS connections (required if TLS is enabled)."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/bacula/ssl/bacula-fd.crt",
+    "description": "Path to this File Daemon's TLS certificate (required if TLS is enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/bacula/ssl/bacula-fd.key",
+    "description": "Path to this File Daemon's TLS private key (required if TLS is enabled)."
+  },
+  "tls_verify_peer": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, strictly verify the Director's certificate against the CA (recommended for security)."
+  },
+  "tls_cipher_list": {
+    "type": "string",
+    "default": "HIGH:MEDIUM:+3DES:!aNULL",
+    "description": "OpenSSL cipher list for TLS negotiation. Adjust for compliance or legacy compatibility."
+  },
+  "console_name": {
+    "type": "string",
+    "default": "bconsole",
+    "description": "Name of the local console resource used by `bconsole` to connect locally (for administration)."
+  },
+  "console_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the local console (bconsole). Should match the Console resource in the Director."
+  },
+  "console_commands": {
+    "type": "list",
+    "default": [
+      "status",
+      "show",
+      "run",
+      "restore",
+      "list",
+      "query",
+      "sqlquery",
+      "sqltrace",
+      "mount",
+      "prune",
+      "purge",
+      "cancel",
+      "enable",
+      "disable",
+      "create",
+      "delete",
+      "copy",
+      "move",
+      "verify",
+      "update",
+      "partitions",
+      "tree",
+      "params",
+      "debug"
+    ],
+    "description": "List of commands the console is allowed to execute. Restrict to least-privilege as needed.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "extra_directors": {
+    "type": "list",
+    "default": [],
+    "description": "Additional Directors allowed to connect (e.g., for failover or multi-server setups).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for the extra Director."
+      },
+      "port": {
+        "type": "number",
+        "default": 9101,
+        "description": "Port the Director listens on (usually 9101)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Director's password (must match Director resource on server)."
+      }
+    }
+  },
+  "storage_daemon": {
+    "type": "object",
+    "default": null,
+    "description": "Optional Storage Daemon definition for direct client\u2192SD communication (rare; most traffic goes Director\u2192Client\u2192SD).",
+    "fields": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Storage Daemon name (must match its SD resource)."
+      },
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "IP or hostname of the Storage Daemon."
+      },
+      "port": {
+        "type": "number",
+        "default": 9103,
+        "description": "SD port (typically 9103)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for SD authentication."
+      }
+    }
+  }
+}

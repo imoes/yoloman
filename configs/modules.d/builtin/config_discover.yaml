@@ -1,0 +1,29 @@
+name: config_discover
+fqcn: builtin.config_discover
+collection: builtin
+short_description: Discover the config files this host's enabled services actually
+  use, by parsing each service's systemd unit (systemctl cat) — the ExecStart config
+  arguments (-c/--config/--defaults-file/-f/…), Environ
+description: 'Discover the config files this host''s enabled services actually use,
+  by parsing each service''s systemd unit (systemctl cat) — the ExecStart config arguments
+  (-c/--config/--defaults-file/-f/…), EnvironmentFile=, and paths under known config
+  roots — instead of guessing per package. Returns per-service unit paths + referenced
+  config paths (existing files only), plus a flat, format-guessed list ready to feed
+  the `config` module or the server-as-a-document state. Read-only. Optional `only`:
+  limit to these service names.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: service_facts + a `systemctl cat` loop + unit parsing (the kb-inventory
+  method).
+
+  - Ties into: config (read/write the discovered files), state (manage them as a document).'
+options:
+  only:
+    type: list
+    description: 'Limit discovery to these service names (default: all enabled services).'
+native: true
+writes: false
+runtime: native
+source: agent-registry

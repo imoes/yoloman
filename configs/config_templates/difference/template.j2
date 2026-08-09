@@ -1,0 +1,59 @@
+# difference(1) config
+# This configuration file defines two strings for comparison (diff) and the
+# granularity of the comparison. It optionally includes example invocations.
+
+# ==============================================================================
+# Section: Primary Comparison Strings
+# ==============================================================================
+
+# orig: The original (baseline) string to compare against.
+# Default is an empty string.
+{% if orig is defined %}
+orig: {{ orig | default('') }}
+{% else %}
+orig: {{ '' }}
+{% endif %}
+
+# edit: The modified string to compare against the original.
+# Default is an empty string.
+{% if edit is defined %}
+edit: {{ edit | default('') }}
+{% else %}
+edit: {{ '' }}
+{% endif %}
+
+# ==============================================================================
+# Section: Split/Granularity Mode
+# ==============================================================================
+
+# split: Controls the granularity level of the diff comparison.
+# Valid values are 'char', 'word', or 'line'.
+# Default is 'word'.
+{% if split is defined %}
+split: {{ split | default('word') }}
+{% else %}
+split: {{ 'word' }}
+{% endif %}
+
+# ==============================================================================
+# Section: Example Invocations (Optional)
+# ==============================================================================
+
+# examples: A list of example diff configurations, typically used for
+# documentation, testing, or demonstration purposes.
+# Each item in the list may contain 'orig', 'edit', and 'split'.
+# If the schema variable `examples` is not defined, this section is omitted.
+{% if examples is defined %}
+{% for ex in examples %}
+--- example ---
+{% if ex.orig is defined %}
+orig: {{ ex.orig | default('') }}
+{% endif %}
+{% if ex.edit is defined %}
+edit: {{ ex.edit | default('') }}
+{% endif %}
+{% if ex.split is defined %}
+split: {{ ex.split | default('word') }}
+{% endif %}
+{% endfor %}
+{% endif %}

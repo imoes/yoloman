@@ -1,0 +1,104 @@
+#! /bin/sh
+# ==============================================================================
+# ejabberd Init Script Template
+# ==============================================================================
+# This script manages the ejabberd XMPP server daemon. It is generated from a
+# Jinja2 template to ensure variables are safely injected with defaults.
+#
+# Self-Documenting Fields:
+# - ejabberd_binary_dir : Directory containing the ejabberdctl binary
+# - ejabberd_user       : System user running the ejabberd process
+# - run_directory       : Path for PID files and runtime sockets
+# - short_description   : LSB header short summary
+# - description_line1   : LSB header first description line
+# - description_line2   : LSB header second description line
+# - chkconfig_description : chkconfig header description
+# ==============================================================================
+
+### BEGIN INIT INFO
+# Provides:          ejabberd
+# Required-Start:    $remote_fs $network $named $time
+# Required-Stop:     $remote_fs $network $named $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ short_description | default('Starts ejabberd XMPP server') }}
+# Description:       {{ description_line1 | default('Starts ejabberd XMPP server, an XMPP') }}
+#                    {{ description_line2 | default('compliant server written in Erlang.') }}
+### END INIT INFO
+
+# chkconfig: 2345 90 10
+# description: {{ chkconfig_description | default('ejabberd XMPP server') }}
+
+set -o errexit
+
+. /lib/lsb/init-functions
+
+# Directory where ejabberdctl binary resides
+DIR={{ ejabberd_binary_dir | default('/usr/sbin') }}
+CTL="$DIR"/ejabberdctl
+
+# System user under which ejabberd runs
+USER={{ ejabberd_user | default('ejabberd') }}
+
+# Runtime directory used by ejabberd for pid files and sockets
+EJABBERDRUN={{ run_directory | default('/run/ejabberd') }}
+
+# Check if the control binary exists and is executable
+test -x "$CTL" || {
+	log_daemon_msg "ERROR: ejabberd not found: $DIR"
+	exit 1
+}
+
+# Create the runtime directory if it does not exist
+mkrundir()
+{
+	if [ ! -d $EJABBERDRUN ]; then
+		mkdir -p $EJABBERDRUN
+		if [ $? -ne 0 ]; then
+			log_daemon_msg -n " failed"
+			return
+		fi
+		chmod 0755 $EJABBERDRUN
+		chown {{ ejabberd_user | default('ejabberd') }}:{{ ejabberd_user | default('ejabberd') }} $EJABBERDRUN
+	fi
+}
+
+# Ensure standard system binaries are in PATH
+export PATH="${PATH:+$PATH:}/usr/sbin:/sbin"
+
+case "$1" in
+  start)
+    test -x "$CTL" || exit 0
+    mkrundir
+    log_daemon_msg "Starting ejabberd..."
+    if ! /etc/init.d/ejabberd status > /dev/null; then
+	su - $USER -c "$CTL start"
+	su - $USER -c "$CTL started"
+    fi
+    log_daemon_msg "done."
+    ;;
+  stop)
+    test -x "$CTL" || exit 0
+    log_daemon_msg "Stopping ejabberd..."
+    if $CTL status >/dev/null || test $? = 1 ; then
+	su - $USER -c "$CTL stop"
+	su - $USER -c "$CTL stopped"
+    fi
+    log_daemon_msg "done."
+    ;;
+  status)
+    test -x "$CTL" || exit 0
+    log_daemon_msg "Getting ejabberd status..."
+    su - $USER -c "$CTL status"
+    ;;
+  force-reload|restart)
+    "$0" stop
+    "$0" start
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|force-reload|status}"
+    exit 3
+    ;;
+esac
+
+exit 0

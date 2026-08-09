@@ -1,0 +1,15 @@
+{# Claws Mail managesieve plugin configuration #}
+{% for account in accounts %}
+# Sieve configuration for account "{{ account.name }}"
+{% if account.sieve_enabled %}
+sieve_server={{ account.sieve_host }}
+sieve_port={{ account.sieve_port | default(4190) }}
+sieve_user={{ account.sieve_user | default(account.email) }}
+sieve_auth_method={{ account.sieve_auth_method | default('plain') }}
+{% if account.sieve_tls is defined and account.sieve_tls %}
+sieve_tls=yes
+{% else %}
+sieve_tls=no
+{% endif %}
+{% endif %}
+{% endfor %}

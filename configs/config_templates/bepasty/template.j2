@@ -1,0 +1,49 @@
+# Base URL where bepasty will be publicly accessible (including protocol, e.g., https://paste.example.com)
+BASE_URL = '{{ base_url | default("http://localhost:5000") }}'
+
+# Absolute filesystem path where uploaded files are stored
+UPLOAD_DIR = '{{ upload_dir | default("/var/lib/bepasty/uploads") }}'
+
+# Random, cryptographically secure secret key used for signing sessions and tokens. Must be generated and kept secret.
+SECRET_KEY = '{{ secret_key | default("") }}'
+
+# Enable the public file upload form (anyone can upload if not rate-limited)
+PUBLIC_ENABLED = {{ public_enabled | default(true) | lower }}
+
+# Enable file listing for authenticated users (e.g., admins)
+LISTING_ENABLED = {{ listing_enabled | default(false) | lower }}
+
+# Default upload expiration time in seconds (e.g., 86400 = 24 hours). Use 0 for no expiration.
+DEFAULT_EXPIRATION = {{ default_expiration | default(86400) }}
+
+# Maximum allowed file size in bytes (e.g., 104857600 = 100 MB). Use 0 for unlimited.
+MAX_FILE_SIZE = {{ max_file_size | default(104857600) }}
+
+# List of allowed MIME types. Empty list = allow all types. Example: ['text/plain', 'image/png', 'application/pdf']
+# The list is converted to a Python tuple syntax for bepasty config compatibility: ('type1', 'type2')
+ALLOWED_MIME_TYPES = (
+{%   for m in (allowed_mime_types | default([]) | sort) %}    '{{ m }}',
+{%   endfor %}
+)
+
+# List of MIME types that should be displayed inline in the browser instead of forcing download.
+# The list is converted to a Python tuple syntax for bepasty config compatibility.
+INLINE_MIME_TYPES = (
+{%   for m in (inline_mime_types | default(['text/plain', 'image/png', 'image/jpeg', 'image/gif', 'text/html']) | sort) %}    '{{ m }}',
+{%   endfor %}
+)
+
+# Database connection URI (SQLite, PostgreSQL, etc.). Example: 'postgresql://user:pass@localhost/bepasty'
+DATABASE_URL = '{{ database_url | default("sqlite:////var/lib/bepasty/bepasty.db") }}'
+
+# IP address to bind the HTTP server to. Use '0.0.0.0' to listen on all interfaces.
+HOST = '{{ host | default("0.0.0.0") }}'
+
+# Port number for the HTTP server.
+PORT = {{ port | default(5000) }}
+
+# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+LOG_LEVEL = '{{ log_level | default("INFO") }}'
+
+# Path to log file. Leave empty to log to stderr instead.
+LOG_FILE = '{{ log_file | default("") }}'

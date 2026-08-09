@@ -1,0 +1,25 @@
+# kpropd ACL Configuration
+# Allows specifying Kerberos principals permitted to receive database replication.
+# Each entry defines a principal and an optional pattern type (exact, wildcard, suffix).
+# Default: empty list, meaning no principals are allowed by this file (system default ACLs may apply).
+
+{% for entry in acls | default([]) %}
+# {{ entry.description | default('ACL entry for Kerberos replication') }}
+# Principal: {{ entry.principal | default('unknown') }}
+# Pattern: {{ entry.pattern | default('exact') }}
+
+{% set pattern = entry.pattern | default('exact') %}
+{% if pattern == 'exact' %}
+# Match the principal name exactly as specified.
+{{ entry.principal }} *
+{% elif pattern == 'wildcard' %}
+# Match using wildcard patterns (e.g., host/*).
+{{ entry.principal }} *
+{% elif pattern == 'suffix' %}
+# Match principals ending with the specified suffix.
+{{ entry.principal }} *
+{% else %}
+# Default to exact match if pattern is undefined or invalid.
+{{ entry.principal }} *
+{% endif %}
+{% endfor %}

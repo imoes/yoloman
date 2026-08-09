@@ -1,0 +1,213 @@
+{
+  "database": {
+    "type": "object",
+    "default": {
+      "type": "SQLite",
+      "sqlite": {
+        "path": "~/.local/share/quassel-irc.org/quassel-storage.sqlite"
+      },
+      "postgres": {
+        "host": "localhost",
+        "port": 5432,
+        "name": "quassel",
+        "user": "quassel",
+        "password": "",
+        "ssl_mode": "prefer"
+      }
+    },
+    "description": "Database configuration: choose SQLite (local file) or PostgreSQL (remote/db server)",
+    "items": {
+      "type": "string",
+      "enum": [
+        "SQLite",
+        "PostgreSQL"
+      ],
+      "description": "Database backend type"
+    }
+  },
+  "database.sqlite": {
+    "type": "object",
+    "default": {
+      "path": "~/.local/share/quassel-irc.org/quassel-storage.sqlite"
+    },
+    "description": "SQLite-specific settings",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Path to SQLite database file"
+      }
+    }
+  },
+  "database.postgres": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 5432,
+      "name": "quassel",
+      "user": "quassel",
+      "password": "",
+      "ssl_mode": "prefer"
+    },
+    "description": "PostgreSQL-specific settings",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "PostgreSQL server hostname or IP"
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "PostgreSQL server port"
+      },
+      "name": {
+        "type": "string",
+        "description": "Database name"
+      },
+      "user": {
+        "type": "string",
+        "description": "Database username"
+      },
+      "password": {
+        "type": "string",
+        "format": "password",
+        "description": "Database password (avoid storing in config; use environment or secure vault)"
+      },
+      "ssl_mode": {
+        "type": "string",
+        "enum": [
+          "disable",
+          "allow",
+          "prefer",
+          "require",
+          "verify-ca",
+          "verify-full"
+        ],
+        "description": "SSL mode for PostgreSQL connection"
+      }
+    }
+  },
+  "core": {
+    "type": "object",
+    "default": {
+      "bind_address": "*",
+      "port": 4242,
+      "use_ssl": false,
+      "ssl_cert_file": "~/.config/quassel-irc.org/quasselCore.crt",
+      "ssl_pkey_file": "~/.config/quassel-irc.org/quasselCore.key",
+      "max_connections": 10,
+      "use_compression": true
+    },
+    "description": "Core service (backend) settings \u2014 used when this client runs as a core in distributed mode"
+  },
+  "ui.networks": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Libera Chat",
+        "servers": [
+          {
+            "host": "irc.libera.chat",
+            "port": 6697,
+            "use_ssl": true
+          }
+        ],
+        "user": "quassel",
+        "nick": "quassel_",
+        "alt_nicks": [
+          "quassel__",
+          "quassel___"
+        ],
+        "real_name": "Quassel IRC User",
+        "auto_connect": true,
+        "auto_join": [
+          "#quassel",
+          "#general"
+        ]
+      }
+    ],
+    "description": "List of IRC networks to connect to by default",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Display name of the network"
+        },
+        "servers": {
+          "type": "list",
+          "description": "List of servers (host:port:ssl) for failover; ssl=1 for SSL/TLS",
+          "items": {
+            "type": "object",
+            "fields": {
+              "host": {
+                "type": "string",
+                "description": "IRC server hostname"
+              },
+              "port": {
+                "type": "number",
+                "default": 6667,
+                "description": "Server port (6697 common for SSL)"
+              },
+              "use_ssl": {
+                "type": "bool",
+                "default": false,
+                "description": "Use SSL/TLS for this server"
+              }
+            }
+          }
+        },
+        "user": {
+          "type": "string",
+          "description": "Username/ident (usually lowercase)"
+        },
+        "nick": {
+          "type": "string",
+          "description": "Primary IRC nickname"
+        },
+        "alt_nicks": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "description": "Comma-separated fallback nicks"
+        },
+        "real_name": {
+          "type": "string",
+          "description": "Real name (GECOS) shown in /whois"
+        },
+        "auto_connect": {
+          "type": "bool",
+          "default": true,
+          "description": "Connect automatically on startup"
+        },
+        "auto_join": {
+          "type": "list",
+          "items": {
+            "type": "string"
+          },
+          "description": "Channels to auto-join on connect"
+        }
+      }
+    }
+  },
+  "ui.geometry": {
+    "type": "string",
+    "default": "800x600+100+100",
+    "description": "Main window size and position in the format WxH+X+Y"
+  },
+  "ui.show_sidebar": {
+    "type": "bool",
+    "default": true,
+    "description": "Show the sidebar with network/channel list by default"
+  },
+  "ui.buffer_view": {
+    "type": "string",
+    "default": "combined",
+    "description": "Buffer view layout: 'combined' (default), 'separate', or 'hierarchical'"
+  },
+  "ui.store_passwords": {
+    "type": "bool",
+    "default": false,
+    "description": "Store network passwords in config file (insecure \u2014 enable only if no secure storage available)"
+  }
+}

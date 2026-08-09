@@ -1,0 +1,48 @@
+{
+  "commands": [
+    {
+      "type": "connection",
+      "connections": [
+        {
+          "name": "office-vpn",
+          "host": "vpn.example.com",
+          "identity": "client@example.com",
+          "remote_identity": "vpn.example.com",
+          "profile": "ikev2-pub",
+          "cert": [
+            "/etc/ipsec.d/certs/ca-cert.pem",
+            "/etc/ipsec.d/certs/office-ca.crt"
+          ],
+          "rsa": "/etc/ipsec.d/private/client-key.pem",
+          "local_ts": "10.0.1.0/24",
+          "remote_ts": "10.0.2.0/24",
+          "ike_proposal": [
+            "aes256-sha256-modp3072",
+            "chacha20poly1305-sha512-modp4096"
+          ],
+          "esp_proposal": [
+            "aes256gcm16",
+            "chacha20poly1305"
+          ],
+          "version": 2
+        },
+        {
+          "name": "branch-xauth",
+          "host": "192.0.2.10",
+          "identity": "mobile@company.org",
+          "profile": "ikev1-xauth-psk",
+          "eap_identity": "mobile@company.org",
+          "xauth_username": "mobileuser",
+          "remote_ts": "192.168.0.0/16",
+          "ike_proposal": [
+            "aes128-sha1-modp1024"
+          ],
+          "esp_proposal": [
+            "aes128-sha1"
+          ],
+          "version": 1
+        }
+      ]
+    }
+  ]
+}

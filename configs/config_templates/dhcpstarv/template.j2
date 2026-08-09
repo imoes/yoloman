@@ -1,0 +1,60 @@
+# dhcpstarv configuration
+# This template configures the runtime options for the dhcpstarv DHCP starvation attack tool.
+# It translates Ansible variables into command-line arguments.
+
+# Network interface to send requests and receive responses on.
+# Required for dhcpstarv to operate; maps to -i/--ifname.
+{% if interface is defined %}
+interface={{ interface }}
+{% else %}
+interface=eth0
+{% endif %}
+
+# Destination MAC address for DHCP requests.
+# Empty string (default) uses broadcast. Maps to -d/--dstmac.
+{% if dstmac is defined %}
+dstmac={{ dstmac }}
+{% else %}
+dstmac=
+{% endif %}
+
+# List of server IP addresses to ignore during the attack.
+# Maps to -e/--exclude. Each address is added as a separate exclude flag.
+{% if exclude_servers is defined and exclude_servers | length > 0 %}
+exclude_servers={{ exclude_servers | join(' ') }}
+{% else %}
+exclude_servers=
+{% endif %}
+
+# Promiscuous mode setting for the network interface.
+# True (default) sets promiscuous mode (-p). False disables it (--no-promisc).
+{% if promiscuous is defined %}
+{% if promiscuous %}
+promiscuous=on
+{% else %}
+promiscuous=off
+{% endif %}
+{% else %}
+promiscuous=on
+{% endif %}
+
+# Verbose output setting.
+# True (default for some versions, but schema says False) enables verbose output (-v).
+# Schema default is False.
+{% if verbose is defined %}
+{% if verbose %}
+verbose=on
+{% else %}
+verbose=off
+{% endif %}
+{% else %}
+verbose=off
+{% endif %}
+
+# Additional configuration lines passed as a list.
+# Useful for any other flags not explicitly covered above.
+{% if config_lines is defined %}
+{% for line in config_lines %}
+{{ line }}
+{% endfor %}
+{% endif %}

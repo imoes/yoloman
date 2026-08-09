@@ -1,0 +1,44 @@
+<IfModule mod_gridsite.c>
+
+# Document root directory for GridSite content.
+# Default: /var/lib/gridsite/
+<Directory "{{ gridsite_document_root | default('/var/lib/gridsite/') }}">
+  # Enable SSL options: export certificate data and standard environment variables.
+  SSLOptions             +ExportCertData +StdEnvVars
+
+  # Enable GACL (Grid Access Control List) authorization for this server.
+  GridSiteAuth           on
+
+  # Export various bits of info into CGI environment variables (needed for gridsite-admin.cgi).
+  GridSiteEnvs           on
+
+  # Enable nice GridSite directory listings.
+  GridSiteIndexes        on
+
+  # Enable HTML formatting replacement using header/footer files.
+  # When on, GridSite looks for header and footer files to replace <body> and </body> tags.
+  GridSiteHtmlFormat     on
+
+  # Filename (or absolute path) for the standard HTML header file.
+  # If not absolute, the directory of the HTML page and its parents are searched.
+  # Default: gridsitehead.txt
+  # Header files are inserted in place of HTML <body[ ...]> tags.
+  GridSiteHeadFile       "{{ gridsite_header_file | default('gridsitehead.txt') }}"
+
+  # Filename (or absolute path) for the standard HTML footer file.
+  # If not absolute, the directory of the HTML page and its parents are searched.
+  # Default: gridsitefoot.txt
+  # Footer files are inserted in place of </body> tags.
+  GridSiteFootFile       "{{ gridsite_footer_file | default('gridsitefoot.txt') }}"
+
+  # Maximum number of GSI proxies allowed in delegation chain.
+  # 0 disables proxy support. Full client certificates are always accepted.
+  # Default: 9
+  GridSiteGSIProxyLimit  {{ gridsite_gsi_proxy_limit | default(9) }}
+
+  # Allow authorized people to write/delete files from non-browser clients (e.g. with htcp(1)).
+  GridSiteMethods        GET PUT DELETE MOVE POST
+
+</Directory>
+
+</IfModule>

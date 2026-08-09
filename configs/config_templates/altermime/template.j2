@@ -1,0 +1,159 @@
+# AlterMIME configuration file
+# This file controls MIME scanning, message body modification (disclaimers, replacements),
+# quarantine of suspicious messages, and privilege separation.
+# It follows the altermime.conf(5) syntax: blocks use curly braces, directives are key=value.
+
+# ---------------------------------------------------------------------------
+# General settings: control the core behavior of the altermime process.
+# ---------------------------------------------------------------------------
+altermime {
+    # Enable or disable MIME scanning and modification.
+    # When false, altermime acts as a pass-through and does not modify messages.
+    enabled = {{ (enabled | default(true)) | lower }}
+
+    # Maximum message body size (in bytes) to scan.
+    # Set to 0 for unlimited scanning. Messages larger than this are passed through.
+    max_body_size = {{ max_body_size | default(0) }}
+
+    # Log verbosity level:
+    #   0 = quiet (no output),
+    #   1 = errors only,
+    #   2 = warnings,
+    #   3 = info,
+    #   4 = debug.
+    log_level = {{ log_level | default(2) }}
+
+    # Path to a log file.
+    # Leave empty (or unset) to log to standard error (stderr), which is typical
+    # when running under a mail transfer agent or systemd service.
+    log_file = {{ log_file | default('') | tojson }}
+
+    # Timeout in seconds to wait for external filter processes before killing them.
+    # Prevents altermime from hanging indefinitely if an external scanner hangs.
+    filter_timeout = {{ filter_timeout | default(60) }}
+}
+
+# ---------------------------------------------------------------------------
+# Replacement rules: insert disclaimers, strip signatures, or modify content.
+# ---------------------------------------------------------------------------
+# Each rule defined in the replacement_rules list produces a repl block.
+{% for rule in (replacement_rules | default([])) %}
+# Replacement rule: {{ rule.name | default('unnamed_rule_' ~ loop.index) }}
+# Description: {{ rule.description | default('') }}
+{% if rule.enabled | default(true) %}
+repl {{ rule.type | default('text') }} {
+    # MIME type pattern (shell-style glob like *.html, or regex prefixed with 're:')
+    # This pattern matches the MIME type of the message part to process.
+    pattern = {{ rule.pattern | default('*') | tojson }}
+
+    # Replacement text to insert. Use \n for line breaks and \t for tabs.
+    text = {{ rule.text | default('') | tojson }}
+
+    # Optional: prepend or append custom headers to the modified message.
+    {% if rule.headers is defined and rule.headers %}
+    # Custom headers to add:
+    headers = {{ rule.headers | map(attribute='name') | join(', ') | tojson }}
+    {% for hdr in rule.headers %}
+    header_{{ loop.index }}_name = {{ hdr.name | default('') | tojson }}
+    header_{{ loop.index }}_value = {{ hdr.value | default('') | tojson }}
+    {% endfor %}
+    {% else %}
+    # No custom headers defined for this rule.
+    {% endif %}
+}
+{% else %}
+# Rule {{ rule.name | default(loop.index) }} is disabled; skipping.
+{% endif %}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Quarantine settings: storage for messages that require special handling.
+# ---------------------------------------------------------------------------
+quarantine {
+    # Enable quarantine feature.
+    # When true, messages matching reject or quarantine actions in external filters
+    # are moved to base_dir instead of being dropped.
+    enabled = {{ (quarantine | default({})).enabled | default(false) | lower }}
+
+    # Base directory for quarantined messages.
+    # Ensure this directory exists and is writable by the altermime user.
+    base_dir = {{ (quarantine | default({})).base_dir | default('/var/spool/altermime/quarantine') | tojson }}
+
+    # Retention period in days before auto-deletion of quarantined messages.
+    # Set to 0 to keep messages forever.
+    retention_days = {{ (quarantine | default({})).retention_days | default(30) }}
+
+    # Permission mask (octal string) for quarantined files.
+    file_mode = {{ (quarantine | default({})).file_mode | default('0640') | tojson }}
+
+    # Group ownership for quarantined files.
+    group = {{ (quarantine | default({})).group | default('mail') | tojson }}
+
+    # User ownership for quarantined files.
+    user = {{ (quarantine | default({})).user | default('mail') | tojson }}
+}
+
+# ---------------------------------------------------------------------------
+# External filter commands: integration with third-party scanners (e.g., ClamAV).
+# ---------------------------------------------------------------------------
+# Each item in external_filters produces an ext_filter block.
+# The filter command receives the message on stdin and must output the modified
+# message on stdout, returning exit status to indicate action (pass/quarantine/reject).
+{% for filter in (external_filters | default([])) %}
+# External filter: {{ filter.name | default('unnamed_filter_' ~ loop.index) }}
+# Description: {{ filter.description | default('') }}
+{% if filter.enabled | default(true) %}
+ext_filter {{ filter.name | default('unnamed_filter_' ~ loop.index) }} {
+    # Command to run. Must accept the message on stdin and write result to stdout.
+    command = {{ filter.command | default('') | tojson }}
+
+    # Input MIME types this filter applies to (comma-separated, or '*' for all).
+    input_types = {{ (filter.input_types | default([])) | join(', ') | tojson }}
+
+    # Action on scan result: pass, quarantine, reject, replace.
+    action = {{ filter.action | default('pass') | tojson }}
+
+    # Optional: custom text to use for replacement (only used if action=replace).
+    {% if filter.action == 'replace' %}
+    replacement_text = {{ filter.replacement_text | default('') | tojson }}
+    {% endif %}
+}
+{% else %}
+# Filter {{ filter.name | default(loop.index) }} is disabled; skipping.
+{% endif %}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# MIME type overrides: remap MIME types for safety or policy compliance.
+# ---------------------------------------------------------------------------
+# Each item in mime_overrides produces a mime_override block.
+# This is useful for treating executable types (e.g., application/javascript)
+# as text/plain to prevent client-side execution via email.
+{% for mapping in (mime_overrides | default([])) %}
+# MIME override: {{ mapping.description | default('unnamed_override_' ~ loop.index) }}
+{% if mapping.enabled | default(true) %}
+mime_override {{ mapping.source_type | default('') }} {
+    # Replace the source MIME type with this target type.
+    target_type = {{ mapping.target_type | default('') | tojson }}
+}
+{% else %}
+# Mapping {{ mapping.source_type | default(loop.index) }} is disabled; skipping.
+{% endif %}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Security and access control: privilege separation and sandboxing.
+# ---------------------------------------------------------------------------
+security {
+    # Drop privileges to this user after initialization.
+    # This limits the blast radius if altermime is compromised.
+    user = {{ (security | default({})).user | default('altermime') | tojson }}
+
+    # Drop privileges to this group after initialization.
+    group = {{ (security | default({})).group | default('altermime') | tojson }}
+
+    # Restrict file system access to a chroot jail.
+    # Leave empty to disable chroot. The directory must exist and contain
+    # necessary binaries and libraries.
+    chroot = {{ (security | default({})).chroot | default('') | tojson }}
+}

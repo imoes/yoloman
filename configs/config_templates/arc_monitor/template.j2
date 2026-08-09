@@ -1,0 +1,76 @@
+# ==============================================================================
+# ARC LDAP Monitor Web Application — Configuration Template
+# ==============================================================================
+# This file configures the ARC monitor web service. It binds to a TCP address,
+# serves static/CGI content, monitors LDAP directories, and optionally secures
+# traffic with SSL/TLS and HTTP Basic Auth.
+# ==============================================================================
+
+# IP address the web service binds to (e.g., 0.0.0.0 for all interfaces).
+listen_address: {{ listen_address | default('0.0.0.0') }}
+
+# TCP port the web service listens on.
+listen_port: {{ listen_port | default(8080) }}
+
+# Path to the root directory containing HTML/CGI files.
+web_root: {{ web_root | default('/var/lib/arc/monitor/www') }}
+
+# Maximum number of simultaneous HTTP connections handled.
+max_connections: {{ max_connections | default(100) }}
+
+# Enable verbose debug logging if true.
+debug: {{ debug | default(false) | ternary('true', 'false') }}
+
+# Path to the log file. If empty, log to stdout.
+log_file: {{ log_file | default('') }}
+
+# List of LDAP servers to monitor. At least one required.
+# Each item in ldap_servers is a mapping with keys: url, binddn, bindpw, basedn, timeout, version, starttls.
+{% for ldap_server in (ldap_servers | default([])) %}
+# LDAP server configuration entry
+ldap_server:
+  # URL of the LDAP server (e.g., ldap://localhost:389 or ldaps://ldap.example.com)
+  url: {{ (ldap_server | default({})).url | default('') }}
+  # Bind DN used to connect to the LDAP server
+  binddn: {{ (ldap_server | default({})).binddn | default('') }}
+  # Bind password used to authenticate to the LDAP server
+  bindpw: {{ (ldap_server | default({})).bindpw | default('') }}
+  # Base DN for search operations (e.g., dc=example,dc=com)
+  basedn: {{ (ldap_server | default({})).basedn | default('') }}
+  # Connection timeout in seconds
+  timeout: {{ (ldap_server | default({})).timeout | default(10) }}
+  # LDAP protocol version (2 or 3)
+  version: {{ (ldap_server | default({})).version | default(3) }}
+  # Enable StartTLS upgrade for the connection
+  starttls: {{ (ldap_server | default({})).starttls | default(false) | ternary('true', 'false') }}
+{% endfor %}
+
+# Interval (in seconds) between LDAP data refreshes.
+refresh_interval: {{ refresh_interval | default(300) }}
+
+# Enable HTTPS for the web service.
+ssl_enabled: {{ ssl_enabled | default(false) | ternary('true', 'false') }}
+
+{% if (ssl_enabled | default(false)) %}
+# Path to SSL certificate file (required if ssl_enabled is true).
+ssl_cert_file: {{ ssl_cert_file | default('/etc/ssl/certs/arc-monitor.crt') }}
+# Path to SSL private key file (required if ssl_enabled is true).
+ssl_key_file: {{ ssl_key_file | default('/etc/ssl/private/arc-monitor.key') }}
+{% endif %}
+
+# List of allowed hostnames in the Host header (prevents host header attacks).
+allowed_hosts: {{ (allowed_hosts | default(['localhost', '127.0.0.1'])) | join(', ') }}
+
+# Enable directory listing if no index file is found.
+allow_directory_listing: {{ allow_directory_listing | default(false) | ternary('true', 'false') }}
+
+# Public base URL of this monitor instance (used in links/notifications).
+base_url: {{ base_url | default('https://monitor.example.com') }}
+
+# Authentication method for web interface access (none, basic, ldap).
+auth_type: {{ auth_type | default('none') }}
+
+{% if (auth_type | default('none')) == 'basic' %}
+# Path to htpasswd file (used only if auth_type = 'basic').
+htpasswd_file: {{ htpasswd_file | default('/etc/arc/monitor.htpasswd') }}
+{% endif %}

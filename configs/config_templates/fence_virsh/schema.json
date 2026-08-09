@@ -1,0 +1,77 @@
+{
+  "hypervisor_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the KVM/libvirt hypervisor where the VM to be fenced resides."
+  },
+  "login_username": {
+    "type": "string",
+    "default": "root",
+    "description": "SSH or libvirt username for authentication to the hypervisor."
+  },
+  "login_password": {
+    "type": "string",
+    "default": "",
+    "description": "SSH/libvirt password (only use if SSH keys are unavailable \u2014 insecure). Leave empty to use key-based auth."
+  },
+  "ssh_key_file": {
+    "type": "string",
+    "default": "/root/.ssh/id_rsa",
+    "description": "Path to the SSH private key used to authenticate to the hypervisor. Must be readable by the fence agent."
+  },
+  "ssh_port": {
+    "type": "number",
+    "default": 22,
+    "description": "SSH port on the hypervisor."
+  },
+  "operation_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to wait for a single fence operation (e.g., VM power status check) before timing out."
+  },
+  "retry_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry a failed fence operation."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 2,
+    "description": "Seconds to wait between retry attempts."
+  },
+  "vms": {
+    "type": "list",
+    "default": [],
+    "description": "List of VMs (guests) this fence agent instance controls. Each item maps a logical fence device name to a guest identifier.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "guest_name": {
+          "type": "string",
+          "description": "Name or UUID of the VM (as known to libvirt) to fence.",
+          "required": true
+        }
+      }
+    }
+  },
+  "tls_verify": {
+    "type": "number",
+    "default": 1,
+    "description": "Whether to verify TLS certificates when connecting via qemu+tls://. Set to 0 to disable (not recommended)."
+  },
+  "use_tls": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, use TLS-encrypted libvirt connection (qemu+tls://) instead of SSH (qemu+ssh://). Requires valid TLS setup."
+  },
+  "libvirt_uri": {
+    "type": "string",
+    "default": "",
+    "description": "Full libvirt URI to override default connection logic (e.g., 'qemu+ssh://admin@hypervisor.example.com/system'). If set, host/port/use_tls are ignored."
+  },
+  "subsystem": {
+    "type": "string",
+    "default": "system",
+    "description": "Libvirt subsystem to connect to (usually 'system' for system-wide libvirtd)."
+  }
+}

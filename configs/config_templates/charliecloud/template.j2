@@ -1,0 +1,85 @@
+{# ============================================================ #}
+{# Charliecloud global configuration file (ch.conf)              #}
+{# Self-documenting Jinja2 template.                             #}
+{# All variables use | default() to ensure safe rendering.       #}
+{# ============================================================ #}
+
+{# Enable debug logging for all Charliecloud commands. #}
+{% if debug | default(false) %}debug
+{% endif %}
+
+{# Path to the image build directory (build cache). If empty, defaults to ~/.local/share/charliecloud/build. #}
+{% set _build_dir = build_dir | default('') %}
+{% if _build_dir %}build_dir {{ _build_dir }}
+{% endif %}
+
+{# Path to the image cache directory (used by ch-image). If empty, defaults to ~/.local/share/charliecloud/cache. #}
+{% set _cache_dir = cache_dir | default('') %}
+{% if _cache_dir %}cache_dir {{ _cache_dir }}
+{% endif %}
+
+{# Path to the image directory (where images are built and stored). If empty, defaults to ~/.local/share/charliecloud/images. #}
+{% set _image_dir = image_dir | default('') %}
+{% if _image_dir %}image_dir {{ _image_dir }}
+{% endif %}
+
+{# Path to the temporary directory. If empty, defaults to system temp directory (TMPDIR env var or /tmp). #}
+{% set _tmp_dir = tmp_dir | default('') %}
+{% if _tmp_dir %}tmp_dir {{ _tmp_dir }}
+{% endif %}
+
+{# Disable use of the build cache (always rebuild from scratch). #}
+{% if no_cache | default(false) %}no_cache
+{% endif %}
+
+{# Maximum number of concurrent build jobs. #}
+{% set _jobs = jobs | default(1) %}
+{% if _jobs != 1 %}jobs {{ _jobs }}
+{% endif %}
+
+{# List of bind mounts to inject into containers. Format: host_path:container_path[:options]. #}
+{% for mount in bind_mounts | default([]) %}bind {{ mount }}
+{% endfor %}
+
+{# List of environment variables to forward from host to container. Variable names only (no values). #}
+{% for env_var in env_forward | default([]) %}env {{ env_var }}
+{% endfor %}
+
+{# Enable user namespace mapping (required for unprivileged operation). #}
+{% if enable_userns | default(true) %}userns
+{% endif %}
+
+{# Path to the fallback image builder (e.g., Docker). If empty, defaults to 'docker'. #}
+{% set _fallback_builder = fallback_builder | default('docker') %}
+{% if _fallback_builder != 'docker' %}fallback_builder {{ _fallback_builder }}
+{% endif %}
+
+{# Enable use of fallback builder (Docker) when building fails with native builder. #}
+{% if enable_fallback | default(false) %}fallback
+{% endif %}
+
+{# Enable strict mode: fail on warnings and non-zero exit codes. #}
+{% if strict | default(false) %}strict
+{% endif %}
+
+{# Default shell for ch-run (e.g., /bin/bash). If empty, defaults to /bin/sh. #}
+{% set _shell = shell | default('/bin/sh') %}
+{% if _shell != '/bin/sh' %}shell {{ _shell }}
+{% endif %}
+
+{# Disable use of overlay filesystems for writable layers. #}
+{% if no_overlay | default(false) %}no_overlay
+{% endif %}
+
+{# Path to the overlay directory (for persistent overlays). If empty, defaults to ~/.local/share/charliecloud/overlay. #}
+{% set _overlay_dir = overlay_dir | default('') %}
+{% if _overlay_dir %}overlay_dir {{ _overlay_dir }}
+{% endif %}
+
+{# Enable use of /run/user for sockets and temp files. #}
+{% if enable_run_user | default(true) %}run_user
+{% endif %}
+
+{# Enable use of /tmp instead of /run/user if /run/user is unavailable. #}
+{% if fallback_run_user | default(true) %}fallback_run_user
+{% endif %}

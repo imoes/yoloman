@@ -1,0 +1,156 @@
+{
+  "services": {
+    "type": "list",
+    "default": [
+      "nss",
+      "pam"
+    ],
+    "description": "List of SSSD services to enable (e.g., nss, pam, sudo, autofs). Must include at least 'nss' and 'pam' for basic login support."
+  },
+  "domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of identity domains to integrate (LDAP, AD, Kerberos). Each domain defines its own authentication and identity source.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this domain (used in section headers like [domain/example.com])."
+      },
+      "auth_provider": {
+        "type": "string",
+        "default": "ldap",
+        "description": "Authentication backend: 'ldap', 'ad', or 'kerberos'."
+      },
+      "id_provider": {
+        "type": "string",
+        "default": "ldap",
+        "description": "Identity backend: usually same as auth_provider ('ldap', 'ad', 'proxy', or 'ipa')."
+      },
+      "access_provider": {
+        "type": "string",
+        "default": null,
+        "description": "Optional access control backend (e.g., 'simple' or 'ldap'). If omitted, default rules apply."
+      },
+      "ldap_uri": {
+        "type": "list",
+        "default": [
+          "ldap://ldap.example.com"
+        ],
+        "description": "LDAP server URIs (space-separated in config; provided here as list for convenience)."
+      },
+      "ldap_search_base": {
+        "type": "string",
+        "default": "",
+        "description": "Base DN for LDAP user/group searches (e.g., 'dc=example,dc=com'). Required for LDAP."
+      },
+      "ldap_schema": {
+        "type": "string",
+        "default": "rfc2307",
+        "description": "LDAP schema type: 'rfc2307', 'rfc2307bis', 'apple', or 'ad'."
+      },
+      "tls_cacert": {
+        "type": "string",
+        "default": "/etc/pki/tls/certs/ca-bundle.crt",
+        "description": "Path to CA certificate file for LDAP TLS verification."
+      },
+      "tls_reqcert": {
+        "type": "string",
+        "default": "demand",
+        "description": "TLS certificate validation mode: 'never', 'allow', 'try', or 'demand'."
+      },
+      "krb5_server": {
+        "type": "string",
+        "default": null,
+        "description": "Kerberos KDC hostname (for Kerberos authentication)."
+      },
+      "krb5_realm": {
+        "type": "string",
+        "default": null,
+        "description": "Kerberos realm name (e.g., 'EXAMPLE.COM')."
+      },
+      "ad_domain": {
+        "type": "string",
+        "default": null,
+        "description": "Active Directory domain name (e.g., 'example.com'). Required for AD integration."
+      },
+      "ad_server": {
+        "type": "string",
+        "default": null,
+        "description": "Preferred AD DC hostname for SSSD to contact."
+      },
+      "cache_credentials": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to cache credentials for offline authentication."
+      },
+      "ldap_user_name": {
+        "type": "string",
+        "default": "uid",
+        "description": "LDAP attribute used as the username (e.g., 'uid', 'sAMAccountName' for AD)."
+      },
+      "override_homedir": {
+        "type": "string",
+        "default": null,
+        "description": "Template string to override home directory (e.g., '/home/%u')."
+      },
+      "min_id": {
+        "type": "number",
+        "default": 1000,
+        "description": "Minimum UID/GID to consider valid (avoids system entries)."
+      },
+      "max_id": {
+        "type": "number",
+        "default": 65535,
+        "description": "Maximum UID/GID to consider valid."
+      },
+      "fallback_to_localhost": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to fall back to localhost if remote servers fail (disables DNS lookup for servers if true)."
+      },
+      "allow_groups": {
+        "type": "list",
+        "default": [],
+        "description": "List of Unix group names allowed to log in (when using 'simple' access_provider)."
+      },
+      "deny_groups": {
+        "type": "list",
+        "default": [],
+        "description": "List of Unix group names explicitly denied login."
+      }
+    }
+  },
+  "services_config": {
+    "type": "list",
+    "default": [],
+    "description": "Per-service tuning parameters (e.g., for nss, pam). Optional but recommended for production.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Service name (e.g., 'nss', 'pam'). Must match one of the services in the [sssd] section."
+      },
+      "debug_level": {
+        "type": "number",
+        "default": 0,
+        "description": "Debug verbosity (0\u20139). Higher levels increase log detail (e.g., for troubleshooting)."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Maximum seconds to wait for backend response before failing."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 10,
+        "description": "Max simultaneous connections to the backend service."
+      },
+      "service_specific": {
+        "type": "string",
+        "default": "",
+        "description": "Raw additional config lines specific to this service (e.g., 'pam_policies = persist')."
+      }
+    }
+  }
+}

@@ -1,0 +1,50 @@
+# MUNGE authentication daemon configuration file
+# This file is managed by Ansible. Do not edit manually.
+#
+# Self-documenting template: every directive below includes its
+# schema description as a comment and a safe default via | default().
+
+# Authentication domain name. Must match across all MUNGE nodes in a cluster for interoperability.
+domain {{ domain | default('localdomain') }}
+
+# Path to the secret key file used for HMAC authentication. Must be identical on all nodes in the cluster.
+key_file {{ key_file | default('/etc/munge/munge.key') }}
+
+# Number of worker threads to spawn for handling authentication requests.
+num_threads {{ num_threads | default(4) }}
+
+# Maximum number of credentials to cache per MUNGE daemon process.
+cred_cache_size {{ cred_cache_size | default(10000) }}
+
+# Maximum total number of credentials to cache system-wide. Set to 0 for unlimited.
+cred_cache_max {{ cred_cache_max | default(0) }}
+
+# Time-to-live (in seconds) for cached credentials before they expire.
+cred_cache_ttl {{ cred_cache_ttl | default(300) }}
+
+# Verbosity level for logging. Accepts: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY.
+log_level {{ log_level | default('info') }}
+
+# Path to the log file. Use 'syslog' to send logs to the system log daemon instead.
+log_file {{ log_file | default('/var/log/munge/munged.log') }}
+
+# If true, only allow authentication requests from the local host. Disables network authentication.
+local_only {{ local_only | default(false) | lower }}
+
+# If true, automatically generate a new RSA key file on first start if the key file does not exist.
+keygen {{ keygen | default(false) | lower }}
+
+# Path to the PID file used by the daemon.
+pid_file {{ pid_file | default('/run/munge/munged.pid') }}
+
+# Comma- or space-separated list of group IDs (numeric or named) allowed to use the service. Empty = no restriction.
+restrict_groups {{ restrict_groups | default('') }}
+
+# Comma- or space-separated list of user IDs (numeric or named) allowed to use the service. Empty = no restriction.
+restrict_users {{ restrict_users | default('') }}
+
+# Enable or disable socket-based authentication for local processes.
+socket_auth {{ socket_auth | default(true) | lower }}
+
+# Unix socket path used for local interprocess communication.
+socket_path {{ socket_path | default('/run/munge/munged.sock') }}

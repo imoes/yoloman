@@ -1,0 +1,35 @@
+[daemon]
+# Whether to enable the daemon mode to accept remote compilation requests.
+{%- set enable_daemon = enable_daemon | default(true) %}
+enabled = {{ enable_daemon | lower }}
+
+# TCP port on which the distcc daemon listens for incoming connections.
+port = {{ port | default(3632) }}
+
+# Directory used to store temporary files during compilation.
+tempdir = {{ tempdir | default('/tmp') }}
+
+# Maximum number of simultaneous client connections and concurrent compilation jobs.
+max_connections = {{ max_connections | default(20) }}
+
+# List of hosts or networks allowed to connect to this distcc daemon (e.g., IP, CIDR, or hostname).
+# Each host entry is prefixed with the 'allow' directive key.
+{%- set hosts = allow_hosts | default(['127.0.0.1/32', '::1/128']) %}
+{%- for host in hosts %}
+allow = {{ host | string }}
+{%- endfor %}
+
+# Verbosity of logging: 0 (error), 1 (warn), 2 (info), 3 (debug).
+log_level = {{ log_level | default(2) }}
+
+# Path to log file; use 'stdout' or 'stderr' to log to console.
+log_file = {{ log_file | default('/var/log/distccd.log') }}
+
+# System user to drop privileges to after starting; leave empty to disable privilege dropping.
+user = {{ user | default('nobody') }}
+
+# Compression level for network traffic (0=off, 1=fast, 9=best); empty or 0 disables compression.
+compression = {{ compression | default(1) }}
+
+# Maximum time (seconds) to wait for a compile job before terminating it; empty or 0 means no timeout.
+compile_timeout = {{ compile_timeout | default(300) }}

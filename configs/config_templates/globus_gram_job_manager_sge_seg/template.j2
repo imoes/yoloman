@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GRAM Grid Engine Job Manager (SEG) configuration -->
+<!-- Enable SEG-based SGE job submission for GLOBUS_GRAM -->
+<!-- This file configures the Globus GRAM JobManager to submit jobs to -->
+<!-- a Sun/Oracle Grid Engine (SGE) cluster. -->
+<Configuration>
+  <!-- Enable or disable SGE/SEG job management support (True/False) -->
+  <!-- Schema: sge_enabled (bool, default: True) -->
+  <Parameter name="SGEEnabled" value="{{ sge_enabled | default(True) | lower }}" />
+
+  <!-- Path to the SGE qmaster hostname (for qsub/qstat queries) -->
+  <!-- Schema: sge_qmaster_host (str, default: 'sge-qmaster') -->
+  <Parameter name="SGEQmasterHost" value="{{ sge_qmaster_host | default('sge-qmaster') }}" />
+
+  <!-- Base path to the SGE installation (e.g., /opt/gridengine) -->
+  <!-- Schema: sge_root (str, default: '/opt/gridengine') -->
+  <Parameter name="SGERoot" value="{{ sge_root | default('/opt/gridengine') }}" />
+
+  <!-- Path to SGE cell (e.g., default) -->
+  <!-- Schema: sge_cell (str, default: 'default') -->
+  <Parameter name="SGECell" value="{{ sge_cell | default('default') }}" />
+
+  <!-- Path to the qmaster spool directory (used for state persistence) -->
+  <!-- Schema: sge_qmaster_spool_dir (str, default: '/var/lib/gridengine/spool/qmaster') -->
+  <Parameter name="SGEQmasterSpoolDir" value="{{ sge_qmaster_spool_dir | default('/var/lib/gridengine/spool/qmaster') }}" />
+
+  <!-- Path to the execd spool directory (used for worker node state) -->
+  <!-- Schema: sge_execd_spool_dir (str, default: '/var/lib/gridengine/spool/execd') -->
+  <Parameter name="SGEExecdSpoolDir" value="{{ sge_execd_spool_dir | default('/var/lib/gridengine/spool/execd') }}" />
+
+  <!-- Path to the gridftp jobmanager script (internal path used by GRAM) -->
+  <!-- Schema: job_manager_script (str, default: '/usr/libexec/globus-job-manager-sge') -->
+  <Parameter name="JobManagerScript" value="{{ job_manager_script | default('/usr/libexec/globus-job-manager-sge') }}" />
+
+  <!-- Path to the gridftp jobmanager wrapper script (optional custom wrapper) -->
+  <!-- Schema: job_manager_wrapper (str, default: '') -->
+  {% if job_manager_wrapper | default('') != '' %}
+  <Parameter name="JobManagerWrapper" value="{{ job_manager_wrapper | default('') }}" />
+  {% endif %}
+
+  <!-- List of allowed SGE queue names for job submission -->
+  <!-- Schema: sge_allowed_queues (list, default: ['all.q']) -->
+  {% for queue in sge_allowed_queues | default(['all.q']) %}
+  <Parameter name="SGEAllowedQueue" value="{{ queue }}" />
+  {% endfor %}
+
+  <!-- Default SGE queue for jobs (if none specified in submission) -->
+  <!-- Schema: sge_default_queue (str, default: 'all.q') -->
+  <Parameter name="SGEDefaultQueue" value="{{ sge_default_queue | default('all.q') }}" />
+
+  <!-- Maximum number of concurrent jobs allowed per user -->
+  <!-- Schema: sge_max_jobs_per_user (int, default: 100) -->
+  <Parameter name="SGEMaxJobsPerUser" value="{{ sge_max_jobs_per_user | default(100) }}" />
+
+  <!-- Maximum walltime (in seconds) allowed for a job -->
+  <!-- Schema: sge_max_walltime (int, default: 86400) -->
+  <Parameter name="SGEMaxWalltime" value="{{ sge_max_walltime | default(86400) }}" />
+
+  <!-- Maximum number of cores per job -->
+  <!-- Schema: sge_max_cores_per_job (int, default: 64) -->
+  <Parameter name="SGEMaxCoresPerJob" value="{{ sge_max_cores_per_job | default(64) }}" />
+
+  <!-- Enable/Disable use of SGE resource limits (hard/soft limits) -->
+  <!-- Schema: sge_use_resource_limits (bool, default: True) -->
+  <Parameter name="SGEUseResourceLimits" value="{{ sge_use_resource_limits | default(True) | lower }}" />
+</Configuration>

@@ -1,0 +1,97 @@
+# ExaBGP main configuration file
+# This template is self-documenting: every variable has a default and every directive has a schema description comment.
+
+process router {
+    # Default router ID for all neighbors that don’t specify their own.
+    run /usr/bin/bird -c /etc/bird/bird.conf;
+}
+
+# Neighbor definitions
+# List of BGP neighbors to configure.
+{% for neighbor in neighbors | default([]) %}
+neighbor {{ neighbor.ip | default('0.0.0.0') }} {
+    # Autonomous System number for the local router in this session.
+    # Note: neighbor.router_id uses the global router_id if not set locally.
+    router-id {{ neighbor.router_id | default(router_id | default('1.1.1.1')) }};
+
+    # Local Autonomous System number for this peer session.
+    local-as {{ neighbor.local_as | default(65000) }};
+
+    # Peer's Autonomous System number.
+    peer-as {{ neighbor.peer_as | default(65000) }};
+
+    # Connection settings
+    description "{{ neighbor.description | default('ExaBGP peer') }}";
+    hold-time {{ neighbor.hold_time | default(90) }};
+    connect-retry {{ neighbor.connect_retry | default(120) }};
+    keepalive {{ neighbor.keepalive | default(30) }};
+
+    multiprotocol {
+        ipv4 unicast;
+        ipv6 unicast;
+    }
+
+    # Route filtering (optional)
+    {% if neighbor.in_filter is defined and neighbor.in_filter %}
+    import {
+        {% for filter in neighbor.in_filter %}
+        {{ filter.type | default('term') }} {{ filter.policy | default('reject') }};
+        {% endfor %}
+    }
+    {% endif %}
+
+    {% if neighbor.out_filter is defined and neighbor.out_filter %}
+    export {
+        {% for filter in neighbor.out_filter %}
+        {{ filter.type | default('term') }} {{ filter.policy | default('accept') }};
+        {% endfor %}
+    }
+    {% endif %}
+
+    # Graceful restart support (optional)
+    {% if neighbor.graceful_restart is defined and neighbor.graceful_restart %}
+    graceful-restart;
+    {% endif %}
+
+    # Passive mode (optional)
+    {% if neighbor.passive is defined and neighbor.passive %}
+    passive;
+    {% endif %}
+}
+{% endfor %}
+
+# Static configuration (optional)
+# List of static routes to announce via ExaBGP.
+{% if static_routes is defined and static_routes %}
+static {
+    {% for route in static_routes %}
+    route {{ route.prefix | default('0.0.0.0/0') }} {
+        next-hop {{ route.next_hop | default('127.0.0.1') }};
+
+        # Community value for the route (optional)
+        {% if route.community is defined and route.community %}
+        community {{ route.community }};
+        {% endif %}
+    }
+    {% endfor %}
+}
+{% endif %}
+
+# API settings (optional)
+# ExaBGP API configuration for programmatic control.
+{% set _api = api | default({'enabled': False, 'fork': True, 'threads': 1}) %}
+{% if _api.enabled %}
+api {
+    processes {
+        run /usr/local/bin/exabgp-api-handler;
+    }
+
+    # Enable forking for the API process
+    fork {% if _api.fork is defined and _api.fork %}enabled{% else %}disabled{% endif %};
+
+    # Number of threads for the API process
+    {% if _api.threads is defined %}
+    threads {{ _api.threads }};
+    {% endif %}
+}
+{% endif %}

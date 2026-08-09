@@ -1,0 +1,122 @@
+# asmail configuration file
+# This file defines one or more mailbox sources for the asmail service.
+# Each mailbox is represented by a block within square brackets.
+# Lines beginning with '#' are comments and are ignored by the parser.
+
+{# Iterate over the list of mailbox configurations defined in the schema.
+   Defaults to an empty list if the variable is not provided, preventing render errors. #}
+{% for mb in (mailboxes | default([])) %}
+
+# --- Mailbox Definition ---
+# The unique name of this mailbox configuration block.
+# Used as the section header [name] in this config file.
+# Defaults to 'unnamed' if no name is specified, then normalized to lowercase underscores.
+[{{ (mb | default({})).name | default('unnamed') | lower | replace(' ', '_') }}]
+
+# Mailbox type: determines how the mailbox is accessed.
+# Supported types:
+#   - 'unix': Local Unix-style mailbox file (e.g., /var/mail/user)
+#   - 'maildir': Maildir directory format (e.g., ~/Maildir)
+#   - 'mh': MH mailbox directory format (e.g., ~/Mail/inbox)
+#   - 'pop3': Remote POP3 server
+#   - 'imap': Remote IMAP server
+# Defaults to 'unix' if the type is not specified.
+Type={{ (mb | default({})).type | default('unix') }}
+
+{# Conditional configuration based on the selected mailbox type. #}
+{% set mb_type = (mb | default({})).type | default('unix') %}
+
+{% if mb_type == 'unix' %}
+    # [unix type only] Path to the local mailbox file.
+    # Example: /var/mail/alice
+    # Ensure the asmail process has read access to this file.
+    # Defaults to '/var/mail/default'.
+    Path={{ (mb | default({})).path | default('/var/mail/default') }}
+
+{% elif mb_type == 'maildir' %}
+    # [maildir type only] Path to the Maildir directory.
+    # The directory must contain 'new', 'cur', and 'tmp' subdirectories.
+    # Example: /home/alice/Maildir
+    # Defaults to '/home/default/Maildir'.
+    Path={{ (mb | default({})).path | default('/home/default/Maildir') }}
+
+{% elif mb_type == 'mh' %}
+    # [mh type only] Path to the MH mailbox directory.
+    # Example: /home/alice/Mail/inbox
+    # Defaults to '/home/default/Mail/inbox'.
+    Path={{ (mb | default({})).path | default('/home/default/Mail/inbox') }}
+
+    # Use .mh_sequences file to track unread messages.
+    # If true, asmail will parse .mh_sequences; if false, it calculates status dynamically.
+    # Defaults to false.
+    UseMHSequences={{ (mb | default({})).use_mh_sequences | default(false) | lower }}
+
+{% elif mb_type == 'pop3' %}
+    # [pop3 type only]
+    # Server hostname or IP address of the POP3 server.
+    # Defaults to localhost.
+    Server={{ (mb | default({})).server | default('localhost') }}
+
+    # Server port for POP3.
+    # Standard port is 110. Use 995 for POP3S (SSL).
+    # Defaults to 110.
+    Port={{ (mb | default({})).port | default(110) }}
+
+    # Username for authenticating with the POP3 server.
+    # Defaults to empty string.
+    User={{ (mb | default({})).user | default('') }}
+
+    # Password for authenticating with the POP3 server.
+    # It is recommended to store this securely in an external secrets manager if possible.
+    # Defaults to empty string.
+    Password={{ (mb | default({})).password | default('') }}
+
+{% elif mb_type == 'imap' %}
+    # [imap type only]
+    # Server hostname or IP address of the IMAP server.
+    # Defaults to localhost.
+    Server={{ (mb | default({})).server | default('localhost') }}
+
+    # Server port for IMAP.
+    # Standard port is 143. Use 993 for IMAPS (SSL).
+    # Defaults to 143.
+    Port={{ (mb | default({})).port | default(143) }}
+
+    # Username for authenticating with the IMAP server.
+    # Defaults to empty string.
+    User={{ (mb | default({})).user | default('') }}
+
+    # Password for authenticating with the IMAP server.
+    # Defaults to empty string.
+    Password={{ (mb | default({})).password | default('') }}
+
+    # Default IMAP folder to monitor (e.g., INBOX, Sent, Drafts).
+    # Defaults to INBOX.
+    Folder={{ (mb | default({})).folder | default('INBOX') }}
+
+{% endif %}
+
+# Optional: Path to an icon image file for the "empty" state (no messages).
+# If not specified, the UI/service uses a default empty icon.
+{% if (mb | default({})).icon_empty is defined %}
+IconEmpty={{ (mb | default({})).icon_empty }}
+{% endif %}
+
+# Optional: Path to an icon image file for the "full" state (new messages present).
+# If not specified, the UI/service uses a default full icon.
+{% if (mb | default({})).icon_full is defined %}
+IconFull={{ (mb | default({})).icon_full }}
+{% endif %}
+
+# Timeout in seconds for network operations (e.g., connecting to POP3/IMAP).
+# Applied only to remote mailbox types.
+# Defaults to 30 seconds.
+Timeout={{ (mb | default({})).timeout | default(30) }}
+
+# Display message counts in the status line.
+# 'true': Show number of new and old messages.
+# 'false': Hide counts.
+# Defaults to true.
+ShowCounts={{ (mb | default({})).show_counts | default(true) | lower }}
+
+{% endfor %}

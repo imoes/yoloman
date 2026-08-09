@@ -1,0 +1,43 @@
+# ==============================================================================
+# netconsd Configuration Template
+# ==============================================================================
+# This file configures netconsd, a daemon for receiving netconsole UDP messages
+# from kernel crash dumps. It listens on a UDP port and logs the incoming
+# console output.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# listen_port: UDP port on which netconsd listens for incoming netconsole messages.
+# --------------------------------------------------------------------------
+LISTEN_PORT={{ (listen_port | default(6666)) }}
+
+# --------------------------------------------------------------------------
+# start_daemon: Whether to start the netconsd service at boot.
+# --------------------------------------------------------------------------
+START_NETCONSD={{ (start_daemon | default(true)) | lower }}
+
+# --------------------------------------------------------------------------
+# max_connections: Maximum number of concurrent netconsole sessions allowed.
+# --------------------------------------------------------------------------
+MAX_CONNECTIONS={{ (max_connections | default(16)) }}
+
+# --------------------------------------------------------------------------
+# log_file: Path to the log file. Use '-' to log to stdout (useful for systemd journal).
+# --------------------------------------------------------------------------
+LOG_FILE={{ (log_file | default('/var/log/netconsd.log')) }}
+
+# --------------------------------------------------------------------------
+# log_level: Minimum log level for messages to be recorded.
+# --------------------------------------------------------------------------
+LOG_LEVEL={{ (log_level | default('notice')) | lower }}
+
+# --------------------------------------------------------------------------
+# clients: List of trusted netconsole clients to pre-configure for logging (optional; not required by netconsd itself but commonly used).
+# --------------------------------------------------------------------------
+{% for client in (clients | default([])) %}
+# Client: {{ (client | default({})).name | default('unknown') }}
+CLIENT_{{ loop.index }}_IP={{ (client | default({})).ip | default('0.0.0.0') }}
+CLIENT_{{ loop.index }}_PORT={{ (client | default({})).port | default(6665) }}
+CLIENT_{{ loop.index }}_MAC={{ (client | default({})).mac | default('00:00:00:00:00:00') }}
+CLIENT_{{ loop.index }}_IFACE={{ (client | default({})).iface | default('') }}
+{% endfor %}

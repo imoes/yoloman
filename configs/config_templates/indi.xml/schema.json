@@ -1,0 +1,140 @@
+{
+  "drivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of INDI drivers to configure (e.g., telescope, camera, filter wheel)",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Driver name (e.g., 'indi_eq5_mount', 'indi_canon_ccd')"
+      },
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether this driver is enabled at startup"
+      },
+      "library": {
+        "type": "string",
+        "default": "",
+        "description": "Path to shared library file for the driver (optional)"
+      },
+      "devices": {
+        "type": "list",
+        "default": [],
+        "description": "Devices managed by this driver",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Human-readable device name"
+          },
+          "uid": {
+            "type": "string",
+            "default": "",
+            "description": "Unique device identifier (used internally)"
+          },
+          "model": {
+            "type": "string",
+            "default": "",
+            "description": "Device model string (optional)"
+          },
+          "port": {
+            "type": "string",
+            "default": "",
+            "description": "Serial port or network address (e.g., '/dev/ttyUSB0', '192.168.1.100')"
+          },
+          "baud_rate": {
+            "type": "string",
+            "default": "",
+            "description": "Serial baud rate (e.g., '9600', '115200') (optional)"
+          },
+          "connection_type": {
+            "type": "string",
+            "default": "",
+            "description": "Connection type: 'serial', 'ethernet', 'usb' (optional)"
+          },
+          "properties": {
+            "type": "list",
+            "default": [],
+            "description": "Persistent property values for this device",
+            "items": {
+              "type": {
+                "type": "string",
+                "default": "text",
+                "description": "INDI property type: 'text', 'number', 'switch', 'light', 'blob'"
+              },
+              "properties": {
+                "name": {},
+                "default": "",
+                "description": "Property name (e.g., 'ON_COORD_IN_SYNC', 'EQUATORIAL_COORD')"
+              },
+              "value": {
+                "type": "string",
+                "default": "",
+                "description": "Initial value(s) for the property (comma-separated for switches)"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "sample_values": {
+    "drivers": [
+      {
+        "name": "indi_eq5_mount",
+        "enabled": true,
+        "library": "",
+        "devices": [
+          {
+            "name": "EQ5 Mount",
+            "uid": "eq5-001",
+            "model": "Sky-Watcher EQ5",
+            "port": "/dev/ttyUSB0",
+            "baud_rate": "9600",
+            "connection_type": "serial",
+            "properties": [
+              {
+                "name": "ON_COORD_IN_SYNC",
+                "type": "switch",
+                "value": "ON"
+              },
+              {
+                "name": "EQUATORIAL_COORD",
+                "type": "number",
+                "value": "00:00:00, +90:00:00"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "indi_canon_ccd",
+        "enabled": true,
+        "library": "",
+        "devices": [
+          {
+            "name": "Canon DSLR",
+            "uid": "canon-dslr-1",
+            "model": "EOS 70D",
+            "port": "tcp:192.168.1.50:7176",
+            "connection_type": "ethernet",
+            "properties": [
+              {
+                "name": "CCD_EXPOSURE",
+                "type": "number",
+                "value": "5.0"
+              },
+              {
+                "name": "CCD_BINNING",
+                "type": "number",
+                "value": "1,1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

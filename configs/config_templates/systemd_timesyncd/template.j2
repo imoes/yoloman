@@ -1,0 +1,52 @@
+# systemd-timesyncd configuration template
+# Managed by Ansible. Do not edit manually.
+#
+# This file configures systemd-timesyncd, a lightweight SNTP client.
+# See 'man 5 timesyncd.conf' for details.
+
+[Time]
+
+# Maximum acceptable root distance (in seconds) for time sources.
+# Larger values allow synchronization with less accurate sources.
+# Default: 10
+RootDistanceMaxSec={{ root_distance_max_sec | default(10) }}
+
+# Maximum polling interval (in seconds) between time queries to NTP servers.
+# Larger values reduce network traffic but increase clock drift tolerance.
+# Default: 2048
+PollIntervalMaxSec={{ poll_interval_max_sec | default(2048) }}
+
+# Minimum polling interval (in seconds) between time queries.
+# Prevents excessive queries to NTP servers.
+# Default: 32
+PollIntervalMinSec={{ poll_interval_min_sec | default(32) }}
+
+# List of fallback NTP server hostnames or IP addresses used if primary servers are unreachable.
+# Default: ['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']
+FallbackNTP={{ fallback_ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) | join(' ') }}
+
+# List of preferred NTP server hostnames or IP addresses.
+# If empty, only fallback servers are used.
+# Default: []
+NTP={{ ntp_servers | default([]) | join(' ') }}
+
+# Enable or disable IPv4 NTP communication.
+# Default: true
+UseIPv4={{ use_ipv4 | default(true) | lower }}
+
+# Enable or disable IPv6 NTP communication.
+# Default: true
+UseIPv6={{ use_ipv6 | default(true) | lower }}
+
+# Logging verbosity: 0 (quiet), 1 (minimal), 2 (debug).
+# Higher values increase detail in system logs.
+# Default: 0
+LogLevel={{ log_level | default(0) }}
+
+# Destination for logs: 'journal' (systemd-journald), 'syslog', 'console', or 'off'.
+# Default: journal
+LogTarget={{ log_target | default('journal') }}
+
+# Number of seconds to wait before retrying a failed time synchronization attempt.
+# Default: 15
+RetrySec={{ retry_sec | default(15) }}

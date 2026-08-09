@@ -1,0 +1,62 @@
+# N2N Supernode Configuration
+# This file configures the N2N supernode, which acts as a coordination server
+# for edge nodes in a virtual overlay network.
+
+# IP address the supernode binds to (e.g., '0.0.0.0' for all interfaces).
+listen_addr = {{ (listen_addr | default('0.0.0.0')) | string }}
+
+# UDP port for incoming N2N peer connections.
+port = {{ (port | default(7777)) | int }}
+
+# The N2N community name (shared by all participants in the virtual network).
+network_name = {{ (network_name | default('community')) | string }}
+
+# Base64-encoded shared secret for encryption (required if encryption is enabled).
+# If empty, no shared secret is used.
+network_key = {{ (network_key | default('')) | string }}
+
+# Encryption algorithm to use ('none', 'aes', 'twofish', 'blowfish').
+# 'none' or empty string disables encryption.
+encryption = {{ (encryption | default('none')) | string }}
+
+# Verbosity of logging: 0 (quiet) to 4 (debug).
+log_level = {{ (log_level | default(1)) | int }}
+
+# Enable multicast peer discovery (required for auto-join by new edges).
+enable_multicast = {{ 'true' if (enable_multicast | default(true) | bool) else 'false' }}
+
+# Maximum number of active edge peers (0 = unlimited).
+max_peers = {{ (max_peers | default(0)) | int }}
+
+# Path to the PID file for the supernode process.
+pid_file = {{ (pid_file | default('/run/n2n/n2n_supernode.pid')) | string }}
+
+# Optional: Specific network interface to bind (e.g., 'eth0').
+# If empty, the system default interface is used.
+bind_interface = {{ (bind_interface | default('')) | string }}
+
+# If true, only allow edges with MACs listed in the whitelist file.
+whitelist_only = {{ 'true' if (whitelist_only | default(false) | bool) else 'false' }}
+
+# Path to file containing allowed edge MAC addresses (one per line),
+# used if whitelist_only=true.
+whitelist_file = {{ (whitelist_file | default('/etc/n2n/whitelist.txt')) | string }}
+
+# Forward traffic to unknown peers (disabled by default; may cause security issues).
+forward_unknown = {{ 'true' if (forward_unknown | default(false) | bool) else 'false' }}
+
+# Time-to-live (in seconds) for edge registration (how long until re-registration required).
+registration_ttl = {{ (registration_ttl | default(60)) | int }}
+
+# List of TAP devices to create and configure automatically on startup.
+# This is for testing/demo only; not recommended in production.
+{% if edge_interfaces is defined and edge_interfaces %}
+{% for iface in edge_interfaces %}
+[{{ loop.index }}]
+device = {{ (iface.device | default('')) | string }}
+ip = {{ (iface.ip | default('')) | string }}
+netmask = {{ (iface.netmask | default('')) | string }}
+{% if iface.gateway is defined and iface.gateway %}gateway = {{ (iface.gateway | default('')) | string }}{% endif %}
+{% if iface.mtu is defined and iface.mtu %}mtu = {{ (iface.mtu | default('')) | string }}{% endif %}
+{% endfor %}
+{% endif %}

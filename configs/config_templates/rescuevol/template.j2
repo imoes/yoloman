@@ -1,0 +1,37 @@
+#!/bin/sh
+# Add rescue volume logic: mount a rescue filesystem if specified and available
+set -e
+
+# Use variables for configurable paths and flags
+RESUE_PATH="{{ rescue_vol_path | default('/rescue') }}"
+RESUE_DEV="{{ rescue_vol_device | default('/dev/disk/by-uuid/rescue') }}"
+RESUE_FS="{{ rescue_vol_fstype | default('ext4') }}"
+RESUE_OPTS="{{ rescue_vol_mount_opts | default('-o ro') }}"
+
+# Only attempt rescue mount if enabled
+{% if rescue_vol_enabled | default(false) %}
+
+# Ensure the rescue device exists
+if [ -e "{{ rescue_vol_device | default('/dev/disk/by-uuid/rescue') }}" ]; then
+    # Create mount point if it doesn't exist
+    mkdir -p "{{ rescue_vol_path | default('/rescue') }}"
+
+    # Mount the rescue volume
+    # -t specifies the filesystem type (e.g. ext4, xfs, vfat)
+    # {{ rescue_vol_mount_opts }} are additional mount options
+    mount -t "{{ rescue_vol_fstype | default('ext4') }}" {{ rescue_vol_mount_opts | default('-o ro') }} "{{ rescue_vol_device | default('/dev/disk/by-uuid/rescue') }}" "{{ rescue_vol_path | default('/rescue') }}" 2>/dev/null || true
+    
+    # Optional: copy rescue artifacts after mount (custom post-mount steps)
+    # iterate over the list of post-mount steps defined in the schema
+{% for step in rescue_vol_post_mount_steps | default([]) %}
+{% if step.enabled | default(false) %}
+    # {{ step.description | default('Post-mount step') }}
+    {{ step.cmd | default('') }}
+{% endif %}
+{% endfor %}
+fi
+
+{% else %}
+# Rescue volume is disabled — skip mounting
+exit 0
+{% endif %}

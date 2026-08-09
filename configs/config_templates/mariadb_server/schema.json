@@ -1,0 +1,345 @@
+{
+  "server_id": {
+    "type": "number",
+    "default": 1,
+    "description": "Unique numeric identifier for this server in a replication setup."
+  },
+  "basedir": {
+    "type": "string",
+    "default": "/usr",
+    "description": "Base directory where MariaDB binaries and libraries are installed."
+  },
+  "datadir": {
+    "type": "string",
+    "default": "/var/lib/mysql",
+    "description": "Directory where database files (tables, logs, etc.) are stored."
+  },
+  "socket": {
+    "type": "string",
+    "default": "/run/mysqld/mysqld.sock",
+    "description": "Unix socket file path for local connections."
+  },
+  "port": {
+    "type": "number",
+    "default": 3306,
+    "description": "TCP port number for remote connections."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 151,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "max_allowed_packet": {
+    "type": "string",
+    "default": "64M",
+    "description": "Maximum size of one packet or any row (e.g., '64M')."
+  },
+  "default_storage_engine": {
+    "type": "string",
+    "default": "InnoDB",
+    "description": "Default storage engine for newly created tables (e.g., 'InnoDB', 'Aria').",
+    "enum": [
+      "InnoDB",
+      "Aria",
+      "MyISAM",
+      "MEMORY",
+      "CSV",
+      "FEDERATEDX",
+      "MyRocks",
+      "Spider",
+      "CONNECT",
+      "DuckDB"
+    ]
+  },
+  "wait_timeout": {
+    "type": "number",
+    "default": 28800,
+    "description": "Number of seconds the server waits for activity on an idle connection."
+  },
+  "interactive_timeout": {
+    "type": "number",
+    "default": 28800,
+    "description": "Number of seconds the server waits for activity on an interactive connection."
+  },
+  "lock_wait_timeout": {
+    "type": "number",
+    "default": 31536000,
+    "description": "Number of seconds to wait for a metadata lock before giving up."
+  },
+  "character_set_server": {
+    "type": "string",
+    "default": "utf8mb4",
+    "description": "Default character set for new databases and tables."
+  },
+  "collation_server": {
+    "type": "string",
+    "default": "utf8mb4_general_ci",
+    "description": "Default collation for new databases and tables."
+  },
+  "enable_binlog": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable binary logging (required for replication and point-in-time recovery)."
+  },
+  "binlog_path": {
+    "type": "string",
+    "default": "/var/log/mysql/mariadb-bin",
+    "description": "Base name/path for binary log files."
+  },
+  "binlog_format": {
+    "type": "string",
+    "default": "ROW",
+    "description": "Binary logging format (ROW, STATEMENT, or MIXED)."
+  },
+  "enable_general_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable general query log (not recommended for production due to performance impact)."
+  },
+  "general_log_file": {
+    "type": "string",
+    "default": "/var/log/mysql/mariadb.log",
+    "description": "Path to the general query log file."
+  },
+  "enable_slow_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging of slow queries (queries exceeding long_query_time)."
+  },
+  "slow_query_log_file": {
+    "type": "string",
+    "default": "/var/log/mysql/mariadb-slow.log",
+    "description": "Path to the slow query log file."
+  },
+  "long_query_time": {
+    "type": "number",
+    "default": 2,
+    "description": "Threshold in seconds for logging slow queries."
+  },
+  "innodb_buffer_pool_size": {
+    "type": "string",
+    "default": "256M",
+    "description": "Size of InnoDB buffer pool (e.g., '256M', '1G'). Should be ~70\u201380% of available RAM on dedicated servers."
+  },
+  "innodb_log_file_size": {
+    "type": "string",
+    "default": "64M",
+    "description": "Size of each InnoDB redo log file (affects recovery time and write throughput)."
+  },
+  "innodb_flush_method": {
+    "type": "string",
+    "default": "fsync",
+    "description": "How InnoDB flushes data and logs to disk (e.g., 'fsync', 'O_DIRECT')."
+  },
+  "innodb_read_io_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of background I/O threads for InnoDB reads."
+  },
+  "innodb_write_io_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of background I/O threads for InnoDB writes."
+  },
+  "innodb_buffer_pool_instances": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of buffer pool instances (use >1 for large buffer pools, e.g., >1GB)."
+  },
+  "innodb_flush_log_at_trx_commit": {
+    "type": "number",
+    "default": 1,
+    "description": "Controls durability/safety (1 = safest, 2 = faster, 0 = fastest but risky)."
+  },
+  "thread_cache_size": {
+    "type": "number",
+    "default": 16,
+    "description": "Number of threads to keep in cache for reuse."
+  },
+  "table_open_cache": {
+    "type": "number",
+    "default": 400,
+    "description": "Number of table descriptors to cache."
+  },
+  "open_files_limit": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum number of open files for the server."
+  },
+  "tmp_table_size": {
+    "type": "string",
+    "default": "64M",
+    "description": "Maximum size of internal in-memory temporary tables (e.g., '64M')."
+  },
+  "max_heap_table_size": {
+    "type": "string",
+    "default": "64M",
+    "description": "Maximum size of user-created in-memory temporary tables."
+  },
+  "enable_query_cache": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable query cache (deprecated in MariaDB 10.1+; disable unless needed for legacy apps)."
+  },
+  "query_cache_size": {
+    "type": "string",
+    "default": "64M",
+    "description": "Size of query cache memory (ignored if query cache is disabled)."
+  },
+  "query_cache_limit": {
+    "type": "string",
+    "default": "2M",
+    "description": "Maximum size of individual query results that may be cached."
+  },
+  "log_error_file": {
+    "type": "string",
+    "default": "/var/log/mysql/error.log",
+    "description": "Path to the error log file."
+  },
+  "skip_name_resolve": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip hostname lookups for incoming connections (use IP only for security/performance)."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind to (e.g., '127.0.0.1', '0.0.0.0')."
+  },
+  "enable_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS for encrypted client connections."
+  },
+  "ssl_ca_path": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/ca.pem",
+    "description": "Path to SSL CA certificate."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/server-cert.pem",
+    "description": "Path to SSL server certificate."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/mysql/ssl/server-key.pem",
+    "description": "Path to SSL server private key."
+  },
+  "default_authentication_plugin": {
+    "type": "string",
+    "default": "mysql_native_password",
+    "description": "Default authentication plugin (e.g., 'mysql_native_password', 'sha256_password')."
+  },
+  "aria_group_commit": {
+    "type": "string",
+    "default": "none",
+    "description": "Aria group commit mode (e.g., 'none', 'interval')."
+  },
+  "aria_log_file_size": {
+    "type": "string",
+    "default": "1G",
+    "description": "Aria log file size."
+  },
+  "enable_rocksdb": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable RocksDB storage engine plugin."
+  },
+  "is_master": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, configure this server as a replication master (binary logs enabled automatically)."
+  },
+  "replicate_do_db": {
+    "type": "list",
+    "default": [],
+    "description": "List of database names to replicate (master only).",
+    "items": {
+      "type": "string",
+      "description": "Database name to include in replication."
+    }
+  },
+  "replicate_ignore_db": {
+    "type": "list",
+    "default": [],
+    "description": "List of database names to exclude from replication (master only).",
+    "items": {
+      "type": "string",
+      "description": "Database name to exclude from replication."
+    }
+  },
+  "is_slave": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, configure this server as a replication slave."
+  },
+  "relay_log_path": {
+    "type": "string",
+    "default": "/var/log/mysql/relay-bin",
+    "description": "Base name/path for relay log files (slave)."
+  },
+  "relay_log_index_path": {
+    "type": "string",
+    "default": "/var/log/mysql/relay-bin.index",
+    "description": "Path to relay log index file."
+  },
+  "gtid_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable GTID-based replication (requires consistent server IDs and binlog)."
+  },
+  "gtid_slave_pos": {
+    "type": "string",
+    "default": "",
+    "description": "GTID position to start replication from (empty = auto from master)."
+  },
+  "master_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP of the replication master."
+  },
+  "master_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Port of the replication master."
+  },
+  "master_user": {
+    "type": "string",
+    "default": "",
+    "description": "Replication user account on master."
+  },
+  "master_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the replication user (store securely via secrets manager in production)."
+  },
+  "local_infile": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow LOCAL INFILE (security-sensitive \u2014 disable unless needed)."
+  },
+  "use_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Log messages to system syslog instead of log files."
+  },
+  "extra_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Additional plugins to load (e.g., 'auth_pam.so').",
+    "items": {
+      "type": "string",
+      "description": "Plugin filename or module name."
+    }
+  },
+  "extra_vars": {
+    "type": "object",
+    "default": {},
+    "description": "Arbitrary additional server variables (e.g., {'wsrep_cluster_address': 'gcomm://', 'loose_wsrep_on': 1}).",
+    "items": {
+      "type": "string|number|bool",
+      "description": "Variable name (key) \u2192 value mapping."
+    }
+  }
+}

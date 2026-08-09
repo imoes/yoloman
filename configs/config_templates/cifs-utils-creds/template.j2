@@ -1,0 +1,26 @@
+# CIFS credential helper configuration file
+#
+# This file is used by the `cifs-utils` package to store credentials
+# for mounting CIFS/SMB shares. It allows the mount helper to
+# authenticate with remote servers without prompting the user.
+#
+# Format:
+#   <host> <username> <password> [domain]
+#
+# Security Note:
+#   This file should typically have permissions 0600 to prevent
+#   unauthorized access to sensitive credentials.
+#
+# Each entry corresponds to an item in the 'credentials' list.
+# The 'host' field identifies the remote server (IP or hostname).
+# The 'username' field is the account name for authentication.
+# The 'password' field is the secret key for the account.
+# The 'domain' field is optional and specifies the Windows domain
+# or workgroup. If omitted, the system default domain is used.
+
+{% for entry in credentials | default([], true) %}
+# Credential entry for host: {{ entry.host | default('unknown-host') }}
+# User: {{ entry.username | default('unknown-user') }}
+# Domain: {{ entry.domain | default('(none)') }}
+{{ entry.host | default('') }} {{ entry.username | default('') }} {{ entry.password | default('') }}{% if entry.domain is defined and entry.domain %} {{ entry.domain }}{% endif %}
+{% endfor %}

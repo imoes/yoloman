@@ -1,0 +1,173 @@
+{
+  "ovs_bridge": {
+    "type": "string",
+    "default": "br-int",
+    "description": "Name of the integration bridge used for internal VM-to-VM communication."
+  },
+  "enable_tunneling": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable overlay tunneling (GRE/VXLAN/Geneve) for tenant isolation."
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address used as the source for tunnel endpoints (required if tunneling enabled)."
+  },
+  "tunnel_types": {
+    "type": "list",
+    "default": [
+      "vxlan"
+    ],
+    "description": "List of tunnel types to enable for tenant networks (e.g., vxlan, gre, geneve).",
+    "items": {
+      "type": "string",
+      "description": "Tunnel protocol name (vxlan, gre, or geneve)."
+    }
+  },
+  "vlan_mapping": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable VLAN mapping for provider networks with segmentation IDs."
+  },
+  "enable_isolated_metadata": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable isolated metadata mode (uses patch ports to reach metadata service without flat VLAN)."
+  },
+  "enable_metadata_proxy": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable metadata proxy to forward tenant metadata requests (requires Neutron metadata agent)."
+  },
+  "flow_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of OpenFlow entries to cache per bridge. Use 0 for unlimited."
+  },
+  "ovsdb_connection_timeout": {
+    "type": "number",
+    "default": 180,
+    "description": "Timeout (seconds) for reconnecting to OVSDB after connection loss."
+  },
+  "ovs_vsctl_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) for ovs-vsctl command operations."
+  },
+  "log_rate_limit": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum log messages per second per module before throttling."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "enable_security_group": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Neutron security groups for VM port filtering."
+  },
+  "firewall_driver": {
+    "type": "string",
+    "default": "iptables_hybrid",
+    "description": "Firewall backend driver: iptables_hybrid, iptables, or noop."
+  },
+  "ipset_fuzzy_match": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable fuzzy matching for ipset-based security group rules (requires ipset support)."
+  },
+  "type_drivers": {
+    "type": "list",
+    "default": [
+      "flat",
+      "vlan",
+      "vxlan"
+    ],
+    "description": "List of enabled network type drivers (e.g., flat, vlan, vxlan, geneve).",
+    "items": {
+      "type": "string",
+      "description": "Network type driver name."
+    }
+  },
+  "tenant_network_types": {
+    "type": "list",
+    "default": [
+      "vxlan"
+    ],
+    "description": "Ordered list of network types to allocate for tenant networks.",
+    "items": {
+      "type": "string",
+      "description": "Tenant network type: vxlan, gre, vlan, or flat."
+    }
+  },
+  "mechanism_drivers": {
+    "type": "list",
+    "default": [
+      "openvswitch"
+    ],
+    "description": "List of mechanism drivers to use (e.g., openvswitch, linuxbridge, sriovnic).",
+    "items": {
+      "type": "string",
+      "description": "Mechanism driver name."
+    }
+  },
+  "bridge_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Mappings from physical network names to OVS bridges (e.g., physnet1 \u2192 br-ex).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Physical network name (matches provider network name)."
+        },
+        "bridge": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the OVS bridge connected to the physical interface."
+        }
+      }
+    }
+  },
+  "device_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Mappings from physical network names to underlying network devices (e.g., eth0).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "network": {
+          "type": "string",
+          "default": "",
+          "description": "Physical network name (must match a bridge_mappings.network)."
+        },
+        "device": {
+          "type": "string",
+          "default": "",
+          "description": "Network interface name (e.g., eth1) to attach to the bridge."
+        }
+      }
+    }
+  },
+  "enable_l3_agent_extension": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable L3 agent extension to handle routing/NAT via neutron-l3-agent."
+  },
+  "enable_dhcp_agent_extension": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DHCP agent extension to handle tenant network DHCP via neutron-dhcp-agent."
+  },
+  "enable_metering_extension": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable metering extension for traffic accounting (requires neutron-metering-agent)."
+  }
+}

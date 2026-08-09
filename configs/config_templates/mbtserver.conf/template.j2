@@ -1,0 +1,43 @@
+# Main configuration for MBT Server
+mbtserver:
+  # Network settings
+  host: "{{ server.host }}"
+  port: {{ server.port }}
+
+  # Logging configuration
+  log_level: "{{ server.log_level }}"
+  log_file: "{{ server.log_file }}"
+
+  # Worker pool settings
+  max_workers: {{ server.max_workers }}
+  worker_timeout: {{ server.worker_timeout }}
+
+  # Storage paths
+  data_dir: "{{ server.data_dir }}"
+  temp_dir: "{{ server.temp_dir }}"
+
+  # TLS settings (optional)
+{% if server.tls.enabled %}  tls:
+    enabled: true
+    cert_file: "{{ server.tls.cert_file }}"
+    key_file: "{{ server.tls.key_file }}"
+{% else %}  tls:
+    enabled: false
+{% endif %}
+
+  # Upstream backend definitions
+  backends:
+{% for backend in server.backends %}    - name: "{{ backend.name }}"
+      url: "{{ backend.url }}"
+      weight: {{ backend.weight }}
+      health_check:
+        enabled: {{ backend.health_check.enabled }}
+        interval: {{ backend.health_check.interval }}
+        timeout: {{ backend.health_check.timeout }}
+{% endfor %}
+
+  # Feature flags
+  enable_caching: {{ server.enable_caching }}
+  enable_rate_limiting: {{ server.enable_rate_limiting }}
+  rate_limit_requests: {{ server.rate_limit_requests }}
+  rate_limit_window_seconds: {{ server.rate_limit_window_seconds }}

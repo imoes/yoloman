@@ -1,0 +1,25 @@
+{
+  "canna_user": {
+    "type": "string",
+    "default": "canna",
+    "description": "System user account under which the Canna server process runs."
+  },
+  "canna_server_run": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether the Canna server should be run (set to 'no' to disable). The CANNA_SERVER_RUN environment variable is used at runtime by the init script, sourced from /etc/default/canna if present. The init script logic checks this variable to decide whether to start the server or exit early. Setting it to 'no' disables the server start via the init script, though the init script still runs but exits immediately if this variable is 'no'. In the context of the init script itself, it doesn't directly use a variable for the user, but the CANNA_SERVER_OPT uses canna_user. The canna_server_run variable corresponds to the CANNA_SERVER_RUN check in the script which defaults to 'yes' (since the check is for 'no'). The default in the original config implies the server is meant to run, so 'yes' is the effective default behavior. However, the variable in the provided schema is `canna_server_run` and its enum is `yes`, `no`. The script checks `${CANNA_SERVER_RUN}`. If this file is the only config, the variable might be expected to be set in the environment or /etc/default/canna. The prompt asks to parametrize site-specific literal values. The literal value `yes` is not explicitly in the script as a default for `CANNA_SERVER_RUN` in the script text itself, but the script proceeds if it's not 'no'. The `canna_server_run` variable in the schema likely refers to the `CANNA_SERVER_RUN` environment variable which might be set in `/etc/default/canna`. Since the script sources `/etc/default/canna`, the value there would be used. The default for `CANNA_SERVER_RUN` isn't explicitly set in this init script, but the behavior is to run. The schema provides a default of `yes`. I will keep the `canna_server_run` variable as is, but note that it's not directly substituted in this file, rather it's an environment variable checked by the script. Wait, the prompt says ",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "canna_enable_inet": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to enable INET mode (set to 'yes' or 'no'). Similar to canna_server_run, this corresponds to CANNA_ENABLE_INET. The script checks `${CANNA_ENABLE_INET}`. It is also sourced from `/etc/default/canna`. The variable `canna_enable_inet` in the schema maps to this.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  }
+}

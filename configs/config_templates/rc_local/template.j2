@@ -1,0 +1,39 @@
+#!/bin/bash
+# /etc/rc.local: Legacy boot script executed at the end of multi-user target
+#
+# This file is provided for compatibility with legacy scripts.
+# On systemd-based systems, this file is executed as a service
+# (rc-local.service) if enabled and /etc/rc.local is executable.
+#
+# Place your custom boot-time commands here.
+# Each command must succeed (exit code 0) for the service to complete successfully.
+# Use absolute paths (e.g., /usr/bin/some_command) to avoid PATH issues.
+#
+# NOTE: Since this runs *after* the system is fully booted and services started,
+# do *not* rely on it for critical system setup — prefer systemd units instead.
+#
+# Exit status must be 0 for success. Use 'exit 0' at the end.
+# Add 'set -e' if you want early failure on error (optional, not recommended for rc.local).
+#
+
+# rc_local.enable: Whether to enable execution of /etc/rc.local at boot. If false, the script exits early and no commands are run.
+{% if (rc_local | default({})).enable | default(true) %}
+# rc-local: enabled via configuration
+{% else %}
+# rc-local: disabled — this file will be ignored by systemd
+echo "rc.local skipped (disabled in config)" >&2
+exit 0
+{% endif %}
+
+# rc_local.commands: List of commands to run at the end of boot. Each entry defines a command with optional metadata.
+{% if (rc_local | default({})).commands | default([]) %}
+# Custom commands:
+{% for cmd in (rc_local | default({})).commands | default([]) %}
+# {{ cmd.description | default('Custom boot command') }}
+{% if cmd.condition is defined and cmd.condition %}
+# Condition: {{ cmd.condition }}
+{% endif %}{% if cmd.ignore_failure is defined and cmd.ignore_failure %}
+# Ignore failure
+{% endif %}{{ cmd.ignore_failure | default(false) | ternary('set +e; ', '') }}{{ cmd.command }}{{ cmd.ignore_failure | default(false) | ternary('; set -e', '') }}
+{% endfor %}
+{% endif %}exit 0

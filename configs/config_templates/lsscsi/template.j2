@@ -1,0 +1,120 @@
+# ============================================================================
+# lsscsi(8) configuration template
+# ============================================================================
+# This configuration file is sourced by the `lsscsi` command to determine
+# which SCSI/SATA/SAS/USB/NVMe devices to list and how to format the output.
+#
+# Variables are defined using the syntax: VARIABLE_NAME=value
+# Boolean options should be 'yes' or 'no' (or 'true'/'false' depending on
+# the wrapper script, but 'yes'/'no' is standard for this utility).
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Enable verbose output (equivalent to lsscsi -v).
+# When enabled, shows additional device details such as vendor/model/revision
+# and transport attributes.
+# Default: False
+# --------------------------------------------------------------------------
+VERBOSE={{ verbose | default(false) | ternary('yes', 'no') }}
+
+# --------------------------------------------------------------------------
+# Show human-readable device type descriptions (equivalent to lsscsi -d).
+# For example, displays 'disk' instead of the numeric code '0'.
+# Default: False
+# --------------------------------------------------------------------------
+DESCRIBE_TYPES={{ describe_types | default(false) | ternary('yes', 'no') }}
+
+# --------------------------------------------------------------------------
+# Include Host Bus Adapter (HBA) information in the listing (equivalent to lsscsi -H).
+# Shows details about the underlying HBA hardware.
+# Default: False
+# --------------------------------------------------------------------------
+SHOW_HBA={{ show_hba | default(false) | ternary('yes', 'no') }}
+
+# --------------------------------------------------------------------------
+# Include transport-specific details (equivalent to lsscsi -T).
+# Shows the transport type (e.g., SATA, SAS, USB, Fibre Channel) for each device.
+# Default: False
+# --------------------------------------------------------------------------
+SHOW_TRANSPORT={{ show_transport | default(false) | ternary('yes', 'no') }}
+
+# --------------------------------------------------------------------------
+# Use numeric identifiers only (equivalent to lsscsi -n).
+# Skips symbolic names like /dev/sda, showing only SCSI addresses.
+# Default: False
+# --------------------------------------------------------------------------
+NUMERIC={{ numeric | default(false) | ternary('yes', 'no') }}
+
+# --------------------------------------------------------------------------
+# Filter patterns for SCSI devices.
+# List of glob patterns to filter which devices to display.
+# Patterns match against the device's SCSI address (e.g., '0:0:*' for the
+# first host's first channel).
+# Input: list of strings
+# Output: space-separated string
+# Default: []
+# --------------------------------------------------------------------------
+FILTER_PATTERNS="{{ filter_patterns | default([]) | join(' ') }}"
+
+# --------------------------------------------------------------------------
+# Additional arguments to pass directly to the lsscsi binary.
+# Examples: '--scsi_only', '--nodev'.
+# Input: single string
+# Default: ''
+# --------------------------------------------------------------------------
+LSSCSI_ARGS="{{ lsscsi_args | default('') }}"
+
+# --------------------------------------------------------------------------
+# Prefer multipath device names.
+# When multipath devices are detected, prefer showing /dev/mapper/* names
+# instead of the underlying /dev/sd* device nodes.
+# Default: False
+# --------------------------------------------------------------------------
+PREFER_MULTIPATH={{ prefer_multipath | default(false) | ternary('yes', 'no') }}
+
+# --------------------------------------------------------------------------
+# Include specific transport types.
+# List of transport types to include; all others are excluded.
+# Valid values: 'fibre_channel', 'sas', 'sata', 'scsi', 'usb', 'nvme', 'ide', etc.
+# Input: list of strings
+# Output: space-separated string
+# Default: []
+# --------------------------------------------------------------------------
+TRANSPORT_INCLUDE="{{ transport_include | default([]) | join(' ') }}"
+
+# --------------------------------------------------------------------------
+# Exclude specific transport types.
+# List of transport types to exclude; others are included.
+# Input: list of strings
+# Output: space-separated string
+# Default: []
+# --------------------------------------------------------------------------
+TRANSPORT_EXCLUDE="{{ transport_exclude | default([]) | join(' ') }}"
+
+# --------------------------------------------------------------------------
+# Root path of the sysfs filesystem.
+# Override only in non-standard environments (e.g., chroot, containers).
+# Default: '/sys'
+# --------------------------------------------------------------------------
+SYSFS_PATH="{{ sysfs_path | default('/sys') }}"
+
+# --------------------------------------------------------------------------
+# Root path of the procfs filesystem.
+# Required for device topology and host information.
+# Default: '/proc'
+# --------------------------------------------------------------------------
+PROCFS_PATH="{{ procfs_path | default('/proc') }}"
+
+# --------------------------------------------------------------------------
+# Timeout (in seconds) for reading from sysfs/procfs.
+# Set to 0 for no timeout.
+# Default: 10
+# --------------------------------------------------------------------------
+TIMEOUT={{ timeout | default(10) }}
+
+# --------------------------------------------------------------------------
+# Enable debug logging to stderr.
+# Useful for troubleshooting why certain devices are not being detected.
+# Default: False
+# --------------------------------------------------------------------------
+DEBUG={{ debug | default(false) | ternary('yes', 'no') }}

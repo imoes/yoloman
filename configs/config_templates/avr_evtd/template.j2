@@ -1,0 +1,44 @@
+# avr_evtd Configuration File
+# This file configures the AVR Watchdog Daemon used on Linkstation/KuroBox devices.
+# It controls hardware watchdog behavior, logging, user context, and monitored resources.
+
+# Enable or disable the watchdog functionality. When enabled, the system will reset if the watchdog is not periodically pinged.
+{% if (watchdog_enabled | default(True)) | bool %}watchdog on{% else %}watchdog off{% endif %}
+
+# Path to the AVR watchdog device node. Usually `/dev/avr_evtd` on Linkstation devices.
+device {{ device_path | default('/dev/avr_evtd') }}
+
+# Maximum time (in seconds) without a watchdog ping before a hardware reset is triggered. Valid range: 1–255. Set to 0 to disable timer (not recommended).
+timeout {{ timeout_seconds | default(60) }}
+
+# Interval (in seconds) between watchdog pings. Must be less than `timeout_seconds` to prevent resets.
+heartbeat {{ heartbeat_seconds | default(30) }}
+
+# Verbosity of logging: `quiet` (only errors), `info` (normal), or `debug` (detailed).
+loglevel {{ log_level | default('info') }}
+
+# Syslog facility to use when logging messages. Common options: `daemon`, `local0`–`local7`.
+{% if syslog_facility | default('daemon') %}syslog {{ syslog_facility | default('daemon') }}{% endif %}
+
+# Optional shell command to execute before each watchdog ping (e.g., health check script). Should be lightweight and fast.
+{% if pre_ping_command | default('') %}preping {{ pre_ping_command | default('') }}{% endif %}
+
+# Optional shell command to execute *after* a watchdog-triggered reset (e.g., cleanup, notification).
+{% if post_reset_command | default('') %}postreset {{ post_reset_command | default('') }}{% endif %}
+
+# Unix username to run `avr_evtd` as. For security, consider using a dedicated non-root user.
+{% if run_as_user | default('root') %}user {{ run_as_user | default('root') }}{% endif %}
+
+# Unix group name to run `avr_evtd` as.
+{% if run_as_group | default('root') %}group {{ run_as_group | default('root') }}{% endif %}
+
+# List of files whose change should trigger a watchdog ping. Useful for detecting configuration reloads or critical file updates.
+{% for file in monitored_files | default([]) %}monitored_file {{ file.path | default('') }}{% if file.trigger | default('') %} trigger {{ file.trigger | default('') }}{% endif %}
+{% endfor %}
+
+# List of services to check periodically. If a service fails, the watchdog is pinged to keep the system alive until the service recovers.
+{% for svc in monitored_services | default([]) %}monitored_service {{ svc.name | default('') }}{% if svc.timeout | default('') %} timeout {{ svc.timeout | default('') }}{% endif %}
+{% endfor %}
+
+# Disable automatic restart of `avr_evtd` if it crashes (for debugging). Leave disabled in production.
+{% if (no_auto_restart | default(False)) | bool %}no_auto_restart{% endif %}

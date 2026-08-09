@@ -1,0 +1,161 @@
+{
+  "template": "[# OVN Interconnection Database (ovn-ic-db) configuration\n# Global database options\n[Global]\n  # Database engine type (e.g., \"external\")\n  {{- \"backend\" }} = {{ global_backend }}\n\n  # Maximum number of connections allowed (0 = unlimited)\n  {{- \"max_connections\" }} = {{ global_max_connections }}\n\n  # Path to SSL certificate for secure connections\n  {{- \"ssl_cert\" }} = {{ global_ssl_cert | default('') }}\n\n  # Path to SSL private key\n  {{- \"ssl_private_key\" }} = {{ global_ssl_private_key | default('') }}\n\n  # Path to CA certificate for verifying client certs\n  {{- \"ssl_ca_cert\" }} = {{ global_ssl_ca_cert | default('') }}\n\n  # Enable SSL/TLS for external connections\n  {{- \"use_ssl\" }} = {{ global_use_ssl | default(false) | lower }}\n\n  # Optional cluster ID for multi-site deployments\n  {{- \"cluster_id\" }} = {{ global_cluster_id | default('') }}\n\n# OVN IC DB specific settings\n[ovn-ic-db]\n  # Enable interconnection database mode\n  {{- \"enable\" }} = {{ ic_enable | default(true) | lower }}\n\n  # Name of this site/cluster (must be unique across interconnection)\n  {{- \"site_id\" }} = {{ ic_site_id }}\n\n  # List of peer site IDs and connection details\n{% for peer in ic_peers %}\n  # Peer site: {{ peer.site_id }}\n  {{- \"peer_\" }}{{ peer.site_id }}{{ \"_url\" }} = {{ peer.url }}\n  {{- \"peer_\" }}{{ peer.site_id }}{{ \"_ssl_cert\" }} = {{ peer.ssl_cert | default('') }}\n  {{- \"peer_\" }}{{ peer.site_id }}{{ \"_ssl_private_key\" }} = {{ peer.ssl_private_key | default('') }}\n  {{- \"peer_\" }}{{ peer.site_id }}{{ \"_ssl_ca_cert\" }} = {{ peer.ssl_ca_cert | default('') }}\n{% endfor %}\n\n  # Interval (in seconds) for periodic health checks with peers\n  {{- \"peer_health_check_interval\" }} = {{ ic_peer_health_check_interval | default(30) }}\n\n  # Maximum time (in seconds) to wait for peer response before marking unhealthy\n  {{- \"peer_timeout\" }} = {{ ic_peer_timeout | default(10) }}\n\n  # Enable verbose logging for interconnection operations\n  {{- \"verbose\" }} = {{ ic_verbose | default(false) | lower }}\n\n# Logging configuration\n[Logging]\n  # Log file path (empty = stderr only)\n  {{- \"file\" }} = {{ log_file | default('') }}\n\n  # Log level: info, notice, warning, err, critical, emerg, debug\n  {{- \"level\" }} = {{ log_level }}\n\n  # Syslog facility (e.g., \"daemon\", \"local0\")\n  {{- \"syslog_facility\" }} = {{ log_syslog_facility | default('daemon') }}\n\n# Audit logging (optional)\n[Audit]\n  # Enable audit logging\n  {{- \"enable\" }} = {{ audit_enable | default(false) | lower }}\n\n  # Path to audit log file\n  {{- \"file\" }} = {{ audit_file | default('/var/log/ovn/ovn-ic-db-audit.log') }}\n\n  # Log level for audit events\n  {{- \"level\" }} = {{ audit_level | default('info') }}\n",
+  "values_schema": {
+    "global_backend": {
+      "type": "string",
+      "default": "external",
+      "description": "Database engine backend type. Use 'external' for external database server."
+    },
+    "global_max_connections": {
+      "type": "number",
+      "default": 0,
+      "description": "Maximum number of simultaneous client connections (0 = unlimited)."
+    },
+    "global_ssl_cert": {
+      "type": "string",
+      "default": "",
+      "description": "Path to SSL certificate file (PEM format) for secure server connections."
+    },
+    "global_ssl_private_key": {
+      "type": "string",
+      "default": "",
+      "description": "Path to SSL private key file (PEM format) corresponding to the certificate."
+    },
+    "global_ssl_ca_cert": {
+      "type": "string",
+      "default": "",
+      "description": "Path to CA certificate for verifying client certificates (optional)."
+    },
+    "global_use_ssl": {
+      "type": "bool",
+      "default": false,
+      "description": "Whether to require SSL/TLS for external connections."
+    },
+    "global_cluster_id": {
+      "type": "string",
+      "default": "",
+      "description": "Cluster identifier used for multi-cluster deployments. Should be unique per logical cluster."
+    },
+    "ic_enable": {
+      "type": "bool",
+      "default": true,
+      "description": "Enable OVN Interconnection database functionality."
+    },
+    "ic_site_id": {
+      "type": "string",
+      "default": "default",
+      "description": "Unique identifier for this site/cluster in the interconnection."
+    },
+    "ic_peers": {
+      "type": "list",
+      "default": [],
+      "description": "List of peer sites to interconnect with. Each peer requires a connection URL and optional SSL settings.",
+      "items": {
+        "site_id": {
+          "type": "string",
+          "description": "Unique ID of the peer site (must match that site's site_id)."
+        },
+        "url": {
+          "type": "string",
+          "description": "Connection URL for the peer OVN IC DB (e.g., 'tcp:192.168.10.2:6643' or 'ssl:192.168.10.2:6643')."
+        },
+        "ssl_cert": {
+          "type": "string",
+          "default": "",
+          "description": "Peer-specific SSL client certificate for mutual authentication (optional)."
+        },
+        "ssl_private_key": {
+          "type": "string",
+          "default": "",
+          "description": "Peer-specific SSL client private key (must accompany ssl_cert)."
+        },
+        "ssl_ca_cert": {
+          "type": "string",
+          "default": "",
+          "description": "Peer-specific CA certificate for verifying peer server cert."
+        }
+      }
+    },
+    "ic_peer_health_check_interval": {
+      "type": "number",
+      "default": 30,
+      "description": "Seconds between health check requests to peers."
+    },
+    "ic_peer_timeout": {
+      "type": "number",
+      "default": 10,
+      "description": "Seconds to wait for peer response before marking it as unhealthy."
+    },
+    "ic_verbose": {
+      "type": "bool",
+      "default": false,
+      "description": "Enable detailed logging of interconnection operations (for troubleshooting)."
+    },
+    "log_file": {
+      "type": "string",
+      "default": "",
+      "description": "Path to log file. If empty, logs go to stderr only."
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info",
+      "description": "Logging verbosity level. Options: info, notice, warning, err, critical, emerg, debug."
+    },
+    "log_syslog_facility": {
+      "type": "string",
+      "default": "daemon",
+      "description": "Syslog facility to use when logging to syslog (e.g., daemon, local0, local1)."
+    },
+    "audit_enable": {
+      "type": "bool",
+      "default": false,
+      "description": "Enable audit logging (tracks database mutations and administrative actions)."
+    },
+    "audit_file": {
+      "type": "string",
+      "default": "/var/log/ovn/ovn-ic-db-audit.log",
+      "description": "Path for the audit log file (ignored if audit logging is disabled)."
+    },
+    "audit_level": {
+      "type": "string",
+      "default": "info",
+      "description": "Audit log verbosity (usually info or notice)."
+    }
+  },
+  "sample_values": {
+    "global_backend": "external",
+    "global_max_connections": 1024,
+    "global_ssl_cert": "/etc/ovn/ssl/db-cert.pem",
+    "global_ssl_private_key": "/etc/ovn/ssl/db-privkey.pem",
+    "global_ssl_ca_cert": "/etc/ovn/ssl/ca-cert.pem",
+    "global_use_ssl": true,
+    "global_cluster_id": "cluster-east-1",
+    "ic_enable": true,
+    "ic_site_id": "site-a",
+    "ic_peers": [
+      {
+        "site_id": "site-b",
+        "url": "tcp:10.0.0.101:6643",
+        "ssl_cert": "",
+        "ssl_private_key": "",
+        "ssl_ca_cert": ""
+      },
+      {
+        "site_id": "site-c",
+        "url": "ssl:10.0.0.102:6643",
+        "ssl_cert": "/etc/ovn/ssl/client-b.pem",
+        "ssl_private_key": "/etc/ovn/ssl/client-b-privkey.pem",
+        "ssl_ca_cert": "/etc/ovn/ssl/ca-cert.pem"
+      }
+    ],
+    "ic_peer_health_check_interval": 20,
+    "ic_peer_timeout": 8,
+    "ic_verbose": false,
+    "log_file": "/var/log/ovn/ovn-ic-db.log",
+    "log_level": "info",
+    "log_syslog_facility": "local0",
+    "audit_enable": true,
+    "audit_file": "/var/log/ovn/ovn-ic-db-audit.log",
+    "audit_level": "notice"
+  }
+}

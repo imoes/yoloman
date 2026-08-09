@@ -1,0 +1,43 @@
+{
+  "loglevel": 4,
+  "logfile": "/var/log/nbdkit.log",
+  "logflush": false,
+  "listen": "0.0.0.0",
+  "port": 10809,
+  "unixsocket": "",
+  "unixsocketperm": "0660",
+  "timeout": 300,
+  "maxconnections": 20,
+  "allow_disk_create": false,
+  "read_only": false,
+  "plugin_path": "/usr/lib64/nbdkit/plugins:/usr/lib/nbdkit/plugins",
+  "servers": [
+    {
+      "name": "disk0",
+      "description": "Production storage image",
+      "plugin": "file",
+      "args": {
+        "path": "/srv/nbd/disk0.img",
+        "readonly": false
+      }
+    },
+    {
+      "name": "cache",
+      "description": "SSD-backed cache",
+      "plugin": "memory",
+      "args": {
+        "size": "4GiB",
+        "readonly": false
+      }
+    },
+    {
+      "name": "backup",
+      "description": "Remote backup via HTTP",
+      "plugin": "curl",
+      "args": {
+        "url": "http://backup.example.com/disk.img",
+        "readonly": true
+      }
+    }
+  ]
+}

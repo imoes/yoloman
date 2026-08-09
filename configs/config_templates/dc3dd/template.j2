@@ -1,0 +1,110 @@
+{# ==============================================================================
+  # dc3dd Configuration Template
+  # ==============================================================================
+  # This template generates a command-line style configuration file for dc3dd,
+  # a forensic disk cloning tool based on GNU dd.
+  #
+  # Each variable below is self-documented with its schema default and description.
+  # All references use {{ var | default(value) }} to prevent render errors if
+  # the variable is undefined in the Ansible play.
+  # ============================================================================== #}
+
+{# ==============================================================================
+  # Input/Output Parameters
+  # ============================================================================== #}
+
+{# Input file path (e.g., /dev/sda) #}
+ifinput={{ input_file | default('') }}
+
+{# Output file path (e.g., /dev/sdb or image.dd) #}
+ifoutput={{ output_file | default('') }}
+
+{# ==============================================================================
+  # Block Size and I/O Parameters
+  # ============================================================================== #}
+
+{# Block size for read/write operations; documented in dc3dd(1) as `bs` #}
+bs={{ block_size | default('512') }}
+
+{# Size of the read buffer (e.g., 4M) #}
+readbufsize={{ read_buf_size | default('') }}
+
+{# ==============================================================================
+  # Hashing and Verification Options
+  # ============================================================================== #}
+
+{# List of hash algorithms to compute (e.g., ['md5','sha256']); valid values per dc3dd(1) include md5, sha1, sha256, sha512 #}
+{# Note: If the list is empty, this line will still be emitted with an empty value. #}
+hash={{ hash | default([]) | join(',') }}
+
+{# File path to write hash computation log #}
+hashlog={{ hashlog | default('') }}
+
+{# ==============================================================================
+  # Error Handling and Progress
+  # ============================================================================== #}
+
+{# Progress update interval in seconds (e.g., '3') #}
+{# Only emit if defined AND non-empty #}
+{% if progress | default('') != '' %}
+progress={{ progress | default('') }}
+{% endif %}
+
+{# Error handling mode: exit (default), skip, or stop #}
+errors={{ errors | default('exit') }}
+
+{# ==============================================================================
+  # Disk Duplication Mode
+  # ============================================================================== #}
+
+{# Enable disk duplication mode; per dc3dd(1) adds sector counting and geometry awareness #}
+{# Convert boolean to lowercase string for config compatibility #}
+{% if disk | default(false) | bool %}
+disk=true
+{% endif %}
+
+{# Log file for detailed disk duplication operations #}
+log={{ log | default('') }}
+
+{# ==============================================================================
+  # Partition and Sector Ranges
+  # ============================================================================== #}
+
+{# Number of blocks to skip in output before writing (dc3dd(1) `seek`) #}
+seek={{ seek | default(0) }}
+
+{# Number of blocks to skip in input before reading (dc3dd(1) `skip`) #}
+skip={{ skip | default(0) }}
+
+{# ==============================================================================
+  # Verification and Comparison
+  # ============================================================================== #}
+
+{# Enable verification pass after copy (dc3dd(1) `verify`) #}
+{# Convert boolean to lowercase string for config compatibility #}
+{% if verify | default(false) | bool %}
+verify=true
+{% endif %}
+
+{# File to write differences found during verification #}
+diff={{ diff | default('') }}
+
+{# ==============================================================================
+  # Output Formatting
+  # ============================================================================== #}
+
+{# Output format: raw (default), host, or compressed (per dc3dd(1) `outputformat`) #}
+outputformat={{ output_format | default('') }}
+
+{# ==============================================================================
+  # Logging Options
+  # ============================================================================== #}
+
+{# Enable verbose output (dc3dd(1) `verbose`) #}
+{# Convert boolean to lowercase string for config compatibility #}
+{% if verbose | default(false) | bool %}
+verbose=true
+{% endif %}
+
+{# File to write standard diagnostic/log messages #}
+logfile={{ logfile | default('') }}

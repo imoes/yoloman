@@ -1,0 +1,67 @@
+# ==============================================================================
+# Podman / OCI Container Image Registry Configuration
+# ==============================================================================
+# This file (registries.conf) controls how container runtimes (Podman, Buildah, Skopeo, etc.)
+# resolve and pull container images. It defines fallback search registries for unqualified
+# image names and detailed per-registry settings (mirrors, security, prefixes).
+# ==============================================================================
+
+# Section: Search Registries
+# --------------------------
+# Defines the order of registries to attempt when an image reference does not
+# include a domain/registry prefix (e.g., pulling "nginx" tries these registries
+# in sequence until a match is found).
+[search]
+# unqualified_search_registries: List of registries to search when an image name
+# has no prefix. Order matters: earlier entries take precedence.
+# Default: ['docker.io', 'quay.io']
+registries = {{ unqualified_search_registries | default(['docker.io', 'quay.io']) | to_json }}
+
+# ==============================================================================
+# Section: Specific Registry Configuration
+# ==============================================================================
+# Detailed per-registry configuration blocks. Each block defines behavior
+# (mirrors, insecure access, prefix) for a specific registry location.
+# Note: Podman typically uses `[[registry]]` for single location, or
+# `[[registry.mirror]]` for mirror definitions within a registry block.
+# The schema implies a list of objects. We iterate and render valid TOML.
+
+{% for reg in registries | default([]) %}
+# --------------------------------------------------------------------------
+# Registry: {{ reg.location | default('unknown') }}
+# --------------------------------------------------------------------------
+# Location: The hostname of the registry.
+# This block applies settings for this specific registry.
+[[registry]]
+location = "{{ reg.location | default('') }}"
+
+# Insecure: Allow HTTP (non-TLS) connections to this registry.
+# WARNING: Only use for internal, trusted registries with self-signed certs.
+# Default behavior is secure (HTTPS). Set to true only if explicitly required.
+{% if reg.insecure is defined %}
+insecure = {{ reg.insecure | lower }}
+{% else %}
+# insecure = false
+{% endif %}
+
+# Prefix: An optional prefix to prepend to image names when pushing/pulling
+# against this registry. Useful for organization-level namespaces.
+# Example: prefix = "company.com/myorg"
+{% if reg.prefix is defined %}
+prefix = "{{ reg.prefix }}"
+{% else %}
+# prefix = ""
+{% endif %}
+
+# Mirrors: Alternate locations to try *before* the main `location` for pulling images.
+# If the main location fails, Podman may try mirrors if configured.
+{% if reg.mirrors is defined and reg.mirrors | length > 0 %}
+{% for m in reg.mirrors %}
+[[registry.mirror]]
+location = "{{ m }}"
+{% endfor %}
+{% else %}
+# No mirrors configured for this registry.
+{% endif %}
+
+{% endfor %}

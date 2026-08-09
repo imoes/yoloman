@@ -1,0 +1,29 @@
+name: odbc
+fqcn: community.general.odbc
+collection: community.general
+short_description: Execute SQL via ODBC
+description: Read/Write info via ODBC drivers.
+options:
+  commit:
+    type: bool
+    default: true
+    description: Perform a commit after the execution of the SQL query. Some databases allow a commit
+      after a select whereas others raise an exception. Default is V(true) to support legacy module behavior.
+  dsn:
+    type: str
+    required: true
+    description: The connection string passed into ODBC.
+  params:
+    type: list
+    description: Parameters to pass to the SQL query.
+  query:
+    type: str
+    required: true
+    description: The SQL query to perform.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Set some values in the test db\n  community.general.odbc:\n    dsn: \"DRIVER={ODBC\
+  \ Driver 13 for SQL Server};Server=db.ansible.com;Database=my_db;UID=admin;PWD=password;\"\n    query:\
+  \ \"Select * from table_a where column1 = ?\"\n    params:\n      - \"value1\"\n    commit: false\n\
+  \  changed_when: false\n"

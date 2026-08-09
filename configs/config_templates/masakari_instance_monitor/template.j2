@@ -1,0 +1,75 @@
+[DEFAULT]
+# Path to the log file for the instance monitor service.
+log_file = {{ log_file | default('/var/log/masakari/instance-monitor.log') }}
+
+# Directory where log files are stored.
+log_dir = {{ log_dir | default('/var/log/masakari') }}
+
+# Enable logging to syslog instead of files.
+use_syslog = {{ use_syslog | default(False) }}
+
+# Syslog facility to use when logging via syslog.
+syslog_log_facility = {{ syslog_log_facility | default('LOG_USER') }}
+
+# Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
+
+# Message bus connection URL (e.g., RabbitMQ or other messaging backends).
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Keystone authentication endpoint URL.
+auth_url = {{ auth_url | default('http://localhost:5000/v3') }}
+
+# Keystone project domain name for service user.
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# Keystone project name for Masakari service user.
+project_name = {{ project_name | default('services') }}
+
+# Keystone user domain name for service user.
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Username for Masakari service in Keystone.
+username = {{ username | default('masakari') }}
+
+# Password for Masakari service user in Keystone. *Do not store in plaintext in production.*
+password = {{ password | default('') }}
+
+# Interval in seconds between heartbeats sent by the instance monitor to signal liveness.
+segment_heartbeat_interval = {{ segment_heartbeat_interval | default(30) }}
+
+# Notification driver to use for sending events.
+notification_driver = {{ notification_driver | default('masakari.openstack.common.notifier.rpc_notifier') }}
+
+# Enable monitoring of host health.
+host_monitor_enabled = {{ host_monitor_enabled | default(True) }}
+
+# Enable monitoring of virtual instance health.
+instance_monitor_enabled = {{ instance_monitor_enabled | default(True) }}
+
+# Seconds to wait before retrying instance health check after failure.
+instance_monitor_retry_interval = {{ instance_monitor_retry_interval | default(10) }}
+
+# Maximum number of retries before declaring instance unhealthy.
+instance_monitor_max_retries = {{ instance_monitor_max_retries | default(3) }}
+
+# Automatically recover failed instances via evacuation or restart.
+auto_recover = {{ auto_recover | default(True) }}
+
+# Recovery method: 'auto' (automatic evacuation or restart), 'stop', 'restart', or 'evacuate'.
+recover_method = {{ recover_method | default('auto') }}
+
+# Optional endpoint to send additional notifications (e.g., webhook URL).
+notification_endpoint = {{ notification_endpoint | default('') }}
+
+# Health check endpoint for instance monitoring (optional).
+# health_check_uri = {{ health_check_uri | default('') }}
+
+{% for host in hosts | default([]) %}
+[{{ host.name }}]
+# Host-specific monitoring configuration for: {{ host.name }}
+host = {{ host.name }}
+enabled = {{ host.enabled | default(True) }}
+segment_id = {{ host.segment_id | default('') }}
+monitoring_uri = {{ host.monitoring_uri | default('') }}
+{% endfor %}

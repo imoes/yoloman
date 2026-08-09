@@ -1,0 +1,49 @@
+{
+  "debug": false,
+  "maxconn": 100,
+  "ssl": true,
+  "ssl_cert": "/etc/letsencrypt/live/mail.example.com/fullchain.pem",
+  "ssl_key": "/etc/letsencrypt/live/mail.example.com/privkey.pem",
+  "port": 143,
+  "ssl_port": 993,
+  "idle_timeout": 1800,
+  "syslog": true,
+  "allow_plaintext": false,
+  "auth_mechs": [
+    "cram-md5",
+    "digest-md5",
+    "scram-sha-256"
+  ],
+  "sasl_config": "/etc/sasl2/imapd.conf",
+  "ipv6": true,
+  "loglevel": 1,
+  "pidfile": "/run/imap4d/imap4d.pid",
+  "user": "mail",
+  "group": "mail",
+  "mailbox_default": "maildir",
+  "maildir_dotlock": true,
+  "client_limits": [
+    {
+      "name": "internal-subnet",
+      "match": "192.168.0.0/16",
+      "maxconn": 25
+    },
+    {
+      "name": "loopback",
+      "match": "127.0.0.0/8",
+      "maxconn": 10
+    }
+  ],
+  "acl_rules": [
+    {
+      "name": "allow-local",
+      "match": "127.0.0.0/8",
+      "action": "allow"
+    },
+    {
+      "name": "block-bogon",
+      "match": "100.64.0.0/10",
+      "action": "deny"
+    }
+  ]
+}

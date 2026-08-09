@@ -1,0 +1,177 @@
+# ==============================================================================
+# containerd Configuration Template
+# ==============================================================================
+#
+# This file configures containerd, the industry-standard container runtime.
+# It is structured into sections: CRI plugin (Kubernetes integration),
+# Registry settings, CNI networking, gRPC API, Debug/Metrics, and Global paths.
+#
+# Variables are sourced from Ansible host/group vars or role defaults.
+# Every variable uses | default(...) to ensure safe rendering even if undefined.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Core Plugin: CRI (Container Runtime Interface)
+# ------------------------------------------------------------------------------
+[plugins]
+  # Core plugin: CRI (Container Runtime Interface)
+  [plugins.cri]
+    # Enable the CRI plugin to support Kubernetes container runtime API.
+    enable_cri = {{ enable_cri | default(true) | lower }}
+
+    # Containerd state and runtime directories
+    state_dir = "{{ state_dir | default('/run/containerd') }}"
+    snapshotter = "{{ snapshotter | default('overlayfs') }}"
+    
+    # Default runtime configuration
+    [plugins.cri.containerd]
+      # Default runtime name used by Kubernetes/CRIO
+      default_runtime_name = "{{ default_runtime_name | default('runc') }}"
+      
+      # Disable pivot root (not recommended for production — useful only in constrained environments).
+      no_pivot = {{ no_pivot | default(false) | lower }}
+
+      # Snapshotter-specific options (e.g., for overlayfs)
+      [plugins.cri.containerd.snapshotter_options]
+        # Overlayfs-specific options
+        [plugins.cri.containerd.snapshotter_options.overlayfs]
+          # Use native diff algorithm for overlayfs snapshots (slower but accurate; fallback if 'diff' fails).
+          native_diff = {{ overlayfs_native_diff | default(true) | lower }}
+
+    # Registry configuration for image pulls
+    [plugins.cri.registry]
+      # Registry mirrors to use for image pulls — each mirror redirects requests for a registry host.
+      {% for mirror in registry_mirrors | default([]) %}
+      [plugins.cri.registry.mirrors."{{ mirror.get('host', '') | default('') }}"]
+        endpoint = {{ mirror.get('endpoints', []) | default([]) | tojson }}
+      {% endfor %}
+      
+      # Authentication configs for private registries (username/password or token).
+      {% for auth in registry_configs | default([]) %}
+      [plugins.cri.registry.configs."{{ auth.get('host', '') | default('') }}".auth]
+        # Authentication (username/password or token)
+        username = "{{ auth.get('username', '') | default('') }}"
+        password = "{{ auth.get('password', '') | default('') }}"
+        # Or use token_auth: true and set token
+        {% if auth.get('token') is defined and auth.get('token') %}
+        token = "{{ auth.get('token', '') | default('') }}"
+        {% endif %}
+      {% endfor %}
+
+      # TLS certificates and settings for private registries.
+      {% for tls in registry_tls_configs | default([]) %}
+      [plugins.cri.registry.configs."{{ tls.get('host', '') | default('') }}".tls]
+        ca_file = "{{ tls.get('ca_file', '') | default('') }}"
+        cert_file = "{{ tls.get('cert_file', '') | default('') }}"
+        key_file = "{{ tls.get('key_file', '') | default('') }}"
+        # Skip TLS verification only in dev/test environments
+        insecure_skip_verify = {{ tls.get('insecure_skip_verify', false) | default(false) | lower }}
+      {% endfor %}
+
+    # Image used for Kubernetes sandbox (pause) containers.
+    sandbox_image = "{{ sandbox_image | default('registry.k8s.io/pause:3.9') }}"
+
+    # Timeout for image pull operations in seconds (0 = unlimited).
+    # Note: The schema provides an integer; we format it as 'Ns' string if needed, 
+    # but containerd often accepts raw integers or duration strings. 
+    # Here we assume integer seconds as per schema default 120.
+    image_pull_timeout = {{ image_pull_timeout | default(120) }}
+
+    # CNI plugin configuration
+    [plugins.cri.cni]
+      # Path to CNI plugin binaries.
+      bin_dir = "{{ cni_bin_dir | default('/opt/cni/bin') }}"
+      # Path to CNI network configuration directory.
+      conf_dir = "{{ cni_conf_dir | default('/etc/cni/net.d') }}"
+      
+      # Optional fallback CNI network config (when no config file exists).
+      {% if cni_default_network is defined %}
+      {% if cni_default_network is mapping %}
+      [plugins.cri.cni.default_network]
+        conf_file = "{{ cni_default_network.get('conf_file', '') | default('') }}"
+        {% if cni_default_network.get('ip_range') is defined and cni_default_network.get('ip_range') %}
+        ip_range = "{{ cni_default_network.get('ip_range') | default('') }}"
+        {% endif %}
+      {% else %}
+      # cni_default_network is not a mapping, skipping structured default_network block
+      {% endif %}
+      {% endif %}
+
+    # Stream server configuration for exec/attach/port-forward
+    [plugins.cri.containerd.stream_server]
+      # Address for streaming server (exec/attach/port-forward).
+      address = "{{ stream_address | default('127.0.0.1') }}"
+      # Port for streaming server (0 = auto-assign).
+      port = {{ stream_port | default(0) }}
+
+    # Maximum size (in bytes) of container stdout/stderr logs.
+    max_container_log_size = {{ max_container_log_size | default(16384) }}
+
+    # Enable automatic deletion of unused images (recommended in production).
+    image_deletion = {{ image_deletion | default(true) | lower }}
+
+  # Core plugin: snapshot (storage layer handling)
+  [plugins."io.containerd.grpc.v1.cri".snapshotter]
+    # Default snapshotter used for container filesystem layers (e.g., 'overlayfs', 'btrfs', 'devmapper').
+    default = "{{ snapshotter | default('overlayfs') }}"
+
+    # Snapshotter-specific configuration
+    [plugins."io.containerd.grpc.v1.cri".snapshotter.{{ snapshotter | default('overlayfs') }}]
+      # Example for devmapper snapshotter (not commonly used)
+      {% if snapshotter | default('overlayfs') == 'devmapper' %}
+      pool_name = "{{ devmapper_pool_name | default('') }}"
+      base_image_size = "{{ devmapper_base_image_size | default('10GB') }}"
+      {% endif %}
+
+# Global runtime configuration (optional; used when not overridden by CRI)
+[plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+  runtime_type = ""
+  runtime_engine = ""
+  runtime_root = ""
+  # Grant privileges to containers without exposing host devices (Kubernetes-specific).
+  privileged_without_host_devices = {{ privileged_without_host_devices | default(false) | lower }}
+
+# gRPC API server settings
+[grpc]
+  # Unix socket path for containerd gRPC API.
+  address = "{{ grpc_address | default('/run/containerd/containerd.sock') }}"
+  
+  # Maximum gRPC receive message size in bytes.
+  max_recv_message_size = {{ grpc_max_recv_message_size | default(16777216) }}
+  
+  # Maximum gRPC send message size in bytes.
+  max_send_message_size = {{ grpc_max_send_message_size | default(16777216) }}
+
+# Debugging and metrics
+[debug]
+  # Log level for containerd (debug, info, warn, error, etc.).
+  level = "{{ debug_level | default('info') }}"
+  
+  # Enable pprof CPU/memory profiling endpoint (disabled by default).
+  pprof_enabled = {{ pprof_enabled | default(false) | lower }}
+  
+  # Address for pprof endpoint (e.g., 'localhost:6060').
+  pprof_address = "{{ pprof_address | default('') }}"
+  
+  # Address for Prometheus metrics (e.g., '0.0.0.0:1338').
+  metrics_address = "{{ metrics_address | default('') }}"
+  # Interval (seconds) between metric exports (set to 0 to disable).
+  metrics_interval = {{ metrics_interval | default(60) }}
+
+# Root directory for persistent containerd data (snapshots, image layers).
+root = "{{ root_dir | default('/var/lib/containerd') }}"
+
+# Directory for containerd runtime state (sockets, PID files, etc.).
+state = "{{ state_dir | default('/run/containerd') }}"
+
+# Metrics configuration
+[metrics]
+  # Address for exposing metrics (e.g., "0.0.0.0:1338")
+  address = "{{ metrics_address | default('') }}"
+  
+  # Interval between metric collection (in seconds)
+  # Note: The original template used metrics_grpc_histogram which is not in the schema.
+  # We omit this or use a generic interval if needed. 
+  # Based on schema, metrics_interval is in [debug]. 
+  # We will leave grpc_histogram out as it's not a schema field, or set to false.
+  grpc_histogram = {{ false | lower }}

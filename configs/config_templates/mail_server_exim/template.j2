@@ -1,0 +1,285 @@
+# =============================================================================
+# Exim Mail Transfer Agent Configuration Template
+# =============================================================================
+# This template generates a valid Exim configuration file (exim4.conf) from
+# Ansible variables. It is self-documenting: every directive is preceded by
+# a comment derived from the schema description to explain its purpose.
+#
+# Key sections:
+# 1. System-wide settings (hostname, domains, ports, TLS)
+# 2. Spool and Log directories
+# 3. Authentication mechanisms (begin authenticators)
+# 4. Routers (begin routers) - How mail is routed
+# 5. Transports (begin transports) - How mail is delivered
+# 6. Retry rules (begin retry) - Delivery failure handling
+# 7. Rewrite rules (begin rewrite) - Optional address rewriting
+# 8. ACLs (begin acl) - Access control lists for SMTP phases
+# 9. Options (begin options) - Global performance and timeout settings
+# =============================================================================
+
+# === System-wide settings ===
+
+# The fully-qualified domain name (FQDN) of this mail server.
+# Used as the sender domain in message headers and for identification in SMTP greetings.
+primary_hostname = {{ primary_hostname | default('') }}
+
+# List of domains for which this server accepts final delivery (i.e., not relay).
+# Each item is a domain name or pattern (e.g., example.com, *.example.com).
+# Space-separated in Exim config.
+local_domains = {{ local_domains | default([]) | join(' ') }}
+
+# The port(s) the Exim daemon listens on for incoming SMTP connections.
+# Use comma-separated values for multiple ports (e.g., 25, 465, 587).
+daemon_smtp_ports = {{ smtp_port | default(25) }}
+
+# IP address to bind to for incoming SMTP.
+# Use '0.0.0.0' for all interfaces, or a specific IP like '127.0.0.1' to restrict.
+listen_address = {{ listen_address | default('0.0.0.0') }}
+
+# Enable Transport Layer Security (TLS) for encrypted SMTP.
+# If true, certificate and key paths must be provided and present.
+# Exim typically handles TLS via daemon options, but we document the intent here.
+use_tls = {{ use_tls | default(True) }}
+
+# TLS certificate and key paths (only if use_tls is true)
+# These paths must exist on the host where Exim runs.
+{% if use_tls | default(True) %}
+# Path to the private key file used for TLS.
+rsa_private_key = {{ tls_private_key_path | default('/etc/ssl/private/exim4.key') }}
+
+# Path to the certificate file used for TLS.
+certificate = {{ tls_certificate_path | default('/etc/ssl/certs/exim4.crt') }}
+{% endif %}
+
+# === Spool and log paths ===
+
+# Root directory for queue, message logs, and runtime state files.
+# Exim uses this directory to store temporary files and queue data.
+spool_directory = {{ spool_directory | default('/var/spool/exim4') }}
+
+# Directory to store Exim log files (main, reject, panic, etc.).
+log_directory = {{ log_directory | default('/var/log/exim4') }}
+
+# === Authentication backends ===
+
+# List of SASL authentication mechanisms supported by this server.
+# Each item defines a named authenticator block for client login.
+# Exim requires authenticators to be placed in a "begin authenticators" section.
+{% if auth_mechanisms | default([]) | length > 0 %}
+begin authenticators
+
+{% for mech in auth_mechanisms | default([]) %}
+# Authentication mechanism name
+{{ mech.name }}:
+  # Driver type (e.g., plaintext, cram_md5, dovecot)
+  driver = {{ mech.driver }}
+
+  # Public name advertised to clients (must match client expectations)
+  {% if mech.public_name %}public_name = {{ mech.public_name }}{% endif %}
+
+  # Condition to allow this authenticator (empty means always allow)
+  {% if mech.server_condition %}server_condition = {{ mech.server_condition }}{% endif %}
+
+  # ID to set for the authenticated user
+  {% if mech.server_set_id %}server_set_id = {{ mech.server_set_id }}{% endif %}
+
+  # Prompts to show to the user for credentials
+  {% if mech.server_prompts %}server_prompts = {{ mech.server_prompts | join(' : ') }}{% endif %}
+
+  # Client-provided username (optional)
+  {% if mech.client_name %}client_name = {{ mech.client_name }}{% endif %}
+
+  # Client-provided password/send data (optional)
+  {% if mech.client_send %}client_send = "{{ mech.client_send }}"{% endif %}
+
+{% endfor %}
+# End of authenticators block
+{% endif %}
+
+# === Routers ===
+
+# Mail routing rules — determine how domains/parts are handled (local delivery,
+# forwarding, relay, etc.). Routers are processed in order until one succeeds.
+# Must be placed in a "begin routers" section.
+begin routers
+
+{% for route in routers | default([]) %}
+# Name of this router entry
+{{ route.name }}:
+  # Driver to use for this router (e.g., dnslookup, redirect, accept)
+  driver = {{ route.driver }}
+
+  # List of domains this router handles
+  {% if route.domainlist %}domainlist = {{ route.domainlist | join(' ') }}{% endif %}
+
+  # Local parts (usernames) this router handles
+  {% if route.local_parts %}local_parts = {{ route.local_parts | join(' ') }}{% endif %}
+
+  # Transport to use if this router matches
+  {% if route.transport %}transport = {{ route.transport }}{% endif %}
+
+  # Raw route data (optional)
+  {% if route.route_data %}route_data = {{ route.route_data }}{% endif %}
+
+  # Behavior when host lookup fails
+  {% if route.host_find_failed %}host_find_failed = {{ route.host_find_failed }}{% endif %}
+
+  # Hosts to ignore during lookup (e.g., ignore local loopback)
+  {% if route.ignore_target_hosts %}ignore_target_hosts = {{ route.ignore_target_hosts | join(':') }}{% endif %}
+
+  # Directors to defer to if this router doesn't match
+  {% if route.directors %}directors = {{ route.directors | join(' ') }}{% endif %}
+
+{% endfor %}
+# End of routers block
+
+# === Transports ===
+
+# Delivery mechanisms — how messages are written or transmitted (e.g., local
+# mailbox via appendfile, remote SMTP). Must be placed in "begin transports".
+begin transports
+
+{% for transport in transports | default([]) %}
+# Name of this transport entry
+{{ transport.name }}:
+  # Driver type (e.g., smtp, appendfile, pipe)
+  driver = {{ transport.driver }}
+
+  # File to write to (for appendfile or similar)
+  {% if transport.file %}file = {{ transport.file }}{% endif %}
+
+  # Directory to use (e.g., for Maildir delivery)
+  {% if transport.directory %}directory = {{ transport.directory }}{% endif %}
+
+  # Enable Maildir format if true
+  {% if transport.maildir_format %}maildir_format{% endif %}
+
+  # User ID to run as for local delivery
+  {% if transport.user %}user = {{ transport.user }}{% endif %}
+
+  # Group ID to run as for local delivery
+  {% if transport.group %}group = {{ transport.group }}{% endif %}
+
+  # File permissions mode (e.g., '0600')
+  {% if transport.mode %}mode = {{ transport.mode }}{% endif %}
+
+  # Condition to allow delivery
+  {% if transport.append_condition %}append_condition = {{ transport.append_condition }}{% endif %}
+
+  # Remote group for SMTP transport
+  {% if transport.remote_group %}remote_group = {{ transport.remote_group }}{% endif %}
+
+  # Sort order for remote hosts
+  {% if transport.remote_sort_order %}remote_sort_order = {{ transport.remote_sort_order }}{% endif %}
+
+  # Hosts requiring authentication for this transport
+  {% if transport.hosts_try_auth %}hosts_try_auth = {{ transport.hosts_try_auth | join(' ') }}{% endif %}
+
+{% endfor %}
+# End of transports block
+
+# === Retry rules ===
+
+# Retry policies — controls how Exim retries failed deliveries.
+# Standard global rule applied by default unless overridden.
+# Format: domain-pattern transport-pattern retry-time-options
+begin retry
+
+{% for retry_rule in retry_rules | default([]) %}
+# Retry rule for failed deliveries
+* * F,2h,15m; G,16h,1h,1.5; F,4d,8h
+{% endfor %}
+{% if retry_rules | default([]) | length == 0 %}
+# No custom retry rules defined; Exim uses built-in defaults.
+* * F,2h,15m; G,16h,1h,1.5; F,4d,8h
+{% endif %}
+# End of retry rules
+
+# === Rewrite rules (optional) ===
+
+# Enable the rewrite rules block — for modifying envelope sender/recipient addresses.
+{% if enable_rewrite_rules | default(False) %}
+begin rewrite
+
+{% for rule in rewrite_rules | default([]) %}
+# Rewrite rule: pattern replacement flags
+{{ rule.pattern | default('') }} {{ rule.replacement | default('') }} {{ rule.flags | default('') }}
+{% endfor %}
+# End of rewrite rules
+{% endif %}
+
+# === ACLs (Access Control Lists) ===
+
+# Access control lists (ACLs) to enforce policies at different SMTP phases
+# (connection, RCPT, DATA). Enabled if enable_acls is true.
+{% if enable_acls | default(True) %}
+begin acl
+
+{% for acl in acls | default([]) %}
+# ACL Name: {{ acl.name }}
+# Purpose:
+{% if acl.name == 'main' %}
+# Main ACL: controls connection and mail submission
+{% elif acl.name == 'rcpt' %}
+# RCPT ACL: controls accepted recipients
+{% elif acl.name == 'data' %}
+# DATA ACL: inspects message content
+{% else %}
+# Custom ACL: {{ acl.name }}
+{% endif %}
+acl_{{ acl.name }}:
+{% for stmt in acl.statements | default([]) %}
+# Statement condition
+{% if stmt.condition %}  {% if stmt.negated %}!{% endif %}{{ stmt.condition }}{% endif %}
+
+# Action to take (accept, deny, defer, reject)
+{% if stmt.action == 'accept' %}  accept
+{% elif stmt.action == 'deny' %}  deny
+{% elif stmt.action == 'defer' %}  defer
+{% elif stmt.action == 'reject' %}  reject{% endif %}
+
+# Message to send if denied/rejected
+{% if stmt.message %}  message = {{ stmt.message }}{% endif %}
+
+# Log message for this action
+{% if stmt.log_message %}log_message = {{ stmt.log_message }}{% endif %}
+
+# Set variables for this statement
+{% if stmt.set %}set = {{ stmt.set }}{% endif %}
+
+# Add headers to the message
+{% if stmt.add_header %}add_header = {{ stmt.add_header }}{% endif %}
+
+# Specific deny message
+{% if stmt.deny_message %}deny message = {{ stmt.deny_message }}{% endif %}
+
+{% endfor %}
+{% endfor %}
+# End of ACLs
+{% endif %}
+
+# === Special options ===
+
+# Runtime configuration overrides go in the "begin options" section.
+begin options
+
+# Maximum allowed size of an incoming message in bytes.
+# Default is approx 50MB.
+max_message_size = {{ max_message_size | default(50000000) }}
+
+# Seconds to wait for SMTP command before timing out.
+# Covers connection, HELO, MAIL FROM, RCPT TO phases.
+smtp_accept_timeout = {{ smtp_accept_timeout | default(120) }}
+
+# Maximum time (seconds) allowed for a single queue run cycle.
+queue_run_timeout = {{ queue_run_timeout | default(300) }}
+
+# Maximum number of parallel queue runs (concurrent delivery attempts).
+queue_run_max = {{ queue_run_max | default(10) }}
+
+# Seconds to wait for DNS resolution before considering a host unreachable.
+dns_retimeout = {{ dns_retimeout | default(30) }}
+
+# If true, treat all DNS NXDOMAIN responses as permanent failures.
+{% if disable_dns_lookup | default(False) %}dns_again_means_nonexist = true{% endif %}
+# End of options

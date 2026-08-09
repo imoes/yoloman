@@ -1,0 +1,39 @@
+name: keyring
+fqcn: community.general.keyring
+collection: community.general
+short_description: Set or delete a passphrase using the Operating System's native keyring
+description: This module uses the L(keyring Python library, https://pypi.org/project/keyring/) to set
+  or delete passphrases for a given service and username from the OS' native keyring.
+options:
+  keyring_password:
+    type: str
+    required: true
+    description: Password to unlock keyring.
+  service:
+    type: str
+    required: true
+    description: The name of the service.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the password should exist.
+  user_password:
+    type: str
+    aliases:
+    - password
+    description: The password to set.
+  username:
+    type: str
+    required: true
+    description: The user belonging to the service.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Set a password for test/test1\n  community.general.keyring:\n    service: test\n\
+  \    username: test1\n    user_password: \"{{ user_password }}\"\n    keyring_password: \"{{ keyring_password\
+  \ }}\"\n\n- name: Delete the password for test/test1\n  community.general.keyring:\n    service: test\n\
+  \    username: test1\n    user_password: \"{{ user_password }}\"\n    keyring_password: \"{{ keyring_password\
+  \ }}\"\n    state: absent\n"

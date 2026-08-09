@@ -1,0 +1,39 @@
+{# Arjun (Parameter Discovery) CLI Configuration #}
+{# This template generates a command-line string for the Arjun tool. #}
+{# Arjun is a parameter discovery tool, not a network service. #}
+{# It does not provide or require services in the infrastructure sense. #}
+
+{# Target URL to scan for HTTP parameters (required). #}
+-u {{ url | default('') }}
+{# Path for JSON output file. #}
+{% if json_output | default('') != '' %}-oJ {{ json_output | default('') }}{% endif %}
+{# Path for text output file. #}
+{% if text_output | default('') != '' %}-oT {{ text_output | default('') }}{% endif %}
+{# Port for Burp Suite Proxy output. Set to null to disable. #}
+{% if burp_port is not none %}-oB {{ burp_port | default(8080) }}{% endif %}
+{# Delay between requests in seconds. #}
+{% if delay is not none %}-d {{ delay | default(0) }}{% endif %}
+{# Number of concurrent threads. #}
+{% if threads is not none %}-t {{ threads | default(5) }}{% endif %}
+{# Path to custom wordlist file. #}
+{% if wordlist | default('') != '' %}-w {{ wordlist | default('/usr/lib/python3/dist-packages/arjun/db/large.txt') }}{% endif %}
+{# Request method: GET, POST, XML, JSON, or HEADERS. #}
+{% if method | default('') != '' %}-m {{ method | default('GET') }}{% endif %}
+{# Path to file containing target URLs. #}
+{% if import_file | default('') != '' %}-i {{ import_file | default('') }}{% endif %}
+{# HTTP request timeout in seconds. #}
+{% if timeout is not none %}-T {{ timeout | default(15) }}{% endif %}
+{# Chunk size (number of parameters sent at once). #}
+{% if chunks is not none %}-c {{ chunks | default(100) }}{% endif %}
+{# Enable quiet mode (suppress output). #}
+{% if quiet | default(False) %}-q{% endif %}
+{# List of custom HTTP headers to include in every request (one header per item). #}
+{% if headers | default([]) | length > 0 %}--headers {{ headers | default([]) | join(' ') }}{% endif %}
+{# Collect parameters from passive sources (Wayback, CommonCrawl, OTX). #}
+{% if passive | default(False) %}--passive{% endif %}
+{# Prefer stability over speed. #}
+{% if stable | default(False) %}--stable{% endif %}
+{# Additional data to include in every request (e.g., POST body or JSON payload). #}
+{% if include_data | default('') != '' %}--include {{ include_data | default('') }}{% endif %}
+{# Disable HTTP redirects. #}
+{% if disable_redirects | default(False) %}--disable-redirects{% endif %}

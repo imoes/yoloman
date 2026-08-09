@@ -1,0 +1,29 @@
+name: virsh
+fqcn: builtin.virsh
+collection: builtin
+short_description: Run any libvirt `virsh` subcommand via the local CLI — the full
+  virsh surface in one tool
+description: 'Run any libvirt `virsh` subcommand via the local CLI — the full virsh
+  surface in one tool. Set command to the subcommand and args to the rest of the command
+  line, e.g. command="start" args=["web01"], command="snapshot-create-as" args=["web01","snap1"],
+  command="migrate" args=["--live","web01","qemu+ssh://node2/system"], or command="setmem"
+  args=["web01","2G","--config"]. Power: start, shutdown, destroy, reboot, suspend,
+  resume. Snapshots: snapshot-create-as, snapshot-delete, snapshot-revert, snapshot-list.
+  Also migrate, define/undefine, attach-disk/detach-disk, setvcpus/setmem, dumpxml,
+  dominfo, domstate, list. Read subcommands run even in check_mode (changed=false);
+  every other subcommand is mutating — write-gated, skipped under dry_run=true, changed=true.
+  Returns {rc, stdout, stderr}. Idempotency is the caller''s responsibility. List
+  domains/detect the hypervisor with virt_facts.'
+options:
+  args:
+    type: list
+    description: Positional arguments and flags after the subcommand, e.g. ["--live","web01","qemu+ssh://node2/system"].
+  command:
+    type: string
+    description: The virsh subcommand, e.g. "start", "snapshot-create-as", "migrate",
+      "setmem", "dominfo", "list".
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

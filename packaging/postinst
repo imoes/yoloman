@@ -1,0 +1,29 @@
+#!/bin/sh
+# agentic-mcp postinstall: first-install-only config bootstrap (never
+# touches an existing config.yaml — nfpm/dpkg/rpm already leave the
+# config.yaml.example alone via the config|noreplace file type; this script
+# additionally never overwrites a real config.yaml a previous install or
+# the operator already created), then enables/(re)starts the service.
+set -e
+
+CONF_DIR=/etc/agentic-mcp
+CONF_FILE="$CONF_DIR/config.yaml"
+CONF_EXAMPLE="$CONF_DIR/config.yaml.example"
+
+mkdir -p "$CONF_DIR/tools.d" "$CONF_DIR/trusted" /var/lib/agentic-mcp/uploads /var/lib/agentic-mcp/modules.d /var/log/agentic-mcp
+
+if [ ! -f "$CONF_FILE" ]; then
+	cp "$CONF_EXAMPLE" "$CONF_FILE"
+	TOKEN=$(/usr/bin/agentic-mcpd --generate-token)
+	sed -i "s/^token: \"\"/token: \"$TOKEN\"/" "$CONF_FILE"
+	chmod 0600 "$CONF_FILE"
+	echo "agentic-mcp: generated a new bearer token in $CONF_FILE (mode 0600)"
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl daemon-reload || true
+	systemctl enable agentic-mcp.service || true
+	systemctl restart agentic-mcp.service || true
+fi
+
+exit 0

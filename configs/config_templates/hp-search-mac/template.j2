@@ -1,0 +1,32 @@
+# ==============================================================================
+# hp-search-mac Configuration Template
+# ==============================================================================
+# This template configures hp-search-mac, a tool used to locate MAC addresses
+# on HP networking switches via SNMP.
+# See hp-search-mac(1) for detailed documentation on the configuration format.
+
+# ------------------------------------------------------------------------------
+# Debug Level
+# ------------------------------------------------------------------------------
+# Description: Controls the verbosity of the tool's output.
+# Values: 0-9 (0 = quiet/disabled, higher = more verbose).
+# Default: 0
+# Type: Integer
+set debug = {{ debug_level | default(0) }};
+
+# ------------------------------------------------------------------------------
+# Switch Definitions
+# ------------------------------------------------------------------------------
+# Description: A map (hash) of HP switches to query.
+# The tool uses SNMP to poll these switches for MAC address location information.
+# Each entry maps a switch hostname/IP to its SNMP community string.
+# Format: switches["hostname"] = "community_string";
+#
+# Schema Structure:
+#   switches (list): A list of switch configurations.
+#   switches[].host (string): Hostname or IP address of the HP switch.
+#   switches[].community (string): SNMP read-only community string.
+# ------------------------------------------------------------------------------
+{% for switch in switches | default([]) %}
+switches["{{ switch.host | default('') }}"] = "{{ switch.community | default('') }}";
+{% endfor %}

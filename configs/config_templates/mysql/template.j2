@@ -1,0 +1,97 @@
+[mysqld]
+# bind address for network listeners
+bind-address = {{ mysqld_bind_address }}
+
+# TCP port for incoming connections
+port = {{ mysqld_port }}
+
+# base directory for MySQL data
+basedir = {{ mysqld_basedir }}
+
+# directory where MySQL stores its data files
+data = {{ mysqld_datadir }}
+
+# number of worker threads for handling connections
+thread_cache_size = {{ mysqld_thread_cache_size }}
+
+# maximum number of simultaneous client connections
+max_connections = {{ mysqld_max_connections }}
+
+# TCP keepalive idle time (seconds) before sending probes
+wait_timeout = {{ mysqld_wait_timeout }}
+
+# maximum seconds a statement is allowed to run
+max_allowed_packet = {{ mysqld_max_allowed_packet }}
+
+# innodb buffer pool size — caches data and indexes in memory
+innodb_buffer_pool_size = {{ mysqld_innodb_buffer_pool_size }}
+
+# innodb log file size
+innodb_log_file_size = {{ mysqld_innodb_log_file_size }}
+
+# innodb flush method (e.g., fsync, O_DIRECT)
+innodb_flush_method = {{ mysqld_innodb_flush_method }}
+
+# enable or disable query cache (deprecated in MySQL 8.0+)
+{% if mysqld_query_cache_type is defined %}
+{% if mysqld_query_cache_type != '' %}
+query_cache_type = {{ mysqld_query_cache_type }}
+{% endif %}
+{% endif %}
+
+# size of the query cache (deprecated in MySQL 8.0+)
+{% if mysqld_query_cache_size is defined %}
+{% if mysqld_query_cache_size != '' %}
+query_cache_size = {{ mysqld_query_cache_size }}
+{% endif %}
+{% endif %}
+
+# character set for server, database, and connections
+character-set-server = {{ mysqld_character_set_server }}
+
+# collation for server
+Collation-server = {{ mysqld_collation_server }}
+
+# TLS/SSL configuration — optional; only emit if enabled
+{% if mysqld_ssl_enabled %}
+ssl-ca = {{ mysqld_ssl_ca }}
+ssl-cert = {{ mysqld_ssl_cert }}
+ssl-key = {{ mysqld_ssl_key }}
+{% endif %}
+
+# logging: slow query log
+{% if mysqld_slow_query_log_enabled %}
+slow_query_log = 1
+slow_query_log_file = {{ mysqld_slow_query_log_file }}
+long_query_time = {{ mysqld_long_query_time }}
+{% endif %}
+
+# binlog configuration
+{% if mysqld_binlog_enabled %}
+log_bin = {{ mysqld_binlog_path }}
+binlog_format = {{ mysqld_binlog_format }}
+expire_logs_days = {{ mysqld_expire_logs_days }}
+{% endif %}
+
+# replication: server ID (must be unique per replica set)
+server-id = {{ mysqld_server_id }}
+
+# replicate-do-db and replicate-ignore-db lists
+{% for db in mysqld_replicate_do_db %}
+replicate-do-db = {{ db }}
+{% endfor %}
+{% for db in mysqld_replicate_ignore_db %}
+replicate-ignore-db = {{ db }}
+{% endfor %}
+
+# additional runtime variables (free-form, e.g., for custom tuning)
+{% for key, value in mysqld_custom_vars.items() %}
+{{ key }} = {{ value }}
+{% endfor %}
+
+[client]
+# default client port (same as mysqld by convention)
+port = {{ client_port }}
+
+# default character set
+default-character-set = {{ client_character_set }}

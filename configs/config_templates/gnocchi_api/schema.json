@@ -1,0 +1,271 @@
+{
+  "gnocchi_api_cors_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Cross-Origin Resource Sharing (CORS) for the API."
+  },
+  "gnocchi_api_healthcheck_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the /healthcheck endpoint for liveness/readiness probes."
+  },
+  "gnocchi_api_cache_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable caching for GET requests (e.g., to reduce DB load)."
+  },
+  "gnocchi_api_standard_attr_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Include standard attributes (project_id, user_id) in resource metadata."
+  },
+  "gnocchi_api_version_negotiation_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic API version negotiation via Accept headers or URL."
+  },
+  "gnocchi_api_auth_token_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable token validation middleware."
+  },
+  "gnocchi_api_keystoneauth_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Keystone authentication integration."
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "default": {
+      "auth_uri": "http://127.0.0.1:5000/v3",
+      "auth_type": "password",
+      "project_domain_name": "Default",
+      "project_name": "services",
+      "user_domain_name": "Default",
+      "username": "gnocchi",
+      "password": "password",
+      "gnocchi_url": "http://127.0.0.1:8041",
+      "ssl_verify": true
+    },
+    "description": "Keystone authentication credentials and service endpoint.",
+    "items": {
+      "auth_uri": {
+        "type": "string",
+        "default": "http://127.0.0.1:5000/v3",
+        "description": "Keystone public identity endpoint URL."
+      },
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Keystone auth method (e.g., 'password')."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name containing the service project."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "services",
+        "description": "Project (tenant) name for the gnocchi service user."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name containing the service user."
+      },
+      "username": {
+        "type": "string",
+        "default": "gnocchi",
+        "description": "Keystone username for gnocchi."
+      },
+      "password": {
+        "type": "string",
+        "default": "password",
+        "description": "Keystone password for gnocchi (should be overridden)."
+      },
+      "gnocchi_url": {
+        "type": "string",
+        "default": "http://127.0.0.1:8041",
+        "description": "Public gnocchi endpoint (for internal self-referencing)."
+      },
+      "ssl_verify": {
+        "type": "bool",
+        "default": true,
+        "description": "Verify SSL certificates for Keystone and gnocchi endpoints."
+      }
+    }
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8041,
+      "workers": 1,
+      "debug": false,
+      "paste_config": "/etc/gnocchi/api-paste.ini"
+    },
+    "description": "Core API server binding and process configuration.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface to bind the API server to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8041,
+        "description": "TCP port for the gnocchi API."
+      },
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for the API server."
+      },
+      "debug": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable verbose logging and traceback details (not for production)."
+      },
+      "paste_config": {
+        "type": "string",
+        "default": "/etc/gnocchi/api-paste.ini",
+        "description": "Path to the PasteDeploy configuration file."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "driver": "file",
+      "base_path": "/var/lib/gnocchi"
+    },
+    "description": "Storage backend configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "file",
+        "description": "Storage driver (e.g., 'file', 'redis', 'kafka')."
+      },
+      "base_path": {
+        "type": "string",
+        "default": "/var/lib/gnocchi",
+        "description": "Base directory for file storage driver."
+      }
+    }
+  },
+  "indexer": {
+    "type": "object",
+    "default": {
+      "driver": "sql",
+      "url": "mysql+pymysql://gnocchi:gnocchi@localhost/gnocchi"
+    },
+    "description": "Indexer (metadata) backend configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "sql",
+        "description": "Indexer driver (e.g., 'sql', 'redis')."
+      },
+      "url": {
+        "type": "string",
+        "default": "mysql+pymysql://gnocchi:gnocchi@localhost/gnocchi",
+        "description": "Database URL for SQL indexer (use secrets manager in prod)."
+      }
+    }
+  },
+  "metricd": {
+    "type": "object",
+    "default": {
+      "workers": 1,
+      "batch_size": 100
+    },
+    "description": "Metric processing daemon configuration.",
+    "items": {
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of metricd workers to process incoming metrics."
+      },
+      "batch_size": {
+        "type": "number",
+        "default": 100,
+        "description": "Number of metrics to batch per processing cycle."
+      }
+    }
+  },
+  "statsd": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "host": "0.0.0.0",
+      "port": 8125
+    },
+    "description": "StatsD listener configuration for metric ingestion.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable StatsD listener for metric ingestion."
+      },
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface for StatsD UDP listener."
+      },
+      "port": {
+        "type": "number",
+        "default": 8125,
+        "description": "UDP port for StatsD listener."
+      }
+    }
+  },
+  "gnocchi_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of optional service sections (e.g., [archive_policy]). Each object defines custom section name and key-value config.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Section name (without brackets).",
+          "example": "archive_policy"
+        },
+        "config": {
+          "type": "object",
+          "description": "Key-value config entries for the section.",
+          "example": {
+            "metric_aggregation_methods": "mean,min,max,sum,count"
+          }
+        }
+      },
+      "required": [
+        "name",
+        "config"
+      ]
+    }
+  },
+  "listener": {
+    "type": "object",
+    "default": {
+      "gnocchi_api": {
+        "endpoint": "wsgi://0.0.0.0:8041"
+      }
+    },
+    "description": "Listener endpoint configuration (for eventlet/gunicorn backends).",
+    "items": {
+      "gnocchi_api": {
+        "type": "object",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "default": "wsgi://0.0.0.0:8041",
+            "description": "Listener endpoint URI (e.g., 'wsgi://host:port')."
+          }
+        },
+        "description": "GNOCCHI_API listener settings."
+      }
+    }
+  }
+}

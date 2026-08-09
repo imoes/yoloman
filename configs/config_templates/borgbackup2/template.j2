@@ -1,0 +1,65 @@
+{# ============================================================================ #}
+{# BorgBackup2 Service Configuration Template                                   #}
+{# This template generates a systemd service and optional timer unit for borgbackup2. #}
+{# It handles backup creation and optional pruning based on the provided schema. #}
+{# ============================================================================ #}
+
+{# The main configuration variable expected by Ansible. #}
+{% set cfg = service_config | default({}) %}
+
+{% if cfg.enabled | default(true) %}
+[Unit]
+{# Description of the unit file; includes optional custom description if provided. #}
+Description=BorgBackup2 - Deduplicating backup service
+{% if cfg.description | default('') %}
+# {{ cfg.description }}
+{% endif %}
+{# Ensure network is online before starting backups, as repos may be remote. #}
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+{# Run as a one-shot task; systemd handles start/stop lifecycle. #}
+Type=oneshot
+{# Log output to systemd journal. #}
+StandardOutput=journal
+StandardError=journal
+{# Identifier used in syslog/journal entries for easy filtering. #}
+SyslogIdentifier={{ cfg.syslog_identifier | default('borgbackup2') }}
+
+{# Set the repository URL. This is the target location for backups. #}
+Environment=BORG_REPO={{ cfg.repository_url | default('') }}
+
+{# If encryption is enabled, pass the passphrase via environment variable. #}
+{# WARNING: Using BORG_PASSPHRASE is less secure than BORG_PASSCOMMAND for automation. #}
+{% if cfg.repository_encryption | default(false) %}
+Environment=BORG_PASSPHRASE={{ cfg.repository_passphrase | default('') }}
+{% endif %}
+
+{# Main backup command. Creates an archive based on the defined parameters. #}
+ExecStart=/usr/bin/borg create \
+    --stats \
+    --list \
+    {{ cfg.repository_url | default('') }}::{{ cfg.archive_name | default('daily-{now:%Y-%m-%d-%H%M%S}') }} \
+{% for source in cfg.backup_sources | default([]) %}
+    {{ source }}{% if not loop.last %} {% endif %}{% endfor %}
+{% if cfg.compression | default('lz4') %}
+    --compression={{ cfg.compression | default('lz4') }}
+{% endif %}
+{% for arg in cfg.extra_args | default([]) %}
+    {{ arg }}
+{% endfor %}
+
+{% if cfg.prune_schedule | default('') %}
+
+[Timer]
+{# Timer calendar expression for automatic pruning of old archives. #}
+OnCalendar={{ cfg.prune_schedule | default('') }}
+{# Ensure timer runs if system was off during scheduled time. #}
+Persistent=true
+
+[Install]
+{# Enable the timer so it starts on boot. #}
+WantedBy=timers.target
+{% endif %}
+{% endif %}

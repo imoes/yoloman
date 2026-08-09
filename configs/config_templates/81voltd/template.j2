@@ -1,0 +1,58 @@
+{# Define service user and group for process isolation #}
+service_user={{ service_user }}
+service_group={{ service_group }}
+
+{# Define working directory #}
+working_directory={{ working_directory }}
+
+{# Define executable path #}
+executable={{ executable }}
+
+{# Define command-line arguments (empty if none) #}
+{% if args %}args={{ args }}
+{% endif %}
+
+{# Define environment variables #}
+{% for env in environment %}environment={{ env }}
+{% endfor %}
+
+{# Define restart policy #}
+restart_policy={{ restart_policy }}
+
+{# Define number of restart attempts (only if restart_policy is 'on-failure') #}
+{% if restart_policy == 'on-failure' %}restart_retries={{ restart_retries }}
+{% endif %}
+
+{# Define log directory #}
+log_directory={{ log_directory }}
+
+{# Define log file naming pattern #}
+log_file_pattern={{ log_file_pattern }}
+
+{# Define readiness probe #}
+{% if readiness_probe %}readiness_probe={{ readiness_probe }}
+{% endif %}
+
+{# Define liveness probe #}
+{% if liveness_probe %}liveness_probe={{ liveness_probe }}
+{% endif %}
+
+{# Define port binding (single port or list) #}
+{% if isinstance(port, 'int') %}port={{ port }}
+{% elif port is iterable %}{% for p in port %}port={{ p }}
+{% endfor %}{% endif %}
+
+{# Define resource limits #}
+memory_limit={{ memory_limit }}
+cpu_limit={{ cpu_limit }}
+
+{# Define dependencies #}
+{% for dep in dependencies %}depends_on={{ dep }}
+{% endfor %}
+
+{# Define mount points #}
+{% for mount in mounts %}mount={{ mount['source'] }}:{{ mount['destination'] }}:{{ mount['options'] | default('ro') }}
+{% endfor %}
+
+{# Define health check interval #}
+health_check_interval={{ health_check_interval }}

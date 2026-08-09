@@ -1,0 +1,161 @@
+# ==============================================================================
+# Chrony (Radio/GPS/WWVB Reference Clock) Configuration Template
+# ==============================================================================
+# This template generates a chrony configuration file (/etc/chrony.conf)
+# tailored for hardware time sources such as GPS or WWVB receivers.
+# It includes fallback NTP servers, local reference clock definitions,
+# and network binding settings.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Network Access Control
+# ------------------------------------------------------------------------------
+# Allow NTP clients from this CIDR subnet to query the server.
+# Field: network_cidr
+# Default: '192.168.1.0/24'
+allow {{ network_cidr | default('192.168.1.0/24') }}
+
+# ------------------------------------------------------------------------------
+# Primary Reference Clock: PHC (Precision Hardware Clock)
+# ------------------------------------------------------------------------------
+# Enable GPS reference clock (PHC/PTP) as the primary time source.
+# This uses the Linux PTP hardware timestamping interface.
+# Field: gps_refclock_enable
+# Default: True
+# Field: ptp_interface
+# Default: 'ptp0'
+refclock PHC /dev/{{ ptp_interface | default('ptp0') }} poll 3 dpoll -2 offset 0 \
+    {{ 'true' if gps_refclock_enable | default(true) else 'false' }}
+
+# ------------------------------------------------------------------------------
+# Secondary Reference Clock: Radio/GPS Specific Configuration
+# ------------------------------------------------------------------------------
+# Configure the specific radio model (WWVB or GPS) based on user selection.
+# Field: radio_model
+# Allowed values: 'wwvb', 'gps'
+# Default: 'gps'
+{% if radio_model | default('gps') == 'wwvb' %}
+    # ------------------------------------------------------------------------------
+    # WWVB Receiver Configuration
+    # ------------------------------------------------------------------------------
+    # Enable WWVB PPS signal via the dedicated PPS device.
+    # Field: wwvb_pps_enable
+    # Default: True
+    refclock PPS /dev/pps0 poll 3 dpoll -2 offset 0 \
+        {{ 'true' if wwvb_pps_enable | default(true) else 'false' }}
+
+{% elif radio_model | default('gps') == 'gps' %}
+    # ------------------------------------------------------------------------------
+    # GPS Receiver Configuration (NMEA)
+    # ------------------------------------------------------------------------------
+    # Enable NMEA serial output from the GPS receiver.
+    # Field: gps_nmea_enable
+    # Default: True
+    refclock NMEA /dev/ttyUSB0 poll 3 dpoll -2 offset 0 \
+        {{ 'true' if gps_nmea_enable | default(true) else 'false' }} \
+        nmea {% for sentence_group in gps_nmea_sentences | default([['GGA', 'RMC'], ['ZDA']]) %}{{ sentence_group | join(':') }} {% endfor %}
+
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Slewing and Step Behavior
+# ------------------------------------------------------------------------------
+# Set maximum allowed time deviation (ppm) before the system panics.
+# Field: maxslewrate (Hardcoded in template, no variable mapping in schema)
+maxslewrate 1000
+
+# Initial step correction only.
+# Corrects large offsets by stepping the clock immediately, then slews.
+# Field: hostname
+# Default: []
+# Note: These are not hostnames in the DNS sense, but rather specific
+# reference clock identifiers or addresses to step against initially.
+initstepslew 30 {{ hostname | default([]) | join(' ') }}
+
+# Makestep configuration:
+# If the offset is larger than 1.0 seconds, step the clock.
+# Perform up to 3 steps within the first 300 seconds of operation.
+# Field: makestep (Hardcoded in template)
+makestep 1.0 3
+
+# ------------------------------------------------------------------------------
+# Latency and Timing Calibration
+# ------------------------------------------------------------------------------
+# Estimated serial or PPS latency in microseconds.
+# Used to calibrate the reference clock offset.
+# Field: rtty_latency_us
+# Default: 0
+rtty {{ rtty_latency_us | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Network Binding
+# ------------------------------------------------------------------------------
+# IP address for the chronyd command socket (used by chronyc).
+# Use '::1' for IPv6 loopback, '0.0.0.0' for all interfaces.
+# Field: bind_cmd_address
+# Default: '::1'
+bindcmdaddress {{ bind_cmd_address | default('::1') }}
+
+# IP address chronyd binds to for NTP traffic.
+# Use '0.0.0.0' to listen on all interfaces, or specific IPs.
+# Field: bind_address
+# Default: '0.0.0.0'
+bindaddress {{ bind_address | default('0.0.0.0') }}
+
+# ------------------------------------------------------------------------------
+# Logging and Drift Files
+# ------------------------------------------------------------------------------
+# Directory for chrony log files.
+# Field: logdir (Hardcoded in template)
+logdir /var/log/chrony
+
+# Log these metrics:
+# measurements: PPS/NMEA timing measurements
+# statistics: Clock statistics
+# tracking: Current time source and offset
+# Field: log (Hardcoded in template)
+log measurements statistics tracking
+
+# Drift file: stores frequency offset of the local clock.
+# Field: driftfile (Hardcoded in template)
+driftfile /var/lib/chrony/chrony.drift
+
+# RTC Reference and File:
+# Used to store and retrieve reference clock data for the RTC.
+# Field: rtcref (Hardcoded in template)
+rtcref /sys/class/rtc/rtc0
+
+# Field: rtcfile (Hardcoded in template)
+rtcfile /var/lib/chrony/chrony.rtc
+
+# ------------------------------------------------------------------------------
+# Security (Command Socket)
+# ------------------------------------------------------------------------------
+# Enable command socket for chronyc interactions.
+# Field: commandkey (Hardcoded in template)
+commandkey 1
+
+# Field: keyfile (Hardcoded in template)
+keyfile /etc/chrony/chrony.keys
+
+# ------------------------------------------------------------------------------
+# Upstream NTP Servers (Fallback)
+# ------------------------------------------------------------------------------
+# List of upstream NTP servers to use as backup time sources.
+# The first server gets the 'iburst' flag for faster synchronization.
+# Subsequent servers also use 'iburst'.
+# Field: ntp_servers
+# Default: ['time.nist.gov', '0.pool.ntp.org', '1.pool.ntp.org']
+{% if ntp_servers | default(['time.nist.gov', '0.pool.ntp.org', '1.pool.ntp.org']) %}
+    {% for server in ntp_servers | default(['time.nist.gov', '0.pool.ntp.org', '1.pool.ntp.org']) %}
+server {{ server }} iburst
+    {% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Hardware Timestamping Interface
+# ------------------------------------------------------------------------------
+# Enable hardware timestamping for the specified PTP/PPS interface.
+# Field: ptp_interface
+# Default: 'ptp0'
+hwtimestampinterface {{ ptp_interface | default('ptp0') }}

@@ -1,0 +1,45 @@
+# Enable the IRC transport module
+module:
+  mod_irc: {{ modules.mod_irc.enabled | ternary('mod_irc', '[]') }}
+
+{% if modules.mod_irc.enabled %}
+# IRC server connections configuration
+irc_servers:
+{% for server in modules.mod_irc.irc_servers %}  - {{ server.host }}
+{% endfor %}
+
+# Global IRC options
+irc_use_pubsub: {{ modules.mod_irc.irc_use_pubsub }}
+irc_use_privmsg: {{ modules.mod_irc.irc_use_privmsg }}
+irc_use_ircbridge: {{ modules.mod_irc.irc_use_ircbridge }}
+
+# Default IRC connection options
+irc_default_server:
+  port: {{ modules.mod_irc.irc_default_server.port }}
+  use_ssl: {{ modules.mod_irc.irc_default_server.use_ssl }}
+  ssl_options:
+    verify: {{ modules.mod_irc.irc_default_server.ssl_options.verify }}
+    fail_if_no_peer_cert: {{ modules.mod_irc.irc_default_server.ssl_options.fail_if_no_peer_cert }}
+  password: {{ modules.mod_irc.irc_default_server.password }}
+  username: {{ modules.mod_irc.irc_default_server.username }}
+  nick: {{ modules.mod_irc.irc_default_server.nick }}
+  charset: {{ modules.mod_irc.irc_default_server.charset }}
+  realname: {{ modules.mod_irc.irc_default_server.realname }}
+  username_as_nick: {{ modules.mod_irc.irc_default_server.username_as_nick }}
+
+# Per-server configuration overrides
+irc_server_options:
+{% for server in modules.mod_irc.irc_server_options %}  {{ server.host }}:
+    port: {{ server.port | default(modules.mod_irc.irc_default_server.port) }}
+    use_ssl: {{ server.use_ssl | default(modules.mod_irc.irc_default_server.use_ssl) }}
+    ssl_options:
+      verify: {{ server.ssl_options.verify | default(modules.mod_irc.irc_default_server.ssl_options.verify) }}
+      fail_if_no_peer_cert: {{ server.ssl_options.fail_if_no_peer_cert | default(modules.mod_irc.irc_default_server.ssl_options.fail_if_no_peer_cert) }}
+    password: {{ server.password | default(modules.mod_irc.irc_default_server.password) }}
+    username: {{ server.username | default(modules.mod_irc.irc_default_server.username) }}
+    nick: {{ server.nick | default(modules.mod_irc.irc_default_server.nick) }}
+    charset: {{ server.charset | default(modules.mod_irc.irc_default_server.charset) }}
+    realname: {{ server.realname | default(modules.mod_irc.irc_default_server.realname) }}
+    username_as_nick: {{ server.username_as_nick | default(modules.mod_irc.irc_default_server.username_as_nick) }}
+{% endfor %}
+{% endif %}

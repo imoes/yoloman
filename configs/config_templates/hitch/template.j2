@@ -1,0 +1,249 @@
+# ==============================================================================
+# Hitch TLS Proxy Configuration
+# ==============================================================================
+# This file configures Hitch, the TLS proxy daemon.
+# Read the man page: `man hitch.conf` for full syntax details.
+
+# ------------------------------------------------------------------------------
+# SSL / TLS Certificate
+# ------------------------------------------------------------------------------
+# Path to PEM file containing certificate chain and private key (required at runtime via command-line argument).
+# The pem directive specifies the location of the PEM file.
+pem {{ (pem | default('')) }}
+
+# ------------------------------------------------------------------------------
+# TLS Protocols
+# ------------------------------------------------------------------------------
+# TLS protocols to enable.
+# Default: TLSv1.2 TLSv1.3
+TLSProtos {{ (tls_protos | default(['TLSv1.2', 'TLSv1.3'])) | join(' ') }}
+
+# ------------------------------------------------------------------------------
+# Ciphers
+# ------------------------------------------------------------------------------
+# Allowed cipher suites.
+# Default: EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH
+# See `hitch --help` or man page for supported OpenSSL cipher strings.
+Ciphers {{ (ciphers | default('EECDH+AESGCM:EDH+AESGCM:AES256+EECDH:AES256+EDH')) }}
+
+# ------------------------------------------------------------------------------
+# SSL Engine
+# ------------------------------------------------------------------------------
+# OpenSSL engine to use. Leave empty for default.
+{% if (ssl_engine | default('')) | length > 0 %}
+SSLengine {{ (ssl_engine | default('')) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Prefer Server Ciphers
+# ------------------------------------------------------------------------------
+# Prefer server cipher list order over client preference.
+# Values: on, off
+# Default: off
+PreferServerCiphers {{ (prefer_server_ciphers | default(False)) | ternary('on', 'off') }}
+
+# ------------------------------------------------------------------------------
+# Client Mode
+# ------------------------------------------------------------------------------
+# Enable client proxy mode (acting as a client to another proxy).
+{% if (client | default(False)) %}
+Client
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Backend
+# ------------------------------------------------------------------------------
+# Backend endpoint (host:port or UNIX domain socket).
+# Default: [127.0.0.1]:8000
+Backend {{ (backend | default('[127.0.0.1]:8000')) }}
+
+# ------------------------------------------------------------------------------
+# Frontends
+# ------------------------------------------------------------------------------
+# List of frontend listen endpoints.
+# Each line defines an address:port to listen on.
+# Optional: Append +CERTNAME to use a specific SNI certificate for this listener.
+# Default: [*]:8443
+{% for frontend in (frontends | default(['[*]:8443'])) %}
+Frontend {{ frontend }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Workers
+# ------------------------------------------------------------------------------
+# Number of worker processes.
+# Use 'auto' to create one worker per CPU core.
+# Default: 1
+{% if (workers | default(1)) != 1 %}
+Workers {{ (workers | default(1)) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Backlog
+# ------------------------------------------------------------------------------
+# Listen backlog size (pending connections).
+# Default: 100
+{% if (backlog | default(100)) != 100 %}
+Backlog {{ (backlog | default(100)) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Keepalive
+# ------------------------------------------------------------------------------
+# TCP keepalive interval on client socket in seconds.
+# Default: 3600
+{% if (keepalive | default(3600)) != 3600 %}
+Keepalive {{ (keepalive | default(3600)) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Backend Refresh
+# ------------------------------------------------------------------------------
+# Periodic backend IP refresh in seconds.
+# Set to 0 to disable periodic refresh (resolve once at startup).
+# Default: 0
+{% if (backend_refresh | default(0)) != 0 %}
+BackendRefresh {{ (backend_refresh | default(0)) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# TCP Fast Open
+# ------------------------------------------------------------------------------
+# Enable client-side TCP Fast Open (TFO).
+# Values: on, off
+# Default: off
+{% if (tcp_fastopen | default(False)) %}
+EnableTCPFastOpen {{ (tcp_fastopen | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Chroot
+# ------------------------------------------------------------------------------
+# Chroot directory to switch to after binding sockets.
+# Leave empty to disable chrooting.
+{% if (chroot | default('')) | length > 0 %}
+Chroot {{ (chroot | default('')) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# User / Group
+# ------------------------------------------------------------------------------
+# User to drop privileges to after startup.
+{% if (user | default('')) | length > 0 %}
+User {{ (user | default('')) }}
+{% endif %}
+
+# Group to drop privileges to after startup.
+{% if (group | default('')) | length > 0 %}
+Group {{ (group | default('')) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+# Log level: 0=silent, 1=error, 2=info/debug.
+# Default: 1 (error)
+{% if (log_level | default(1)) != 1 %}
+LogLevel {{ (log_level | default(1)) }}
+{% endif %}
+
+# Path to log file. Default is stderr/stdout.
+{% if (log_filename | default('')) | length > 0 %}
+LogFilename {{ (log_filename | default('')) }}
+{% endif %}
+
+# Send logs to syslog in addition to stderr/stdout.
+# Values: on, off
+{% if (syslog | default(False)) %}
+Syslog {{ (syslog | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# Syslog facility to use.
+# Default: daemon
+{% if (syslog_facility | default('daemon')) != 'daemon' %}
+SyslogFacility {{ (syslog_facility | default('daemon')) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Daemon Mode
+# ------------------------------------------------------------------------------
+# Fork into background as a daemon process.
+# Values: on, off
+{% if (daemon | default(False)) %}
+Daemon {{ (daemon | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Proxy Headers (Write to Backend)
+# ------------------------------------------------------------------------------
+# Write 1-octet IP family + address to backend before data.
+# Values: on, off
+{% if (write_ip | default(False)) %}
+WriteIP {{ (write_ip | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# Write HAProxy PROXY v2 header to backend.
+# Values: on, off
+{% if (write_proxy | default(False)) %}
+WriteProxy {{ (write_proxy | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# Write HAProxy PROXY v1 header to backend.
+# Values: on, off
+{% if (write_proxy_v1 | default(False)) %}
+WriteProxyV1 {{ (write_proxy_v1 | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# Proxy PROXY header from client to backend (pass-through).
+# Values: on, off
+{% if (proxy_proxy | default(False)) %}
+ProxyProxy {{ (proxy_proxy | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# SNI Handling
+# ------------------------------------------------------------------------------
+# Abort handshake on unrecognized SNI server name.
+# Values: on, off
+{% if (sni_nomatch_abort | default(False)) %}
+SNINomatchAbort {{ (sni_nomatch_abort | default(False)) | ternary('on', 'off') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# ALPN / NPN
+# ------------------------------------------------------------------------------
+# ALPN/NPN protocol list (comma-separated tokens).
+# Example: h2,http/1.1
+{% if (alpn_protos | default([])) | length > 0 %}
+ALPNProtos {{ (alpn_protos | default([])) | join(',') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# OCSP Stapling
+# ------------------------------------------------------------------------------
+# OCSP staple cache directory.
+# Default: /var/lib/hitch/
+{% if (ocsp_dir | default('/var/lib/hitch/')) | length > 0 %}
+OCSPDir {{ (ocsp_dir | default('/var/lib/hitch/')) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Timeouts
+# ------------------------------------------------------------------------------
+# Backend connect timeout in seconds. 0 = default (usually 10s).
+{% if (backend_connect_timeout | default(0)) != 0 %}
+BackendConnectTimeout {{ (backend_connect_timeout | default(0)) }}
+{% endif %}
+
+# TLS handshake timeout in seconds. 0 = default.
+{% if (ssl_handshake_timeout | default(0)) != 0 %}
+SSLHandshakeTimeout {{ (ssl_handshake_timeout | default(0)) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# PID File
+# ------------------------------------------------------------------------------
+# PID file path.
+{% if (pidfile | default('')) | length > 0 %}
+PidFile {{ (pidfile | default('')) }}
+{% endif %}

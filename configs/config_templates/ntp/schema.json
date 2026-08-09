@@ -1,0 +1,135 @@
+{
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of NTP servers to synchronize with. Each entry specifies a server hostname or IP and optional options (e.g., 'iburst', 'prefer').",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname or IP address of the NTP server."
+        },
+        "options": {
+          "type": "list",
+          "default": [
+            "iburst"
+          ],
+          "description": "List of options for this server (e.g., 'iburst', 'prefer', 'burst', 'noselect')."
+        }
+      }
+    }
+  },
+  "driftfile": {
+    "type": "string",
+    "default": "/var/lib/ntp/ntp.drift",
+    "description": "Path to the file where NTP stores the clock frequency calibration."
+  },
+  "keysfile": {
+    "type": "string",
+    "default": "/etc/ntp.keys",
+    "description": "Path to the file containing symmetric keys for NTP authentication."
+  },
+  "trustedkeys": {
+    "type": "list",
+    "default": [],
+    "description": "List of key IDs (integers) that are trusted for authentication.",
+    "items": {
+      "type": "number"
+    }
+  },
+  "requestkey": {
+    "type": "number",
+    "default": null,
+    "description": "Key ID used for client authentication requests (optional; set if NTP authentication is enabled)."
+  },
+  "controlkey": {
+    "type": "number",
+    "default": null,
+    "description": "Key ID used for control messages (e.g., 'ntpq', 'ntpdc'; optional)."
+  },
+  "statsdir": {
+    "type": "string",
+    "default": "/var/log/ntpstats/",
+    "description": "Directory to store statistics logs."
+  },
+  "statistics": {
+    "type": "list",
+    "default": [],
+    "description": "Types of statistics to log (e.g., 'peer', 'clock', 'stats').",
+    "items": {
+      "type": "string"
+    }
+  },
+  "restrict_rules": {
+    "type": "list",
+    "default": [
+      {
+        "flags": [
+          "default",
+          "kod",
+          "nomodify",
+          "notrap",
+          "nopeer",
+          "noquery"
+        ],
+        "mask": "nopeer"
+      },
+      {
+        "flags": [
+          "127.0.0.1"
+        ],
+        "mask": "127.0.0.1"
+      },
+      {
+        "flags": [
+          "::1"
+        ],
+        "mask": "::1"
+      }
+    ],
+    "description": "Access control rules. Each entry defines flags and optionally a mask (IP address or 'nopeer' for global).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "flags": {
+          "type": "list",
+          "default": [],
+          "description": "Restrict flags (e.g., 'kod', 'nomodify', 'notrap', 'nopeer', 'noquery', 'limited')."
+        },
+        "mask": {
+          "type": "string",
+          "default": "",
+          "description": "IP address/mask to apply rule to (e.g., '192.168.0.0/24' or 'nopeer' for global)."
+        }
+      }
+    }
+  },
+  "broadcast_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4 broadcast addresses to serve (rarely used).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "multicast_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4 multicast addresses to subscribe to (rarely used).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "interface_addr": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind NTP listening socket to (e.g., '127.0.0.1'). Leave empty to bind to all interfaces."
+  },
+  "leapfile": {
+    "type": "string",
+    "default": "/usr/share/zoneinfo/leap-seconds.list",
+    "description": "Path to leap seconds file (optional; required if leap second handling is needed)."
+  }
+}

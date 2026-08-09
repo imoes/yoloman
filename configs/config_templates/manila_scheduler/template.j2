@@ -1,0 +1,81 @@
+[DEFAULT]
+# Directory to store log files for the Manila scheduler service.
+log_dir = {{ log_dir | default('/var/log/manila') }}
+
+# Filename for the main scheduler log file (relative to log_dir).
+log_file = {{ log_file | default('manila-scheduler.log') }}
+
+# Enable debug-level logging for troubleshooting (verbose output).
+# Must be 'true' or 'false' (boolean).
+debug = {{ debug | default(false) | lower }}
+
+# Message broker transport URL. Supports RabbitMQ, Redis, or fake (for testing).
+# Example: rabbit://openstack:openstack@localhost:5672/
+transport_url = {{ transport_url | default('rabbit://openstack:openstack@localhost:5672/') }}
+
+# Authentication strategy.
+# Keystone is recommended for production environments.
+auth_strategy = keystone
+
+# Database connection string (SQLAlchemy format).
+# Maps to the 'database' capability (mysql/mariadb backends).
+connection = {{ db_connection | default('mysql+pymysql://manila:manila@localhost/manila') }}
+
+# Scheduler driver class used to select a share backend for new shares.
+# Loaded dynamically via stevedore.
+scheduler_driver = {{ scheduler_driver | default('manila.scheduler.drivers.filter.FilterScheduler') }}
+
+# Ordered list of scheduler filter classes to apply when choosing a backend.
+# Filters are AND'd together unless negated.
+# Loaded dynamically via stevedore.
+scheduler_default_filters = {{ scheduler_default_filters | default(['AvailabilityZoneFilter', 'CapacitiesFilter', 'CapabilitiesFilter', 'PoolFilter', 'WeightedRandomFilter']) | join(', ') }}
+
+# List of scheduler weighter classes used to score filtered backends (higher is better).
+# Loaded dynamically via stevedore.
+scheduler_weight_filters = {{ scheduler_weight_filters | default(['WeightedRandomFilter']) | join(', ') }}
+
+# Number of separate worker processes to spawn for the scheduler service.
+workers = {{ workers | default(1) }}
+
+# Default backend share driver class (must be installed and enabled).
+share_driver = {{ share_driver | default('manila.share.drivers.lvm.LVMShareDriver') }}
+
+# Whether the driver manages share servers.
+# true = driver handles networking, security, etc.
+# false = simple driver (no share servers).
+driver_handles_share_servers = {{ driver_handles_share_servers | default(false) | lower }}
+
+# Service credentials and configuration blocks.
+# Each item defines a config section and its key-value pairs (e.g., for auth or locking).
+{% for service in service_auth_params | default([{'name': 'Keystone', 'section': 'keystone_authtoken', 'auth_url': 'http://keystone.local:5000', 'project_domain_name': 'Default', 'user_domain_name': 'Default', 'project_name': 'service', 'username': 'manila', 'password': 'changeme'}, {'name': 'Locking', 'section': 'oslo_concurrency', 'lock_path': '/var/lib/manila/tmp'}]) %}
+# Service credentials for {{ service.name | default('Unknown') }}
+[{{ service.section | default('default') }}]
+# Authentication URL for Keystone or similar auth service.
+{% if service.auth_url is defined %}
+auth_url = {{ service.auth_url | default('http://localhost:5000') }}
+{% endif %}
+# Domain name for the project scope.
+{% if service.project_domain_name is defined %}
+project_domain_name = {{ service.project_domain_name | default('Default') }}
+{% endif %}
+# Domain name for the user scope.
+{% if service.user_domain_name is defined %}
+user_domain_name = {{ service.user_domain_name | default('Default') }}
+{% endif %}
+# Name of the project (tenant) to authenticate against.
+{% if service.project_name is defined %}
+project_name = {{ service.project_name | default('service') }}
+{% endif %}
+# Username for the service account.
+{% if service.username is defined %}
+username = {{ service.username | default('manila') }}
+{% endif %}
+# Password for the service account.
+{% if service.password is defined %}
+password = {{ service.password | default('changeme') }}
+{% endif %}
+# Lock path for oslo.concurrency mutual exclusion.
+{% if service.lock_path is defined %}
+lock_path = {{ service.lock_path | default('/var/lib/manila/tmp') }}
+{% endif %}
+{% endfor %}

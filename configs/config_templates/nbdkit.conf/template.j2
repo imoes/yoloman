@@ -1,0 +1,44 @@
+# nbdkit global configuration
+# This file configures the nbdkit (NBD server) daemon.
+# See man nbdkit.conf(5) for details.
+
+[general]
+# Log verbosity level: none, error, warning, info, debug, verbose
+# Default: warning
+loglevel = {{ loglevel | default('warning') }}
+
+# Path to plugin directory
+# Uncomment and set if plugins are not in the default search path.
+# plugins = {{ plugin_dir | default('') }}
+
+# Number of worker threads to handle client connections
+# Default: 16
+threads = {{ threads | default(16) }}
+
+# Maximum number of connections
+# Uncomment and set to limit concurrent client connections.
+# maxconnections = {{ maxconnections | default('') }}
+
+# Idle timeout (seconds); 0 disables idle timeout
+# Uncomment and set to close connections after a period of inactivity.
+# idle_timeout = {{ idle_timeout | default('') }}
+
+# Per-plugin and per-export configuration sections are added dynamically below.
+{% for plugin_section in plugin_sections | default([]) %}
+# -----------------------------------------------------------------------------
+# Configuration for plugin section: {{ plugin_section.name | default('unknown') }}
+# This section defines parameters for a specific nbdkit plugin or export.
+# -----------------------------------------------------------------------------
+[{{ plugin_section.name | default('unknown') }}]
+
+# Plugin name (auto-generated from section name)
+# This tells nbdkit which plugin binary/module to load for this section.
+plugin = {{ plugin_section.name | default('unknown') }}
+
+# Plugin-specific options
+# Iterate over the key-value pairs defined in the plugin_section.options mapping.
+{% for item in plugin_section.options | default({}) | dict2items %}
+{{ item.key }} = {{ item.value | default('') }}
+{% endfor %}
+
+{% endfor %}

@@ -1,0 +1,214 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind the dashboard server to."
+  },
+  "port": {
+    "type": "number",
+    "default": 5000,
+    "description": "HTTP(S) port for the web interface."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging and auto-reload."
+  },
+  "model_cache_dir": {
+    "type": "string",
+    "default": "/var/cache/berrynet/models",
+    "description": "Directory to cache downloaded model artifacts."
+  },
+  "database_path": {
+    "type": "string",
+    "default": "/var/lib/berrynet/dashboard.db",
+    "description": "Path to the SQLite database file storing metadata and logs."
+  },
+  "max_concurrent_inferences": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of simultaneous inference requests the dashboard can handle."
+  },
+  "inference_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout in seconds for inference requests before aborting."
+  },
+  "use_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS using the provided TLS certificate and key."
+  },
+  "cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/berrynet/dashboard.crt",
+    "description": "Path to the TLS certificate file (used only if HTTPS is enabled)."
+  },
+  "key_file": {
+    "type": "string",
+    "default": "/etc/ssl/berrynet/dashboard.key",
+    "description": "Path to the TLS private key file (used only if HTTPS is enabled)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level for the dashboard server."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/berrynet/dashboard.log",
+    "description": "Path to the dashboard server log file."
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "basic",
+    "description": "Authentication method for dashboard users."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldaps://ldap.example.com:636",
+    "description": "LDAP server URI (used if auth_backend is 'ldap')."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "uid=admin,cn=users,cn=accounts,dc=example,dc=com",
+    "description": "DN for binding to the LDAP server (used if auth_backend is 'ldap')."
+  },
+  "ldap_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN (used if auth_backend is 'ldap')."
+  },
+  "ldap_search_base": {
+    "type": "string",
+    "default": "cn=users,cn=accounts,dc=example,dc=com",
+    "description": "Base DN to search for users (used if auth_backend is 'ldap')."
+  },
+  "ldap_search_filter": {
+    "type": "string",
+    "default": "(uid={{username}})",
+    "description": "Filter to match usernames during authentication (supports '{{username}}' placeholder)."
+  },
+  "ldap_user_group": {
+    "type": "string",
+    "default": "cn=users,cn=accounts,dc=example,dc=com",
+    "description": "Optional group DN to require for access (used if auth_backend is 'ldap')."
+  },
+  "oauth2_provider_url": {
+    "type": "string",
+    "default": "https://accounts.google.com",
+    "description": "OAuth2 provider base URL (used if auth_backend is 'oauth2')."
+  },
+  "oauth2_client_id": {
+    "type": "string",
+    "default": "",
+    "description": "OAuth2 client ID (used if auth_backend is 'oauth2')."
+  },
+  "oauth2_client_secret": {
+    "type": "string",
+    "default": "",
+    "description": "OAuth2 client secret (used if auth_backend is 'oauth2')."
+  },
+  "oauth2_redirect_uri": {
+    "type": "string",
+    "default": "https://dashboard.example.com/callback",
+    "description": "OAuth2 redirect URI (must match provider configuration)."
+  },
+  "models": {
+    "type": "list",
+    "default": [],
+    "description": "List of models to expose in the dashboard.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Model identifier (e.g., 'yolov5s')"
+      },
+      "path": {
+        "type": "string",
+        "required": true,
+        "description": "Absolute path to the model file (e.g., /models/yolov5s.onnx)"
+      },
+      "labels": {
+        "type": "string",
+        "required": false,
+        "description": "Optional path to class labels file or inline JSON array"
+      },
+      "input_size": {
+        "type": "list",
+        "items": {
+          "type": "number"
+        },
+        "required": false,
+        "description": "Input tensor dimensions [height, width, channels]"
+      }
+    }
+  },
+  "default_device": {
+    "type": "string",
+    "default": "cpu",
+    "description": "Default device to use for inference."
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit device assignments for multi-accelerator setups.",
+    "items": {
+      "device_id": {
+        "type": "string",
+        "required": true,
+        "description": "Unique identifier for the device (e.g., 'vpu_1')"
+      },
+      "type": {
+        "type": "string",
+        "required": true,
+        "enum": [
+          "cpu",
+          "cuda",
+          "vpu"
+        ],
+        "description": "Device type"
+      },
+      "label": {
+        "type": "string",
+        "required": false,
+        "description": "Human-readable label for UI display"
+      }
+    }
+  },
+  "rate_limit_rpm": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum number of requests allowed per minute per IP address."
+  },
+  "cors_origins": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [
+      "*"
+    ],
+    "description": "List of allowed CORS origins (e.g., ['https://dashboard.example.com'])."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Session validity period in seconds."
+  },
+  "audit_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging of user actions (login, inference requests, configuration changes)."
+  },
+  "audit_log_file": {
+    "type": "string",
+    "default": "/var/log/berrynet/audit.log",
+    "description": "Path to the audit log file (used only if audit_logging is enabled)."
+  },
+  "frontend_dir": {
+    "type": "string",
+    "default": "/usr/share/berrynet/dashboard/static",
+    "description": "Directory containing frontend assets (HTML, JS, CSS)."
+  }
+}

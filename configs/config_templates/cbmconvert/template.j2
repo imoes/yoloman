@@ -1,0 +1,130 @@
+# {{ description | default('') }}
+# =============================================================================
+# CBMConvert Command-Line Configuration Template
+# =============================================================================
+# This template generates the command-line arguments for `cbmconvert`.
+# It handles input/output format selection, disk switching policies,
+# duplicate file handling, and verbosity levels.
+# =============================================================================
+
+# --- Output Format Selection ---
+# Controls the format of the converted disk images.
+# Options: raw, pc64, lynx, c2n, dos_4, dos_7, dos_8, cpm_4, cpm_7, cpm_8
+# (Optional suffixes 'd' and 'o' may be appended to dos/cpm formats)
+{% set output_format = output_format | default('raw') %}
+{% if output_format == 'raw' %}
+# Output in raw (native) format
+-I
+{% if canonical_names | default(False) %}
+# Use ISO 9660 compliant file names
+-N
+{% endif %}
+{% elif output_format == 'pc64' %}
+# Output in PC64 (P00) format
+-P
+{% elif output_format == 'lynx' %}
+# Output in Lynx archive format
+-L
+{% elif output_format == 'c2n' %}
+# Output in Commodore C2N tape format
+-C
+{% elif output_format is string and output_format.startswith('dos') %}
+# Output in Commodore CBM DOS disk image format
+{% set _parts = output_format.split('_') %}
+{% set dos_ver = _parts[1] | default('') %}
+{% set dos_opts = _parts[2:] | join('') %}
+-D{{ dos_ver }}{% if dos_opts %}{{ dos_opts }}{% endif %}
+{% elif output_format is string and output_format.startswith('cpm') %}
+# Output in Commodore 128 CP/M disk image format
+{% set _parts = output_format.split('_') %}
+{% set cpm_ver = _parts[1] | default('') %}
+{% set cpm_opts = _parts[2:] | join('') %}
+-M{{ cpm_ver }}{% if cpm_opts %}{{ cpm_opts }}{% endif %}
+{% endif %}
+
+# --- Input Format Selection ---
+# Controls how the input archive/tape/disk/image is interpreted.
+# Options: raw, pc64, arc, arkive, lynx, t64, c2n, dos_4, dos_7, dos_8, cpm_4, cpm_7, cpm_8
+{% set input_format = input_format | default('raw') %}
+{% if input_format == 'raw' %}
+# Input in raw (native) format
+-n
+{% elif input_format == 'pc64' %}
+# Input in PC64 format
+-p
+{% elif input_format == 'arc' %}
+# Input in ARC/SDA format
+-a
+{% elif input_format == 'arkive' %}
+# Input in Arkive format
+-k
+{% elif input_format == 'lynx' %}
+# Input in Lynx format
+-l
+{% elif input_format == 't64' %}
+# Input in T64 format
+-t
+{% elif input_format == 'c2n' %}
+# Input in C2N format
+-c
+{% elif input_format is string and input_format.startswith('dos') %}
+# Input in CBM DOS disk image format
+-d
+{% elif input_format is string and input_format.startswith('cpm') %}
+# Input in CP/M disk image format
+-m
+{% endif %}
+
+# --- Disk Image Switching Behavior ---
+# Determines when cbmconvert switches to a new disk image file.
+# Options: on_space (default), on_dup, off
+{% set disk_switch = disk_switch | default('on_space') %}
+{% if disk_switch == 'on_space' %}
+# Switch disk images when running out of space (default)
+-i1
+{% elif disk_switch == 'on_dup' %}
+# Switch disk images when out of space or duplicate name detected
+-i2
+{% elif disk_switch == 'off' %}
+# Never switch disk images
+-i0
+{% endif %}
+
+# --- Duplicate File Handling ---
+# Determines how cbmconvert handles files with duplicate names within the archive.
+# Options: skip, stop (default), overwrite
+{% set duplicate_handling = duplicate_handling | default('stop') %}
+{% if duplicate_handling == 'skip' %}
+# Skip files with duplicate names (except first)
+-o1
+{% elif duplicate_handling == 'stop' %}
+# Stop if a duplicate file name is found (default)
+-o0
+{% elif duplicate_handling == 'overwrite' %}
+# Write files even with duplicate names
+-o2
+{% endif %}
+
+# --- Verbosity Level ---
+# Controls the amount of output generated.
+# Options: 0 (errors only), 1 (warnings+errors, default), 2 (all messages)
+{% set verbose = verbose | default(1) %}
+{% if verbose == 2 %}
+# Verbose mode: display all messages
+-v2
+{% elif verbose == 1 %}
+# Default: warnings and errors
+-v1
+{% elif verbose == 0 %}
+# Errors only
+-v0
+{% endif %}
+
+# --- Input Files ---
+# List of input archive/tape/disk/image files to convert.
+{% set input_files = input_files | default([]) %}
+{% if input_files is iterable and input_files is not string %}
+{% for file in input_files %}
+{{ file }}
+{% endfor %}
+{% endif %}

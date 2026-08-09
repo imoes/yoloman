@@ -1,0 +1,10 @@
+# Enable the PL/Lua procedural language extension in PostgreSQL. When enabled, users can create functions in Lua.
+set pllua.enabled = {{ extension_enabled | default(true) | lower }};
+
+# Run Lua code in PostgreSQL in safe mode (restricted environment, no direct OS access).
+# Disable only in trusted environments.
+set pllua.safe_mode = {{ lua_safe_mode | default(true) | lower }};
+
+# Additional directories to search for Lua modules (e.g., '?.lua') when loading external Lua files via `require()`.
+# This list is joined with the platform's path separator (usually ':') for the shared library/module search path.
+set pllua.module_search_path = {{ lua_module_search_paths | default([]) | join(':') }};

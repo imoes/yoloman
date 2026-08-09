@@ -1,0 +1,76 @@
+# ============================================================================
+# Dovecot FTS Xapian Plugin Configuration
+# ============================================================================
+# This file configures the Full-Text Search (FTS) plugin using the Xapian
+# library for Dovecot. It controls how messages are indexed and stored,
+# enabling efficient search capabilities within mailboxes.
+#
+# Variables referenced from the Ansible role's inventory/defaults:
+#   - fts_xapian_db_path
+#   - fts_xapian_autoindex
+#   - fts_xapian_workers
+#   - fts_xapian_fast
+#   - fts_xapian_stemming_languages
+# ============================================================================
+
+plugin {
+  # --------------------------------------------------------------------------
+  # fts_xapian_db_path
+  # Description: Base directory where per-user Xapian databases are stored.
+  #              May include `%u` (username) or `%d` (domain) placeholders.
+  # Default: '/var/lib/dovecot/fts-xapian'
+  # --------------------------------------------------------------------------
+  fts_xapian_db = {{ fts_xapian_db_path | default('/var/lib/dovecot/fts-xapian') }}
+
+  # --------------------------------------------------------------------------
+  # fts_xapian_autoindex
+  # Description: Whether to automatically index new or updated messages in
+  #              the background.
+  # Default: True
+  # --------------------------------------------------------------------------
+  fts_xapian_autoindex = {{ fts_xapian_autoindex | default(True) | lower }}
+
+  # --------------------------------------------------------------------------
+  # fts_xapian_workers
+  # Description: Number of background indexer worker threads. Set to 0 to
+  #              disable background indexing (all indexing is synchronous).
+  # Default: 2
+  # --------------------------------------------------------------------------
+  fts_xapian_workers = {{ fts_xapian_workers | default(2) }}
+
+  # --------------------------------------------------------------------------
+  # fts_xapian_fast
+  # Description: Enable fast (but less accurate) tokenization. Recommended
+  #              only for high-throughput systems where speed trumps precision.
+  # Default: False
+  # --------------------------------------------------------------------------
+  fts_xapian_fast = {{ fts_xapian_fast | default(False) | lower }}
+
+  # --------------------------------------------------------------------------
+  # fts_xapian_stemming_languages
+  # Description: List of languages to enable stemming for (e.g., 'en', 'fr',
+  #              'de'). Stemming improves recall by matching word roots.
+  #              Requires language metadata to be installed on the system.
+  # Default: []
+  # --------------------------------------------------------------------------
+  {% if fts_xapian_stemming_languages is defined and fts_xapian_stemming_languages %}
+  fts_xapian_languages = {{ fts_xapian_stemming_languages | default([]) | join(', ') }}
+  {% endif %}
+}
+
+# --------------------------------------------------------------------------
+# Service Plugin Loading
+# --------------------------------------------------------------------------
+# Ensure IMAP/LMTP/etc. services load the plugin. Standard Dovecot practice
+# for FTS plugins is to load them per-session via the service definition.
+
+service imap {
+  # Ensure plugin is loaded per-session (standard for FTS)
+  # Note: The executable directive here refers to the process name,
+  # ensuring the plugin context is available.
+  executable = imap imap-master
+}
+
+service lmtp {
+  executable = lmtp lmtp-master
+}

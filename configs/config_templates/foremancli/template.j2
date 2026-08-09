@@ -1,0 +1,62 @@
+# ==============================================================================
+# foremancli Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of the `foremancli` command-line
+# tool for interacting with the Foreman/Hammer API.
+#
+# Section: [foremancli]
+# ==============================================================================
+[foremancli]
+
+# --------------------------------------------------------------------------
+# Foreman server URL
+# desc: 'Foreman server URL (required unless FOREMAN_SERVER environment variable is set)'
+# default: '' (Empty string implies environment variable or explicit command-line override)
+# --------------------------------------------------------------------------
+server = {{ server | default('') }}
+
+# --------------------------------------------------------------------------
+# Foreman username
+# desc: 'Foreman username (required unless FOREMAN_USER environment variable is set)'
+# default: '' (Empty string implies environment variable or explicit command-line override)
+# --------------------------------------------------------------------------
+user = {{ user | default('') }}
+
+# --------------------------------------------------------------------------
+# Foreman password
+# desc: 'Foreman password (required unless FOREMAN_PASSWORD environment variable is set)'
+# default: '' (Empty string implies environment variable or explicit command-line override)
+# --------------------------------------------------------------------------
+password = {{ password | default('') }}
+
+# --------------------------------------------------------------------------
+# Output format for results
+# desc: "Output format for results: 'json' or 'yaml'"
+# default: '' (Empty string lets the tool choose its default, usually yaml)
+# --------------------------------------------------------------------------
+output_format = {{ output_format | default('') }}
+
+# --------------------------------------------------------------------------
+# Enable verbose debug output
+# desc: 'Enable verbose debug output'
+# default: False
+# --------------------------------------------------------------------------
+{% if debug | default(False) %}
+debug = true
+{% else %}
+debug = false
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Custom filter definitions
+# desc: "List of custom filter definitions; each entry maps a name to a search query string (see API Search API docs)."
+# default: [] (Empty list: no custom filters defined)
+# --------------------------------------------------------------------------
+# Format: Each item in `custom_filters` is a mapping with keys 'name' and 'query'.
+# Output line: <name> = <query>
+{% if custom_filters | default([]) | length > 0 %}
+{% for filter_spec in custom_filters %}
+# Custom filter: {{ filter_spec.query | default('') }}
+{{ filter_spec.name | default('') }} = {{ filter_spec.query | default('') }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,101 @@
+# fgallery configuration file
+# Input and output directories are required positional arguments; these are NOT configurable via config file.
+# This file generates command-line flags for the fgallery binary.
+
+# Caption methods: 'txt,xmp,exif,cmt,none' (comma-separated list).
+# Generates: --caption-methods <methods>
+# Default: txt,xmp,exif
+--caption-methods {{ (caption_methods | default(['txt', 'xmp', 'exif'])) | join(',') }}
+
+# JPEG quality for preview images.
+# Generates: --quality <quality>
+# Default: 90
+--quality {{ quality | default(90) }}
+
+# Maximum width and height of full-size preview images in pixels.
+# Generates: --max-full <width>x<height>
+# Defaults: 1600x1200
+--max-full {{ max_full_width | default(1600) }}x{{ max_full_height | default(1200) }}
+
+# Maximum width and height of thumbnails in pixels.
+# Generates: --max-thumb <width>x<height>
+# Defaults: 267x200
+--max-thumb {{ max_thumb_width | default(267) }}x{{ max_thumb_height | default(200) }}
+
+# Minimum width and height of thumbnails in pixels.
+# Generates: --min-thumb <width>x<height>
+# Defaults: 150x112
+--min-thumb {{ min_thumb_width | default(150) }}x{{ min_thumb_height | default(112) }}
+
+# Number of threads to use. 0 means auto-detect.
+# Generates: -j <threads>
+# Default: 0
+-j {{ threads | default(0) }}
+
+# Disable sRGB conversion.
+# Generates: --no-sRGB
+# Default: true (so flag is absent unless explicitly set to false)
+{% if not (srgb | default(true)) %}--no-sRGB{% endif %}
+
+# Disable auto-orientation.
+# Note: The original template used `-o` for this flag, but `-o` is not a standard
+# fgallery flag for orientation. Assuming `-o` maps to the intended behavior
+# described in the schema or preserving original intent despite potential typo.
+# Generates: -o (if auto_orient is false)
+# Default: true (so flag is absent unless explicitly set to false)
+{% if not (auto_orient | default(true)) %}-o{% endif %}
+
+# Preserve originals unchanged.
+# Generates: -k (if keep_originals is false)
+# Default: true (so flag is absent unless explicitly set to false)
+{% if not (keep_originals | default(true)) %}-k{% endif %}
+
+# Disable time-based sorting.
+# Generates: -t (if sort_time is false)
+# Default: true (so flag is absent unless explicitly set to false)
+{% if not (sort_time | default(true)) %}-t{% endif %}
+
+# Reverse image order.
+# Generates: -r (if reverse_order is true)
+# Default: false
+{% if (reverse_order | default(false)) %}-r{% endif %}
+
+# Disable automatic full-size panorama inclusion.
+# Generates: -p (if include_panoramas is false)
+# Default: true (so flag is absent unless explicitly set to false)
+{% if not (include_panoramas | default(true)) %}-p{% endif %}
+
+# Disable ZIP album download.
+# Generates: -d (if include_download is false)
+# Default: true (so flag is absent unless explicitly set to false)
+{% if not (include_download | default(true)) %}-d{% endif %}
+
+# Produce slim output (no originals/downloads).
+# Generates: -s (if slim is true)
+# Default: false
+{% if (slim | default(false)) %}-s{% endif %}
+
+# Include individual originals.
+# Generates: -i (if include_originals is true)
+# Default: false
+{% if (include_originals | default(false)) %}-i{% endif %}
+
+# Enable face detection for thumbnail cropping.
+# Generates: -f (if face_detect is true)
+# Default: false
+{% if (face_detect | default(false)) %}-f{% endif %}
+
+# Geolocation map base URL. If non-empty, implies -g (geolocation enabled).
+# Generates: --geobase <url>
+# Default: '' (empty string, no geolocation)
+{% if geobase | default('') %}--geobase {{ geobase | default('') }}{% endif %}
+
+# URL for index and back buttons.
+# Generates: --index <url>
+# Default: '' (empty string)
+{% if index_url | default('') %}--index {{ index_url | default('') }}{% endif %}
+
+# Zoom level for geolocation maps.
+# Generates: --geozoom <zoom>
+# Default: 17
+{% if geozoom | default(17) %}--geozoom {{ geozoom | default(17) }}{% endif %}

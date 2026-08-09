@@ -1,0 +1,57 @@
+name: alternatives
+fqcn: community.general.alternatives
+collection: community.general
+short_description: Manages alternative programs for common commands
+description: Manages symbolic links using the 'update-alternatives' tool. Useful when multiple programs
+  are installed but provide similar functionality (e.g. different editors).
+options:
+  link:
+    type: path
+    description: The path to the symbolic link that should point to the real executable. This option is
+      always required on RHEL-based distributions. On Debian-based distributions this option is required
+      when the alternative O(name) is unknown to the system.
+  name:
+    type: str
+    required: true
+    description: The generic name of the link.
+  path:
+    type: path
+    required: true
+    description: The path to the real executable that the link should point to.
+  priority:
+    type: int
+    description: The priority of the alternative. If no priority is given for creation V(50) is used as
+      a fallback.
+  state:
+    type: str
+    default: selected
+    choices:
+    - present
+    - selected
+    - auto
+    - absent
+    description: V(present) - install the alternative (if not already installed), but do not set it as
+      the currently selected alternative for the group. V(selected) - install the alternative (if not
+      already installed), and set it as the currently selected alternative for the group. V(auto) - install
+      the alternative (if not already installed), and set the group to auto mode. Added in community.general
+      5.1.0. V(absent) - removes the alternative. Added in community.general 5.1.0.
+  subcommands:
+    type: list
+    aliases:
+    - slaves
+    description: A list of subcommands. Each subcommand needs a name, a link and a path parameter. Subcommands
+      are also named 'slaves' or 'followers', depending on the version of alternatives.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Correct java version selected\n  community.general.alternatives:\n    name: java\n\
+  \    path: /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java\n\n- name: Alternatives link created\n  community.general.alternatives:\n\
+  \    name: hadoop-conf\n    link: /etc/hadoop/conf\n    path: /etc/hadoop/conf.ansible\n\n- name: Make\
+  \ java 32 bit an alternative with low priority\n  community.general.alternatives:\n    name: java\n\
+  \    path: /usr/lib/jvm/java-7-openjdk-i386/jre/bin/java\n    priority: -10\n\n- name: Install Python\
+  \ 3.5 but do not select it\n  community.general.alternatives:\n    name: python\n    path: /usr/bin/python3.5\n\
+  \    link: /usr/bin/python\n    state: present\n\n- name: Install Python 3.5 and reset selection to\
+  \ auto\n  community.general.alternatives:\n    name: python\n    path: /usr/bin/python3.5\n    link:\
+  \ /usr/bin/python\n    state: auto\n\n- name: keytool is a subcommand of java\n  community.general.alternatives:\n\
+  \    name: java\n    link: /usr/bin/java\n    path: /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/java\n\
+  \    subcommands:\n      - name: keytool\n        link: /usr/bin/keytool\n        path: /usr/lib/jvm/java-7-openjdk-amd64/jre/bin/keytool\n"

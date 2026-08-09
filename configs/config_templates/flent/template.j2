@@ -1,0 +1,247 @@
+# Flent test configuration file
+# Generated from flent(1) manpage directives
+# This template is self-documenting: every setting is preceded by its description.
+# All settings are optional; uncomment and customize as needed.
+#
+# Structure:
+#   [global]  -> Core test execution parameters (duration, network stack, targets)
+#   [plot]    -> Visualization and output formatting parameters
+#   [batch]   -> Batch execution and resumption parameters
+
+[global]
+
+# Base test length in seconds
+length = {{ length | default(60) }}
+
+# Measurement data point step size in seconds
+step_size = {{ step_size | default(0.1) }}
+
+# Delay in seconds before test starts
+delay = {{ delay | default(0) }}
+
+# Socket timeout for UDP delay measurement in seconds (0 = disabled)
+socket_timeout = {{ socket_timeout | default(0) }}
+
+# TCP send size in bytes (0 = use socket buffer size)
+send_size = {{ send_size | default(0) }}
+
+# Use IPv4 for tests (true/false)
+ipv4 = {{ ipv4 | default(false) | lower }}
+
+# Use IPv6 for tests (true/false)
+ipv6 = {{ ipv6 | default(false) | lower }}
+
+# Local hostname or IP address to bind to
+local_bind = {{ local_bind | default('') }}
+
+# Host for test control connection (default: first target host)
+control_host = {{ control_host | default('') }}
+
+# Arbitrary test parameters as key=value pairs
+# Each item in the list has 'key' and 'value' fields.
+# These are appended as test_parameter_<key> = <value>
+{% if test_parameters is defined and test_parameters | length > 0 %}
+{% for item in test_parameters %}
+test_parameter_{{ item.key | default('') }} = {{ item.value | default('') }}
+{% endfor %}
+{% endif %}
+
+# Symbolic marking names (key=value) for flow markings
+# Each item has 'name' and 'value' fields.
+# These are appended as marking_name_<name> = <value>
+{% if marking_names is defined and marking_names | length > 0 %}
+{% for item in marking_names %}
+marking_name_{{ item.name | default('') }} = {{ item.value | default('') }}
+{% endfor %}
+{% endif %}
+
+# Extra hosts to ping during test
+# Comma-separated list of hostnames
+{% if ping_hosts is defined and ping_hosts | length > 0 %}
+ping_hosts = {{ ping_hosts | join(',') }}
+{% endif %}
+
+# Local IP addresses to bind to for extra ping flows
+# Comma-separated list of IP addresses
+{% if ping_local_binds is defined and ping_local_binds | length > 0 %}
+ping_local_binds = {{ ping_local_binds | join(',') }}
+{% endif %}
+
+# Labels for extra ping flows
+# Comma-separated list of labels
+{% if ping_labels is defined and ping_labels | length > 0 %}
+ping_labels = {{ ping_labels | join(',') }}
+{% endif %}
+
+# VoIP test target hostname (single host)
+voip_host = {{ voip_host | default('') }}
+
+# Local IP for VoIP test
+voip_local_bind = {{ voip_local_bind | default('') }}
+
+# DiffServ marking for VoIP flow (e.g., 'EF', 'CS0')
+voip_marking = {{ voip_marking | default('') }}
+
+# Hosts to gather extended statistics from
+# Access nested fields safely from the stats_hosts mapping
+{% if stats_hosts is defined and stats_hosts | length > 0 %}
+# Comma-separated hostnames for CPU stats
+cpu_stats_hosts = {{ stats_hosts.cpu | default('') }}
+
+# Comma-separated hostnames for netstat stats
+netstat_hosts = {{ stats_hosts.netstat | default('') }}
+
+# Comma-separated hostnames for qdisc stats
+qdisc_stats_hosts = {{ stats_hosts.qdisc | default('') }}
+
+# Comma-separated hostnames for WiFi stats
+wifi_stats_hosts = {{ stats_hosts.wifi | default('') }}
+{% endif %}
+
+# Interfaces for qdisc stats collection (one per host)
+# Comma-separated list of interface names
+{% if qdisc_stats_interfaces is defined and qdisc_stats_interfaces | length > 0 %}
+qdisc_stats_interfaces = {{ qdisc_stats_interfaces | join(',') }}
+{% endif %}
+
+# Interfaces for WiFi stats collection (one per host)
+# Comma-separated list of interface names
+{% if wifi_stats_interfaces is defined and wifi_stats_interfaces | length > 0 %}
+wifi_stats_interfaces = {{ wifi_stats_interfaces | join(',') }}
+{% endif %}
+
+# MAC addresses of stations to gather WiFi stats for
+# Comma-separated list of MAC addresses
+{% if wifi_stats_stations is defined and wifi_stats_stations | length > 0 %}
+wifi_stats_stations = {{ wifi_stats_stations | join(',') }}
+{% endif %}
+
+# Hostnames for control connections in fair queuing tests
+# Comma-separated list of hostnames
+{% if control_hosts is defined and control_hosts | length > 0 %}
+control_hosts = {{ control_hosts | join(',') }}
+{% endif %}
+
+# Flow markings for fair queuing tests
+# Comma-separated list of markings (e.g., 'CS0,CS1')
+{% if markings is defined and markings | length > 0 %}
+markings = {{ markings | join(',') }}
+{% endif %}
+
+# Labels for data series flows
+# Comma-separated list of labels
+{% if labels is defined and labels | length > 0 %}
+labels = {{ labels | join(',') }}
+{% endif %}
+
+# Per-stream delays in seconds
+# Comma-separated list of delay values
+{% if stream_delays is defined and stream_delays | length > 0 %}
+stream_delays = {{ stream_delays | join(',') }}
+{% endif %}
+
+# Number of upload streams
+upload_streams = {{ upload_streams | default(4) }}
+
+# Number of download streams
+download_streams = {{ download_streams | default(4) }}
+
+# Number of bidirectional streams
+bidir_streams = {{ bidir_streams | default(8) }}
+
+# TCP congestion control algorithm(s) (single value or 'up,down')
+{% if tcp_cong_control is defined and tcp_cong_control | length > 0 %}
+tcp_cong_control = {{ tcp_cong_control }}
+{% endif %}
+
+# UDP bandwidth per stream (e.g., '20M')
+# If per-stream bandwidths are provided, they take precedence
+{% if udp_bandwidths is defined and udp_bandwidths | length > 0 %}
+udp_bandwidths = {{ udp_bandwidths | join(',') }}
+{% else %}
+udp_bandwidth = {{ udp_bandwidth | default('100M') }}
+{% endif %}
+
+# UDP packet size in bytes
+# If per-stream packet sizes are provided, they take precedence
+{% if udp_pktsizes is defined and udp_pktsizes | length > 0 %}
+udp_pktsizes = {{ udp_pktsizes | join(',') }}
+{% else %}
+udp_pktsize = {{ udp_pktsize | default(1024) }}
+{% endif %}
+
+# Packet burst length in seconds
+burst_length = {{ burst_length | default(10) }}
+
+# Number of ports for packet bursts
+burst_ports = {{ burst_ports | default(1) }}
+
+# Packet burst size in bytes
+burst_psize = {{ burst_psize | default(64) }}
+
+# TOS value for packet bursts
+burst_tos = {{ burst_tos | default(0) }}
+
+[plot]
+
+# X-axis label override
+label_x = {{ label_x | default('') }}
+
+# Y-axis label override
+label_y = {{ label_y | default('') }}
+
+# Invert latency Y axis (true/false)
+invert_latency_y = {{ invert_latency_y | default(false) | lower }}
+
+# Force Y axis start at zero (true/false)
+zero_y = {{ zero_y | default(false) | lower }}
+
+# Logarithmic scale mode ('log2' or 'log10')
+log_scale = {{ log_scale | default('') }}
+
+# Data normalization factor
+norm_factor = {{ norm_factor | default('') }}
+
+# X-axis bounds (e.g., '0,100' or '100' for upper)
+bounds_x = {{ bounds_x | default('') }}
+
+# Y-axis bounds
+bounds_y = {{ bounds_y | default('') }}
+
+# Figure width in inches
+figure_width = {{ figure_width | default(10) }}
+
+# Figure height in inches
+figure_height = {{ figure_height | default(6) }}
+
+# Figure DPI
+figure_dpi = {{ figure_dpi | default(100) }}
+
+# Legend placement ('best', 'upper right', etc.)
+legend_placement = {{ legend_placement | default('best') }}
+
+# Number of columns in legend
+legend_columns = {{ legend_columns | default(1) }}
+
+# Legend title override
+legend_title = {{ legend_title | default('') }}
+
+# Plot title override
+override_title = {{ override_title | default('') }}
+
+# Comma-separated colours for plot (e.g., '#1f77b4,#ff7f0e')
+colours = {{ colours | default('') }}
+
+[batch]
+
+# Batch name (used with --batch-name)
+batch_name = {{ batch_name | default('') }}
+
+# Batch title override
+batch_title = {{ batch_title | default('') }}
+
+# Number of batch repetitions
+repetitions = {{ repetitions | default(1) }}
+
+# Resume directory for batch continuation
+batch_resume = {{ batch_resume | default('') }}

@@ -1,0 +1,179 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the gotd server listens on (e.g., 0.0.0.0 for all interfaces, 127.0.0.1 for localhost only)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port number for the gotd service (default 8443, as per IANA for 'git' over TLS)."
+  },
+  "root_path": {
+    "type": "string",
+    "default": "/var/got",
+    "description": "Root directory under which all Git repositories are stored (e.g., /var/got)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum simultaneous client connections (set to 0 for unlimited)."
+  },
+  "anonymous_read": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow unauthenticated read access to repositories (recommended: false in production)."
+  },
+  "anonymous_write": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow unauthenticated push/write access (almost always should be disabled for security)."
+  },
+  "tls.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for client connections (recommended for production)."
+  },
+  "tls.cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/gotd.crt",
+    "description": "Path to the TLS certificate file (PEM format)."
+  },
+  "tls.key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/gotd.key",
+    "description": "Path to the TLS private key file (PEM format, must be readable only by root)."
+  },
+  "ssh_host_key": {
+    "type": "string",
+    "default": "/etc/ssh/ssh_host_ed25519_key",
+    "description": "Path to the SSH host private key file (required if using git over SSH)."
+  },
+  "rate_limit.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable bandwidth rate limiting for clients (to prevent abuse)."
+  },
+  "rate_limit.bytes_per_sec": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Rate limit in bytes per second (ignored unless rate_limit.enabled is true)."
+  },
+  "auth_backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of authentication backends to use (order matters \u2014 first match wins).",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "file",
+        "description": "Backend type: 'file' (local passwd file), 'ldap' (LDAP directory), or 'http' (HTTP auth proxy).",
+        "enum": [
+          "file",
+          "ldap",
+          "http"
+        ]
+      },
+      "description": {
+        "type": "string",
+        "default": "Local user authentication",
+        "description": "Human-readable description (used only as comment in config)."
+      },
+      "path": {
+        "type": "string",
+        "default": "/etc/gotd.passwd",
+        "description": "Path to the passwd-style file (for 'file' auth)."
+      },
+      "ldap": {
+        "type": "object",
+        "default": {},
+        "description": "LDAP connection settings (for 'ldap' auth).",
+        "fields": {
+          "uri": {
+            "type": "string",
+            "default": "ldap://ldap.example.com",
+            "description": "LDAP server URI (e.g., ldap://host:port or ldaps://)."
+          },
+          "basedn": {
+            "type": "string",
+            "default": "ou=people,dc=example,dc=com",
+            "description": "Base DN for user searches."
+          },
+          "binddn": {
+            "type": "string",
+            "default": "",
+            "description": "DN to bind as for directory searches (empty = anonymous bind)."
+          },
+          "bind_password": {
+            "type": "string",
+            "default": "",
+            "description": "Password for bind DN (if used); leave empty for no bind."
+          },
+          "user_filter": {
+            "type": "string",
+            "default": "(uid=%u)",
+            "description": "LDAP filter to locate the user entry; '%u' is replaced by the username."
+          }
+        }
+      },
+      "http": {
+        "type": "object",
+        "default": {},
+        "description": "HTTP auth proxy settings (for 'http' auth).",
+        "fields": {
+          "endpoint": {
+            "type": "string",
+            "default": "http://127.0.0.1:8080/auth",
+            "description": "URL of the HTTP endpoint to delegate authentication to."
+          }
+        }
+      }
+    }
+  },
+  "acls": {
+    "type": "list",
+    "default": [],
+    "description": "List of access control rules (applied in order; first match grants/denies).",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "user",
+        "description": "Rule type: 'user' (matches by username) or 'group' (matches by group name).",
+        "enum": [
+          "user",
+          "group"
+        ]
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Username to match (required if type='user')."
+      },
+      "group": {
+        "type": "string",
+        "default": "",
+        "description": "Group name to match (required if type='group')."
+      },
+      "paths": {
+        "type": "list",
+        "default": [
+          "/"
+        ],
+        "description": "List of repository paths this rule applies to (supports globbing, e.g., /proj/*).",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Minimum log level: debug, info, notice, warn, error."
+  },
+  "chroot": {
+    "type": "string",
+    "default": "",
+    "description": "Chroot directory to sandbox gotd (e.g., /chroot/gotd). Leave empty to disable chrooting."
+  }
+}

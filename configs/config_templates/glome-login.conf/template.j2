@@ -1,0 +1,47 @@
+# glome-login configuration
+# This file configures the glome-login service, which handles secure mesh authentication and session management.
+# Core service behavior and authentication provider settings.
+
+# IP address (IPv4 or IPv6) on which glome-login will listen for incoming connections.
+listen_address = {{ listen_address | default('0.0.0.0') }}
+
+# TCP port number on which glome-login will accept connections.
+listen_port = {{ listen_port | default(2235) }}
+
+# Enable or disable TLS encryption for all client connections.
+use_tls = {{ use_tls | default(True) }}
+
+# Path to the TLS certificate chain file (server cert + intermediate certs).
+tls_cert_chain = {{ tls_cert_chain | default('/etc/ssl/glome-login/fullchain.pem') }}
+
+# Path to the TLS private key file.
+tls_private_key = {{ tls_private_key | default('/etc/ssl/glome-login/privkey.pem') }}
+
+# Path to the trusted CA certificate bundle used for client certificate verification (if mutual TLS is enabled).
+tls_ca_bundle = {{ tls_ca_bundle | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# Maximum number of concurrent client connections the server will accept.
+max_connections = {{ max_connections | default(1024) }}
+
+# Idle session timeout in seconds; sessions expire after this period of inactivity.
+session_timeout = {{ session_timeout | default(3600) }}
+
+# Number of worker threads to handle login/authentication requests concurrently.
+worker_threads = {{ worker_threads | default(4) }}
+
+# Enable verbose debug logging for troubleshooting.
+debug = {{ debug | default(False) }}
+
+# Path to the log file. Leave empty to log to stderr only.
+log_file = {{ log_file | default('') }}
+
+# List of authentication backend providers to use.
+# Each provider defines a backend (e.g., LDAP, OAuth, local file).
+{% for provider in auth_providers | default([]) %}
+[auth_provider]
+name = {{ provider.name | default('') }}
+type = {{ provider.type | default('') }}
+endpoint = {{ provider.endpoint | default('') }}
+# Optional: additional key=value pairs per provider.
+{% for kv in provider.options | default({}) | dict2items %}{{ kv.key }} = {{ kv.value }}
+{% endfor %}{% endfor %}

@@ -1,0 +1,72 @@
+name: hpilo_boot
+fqcn: community.general.hpilo_boot
+collection: community.general
+short_description: Boot system using specific media through HP iLO interface
+description: 'This module boots a system through its HP iLO interface. The boot media can be one of: cdrom,
+  floppy, hdd, network or usb. This module requires the hpilo python module.'
+options:
+  force:
+    type: bool
+    default: false
+    description: Whether to force a reboot (even when the system is already booted). As a safeguard, without
+      force, hpilo_boot will refuse to reboot a server that is already running.
+  host:
+    type: str
+    required: true
+    description: The HP iLO hostname/address that is linked to the physical system.
+  image:
+    type: str
+    description: The URL of a cdrom, floppy or usb boot media image. protocol://username:password@hostname:port/filename
+      protocol is either 'http' or 'https' username:password is optional port is optional
+  login:
+    type: str
+    default: Administrator
+    description: The login name to authenticate to the HP iLO interface.
+  media:
+    type: str
+    choices:
+    - cdrom
+    - floppy
+    - rbsu
+    - hdd
+    - network
+    - normal
+    - usb
+    description: The boot media to boot the system from
+  password:
+    type: str
+    default: admin
+    description: The password to authenticate to the HP iLO interface.
+  ssl_version:
+    type: str
+    default: TLSv1
+    choices:
+    - SSLv3
+    - SSLv23
+    - TLSv1
+    - TLSv1_1
+    - TLSv1_2
+    description: Change the ssl_version used.
+  state:
+    type: str
+    default: boot_once
+    choices:
+    - boot_always
+    - boot_once
+    - connect
+    - disconnect
+    - no_boot
+    - poweroff
+    description: 'The state of the boot media. no_boot: Do not boot from the device boot_once: Boot from
+      the device once and then notthereafter boot_always: Boot from the device each time the server is
+      rebooted connect: Connect the virtual media device and set to boot_always disconnect: Disconnects
+      the virtual media device and set to no_boot poweroff: Power off the server'
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Task to boot a system using an ISO from an HP iLO interface only if the system is\
+  \ an HP server\n  community.general.hpilo_boot:\n    host: YOUR_ILO_ADDRESS\n    login: YOUR_ILO_LOGIN\n\
+  \    password: YOUR_ILO_PASSWORD\n    media: cdrom\n    image: http://some-web-server/iso/boot.iso\n\
+  \  when: cmdb_hwmodel.startswith('HP ')\n  delegate_to: localhost\n\n- name: Power off a server\n  community.general.hpilo_boot:\n\
+  \    host: YOUR_ILO_HOST\n    login: YOUR_ILO_LOGIN\n    password: YOUR_ILO_PASSWORD\n    state: poweroff\n\
+  \  delegate_to: localhost\n"

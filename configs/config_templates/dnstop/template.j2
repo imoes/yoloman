@@ -1,0 +1,170 @@
+# ==============================================================================
+# dnstop Configuration Template
+# dnstop is a network traffic analysis tool used primarily for monitoring DNS
+# traffic patterns. This template generates the command-line arguments for dnstop.
+# ==============================================================================
+
+# --- Capture Interface and Device ---
+
+# Network interface name (e.g., eth0)
+# If empty, dnstop will use the system default or require device specification.
+{% if interface | default('') | trim %}
+-i {{ interface | default('') | trim }}
+{% endif %}
+
+# Ethernet device name (e.g., fxp0); fallback if interface not available
+# This flag sets the specific network device to monitor.
+{% if device | default('') | trim %}
+{{ device | default('') | trim }}
+{% endif %}
+
+# --- Offline Analysis (pcap file) ---
+
+# Path to pcap savefile for offline analysis
+# If specified, dnstop reads from this file instead of live capture.
+{% if savefile | default('') | trim %}
+{{ savefile | default('') | trim }}
+{% endif %}
+
+# --- BPF Filter ---
+
+# BPF filter expression (default: capture DNS on UDP port 53)
+# Standard Berkeley Packet Filter syntax to restrict captured packets.
+{% if filter_expr | default('udp port 53') | trim %}
+-b {{ filter_expr | default('udp port 53') | trim }}
+{% endif %}
+
+# --- Ignored Addresses ---
+
+# List of IP addresses to ignore (e.g., internal DNS server IPs); multiple allowed
+# Multiple addresses can be specified; each gets its own -i flag.
+{% if ignore_addrs | default([]) | length > 0 %}
+{% for addr in ignore_addrs | default([]) %}
+-i {{ addr | default('') }}
+{% endfor %}
+{% endif %}
+
+# --- IP Version Filtering ---
+
+# Filter by IP version; allowed: 'ipv4', 'ipv6', or empty for both
+# -4 limits to IPv4, -6 limits to IPv6.
+{% set ip_ver = ip_version | default('') | trim %}
+{% if ip_ver == 'ipv4' %}
+# Count only IPv4 DNS messages
+-4
+{% elif ip_ver == 'ipv6' %}
+# Count only IPv6 DNS messages
+-6
+{% else %}
+# No IP version filter (capture both IPv4 and IPv6)
+{% endif %}
+
+# --- Message Counting Configuration ---
+
+# Count query messages (default: true)
+# Set to false to exclude queries from statistics.
+# Count reply messages (default: false)
+# Set to true to include replies in statistics.
+#
+# Logic:
+#   - Q only: -Q
+#   - R only: -R
+#   - Q and R: -Q -R
+#   - Neither (default behavior if both false): no flag (dnstop defaults to queries)
+{% set count_q = count_queries | default(True) | bool %}
+{% set count_r = count_replies | default(False) | bool %}
+
+{% if count_q and count_r %}
+# Count both queries and replies
+-Q -R
+{% elif count_q %}
+# Count only queries
+-Q
+{% elif count_r %}
+# Count only replies
+-R
+{% else %}
+# Default: count only queries (implicit in dnstop, but flags clarify intent)
+{% endif %}
+
+# --- Anonymization ---
+
+# Anonymize IP addresses in output
+# When enabled (-a), dnstop masks IP addresses in the displayed reports.
+{% if anonymize | default(False) | bool %}
+# Anonymize addresses
+-a
+{% endif %}
+
+# --- Promiscuous Mode ---
+
+# Enable promiscuous mode (default: true)
+# When enabled (-p), dnstop puts the interface into promiscuous mode.
+{% if promiscuous | default(True) | bool %}
+# Enable promiscuous mode
+-p
+{% endif %}
+
+# --- Display Redraw Interval ---
+
+# Screen redraw interval in seconds
+# Controls how often the UI refreshes.
+{% if redraw_interval | default(1) > 0 %}
+# Redraw interval (seconds)
+-r {{ redraw_interval | default(1) }}
+{% endif %}
+
+# --- Domain Name Hierarchy ---
+
+# Maximum domain name label depth for table categorization (1–9)
+# Limits the depth of domain names displayed in the tables.
+{% if max_levels | default(2) > 0 %}
+# Domain name level depth for tables
+-l {{ max_levels | default(2) }}
+{% endif %}
+
+# --- Input Filters ---
+
+# Apply built-in input filter: 'unknown-tlds', 'new-gtlds', 'A-for-A', 'rfc1918-ptr', 'refused', 'servfail', 'nxdomain', or 'qtype-any'
+# Filters the traffic based on specific DNS characteristics before counting.
+{% if input_filter | default('') | trim %}
+# Apply input filter
+-f {{ input_filter | default('') | trim }}
+{% endif %}
+
+# --- Domain Scope ---
+
+# Limit counting to a specific domain name (e.g., example.com)
+# Restricts the analysis to a particular domain suffix.
+{% if domain_filter | default('2') | trim %}
+# Limit to a specific domain
+-n {{ domain_filter | default('2') | trim }}
+{% endif %}
+
+# --- Hash Table Size ---
+
+# Number of buckets for hash tables (0 = default)
+# Adjusts memory usage and performance for large traffic volumes.
+{% if buckets | default(0) > 0 %}
+# Hash table bucket count
+-B {{ buckets | default(0) }}
+{% endif %}
+
+# --- Memory Optimization ---
+
+# Skip sources + query name counters to reduce memory usage
+# When enabled (-X), dnstop skips tracking source IPs and query names,
+# saving memory at the cost of detailed source/query breakdown.
+{% if skip_sources | default(False) | bool %}
+# Skip sources + query name tables (reduce memory usage)
+-X
+{% endif %}
+
+# --- Progress Messages ---
+
+# Print progress to stderr in non-interactive mode
+# Useful for monitoring long-running captures in scripts.
+{% if progress_messages | default(False) | bool %}
+# Print progress messages (non-interactive mode only)
+-P
+{% endif %}

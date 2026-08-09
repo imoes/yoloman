@@ -1,0 +1,20 @@
+# /etc/hosts — dynamically generated via Ansible Jinja2
+#
+# This file manages the local DNS host aliases for the system.
+# Each entry maps an IP address to one or more hostnames, or adds a comment line.
+#
+# Configuration is driven by the `entries` variable, which should be a list of dictionaries.
+# Supported entry structures:
+#   1. IP + Hostname: { 'ip': '<ipv4_or_ipv6>', 'hostname': '<fqdn_or_short>' }
+#   2. Comment only:   { 'comment': '<text to appear as a comment line>' }
+#
+# If `entries` is not provided or is empty, the file will remain empty (or contain only headers if added manually).
+
+# List of host entries to write to /etc/hosts
+{% for entry in (entries | default([], true)) %}
+    {% if entry.comment is defined %}
+# {{ entry.comment }}
+    {% elif entry.ip is defined %}
+{{ entry.ip }}	{{ entry.hostname | default('') }}
+    {% endif %}
+{% endfor %}

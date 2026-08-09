@@ -1,0 +1,264 @@
+{
+  "port": {
+    "type": "number",
+    "default": 389,
+    "description": "LDAP service port (standard non-TLS LDAP port)."
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 636,
+    "description": "LDAPS (TLS) service port. Set to 0 to disable."
+  },
+  "max_descriptors": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of file descriptors the server may open."
+  },
+  "size_limit": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum number of entries returned in a search operation."
+  },
+  "time_limit": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum duration (seconds) for a search operation."
+  },
+  "enable_access_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable access logging to a dedicated file."
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "/var/log/dirsrv/slapd-{{ instance }}/access",
+    "description": "Path to the access log file (used only if access logging is enabled)."
+  },
+  "enable_audit_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable audit logging (records all changes to entries)."
+  },
+  "audit_log_path": {
+    "type": "string",
+    "default": "/var/log/dirsrv/slapd-{{ instance }}/audit",
+    "description": "Path to the audit log file (used only if audit logging is enabled)."
+  },
+  "enable_error_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable error logging."
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/dirsrv/slapd-{{ instance }}/errors",
+    "description": "Path to the error log file."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 0,
+    "description": "LDAP server log level (0=none, 16=basic, 256=operations, 4096=traces, etc.)."
+  },
+  "base_suffix": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Suffix (base DN) for the directory tree (e.g., dc=example,dc=com)."
+  },
+  "root_password": {
+    "type": "string",
+    "default": "{SSHA}...",
+    "description": "Encrypted root DN password (e.g., {SSHA}hash). Required for initial setup. In production, generate via dsconf or ldapmodify."
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "userRoot",
+        "suffix": "dc=example,dc=com",
+        "directory": "/var/lib/dirsrv/slapd-{{ instance }}/ldbm/database/userRoot",
+        "cache_size": 51200000,
+        "encryption": false,
+        "encryption_cipher": null,
+        "encryption_pbkdf2": null
+      }
+    ],
+    "description": "List of backend databases (suffixes). Each entry defines a database instance."
+  },
+  "replication_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable replication with another Directory Server instance."
+  },
+  "replication_host": {
+    "type": "string",
+    "default": "replica.example.com",
+    "description": "Hostname of the replication partner (used if replication enabled)."
+  },
+  "replication_port": {
+    "type": "number",
+    "default": 389,
+    "description": "LDAP port of the replication partner."
+  },
+  "replication_bind_dn": {
+    "type": "string",
+    "default": "cn=replication manager,cn=config",
+    "description": "DN used for replication bind operation (must exist on both servers)."
+  },
+  "replication_credentials": {
+    "type": "string",
+    "default": "secret",
+    "description": "Password for the replication bind DN."
+  },
+  "replication_agreements": {
+    "type": "list",
+    "default": [],
+    "description": "List of replication agreements (for multi-master or hub/leaf setups)."
+  },
+  "encryption_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable global encryption settings (TLS/SSL)."
+  },
+  "ssl_verify_client": {
+    "type": "string",
+    "default": "off",
+    "description": "Client certificate verification mode: 'off', 'optional', 'on'."
+  },
+  "ssl_client_auth": {
+    "type": "string",
+    "default": "allowed",
+    "description": "Client authentication requirement: 'allowed' or 'required'."
+  },
+  "password_history_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of previous passwords to remember (prevents reuse)."
+  },
+  "password_check_syntax": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce password complexity rules (length, character types)."
+  },
+  "password_min_length": {
+    "type": "number",
+    "default": 8,
+    "description": "Minimum password length."
+  },
+  "password_max_failure": {
+    "type": "number",
+    "default": 3,
+    "description": "Failed login attempts before account lockout."
+  },
+  "password_lockout_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable account lockout on repeated failures."
+  },
+  "password_lockout_duration": {
+    "type": "number",
+    "default": 300,
+    "description": "Lockout duration in seconds before automatic unlock."
+  },
+  "password_unlock_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow manual password unlock via LDAP operation."
+  },
+  "schemas": {
+    "type": "list",
+    "default": [],
+    "description": "Additional schema files to load (e.g., custom objectClasses)."
+  },
+  "enabled_plugins": {
+    "type": "list",
+    "default": [
+      {
+        "name": "password policy",
+        "path": null,
+        "initfunc": "ppolicy_init",
+        "type": "extendedop",
+        "args": [
+          {
+            "key": "ppolicyDefault",
+            "value": "cn=Password Policy,cn=config"
+          },
+          {
+            "key": "ppolicyUseLockout",
+            "value": "on"
+          }
+        ]
+      }
+    ],
+    "description": "List of plugins to enable with configuration."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Server's hostname or FQDN. Used for internal identification."
+  },
+  "backend_cache_size": {
+    "type": "number",
+    "default": 51200000,
+    "description": "Size of the entry cache (bytes)."
+  },
+  "backend_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable encryption of backend files (requires FIPS mode on RHEL/CentOS)."
+  },
+  "backend_encryption_cipher": {
+    "type": "string",
+    "default": null,
+    "description": "Cipher algorithm for backend encryption (e.g., AES256-CBC)."
+  },
+  "backend_encryption_pbkdf2": {
+    "type": "string",
+    "default": null,
+    "description": "PBKDF2 hash function for encryption key derivation (e.g., SHA256)."
+  },
+  "replica_bind_method": {
+    "type": "string",
+    "default": "simple",
+    "description": "Bind method: 'simple' or 'sslmap'."
+  },
+  "replica_schedule": {
+    "type": "list",
+    "default": [],
+    "description": "Replication schedule (e.g., ['0000-2359 12345']). Empty = continuous."
+  },
+  "schema_name": {
+    "type": "string",
+    "default": "custom_schema",
+    "description": "Logical name for the schema."
+  },
+  "schema_file": {
+    "type": "string",
+    "default": "/etc/dirsrv/slapd-{{ instance }}/schema/99custom.ldif",
+    "description": "Path to the LDIF schema file."
+  },
+  "plugin_path": {
+    "type": "string",
+    "default": null,
+    "description": "Path to the plugin shared library (if not built-in)."
+  },
+  "plugin_initfunc": {
+    "type": "string",
+    "default": "ppolicy_init",
+    "description": "Plugin initialization function symbol."
+  },
+  "plugin_type": {
+    "type": "string",
+    "default": "extendedop",
+    "description": "Plugin type: 'internalop', 'extendedop', 'preoperation', 'postoperation', 'betxn', etc."
+  },
+  "plugin_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether plugin is active (true/false)."
+  },
+  "plugin_args": {
+    "type": "list",
+    "default": [],
+    "description": "Plugin-specific arguments (key-value pairs or bare strings)."
+  }
+}

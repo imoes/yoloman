@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- InspIRCd configuration file. This file defines server behavior and network topology. -->
+<configuration name="{{ name }}" description="{{ description }}">
+  <!-- Server identification and network settings -->
+  <server
+    name="{{ server.name }}"
+    description="{{ server.description }}"
+    id="{{ server.id }}"
+    {% if server.link %}
+    link="{{ server.link }}"
+    {% endif %}
+  />
+
+  <!-- Operator and administrative contact information -->
+  <Oper name="{{ opers.0.name }}" password="{{ opers.0.password }}" mask="{{ opers.0.mask }}" {% if opers.0.flags %}flags="{{ opers.0.flags | join(',') }}"{% endif %}/>
+
+  <!-- SSL/TLS settings for the server -->
+  <bind address="{{ tls.bind.address }}" port="{{ tls.bind.port }}" type="{{ tls.bind.type }}" ssl="{{ 'yes' if tls.bind.ssl else 'no' }}" />
+
+  {% if tls.cert %}
+  <!-- Server certificate and key paths -->
+  <cert file="{{ tls.cert }}" key="{{ tls.key }}"/>
+  {% endif %}
+
+  <!-- Modules to load -->
+  <load module="{{ modules | join('" /><load module="') }}" />
+
+  <!-- General server behavior settings -->
+  <options
+    serverstring="{{ options.serverstring }}"
+    clientstring="{{ options.clientstring }}"
+    maxclients="{{ options.maxclients }}"
+    {% if options.vhost %}vhost="{{ options.vhost }}"{% endif %}
+  />
+
+  <!-- Connection limits per IP -->
+  <connect allow="{{ connect.allow }}" mask="{{ connect.mask }}" {% if connect.reserved %}reserved="{{ connect.reserved }}"{% endif %} class="{{ connect.class }}" />
+
+  <!-- Define a client class (e.g., for connection rate limiting) -->
+  <class
+    name="{{ classes.0.name }}"
+    pingtime="{{ classes.0.pingtime }}"
+    sendq="{{ classes.0.sendq }}"
+    recvq="{{ classes.0.recvq }}"
+    maxperip="{{ classes.0.maxperip }}"
+    {% if classes.0.burst %}burst="{{ classes.0.burst }}"{% endif %}
+  />
+
+  <!-- Listen directive(s) for incoming client connections -->
+  {% for listen in listens %}
+  <bind address="{{ listen.address }}" port="{{ listen.port }}" type="{{ listen.type }}" {% if listen.ssl %}ssl="{{ 'yes' if listen.ssl else 'no' }}"{% endif %} {% if listen.options %}options="{{ listen.options | join(',') }}"{% endif %}/>
+  {% endfor %}
+
+  <!-- Channel modes defaults -->
+  <channelmodes>
+    {{ channelmodes | join('\n    ') }}
+  </channelmodes>
+
+  <!-- User modes defaults -->
+  <usermodes>
+    {{ usermodes | join('\n    ') }}
+  </usermodes>
+
+  <!-- Logging configuration -->
+  <log method="file" type="{{ log.type }}" filename="{{ log.filename }}" level="{{ log.level }}" maxsize="{{ log.maxsize }}"/>
+
+  <!-- Additional site-specific comments and notes (optional) -->
+  <!-- See https://docs.inspircd.org/ for full configuration reference -->
+</configuration>

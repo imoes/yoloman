@@ -1,0 +1,160 @@
+{
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "UEFI Boot Manager timeout in seconds (0-65535). Must be a non-negative integer."
+  },
+  "order": {
+    "type": "list",
+    "default": [],
+    "description": "List of boot entry numbers (in hex string or integer form) specifying boot order. Each value must be a valid BootXXXX entry."
+  },
+  "entries": {
+    "type": "list",
+    "default": [],
+    "description": "List of boot entry definitions. Each item configures a specific BootXXXX entry. Use 'create', 'delete', or 'state' to modify entries."
+  },
+  "entries.items.number": {
+    "type": "number",
+    "default": 0,
+    "description": "Boot entry number (0x0000 - 0xFFFF). Used to identify the entry."
+  },
+  "entries.items.state": {
+    "type": "string",
+    "default": "",
+    "description": "Set to 'active' or 'inactive' to change the entry's active state. Omit to leave unchanged.",
+    "enum": [
+      "active",
+      "inactive"
+    ]
+  },
+  "entries.items.create": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, create this entry with provided parameters."
+  },
+  "entries.items.delete": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, delete this entry."
+  },
+  "entries.items.disk": {
+    "type": "string",
+    "default": "/dev/sda",
+    "description": "Disk device (e.g., /dev/sda) where the loader resides."
+  },
+  "entries.items.partition": {
+    "type": "number",
+    "default": 1,
+    "description": "Partition number (1-indexed) containing the loader."
+  },
+  "entries.items.loader": {
+    "type": "string",
+    "default": "\\EFI\\debian\\grub.efi",
+    "description": "Relative path to the UEFI executable (e.g., \\EFI\\debian\\grub.efi)."
+  },
+  "entries.items.label": {
+    "type": "string",
+    "default": "Linux",
+    "description": "Human-readable label for the boot entry (displayed in UEFI menu)."
+  },
+  "entries.items.interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface name (e.g., eth0) \u2014 required only for netboot entries."
+  },
+  "entries.items.cmdline": {
+    "type": "string",
+    "default": "",
+    "description": "Kernel command line arguments (ASCII or Unicode depending on 'unicode' flag)."
+  },
+  "bootnext": {
+    "type": "string",
+    "default": "",
+    "description": "Boot entry number (e.g., '0001') to use for next boot only (sets BootNext). Empty string to clear."
+  },
+  "remove_duplicates": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, run efibootmgr -D to remove duplicate entries from BootOrder."
+  },
+  "delete_timeout": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, delete the Timeout variable (--delete-timeout)."
+  },
+  "delete_bootorder": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, delete the BootOrder variable (--delete-bootorder)."
+  },
+  "quiet": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable quiet mode (--quiet)."
+  },
+  "unicode": {
+    "type": "bool",
+    "default": false,
+    "description": "Handle command-line arguments as UCS-2 (--unicode)."
+  },
+  "full_dev_path": {
+    "type": "bool",
+    "default": false,
+    "description": "Use full UEFI device path for new entries (--full-dev-path)."
+  },
+  "file_dev_path": {
+    "type": "bool",
+    "default": false,
+    "description": "Use File()-based abbreviated path for new entries (--file-dev-path)."
+  },
+  "reconnect": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable device reconnection after driver load (--reconnect)."
+  },
+  "no_reconnect": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable device reconnection after driver load (--do-not-reconnect)."
+  },
+  "gpt": {
+    "type": "bool",
+    "default": false,
+    "description": "Force invalid PMBR disk to be treated as GPT (--gpt)."
+  },
+  "write_signature": {
+    "type": "bool",
+    "default": false,
+    "description": "Write unique MBR signature if needed (--write-signature)."
+  },
+  "mirror_below_4g": {
+    "type": "bool",
+    "default": false,
+    "description": "Mirror memory below 4GB (true/false) (--mirror-below-4G)."
+  },
+  "mirror_above_4g": {
+    "type": "string",
+    "default": "f",
+    "description": "Percentage of memory to mirror above 4GB (e.g., '10.0') (--mirror-above-4G).",
+    "enum": [
+      "t",
+      "f"
+    ]
+  },
+  "edd": {
+    "type": "string",
+    "default": "",
+    "description": "Force EDD version ('1' or '3') for legacy systems. Deprecated; use '--full-dev-path' instead.",
+    "enum": [
+      "1",
+      "3",
+      "-1"
+    ]
+  },
+  "edd_device": {
+    "type": "number",
+    "default": 128,
+    "description": "EDD 1.0 device number (0x00 - 0xFF). Default: 128 (0x80)."
+  }
+}

@@ -1,0 +1,50 @@
+[Daemon]
+# Enable or disable the firewalld daemon. Set to 'yes' to run firewalld as the primary firewall management service; 'no' to disable (e.g., if using another firewall like nftables).
+EnableFirewalld={{ enable_firewalld | default(true) | ternary('yes', 'no') }}
+
+# Directory where runtime state (e.g., zone, service, IptablesBackends) is stored.
+RuntimeDirectory={{ runtime_directory | default('/run/firewalld') }}
+
+# Directory where persistent configuration (e.g., zones, services, ipsets) is stored.
+ConfigDirectory={{ config_directory | default('/etc/firewalld') }}
+
+# Path to firewalld binary (for internal use or override).
+FirewallBackend={{ firewall_backend | default('/usr/sbin/firewalld') }}
+
+# Maximum number of concurrent connections tracked (affects conntrack table size). Increase on high-traffic systems to avoid conntrack table exhaustion.
+MaxConnections={{ max_connections | default(65536) }}
+
+# Enable logging of denied packets. Valid values: 'off', 'unicast', 'broadcast', 'all'.
+LogDenied={{ log_denied | default('off') }}
+
+[Logging]
+# Enable logging of all firewall events. Set to 'no' to disable all logging.
+Logging={{ logging | default(true) | ternary('yes', 'no') }}
+
+# Minimum log level for events (e.g., 'emergency', 'alert', 'crit', 'error', 'warning', 'notice', 'info', 'debug'). Lower levels = more verbose logging.
+LogLevel={{ log_level | default('info') }}
+
+[RFC3964]
+# Enable RFC3964 IPv6 address filtering (6to4/6over4 handling). Disable only if causing issues with legacy IPv6 tunnels.
+AllowRFC3964={{ allow_rfc3964 | default(true) | ternary('yes', 'no') }}
+
+[ipv6]
+# Enable IPv6 support in firewalld. Disable only if IPv6 is unused and you want to reduce attack surface.
+EnableIPv6={{ enable_ipv6 | default(true) | ternary('yes', 'no') }}
+
+[ipv4]
+# Enable IPv4 support in firewalld. Disable only if system is IPv6-only.
+EnableIPv4={{ enable_ipv4 | default(true) | ternary('yes', 'no') }}
+
+[interfaces]
+# List of trusted interfaces (no firewall rules applied). These interfaces bypass all firewall rules.
+{% for interface in trusted_interfaces | default([]) %}# Trusted interface: {{ interface }}
+TrustedInterface={{ interface }}
+{% endfor %}
+
+[zones]
+# Default zone applied to new interfaces. Must correspond to an existing zone file in ConfigDirectory/zones/ (e.g., 'public.xml').
+DefaultZone={{ default_zone | default('public') }}
+
+# Enable or disable automatic zone assignment for interfaces. When enabled, interfaces are assigned to DefaultZone on activation.
+AutomaticZoneAssignment={{ automatic_zone_assignment | default(false) | ternary('yes', 'no') }}

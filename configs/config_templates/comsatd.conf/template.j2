@@ -1,0 +1,63 @@
+# ==============================================================================
+# comsatd Configuration
+# ==============================================================================
+# This service listens for incoming mail notifications (via UUCP or similar)
+# and triggers custom handlers (exec_cmd) when new mail arrives for local users.
+# ==============================================================================
+
+[comsat]
+# TCP port on which comsatd listens for incoming mail notifications.
+# Default: 1130
+port = {{ (comsat | default({})).listen_port | default(1130) }}
+
+# Network address to bind the service to (IPv4 or IPv6).
+# Default: 127.0.0.1
+host = {{ (comsat | default({})).bind_host | default('127.0.0.1') }}
+
+# Whether the comsatd service is active.
+# Default: True
+enabled = {{ (comsat | default({})).enabled | default(True) | lower }}
+
+# Maximum number of simultaneous client connections allowed.
+# Default: 100
+max_connections = {{ (comsat | default({})).max_connections | default(100) }}
+
+# Directory containing user mailboxes (e.g., /var/spool/mail or /var/mail).
+# Default: /var/spool/mail
+mail_spool_dir = {{ (comsat | default({})).mail_spool_dir | default('/var/spool/mail') }}
+
+# Shell command template to invoke when new mail arrives.
+# '%s' is replaced with the recipient username.
+# Default: /usr/bin/mailnotify %s
+exec_cmd = {{ (comsat | default({})).exec_cmd | default('/usr/bin/mailnotify %s') }}
+
+# List of permitted sender domains (e.g., ['example.com', 'myorg.org']).
+# Leave empty to accept mail from any sender.
+{% if (comsat | default({})).allowed_senders is not none and ((comsat | default({})).allowed_senders | default([])) | length > 0 %}
+[allowed_senders]
+# One domain per line
+{% for domain in (comsat | default({})).allowed_senders | default([]) %}
+{{ domain }}
+{% endfor %}
+{% endif %}
+
+# Per-user command overrides.
+# Each entry specifies a user and a custom exec_cmd for them.
+# Structure: a list of dicts with 'user' and 'exec_cmd' keys.
+{% if (comsat | default({})).user_overrides is not none and ((comsat | default({})).user_overrides | default([])) | length > 0 %}
+[user_overrides]
+{% for override in (comsat | default({})).user_overrides | default([]) %}
+[{{ (override | default({})).user | default('unknown_user') }}]
+exec_cmd = {{ (override | default({})).exec_cmd | default('/usr/bin/mailnotify %s') }}
+{% endfor %}
+{% endif %}
+
+# Logging configuration
+[logging]
+# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.
+# Default: 1
+level = {{ (comsat | default({})).log_level | default(1) }}
+
+# Path to the service log file.
+# Default: /var/log/mailutils/comsatd.log
+file = {{ (comsat | default({})).log_file | default('/var/log/mailutils/comsatd.log') }}

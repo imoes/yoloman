@@ -1,0 +1,139 @@
+{
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IMAP servers to connect to. Each server defines credentials and connection details.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "imap_server",
+        "description": "Identifier for this server (used in rules and account definitions). Must be a valid Lua identifier."
+      },
+      "host": {
+        "type": "string",
+        "default": "imap.example.com",
+        "description": "Hostname or IP address of the IMAP server."
+      },
+      "port": {
+        "type": "number",
+        "default": 993,
+        "description": "IMAP port number (typically 143 for non-SSL, 993 for SSL)."
+      },
+      "ssl": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable SSL/TLS encryption for the connection."
+      },
+      "username": {
+        "type": "string",
+        "default": "user@example.com",
+        "description": "IMAP username (often email address)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for IMAP authentication. Use secure storage (e.g., keyring) in production."
+      },
+      "auth_type": {
+        "type": "string",
+        "default": null,
+        "description": "Authentication mechanism (e.g., 'PLAIN', 'LOGIN', 'CRAM-MD5'). If omitted, defaults to server-supported."
+      }
+    }
+  },
+  "logfile": {
+    "type": "string",
+    "default": "~/.imapfilter/log",
+    "description": "Path to the log file for IMAPFilter. Supports tilde (~) expansion for home directory."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Connection and command timeout in seconds."
+  },
+  "poll": {
+    "type": "number",
+    "default": 300,
+    "description": "Poll interval in seconds when running in daemon mode."
+  },
+  "subscribe": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically subscribe to newly created mailboxes."
+  },
+  "create_folders": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically create mailboxes that do not exist (required only for some servers)."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of accounts with their filtering rules. Each account references one server name and defines rules to apply to messages.",
+    "items": {
+      "server_name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the server (as defined in `servers`) to apply these rules against."
+      },
+      "rules": {
+        "type": "list",
+        "default": [],
+        "description": "List of filtering rules to apply for this account.",
+        "items": {
+          "description": {
+            "type": "string",
+            "default": "",
+            "description": "Human-readable description of what the rule does."
+          },
+          "condition": {
+            "type": "string",
+            "default": "message.is_from('spam@example.com')",
+            "description": "Lua expression returning boolean. Uses IMAPFilter's pattern-matching functions (e.g., `is_from`, `is_subject`, `is_header`, etc.)."
+          },
+          "move_to": {
+            "type": "string",
+            "default": null,
+            "description": "Mailbox name to move matching messages to (must exist on the server)."
+          },
+          "delete": {
+            "type": "bool",
+            "default": false,
+            "description": "If true, delete matching messages."
+          },
+          "mark_seen": {
+            "type": "bool",
+            "default": false,
+            "description": "If true, mark matching messages as seen."
+          },
+          "mark_flagged": {
+            "type": "bool",
+            "default": false,
+            "description": "If true, flag matching messages."
+          },
+          "forward_to": {
+            "type": "list",
+            "default": [],
+            "description": "List of email addresses to forward matching messages to.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "copy_to": {
+            "type": "string",
+            "default": null,
+            "description": "Mailbox name to copy matching messages to (instead of moving)."
+          },
+          "set_flags": {
+            "type": "list",
+            "default": [],
+            "description": "List of IMAP flags to set on matching messages (e.g., 'Seen', 'Flagged', 'Answered').",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

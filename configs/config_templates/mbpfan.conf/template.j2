@@ -1,0 +1,96 @@
+# ==============================================================================
+# mbpfan.conf - MacBook Pro Fan Control Daemon Configuration
+# ==============================================================================
+# This template generates the configuration file for mbpfan, a fan control
+# daemon for MacBook Pro laptops. It manages fan speeds based on CPU/GPU
+# temperature thresholds and optional custom curves.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# min_fan_speed: Minimum fan speed in RPM (0–6200). Prevents fans from
+# stopping completely. A value of 0 may stop fans, which can lead to overheating.
+# --------------------------------------------------------------------------
+min_fan_speed = {{ min_fan_speed | default(2000) }}
+
+# --------------------------------------------------------------------------
+# max_fan_speed: Maximum fan speed in RPM (0–6200). Upper bound for fan
+# control. Should not exceed the hardware's safe maximum.
+# --------------------------------------------------------------------------
+max_fan_speed = {{ max_fan_speed | default(6200) }}
+
+# --------------------------------------------------------------------------
+# automatic: Enable automatic fan speed adjustment based on temperature.
+# When false, fans run at a fixed speed or require manual intervention.
+# --------------------------------------------------------------------------
+automatic = {{ automatic | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# temp_threshold: Temperature (°C) above which fan speed begins to increase
+# (used with automatic mode). Fans start ramping up when sensor temps exceed
+# this value.
+# --------------------------------------------------------------------------
+temp_threshold = {{ temp_threshold | default(55) }}
+
+# --------------------------------------------------------------------------
+# interval: Polling interval in seconds between temperature and fan speed
+# updates. Lower values mean more responsive control but higher CPU usage.
+# --------------------------------------------------------------------------
+interval = {{ interval | default(5) }}
+
+# --------------------------------------------------------------------------
+# sensors: List of temperature sensors and their control parameters.
+# Each sensor entry defines:
+#   - enabled:   Whether this sensor is active (True/False)
+#   - name:      Human-readable sensor name (e.g., 'CPU', 'GPU')
+#   - min_temp:  Temperature (°C) below which fan runs at minimum offset
+#   - max_temp:  Temperature (°C) above which fan runs at maximum offset
+#   - fan_offset: RPM offset added to base fan speed for this sensor
+#   - hysteresis: Temperature lag (°C) to prevent fan speed oscillation
+# --------------------------------------------------------------------------
+{% set sensor_list = sensors | default([{'enabled': True, 'name': 'CPU', 'min_temp': 40, 'max_temp': 85, 'fan_offset': 0, 'hysteresis': 2}]) %}
+{% for sensor in sensor_list %}
+{% if sensor.enabled is defined and sensor.enabled %}
+# Sensor {{ loop.index }}: {{ sensor.name | default('Sensor ' + loop.index|string) }}
+#   min_temp={{ sensor.min_temp | default(40) }}, max_temp={{ sensor.max_temp | default(85) }}
+#   fan_offset={{ sensor.fan_offset | default(0) }}, hysteresis={{ sensor.hysteresis | default(2) }}
+sensor_{{ loop.index }}_name = {{ sensor.name | default('Sensor ' + loop.index|string) }}
+sensor_{{ loop.index }}_min_temp = {{ sensor.min_temp | default(40) }}
+sensor_{{ loop.index }}_max_temp = {{ sensor.max_temp | default(85) }}
+sensor_{{ loop.index }}_fan_offset = {{ sensor.fan_offset | default(0) }}
+sensor_{{ loop.index }}_hysteresis = {{ sensor.hysteresis | default(2) }}
+{% endif %}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# log_level: Logging verbosity: 0=none, 1=error, 2=warn, 3=info, 4=debug.
+# Controls how much detail mbpfan writes to logs.
+# --------------------------------------------------------------------------
+log_level = {{ log_level | default(2) }}
+
+# --------------------------------------------------------------------------
+# syslog: Enable logging to system log (syslog/journald).
+# When true, logs are sent to the system logger; otherwise, only stderr.
+# --------------------------------------------------------------------------
+syslog = {{ syslog | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# fan_curve: Custom fan speed vs temperature curve.
+# Each entry defines (temp, rpm) pairs for non-linear fan control.
+# Format in output: fan_curve_N = temp, rpm
+# --------------------------------------------------------------------------
+{% set fc_list = fan_curve | default([]) %}
+{% for point in fc_list %}
+fan_curve_{{ loop.index }} = {{ point.temp | default(0) }}, {{ point.rpm | default(0) }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# emergency_max_cpu_temp: Emergency fan ramp temperature (°C) if CPU exceeds
+# this value. Fans will ramp to maximum speed to prevent thermal shutdown.
+# --------------------------------------------------------------------------
+emergency_max_cpu_temp = {{ emergency_max_cpu_temp | default(95) }}
+
+# --------------------------------------------------------------------------
+# emergency_max_gpu_temp: Emergency fan ramp temperature (°C) if GPU exceeds
+# this value. Fans will ramp to maximum speed to prevent thermal shutdown.
+# --------------------------------------------------------------------------
+emergency_max_gpu_temp = {{ emergency_max_gpu_temp | default(90) }}

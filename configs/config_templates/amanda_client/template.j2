@@ -1,0 +1,194 @@
+# Amanda client configuration
+# This file configures the Amanda client (amdump/amrestore behavior on this host)
+# Must be world-readable but not world-writable
+# See amanda-client.conf(5) for full details
+
+# Client configuration file: do not edit manually — managed by configuration management
+
+# Directory where Amanda client logs and temporary files are stored.
+# Defaults to /var/log/amanda if not specified.
+client_log_dir "{{ client_log_dir | default('/var/log/amanda') }}"
+
+# Directory where Amanda writes lockfiles to prevent concurrent operations.
+# Defaults to /var/run if not specified.
+lockfile_dir "{{ lockfile_dir | default('/var/run') }}"
+
+# Hostname or FQDN by which the Amanda server will refer to this client.
+# Must match the client name defined on the Amanda server side.
+# If empty, Amanda may auto-detect, but explicit is safer.
+client_name "{{ client_name | default('') }}"
+
+# TCP port on which the Amanda client daemon (amandad) listens for incoming connections.
+# Default is 10080. Ensure firewall rules allow access to this port.
+client_port "{{ client_port | default(10080) }}"
+
+# Enable or disable TCP wrappers access control for amandad connections.
+# When enabled, access is controlled via tcp_wrappers_file.
+# Values: true or false.
+use_tcp_wrappers {{ use_tcp_wrappers | default(false) | lower }}
+
+# Path to the TCP wrappers configuration file (usually /etc/hosts.allow).
+# Only used if use_tcp_wrappers is true.
+tcp_wrappers_file "{{ tcp_wrappers_file | default('/etc/hosts.allow') }}"
+
+# Compression algorithm to use for backup streams.
+# Options: none, fast, best, gzip, lzo, bzip2.
+# Default is gzip. 'none' disables compression.
+compress "{{ compress | default('gzip') }}"
+
+# Maximum tape write speed in KB/s (0 = no limit).
+# Use to avoid saturating disk or network I/O during backups.
+max_tps {{ max_tps | default(0) }}
+
+# If enabled, the client holds the tape after backup instead of rewinding and ejecting.
+# Useful for manual tape swapping workflows.
+# Values: true or false.
+hold_tape {{ hold_tape | default(false) | lower }}
+
+# List of filesystems to back up. Each entry defines a mount point and options.
+# Example: disks: [{ mount_point: '/home', comment: 'Home directories', trust: true }]
+# Variable 'disks' must be defined as a list; defaults to empty list if undefined.
+{% for disk in disks | default([]) %}
+disk {{ disk.mount_point }} {
+{% if disk.comment is defined %}
+    comment "{{ disk.comment }}"
+{% endif %}
+    trust {{ disk.trust | default(true) | lower }}
+{% if disk.auth is defined %}
+    auth "{{ disk.auth }}"
+{% endif %}
+{% if disk.index is defined %}
+    index {{ disk.index | lower }}
+{% endif %}
+{% if disk.backup is defined %}
+    backup {{ disk.backup | lower }}
+{% endif %}
+{% if disk.bump is defined %}
+    bump {{ disk.bump | lower }}
+{% endif %}
+{% if disk.bump_days is defined %}
+    bump_days {{ disk.bump_days }}
+{% endif %}
+{% if disk.bump_size is defined %}
+    bump_size {{ disk.bump_size }}
+{% endif %}
+{% if disk.bump_total_size is defined %}
+    bump_total_size {{ disk.bump_total_size }}
+{% endif %}
+{% if disk.bump_total_days is defined %}
+    bump_total_days {{ disk.bump_total_days }}
+{% endif %}
+{% if disk.max_bumps is defined %}
+    max_bumps {{ disk.max_bumps }}
+{% endif %}
+{% if disk.max_size is defined %}
+    max_size {{ disk.max_size }}
+{% endif %}
+{% if disk.max_total_size is defined %}
+    max_total_size {{ disk.max_total_size }}
+{% endif %}
+{% if disk.max_total_days is defined %}
+    max_total_days {{ disk.max_total_days }}
+{% endif %}
+{% if disk.priority is defined %}
+    priority {{ disk.priority }}
+{% endif %}
+{% if disk.taper_algo is defined %}
+    taper_algo {{ disk.taper_algo }}
+{% endif %}
+{% if disk.taper_max_size is defined %}
+    taper_max_size {{ disk.taper_max_size }}
+{% endif %}
+{% if disk.taper_min_size is defined %}
+    taper_min_size {{ disk.taper_min_size }}
+{% endif %}
+{% if disk.taper_scan_size is defined %}
+    taper_scan_size {{ disk.taper_scan_size }}
+{% endif %}
+{% if disk.taper_scan_time is defined %}
+    taper_scan_time {{ disk.taper_scan_time }}
+{% endif %}
+{% if disk.taper_switch_size is defined %}
+    taper_switch_size {{ disk.taper_switch_size }}
+{% endif %}
+{% if disk.taper_switch_time is defined %}
+    taper_switch_time {{ disk.taper_switch_time }}
+{% endif %}
+{% if disk.taper_wait_time is defined %}
+    taper_wait_time {{ disk.taper_wait_time }}
+{% endif %}
+{% if disk.taper_write_speed is defined %}
+    taper_write_speed {{ disk.taper_write_speed }}
+{% endif %}
+{% if disk.taper_write_speed_max is defined %}
+    taper_write_speed_max {{ disk.taper_write_speed_max }}
+{% endif %}
+{% if disk.taper_write_speed_min is defined %}
+    taper_write_speed_min {{ disk.taper_write_speed_min }}
+{% endif %}
+{% if disk.taper_write_speed_target is defined %}
+    taper_write_speed_target {{ disk.taper_write_speed_target }}
+{% endif %}
+{% if disk.taper_write_speed_window is defined %}
+    taper_write_speed_window {{ disk.taper_write_speed_window }}
+{% endif %}
+}
+{% endfor %}
+
+# List of physical tape devices to configure (optional for disk-to-disk setups).
+# Example: tapes: [{ device: '/dev/st0', driver: 'st' }]
+{% for tape in tapes | default([]) %}
+tape_device {{ tape.device }} {
+{% if tape.comment is defined %}
+    comment "{{ tape.comment }}"
+{% endif %}
+{% if tape.label is defined %}
+    label {{ tape.label | lower }}
+{% endif %}
+{% if tape.driver is defined %}
+    driver "{{ tape.driver }}"
+{% endif %}
+{% if tape.block_size is defined %}
+    block_size {{ tape.block_size }}
+{% endif %}
+{% if tape.rewind is defined %}
+    rewind {{ tape.rewind | lower }}
+{% endif %}
+{% if tape.rewind_after is defined %}
+    rewind_after {{ tape.rewind_after | lower }}
+{% endif %}
+{% if tape.rewind_timeout is defined %}
+    rewind_timeout {{ tape.rewind_timeout }}
+{% endif %}
+{% if tape.skip_blocks is defined %}
+    skip_blocks {{ tape.skip_blocks }}
+{% endif %}
+{% if tape.sparse is defined %}
+    sparse {{ tape.sparse | lower }}
+{% endif %}
+{% if tape.strict_eod is defined %}
+    strict_eod {{ tape.strict_eod | lower }}
+{% endif %}
+{% if tape.tape_label is defined %}
+    tape_label {{ tape.tape_label | lower }}
+{% endif %}
+{% if tape.tape_size is defined %}
+    tape_size {{ tape.tape_size }}
+{% endif %}
+{% if tape.tape_type is defined %}
+    tape_type {{ tape.tape_type }}
+{% endif %}
+{% if tape.write_protect is defined %}
+    write_protect {{ tape.write_protect | lower }}
+{% endif %}
+}
+{% endfor %}
+
+# Optional: Extra client options for unsupported or advanced settings.
+# Each item in the list is rendered as a raw configuration line.
+{% if extra_options | default([]) %}
+# Additional custom options
+{% for opt in extra_options | default([]) %}
+{{ opt }}
+{% endfor %}
+{% endif %}

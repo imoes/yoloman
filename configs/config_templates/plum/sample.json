@@ -1,0 +1,94 @@
+{
+  "global": {
+    "name": "main-plum",
+    "data_dir": "/var/lib/plum",
+    "log_dir": "/var/log/plum",
+    "user": "plum",
+    "group": "plum",
+    "max_open_files": 65535,
+    "max_clients": 2000
+  },
+  "servers": [
+    {
+      "name": "ircnet",
+      "host": "irc.ircnet.example.com",
+      "port": 6697,
+      "ssl": true,
+      "ssl_verify": true,
+      "nick": "proxy_%u",
+      "username": "plum",
+      "realname": "Plum IRC Proxy",
+      "auto_connect": true,
+      "reconnect_delay": 10
+    },
+    {
+      "name": "oftc",
+      "host": "irc.oftc.net",
+      "port": 6667,
+      "nick": "proxy_%u",
+      "username": "plum",
+      "realname": "Plum IRC Proxy"
+    }
+  ],
+  "bots": [
+    {
+      "name": "ircbot",
+      "server": "ircnet",
+      "nick": "MyBot",
+      "user": "mybot",
+      "realname": "Plum Bot v2",
+      "identify_password": "supersecret",
+      "channels": [
+        {
+          "name": "#general",
+          "key": ""
+        },
+        {
+          "name": "#support",
+          "key": "chanpass"
+        }
+      ],
+      "modules": [
+        {
+          "name": "admin",
+          "options": {
+            "allowed_hosts": "localhost,127.0.0.1"
+          }
+        },
+        {
+          "name": "urlcache",
+          "options": {
+            "max_size_mb": 50
+          }
+        }
+      ]
+    }
+  ],
+  "logging": {
+    "level": "info",
+    "targets": [
+      {
+        "name": "main",
+        "path": "/var/log/plum/plum.log",
+        "format": "text",
+        "rotate": true,
+        "max_age_days": 14
+      },
+      {
+        "name": "access",
+        "path": "/var/log/plum/access.log",
+        "format": "json",
+        "rotate": true,
+        "max_age_days": 7
+      }
+    ]
+  },
+  "station": {
+    "enabled": true,
+    "services_nick": "Nickserv",
+    "services_user": "nickserv",
+    "services_realname": "Nickname Services",
+    "auth_backend": "sqlite",
+    "sqlite_db": "/var/lib/plum/services.db"
+  }
+}

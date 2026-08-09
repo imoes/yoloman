@@ -1,0 +1,60 @@
+name: hwc_vpc_private_ip
+fqcn: community.general.hwc_vpc_private_ip
+collection: community.general
+short_description: Creates a resource of Vpc/PrivateIP in Huawei Cloud
+description: vpc private ip management.
+options:
+  domain:
+    type: str
+    required: true
+    description: The name of the Domain to scope to (Identity v3). Currently only domain names are supported,
+      and not domain IDs.
+  id:
+    type: str
+    description: The ID of resource to be managed.
+  identity_endpoint:
+    type: str
+    required: true
+    description: The Identity authentication URL.
+  ip_address:
+    type: str
+    description: Specifies the target IP address. The value can be an available IP address in the subnet.
+      If it is not specified, the system automatically assigns an IP address. Cannot be changed after
+      creating the private ip.
+  password:
+    type: str
+    required: true
+    description: The password to login with.
+  project:
+    type: str
+    required: true
+    description: The name of the Tenant (Identity v2) or Project (Identity v3). Currently only project
+      names are supported, and not project IDs.
+  region:
+    type: str
+    description: The region to which the project belongs.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the given object should exist in Huawei Cloud.
+  subnet_id:
+    type: str
+    required: true
+    description: Specifies the ID of the subnet from which IP addresses are assigned. Cannot be changed
+      after creating the private ip.
+  user:
+    type: str
+    required: true
+    description: The user name to login with. Currently only user names are supported, and not user IDs.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# create a private ip\n- name: Create vpc\n  hwc_network_vpc:\n    cidr: \"192.168.100.0/24\"\
+  \n    name: \"ansible_network_vpc_test\"\n  register: vpc\n- name: Create subnet\n  hwc_vpc_subnet:\n\
+  \    gateway_ip: \"192.168.100.32\"\n    name: \"ansible_network_subnet_test\"\n    dhcp_enable: true\n\
+  \    vpc_id: \"{{ vpc.id }}\"\n    cidr: \"192.168.100.0/26\"\n  register: subnet\n- name: Create a\
+  \ private ip\n  community.general.hwc_vpc_private_ip:\n    subnet_id: \"{{ subnet.id }}\"\n    ip_address:\
+  \ \"192.168.100.33\"\n"

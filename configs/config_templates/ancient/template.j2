@@ -1,0 +1,53 @@
+{# ============================================================================== #}
+{# ancient service configuration template #}
+{# Self-documented: every directive is preceded by its schema description. #}
+{# ============================================================================== #}
+
+{# Whether the ancient service is enabled (maps to 'enabled=yes' or 'enabled=no') #}
+{% if service_enabled | default(true) %}
+enabled=yes
+{% else %}
+enabled=no
+{% endif %}
+
+{# List of operation modes to run (valid values: identify, verify, decompress, scan) #}
+{% for mode in modes | default(['decompress']) %}
+mode={{ mode }}
+{% endfor %}
+
+{# List of input files to process (required for identify, verify, decompress modes) #}
+{% if input_files | default([]) | length > 0 %}
+{% for f in input_files %}
+input_file={{ f }}
+{% endfor %}
+{% endif %}
+
+{# Output file path (required for decompress mode; optional for verify mode) #}
+{% if output_file | default('') != '' %}
+output_file={{ output_file | default('') }}
+{% endif %}
+
+{# Input directory to scan (required for scan mode) #}
+{% if input_dir | default('') != '' %}
+input_dir={{ input_dir | default('') }}
+{% endif %}
+
+{# Output directory for decompressed files (required for scan mode) #}
+{% if output_dir | default('') != '' %}
+output_dir={{ output_dir | default('') }}
+{% endif %}
+
+{# Enable verbose logging #}
+{% if verbose | default(false) %}
+verbose=1
+{% endif %}
+
+{# Path to log file for verbose output #}
+{% if log_file | default('') != '' %}
+log_file={{ log_file | default('') }}
+{% endif %}
+
+{# Timeout in seconds for each operation (e.g., decompression or scanning) #}
+{% if timeout | default(60) > 0 %}
+timeout={{ timeout | default(60) }}
+{% endif %}

@@ -1,0 +1,75 @@
+{
+  "prefix_v6": {
+    "type": "string",
+    "default": "64:ff9b::/96",
+    "description": "NAT64 IPv6 prefix (must be /96); RFC 6052 compliant. Tayga uses this prefix to map IPv6 addresses to IPv4."
+  },
+  "pool_v4": {
+    "type": "string",
+    "default": "192.168.100.0/24",
+    "description": "IPv4 pool used for dynamic address allocation during NAT64 translations. Should not overlap with existing network segments."
+  },
+  "static_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of static IPv4-to-IPv6 address mappings (e.g., for servers that must have fixed IPv4 addresses in the NAT64 realm)."
+  },
+  "tuntap_dev": {
+    "type": "string",
+    "default": "/dev/net/tun",
+    "description": "Path to the TUNTAP interface device. Tayga creates and manages this virtual interface for IPv6-to-IPv4 packet forwarding."
+  },
+  "tuntap_addr": {
+    "type": "string",
+    "default": "192.168.100.1",
+    "description": "IPv4 address assigned to the TUNTAP interface. Must be within `pool_v4` subnet when using dynamic NAT64."
+  },
+  "tuntap_addr_v6": {
+    "type": "string",
+    "default": "64:ff9b::192.168.100.1",
+    "description": "IPv6 address assigned to the TUNTAP interface, derived from tuntap_addr in the NAT64 prefix."
+  },
+  "tuntap_mtu": {
+    "type": "number",
+    "default": 1500,
+    "description": "MTU for the TUNTAP interface. Lower values (e.g., 1480) help avoid fragmentation with certain payloads."
+  },
+  "dns64_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable DNS64 functionality. Allows IPv6-only clients to resolve IPv4 hostnames via AAAA records synthesized by Tayga."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for upstream DNS queries issued by Tayga during DNS64 processing."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug. Set higher for troubleshooting."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/tayga.pid",
+    "description": "Path to the PID file. Used by init systems (systemd, OpenRC) to manage the Tayga service."
+  },
+  "configure_iface": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to configure the TUNTAP interface and set routes during service start. Set to 'no' to disable interface setup (e.g., for manual management).",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "configure_nat44": {
+    "type": "string",
+    "default": "yes",
+    "description": "Whether to configure NAT44 for the private IPv4 range during service start. Typically needed when using dynamic NAT64.",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  }
+}

@@ -1,0 +1,40 @@
+{# ============================================================================== #}
+{# Configuration file for claws-mail-clamd-plugin                                #}
+{# This template generates the plugin's configuration for connecting to ClamAV    #}
+{# via Unix socket or TCP.                                                       #}
+{#                                                                                #}
+{# Self-documenting: every directive is preceded by its schema description.       #}
+{# Variable references always include a default value to prevent render failures  #}
+{# when an undefined variable is passed.                                          #}
+{# ============================================================================== #}
+
+{# Path to Unix socket used to communicate with clamd. Required when using Unix socket. #}
+{# Must be accessible with global executable permissions.                               #}
+{% if socket_path | default('') %}
+socket_path = {{ socket_path | default('') }}
+{% endif %}
+
+{# Whether to use TCP socket instead of Unix socket. When true, tcp_host and tcp_port must be set. #}
+{% if tcp_socket | default(false) %}
+tcp_socket = {{ tcp_socket | default(false) | string | lower }}
+{% endif %}
+
+{# Hostname or IP address of the clamd server for TCP connections. #}
+{% if tcp_host | default('') %}
+tcp_host = {{ tcp_host | default('') }}
+{% endif %}
+
+{# Port number of the clamd daemon for TCP connections (standard clamd port). #}
+{% if tcp_port | default(0) > 0 %}
+tcp_port = {{ tcp_port | default(0) }}
+{% endif %}
+
+{# Maximum time in seconds to wait for a response from clamd before timing out. #}
+{% if timeout_seconds | default(0) > 0 %}
+timeout_seconds = {{ timeout_seconds | default(0) }}
+{% endif %}
+
+{# Maximum size (in MB) of attached files to scan. 0 means no size limit. #}
+{% if max_file_size_mb | default(0) > 0 %}
+max_file_size_mb = {{ max_file_size_mb | default(0) }}
+{% endif %}

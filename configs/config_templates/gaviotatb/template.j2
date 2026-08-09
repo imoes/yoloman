@@ -1,0 +1,78 @@
+# ==============================================================================
+# Gaviota Chess Tablebases Configuration Template
+# ==============================================================================
+# This file configures the Gaviota tablebase engine used by chess engines
+# (e.g., Stockfish) to retrieve endgame tablebase information.
+#
+# Self-documenting: every variable reference includes its schema default,
+# and every directive is preceded by a comment explaining its purpose.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# tb_path: Absolute filesystem path to the directory containing Gaviota .gtb
+#          tablebase files (e.g., 5-piece endgame databases).
+#          Must contain at least one valid tablebase file.
+#          Default: /var/lib/chess-tablebases/gaviota
+# --------------------------------------------------------------------------
+{% if tb_path is defined %}
+TB_PATH={{ tb_path | default('/var/lib/chess-tablebases/gaviota') }}
+{% else %}
+# TB_PATH not set — tablebase loading will fail
+TB_PATH={{ '/var/lib/chess-tablebases/gaviota' }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# io_threads: Maximum number of parallel I/O threads for reading tablebase
+#             files. Increase for high-core-count systems or large databases.
+#             Keep ≤ CPU core count to avoid contention.
+#             Default: 4
+# --------------------------------------------------------------------------
+TB_IO_THREADS={{ io_threads | default(4) }}
+
+# --------------------------------------------------------------------------
+# use_compression: Whether to use Gaviota's compression scheme.
+#                  Enabled (true) reduces memory usage but increases CPU load
+#                  during table lookup. Disable (false) for speed.
+#                  Default: true
+# --------------------------------------------------------------------------
+TB_USE_COMPRESSION={{ use_compression | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# cache_size: Maximum cache size (in MiB) for decompressed tablebase chunks.
+#             Larger caches reduce disk I/O and improve response latency,
+#             but consume more RAM.
+#             Default: 256
+# --------------------------------------------------------------------------
+TB_CACHE_SIZE={{ cache_size | default(256) }}
+
+# --------------------------------------------------------------------------
+# preload: If true, preloads all tablebase files into memory at service
+#          startup. Use only on systems with sufficient RAM (e.g., ≥ 1 GiB
+#          for 5-piece databases).
+#          Default: false
+# --------------------------------------------------------------------------
+TB_PRELOAD={{ preload | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# preload_files: List of specific tablebase filenames (e.g., ['KQvK.gtb',
+#                'KRNvK.gtb']) to preload instead of all files.
+#                Only honored if preload=true.
+#                Default: [] (empty list)
+# --------------------------------------------------------------------------
+{% if preload_files | default([]) | length > 0 %}
+TB_PRELOAD_FILES={{ preload_files | default([]) | join(' ') }}
+{% else %}
+# TB_PRELOAD_FILES not set or empty — no selective preload
+{% endif %}
+
+# --------------------------------------------------------------------------
+# fallback_path: Optional secondary path to check if the primary TB_PATH is
+#                missing or empty. Usually not needed unless running multiple
+#                tablebase sets.
+#                Default: None (not set)
+# --------------------------------------------------------------------------
+{% if fallback_path is defined %}
+TB_FALLBACK_PATH={{ fallback_path | default(None) }}
+{% else %}
+# TB_FALLBACK_PATH not set — no secondary path checked
+{% endif %}

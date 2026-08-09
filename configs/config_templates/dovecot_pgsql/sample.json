@@ -1,0 +1,50 @@
+{
+  "protocols": [
+    "imap",
+    "pop3"
+  ],
+  "mail_location": "maildir:~/Maildir",
+  "auth_mechanisms": [
+    "plain",
+    "login"
+  ],
+  "pgsql": {
+    "host": "db.internal.example.com",
+    "port": 5432,
+    "database": "mail_auth",
+    "user": "dovecot",
+    "password": "secure-password-here"
+  },
+  "pgsql.password_query": "SELECT username AS user, password FROM mailbox WHERE username = '%u' AND active = true",
+  "pgsql.user_query": "SELECT username AS user, home, uidNumber AS uid, gidNumber AS gid, maildir AS mail FROM mailbox WHERE username = '%u' AND active = true",
+  "mail_plugins": [
+    "imap_quota",
+    "sieve"
+  ],
+  "enable_doveadm": true,
+  "ssl_mode": "required",
+  "ssl_cert_path": "/etc/ssl/certs/dovecot.crt",
+  "ssl_key_path": "/etc/ssl/private/dovecot.key",
+  "ssl_ca_path": "/etc/ssl/certs/ca.crt",
+  "log_path": "/var/log/dovecot.log",
+  "info_log_path": "/var/log/dovecot-info.log",
+  "mail_process_count": 64,
+  "mail_max_userip_connections": 20,
+  "login_greeting": "Dovecot IMAP/POP3 ready.",
+  "login_trusted_networks": [
+    "10.0.0.0/8",
+    "192.168.1.0/24"
+  ],
+  "login_host": "mail.example.com",
+  "login_local_name": "mail.internal.example.com",
+  "mail_charset": "UTF-8",
+  "first_valid_uid": 5000,
+  "last_valid_uid": 60000,
+  "disable_plaintext_auth": true,
+  "imap_port": 143,
+  "imaps_port": 993,
+  "pop3_port": 110,
+  "pop3s_port": 995,
+  "doveadm_port": 24242,
+  "sql_driver_args": "driver=pgsql connect=host=%h port=%p dbname=%d user=%u password=%w"
+}

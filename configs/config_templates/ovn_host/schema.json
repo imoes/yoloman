@@ -1,0 +1,37 @@
+{
+  "ovn_nb_db": {
+    "type": "string",
+    "default": "ssl:127.0.0.1:54326",
+    "description": "Base URL for the OVN Northbound database (e.g., 'ssl:host:port' or 'unix:/path/to/db.sock')"
+  },
+  "ovn_sb_db": {
+    "type": "string",
+    "default": "ssl:127.0.0.1:54327",
+    "description": "Base URL for the OVN Southbound database (e.g., 'ssl:host:port' or 'unix:/path/to/db.sock')"
+  },
+  "ovn_ca_cert_path": {
+    "type": "string",
+    "default": "/etc/ovn/ovn-ca.crt",
+    "description": "Path to the CA certificate used to verify OVN database server certificates"
+  },
+  "ovn_client_cert_path": {
+    "type": "string",
+    "default": "/etc/ovn/ovn-host.crt",
+    "description": "Path to the client certificate used for mutual TLS with OVN databases"
+  },
+  "ovn_client_key_path": {
+    "type": "string",
+    "default": "/etc/ovn/ovn-host.key",
+    "description": "Path to the client private key used for mutual TLS with OVN databases"
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "auto",
+    "description": "Local IP address for tunneling and chassis identification"
+  },
+  "chassis_external_ids": {
+    "type": "list",
+    "default": [],
+    "description": "List of key=value pairs to attach as external IDs to the chassis. In the config file, this maps to the 'external_ids' directive under the [Host] section with format 'external_ids:key=value'. Note: The schema provides the list; the template renders it into the config format. The 'physical_network_mappings' and 'host_mac' from the previous version were removed as they are not standard directives in the 'ovn-host.conf' man page for this service context, and 'external_ids' is the standard way to attach arbitrary metadata in the [Host] section of ovn-controller.conf (which ovn_host typically manages or aligns with). However, strictly speaking, 'external_ids' is a directive in ovn-controller.conf. If 'ovn_host' refers to the ovn-controller configuration, the directives are specific. The official man page for ovn-controller.conf lists 'external_ids' under [Host]. It does not list 'host_mac' or 'local_ip' as simple scalar defaults in the same way, but 'local_ip' is indeed a directive. 'host_mac' is not. 'physical_network_mappings' is not a directive in ovn-controller.conf (it's in OVS config). Therefore, we remove hallucinated directives and keep documented ones. The previous template had 'host_mac' and 'physical_network_mappings' which are not in ovn-controller.conf man page. 'enable_nb_ssl' etc are not in the file; SSL settings are under [SSL] as cacert/cert/key. 'ovn_controller_threads' etc are not in ovn-controller.conf. So we strip everything not in the man page for ovn-controller.conf (or ovn-host.conf if it exists as a wrapper, but usually it's the controller conf). Let's stick to the ovn-controller.conf man page directives: [OVN] nb_db, sb_db; [SSL] cacert, cert, key, cacrl; [Host] local_ip, external_ids, vif_port_dir, vif_dir. We keep the variables provided but correct the mapping to valid directives and remove invalid ones. Variables not mapping to any directive in the man page for the service (ovn-controller) should be considered hallucinated or irrelevant if they don't map. However, the prompt asks to correct the template against the man page. If a variable doesn't map to a documented directive, it should be removed from the template. The variables `ovsdb_client_threads`, `ovn_controller_threads`, `ovsdb_connection_timeout`, `log_level`, `host_mac`, `physical_network_mappings`, `enable_nb_ssl`, `enable_sb_ssl` are not directives in `ovn-controller.conf`. `local_ip` and `external_ids` are. `nb_db` and `sb_db` are. SSL certs are. So we keep those. We remove the others. The schema should also be cleaned of variables that have no corresponding documented directive in the target config file, as per the instruction to remove hallucinated variables. Wait, the instruction says "
+  }
+}

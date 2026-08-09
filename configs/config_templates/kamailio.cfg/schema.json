@@ -1,0 +1,164 @@
+{
+  "debug_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Debug log level: 0 (none) to 9 (all). Higher = more verbose."
+  },
+  "log_stderror": {
+    "type": "string",
+    "default": "no",
+    "description": "Log to standard error instead of syslog. Set to 'yes' for containerized deployments."
+  },
+  "mem_dump_shared": {
+    "type": "string",
+    "default": "no",
+    "description": "Dump shared memory stats on exit. Useful for debugging memory leaks."
+  },
+  "max_fwd": {
+    "type": "number",
+    "default": 70,
+    "description": "Maximum allowed value in the Max-Forwards header. Prevents infinite loops."
+  },
+  "stats_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between statistics dumps to the statistics module."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SIP authentication (Digest). Requires auth module and database."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "protocol": "tcp",
+        "address": "0.0.0.0",
+        "port": 5060
+      },
+      {
+        "protocol": "udp",
+        "address": "0.0.0.0",
+        "port": 5060
+      }
+    ],
+    "description": "Network interfaces and ports to listen on. Each entry includes protocol, address, and port.",
+    "items": {
+      "protocol": {
+        "type": "string",
+        "enum": [
+          "tcp",
+          "udp",
+          "tls"
+        ],
+        "default": "tcp",
+        "description": "Transport protocol: tcp, udp, or tls."
+      },
+      "address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind to (e.g., 0.0.0.0, 127.0.0.1, 192.168.1.10)."
+      },
+      "port": {
+        "type": "number",
+        "default": 5060,
+        "description": "SIP port (typically 5060 or 5061 for TLS)."
+      },
+      "tags": {
+        "type": "list",
+        "default": [],
+        "description": "Optional listener tags for routing control (e.g., [\"internal\", \"external\"])."
+      }
+    }
+  },
+  "aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Additional SIP hostnames/IPs this server accepts calls for (e.g., domain aliases).",
+    "items": {
+      "type": "string",
+      "description": "Alias hostname or IP (e.g., sip.example.com)."
+    }
+  },
+  "db_url": {
+    "type": "string",
+    "default": "mysql://kamailio:kamailiorw@localhost/kamailio",
+    "description": "Database connection URL. Format: driver://user:pass@host/dbname. Supported: mysql, postgres, sqlite."
+  },
+  "modules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "sl",
+        "param": "reply_to_next",
+        "value": 0
+      },
+      {
+        "name": "tm",
+        "param": "auto_2618",
+        "value": 1
+      },
+      {
+        "name": "rr",
+        "param": "enable_double_rr",
+        "value": 1
+      },
+      {
+        "name": "maxfwd",
+        "param": "max_limit",
+        "value": 70
+      }
+    ],
+    "description": "Module-specific parameters. Each object defines module name, parameter name, and value.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Kamailio module name (e.g., auth, tls, redis)."
+      },
+      "param": {
+        "type": "string",
+        "default": "",
+        "description": "Parameter name for the module."
+      },
+      "value": {
+        "type": "string",
+        "default": "",
+        "description": "Parameter value (will be rendered as JSON for booleans/numbers/strings)."
+      }
+    }
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      {
+        "name": "gateway1",
+        "prefix": "123",
+        "backups": []
+      }
+    ],
+    "description": "Upstream SIP gateways for routing calls. Each defines a prefix match, name, and optional backup gateways.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Identifier for the upstream (used in route names and logs)."
+      },
+      "prefix": {
+        "type": "string",
+        "default": "",
+        "description": "SIP username or URI prefix to match for routing to this gateway (e.g., '123' for +123* numbers)."
+      },
+      "backups": {
+        "type": "list",
+        "default": [],
+        "description": "List of backup upstream gateway names (fallback order if primary fails).",
+        "items": {
+          "type": "string",
+          "description": "Name of a backup upstream gateway."
+        }
+      }
+    }
+  }
+}

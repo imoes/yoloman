@@ -1,0 +1,229 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "127.0.0.1:53",
+      "[::1]:53"
+    ],
+    "description": "Local addresses and ports to listen on (e.g., '127.0.0.1:53' or '[::1]:53')"
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous client connections allowed"
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum queries per second per client before throttling"
+  },
+  "http3": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable HTTP/3 (QUIC) support for DoH"
+  },
+  "require_dnssec": {
+    "type": "bool",
+    "default": true,
+    "description": "Require DNSSEC validation for responses; reject unsigned results"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/dnscrypt-proxy/dnscrypt-proxy.log",
+    "description": "Path to the log file; empty string to disable file logging"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug"
+  },
+  "certificates_cache": {
+    "type": "string",
+    "default": "/var/cache/dnscrypt-proxy/certificates",
+    "description": "Path to cache file for server certificates (for offline validation)"
+  },
+  "blocklist_file": {
+    "type": "string",
+    "default": "/etc/dnscrypt-proxy/blocklist.txt",
+    "description": "Path to optional domain blocklist (one domain per line); empty to disable"
+  },
+  "sources": {
+    "type": "string",
+    "default": "[sources.public]\n  urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/dnscrypt-resolvers/v3/public-resolvers.md', 'https://mirror.censurfridns.dk/dnscrypt/v3/public-resolvers.md']\n  minisign_key = 'RWQf6LRCGA9z595dl7fVS5276k6hD2GpAKdYjRkHt90tN75i1XkO'\n  cache_file = 'public-resolvers.md'",
+    "description": "Raw TOML block defining resolver sources (URLs + signatures). Do not modify unless you know the implications."
+  },
+  "static_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of static resolver entries (e.g., for private or custom resolvers)",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for the static server"
+      },
+      "stamp": {
+        "type": "string",
+        "description": "Server stamp (e.g., 'sdns://AQEAAAAAAAAA...'}"
+      },
+      "is_blocked": {
+        "type": "bool",
+        "default": false,
+        "description": "Mark as blocked (will not be used)"
+      }
+    }
+  },
+  "filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of filtering rules (regex or domain-based)",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "regex",
+          "domain"
+        ],
+        "description": "Filter type"
+      },
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for the filter"
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Regex pattern (for regex filters)"
+      },
+      "replacement": {
+        "type": "string",
+        "description": "Replacement text (for regex filters)"
+      },
+      "domains": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of domains to match (for domain filters)"
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this filter"
+      }
+    }
+  },
+  "forwarding_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Rules to forward queries for specific domains to particular resolvers",
+    "items": {
+      "comment": {
+        "type": "string",
+        "description": "Human-readable description"
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Domain pattern to match (e.g., '*.example.com')"
+      },
+      "targets": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of resolver names or stamps to forward to"
+      }
+    }
+  },
+  "public_suffix_list": {
+    "type": "string",
+    "default": "/etc/dnscrypt-proxy/public_suffix_list.dat",
+    "description": "Path to the public suffix list (used for domain normalization); empty to disable"
+  },
+  "cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable local caching of DNS responses"
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of cache entries"
+  },
+  "cache_min_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum cache TTL in seconds (respects original TTL if shorter)"
+  },
+  "cache_max_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum cache TTL in seconds"
+  },
+  "cache_temp_failure_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Time in seconds to cache negative (NXDOMAIN, etc.) responses"
+  },
+  "net_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for initial connection to upstream resolvers"
+  },
+  "net_ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable IPv6 connectivity to upstream resolvers"
+  },
+  "net_tcp_fast_open": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP Fast Open for upstream connections (Linux only)"
+  },
+  "net_dscp": {
+    "type": "number",
+    "default": 0,
+    "description": "DSCP codepoint to apply to outgoing packets (0=disabled)"
+  },
+  "proxy_url": {
+    "type": "string",
+    "default": "",
+    "description": "SOCKS5 or HTTPS proxy URL for outbound connections (e.g., 'socks5://127.0.0.1:9050')"
+  },
+  "network_security_ecdhe_min_size": {
+    "type": "number",
+    "default": 224,
+    "description": "Minimum ECDHE key size (in bits) for TLS handshakes"
+  },
+  "network_security_rsa_min_size": {
+    "type": "number",
+    "default": 2048,
+    "description": "Minimum RSA key size (in bits) for TLS handshakes"
+  },
+  "network_security_dh_min_size": {
+    "type": "number",
+    "default": 2048,
+    "description": "Minimum DH group size (in bits) for TLS handshakes"
+  },
+  "network_security_tls_min_version": {
+    "type": "string",
+    "default": "TLS13",
+    "description": "Minimum TLS version allowed (e.g., 'TLS12' or 'TLS13')"
+  },
+  "network_security_cipher_suites": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed TLS cipher suites (leave empty for recommended defaults)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "network_security_allow_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow fallback to older TLS versions (not recommended)"
+  },
+  "ca_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to custom CA certificate file (for private PKI); empty to use system store"
+  }
+}

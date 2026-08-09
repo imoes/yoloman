@@ -1,0 +1,132 @@
+# ==============================================================================
+# PySPF Milter Configuration
+# ==============================================================================
+# This file configures the pyspf_milter service, which performs SPF verification
+# on incoming mail from the MTA (Mail Transfer Agent, typically Postfix).
+#
+# The milter connects to the MTA via a TCP socket.
+# See the 'bind' directive below for connection details.
+# ==============================================================================
+
+# Listen address and port for the milter to accept connections from MTA (e.g., Postfix).
+# Format: "ip:port". Use '127.0.0.1' for local-only access (recommended).
+# bind_address: default='127.0.0.1' - IP address the milter should bind to.
+# bind_port: default=8893 - Port number for the milter service.
+bind = "{{ (bind_address | default('127.0.0.1')) }}:{{ (bind_port | default(8893)) }}"
+
+# Timeout for DNS lookups (in seconds).
+# dns_timeout: default=5 - Seconds to wait for DNS resolution before timing out.
+# Lower values improve latency but may miss slow responses.
+dns_timeout = {{ (dns_timeout | default(5)) }}
+
+# Timeout for full SPF record evaluation (in seconds).
+# spf_timeout: default=10 - Seconds to wait for full SPF evaluation.
+# Must be >= dns_timeout × max_dns_lookups.
+spf_timeout = {{ (spf_timeout | default(10)) }}
+
+# Maximum number of DNS lookups allowed per SPF check (per RFC 7208).
+# max_dns_lookups: default=10 - Limit of DNS queries. Set 0 to disable limit.
+max_dns_lookups = {{ (max_dns_lookups | default(10)) }}
+
+# --- SPF Result Policies ---
+# Define how to handle mail based on SPF evaluation results.
+# Note: reject_permerror and reject_fail are enabled by default for security.
+
+# reject_permerror: default=True - Reject mail when SPF record is malformed (permerror).
+reject_permerror = {{ (reject_permerror | default(True)) | lower }}
+
+# reject_fail: default=True - Reject mail when SPF evaluation yields 'fail'.
+reject_fail = {{ (reject_fail | default(True)) | lower }}
+
+# reject_softfail: default=False - Reject mail for 'softfail' results (usually just warn).
+reject_softfail = {{ (reject_softfail | default(False)) | lower }}
+
+# reject_neutral: default=False - Reject mail for 'neutral' results (usually false).
+reject_neutral = {{ (reject_neutral | default(False)) | lower }}
+
+# reject_none: default=False - Reject mail when no SPF record exists (may cause FP).
+reject_none = {{ (reject_none | default(False)) | lower }}
+
+# --- Logging Configuration ---
+
+# Logging verbosity level.
+# log_level: default=3 - 0=quiet, 1=error, 2=warn, 3=info (default), 4=debug, 5=trace.
+log_level = {{ (log_level | default(3)) }}
+
+# Optional: path to a dedicated log file (e.g., /var/log/spf-milter.log).
+# If empty, the system syslog is used.
+# log_file: default='' - Optional path to a dedicated log file.
+{% if (log_file | default('')) %}
+log_file = "{{ (log_file | default('')) }}"
+{% else %}
+# log_file = ""  # Use system syslog
+{% endif %}
+
+# --- Exceptions & Trusted Sources ---
+
+# Trusted IP addresses or CIDR ranges that bypass SPF checks entirely.
+# Useful for internal relays or known clean sources.
+# trusted_ips: default=[] - List of IP addresses or CIDR ranges.
+{% for ip in (trusted_ips | default([])) %}
+trusted_ip = "{{ ip }}"
+{% endfor %}
+
+# Domains exempted from SPF evaluation (exact match, no wildcards).
+# Useful for internal domains that might not have valid SPF records.
+# exempted_domains: default=[] - List of domain names.
+{% for domain in (exempted_domains | default([])) %}
+exempt_domain = "{{ domain }}"
+{% endfor %}
+
+# Local IP ranges treated as 'local' for sender verification.
+# Helps prevent reverse-path spoofing detection issues.
+# local_nets: default=['127.0.0.0/8', '::1/128'] - List of IP ranges.
+{% for net in (local_nets | default(['127.0.0.0/8', '::1/128'])) %}
+local_net = "{{ net }}"
+{% endfor %}
+
+# --- Header Handling ---
+
+# Additional email headers to pass through to downstream filters.
+# Useful if another service (e.g., GeoIP) needs to see the original client IP.
+# passthrough_headers: default=[] - List of header names.
+{% for header in (passthrough_headers | default([])) %}
+passthrough_header = "{{ header }}"
+{% endfor %}
+
+# --- Authentication-Results Header ---
+
+# Whether to add an Authentication-Results header per RFC 5451.
+# This helps receiving servers validate SPF results.
+# add_auth_results: default=True - Boolean, enable to add header.
+add_auth_results = {{ (add_auth_results | default(True)) | lower }}
+
+# Identifier used in the Authentication-Results header (e.g., 'pyspf').
+# auth_results_id: default='milter.pyspf' - String identifier.
+{% if (auth_results_id | default('milter.pyspf')) %}
+auth_results_id = "{{ (auth_results_id | default('milter.pyspf')) }}"
+{% else %}
+# auth_results_id = "milter.pyspf"
+{% endif %}
+
+# --- Behavior Tweaks ---
+
+# Skip SPF checks for clients that have successfully authenticated (e.g., SASL).
+# Prevents re-checking mail from logged-in users.
+# skip_for_authenticated: default=True - Boolean.
+skip_for_authenticated = {{ (skip_for_authenticated | default(True)) | lower }}
+
+# Skip SPF checks for connections from localhost (127.0.0.0/8 and ::1).
+# Local Postfix submissions often originate here and don't need SPF.
+# skip_for_localhost: default=True - Boolean.
+skip_for_localhost = {{ (skip_for_localhost | default(True)) | lower }}
+
+# Fallback policy when no SPF record exists or parsing fails.
+# Valid values: none, softfail, neutral, fail, pass.
+# 'neutral' is the RFC-compliant default.
+# fallback_policy: default='neutral' - String policy.
+{% if (fallback_policy | default('neutral')) %}
+fallback_policy = "{{ (fallback_policy | default('neutral')) }}"
+{% else %}
+# fallback_policy = "neutral"
+{% endif %}

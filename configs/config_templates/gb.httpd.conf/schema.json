@@ -1,0 +1,172 @@
+{
+  "httpd.listen": {
+    "type": "string",
+    "default": "0.0.0.0:80",
+    "description": "IP address and port on which the HTTP daemon listens (e.g., '0.0.0.0:80' or '[::]:80')"
+  },
+  "httpd.max_clients": {
+    "type": "number",
+    "default": 150,
+    "description": "Maximum number of simultaneous client connections the server will handle"
+  },
+  "httpd.max_requests_per_child": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of requests a child process handles before being respawned (0 = unlimited)"
+  },
+  "httpd.timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Time in seconds before a request times out (including receive, process, and send)"
+  },
+  "httpd.document_root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Base directory from which web content is served"
+  },
+  "httpd.server_admin": {
+    "type": "string",
+    "default": "admin@localhost",
+    "description": "Email address displayed in server-generated error pages"
+  },
+  "httpd.server_name": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Canonical hostname for this server (used for redirects and identification)"
+  },
+  "httpd.ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable HTTPS (SSL/TLS) support"
+  },
+  "httpd.ssl_certificate_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/server.crt",
+    "description": "Path to the SSL certificate file (PEM format); required if SSL is enabled"
+  },
+  "httpd.ssl_private_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/server.key",
+    "description": "Path to the SSL private key file (PEM format); required if SSL is enabled"
+  },
+  "httpd.log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity of server logs: 0=none, 1=errors, 2=warnings, 3=info, 4=debug"
+  },
+  "httpd.directory_index": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [
+      "index.html",
+      "index.htm",
+      "index.php"
+    ],
+    "description": "List of default filenames to serve when a directory is requested"
+  },
+  "httpd.directory_configs": {
+    "type": "list",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/var/www/html",
+        "description": "Filesystem path to the directory to configure"
+      },
+      "options": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "Indexes",
+          "FollowSymLinks"
+        ],
+        "description": "Directory options (e.g., 'Indexes', 'FollowSymLinks', 'ExecCGI'); space-separated in config"
+      },
+      "allow_override": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "AuthConfig",
+          "FileInfo"
+        ],
+        "description": "Which directives may appear in .htaccess files (e.g., 'All', 'AuthConfig', 'FileInfo')"
+      },
+      "require": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "all",
+          "granted"
+        ],
+        "description": "Access control directive (e.g., 'all granted', 'host example.com')"
+      }
+    },
+    "default": [
+      {
+        "path": "/var/www/html",
+        "options": [
+          "Indexes",
+          "FollowSymLinks"
+        ],
+        "allow_override": [
+          "AuthConfig",
+          "FileInfo"
+        ],
+        "require": [
+          "all",
+          "granted"
+        ]
+      }
+    ],
+    "description": "List of directory-specific access and behavior configurations"
+  },
+  "httpd.virtual_hosts": {
+    "type": "list",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "*",
+        "description": "IP address or '*' to bind to all interfaces"
+      },
+      "port": {
+        "type": "number",
+        "default": 80,
+        "description": "Port for this virtual host (e.g., 80 for HTTP, 443 for HTTPS)"
+      },
+      "server_name": {
+        "type": "string",
+        "default": "example.com",
+        "description": "Hostname this virtual host responds to"
+      },
+      "document_root": {
+        "type": "string",
+        "default": "/var/www/example.com",
+        "description": "Document root specific to this virtual host"
+      },
+      "ssl_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SSL/TLS for this virtual host"
+      },
+      "ssl_certificate_file": {
+        "type": "string",
+        "default": "/etc/ssl/certs/example.com.crt",
+        "description": "Path to SSL certificate for this virtual host (if SSL enabled)"
+      },
+      "ssl_private_key_file": {
+        "type": "string",
+        "default": "/etc/ssl/private/example.com.key",
+        "description": "Path to SSL private key for this virtual host (if SSL enabled)"
+      }
+    },
+    "default": [],
+    "description": "List of named virtual hosts (required for name-based virtual hosting)"
+  }
+}

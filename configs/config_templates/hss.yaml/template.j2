@@ -1,0 +1,113 @@
+# ==============================================================================
+# HSS (Home Subscriber Server) configuration for NextEPC
+# This file is auto-generated. Do not edit manually.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Logging verbosity level: debug, info, warning, error, or critical.
+logging:
+  level: {{ log_level | default('info') }}
+  file: {{ log_file | default('/var/log/nextepc/hss.log') }}
+
+# ------------------------------------------------------------------------------
+# HSS Database Settings (MongoDB)
+# This service requires a MongoDB backend.
+# ------------------------------------------------------------------------------
+
+# Database connection parameters
+mongodb:
+  # Host address of the MongoDB server.
+  host: {{ mongodb_host | default('127.0.0.1') }}
+  # Port number for MongoDB connection.
+  port: {{ mongodb_port | default(27017) }}
+  # Name of the MongoDB database used by HSS.
+  name: {{ mongodb_name | default('nextepc') }}
+  # Optional MongoDB username for authentication (leave empty if not using auth).
+  username: {{ mongodb_username | default('') }}
+  # Optional MongoDB password for authentication (leave empty if not using auth).
+  password: {{ mongodb_password | default('') }}
+
+# ------------------------------------------------------------------------------
+# HSS Identity and Realm
+# Operator identity and realm configuration for IMSI generation/processing.
+# ------------------------------------------------------------------------------
+
+hss:
+  # HSS realm (e.g., home network domain).
+  realm: {{ hss_realm | default('open5gs.org') }}
+  # Fully Qualified Domain Name (FQDN) of the HSS node.
+  fqdn: {{ hss_fqdn | default('hss.open5gs.org') }}
+  # Country Code (MCC part of IMSI, first 3 digits).
+  cc: {{ hss_cc | default('001') }}
+  # Mobile Network Code (MNC part of IMSI, 2–3 digits).
+  mnc: {{ hss_mnc | default('01') }}
+
+# ------------------------------------------------------------------------------
+# S6a Interface Configuration
+# S6a (Diameter) server settings for MME interaction.
+# ------------------------------------------------------------------------------
+
+s6a:
+  # Local IP address the S6a interface listens on.
+  listen_addr: {{ s6a_listen_addr | default('0.0.0.0') }}
+  # Port for S6a Diameter connections (default 3868).
+  listen_port: {{ s6a_listen_port | default(3868) }}
+  
+  # TLS Encryption Settings
+  # Enable TLS encryption for S6a connections (recommended in production).
+  tls_enabled: {{ s6a_tls_enabled | default(false) }}
+  
+  # Path to TLS certificate file (used if TLS enabled).
+  tls_cert: {{ s6a_tls_cert | default('/etc/nextepc/certs/hss.crt') }}
+  # Path to TLS private key file (used if TLS enabled).
+  tls_key: {{ s6a_tls_key | default('/etc/nextepc/certs/hss.key') }}
+  # Path to TLS CA certificate file for peer verification (used if TLS enabled).
+  tls_ca: {{ s6a_tls_ca | default('/etc/nextepc/certs/ca.crt') }}
+  
+  # Peer Configuration
+  # List of Diameter peers (e.g., MMEs) to connect to.
+  peers:
+  {% set peers_list = s6a_peers | default([]) %}
+  {% for peer in peers_list %}
+    # Diameter peer entry
+    - name: {{ peer.name | default('') }}
+      hostname: {{ peer.hostname | default('') }}
+      dest_host: {{ peer.dest_host | default('') }}
+      dest_realm: {{ peer.dest_realm | default('') }}
+  {% endfor %}
+  # If no peers are defined, ensure the list is not null/empty in a way that breaks YAML structure if needed,
+  # though an empty list usually renders as 'peers: []' or just 'peers:' with nothing below.
+  # Jinja2 'for' loop over empty list produces no output, resulting in:
+  #   peers:
+  #
+  # This is valid YAML for an empty list.
+
+# ------------------------------------------------------------------------------
+# Subscription and Service Settings
+# Default subscription limits and features.
+# ------------------------------------------------------------------------------
+
+subscriptions:
+  # Maximum number of subscriptions (e.g., APNs) allowed per subscriber (IMSI).
+  max_subscriptions_per_imsi: {{ max_subscriptions_per_imsi | default(10) }}
+  # Default APN name assigned to new subscribers.
+  default_apn: {{ default_apn | default('internet') }}
+  # Default QoS Class Identifier (QCI) for bearer setup (e.g., 9 = best-effort).
+  default_qci: {{ default_qci | default(9) }}
+  # Default aggregated maximum bit rate (AMBR) for uplink in Mbps.
+  default_ambr_uplink_mbps: {{ default_ambr_uplink_mbps | default(100) }}
+  # Default aggregated maximum bit rate (AMBR) for downlink in Mbps.
+  default_ambr_downlink_mbps: {{ default_ambr_downlink_mbps | default(200) }}
+  
+  # Optional: enable periodic subscription updates (e.g., SDR)
+  # Enable Subscription Data Retrieval (SDR) from HSS on demand (e.g., via ULR).
+  enable_sdr: {{ enable_sdr | default(false) }}
+  # Time interval (in seconds) between periodic SDR updates (if enabled).
+  sdr_interval_sec: {{ sdr_interval_sec | default(300) }}
+  
+  # Optional: enable HSS to send ULR/ULA on subscriber registration
+  # Send Update Location Request (ULR) to MME immediately on subscriber registration.
+  send_ulr_on_registration: {{ send_ulr_on_registration | default(true) }}

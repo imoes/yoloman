@@ -1,0 +1,88 @@
+name: profitbricks_volume
+fqcn: community.general.profitbricks_volume
+collection: community.general
+short_description: Create or destroy a volume
+description: Allows you to create or remove a volume from a ProfitBricks datacenter. This module has a
+  dependency on profitbricks >= 1.0.0
+options:
+  auto_increment:
+    type: bool
+    default: true
+    description: Whether or not to increment a single number in the name for created virtual machines.
+  bus:
+    type: str
+    default: VIRTIO
+    choices:
+    - IDE
+    - VIRTIO
+    description: The bus type.
+  count:
+    type: int
+    default: 1
+    description: The number of volumes you wish to create.
+  datacenter:
+    type: str
+    description: The datacenter in which to create the volumes.
+  disk_type:
+    type: str
+    default: HDD
+    choices:
+    - HDD
+    - SSD
+    description: The disk type of the volume.
+  image:
+    type: str
+    description: The system image ID for the volume, e.g. a3eae284-a2fe-11e4-b187-5f1f641608c8. This can
+      also be a snapshot image ID.
+  image_password:
+    type: str
+    description: Password set for the administrative user.
+  instance_ids:
+    type: list
+    default: []
+    description: list of instance ids, currently only used when state='absent' to remove instances.
+  licence_type:
+    type: str
+    default: UNKNOWN
+    description: 'The licence type for the volume. This is used when the image is non-standard. The available
+      choices are: V(LINUX), V(WINDOWS), V(UNKNOWN), V(OTHER).'
+  name:
+    type: str
+    description: The name of the volumes. You can enumerate the names using auto_increment.
+  server:
+    type: str
+    description: Server name to attach the volume to.
+  size:
+    type: int
+    default: 10
+    description: The size of the volume.
+  ssh_keys:
+    type: list
+    default: []
+    description: Public SSH keys allowing access to the virtual machine.
+  state:
+    type: str
+    default: present
+    description: 'create or terminate datacenters The available choices are: V(present), V(absent).'
+  subscription_password:
+    type: str
+    description: THe ProfitBricks password. Overrides the PB_PASSWORD environment variable.
+  subscription_user:
+    type: str
+    description: The ProfitBricks username. Overrides the PB_SUBSCRIPTION_ID environment variable.
+  wait:
+    type: bool
+    default: true
+    description: wait for the datacenter to be created before returning
+  wait_timeout:
+    type: int
+    default: 600
+    description: how long before wait gives up, in seconds
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create multiple volumes\n  community.general.profitbricks_volume:\n    datacenter:\
+  \ Tardis One\n    name: vol%02d\n    count: 5\n    auto_increment: true\n    wait_timeout: 500\n   \
+  \ state: present\n\n- name: Remove Volumes\n  community.general.profitbricks_volume:\n    datacenter:\
+  \ Tardis One\n    instance_ids:\n      - 'vol01'\n      - 'vol02'\n    wait_timeout: 500\n    state:\
+  \ absent\n"

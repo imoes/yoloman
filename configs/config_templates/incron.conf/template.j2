@@ -1,0 +1,30 @@
+# /etc/incron.conf: incron daemon configuration file
+# Controls logging verbosity and security settings
+# Path to the incron database directory (usually /var/lib/incron)
+INCROND_DB_DIR={{ db_dir }}
+
+# Maximum number of events queued per user (prevents resource exhaustion)
+INCROND_MAX_EVENTS={{ max_events }}
+
+# Enable/disable inotify watch recursion (false by default)
+INCROND_RECURSIVE={{ recursive | lower }}
+
+# Maximum number of inotify watches per user (hard limit)
+INCROND_MAX_WATCHES={{ max_watches }}
+
+# Logging destination: syslog or file
+# If syslog, logs go to system log; if file, to the specified path
+INCROND_LOG_DEST={{ log_dest }}
+{% if log_dest == 'file' %}
+INCROND_LOG_FILE={{ log_file }}
+{% endif %}
+
+# Log level: 0 (none), 1 (errors), 2 (warnings), 3 (info), 4 (debug)
+INCROND_LOG_LEVEL={{ log_level }}
+
+# User(s) excluded from using incrontab (space-separated list)
+INCROND_EXCLUDE_USERS={{ exclude_users | join(' ') }}
+
+# User(s) explicitly allowed to use incrontab (if nonempty, only these users may use it)
+# Leave empty to allow all users (except those in EXCLUDE_USERS)
+INCROND_INCLUDE_USERS={{ include_users | join(' ') }}

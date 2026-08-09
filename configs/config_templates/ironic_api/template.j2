@@ -1,0 +1,159 @@
+; ============================================================
+; Ironic API Configuration File
+; ============================================================
+; This file configures the Ironic API service. It uses the
+; oslo.config INI-based format.
+;
+; SELF-DOCUMENTING: Every directive is preceded by a comment
+; derived from the schema description. All variables use
+; explicit defaults to prevent render failures when upstream
+; role variables are missing.
+; ============================================================
+
+[DEFAULT]
+; Core service identity and discovery
+; auth_strategy is hardcoded to keystone as required by Ironic.
+auth_strategy = keystone
+
+; Logging configuration
+[logging]
+; Directory for Ironic API server log files.
+log_dir = {{ (logging | default({})).log_dir | default('/var/log/ironic') }}
+; Name of the main log file (relative to log_dir or absolute path).
+log_file = {{ (logging | default({})).log_file | default('ironic-api.log') }}
+
+; RPC backend and message queue
+[oslo_messaging]
+; Message broker URL for RPC communication with Conductor and other services (e.g., RabbitMQ, Qpid).
+transport_url = {{ (rpc | default({})).transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+; Database connection
+[database]
+; Database connection string (SQLAlchemy format). Should point to a Galera cluster or single DB server.
+connection = {{ (database | default({})).connection | default('mysql+pymysql://ironic:ironic@localhost/ironic?charset=utf8') }}
+
+; KeyStone (Keystone) authentication
+[keystone_authtoken]
+; Keystone authentication endpoint URL (v3 required).
+auth_url = {{ (keystone | default({})).auth_url | default('http://controller:5000/v3') }}
+; Keystone authentication method (e.g., password, application_credential).
+auth_type = {{ (keystone | default({})).auth_type | default('password') }}
+; Domain name for the service project.
+project_domain_name = {{ (keystone | default({})).project_domain_name | default('Default') }}
+; Domain name for the service user.
+user_domain_name = {{ (keystone | default({})).user_domain_name | default('Default') }}
+; Project (tenant) name for the Ironic service user.
+project_name = {{ (keystone | default({})).project_name | default('services') }}
+; Username for the Ironic service account in Keystone.
+username = {{ (keystone | default({})).username | default('ironic') }}
+; Password for the Ironic service account. Required if using password auth.
+password = {{ (keystone | default({})).password | default('') }}
+
+; Service credentials for ironic itself (used for internal calls)
+[service_credentials]
+; Auth method for internal service-to-service calls.
+auth_type = {{ (service_credentials | default({})).auth_type | default('password') }}
+; Keystone endpoint for internal service calls.
+auth_url = {{ (service_credentials | default({})).auth_url | default('http://controller:5000/v3') }}
+; Domain for service project in internal auth.
+project_domain_name = {{ (service_credentials | default({})).project_domain_name | default('Default') }}
+; Domain name for service user in internal auth.
+user_domain_name = {{ (service_credentials | default({})).user_domain_name | default('Default') }}
+; Project name used for internal service auth.
+project_name = {{ (service_credentials | default({})).project_name | default('services') }}
+; Username used for internal service auth.
+username = {{ (service_credentials | default({})).username | default('ironic') }}
+; Password used for internal service auth.
+password = {{ (service_credentials | default({})).password | default('') }}
+; Keystone endpoint type (admin, internal, or public) used for service-to-service calls.
+interface = {{ (service_credentials | default({})).interface | default('internal') }}
+; Keystone region name for service endpoints.
+region_name = {{ (service_credentials | default({})).region_name | default('RegionOne') }}
+
+; API listener configuration
+[api]
+; IP address or hostname the API server listens on.
+host = {{ (api | default({})).host | default('0.0.0.0') }}
+; TCP port the Ironic API server listens on.
+port = {{ (api | default({})).port | default(6385) }}
+; Number of worker processes for the API server. Recommended: 1–2 per CPU core.
+workers = {{ (api | default({})).workers | default(1) }}
+; Maximum number of items returned per list API call.
+max_limit = {{ (api | default({})).max_limit | default(1000) }}
+
+; Provisioning and deployment settings
+[conductor]
+; Whether to automatically clean bare metal nodes after deployment (e.g., erase disks).
+automated_clean = {{ (conductor | default({})).automated_clean | default(true) }}
+; URL for the local Ironic API server (used by conductor for self-calls).
+api_url = {{ (conductor | default({})).api_url | default('http://127.0.0.1:6385') }}
+
+; Hardware types to enable
+[DEFAULT]
+; List of hardware types to enable (e.g., ipmi, redfish, ilo). These determine supported management protocols.
+enabled_hardware_types = {{ (hardware_types | default({})).enabled | default(['ipmi', 'redfish']) | join(', ') }}
+
+; Inspector (discovery) service integration
+[inspector]
+; Enable the Ironic Inspector (hardware introspection) service integration.
+enabled = {{ (inspector | default({})).enabled | default(true) }}
+; URL of the Ironic Inspector API (if enabled).
+auth_url = {{ (inspector | default({})).auth_url | default('http://controller:5050') }}
+
+; DNS configuration for DHCP (if using neutron-dns-integration)
+[dns]
+; Enable DNS integration for provisioned nodes (requires Neutron DNS extension).
+enabled = {{ (dns | default({})).enabled | default(false) }}
+; DNS domain used for node hostname resolution.
+domain = {{ (dns | default({})).domain | default('openstack.local') }}
+
+; IPMI and remote management settings
+[ipmi]
+; Allow IPMI sessions without certificate validation (for testing only).
+allow_insecure = {{ (ipmi | default({})).allow_insecure | default(false) }}
+; Timeout (in seconds) for remote console (e.g., IPMI v2.0 RMCP+) sessions.
+remote_console_timeout = {{ (ipmi | default({})).remote_console_timeout | default(600) }}
+
+; Storage backends for image handling
+[pxe]
+; Directory on the TFTP server where boot images are stored.
+tftp_root = {{ (pxe | default({})).tftp_root | default('/tftpboot') }}
+; IP address of the TFTP server serving boot images to bare metal nodes.
+tftp_server = {{ (pxe | default({})).tftp_server | default('127.0.0.1') }}
+
+; TLS/SSL support (optional)
+[ssl]
+; Enable TLS/SSL encryption for the API server.
+enabled = {{ (ssl | default({})).enabled | default(false) }}
+; Path to SSL certificate file.
+cert_file = {{ (ssl | default({})).cert_file | default('/etc/ironic/ssl/server.crt') }}
+; Path to SSL private key file.
+key_file = {{ (ssl | default({})).key_file | default('/etc/ironic/ssl/server.key') }}
+; Path to CA certificate bundle (for client auth or TLS verification).
+ca_file = {{ (ssl | default({})).ca_file | default('/etc/ironic/ssl/ca.crt') }}
+
+; Notifications for event streaming
+[notify]
+; List of notification levels for state change events (e.g., deploy, cleanup).
+notify_on_state_changes = {{ (notify | default({})).state_changes | default(['info', 'warning', 'error']) | join(', ') }}
+; Send notifications on deprecated API features (for upgrade readiness).
+notify_on_deprecation = {{ (notify | default({})).notify_on_deprecation | default(false) }}
+
+; Healthcheck endpoint
+[healthcheck]
+; Active healthcheck backends (controls how health endpoints behave).
+backends = {{ (healthcheck | default({})).backends | default(['disable_by_file']) | join(', ') }}
+; Additional per-backend healthcheck configuration (if supported).
+; Note: This section does not have a direct flat key for backends_extra in standard INI,
+; so it is omitted or handled via extra plugins not defined in this simple schema.
+
+; Rate limiting
+[oslo_middleware]
+; Enable global rate limiting middleware for the API.
+enable_rate_limiting = {{ (middleware | default({})).rate_limiting_enabled | default(true) }}
+; Max number of requests allowed during burst window.
+rate_limit_burst = {{ (middleware | default({})).rate_limit_burst | default(10) }}
+; Window size (in seconds) for rate limiting calculations.
+rate_limit_interval = {{ (middleware | default({})).rate_limit_interval | default(1) }}
+; Optional additional boot parameters for PXE.
+; pxe.boot_options = {{ (pxe | default({})).boot_options | default([]) | join(' ') }}

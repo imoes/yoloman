@@ -1,0 +1,108 @@
+{
+  "debug": false,
+  "log_level": "INFO",
+  "log_file": "",
+  "bind_host": "0.0.0.0",
+  "api_port": 9001,
+  "workers": 4,
+  "task_manager_max_concurrent_tasks": 100,
+  "backend_driver": "designate-mdns",
+  "redis_host": "redis.internal",
+  "redis_port": 6379,
+  "default_ttl": 3600,
+  "default_serial": 2025040101,
+  "central_enabled": true,
+  "max_records_per_zone": 1000,
+  "max_zones_per_tenant": 100,
+  "zone_name_regex": "^(([a-zA-Z0-9_\\-]*\\.)+[a-zA-Z]{2,})$",
+  "pool_manager_cache_enabled": true,
+  "pool_manager_cache_ttl": 60,
+  "db_connection": "mysql+pymysql://designate:secret123@db.designate/designate",
+  "worker_enabled": true,
+  "worker_threads": 2,
+  "producer_enabled": true,
+  "mdns_enabled": true,
+  "mdns_bind_host": "0.0.0.0",
+  "mdns_bind_port": 5354,
+  "allowed_axfr_cidrs": [
+    "127.0.0.1/32",
+    "10.0.0.0/24"
+  ],
+  "api_enabled": true,
+  "api_workers": 4,
+  "api_base_uri": "https://dns.example.com/v2",
+  "auth_strategy": "keystone",
+  "cors_enabled": true,
+  "cors_allowed_origins": [
+    "https://console.example.com",
+    "https://admin.example.com"
+  ],
+  "endpoint_templates": [
+    {
+      "service_name": "dns",
+      "endpoint_template": "https://dns.example.com/v2",
+      "description": "Designate DNS API endpoint"
+    }
+  ],
+  "pool_servers": [
+    {
+      "nameserver": "ns1.example.com.",
+      "host": "10.0.0.10",
+      "port": 53,
+      "pool_id": "default",
+      "hostname": "Primary Nameserver"
+    },
+    {
+      "nameserver": "ns2.example.com.",
+      "host": "10.0.0.11",
+      "port": 53,
+      "pool_id": "default",
+      "hostname": "Secondary Nameserver"
+    }
+  ],
+  "notification_driver": "designate",
+  "notification_topics": [
+    "notifications",
+    "designate"
+  ],
+  "resolver_ip": "127.0.0.1",
+  "resolver_port": 53,
+  "resolver_timeout": 5,
+  "pools": [
+    {
+      "id": "default",
+      "name": "default-pool",
+      "description": "Primary DNS pool",
+      "ns_records": [
+        {
+          "hostname": "ns1.example.com.",
+          "priority": 1
+        },
+        {
+          "hostname": "ns2.example.com.",
+          "priority": 2
+        }
+      ],
+      "nameservers": [
+        {
+          "hostname": "ns1.example.com."
+        },
+        {
+          "hostname": "ns2.example.com."
+        }
+      ]
+    }
+  ],
+  "zones": [
+    {
+      "name": "internal.example.com",
+      "default_ttl": 7200,
+      "retry_refresh": 1800,
+      "minimum": 600,
+      "refresh": 43200,
+      "retry": 3600,
+      "expire": 604800,
+      "negative_ttl": 300
+    }
+  ]
+}

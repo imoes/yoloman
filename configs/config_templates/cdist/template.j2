@@ -1,0 +1,86 @@
+# cdist global configuration
+# =============================================================================
+# cdist is a configuration management system. This file configures the global
+# behavior of cdist for the current host/agent. It uses a simple INI-like
+# format for the [GLOBAL] section.
+# =============================================================================
+
+[GLOBAL]
+
+# Archiving format for remote transfers; valid values: 'none', 'tar', 'tgz', 'tbz2', 'txz'.
+# Controls how cdist packages files when transferring them to remote hosts.
+archiving = {{ archiving | default('none') }}
+
+# Enable beta functionality.
+# When true, enables experimental features that may change or be removed.
+# Use with caution in production environments.
+beta = {{ beta | default(False) | bool | ternary('true', 'false') }}
+
+# Pattern for per-host cache subdirectory paths; supports %N, %h, %P and datetime directives (see man 5 cdist).
+# Used to organize cached type implementations and other transient data.
+# Empty string disables per-host subdirectory organization.
+cache_path_pattern = {{ cache_path_pattern | default('') }}
+
+# Colorize output; values: 'always', 'never', 'auto'.
+# Controls whether cdist uses ANSI color codes in its console output.
+colored_output = {{ colored_output | default('auto') }}
+
+# List of configuration directories to search (colon-separated in config file, list items in values).
+# cdist searches these directories for type implementations and manifests.
+# Order matters: earlier directories take precedence.
+conf_dir = {{ conf_dir | default([]) | join(':') }}
+
+# Default initial manifest path (empty uses internal default).
+# Specifies the entry-point manifest if no `-m` argument is provided.
+init_manifest = {{ init_manifest | default('') }}
+
+# Inventory directory path.
+# Directory containing inventory files describing managed hosts and their groups.
+inventory_dir = {{ inventory_dir | default('') }}
+
+# Max number of parallel jobs within a host (-1 = auto, 0 = disabled, positive = fixed).
+# Controls concurrency for type execution on a single host.
+# -1 typically means one job per CPU core.
+jobs = {{ jobs | default(-1) }}
+
+# Shell command for local script execution.
+# Used when cdist needs to run commands locally on the management host.
+local_shell = {{ local_shell | default('/bin/sh') }}
+
+# Local output directory for cdist output.
+# Directory where cdist stores logs and output artifacts on the local host.
+# Empty string uses a temporary directory.
+out_path = {{ out_path | default('') }}
+
+# Max number of hosts processed in parallel (-1 = auto, 0 = disabled, positive = fixed).
+# Controls concurrency across multiple hosts in the inventory.
+# -1 typically means one job per CPU core.
+parallel = {{ parallel | default(-1) }}
+
+# Command for remote copy (should behave like scp).
+# Used to transfer files from the management host to remote targets.
+remote_copy = {{ remote_copy | default('scp') }}
+
+# Command for remote exec (should behave like ssh).
+# Used to execute commands on remote targets.
+remote_exec = {{ remote_exec | default('ssh') }}
+
+# Output directory on target hosts.
+# Directory on remote hosts where cdist stores its runtime output and logs.
+remote_out_path = {{ remote_out_path | default('') }}
+
+# Shell command for remote script execution.
+# Used when cdist needs to run commands remotely on target hosts.
+remote_shell = {{ remote_shell | default('/bin/sh') }}
+
+# Whether to save output streams from type executions.
+# When true, captures stdout/stderr from type executions for later inspection.
+save_output_streams = {{ save_output_streams | default(True) | bool | ternary('true', 'false') }}
+
+# Prefix log messages with timestamp (YYYYMMDDHHMMSS.us).
+# Adds a high-precision timestamp to every log line for easier debugging.
+timestamp = {{ timestamp | default(False) | bool | ternary('true', 'false') }}
+
+# Global log verbosity; values: 'ERROR', 'WARNING', 'INFO', 'VERBOSE', 'DEBUG', 'TRACE', 'OFF'.
+# Controls the amount of detail emitted to the console and log files.
+verbosity = {{ verbosity | default('INFO') }}

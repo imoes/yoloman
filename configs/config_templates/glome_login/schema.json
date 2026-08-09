@@ -1,0 +1,71 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (recommended only for troubleshooting)."
+  },
+  "trusted_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of base64-encoded Ed25519 public keys authorized to authenticate users. Each key grants root-level access.",
+    "items": {
+      "type": "string",
+      "description": "A base64-encoded Ed25519 public key."
+    }
+  },
+  "max_concurrent_per_ip": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous login attempts allowed from a single client IP address."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Number of seconds of inactivity before an authenticated session expires."
+  },
+  "listen_addrs": {
+    "type": "list",
+    "default": [
+      {
+        "host": "0.0.0.0",
+        "port": 4532
+      }
+    ],
+    "description": "Network addresses and ports on which the daemon listens for incoming connections.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address or hostname to bind to (e.g., '127.0.0.1', '::', '*')."
+        },
+        "port": {
+          "type": "number",
+          "default": 4532,
+          "description": "TCP port number to listen on (1\u201365535)."
+        }
+      }
+    }
+  },
+  "valid_hostnames": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed hostname values for incoming connections (used for host-based access control). If empty, any hostname is accepted."
+  },
+  "enforce_rate_limit": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce rate limiting (e.g., max 5 attempts per minute) per client IP to mitigate brute-force attacks."
+  },
+  "fallback_backend": {
+    "type": "string",
+    "default": "none",
+    "description": "Fallback authentication backend (e.g., 'none' for key-only auth, 'ldap', 'sqlite'). Use 'none' unless extended auth is required.",
+    "allowed_values": [
+      "none",
+      "ldap",
+      "sqlite"
+    ]
+  }
+}

@@ -1,0 +1,146 @@
+# GlusterFS management daemon (glusterd) configuration
+#
+# This template generates the main glusterd volume/configuration file.
+# It documents every directive with the schema description above it.
+# All variables use `| default(...)` to ensure safe rendering even if
+# the Ansible play does not define them, falling back to the schema defaults.
+
+# ============================================================================
+# Network & Socket Transport Settings
+# ============================================================================
+
+# IP address on which glusterd listens for incoming connections.
+option transport.socket.bind-address {{ bind_address | default('0.0.0.0') }}
+
+# TCP port for glusterd management traffic (must match across cluster).
+option transport.socket.listen-port {{ listen_port | default(24007) }}
+
+# Disable Nagle’s algorithm to reduce latency on socket communication.
+# Accepted values: 'on', 'off'.
+option transport.socket.nodelay {{ 'on' if (nodelay | default(True)) else 'off' }}
+
+# Enable TCP keepalive probes to detect dead peers.
+option transport.socket.keepalive {{ 'on' if (keepalive | default(True)) else 'off' }}
+
+# Interval (in seconds) between keepalive probes after initial inactivity.
+option transport.socket.keepalive-interval {{ keepalive_interval | default(2) }}
+
+# Time (in seconds) to wait before closing connection after keepalive failure.
+option transport.socket.keepalive-timeout {{ keepalive_timeout | default(10) }}
+
+# Enable SO_LINGER to control socket shutdown behavior.
+option transport.socket.linger {{ 'on' if (linger | default(False)) else 'off' }}
+
+# TCP receive buffer size in bytes (kernel adjusts up to this).
+option transport.socket.rmem {{ rmem | default(1048576) }}
+
+# TCP send buffer size in bytes (kernel adjusts up to this).
+option transport.socket.wmem {{ wmem | default(1048576) }}
+
+# ============================================================================
+# Authentication & Access Control
+# ============================================================================
+
+# List of clients permitted to connect to glusterd.
+# Defaults to '*' (allow all) if not specified.
+option rpc-auth.auth.allow {{ auth_allow | default(['*']) | join(', ') }}
+
+# List of clients denied from connecting to glusterd.
+option rpc-auth.auth.reject {{ auth_reject | default([]) | join(', ') }}
+
+# Path to file containing basic auth credentials (for LDAP fallback or legacy auth).
+option rpc-auth.basic.auth-password-file {{ auth_password_file | default('/etc/glusterfs/glusterd.vol') }}
+
+# ============================================================================
+# LDAP Authentication Integration
+# ============================================================================
+
+# LDAP DN used to bind to the LDAP server (for authentication).
+option rpc-auth.ldap.bind-dn {{ ldap_bind_dn | default('') }}
+
+# Password for the LDAP bind DN.
+option rpc-auth.ldap.bind-password {{ ldap_bind_password | default('') }}
+
+# LDAP server hostname or URL (e.g., 'ldap://ldap.example.com').
+option rpc-auth.ldap.server {{ ldap_server | default('') }}
+
+# Base DN for LDAP user/group searches.
+option rpc-auth.ldap.search-base-dn {{ ldap_search_base_dn | default('') }}
+
+# LDAP search filter string; %s is replaced with username.
+option rpc-auth.ldap.search-filter {{ ldap_search_filter | default('(uid=%s)') }}
+
+# Path to CA certificate file for LDAPS/TLS verification.
+option rpc-auth.ldap.cert-file {{ ldap_cert_file | default('') }}
+
+# Enable STARTTLS for LDAP (non-SSL connection upgraded to TLS).
+option rpc-auth.ldap.use-starttls {{ 'on' if (ldap_use_starttls | default(False)) else 'off' }}
+
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+
+# Path to glusterd log file.
+option logging.log-file {{ log_file | default('/var/log/glusterfs/glusterd.log') }}
+
+# Logging verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL, or NONE.
+option logging.log-level {{ log_level | default('WARNING') }}
+
+# Log message format (Gluster-specific directives supported).
+option logging.log-format {{ log_format | default('[%b %d %H:%M:%S] [glusterd] [%p:%l] [%T] %g') }}
+
+# ============================================================================
+# Volume & Metadata Management
+# ============================================================================
+
+# Format of volume files: 'native' (Gluster’s own format) or 'xml'.
+option glusterd.volfile-format {{ volfile_format | default('native') }}
+
+# Root directory for GlusterFS metadata and configuration files.
+option glusterd.volume-root {{ volume_root | default('/var/lib/glusterfs') }}
+
+# ============================================================================
+# RPC & Cluster Tuning
+# ============================================================================
+
+# Enable collection of peer statistics for metrics and monitoring.
+option peer-statistics {{ 'on' if (peer_statistics | default(False)) else 'off' }}
+
+# Lower bound for client RPC port range (glusterfsd connections).
+option rpc.client-port {{ client_port | default(49152) }}
+
+# Lower bound for server RPC port range (glusterd-to-server connections).
+option rpc.server-port {{ server_port | default(49152) }}
+
+# Number of RPC worker threads to handle concurrent client requests.
+option rpc.num-threads {{ num_threads | default(10) }}
+
+# Allow RPC connections from non-privileged ports (insecure; disables port-checking).
+option rpc.auth.insecure-access {{ 'on' if (insecure_access | default(False)) else 'off' }}
+
+# Allow 'insecure' client mounts (e.g., without Kerberos or SSL).
+option server.allow-insecure {{ 'on' if (server_allow_insecure | default(False)) else 'off' }}
+
+# ============================================================================
+# SSL/TLS for Management Traffic
+# ============================================================================
+
+# Enable SSL/TLS encryption for glusterd-to-glusterd management traffic.
+option mgmt.ssl {{ 'on' if (mgmt_ssl | default(False)) else 'off' }}
+
+# OpenSSL cipher list for management-plane SSL/TLS.
+option mgmt.ssl-cipher-list {{ mgmt_ssl_cipher_list | default('HIGH:MEDIUM:!aNULL:!MD5:!SSLv2') }}
+
+# ============================================================================
+# Static Peer Definitions
+# ============================================================================
+# List of static peer nodes (used for cluster bootstrap or DNS-less setups).
+# If 'peers' is empty or undefined, no peer blocks are emitted.
+{% for peer in peers | default([]) %}
+# Peer node {{ loop.index }}: {{ peer.hostname | default('unknown') }}
+option peers.{{ loop.index }}.hostname {{ peer.hostname | default('') }}
+{% if peer.uuid is defined and peer.uuid %}
+# Unique identifier for this peer in the cluster.
+option peers.{{ loop.index }}.uuid {{ peer.uuid }}
+{% endif %}
+{% endfor %}

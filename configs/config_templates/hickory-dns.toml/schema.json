@@ -1,0 +1,108 @@
+{
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "0.0.0.0:53",
+      "[::]:53"
+    ],
+    "description": "IP addresses and port(s) the DNS server will listen on for standard DNS traffic (UDP/TCP)."
+  },
+  "doh_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS over HTTPS (DoH) support. Requires valid TLS certificate and key paths below."
+  },
+  "doh_address": {
+    "type": "string",
+    "default": "0.0.0.0:443",
+    "description": "Address and port for DoH endpoint (e.g., '0.0.0.0:443')."
+  },
+  "doh_certs": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/doh.crt",
+    "description": "Path to TLS certificate for DoH (PEM format)."
+  },
+  "doh_key": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/doh.key",
+    "description": "Path to TLS private key for DoH (PEM format)."
+  },
+  "dot_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS over TLS (DoT) support. Requires valid TLS certificate and key paths below."
+  },
+  "dot_address": {
+    "type": "string",
+    "default": "0.0.0.0:853",
+    "description": "Address and port for DoT endpoint (e.g., '0.0.0.0:853')."
+  },
+  "dot_certs": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/dot.crt",
+    "description": "Path to TLS certificate for DoT (PEM format)."
+  },
+  "dot_key": {
+    "type": "string",
+    "default": "/etc/hickory-dns/certs/dot.key",
+    "description": "Path to TLS private key for DoT (PEM format)."
+  },
+  "upstream_mode": {
+    "type": "string",
+    "default": "system",
+    "description": "Resolver upstream behavior: 'system' (use system resolvers), or 'custom' (specify upstreams manually)."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      "1.1.1.1:53",
+      "8.8.8.8:53"
+    ],
+    "description": "List of upstream DNS resolvers to use when upstream_mode is 'custom'. This is a deprecated key. Use the 'upstream' key with a list of 'resolver::UpstreamConfig' objects instead, which allows specifying protocol (TCP, UDP, TLS, HTTPS) and trust anchors. Example: upstream = [{address = '1.1.1.1:53', proto = 'UDP'}]. See https://github.com/hickory-dns/hickory-dns/blob/main/docs/configuration.md#upstreams for details."
+  },
+  "cache_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of DNS records to hold in the resolver cache."
+  },
+  "min_ttl": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum TTL (seconds) enforced for cached records (prevents overly short caching)."
+  },
+  "max_ttl": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum TTL (seconds) enforced for cached records (e.g., 7 days)."
+  },
+  "recursive_query_mode": {
+    "type": "string",
+    "default": "local_only",
+    "description": "Recursive query handling: 'off' (refuse recursion), 'local_only' (allow recursion for local/private zones), or 'full' (allow full recursion)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'error', 'warn', 'info', 'debug', or 'trace'."
+  },
+  "hosted_zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of authoritative zones served by this server. Each zone defines its own zone file and optional settings."
+  },
+  "rate_limit_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable per-client query rate limiting to mitigate abuse or DDoS."
+  },
+  "rate_limit_max_qps": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum queries per second allowed per client before throttling."
+  },
+  "rate_limit_window": {
+    "type": "number",
+    "default": 10,
+    "description": "Time window (seconds) over which QPS is measured."
+  }
+}

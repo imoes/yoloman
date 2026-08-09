@@ -1,0 +1,88 @@
+{
+  "listen_interface": {
+    "type": "string",
+    "default": "auto",
+    "description": "Network interface to listen on. Use 'auto' to let ptunnel auto-detect."
+  },
+  "ping_dest_port": {
+    "type": "number",
+    "default": 0,
+    "description": "ICMP destination port used in the ICMP tunnel (must match between client and server). 0 = echo request."
+  },
+  "max_tunnels": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent tunnels (TCP connections) allowed."
+  },
+  "ping_ttl": {
+    "type": "number",
+    "default": 64,
+    "description": "Time-to-live (TTL) value for outgoing ICMP packets. 0 = use system default."
+  },
+  "tunnel_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) after which an idle tunnel is closed."
+  },
+  "max_idle_time": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum inactivity (in seconds) before a tunnel is forcibly closed."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose logging? If true, logs at normal level. Use 0 or 1 explicitly for fine control."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ptunnel.log",
+    "description": "Path to log file. Leave empty to log only to stdout/stderr."
+  },
+  "enforce_src": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, only accept ICMP packets from IPs listed in allowed_src_nets."
+  },
+  "allowed_src_nets": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0"
+    ],
+    "description": "List of allowed source networks (CIDR). Ignored unless enforce_src is true."
+  },
+  "denied_src_nets": {
+    "type": "list",
+    "default": [],
+    "description": "List of denied source networks (CIDR) \u2014 these are blacklisted regardless."
+  },
+  "remote_dst": {
+    "type": "string",
+    "default": "",
+    "description": "Target remote IP address for the ICMP tunnel (required on the receiving end)."
+  },
+  "ping_size": {
+    "type": "number",
+    "default": 56,
+    "description": "Size (in bytes) of ICMP payload. Larger sizes may improve throughput but increase fragmentation."
+  },
+  "ping_delay": {
+    "type": "number",
+    "default": 1000,
+    "description": "Delay (in milliseconds) between consecutive ping packets. Lower = more aggressive, higher = more reliable through firewalls."
+  },
+  "run_daemon": {
+    "type": "string",
+    "default": "false",
+    "description": "Set to \"true\" to enable the ptunnel daemon (must be set to 'true' to start the service).",
+    "enum": [
+      "true",
+      "false"
+    ]
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for securing the tunnel. Must be identical on both client and server."
+  }
+}

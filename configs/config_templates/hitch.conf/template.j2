@@ -1,0 +1,91 @@
+# Hitch TLS termination proxy configuration
+# Listen addresses and ports
+bind:
+  {%- for item in bind_list %}
+  - address: "{{ item.address | default('0.0.0.0') }}"
+    port: "{{ item.port | default('443') }}"
+    {%- if item.ssl_options %}
+    ssl: true
+    {%- endif %}
+  {%- endfor %}
+
+# Backend server(s) to proxy traffic to
+backend:
+  {%- for item in backend_list %}
+  - "{{ item.host }}:{{ item.port }}"
+  {%- endfor %}
+
+# TLS settings
+tls:
+  # Path to default PEM file (cert + key) or directory with certificates
+  {%- if default_cert %}
+  pem-file: "{{ default_cert }}"
+  {%- endif %}
+  # TLS versions to support (min/max)
+  versions: {{ tls_versions | default(['TLSv1.2', 'TLSv1.3']) | join(', ') }}
+  # Prefer server ciphers
+  prefer-server-ciphers: {{ tls_prefer_server_ciphers | default(true) | lower }}
+  # Cipher suite (optional override)
+  {%- if tls_cipher_suite %}
+  cipher-suite: "{{ tls_cipher_suite }}"
+  {%- endif %}
+  # OCSP stapling (optional)
+  {%- if ocsp_dir %}
+  ocsp-dir: "{{ ocsp_dir }}"
+  {%- endif %}
+
+# Worker configuration
+workers: {{ workers | default(2) }}
+
+# Logging
+loglevel: {{ loglevel | default('info') }}
+
+# Runtime user/group
+user: "{{ run_as_user | default('hitch') }}"
+group: "{{ run_as_group | default('hitch') }}"
+
+# PID file location
+pidfile: "{{ pidfile_path | default('/run/hitch/hitch.pid') }}"
+
+# Keepalive timeout in seconds
+keepalive: {{ keepalive_timeout | default(120) }}
+
+# SSL session caching
+ssl-session-cache:
+  enabled: {{ ssl_session_cache_enabled | default(true) | lower }}
+  size: {{ ssl_session_cache_size | default('10000') }}
+
+# Backend health check settings
+{%- if health_check_enabled %}
+health-check:
+  enabled: true
+  interval: {{ health_check_interval | default(10) }}
+  timeout: {{ health_check_timeout | default(5) }}
+  {%- if health_check_expected_status %}
+  expected-status: {{ health_check_expected_status | join(', ') | replace('[', '') | replace(']', '') }}
+  {%- endif %}
+{%- else %}
+health-check:
+  enabled: false
+{%- endif %}
+
+# Rate limiting (optional)
+{%- if rate_limit_enabled %}
+rate-limit:
+  enabled: true
+  connections-per-second: {{ rate_limit_connections_per_second | default(1000) }}
+  burst: {{ rate_limit_burst | default(2000) }}
+{%- else %}
+rate-limit:
+  enabled: false
+{%- endif %}
+
+# HTTP/2 support
+http2:
+  enabled: {{ http2_enabled | default(true) | lower }}
+  {%- if http2_max_concurrent_streams %}
+  max-concurrent-streams: {{ http2_max_concurrent_streams }}
+  {%- endif %}
+
+# Frontend connection limits
+frontend-connection-limit: {{ frontend_connection_limit | default(0) }}

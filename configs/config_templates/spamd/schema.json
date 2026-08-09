@@ -1,0 +1,109 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the spamd daemon to (e.g., '127.0.0.1' for localhost only, or '0.0.0.0' for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 783,
+    "description": "TCP port on which spamd listens for client connections."
+  },
+  "user": {
+    "type": "string",
+    "default": "spamd",
+    "description": "Unix user account under which the daemon runs (must have read permissions for config/rules)."
+  },
+  "group": {
+    "type": "string",
+    "default": "spamd",
+    "description": "Unix group under which the daemon runs."
+  },
+  "max_children": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of child processes to spawn for handling concurrent requests. Note: original default shipped as 5 in config comment."
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, runs as a background daemon; otherwise, rely on systemd for lifecycle management (recommended)."
+  },
+  "timeout_remote": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout (seconds) for remote network operations (e.g., URIBL/DNSBL lookups)."
+  },
+  "timeout_local": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for local processing (e.g., rule evaluation)."
+  },
+  "max_children_idle": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of idle child processes to keep warm (0 = no idle children)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "mail",
+    "description": "Syslog facility to use when logging to syslog (e.g., 'mail', 'daemon', 'local0').",
+    "enum": [
+      "mail",
+      "daemon",
+      "stderr",
+      "file",
+      "null"
+    ]
+  },
+  "log_packets": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, logs raw message headers/lines to syslog (verbose; for debugging only)."
+  },
+  "local_rules_dir": {
+    "type": "string",
+    "default": "/etc/spamd/local.rules.d",
+    "description": "Directory containing local rule files (*.cf) \u2014 overrides default local rules directory."
+  },
+  "rules_dir": {
+    "type": "string",
+    "default": "/etc/spamassassin",
+    "description": "Base directory for system-wide SpamAssassin rules (override if rules installed elsewhere)."
+  },
+  "bayes_backend": {
+    "type": "string",
+    "default": "DB_File",
+    "description": "Bayes storage backend (e.g., 'DB_File', 'SQLite', 'MySQL', 'PgSQL'). Set to null to disable Bayes."
+  },
+  "bayes_path": {
+    "type": "string",
+    "default": "/var/lib/spamd/.spamassassin/bayes",
+    "description": "File path or DSN for Bayes storage (e.g., '/var/lib/spamd/.spamassassin/bayes' for DB_File)."
+  },
+  "auto_whitelist_path": {
+    "type": "string",
+    "default": "/var/lib/spamd/.spamassassin/auto-whitelist",
+    "description": "Path to auto-whitelist database file (set to null to disable auto-whitelisting)."
+  },
+  "whitelist_file": {
+    "type": "string",
+    "default": null,
+    "description": "Path to a file containing whitelisted sender addresses (one per line). Optional."
+  },
+  "blacklist_file": {
+    "type": "string",
+    "default": null,
+    "description": "Path to a file containing blacklisted sender addresses (one per line). Optional."
+  },
+  "extra_args": {
+    "type": "list",
+    "default": [],
+    "description": "Additional command-line arguments to pass to spamd (e.g., '--save-prefs', '--pidfile=/run/spamd.pid')."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/spamd.pid",
+    "description": "Path to the PID file for spamd."
+  }
+}

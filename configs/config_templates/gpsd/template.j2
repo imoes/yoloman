@@ -1,0 +1,18 @@
+# Configuration file for the gpsd daemon.
+# This file configures which GPS devices gpsd should monitor,
+# additional startup options, and Pulse-Per-Second (PPS) support.
+
+# List of serial device paths or network endpoints to monitor.
+# Defaults to the USB serial device '/dev/ttyUSB0'. Can be a list
+# of strings joined by spaces in the final config.
+DEVICES="{{ devices | default(['/dev/ttyUSB0']) | join(' ') }}"
+
+# Additional daemon flags passed to gpsd at startup.
+# Defaults to '-n' which enables immediate polling of devices.
+GPSD_OPTIONS="{{ gpsd_options | default('-n') }}"
+
+# Enable automatic hot-plug detection for USB GPS devices via gpsdctl.
+# NOTE: The variable name 'USBAUTO' is legacy; setting it to 'true'
+# enables the auto-add/remove feature.
+# Defaults to 'false'.
+USBAUTO="{{ pps_enable | default(false) | ternary('true', 'false') }}"

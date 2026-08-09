@@ -1,0 +1,40 @@
+# ==============================================================================
+# dmktools — combine-dmk Configuration Template
+# ==============================================================================
+# This template configures the combine-dmk utility, which aggregates individual
+# track/head .DAT files into a single .DMK disk image.
+#
+# All variables are provided via Ansible inventory/vars. Missing variables fall
+# back to safe defaults defined in the schema.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Directory where combine-dmk looks for input track/head files and writes the
+# output DMK file. Defaults to the current working directory if not specified.
+# ------------------------------------------------------------------------------
+output_dir = {{ output_dir | default('.') }}
+
+# ------------------------------------------------------------------------------
+# Filename pattern for input files. Placeholders {:02d} and {:d} are filled with
+# track number (0-based) and head number (0-based).
+# Example default: DMK-00-0.DAT, DMK-00-1.DAT, DMK-01-0.DAT, etc.
+# ------------------------------------------------------------------------------
+input_pattern = {{ input_pattern | default('DMK-{:02d}-{:d}.DAT') }}
+
+# ------------------------------------------------------------------------------
+# Filename of the combined DMK image produced by combine-dmk.
+# ------------------------------------------------------------------------------
+output_name = {{ output_name | default('out.dmk') }}
+
+# ------------------------------------------------------------------------------
+# Number of tracks (0 to track_count-1), typically 80 for standard 3.5" floppy
+# disks. This determines how many track files the tool expects/iterates over.
+# ------------------------------------------------------------------------------
+track_count = {{ track_count | default(80) }}
+
+# ------------------------------------------------------------------------------
+# Number of disk heads (0 to head_count-1); 1 for single-sided, 2 for
+# double-sided disks. Combined with track_count, this defines the total number
+# of input files expected.
+# ------------------------------------------------------------------------------
+head_count = {{ head_count | default(2) }}

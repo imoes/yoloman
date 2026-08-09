@@ -1,0 +1,58 @@
+{
+  "enabled": true,
+  "work_dir": "/var/lib/gcr",
+  "pid_file": "/run/gcr.pid",
+  "log_level": "info",
+  "log_file": "/var/log/gcr/gcr.log",
+  "listen_port": 8080,
+  "worker_count": 8,
+  "max_connections": 2048,
+  "idle_timeout": 120,
+  "tls_enabled": false,
+  "tls_cert_file": "/etc/gcr/tls/server.crt",
+  "tls_key_file": "/etc/gcr/tls/server.key",
+  "tls_ca_cert_file": "",
+  "tls_sni_hostname": "gcr.example.com",
+  "rate_limit.enabled": true,
+  "rate_limit.max_requests": 150,
+  "rate_limit.window_seconds": 60,
+  "acls": [
+    {
+      "name": "internal_only",
+      "action": "allow",
+      "network": "10.0.0.0/8",
+      "description": "Allow only internal network clients"
+    },
+    {
+      "name": "deny_public",
+      "action": "deny",
+      "network": "0.0.0.0/0",
+      "description": "Deny all other traffic (fallback)"
+    }
+  ],
+  "upstreams": [
+    {
+      "name": "api-1",
+      "host": "10.0.1.10",
+      "port": 8000,
+      "weight": 100,
+      "description": "Primary API backend"
+    },
+    {
+      "name": "api-2",
+      "host": "10.0.1.11",
+      "port": 8000,
+      "weight": 80,
+      "description": "Secondary API backend (lower weight)"
+    }
+  ],
+  "cache.enabled": true,
+  "cache.capacity": 20000,
+  "cache.default_ttl": 600,
+  "cache.policy": "lru",
+  "health_check.enabled": true,
+  "health_check.interval": 15,
+  "health_check.timeout": 3,
+  "health_check.failures": 2,
+  "health_check.successes": 2
+}

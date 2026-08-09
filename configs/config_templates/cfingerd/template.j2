@@ -1,0 +1,216 @@
+############################################################################
+##
+## Configurable Finger Daemon CONFIGURATION FILE version 1.40
+## by Ken Hollis (khollis@bitgate.com)
+## Dated July 28, 1996
+##
+## IMPORTANT NOTICE:  DO NOT substitute spaces for tabs.  You will corrupt
+## cfingerd.conf, and will most likely cause a SIGSEGV.  Only change the
+## text of the option, DO NOT rewrite the option, or the name.
+##
+############################################################################
+
+## Path to the cfingerd log file
+FILES display_files = {
+	PLAN		= ".plan",
+	PROJECT		= ".project",
+	PGP_KEY		= ".pgpkey",
+	XFACE		= ".xface",
+	NO_FINGER	= ".nofinger",
+	USERLOG		= ".fingerlog",
+	MAILBOX		= "/var/spool/mail/$USER",
+	LOGFILE		= "{{ logfile | default('/var/log/cfingerd.log') }}",
+	HEADER_DISPLAY	= "{{ header_display | default('/etc/cfingerd/top_finger.txt') }}",
+	FOOTER_DISPLAY	= "{{ footer_display | default('/etc/cfingerd/bottom_finger.txt') }}",
+	NO_NAME_BANNER	= "{{ no_name_banner | default('/etc/cfingerd/noname_banner.txt') }}",
+	NO_USER_BANNER	= "{{ no_user_banner | default('/etc/cfingerd/nouser_banner.txt') }}",
+	REJECTED_BANNER	= "{{ rejected_banner | default('/etc/cfingerd/rejected_banner.txt') }}"
+}
+
+## These are the finger display options that are used for local, and remote
+## hosts.  The first option is for remote hosts, the second is for local.
+##
+## If "ALLOW_USER_OVERRIDE" is available, these are the only options that
+## can be enabled/disabled.
+CONFIG finger_display  = {
+	-HEADER_FILE		= [TRUE, FALSE],
+	-FOOTER_FILE		= [TRUE, FALSE],
+	+LOGIN_ID		= [TRUE, TRUE],
+	+REAL_NAME		= [TRUE, TRUE],
+	+DIRECTORY		= [FALSE, TRUE],
+	+SHELL			= [FALSE, TRUE],
+	+ROOM_NUMBER		= [FALSE, TRUE],
+	+WORK_NUMBER		= [FALSE, TRUE],
+	+HOME_NUMBER		= [FALSE, TRUE],
+	+OTHER			= [FALSE, TRUE],
+	+LAST_TIME_ON		= [FALSE, TRUE],
+	+IF_ONLINE		= [FALSE, TRUE],
+	+TIME_MAIL_READ		= [FALSE, TRUE],
+	+DAY_MAIL_READ		= [FALSE, TRUE],
+	+ORIGINATION		= [FALSE, TRUE],
+	+PLAN			= [TRUE, TRUE],
+	+PROJECT		= [TRUE, TRUE],
+	+PGP			= [TRUE, TRUE],
+	+XFACE			= [TRUE, TRUE],
+	-NO_NAME_BANNER		= [TRUE, TRUE],
+	-REJECTED_BANNER	= [TRUE, TRUE],
+	-SYSTEM_LIST		= [FALSE, TRUE],
+	-CLOCK24		= [FALSE, FALSE],
+	-NO_USER		= [TRUE, TRUE]
+}
+
+## These are the internal configuration options that cfingerd uses to
+## determine how to handle finger-queries.  Note that each item that you
+## want to enable or disable is used with a "+" to enable, and a "-" to
+## disable.  If you don't have the option listed, it is assumed to be
+## enabled.
+CONFIG internal_config = {
+	+ALLOW_MULTIPLE_FINGER_DISPLAY,
+	-ALLOW_SEARCHABLE_FINGER,
+	+ALLOW_NO_IP_MATCH_FINGER,
+	+ALLOW_USER_OVERRIDE,
+	+ALLOW_USERLIST_ONLY,
+	-ALLOW_FINGER_FORWARDING,
+	-ALLOW_STRICT_FORMATTING,
+	-ALLOW_VERBOSE_TIMESTAMPING,
+	+ALLOW_FINGER_LOGGING,
+	-ALLOW_EXECUTION,
+	-ALLOW_NONIDENT_ACCESS,
+	+ALLOW_LINE_PARSING,
+	+ALLOW_USERLOG,
+	+ALLOW_FAKEUSER_FINGER,
+	+ALLOW_CONFESSION,
+	+ONLY_SHOW_HEADERS_IF_FILE_EXISTS,
+	+ONLY_CREATE_FINGERLOG_IF_FILE_EXISTS
+}
+
+## These are the sites that are queried for an entire listing when the
+## user listing is requested.  The sites listed below are fingered, and the
+## entire listing is then sorted, and a final output is displayed.
+##
+## For the time being, if you want your site to display finger information
+## in the userlisting, you *MUST* include the line below.  This will soon
+## (hopefully) change.
+CONFIG system_list_sites = {
+}
+
+## These are hosts that can finger your site and act as local-access hosts.
+## In other words, these sites get the same displayed output that normal
+## users on the localhost get.  You can trust all sites by using a "*".
+HOSTS trusted = {
+}
+
+## These are sites that are not allowed to finger your system, and they
+## are displayed corresponding files.  You can reject all systems using
+## "*".
+HOSTS rejected = {
+}
+
+## These are the forwarded hosts that are used when doing a finger-forward.
+## This lets you forward a user to another system if the username could
+## not be located on this system.
+HOSTS finger_forward = {
+}
+
+## These are the strings that are displayed in the actual finger display.
+## These strings get displayed in the correct positions based on what
+## information you have allowed to be released.
+CONFIG finger_strings = {
+	USER_NAME	= "Username: ",
+	REAL_NAME	= "In real life: ",
+	DIRECTORY	= "Home directory: ",
+	SHELL		= "Shell: ",
+	ROOM_NUMBER	= "Room: ",
+	WORK_NUMBER	= "Work phone: ",
+	HOME_NUMBER	= "Home phone: ",
+	OTHER		= "Other: ",
+	PLAN		= "Plan:",
+	PROJECT		= "Project:",
+	PGPKEY		= "PGP Public Key:",
+	NO_PLAN		= "This user has no plan.",
+	NO_PROJECT	= "This user has no project.",
+	NO_PGP		= "This user has no PGP public key.",
+	WAIT		= "Gathering system data...",
+	XFACE		= "XFace:",
+	NO_XFACE	= "This user has no xface file."
+}
+
+## These strings are displayed in syslogging.
+CONFIG internal_strings = {
+	NO_IP_HOST	= "IP: Hostname not matched",
+	RENICE_FATAL	= "Fatal - Nice died: ",
+	STDIN_EMPTY	= "STDIN contains no data",
+	TRUSTED_HOST	= "<- Trusted",
+	REJECTED_HOST	= "<- Rejected",
+	ROOT_FINGER	= "Root",
+	SERVICE_FINGER	= "Service listing",
+	USER_LIST	= "User listing",
+	FAKE_USER	= "Fake user",
+	WHOIS_USER	= "Whois request",
+	FORWARD_DENY	= "Finger forwarding service denied.",
+	IDENT_CONREF	= "<connection-refused>",
+	IDENT_ILLEGAL	= "<illegal-data>",
+	IDENT_TIMEOUT	= "<time-out>"
+}
+
+## These are the strings that you can change for display when a signal
+## is encountered.  Only these strings and associated signals are displayed
+## or detected.  If you don't know what you're doing, don't change these
+## signal text displays.
+CONFIG signal_strings = {
+	SIGHUP		= "Hangup signal",
+	SIGINT		= "Keyboard interruption signal",
+	SIGQUIT		= "Keyboard quit signal",
+	SIGILL		= "Illegal instruction",
+	SIGTRAP		= "Trace/Breakpoint reached",
+	SIGABRT		= "Aborted",
+	SIGFPE		= "Floating Point Exception",
+	SIGUSR1		= "User-defined",
+	SIGSEGV		= "Segmentation violation",
+	SIGUSR2		= "User-defined",
+	SIGPIPE		= "Write to pipe w/o headers",
+	SIGALRM		= "Script or program timed out",
+	SIGTERM		= "Terminated",
+	SIGCONT		= "Continued from stopped job",
+	SIGTSTP		= "Stopped at TTY (Inetd-related?)",
+	SIGTTIN		= "TTY input from bgnd process (Inetd-related?)",
+	SIGTTOU		= "TTY output from bgnd process (Inetd-related?)",
+	SIGIO		= "I/O Error (on socket/non-socket)",
+	SIGXCPU		= "CPU Time limit exceeded",
+	SIGXFSZ		= "File size limit exceeded",
+	SIGVTALRM	= "Virtual timer alarm",
+	SIGPROF		= "Profiler",
+	SIGWINCH	= "VT/X Window size changed"
+}
+
+## Path to the local finger program
+## Path to the local whois program
+FILES finger_programs = {
+	FINGER		= "{{ finger_program | default('/usr/sbin/userlist') }}",
+	WHOIS		= "{{ whois_program | default('/usr/bin/whois') }}"
+}
+
+## These are the users that don't exist on your system, but can be called
+## on as scripts.  Read over cfingerd.conf(5) for more details on these
+## options. '-' can be prepended to avoid displaying on the service list.
+FILES finger_fakeusers = {
+}
+#	"uptime", "System Uptime", FALSE, "/etc/cfingerd/scripts/uptime",
+#	"trace", "Trace route", TRUE, "/etc/cfingerd/scripts/trace"
+#	"ping", "Ping a host", TRUE, "/etc/cfingerd/scripts/ping"
+
+## This is the header that is displayed at the top of your services display.
+CONFIG services_header = {
+                   *** Services provided  by this system ***
+
+                     User:      Service name:    Searchable:
+                   -------- -------------------- -----------
+                   %-8s %-20s %-s
+}
+
+## These are the positions of the actual items in the header.
+CONFIG services_positions = {
+	USER	= 1,
+	SERVICE	= 2,
+	SEARCH	= 3
+}

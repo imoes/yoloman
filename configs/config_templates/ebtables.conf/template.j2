@@ -1,0 +1,14 @@
+# ebtables configuration — loaded at boot by ebtables service
+# This file defines the default policy and custom bridge packet filtering rules.
+
+*filter
+:INPUT ACCEPT
+:FORWARD ACCEPT
+:OUTPUT ACCEPT
+
+{% if rules is defined and rules | length > 0 %}
+# Custom rules: applies each item from the 'rules' list as an ebtables command.
+{% for rule in rules %}{{ rule | replace('\n', ' ') }}
+{% endfor %}
+{% endif %}
+COMMIT

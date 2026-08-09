@@ -1,0 +1,136 @@
+{#
+  ============================================================================
+  CrashMail Configuration Template (crashmail.prefs)
+  ============================================================================
+  This template generates the configuration file for the CrashMail tosser,
+  used in Fidonet networks to handle .pkt file exchanges.
+  
+  It is self-documenting: every directive is preceded by a comment explaining
+  its purpose and mapping to the schema field.
+  ============================================================================
+#}
+
+{# ============================================================================
+   Section: Directories
+   ============================================================================
+   Defines the filesystem paths for inbound messages, outbound messages,
+   and the message area storage base.
+   ============================================================================ #}
+
+# inbound_dir: Directory containing inbound .pkt files to be tossed.
+INBOUND {{ inbound_dir | default('/var/lib/crashmail/inbound') }}
+
+# outbound_dir: Directory where outgoing messages are placed.
+OUTBOUND {{ outbound_dir | default('/var/lib/crashmail/outbound') }}
+
+# areas_dir: Top-level directory where message areas (JAM/MSG) are stored.
+AREAS {{ areas_dir | default('/var/lib/crashmail/areas') }}
+
+{# ============================================================================
+   Section: Logging
+   ============================================================================
+   Specifies where CrashMail logs its operational messages.
+   Set log_file to 'syslog' to use the system logger instead of a file.
+   ============================================================================ #}
+
+# log_file: Path to log file, or 'syslog' to use system logging (Linux-specific).
+{% set log = log_file | default('/var/log/crashmail.log') %}
+{% if log == 'syslog' %}
+# Log to system syslog as specified by log_file.
+LOG syslog
+{% else %}
+# Log to the specified file path.
+LOG {{ log }}
+{% endif %}
+
+{# ============================================================================
+   Section: Message Areas (DEFAULT directive)
+   ============================================================================
+   Configures default message base areas. Each area defines a name (for
+   identification), type (JAM or MSG format), path, and optional auto-add
+   behavior for incoming messages.
+   ============================================================================ #}
+{% if areas is defined and areas | length > 0 %}
+# areas: List of default message areas to configure.
+{% for area in areas %}
+    {# area.name: Identifier for the area (used in comments only). #}
+    {# area.type: Message base format: 'jam' or 'msg'. #}
+    {# area.path: Filesystem path to the message area. #}
+    {# area.auto_add: Optional auto-add configuration for MSG/JAM areas. #}
+    {% set area_type = area.type | default('msg') %}
+    {% set area_path = area.path | default('/var/lib/crashmail/areas/' + (area.name | default('unnamed'))) %}
+    {% set area_name = area.name | default('unnamed') %}
+
+# --- Area: {{ area_name }} (Type: {{ area_type }}, Path: {{ area_path }}) ---
+    {% if area_type == 'jam' %}
+# Default JAM area definition.
+DEFAULT JAM {{ area_path }}{% if area.auto_add is defined %} {% if area.auto_add.use_8dot3 is defined and area.auto_add.use_8dot3 %}%8{% else %}{{ (area.auto_add.path_format | default('')) }}{% endif %}{% endif %}
+    {% elif area_type == 'msg' %}
+# Default MSG area definition.
+DEFAULT MSG {{ area_path }}{% if area.auto_add is defined %} {% if area.auto_add.use_8dot3 is defined and area.auto_add.use_8dot3 %}%8{% else %}{{ (area.auto_add.path_format | default('')) }}{% endif %}{% endif %}
+    {% else %}
+# WARNING: Unknown area type '{{ area_type }}' for area '{{ area_name }}'. Skipping DEFAULT directive.
+    {% endif %}
+{% endfor %}
+{% endif %}
+
+{# ============================================================================
+   Section: Linked Nodes (LINK directive)
+   ============================================================================
+   Defines FidoNet addresses of linked nodes that this tosser communicates with.
+   ============================================================================ #}
+{% if links is defined and links | length > 0 %}
+# links: List of linked nodes (FTN addresses).
+{% for link in links %}
+    {# link.node: FTN node number (e.g. '2:5020/1234'). #}
+    {# link.address: Address string to send mail to for this node. #}
+    {# link.options: Additional link options (e.g. 'SECURE' or 'COMPRESS'). #}
+    {% set node = link.node | default('0') %}
+    {% set address = link.address | default('') %}
+    {% set options = link.options | default([]) %}
+LINK {{ node }} {{ address }}{% if options | length > 0 %} {{ options | join(' ') }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{# ============================================================================
+   Section: System Information (SYSTM directive)
+   ============================================================================
+   Provides identification metadata about this Fidonet system.
+   ============================================================================ #}
+
+# system_name: Name of the FTS-0001 system (SYSTM field).
+# system_location: Physical location of the system (SYSTM field).
+# sysop_name: Sysop name (SYSTM field).
+# sysop_phone: Sysop phone number (SYSTM field).
+# sysop_email: Sysop email address (SYSTM field).
+SYSTM {{ system_name | default('My CrashMail System') }} {{ system_location | default('Earth') }} {{ sysop_name | default('SysAdmin') }} {{ sysop_phone | default('') }} {{ sysop_email | default('sysop@example.com') }}
+
+{# ============================================================================
+   Section: Remote Passwords (PASSWORD directive)
+   ============================================================================
+   Defines passwords required for remote nodes when sending security-sensitive
+   messages like INFO, LIST, or QUERY.
+   ============================================================================ #}
+{% if remote_passwords is defined and remote_passwords | length > 0 %}
+# remote_passwords: Passwords for remote nodes, used when sending INFO/LIST/QUERY messages.
+{% for entry in remote_passwords %}
+    {# entry.node: FTN node number (e.g. '2:5020/1234'). #}
+    {# entry.password: Password used for that node. #}
+    {% set r_node = entry.node | default('0') %}
+    {% set r_password = entry.password | default('') %}
+PASSWORD {{ r_node }} {{ r_password }}
+{% endfor %}
+{% endif %}
+
+{# ============================================================================
+   Section: Security Mode
+   ============================================================================
+   Controls whether CrashMail performs security checks on incoming packets.
+   When disabled, it enters NOSECURITY mode.
+   ============================================================================ #}
+
+# security_enabled: If false, enables NOSECURITY mode (process packets without security checks).
+{% if security_enabled is defined and not security_enabled %}
+# WARNING: Security checks are disabled. Only enable this for trusted environments.
+NOSECURITY
+{% endif %}

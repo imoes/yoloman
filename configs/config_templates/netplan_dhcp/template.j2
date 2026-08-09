@@ -1,0 +1,151 @@
+# Netplan DHCP client configuration - managed by Ansible
+#
+# This template generates a valid Netplan YAML configuration file (/etc/netplan/01-netcfg.yaml).
+# It iterates over the `interfaces` list provided in the role's variables.
+# Each interface definition supports DHCPv4/v6, static addresses, gateways, DNS, and matching criteria.
+#
+# Schema reference:
+# - interfaces (list): List of network interface configurations.
+#   Each item is a dict with keys like id, dhcp4, dhcp6, addresses, etc.
+
+network:
+  version: 2
+
+  # Iterate over each network interface definition provided by the user.
+  # 'interfaces' defaults to an empty list; at least one is required for a valid config.
+  {% for eth in interfaces | default([], true) %}
+  # Interface Identifier: The name of the network interface (e.g., eth0, ens33).
+  # This key becomes the YAML key for this interface's configuration block.
+  {{ eth.id | default('eth0') }}:
+
+    # Optional Description: A comment explaining the purpose of this interface.
+    {% if eth.description | default(False) %}
+    # {{ eth.description }}
+    {% endif %}
+
+    # Optional Match Criteria: Rules to match this configuration to specific hardware.
+    # Common keys: macaddress, name.
+    {% if eth.match | default(false) %}
+    match:
+      # Iterate over match criteria keys (e.g., macaddress, name).
+      # Using dict2items to safely iterate the mapping without Python .items()
+      {% for item in eth.match | dict2items %}
+      {{ item.key }}: {{ item.value }}
+      {% endfor %}
+    {% endif %}
+
+    # Optional Set-Name: Rename the interface to a specific name.
+    {% if eth.set_name | default(False) %}
+    set-name: {{ eth.set_name }}
+    {% endif %}
+
+    # DHCPv4: Enable or disable DHCP for IPv4.
+    # If defined, must be true or false.
+    {% if eth.dhcp4 is defined %}
+    dhcp4: {{ eth.dhcp4 | lower }}
+    {% endif %}
+
+    # DHCPv6: Enable or disable DHCP for IPv6.
+    # If defined, must be true or false.
+    {% if eth.dhcp6 is defined %}
+    dhcp6: {{ eth.dhcp6 | lower }}
+    {% endif %}
+
+    # DHCPv4 Overrides: Fine-tune DHCPv4 client behavior.
+    {% if eth.dhcp4_overrides | default(false) %}
+    dhcp4-overrides:
+      {% for item in eth.dhcp4_overrides | dict2items %}
+      {{ item.key }}: {{ item.value }}
+      {% endfor %}
+    {% endif %}
+
+    # DHCPv6 Overrides: Fine-tune DHCPv6 client behavior.
+    {% if eth.dhcp6_overrides | default(false) %}
+    dhcp6-overrides:
+      {% for item in eth.dhcp6_overrides | dict2items %}
+      {{ item.key }}: {{ item.value }}
+      {% endfor %}
+    {% endif %}
+
+    # IPv4 Static Addresses: List of CIDR addresses for static configuration.
+    # If used, dhcp4 is typically false.
+    {% if eth.ipv4_addresses | default(false) %}
+    addresses:
+      {% for addr in eth.ipv4_addresses %}
+      - {{ addr }}
+      {% endfor %}
+    {% endif %}
+
+    # IPv6 Static Addresses: List of CIDR addresses for static configuration.
+    # If ipv4_addresses is also present, these are appended to the same 'addresses' list.
+    # Otherwise, a new 'addresses' key is started.
+    {% if eth.ipv6_addresses | default(false) %}
+      # Netplan allows mixed IPv4/IPv6 in the 'addresses' list.
+      # If we are starting a new 'addresses' block because there are no IPv4 addrs:
+      {% if not eth.ipv4_addresses | default(false) %}
+    addresses:
+      {% endif %}
+      {% for addr in eth.ipv6_addresses %}
+      - {{ addr }}
+      {% endfor %}
+    {% endif %}
+
+    # Default Gateway (IPv4): The IPv4 default route gateway address.
+    # Deprecated in newer Netplan versions in favor of routes, but still widely used.
+    {% if eth.gateway4 | default(False) %}
+    gateway4: {{ eth.gateway4 }}
+    {% endif %}
+
+    # Default Gateway (IPv6): The IPv6 default route gateway address.
+    {% if eth.gateway6 | default(False) %}
+    gateway6: {{ eth.gateway6 }}
+    {% endif %}
+
+    # Nameservers: DNS server configuration.
+    {% if eth.nameservers | default(false) %}
+    nameservers:
+      # Search domains for DNS resolution
+      {% if eth.nameservers.search | default(false) %}
+      search:
+        {% for domain in eth.nameservers.search %}
+        - {{ domain }}
+        {% endfor %}
+      {% endif %}
+
+      # DNS server IP addresses
+      {% if eth.nameservers.addresses | default(false) %}
+      addresses:
+        {% for addr in eth.nameservers.addresses %}
+        - {{ addr }}
+        {% endfor %}
+      {% endif %}
+    {% endif %}
+
+    # Link-Local Addresses: Protocols to enable for link-local addressing.
+    # Common values: [ipv4, ipv6].
+    {% if eth.link_local | default(false) %}
+    link-local:
+      {% for proto in eth.link_local %}
+      - {{ proto }}
+      {% endfor %}
+    {% endif %}
+
+    # Accept Router Advertisements (RA): Enable/Disable RA processing for IPv6.
+    {% if eth.accept_ra is defined %}
+    accept-ra: {{ eth.accept_ra | lower }}
+    {% endif %}
+
+    # Routable Multicast: Enable/Disable multicast routing.
+    {% if eth.routable_multicast is defined %}
+    routable-multicast: {{ eth.routable_multicast | lower }}
+    {% endif %}
+
+    # Link-Local Addresses (Specific): Specific link-local addresses to add.
+    {% if eth.lla | default(false) %}
+    link-local-addresses:
+      {% for addr in eth.lla %}
+      - {{ addr }}
+      {% endfor %}
+    {% endif %}
+
+  {% endfor %}

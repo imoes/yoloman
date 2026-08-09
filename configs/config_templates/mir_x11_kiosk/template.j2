@@ -1,0 +1,201 @@
+# ===========================================================================
+# Mir X11 Kiosk Configuration Template
+# ===========================================================================
+# This template generates the main configuration file for the Mir X11 Kiosk
+# service. It is self-documenting: every directive is preceded by a comment
+# explaining its purpose and source (schema field).
+#
+# All variables use the `default()` filter with values taken directly from
+# the schema definition to ensure safe rendering even when an optional
+# variable is omitted by the caller.
+# ===========================================================================
+
+# --- Service Control ---
+
+# Enable or disable the kiosk service. When false, the service will not start.
+# Source: enabled (default: False)
+{% if enabled | default(false) | bool %}
+service_enabled = true
+{% else %}
+service_enabled = false
+{% endif %}
+
+# --- Display & Connection ---
+
+# X11 display number (e.g., :0 → set to 0, :1 → set to 1).
+# Source: display_number (default: 0)
+display = :{{ display_number | default(0) }}
+
+# Path to the Wayland display socket. Used to connect to Mir's Wayland server.
+# Source: wayland_display (default: '/run/mir_socket')
+wayland_display = {{ wayland_display | default('/run/mir_socket') }}
+
+# --- Application Execution ---
+
+# Path to the X11 application to run in kiosk mode.
+# Source: app_command (default: '/usr/bin/mir-kiosk-x11')
+app_command = {{ app_command | default('/usr/bin/mir-kiosk-x11') }}
+
+# Command-line arguments for the X11 kiosk application.
+# Source: app_args (default: [])
+{% set app_args_list = app_args | default([]) %}
+{% if app_args_list | length > 0 %}
+app_args = {{ app_args_list | join(' ') }}
+{% endif %}
+
+# Working directory for the kiosk app process (optional). Leave empty to use default.
+# Source: work_dir (default: '')
+{% set work_dir_val = work_dir | default('') %}
+{% if work_dir_val %}
+work_dir = {{ work_dir_val }}
+{% endif %}
+
+# User and group to run the kiosk app as.
+# Source: user (default: 'mir-kiosk'), group (default: 'mir-kiosk')
+user = {{ user | default('mir-kiosk') }}
+group = {{ group | default('mir-kiosk') }}
+
+# Custom environment variables to set before launching the kiosk app.
+# Source: env_vars (default: [])
+# Expects a list of mappings with 'name' and 'value' keys.
+{% set env_vars_list = env_vars | default([]) %}
+{% for env_var in env_vars_list %}
+env.{{ env_var.name }} = {{ env_var.value }}
+{% endfor %}
+
+# --- Restart & Lifecycle ---
+
+# Automatically restart the kiosk app if it crashes or exits.
+# Source: auto_restart (default: True)
+{% if auto_restart | default(true) | bool %}
+auto_restart = true
+{% else %}
+auto_restart = false
+{% endif %}
+
+# Seconds to wait before restarting the app after a crash (used if auto_restart = true).
+# Source: restart_delay (default: 3)
+restart_delay = {{ restart_delay | default(3) }}
+
+# Maximum time in seconds allowed for app startup before timeout.
+# Source: start_timeout (default: 30)
+start_timeout = {{ start_timeout | default(30) }}
+
+# --- Logging ---
+
+# Logging verbosity: debug, info, warn, or error.
+# Source: log_level (default: 'info')
+log_level = {{ log_level | default('info') }}
+
+# Path to the log file. If empty, logs go to syslog only.
+# Source: log_file (default: '')
+{% set log_file_val = log_file | default('') %}
+{% if log_file_val %}
+log_file = {{ log_file_val }}
+{% else %}
+log_file =
+{% endif %}
+
+# --- Window & Cursor ---
+
+# Optional X11 window class hint (for window manager rules).
+# Source: x11_window_class (default: '')
+{% set x11_wc = x11_window_class | default('') %}
+{% if x11_wc %}
+x11_window_class = {{ x11_wc }}
+{% endif %}
+
+# Optional X11 window title hint.
+# Source: x11_window_title (default: '')
+{% set x11_wt = x11_window_title | default('') %}
+{% if x11_wt %}
+x11_window_title = {{ x11_wt }}
+{% endif %}
+
+# Mouse cursor visibility: 'visible' or 'hidden' (recommended for kiosk).
+# Source: cursor_policy (default: 'hidden')
+cursor_policy = {{ cursor_policy | default('hidden') }}
+
+# --- Input Configuration ---
+
+# Input policy: 'all', 'none', or 'list'. If 'list', use input_devices above.
+# Source: input_policy (default: 'all')
+# Note: The logic below handles the generation of input_device directives.
+
+{% set input_devices_list = input_devices | default([]) %}
+{% set input_filters_list = input_filters | default([]) %}
+
+# List of input devices to expose to the kiosk app.
+# Source: input_devices (default: [])
+# Empty or 'none' disables all input.
+{% if input_devices_list | length > 0 %}
+{% for dev in input_devices_list %}
+input_device = {{ dev.path }}
+{% endfor %}
+{% elif input_policy | default('all') == 'none' %}
+input_device = none
+{% endif %}
+
+# Kiosk-specific input device filters.
+# Source: input_filters (default: [])
+# Expects a list of mappings with 'name' and 'value' keys.
+{% for filt in input_filters_list %}
+input_filter.{{ filt.name }} = {{ filt.value }}
+{% endfor %}
+
+# --- Screen Geometry ---
+
+# Screen rotation in degrees: 0, 90, 180, or 270.
+# Source: rotation (default: 0)
+rotation = {{ rotation | default(0) }}
+
+# Screen scaling factor (e.g., 1.0 = 100%, 1.25 = 125%).
+# Source: scaling (default: 1.0)
+scaling = {{ scaling | default(1.0) }}
+
+# Enable multi-display support. If false, only primary display is used.
+# Source: multi_display (default: False)
+{% if multi_display | default(false) | bool %}
+multi_display = true
+{% else %}
+multi_display = false
+{% endif %}
+
+# List of display names in preferred order (for multi-display setups).
+# Source: display_order (default: [])
+{% set display_order_list = display_order | default([]) %}
+{% for display_name in display_order_list %}
+display_order = {{ display_name }}
+{% endfor %}
+
+# Fallback display name if none detected (e.g., 'eDP-1').
+# Source: fallback_display (default: '')
+{% set fallback_disp = fallback_display | default('') %}
+{% if fallback_disp %}
+fallback_display = {{ fallback_disp }}
+{% endif %}
+
+# --- Rendering ---
+
+# VSync policy: 'always', 'never', or 'auto'.
+# Source: vsync_wait (default: 'auto')
+vsync_wait = {{ vsync_wait | default('auto') }}
+
+# Number of surface buffers (2 = double buffering, 3 = triple).
+# Source: surface_buffer_count (default: 2)
+surface_buffer_count = {{ surface_buffer_count | default(2) }}
+
+# Enable hardware-accelerated rendering (recommended).
+# Source: hw_accel (default: True)
+{% if hw_accel | default(true) | bool %}
+hw_accel = true
+{% else %}
+hw_accel = false
+{% endif %}
+
+# GPU device path (e.g., /dev/dri/card0). Auto-detected if omitted.
+# Source: gpu_device (default: '')
+{% set gpu_dev = gpu_device | default('') %}
+{% if gpu_dev %}
+gpu_device = {{ gpu_dev }}
+{% endif %}

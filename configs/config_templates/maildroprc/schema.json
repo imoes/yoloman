@@ -1,0 +1,162 @@
+{
+  "default_home": {
+    "type": "string",
+    "default": "/home",
+    "description": "Base path for user home directories (used when expanding paths like ~user)."
+  },
+  "default_quota": {
+    "type": "string",
+    "default": "0",
+    "description": "Default mailbox quota for new users (in bytes or '0' for unlimited)."
+  },
+  "syslog_logfile": {
+    "type": "string",
+    "default": "/var/log/maildrop.log",
+    "description": "Path to maildrop-specific log file (used only when LOGGING=1)."
+  },
+  "syslog_logging": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable logging of delivery decisions and errors to the syslog/logfile."
+  },
+  "verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable very detailed logging (includes header parsing and filter evaluation)."
+  },
+  "max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum allowed message size in bytes (0 = unlimited)."
+  },
+  "max_recipients": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of recipients per message to prevent abuse."
+  },
+  "filter_pre": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a pre-delivery filter script (e.g., virus scanner) to run *before* maildrop."
+  },
+  "filter_post": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a post-delivery filter script (e.g., spam classifier) to run *after* successful delivery."
+  },
+  "trusted_ips": {
+    "type": "list",
+    "default": [
+      {
+        "ip": "127.0.0.1",
+        "description": "Localhost (always trusted)"
+      },
+      {
+        "ip": "::1",
+        "description": "Local IPv6 loopback (always trusted)"
+      }
+    ],
+    "description": "List of IP addresses trusted for relay without authentication.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "ip": {
+          "type": "string",
+          "description": "IP address or CIDR range (e.g., 192.168.1.0/24)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of this trusted IP."
+        }
+      }
+    }
+  },
+  "relay_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hosts to use as SMTP relays for remote delivery.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP of the relay server."
+        },
+        "port": {
+          "type": "number",
+          "description": "Port to connect to on the relay (e.g., 25, 587). Optional; defaults to 25.",
+          "default": null
+        },
+        "use_tls": {
+          "type": "boolean",
+          "description": "Use STARTTLS (or implicit TLS for port 465) when connecting.",
+          "default": false
+        },
+        "auth_user": {
+          "type": "string",
+          "description": "Username for SMTP AUTH on the relay. Optional.",
+          "default": null
+        },
+        "auth_pass": {
+          "type": "string",
+          "description": "Password for SMTP AUTH. Optional; leave empty if not using auth or if using external auth (e.g., OAuth2).",
+          "default": ""
+        }
+      }
+    }
+  },
+  "delivery_method": {
+    "type": "string",
+    "default": "maildir",
+    "description": "Default delivery format for local mailboxes.",
+    "enum": [
+      "maildir",
+      "mbox"
+    ]
+  },
+  "maildir_path": {
+    "type": "string",
+    "default": ".maildir",
+    "description": "Relative path to the Maildir base directory (under user's home)."
+  },
+  "maildirpp_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable Maildir++ extensions (folder separators, folder naming conventions, and quota support)."
+  },
+  "mbox_path": {
+    "type": "string",
+    "default": "/var/spool/mail/{user}",
+    "description": "Absolute path to the mbox file (supports {user} substitution). Only used if delivery_method=mbox."
+  },
+  "custom_delivery_path": {
+    "type": "string",
+    "default": "",
+    "description": "Custom delivery command/path (e.g., ' |/usr/bin/procmail' or a file path). Only used if delivery_method=custom."
+  },
+  "delivery_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time (in seconds) allowed for external delivery attempts before timeout/bounce."
+  },
+  "retry_max": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of retries for transient delivery failures before giving up."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 300,
+    "description": "Base delay (in seconds) between retries; delay grows exponentially (retry_delay * 2^attempt)."
+  },
+  "dns_lookup": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable DNS MX record lookup for remote delivery instead of using RELAYHOST."
+  },
+  "dns_fallback": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname to attempt if MX lookup fails (e.g., fallback domain or smart host)."
+  }
+}

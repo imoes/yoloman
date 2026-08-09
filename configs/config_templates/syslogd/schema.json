@@ -1,0 +1,91 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Server hostname shown in the config file header comment"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log",
+    "description": "Base directory where all log files are written"
+  },
+  "include_kern_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Write all kernel facility messages to kern.log"
+  },
+  "include_mail_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Write all mail facility messages to mail.log (async write)"
+  },
+  "include_daemon_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Write all daemon facility messages to daemon.log (async write)"
+  },
+  "include_cron_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Write all cron/at facility messages to cron.log"
+  },
+  "include_syslog_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Write syslogd's own internal messages to syslog"
+  },
+  "include_messages": {
+    "type": "bool",
+    "default": true,
+    "description": "Write catch-all info+ messages (excluding mail, auth, cron) to messages"
+  },
+  "debug_log_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a separate debug-level log file \u2014 very high volume, off by default in production"
+  },
+  "emergency_wall": {
+    "type": "bool",
+    "default": true,
+    "description": "Broadcast *.emerg messages to all logged-in users' terminals via wall"
+  },
+  "remote_logging_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Forward all log messages to a remote syslog server"
+  },
+  "remote_host": {
+    "type": "string",
+    "default": "logserver.example.com",
+    "description": "Hostname or IP address of the remote syslog receiver"
+  },
+  "remote_port": {
+    "type": "number",
+    "default": 514,
+    "description": "Port of the remote syslog receiver (standard syslog port: 514)"
+  },
+  "remote_protocol": {
+    "type": "string",
+    "default": "udp",
+    "description": "Transport for remote forwarding: 'udp' (single @ prefix, low overhead) or 'tcp' (@@ prefix, reliable \u2014 verify daemon support)"
+  },
+  "extra_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Additional custom syslog rules appended after the standard ruleset",
+    "items": {
+      "selector": {
+        "type": "string",
+        "description": "Syslog facility.severity selector expression, e.g. 'local0.*' or '*.warn;cron.none'"
+      },
+      "action": {
+        "type": "string",
+        "description": "Log destination: file path (optionally - prefixed for async), @host (UDP remote), @@host (TCP remote), * (wall all users), or |/path/to/pipe"
+      },
+      "comment": {
+        "type": "string",
+        "description": "One-line human-readable description rendered as a # comment above this rule"
+      }
+    }
+  }
+}

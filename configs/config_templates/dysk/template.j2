@@ -1,0 +1,80 @@
+{#
+  dysk (Display Your System Knowledge) CLI Configuration
+  -------------------------------------------------------
+  This template generates a CLI configuration file for 'dysk', a system
+  information tool similar to 'df' but with richer details.
+#}
+[cli]
+
+{# Show all mount points, including dummy/empty ones. Default: False #}
+{% if all | default(False) | bool %}
+all
+{% endif %}
+
+{# Enable colors/styles. Options: auto, yes, no. Default: 'auto' #}
+{% set color_val = color | default('auto') | string %}
+{% if color_val != 'auto' %}
+color={{ color_val }}
+{% endif %}
+
+{# Force ASCII-only table rendering, avoiding unicode box-drawing chars. Default: False #}
+{% if ascii | default(False) | bool %}
+ascii
+{% endif %}
+
+{# Fetch stats for remote volumes (NFS, CIFS, etc.). Options: auto, yes, no. Default: 'auto' #}
+{% set remote_val = remote_stats | default('auto') | string %}
+{% if remote_val != 'auto' %}
+remote-stats={{ remote_val }}
+{% endif %}
+
+{# List available column names for -s/-f/-c options instead of displaying data. Default: False #}
+{% if list_cols | default(False) | bool %}
+list-cols
+{% endif %}
+
+{# Columns to display, separated by '+'. Default: 'fs+type+disk+used+use+free+size+mp' #}
+{% set cols_val = cols | default('fs+type+disk+used+use+free+size+mp') | string %}
+{% if cols_val %}
+cols={{ cols_val }}
+{% endif %}
+
+{# Filter expression to select which volumes to show. Default: '' (no filter) #}
+{% set filter_val = filter_expr | default('') | string %}
+{% if filter_val %}
+filter={{ filter_val }}
+{% endif %}
+
+{# Sort key for the output (e.g., size, inodes, type). Append '-asc' or '-desc' to sort order. Default: 'size' #}
+{% set sort_val = sort | default('size') | string %}
+{% if sort_val %}
+sort={{ sort_val }}
+{% endif %}
+
+{# Unit system for display sizes. Options: SI, binary, bytes. Default: 'SI' #}
+{% set units_val = units | default('SI') | string %}
+{% if units_val != 'SI' %}
+units={{ units_val }}
+{% endif %}
+
+{# Output in JSON format. Default: False #}
+{% if json | default(False) | bool %}
+json
+{% endif %}
+
+{# Output in CSV format. Default: False #}
+{% if csv | default(False) | bool %}
+csv
+{% endif %}
+
+{# Separator character for CSV output. Default: ',' #}
+{% set csv_sep = csv_separator | default(',') | string %}
+{% if csv | default(False) | bool and csv_sep %}
+csv-separator={{ csv_sep }}
+{% endif %}
+
+{# Limit output to the device holding this specific path. Default: '' #}
+{% set path_val = path | default('') | string %}
+{% if path_val %}
+{{ path_val | indent(1) }}
+{% endif %}

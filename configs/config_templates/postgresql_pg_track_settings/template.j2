@@ -1,0 +1,168 @@
+# ==============================================================================
+# PostgreSQL Extension: pg_track_settings Configuration
+# ==============================================================================
+# This template configures the pg_track_settings extension for PostgreSQL.
+# The extension tracks DDL changes, function usage, query planning, resource
+# utilization, lock events, WAL activity, and I/O timing.
+#
+# All boolean settings default to True (enabled) except track_wal, track_io_timing,
+# and their corresponding modes default to off/disabled states as specified in the schema.
+# String modes are quoted; integer retention days are bare.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Tracking Switches
+# --------------------------------------------------------------------------
+
+# Enable or disable tracking of DDL (data definition language) changes such as
+# CREATE, ALTER, DROP.
+pg_track_settings.track_ddl = {{ track_ddl | default(true) }}
+
+# Enable or disable tracking of function calls (when functions are executed).
+pg_track_settings.track_function_usage = {{ track_function_usage | default(true) }}
+
+# Enable or disable tracking of query planning statistics (e.g., planning time).
+pg_track_settings.track_planning_usage = {{ track_planning_usage | default(true) }}
+
+# Enable or disable tracking of resource utilization (e.g., CPU, I/O) per query.
+pg_track_settings.track_utilization = {{ track_utilization | default(true) }}
+
+# Enable or disable tracking of lock events (e.g., lock acquisition, wait times).
+pg_track_settings.track_locks = {{ track_locks | default(true) }}
+
+# Enable or disable tracking of Write-Ahead Log (WAL) activity.
+pg_track_settings.track_wal = {{ track_wal | default(false) }}
+
+# Enable or disable tracking of I/O timing statistics (requires track_io_timing
+# = on in PostgreSQL core).
+pg_track_settings.track_io_timing = {{ track_io_timing | default(false) }}
+
+# --------------------------------------------------------------------------
+# Tracking Modes (Scopes)
+# --------------------------------------------------------------------------
+
+# Scope of lock tracking: 'per_database', 'per_table', or 'none' to disable.
+pg_track_settings.track_locks_mode = '{{ track_locks_mode | default("per_database") }}'
+
+# Scope of function usage tracking: 'per_function', 'per_schema', or 'none' to disable.
+pg_track_settings.track_function_usage_mode = '{{ track_function_usage_mode | default("per_function") }}'
+
+# Scope of planning usage tracking: 'per_query', 'per_plan', or 'none' to disable.
+pg_track_settings.track_planning_usage_mode = '{{ track_planning_usage_mode | default("per_query") }}'
+
+# Scope of utilization tracking: 'per_query', 'per_backend', or 'none' to disable.
+pg_track_settings.track_utilization_mode = '{{ track_utilization_mode | default("per_query") }}'
+
+# Scope of WAL tracking: 'per_database' or 'none' to disable.
+pg_track_settings.track_wal_mode = '{{ track_wal_mode | default("per_database") }}'
+
+# Scope of I/O timing tracking: 'per_query' or 'none' to disable.
+pg_track_settings.track_io_timing_mode = '{{ track_io_timing_mode | default("per_query") }}'
+
+# --------------------------------------------------------------------------
+# DDL Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where DDL tracking tables are created.
+pg_track_settings.track_ddl_schema = '{{ track_ddl_schema | default("pg_track") }}'
+
+# Table name for DDL tracking events.
+pg_track_settings.track_ddl_table = '{{ track_ddl_table | default("ddl") }}'
+
+# --------------------------------------------------------------------------
+# Function Usage Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where function usage tracking tables are created.
+pg_track_settings.track_function_usage_schema = '{{ track_function_usage_schema | default("pg_track") }}'
+
+# Table name for function usage tracking events.
+pg_track_settings.track_function_usage_table = '{{ track_function_usage_table | default("function_usage") }}'
+
+# --------------------------------------------------------------------------
+# Planning Usage Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where planning usage tracking tables are created.
+pg_track_settings.track_planning_usage_schema = '{{ track_planning_usage_schema | default("pg_track") }}'
+
+# Table name for planning usage tracking events.
+pg_track_settings.track_planning_usage_table = '{{ track_planning_usage_table | default("planning_usage") }}'
+
+# --------------------------------------------------------------------------
+# Utilization Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where utilization tracking tables are created.
+pg_track_settings.track_utilization_schema = '{{ track_utilization_schema | default("pg_track") }}'
+
+# Table name for utilization tracking events.
+pg_track_settings.track_utilization_table = '{{ track_utilization_table | default("utilization") }}'
+
+# --------------------------------------------------------------------------
+# Locks Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where locks tracking tables are created.
+pg_track_settings.track_locks_schema = '{{ track_locks_schema | default("pg_track") }}'
+
+# Table name for locks tracking events.
+pg_track_settings.track_locks_table = '{{ track_locks_table | default("locks") }}'
+
+# --------------------------------------------------------------------------
+# WAL Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where WAL tracking tables are created.
+pg_track_settings.track_wal_schema = '{{ track_wal_schema | default("pg_track") }}'
+
+# Table name for WAL tracking events.
+pg_track_settings.track_wal_table = '{{ track_wal_table | default("wal") }}'
+
+# --------------------------------------------------------------------------
+# I/O Timing Tracking Schema and Table
+# --------------------------------------------------------------------------
+
+# Schema name where I/O timing tracking tables are created.
+pg_track_settings.track_io_timing_schema = '{{ track_io_timing_schema | default("pg_track") }}'
+
+# Table name for I/O timing tracking events.
+pg_track_settings.track_io_timing_table = '{{ track_io_timing_table | default("io_timing") }}'
+
+# --------------------------------------------------------------------------
+# Retention Periods (Days)
+# --------------------------------------------------------------------------
+
+# Number of days to retain DDL tracking records before cleanup.
+pg_track_settings.track_ddl_retention_days = {{ track_ddl_retention_days | default(90) }}
+
+# Number of days to retain function usage tracking records before cleanup.
+pg_track_settings.track_function_usage_retention_days = {{ track_function_usage_retention_days | default(30) }}
+
+# Number of days to retain planning usage tracking records before cleanup.
+pg_track_settings.track_planning_usage_retention_days = {{ track_planning_usage_retention_days | default(14) }}
+
+# Number of days to retain utilization tracking records before cleanup.
+pg_track_settings.track_utilization_retention_days = {{ track_utilization_retention_days | default(14) }}
+
+# Number of days to retain locks tracking records before cleanup.
+pg_track_settings.track_locks_retention_days = {{ track_locks_retention_days | default(7) }}
+
+# Number of days to retain WAL tracking records before cleanup.
+pg_track_settings.track_wal_retention_days = {{ track_wal_retention_days | default(7) }}
+
+# Number of days to retain I/O timing tracking records before cleanup.
+pg_track_settings.track_io_timing_retention_days = {{ track_io_timing_retention_days | default(3) }}
+
+# --------------------------------------------------------------------------
+# Exclusion Lists
+# --------------------------------------------------------------------------
+
+# List of tables (schema.table) to exclude from tracking. Useful to skip
+# high-churn or internal tables.
+{% for entry in excluded_tables | default([]) %}pg_track_settings.excluded_tables = '{{ entry.schema_name }}.{{ entry.table_name }}'
+{% endfor %}
+
+# List of functions (schema.function) to exclude from function usage tracking.
+{% for entry in excluded_functions | default([]) %}pg_track_settings.excluded_functions = '{{ entry.schema_name }}.{{ entry.function_name }}'
+{% endfor %}

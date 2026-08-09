@@ -1,0 +1,145 @@
+{
+  "viewport_width": {
+    "type": "number",
+    "default": 1280,
+    "description": "Display width in pixels (e.g. 1920, 1280, 1024)"
+  },
+  "viewport_height": {
+    "type": "number",
+    "default": 720,
+    "description": "Display height in pixels (e.g. 1080, 720, 768)"
+  },
+  "fullscreen": {
+    "type": "bool",
+    "default": false,
+    "description": "Start in fullscreen mode; suppresses the window title bar"
+  },
+  "background_color": {
+    "type": "string",
+    "default": "000000",
+    "description": "Background fill colour as a 6-digit RGB hex string without a leading # (e.g. 000000 for black, 1a1a2e for dark navy)"
+  },
+  "font_size": {
+    "type": "number",
+    "default": 14,
+    "description": "Point size of the font used to render URL and host labels on screen"
+  },
+  "padding": {
+    "type": "number",
+    "default": 5,
+    "description": "Pixel spacing between adjacent request balls sharing the same time slot"
+  },
+  "gutter_width": {
+    "type": "number",
+    "default": 50,
+    "description": "Width in pixels of the left-hand column used to display host and group labels"
+  },
+  "paddle_mode": {
+    "type": "string",
+    "default": "single",
+    "description": "How paddles are partitioned: 'single' (one for all traffic), 'pid' (one per server worker process), 'vhost' (one per virtual host)",
+    "enum": [
+      "single",
+      "pid",
+      "vhost"
+    ]
+  },
+  "paddle_position": {
+    "type": "number",
+    "default": 0.5,
+    "description": "Vertical centre of the paddle area as a fraction of screen height (0.0 = top, 1.0 = bottom)"
+  },
+  "hide_paddle": {
+    "type": "bool",
+    "default": false,
+    "description": "Hide the paddle bar \u2014 useful for purely decorative / kiosk installations"
+  },
+  "hide_url_prefix": {
+    "type": "bool",
+    "default": false,
+    "description": "Omit the protocol and hostname from URL labels, showing only the path"
+  },
+  "hide_response_code": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not render the HTTP response-code badge (200, 404, 500 \u2026) on each ball"
+  },
+  "hide_progress": {
+    "type": "bool",
+    "default": false,
+    "description": "Hide the playback-progress bar shown at the bottom of the screen"
+  },
+  "speed": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Log replay speed multiplier: 1.0 = real-time, values above 1.0 speed up playback"
+  },
+  "sync": {
+    "type": "bool",
+    "default": false,
+    "description": "Synchronise replay to wall-clock time \u2014 overrides speed; recommended when tailing a live log"
+  },
+  "disable_auto_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable automatic jumping over long idle gaps in the log; preserves natural timing"
+  },
+  "start_position": {
+    "type": "number",
+    "default": null,
+    "description": "Number of seconds into the log at which to begin playback; omit to start from the first entry"
+  },
+  "stop_position": {
+    "type": "number",
+    "default": null,
+    "description": "Fraction of total log length (0.0\u20131.0) at which to stop playback; omit to play to the end"
+  },
+  "log_format": {
+    "type": "string",
+    "default": "combined",
+    "description": "Access-log format logstalgia should parse: combined, common, vhost_combined, squid, or w3c",
+    "enum": [
+      "combined",
+      "common"
+    ]
+  },
+  "max_connects": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of in-flight request balls displayed simultaneously; raise for busy sites"
+  },
+  "label_truncation": {
+    "type": "number",
+    "default": 0,
+    "description": "Truncate URL and host labels to this many characters; 0 disables truncation"
+  },
+  "output_ppm_stream": {
+    "type": "bool",
+    "default": false,
+    "description": "Write raw PPM video frames to stdout so the stream can be piped into ffmpeg for recording"
+  },
+  "output_framerate": {
+    "type": "number",
+    "default": 25,
+    "description": "Frame rate in fps for the PPM output stream (only active when output_ppm_stream is true)"
+  },
+  "groups": {
+    "type": "list",
+    "default": [],
+    "description": "Request-grouping rules: each entry colours and labels balls whose URL matches the given regex",
+    "items": {
+      "regex": {
+        "type": "string",
+        "description": "POSIX extended regular expression matched against the full request URL path"
+      },
+      "label": {
+        "type": "string",
+        "description": "Short display name shown on screen for this group (e.g. 'Static Assets', 'API')"
+      },
+      "color": {
+        "type": "string",
+        "description": "Ball colour for this group as a 6-digit RGB hex value without a leading # (e.g. ff6600 for orange)"
+      }
+    }
+  }
+}

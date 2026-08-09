@@ -1,0 +1,23 @@
+{# ============================================================================ #}
+{# Kerberos Administration ACL Configuration Template                           #}
+{# This file controls which Kerberos principals have administrative access.     #}
+{# Each line defines: principal permissions [optional database entries]         #}
+{# ============================================================================ #}
+
+{# Iterate over the list of administrator permission entries defined in the     #}
+{# schema field `acl_entries`. Each entry grants specific administrative rights #}
+{# to a principal. If `acl_entries` is undefined or empty, no rules are generated. #}
+{% for entry in (acl_entries | default([])) %}
+{# principal: The Kerberos principal to grant permissions to.                  #}
+{{ entry.principal | default('') }}
+
+{# permissions: The specific administrative rights granted to the principal.   #}
+{# Common values: * (all), db (manage databases), keytab (manage keytabs),      #}
+{# policy (manage password policies), etc.                                     #}
+{{ entry.permissions | default('') }}
+
+{# entries: Optional specific database entries this principal can manage.      #}
+{# If provided, joins them into a comma-separated list.                        #}
+{% if entry.entries is defined and entry.entries %}
+{{ entry.entries | join(', ') }}{% endif %}
+{% endfor %}

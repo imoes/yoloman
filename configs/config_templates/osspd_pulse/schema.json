@@ -1,0 +1,89 @@
+{
+  "backend": {
+    "type": "string",
+    "default": "pulse",
+    "description": "Backend module to load; for PulseAudio this must be 'pulse'."
+  },
+  "oss_socket": {
+    "type": "string",
+    "default": "/dev/dsp",
+    "description": "Unix socket path or OSS device path to expose for OSS clients."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0 (none) to 5 (debug)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of concurrent audio client sessions (e.g., applications opening /dev/dsp)."
+  },
+  "sample_rate": {
+    "type": "number",
+    "default": 48000,
+    "description": "Target sample rate (Hz) for digital audio conversion (e.g., 44100, 48000, 96000)."
+  },
+  "channels": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of audio channels: 1 for mono, 2 for stereo."
+  },
+  "buffer_size_ms": {
+    "type": "number",
+    "default": 50,
+    "description": "Audio buffer latency in milliseconds; lower = more responsive, higher = more stable."
+  },
+  "auto_detect": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically detect and use the system\u2019s default PulseAudio sink/source. If false, use the 'Device' value."
+  },
+  "device": {
+    "type": "string",
+    "default": "default",
+    "description": "PulseAudio sink (for output) or source (for input) name to use when AutoDetect=false."
+  },
+  "resample": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enable software resampling when hardware cannot match the requested sample rate."
+  },
+  "acls": {
+    "type": "list",
+    "default": [
+      {
+        "desc": "Allow all local users",
+        "pattern": "allow *"
+      }
+    ],
+    "items": {
+      "desc": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of this ACL."
+      },
+      "pattern": {
+        "type": "string",
+        "default": "",
+        "description": "Access control pattern (e.g., 'allow *', 'deny 192.168.0.0/24', 'allow user:alice')."
+      }
+    },
+    "description": "List of client access control rules; evaluated in order. Each rule is a pattern (e.g., 'allow *', 'deny *')."
+  },
+  "pa_properties": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "prop": {
+        "type": "string",
+        "description": "PulseAudio property name (e.g., 'device.description', 'stream.description')."
+      },
+      "value": {
+        "type": "string",
+        "description": "Property value (e.g., 'OSS Proxy Stream')."
+      }
+    },
+    "description": "List of key=value PulseAudio properties to apply (as 'property = value' lines)."
+  }
+}

@@ -1,0 +1,185 @@
+# IRCD Services Daemon (atheme_services) configuration
+# Main configuration file: /etc/atheme/atheme.conf
+# See https://atheme.github.io/atheme/config.html for full reference
+
+# Global settings block
+options {
+  # Name of the services root user (must exist as a user, e.g., in userdb or SQL)
+  name: {{ services_name | default("Services`) }};
+  # Description shown in user queries (e.g., /whois)
+  description: "{{ services_description | default("IRC Services") }}";
+  # Umask for file creation (octal, 022 is default)
+  umask: 0{{ services_umask | default("22") }};
+  # Maximum number of simultaneous connections to Atheme
+  maxconn: {{ max_connections | default(256) }};
+  # Maximum number of simultaneous connections from a single IP
+  maxconnperip: {{ max_connections_per_ip | default(4) }};
+  # Enable/Disable strict DNS lookups (default: no)
+  strictdns: {% if strict_dns %}yes{% else %}no{% endif %};
+  # Enable/Disable DNSBL checks (default: no)
+  dnsblcheck: {% if dnsbl_check %}yes{% else %}no{% endif %};
+  # Enable/Disable server side user throttling (default: no)
+  user_throttle: {% if user_throttle %}yes{% else %}no{% endif %};
+};
+
+# Core module loading (required modules)
+modules {
+  path: "{{ modules_path | default("/usr/lib/atheme") }}";
+  {% for mod in required_modules %}# Load {{ mod.name }} — {{ mod.description }}
+  module { name: "{{ mod.name }}"; }{% if not loop.last %}
+{% endif %}{% endfor %}
+};
+
+# Database backend configuration
+{% if db_engine == "sqlite" %}
+# Use SQLite for persistent storage
+database {
+  engine: "sqlite3";
+  file: "{{ db_sqlite_path | default("/var/lib/atheme/atheme.db") }}";
+};
+{% elif db_engine == "mysql" %}
+# Use MySQL/MariaDB for persistent storage
+{% if db_mysql_use_tls | default(false) %}# MySQL TLS is enabled
+{% endif %}database {
+  engine: "mysql";
+  hostname: "{{ db_mysql_host | default("localhost") }}";
+  port: {{ db_mysql_port | default(3306) }};
+  name: "{{ db_mysql_dbname | default("atheme") }}";
+  username: "{{ db_mysql_user | default("atheme") }}";
+  password: "{{ db_mysql_password | default("") }}";
+  {% if db_mysql_use_tls %}ssl: yes;{% else %}ssl: no;{% endif %}
+};
+{% elif db_engine == "postgres" %}
+# Use PostgreSQL for persistent storage
+database {
+  engine: "postgres";
+  hostname: "{{ db_pg_host | default("localhost") }}";
+  port: {{ db_pg_port | default(5432) }};
+  name: "{{ db_pg_dbname | default("atheme") }}";
+  username: "{{ db_pg_user | default("atheme") }}";
+  password: "{{ db_pg_password | default("") }}";
+  {% if db_pg_use_ssl | default(false) %}sslmode: require;{% else %}sslmode: disable;{% endif %}
+};
+{% endif %}
+
+# Network configuration — one or more IRC networks
+{% for network in networks %}
+# {{ network.name }} — {{ network.description | default("Primary IRC network") }}
+network {
+  name: "{{ network.name }}";
+  description: "{{ network.description | default(network.name) }}";
+  netname: "{{ network.netname | default(network.name | upper | replace(" ", "_")) }}";
+  nicksize: {{ network.nicksize | default(30) }};
+  chansize: {{ network.chansize | default(30) }};
+  
+  # Link to upstream IRCd
+  server {
+    name: "{{ network.upstream.name }}";
+    host: "{{ network.upstream.host | default("localhost") }}";
+    port: {{ network.upstream.port | default(6667) }};
+    ssl: {% if network.upstream.ssl %}yes{% else %}no{% endif %};
+    ssl_verify: {% if network.upstream.ssl_verify %}yes{% else %}no{% endif %};
+    password: "{{ network.upstream.password | default("") }}";
+    
+    # Atheme server ID (unique per network; must match link block in IRCd)
+    sid: "{{ network.sid | default("A01") }}";
+    
+    # Optional: IP to bind to on outgoing connections
+    {% if network.upstream.bind_ip %}bind_ip: "{{ network.upstream.bind_ip }}";{% endif %}
+  };
+  
+  # Atheme-specific usermask patterns (to auto-identify ops on join)
+  usermask {
+    pattern: "{{ network.usermask_pattern | default("*!*@%h") }}";
+  };
+  
+  # Default channel access control (e.g., ChanServ flags)
+  channel_default_flags: {{ network.channel_default_flags | default("+nst") }};
+  
+  # Enable/Disable various optional features
+  {# We keep the structural block even if no flags set to avoid conditionals cluttering #}
+  flags {
+    {%- if network.flags.noguest | default(false) %}noguest: yes;{% endif %}
+    {%- if network.flags.sslonly | default(false) %}sslonly: yes;{% endif %}
+    {%- if network.flags.operspy | default(true) %}operspy: yes;{% else %}operspy: no;{% endif %}
+    {%- if network.flags.enforce | default(true) %}enforce: yes;{% else %}enforce: no;{% endif %}
+  };
+};
+{% endfor %}
+
+# Operators — Atheme admin and network staff
+{% for oper in operators %}
+# {{ oper.name }} — {{ oper.description | default("Atheme operator") }}
+oper {
+  name: "{{ oper.name }}";
+  password: "{{ oper.password_hash | default("") }}";
+  type: {{ oper.type | default("global") }};
+  {% if oper.admin %}admin: yes;{% else %}admin: no;{% endif %}
+  swhois: "{{ oper.swhois | default(oper.name + " - " + (oper.admin | ternary('Global Admin', 'Net Admin')) }}";
+  permissions:
+  {
+    {% if oper.admin %}global; admin; oper;{%- endif %}
+    {% if oper.can_rehash %}rehash;{% endif %}
+    {% if oper.can_sethost %}sethost;{% endif %}
+    {% if oper.can_setident %}setident;{% endif %}
+    {% if oper.can_setvhost %}setvhost;{% endif %}
+    {% if oper.can_admin_chans %}adminchans;{% endif %}
+    {% if oper.can_set_global_message %}globalmsg;{% endif %}
+    {% if oper.can_view_logs %}viewlogs;{% endif %}
+  };
+};
+{% endfor %}
+
+# Authentication backends (e.g., SASL, SQL auth)
+{% if auth_backend == "sql" %}
+# SQL-based user authentication
+auth {
+  driver: "sql";
+};
+{% elif auth_backend == "none" %}
+# No external auth; passwords stored in atheme DB
+auth {
+  driver: "none";
+};
+{% endif %}
+
+# Logging configuration
+{% if log_dir %}
+# Log all events to files in {{ log_dir }}
+log {
+  filename: "{{ log_dir }}{% if log_dir.endswith('/') %}{{ log_prefix | default('') }}{% else %}/{{ log_prefix | default('') }}{% endif %}{% if log_extension %}.{{ log_extension }}{% endif %}";
+  {% if log_level %}level: "{{ log_level }}";{% endif %}
+  maxsize: {{ log_maxsize | default(10 * 1024 * 1024) }};
+  rotate: {% if log_rotate %}yes{% else %}no{% endif %};
+  {% if log_rotate_count %}rotate_count: {{ log_rotate_count }};{% endif %}
+  {% if log_rotate_interval %}rotate_interval: {{ log_rotate_interval | default(86400) }};{% endif %}
+};
+{% else %}
+# Disable file logging (e.g., syslog only or none)
+log {
+  filename: "none";
+};
+{% endif %}
+
+# Optional: DNS configuration for hostname lookups (e.g., for hostmask validation)
+{% if dns_servers %}
+dns {
+  server: {% for srv in dns_servers %}"{{ srv }}"{% if not loop.last %}, {% endif %}{% endfor %};
+  timeout: {{ dns_timeout | default(5) }};
+  retries: {{ dns_retries | default(3) }};
+};
+{% endif %}
+
+# Optional: Web UI configuration (e.g., atheme-httpd)
+{% if enable_http %}
+# Enable built-in HTTP interface (optional; not enabled by default)
+http {
+  enabled: yes;
+  address: "{{ http_address | default("127.0.0.1") }}";
+  port: {{ http_port | default(8080) }};
+  ssl: {% if http_ssl %}yes{% else %}no{% endif %};
+  ssl_cert: "{{ http_ssl_cert_path | default("") }}";
+  ssl_key: "{{ http_ssl_key_path | default("") }}";
+  auth_required: {% if http_auth_required %}yes{% else %}no{% endif %};
+};
+{% endif %}

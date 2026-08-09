@@ -1,0 +1,58 @@
+[DEFAULT]
+# Name of this service (used for logging and metrics)
+name = gnocchi
+
+# Bind host and port for the REST API
+bind_host = {{ values.bind_host }}
+bind_port = {{ values.bind_port }}
+
+# Log file path (optional; leave empty to log to stdout)
+log_file = {{ values.log_file | default('') }}
+
+# Verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ values.log_level }}
+
+[keystone_authtoken]
+# Authentication backend configuration for Keystone
+auth_type = password
+auth_url = {{ values.keystone.auth_url }}
+project_domain_name = {{ values.keystone.project_domain_name }}
+project_name = {{ values.keystone.project_name }}
+user_domain_name = {{ values.keystone.user_domain_name }}
+username = {{ values.keystone.username }}
+password = {{ values.keystone.password }}
+
+[storage]
+# Storage driver (e.g., 'file', 'ceph', 's3', 'swift')
+driver = {{ values.storage.driver }}
+
+# Path for file-based storage (only if driver='file')
+file_basepath = {{ values.storage.file_basepath }}
+
+# Number of workers for the indexer and metricd services
+indexer_url = {{ values.storage.indexer_url }}
+metricd_workers = {{ values.storage.metricd_workers }}
+
+# Coordinated worker pool settings for high availability
+coordination_url = {{ values.storage.coordination_url }}
+
+[indexer]
+# Indexer backend (e.g., 'sqlalchemy', 'elasticsearch')
+url = {{ values.indexer.url }}
+
+[metricd]
+# Metrics processing: how many metrics to process per batch
+batch_size = {{ values.metricd.batch_size }}
+
+# Number of metricd workers
+workers = {{ values.storage.metricd_workers }}
+
+[oslo_policy]
+# Path to policy file
+policy_file = /etc/gnocchi/policy.json
+
+[statsd]
+# Enable statsd metric ingestion
+resource_id = {{ values.statsd.resource_id }}
+user_id = {{ values.statsd.user_id }}
+project_id = {{ values.statsd.project_id }}

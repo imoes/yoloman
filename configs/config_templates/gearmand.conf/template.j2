@@ -1,0 +1,61 @@
+# Gearman job server configuration file
+# This template is self-documenting: every directive is preceded by its schema description.
+# All variable references include explicit defaults to prevent undefined-variable errors during Ansible rendering.
+
+# IP address the Gearman server will listen on (e.g., '127.0.0.1' or '::' for IPv6).
+bind={{ (bind_address | default('0.0.0.0')) }}:{{ (bind_port | default(4730)) }}
+
+{% if (log_file | default('')) %}
+# Path to log file (if empty, logs go to stdout/stderr).
+log-file={{ (log_file | default('')) }}
+{% endif %}
+
+{% if (log_level | default('INFO')) and ((log_level | default('INFO')) != 'INFO') %}
+# Verbosity of server logging.
+log-level={{ (log_level | default('INFO')) }}
+{% endif %}
+
+{% if (worker_timeout | default(0)) != 0 %}
+# Time in seconds before a worker is killed if idle (0 = no timeout).
+worker-timeout={{ (worker_timeout | default(0)) }}
+{% endif %}
+
+{% if (max_threads | default(2)) != 2 %}
+# Maximum number of concurrent worker threads (per executable).
+max-threads={{ (max_threads | default(2)) }}
+{% endif %}
+
+{% if (queue_type | default('memory')) and ((queue_type | default('memory')) != 'memory') %}
+# Queue backend type. Use 'memory' for in-memory queues, or 'sqlite' for persistent queues.
+queue-type={{ (queue_type | default('memory')) }}
+{% endif %}
+
+{% if (queue_size | default(0)) != 0 %}
+# Maximum number of jobs to hold in the queue (0 = unlimited). Applies only to queue types that support it (e.g., sqlite).
+queue-size={{ (queue_size | default(0)) }}
+{% endif %}
+
+{% if (sqlite_db | default('/var/lib/gearmand/gearmand.db')) %}
+# Path to SQLite database file (required if queue-type=sqlite).
+sqlite-db={{ (sqlite_db | default('/var/lib/gearmand/gearmand.db')) }}
+{% endif %}
+
+{% if (sqlite_queue_table | default('queue')) and ((sqlite_queue_table | default('queue')) != 'queue') %}
+# Name of the SQLite table used for the queue.
+sqlite-queue-table={{ (sqlite_queue_table | default('queue')) }}
+{% endif %}
+
+{% if (pid_file | default('/run/gearmand.pid')) %}
+# Path to PID file for daemon process tracking.
+pid-file={{ (pid_file | default('/run/gearmand.pid')) }}
+{% endif %}
+
+{% if (foreground | default(False)) is boolean and (foreground | default(False)) %}
+# If true, run in foreground (do not daemonize). Useful for debugging or containerized deployment.
+foreground
+{% endif %}
+
+{% for worker in (workers | default([])) %}
+# List of worker processes to start automatically. Each worker can be scoped to specific function names.
+worker={{ (worker.executable | default('')) }}{% if (worker.function | default('')) %} {{ (worker.function | default('')) }}{% endif %}
+{% endfor %}

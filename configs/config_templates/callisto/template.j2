@@ -1,0 +1,96 @@
+# e-Callisto Monitoring Daemon configuration
+# Global settings
+[general]
+# Path to store runtime data (logs, PID files, etc.)
+base_dir = {{ base_dir }}
+
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = {{ log_level }}
+
+# Number of worker threads for data processing
+worker_threads = {{ worker_threads }}
+
+# Maximum number of concurrent HTTP requests to external services
+max_concurrent_requests = {{ max_concurrent_requests }}
+
+# Enable/disable telemetry to e-Callisto central server
+enable_telemetry = {{ enable_telemetry | lower }}
+
+# Hostname of the central e-Callisto server
+central_host = {{ central_host }}
+
+# Port of the central e-Callisto server
+central_port = {{ central_port }}
+
+# Path to store received calibration data
+calibration_cache_dir = {{ calibration_cache_dir }}
+
+# Enable/disable local calibration data caching
+enable_calibration_cache = {{ enable_calibration_cache | lower }}
+
+# Maximum size (in MB) of calibration cache before rotation
+max_calibration_cache_size = {{ max_calibration_cache_size }}
+
+# Path to hardware-specific configuration (e.g., station ID, receiver type)
+hw_config_path = {{ hw_config_path }}
+
+# Path to store collected observations
+data_store_dir = {{ data_store_dir }}
+
+# Retention period (in days) for raw observation data
+retention_days = {{ retention_days }}
+
+# Enable/disable data compression for archived observations
+compress_archived_data = {{ compress_archived_data | lower }}
+
+# Network interface to bind the local HTTP API server (empty = all interfaces)
+api_bind_interface = {{ api_bind_interface }}
+
+# Port for the local HTTP API server
+api_port = {{ api_port }}
+
+# Enable/disable authentication for the local API
+api_require_auth = {{ api_require_auth | lower }}
+
+# List of trusted internal IPs (no auth required)
+trusted_internal_ips = {{ trusted_internal_ips | join(', ') }}
+
+# List of additional observers (stations) to cross-reference
+cross_reference_stations =
+{% for station in cross_reference_stations %}
+  # Observer {{ loop.index }}: {{ station.name }} ({{ station.id }})
+  {{ station.id }} = {{ station.url }}
+{% endfor %}
+
+# TLS settings for secure communication
+tls_enabled = {{ tls_enabled | lower }}
+tls_cert_path = {{ tls_cert_path }}
+tls_key_path = {{ tls_key_path }}
+tls_ca_cert_path = {{ tls_ca_cert_path }}
+
+# Health check endpoint path (used by orchestration tools)
+health_endpoint = {{ health_endpoint }}
+
+# Timeout (seconds) for hardware communication
+hw_timeout = {{ hw_timeout }}
+
+# Retry limit for hardware communication failures
+hw_retry_limit = {{ hw_retry_limit }}
+
+# Delay (seconds) between retries
+hw_retry_delay = {{ hw_retry_delay }}
+
+# Sampling rate (samples/sec) for raw digitizer output (0 = use hardware default)
+sampling_rate = {{ sampling_rate }}
+
+# Buffer size (MiB) per observation buffer
+buffer_size = {{ buffer_size }}
+
+# Enable/disable real-time spectrum averaging
+enable_spectrum_averaging = {{ enable_spectrum_averaging | lower }}
+
+# Number of spectra to average
+spectrum_averaging_count = {{ spectrum_averaging_count }}
+
+# Minimum interval (seconds) between uploads to central server
+min_upload_interval = {{ min_upload_interval }}

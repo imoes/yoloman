@@ -1,0 +1,38 @@
+# Global options
+setuid = {{ global.setuid }}
+setgid = {{ global.setgid }}
+pid = {{ global.pid }}
+
+# Logging configuration
+foreground = {{ global.foreground | string | lower }}
+debug = {{ global.debug }}
+
+# Certificate and key paths (required for SSL/TLS)
+cert = {{ global.cert }}
+key = {{ global.key }}
+
+# SSL protocol and cipher settings
+options = {{ global.options | join(', ') }}
+
+# Session caching
+cache = {{ global.cache }}
+cacheSize = {{ global.cacheSize }}
+
+timeoutConnect = {{ global.timeoutConnect }}
+timeoutIdle = {{ global.timeoutIdle }}
+timeoutBusy = {{ global.timeoutBusy }}
+
+# Service definitions
+{% for service in services %}
+; {{ service.name }}: {{ service.description }}
+[{% if service.enabled | default(true) %}{{ service.name }}{% else %}# disabled: {{ service.name }}{% endif %}]
+accept = {{ service.accept }}
+connect = {{ service.connect }}
+{% if service.client is defined and service.client %}client = yes{% endif %}
+{% if service.sni is defined and service.sni %}sni = {{ service.sni }}{% endif %}
+{% if service.verify is defined %}verify = {{ service.verify }}{% endif %}
+{% if service.cafile is defined %}cafile = {{ service.cafile }}{% endif %}
+{% if service.cadir is defined %}cafile = {{ service.cadir }}{% endif %}
+{% if service.ciphers is defined %}ciphers = {{ service.ciphers }}{% endif %}
+{% if service.protocol is defined %}protocol = {{ service.protocol }}{% endif %}
+{% endfor %}

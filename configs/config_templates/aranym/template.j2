@@ -1,0 +1,59 @@
+{# ============================================================================= #}
+{# ARAnyM Configuration File                                                      #}
+{# This template generates the configuration file for ARAnyM, a Macintosh emulator. #}
+{# It is self-documenting: every setting is preceded by a comment derived from the #}
+{# schema description. Variables use explicit defaults to prevent rendering errors. #}
+{# ============================================================================= #}
+
+{# Floppy image file path. If empty or omitted, no floppy is mounted. #}
+{% if (floppy | default('')) != '' %}
+floppy = "{{ floppy | default('') }}"
+{% endif %}
+
+{# Do not grab mouse at startup. When true, the emulator will not capture the host mouse. #}
+nomouse = {{ nomouse | default(False) | ternary('true', 'false') }}
+
+{# Start in fullscreen mode. When true, ARAnyM starts in full-screen display. #}
+fullscreen = {{ fullscreen | default(False) | ternary('true', 'false') }}
+
+{# VIDEL refresh rate in VBL (Vertical Blanking). Controls the emulator's refresh frequency. #}
+refresh = {{ refresh | default(2) }}
+
+{# Boot color depth. Valid values are 1, 2, 4, 8, or 16. Determines the number of bits per pixel. #}
+resolution = {{ resolution | default(8) }}
+
+{# Attached monitor type. 0 = VGA, 1 = TV. Selects the display emulation mode. #}
+monitor = {{ monitor | default(0) }}
+
+{# Metados filesystem assignments. Each entry maps a drive letter to a host path (e.g., "d:/atari/d_drive"). #}
+{% for fs_entry in filesystems | default([]) %}
+fs_entry = "{{ fs_entry }}"
+{% endfor %}
+
+{# FastRAM size in MB. Allocates additional RAM for the emulated Macintosh. #}
+fastram = {{ fastram | default(0) }}
+
+{# Prefer EmuTOS for booting. When true, the emulator uses the free EmuTOS ROM instead of stock TOS. #}
+emutos = {{ emutos | default(False) | ternary('true', 'false') }}
+
+{# Boot Linux kernel directly. When true, ARAnyM boots a Linux kernel instead of TOS. #}
+lilo = {{ lilo | default(False) | ternary('true', 'false') }}
+
+{# Swap IDE drives for this session. Useful for testing drive order or specific boot configurations. #}
+swapide = {{ swapide | default(False) | ternary('true', 'false') }}
+
+{# Open up SETUP GUI at ARAnyM startup. When true, the configuration window appears on launch. #}
+gui = {{ gui | default(False) | ternary('true', 'false') }}
+
+{# Position ARAnyM window on screen. Format: "x,y" (e.g., "100,50"). Ignored in fullscreen mode. #}
+{% if (position | default('')) != '' %}
+position = "{{ position | default('') }}"
+{% endif %}
+
+{# Pre-set keyboard layout and system language. Use ISO country codes (e.g., "us", "fr"). #}
+{% if (keyboard | default('')) != '' %}
+keyboard = "{{ keyboard | default('') }}"
+{% endif %}
+
+{# Halt ARAnyM when Linux guest tries to reboot. Prevents the emulator from restarting automatically. #}
+halt = {{ halt | default(False) | ternary('true', 'false') }}

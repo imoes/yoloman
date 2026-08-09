@@ -1,0 +1,189 @@
+{# ============================================================================ #}
+{# Lighttpd Configuration Template                                               #}
+{# This template generates a lighttpd.conf file. It is self-documenting: every   #}
+{# directive is preceded by a comment describing its purpose and schema default. #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# server.modules: List of server modules to load; each enables specific      #}
+{# functionality (e.g., compression, directory listing).                      #}
+{# -------------------------------------------------------------------------- #}
+server.modules = (
+  {%- for module in modules | default(['mod_access', 'mod_alias', 'mod_accesslog', 'mod_compress', 'mod_dirlisting', 'mod_staticfile']) %}
+  "{{ module }}",
+  {%- endfor -%}
+)
+
+{# -------------------------------------------------------------------------- #}
+{# server.document-root: Base directory from which to serve files.            #}
+{# -------------------------------------------------------------------------- #}
+server.document-root = "{{ document_root | default('/var/www/html') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# server.bind: IP address the server binds to; use '127.0.0.1' for          #}
+{# local-only access.                                                         #}
+{# -------------------------------------------------------------------------- #}
+server.bind = "{{ bind_address | default('0.0.0.0') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# server.port: TCP port for HTTP connections.                                #}
+{# -------------------------------------------------------------------------- #}
+server.port = {{ port | default(80) }}
+
+{# -------------------------------------------------------------------------- #}
+{# server.pid-file: Path to the PID file for the main lighttpd process.       #}
+{# -------------------------------------------------------------------------- #}
+server.pid-file = "{{ pid_file | default('/var/run/lighttpd.pid') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# server.errorlog: Path to the error log file.                               #}
+{# -------------------------------------------------------------------------- #}
+server.errorlog = "{{ error_log | default('/var/log/lighttpd/error.log') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# server.accesslog: Path to the access log file.                             #}
+{# -------------------------------------------------------------------------- #}
+server.accesslog = "{{ access_log | default('/var/log/lighttpd/access.log') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# server.max-connections: Maximum number of simultaneous connections the      #}
+{# server will accept.                                                        #}
+{# -------------------------------------------------------------------------- #}
+server.max-connections = {{ max_connections | default(1024) }}
+
+{# -------------------------------------------------------------------------- #}
+{# server.event-handler: Event handler backend; choose based on OS support    #}
+{# (e.g., 'poll', 'select', 'linux-sysepoll').                                #}
+{# -------------------------------------------------------------------------- #}
+server.event-handler = "{{ event_handler | default('poll') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# server.network-backend: Network I/O backend (e.g., 'write', 'writev',      #}
+{# 'sendfile'); 'sendfile' best for static files on Linux.                   #}
+{# -------------------------------------------------------------------------- #}
+server.network-backend = "{{ network_backend | default('writev') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# mimetype.assign: Mapping of file extensions to MIME types.                 #}
+{# -------------------------------------------------------------------------- #}
+mimetype.assign = (
+  {%- for ext, mime in mimetypes | default({'html': 'text/html', 'txt': 'text/plain', 'css': 'text/css', 'js': 'application/javascript', 'json': 'application/json', 'png': 'image/png', 'jpg': 'image/jpeg', 'gif': 'image/gif', 'svg': 'image/svg+xml', 'ico': 'image/x-icon'}) | dictsort %}
+  "{{ ext }}" => "{{ mime }}",
+  {%- endfor -%}
+)
+
+{# -------------------------------------------------------------------------- #}
+{# server.dir-listing: Enable or disable automatic directory listing when no  #}
+{# index file exists.                                                         #}
+{# -------------------------------------------------------------------------- #}
+{%- if dir_listing | default(False) %}
+server.dir-listing = "enable"
+{%- else %}
+server.dir-listing = "disable"
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# compress.cache-dir: Directory to store compressed content caches.          #}
+{# -------------------------------------------------------------------------- #}
+compress.cache-dir = "{{ compress_cache_dir | default('/var/cache/lighttpd/compress') }}"
+
+{# -------------------------------------------------------------------------- #}
+{# compress.filetype: MIME types eligible for on-the-fly compression (gzip).  #}
+{# -------------------------------------------------------------------------- #}
+compress.filetype = (
+  {%- for ct in compress_filetypes | default(['text/plain', 'text/html', 'text/css', 'application/javascript', 'text/xml', 'application/xml']) %}
+  "{{ ct }}",
+  {%- endfor -%}
+)
+
+{# -------------------------------------------------------------------------- #}
+{# Virtual hosts configuration. Each vhost entry defines a domain pattern and #}
+{# its corresponding document root.                                           #}
+{# -------------------------------------------------------------------------- #}
+{%- if vhosts | default([]) %}
+  {%- for vhost in vhosts | default([]) %}
+$HTTP["host"] =~ "^(?i){{ vhost.domain }}$" {
+  server.document-root = "{{ vhost.root }}"
+}
+  {%- endfor %}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# server.log-request-header: Log full incoming request headers               #}
+{# (debugging use only).                                                      #}
+{# -------------------------------------------------------------------------- #}
+server.log-request-header = {{ log_request_header | default(False) | lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# server.log-response-header: Log full outgoing response headers             #}
+{# (debugging use only).                                                      #}
+{# -------------------------------------------------------------------------- #}
+server.log-response-header = {{ log_response_header | default(False) | lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# server.log-timeout-requests: Log requests that time out                    #}
+{# (helpful for diagnosing slow clients).                                     #}
+{# -------------------------------------------------------------------------- #}
+server.log-timeout-requests = {{ log_timeout_requests | default(False) | lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# server.errorlog-use-syslog: Send logs to syslog instead of files.          #}
+{# -------------------------------------------------------------------------- #}
+server.errorlog-use-syslog = {{ errorlog_use_syslog | default(False) | lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# SSL/TLS configuration (optional).                                          #}
+{# If enabled, lighttpd listens on ssl_bind:ssl_port for HTTPS.               #}
+{# -------------------------------------------------------------------------- #}
+{%- if ssl_enabled | default(False) %}
+$SERVER["socket"] == "{{ ssl_bind | default('0.0.0.0') }}:{{ ssl_port | default(443) }}" {
+  ssl.engine = "enable"
+  ssl.pemfile = "{{ ssl_pemfile | default('/etc/lighttpd/ssl/server.pem') }}"
+  {%- if ssl_cipher_list | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384') %}
+  ssl.cipher-list = "{{ ssl_cipher_list | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384') }}"
+  {%- endif %}
+  ssl.use-sslv2 = "disable"
+  ssl.use-sslv3 = "disable"
+}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# PHP-FastCGI support (optional).                                            #}
+{# Enables FastCGI for dynamic content via PHP-FPM or other backends.         #}
+{# -------------------------------------------------------------------------- #}
+{%- if fastcgi_enabled | default(False) %}
+fastcgi.server = ( ".php" => (
+  "localhost" => (
+    "socket" => "{{ fastcgi_socket | default('/run/php/php-fpm.sock') }}",
+    "bin-path" => "{{ fastcgi_bin_path | default('/usr/bin/php-cgi') }}",
+    "max-procs" = {{ fastcgi_max_procs | default(2) }},
+    "broken-scriptfilename" = "enable"
+  )
+))
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# static-file.exclude-extensions: Extensions that should bypass              #}
+{# static-file handling (processed by other handlers like FastCGI).           #}
+{# -------------------------------------------------------------------------- #}
+static-file.exclude-extensions = (
+  {%- for ext in static_exclude_extensions | default(['.php', '.pl', '.fcgi']) %}
+  "{{ ext }}",
+  {%- endfor -%}
+)
+
+{# -------------------------------------------------------------------------- #}
+{# glob.index: List of filenames to look for as directory index               #}
+{# (in order).                                                                #}
+{# -------------------------------------------------------------------------- #}
+glob.index = (
+  {%- for idx in index_files | default(['index.html', 'index.htm', 'index.php']) %}
+  "{{ idx }}",
+  {%- endfor -%}
+)
+
+{# -------------------------------------------------------------------------- #}
+{# server.errorfile-prefix: Prefix path for custom error pages; lighttpd      #}
+{# appends error code (e.g., 404.html).                                       #}
+{# -------------------------------------------------------------------------- #}
+server.errorfile-prefix = "{{ errorfile_prefix | default('/usr/share/lighttpd/servers/') }}"

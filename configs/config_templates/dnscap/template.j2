@@ -1,0 +1,268 @@
+{# dnscap command-line configuration template #}
+{# This template generates the full command line arguments for the dnscap binary. #}
+{# Self-documenting: every directive is preceded by its schema description as a comment. #}
+
+# ==============================================================================
+# --- General / Runtime Options ---
+# ==============================================================================
+
+# Enable verbose debug output (-d). Repeat with multiple -d for increased verbosity.
+{{- " -d" if debug|default(false) else "" }}
+
+# Enable seccomp-bpf sandbox if compiled in (-y).
+{{- " -y" if sandbox|default(false) else "" }}
+
+# Run as background daemon (-b).
+{{- " -b" if daemonize|default(false) else "" }}
+
+# Path to PID file for daemon mode (-o pid_file=...).
+{{- " -o pid_file=" ~ pid_file|default('') if pid_file|default('') else "" }}
+
+# User to drop privileges to (-o user=...).
+{{- " -o user=" ~ user|default('nobody') if user|default('nobody') != 'nobody' else "" }}
+
+# Group to drop privileges to (-o group=...).
+{{- " -o group=" ~ group|default('nobody') if group|default('nobody') != 'nobody' else "" }}
+
+# Do not attempt to drop privileges (implies -N) when only reading offline files.
+{{- " -N" if only_read_files|default(false) else "" }}
+
+# ==============================================================================
+# --- Time Control ---
+# ==============================================================================
+
+# Start capture at specific time (YYYY-MM-DD HH:MM:SS) (-B ...).
+{{- " -B " ~ start_time|default('') if start_time|default('') else "" }}
+
+# Stop capture at specific time (YYYY-MM-DD HH:MM:SS) (-E ...).
+{{- " -E " ~ stop_time|default('') if stop_time|default('') else "" }}
+
+# ==============================================================================
+# --- Input Sources ---
+# ==============================================================================
+
+# List of network interfaces to capture on (-i iface...). Use ['any'] for all interfaces where supported.
+{% for iface in interfaces|default([]) %}
+{{- " -i " ~ iface }}
+{% endfor %}
+
+# Capture only 802.1Q packets for specific VLANs (-l ...).
+{{- " -l " ~ vlan_filter|default('') if vlan_filter|default('') else "" }}
+
+# Capture 802.1Q packets for specified VLANs AND non-tagged packets (-L ...).
+{{- " -L " ~ vlan_inclusive|default('') if vlan_inclusive|default('') else "" }}
+
+# Read from offline pcap file instead of live capture (-r ...). Use '-' for stdin.
+{{- " -r " ~ input_file|default('') if input_file|default('') else "" }}
+
+# ==============================================================================
+# --- libpcap Interface Options ---
+# ==============================================================================
+
+# Do not put interface in promiscuous mode (-p).
+{{- " -p" if no_promisc|default(false) else "" }}
+
+# Enable monitor mode for wireless interfaces (-M).
+{{- " -M" if monitor_mode|default(false) else "" }}
+
+# Enable immediate mode for interfaces (-D).
+{{- " -D" if immediate_mode|default(false) else "" }}
+
+# pcap buffer size in bytes (-o pcap_buffer_size=...).
+{{- " -o pcap_buffer_size=" ~ pcap_buffer_size|default(0) if pcap_buffer_size|default(0) != 0 else "" }}
+
+# Enable pcap-thread layers parsing (-o use_layers=yes). Required for defrag/reassemble.
+{{- " -o use_layers=yes" if use_layers|default(false) else "" }}
+
+# ==============================================================================
+# --- Output Settings ---
+# ==============================================================================
+
+# Print diagnostic DNS output to stderr (-g).
+{{- " -g" if diagnostic_output|default(false) else "" }}
+
+# Output dump format. Supported: pcap, cbor, cds, diagnostic, tcpdns. (-o dump_format=...).
+{{- " -o dump_format=" ~ dump_format|default('pcap') if dump_format|default('pcap') != 'pcap' else "" }}
+
+# Base filename for rotating PCAP files (-w ...). Use '-' for stdout.
+{{- " -w " ~ dump_base|default('') if dump_base|default('') else "" }}
+
+# Suffix to append to dump filenames, e.g., '.pcap' or '.pcap.gz' (-W ...).
+{{- " -W " ~ dump_suffix|default('') if dump_suffix|default('') else "" }}
+
+# Flush output after every packet (-1).
+{{- " -1" if flush_per_packet|default(false) else "" }}
+
+# ==============================================================================
+# --- File Rotation Limits ---
+# ==============================================================================
+
+# Time interval (seconds) for rotating dump files (-t ...).
+{{- " -t " ~ time_interval|default(0) if time_interval|default(0) != 0 else "" }}
+
+# Packet count limit for rotating dump files (-c ...).
+{{- " -c " ~ packet_limit|default(0) if packet_limit|default(0) != 0 else "" }}
+
+# Byte count limit for rotating dump files (-C ...).
+{{- " -C " ~ byte_limit|default(0) if byte_limit|default(0) != 0 else "" }}
+
+# Command to run after each dump file is closed (-k ...).
+{{- " -k " ~ post_rotate_cmd|default('') if post_rotate_cmd|default('') else "" }}
+
+# ==============================================================================
+# --- Network Filtering ---
+# ==============================================================================
+
+# Append additional BPF filter (-U ...).
+{{- " -U " ~ bpf_filter|default('') if bpf_filter|default('') else "" }}
+
+# Apply host filters to ICMP/fragments as well (-o bpf_hosts_apply_all=yes).
+{{- " -o bpf_hosts_apply_all=yes" if bpf_hosts_all|default(false) else "" }}
+
+# Suppress IPv6-specific filter patterns (-6). Deprecated; retained for compatibility.
+{{- " -6" if suppress_ipv6_filter|default(false) else "" }}
+
+# Capture IP fragments (-f). Required for IP reassembly.
+{{- " -f" if capture_fragments|default(false) else "" }}
+
+# Capture TCP packets (-T).
+{{- " -T" if capture_tcp|default(false) else "" }}
+
+# Capture ICMP/ICMPv6 packets (-I).
+{{- " -I" if capture_icmp|default(false) else "" }}
+
+# Enable IPv4 defragmentation (-o defrag_ipv4=yes). Requires use_layers.
+{{- " -o defrag_ipv4=yes" if defrag_ipv4|default(false) else "" }}
+
+# Enable IPv6 defragmentation (-o defrag_ipv6=yes). Requires use_layers.
+{{- " -o defrag_ipv6=yes" if defrag_ipv6|default(false) else "" }}
+
+# Max IPv4 fragmented packets tracked (-o max_ipv4_fragments=...).
+{{- " -o max_ipv4_fragments=" ~ max_ipv4_frags|default(0) if max_ipv4_frags|default(0) != 0 else "" }}
+
+# Max IPv4 fragments per packet (-o max_ipv4_fragments_per_packet=...).
+{{- " -o max_ipv4_fragments_per_packet=" ~ max_ipv4_frags_per_pkt|default(0) if max_ipv4_frags_per_pkt|default(0) != 0 else "" }}
+
+# Max IPv6 fragmented packets tracked (-o max_ipv6_fragments=...).
+{{- " -o max_ipv6_fragments=" ~ max_ipv6_frags|default(0) if max_ipv6_frags|default(0) != 0 else "" }}
+
+# Max IPv6 fragments per packet (-o max_ipv6_fragments_per_packet=...).
+{{- " -o max_ipv6_fragments_per_packet=" ~ max_ipv6_frags_per_pkt|default(0) if max_ipv6_frags_per_pkt|default(0) != 0 else "" }}
+
+# Enable tracking of ongoing TCP sessions (-o parse_ongoing_tcp=yes).
+{{- " -o parse_ongoing_tcp=yes" if parse_ongoing_tcp|default(false) else "" }}
+
+# Allow TCP state reset for recovery (-o allow_reset_tcpstate=yes).
+{{- " -o allow_reset_tcpstate=yes" if allow_reset_tcpstate|default(false) else "" }}
+
+# Enable TCP reassembly (-o reassemble_tcp=yes).
+{{- " -o reassemble_tcp=yes" if reassemble_tcp|default(false) else "" }}
+
+# Fault threshold for TCP reassembly reset (-o reassemble_tcp_faultreset=...).
+{{- " -o reassemble_tcp_faultreset=" ~ tcp_fault_reset|default(0) if tcp_fault_reset|default(0) != 0 else "" }}
+
+# Enable extra BFB DNS parsing layer (-o reassemble_tcp_bfbparsedns=yes).
+{{- " -o reassemble_tcp_bfbparsedns=yes" if reassemble_tcp_bfb|default(false) else "" }}
+
+# UDP port to treat as DNS traffic (-u ...).
+{{- " -u " ~ dns_port|default(53) if dns_port|default(53) != 53 else "" }}
+
+# ==============================================================================
+# --- DNS Message Filtering ---
+# ==============================================================================
+
+# Select DNS message types: q (query), u (update), n (notify). E.g., 'qn' for query and notify (-m ...).
+{{- " -m " ~ msg_types|default('q') if msg_types|default('q') != 'q' else "" }}
+
+# Select response errors: y=error, n=no error, t=trunc, f=format, s=fail, x=NXDOMAIN, i=NXIMP, r=REFUSED (-e ...).
+{{- " -e " ~ response_errors|default('n') if response_errors|default('n') != 'n' else "" }}
+
+# Hide initiator (i) and/or responder (r) IPs in output (-h ...).
+{{- " -h " ~ hide_party|default('') if hide_party|default('') else "" }}
+
+# Select message direction: i=initiation, r=response (-s ...).
+{{- " -s " ~ direction|default('') if direction|default('') else "" }}
+
+# Filter for specific initiators (-a host...).
+{% for host in initiators|default([]) %}
+{{- " -a " ~ host }}
+{% endfor %}
+
+# Filter for specific responders (-z host...).
+{% for host in responders|default([]) %}
+{{- " -z " ~ host }}
+{% endfor %}
+
+# Exclude specific initiators (-A host...).
+{% for host in not_initiators|default([]) %}
+{{- " -A " ~ host }}
+{% endfor %}
+
+# Exclude specific responders (-Z host...).
+{% for host in not_responders|default([]) %}
+{{- " -Z " ~ host }}
+{% endfor %}
+
+# Drop responses for specific responders (-Y host...).
+{% for host in drop_responders|default([]) %}
+{{- " -Y " ~ host }}
+{% endfor %}
+
+# Include messages where QNAME or RR matches pattern (-x pat...).
+{% for pat in qname_patterns|default([]) %}
+{{- " -x " ~ pat }}
+{% endfor %}
+
+# Exclude messages matching pattern (-X pat...).
+{% for pat in exclude_patterns|default([]) %}
+{{- " -X " ~ pat }}
+{% endfor %}
+
+# Include only messages with specified QTYPE (-q ...).
+{{- " -q " ~ qtype_include|default('') if qtype_include|default('') else "" }}
+
+# Exclude messages with specified QTYPE (-Q ...).
+{{- " -Q " ~ qtype_exclude|default('') if qtype_exclude|default('') else "" }}
+
+# ==============================================================================
+# --- Plugins ---
+# ==============================================================================
+
+# List of plugins to load. Each object has 'plugin_path' and optionally 'options'.
+{% for p in plugins|default([]) %}
+{{- " -P " ~ p.plugin_path }}{% if p.options|default('') %} {{ p.options }}{% endif %}
+{% endfor %}
+
+# ==============================================================================
+# --- Extended Output Format Options (CBOR/CDS) ---
+# ==============================================================================
+
+# CBOR chunk size in bytes for 'cbor' format (-o cbor_chunk_size=...).
+{{- " -o cbor_chunk_size=" ~ cbor_chunk_size|default(0) if dump_format|default('pcap') == 'cbor' and cbor_chunk_size|default(0) != 0 else "" }}
+
+# CBOR buffer size for 'cds' format (-o cds_cbor_size=...).
+{{- " -o cds_cbor_size=" ~ cds_cbor_size|default(0) if dump_format|default('pcap') == 'cds' and cds_cbor_size|default(0) != 0 else "" }}
+
+# Per-message buffer size for 'cds' format (-o cds_message_size=...).
+{{- " -o cds_message_size=" ~ cds_msg_size|default(0) if dump_format|default('pcap') == 'cds' and cds_msg_size|default(0) != 0 else "" }}
+
+# Reverse label index size for 'cds' (-o cds_max_rlabels=...).
+{{- " -o cds_max_rlabels=" ~ cds_max_rlabels|default(0) if dump_format|default('pcap') == 'cds' and cds_max_rlabels|default(0) != 0 else "" }}
+
+# Min label size for 'cds' reverse index (-o cds_min_rlabel_size=...).
+{{- " -o cds_min_rlabel_size=" ~ cds_min_rlabel_size|default(0) if dump_format|default('pcap') == 'cds' and cds_min_rlabel_size|default(0) != 0 else "" }}
+
+# Enable resource data index for 'cds' (-o cds_use_rdata_index=yes).
+{{- " -o cds_use_rdata_index=yes" if dump_format|default('pcap') == 'cds' and cds_use_rdata_index|default(false) else "" }}
+
+# Min RDATA size for 'cds' index (-o cds_rdata_index_min_size=...).
+{{- " -o cds_rdata_index_min_size=" ~ cds_rdata_index_min_size|default(0) if dump_format|default('pcap') == 'cds' and cds_rdata_index_min_size|default(0) != 0 else "" }}
+
+# Enable resource data reverse index for 'cds' (-o cds_use_rdata_rindex=yes).
+{{- " -o cds_use_rdata_rindex=yes" if dump_format|default('pcap') == 'cds' and cds_use_rdata_rindex|default(false) else "" }}
+
+# RDATA reverse index size for 'cds' (-o cds_rdata_rindex_size=...).
+{{- " -o cds_rdata_rindex_size=" ~ cds_rdata_rindex_size|default(0) if dump_format|default('pcap') == 'cds' and cds_rdata_rindex_size|default(0) != 0 else "" }}
+
+# Min RDATA size for 'cds' reverse index (-o cds_rdata_rindex_min_size=...).
+{{- " -o cds_rdata_rindex_min_size=" ~ cds_rdata_rindex_min_size|default(0) if dump_format|default('pcap') == 'cds' and cds_rdata_rindex_min_size|default(0) != 0 else "" }}

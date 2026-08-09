@@ -1,0 +1,339 @@
+{# ============================================================================ #}
+{# eza CLI Configuration Template                                               #}
+{#                                                                              #}
+{# This template generates a command-line argument string for the `eza` file     #}
+{# listing utility. It is structured to be safe, self-documenting, and reusable #}
+{# within an Ansible role. All variables default to their schema-defined values  #}
+{# to prevent render errors when optional fields are omitted.                   #}
+{# ============================================================================ #}
+
+{# Initialize the output variable to ensure it is always defined.               #}
+{% set _flags = [] %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Display Options                                                              #}
+{# Controls the layout, formatting, and visual presentation of the file list.   #}
+{# ---------------------------------------------------------------------------- #}
+
+{% if (display_options | default({})).grid is true %}
+  {# --grid: Display entries as a grid (default behavior of eza) #}
+  {% set _flags = _flags + ['--grid'] %}
+{% endif %}
+
+{% if (display_options | default({})).oneline is true %}
+  {# --oneline: Display one entry per line, ignoring grid/trees #}
+  {% set _flags = _flags + ['--oneline'] %}
+{% endif %}
+
+{% if (display_options | default({})).long is true %}
+  {# --long: Display extended file metadata (size, permissions, etc.) as a table #}
+  {% set _flags = _flags + ['--long'] %}
+{% endif %}
+
+{% if (display_options | default({})).recurse is true %}
+  {# --recurse: Recursively list entries in subdirectories #}
+  {% set _flags = _flags + ['--recurse'] %}
+{% endif %}
+
+{% if (display_options | default({})).tree is true %}
+  {# --tree: Recursively list entries as a tree structure #}
+  {% set _flags = _flags + ['--tree'] %}
+{% endif %}
+
+{% if (display_options | default({})).follow_symlinks is true %}
+  {# --follow-symlinks: Drill down into symbolic links that point to directories #}
+  {% set _flags = _flags + ['--follow-symlinks'] %}
+{% endif %}
+
+{% if (display_options | default({})).dereference is true %}
+  {# --dereference: Dereference symbolic links when displaying information #}
+  {% set _flags = _flags + ['--dereference'] %}
+{% endif %}
+
+{% if (display_options | default({})).across is true %}
+  {# --across: Sort the grid across (left-to-right) rather than downwards #}
+  {% set _flags = _flags + ['--across'] %}
+{% endif %}
+
+{% if (display_options | default({})).color is defined %}
+  {# --color=<mode>: When to use terminal colors (always, automatic, never) #}
+  {% set _flags = _flags + ['--color=' ~ (display_options | default({})).color] %}
+{% endif %}
+
+{% if (display_options | default({})).color_scale is true %}
+  {# --color-scale: Highlight levels of field distinctly (size/age) #}
+  {% set _flags = _flags + ['--color-scale'] %}
+{% endif %}
+
+{% if (display_options | default({})).color_scale_mode is defined %}
+  {# --color-scale-mode=<mode>: Use gradient or fixed colors in color-scale #}
+  {% set _flags = _flags + ['--color-scale-mode=' ~ (display_options | default({})).color_scale_mode] %}
+{% endif %}
+
+{% if (display_options | default({})).icons is defined %}
+  {# --icons=<mode>: When to display icons (always, automatic, never) #}
+  {% set _flags = _flags + ['--icons=' ~ (display_options | default({})).icons] %}
+{% endif %}
+
+{% if (display_options | default({})).no_quotes is true %}
+  {# --no-quotes: Don't quote file names with spaces or special characters #}
+  {% set _flags = _flags + ['--no-quotes'] %}
+{% endif %}
+
+{% if (display_options | default({})).hyperlink is true %}
+  {# --hyperlink: Display entries as hyperlinks (requires terminal support) #}
+  {% set _flags = _flags + ['--hyperlink'] %}
+{% endif %}
+
+{% if (display_options | default({})).width is defined %}
+  {# --width=<cols>: Set screen width in columns (0 for auto) #}
+  {% set _flags = _flags + ['--width=' ~ (display_options | default({})).width] %}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Filtering and Sorting Options                                                #}
+{# Controls which files are displayed and how they are ordered.                 #}
+{# ---------------------------------------------------------------------------- #}
+
+{% if (filtering_options | default({})).all is true %}
+  {# --all: Show hidden and dot files #}
+  {% set _flags = _flags + ['--all'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).almost_all is true %}
+  {# --almost-all: Show all files except . and .. (equivalent to --all for most purposes) #}
+  {% set _flags = _flags + ['--almost-all'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).list_dirs is true %}
+  {# --list-dirs: List directories as regular files (instead of drilling into them) #}
+  {% set _flags = _flags + ['--list-dirs'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).level is defined %}
+  {# --level=<N>: Limit the depth of recursion for --recurse or --tree #}
+  {% set _flags = _flags + ['--level=' ~ (filtering_options | default({})).level] %}
+{% endif %}
+
+{% if (filtering_options | default({})).reverse is true %}
+  {# --reverse: Reverse the sort order #}
+  {% set _flags = _flags + ['--reverse'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).sort is defined %}
+  {# --sort=<field>: Field to sort by (name, size, modified, etc.) #}
+  {% set _flags = _flags + ['--sort=' ~ (filtering_options | default({})).sort] %}
+{% endif %}
+
+{% if (filtering_options | default([])) | length > 0 %}
+  {# --ignore-glob=<patterns>: Glob patterns (pipe-separated) of files to ignore #}
+  {% set _flags = _flags + ['--ignore-glob=' ~ (filtering_options | default([])) | join('|')] %}
+{% endif %}
+
+{% if (filtering_options | default({})).git_ignore is true %}
+  {# --git-ignore: Do not list files ignored by Git (uses .gitignore rules) #}
+  {% set _flags = _flags + ['--git-ignore'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).group_directories_first is true %}
+  {# --group-directories-first: List directories before other files in the output #}
+  {% set _flags = _flags + ['--group-directories-first'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).group_directories_last is true %}
+  {# --group-directories-last: List directories after other files in the output #}
+  {% set _flags = _flags + ['--group-directories-last'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).only_dirs is true %}
+  {# --only-dirs: List only directories #}
+  {% set _flags = _flags + ['--only-dirs'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).only_files is true %}
+  {# --only-files: List only files #}
+  {% set _flags = _flags + ['--only-files'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).show_symlinks is true %}
+  {# --show-symlinks: Explicitly show symbolic links in the output #}
+  {% set _flags = _flags + ['--show-symlinks'] %}
+{% endif %}
+
+{% if (filtering_options | default({})).no_symlinks is true %}
+  {# --no-symlinks: Do not show symbolic links #}
+  {% set _flags = _flags + ['--no-symlinks'] %}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Long View Options (--long)                                                   #}
+# Controls the columns and metadata shown when using the --long flag.          #}
+{# ---------------------------------------------------------------------------- #}
+
+{% if (long_options | default({})).binary is true %}
+  {# --binary: List file sizes with binary prefixes (KiB, MiB, etc.) #}
+  {% set _flags = _flags + ['--binary'] %}
+{% endif %}
+
+{% if (long_options | default({})).bytes is true %}
+  {# --bytes: List file sizes in bytes #}
+  {% set _flags = _flags + ['--bytes'] %}
+{% endif %}
+
+{% if (long_options | default({})).changed is true %}
+  {# --changed: Use the changed (status change) timestamp field #}
+  {% set _flags = _flags + ['--changed'] %}
+{% endif %}
+
+{% if (long_options | default({})).group is true %}
+  {# --group: List each file's group #}
+  {% set _flags = _flags + ['--group'] %}
+{% endif %}
+
+{% if (long_options | default({})).smart_group is true %}
+  {# --smart-group: Only show group column if different from owner #}
+  {% set _flags = _flags + ['--smart-group'] %}
+{% endif %}
+
+{% if (long_options | default({})).header is true %}
+  {# --header: Add a header row to each column #}
+  {% set _flags = _flags + ['--header'] %}
+{% endif %}
+
+{% if (long_options | default({})).links is true %}
+  {# --links: List each file's number of hard links #}
+  {% set _flags = _flags + ['--links'] %}
+{% endif %}
+
+{% if (long_options | default({})).inode is true %}
+  {# --inode: List each file's inode number #}
+  {% set _flags = _flags + ['--inode'] %}
+{% endif %}
+
+{% if (long_options | default({})).modified is true %}
+  {# --modified: Use the modified timestamp field #}
+  {% set _flags = _flags + ['--modified'] %}
+{% endif %}
+
+{% if (long_options | default({})).mounts is true %}
+  {# --mounts: Show mount details (Linux/Mac only) #}
+  {% set _flags = _flags + ['--mounts'] %}
+{% endif %}
+
+{% if (long_options | default({})).numeric is true %}
+  {# --numeric: List numeric user and group IDs #}
+  {% set _flags = _flags + ['--numeric'] %}
+{% endif %}
+
+{% if (long_options | default({})).flags is true %}
+  {# --flags: List file flags/attributes #}
+  {% set _flags = _flags + ['--flags'] %}
+{% endif %}
+
+{% if (long_options | default({})).blocksize is true %}
+  {# --blocksize: List allocated filesystem block size #}
+  {% set _flags = _flags + ['--blocksize'] %}
+{% endif %}
+
+{% if (long_options | default({})).time is defined %}
+  {# --time=<field>: Timestamp field to list (modified, changed, accessed, created) #}
+  {% set _flags = _flags + ['--time=' ~ (long_options | default({})).time] %}
+{% endif %}
+
+{% if (long_options | default({})).time_style is defined %}
+  {# --time-style=<style>: Format style for timestamps (default, iso, long-iso, full-iso, relative) #}
+  {% set _flags = _flags + ['--time-style=' ~ (long_options | default({})).time_style] %}
+{% endif %}
+
+{% if (long_options | default({})).total_size is true %}
+  {# --total-size: Show recursive directory size #}
+  {% set _flags = _flags + ['--total-size'] %}
+{% endif %}
+
+{% if (long_options | default({})).accessed is true %}
+  {# --accessed: Use the accessed timestamp field #}
+  {% set _flags = _flags + ['--accessed'] %}
+{% endif %}
+
+{% if (long_options | default({})).created is true %}
+  {# --created: Use the created timestamp field #}
+  {% set _flags = _flags + ['--created'] %}
+{% endif %}
+
+{% if (long_options | default({})).no_permissions is true %}
+  {# --no-permissions: Suppress permissions field #}
+  {% set _flags = _flags + ['--no-permissions'] %}
+{% endif %}
+
+{% if (long_options | default({})).octal_permissions is true %}
+  {# --octal-permissions: List permissions in octal format #}
+  {% set _flags = _flags + ['--octal-permissions'] %}
+{% endif %}
+
+{% if (long_options | default({})).no_filesize is true %}
+  {# --no-filesize: Suppress file size field #}
+  {% set _flags = _flags + ['--no-filesize'] %}
+{% endif %}
+
+{% if (long_options | default({})).no_user is true %}
+  {# --no-user: Suppress user field #}
+  {% set _flags = _flags + ['--no-user'] %}
+{% endif %}
+
+{% if (long_options | default({})).no_time is true %}
+  {# --no-time: Suppress time field #}
+  {% set _flags = _flags + ['--no-time'] %}
+{% endif %}
+
+{% if (long_options | default({})).stdin is true %}
+  {# --stdin: Pipe directories from stdin #}
+  {% set _flags = _flags + ['--stdin'] %}
+{% endif %}
+
+{% if (long_options | default({})).extended is true %}
+  {# --extended: List extended attributes #}
+  {% set _flags = _flags + ['--extended'] %}
+{% endif %}
+
+{% if (long_options | default({})).context is true %}
+  {# --context: List security context #}
+  {% set _flags = _flags + ['--context'] %}
+{% endif %}
+
+{% if (long_options | default({})).git is true %}
+  {# --git: List Git status (if built with git support) #}
+  {% set _flags = _flags + ['--git'] %}
+{% endif %}
+
+{% if (long_options | default({})).git_repos is true %}
+  {# --git-repos: List Git repo status #}
+  {% set _flags = _flags + ['--git-repos'] %}
+{% endif %}
+
+{% if (long_options | default({})).git_repos_no_status is true %}
+  {# --git-repos-no-status: List repo presence only, no status #}
+  {% set _flags = _flags + ['--git-repos-no-status'] %}
+{% endif %}
+
+{% if (long_options | default({})).no_git is true %}
+  {# --no-git: Suppress all Git output #}
+  {% set _flags = _flags + ['--no-git'] %}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Classification & Icons Thresholds                                            #}
+{# Controls file kind indicators and icon display logic.                        #}
+{# ---------------------------------------------------------------------------- #}
+
+{% if classify is defined %}
+  {# --classify=<mode>: When to display file kind indicators (always, automatic, never) #}
+  {% set _flags = _flags + ['--classify=' ~ classify] %}
+{% endif %}
+
+{% if git_repos_no_status_override is true %}
+  {# --git-repos-no-status: Override to force --git-repos-no-status when used with --git-repos #}
+  {% set _flags = _flags + ['--git-repos-no-status'] %}
+{% endif %}
+
+{# Output the final joined command-line flags string.                           #}
+{{ _flags | join(' ') }}

@@ -1,0 +1,78 @@
+{# ============================================================ #}
+{# ARC Resource-coupled EXecution Service (arc_arex) configuration #}
+{# This template generates the main arc_arex configuration file. #}
+{# It is self-documenting: every directive is preceded by a comment #}
+{# describing the source schema field and its default value. #}
+{# ============================================================ #}
+
+[AREX]
+
+{# server_hostname: Hostname or FQDN of the AREX service (e.g., arc.example.com). Default: localhost. #}
+server = {{ (server_hostname | default('localhost')) | string }}
+
+{# server_port: TCP port on which the AREX service listens (commonly 443 for HTTPS). Default: 443. #}
+port = {{ (server_port | default(443)) | int }}
+
+{# rest_enabled: Enable or disable the REST API endpoint (required for ARC 6+ clients). Default: True. #}
+rest = {{ (rest_enabled | default(True)) | lower }}
+
+{# websocket_enabled: Enable or disable the WebSocket endpoint for live job updates. Default: True. #}
+websocket = {{ (websocket_enabled | default(True)) | lower }}
+
+{# max_jobs: Maximum number of jobs this service instance will manage (prevents resource exhaustion). Default: 10000. #}
+maxjobs = {{ (max_jobs | default(10000)) | int }}
+
+{# job_state_path: Path to the directory storing job state information (must be writable by arc user). Default: /var/lib/arc/jobstate. #}
+jobstatepath = {{ (job_state_path | default('/var/lib/arc/jobstate')) | string }}
+
+{# job_output_path: Path to the directory where job outputs are staged for retrieval. Default: /var/spool/arc/joboutput. #}
+joboutputpath = {{ (job_output_path | default('/var/spool/arc/joboutput')) | string }}
+
+{# worker_threads: Number of worker threads to handle incoming REST/WebSocket requests. Default: 16. #}
+workerthreads = {{ (worker_threads | default(16)) | int }}
+
+{# auth_method: Authentication method: 'gcc' (GSI-GCC), 'x509' (client certificate), or 'none' (unauthenticated, insecure). Default: gcc. #}
+authmethod = {{ (auth_method | default('gcc')) | string }}
+
+{# gridftp_enabled: Enable or disable GridFTP data transfer support. Default: True. #}
+gridftp = {{ (gridftp_enabled | default(True)) | lower }}
+
+{# gridftp_ports: List of ports for GridFTP data connections (first is control port; range for data ports). Default: [2811, 50000, 51000]. #}
+{% if (gridftp_ports | default([2811, 50000, 51000])) is iterable and (gridftp_ports | default([2811, 50000, 51000])) | length > 0 %}
+gridftpports = {{ (gridftp_ports | default([2811, 50000, 51000])) | join(', ') }}
+{% endif %}
+
+{# ============================================================ #}
+{# Job Managers Configuration                                     #}
+{# ============================================================ #}
+
+{# job_managers: List of job managers to handle jobs for specific computing resources. #}
+{# Default: [{'name': 'local', 'resource': 'localhost', 'manager': 'fork', 'queue': ''}] #}
+{% for manager in (job_managers | default([{'name': 'local', 'resource': 'localhost', 'manager': 'fork', 'queue': ''}])) %}
+{# Section header for this specific job manager instance. #}
+[JobManager:{{ (manager.name | default('local')) | replace(':', '_') }}]
+
+{# manager.resource: The computing resource identifier for this job manager. #}
+resource = {{ (manager.resource | default('localhost')) | string }}
+
+{# manager.manager: The type of manager implementation (e.g., fork, slurm, torque). #}
+manager = {{ (manager.manager | default('fork')) | string }}
+
+{# manager.queue: The specific queue within the resource. Empty string means default. #}
+queue = {{ (manager.queue | default('')) | string }}
+
+{# manager.workdir: Optional working directory for this job manager. #}
+{% if manager.workdir is defined and manager.workdir is not none and manager.workdir | trim | length > 0 %}
+workdir = {{ manager.workdir | string }}
+{% endif %}
+{% endfor %}
+
+{# ============================================================ #}
+{# Logging Configuration                                          #}
+{# ============================================================ #}
+
+{# Optional logging configuration #}
+{% if log_level is defined and log_level is not none and log_level | trim | length > 0 %}
+[Logging]
+loglevel = {{ (log_level | default('info')) | lower }}
+{% endif %}

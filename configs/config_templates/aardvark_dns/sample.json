@@ -1,0 +1,48 @@
+{
+  "listen_addr": "0.0.0.0",
+  "listen_port": 53,
+  "max_udp_size": 4096,
+  "tcp_enabled": true,
+  "upstream_servers": [
+    "127.0.0.53",
+    "9.9.9.9"
+  ],
+  "forward_zones": [
+    {
+      "domain": "k8s.local.",
+      "upstreams": [
+        "10.0.0.10"
+      ]
+    },
+    {
+      "domain": "internal.company.",
+      "upstreams": [
+        "10.10.1.53"
+      ]
+    }
+  ],
+  "local_records": [
+    {
+      "domain": "registry.internal.k8s.local.",
+      "type": "A",
+      "data": "10.0.0.5"
+    },
+    {
+      "domain": "gitlab.internal.company.",
+      "type": "CNAME",
+      "data": "gitlab-proxy.internal.company."
+    }
+  ],
+  "default_ttl": 300,
+  "cache_size": 50000,
+  "log_level": "info",
+  "log_file": "/var/log/aardvark-dns/access.log",
+  "dnssec_enabled": false,
+  "trust_anchor_file": "/etc/aardvark-dns/root-ksk-2017.json",
+  "dns_ecs_enabled": false,
+  "allow_from": [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16"
+  ]
+}

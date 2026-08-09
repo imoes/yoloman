@@ -1,0 +1,151 @@
+{
+  "serverinfo.name": "irc.example.net",
+  "serverinfo.description": "Hybrid IRC Server",
+  "serverinfo.network_name": "ExampleNet",
+  "serverinfo.network_desc": "A secure and performant IRC network",
+  "serverinfo.max_users": 5000,
+  "serverinfo.max_accept": 200,
+  "serverinfo.kline_address": "kline@example.net",
+  "serverinfo.allow_auto_connect": true,
+  "serverinfo.enable_dcc_send": true,
+  "listeners": [
+    {
+      "address": "0.0.0.0",
+      "port": 6667,
+      "tls": {
+        "enabled": false
+      }
+    },
+    {
+      "address": "0.0.0.0",
+      "port": 6697,
+      "tls": {
+        "enabled": true,
+        "cert": "/etc/ircd-hybrid/certs/server.crt",
+        "key": "/etc/ircd-hybrid/certs/server.key",
+        "ca": "",
+        "dhparam": "",
+        "cipher_list": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+        "verify_mode": 0
+      }
+    }
+  ],
+  "classes": [
+    {
+      "name": "staff",
+      "description": "Staff/users with high limits",
+      "ping_time": 120,
+      "connect_freq": 5,
+      "max_users": 100,
+      "sendq": 2097152,
+      "recvq": 8192
+    },
+    {
+      "name": "default",
+      "description": "Standard users",
+      "ping_time": 60,
+      "connect_freq": 40,
+      "max_users": 10,
+      "sendq": 524288,
+      "recvq": 4096
+    }
+  ],
+  "allowed_clients": [
+    {
+      "mask": "*@*",
+      "class": "default",
+      "password": "",
+      "fingerprint": "",
+      "flags": []
+    },
+    {
+      "mask": "192.168.0.0/16",
+      "class": "staff",
+      "password": "",
+      "fingerprint": "",
+      "flags": [
+        "ssl"
+      ]
+    }
+  ],
+  "denied_clients": [
+    {
+      "mask": "10.255.0.0/16",
+      "reason": "Known spam source"
+    }
+  ],
+  "opers": [
+    {
+      "name": "ircop",
+      "password": "hash:SHA256:2c9b6a1e2e3f4a5b...",
+      "type": "default",
+      "flags": [
+        "kline",
+        "unkline",
+        "die",
+        "rehash"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "name": "upstream.example.net",
+      "address": "upstream.example.net",
+      "port": 7000,
+      "class": "server",
+      "send_password": "sendpass123",
+      "recv_password": "recvpass456",
+      "flags": [
+        "autoconn"
+      ],
+      "tls": {
+        "enabled": true,
+        "cert": "/etc/ircd-hybrid/certs/server.crt",
+        "key": "/etc/ircd-hybrid/certs/server.key",
+        "ca": "/etc/ircd-hybrid/certs/ca.crt",
+        "verify": 1
+      }
+    }
+  ],
+  "modules": [
+    {
+      "name": "m_swhois.so"
+    },
+    {
+      "name": "m_cloaking.so"
+    }
+  ],
+  "logs": [
+    {
+      "target": "stderr",
+      "target_path": "",
+      "maxsize": 10485760,
+      "level": 1
+    },
+    {
+      "target": "file",
+      "target_path": "/var/log/ircd/ircd.log",
+      "maxsize": 10485760,
+      "level": 0
+    }
+  ],
+  "ssl.cert": "/etc/ircd-hybrid/certs/server.crt",
+  "ssl.key": "/etc/ircd-hybrid/certs/server.key",
+  "ssl.dhparam": "/etc/ircd-hybrid/certs/dhparams.pem",
+  "ssl.ca": "/etc/ircd-hybrid/certs/ca.crt",
+  "ssl.verify_mode": 0,
+  "server.name": "irc.example.net",
+  "server.description": "Primary hub server",
+  "server.sid": "A00",
+  "server.uplink": {
+    "host": "upstream.example.net",
+    "port": 7000,
+    "tls": {
+      "enabled": true,
+      "cert": "/etc/ircd-hybrid/certs/server.crt",
+      "key": "/etc/ircd-hybrid/certs/server.key",
+      "ca": "/etc/ircd-hybrid/certs/ca.crt"
+    }
+  },
+  "server.max_users": 2000
+}

@@ -1,0 +1,166 @@
+# =============================================================================
+# Ansible Configuration Template (ansible.cfg)
+#
+# This template generates a self-documenting ansible.cfg file.
+# Every setting is documented with its schema description and safe defaults.
+#
+# Sections:
+#   [defaults]        - Core Ansible behavior
+#   [privilege_escalation] - become/sudo settings
+#   [ssh_connection]  - SSH transport specifics
+#   [galaxy]          - Ansible Galaxy collection/role management
+#   [diff]            - Diff output settings
+#   [inventory]       - (Optional) Additional host patterns
+# =============================================================================
+
+[defaults]
+# Path or colon-separated list of paths to inventory files or directories.
+inventory = {{ inventory_dir | default('/etc/ansible/hosts') }}
+
+# Default remote user Ansible connects as (can be overridden per host/group).
+remote_user = {{ remote_user | default('') }}
+
+# Whether to verify SSH host keys before connecting.
+host_key_checking = {{ host_key_checking | default(True) | string | lower }}
+
+# Number of parallel processes to use for task execution. Increase for larger infrastructures.
+forks = {{ forks | default(5) }}
+
+# Maximum time in seconds to wait for SSH connections and commands.
+timeout = {{ timeout | default(10) }}
+
+# Python interpreter to use on remote hosts. Use 'auto' or 'auto_silent' for automatic detection.
+interpreter_python = {{ interpreter_python | default('auto_silent') }}
+
+# Enable persistent fact caching (required for 'ansible-inventory' and some plugins).
+fact_caching = {{ fact_caching_enabled | default(False) | string | lower }}
+
+# Path to directory (for jsonfile plugin) or connection string (e.g., redis://localhost:6379/0) for fact caching.
+fact_caching_connection = {{ fact_caching_connection | default('/var/tmp/ansible_facts') }}
+
+# Fact caching plugin to use (e.g., 'jsonfile', 'redis').
+fact_caching_type = {{ fact_caching_type | default('jsonfile') }}
+
+# List of directories to search for roles (local development roles).
+roles_path = {{ roles_path | default([]) | join(':') }}
+
+# Path to file where Ansible logs per-playbook run. Leave empty to disable logging.
+log_path = {{ log_path | default('') }}
+
+# List of directories to search for custom modules.
+library = {{ library_path | default([]) | join(':') }}
+
+# List of callback plugins to enable by default (e.g., 'profile_tasks', 'log_plays').
+callbacks_enabled = {{ callbacks_enabled | default([]) | join(', ') }}
+
+# Whether to save .retry files on failure (to re-run only failed hosts).
+retry_files_enabled = {{ retry_files_enabled | default(False) | string | lower }}
+
+# Directory to store .retry files when enabled.
+retry_files_save_path = {{ retry_files_save_path | default('~/.ansible/retry') }}
+
+# How facts are gathered: 'smart' (only missing), 'explicit' (when requested), or 'implicit' (always).
+gathering = {{ gathering | default('smart') }}
+
+# Enable privilege escalation (become) by default.
+become = {{ become | default(False) | string | lower }}
+
+# Privilege escalation method to use (sudo, su, pbrun, pfexec, doas, dzdo, ksu, runas).
+become_method = {{ become_method | default('sudo') }}
+
+# Target user to become after escalation.
+become_user = {{ become_user | default('root') }}
+
+# Prompt for SSH password (instead of using keys).
+ask_pass = {{ ask_pass | default(False) | string | lower }}
+
+# Prompt for privilege escalation password.
+ask_become_pass = {{ ask_become_pass | default(False) | string | lower }}
+
+# Verbosity level (0–6); higher shows more detail during runs.
+verbosity = {{ verbosity | default(0) }}
+
+# Whether to show deprecation warnings for outdated features.
+deprecation_warnings = {{ deprecation_warnings | default(True) | string | lower }}
+
+# Default connection transport (ssh, paramiko, local, docker, etc.).
+transport = {{ transport | default('smart') }}
+
+# Additional arguments passed to SSH (e.g., compression, connection reuse).
+ssh_args = {{ ssh_args | default('-C -o ControlMaster=auto -o ControlPersist=60s') }}
+
+# Look for SSH keys in default locations when using paramiko backend.
+paramiko_look_for_keys = {{ paramiko_look_for_keys | default(True) | string | lower }}
+
+# Custom per-pattern configuration (e.g., for specific host groups like [webservers]).
+{% for host_pattern, pattern_config in (additional_host_patterns | default({})) | dict2items | list %}
+# Host Pattern: {{ host_pattern.value }}
+[{{ host_pattern.value }}:vars]
+{% for key, value in (pattern_config.value | default({})) | dict2items | list %}
+{{ key.value }} = {{ value.value | default('') }}
+{% endfor %}
+{% endfor %}
+
+[privilege_escalation]
+# Command template for sudo privilege escalation (legacy).
+sudo_command = {{ sudo_command | default('sudo -H -S -n %s') }}
+
+# Command template for su privilege escalation.
+su_command = {{ su_command | default('su - %s') }}
+
+# Command template for pbrun privilege escalation.
+pbrun_command = {{ pbrun_command | default('pbrun -u %s %s') }}
+
+# Command template for pfexec privilege escalation.
+pfexec_command = {{ pfexec_command | default('pfexec %s') }}
+
+# Command template for doas privilege escalation.
+doas_command = {{ doas_command | default('doas %s') }}
+
+# Command template for dzdo privilege escalation.
+dzdo_command = {{ dzdo_command | default('dzdo %s') }}
+
+# Command template for ksu privilege escalation.
+ksu_command = {{ ksu_command | default('ksu -l %s -c %s') }}
+
+# Command template for runas privilege escalation.
+runas_command = {{ runas_command | default('runas -u %s %s') }}
+
+[ssh_connection]
+# Enable SSH pipelining for faster module execution (requires remote user to allow it).
+pipelining = {{ pipelining | default(False) | string | lower }}
+
+# Seconds between keepalive messages to prevent SSH timeouts.
+ssh_keepalive_interval = {{ ssh_keepalive_interval | default(15) }}
+
+# Use batch mode for SFTP (faster, but disables interactive prompts).
+sftp_batch_mode = {{ sftp_batch_mode | default(True) | string | lower }}
+
+[galaxy]
+# Default Galaxy server URL for role/collection installation.
+server = {{ galaxy_server | default('https://galaxy.ansible.com') }}
+
+# List of directories to search for installed Galaxy roles.
+galaxy_roles_path = {{ galaxy_roles_path | default([]) | join(':') }}
+
+# Skip SSL certificate validation for Galaxy connections (not recommended).
+galaxy_ignore_certs = {{ galaxy_ignore_certs | default(False) | string | lower }}
+
+{% for server_name, server_details in (galaxy_servers_list | default({})) | dict2items | list %}
+# Named Galaxy Server: {{ server_name.value }}
+[galaxy_server.{{ server_name.value }}]
+url = {{ server_details.value.url | default('') }}
+{% if server_details.value.username is defined %}
+username = {{ server_details.value.username | default('') }}
+{% endif %}
+{% if server_details.value.token is defined %}
+token = {{ server_details.value.token | default('') }}
+{% endif %}
+{% endfor %}
+
+[diff]
+# Number of lines of context to show in diffs (0 = no context).
+context = {{ diff_context | default(3) }}
+
+# Always show diffs (even on success) for tasks that support it.
+always = {{ diff_always | default(False) | string | lower }}

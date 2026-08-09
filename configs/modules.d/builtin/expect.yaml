@@ -1,0 +1,54 @@
+name: expect
+fqcn: builtin.expect
+collection: builtin
+short_description: Run a command and answer interactive prompts it produces, via `responses`
+  — a map from regular expression to the line sent to the command's stdin the first
+  time that expression matches the accumulated
+description: 'Run a command and answer interactive prompts it produces, via `responses`
+  — a map from regular expression to the line sent to the command''s stdin the first
+  time that expression matches the accumulated output; each response fires at most
+  once. Returns rc/output like command; **a non-zero rc is not raised as a tool error**.
+  Execution is bounded by `timeout` seconds (default 30, hard-capped at 600 regardless
+  of the requested value, the same cap wait_for enforces). **Limitation, stated plainly**:
+  this pipes stdout/stderr rather than allocating a real pseudo-terminal, unlike Ansible''s
+  own pexpect-based implementation — programs that specifically need tty semantics
+  (echo suppression for password prompts, terminal-size queries, raw mode) may not
+  behave correctly here. Suited to straightforward line-buffered prompts, not full
+  terminal emulation. Supports check_mode via dry_run=true (does not execute at all).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.expect. Same cmd/responses/timeout parameter names (a
+  focused subset — Ansible also supports a list of sequential answers per prompt and
+  echo/creates/removes options, not implemented here).
+
+  - Chef/Puppet: no dedicated resource; typically scripted with `execute`/`exec` plus
+  a tool like `expect(1)` itself.
+
+  - Salt: no dedicated state; typically wrapped via `cmd.run` plus `expect(1)`.
+
+  - Terraform: not applicable — see the command module''s description for the general
+  reasoning.'
+options:
+  chdir:
+    type: string
+    description: Optional working directory to run the command in.
+  cmd:
+    type: string
+    description: Command line to run, split on whitespace (no quoting support), e.g.
+      "passwd deploy".
+    required: true
+  responses:
+    type: object
+    description: 'Map from regular expression to the line sent to stdin the first
+      time it matches, e.g. {"[Pp]assword:": "hunter2"}.'
+    required: true
+  timeout:
+    type: string
+    description: Maximum seconds to let the command run before it is killed. Default
+      "30", hard-capped at 600.
+native: true
+writes: true
+runtime: native
+source: agent-registry

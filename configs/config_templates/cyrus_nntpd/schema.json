@@ -1,0 +1,55 @@
+{
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "nntp",
+        "type": "inet",
+        "command": "/usr/lib/cyrus/bin/nntpd",
+        "args": []
+      }
+    ],
+    "description": "List of services to start. Each item defines a service, its type (inet/cmd), command, and optional arguments (e.g., port override).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "nntp",
+        "description": "Service name (e.g., nntp, imap, lmtp)"
+      },
+      "type": {
+        "type": "string",
+        "default": "inet",
+        "allowed": [
+          "inet",
+          "cmd"
+        ],
+        "description": "Service type: 'inet' runs as a daemon listening on a socket; 'cmd' spawns on demand"
+      },
+      "command": {
+        "type": "string",
+        "default": "/usr/lib/cyrus/bin/nntpd",
+        "description": "Absolute path to the binary executable for this service"
+      },
+      "args": {
+        "type": "list",
+        "default": [],
+        "description": "List of command-line arguments for the binary (e.g., ['-p', '119'] to specify port)"
+      }
+    }
+  },
+  "enable_nntppost": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the nntppost service to allow authenticated NNTP article posting (required for user-submitted news)"
+  },
+  "sieve_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Sieve script support \u2014 necessary if NNTP users need server-side filtering (e.g., auto-forward or delete)"
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS-wrapped NNTP and IMAP services (requires valid certificates configured separately)"
+  }
+}

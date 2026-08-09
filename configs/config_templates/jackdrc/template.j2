@@ -1,0 +1,126 @@
+#!/bin/sh
+# ==============================================================================
+# JACK Audio Daemon Configuration Wrapper
+#
+# This script configures and starts the JACKd (JACK Audio Connection Kit) daemon
+# using parameters defined in the Ansible role variables.
+#
+# JACK is a professional sound server daemon that provides real-time,
+# low-latency audio and MIDI connections between applications.
+#
+# Variables used:
+#   engine            - Audio backend engine (e.g., alsa, dummy, net)
+#   device            - Audio device identifier (e.g., hw:0)
+#   rate              - Sample rate in Hz (e.g., 44100, 48000)
+#   period            - Frames per period (buffer size)
+#   periods           - Number of periods (buffer count)
+#   rt_priority       - Real-time scheduling priority (1-99, 0 to disable)
+#   use_hw_monitor    - Enable hardware monitor outputs for loopback/direct monitoring
+#   enable_port_check - Enable strict port type checking (debugging only)
+#   extra_opts        - Additional command-line arguments for jackd
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Audio Backend Engine Selection
+# Description: The engine determines which low-level audio API JACK uses.
+# Common values: alsa (Linux ALSA), dummy (no output, for testing), net (network).
+# This sets the variable ENGINE which is expanded by the shell in the exec line.
+# ------------------------------------------------------------------------------
+ENGINE={{ engine | default('alsa') }}
+
+# ------------------------------------------------------------------------------
+# Audio Device Identifier
+# Description: Specifies the physical or virtual audio device to use.
+# Format varies by engine; for ALSA, typically 'hw:Card,Device' (e.g., hw:0,0).
+# This sets the variable DEVICE which is expanded by the shell in the exec line.
+# ------------------------------------------------------------------------------
+DEVICE={{ device | default('hw:0') }}
+
+# ------------------------------------------------------------------------------
+# Sample Rate
+# Description: The audio sample rate in Hertz.
+# Common values: 44100 (CD quality), 48000 (DVD/Video), 96000 (Hi-Res).
+# This sets the variable RATE (unused in this wrapper, kept for reference/compat).
+# ------------------------------------------------------------------------------
+RATE={{ rate | default(48000) }}
+
+# ------------------------------------------------------------------------------
+# Period Size (Buffer Size)
+# Description: Number of frames processed per interrupt/callback.
+# Smaller values reduce latency but increase CPU load and risk of xruns (dropouts).
+# This sets the variable PERIOD (unused in this wrapper, kept for reference/compat).
+# ------------------------------------------------------------------------------
+PERIOD={{ period | default(1024) }}
+
+# ------------------------------------------------------------------------------
+# Number of Periods
+# Description: Number of buffers in the ring buffer.
+# Total buffer latency = PERIOD * PERIODS. Common values: 2, 3, 4.
+# This sets the variable PERIODS (unused in this wrapper, kept for reference/compat).
+# ------------------------------------------------------------------------------
+PERIODS={{ periods | default(3) }}
+
+# ------------------------------------------------------------------------------
+# Real-Time Priority
+# Description: Sets the real-time scheduling priority for the JACK server process.
+# Range: 1 (lowest) to 99 (highest). 0 disables real-time scheduling.
+# Requires appropriate systemd/limits configuration for non-root users.
+# This sets the variable RT_PRIORITY (unused in this wrapper, kept for reference/compat).
+# ------------------------------------------------------------------------------
+RT_PRIORITY={{ rt_priority | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Hardware Monitor Output
+# Description: Enables the hwmon engine extension for hardware monitoring
+# (e.g., loopback, direct monitoring features specific to the audio interface).
+# Sets USE_HW_MONITOR variable.
+# ------------------------------------------------------------------------------
+{% if use_hw_monitor | default(False) | bool %}
+USE_HW_MONITOR=true
+{% else %}
+USE_HW_MONITOR=false
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Port Type Checking
+# Description: Enables strict validation of port types (e.g., ensuring audio
+# ports are connected to audio ports). Recommended to disable in production;
+# useful for debugging topology errors.
+# Sets PORT_CHECK variable.
+# ------------------------------------------------------------------------------
+{% if enable_port_check | default(False) | bool %}
+PORT_CHECK=true
+{% else %}
+PORT_CHECK=false
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Extra Options
+# Description: Arbitrary additional arguments passed to the jackd command.
+# Use shell-quote safe strings. Example: '-r -X hwmon -C'
+# Sets EXTRA_OPTS variable.
+# ------------------------------------------------------------------------------
+EXTRA_OPTS="{{ extra_opts | default('') | quote }}"
+
+# ------------------------------------------------------------------------------
+# Execution
+# Description: Launches the JACK daemon with the configured parameters.
+# Uses shell variable expansion ($VARIABLE) for engine and device.
+# Uses Jinja-expanded values for numeric arguments and optional flags.
+# ------------------------------------------------------------------------------
+exec jackd \
+    -d $ENGINE \
+    -d $DEVICE \
+    -r {{ rate | default(48000) }} \
+    -p {{ period | default(1024) }} \
+    -n {{ periods | default(3) }} \
+    {% if rt_priority | default(0) != 0 %} \
+    -P {{ rt_priority | default(0) }} \
+    {% endif %} \
+    {% if use_hw_monitor | default(False) | bool %} \
+    -X hwmon \
+    {% endif %} \
+    {% if enable_port_check | default(False) | bool %} \
+    -C \
+    {% endif %} \
+    $EXTRA_OPTS

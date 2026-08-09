@@ -1,0 +1,213 @@
+# ==============================================================================
+# heat.conf - Heat Orchestration Template Configuration
+# ==============================================================================
+# This file configures the OpenStack Heat service. It uses INI-style sections
+# and keys. Variables are drawn from the Ansible role variables.
+# ==============================================================================
+
+[DEFAULT]
+# ==============================================================================
+# DEFAULT Section: General runtime settings
+# ==============================================================================
+
+# Base directory for Heat runtime data (e.g., locks, temp files).
+working_dir = {{ (paths | default({})).working_dir | default('/var/lib/heat') }}
+
+# Path to the Heat log file. Set to empty string ('') to log only to stdout.
+log_file = {{ (logging | default({})).log_file | default('/var/log/heat/heat.log') }}
+
+# Log level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ (logging | default({})).level | default('INFO') }}
+
+# Name of the OpenStack region for multi-region deployments.
+region_name = {{ (region | default({})).name | default('RegionOne') }}
+
+# Enable debug mode for verbose logging.
+debug = {{ debug | default(False) | lower }}
+
+# Enable verbose logging (more than INFO, less than DEBUG).
+verbose = {{ verbose | default(False) | lower }}
+
+[database]
+# ==============================================================================
+# database Section: Database connection settings
+# ==============================================================================
+
+# Database connection string in SQLAlchemy format.
+connection = {{ (database | default({})).connection | default('mysql+pymysql://heat:password@localhost/heat') }}
+
+# Maximum number of retries for database connection failures.
+max_retries = {{ (database | default({})).max_retries | default(10) }}
+
+# Seconds between database connection retry attempts.
+retry_interval = {{ (database | default({})).retry_interval | default(10) }}
+
+[oslo_messaging_notifications]
+# ==============================================================================
+# oslo_messaging_notifications Section: Notification transport
+# ==============================================================================
+
+# Notification transport driver. Use 'messagingv2' with RabbitMQ to send stack events toceilometer/aodh.
+driver = {{ (notifications | default({})).driver | default('noop') }}
+
+[oslo_messaging_rabbit]
+# ==============================================================================
+# oslo_messaging_rabbit Section: RabbitMQ message broker settings
+# ==============================================================================
+
+# RabbitMQ server hostname or IP.
+host = {{ (rabbit | default({})).host | default('localhost') }}
+
+# RabbitMQ server port.
+port = {{ (rabbit | default({})).port | default(5672) }}
+
+# RabbitMQ username.
+user = {{ (rabbit | default({})).user | default('openstack') }}
+
+# RabbitMQ password (required for production).
+password = {{ (rabbit | default({})).password | default('') }}
+
+# RabbitMQ virtual host.
+virtual_host = {{ (rabbit | default({})).virtual_host | default('/') }}
+
+# Enable RabbitMQ mirrored queues for HA (requires broker-side queue mirroring).
+ha_queues = {{ (rabbit | default({})).ha_queues | default(False) | lower }}
+
+# Seconds to wait before giving up on RabbitMQ reconnect.
+connection_retry_timeout = {{ (rabbit | default({})).connection_retry_timeout | default(30) }}
+
+[keystone_authtoken]
+# ==============================================================================
+# keystone_authtoken Section: Keystone identity service authentication
+# ==============================================================================
+
+# Keystone identity service endpoint URL (v3 recommended).
+auth_url = {{ (keystone | default({})).auth_url | default('http://localhost:5000/v3') }}
+
+# Project (tenant) name for the Heat service account.
+project_name = {{ (keystone | default({})).project_name | default('service') }}
+
+# Username of the Heat service account in Keystone.
+username = {{ (keystone | default({})).username | default('heat') }}
+
+# Password for the Heat service account in Keystone.
+password = {{ (keystone | default({})).password | default('') }}
+
+# Keystone v3 user domain name.
+user_domain_name = {{ (keystone | default({})).user_domain_name | default('Default') }}
+
+# Keystone v3 project domain name.
+project_domain_name = {{ (keystone | default({})).project_domain_name | default('Default') }}
+
+# Disable TLS certificate verification (⚠️ insecure — disable only for testing).
+insecure = {{ (keystone | default({})).insecure | default(False) | lower }}
+
+# Require service token roles for internal API calls (enhances security).
+service_token_roles_required = {{ (keystone | default({})).service_token_roles_required | default(True) | lower }}
+
+# Keystone endpoint interface: public, internal, or admin.
+interface = {{ (keystone | default({})).interface | default('internal') }}
+
+[trustee]
+# ==============================================================================
+# trustee Section: Trustee service for delegated operations
+# ==============================================================================
+
+# Authentication type for trustee operations.
+auth_type = password
+
+# Trustee username (typically the Heat service user).
+username = {{ (keystone | default({})).username | default('heat') }}
+
+# Trustee password.
+password = {{ (keystone | default({})).password | default('') }}
+
+# Trustee auth URL (same as keystone_authtoken).
+auth_url = {{ (keystone | default({})).auth_url | default('http://localhost:5000/v3') }}
+
+# Trustee user domain name.
+user_domain_name = {{ (keystone | default({})).user_domain_name | default('Default') }}
+
+# Trustee project domain name.
+project_domain_name = {{ (keystone | default({})).project_domain_name | default('Default') }}
+
+[trustee_client]
+# ==============================================================================
+# trustee_client Section: Trustee client configuration
+# ==============================================================================
+
+# Trustee client endpoint interface.
+interface = {{ (keystone | default({})).interface | default('internal') }}
+
+[cors]
+# ==============================================================================
+# cors Section: Cross-Origin Resource Sharing (CORS) configuration
+# ==============================================================================
+
+# Enable Cross-Origin Resource Sharing (CORS) headers.
+enabled = {{ (cors | default({})).enabled | default(False) | lower }}
+
+# List of allowed origins for CORS (e.g., ['https://myconsole.example.com']).
+allowed_origin = {{ (cors | default({})).allowed_origin | default([]) | join(', ') }}
+
+[oslo_policy]
+# ==============================================================================
+# oslo_policy Section: Policy enforcement
+# ==============================================================================
+
+# Path to the JSON policy definition file.
+policy_file = {{ (policy | default({})).file | default('/etc/heat/policy.json') }}
+
+[conductor]
+# ==============================================================================
+# conductor Section: Heat Conductor service
+# ==============================================================================
+
+# Hostname/IP of the remote conductor. Leave empty to run local conductor.
+host = {{ (conductor | default({})).host | default('') }}
+
+# Number of conductor worker processes.
+workers = {{ (conductor | default({})).workers | default(2) }}
+
+[api]
+# ==============================================================================
+# api Section: Heat API service
+# ==============================================================================
+
+# IP address to bind the Heat API server on.
+bind_host = {{ (api | default({})).bind_host | default('0.0.0.0') }}
+
+# Port for the Heat native API server.
+bind_port = {{ (api | default({})).bind_port | default(8004) }}
+
+# Backend engine: 'heat' (native) or 'cfn' (CloudFormation-compatible).
+api_bind_engine = {{ (api | default({})).api_bind_engine | default('heat') }}
+
+# Enable the AWS CloudFormation-compatible API on port 8000.
+enable_cfn_api = {{ (api | default({})).enable_cfn_api | default(True) | lower }}
+
+# Enable the native Heat API on port 8004.
+enable_heat_api = {{ (api | default({})).enable_heat_api | default(True) | lower }}
+
+# Number of API server worker processes.
+workers = {{ (api | default({})).workers | default(2) }}
+
+# Enable API rate limiting (set to number of requests per minute; false = disabled).
+api_rate_limit = {{ (api | default({})).api_rate_limit | default(False) }}
+
+[engine]
+# ==============================================================================
+# engine Section: Heat Engine service
+# ==============================================================================
+
+# Unique hostname/IP for this engine worker (auto-generated if empty).
+host = {{ (engine | default({})).host | default('') }}
+
+# Number of engine worker processes.
+workers = {{ (engine | default({})).workers | default(2) }}
+
+# Maximum timeout for a stack operation (create/update/delete) in seconds.
+stack_action_timeout = {{ (engine | default({})).stack_action_timeout | default(3600) }}
+
+# Use CFN-style signal receiver endpoints (for WaitCondition compatibility).
+signal_receiver_use_cfn = {{ (engine | default({})).signal_receiver_use_cfn | default(False) | lower }}

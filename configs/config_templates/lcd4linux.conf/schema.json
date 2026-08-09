@@ -1,0 +1,181 @@
+{
+  "general": {
+    "type": "object",
+    "default": {
+      "backend": "FBv5",
+      "device": "/dev/fb0",
+      "width": 128,
+      "height": 64,
+      "font": "7x13",
+      "update_interval": 500,
+      "flip_y": false
+    },
+    "description": "Core LCD4Linux settings: which backend/driver to use, device path, display dimensions, font, update frequency, and orientation."
+  },
+  "general.backend": {
+    "type": "string",
+    "default": "FBv5",
+    "description": "LCD driver backend (e.g., FBv5, G15, G19, HD44780, LCD2USB, SerialLCD, USBHID, X11)."
+  },
+  "general.device": {
+    "type": "string",
+    "default": "/dev/fb0",
+    "description": "Device path (e.g., framebuffer, serial port, USB device)."
+  },
+  "general.width": {
+    "type": "number",
+    "default": 128,
+    "description": "Display width in pixels (or characters for text-only displays)."
+  },
+  "general.height": {
+    "type": "number",
+    "default": 64,
+    "description": "Display height in pixels (or lines)."
+  },
+  "general.font": {
+    "type": "string",
+    "default": "7x13",
+    "description": "Font name for text rendering (must be loadable by the backend)."
+  },
+  "general.update_interval": {
+    "type": "number",
+    "default": 500,
+    "description": "Global update interval in milliseconds."
+  },
+  "general.flip_y": {
+    "type": "bool",
+    "default": false,
+    "description": "Flip the display vertically (useful for inverted mounting)."
+  },
+  "layout": {
+    "type": "object",
+    "default": {
+      "row1": "$date $time",
+      "row2": "$uptime",
+      "row3": "$load",
+      "row4": "$cpu $mem",
+      "extra_rows": []
+    },
+    "description": "Layout for each LCD line (rows 1\u20134). For 4-line displays, rows 5\u20138 are optional."
+  },
+  "layout.row1": {
+    "type": "string",
+    "default": "$date $time",
+    "description": "Content for the first line (supports widgets like $date, $time, $hostname, etc.)."
+  },
+  "layout.row2": {
+    "type": "string",
+    "default": "$uptime",
+    "description": "Content for the second line."
+  },
+  "layout.row3": {
+    "type": "string",
+    "default": "$load",
+    "description": "Content for the third line."
+  },
+  "layout.row4": {
+    "type": "string",
+    "default": "$cpu $mem",
+    "description": "Content for the fourth line."
+  },
+  "layout.extra_rows": {
+    "type": "list",
+    "default": [],
+    "description": "Optional rows 5\u20138 (list of up to 4 strings). Only used on 8-line displays.",
+    "items": {
+      "type": "string",
+      "description": "Content for an extra line."
+    }
+  },
+  "widgets": {
+    "type": "list",
+    "default": [],
+    "description": "List of widget definitions. Each widget provides dynamic data to the display (e.g., CPU, memory, network).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique widget identifier (used as [Widget.name] section header)."
+      },
+      "type": {
+        "type": "string",
+        "default": "Text",
+        "description": "Widget type (e.g., Text, Bar, Icon, Graph)."
+      },
+      "driver": {
+        "type": "string",
+        "default": "",
+        "description": "Backend driver name (e.g., FBv5, X11) if widget is driver-specific."
+      },
+      "align": {
+        "type": "string",
+        "default": "left",
+        "description": "Text alignment: left, center, or right."
+      },
+      "width": {
+        "type": "number",
+        "default": null,
+        "description": "Width in pixels/characters (optional, depends on widget type)."
+      },
+      "height": {
+        "type": "number",
+        "default": null,
+        "description": "Height in pixels (optional)."
+      },
+      "x": {
+        "type": "number",
+        "default": null,
+        "description": "Absolute X position in pixels."
+      },
+      "y": {
+        "type": "number",
+        "default": null,
+        "description": "Absolute Y position in pixels."
+      },
+      "update_interval": {
+        "type": "number",
+        "default": null,
+        "description": "Widget-specific update interval (ms), overriding the global one."
+      },
+      "color": {
+        "type": "string",
+        "default": null,
+        "description": "Text/foreground color in hex or name (e.g., #FFFFFF, white)."
+      },
+      "bgcolor": {
+        "type": "string",
+        "default": null,
+        "description": "Background color in hex or name."
+      },
+      "font": {
+        "type": "string",
+        "default": null,
+        "description": "Override default font for this widget."
+      },
+      "source": {
+        "type": "string",
+        "default": null,
+        "description": "Data source (e.g., file path, command, or internal variable like 'cpu.usage')."
+      },
+      "format": {
+        "type": "string",
+        "default": null,
+        "description": "Format string (e.g., '%.1f%%' for numbers)."
+      },
+      "oneline": {
+        "type": "bool",
+        "default": null,
+        "description": "Force single-line display (e.g., for scrollable text)."
+      },
+      "threshold": {
+        "type": "number",
+        "default": null,
+        "description": "Threshold (e.g., for alerting bars/graphs)."
+      }
+    }
+  },
+  "backend_options": {
+    "type": "object",
+    "default": {},
+    "description": "Backend-specific key-value options (e.g., for FBv5: 'Gamma=1.0', 'Invert=1')."
+  }
+}

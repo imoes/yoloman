@@ -1,0 +1,62 @@
+{
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of device-specific fxload configurations. Each item configures one device invocation (hexfile, loader, etc.). At least one device must be provided per config file when used in hotplug scripts or custom rulesets. When omitted, the system relies on DEVICE env var and default loader locations (e.g. vend_ax.hex)."
+  },
+  "devices[].devpath": {
+    "type": "string",
+    "default": "",
+    "description": "usbfs device path (e.g. /proc/bus/usb/004/080). If omitted, fxload uses DEVICE environment variable from hotplug."
+  },
+  "devices[].hexfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to firmware Intel hex file (e.g. /usr/share/usb/fx2 firmware.hex). Required when -I is used."
+  },
+  "devices[].loader": {
+    "type": "string",
+    "default": "a3load.hex",
+    "description": "Path to second-stage loader hex file (e.g. /usr/share/usb/a3load.hex). Required when downloading to external memory or EEPROM.",
+    "enum": [
+      "a3load.hex",
+      "vend_ax.hex"
+    ]
+  },
+  "devices[].type": {
+    "type": "string",
+    "default": "fx",
+    "description": "Controller type: one of 'an21', 'fx', 'fx2', 'fx2lp'. Defaults to 'fx' if omitted.",
+    "enum": [
+      "an21",
+      "fx",
+      "fx2",
+      "fx2lp"
+    ]
+  },
+  "devices[].config": {
+    "type": "number",
+    "default": 0,
+    "description": "I2C EEPROM configuration byte for -c. Must be 0 for AnchorChips devices. Only used with EEPROM download (-c option)."
+  },
+  "devices[].symlink": {
+    "type": "string",
+    "default": "",
+    "description": "Symlink to create to the usbfs device node. Typically absolute path like /dev/myusbdevice. Only valid with -L option; ignored when firmware is downloaded."
+  },
+  "devices[].mode": {
+    "type": "string",
+    "default": "",
+    "description": "Unix permissions for the usbfs device node (e.g. '0666'). Only used with -m option; ignored when firmware is downloaded."
+  },
+  "devices[].verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity level (0 = quiet, 1 = -v, 2 = -vv, 3 = -vvv). Controls stderr diagnostics (addresses, sizes)."
+  },
+  "devices[].log_to_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, passes -l to send error/verbose messages to syslog instead of stderr."
+  }
+}

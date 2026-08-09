@@ -1,0 +1,18 @@
+#!/bin/sh
+# diffmon wrapper script
+#
+# This script serves as a safe execution wrapper for the `diffmon` utility.
+# It verifies that the configuration file exists and is readable, and that
+# the binary is executable, before invoking it.
+#
+# Variables (from schema):
+#   config_file: Path to the diffmon configuration file.
+#   binary:      Path to the diffmon executable.
+
+# Execute diffmon only if configuration is readable and binary is executable.
+if [ -r {{ config_file | default('/etc/diffmon/diffmon.cf') }} ] && [ -x {{ binary | default('/usr/bin/diffmon') }} ] ; then
+
+    # Run diffmon with the specified configuration file.
+    {{ binary | default('/usr/bin/diffmon') }} -c {{ config_file | default('/etc/diffmon/diffmon.cf') }}
+
+fi

@@ -1,0 +1,121 @@
+{
+  "mongodb_uri": {
+    "type": "string",
+    "default": "",
+    "description": "MongoDB connection URI. Required. Supports formats like mongodb://user:pass@host:27017, mongodb+srv://... for Atlas, and replica set connection strings (mongodb://host1,host2/...?replicaSet=rs0)."
+  },
+  "mongodb_db": {
+    "type": "string",
+    "default": "admin",
+    "description": "Database to query for database-level metrics (e.g., dbStats). Set to 'all' to scan all databases (\u26a0\ufe0f not recommended for production due to performance impact)."
+  },
+  "disabled_metrics": {
+    "type": "list",
+    "default": [],
+    "description": "List of metric categories to disable. Valid options: collection, index, dbstats, replset, sharded, diagnostics, serverstatus, top.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "collection",
+        "index",
+        "dbstats",
+        "replset",
+        "sharded",
+        "diagnostics",
+        "serverstatus",
+        "top"
+      ],
+      "description": "One metric category to disable."
+    }
+  },
+  "enable_diagnostics": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable collection of diagnostics data (e.g., diagnostics collections in admin database). Requires MongoDB 4.2+."
+  },
+  "metrics_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for each MongoDB query. Increase if queries time out on slow clusters."
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL for the connection to MongoDB."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file. Required if TLS is enabled and using a self-signed or non-public CA certificate."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate file for mutual TLS (optional)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key file (for TLS client auth)."
+  },
+  "tls_insecure_skip_verify": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip TLS certificate verification (\u26a0\ufe0f insecure, for testing only). Do not use in production."
+  },
+  "web_listen_address": {
+    "type": "string",
+    "default": "0.0.0.0:9216",
+    "description": "Address and port to expose the exporter metrics endpoint."
+  },
+  "mongodb_user": {
+    "type": "string",
+    "default": "",
+    "description": "MongoDB username. Use only if not embedded in mongodb_uri."
+  },
+  "mongodb_password": {
+    "type": "string",
+    "default": "",
+    "description": "MongoDB password (will be stored in plaintext). Use only if not embedded in mongodb_uri."
+  },
+  "mongodb_auth_db": {
+    "type": "string",
+    "default": "admin",
+    "description": "MongoDB authentication database. Default is 'admin' for most deployments."
+  },
+  "collect_hidden": {
+    "type": "bool",
+    "default": false,
+    "description": "Collect metrics from hidden replica set members (e.g., for backup nodes)."
+  },
+  "secondary_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Only collect metrics from secondary nodes (skip the primary). Useful for read-only monitoring."
+  },
+  "extra_labels": {
+    "type": "list",
+    "default": [],
+    "description": "List of key-value pairs to attach as labels to all metrics (e.g., environment, region). Format as a list of objects with 'key' and 'value'.",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "Label key"
+      },
+      "value": {
+        "type": "string",
+        "description": "Label value"
+      }
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of concurrent connections to the MongoDB server. Adjust based on your MongoDB's connection limits."
+  },
+  "enable_profiling": {
+    "type": "bool",
+    "default": false,
+    "description": "Collect metrics from MongoDB's profiler (requires profiling level > 0)."
+  }
+}

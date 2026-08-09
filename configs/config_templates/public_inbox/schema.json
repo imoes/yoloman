@@ -1,0 +1,112 @@
+{
+  "inboxes": {
+    "type": "list",
+    "default": [],
+    "description": "List of mailing list inboxes to manage. Each inbox represents a unique mailing list.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Unique name for the list inbox (used as section key in config)."
+        },
+        "directory": {
+          "type": "string",
+          "default": "/var/lib/public-inbox/{name}",
+          "description": "Absolute path to the Git repository directory for this list's archive."
+        },
+        "address": {
+          "type": "string",
+          "default": "",
+          "description": "Primary email address associated with the list (e.g., list@example.com). Required for List-Id header."
+        },
+        "owner": {
+          "type": "string",
+          "default": "",
+          "description": "Email address of the list owner or maintainer (optional)."
+        },
+        "url": {
+          "type": "string",
+          "default": "",
+          "description": "Public web URL for the list archive (e.g., https://example.com/archives/list). Auto-detected if omitted."
+        },
+        "version": {
+          "type": "number",
+          "default": 2,
+          "description": "Public-Inbox version (1 or 2). Version 2 supports multiple epochs and is recommended."
+        },
+        "feed": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable Atom/JSON feed generation for this list."
+        },
+        "feedmaxitems": {
+          "type": "number",
+          "default": 20,
+          "description": "Maximum number of recent items to include in the feed (used only if feed is enabled)."
+        }
+      }
+    }
+  },
+  "config.http": {
+    "type": "object",
+    "default": null,
+    "description": "Configuration for the built-in HTTP daemon (public-inbox-httpd). Enable only if you want to serve archives via HTTP.",
+    "fields": {
+      "bind": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address to bind the HTTP daemon to (e.g., 127.0.0.1 or 0.0.0.0)."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port for the HTTP daemon to listen on."
+      },
+      "ssl": {
+        "type": "object",
+        "default": null,
+        "fields": {
+          "cert": {
+            "type": "string",
+            "default": "",
+            "description": "Path to the SSL certificate file (PEM format)."
+          },
+          "key": {
+            "type": "string",
+            "default": "",
+            "description": "Path to the SSL private key file (PEM format)."
+          }
+        }
+      }
+    }
+  },
+  "config.nntp": {
+    "type": "object",
+    "default": null,
+    "description": "Configuration for the NNTP daemon (public-inbox-nntpd). Enable to allow NNTP access to archives.",
+    "fields": {
+      "enable": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to start the NNTP daemon."
+      },
+      "bind": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address to bind the NNTP daemon to."
+      },
+      "port": {
+        "type": "number",
+        "default": 119,
+        "description": "Port for the NNTP daemon (standard NNTP: 119; NNTPS: 563)."
+      }
+    }
+  },
+  "config.script_alias": {
+    "type": "string",
+    "default": "/public-inbox",
+    "description": "URL path prefix where public-inbox-httpd should be mounted (e.g., /public-inbox for https://example.com/public-inbox)."
+  }
+}

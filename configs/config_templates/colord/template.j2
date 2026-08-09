@@ -1,0 +1,114 @@
+# ============================================================================
+# colord Configuration Template
+# ============================================================================
+# This file configures `colord`, the system color management daemon.
+# It uses a simple INI-like key=value format.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# All variables use `| default(...)` to ensure safe rendering when
+# an Ansible role does not supply a value.
+# ============================================================================
+
+# [General / Bus Settings]
+
+# Whether colord registers on the session bus (typically not needed on headless systems).
+# Type: boolean
+# Default: False
+SessionBus={{ session_bus_enabled | default(False) }}
+
+# [Database Settings]
+
+# Path to the persistent database storing device and profile metadata.
+# Type: string
+# Default: /var/lib/colord
+Database={{ database_path | default('/var/lib/colord') }}
+
+# [Cache Settings]
+
+# Directory used for temporary profile storage during upload or processing.
+# Type: string
+# Default: /var/cache/colord
+CacheDir={{ cache_dir | default('/var/cache/colord') }}
+
+# Maximum total size (in bytes) of cached profiles. Set to 0 for unlimited.
+# Type: integer
+# Default: 0
+MaxCacheSize={{ max_cache_size | default(0) }}
+
+# [Profile Management]
+
+# Allow automatic installation of vendor-provided color profiles.
+# Type: boolean
+# Default: True
+VendorProfiles={{ vendor_profiles_enabled | default(True) }}
+
+# Allow use of embedded ICC profiles found in devices (e.g., monitors).
+# Type: boolean
+# Default: True
+EmbeddedProfiles={{ embedded_profiles_enabled | default(True) }}
+
+# Enable uploading of ICC profiles via D-Bus (e.g., from user applications).
+# Type: boolean
+# Default: True
+UploadProfiles={{ upload_enabled | default(True) }}
+
+# [Vendor Profile Directories]
+
+# List of directories scanned for vendor-provided ICC profiles.
+# Each entry includes a path and optional human-readable description.
+# Default:
+#   - /usr/share/color/icc/colord (colord's built-in vendor profiles)
+#   - /usr/share/color/icc        (system-wide vendor ICC profiles)
+{% for entry in vendor_profile_dirs | default([{'path': '/usr/share/color/icc/colord', 'description': "colord's built-in vendor profiles"}, {'path': '/usr/share/color/icc', 'description': 'system-wide vendor ICC profiles'}]) %}
+# Vendor profile directory: {{ entry.description | default('') | trim | capitalize | replace('  ', ' ') }}
+VendorProfileDir={{ entry.path }}
+{% endfor %}
+
+# [System Profile Directories]
+
+# List of directories scanned for system-wide ICC profiles (e.g., installed by packages).
+# Default:
+#   - /usr/share/color/icc/system (system-managed ICC profiles)
+{% for entry in system_profile_dirs | default([{'path': '/usr/share/color/icc/system', 'description': 'system-managed ICC profiles'}]) %}
+# System profile directory: {{ entry.description | default('') | trim | capitalize | replace('  ', ' ') }}
+SystemProfileDir={{ entry.path }}
+{% endfor %}
+
+# [Engine & Features]
+
+# Enable the internal LCMS2 color management engine for profile processing.
+# Type: boolean
+# Default: True
+LCMS={{ lcms_enabled | default(True) }}
+
+# Enable experimental display calibration support (requires external tools like argyll).
+# Type: boolean
+# Default: False
+DisplayCalibration={{ display_calibration_enabled | default(False) }}
+
+# Enable experimental printer calibration support.
+# Type: boolean
+# Default: False
+PrinterCalibration={{ printer_calibration_enabled | default(False) }}
+
+# Enable support for Hardware Color (HWC) devices, where available (e.g., some laptops with integrated sensors).
+# Type: boolean
+# Default: True
+HWC={{ hwc_enabled | default(True) }}
+
+# [Performance & Debugging]
+
+# Maximum number of worker threads for background profile processing.
+# Type: integer
+# Default: 4
+MaxWorkers={{ max_workers | default(4) }}
+
+# Seconds to wait for a device to become ready before timing out.
+# Type: integer
+# Default: 30
+DeviceTimeout={{ device_timeout | default(30) }}
+
+# Enable verbose debug logging to syslog.
+# Type: boolean
+# Default: False
+Debug={{ debug_enabled | default(False) }}

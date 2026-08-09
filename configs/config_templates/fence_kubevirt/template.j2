@@ -1,0 +1,125 @@
+# ==============================================================================
+# fence_kubevirt Configuration Template
+# ==============================================================================
+# This template generates the configuration for the fence_kubevirt STONITH agent.
+# The agent is used by cluster managers (like Pacemaker/Corosync) to fence
+# (reboot/power-cycle) Kubevirt-managed virtual machines.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Namespace of the KubeVirt machine.
+# Specifies the Kubernetes namespace where the target VM resides.
+# ------------------------------------------------------------------------------
+namespace: {{ namespace | default('') }}
+
+# ------------------------------------------------------------------------------
+# Kubeconfig file path.
+# Path to the kubeconfig file containing authentication and cluster info.
+# This file is typically mounted from a secret or provided by the node.
+# ------------------------------------------------------------------------------
+kubeconfig: {{ kubeconfig | default('') }}
+
+# ------------------------------------------------------------------------------
+# Version of the KubeVirt API.
+# Defines the API group and version for KubeVirt resources.
+# ------------------------------------------------------------------------------
+apiversion: {{ apiversion | default('kubevirt.io/v1') }}
+
+# ------------------------------------------------------------------------------
+# Use SSL connection without verifying certificate.
+# Set to 'true' if the Kube API uses self-signed certificates or if the
+# CA bundle is not installed on the fencing node.
+# Values: true, false
+# ------------------------------------------------------------------------------
+ssl_insecure: {{ ssl_insecure | default(false) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Disable logging to stderr.
+# Prevents the agent from writing status messages to standard error.
+# Does not affect --verbose, --debug-file, or syslog logging.
+# Values: true, false
+# ------------------------------------------------------------------------------
+quiet: {{ quiet | default(false) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Verbose mode.
+# Enables verbose output. Multiple -v flags can be stacked on the command
+# line (e.g., -vvv) to increase verbosity.
+# Values: true, false
+# ------------------------------------------------------------------------------
+verbose: {{ verbose | default(false) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Level of debugging detail in output.
+# Defaults to the number of --verbose flags specified on the command line,
+# or to 1 if verbose=1 in a stonith device configuration (i.e., on stdin).
+# ------------------------------------------------------------------------------
+verbose_level: {{ verbose_level | default(1) }}
+
+# ------------------------------------------------------------------------------
+# Write debug information to given file Obsoletes: debug.
+# Specifies a file path where debug logs should be written.
+# ------------------------------------------------------------------------------
+debug_file: {{ debug_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# Separator for plug parameter when specifying more than 1 plug.
+# Used to separate multiple plug IDs in the 'plug' parameter.
+# ------------------------------------------------------------------------------
+plug_separator: {{ plug_separator | default(',') }}
+
+# ------------------------------------------------------------------------------
+# Separator for CSV created by 'list' operation.
+# Used when listing VMs to separate fields in the output.
+# ------------------------------------------------------------------------------
+separator: {{ separator | default(',') }}
+
+# ------------------------------------------------------------------------------
+# Wait X seconds before fencing is started.
+# Adds a delay before the fencing action begins. Useful for coordination.
+# ------------------------------------------------------------------------------
+delay: {{ delay | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Disable timeout (true/false).
+# When true, disables the global timeout mechanism.
+# Defaults to true when run from Pacemaker 2.0+.
+# Values: true, false
+# ------------------------------------------------------------------------------
+disable_timeout: {{ disable_timeout | default(true) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Wait X seconds for cmd prompt after login.
+# Timeout for waiting for a command prompt after logging into the VM/agent.
+# ------------------------------------------------------------------------------
+login_timeout: {{ login_timeout | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Test X seconds for status change after ON/OFF.
+# Maximum time to wait and poll for the VM's power status to change.
+# ------------------------------------------------------------------------------
+power_timeout: {{ power_timeout | default(40) }}
+
+# ------------------------------------------------------------------------------
+# Wait X seconds after issuing ON/OFF.
+# Static wait time after sending a power command before polling.
+# ------------------------------------------------------------------------------
+power_wait: {{ power_wait | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Wait X seconds for cmd prompt after issuing command.
+# Timeout for waiting for a command prompt after issuing a specific command.
+# ------------------------------------------------------------------------------
+shell_timeout: {{ shell_timeout | default(3) }}
+
+# ------------------------------------------------------------------------------
+# Sleep X seconds between status calls during a STONITH action.
+# Delay between polling the VM's power status.
+# ------------------------------------------------------------------------------
+stonith_status_sleep: {{ stonith_status_sleep | default(1) }}
+
+# ------------------------------------------------------------------------------
+# Count of attempts to retry power on.
+# Number of times to retry power-on operations if they fail initially.
+# ------------------------------------------------------------------------------
+retry_on: {{ retry_on | default(1) }}

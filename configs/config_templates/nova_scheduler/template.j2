@@ -1,0 +1,128 @@
+[DEFAULT]
+
+# Enable or disable the scheduler service. When disabled, the scheduler will not accept jobs.
+enabled = {{ enabled | default(true) | lower }}
+
+# Logging level for scheduler logs. Common values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+log_level = {{ log_level | default('INFO') }}
+
+# Path to the scheduler log file.
+log_file = {{ log_file | default('/var/log/nova/nova-scheduler.log') }}
+
+# Hostname of the host running the scheduler service. Must be resolvable by other services.
+host = {{ host | default('controller') }}
+
+# Number of worker processes for the scheduler. Increase for higher throughput or concurrency.
+workers = {{ workers | default(1) }}
+
+# Time-to-live (in seconds) for cached host state. Reduces database load but may delay visibility of host changes.
+host_state_cache_ttl = {{ host_state_cache_ttl | default(300) }}
+
+# List of scheduler filter classes to apply by default. Each element defines the filter name, description, and whether it’s enabled.
+# This section iterates over the `scheduler_default_filters` list defined in the role's variables.
+{% for f in scheduler_default_filters | default([
+    {'name': 'RetryFilter', 'description': 'Retry hosts that previously failed', 'enabled': True},
+    {'name': 'AvailabilityZoneFilter', 'description': 'Filter based on availability zone', 'enabled': True},
+    {'name': 'RamFilter', 'description': 'Filter based on available RAM', 'enabled': True},
+    {'name': 'DiskFilter', 'description': 'Filter based on available disk space', 'enabled': True},
+    {'name': 'CoreFilter', 'description': 'Filter based on available CPU cores', 'enabled': True},
+    {'name': 'ImagePropertiesFilter', 'description': 'Filter based on image properties (e.g., architecture)', 'enabled': True},
+    {'name': 'ServerGroupAffinityFilter', 'description': 'Respects server group anti-affinity', 'enabled': True},
+    {'name': 'ServerGroupAntiAffinityFilter', 'description': 'Respects server group anti-affinity', 'enabled': True}
+]) %}
+# {{ f.name }}: {{ f.description }}
+scheduler_default_filters = {{ f.name }}{% if f.enabled != true %}{{ ' (disabled)' }}{% endif %}
+{% endfor %}
+
+# List of scheduler weights and their multiplier values (used to bias selection after filtering).
+# Each element defines the weight class name and its multiplier value.
+{% for w in scheduler_weight_multiplier | default([
+    {'name': 'AvailabilityZoneFilter', 'description': 'Boost or penalize hosts based on zone proximity', 'multiplier': 1.0},
+    {'name': 'RamFilter', 'description': 'Prefer hosts with more free RAM', 'multiplier': 1.0},
+    {'name': 'DiskFilter', 'description': 'Prefer hosts with more free disk', 'multiplier': 1.0},
+    {'name': 'CoreFilter', 'description': 'Prefer hosts with fewer used vCPUs', 'multiplier': 1.0}
+]) %}
+# {{ w.name }}: {{ w.description }}
+scheduler_weight_multiplier = {{ w.name }}:{{ w.multiplier }}
+{% endfor %}
+
+# Scheduler manager class (controls how scheduler logic is invoked).
+scheduler_manager = {{ scheduler_manager | default('nova.scheduler.manager.SchedulerManager') }}
+
+# Maximum number of attempts the scheduler will make to find a suitable host before failing.
+scheduler_max_retries = {{ scheduler_max_retries | default(3) }}
+
+# Delay (in seconds) between scheduler retries. Helps avoid transient failures.
+scheduler_retry_delay = {{ scheduler_retry_delay | default(2) }}
+
+# RAM overcommit ratio (physical RAM × ratio = available RAM for instances). Values >1 enable overcommit.
+ram_allocation_ratio = {{ ram_allocation_ratio | default(1.5) }}
+
+# CPU overcommit ratio (physical cores × ratio = available vCPUs for instances). Values >1 enable overcommit.
+cpu_allocation_ratio = {{ cpu_allocation_ratio | default(16.0) }}
+
+# Disk overcommit ratio. Usually 1.0 (no overcommit) for predictable disk use.
+disk_allocation_ratio = {{ disk_allocation_ratio | default(1.0) }}
+
+# Amount of RAM (in MB) reserved for the host OS and system processes.
+reserved_host_memory_mb = {{ reserved_host_memory_mb | default(512) }}
+
+# Amount of disk space (in MB) reserved for the host OS and system processes.
+reserved_host_disk_mb = {{ reserved_host_disk_mb | default(1024) }}
+
+# Enable filtering based on image traits (e.g., hardware requirements like GPU or firmware).
+image_traits_filter_enabled = {{ image_traits_filter_enabled | default(true) | lower }}
+
+# Enable limiting per-availability-zone or per-host instance counts via aggregates.
+aggregate_instance_limit_enabled = {{ aggregate_instance_limit_enabled | default(false) | lower }}
+
+# Enable NUMA-aware scheduling (matches guest NUMA topology to host NUMA layout).
+numa_topology_filter_enabled = {{ numa_topology_filter_enabled | default(true) | lower }}
+
+# Enable trust-aware scheduling (e.g., for trusted computing or secure boot support).
+trust_filter_enabled = {{ trust_filter_enabled | default(true) | lower }}
+
+# Enable filtering by image type (e.g., baremetal vs virtual machine).
+image_type_filter_enabled = {{ image_type_filter_enabled | default(true) | lower }}
+
+# Enable filtering based on PCI passthrough device availability.
+pci_passthrough_filter_enabled = {{ pci_passthrough_filter_enabled | default(true) | lower }}
+
+# Enable custom resource class / trait-based scheduling.
+traits_filter_enabled = {{ traits_filter_enabled | default(true) | lower }}
+
+# Enable filtering by availability zones specified in the request.
+availability_zone_filter_enabled = {{ availability_zone_filter_enabled | default(true) | lower }}
+
+# Enable I/O-based scheduling (e.g., for high-throughput or low-latency workloads).
+io_weight_filter_enabled = {{ io_weight_filter_enabled | default(false) | lower }}
+
+# Respect server group affinity rules (schedule together when possible).
+server_group_affinity_filter_enabled = {{ server_group_affinity_filter_enabled | default(true) | lower }}
+
+# Respect server group anti-affinity rules (schedule on different hosts when required).
+server_group_anti_affinity_filter_enabled = {{ server_group_anti_affinity_filter_enabled | default(true) | lower }}
+
+# Enable cross-zone scheduling (allow scheduling to hosts outside the requested zone).
+zone_filter_enabled = {{ zone_filter_enabled | default(false) | lower }}
+
+# Class responsible for managing host state and capabilities.
+host_manager = {{ host_manager | default('nova.scheduler.host_manager.HostManager') }}
+
+# Scheduler driver class (e.g., FilterScheduler, RetryScheduler, ChanceScheduler).
+scheduler_driver = {{ scheduler_driver | default('nova.scheduler.filter_scheduler.FilterScheduler') }}
+
+# Use cached host state for scheduling decisions instead of querying the database each time.
+use_cached_state = {{ use_cached_state | default(true) | lower }}
+
+# Driver class for collecting and reporting scheduler statistics.
+scheduler_stats_driver = {{ scheduler_stats_driver | default('nova.scheduler.stats.StatsDriver') }}
+
+# Interval (in seconds) between host state updates. Increase for large deployments to reduce load.
+update_host_state_interval = {{ update_host_state_interval | default(60) }}
+
+# Enable scheduler metrics collection (used for monitoring and analysis).
+scheduler_metrics_enabled = {{ scheduler_metrics_enabled | default(false) | lower }}
+
+# Path to store scheduler metrics cache (used when metrics are enabled).
+scheduler_metrics_cache_path = {{ scheduler_metrics_cache_path | default('/var/lib/nova/scheduler_metrics') }}

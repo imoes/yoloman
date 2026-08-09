@@ -1,0 +1,154 @@
+#
+# config file for detox(1)
+#
+# Remove problematic characters.
+#
+# This template is self-documenting. Every configurable directive is preceded
+# by a comment describing the source schema field and its purpose.
+#
+
+#
+# Default sequence.
+#
+
+sequence default {
+	safe {
+		builtin "safe";
+	};
+	wipeup {
+		remove_trailing;
+	};
+};
+
+#
+# Sequences meant primarily for detox
+#
+
+# transliterates ISO 8859-1 into ASCII
+sequence "iso8859_1" {
+	iso8859_1 {
+		builtin "iso8859_1";
+	};
+	safe {
+		builtin "safe";
+	};
+	wipeup {
+		remove_trailing;
+	};
+};
+
+# transliterates CP-1252 and ISO8859-1 into ASCII
+sequence "iso8859_1-legacy" {
+	iso8859_1 {
+		builtin "cp1252";
+	};
+	iso8859_1 {
+		builtin "iso8859_1";
+	};
+	safe {
+		builtin "safe";
+	};
+	wipeup {
+		remove_trailing;
+	};
+};
+
+# transliterates UTF-8 into ASCII
+sequence "utf_8" {
+	utf_8 {
+		builtin "unicode";
+	};
+	safe {
+		builtin "safe";
+	};
+	wipeup {
+		remove_trailing;
+	};
+};
+
+# transliterates CP-1252 and UTF-8 into ASCII
+# this is *very* rare
+sequence "utf_8-legacy" {
+	utf_8 {
+		builtin "cp1252";
+	};
+	utf_8 {
+		builtin "unicode";
+	};
+	safe {
+		builtin "safe";
+	};
+	wipeup {
+		remove_trailing;
+	};
+};
+
+# decodes CGI-escaped characters
+sequence "uncgi" {
+	uncgi;
+	safe {
+		builtin "safe";
+	};
+	wipeup {
+		remove_trailing;
+	};
+};
+
+# converts files to lower case
+sequence "lower" {
+	safe {
+		builtin "safe";
+	};
+	lower;
+	wipeup {
+		remove_trailing;
+	};
+};
+
+#
+# Sequences meant primarily for inline-detox
+#
+
+# transliterates ISO 8859-1 to ASCII
+sequence "iso8859_1-only" {
+	iso8859_1 {
+		builtin "iso8859_1";
+	};
+};
+
+# transliterates CP-1252 to ASCII
+sequence "cp1252-only" {
+	iso8859_1 {
+		builtin "cp1252";
+	};
+};
+
+# transliterates UTF-8 to ASCII
+sequence "utf_8-only" {
+	utf_8 {
+		builtin "unicode";
+	};
+};
+
+# decodes CGI-escaped characters
+sequence "uncgi-only" {
+	uncgi;
+};
+
+# converts files to lower case
+sequence "lower-only" {
+	lower;
+};
+
+
+#
+# Files to ignore during recursion (detox only)
+#
+# Any file or directory starting with '.' is automatically ignored except when
+# it is passed on the command-line.
+#
+
+# Filename pattern to ignore during recursion (typically '{arch}' for Arch local repository metadata).
+ignore {
+	filename "{{ arch_filename | default('{arch}') }}";
+};

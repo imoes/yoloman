@@ -1,0 +1,53 @@
+{
+  "comment": "gnarwl \u2014 GNU Neat Autoreply With LDAP \u2014 production config",
+  "server_uri": [
+    "ldap://ldap.internal.example.com",
+    "ldap://ldap2.internal.example.com"
+  ],
+  "server": "",
+  "port": 389,
+  "starttls": true,
+  "ca_cert": "/etc/ssl/certs/ldap-ca.pem",
+  "login": "cn=gnarwl,ou=Services,dc=internal,dc=example,dc=com",
+  "password": "supersecret",
+  "base": "ou=People,dc=internal,dc=example,dc=com",
+  "scope": "sub",
+  "protocol": 3,
+  "queryfilter": "(&(mail=$recipient)(vacationActive=TRUE))",
+  "result": "vacationBody",
+  "map_sender": "$sender",
+  "map_receiver": "$receiver",
+  "map_subject": "$subject",
+  "map_fields": [
+    {
+      "attribute": "cn",
+      "name": "$fullname"
+    },
+    {
+      "attribute": "title",
+      "name": "$title"
+    }
+  ],
+  "blockfiles": "/var/lib/gnarwl/block/",
+  "umask": "0600",
+  "blockexpire": 72,
+  "maxreceivers": 256,
+  "maxheader": 256,
+  "badheaders": "/etc/gnarwl/badheaders.db",
+  "blacklist": "/etc/gnarwl/blacklist.db",
+  "forceheader": "/etc/gnarwl/header.txt",
+  "forcefooter": "/etc/gnarwl/footer.txt",
+  "mta": "/usr/sbin/sendmail",
+  "mta_args": [
+    "-oi",
+    "-t"
+  ],
+  "charset": "utf-8",
+  "recvheader": [
+    "To",
+    "Cc",
+    "Resent-To"
+  ],
+  "loglevel": 2,
+  "deref": "find"
+}

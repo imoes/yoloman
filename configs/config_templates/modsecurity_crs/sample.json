@@ -1,0 +1,53 @@
+{
+  "exclusion_rules": [
+    {
+      "condition": "uri",
+      "uri_pattern": "^/healthz$",
+      "description": "Disable all CRS rules on health check endpoint to avoid false positives from probes.",
+      "target_rule_ids": [
+        913100,
+        920270,
+        930100
+      ],
+      "target_args": []
+    },
+    {
+      "condition": "header",
+      "header_name": "User-Agent",
+      "header_value_pattern": "kube-probe|health-checker",
+      "description": "Exempt known Kubernetes/probe agents from CRS checks.",
+      "target_rule_ids": [
+        913100,
+        920300
+      ]
+    },
+    {
+      "condition": "variable",
+      "variable_name": "ARGS:api_key",
+      "match_pattern": "^[a-f0-9]{32}$",
+      "description": "Allow API keys in expected format (32 hex chars) without triggering SQLi/XSS rules.",
+      "target_rule_ids": [
+        942100,
+        941100,
+        942200
+      ]
+    },
+    {
+      "condition": "rule_by_id",
+      "uri_regex": "^/api/v\\d+/admin",
+      "description": "Disable CRS rules 920350 and 930110 on admin API endpoints.",
+      "remove_ids": [
+        920350,
+        930110
+      ]
+    },
+    {
+      "condition": "action",
+      "filename_pattern": "/uploads/.*\\.svg$",
+      "description": "Disable all XSS-tagged rules for SVG uploads (handle content validation externally).",
+      "remove_tags": [
+        "attack-xss"
+      ]
+    }
+  ]
+}

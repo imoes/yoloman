@@ -1,0 +1,169 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/designate/designate-worker.log",
+    "description": "Path to the log file for designate-worker."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/designate",
+    "description": "Directory to store log files."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable verbose logging output."
+  },
+  "host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname for this worker instance. Leave empty to auto-detect."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672/",
+    "description": "Message broker connection URL (e.g., RabbitMQ, Redis)."
+  },
+  "auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone authentication endpoint URL."
+  },
+  "project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name for the service project."
+  },
+  "project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project name under which the service runs."
+  },
+  "user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name for the service user."
+  },
+  "username": {
+    "type": "string",
+    "default": "designate",
+    "description": "Keystone username for the Designate service."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone password for the Designate service user (should be provided securely, e.g., via config file permissions or secrets manager)."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes to spawn."
+  },
+  "threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of threads per worker process."
+  },
+  "periodic_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between periodic task runs (e.g., cleanup, zone sync)."
+  },
+  "max_concurrent_updates": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent outgoing DNS update requests to DNS backends."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum retry attempts for failed DNS updates."
+  },
+  "enabled_export": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable zone export to local files."
+  },
+  "export_dir": {
+    "type": "string",
+    "default": "/var/lib/designate/exports",
+    "description": "Directory where zone export files are stored when enabled."
+  },
+  "default_pool_id": {
+    "type": "string",
+    "default": "default",
+    "description": "ID of the default pool for zone assignments. Used when zone creation omits a pool ID."
+  },
+  "storage_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://designate:designate@localhost/designate?charset=utf8",
+    "description": "Database connection string for zone/pool data persistence."
+  },
+  "storage_pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of database connections in the pool."
+  },
+  "storage_pool_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for acquiring a connection from the pool."
+  },
+  "bind9_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable BIND9 backend integration (if used)."
+  },
+  "bind9_servers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Logical name of the BIND9 server (used as section suffix)."
+      },
+      "api_endpoint": {
+        "type": "string",
+        "description": "BIND9 API endpoint URL (e.g., http://bind9.example.com:8080/api/v1)."
+      },
+      "api_key": {
+        "type": "string",
+        "description": "API key for authenticating with the BIND9 server."
+      },
+      "md5_auth_key": {
+        "type": "string",
+        "description": "Optional MD5 key for TSIG authentication of dynamic updates (if BIND9 uses TSIG)."
+      },
+      "tsig_key_name": {
+        "type": "string",
+        "description": "Optional TSIG key name used in BIND9 config (if applicable)."
+      }
+    },
+    "description": "List of BIND9 DNS servers to manage (only needed if using BIND9 backend)."
+  },
+  "notifier_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable custom event notifications (e.g., for external monitoring or audit)."
+  },
+  "notifier_endpoints": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "backend": {
+        "type": "string",
+        "description": "Notifier backend (e.g., 'rpc', 'log', 'http')."
+      },
+      "options": {
+        "type": "object",
+        "description": "Backend-specific configuration options as key-value pairs."
+      }
+    },
+    "description": "List of custom notifier endpoints with their configuration."
+  }
+}

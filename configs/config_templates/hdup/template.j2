@@ -1,0 +1,136 @@
+####
+# config for hdup
+#
+# see man 5 hdup.conf for more information
+# '#' is comment, empty lines are ignored
+#
+# Skeleton hdup.conf file to be installed by distribution
+# See for a full explanation the hdup.conf manpage
+#
+####
+
+# everything put under [global] is "inherited" by 
+# all the other hosts defined in this config file
+[global]
+
+# where to put the tar archives
+# default: /vol/backup/
+archive_dir = {{ archive_dir | default('/vol/backup/') }}
+
+# use the normal date format specification
+# default: iso
+date_spec = {{ date_spec | default('iso') }}
+
+# try to figure out the current scheme, and perform the 
+# correct backup
+# default: on
+always_backup = {{ always_backup | default('on') }}
+
+# skip the archive dir from the backup
+# default: on
+skip = {{ skip | default('on') }}
+
+# restore option: disallow restoring to /
+# default: no
+force = {{ force | default('no') }}
+
+# overwrite existing archives in 'archive dir'
+# default: on
+overwrite = {{ overwrite | default('on') }}
+
+# ssh options: path to SSH executable
+# default: /usr/bin/ssh
+proto = {{ ssh_proto_path | default('/usr/bin/ssh') }}
+
+# ssh options: SSH command line options
+# default: -q -oProtocol=2
+proto_option = {{ ssh_proto_options | default('-q -oProtocol=2') }}
+
+# chown the archives to this user
+# default: operator
+user = {{ archive_user | default('operator') }}
+
+# compression options: default compression algorithm
+# default: bzip
+compression = {{ default_compression | default('bzip') }}
+
+# compression options: compression level (0-9)
+# default: 6
+compression_level = {{ compression_level | default('6') }}
+
+# is such a file is found, exclude that directory
+# default: .nobackup
+nobackup = {{ nobackup_file | default('.nobackup') }}
+
+# my own host
+[{{ backup_host_name | default('elektron') }}]
+
+# what to backup, separate with ,.
+# For directories add closing slash, like /home/
+# default: /home/
+dir = {{ backup_dir | default('/home/') }}
+
+# don't include theses directories
+# default: lost\+found/, /proc/, /dev/, /sys/
+# Note: This template outputs a comma-separated string.
+# The consuming software likely splits this. If a list is preferred,
+# use `{{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}`
+exclude = {{ backup_exclude | default('lost\\+found/, /proc/, /dev/, /sys/') }}
+
+# if we want to split it (to fit a CD)
+# default: 640m (commented out in original, uncommented here if desired, 
+# but per schema default, we treat chunk_size as a separate field not in original active config.
+# To stay faithful to the original template structure which had it commented:
+#chunk_size = {{ chunk_size | default('640m') }}
+
+# enable for nagging
+# default: /etc/hdup/postrun-warn-user %s
+# postrun = {{ postrun_script | default('/etc/hdup/postrun-warn-user %s') }}
+
+# my laptop will put some archive heres, put them in
+# them in the correct place 
+[{{ remote_backup_host_name | default('www-host') }}]
+
+# what to backup for remote host
+# default: /var/www
+dir = {{ remote_backup_dir | default('/var/www') }}
+
+# log to syslog
+# default: yes
+log = {{ log_to_syslog | default('yes') }}
+
+# excluded directories for remote host
+# default: /var/.*/docs/
+exclude = {{ remote_backup_exclude | default('/var/.*/docs/') }}
+
+# whether to stay on one filesystem
+# default: no
+one_filesystem = {{ one_filesystem | default('no') }}
+
+# compression for remote host
+# default: gzip
+compression = {{ remote_compression | default('gzip') }}
+
+# encryption key
+# default: key2
+# key = {{ encryption_key | default('key2') }}
+
+# encryption algorithm
+# default: tripeledes
+# algorithm = {{ encryption_algorithm | default('tripledes') }}
+
+# whether to allow remote backup
+# default: no
+allow_remote = {{ allow_remote | default('no') }}
+
+# free disk space threshold
+# default: 20m
+free = {{ free_space | default('20m') }}
+
+# path to remote hdup executable
+# default: /mnt/key/src/hdup2
+remote_hdup = {{ remote_hdup_path | default('/mnt/key/src/hdup2') }}
+
+# options for remote hdup executable
+# default: -c /mnt/key/hdup2.conf
+remote_hdup_option = {{ remote_hdup_options | default('-c /mnt/key/hdup2.conf') }}

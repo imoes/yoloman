@@ -1,0 +1,104 @@
+# ==============================================================================
+# FileSpooler Configuration Template
+# ==============================================================================
+# This configuration file manages the FileSpooler service, which handles job
+# spooling, queuing, and processing in either standalone or distributed modes.
+#
+# All variables use Jinja2 defaults matching the schema to ensure safe
+# rendering even when optional variables are undefined.
+# ==============================================================================
+
+# Global operation mode: 'single' (standalone) or 'distributed' (multi-node cluster).
+# In 'single' mode, network binding and peer discovery are disabled.
+# In 'distributed' mode, the service binds to listen_addr and connects to peers.
+mode {{ mode | default('single') }}
+
+# Absolute path to the root working directory for job spools, metadata, and logs.
+# Ensure this directory exists and is writable by the service user.
+base_dir {{ base_dir | default('/var/lib/filespooler') }}
+
+# Network interface address to bind the server socket to (ignored in single mode).
+# Use '0.0.0.0' for all interfaces, or a specific IP for restricted access.
+listen_addr {{ listen_addr | default('0.0.0.0') }}
+
+# TCP port for incoming client and peer connections.
+# Clients submit jobs to this port; peers synchronize job state on this port.
+port {{ port | default(9222) }}
+
+# Number of worker threads per job queue slot to process incoming jobs concurrently.
+# Higher values increase throughput but consume more CPU and memory.
+worker_threads {{ worker_threads | default(4) }}
+
+# Maximum number of jobs that may be queued before blocking new job submissions.
+# Once reached, the service rejects new jobs until the queue depth drops.
+max_queue_depth {{ max_queue_depth | default(10000) }}
+
+# Maximum time in seconds a job may remain in 'running' state before being
+# marked as failed and optionally requeued or sent to the dead-letter queue.
+job_timeout {{ job_timeout | default(300) }}
+
+# Verbosity of logging output (case-insensitive).
+# Accepted values: DEBUG, INFO, WARN, ERROR, FATAL.
+log_level {{ log_level | default('INFO') }}
+
+# Path to the log file (use '-' to log to stdout).
+# If the path does not exist, the service attempts to create parent directories.
+log_file {{ log_file | default('/var/log/filespooler/filespooler.log') }}
+
+# ==============================================================================
+# TLS / Mutual Authentication Section
+# ==============================================================================
+
+# Enable mutual TLS authentication for inter-node and client communication.
+# When false, connections are unencrypted. When true, TLS is enforced.
+{% if enable_tls | default(false) | bool %}
+tls_enabled true
+
+# Absolute path to the server certificate chain file (required if TLS enabled).
+# Contains the server certificate and any intermediate CA certificates.
+tls_cert_file {{ tls_cert_file | default('/etc/filespooler/tls/server.crt') }}
+
+# Absolute path to the server private key file (required if TLS enabled).
+# Must be readable by the service user and preferably owned by root.
+tls_key_file {{ tls_key_file | default('/etc/filespooler/tls/server.key') }}
+
+# Optional absolute path to the CA certificate for verifying peers.
+# If omitted, system CAs may be used (behavior depends on runtime implementation).
+tls_ca_file {{ tls_ca_file | default('/etc/filespooler/tls/ca.crt') }}
+
+# Optional server name for TLS verification (overrides peer hostname check).
+# Useful when connecting to peers via IP addresses but the certificate has a DNS SAN.
+{% if tls_server_name | default('') | trim | length > 0 %}
+tls_server_name {{ tls_server_name | default('') }}
+{% endif %}
+{% else %}
+tls_enabled false
+{% endif %}
+
+# ==============================================================================
+# Distributed Cluster Peers Section
+# ==============================================================================
+
+# List of peer nodes in a distributed cluster.
+# Each peer defines the host and port for synchronization.
+# Only used when mode is 'distributed'.
+{% for peer in peers | default([]) %}
+peer {{ peer.host | default('') }} {{ peer.port | default(9222) }}
+{% endfor %}
+
+# ==============================================================================
+# Job Queue Configuration Section
+# ==============================================================================
+
+# Per-queue configuration blocks (one per queue name).
+# Each queue defines its own retry policy, max retries, and dead-letter queue (DLQ) target.
+{% for queue in queues | default([{'name': 'default', 'retry_limit': 3, 'max_retries_before_dlq': 5, 'dead_letter_queue': 'deadletter'}]) %}
+queue {{ queue.name | default('default') }}
+  # Maximum number of times a failed job is retried within this queue.
+  retry_limit {{ queue.retry_limit | default(3) }}
+  # If a job exceeds this many total retries across its lifecycle, it is
+  # moved to the dead-letter queue instead of being retried again.
+  max_retries_before_dlq {{ queue.max_retries_before_dlq | default(5) }}
+  # Name of the dead-letter queue to send permanently failed jobs to.
+  dead_letter_queue {{ queue.dead_letter_queue | default('deadletter') }}
+{% endfor %}

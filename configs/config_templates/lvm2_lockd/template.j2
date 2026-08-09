@@ -1,0 +1,37 @@
+# Configuration for LVM Locking Daemon (lvmlockd)
+
+# Enable the lvmlockd daemon
+use_lvmlockd = {{ use_lvmlockd }}
+
+# Socket used for communication with lvmlockd
+pidfile = "{{ pidfile }}"
+
+# Lock type: 'disk', 'none', or 'sanlock'
+locking_type = "{{ locking_type }}"
+
+# Path to lock space directory (used when locking_type = 'disk')
+lockspace_dir = "{{ lockspace_dir }}"
+
+# Number of workers for processing lock requests
+worker_threads = {{ worker_threads }}
+
+# Timeout for lock operations (seconds)
+lock_timeout = {{ lock_timeout }}
+
+# Maximum number of lock resources to cache
+max_lock_resources = {{ max_lock_resources }}
+
+# If true, lvmlockd will attempt to automatically reacquire locks on restart
+auto_recover = {{ auto_recover }}
+
+# Optional: List of SANLOCK resources for distributed locking
+{% for resource in sanlock_resources %}# SANLOCK resource: {{ resource.name }} on {{ resource.path }}
+sanlock_resource_{{ loop.index }} = {
+  name = "{{ resource.name }}",
+  path = "{{ resource.path }}",
+  offset = {{ resource.offset }}
+}
+{% endfor %}
+
+# Debug logging level (0=error, 1=warn, 2=info, 3=debug)
+log_level = {{ log_level }}

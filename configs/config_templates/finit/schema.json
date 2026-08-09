@@ -1,0 +1,75 @@
+{
+  "syslog_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Finit\u2019s internal syslog helper for kernel and service logging."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 3,
+    "description": "Console logging verbosity: 0=silent, 1=errors, 2=warnings, 3=info (recommended default)."
+  },
+  "console_device": {
+    "type": "string",
+    "default": "",
+    "description": "Console device to use for kernel/service output (e.g., /dev/console, /dev/ttyS0). Leave empty for kernel default."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "System hostname to set at boot (overrides kernel command line)."
+  },
+  "runlevel_default": {
+    "type": "number",
+    "default": 2,
+    "description": "Default runlevel to jump to after bootstrap (runlevel S)."
+  },
+  "runlevels": {
+    "type": "list",
+    "default": [
+      {
+        "number": 3,
+        "services": [
+          "network",
+          "sshd",
+          "crond"
+        ]
+      },
+      {
+        "number": 5,
+        "services": [
+          "network",
+          "sshd",
+          "crond",
+          "display-manager"
+        ]
+      }
+    ],
+    "description": "Runlevels and services to activate per runlevel. Each entry defines a runlevel number and an ordered list of service names."
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "network",
+        "cmd": "/usr/sbin/networkctl enable --global",
+        "pidfile": "/run/network/networkctl.pid",
+        "network_required": true,
+        "early_boot": false
+      },
+      {
+        "name": "sshd",
+        "cmd": "/usr/sbin/sshd -D",
+        "restart_delay": 3,
+        "start_timeout": 5,
+        "restart_limit": 3
+      },
+      {
+        "name": "crond",
+        "cmd": "/usr/sbin/crond -n",
+        "depends_on": "network"
+      }
+    ],
+    "description": "List of system services to manage. Each service defines name, command, and optional lifecycle behavior."
+  }
+}

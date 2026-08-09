@@ -1,0 +1,49 @@
+# Main configuration file for Lomiri Upload Manager daemon
+# Controls how the upload manager service behaves on the system
+
+[UploadManager]
+# Path to the directory where completed uploads are stored
+CachePath = {{ cache_path }}
+
+# Maximum size (in bytes) of the cache directory; 0 means unlimited
+MaxCacheSize = {{ max_cache_size }}
+
+# Maximum number of concurrent uploads
+MaxConcurrentUploads = {{ max_concurrent_uploads }}
+
+# Maximum number of retries before aborting an upload
+MaxRetries = {{ max_retries }}
+
+# Minimum delay (in seconds) between retries
+RetryDelay = {{ retry_delay }}
+
+# Whether to compress uploads before sending (true/false)
+CompressUploads = {{ compress_uploads | lower }}
+
+# Whether to upload over metered connections (true/false)
+AllowMeteredUploads = {{ allow_metered_uploads | lower }}
+
+# Whether to auto-start uploads when device is charging (true/false)
+AutoStartOnCharging = {{ auto_start_on_charging | lower }}
+
+# List of supported upload backends (e.g., ftp, http, owncloud, dropbox)
+{% for backend in backends %}{{ backend | lower }}
+{% endfor %}
+
+# Per-backend configuration sections (if any)
+{% for backend in backends %}
+[UploadManager/{{ backend }}]
+# Enabled state for {{ backend }} backend
+Enabled = {{ (backend_enabled.get(backend, true)) | lower }}
+# Hostname or URL for {{ backend }} service
+Host = {{ backend_hosts.get(backend, '') }}
+# Username for {{ backend }} (if applicable)
+Username = {{ backend_users.get(backend, '') }}
+# Password for {{ backend }} (if applicable)
+Password = {{ backend_passwords.get(backend, '') }}
+# Path prefix for {{ backend }} uploads
+PathPrefix = {{ backend_paths.get(backend, '') }}
+{% if backend in ['ftp'] %}# Use FTPS (implicit TLS) for FTP backend
+UseFTPS = {{ backend_ftp_tls.get(backend, false) | lower }}
+{% endif %}
+{% endfor %}

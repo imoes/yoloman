@@ -1,0 +1,50 @@
+# ===========================================================================
+# ceph-immutable-object-cache configuration
+#
+# This file configures the Ceph Immutable Object Cache service instance.
+# It follows the standard Ceph configuration file format (INI-like).
+# The template is self-documenting: every directive is preceded by a comment
+# derived from the schema field description.
+#
+# Generated from Ansible/Jinja2. Do not edit manually.
+# ===========================================================================
+
+[global]
+# Global section for Ceph cluster context.
+# cluster_name: Cluster name used for config/auth discovery (e.g., /etc/ceph/cluster.conf).
+# Defaults to 'ceph'.
+cluster = {{ (cluster_name | default('ceph')) | string }}
+
+# rados_user_name: RADOS user name (TYPE.ID); must be valid for the service instance.
+# Defaults to 'client.ceph-immutable-object-cache'.
+# Note: In Ceph config files, the 'name' directive under a specific section
+# sets the client identity. This section is [client.ceph-immutable-object-cache],
+# so the name here identifies this specific client.
+[client.ceph-immutable-object-cache]
+name = {{ (rados_user_name | default('client.ceph-immutable-object-cache')) | string }}
+
+# mon_addresses: Explicit monitor addresses (list of host:port strings); overrides mon lookup in ceph.conf.
+# If provided, this list is joined into the mon_host directive.
+# If empty, Ceph relies on default discovery or other configuration.
+{% if (mon_addresses | default([])) | length > 0 %}
+# mon_host: Comma-separated list of monitor addresses.
+mon_host = {{ (mon_addresses | default([])) | join(', ') }}
+{% endif %}
+
+# log_to_stderr: If true, run in foreground and log to stderr (equivalent to -d flag);
+# otherwise use standard logging (syslog/journald/file).
+# Defaults to False.
+{% if (log_to_stderr | default(false)) is sameas true %}
+# log_to_stderr: When true, directs logs to standard error output.
+log_to_stderr = true
+{% else %}
+# log_to_file: When false (default), logs are handled by the system logger or file, not stderr.
+log_to_file = false
+{% endif %}
+
+# config_path: Absolute path to ceph.conf if not the default (/etc/ceph/ceph.conf).
+# If provided, the 'conf' directive tells Ceph libraries where to find the main configuration.
+{% if (config_path | default('')) != '' %}
+# conf: Path to the main Ceph configuration file.
+conf = {{ (config_path | default('')) | string }}
+{% endif %}

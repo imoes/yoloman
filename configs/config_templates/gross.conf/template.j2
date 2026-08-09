@@ -1,0 +1,64 @@
+# Gross Service Configuration Template
+# Generates a standard INI configuration file for the Gross service.
+# All variables use inline defaults to ensure the rendered config is always valid,
+# even if specific variables are not explicitly passed in the Ansible play.
+
+# Name of the main configuration section.
+# Default: main
+[{{ section_name | default('main') }}]
+
+# The primary TCP port the Gross service listens on.
+# Default: 8080
+port = {{ port | default(8080) }}
+
+# Number of worker processes to spawn for handling concurrent requests.
+# Default: 4
+worker_count = {{ worker_count | default(4) }}
+
+# Logging verbosity level. Accepts DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+# Default: INFO
+log_level = {{ log_level | default('INFO') | upper }}
+
+# Directory where service logs are written.
+# Default: /var/log/gross
+log_dir = {{ log_dir | default('/var/log/gross') }}
+
+# Directory used for persistent runtime data (e.g., temporary files, state).
+# Default: /var/lib/gross
+data_dir = {{ data_dir | default('/var/lib/gross') }}
+
+# If true, TLS encryption is enabled on the service port.
+# Default: false
+use_tls = {{ use_tls | default(false) | lower }}
+
+# List of allowed origins for CORS.
+# Default: ['*'] (all origins).
+# Rendered as a comma-separated list.
+allowed_origins = {{ allowed_origins | default(['*']) | join(', ') }}
+
+# Custom public hostname for this instance.
+# Leave blank to use the system hostname.
+{% if (hostname | default('')) != '' %}
+hostname = {{ hostname | default('') }}
+{% endif %}
+
+# Maximum time in seconds to wait for a request before timing out.
+# Default: 30
+timeout = {{ timeout | default(30) }}
+
+# Maximum allowed size (in MB) for uploaded files.
+# Default: 100
+max_upload_size = {{ max_upload_size | default(100) }}
+
+{% if extra_sections is defined and extra_sections is iterable %}
+# Additional custom INI sections for third-party plugins or advanced tuning.
+{% for section in extra_sections %}
+
+[{{ section.name | default('unnamed_section') }}]
+{% for key, value in section.options | default({}) | dict2items %}
+# Key: {{ key.key }}
+# Value: {{ value.value }}
+{{ key.key }} = {{ value.value }}
+{% endfor %}
+{% endfor %}
+{% endif %}

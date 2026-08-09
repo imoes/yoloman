@@ -1,0 +1,84 @@
+{
+  "server.listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind the server to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "server.port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP port to listen on. Port 53 is standard for DNS traffic."
+  },
+  "server.domain": {
+    "type": "string",
+    "default": "tunnel.example.com",
+    "description": "The DNS domain you own and will use for tunneling (e.g., 'iodine.example.com'). Must resolve to this server\u2019s IP."
+  },
+  "auth.password": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret used by clients to authenticate. Must match on all connecting clients."
+  },
+  "limits.max_sessions": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client sessions allowed."
+  },
+  "limits.timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Number of seconds of inactivity before an idle session is dropped."
+  },
+  "limits.mtu": {
+    "type": "number",
+    "default": 1140,
+    "description": "Maximum Transmission Unit (MTU) in bytes for tunnel packets. Typically 1140\u20131280 to avoid IP fragmentation."
+  },
+  "logging.debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "logging.log_stdout": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to output logs to standard output (console). Ignored if log_file is non-empty."
+  },
+  "logging.log_file": {
+    "type": "string",
+    "default": "/var/log/iodined.log",
+    "description": "Path to the log file. Set to empty string ('') to disable file logging."
+  },
+  "features.tos": {
+    "type": "number",
+    "default": 0,
+    "description": "Type of Service (ToS) byte (0\u2013255) to set on outgoing IP packets. 0 = default service."
+  },
+  "features.ipv6": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 support for the server (requires system and kernel support)."
+  },
+  "features.zlib": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable zlib compression for payload data. Improves throughput over slow links."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of authorized users with fixed IP addresses. Each user must provide the matching password and username during connection.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Username for authentication and log identification."
+      },
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 address to assign to this user in the tunnel (e.g., '10.0.0.2'). Must be within the domain\u2019s allocated subnet."
+      }
+    }
+  }
+}

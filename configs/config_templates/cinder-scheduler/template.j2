@@ -1,0 +1,309 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          {{ PROJECT_NAME | default('cinder') }}-scheduler
+# Required-Start:    $network $local_fs $remote_fs $syslog
+# Required-Stop:     $remote_fs
+# Should-Start:      postgresql mysql keystone rabbitmq-server ntp
+# Should-Stop:       postgresql mysql keystone rabbitmq-server ntp
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ PROJECT_NAME | default('cinder') }} Scheduler
+# Description:       Provides EBS like storage for your
+#                    virtual machine instances
+### END INIT INFO
+
+# Author: Thomas Goirand <zigo@debian.org>
+DESC="OpenStack {{ PROJECT_NAME | default('cinder') }} Scheduler ({{ PROJECT_NAME | default('cinder') }}-scheduler)"
+PROJECT_NAME={{ PROJECT_NAME | default('cinder') }}
+NAME=${PROJECT_NAME}-scheduler
+# Set the process name for Oslo messaging to identify this scheduler instance
+export OS_OSLO_MESSAGING_RABBIT__PROCESSNAME={{ PROJECT_NAME | default('cinder') }}-scheduler
+
+#!/bin/sh
+# The content after this line comes from openstack-pkg-tools
+# and has been automatically added to a .init.in script, which
+# contains only the descriptive part for the daemon. Everything
+# else is standardized as a single unique script.
+
+# Author: Thomas Goirand <zigo@debian.org>
+# Author: Ondřej Nový <novy@ondrej.org>
+
+# PATH should only include /usr/* if it runs after the mountnfs.sh script
+PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+# UWSGI Configuration Block
+# If UWSGI specific variables are set, configure the daemon to run via UWSGI
+if [ -n "{{ UWSGI_PORT | default('') }}" ] && [ -n "{{ UWSGI_INI_PATH | default('') }}" ] && [ -n "{{ UWSGI_INI_APP | default('') }}" ] ; then
+	# Exit if the UWSGI app ini file does not exist
+	if ! [ -f "{{ UWSGI_INI_APP | default('') }}" ] ; then
+		exit 0
+	fi
+
+	# Determine SSL private key file for HTTPS socket if available
+	if [ -d /etc/{{ PROJECT_NAME | default('cinder') }}/ssl/private ] ; then
+		KEY_FILE=$(find /etc/{{ PROJECT_NAME | default('cinder') }}/ssl/private -type f -iname '*.pem' 2>/dev/null | head -n 1)
+	fi
+
+	# Determine SSL certificate file
+	if [ -e /usr/local/share/ca-certificates/puppet_openstack.crt ] ; then
+		# This is needed for puppet...
+		CERT_FILE=/usr/local/share/ca-certificates/puppet_openstack.crt
+	else
+		if [ -d /etc/{{ PROJECT_NAME | default('cinder') }}/ssl/public ] ; then
+			CERT_FILE=$(find /etc/{{ PROJECT_NAME | default('cinder') }}/ssl/public -type f -iname '*.crt' 2>/dev/null | head -n 1)
+		fi
+	fi
+
+	# Locate the correct uwsgi_python binary version
+	# Sid doesn't have /usr/bin/uwsgi_python3, so we need
+	# to search for a more specific daemon name. For stretch
+	# /usr/bin/uwsgi_python3 is fine.
+	for i in 3 35 36 37 38 39 310 311 312 313 314 315 316 317 318 319 ; do
+		if [ -x /usr/bin/uwsgi_python${i} ] ; then
+			DAEMON=/usr/bin/uwsgi_python${i}
+		fi
+	done
+
+	# Try to read bind config from an external file if specified
+	# This allows dynamic configuration of IP, Port, and Workers
+	if [ -n "{{ UWSGI_BIND_CONFIG_FILE | default('') }}" ] && [ -r "{{ UWSGI_BIND_CONFIG_FILE | default('') }}" ] && [ -n "{{ UWSGI_BIND_CONFIG_SECTION | default('uwsgi') }}" ] && [ -n "{{ UWSGI_BIND_CONFIG_IP_DIRECTIVE | default('bind') }}" ] && [ -n "{{ UWSGI_BIND_CONFIG_PORT_DIRECTIVE | default('port') }}" ] && [ -r /usr/share/openstack-pkg-tools/pkgos_func ] ; then
+		. /usr/share/openstack-pkg-tools/pkgos_func
+		# Get IP address
+		pkgos_inifile get {{ UWSGI_BIND_CONFIG_FILE | default('') }} {{ UWSGI_BIND_CONFIG_SECTION | default('uwsgi') }} {{ UWSGI_BIND_CONFIG_IP_DIRECTIVE | default('bind') }}
+	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_BIND_IP=${RET}
+		fi
+		# Get Port
+		pkgos_inifile get {{ UWSGI_BIND_CONFIG_FILE | default('') }} {{ UWSGI_BIND_CONFIG_SECTION | default('uwsgi') }} {{ UWSGI_BIND_CONFIG_PORT_DIRECTIVE | default('port') }}
+	        if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+			UWSGI_PORT=${RET}
+		fi
+		# Get Workers/Processes count if directive is defined
+		if [ -n "{{ UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE | default('processes') }}" ] ; then
+			pkgos_inifile get {{ UWSGI_BIND_CONFIG_FILE | default('') }} {{ UWSGI_BIND_CONFIG_SECTION | default('uwsgi') }} {{ UWSGI_BIND_CONFIG_WORKERS_DIRECTIVE | default('processes') }}
+		        if [ -n "${RET}" && ! "${RET}" = "NOT_FOUND" ] ; then
+				UWSGI_PROCESSES=" --processes ${RET}"
+			else
+				# If we can't find the directive in the config file,
+				# we fallback to the number of thread / 2.
+				UWSGI_PROCESSES=" --processes "$(( $(nproc) / 2 ))
+			fi
+		fi
+		# Special handling for Swift object server (multi-port binding)
+		if [ "{{ UWSGI_BIND_CONFIG_FILE | default('') }}" = "/etc/swift/object-server.conf" ] ; then
+			pkgos_inifile get {{ UWSGI_BIND_CONFIG_FILE | default('') }} {{ UWSGI_BIND_CONFIG_SECTION | default('uwsgi') }} devices
+			if [ -n "${RET}" ] && [ ! "${RET}" = "NOT_FOUND" ] ; then
+				DEVICES_PATH=${RET}
+				NUM_DEVICES=$(ls ${DEVICES_PATH} | wc -l)
+				COUNT=0
+				while [ "${COUNT}" != "${NUM_DEVICES}" ] ; do
+					CUR_PORT=$(( ${UWSGI_PORT} + ${COUNT} ))
+					BIND_PARAMS="${BIND_PARAMS} --http-socket ${UWSGI_BIND_IP}:${CUR_PORT}"
+					COUNT=$(( ${COUNT} + 1 ))
+				done
+			fi
+		fi
+	else
+		UWSGI_BIND_IP=""
+	fi
+
+	# Construct daemon arguments based on SSL and binding configuration
+	if [ -n "${BIND_PARAMS}" ] ; then
+		DAEMON_ARGS="${BIND_PARAMS}${UWSGI_PROCESSES}"
+	else
+		if [ -n "${KEY_FILE}" ] && [ -n "${CERT_FILE}" ] ; then
+			DAEMON_ARGS="--https-socket ${UWSGI_BIND_IP}:${UWSGI_PORT},${CERT_FILE},${KEY_FILE}${UWSGI_PROCESSES}"
+		else
+			DAEMON_ARGS="--http-socket ${UWSGI_BIND_IP}:${UWSGI_PORT}${UWSGI_PROCESSES}"
+		fi
+	fi
+
+	# Add UWSGI ini file argument
+	DAEMON_ARGS="${DAEMON_ARGS} --ini {{ UWSGI_INI_PATH | default('') }}"
+	# Disable standard OpenStack config file and logfile arguments as UWSGI handles them
+	NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG=yes
+	NO_OPENSTACK_LOGFILE_DAEMON_ARG=yes
+fi
+
+# If DAEMON was not set by UWSGI logic, use the standard binary name
+if [ -z "${DAEMON}" ] ; then
+	DAEMON=/usr/bin/${NAME}
+fi
+
+# Configuration Defaults
+# PID file path for the scheduler process
+PIDFILE={{ PIDFILE | default('/var/run/cinder/cinder-scheduler.pid') }}
+# Path to this init script
+if [ -z "{{ SCRIPTNAME | default('') }}" ] ; then
+	SCRIPTNAME={{ SCRIPTNAME | default('/etc/init.d/cinder-scheduler') }}
+fi
+# System user to run the service under
+if [ -z "{{ SYSTEM_USER | default('') }}" ] ; then
+	SYSTEM_USER={{ SYSTEM_USER | default('cinder') }}
+fi
+# System group to run the service under
+if [ -z "{{ SYSTEM_GROUP | default('') }}" ] ; then
+	SYSTEM_GROUP={{ SYSTEM_GROUP | default('cinder') }}
+fi
+# Set chuid argument if not running as root
+if [ "{{ SYSTEM_USER | default('cinder') }}" != "root" ] ; then
+	STARTDAEMON_CHUID="--chuid {{ SYSTEM_USER | default('cinder') }}:{{ SYSTEM_GROUP | default('cinder') }}"
+fi
+# Path to the main Cinder configuration file
+if [ -z "{{ CONFIG_FILE | default('') }}" ] ; then
+	CONFIG_FILE={{ CONFIG_FILE | default('/etc/cinder/cinder.conf') }}
+fi
+# Path to the log file
+LOGFILE={{ LOGFILE | default('/var/log/cinder/cinder-scheduler.log') }}
+# Add config file argument unless UWSGI is handling it
+if [ -z "${NO_OPENSTACK_CONFIG_FILE_DAEMON_ARG}" ] ; then
+	DAEMON_ARGS="--config-file={{ CONFIG_FILE | default('/etc/cinder/cinder.conf') }} ${DAEMON_ARGS}"
+fi
+
+# Exit if the package is not installed (daemon binary missing)
+[ -x $DAEMON ] || exit 0
+
+# If ran as root, create /var/lock/X, /var/run/X and /var/cache/X as needed
+if [ `whoami` = "root" ] ; then
+	for i in lock run cache ; do
+		mkdir -p /var/$i/{{ PROJECT_NAME | default('cinder') }}
+		chown {{ SYSTEM_USER | default('cinder') }}:{{ SYSTEM_GROUP | default('cinder') }} /var/$i/{{ PROJECT_NAME | default('cinder') }}
+	done
+fi
+
+# This defines support functions which we use later on
+. /lib/lsb/init-functions
+
+RET=0
+
+# Manage log options: logfile and/or syslog, depending on user's choosing
+# Source default configuration files if they exist
+[ -r /etc/default/openstack ] && . /etc/default/openstack
+[ -r /etc/default/${NAME} ] && . /etc/default/${NAME}
+
+# Enable syslog logging if requested
+[ "x{{ USE_SYSLOG | default('no') }}" = "xyes" ] && DAEMON_ARGS="$DAEMON_ARGS --use-syslog"
+# Enable logfile logging unless explicitly disabled or handled by UWSGI
+if [ -z "${NO_OPENSTACK_LOGFILE_DAEMON_ARG}" ] ; then
+	[ "x{{ USE_LOGFILE | default('yes') }}" != "xno" ] && DAEMON_ARGS="$DAEMON_ARGS --log-file={{ LOGFILE | default('/var/log/cinder/cinder-scheduler.log') }}"
+fi
+
+# Start the daemon
+do_start() {
+	# Initial test start
+	start-stop-daemon \
+		--start \
+		--quiet \
+		--background ${STARTDAEMON_CHUID} \
+		--make-pidfile --pidfile ${PIDFILE} \
+		--chdir /var/lib/{{ PROJECT_NAME | default('cinder') }} \
+		--startas $DAEMON \
+		--test > /dev/null \
+		|| return 1
+	# Actual start with optional pyargv arguments
+	if [ -n "{{ PYARGV | default('') }}" ] ; then
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/{{ PROJECT_NAME | default('cinder') }} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS --pyargv "{{ PYARGV | default('') }}" \
+			|| return 2
+	else
+		start-stop-daemon \
+			--start \
+			--quiet \
+			--background ${STARTDAEMON_CHUID} \
+			--make-pidfile --pidfile ${PIDFILE} \
+			--chdir /var/lib/{{ PROJECT_NAME | default('cinder') }} \
+			--startas $DAEMON \
+			-- $DAEMON_ARGS \
+			|| return 2
+	fi
+}
+
+# Stop the daemon
+do_stop() {
+	start-stop-daemon \
+		--stop \
+		--quiet \
+		--retry=TERM/30/KILL/5 \
+		--pidfile $PIDFILE
+	RETVAL=$?
+	rm -f $PIDFILE
+	return "$RETVAL"
+}
+
+# Helper for systemd to exec the daemon directly
+do_systemd_start() {
+	# Set umask to ensure log files are created with 0644 mode bits
+	# Note we can't set 0026 to have files 0640, because that's going
+	# to be in use in for example neutron-dhcp-agent, which makes it
+	# so it wont be able to read /var/lib/neutron/external/pids/*.pid.haproxy
+	# and then fail hardly. However, 0022 is enough, since the log
+	# folders are owned by <project>:adm, so users don't have access
+	# to it unless they are on the adm group, which is what we want.
+	umask 0022
+	if [ -n "{{ PYARGV | default('') }}" ] ; then
+		exec $DAEMON $DAEMON_ARGS --pyargv "{{ PYARGV | default('') }}"
+	else
+		exec $DAEMON $DAEMON_ARGS
+	fi
+}
+
+# Main case statement for init script actions
+case "$1" in
+start)
+	log_daemon_msg "Starting $DESC" "$NAME"
+	do_start
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1) log_end_msg 0 ; RET=$? ;;
+		2)   log_end_msg 1 ; RET=$? ;;
+	esac
+;;
+status)
+	status_of_proc "$DAEMON" "$NAME"
+	RET=$?
+;;
+systemd-start)
+	do_systemd_start
+;;  
+show-args)
+	if [ -n "{{ PYARGV | default('') }}" ] ; then
+		echo $DAEMON $DAEMON_ARGS --pyargv \"{{ PYARGV | default('') }}\"
+	else
+		echo $DAEMON $DAEMON_ARGS
+	fi
+;;
+restart|force-reload)
+	log_daemon_msg "Restarting $DESC" "$NAME"
+	do_stop
+	case $? in
+		0|1)
+			do_start
+			case $? in
+				0) log_end_msg 0 ; RET=$? ;;
+				1) log_end_msg 1 ; RET=$? ;; # Old process is still running
+				*) log_end_msg 1 ; RET=$? ;; # Failed to start
+			esac
+		;;
+		*) log_end_msg 1 ; RET=$? ;; # Failed to stop
+	esac
+;;
+*)
+	echo "Usage: {{ SCRIPTNAME | default('/etc/init.d/cinder-scheduler') }} {start|stop|status|restart|force-reload|systemd-start}" >&2
+	RET=3
+;;
+esac
+
+exit $RET

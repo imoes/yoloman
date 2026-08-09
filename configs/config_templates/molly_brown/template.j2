@@ -1,0 +1,123 @@
+# ============================================================================
+# Molly Brown — Gemini Protocol Server Configuration
+# ============================================================================
+# This template generates the configuration file for the Molly Brown
+# Gemini server. It is self-documenting: every directive is preceded by
+# a comment derived from the schema description.
+#
+# Variable usage follows strict Ansible/Jinja2 best practices:
+# - All variables are provided with defaults via | default(D) to ensure
+#   safe rendering even if an upstream role omits them.
+# - Dotted access is protected by defaulting the parent mapping.
+# - No arbitrary Python or forbidden filters are used.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Network Listening
+# ----------------------------------------------------------------------------
+
+# IP address the Gemini server binds to. Use '127.0.0.1' for localhost-only
+# or '0.0.0.0' for all interfaces.
+listen = "{{ (listen_host | default('0.0.0.0')) }}:{{ (listen_port | default(1965)) }}"
+
+# ----------------------------------------------------------------------------
+# TLS / HTTPS Configuration
+# ----------------------------------------------------------------------------
+
+# Absolute path to the TLS certificate file (PEM format). Required for secure
+# connections.
+tls_cert = "{{ (tls_cert_path | default('/etc/molly-brown/tls/cert.pem')) }}"
+
+# Absolute path to the TLS private key file (PEM format). Required for secure
+# connections.
+tls_key = "{{ (tls_key_path | default('/etc/molly-brown/tls/key.pem')) }}"
+
+# Whether TLS is enabled. Disabling TLS is insecure and violates the Gemini
+# protocol’s intent.
+{% if (tls_enabled | default(true)) %}
+tls_enabled = true
+{% else %}
+# Disable TLS (disabled per configuration) — NOT RECOMMENDED
+tls_enabled = false
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Document Root
+# ----------------------------------------------------------------------------
+
+# Absolute path to the default document root directory containing Gemini
+# content (gmi, gemini files, etc.).
+root = "{{ (root_path | default('/var/lib/molly-brown/root')) }}"
+
+# ----------------------------------------------------------------------------
+# MIME Type Mappings
+# ----------------------------------------------------------------------------
+
+# File extension → MIME type mapping. Add or override as needed for custom
+# content types. Iterated from a mapping variable.
+{% for item in (mime_types | default({'gemini': 'text/gemini', 'gmi': 'text/gemini', 'txt': 'text/plain', 'md': 'text/markdown', 'png': 'image/png', 'jpg': 'image/jpeg', 'gif': 'image/gif'}) | dict2items) %}
+# MIME type for .{{ item.key }} files
+mime.{{ item.key }} = "{{ item.value }}"
+{% endfor %}
+
+# ----------------------------------------------------------------------------
+# Virtual Hosts
+# ----------------------------------------------------------------------------
+
+# List of virtual hosts (hostnames) with custom root directories. Each entry
+# defines a hostname and its document root.
+{% for vhost in (vhosts | default([])) %}
+# Virtual host: {{ (vhost.hostname | default('unknown')) }}
+[{{ (vhost.hostname | default('unknown')) }}]
+root = "{{ (vhost.root | default('/')) }}"
+{% endfor %}
+
+# ----------------------------------------------------------------------------
+# Worker and Connection Limits
+# ----------------------------------------------------------------------------
+
+# Maximum number of concurrent goroutines handling requests. Increase for
+# high-traffic deployments.
+goroutines = {{ (max_goroutines | default(1024)) }}
+
+# Maximum number of simultaneous connections. Must be ≥ max_goroutines for
+# safe operation.
+max_connections = {{ (max_connections | default(2048)) }}
+
+# ----------------------------------------------------------------------------
+# Logging Configuration
+# ----------------------------------------------------------------------------
+
+# Absolute path to the access log file. Set to '-' to log to stdout.
+log_file = "{{ (log_file_path | default('/var/log/molly-brown/access.log')) }}"
+
+# Logging verbosity. 'debug' is for troubleshooting; 'info' is production-sane.
+{% if ((log_level | default('info')) != 'info') %}
+log_level = "{{ (log_level | default('info')) }}"
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Rate Limiting
+# ----------------------------------------------------------------------------
+
+# Whether to enable request rate limiting to prevent abuse.
+{% if (rate_limiting_enabled | default(true)) %}
+# Enable rate limiting
+rate_limiting = true
+rate_limit_rps = {{ (rate_limit_rps | default(5)) }}
+{% else %}
+rate_limiting = false
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Directory Listing
+# ----------------------------------------------------------------------------
+
+# Whether to serve directory index pages when a directory is requested.
+# Disabled by default for security.
+{% if (directory_listing | default(false)) %}
+# Enable directory listing (not recommended for production)
+directory_listing = true
+{% else %}
+directory_listing = false
+{% endif %}

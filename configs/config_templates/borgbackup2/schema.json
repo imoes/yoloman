@@ -1,0 +1,71 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the borgbackup2 service is enabled."
+  },
+  "description": {
+    "type": "string",
+    "default": "",
+    "description": "Optional description for the unit file comment."
+  },
+  "syslog_identifier": {
+    "type": "string",
+    "default": "borgbackup2",
+    "description": "Identifier used in syslog entries."
+  },
+  "repository_url": {
+    "type": "string",
+    "default": "",
+    "description": "Repository URL (local path, ssh://, sftp://, rclone:, or (s3|b2): scheme).",
+    "enum": [
+      "/path/to/repo",
+      "ssh://user@host:port//abs/path/to/repo",
+      "ssh://user@host:port/rel/path/to/repo",
+      "sftp://user@host:port//abs/path/to/repo",
+      "sftp://user@host:port/rel/path/to/repo",
+      "rclone:remote:path"
+    ]
+  },
+  "repository_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, use BORG_PASSPHRASE to supply the passphrase (insecure for automation; prefer BORG_PASSCOMMAND)."
+  },
+  "repository_passphrase": {
+    "type": "string",
+    "default": "",
+    "description": "Passphrase for encrypted repositories. Only used if repository_encryption is true. WARNING: plaintext in config."
+  },
+  "archive_name": {
+    "type": "string",
+    "default": "daily-{now:%Y-%m-%d-%H%M%S}",
+    "description": "Name pattern for the archive. May include strftime directives."
+  },
+  "backup_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of source paths/directories to back up."
+  },
+  "compression": {
+    "type": "string",
+    "default": "lz4",
+    "description": "Compression algorithm to use (e.g.,lz4,zstd,none,zlib,auto).",
+    "enum": [
+      "lz4",
+      "zstd",
+      "none",
+      "zlib"
+    ]
+  },
+  "extra_args": {
+    "type": "list",
+    "default": [],
+    "description": "Additional arguments passed to `borg create`. Example: ['--exclude-caches', '--one-file-system']."
+  },
+  "prune_schedule": {
+    "type": "string",
+    "default": "",
+    "description": "Systemd timer calendar expression (e.g., daily, weekly) for pruning. If empty, no pruning timer is created."
+  }
+}

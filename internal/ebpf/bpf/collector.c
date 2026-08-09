@@ -1,0 +1,410 @@
+// SPDX-License-Identifier: GPL-2.0
+//go:build ignore
+
+// TCP connection lifecycle + process exec + disk I/O latency collector.
+//
+// Deliberately avoids CO-RE/vmlinux.h: all tracepoints used here
+// (sock:inet_sock_set_state, sched:sched_process_exec,
+// block:block_rq_issue, block:block_rq_complete) are part of the kernel's
+// stable tracepoint ABI (their /sys/kernel/tracing/events/.../format
+// layout does not change across kernel versions), so the struct layouts
+// below can be hardcoded directly instead of relocated via BTF. They were
+// verified against this project's dev/test kernels via
+// `bpftool btf dump file /sys/kernel/btf/vmlinux format c` (block_rq_* via
+// their own /sys/kernel/tracing/events/block/.../format directly, since
+// they aren't in vmlinux's BTF the same way — see tracepoints.h).
+//
+// Container-awareness (mapping an event's pid to a container ID) is
+// deliberately NOT done here: it would require walking kernel cgroup
+// structs, whose layout is not part of any stable ABI and would need
+// CO-RE/BTF relocation — exactly the complexity this collector avoids by
+// tracepoint selection. Every event (including disk I/O, via the pid
+// captured at block_rq_issue time) already carries a pid, and
+// /proc/<pid>/cgroup is a stable, trivially-read userspace interface for
+// exactly this lookup — done in Go instead (see collector.go's
+// containerIDForPID).
+#include <linux/bpf.h>
+#include "tracepoints.h"
+#include <bpf/bpf_helpers.h>
+
+char __license[] SEC("license") = "Dual MIT/GPL";
+
+#define TASK_COMM_LEN 16
+#define FILENAME_LEN 128
+#define RWBS_LEN 8
+#define AF_INET 2
+
+#define EVENT_TCP_CONN 1
+#define EVENT_EXEC 2
+#define EVENT_DISK_IO 3
+#define EVENT_OOM_KILL 4     // oom:mark_victim  (BCC oomkill)
+#define EVENT_TCP_RETRANS 5  // tcp:tcp_retransmit_skb  (BCC tcpretrans)
+#define EVENT_SIGNAL 6       // signal:signal_generate  (BCC killsnoop)
+
+// TCP states (net/tcp_states.h) needed for connect-latency correlation.
+#define TCP_ESTABLISHED 1
+#define TCP_SYN_SENT 2
+
+struct event {
+	__u32 type;
+	__u32 pid;
+	__u8 comm[TASK_COMM_LEN];
+
+	// EVENT_TCP_CONN fields (network byte order addresses, host byte order ports).
+	__u32 saddr;
+	__u32 daddr;
+	__u16 sport;
+	__u16 dport;
+	__u8 oldstate;
+	__u8 newstate;
+	// Outbound connect() latency: time from SYN_SENT to ESTABLISHED, set only
+	// on the transition to ESTABLISHED (0 otherwise).
+	__u64 conn_latency_ns;
+
+	// EVENT_EXEC fields.
+	__u8 filename[FILENAME_LEN];
+
+	// EVENT_DISK_IO fields — emitted once, at completion, correlated
+	// against the matching block_rq_issue via io_start (dev, sector).
+	__u32 disk_dev;
+	__u64 disk_sector;
+	__u32 disk_nr_sector;
+	__u64 disk_latency_ns;
+	__u8 disk_rwbs[RWBS_LEN];
+	__s32 disk_error;
+
+	// EVENT_SIGNAL fields (killsnoop): pid/comm above are the SENDER; these
+	// are the target that received the signal and the signal number.
+	__u32 sig;
+	__u32 target_pid;
+	__u8 target_comm[TASK_COMM_LEN];
+	// EVENT_OOM_KILL reuses pid/comm as the victim; EVENT_TCP_RETRANS reuses
+	// the saddr/daddr/sport/dport 4-tuple above.
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_RINGBUF);
+	__uint(max_entries, 256 * 1024);
+} events SEC(".maps");
+
+// io_key/io_start_val correlate a block_rq_issue with its eventual
+// block_rq_complete by (dev, sector) — the standard blktrace correlation
+// key (the same approach BCC's biolatency tool uses). A known
+// simplification: request merging can mean the sector reported at
+// completion isn't byte-identical to the one at issue for every case: good
+// enough for a first pass, not a guarantee of matching every merged
+// request precisely.
+struct io_key {
+	__u32 dev;
+	__u64 sector;
+};
+
+struct io_start_val {
+	__u64 ts_ns;
+	__u32 pid;
+	__u8 comm[TASK_COMM_LEN];
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 10240);
+	__type(key, struct io_key);
+	__type(value, struct io_start_val);
+} io_start SEC(".maps");
+
+// conn_start correlates an outbound connect: SYN_SENT records the start ts
+// keyed by the sock pointer, ESTABLISHED looks it up to derive connect latency
+// (the same sk-keyed correlation coroot-node-agent uses for connection time).
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 10240);
+	__type(key, __u64);
+	__type(value, __u64);
+} conn_start SEC(".maps");
+
+// runqlat (BCC runqlat): run-queue latency = how long a task was runnable
+// before it got the CPU. sched_wakeup stamps the enqueue time keyed by pid;
+// sched_switch, when that pid is scheduled in (next_pid), computes the delta
+// and bumps a log2-microsecond histogram bucket. Aggregated in-kernel (no
+// per-context-switch ring events — those fire thousands/sec).
+#define RUNQ_SLOTS 27  // 2^0..2^26 microseconds (~0µs .. ~67s)
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(max_entries, 102400);
+	__type(key, __u32);   // pid
+	__type(value, __u64); // enqueue timestamp (ns)
+} runq_enqueued SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__uint(max_entries, RUNQ_SLOTS);
+	__type(key, __u32);
+	__type(value, __u64);
+} runq_hist SEC(".maps");
+
+// Forces BTF debug info for struct event to be retained, so bpf2go's
+// `-type event` can find it even though it is only ever used via pointers.
+const struct event *unused_event_btf_anchor __attribute__((unused));
+
+// Passive L7 capture (Tier-2) — syscall-tracepoint payload sniffing for
+// DNS/HTTP/Postgres/MySQL, its own l7_event struct + l7_events ringbuf.
+#include "l7.c"
+
+SEC("tracepoint/sock/inet_sock_set_state")
+int trace_inet_sock_set_state(struct trace_event_raw_inet_sock_set_state *ctx)
+{
+	if (ctx->family != AF_INET)
+		return 0; // v1 scope: IPv4 only
+
+	__u64 sk = (__u64)ctx->skaddr;
+
+	// Outbound connect start: remember when this socket entered SYN_SENT so
+	// the eventual ESTABLISHED transition can be timed.
+	if (ctx->newstate == TCP_SYN_SENT) {
+		__u64 ts = bpf_ktime_get_ns();
+		bpf_map_update_elem(&conn_start, &sk, &ts, BPF_ANY);
+		return 0; // no event for the intermediate state
+	}
+
+	__u64 conn_latency_ns = 0;
+	if (ctx->newstate == TCP_ESTABLISHED) {
+		__u64 *start = bpf_map_lookup_elem(&conn_start, &sk);
+		if (start) {
+			conn_latency_ns = bpf_ktime_get_ns() - *start;
+			bpf_map_delete_elem(&conn_start, &sk);
+		}
+	}
+
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return 0;
+
+	__builtin_memset(e, 0, sizeof(*e));
+	e->type = EVENT_TCP_CONN;
+	e->pid = bpf_get_current_pid_tgid() >> 32;
+	bpf_get_current_comm(&e->comm, sizeof(e->comm));
+	__builtin_memcpy(&e->saddr, ctx->saddr, 4);
+	__builtin_memcpy(&e->daddr, ctx->daddr, 4);
+	e->sport = ctx->sport;
+	e->dport = ctx->dport;
+	e->oldstate = (__u8)ctx->oldstate;
+	e->newstate = (__u8)ctx->newstate;
+	e->conn_latency_ns = conn_latency_ns;
+
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+
+SEC("tracepoint/sched/sched_process_exec")
+int trace_sched_process_exec(struct trace_event_raw_sched_process_exec *ctx)
+{
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return 0;
+
+	__builtin_memset(e, 0, sizeof(*e));
+	e->type = EVENT_EXEC;
+	e->pid = ctx->pid;
+	bpf_get_current_comm(&e->comm, sizeof(e->comm));
+
+	unsigned short offset = ctx->__data_loc_filename & 0xFFFF;
+	bpf_probe_read_str(&e->filename, sizeof(e->filename), (void *)ctx + offset);
+
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+
+SEC("tracepoint/block/block_rq_issue")
+int trace_block_rq_issue(struct trace_event_raw_block_rq_issue *ctx)
+{
+	struct io_key key = {};
+	key.dev = ctx->dev;
+	key.sector = ctx->sector;
+
+	struct io_start_val val = {};
+	val.ts_ns = bpf_ktime_get_ns();
+	// Deliberately bpf_get_current_pid_tgid(), not ctx->ent.pid: the
+	// verifier rejects direct access to trace_entry's common header
+	// fields ("invalid bpf_context access") for tracepoint/* programs —
+	// only the tracepoint-specific fields after it are checked/allowed.
+	// This is also what trace_inet_sock_set_state already does above.
+	val.pid = bpf_get_current_pid_tgid() >> 32;
+	__builtin_memcpy(&val.comm, ctx->comm, TASK_COMM_LEN);
+
+	bpf_map_update_elem(&io_start, &key, &val, BPF_ANY);
+	return 0;
+}
+
+SEC("tracepoint/block/block_rq_complete")
+int trace_block_rq_complete(struct trace_event_raw_block_rq_complete *ctx)
+{
+	struct io_key key = {};
+	key.dev = ctx->dev;
+	key.sector = ctx->sector;
+
+	struct io_start_val *start = bpf_map_lookup_elem(&io_start, &key);
+	if (!start)
+		return 0; // no matching issue seen (e.g. attached mid-flight) — skip rather than guess
+
+	__u64 latency_ns = bpf_ktime_get_ns() - start->ts_ns;
+
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e) {
+		bpf_map_delete_elem(&io_start, &key);
+		return 0;
+	}
+
+	__builtin_memset(e, 0, sizeof(*e));
+	e->type = EVENT_DISK_IO;
+	e->pid = start->pid;
+	__builtin_memcpy(&e->comm, start->comm, TASK_COMM_LEN);
+	e->disk_dev = ctx->dev;
+	e->disk_sector = ctx->sector;
+	e->disk_nr_sector = ctx->nr_sector;
+	e->disk_latency_ns = latency_ns;
+	__builtin_memcpy(&e->disk_rwbs, ctx->rwbs, RWBS_LEN);
+	e->disk_error = ctx->error;
+
+	bpf_ringbuf_submit(e, 0);
+	bpf_map_delete_elem(&io_start, &key);
+	return 0;
+}
+
+// oom:mark_victim — the OOM killer picked a victim. pid is the victim; comm is
+// its name (a __data_loc string on modern kernels, read like exec's filename).
+SEC("tracepoint/oom/mark_victim")
+int trace_oom_mark_victim(struct trace_event_raw_oom_mark_victim *ctx)
+{
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return 0;
+
+	__builtin_memset(e, 0, sizeof(*e));
+	e->type = EVENT_OOM_KILL;
+	e->pid = ctx->pid;
+	unsigned short offset = ctx->__data_loc_comm & 0xFFFF;
+	bpf_probe_read_str(&e->comm, sizeof(e->comm), (void *)ctx + offset);
+
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+
+// tcp:tcp_retransmit_skb — a segment was retransmitted. The 4-tuple names the
+// affected connection (IPv4 only in v1, matching inet_sock_set_state above).
+SEC("tracepoint/tcp/tcp_retransmit_skb")
+int trace_tcp_retransmit_skb(struct trace_event_raw_tcp_retransmit_skb *ctx)
+{
+	if (ctx->family != AF_INET)
+		return 0;
+
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return 0;
+
+	__builtin_memset(e, 0, sizeof(*e));
+	e->type = EVENT_TCP_RETRANS;
+	e->pid = bpf_get_current_pid_tgid() >> 32;
+	bpf_get_current_comm(&e->comm, sizeof(e->comm));
+	__builtin_memcpy(&e->saddr, ctx->saddr, 4);
+	__builtin_memcpy(&e->daddr, ctx->daddr, 4);
+	e->sport = ctx->sport;
+	e->dport = ctx->dport;
+
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+
+// signal:signal_generate — killsnoop. Only the notable signals (INT, QUIT,
+// ABRT, KILL, SEGV, TERM) are emitted so timers/SIGCHLD don't flood the ring.
+SEC("tracepoint/signal/signal_generate")
+int trace_signal_generate(struct trace_event_raw_signal_generate *ctx)
+{
+	int sig = ctx->sig;
+	if (sig != 2 && sig != 3 && sig != 6 && sig != 9 && sig != 11 && sig != 15)
+		return 0;
+
+	struct event *e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+	if (!e)
+		return 0;
+
+	__builtin_memset(e, 0, sizeof(*e));
+	e->type = EVENT_SIGNAL;
+	e->pid = bpf_get_current_pid_tgid() >> 32; // sender
+	bpf_get_current_comm(&e->comm, sizeof(e->comm));
+	e->sig = sig;
+	e->target_pid = ctx->pid;
+	__builtin_memcpy(&e->target_comm, ctx->comm, TASK_COMM_LEN);
+
+	bpf_ringbuf_submit(e, 0);
+	return 0;
+}
+
+// ── runqlat: sched_wakeup stamps the enqueue time; sched_switch measures it ──
+
+static __always_inline void runq_mark(__u32 pid)
+{
+	if (pid == 0)
+		return; // ignore the idle task
+	__u64 ts = bpf_ktime_get_ns();
+	bpf_map_update_elem(&runq_enqueued, &pid, &ts, BPF_ANY);
+}
+
+// Significant-bit count = floor(log2(v))+1 for v>0, 0 for v==0. Done with an
+// unrolled shift loop, NOT __builtin_clzll: the BPF backend has no CLZ lowering
+// ("unimplemented opcode"), which is why BCC ships its own bpf_log2l.
+static __always_inline __u32 bits_u64(__u64 v)
+{
+	__u32 n = 0;
+#pragma unroll
+	for (int i = 0; i < 64; i++) {
+		if (v == 0)
+			break;
+		v >>= 1;
+		n++;
+	}
+	return n;
+}
+
+SEC("tracepoint/sched/sched_wakeup")
+int trace_sched_wakeup(struct trace_event_raw_sched_wakeup_template *ctx)
+{
+	runq_mark(ctx->pid);
+	return 0;
+}
+
+SEC("tracepoint/sched/sched_wakeup_new")
+int trace_sched_wakeup_new(struct trace_event_raw_sched_wakeup_template *ctx)
+{
+	runq_mark(ctx->pid);
+	return 0;
+}
+
+SEC("tracepoint/sched/sched_switch")
+int trace_sched_switch(struct trace_event_raw_sched_switch *ctx)
+{
+	// A task preempted while still runnable re-enters the run queue now.
+	if (ctx->prev_state == 0) // TASK_RUNNING
+		runq_mark(ctx->prev_pid);
+
+	__u32 next = ctx->next_pid;
+	if (next == 0)
+		return 0;
+	__u64 *tsp = bpf_map_lookup_elem(&runq_enqueued, &next);
+	if (!tsp)
+		return 0;
+
+	__u64 delta_ns = bpf_ktime_get_ns() - *tsp;
+	bpf_map_delete_elem(&runq_enqueued, &next);
+
+	__u64 delta_us = delta_ns / 1000;
+	__u32 slot = bits_u64(delta_us); // floor(log2)+1, 0 for sub-µs
+	if (slot >= RUNQ_SLOTS)
+		slot = RUNQ_SLOTS - 1;
+
+	__u64 *cnt = bpf_map_lookup_elem(&runq_hist, &slot);
+	if (cnt)
+		*cnt += 1; // per-CPU array: no cross-CPU race
+
+	return 0;
+}

@@ -1,0 +1,146 @@
+# ============================================================
+# ESMTP Client Configuration Template
+# -------------------------------------------------------------
+# This file configures the esmtp client for outbound mail.
+# It handles relay settings, TLS, routing, local delivery,
+# aliases, and authentication backends.
+# ============================================================
+
+{# ----------------------------------------------------------- #}
+{# Global SMTP Relay Settings                                   #}
+{# Defines the primary outbound mail server address and port.  #}
+{# ----------------------------------------------------------- #}
+set smtp {
+  # IP address or hostname of the outbound SMTP relay server.
+  host {{ smtp_host | default('127.0.0.1') }}
+  # Port number of the outbound SMTP relay server.
+  port {{ smtp_port | default(25) }};
+};
+
+{# ----------------------------------------------------------- #}
+{# Default Sender Address                                       #}
+{# Sets the envelope 'From:' address for outgoing messages      #}
+{# when no other source address is specified.                   #}
+{# ----------------------------------------------------------- #}
+set from {{ default_from | default('root@localhost') }};
+
+{# ----------------------------------------------------------- #}
+{# Verbose Logging                                              #}
+{# Enable verbose logging for debugging purposes.               #}
+{# ----------------------------------------------------------- #}
+{% if verbose | default(false) %}
+verbose;
+{% endif %}
+
+{# ----------------------------------------------------------- #}
+{# TLS/SSL Configuration                                        #}
+{# Controls whether TLS is enabled, required, and how          #}
+{# certificates/ciphers are configured for the relay.          #}
+{# ----------------------------------------------------------- #}
+{% if tls_enabled | default(false) %}
+# Enable TLS for outbound connections (STARTTLS if supported).
+set tls;
+{% endif %}
+
+{% if tls_required | default(false) %}
+# Require TLS; fail if server does not support it.
+set tls require;
+{% endif %}
+
+{% if tls_cafile | default('') | trim | length > 0 %}
+# Path to CA certificate bundle for TLS verification.
+set tls cafile {{ tls_cafile | default('') | trim }};
+{% endif %}
+
+{% if tls_ciphers | default('') | trim | length > 0 %}
+# Colon-separated list of allowed TLS ciphersuites.
+set tls ciphers {{ tls_ciphers | default('') | trim }};
+{% endif %}
+
+{# ----------------------------------------------------------- #}
+{# Routing Rules                                                #}
+{# List of routing rules for domain/user-specific relays.      #}
+# Iterates over the 'routes' list (default empty) and generates #
+# rule blocks for each entry.                                    #
+{# ----------------------------------------------------------- #}
+{% for rule in routes | default([]) %}
+# Route messages to/from certain addresses to specific relays.
+route {
+  # Match criteria: can be 'for domain', 'for user', 'for any', etc.
+  {{ rule.match | default('for any') }} {
+    {% if rule.domain | default('') | trim | length > 0 %}
+    domain {{ rule.domain }};
+    {% endif %}
+    {% if rule.user | default('') | trim | length > 0 %}
+    user {{ rule.user }};
+    {% endif %}
+    {% if rule.any | default(false) %}
+    any;
+    {% endif %}
+  }
+  # Target relay configuration
+  {
+    # Hostname or IP of the relay server.
+    host {{ rule.relay_host | default('') }}
+    {% if rule.relay_port | default(0) %}
+    # Port of the relay server.
+    port {{ rule.relay_port }};
+    {% else %}
+    ;
+    {% endif %}
+    {% if rule.auth_user | default('') | trim | length > 0 %}
+    # Username for authentication.
+    auth user {{ rule.auth_user }};
+    {% endif %}
+    {% if rule.auth_pass | default('') | trim | length > 0 %}
+    # Password for authentication.
+    auth pass {{ rule.auth_pass }};
+    {% endif %}
+    {% if rule.tls_enabled is not none %}
+    {% if rule.tls_enabled %}
+    # TLS enabled for this specific route.
+    set tls;
+    {% endif %}
+    {% endif %}
+  }
+};
+{% endfor %}
+
+{# ----------------------------------------------------------- #}
+{# Local Delivery                                               #}
+{# Enable local Maildir delivery under /var/mail if configured. #}
+{# ----------------------------------------------------------- #}
+{% if local_delivery_enabled | default(true) %}
+# Deliver to local mailboxes.
+local {
+  # Base path for local Maildir delivery.
+  maildir {{ local_maildir_path | default('/var/mail') }};
+};
+{% endif %}
+
+{# ----------------------------------------------------------- #}
+{# Aliases                                                      #}
+{# List of alias mappings (local-to-local or local-to-external).#}
+# Iterates over the 'aliases' list (default empty).            #
+{# ----------------------------------------------------------- #}
+{% for alias in aliases | default([]) %}
+# Forward email for one local user to another or to external address.
+{% if alias.local_user | default('') | trim | length > 0 %}alias {{ alias.local_user }}{% endif %}
+{% if alias.to_user | default('') | trim | length > 0 %} {{ alias.to_user }}{% endif %}
+{% if alias.to_external | default('') | trim | length > 0 %} {{ alias.to_external }}{% endif %};
+{% endfor %}
+
+{# ----------------------------------------------------------- #}
+{# Authentication Backend                                       #}
+# External authentication backend (e.g., 'passwd', 'ldap').    #
+# Uses 'auth_backend' which is expected to be a mapping/dict.  #
+{# ----------------------------------------------------------- #}
+{% if auth_backend is defined and auth_backend %}
+# Use external auth (e.g., passwd file, LDAP, etc.)
+auth {{ auth_backend.type | default('passwd') }} {
+  {% for key, value in auth_backend.options | default({}) | dict2items %}
+  # Option from backend configuration.
+  {{ key.key }} {{ value.value }};
+  {% endfor %}
+};
+{% endif %}

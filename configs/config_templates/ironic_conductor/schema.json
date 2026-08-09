@@ -1,0 +1,264 @@
+{
+  "conductor_id": {
+    "type": "string",
+    "default": "auto",
+    "description": "Unique identifier for this conductor node (leave as 'auto' to auto-generate from hostname)."
+  },
+  "rpc_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker processes for handling RPC calls. Increase under high RPC load."
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the HTTP API service. Increase for higher request throughput."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672//",
+    "description": "RPC transport URL in the form 'driver://user:password@host:port//vhost'. Typically 'rabbit://' for RabbitMQ."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy for the conductor service ('keystone' or 'noauth'). Use 'noauth' only for testing."
+  },
+  "default_ipmi_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Default timeout (in seconds) for IPMI operations like power status polling or remote media mounting."
+  },
+  "enable_inspector": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the Ironic Inspector service integration (used for automated hardware introspection)."
+  },
+  "enable_api": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the Ironic API endpoint on this conductor. Disable if running API-only on separate nodes."
+  },
+  "my_ip": {
+    "type": "string",
+    "default": "auto",
+    "description": "IP address or hostname of this conductor host (used for API endpoint registration). Leave 'auto' to detect automatically."
+  },
+  "driver_http_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for HTTP requests made by drivers (e.g., to firmware update endpoints)."
+  },
+  "driver_http_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries for failed HTTP requests made by drivers."
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between health checks for conductor status reporting."
+  },
+  "max_concurrent_builds": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of node provisioning (build) operations that may run concurrently on this conductor."
+  },
+  "max_cleaning_timeout": {
+    "type": "number",
+    "default": 7200,
+    "description": "Maximum expected time (in seconds) for cleaning operations (e.g., disk wiping). Increase for large disks."
+  },
+  "max_raid_config_timeout": {
+    "type": "number",
+    "default": 14400,
+    "description": "Maximum expected time (in seconds) for RAID configuration operations."
+  },
+  "default_cleaning_disable": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable automatic cleaning after deployment (requires manual cleaning)."
+  },
+  "default_management_interface": {
+    "type": "string",
+    "default": "ipmi",
+    "description": "Default management interface used for power control, reboot, etc. (e.g., 'ipmi', 'redfish')."
+  },
+  "default_power_interface": {
+    "type": "string",
+    "default": "ipmi",
+    "description": "Default power interface (e.g., 'ipmi', 'redfish')."
+  },
+  "default_console_interface": {
+    "type": "string",
+    "default": "no-console",
+    "description": "Default console interface (e.g., 'no-console', 'ipmi-sol', 'redfish-virtual-media')."
+  },
+  "default_raid_interface": {
+    "type": "string",
+    "default": "no-raid",
+    "description": "Default RAID configuration interface (e.g., 'no-raid', 'idrac-raid', 'irmc')."
+  },
+  "default_vendor_interface": {
+    "type": "string",
+    "default": "no-vendor",
+    "description": "Default vendor-specific interface (e.g., 'no-vendor', 'ipmi', 'drac')."
+  },
+  "default_deploy_interface": {
+    "type": "string",
+    "default": "iscsi",
+    "description": "Default deploy interface (e.g., 'iscsi', 'direct', 'ansible')."
+  },
+  "default_network_interface": {
+    "type": "string",
+    "default": "neutron",
+    "description": "Default network provisioning interface (e.g., 'flat', 'neutron', 'no-provisioning')."
+  },
+  "enabled_network_interfaces": {
+    "type": "list",
+    "default": [
+      "flat",
+      "neutron"
+    ],
+    "description": "List of enabled network interfaces for node configurations."
+  },
+  "enabled_storage_interfaces": {
+    "type": "list",
+    "default": [
+      "cinder",
+      "noop"
+    ],
+    "description": "List of enabled storage interfaces."
+  },
+  "enabled_raid_interfaces": {
+    "type": "list",
+    "default": [
+      "idrac-raid",
+      "irmc",
+      "no-raid"
+    ],
+    "description": "List of enabled RAID configuration interfaces."
+  },
+  "enabled_vendor_interfaces": {
+    "type": "list",
+    "default": [
+      "ipmi",
+      "drac",
+      "no-vendor"
+    ],
+    "description": "List of enabled vendor-specific interfaces."
+  },
+  "enabled_console_interfaces": {
+    "type": "list",
+    "default": [
+      "no-console",
+      "ipmi-sol",
+      "redfish-virtual-media"
+    ],
+    "description": "List of enabled console interfaces."
+  },
+  "enabled_boot_interfaces": {
+    "type": "list",
+    "default": [
+      "pxe",
+      "ipxe",
+      "virtual-media"
+    ],
+    "description": "List of enabled boot interfaces."
+  },
+  "enabled_deploy_interfaces": {
+    "type": "list",
+    "default": [
+      "iscsi",
+      "direct",
+      "ansible"
+    ],
+    "description": "List of enabled deploy interfaces."
+  },
+  "enabled_management_interfaces": {
+    "type": "list",
+    "default": [
+      "ipmi",
+      "redfish"
+    ],
+    "description": "List of enabled management interfaces."
+  },
+  "enabled_power_interfaces": {
+    "type": "list",
+    "default": [
+      "ipmi",
+      "redfish"
+    ],
+    "description": "List of enabled power control interfaces."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://ironic:ironic@localhost/ironic?charset=utf8",
+    "description": "Database connection URL (SQLAlchemy format)."
+  },
+  "database_max_pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum size of the database connection pool."
+  },
+  "database_pool_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle timeout (seconds) for database connections."
+  },
+  "neutron_url": {
+    "type": "string",
+    "default": "http://localhost:9696",
+    "description": "Neutron API endpoint URL."
+  },
+  "inspector_url": {
+    "type": "string",
+    "default": "http://localhost:5050",
+    "description": "Ironic Inspector API endpoint URL."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000/v3",
+    "description": "Keystone authentication URL (v3)."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone project name."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "ironic",
+    "description": "Keystone username for Ironic service."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone password for Ironic service."
+  },
+  "keystone_interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Keystone endpoint interface to use ('public', 'internal', or 'admin')."
+  },
+  "keystone_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable TLS certificate verification for Keystone API calls."
+  },
+  "api_flavor": {
+    "type": "string",
+    "default": "keystone",
+    "description": "PasteDeploy flavor for Ironic API ('keystone' or 'noauth')."
+  }
+}

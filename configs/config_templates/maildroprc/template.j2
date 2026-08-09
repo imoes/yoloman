@@ -1,0 +1,86 @@
+# Global delivery defaults
+DEFAULTHOME={{ default_home | default('/home') }}
+DEFAULTQUOTA={{ default_quota | default('0') }}
+
+# Log maildrop activity to syslog
+LOGFILE={{ syslog_logfile | default('/var/log/maildrop.log') }}
+LOGGING={{ syslog_logging | default(1) }}
+
+# Enable verbose logging if requested
+VERBOSE={{ verbose | default(0) }}
+
+# Set maximum message size (in bytes); 0 = unlimited
+MAXSIZE={{ max_message_size | default(0) }}
+
+# Set maximum number of recipients per message
+MAXRECIPIENTS={{ max_recipients | default(100) }}
+
+# Pre-delivery filter script (if any)
+# Runs *before* maildrop processes the message
+# Leave empty to disable
+FILTER_PRE={{ filter_pre | default('') }}
+
+# Post-delivery filter script (if any)
+# Runs *after* successful local delivery
+# Leave empty to disable
+FILTER_POST={{ filter_post | default('') }}
+
+# List of trusted IPs (no relay check)
+# For each item: { ip, description }
+# Example: 127.0.0.1 is always trusted
+{% for item in trusted_ips %}
+# {{ item.description }}
+TRUSTIP={{ item.ip }}
+{% endfor %}
+
+# List of relay hosts (with optional port and authentication config)
+# For each item: { host, port, use_tls, auth_user, auth_pass }
+# port, use_tls, auth_user, auth_pass are optional
+{% for relay in relay_hosts %}
+# Relay host: {{ relay.host }} {{ '(port ' + relay.port|string + ')' if relay.port else '' }}
+{% if relay.port %}RELAYHOST={{ relay.host }}:{{ relay.port }}
+{% else %}RELAYHOST={{ relay.host }}
+{% endif %}
+{% if relay.use_tls | default(false) %}RELAYTLS=1
+{% endif %}
+{% if relay.auth_user %}RELAYAUTH={{ relay.auth_user }}
+{% if relay.auth_pass %}RELAYPASS={{ relay.auth_pass | default('', true) }}
+{% endif %}{% endif %}
+{% endfor %}
+
+# Delivery method defaults
+# Delivery to user's Maildir, mbox, or custom path
+# Delivery method is per-user (set via .qmail file or VDA)
+# This section configures defaults used if none specified
+
+# Default to Maildir++ format
+# (Maildir with .INBOX subfolder, quotas, etc.)
+DELIVERY_METHOD={{ delivery_method | default('maildir') }}
+
+# Maildir base path (relative to user's home)
+MAILDIR={{ maildir_path | default('.maildir') }}
+
+# Enable Maildir++ extensions (e.g., quotas, folder separators)
+MAILDIRPP={{ maildirpp_enabled | default(1) }}
+
+# Mbox file path (if delivery_method == 'mbox')
+MBOX={{ mbox_path | default('/var/spool/mail/{user}') }}
+
+# Custom delivery path (if delivery_method == 'custom')
+CUSTOMPATH={{ custom_delivery_path | default('') }}
+
+# Timeout for external delivery (e.g., SMTP relay) in seconds
+DELIVERY_TIMEOUT={{ delivery_timeout | default(300) }}
+
+# Retry behavior on transient failures
+# Max retries before bouncing message
+RETRY_MAX={{ retry_max | default(5) }}
+
+# Delay between retries (in seconds)
+RETRY_DELAY={{ retry_delay | default(300) }}
+
+# Enable DNS MX record lookup for remote delivery
+DNSLOOKUP={{ dns_lookup | default(1) }}
+
+# Fallback host for MX lookup failure
+DNSFALLBACK={{ dns_fallback | default('') }}

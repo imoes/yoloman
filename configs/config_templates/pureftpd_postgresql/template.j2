@@ -1,0 +1,68 @@
+# PostgreSQL connection string
+# Specifies how to connect to the PostgreSQL database
+# Format: postgresql://user:password@host:port/database
+PGSQLServer     {{ pgsql_server }}
+
+# PostgreSQL username (if not embedded in server string)
+# Overrides user in PGSQLServer if set
+PGSQLUser       {{ pgsql_user | default('') }}
+
+# PostgreSQL password (if not embedded in server string)
+# Overrides password in PGSQLServer if set
+PGSQLPassword   {{ pgsql_password | default('') }}
+
+# PostgreSQL database name (if not embedded in server string)
+# Overrides database in PGSQLServer if set
+PGSQLDatabase   {{ pgsql_database | default('') }}
+
+# PostgreSQL port (if not embedded in server string)
+# Overrides port in PGSQLServer if set
+PGSQLPort       {{ pgsql_port | default(5432) }}
+
+# PostgreSQL connection timeout (seconds)
+# How long to wait for connection before failing
+PGSQLConnectTimeout {{ pgsql_connect_timeout }}
+
+# SQL query to fetch user's home directory
+# Receives :username placeholder (quoted safely by Pure-FTPd)
+PGSQLGetPW      {{ pgsql_query_getpw | replace(':username', ':%s') }}
+
+# SQL query to fetch user's UID
+# Receives :username placeholder
+PGSQLGetUID     {{ pgsql_query_getuid | replace(':username', ':%s') }}
+
+# SQL query to fetch user's GID
+# Receives :username placeholder
+PGSQLGetGID     {{ pgsql_query_getgid | replace(':username', ':%s') }}
+
+# SQL query to fetch user's quota (files and bytes)
+# Receives :username placeholder
+# Returns: max_files|max_space (or NULL for unlimited)
+PGSQLGetQuota   {{ pgsql_query_getquota | replace(':username', ':%s') }}
+
+# SQL query to check if user exists
+# Receives :username placeholder
+PGSQLCheckUser  {{ pgsql_query_checkuser | replace(':username', ':%s') }}
+
+# SQL query to get upload bandwidth per user (bytes/sec)
+# Receives :username placeholder
+{% if pgsql_query_getbwup %}PGSQLGetBWUp    {{ pgsql_query_getbwup | replace(':username', ':%s') }}
+{% else %}# Upload bandwidth query not configured
+{% endif %}{% if pgsql_query_getbwdown %}PGSQLGetBWDown  {{ pgsql_query_getbwdown | replace(':username', ':%s') }}
+{% else %}# Download bandwidth query not configured
+{% endif %}{% if pgsql_query_getallowedips %}# SQL query to fetch allowed IP ranges (CIDR notation)
+# Receives :username placeholder
+# Returns: ip1, ip2, ... (comma-separated or NULL for all IPs)
+PGSQLGetAllowedIPs {{ pgsql_query_getallowedips | replace(':username', ':%s') }}
+{% else %}# IP restriction query not configured
+{% endif %}
+
+# Enable TLS-only users (if query returns non-empty result)
+# Receives :username placeholder
+{% if pgsql_query_gettls %}PGSQLGetTLS     {{ pgsql_query_gettls | replace(':username', ':%s') }}
+{% else %}# TLS requirement query not configured — users may use non-TLS connections
+{% endif %}
+
+# Enable chrooting of users (if set, user's home must be relative to chroot dir)
+# Not typically used with PostgreSQL unless custom chroot logic is needed
+# PGSQLChroot     {{ pgsql_chroot | default('') }}

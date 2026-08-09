@@ -1,0 +1,21 @@
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides:          {{ provides | default('fio') }}
+# Required-Start:    $syslog
+# Required-Stop:     $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ short_description | default('Flexible I/O Tester as service') }}
+# Description:       {{ description | default('Runs fio as a service to that fio clients can connect to it') }}
+### END INIT INFO
+
+# Author: {{ author | default('Martin Steigerwald <martin.steigerwald@proact.de>') }}
+
+DESC="{{ desc | default('Flexible I/O Tester as service') }}"
+DAEMON={{ daemon_path | default('/usr/bin/fio') }}
+DAEMON_ARGS='{{ daemon_args | default('--server --daemonize /run/fio.pid') }}'
+PIDFILE='{{ pidfile_path | default('/run/fio.pid') }}'

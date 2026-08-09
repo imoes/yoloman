@@ -1,0 +1,77 @@
+{
+  "host": "0.0.0.0",
+  "port": 8080,
+  "log_level": "warn",
+  "log_dir": "/var/log/argus",
+  "ssl_enabled": true,
+  "ssl_cert": "/etc/argus/ssl/fullchain.pem",
+  "ssl_key": "/etc/argus/ssl/privkey.pem",
+  "max_connections": 500,
+  "idle_timeout": 180,
+  "db": {
+    "type": "postgresql",
+    "host": "db.internal",
+    "port": 5432,
+    "name": "argus_audit",
+    "user": "argus_ro",
+    "ssl_mode": "require"
+  },
+  "audit_rules": [
+    {
+      "name": "web-traffic",
+      "enabled": true,
+      "description": "Capture all HTTP/HTTPS traffic",
+      "protocol": "tcp",
+      "ports": [
+        80,
+        443
+      ],
+      "filters": [
+        "tcp[tcpflags] & (tcp-syn|tcp-ack) != 0"
+      ],
+      "log_to": "both"
+    },
+    {
+      "name": "dns-queries",
+      "enabled": true,
+      "description": "Log DNS request/response pairs",
+      "protocol": "udp",
+      "ports": [
+        53
+      ],
+      "filters": [
+        "dst port 53"
+      ],
+      "log_to": "database"
+    }
+  ],
+  "alerts": {
+    "email_enabled": false,
+    "smtp_server": "mail.example.com",
+    "smtp_port": 587,
+    "from_addr": "argus@example.com",
+    "to_addrs": [
+      "ops@example.com"
+    ],
+    "webhook_enabled": true,
+    "webhooks": [
+      {
+        "name": "slack-ops",
+        "url": "https://hooks.slack.com/services/T00/B00/XXXX",
+        "method": "POST",
+        "headers": {
+          "Content-Type": "application/json"
+        }
+      },
+      {
+        "name": "pagerduty",
+        "url": "https://events.pagerduty.com/v2/enqueue",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Token token=XXXX",
+          "Content-Type": "application/json"
+        }
+      }
+    ]
+  }
+}

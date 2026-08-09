@@ -1,0 +1,47 @@
+# ============================================================================
+# EiskaltDC++ Web Configuration
+# ============================================================================
+# This file configures the EiskaltDC++ Web interface server.
+# It is a JavaScript module exporting a configuration object `EiskaltDCPlusPlusWebConfig`.
+# All settings are self-documented below with their schema descriptions and defaults.
+# ============================================================================
+
+var EiskaltDCPlusPlusWebConfig = {
+  {# Server port to listen on. Default: 2066 #}
+  "port": {{ port | default(2066) | int }},
+
+  {# Host interface to bind to (e.g., '127.0.0.1' or '::1'). Default: '127.0.0.1' #}
+  "host": "{{ host | default('127.0.0.1') }}",
+
+  {# Username for HTTP Basic Auth (leave empty to disable auth). Default: '' #}
+  "user": "{{ user | default('') }}",
+
+  {# Password for HTTP Basic Auth (leave empty to disable auth). Default: '' #}
+  "pass": "{{ pass | default('') }}",
+
+  {# List of allowed IPs in CIDR notation; empty list allows all. Each item must be a string in valid CIDR format (e.g., '192.168.1.0/24'). Default: [] #}
+  "allowedIPs": [
+    {% for ip in allowed_ips | default([]) %}"{{ ip }}"{% if not loop.last %}, {% endif %}
+    {% endfor %}],
+
+  {# Enable SSL/TLS? Default: false #}
+  "ssl": {{ ssl | default(false) | lower }},
+
+  {# Path to SSL certificate (required if ssl=true). Default: '' #}
+  "sslCert": "{{ ssl_cert | default('') }}",
+
+  {# Path to SSL private key (required if ssl=true). Default: '' #}
+  "sslKey": "{{ ssl_key | default('') }}",
+
+  {# Base URL path (e.g., '/' or '/web'); must start with '/'. Default: '/' #}
+  "basePath": "{{ base_path | default('/') }}",
+
+  {# Max number of concurrent connections. Default: 100 #}
+  "maxConnections": {{ max_connections | default(100) | int }},
+
+  {# Timeout for idle connections in seconds. Default: 300 #}
+  "idleTimeout": {{ idle_timeout | default(300) | int }},
+
+  {# Log level: 'debug', 'info', 'warn', 'error'. Default: 'info' #}
+  "logLevel": "{{ log_level | default('info') }}"
+};

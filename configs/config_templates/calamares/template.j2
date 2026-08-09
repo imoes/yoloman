@@ -1,0 +1,49 @@
+# Calamares main configuration file
+#
+# This configuration controls the Calamares system installer's behaviour.
+# It defines branding, configuration directories, debugging, and module loading.
+#
+# Variables are mapped directly from the Ansible role's schema fields.
+# All variables use `default()` to ensure safe rendering even if undefined.
+
+CalamaresSettings:
+  # branding directory name (under /usr/share/calamares/branding/).
+  branding: {{ branding | default('calamares') }}
+
+  # configuration directory path.
+  config: {{ config_dir | default('/etc/calamares') }}
+
+  # enable verbose debug output.
+  debug: {{ debug | default(false) | string | lower }}
+
+  # list of module names (without .conf extension) to load.
+{% if modules | default([]) | length > 0 %}
+  modules:
+{% for mod in modules | default([]) %}
+    - {{ mod }}
+{% endfor %}
+{% else %}
+  modules: []
+{% endif %}
+
+  # list of additional directories to search for modules.
+{% if module_paths | default([]) | length > 0 %}
+  module_paths:
+{% for p in module_paths | default([]) %}
+    - {{ p }}
+{% endfor %}
+{% else %}
+  module_paths: []
+{% endif %}
+
+  # top-level settings dictionary.
+  # Each key-value pair is rendered as 'key: value' under this section.
+  # Only scalar values are allowed.
+{% if settings | default(None) is not none and (settings | default({})) | length > 0 %}
+  settings:
+{% for k, v in (settings | default({})) | dict2items %}
+    {{ k.key }}: {{ v.value }}
+{% endfor %}
+{% else %}
+  settings: {}
+{% endif %}

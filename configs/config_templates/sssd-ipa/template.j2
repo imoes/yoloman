@@ -1,0 +1,93 @@
+[sssd]
+# List of SSSD domains to activate
+ domains = {{ sssd_domains | join(', ') }}
+
+# Enable debug logging (0 = none, 9 = most verbose)
+ debug_level = {{ sssd_debug_level }}
+
+# Default domain suffix (if not set per domain)
+ default_domain_suffix = {{ sssd_default_domain_suffix | default('') | trim }}
+
+# Service configuration
+[service:sssd]
+# Timeout for service startup
+ reconnection_retries = {{ sssd_reconnection_retries }}
+
+# Enable SSSD services: nss, pam, ssh, sudo, autofs, pac, ifp
+ services = {{ sssd_services | join(', ') }}
+
+# Domain-specific configuration
+{% for domain in domains %}
+[domain/{{ domain.name }}]
+# IPA provider type
+ id_provider = ipa
+ auth_provider = ipa
+ access_provider = ipa
+{% if domain.chpass_provider is defined %} chpass_provider = ipa{% endif %}
+
+# IPA server hostname(s)
+ipa_server = {{ domain.ipa_servers | join(', ') }}
+{% if domain.ipa_server is defined %}# Legacy alias for ipa_server
+ipa_server = {{ domain.ipa_server | join(', ') }}{% endif %}
+
+# Fallback to local users if IPA is unreachable
+ fallback_homedir = {{ domain.fallback_homedir }}
+{% if domain.homedir_template is defined %}# Template for home directory path
+ home_directory = {{ domain.homedir_template }}{% endif %}
+
+# User login name attribute
+# Default: uid
+# Use 'mail' to allow login via email
+# login_shell = /bin/bash
+# override_shell = /bin/bash
+
+# DNS discovery fallback (use DNS SRV to locate IPA servers)
+# Set to false to disable auto-discovery
+# dns_discovery_domain = {{ domain.name }}
+# Use DNS to locate IPA servers
+ipa_dyndns_update = {{ domain.ipa_dyndns_update | default(false) | lower }}
+
+# Enable smart card authentication (if supported)
+# override_pam_authz_check = yes
+# allow_missing_upn = true
+
+# Cache credentials for offline auth (requires 'cache_credentials = true' in domain section)
+cache_credentials = {{ domain.cache_credentials | default(false) | lower }}
+
+# Kerberos settings
+# Use IPA-enforced ticket lifetime
+#krb5_ccname_template = FILE:/run/user/%U/krb5cc
+#krb5_keytab = /etc/krb5.keytab
+#krb5_use_kdc_when_offline = false
+
+# LDAP settings for fallback (not used with pure IPA, but may help during migration)
+ldap_uri = ldap://{{ domain.ipa_servers[0] }}
+ldap_search_base = {{ domain.ldap_search_base }}
+
+# sudo_provider, autofs_provider, ifp_provider can be set to 'none' or 'ipa'
+# sudo_provider = ipa
+# autofs_provider = ipa
+
+# Access control (allow/deny groups/users)
+# allow_groups = {{ domain.allow_groups | join(', ') if domain.allow_groups is defined else '' }}
+# deny_groups = {{ domain.deny_groups | join(', ') if domain.deny_groups is defined else '' }}
+# allow_users = {{ domain.allow_users | join(', ') if domain.allow_users is defined else '' }}
+# deny_users = {{ domain.deny_users | join(', ') if domain.deny_users is defined else '' }}
+
+# Handle nested groups
+# Enumerate = {{ domain.enumerate | default(true) | lower }}
+
+# Resolve group memberships recursively
+# ignore_group_members = false
+{% endfor %}
+
+# IPA-specific client settings
+[domain/ipa]
+# If no domain section explicitly named 'ipa', this acts as default
+# (but best practice is explicit domain sections)
+
+[ifp]
+# Interface to provide user and group info for desktop logins
+# Required for Wayland/GDM smartcard login
+# active = {{ ifp_active | default(false) | lower }}
+# user_attributes = +mail

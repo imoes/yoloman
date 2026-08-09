@@ -1,0 +1,29 @@
+# Configuration for altdns — subdomain discovery tool
+# This template generates a command-line argument list for the altdns utility.
+
+# Path to file containing input subdomains (base domain or list of subdomains to enumerate from).
+-i {{ input | default('') }}
+
+# Path to output file for altered subdomains.
+-o {{ output | default('') }}
+
+# Path to file containing words to use for altering subdomains (e.g., prefixes/suffixes like "www", "api").
+-w {{ wordlist | default('') }}
+
+# Resolve all altered subdomains via DNS to verify their existence.
+{% if resolve | default(False) %}-r{% endif %}
+
+# Append digits 0–9 to every altered subdomain (e.g., www0, www1) to discover numbered subdomains.
+{% if add_number_suffix | default(False) %}-n{% endif %}
+
+# Skip existing subdomains listed in input file (only discover NEW variations).
+{% if ignore_existing | default(False) %}-e{% endif %}
+
+# IP address of custom DNS resolver to use for lookups (overrides system default).
+{% if dnsserver | default('') %}-d {{ dnsserver | default('') }}{% endif %}
+
+# Path to file to save resolved subdomains (results of the -r check).
+{% if save_file | default('') %}-s {{ save_file | default('') }}{% endif %}
+
+# Number of threads for concurrent DNS resolution (higher for faster enumeration).
+{% if threads | default(10) %}-t {{ threads | default(10) }}{% endif %}

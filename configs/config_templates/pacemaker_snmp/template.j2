@@ -1,0 +1,74 @@
+# Pacemaker SNMP agent configuration file
+# This file configures the Pacemaker SNMP agent (pcs-snmp)
+# See `man pcs-snmp` for additional details
+
+# Enable SNMP agent
+{% if enabled | default(true) %}
+ENABLED=yes
+{% else %}
+ENABLED=no
+{% endif %}
+
+# SNMP agent listen address (IPv4/IPv6 or hostname)
+LISTEN_ADDRESS={{ listen_address | default('127.0.0.1') }}
+
+# SNMP agent listen port
+{% if listen_port is defined %}
+LISTEN_PORT={{ listen_port }}
+{% else %}
+LISTEN_PORT=1911
+{% endif %}
+
+# SNMP community string(s) for read-only access
+{% for community in communities %}
+{% if loop.first %}COMMUNITY={{ community }}{% else %}
+COMMUNITY+={{ community }}{% endif %}
+{% endfor %}
+
+# SNMPv3 user configuration (one per line)
+# Format: createUser <authUser> <authProtocol> <authPassphrase> <privProtocol> <privPassphrase>
+{% for user in snmpv3_users %}
+CREATE_USER={{ user.username }} {{ user.auth_protocol | default('SHA') }} {{ user.auth_passphrase }} {{ user.priv_protocol | default('AES') }} {{ user.priv_passphrase }}
+{% endfor %}
+
+# Log level: 0 (quiet) to 5 (debug)
+{% if log_level is defined %}
+LOG_LEVEL={{ log_level }}
+{% else %}
+LOG_LEVEL=3
+{% endif %}
+
+# Path to Pacemaker CIB (Cluster Information Base) XML cache
+{% if cib_path is defined %}
+CIB_PATH={{ cib_path }}
+{% else %}
+CIB_PATH=/var/lib/pacemaker/cib.xml
+{% endif %}
+
+# Maximum number of concurrent SNMP connections
+{% if max_connections is defined %}
+MAX_CONNECTIONS={{ max_connections }}
+{% else %}
+MAX_CONNECTIONS=10
+{% endif %}
+
+# Enable trap sending for cluster events
+{% if send_traps | default(false) %}
+SEND_TRAPS=yes
+{% else %}
+SEND_TRAPS=no
+{% endif %}
+
+# SNMP trap destination (host:port or just host)
+{% for trap_dest in trap_destinations %}
+{% if loop.first %}TRAP_DESTINATION={{ trap_dest.host }}{% if trap_dest.port %}:{{ trap_dest.port }}{% endif %}
+{% else %}
+TRAP_DESTINATION+={{ trap_dest.host }}{% if trap_dest.port %}:{{ trap_dest.port }}{% endif %}
+{% endif %}
+{% endfor %}
+
+# OID to MIB mapping (optional override)
+# Format: mibPrefix <prefix> <mibName>
+{% for mib_prefix in mib_prefixes %}
+MIB_PREFIX={{ mib_prefix.prefix }} {{ mib_prefix.mib_name }}
+{% endfor %}

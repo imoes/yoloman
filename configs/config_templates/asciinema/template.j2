@@ -1,0 +1,59 @@
+# Ansible-managed asciinema configuration
+# This file is a YAML configuration for asciinema.
+# The config_home variable determines the directory; the actual file name is 'config'.
+# Only the keys present in this file are used; missing keys fall back to asciinema's internal defaults or environment variables.
+
+# --- Connection Settings ---
+
+# api_url: URL of the asciinema-server instance (e.g., asciinema.org or self-hosted instance).
+# Overrides the ASCIINEMA_API_URL environment variable.
+# Default: 'https://asciinema.org'
+api_url: "{{ api_url | default('https://asciinema.org') }}"
+
+# --- Terminal Recording Settings ---
+
+# cols: Override terminal columns for recordings.
+# A value of 0 means auto-detect from the TTY.
+# Default: 0
+cols: {{ cols | default(0) }}
+
+# rows: Override terminal rows for recordings.
+# A value of 0 means auto-detect from the TTY.
+# Default: 0
+rows: {{ rows | default(0) }}
+
+# idle_time_limit: Limit recorded terminal inactivity to a maximum of N seconds.
+# Fractional seconds are supported. This applies during both recording and replay.
+# A value of 0 disables the idle limit.
+# Default: 0
+idle_time_limit: {{ idle_time_limit | default(0) }}
+
+# stdin: Enable keyboard (stdin) recording.
+# When false, only the terminal output is captured.
+# Default: false
+stdin: {{ stdin | default(false) | lower }}
+
+# env: List of environment variable names to capture during recording.
+# In addition to SHELL and TERM, these specified variables will be recorded.
+# Must be names only, no values.
+# Default: [] (empty list)
+env:
+{% for var in env | default([]) %}
+  - {{ var }}
+{% endfor %}
+
+# --- Metadata Settings ---
+
+# title: Default title for new recordings.
+# This can be overridden at runtime via the -t option of the asciinema command.
+# Default: '' (empty string)
+title: "{{ title | default('') }}"
+
+# --- Internal / Runtime Settings ---
+
+# config_home: Override config directory location.
+# Note: This setting is ignored by asciinema itself (use ASCIINEMA_CONFIG_HOME env var instead).
+# It is included here primarily to ensure the rendered configuration path is consistent
+# with the Ansible role's expectations for file placement.
+# Default: '' (empty string)
+_config_home: "{{ config_home | default('') }}"

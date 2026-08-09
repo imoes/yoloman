@@ -1,0 +1,112 @@
+# =============================================================================
+# Cockpit Web Service Configuration (cockpit.conf)
+# =============================================================================
+# This configuration file controls the behavior of cockpit-ws and cockpit-bridge.
+# It is self-documenting: every directive is preceded by a comment explaining its
+# purpose and default behavior.
+#
+# Reference: cockpit.conf(5)
+# =============================================================================
+
+[WebService]
+
+# -----------------------------------------------------------------------------
+# webservice_origins
+# Allowed origins for cross-origin WebSocket connections.
+# Add every public URL through which Cockpit is reached (e.g. 'https://cockpit.example').
+# Required when Cockpit is accessed via a reverse proxy to prevent CORS errors.
+# -----------------------------------------------------------------------------
+{% set origins = webservice_origins | default([]) %}
+{% if origins %}
+# Allowed origins for cross-origin WebSocket connections; required when Cockpit sits behind a reverse proxy
+Origins = {{ origins | join(' ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# webservice_protocol_header
+# HTTP request header that your reverse proxy sets to indicate whether the client
+# is using HTTPS. Typically 'X-Forwarded-Proto'.
+# This ensures Cockpit generates correct HTTPS URLs in redirects and links.
+# -----------------------------------------------------------------------------
+{% set proto_header = webservice_protocol_header | default('X-Forwarded-Proto') %}
+{% if proto_header %}
+# HTTP header set by a TLS-terminating reverse proxy to indicate the upstream scheme
+ProtocolHeader = {{ proto_header }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# webservice_login_title
+# Title text displayed on the Cockpit login page.
+# Customise to identify the environment (e.g. company name or datacenter).
+# -----------------------------------------------------------------------------
+# Title shown on the Cockpit login page
+LoginTitle = {{ webservice_login_title | default('Cockpit') }}
+
+# -----------------------------------------------------------------------------
+# webservice_compression
+# Enable gzip compression for HTTP responses.
+# Reduces bandwidth for slow links; disable if a reverse proxy handles compression upstream.
+# -----------------------------------------------------------------------------
+# Enable gzip compression for HTTP responses
+Compression = {{ webservice_compression | default(True) | lower }}
+
+# -----------------------------------------------------------------------------
+# webservice_max_startups
+# Maximum number of concurrent unauthenticated connection attempts cockpit-ws will accept.
+# Excess connections are refused until slots free up.
+# -----------------------------------------------------------------------------
+# Maximum concurrent unauthenticated connection attempts before new ones are refused
+MaxStartups = {{ webservice_max_startups | default(10) }}
+
+# -----------------------------------------------------------------------------
+# webservice_allow_multihost
+# Allow users to connect to additional remote hosts from the Cockpit UI.
+# Enable only if the host-switching feature is needed and access is controlled.
+# -----------------------------------------------------------------------------
+{% if webservice_allow_multihost | default(False) %}
+# Allow users to connect to and manage additional remote hosts from this instance
+AllowMultiHost = true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# webservice_client_cert_auth
+# Require a TLS client certificate for authentication.
+# Only effective when cockpit-ws terminates TLS itself (not behind a proxy).
+# Requires a properly configured CA and client certificates.
+# -----------------------------------------------------------------------------
+{% if webservice_client_cert_auth | default(False) %}
+# Require a TLS client certificate for authentication (only effective when Cockpit terminates TLS directly)
+ClientCertAuthentication = true
+{% endif %}
+
+[Session]
+
+# -----------------------------------------------------------------------------
+# session_idle_timeout
+# Minutes of browser inactivity before the session is automatically closed.
+# Set to 0 to keep sessions alive indefinitely (not recommended for security reasons).
+# -----------------------------------------------------------------------------
+# Minutes of inactivity before a session is automatically closed; 0 disables the idle timeout
+IdleTimeout = {{ session_idle_timeout | default(15) }}
+
+# -----------------------------------------------------------------------------
+# session_banner
+# Absolute path to a plain-text file displayed on the login page before users authenticate.
+# Useful for legal notices, acceptable-use policies, or MOTD.
+# -----------------------------------------------------------------------------
+{% set banner = session_banner | default('') %}
+{% if banner %}
+# Absolute path to a text file whose contents are displayed on the login page (legal notice, MOTD)
+Banner = {{ banner }}
+{% endif %}
+
+[Log]
+
+# -----------------------------------------------------------------------------
+# log_fatal_channels
+# Cockpit bridge log channels treated as fatal.
+# cockpit-ws exits when an error is emitted on any listed channel.
+# 'stderr' covers the most critical system errors.
+# -----------------------------------------------------------------------------
+# Space-separated bridge log channels treated as fatal; cockpit-ws exits if errors occur on these channels
+Fatal = {{ log_fatal_channels | default(['stderr']) | join(' ') }}

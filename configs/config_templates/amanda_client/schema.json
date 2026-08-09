@@ -1,0 +1,284 @@
+{
+  "client_log_dir": {
+    "type": "string",
+    "default": "/var/log/amanda",
+    "description": "Directory where Amanda client logs and temporary files are stored."
+  },
+  "lockfile_dir": {
+    "type": "string",
+    "default": "/var/run",
+    "description": "Directory where Amanda writes lockfiles to prevent concurrent operations."
+  },
+  "client_name": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or FQDN by which the Amanda server will refer to this client (must match server configuration)."
+  },
+  "client_port": {
+    "type": "string",
+    "default": "10080",
+    "description": "TCP port on which the Amanda client daemon (amandad) listens for incoming connections."
+  },
+  "use_tcp_wrappers": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable TCP wrappers access control for amandad connections."
+  },
+  "tcp_wrappers_file": {
+    "type": "string",
+    "default": "/etc/hosts.allow",
+    "description": "Path to the TCP wrappers configuration file (usually /etc/hosts.allow)."
+  },
+  "compress": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression algorithm to use for backup streams. Options: none, fast, best, gzip, lzo, bzip2."
+  },
+  "max_tps": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum tape write speed in KB/s (0 = no limit). Use to avoid saturating disk or network I/O."
+  },
+  "hold_tape": {
+    "type": "bool",
+    "default": false,
+    "description": "If enabled, the client holds the tape after backup instead of rewinding and ejecting."
+  },
+  "disks": {
+    "type": "list",
+    "default": [],
+    "description": "List of filesystems to back up. Each entry defines mount point and options.",
+    "items": {
+      "mount_point": {
+        "type": "string",
+        "description": "Absolute path of the filesystem to back up (e.g., /home, /var/log)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of this disk."
+      },
+      "trust": {
+        "type": "string",
+        "default": "client",
+        "description": "Security trust model: 'client' (server trusts client) or 'dumper' (client authenticates to dumper)."
+      },
+      "auth": {
+        "type": "string",
+        "default": "bsdtcp",
+        "description": "Authentication method: 'bsdtcp', 'ssh', or 'krb5'."
+      },
+      "index": {
+        "type": "string",
+        "default": "yes",
+        "description": "Whether to generate index entries for this disk."
+      },
+      "backup": {
+        "type": "string",
+        "default": "find",
+        "description": "Backup method: 'find', 'dump', 'star', or custom script path."
+      },
+      "bump": {
+        "type": "string",
+        "default": "skip",
+        "description": "Behavior when bump conditions are met (e.g., skip, next, error)."
+      },
+      "bump_days": {
+        "type": "number",
+        "default": 0,
+        "description": "Skip further backups after this many days since last successful backup."
+      },
+      "bump_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Skip further backups after this many MB of data added since last full backup."
+      },
+      "bump_total_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Skip after this total MB backed up since last full backup."
+      },
+      "bump_total_days": {
+        "type": "number",
+        "default": 0,
+        "description": "Skip after this total number of days backed up."
+      },
+      "max_bumps": {
+        "type": "number",
+        "default": 3,
+        "description": "Maximum bump events before erroring out."
+      },
+      "max_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum size (in MB) of this disk to back up. Larger disks are skipped."
+      },
+      "max_total_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Total size (in MB) across all backups before skipping."
+      },
+      "max_total_days": {
+        "type": "number",
+        "default": 0,
+        "description": "Total days backed up before skipping."
+      },
+      "priority": {
+        "type": "string",
+        "default": "medium",
+        "description": "Priority for scheduling: low, medium, high."
+      },
+      "taper_algo": {
+        "type": "string",
+        "default": "single",
+        "description": "Algorithm for writing to tape: single, full, increment, etc."
+      },
+      "taper_max_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum size (MB) allowed on tape before switching."
+      },
+      "taper_min_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum size (MB) to consider a tape full."
+      },
+      "taper_scan_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Amount of data to scan to determine tape usage."
+      },
+      "taper_scan_time": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum time (seconds) to spend scanning the tape."
+      },
+      "taper_switch_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Size (MB) threshold to trigger tape switch."
+      },
+      "taper_switch_time": {
+        "type": "number",
+        "default": 0,
+        "description": "Time (seconds) threshold to trigger tape switch."
+      },
+      "taper_wait_time": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds to wait before retrying tape operations."
+      },
+      "taper_write_speed": {
+        "type": "number",
+        "default": 0,
+        "description": "Target write speed (KB/s) for this disk."
+      },
+      "taper_write_speed_max": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum allowed write speed (KB/s)."
+      },
+      "taper_write_speed_min": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum acceptable write speed (KB/s)."
+      },
+      "taper_write_speed_target": {
+        "type": "number",
+        "default": 0,
+        "description": "Target write speed (KB/s) for dynamic throttling."
+      },
+      "taper_write_speed_window": {
+        "type": "number",
+        "default": 60,
+        "description": "Time window (seconds) for averaging write speed."
+      }
+    }
+  },
+  "tapes": {
+    "type": "list",
+    "default": [],
+    "description": "List of physical tape devices to configure (optional for disk-to-disk setups).",
+    "items": {
+      "device": {
+        "type": "string",
+        "description": "Device path (e.g., /dev/st0, /dev/sg1)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional description of this tape device."
+      },
+      "label": {
+        "type": "string",
+        "default": "auto",
+        "description": "Labeling scheme: auto, none, or custom string."
+      },
+      "driver": {
+        "type": "string",
+        "default": "auto",
+        "description": "Driver type: auto, scsi, atapi, or custom command template."
+      },
+      "block_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Block size in bytes (0 = auto)."
+      },
+      "rewind": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to rewind the tape after operations."
+      },
+      "rewind_after": {
+        "type": "string",
+        "default": "all",
+        "description": "When to rewind: all, none, or list of operations."
+      },
+      "rewind_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Timeout (seconds) for rewind operation."
+      },
+      "skip_blocks": {
+        "type": "number",
+        "default": 0,
+        "description": "Number of blocks to skip at start of tape (e.g., for tape labels)."
+      },
+      "sparse": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, write sparse files to avoid filling tape with zeros."
+      },
+      "strict_eod": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, fail on incomplete tape write (avoid corrupting tapes)."
+      },
+      "tape_label": {
+        "type": "string",
+        "default": "Amanda",
+        "description": "Label prefix for tapes written by Amanda."
+      },
+      "tape_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Tape capacity in MB (0 = auto-detect)."
+      },
+      "tape_type": {
+        "type": "string",
+        "default": "LTO",
+        "description": "Tape format type: LTO, DAT, VXA, etc. (affects compression and block size)."
+      },
+      "write_protect": {
+        "type": "string",
+        "default": "none",
+        "description": "Write protection handling: none, hardware, software."
+      }
+    }
+  },
+  "extra_options": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional configuration lines (for unsupported or advanced settings)."
+  }
+}

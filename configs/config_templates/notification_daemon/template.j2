@@ -1,0 +1,65 @@
+{#
+  Desktop Entry file for the Notification Daemon.
+  This file is installed to /etc/xdg/autostart/ to ensure the daemon starts per-user-session.
+  It is a standard freedesktop.org .desktop file.
+#}
+
+[Desktop Entry]
+
+# Type of entry; must be Application for this use case
+Type=Application
+
+# Human-readable name of the application
+Name=Notification Daemon
+
+# Executable command with optional runtime arguments
+# Default is 'notification-daemon' if not specified in schema
+Exec={{ exec_cmd | default('notification-daemon') }}
+
+# Comma-separated list of desktop environments where this entry is shown
+# Restricts to common Linux DEs
+OnlyShowIn=GNOME;XFCE;KDE;LXQt;Unity;
+
+# If true, the application will not appear in menus, launchers, or search
+# Defaults to false; set to true for debugging or testing to hide clutter
+NoDisplay={{ hidden | default(False) | bool | lower }}
+
+# Autostart condition; ensures the daemon starts after the session is initialized
+# GNOME session manager specific
+AutostartCondition=gnome-session
+
+# If true, the entry is hidden from the user (e.g. in file managers or menus)
+# Defaults to false. Useful for debugging without polluting the UI.
+Hidden={{ hidden | default(False) | bool | lower }}
+
+# Optional: X11-specific startup phase (legacy fallback)
+# Only rendered if X11 is explicitly enabled in the context
+{% if x11_enabled is defined and x11_enabled %}
+# X11-specific startup (legacy fallback)
+X-GNOME-Autostart-Phase=WindowManager
+{% endif %}
+
+# Optional: Startup delay in milliseconds before launching the daemon
+# Useful for service dependency ordering (e.g. waiting for DBus or icon theme)
+{% if startup_delay is defined and startup_delay %}
+X-GNOME-Autostart-Delay={{ startup_delay }}
+{% endif %}
+
+# Optional: Environment variables to set before launching the daemon
+# List of strings in KEY=value format (e.g. 'DISPLAY=:0')
+{% for env_var in env_vars | default([]) %}
+# Environment variable assignment
+Env={{ env_var }}
+{% endfor %}
+
+# Optional: Icon name or path for the notification daemon
+# Examples: 'dialog-information' or '/usr/share/icons/hicolor/48x48/apps/notify-osd.png'
+{% if icon is defined and icon %}
+Icon={{ icon }}
+{% endif %}
+
+# Human-readable comment describing the service
+Comment=Passive desktop notification daemon
+
+# Enables the autostart entry via GNOME specific key
+X-GNOME-Autostart-enabled=true

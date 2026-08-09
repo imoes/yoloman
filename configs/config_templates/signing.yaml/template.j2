@@ -1,0 +1,36 @@
+# debusine signing service configuration
+# Defines the signing identity and cryptographic parameters
+signing:
+  # Path to the private key used for signing artifacts
+  key_path: {{ signing_key_path }}
+
+  # Passphrase to decrypt the private key (optional; leave empty if key is unencrypted)
+  key_passphrase: {{ signing_key_passphrase }}
+
+  # Algorithm to use for signing (e.g., 'rsa-pss-sha256', 'ecdsa-sha256')
+  algorithm: {{ signing_algorithm }}
+
+  # Key ID to embed in signatures (optional; defaults to fingerprint if omitted)
+  key_id: {{ signing_key_id }}
+
+  # TTL for generated signatures (seconds)
+  signature_ttl: {{ signing_signature_ttl }}
+
+  # List of allowed signature audiences (services or entities permitted to verify these signatures)
+  audiences:
+{% for audience in signing_audiences %}    - {{ audience }}{% endfor %}
+
+# Verification settings for incoming signatures
+verify:
+  # Path to the directory or file containing trusted public keys/certificates
+  trusted_keys_path: {{ verify_trusted_keys_path }}
+
+  # Whether to require explicit key trust (true = fail on unknown keys; false = allow fallback)
+  require_trusted_key: {{ verify_require_trusted_key | default(true) }}
+
+  # Maximum signature age (seconds); signatures older than this are rejected
+  max_signature_age: {{ verify_max_signature_age }}
+
+  # List of allowed audiences this service will accept for verification (must match signing.audiences of signers)
+  allowed_audiences:
+{% for audience in verify_allowed_audiences %}    - {{ audience }}{% endfor %}

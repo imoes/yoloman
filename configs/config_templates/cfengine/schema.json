@@ -1,0 +1,152 @@
+{
+  "site_bundlesequence": {
+    "type": "list",
+    "default": [
+      "common",
+      "site_baseline",
+      "site_packages",
+      "site_users",
+      "site_services"
+    ],
+    "description": "Ordered list of CFEngine policy bundles to execute on each agent run"
+  },
+  "site_include_paths": {
+    "type": "list",
+    "default": [
+      "/var/cfengine/inputs/core.cf",
+      "/var/cfengine/inputs/lib.cf"
+    ],
+    "description": "List of CFEngine input policy files to include before main bundlesequence"
+  },
+  "site_cfengine_control_host": {
+    "type": "string",
+    "default": "any",
+    "description": "Target host class for this control block (e.g., 'any', 'servers', 'workstations')"
+  },
+  "site_cfengine_control_vars": {
+    "type": "string",
+    "default": "edit_defaults::\n  always_rotate::\n    rotate_size => \"10000\";\n    rotate_count => 10;\n",
+    "description": "CFEngine control variable definitions (e.g., file rotation, timeouts, defaults)"
+  },
+  "site_trusted_servers": {
+    "type": "string",
+    "default": "127.0.0.1,::1",
+    "description": "Comma-separated list of trusted policy server IPs or hostnames"
+  },
+  "site_trusted_users": {
+    "type": "string",
+    "default": "cfengine",
+    "description": "Comma-separated list of system users allowed to connect to the CFEngine server"
+  },
+  "site_trusted_groups": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated list of system groups allowed to connect to the CFEngine server"
+  },
+  "site_policy_server_key": {
+    "type": "string",
+    "default": "/var/cfengine/ppkeys/localhost.pub",
+    "description": "Path to the public key used to verify signatures on received promises"
+  },
+  "site_execd_timeout": {
+    "type": "string",
+    "default": "300",
+    "description": "Maximum execution time (in seconds) per command run by cf-execd"
+  },
+  "site_execd_max_processes": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent processes cf-execd will launch"
+  },
+  "site_cf_serverd_port": {
+    "type": "number",
+    "default": 5308,
+    "description": "TCP port used by cf-serverd for incoming connections"
+  },
+  "site_cf_execd_port": {
+    "type": "number",
+    "default": 5309,
+    "description": "TCP port used by cf-execd for local communication (rarely used)"
+  },
+  "site_cf_monitord_port": {
+    "type": "number",
+    "default": 5310,
+    "description": "TCP port used by cf-monitord for status collection"
+  },
+  "site_policy_server_host": {
+    "type": "string",
+    "default": "policy.example.com",
+    "description": "Hostame or IP of the primary CFEngine policy server"
+  },
+  "site_policy_server_dir": {
+    "type": "string",
+    "default": "/var/cfengine/masterfiles",
+    "description": "Directory on the policy server from which agents download policies"
+  },
+  "site_log_dir": {
+    "type": "string",
+    "default": "/var/log/cfengine",
+    "description": "Directory where CFEngine daemon logs are stored"
+  },
+  "site_log_rotate_count": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of old log files to retain during rotation"
+  },
+  "site_log_size_limit": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Maximum size (in bytes) of a single log file before rotation"
+  },
+  "site_verbose": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose logging (increases log detail for debugging)"
+  },
+  "site_packages_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable package management promises (e.g., installing system packages)"
+  },
+  "site_packages_policy": {
+    "type": "string",
+    "default": "apt",
+    "description": "Package policy type (e.g., 'apt', 'yum', 'pkgng', 'dnf')"
+  },
+  "site_packages_list": {
+    "type": "list",
+    "default": [
+      "curl",
+      "vim",
+      "rsync"
+    ],
+    "description": "List of packages to ensure installed"
+  },
+  "site_monitored_services": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Service name (e.g., sshd, nginx, docker)"
+      },
+      "restart": {
+        "type": "string",
+        "default": "immediate",
+        "description": "Restart policy when service is found dead (e.g., 'immediate', 'delayed', 'none')"
+      },
+      "start": {
+        "type": "string",
+        "default": "",
+        "description": "Service start method (e.g., 'service', 'systemctl')"
+      },
+      "stop": {
+        "type": "string",
+        "default": "",
+        "description": "Service stop method (e.g., 'service', 'systemctl')"
+      }
+    },
+    "description": "List of services to monitor and optionally auto-restart"
+  }
+}

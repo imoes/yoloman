@@ -1,0 +1,41 @@
+# CurveDNS configuration file.
+# This file configures the CurveDNS daemon, a lightweight DNS proxy/cache.
+
+# listen_ip: IP address on which curvedns listens for incoming DNS queries (UDP/TCP).
+IP={{ (listen_ip | default('127.0.0.1')) }}
+
+# listen_port: UDP/TCP port to listen on for incoming DNS queries (commonly 53 or 5353).
+PORT={{ (listen_port | default(53)) }}
+
+# forward_host: Hostname or IP of the upstream recursive resolver (e.g., Unbound or systemd-resolved).
+REMOTEIP={{ (forward_host | default('127.0.0.2')) }}
+
+# forward_port: Port of the upstream recursive resolver (usually 53).
+REMOTEPORT={{ (forward_port | default(53)) }}
+
+# chroot_path: Chroot directory for security hardening (empty = disabled).
+ROOT={{ (chroot_path | default('/var/lib/curvedns/empty')) }}
+
+# Nonce separation
+# When several servers share a key, than servers must use separate nonces, for example:
+# the first of four servers is configured to use CURVEDNS_NONCE_SEPARATION_BITS='100',
+# the second is configured to use CURVEDNS_NONCE_SEPARATION_BITS='101',
+# the third is configured to use CURVEDNS_NONCE_SEPARATION_BITS='110', and
+# the fourth is configured to use CURVEDNS_NONCE_SEPARATION_BITS='111'.
+#
+# CURVEDNS_NONCE_SEPARATION_BITS='' means no separation bits.
+# CURVEDNS_NONCE_SEPARATION_BITS is limited by 16bits (65536 variants),
+# e.g. CURVEDNS_NONCE_SEPARATION_BITS='1111111111111111'
+#
+# By default we set '0'. So we have space to switch to
+# CURVEDNS_NONCE_SEPARATION_BITS starting with 1 in the future.
+CURVEDNS_NONCE_SEPARATION_BITS='0'
+
+#Optionnal CurveDNS configuration, see curvedns(8)
+#CURVEDNS_INTERNAL_TIMEOUT=1.2
+#CURVEDNS_UDP_TRIES=2
+#CURVEDNS_TCP_NUMBER=25
+#CURVEDNS_TCP_TIMEOUT=60.0
+#CURVEDNS_SHARED_SECRETS=5000
+#CURVEDNS_DEBUG=5
+#CURVEDNS_SOURCE_IP=xx.xx.xx.xx

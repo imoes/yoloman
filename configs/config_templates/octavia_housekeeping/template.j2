@@ -1,0 +1,98 @@
+# Octavia Housekeeping Manager Configuration
+#
+# This file configures the `octavia-housekeeping` daemon responsible for
+# periodic maintenance tasks such as cleaning up orphaned amphorae (VMs),
+# synchronizing health status, and managing database locks.
+#
+# All variables are explicitly defaulted to schema values to ensure
+# idempotent rendering when used in Ansible roles.
+
+[housekeeping]
+# Interval (seconds) between housekeeping cycles. Increase for lower CPU usage, decrease for more responsive cleanup.
+housekeeping_interval = {{ housekeeping_interval | default(60) }}
+
+# Maximum number of Load Balancers processed per cycle. Limit to avoid overwhelming the system.
+max_lbaas_per_housekeeping = {{ max_lbaas_per_housekeeping | default(100) }}
+
+# Timeout (seconds) for amphora agent API calls during housekeeping. Increase if slow agents time out.
+amphora_agent_timeout = {{ amphora_agent_timeout | default(60) }}
+
+# Whether to enable automatic expiry (deletion) of old, orphaned amphorae.
+amphora_expiry_enabled = {{ amphora_expiry_enabled | default(True) | lower }}
+
+# Minimum age (seconds) of an amphora before it's eligible for expiry. Default: 7 days (604800 seconds).
+amphora_expiry_age = {{ amphora_expiry_age | default(604800) }}
+
+# Maximum number of amphorae expired in each batch. Smaller batches reduce load spikes.
+amphora_expiry_batch_size = {{ amphora_expiry_batch_size | default(10) }}
+
+# Path to the CA certificate used to verify amphora agent TLS certificates.
+amphora_agent_ca = {{ amphora_agent_ca | default('/etc/octavia/amphora-agent-ca.pem') }}
+
+# Path to the amphora agent client certificate (for mutual TLS auth).
+amphora_agent_cert = {{ amphora_agent_cert | default('/etc/octavia/amphora-agent.pem') }}
+
+# Path to the amphora agent private key.
+amphora_agent_key = {{ amphora_agent_key | default('/etc/octavia/amphora-agent-key.pem') }}
+
+# Neutron network ID used for amphora failover communication. Leave empty to use default.
+amphora_network = {{ amphora_network | default('') }}
+
+# Neutron subnet ID used for amphora failover communication. Leave empty to use default.
+amphora_subnet = {{ amphora_subnet | default('') }}
+
+# List of Load Balancer IDs to skip during housekeeping (e.g., critical or test LBs).
+{% if exclude_lba_ids | default([]) %}
+exclude_lba_ids = {{ exclude_lba_ids | default([]) | join(', ') }}
+{% else %}
+exclude_lba_ids =
+{% endif %}
+
+# Directory where amphora heartbeat files are stored for health monitoring.
+amphora_agent_heartbeat_dir = {{ amphora_agent_heartbeat_dir | default('/var/lib/octavia/heartbeat') }}
+
+# Enable syncing amphora health status to the Octavia database (required for health manager integration).
+enable_health_sync = {{ enable_health_sync | default(True) | lower }}
+
+# Timeout (seconds) for RPC calls syncing amphora health data.
+health_sync_timeout = {{ health_sync_timeout | default(10) }}
+
+# Database connection string for the Octavia database (typically set via [database] section, but included for flexibility).
+# This allows the housekeeping process to connect directly to the database if needed.
+database_connection = {{ database_connection | default('mysql+pymysql://octavia:password@dbhost/octavia') }}
+
+# Optional per-agent configuration overrides (advanced deployments with non-default agent configs).
+{% if amphora_agents | default([]) %}
+{% for agent in amphora_agents | default([]) %}
+[amphora_agent:{{ agent.name }}]
+# Hostname or IP for amphora agent {{ agent.name }}
+host = {{ agent.host }}
+
+# Port for amphora agent {{ agent.name }}
+port = {{ agent.port }}
+
+# Enable TLS for this agent
+use_tls = {{ agent.use_tls | default(False) | lower }}
+
+{% endfor %}
+{% endif %}
+
+[oslo_concurrency]
+# Directory for filesystem locks to coordinate housekeeping across multiple workers.
+lock_path = {{ lock_path | default('/var/lib/octavia/lock') }}
+
+[controller_worker]
+# Number of worker processes to spawn for housekeeping tasks. Increase on high-LB-count deployments.
+workers = {{ workers | default(2) }}
+
+# Size of the thread pool per worker for asynchronous I/O.
+thread_pool_size = {{ thread_pool_size | default(10) }}
+
+# Enable eventlet-based green threads (recommended for I/O-bound services like this).
+use_eventlet = {{ use_eventlet | default(True) | lower }}
+
+# Name of the amphora management driver (usually left as default).
+amphora_driver = {{ amphora_driver | default('amphora_haproxy_rest_driver') }}
+
+# Topology mode for load balancer distribution. Common values: SINGLE, ACTIVE_STANDBY.
+loadbalancer_topology = {{ loadbalancer_topology | default('SINGLE') }}

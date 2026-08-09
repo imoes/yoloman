@@ -1,0 +1,164 @@
+# ==============================================================================
+# Gfarm Metadata Daemon (gfmd) Configuration
+# ==============================================================================
+# This file configures the Gfarm Metadata Server. It manages file system
+# metadata, handles client connections, and optionally replicates metadata
+# across multiple nodes for high availability.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Network Binding
+# ------------------------------------------------------------------------------
+
+# IP address the metadata server binds to. Use '0.0.0.0' to listen on all
+# interfaces, or a specific IP to restrict access.
+# Variable: listen_address
+listen_address {{ listen_address | default('0.0.0.0') }}
+
+# TCP port for gfmd client connections. Clients connect to this port to
+# perform file system operations.
+# Variable: listen_port
+listen_port {{ listen_port | default(15345) }}
+
+# ------------------------------------------------------------------------------
+# Storage & Backend
+# ------------------------------------------------------------------------------
+
+# Directory containing the metadata database files. This is where gfmd stores
+# its internal state regarding files, directories, and permissions.
+# Variable: metadata_db_dir
+metadata_db_dir {{ metadata_db_dir | default('/var/lib/gfarm2/meta') }}
+
+# ------------------------------------------------------------------------------
+# Performance & Concurrency
+# ------------------------------------------------------------------------------
+
+# Number of worker threads to handle incoming connections and processing tasks.
+# Adjust based on CPU cores and expected load. Higher values improve concurrency
+# but increase memory usage.
+# Variable: worker_threads
+worker_threads {{ worker_threads | default(8) }}
+
+# Maximum number of concurrent client connections allowed. Once this limit is
+# reached, new connections are rejected until existing ones close.
+# Variable: max_connections
+max_connections {{ max_connections | default(1024) }}
+
+# Maximum size (in MB) of the metadata cache. Setting this to 0 disables the
+# limit, allowing the cache to grow as needed. Useful for preventing out-of-
+# memory issues on systems with limited RAM.
+# Variable: max_metadata_cache_size_mb
+max_metadata_cache_size_mb {{ max_metadata_cache_size_mb | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Replication (High Availability)
+# ------------------------------------------------------------------------------
+
+# Enable replication between multiple gfmd instances for high availability.
+# When enabled, metadata changes are synced to defined target nodes.
+# Variable: replication_enabled
+replication_enabled {{ replication_enabled | default(false) | lower }}
+
+# List of gfmd instances to replicate metadata with. Each entry defines a peer
+# for real-time metadata sync. Structure: { host: str, port: int }
+# Only rendered if replication_enabled is true and list is not empty.
+{% if replication_enabled | default(false) %}
+{% if replication_targets | default([]) | length > 0 %}
+# Replication targets: list of gfmd peers for synchronization
+{% for replica in replication_targets | default([]) %}
+# Peer: {{ replica.host | default('unknown') }}:{{ replica.port | default(0) }}
+replication_target {{ replica.host | default('') }} {{ replica.port | default(0) }}
+{% endfor %}
+{% endif %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------------------
+
+# Authentication method for gfmd clients. 'password' uses local user mapping;
+# 'gssapi' enables Kerberos integration for enterprise environments.
+# Variable: auth_method
+auth_method {{ auth_method | default('password') }}
+
+# Path to the Kerberos keytab file for GSSAPI authentication.
+# ONLY USED if auth_method is 'gssapi'. Ensure the gfmd process has read access
+# to this file.
+# Variable: kerberos_keytab
+{% if auth_method | default('password') == 'gssapi' %}
+kerberos_keytab {{ kerberos_keytab | default('/etc/krb5kdc/gfmd.keytab') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Quotas
+# ------------------------------------------------------------------------------
+
+# Default disk quota (in MB) for new domains. Set to 0 for unlimited quota.
+# This applies to newly created storage domains/users unless explicitly overridden.
+# Variable: default_quota_mb
+default_quota_mb {{ default_quota_mb | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+
+# Enable detailed access logging of client operations. Useful for auditing and
+# troubleshooting. Impacts performance if enabled in high-throughput scenarios.
+# Variable: access_log_enabled
+access_log_enabled {{ access_log_enabled | default(false) | lower }}
+
+# Path to the access log file.
+# ONLY USED if access_log_enabled is true.
+# Variable: access_log_file
+{% if access_log_enabled | default(false) %}
+access_log_file {{ access_log_file | default('/var/log/gfarm2/gfmd_access.log') }}
+{% endif %}
+
+# Verbosity level for gfmd logging. Options typically include: debug, info,
+# notice, warn, error. 'info' is recommended for production.
+# Variable: log_level
+log_level {{ log_level | default('info') }}
+
+# Path to the main log file for general daemon messages.
+# Variable: log_file
+log_file {{ log_file | default('/var/log/gfarm2/gfmd.log') }}
+
+# ------------------------------------------------------------------------------
+# Security (SSL/TLS)
+# ------------------------------------------------------------------------------
+
+# Enable SSL/TLS encryption for gfmd client connections. Encrypts data in
+# transit to protect metadata integrity and confidentiality.
+# Variable: ssl_enabled
+ssl_enabled {{ ssl_enabled | default(false) | lower }}
+
+# SSL/TLS Certificate Configuration.
+# ONLY USED if ssl_enabled is true.
+{% if ssl_enabled | default(false) %}
+# Path to the SSL certificate chain file (PEM format).
+# Variable: ssl_cert_file
+ssl_cert_file {{ ssl_cert_file | default('/etc/gfarm2/ssl/cert.pem') }}
+
+# Path to the SSL private key file (PEM format, unencrypted).
+# Variable: ssl_key_file
+ssl_key_file {{ ssl_key_file | default('/etc/gfarm2/ssl/key.pem') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Filesystem Features
+# ------------------------------------------------------------------------------
+
+# Enable POSIX ACL support for files and directories. Allows fine-grained
+# access control lists beyond standard owner/group/other permissions.
+# Variable: acl_enabled
+acl_enabled {{ acl_enabled | default(false) | lower }}
+
+# Enable user/group quota enforcement. Checks disk usage against configured
+# quotas during file creation/modification.
+# Variable: quota_enabled
+quota_enabled {{ quota_enabled | default(false) | lower }}
+
+# Enable extended attribute (xattr) support in the filesystem. Allows storing
+# custom metadata on files (e.g., security labels, application-specific data).
+# Variable: xattr_enabled
+xattr_enabled {{ xattr_enabled | default(false) | lower }}

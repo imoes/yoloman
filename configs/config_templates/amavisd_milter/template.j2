@@ -1,0 +1,37 @@
+# ==============================================================================
+# amavisd-new Milter interface configuration (50-user)
+# This file configures the Amavisd-new Milter interface, which allows the
+# Mail Transfer Agent (MTA) such as Postfix or Sendmail to communicate
+# with Amavisd-new for virus and spam scanning.
+# ==============================================================================
+
+# Enable the Amavisd milter interface (required for integration with MTA milters like Postfix or Sendmail).
+# If false, the milter protocol is disabled.
+{% if (config | default({})).milter_enabled | default(false) %}$milter_protocol = 'smtp';
+{% else %}$milter_protocol = '';
+{% endif %}
+
+# Milter listener socket configuration.
+# Selects between a Unix domain socket (faster, local only) or a TCP socket (accessible remotely).
+# Format: "unix:PATH" or "inet:ADDRESS:PORT"
+{% if (config | default({})).milter_socket_type | default('inet') == 'unix' %}$milter_socket = "unix:{{ (config | default({})).milter_socket_path | default('/var/spool/amavis/amavisd.sock') }}";
+{% elif (config | default({})).milter_socket_type | default('inet') == 'inet' %}$milter_socket = "inet:{{ (config | default({})).milter_bind_address | default('127.0.0.1') }}:{{ (config | default({})).milter_bind_port | default(55555) }}";
+{% else %}$milter_socket = '';
+{% endif %}
+
+# Maximum number of worker processes for handling milter connections.
+# Tune this based on expected concurrency and system resources.
+$milter_max_procs = {{ (config | default({})).milter_max_procs | default(4) }};
+
+# Timeout in seconds for milter communication between the MTA and Amavisd.
+# If the milter does not respond within this time, the connection is dropped.
+$milter_timeout = {{ (config | default({})).milter_timeout | default(120) }};
+
+# List of allowed client addresses (CIDR or hostnames) permitted to use this milter.
+# Restrict this to trusted hosts (typically localhost) to prevent unauthorized usage.
+{% for client in (config | default({})).milter_allowed_clients | default(['127.0.0.0/8']) %}@milter_allow_clients = ('{{ client }}');
+{% endfor %}
+
+# Debug level for milter logging (0–4); higher values produce more verbose logs.
+# Use 0 for production, increase for troubleshooting.
+$milter_debug = {{ (config | default({})).milter_debug | default(0) }};

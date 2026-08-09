@@ -1,0 +1,75 @@
+# ============================================================================
+# gfxboot.cfg - Configuration for gfxboot (boot splash screen generator)
+#
+# This file defines the visual theme, language support, bootloader integration,
+# and preview settings for gfxboot. It is structured into [base] and [preview]
+# sections.
+#
+# Variables used:
+#   - config_entries: list of dicts with 'section', 'option', 'value'
+#   - default_language: string
+#   - languages: list of strings
+#   - bootloader: string
+#   - theme: string
+#   - preview_password: string
+#   - preview_vm: string
+#   - preview_arch: string
+#   - preview_image_type: string
+# ============================================================================
+
+[base]
+# Default language locale for the boot splash (e.g., 'en_US', 'de_DE').
+# Corresponds to gfxboot's --default-language option.
+{% if default_language | default('') %}
+default_language={{ default_language | default('') }}
+{% endif %}
+
+# List of additional language locales to include in the boot splash.
+# Corresponds to gfxboot's --add-languages option.
+{% if languages | default([]) %}
+languages={{ languages | default([]) | join(',') }}
+{% endif %}
+
+# Bootloader to use for preview or generation (grub, lilo, isolinux, syslinux, pxelinux).
+# Corresponds to gfxboot's --bootloader option.
+{% if bootloader | default('grub') %}
+bootloader={{ bootloader | default('grub') }}
+{% endif %}
+
+# Active theme name, stored under /etc/bootsplash/themes/THEME/bootloader.
+# Corresponds to gfxboot's --new-theme and --update-theme options.
+{% if theme | default('') %}
+theme={{ theme | default('') }}
+{% endif %}
+
+# Custom config entries. Each entry is a dict with keys: section, option, value.
+# These are written as section::option=value.
+{% for entry in config_entries | default([]) %}
+# Entry: {{ entry.section | default('') }} :: {{ entry.option | default('') }} = {{ entry.value | default('') }}
+{{ entry.section | default('') }}::{{ entry.option | default('') }}={{ entry.value | default('') }}
+{% endfor %}
+
+[preview]
+# Password to embed in the test configuration for preview.
+# Corresponds to gfxboot's --password option.
+{% if preview_password | default('') %}
+password={{ preview_password | default('') }}
+{% endif %}
+
+# Virtual machine to use for previewing the boot splash (bochs, qemu, qemu32, qemu64, vbox, vbox64, vmplayer, vmware).
+# Corresponds to gfxboot's --vm option.
+{% if preview_vm | default('qemu') %}
+vm={{ preview_vm | default('qemu') }}
+{% endif %}
+
+# Architecture for the preview image (32, 64, biarch).
+# Corresponds to gfxboot's --32/--64/--biarch options.
+{% if preview_arch | default('32') %}
+arch={{ preview_arch | default('32') }}
+{% endif %}
+
+# Image type for the preview (cdrom, dvd, disk, floppy, net).
+# Corresponds to gfxboot's --cdrom/--dvd/--disk/--floppy/--net options.
+{% if preview_image_type | default('') %}
+image_type={{ preview_image_type | default('') }}
+{% endif %}

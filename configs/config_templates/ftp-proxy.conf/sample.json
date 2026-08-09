@@ -1,0 +1,43 @@
+{
+  "global": {
+    "port": 8021,
+    "interface": "127.0.0.1",
+    "log_level": "warn"
+  },
+  "auth": {
+    "backend": "ldap",
+    "ldap": {
+      "uri": "ldap://ldap.internal.local",
+      "base": "ou=users,dc=internal,dc=local",
+      "bind_dn": "cn=proxy,ou=services,dc=internal,dc=local",
+      "bind_password": "secret123",
+      "user_filter": "(&(objectClass=person)(sAMAccountName=%u))"
+    }
+  },
+  "limits": {
+    "max_connections": 200,
+    "max_connections_per_ip": 10,
+    "idle_timeout": 600,
+    "transfer_timeout": 1200
+  },
+  "upstream": {
+    "servers": [
+      {
+        "name": "prod-ftp1",
+        "host": "ftp1.company.com",
+        "port": 21,
+        "use_tls": true
+      },
+      {
+        "name": "prod-ftp2",
+        "host": "ftp2.company.com",
+        "port": 21,
+        "use_tls": true
+      }
+    ]
+  },
+  "logging": {
+    "file": "/var/log/ftp-proxy/proxy.log",
+    "syslog": true
+  }
+}

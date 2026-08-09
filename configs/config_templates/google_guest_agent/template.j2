@@ -1,0 +1,87 @@
+# /etc/default/google-guest-agent — Runtime environment for google-guest-agent
+#
+# This file is managed by Ansible. Do not edit manually.
+# It controls which features the Google Compute Engine Guest Agent enables.
+# See `man 8 google_guest_agent` and:
+#   https://cloud.google.com/compute/docs/instances/os-login
+#
+# All variables below MUST be provided by the role or playbook.
+# Defaults are applied automatically via Jinja2 `default()` filters.
+
+# ============================================================
+# Feature selection
+# ============================================================
+# List of guest agent features to enable (e.g., osconfig, guest-attributes, windows-ssh, windows-gmsa).
+# Default: ['osconfig', 'guest-attributes']
+{% if enabled_features | default(['osconfig', 'guest-attributes']) | length > 0 %}
+GUEST_AGENT_FEATURES="{{ enabled_features | default(['osconfig', 'guest-attributes']) | join(' ') }}"
+{% else %}
+GUEST_AGENT_FEATURES=""
+{% endif %}
+
+# ============================================================
+# Logging configuration
+# ============================================================
+# Logging verbosity level (0=INFO, 1=DEBUG, 2=TRACE).
+# Higher values produce more verbose logs.
+# Default: 0
+GUEST_AGENT_LOGGING_LEVEL="{{ logging_level | default(0) }}"
+
+# Path where guest agent writes its log file.
+# Default: /var/log/google-guest-agent/guest-agent.log
+GUEST_AGENT_LOG_FILE="{{ log_file | default('/var/log/google-guest-agent/guest-agent.log') }}"
+
+# ============================================================
+# Metadata server connection
+# ============================================================
+# URL of the Google Compute Engine metadata server.
+# Only change if using a custom metadata proxy.
+# Default: http://169.254.169.254/computeMetadata/v1/
+GUEST_AGENT_METADATA_URL="{{ metadata_server_url | default('http://169.254.169.254/computeMetadata/v1/') }}"
+
+# Override the instance ID read from metadata (advanced, rarely needed).
+# Leave empty to auto-detect.
+# Default: ''
+GUEST_AGENT_INSTANCE_ID="{{ instance_id | default('') }}"
+
+# Override the project ID read from metadata (advanced, rarely needed).
+# Leave empty to auto-detect.
+# Default: ''
+GUEST_AGENT_PROJECT_ID="{{ project_id | default('') }}"
+
+# Override the region read from metadata (e.g., for hybrid or cross-region deployments).
+# Leave empty to auto-detect.
+# Default: ''
+GUEST_AGENT_REGION="{{ region | default('') }}"
+
+# ============================================================
+# Authentication and identity features
+# ============================================================
+# Enable automatic password rotation via OS Login or Windows credential provider.
+# Default: True
+GUEST_AGENT_PASSWORD_ROTATION="{{ password_rotation_enabled | default(True) | ternary('true', 'false') }}"
+
+# Enable SSH key management from metadata (required for Linux OS Login SSH).
+# Default: False
+GUEST_AGENT_SSH_KEYS="{{ ssh_keys_enabled | default(False) | ternary('true', 'false') }}"
+
+# Enable OS Login support for centralized IAM-based SSH and sudo.
+# Note: In the original template this was misnamed GUEST_AGENT_OSLISTEN;
+# we correct the variable name to GUEST_AGENT_OS_LOGIN for clarity.
+# Default: False
+GUEST_AGENT_OS_LOGIN="{{ oslogin_enabled | default(False) | ternary('true', 'false') }}"
+
+# Update the instance's hostname from the metadata server
+# (e.g., to match DNS or inventory).
+# Default: False
+GUEST_AGENT_UPDATE_HOSTNAME="{{ hostname_update_enabled | default(False) | ternary('true', 'false') }}"
+
+# ============================================================
+# Additional arguments
+# ============================================================
+# Additional command-line arguments passed directly to the guest agent binary.
+# Use sparingly.
+# Default: []
+{% if extra_args | default([]) | length > 0 %}
+GUEST_AGENT_EXTRA_ARGS="{{ extra_args | default([]) | join(' ') }}"
+{% endif %}

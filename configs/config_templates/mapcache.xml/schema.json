@@ -1,0 +1,295 @@
+{
+  "cache_type": {
+    "type": "string",
+    "default": "disk",
+    "description": "Cache backend: 'disk', 'sqlite', 'memcache', or 'redis'."
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/mapcache",
+    "description": "Path to the disk cache directory (used when cache_type = 'disk')."
+  },
+  "sqlite_db_path": {
+    "type": "string",
+    "default": "/var/cache/mapcache/cache.db",
+    "description": "Path to SQLite cache database (used when cache_type = 'sqlite')."
+  },
+  "memcache_hosts": {
+    "type": "list",
+    "default": [
+      "127.0.0.1:11211"
+    ],
+    "description": "List of Memcache server addresses (host:port).",
+    "items": {
+      "type": "string",
+      "description": "Memcache server host and port (e.g., '127.0.0.1:11211')."
+    }
+  },
+  "redis_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Redis server hostname (used when cache_type = 'redis')."
+  },
+  "redis_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Redis server port (used when cache_type = 'redis')."
+  },
+  "redis_db": {
+    "type": "number",
+    "default": 0,
+    "description": "Redis database index (optional, used when cache_type = 'redis')."
+  },
+  "redis_password": {
+    "type": "string",
+    "default": "",
+    "description": "Redis authentication password (optional, used when cache_type = 'redis')."
+  },
+  "http_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "HTTP timeout in seconds for upstream requests."
+  },
+  "http_user_agent": {
+    "type": "string",
+    "default": "MapCache",
+    "description": "User-Agent header sent to upstream servers."
+  },
+  "image_format": {
+    "type": "string",
+    "default": "png",
+    "description": "Default output image format (e.g., 'png', 'jpeg')."
+  },
+  "image_quality": {
+    "type": "number",
+    "default": 75,
+    "description": "JPEG compression quality (0\u2013100). Ignored for PNG."
+  },
+  "image_interlaced": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable interlaced PNG/JPEG (progressive rendering)."
+  },
+  "error_report": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed error reporting in HTTP responses (for debugging)."
+  },
+  "wms_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WMS service endpoint."
+  },
+  "wms_online_resource": {
+    "type": "string",
+    "default": "http://localhost/cgi-bin/mapcache?",
+    "description": "WMS service URL (base endpoint)."
+  },
+  "wms_title": {
+    "type": "string",
+    "default": "MapCache WMS",
+    "description": "WMS server title (metadata)."
+  },
+  "wms_abstract": {
+    "type": "string",
+    "default": "Cached tile proxy server supporting WMS 1.3.0.",
+    "description": "WMS server abstract/description (metadata)."
+  },
+  "wms_fees": {
+    "type": "string",
+    "default": "none",
+    "description": "WMS fees/access constraints metadata."
+  },
+  "wms_access_constraints": {
+    "type": "string",
+    "default": "none",
+    "description": "WMS access constraints metadata."
+  },
+  "wms_capabilities": {
+    "type": "list",
+    "default": [],
+    "description": "List of WMS capability groups (layer groupings).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Capability group name."
+        },
+        "layers": {
+          "type": "list",
+          "items": {
+            "type": "object",
+            "fields": {
+              "name": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "wmts_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WMTS service endpoint."
+  },
+  "wmts_online_resource": {
+    "type": "string",
+    "default": "http://localhost/cgi-bin/mapcache?",
+    "description": "WMTS service URL (base endpoint)."
+  },
+  "wmts_title": {
+    "type": "string",
+    "default": "MapCache WMTS",
+    "description": "WMTS server title (metadata)."
+  },
+  "wmts_abstract": {
+    "type": "string",
+    "default": "Cached tile proxy server supporting WMTS 1.0.0.",
+    "description": "WMTS server abstract/description (metadata)."
+  },
+  "wmts_fees": {
+    "type": "string",
+    "default": "none",
+    "description": "WMTS fees/access constraints metadata."
+  },
+  "wmts_access_constraints": {
+    "type": "string",
+    "default": "none",
+    "description": "WMTS access constraints metadata."
+  },
+  "tiles_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable generic tile service endpoint."
+  },
+  "tiles_online_resource": {
+    "type": "string",
+    "default": "http://localhost/tiles/",
+    "description": "Base URL for tile endpoints (REST or TMS-style)."
+  },
+  "sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream data sources (WMS, TMS, or static image).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Source name (referenced by maps)."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "wms",
+            "tms",
+            "image"
+          ],
+          "description": "Source type."
+        },
+        "url": {
+          "type": "string",
+          "description": "Service URL (WMS GetMap or TMS base URL)."
+        },
+        "tileset": {
+          "type": "string",
+          "description": "TMS tileset identifier (optional for TMS)."
+        },
+        "extent": {
+          "type": "list",
+          "items": {
+            "type": "number"
+          },
+          "description": "Bounding box [minx, miny, maxx, maxy]."
+        },
+        "req_params": {
+          "type": "object",
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional request parameters (e.g., {'layers': 'roads', 'styles': 'default'})."
+        }
+      }
+    }
+  },
+  "maps": {
+    "type": "list",
+    "default": [],
+    "description": "List of maps (layers) exposed via services.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Map name (e.g., 'world', 'roads')."
+        },
+        "source": {
+          "type": "string",
+          "description": "Name of source to use (from 'sources')."
+        },
+        "grid": {
+          "type": "string",
+          "description": "Name of gridset to use (from 'gridsets') (optional, defaults to first)."
+        },
+        "format": {
+          "type": "string",
+          "description": "Output image format override (optional)."
+        },
+        "metatile": {
+          "type": "number",
+          "description": "Metatile size (e.g., 4 = 4x4 tiles)."
+        },
+        "expires": {
+          "type": "number",
+          "description": "Cache TTL in seconds."
+        },
+        "metadata": {
+          "type": "object",
+          "items": {
+            "type": "string"
+          },
+          "description": "Map-level metadata (e.g., {'attribution': '\u00a9 OpenStreetMap'})."
+        }
+      }
+    }
+  },
+  "gridsets": {
+    "type": "list",
+    "default": [],
+    "description": "List of gridsets (tile matrix definitions).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Gridset name (e.g., 'global_utm', 'webmercator')."
+        },
+        "srs": {
+          "type": "string",
+          "description": "Spatial Reference System (e.g., 'EPSG:4326', 'EPSG:3857')."
+        },
+        "extent": {
+          "type": "list",
+          "items": {
+            "type": "number"
+          },
+          "description": "Bounding box [minx, miny, maxx, maxy]."
+        },
+        "resolutions": {
+          "type": "list",
+          "items": {
+            "type": "number"
+          },
+          "description": "List of scale denominators or resolutions (ascending order)."
+        },
+        "tile_size": {
+          "type": "number",
+          "description": "Tile pixel dimension (e.g., 256)."
+        }
+      }
+    }
+  }
+}

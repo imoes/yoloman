@@ -1,0 +1,50 @@
+# =============================================================================
+# /etc/inetd.conf — Internet superserver (inetd/xinetd) configuration
+#
+# This file defines network services managed by inetd.
+#
+# WARNING: Telnet transmits credentials in plaintext.
+# Restrict access via TCP Wrappers (/etc/hosts.allow, /etc/hosts.deny)
+# or replace with SSH wherever possible.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Service: Telnet over IPv4
+# Description: Enable the Telnet service on IPv4 (TCP port 23)
+# Required variable: telnet_ipv4_enabled (default: True)
+# ------------------------------------------------------------------------------
+{% if telnet_ipv4_enabled | default(True) %}
+# Telnet (IPv4) — inetd spawns in.telnetd for every incoming connection on port 23
+telnet  stream  tcp  nowait  {{ run_user | default('root') }}  {% if use_tcp_wrappers | default(True) %}{{ tcpd_path | default('/usr/sbin/tcpd') }}  {{ telnetd_path | default('/usr/sbin/in.telnetd') }}{% else %}{{ telnetd_path | default('/usr/sbin/in.telnetd') }}{% endif %}{% if telnetd_options | default([]) %}  {{ telnetd_options | default([]) | join(" ") }}{% endif %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Service: Telnet over IPv6
+# Description: Enable the Telnet service on IPv6 (TCP port 23);
+#              enable only if the network stack requires it.
+# Required variable: telnet_ipv6_enabled (default: False)
+# ------------------------------------------------------------------------------
+{% if telnet_ipv6_enabled | default(False) %}
+# Telnet (IPv6) — same handler exposed on the IPv6 stack
+telnet  stream  tcp6  nowait  {{ run_user | default('root') }}  {% if use_tcp_wrappers | default(True) %}{{ tcpd_path | default('/usr/sbin/tcpd') }}  {{ telnetd_path | default('/usr/sbin/in.telnetd') }}{% else %}{{ telnetd_path | default('/usr/sbin/in.telnetd') }}{% endif %}{% if telnetd_options | default([]) %}  {{ telnetd_options | default([]) | join(" ") }}{% endif %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Extra Services
+# Description: Additional inetd service entries appended after the telnet blocks;
+#              each entry becomes one line in inetd.conf.
+# Required variable: extra_services (default: [])
+# Each item in extra_services is a mapping with keys:
+#   comment   (str) — descriptive comment for the entry
+#   name      (str) — service name as it appears in /etc/services
+#   socket_type (str) — typically 'stream' or 'dgram'
+#   proto     (str) — typically 'tcp' or 'udp'
+#   wait      (str) — 'wait' or 'nowait'
+#   user      (str) — Unix user running the server
+#   server_path (str) — absolute path to the server binary
+#   args      (str, optional) — arguments passed to the server binary
+# ------------------------------------------------------------------------------
+{% for svc in extra_services | default([]) %}
+# {{ svc.comment | default('Custom service') }}
+{{ svc.name }}  {{ svc.socket_type }}  {{ svc.proto }}  {{ svc.wait }}  {{ svc.user }}  {{ svc.server_path }}{% if svc.args %}  {{ svc.args }}{% endif %}
+{% endfor %}

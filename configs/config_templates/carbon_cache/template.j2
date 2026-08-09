@@ -1,0 +1,125 @@
+# Enable/Disable this cache daemon
+{% if enabled | default(false) %}
+[cache]
+{% else %}
+#[cache]
+{% endif %}
+
+# Destination host and port for incoming metrics (plaintext line-protocol)
+{% if 'destinations' in config and config.destinations %}
+DESTINATIONS = {{ config.destinations | map(attribute='address') | join(', ') }}
+{% else %}
+DESTINATIONS = 127.0.0.1:2004
+{% endif %}
+
+# Port to listen on for incoming plaintext metrics (line-protocol)
+{% if config.listen_port %}
+LINE_RECEIVER_PORT = {{ config.listen_port }}
+{% else %}
+LINE_RECEIVER_PORT = 2003
+{% endif %}
+
+# Port to listen on for incoming pickle protocol metrics (batched binary format)
+{% if config.pickle_port %}
+PICKLE_RECEIVER_PORT = {{ config.pickle_port }}
+{% else %}
+PICKLE_RECEIVER_PORT = 2004
+{% endif %}
+
+# Maximum number of queued metrics before dropping new ones (per destination)
+{% if config.max_queue_size %}
+MAX_QUEUE_SIZE = {{ config.max_queue_size }}
+{% else %}
+MAX_QUEUE_SIZE = 10000
+{% endif %}
+
+# Maximum number of metrics to send in a single batch (to destinations)
+{% if config.batch_size %}
+MAX_QUEUE_SIZE_PER_DESTINATION = {{ config.batch_size }}
+{% else %}
+MAX_QUEUE_SIZE_PER_DESTINATION = 1000
+{% endif %}
+
+# Enable/Disable use of pickle protocol for outbound connections
+{% if config.use_pickle is defined %}
+USE_PICKLE = {{ config.use_pickle | lower }}
+{% else %}
+USE_PICKLE = True
+{% endif %}
+
+# Maximum number of worker threads for cache write operations
+{% if config.worker_processes %}
+WORKER_PROCESSES = {{ config.worker_processes }}
+{% else %}
+WORKER_PROCESSES = 1
+{% endif %}
+
+# Data directory for whisper files (not used by carbon-cache itself, but config is shared)
+{% if config.data_dir %}
+DATA_DIR = {{ config.data_dir }}
+{% else %}
+DATA_DIR = /var/lib/graphite/whisper
+{% endif %}
+
+# Log directory
+{% if config.log_dir %}
+LOG_DIR = {{ config.log_dir }}
+{% else %}
+LOG_DIR = /var/log/graphite
+{% endif %}
+
+# Log level: debug, info, warning, error, critical
+{% if config.log_level %}
+LOG_LEVEL = {{ config.log_level }}
+{% else %}
+LOG_LEVEL = info
+{% endif %}
+
+# Enable/Disable logging of cache metrics (e.g., queue size, hit rate)
+{% if config.log_cache_metrics is defined %}
+LOG_CACHE_METRICS = {{ config.log_cache_metrics | lower }}
+{% else %}
+LOG_CACHE_METRICS = False
+{% endif %}
+
+# Enable/Disable caching of metrics before writing to disk
+{% if config.cache_query is defined %}
+CACHE_QUERY = {{ config.cache_query | lower }}
+{% else %}
+CACHE_QUERY = True
+{% endif %}
+
+# Maximum time (seconds) to keep metrics in memory before flushing to disk
+{% if config.max_update_interval %}
+MAX_UPDATES_PER_SECOND = {{ config.max_update_interval }}
+{% else %}
+MAX_UPDATES_PER_SECOND = 500
+{% endif %}
+
+# Flush interval (seconds) for memory-to-disk writes (default: auto)
+{% if config.flush_interval %}
+FLUSH_INTERVAL = {{ config.flush_interval }}
+{% else %}
+FLUSH_INTERVAL = 60
+{% endif %}
+
+# Maximum number of metrics to keep in memory (per Whisper file)
+{% if config.max_cache_size %}
+MAX_CACHE_SIZE = {{ config.max_cache_size }}
+{% else %}
+MAX_CACHE_SIZE = 1000
+{% endif %}
+
+# Enable/Disable recursive metric creation (create directories on-the-fly)
+{% if config.create_directories is defined %}
+CREATE_DIRECTORIES = {{ config.create_directories | lower }}
+{% else %}
+CREATE_DIRECTORIES = True
+{% endif %}
+
+# Maximum age (seconds) of a whisper file before it's considered stale for writes
+{% if config.stale_sla %}
+STALE_SLA = {{ config.stale_sla }}
+{% else %}
+STALE_SLA = 300
+{% endif %}

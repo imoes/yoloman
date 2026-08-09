@@ -1,0 +1,82 @@
+# Core server identity and authentication
+# Server name used for services (must match what the IRCd expects)
+servicename = "{{ servicename }}"
+
+# NickServ, ChanServ, etc. modules to load
+modules {
+{% for module in modules.load %}
+	load = "{{ module }}"
+{% endfor %}
+}
+
+# Connection to the IRC daemon
+server {
+	name = "{{ server.name }}"
+	hostname = "{{ server.hostname }}"
+	port = {{ server.port }}
+	password = "{{ server.password }}"
+	ssl = {{ "true" if server.ssl else "false" }}
+{% if server.ssl_cert %}
+	ssl_cert = "{{ server.ssl_cert }}"
+{% endif %}
+{% if server.ssl_key %}
+	ssl_key = "{{ server.ssl_key }}"
+{% endif %}
+{% if server.ssl_ca %}
+	ssl_ca = "{{ server.ssl_ca }}"
+{% endif %}
+}
+
+# Database backend configuration
+database {
+	module = "{{ database.module }}"
+{% for param_name, param_value in database.params.items() %}
+	{{ param_name }} = "{{ param_value }}"
+{% endfor %}
+}
+
+# Timeouts and limits
+timeout {
+	dead_link_timeout = {{ timeout.dead_link_timeout }}
+	connection_timeout = {{ timeout.connection_timeout }}
+}
+
+# Default user and channel settings
+defaults {
+	user {
+		max_nicks = {{ defaults.user.max_nicks }}
+		max_chans = {{ defaults.user.max_chans }}
+		max_channels_per_user = {{ defaults.user.max_channels_per_user }}
+	}
+}
+
+# Admin information displayed in /whois /admin
+admin {
+	name = "{{ admin.name }}"
+	email = "{{ admin.email }}"
+}
+
+# Oper (service operator) definitions
+{% for oper in opers %}
+oper {
+	name = "{{ oper.name }}"
+	password = "{{ oper.password }}"
+	host = "{{ oper.host }}"
+	nick = "{{ oper.nick }}"
+	user = "{{ oper.user }}"
+{% if oper.vhost %}
+	vhost = "{{ oper.vhost }}"
+{% endif %}
+}
+{% endfor %}
+
+# Global notice/operwall settings
+options {
+	send_core_dump = {{ "true" if options.send_core_dump else "false" }}
+	send_oper_notice = {{ "true" if options.send_oper_notice else "false" }}
+	send_operwall = {{ "true" if options.send_operwall else "false" }}
+	log_snoops = {{ "true" if options.log_snoops else "false" }}
+}
+
+# Language configuration
+language = "{{ language }}"

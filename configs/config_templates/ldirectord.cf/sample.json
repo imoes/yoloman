@@ -1,0 +1,59 @@
+{
+  "check_timeout": 10,
+  "check_interval": 3,
+  "autoreload": false,
+  "quiesce": true,
+  "heartbeat_group": [
+    {
+      "name": "heartbeat-1",
+      "members": [
+        "eth0",
+        "eth1"
+      ]
+    }
+  ],
+  "virtual": [
+    {
+      "ip": "192.168.1.10",
+      "port": 80,
+      "protocol": "TCP",
+      "scheduler": "wrr",
+      "checktype": "http",
+      "send": "GET / HTTP/1.0\\r\\n\\r\\n",
+      "recv": "HTTP/1.1 200 OK",
+      "real_server": [
+        {
+          "ip": "10.0.0.1",
+          "port": 80,
+          "weight": 3
+        },
+        {
+          "ip": "10.0.0.2",
+          "port": 80,
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "ip": "192.168.1.11",
+      "port": 443,
+      "protocol": "TCP",
+      "scheduler": "wlc",
+      "real_server": [
+        {
+          "ip": "10.0.0.3",
+          "port": 443,
+          "weight": 2
+        },
+        {
+          "ip": "10.0.0.4",
+          "port": 443,
+          "weight": 1
+        }
+      ]
+    }
+  ],
+  "email_alert": true,
+  "email_alert_admin": true,
+  "email_alert_from": "ldirectord@example.com"
+}

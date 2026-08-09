@@ -1,0 +1,77 @@
+# feed2imap configuration file
+# This file is read by feed2imap to configure RSS/Atom feed aggregation.
+# It defines how feed items are fetched from external RSS/Atom sources
+# and delivered to an IMAP mail server.
+
+# ==============================================================================
+# IMAP Server Connection Settings
+# ==============================================================================
+
+# Target IMAP server hostname or IP address.
+# This is the mail server where feed items will be uploaded as messages.
+[imap]
+# IMAP server hostname (required)
+# Connects to this host to deliver aggregated feed items.
+host = {{ (var | default({})).imap_host | default('') }}
+
+# IMAP server port (default: 993 for SSL)
+# Standard port for IMAP over SSL/TLS is 993; standard IMAP (non-SSL) is 143.
+port = {{ (var | default({})).imap_port | default(993) }}
+
+# IMAP username (required)
+# The account credentials used to authenticate with the IMAP server.
+user = {{ (var | default({})).imap_user | default('') }}
+
+# IMAP password (optional; prefer environment variables in production)
+# The password for the IMAP user. If empty, the application may rely on
+# environment variables or other authentication mechanisms.
+password = {{ (var | default({})).imap_password | default('') }}
+
+# Use SSL/TLS for IMAP connection
+# If true, the connection to the IMAP server is encrypted via SSL/TLS.
+# Recommended for security; implies port 993 typically.
+use_ssl = {{ (var | default({})).imap_use_ssl | default(True) | lower }}
+
+# ==============================================================================
+# IMAP Folder Configuration
+# ==============================================================================
+
+# Target IMAP folder for feed items
+# The specific folder (mailbox) on the IMAP server where feed messages
+# will be stored. 'INBOX.Feeds' is a common subfolder of INBOX.
+folder = {{ (var | default({})).imap_folder | default('INBOX.Feeds') }}
+
+# ==============================================================================
+# Cache Configuration
+# ==============================================================================
+
+# Path to cache file for tracking processed items
+# feed2imap uses this local file to remember which feed items it has
+# already processed, preventing duplicate uploads on subsequent runs.
+cache = {{ (var | default({})).cache_file | default('~/.feed2imap.cache') }}
+
+# ==============================================================================
+# Feed Sources
+# ==============================================================================
+
+# List of RSS/Atom feed URLs to aggregate
+# Each entry adds a new feed source. The application fetches these URLs
+# periodically and uploads new items to the configured IMAP folder.
+{% for feed_url in (var | default({})).feeds | default([]) %}feed = {{ feed_url }}
+{% endfor %}
+
+# ==============================================================================
+# Operational Settings
+# ==============================================================================
+
+# Network timeout in seconds
+# Maximum time to wait for a response from an external feed URL or the
+# IMAP server before aborting the connection.
+timeout = {{ (var | default({})).timeout | default(30) }}
+
+# Verbosity level: 0 (quiet), 1 (default), 2 (verbose)
+# Controls the amount of log output.
+# 0: No output (silent).
+# 1: Standard operational messages.
+# 2: Detailed debugging information.
+verbose = {{ (var | default({})).verbose | default(0) }}

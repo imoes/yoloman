@@ -1,0 +1,120 @@
+# nfpm package definition for agentic-mcpd — builds both .deb and .rpm from
+# this single config (nfpm package -f packaging/nfpm.yaml -p rpm|deb -t <out>).
+# See docs/plan.md's packaging section for the build/install-test workflow.
+name: agentic-mcp
+arch: amd64
+platform: linux
+
+# The daemon is built with CGO for PAM login → dynamically links libpam
+# (+ glibc). libpam is a base package everywhere, declared so dpkg/rpm enforce it.
+overrides:
+  deb:
+    depends:
+      - libpam0g
+  rpm:
+    depends:
+      - pam
+version: "${VERSION}"
+section: admin
+priority: optional
+maintainer: "mutkluge"
+homepage: "https://github.com/mutkluge/agentic-mcp"
+description: |
+  YOLO-MANager (agentic-mcpd) — an AI-native Linux node agent exposing
+  system state and management over MCP (Streamable HTTP) and REST,
+  reimplementing ansible.builtin modules natively in Go. The daemon is
+  nicknamed "Duppy".
+license: MIT
+
+contents:
+  - src: ../agentic-mcpd
+    dst: /usr/bin/agentic-mcpd
+    file_info:
+      mode: 0755
+
+  - src: ./agentic-mcp.service
+    dst: /usr/lib/systemd/system/agentic-mcp.service
+    file_info:
+      mode: 0644
+
+  - src: ../configs/config.yaml
+    dst: /etc/agentic-mcp/config.yaml.example
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+  - src: ../configs/commands.yaml
+    dst: /etc/agentic-mcp/commands.yaml
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+  # PAM service for the standalone-console login (/api/v1/auth/login). Without
+  # it PAM uses /etc/pam.d/other (deny-by-default) and every login fails.
+  - src: ../packaging/pam-agentic-mcp
+    dst: /etc/pam.d/agentic-mcp
+    type: config|noreplace
+    file_info:
+      mode: 0644
+
+  # Config catalog for the STANDALONE Server Manager (roles wizard, codecs, enum
+  # dropdowns) — so an agent works without Bossman after a roles upgrade. The
+  # codec registry is also embedded in the binary; these files are the full,
+  # refreshable catalog the on-host management console reads.
+  - src: ../configs/package_catalog.json
+    dst: /usr/share/agentic-mcp/configs/package_catalog.json
+    file_info:
+      mode: 0644
+  - src: ../configs/config_codecs.json
+    dst: /usr/share/agentic-mcp/configs/config_codecs.json
+    file_info:
+      mode: 0644
+  - src: ../configs/config_directives.json
+    dst: /usr/share/agentic-mcp/configs/config_directives.json
+    file_info:
+      mode: 0644
+  # The whole config-template tree (schema.json + template per role) — enum
+  # dropdown settings live in each schema.json.
+  - src: ../configs/config_templates/**/*
+    dst: /usr/share/agentic-mcp/configs/config_templates
+    file_info:
+      mode: 0644
+
+  - dst: /etc/agentic-mcp/tools.d
+    type: dir
+    file_info:
+      mode: 0755
+
+  # Translated Starlark collection modules (Block G3) — runtime state under
+  # /var/lib (writable by the service): loaded + registered as executable
+  # tools at startup, and the target of pushed deliveries, which persist here
+  # so they survive a restart.
+  - dst: /var/lib/agentic-mcp/modules.d
+    type: dir
+    file_info:
+      mode: 0755
+
+  - dst: /etc/agentic-mcp/trusted
+    type: dir
+    file_info:
+      mode: 0700
+
+  - dst: /var/lib/agentic-mcp/uploads
+    type: dir
+    file_info:
+      mode: 0700
+
+  - dst: /var/log/agentic-mcp
+    type: dir
+    file_info:
+      mode: 0750
+
+scripts:
+  postinstall: ./postinst
+  postremove: ./postrm
+
+rpm:
+  compression: gzip
+
+deb:
+  compression: gzip

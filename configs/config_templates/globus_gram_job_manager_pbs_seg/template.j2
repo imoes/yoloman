@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GridFTP server configuration with PBS SEG (Scheduler Event Generator) support -->
+<!-- This configuration file defines how Globus interacts with a PBS-based batch scheduler (Torque/Moab). -->
+<!-- Each <Option> tag maps directly to a schema field. Variables MUST have their defaults provided here. -->
+<Configuration>
+  <Service name="globus_gram_job_manager_pbs_seg">
+    <!-- Path to the PBS qstat executable used to query job status -->
+    <Option name="qstat_path" value="{{ qstat_path | default('/usr/bin/qstat') }}" />
+
+    <!-- Path to the PBS qsub executable used to submit jobs to the scheduler -->
+    <Option name="qsub_path" value="{{ qsub_path | default('/usr/bin/qsub') }}" />
+
+    <!-- Path to the PBS qdel executable used to delete/abort jobs -->
+    <Option name="qdel_path" value="{{ qdel_path | default('/usr/bin/qdel') }}" />
+
+    <!-- Path to the PBS qacct executable for retrieving accounting logs (optional) -->
+    {% if qacct_path is defined and qacct_path | default('') != '' %}
+    <Option name="qacct_path" value="{{ qacct_path | default('') }}" />
+    {% endif %}
+
+    <!-- Path to the PBS qhost executable for querying node status (optional) -->
+    {% if qhost_path is defined and qhost_path | default('') != '' %}
+    <Option name="qhost_path" value="{{ qhost_path | default('') }}" />
+    {% endif %}
+
+    <!-- Path to the PBS qrun executable for immediate job execution (optional, e.g. Moab/Torque) -->
+    {% if qrun_path is defined and qrun_path | default('') != '' %}
+    <Option name="qrun_path" value="{{ qrun_path | default('') }}" />
+    {% endif %}
+
+    <!-- Maximum number of jobs to query in a single PBS qstat call -->
+    <!-- Lower values reduce memory load on the scheduler but may slow down status updates -->
+    <Option name="max_jobs_per_query" value="{{ max_jobs_per_query | default(1000) }}" />
+
+    <!-- Time (in seconds) between polling PBS for job status updates -->
+    <!-- Shorter intervals improve responsiveness but increase load on the scheduler -->
+    <Option name="poll_interval" value="{{ poll_interval | default(30) }}" />
+
+    <!-- Enable verbose logging for PBS interactions -->
+    <!-- Set to true for detailed debug messages; false for production silence -->
+    <Option name="verbose" value="{{ verbose | default(False) | lower }}" />
+
+    <!-- Comma-separated list of PBS queue names that users may submit jobs to -->
+    <!-- If empty, defaults to the single allowed queue -->
+    <Option name="allowed_queues" value="{{ allowed_queues | default(['batch']) | join(', ') }}" />
+
+    <!-- Default PBS queue for job submission when a user does not specify one -->
+    <Option name="default_queue" value="{{ default_queue | default('batch') }}" />
+
+    <!-- Default resource request string applied to jobs missing explicit resource specs -->
+    <!-- Format: walltime=01:00:00,mem=1gb,nodes=1:ppn=1 (PBS Torque/Moab format) -->
+    <Option name="default_resources" value="{{ default_resources | default('walltime=01:00:00,mem=1gb,nodes=1:ppn=1') }}" />
+
+    <!-- Path to the PBS prolog script executed before each job starts (optional) -->
+    {% if prolog_path is defined and prolog_path | default('') != '' %}
+    <Option name="prolog_path" value="{{ prolog_path | default('') }}" />
+    {% endif %}
+
+    <!-- Path to the PBS epilog script executed after each job completes (optional) -->
+    {% if epilog_path is defined and epilog_path | default('') != '' %}
+    <Option name="epilog_path" value="{{ epilog_path | default('') }}" />
+    {% endif %}
+
+    <!-- List of environment variables to preserve and pass to the job environment -->
+    <!-- These variables are copied from the Globus service environment into the job's execution environment -->
+    {% for var in env_vars | default(['HOME', 'PATH', 'LD_LIBRARY_PATH']) %}
+    <Option name="preserve_env_{{ loop.index0 }}" value="{{ var }}" />
+    {% endfor %}
+
+    <!-- List of custom mappings between PBS attributes and Globus job attributes -->
+    <!-- Each mapping exposes scheduler-specific data as Globus job attributes -->
+    {% for mapping in attr_mappings | default([]) %}
+    <Option name="attr_map_{{ loop.index0 }}" value="{{ mapping.pbs_attr | default('') | replace('"', '&quot;') }}:{{ mapping.globus_attr | default('') | replace('"', '&quot;') }}" />
+    {% endfor %}
+  </Service>
+</Configuration>

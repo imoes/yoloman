@@ -1,0 +1,109 @@
+# ============================================================================
+# ARC Data Delivery Service (arc_datadelivery) Configuration
+# ============================================================================
+# This file is self-generated from Ansible variables. Do not edit manually.
+# ============================================================================
+
+[General]
+# Directory where the service stores its runtime logs.
+logdir = {{ logdir | default('/var/log/arc/datadelivery') }}
+
+# Directory for storing temporary and staging files.
+datadir = {{ datadir | default('/var/lib/arc/datadelivery') }}
+
+# Number of worker threads to handle incoming requests.
+workers = {{ workers | default(4) }}
+
+# Maximum number of concurrent file transfers allowed.
+max_transfers = {{ max_transfers | default(10) }}
+
+# Enable or disable debug-level logging.
+debug = {{ debug | default(False) }}
+
+# Enable or disable verbose logging (more detailed than debug).
+verbose = {{ verbose | default(False) }}
+
+[Server]
+# Network interface address the service listens on (e.g., '0.0.0.0' or '127.0.0.1').
+host = {{ server_host | default('0.0.0.0') }}
+
+# TCP port the service listens on.
+port = {{ server_port | default(8443) }}
+
+# Path to TLS certificate file for HTTPS. Leave empty to use HTTP only.
+cert_file = {{ cert_file | default('') }}
+
+# Path to TLS private key file. Required if cert_file is set.
+key_file = {{ key_file | default('') }}
+
+[Storage]
+# Root directory where user data is stored on disk.
+base_path = {{ storage_base_path | default('/srv/arc/data') }}
+
+# Maximum allowed size (in bytes) for a single uploaded file.
+max_file_size = {{ max_file_size | default(1073741824) }}
+
+# Maximum total storage (in bytes) allowed per user.
+max_quota_per_user = {{ max_quota_per_user | default(10737418240) }}
+
+# If enabled, reject uploads that would exceed per-user quotas.
+enforce_quota = {{ enforce_quota | default(True) }}
+
+[LDAP]
+# Enable LDAP authentication for users.
+enabled = {{ ldap_enabled | default(False) }}
+
+# LDAP server URI (e.g., 'ldap://ldap.example.com' or 'ldaps://ldap.example.com').
+uri = {{ ldap_uri | default('ldap://ldap.example.com') }}
+
+# Base DN where users are located in the LDAP directory.
+base_dn = {{ ldap_base_dn | default('ou=people,dc=example,dc=com') }}
+
+# DN for service account to bind to LDAP (optional for anonymous binds).
+bind_dn = {{ ldap_bind_dn | default('') }}
+
+# Password for the bind DN. Required if bind_dn is set.
+bind_password = {{ ldap_bind_password | default('') }}
+
+# LDAP attribute used as the username (e.g., 'uid' or 'sAMAccountName').
+username_attr = {{ ldap_username_attr | default('uid') }}
+
+[Email]
+# Enable email notifications for transfer completion (success/failure).
+enabled = {{ email_enabled | default(False) }}
+
+# SMTP server hostname or IP.
+smtp_host = {{ smtp_host | default('mail.example.com') }}
+
+# SMTP server port (common: 587 for TLS, 465 for implicit TLS).
+smtp_port = {{ smtp_port | default(587) }}
+
+# Enable TLS for SMTP connection (STARTTLS on port 587 or implicit TLS on 465).
+tls = {{ smtp_tls | default(True) }}
+
+# From email address used in notifications.
+from_address = {{ from_address | default('arc-dd@example.com') }}
+
+[Workers]
+# Number of background threads for cleaning up expired/stale files.
+cleanup_workers = {{ cleanup_workers | default(2) }}
+
+# Number of background threads for enforcing per-user quotas.
+quota_workers = {{ quota_workers | default(1) }}
+
+# ============================================================================
+# Access Control
+# ============================================================================
+# The following sections are optional and only written if IPs are defined.
+
+{% if allowed_ips is defined and allowed_ips | length > 0 %}
+[Access]
+# List of allowed client IP ranges (CIDR notation) to whitelist.
+allowed_ips = {{ allowed_ips | join(', ') }}
+{% endif %}
+
+{% if blocked_ips is defined and blocked_ips | length > 0 %}
+[Access]
+# List of blocked client IP ranges (CIDR notation) to deny.
+blocked_ips = {{ blocked_ips | join(', ') }}
+{% endif %}

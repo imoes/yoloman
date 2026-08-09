@@ -1,0 +1,120 @@
+# Daphne configuration file
+# Runs ASGI applications (e.g., Django Channels) with process management and load balancing
+
+# General settings
+{% if instance_name %}# Unique name for this instance (used in process titles and logs)
+instance-name: {{ instance_name }}
+{% else %}# instance-name: daphne
+{% endif %}
+
+# Binding
+# Host and port(s) to listen on (comma-separated for multiple ports)
+{% if bind_hosts | length > 0 %}# List of host addresses to bind to
+bind-hosts:
+{% for host in bind_hosts %}- {{ host }}
+{% endfor %}
+{% else %}bind-hosts:
+- 127.0.0.1
+{% endif %}
+
+{% if bind_ports | length > 0 %}# List of port numbers to listen on
+bind-ports:
+{% for port in bind_ports %}- {{ port }}
+{% endfor %}
+{% else %}bind-ports:
+- 8000
+{% endif %}
+
+{% if unix_socket_path %}# Optional Unix socket path (overrides host/port)
+unix-socket: {{ unix_socket_path }}
+{% endif %}
+
+# Application and workers
+# Path to ASGI application module (e.g., myproject.asgi:application)
+application: {{ asgi_application }}
+
+# Worker process management
+{% if num_workers > 0 %}# Number of worker processes
+num-processes: {{ num_workers }}
+{% else %}# num-processes: 1
+{% endif %}
+
+{% if num_threads > 0 %}# Number of threads per worker (useful for I/O-bound tasks)
+num-threads: {{ num_threads }}
+{% else %}# num-threads: 1
+{% endif %}
+
+# Logging
+# Verbosity: debug, info, warning, error, critical
+{% if log_level %}verbosity: {{ log_level }}
+{% else %}verbosity: info
+{% endif %}
+
+# Log output file (stdout if unset)
+{% if log_file %}logfile: {{ log_file }}
+{% endif %}
+
+# Static file serving (optional; typically used in dev or behind a reverse proxy)
+# If enabled, specifies the URL path and local directory
+{% if serve_static %}# Enable static file serving (use only in dev; not for production)
+serve-static: true
+static-files:
+{% for path, directory in static_mappings.items() %}- path: {{ path }}
+  directory: {{ directory }}
+{% endfor %}
+{% endif %}
+
+# Health check endpoint (optional)
+{% if health_check_path %}# Health check endpoint path
+http-get: {{ health_check_path }}
+{% endif %}
+
+# Timeout settings (in seconds)
+# Time before worker is killed if unresponsive
+{% if worker_timeout > 0 %}worker-timeout: {{ worker_timeout }}
+{% else %}worker-timeout: 30
+{% endif %}
+
+# WebSocket settings
+{% if websocket_timeout > 0 %}# WebSocket connection timeout (seconds)
+websocket-timeout: {{ websocket_timeout }}
+{% endif %}
+{% if websocket_max_size %}# Maximum WebSocket frame size (bytes)
+websocket-max-size: {{ websocket_max_size }}
+{% endif %}
+{% if websocket_max_queue %}# Maximum queue size for WebSocket messages
+websocket-max-queue: {{ websocket_max_queue }}
+{% endif %}
+
+# Process naming (used in process titles)
+{% if process_name %}# Process name prefix
+process-name: {{ process_name }}
+{% else %}process-name: daphne
+{% endif %}
+
+# Environment variables (key=value pairs)
+{% if environment_variables | length > 0 %}# Custom environment variables (passed to worker processes)
+env:
+{% for key, value in environment_variables.items() %}- {{ key }}={{ value }}
+{% endfor %}
+{% endif %}
+
+# Access logging
+{% if access_log %}# Path to access log file (or '-' for stdout)
+access-log: {{ access_log }}
+{% endif %}
+
+# Privilege dropping (optional; run as different user/group)
+{% if user %}user: {{ user }}
+{% endif %}
+{% if group %}group: {{ group }}
+{% endif %}
+
+# Daemon mode
+{% if daemon %}# Run as a daemon (background process)
+daemon: true
+{% endif %}
+
+# PID file (required for daemon mode)
+{% if daemon and pid_file %}pidfile: {{ pid_file }}
+{% endif %}

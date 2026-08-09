@@ -1,0 +1,142 @@
+# DOSBox configuration file (DOSBox v0.74)
+# Self-documenting: every directive is annotated with its schema description and uses explicit defaults.
+# Do not edit manually; use the Ansible variables defined in the role inventory or defaults.
+
+[autoexec]
+# List of commands to execute in [autoexec] section at startup.
+# Default: [] (empty list).
+{% set _autoexec_commands = autoexec_commands | default([]) %}
+{% if _autoexec_commands | length > 0 %}
+{% for cmd in _autoexec_commands %}
+{{ cmd }}
+{% endfor %}
+{% else %}
+# (no autoexec commands)
+{% endif %}
+
+[s dosbox]
+# General DOSBox emulation settings.
+# These control the core emulation environment.
+
+# Language file to use (e.g., 'english'). Empty string uses default.
+# Default: ''
+{% set _dosbox_language = dosbox_language | default('') %}
+{% if _dosbox_language | length > 0 %}
+language = {{ _dosbox_language }}
+{% else %}
+# language = (uses default language file)
+{% endif %}
+
+# Emulated machine type. Valid: hercules, cga, tandy, pcjr, ega, vgaonly, svga_s3, svga_et3000, svga_et4000, svga_paradise, vesa_nolfb, vesa_old
+# Default: 'svga_s3'
+{% set _dosbox_machine = dosbox_machine | default('svga_s3') %}
+machine = {{ _dosbox_machine }}
+
+# Amount of emulated memory in MB.
+# Default: 16
+{% set _dosbox_memsize = dosbox_memsize | default(16) %}
+memsize = {{ _dosbox_memsize }}
+
+[s renderer]
+# Video rendering and scaling settings.
+
+# Graphical scaler to use (e.g., 'none', 'normal2x', 'advinterp2x'). Empty string leaves unset.
+# Default: ''
+{% set _renderer_scaler = renderer_scaler | default('') %}
+{% if _renderer_scaler | length > 0 %}
+scaler = {{ _renderer_scaler }}
+{% else %}
+# scaler = (uses default scaler)
+{% endif %}
+
+# Forced scaler, even if it might not fit (e.g., 'none', 'xbrz'). Empty string leaves unset.
+# Default: ''
+{% set _renderer_forcescaler = renderer_forcescaler | default('') %}
+{% if _renderer_forcescaler | length > 0 %}
+forcescaler = {{ _renderer_forcescaler }}
+{% else %}
+# forcescaler = (uses default/unset)
+{% endif %}
+
+[s mouse]
+# Mouse configuration for the DOSBox window.
+
+# Whether mouse is captured when window has focus.
+# Default: True
+{% set _mouse_focused = mouse_focused | default(True) | lower %}
+mouse_focused = {{ _mouse_focused }}
+
+# Whether to emulate a mouse for DOS programs.
+# Default: True
+{% set _mouse_emulate = mouse_emulate | default(True) | lower %}
+mouse_emulate = {{ _mouse_emulate }}
+
+[s mixer]
+# Audio mixer settings.
+
+# Disable sound output (e.g., for headless servers).
+# Default: False
+{% set _mixer_nosound = mixer_nosound | default(False) | lower %}
+nosound = {{ _mixer_nosound }}
+
+# Mixer sample rate in Hz.
+# Default: 44100
+{% set _mixer_rate = mixer_rate | default(44100) %}
+rate = {{ _mixer_rate }}
+
+# Mixer block size in bytes.
+# Default: 1024
+{% set _mixer_blocksize = mixer_blocksize | default(1024) %}
+blocksize = {{ _mixer_blocksize }}
+
+[s midi]
+# MIDI device configuration.
+
+# MIDI device type (e.g., 'mt32', 'cm32l', 'opl2', 'opl3', 'sblast', 'none'). Empty string leaves unset.
+# Default: ''
+{% set _midi_type = midi_type | default('') %}
+{% if _midi_type | length > 0 %}
+# midi_type = {{ _midi_type }}
+{% else %}
+# midi_type = (unset, uses default)
+{% endif %}
+
+# MIDI device path or identifier (e.g., '/dev/midi0'). Empty string leaves unset.
+# Default: ''
+{% set _midi_device = midi_device | default('') %}
+{% if _midi_device | length > 0 %}
+midi_device = {{ _midi_device }}
+{% else %}
+# midi_device = (unset, uses default)
+{% endif %}
+
+[s serial]
+# Serial port configuration.
+# Default: [] (empty list).
+# Each item maps a port index to its type. Valid types: 'dummy', 'nullmodem', 'direct', 'file', 'real', 'none'.
+{% set _serial_ports = serial_ports | default([]) %}
+{% if _serial_ports | length > 0 %}
+{% for port in _serial_ports %}
+serial{{ port.index | default(0) }} = {{ port.type | default('none') }}
+{% endfor %}
+{% else %}
+# (no serial ports configured)
+{% endif %}
+
+[s dos]
+# DOS internal settings.
+
+# Enable HIMEM.SYS for extended memory.
+# Default: False
+{% set _dos_himem = dos_himem | default(False) | lower %}
+himem = {{ _dos_himem }}
+
+# Enable High Memory Area (HMA).
+# Default: True
+{% set _dos_hma = dos_hma | default(True) | lower %}
+hma = {{ _dos_hma }}
+
+# DOS directory for temporary files (e.g., 'C', 'Z').
+# Default: 'C'
+{% set _dos_dosdir = dos_dosdir | default('C') %}
+dosdir = {{ _dos_dosdir }}

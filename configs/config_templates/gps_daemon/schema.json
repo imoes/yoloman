@@ -1,0 +1,76 @@
+{
+  "start_daemon": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gpsd to start automatically at boot."
+  },
+  "devices": {
+    "type": "list",
+    "default": [
+      "/dev/ttyUSB0"
+    ],
+    "description": "List of serial or USB device paths to monitor for GPS data.",
+    "items": {
+      "type": "string",
+      "description": "Path to a GPS device (e.g., /dev/ttyUSB0, /dev/ttyACM0, /dev/ttyS0)"
+    }
+  },
+  "gpsd_device": {
+    "type": "string",
+    "default": "",
+    "description": "Deprecated: Default GPS device (used only if DEVICES is empty). Prefer DEVICES."
+  },
+  "gpsd_options": {
+    "type": "list",
+    "default": [],
+    "description": "Command-line options for gpsd. Common: ['\"-n\"'] to start without waiting for a client, ['\"-b\"'] for Bluetooth serial devices.",
+    "items": {
+      "type": "string",
+      "description": "A single gpsd command-line option (e.g., \"-n\", \"-b\", \"-D5\" for debug level 5)"
+    }
+  },
+  "host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind the gpsd control socket. Use '0.0.0.0' to allow remote connections."
+  },
+  "port": {
+    "type": "number",
+    "default": 2947,
+    "description": "TCP port for the gpsd control socket."
+  },
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user under which gpsd runs. Must have access to GPS devices (e.g., 'tty', 'dialout')."
+  },
+  "group": {
+    "type": "string",
+    "default": "tty",
+    "description": "System group under which gpsd runs (e.g., 'dialout', 'tty')."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/gpsd.pid",
+    "description": "Path to the PID file for gpsd process tracking."
+  },
+  "hotplug_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of device paths to auto-add when plugged in via udev/hotplug (e.g., ['/dev/ttyACM*']).",
+    "items": {
+      "type": "string",
+      "description": "Shell glob pattern for hot-pluggable device paths (e.g., /dev/ttyACM*, /dev/ttyUSB*)"
+    }
+  },
+  "shared": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow multiple clients to connect and read GPS data concurrently."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds of inactivity before gpsd powers down the GPS receiver (0 = disabled)."
+  }
+}

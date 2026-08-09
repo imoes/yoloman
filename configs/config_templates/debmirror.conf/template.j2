@@ -1,0 +1,167 @@
+# ==============================================================================
+# debmirror.conf - Enriched Ansible Jinja2 Template
+# ==============================================================================
+# This template generates a configuration file for the `debmirror` utility,
+# which is used to mirror Debian/Ubuntu repositories.
+#
+# Self-Documentation:
+# Every configuration directive is preceded by a comment derived from the
+# schema definition. Variables are strictly typed and provided with safe
+# defaults using the `default()` filter to prevent rendering errors when
+# variables are undefined.
+#
+# Note on debmirror.conf format:
+# The debmirror configuration file typically uses a KEY VALUE syntax, not
+# KEY=VALUE. Each setting is on its own line. If a value is a list, it is
+# space-separated in the actual config file (except for some specific fields
+# where comma might be used depending on version, but space is standard for
+# arches/dists/sections).
+# ==============================================================================
+
+# Root directory where the mirror will be stored (must be an absolute path).
+mirror_base {{ mirror_base | default('/mirror') }}
+
+# List of CPU architectures to mirror.
+arches {{ arches | default(['amd64']) | join(' ') }}
+
+# List of distributions (releases) to mirror.
+dists {{ dists | default(['stable']) | join(' ') }}
+
+# List of component sections to include.
+sections {{ sections | default(['main']) | join(' ') }}
+
+# Protocol to use for mirroring (http, https, ftp, or rsync).
+method {{ method | default('http') }}
+
+# Hostname or IP address of the remote Debian mirror.
+remote_host {{ remote_host | default('deb.debian.org') }}
+
+# Remote directory path to mirror (relative to the remote host's root).
+remote_dir {{ remote_dir | default('/debian') }}
+
+# Local absolute path to store the mirror (must exist and be writable).
+local_dir {{ local_dir | default('/var/www/mirror/debian') }}
+
+# Override architectures for generated .deb files.
+# If empty, defaults to using the same list as 'arches'.
+{% if arch_filter | default([]) | length > 0 %}
+arch_filter {{ arch_filter | default([]) | join(' ') }}
+{% else %}
+arch_filter {{ arches | default(['amd64']) | join(' ') }}
+{% endif %}
+
+# Sections to explicitly exclude from mirroring.
+{% if exclude_sections | default([]) | length > 0 %}
+exclude_sections {{ exclude_sections | default([]) | join(' ') }}
+{% endif %}
+
+# List of packages to exclude.
+{% if exclude_packages | default([]) | length > 0 %}
+exclude {{ exclude_packages | default([]) | join(' ') }}
+{% endif %}
+
+# List of packages to *only* include (if set, overrides excludes).
+{% if include_packages | default([]) | length > 0 %}
+include {{ include_packages | default([]) | join(' ') }}
+{% endif %}
+
+# Compression format for .diff indices (gzip, bzip2, xz, or none).
+compression {{ compression | default('gzip') }}
+
+# Whether to mirror udeb packages (used by Debian installer).
+# debmirror expects 1 for true, 0 for false.
+{% if udebs | default(False) %}
+udebs 1
+{% else %}
+udebs 0
+{% endif %}
+
+# Whether to mirror debug symbol packages.
+{% if debug | default(False) %}
+debug 1
+{% else %}
+debug 0
+{% endif %}
+
+# Whether to skip non-free sections.
+{% if skip_nonfree | default(False) %}
+skip_nonfree 1
+{% else %}
+skip_nonfree 0
+{% endif %}
+
+# Whether to skip contrib sections.
+{% if skip_contrib | default(False) %}
+skip_contrib 1
+{% else %}
+skip_contrib 0
+{% endif %}
+
+# Whether to skip source packages.
+{% if skip_source | default(False) %}
+skip_source 1
+{% else %}
+skip_source 0
+{% endif %}
+
+# Whether to skip translation files.
+{% if skip_translations | default(False) %}
+skip_translations 1
+{% else %}
+skip_translations 0
+{% endif %}
+
+# Options passed to rsync command. Ignored if method is not rsync.
+{% if rsync_options | default('--progress --delete-during') %}
+rsync_options {{ rsync_options | default('--progress --delete-during') }}
+{% endif %}
+
+# Additional rsync options.
+{% if rsync_extra_options | default('') %}
+rsync_extra_options {{ rsync_extra_options | default('') }}
+{% endif %}
+
+# HTTP/FTP proxy URL.
+{% if proxy_url | default('') %}
+proxy {{ proxy_url | default('') }}
+{% endif %}
+
+# Generate gzipped Packages/Sources index files.
+{% if gzip_indices | default(True) %}
+gzip_indices 1
+{% else %}
+gzip_indices 0
+{% endif %}
+
+# Timeout in seconds for network connections.
+timeout {{ timeout | default(300) }}
+
+# Number of retry attempts for failed downloads.
+retries {{ retries | default(3) }}
+
+# Path to log file, or '-' to log to stdout.
+logfile {{ logfile | default('-') }}
+
+# Verify MD5 checksums of downloaded files.
+{% if md5sum_check | default(True) %}
+md5sum_check 1
+{% else %}
+md5sum_check 0
+{% endif %}
+
+# Sign the Release file with GPG.
+{% if gpg_sign | default(False) %}
+gpg_sign 1
+{% else %}
+gpg_sign 0
+{% endif %}
+
+# Path to GPG keyring.
+{% if gpg_keyring | default('') %}
+gpg_keyring {{ gpg_keyring | default('') }}
+{% endif %}
+
+# GPG key ID or email address used for signing.
+{% if gpg_sign_key | default('') %}
+gpg_sign_key {{ gpg_sign_key | default('') }}
+{% endif %}

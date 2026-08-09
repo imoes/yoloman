@@ -1,0 +1,153 @@
+# ircd.conf — Undernet IRC Server configuration
+# Global server identification and description
+ServerInfo {
+  name = "{{ server_info.name }}";
+  description = "{{ server_info.description }}";
+  network_name = "{{ server_info.network_name }}";
+}
+
+# Network-wide default user limits
+Defaults {
+  max_users = {{ defaults.max_users }};
+  max_nick_length = {{ defaults.max_nick_length }};
+  max_topic_length = {{ defaults.max_topic_length }};
+  max_channel_len = {{ defaults.max_channel_len }};
+  max_alias_len = {{ defaults.max_alias_len }};
+  max_burst = {{ defaults.max_burst }};
+  min_nick_length = {{ defaults.min_nick_length }};
+  min_nick_time = {{ defaults.min_nick_time }};
+}
+
+# Listen addresses and ports
+Listen {
+{% for listener in listeners %}
+  ip = "{{ listener.ip }}";
+  port = {{ listener.port }};
+  options = {{ listener.options | default('0') | string }};
+{% endfor %}
+}
+
+# Superuser (opers) configuration
+Oper {
+{% for oper in opers %}
+  name = "{{ oper.name }}";
+  password = "{{ oper.password }}";
+  host = "{{ oper.host }}";
+  class = "{{ oper.class }}";
+  flags = {
+    can_gline = {{ oper.flags.can_gline | lower | string }};
+    can_zline = {{ oper.flags.can_zline | lower | string }};
+    can_rehash = {{ oper.flags.can_rehash | lower | string }};
+    can_die = {{ oper.flags.can_die | lower | string }};
+    can_restart = {{ oper.flags.can_restart | lower | string }};
+    can_set = {{ oper.flags.can_set | lower | string }};
+  };
+{% endfor %}
+}
+
+# User class definitions
+Class {
+{% for class in classes %}
+  name = "{{ class.name }}";
+  ping_time = {{ class.ping_time }};
+  frequency = {{ class.frequency }};
+  max_users = {{ class.max_users }};
+{% endfor %}
+}
+
+# Connection rules for clients and servers
+Connect {
+{% for connect in connects %}
+  name = "{{ connect.name }}";
+  host = "{{ connect.host }}";
+  port = {{ connect.port }};
+  class = "{{ connect.class }}";
+  password = "{{ connect.password }}";
+  rpassword = "{{ connect.rpassword }}";
+  flags = {
+    auto_conn = {{ connect.flags.auto_conn | lower | string }};
+    zip = {{ connect.flags.zip | lower | string }};
+    ssl = {{ connect.flags.ssl | lower | string }};
+    hub = {{ connect.flags.hub | lower | string }};
+    leaf = {{ connect.flags.leaf | lower | string }};
+  };
+{% endfor %}
+}
+
+# Module loading (optional — if enabled)
+{% if modules %}
+Modules {
+{% for mod in modules %}
+  path = "{{ mod.path }}";
+{% endfor %}
+}
+{% endif %}
+
+# Logging configuration
+Log {
+{% for log_config in logs %}
+  filename = "{{ log_config.filename }}";
+  level = {{ log_config.level }};
+{% endfor %}
+}
+
+# SSL/TLS configuration (if enabled)
+{% if ssl.enabled %}
+SSL {
+  cert_file = "{{ ssl.cert_file }}";
+  key_file = "{{ ssl.key_file }}";
+  ca_file = "{{ ssl.ca_file | default('') }}";
+  dh_file = "{{ ssl.dh_file | default('') }}";
+  cipher_list = "{{ ssl.cipher_list }}";
+  verify_mode = {{ ssl.verify_mode }};
+}
+{% endif %}
+
+# Hidden server settings (hidden hosts, cloaking, etc.)
+Hidden {
+  host = "{{ hidden.host }}";
+  user = "{{ hidden.user }}";
+  server = "{{ hidden.server }}";
+}
+
+# Anti-flood and spam protection
+AntiFlood {
+  max_sendq = {{ anti_flood.max_sendq }};
+  max_accept = {{ anti_flood.max_accept }};
+  flood_count = {{ anti_flood.flood_count }};
+  flood_time = {{ anti_flood.flood_time }};
+}
+
+# DNS settings
+DNS {
+  timeout = {{ dns.timeout }};
+  retry = {{ dns.retry }};
+  cache_size = {{ dns.cache_size }};
+}
+
+# Kline settings (kill-line duration)
+Kline {
+  duration = {{ kline.duration }};
+}
+
+# Zline settings (ban duration)
+Zline {
+  duration = {{ zline.duration }};
+}
+
+# Server linking (Hub/Leaf structure)
+{% if server_linking.enabled %}
+Link {
+  name = "{{ server_linking.name }}";
+  hub = "{{ server_linking.hub }}";
+  port = {{ server_linking.port }};
+  options = {{ server_linking.options | default('0') | string }};
+}
+{% endif %}
+
+# Channel defaults
+Channel {
+  default_max_users = {{ channel.default_max_users }};
+  default_topic_limit = {{ channel.default_topic_limit }};
+  default_key_expire = {{ channel.default_key_expire }};
+}

@@ -1,0 +1,75 @@
+{
+  "zonefile_dir": "/var/lib/knot/zones",
+  "log_file": "/var/log/knot/knot.log",
+  "pid_file": "/run/knot/knot.pid",
+  "identity": "dns1.example.net",
+  "workers": 2,
+  "max_concurrent_queries": 500,
+  "max_open_files": 65535,
+  "log_level": "info",
+  "servers": [
+    {
+      "id": "main-v4",
+      "listen": "192.0.2.10",
+      "port": 53,
+      "protocol": "udp/tcp",
+      "interface": "eth0"
+    },
+    {
+      "id": "main-v6",
+      "listen": "2001:db8::10",
+      "port": 53,
+      "protocol": "udp/tcp",
+      "interface": "eth0"
+    }
+  ],
+  "acls": [
+    {
+      "id": "internal",
+      "address": "192.168.0.0/16, 10.0.0.0/8, fd00::/8",
+      "action": "allow",
+      "log": false
+    },
+    {
+      "id": "public",
+      "address": "0.0.0.0/0, ::/0",
+      "action": "allow",
+      "log": false
+    }
+  ],
+  "zones": [
+    {
+      "domain": "example.com",
+      "file": "example.com.zone",
+      "notify": true,
+      "axfr": "allow",
+      "dnssec": true,
+      "dnssec_signing": "auto"
+    },
+    {
+      "domain": "example.net",
+      "file": "example.net.zone",
+      "masters": "192.0.2.1",
+      "axfr": "refuse",
+      "dnssec": false
+    }
+  ],
+  "key_policies": [
+    {
+      "id": "default",
+      "algorithm": "ECDSAP256SHA256",
+      "size": 0,
+      "ttl": 3600,
+      "lifetime": 90,
+      "replay_protection": true
+    }
+  ],
+  "remotes": [
+    {
+      "id": "upstream1",
+      "address": "192.0.2.53",
+      "port": 53,
+      "protocol": "udp/tcp"
+    }
+  ]
+}

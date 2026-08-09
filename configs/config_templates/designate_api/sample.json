@@ -1,0 +1,74 @@
+{
+  "log_file": "/var/log/designate/designate-api.log",
+  "log_dir": "/var/log/designate",
+  "verbose": false,
+  "debug": false,
+  "bind_host": "0.0.0.0",
+  "bind_port": 9001,
+  "workers": 4,
+  "timeout": 60,
+  "max_requests": 0,
+  "ssl_enabled": true,
+  "ssl_ca_file": "/etc/ssl/certs/ca-certificates.crt",
+  "ssl_cert_file": "/etc/ssl/certs/designate-api.crt",
+  "ssl_key_file": "/etc/ssl/private/designate-api.key",
+  "keystone_auth_url": "https://controller:5000/v3",
+  "keystone_project_domain_name": "Default",
+  "keystone_user_domain_name": "Default",
+  "keystone_project_name": "service",
+  "keystone_username": "designate",
+  "keystone_password": "DESIGNATE_KS_PASS",
+  "keystone_interface": "internal",
+  "keystone_service_name": "designate",
+  "keystone_region_name": "RegionOne",
+  "enable_rate_limiting": true,
+  "max_request_body_size": 1048576,
+  "rate_limit_rules": [
+    {
+      "name": "Default API rate limiting"
+    },
+    {
+      "name": "Zone creation limited"
+    }
+  ],
+  "notification_driver": "messagingv2",
+  "messaging_transport_url": "rabbit://openstack:RABBIT_PASS@controller:5672/",
+  "pools": [
+    {
+      "id": "default",
+      "nameservers": [
+        "10.0.0.1"
+      ],
+      "targets": [
+        {
+          "type": "bind9",
+          "address": "10.0.0.2",
+          "port": 53,
+          "rndc_host": "10.0.0.3",
+          "rndc_port": 953,
+          "rndc_key_file": "/etc/designate/rndc.key"
+        }
+      ],
+      "options": {}
+    }
+  ],
+  "database_connection": "mysql+pymysql://designate:DESIGNATE_DB_PASS@controller/designate",
+  "database_connection_recycle_time": 3600,
+  "database_max_overflow": 10,
+  "database_max_pool_size": 5,
+  "rabbit_use_ssl": false,
+  "rabbit_host": "controller",
+  "rabbit_port": 5672,
+  "rabbit_userid": "openstack",
+  "rabbit_password": "RABBIT_PASS",
+  "rabbit_virtual_host": "/",
+  "notification_transport_url": "",
+  "enable_cors": true,
+  "cors_allowed_origins": [
+    "https://horizon.example.com"
+  ],
+  "cors_expose_headers": [
+    "X-Auth-Token",
+    "X-Subject-Token"
+  ]
+}

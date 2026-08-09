@@ -1,0 +1,70 @@
+[DEFAULT]
+# Global logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)
+# Default: {{ log_level | default('INFO') }}
+log_level = {{ log_level | default('INFO') }}
+
+# Directory where log files are written
+# Default: {{ log_dir | default('/var/log/ceilometer') }}
+log_dir = {{ log_dir | default('/var/log/ceilometer') }}
+
+# Time interval (in seconds) between polling instances for metrics
+# Default: {{ polling_interval | default(60) }}
+polling_interval = {{ polling_interval | default(60) }}
+
+# Number of worker processes to handle polling concurrently
+# Default: {{ workers | default(1) }}
+workers = {{ workers | default(1) }}
+
+[api]
+# URL of the Ceilometer (telemetry) API endpoint
+# Default: {{ ceilometer_endpoint | default('http://localhost:8777') }}
+endpoint = {{ ceilometer_endpoint | default('http://localhost:8777') }}
+
+# Keystone authentication endpoint URL
+# Default: {{ auth_url | default('http://localhost:5000/v3') }}
+auth_url = {{ auth_url | default('http://localhost:5000/v3') }}
+
+# OpenStack project (tenant) name for authentication
+# Default: {{ project_name | default('service') }}
+project_name = {{ project_name | default('service') }}
+
+# OpenStack service user name for authentication
+# Default: {{ username | default('ceilometer') }}
+username = {{ username | default('ceilometer') }}
+
+# Password for the service user (must be provided securely in production)
+# Default: (empty)
+password = {{ password | default('') }}
+
+# Optional OpenStack region name (leave empty to auto-detect or omit)
+# Default: (empty, omitted if not set)
+{% if region_name | default('') %}
+region_name = {{ region_name | default('') }}
+{% endif %}
+
+# Authentication method (typically 'password' for service users)
+# Default: {{ auth_type | default('password') }}
+auth_type = {{ auth_type | default('password') }}
+
+# If true, disables SSL/TLS certificate verification (not recommended in production)
+# Default: {{ insecure | default(False) }}
+insecure = {{ insecure | default(False) | lower }}
+
+[pollsters]
+# List of pollster names to enable for instance metric collection
+# Default: instance, cpu, memory, disk.root.size, disk.instance
+enabled_pollsters = {{ enabled_pollsters | default(['instance', 'cpu', 'memory', 'disk.root.size', 'disk.instance']) | join(', ') }}
+
+# Optional per-pollster configuration overrides (e.g., custom intervals per metric type)
+# Each entry in pollster_configs should define: name, section, interval
+{% for pollster in pollster_configs | default([]) %}
+# Pollster: {{ pollster.name | default('unknown') }}
+[{{ pollster.section | default(pollster.name | default('unknown')) }}]
+# Interval override for {{ pollster.name | default('unknown') }} (in seconds)
+polling_interval = {{ pollster.interval | default(0) }}
+{% endfor %}
+
+[storage]
+# Backend storage URL for collected metrics (e.g., MongoDB or SQLite URI)
+# Default: {{ metric_url | default('file:///var/lib/ceilometer/metric.db') }}
+metric_url = {{ metric_url | default('file:///var/lib/ceilometer/metric.db') }}

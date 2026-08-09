@@ -1,0 +1,111 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) to bind the NTP server to (e.g., '0.0.0.0' for all interfaces or '127.0.0.1' for localhost only)."
+  },
+  "ntp_port": {
+    "type": "number",
+    "default": 123,
+    "description": "UDP port on which the NTP service listens. Standard NTP port is 123."
+  },
+  "nts_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable Network Time Security (NTS) for encrypted and authenticated time synchronization."
+  },
+  "nts_key_file": {
+    "type": "string",
+    "default": "/etc/ntpd-rs/nts.key",
+    "description": "Path to the NTS server private key file (PEM format). Required if NTS is enabled."
+  },
+  "nts_cert_file": {
+    "type": "string",
+    "default": "/etc/ntpd-rs/nts.crt",
+    "description": "Path to the NTS server X.509 certificate file (PEM format). Required if NTS is enabled."
+  },
+  "allowed_subnets": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0"
+    ],
+    "description": "List of client subnets (CIDR) allowed to query this NTP server. Empty list denies all clients.",
+    "items": {
+      "type": "string",
+      "description": "CIDR-formatted subnet (e.g., '192.168.1.0/24' or '2001:db8::/32')."
+    }
+  },
+  "refclock_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a hardware reference clock (e.g., GPS receiver with PPS). Only needed if server is a stratum-0/1 time source."
+  },
+  "refclock_driver": {
+    "type": "string",
+    "default": "pps",
+    "description": "Refclock driver type (e.g., 'pps', 'shared', 'clockwork').",
+    "condition": "refclock_enabled"
+  },
+  "refclock_path": {
+    "type": "string",
+    "default": "/dev/pps0",
+    "description": "Device path to the refclock source (e.g., /dev/pps0, /dev/gps0).",
+    "condition": "refclock_enabled"
+  },
+  "refclock_flags": {
+    "type": "string",
+    "default": "0",
+    "description": "Refclock flags (driver-specific, e.g., '0', '1', 'noselect').",
+    "condition": "refclock_enabled"
+  },
+  "peers": {
+    "type": "list",
+    "default": [
+      {
+        "address": "pool.ntp.org",
+        "nts": false
+      },
+      {
+        "address": "0.pool.ntp.org",
+        "nts": false
+      },
+      {
+        "address": "1.pool.ntp.org",
+        "nts": false
+      }
+    ],
+    "description": "List of upstream NTP servers to synchronize with. Optional NTS support per peer.",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "Hostname or IP of upstream NTP server.",
+        "default": ""
+      },
+      "nts": {
+        "type": "bool",
+        "description": "If true, attempt NTS negotiation with this peer. Requires NTS enabled globally.",
+        "default": false
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum logging level: 'error', 'warn', 'info', 'debug', or 'trace'."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/ntpd-rs",
+    "description": "Directory to store persistent state (drift, leap seconds, peer stats). Must be writable by the ntpd-rs user."
+  },
+  "max_rate": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum request rate per source IP (packets/second). Set to 0 to disable rate limiting."
+  },
+  "init_sync_mode": {
+    "type": "string",
+    "default": "normal",
+    "description": "Behavior during initial startup synchronization. 'fast' aggressively syncs; 'normal' uses standard slewing; 'disabled' skips initial sync."
+  }
+}

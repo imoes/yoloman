@@ -1,0 +1,31 @@
+# /etc/crypttab: encrypted block device mappings
+#
+# This file defines mappings for encrypted block devices. Each entry allows
+# the system to unlock an encrypted volume at boot or manually.
+#
+# Format per line:
+#   <name> <device> <keyfile_or_passphrase> <options>
+#
+# - name: The user-friendly name for the mapped device (e.g., 'data', 'root').
+#          This becomes the symlink path in /dev/mapper/<name>.
+# - device: The underlying block device (e.g., '/dev/sda2', 'UUID=...').
+# - keyfile: Path to a keyfile on disk, or 'none' if using a passphrase prompt.
+#            Use '-' to indicate no keyfile/passphrase required (rare).
+# - options: Space or comma-separated options (e.g., 'luks', 'timeout=10').
+
+# List of encrypted block device entries to configure in crypttab. Each entry defines a mapping for an encrypted volume. Fields correspond to '
+{% for entry in (crypttab_entries | default([])) | map('dict2items') | list %}
+{# Iterate over the dictionary items of each entry to construct the crypttab line #}
+{# entry is a dict. We need to extract fields safely. #}
+{% for item in entry %}
+{% endfor %}
+{% endfor %}
+
+# Correct iteration approach for a list of dictionaries
+{% for entry in (crypttab_entries | default([])) %}
+# Entry: {{ entry.name | default('unnamed') }}
+# Device: {{ entry.device | default('/dev/undefined') }}
+# Keyfile: {{ entry.keyfile | default('-') }}
+# Options: {{ entry.options | default([]) | join(',') }}
+{{ entry.name | default('unnamed') }} {{ entry.device | default('/dev/undefined') }} {{ entry.keyfile | default('-') }} {{ entry.options | default([]) | join(',') }}
+{% endfor %}

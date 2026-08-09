@@ -1,0 +1,104 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the service listens on (e.g., 127.0.0.1 for localhost only, or 0.0.0.0 for all interfaces)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "TCP port number for client connections."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/dbskkd-cdb",
+    "description": "Absolute path to the directory where database files (indices, data, cache) are stored."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for parallel query processing. Set to match available CPU cores."
+  },
+  "enable_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to compress stored records to save disk space and I/O (may increase CPU usage)."
+  },
+  "cache_size_mb": {
+    "type": "number",
+    "default": 256,
+    "description": "Size of the in-memory query result cache in megabytes."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging (debug, info, warn, error)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/dbskkd-cdb/dbskkd.log",
+    "description": "Path to the log file. Use 'stdout' to log directly to the console."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method for clients (none = open, password = basic auth, cert = mutual TLS)."
+  },
+  "password_file": {
+    "type": "string",
+    "default": "/etc/dbskkd-cdb/passwords",
+    "description": "Path to the file containing usernames and hashed passwords (used when auth_method = password)."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/dbskkd-cdb/tls/server.crt",
+    "description": "Path to the server TLS certificate (PEM format), required when auth_method = cert."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/dbskkd-cdb/tls/server.key",
+    "description": "Path to the server TLS private key (PEM format), required when auth_method = cert."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      {
+        "network": "127.0.0.0",
+        "prefix_length": 8,
+        "description": "Localhost loopback"
+      }
+    ],
+    "description": "List of allowed client IP ranges. Each entry specifies a network and optional prefix length (CIDR), plus a human-readable description.",
+    "items": {
+      "network": {
+        "type": "string",
+        "description": "Base IP address of the allowed range (IPv4)."
+      },
+      "prefix_length": {
+        "type": "number",
+        "default": 32,
+        "description": "CIDR prefix length (e.g., 24 = /24 subnet). Defaults to 32 (single IP)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the rule."
+      }
+    }
+  },
+  "idle_timeout_sec": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum idle time (in seconds) before a client connection is closed."
+  },
+  "query_timeout_sec": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum allowed time (in seconds) for a single query before it is aborted."
+  }
+}

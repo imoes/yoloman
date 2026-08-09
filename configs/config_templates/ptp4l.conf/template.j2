@@ -1,0 +1,66 @@
+[global]
+# Clock identity (64-bit unique identifier); auto-generated if omitted
+#clock_identity {{ ptp_clock_identity }}
+
+# Domain number (0–127); must match across all devices in the same PTP domain
+domain_number {{ ptp_domain_number }}
+
+# Specify the primary network interface to use
+# Set to empty string to let ptp4l auto-select (not recommended in production)
+interface {{ ptp_interface }}
+
+# Transport type: 'udp' or 'l2'
+transport {{ ptp_transport }}
+
+# Log level: 0 (all) to 7 (none); lower = more verbose
+logging_level {{ ptp_log_level }}
+
+# Sync message interval (-7 to 3 = 125 ms to 8 s); default -3 (1 s)
+sync_interval {{ ptp_sync_interval }}
+
+# Delay request interval; default same as sync_interval
+#delay_req_interval {{ ptp_delay_req_interval }}
+
+# Announce message interval; default -2 (4 s)
+#announce_interval {{ ptp_announce_interval }}
+
+# Enable or disable unicast communication
+unicast_only {{ 'true' if ptp_unicast_only else 'false' }}
+
+# Unicast master table (list of allowed masters)
+{% for master in ptp_unicast_masters %}unicast_master_table {
+  addr {{ master.address }}
+  priority1 {{ master.priority1 }}
+  priority2 {{ master.priority2 }}
+}
+{% endfor %}
+
+# Enable or disable hardware timestamping (recommended for low latency)
+use_hardware_timestamps {{ 'true' if ptp_use_hardware_timestamps else 'false' }}
+
+# Path to the clock device for raw access (e.g., /dev/ptp0)
+clock_device {{ ptp_clock_device }}
+
+# Number of clock steps in slave mode (0–127); default 127
+maxStepsRemoved {{ ptp_max_steps }}
+
+# Frequency offset applied to the clock (in parts per billion); for calibration
+#frequency_offset {{ ptp_frequency_offset }}
+
+# Boundary or ordinary clock? true = boundary, false = ordinary
+boundary_clock_jb {{ 'true' if ptp_boundary_clock_jb else 'false' }}
+
+# Enable slave-only mode (does not act as master)
+clientOnly {{ 'true' if ptp_slave_only else 'false' }}
+
+# Accept foreign master (allows syncing to non-default domain)
+accept_any_master {{ 'true' if ptp_accept_any_master else 'false' }}
+
+# Allow sync loss tolerance (seconds); default 0 (strict)
+syncLossTimeout {{ ptp_sync_loss_timeout }}
+
+# Delay mechanism: 'p2p' or 'e2e'; default e2e
+delay_mechanism {{ ptp_delay_mechanism }}
+
+# P2D delay request interval (only for p2p mode)
+#p2p_delay_req_interval {{ ptp_p2p_delay_req_interval }}

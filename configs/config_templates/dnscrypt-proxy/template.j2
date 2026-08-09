@@ -1,0 +1,58 @@
+# dnscrypt-proxy configuration template.
+# This file configures the DNSCrypt proxy client to resolve DNS queries securely
+# using encrypted DNS protocols (DNSCrypt, DoH, DoQ).
+
+# listen_addresses
+# Description: IP addresses and ports the DNSCrypt proxy listens on for client DNS queries.
+# Empty list to use systemd socket activation.
+# Default: []
+# Note: The template renders the list using to_json. If the variable is not defined,
+# it defaults to an empty list to avoid StrictUndefined errors.
+listen_addresses = {{ listen_addresses | default([]) | to_json }}
+
+# server_names
+# Description: List of resolver names (from the server list) to use.
+# Must match entries in the server list.
+# Default: ['cloudflare']
+server_names = {{ server_names | default(['cloudflare']) | to_json }}
+
+[query_log]
+  # query_log_file
+  # Description: Path to the query log file.
+  # Default: '/var/log/dnscrypt-proxy/query.log'
+  file = '{{ query_log_file | default("/var/log/dnscrypt-proxy/query.log") }}'
+
+[nx_log]
+  # nx_log_file
+  # Description: Path to the NX domain log file.
+  # Default: '/var/log/dnscrypt-proxy/nx.log'
+  file = '{{ nx_log_file | default("/var/log/dnscrypt-proxy/nx.log") }}'
+
+[sources]
+  [sources.'public-resolvers']
+    # resolvers_list_url
+    # Description: URL of the public resolvers list.
+    # Default: 'https://download.dnscrypt.info/resolvers-list/v2/public-resolvers.md'
+    url = '{{ resolvers_list_url | default("https://download.dnscrypt.info/resolvers-list/v2/public-resolvers.md") }}'
+
+    # cache_file
+    # Description: Path to the cached resolver list (to reduce repeated downloads).
+    # Default: '/var/cache/dnscrypt-proxy/public-resolvers.md'
+    cache_file = '{{ cache_file | default("/var/cache/dnscrypt-proxy/public-resolvers.md") }}'
+
+    # minisign_key
+    # Description: Minisign key used to verify the resolvers list.
+    # Default: 'RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3'
+    minisign_key = '{{ minisign_key | default("RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3") }}'
+
+    # refresh_delay
+    # Description: Refresh delay (in hours) for the resolvers list.
+    # Default: 72
+    refresh_delay = {{ refresh_delay | default(72) }}
+
+    # prefix
+    # Description: Prefix for log messages.
+    # Default: ''
+    # Note: This field was not in the schema but is common in dnscrypt-proxy configs.
+    # It is hardcoded to empty string to ensure valid config output.
+    prefix = ''

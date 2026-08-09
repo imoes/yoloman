@@ -1,0 +1,69 @@
+# /etc/ident2/ident2.conf
+# ident2 — Advanced Ident Daemon (RFC 1413)
+#
+# This configuration file controls the behavior of the ident2 daemon.
+# It listens for TCP connections on a specific port (default 113) and
+# responds to queries regarding the owner of a specific TCP port.
+#
+# Self-documenting: every variable reference uses the `default` filter
+# to ensure the template renders correctly even if a variable is undefined.
+
+# TCP port the daemon listens on. RFC 1413 reserves port 113; change only if running behind a port-forward.
+port = {{ port | default(113) }}
+
+# IPv4 address to bind to. Use 0.0.0.0 for all interfaces or a specific address to restrict which NIC accepts connections.
+address = {{ bind_address | default('0.0.0.0') }}
+
+# Unix user account the daemon drops to after binding. Must exist on the system; 'nobody' is a safe least-privilege choice.
+user = {{ user | default('nobody') }}
+
+# Unix group the daemon drops to after binding. Pair with the user above; 'nogroup' grants no special filesystem access.
+group = {{ group | default('nogroup') }}
+
+# Path where the daemon writes its PID on startup. Used by init systems and monitoring agents for process supervision.
+pidfile = {{ pid_file | default('/var/run/ident2.pid') }}
+
+# Seconds to wait for a client to complete an ident query. Lower values protect against slow-loris style connection exhaustion.
+timeout = {{ timeout | default(30) }}
+
+# Maximum simultaneous in-flight ident connections. Size this to your busiest mail/IRC server's concurrency — 50–100 is typical.
+maxconnections = {{ max_connections | default(100) }}
+
+# OS type token embedded in ident replies per RFC 1413 §2.7. Standard values are UNIX and OTHER; some clients require UNIX to parse the reply.
+os-type = {{ os_type | default('UNIX') }}
+
+# Log verbosity: error (quiet), warn, info (recommended for production), or debug (verbose, for troubleshooting only).
+loglevel = {{ log_level | default('info') }}
+
+{% if use_syslog | default(true) %}
+# Route log output through syslog (recommended). Set false to log to a plain file instead; then set log_file.
+syslog = yes
+{% else %}
+# Absolute path to the log file used when use_syslog is false. The directory must be writable by the daemon user.
+logfile = {{ log_file | default('/var/log/ident2.log') }}
+{% endif %}
+
+# Controls what the daemon returns for a successful lookup. real = actual username; masquerade = a fixed fake name; noident = RFC NOIDENT; error = ERROR:UNKNOWN-ERROR
+mode = {{ response_mode | default('real') }}
+
+{% if response_mode | default('real') == 'masquerade' %}
+# The fake username returned for every query when response_mode is masquerade. Ignored in all other modes.
+masquerade-name = {{ masquerade_name | default('UNKNOWN') }}
+{% endif %}
+
+# Open an IPv6 listener alongside the IPv4 one. Required for dual-stack hosts that receive ident queries over IPv6.
+ipv6 = {{ 'yes' if enable_ipv6 | default(true) else 'no' }}
+
+{% if deny_rules | default([]) %}
+# Networks whose ident queries are rejected before any allow rule is evaluated. Use to block untrusted external ranges.
+{% for rule in deny_rules | default([]) %}
+deny = {{ rule.network }}
+{% endfor %}
+{% endif %}
+
+{% if allow_rules | default([]) %}
+# Networks whose ident queries are explicitly allowed. An empty list permits all sources (after deny rules). Populate this to whitelist specific networks.
+{% for rule in allow_rules | default([]) %}
+allow = {{ rule.network }}
+{% endfor %}
+{% endif %}

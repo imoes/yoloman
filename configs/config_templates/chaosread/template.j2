@@ -1,0 +1,38 @@
+# ---------------------------------------------------------------------------
+# chaosread configuration
+#
+# This file configures chaosread, a tool that reads data from ChaosKey
+# hardware random number generators.
+#
+# See 'man chaosread' or the chaosread documentation for more details.
+# ---------------------------------------------------------------------------
+
+[chaosread]
+
+# Serial number of the ChaosKey device to use.
+# If left empty or unset, chaosread will automatically select the first
+# available device.
+# Schema default: ''
+serial = {{ (serial | default('')) }}
+
+# Amount of data to read from the device.
+# Supports suffixes for unit scaling: 'k' (kilobytes), 'M' (megabytes),
+# 'G' (gigabytes). For example, '1k' reads 1024 bytes, '2M' reads 2 MiB.
+# Schema default: '1k'
+data_length = {{ (data_length | default('1k')) }}
+
+# Whether to read data indefinitely.
+# If set to true, chaosread will continuously read from the device until
+# the process is manually terminated (e.g., via SIGTERM or SIGINT).
+# If false (default), it reads the amount specified by data_length and exits.
+# Schema default: False
+infinite = {{ (infinite | default(false) | lower) }}
+
+# Output mode / source endpoint selection.
+# Determines how the raw entropy data is processed before output:
+#   - 'raw'       : Default. Outputs the raw bytes directly from the RNG.
+#   - 'cooked'    : Applies kernel-trimming/post-processing to the data.
+#   - 'bytes'     : Converts 16-bit samples to 8-bit values.
+#   - 'firmware'  : Reads directly from the device firmware buffer.
+# Schema default: 'raw'
+output_mode = {{ (output_mode | default('raw')) }}

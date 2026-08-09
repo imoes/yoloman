@@ -1,0 +1,144 @@
+{
+  "tcp_interface": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the AMQP TCP listener binds to. Use 0.0.0.0 for all interfaces or a specific IP to restrict access."
+  },
+  "tcp_port": {
+    "type": "number",
+    "default": 5672,
+    "description": "TCP port for plain (unencrypted) AMQP 0-9-1 client connections."
+  },
+  "heartbeat": {
+    "type": "number",
+    "default": 60,
+    "description": "Heartbeat interval in seconds. Connections idle longer than this are considered dead and closed. 0 disables heartbeats."
+  },
+  "frame_max": {
+    "type": "number",
+    "default": 131072,
+    "description": "Maximum AMQP frame payload size in bytes. Increase for large messages; decrease to reduce per-connection memory use."
+  },
+  "channel_max": {
+    "type": "number",
+    "default": 2047,
+    "description": "Maximum number of AMQP channels per TCP connection. 0 means unlimited \u2014 always set a bound to prevent runaway clients."
+  },
+  "consumer_timeout": {
+    "type": "number",
+    "default": 1800000,
+    "description": "Milliseconds a delivered message may remain unacknowledged before RabbitMQ force-closes the consumer channel."
+  },
+  "default_vhost": {
+    "type": "string",
+    "default": "/",
+    "description": "Virtual host created automatically on first broker startup. Acts as the default namespace for queues and exchanges."
+  },
+  "default_user": {
+    "type": "string",
+    "default": "guest",
+    "description": "Administrator username created on first startup. Rename or delete before exposing the broker to any network."
+  },
+  "default_pass": {
+    "type": "string",
+    "default": "guest",
+    "description": "Password for the default administrator account. Must be changed for any non-local deployment."
+  },
+  "loopback_users": {
+    "type": "list",
+    "default": [
+      "guest"
+    ],
+    "description": "Usernames that may only connect from localhost (127.0.0.1 or ::1). Remove the built-in guest entry after creating a named admin."
+  },
+  "memory_high_watermark": {
+    "type": "number",
+    "default": 0.4,
+    "description": "Fraction of total RAM (0.0\u20131.0) at which RabbitMQ begins flow-controlling publishers. Lower values leave more headroom for the OS."
+  },
+  "disk_free_limit": {
+    "type": "string",
+    "default": "50MB",
+    "description": "Minimum free disk space (e.g. 50MB, 2GB) below which all publishers are blocked. Prevents the broker from filling the disk."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/rabbitmq",
+    "description": "Filesystem path where RabbitMQ writes log files. Must be writable by the rabbitmq OS user."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of the main log file. One of: debug, info, warning, error, critical, none."
+  },
+  "management_bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the management HTTP API and web UI listens on. Restrict to 127.0.0.1 unless the UI must be reached remotely."
+  },
+  "management_port": {
+    "type": "number",
+    "default": 15672,
+    "description": "TCP port for the RabbitMQ management HTTP API and browser-based UI."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable an additional TLS listener for encrypted AMQP connections alongside (or instead of) the plain TCP listener."
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 5671,
+    "description": "TCP port for TLS-encrypted AMQP connections. Only active when ssl_enabled is true."
+  },
+  "ssl_cacertfile": {
+    "type": "string",
+    "default": "/etc/rabbitmq/certs/ca.pem",
+    "description": "Absolute path to the PEM CA certificate bundle used to verify client certificates."
+  },
+  "ssl_certfile": {
+    "type": "string",
+    "default": "/etc/rabbitmq/certs/cert.pem",
+    "description": "Absolute path to the PEM server certificate presented to connecting AMQP clients."
+  },
+  "ssl_keyfile": {
+    "type": "string",
+    "default": "/etc/rabbitmq/certs/key.pem",
+    "description": "Absolute path to the PEM private key corresponding to ssl_certfile."
+  },
+  "ssl_verify": {
+    "type": "string",
+    "default": "verify_peer",
+    "description": "TLS peer verification mode: verify_peer requires a valid client certificate; verify_none skips client cert validation."
+  },
+  "ssl_fail_if_no_peer_cert": {
+    "type": "bool",
+    "default": false,
+    "description": "Reject TLS connections from clients that send no certificate. Only meaningful when ssl_verify is verify_peer."
+  },
+  "cluster_nodes": {
+    "type": "list",
+    "default": [],
+    "description": "Erlang node names (e.g. rabbit@hostname) of all nodes in the cluster used for static peer discovery. Leave empty for standalone deployments."
+  },
+  "mqtt_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the MQTT plugin listener to accept MQTT 3.1/3.1.1 client connections (requires rabbitmq_mqtt plugin)."
+  },
+  "mqtt_port": {
+    "type": "number",
+    "default": 1883,
+    "description": "TCP port for MQTT client connections. Only active when mqtt_enabled is true."
+  },
+  "stomp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the STOMP plugin listener to accept STOMP text-protocol connections (requires rabbitmq_stomp plugin)."
+  },
+  "stomp_port": {
+    "type": "number",
+    "default": 61613,
+    "description": "TCP port for STOMP client connections. Only active when stomp_enabled is true."
+  }
+}

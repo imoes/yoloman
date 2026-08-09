@@ -1,0 +1,69 @@
+{
+  "worker": {
+    "limit": 0,
+    "workers": 2,
+    "task_timeout": 600
+  },
+  "rpc": {
+    "transport_url": "rabbit://designate:secretrabbit@10.0.0.10:5672//designate",
+    "use_ssl": false
+  },
+  "notifications": {
+    "driver": "messagingv2",
+    "topic": "designate"
+  },
+  "pools_target": {
+    "target_type": "designate"
+  },
+  "central": {
+    "endpoint": "http://10.0.0.5:9001/v2",
+    "auth_url": "http://10.0.0.1:5000/v3",
+    "project_name": "service",
+    "username": "designate",
+    "password": "",
+    "user_domain_name": "Default",
+    "project_domain_name": "Default",
+    "region_name": "RegionOne"
+  },
+  "pools": [
+    {
+      "name": "default",
+      "description": "Default DNS pool",
+      "targets": [
+        {
+          "name": "designate01",
+          "type": "designate",
+          "options": {
+            "designate_endpoint": "http://10.0.0.5:9001/v2",
+            "designate_project_id": "service"
+          }
+        }
+      ],
+      "nameservers": [
+        {
+          "host": "10.0.0.100",
+          "port": 53
+        }
+      ],
+      "record_types": [
+        "A",
+        "AAAA",
+        "CNAME",
+        "MX",
+        "NS",
+        "PTR",
+        "SOA",
+        "SRV",
+        "TXT"
+      ],
+      "attributes": {
+        "allow_vanity": "false",
+        "provisioning_status": "active"
+      }
+    }
+  ],
+  "catalog": {
+    "use_service_catalog": true,
+    "service_type": "dns"
+  }
+}

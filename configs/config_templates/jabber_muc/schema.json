@@ -1,0 +1,114 @@
+{
+  "jid": {
+    "type": "string",
+    "default": "muc.example.com",
+    "description": "Jabber ID (JID) of the MUC component; must be unique within the XMPP domain."
+  },
+  "port": {
+    "type": "number",
+    "default": 5347,
+    "description": "Port number for component-to-server communication (commonly 5347)."
+  },
+  "secret": {
+    "type": "string",
+    "default": "",
+    "description": "Secret shared secret used to authenticate this component to the Jabber server. Must be strong and kept confidential."
+  },
+  "log": {
+    "type": "string",
+    "default": "/var/log/jabber/muc.log",
+    "description": "Path to log file. Use 'stdout' or 'stderr' for console logging."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level; options: debug, info, warn, error, critical."
+  },
+  "max_occupants": {
+    "type": "number",
+    "default": 100,
+    "description": "Default maximum number of users allowed per MUC room."
+  },
+  "min_password_length": {
+    "type": "number",
+    "default": 6,
+    "description": "Minimum length required for passwords on password-protected rooms."
+  },
+  "allow_open_registration": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, users may create rooms without requiring pre-registration or admin approval."
+  },
+  "room_presets": {
+    "type": "list",
+    "default": [],
+    "description": "List of named room presets to configure different room behavior profiles.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique name for this preset (e.g., 'public', 'private', 'announcements')."
+      },
+      "persistent": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, rooms created with this preset are stored persistently (survive restarts)."
+      },
+      "max_occupants": {
+        "type": "number",
+        "default": null,
+        "description": "Override for max occupants per room of this preset type (uses global default if omitted)."
+      },
+      "title_required": {
+        "type": "bool",
+        "default": false,
+        "description": "Require room title before creation."
+      },
+      "announcement_services": {
+        "type": "list",
+        "default": [],
+        "description": "List of service JIDs allowed to send announcements to rooms using this preset.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "allowed_domains": {
+    "type": "list",
+    "default": [],
+    "description": "List of XMPP domains whose users may create rooms. Empty = allow all."
+  },
+  "disabled_features": {
+    "type": "list",
+    "default": [],
+    "description": "List of MUC features to disable (e.g., 'muc_public', 'muc_passwordprotected'). See XEP-0045 for feature names."
+  },
+  "namespace_prefix": {
+    "type": "string",
+    "default": "muc",
+    "description": "XMPP namespace prefix for room JIDs (e.g., 'muc' \u2192 rooms at 'room@muc.example.com')."
+  },
+  "ssl": {
+    "type": "object",
+    "default": {},
+    "description": "SSL/TLS settings for component-to-server communication (if using encrypted XMPP component protocol).",
+    "items": {
+      "cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate file."
+      },
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL private key file."
+      },
+      "ca_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Optional path to CA certificate bundle for verifying server certificate."
+      }
+    }
+  }
+}

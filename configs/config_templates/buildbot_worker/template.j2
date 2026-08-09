@@ -1,0 +1,49 @@
+# buildbot-worker configuration
+# Generated from Jinja2 template
+
+# Worker name (must match master's expectation)
+worker_name = "{{ worker.name }}"
+
+# Worker password for authentication with master
+password = "{{ worker.password }}"
+
+# Address (host:port) of the Buildbot master
+# Must be reachable from this worker
+buildmaster_host = "{{ master.host }}"
+buildmaster_port = {{ master.port }}
+
+# If true, use TLS (requires master to support it)
+use_tls = {{ master.use_tls|default(false) }}
+
+# Optional: connection limit (max simultaneous connections to master)
+# Set to 0 for unlimited
+max_connections = {{ worker.max_connections|default(1) }}
+
+# Optional: keep-alive interval in seconds
+keepalive_interval = {{ worker.keepalive_interval|default(60) }}
+
+# Optional: grace period (seconds) before shutting down after receiving shutdown signal
+keepalive_timeout = {{ worker.keepalive_timeout|default(300) }}
+
+# Optional: path where build work will be done
+worker_basedir = "{{ worker.basedir }}"
+
+# Optional: log level (CRITICAL, ERROR, WARNING, INFO, DEBUG)
+log_level = "{{ worker.log_level|default('INFO') }}"
+
+# Optional: enable debug logging
+debug = {{ worker.debug|default(false) }}
+
+# Optional: list of tags to associate with this worker (for load balancing by master)
+{% if worker.tags is defined %}
+tags = {{ worker.tags|tojson }}
+{% else %}
+tags = []
+{% endif %}
+
+# Optional: list of umask overrides (if worker needs specific permissions)
+{% if worker.umask is defined %}
+umask = {{ worker.umask|tojson }}
+{% else %}
+umask = None
+{% endif %}

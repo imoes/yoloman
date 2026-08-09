@@ -1,0 +1,140 @@
+# =============================================================================
+# lftp Global Configuration Template
+# =============================================================================
+# This configuration file controls the default behavior of the lftp command-line
+# FTP client. Each directive is documented below with its purpose and the
+# corresponding variable name used in this template.
+# =============================================================================
+
+# --- General Connection Settings ---
+
+# Default protocol used when connecting (ftp, ftps, sftp, http, https)
+# Variable: protocol
+set default-protocol {{ protocol | default('ftp') }}
+
+# --- FTP-Specific Settings ---
+
+# FTP proxy host:port; empty string disables proxy
+# Variable: ftp_proxy
+# If empty, no proxy is set.
+{% if ftp_proxy | default('') %}
+set ftp:proxy {{ ftp_proxy | default('') }}
+{% endif %}
+
+# Default username used for anonymous or basic FTP logins
+# Variable: ftp_user
+# If empty, lftp may attempt anonymous login or prompt for user.
+set ftp:user {{ ftp_user | default('') }}
+
+# Enable or disable passive FTP mode
+# Variable: ftp_passive
+# 'on' enables passive mode (recommended for firewalls), 'off' enables active mode.
+set ftp:passive {{ 'on' if ftp_passive | default(true) else 'off' }}
+
+# --- Localization and Encoding ---
+
+# Locale used for message translation and character encoding (e.g., en_US.UTF-8)
+# Variable: locale
+# The default system locale is usually sufficient unless specific translation is needed.
+set locale {{ locale | default('C.UTF-8') }}
+
+# Character encoding used for local filenames and directory listings
+# Variable: file_charset
+# Ensures correct handling of non-ASCII characters in filenames.
+set file:charset {{ file_charset | default('UTF-8') }}
+
+# --- Network Settings ---
+
+# Network I/O timeout in seconds
+# Variable: net_timeout
+# Controls how long lftp waits for network responses before aborting.
+set net:timeout {{ net_timeout | default(30) }}
+
+# Maximum number of retries for failed operations (0 = unlimited)
+# Variable: net_max_retries
+# 0 means infinite retries, which is useful for unstable connections.
+set net:max-retries {{ net_max_retries | default(3) }}
+
+# Size of network socket buffer in bytes
+# Variable: net_socket_buffer
+# Larger buffers can improve throughput on high-latency links.
+set net:socket-buffer {{ net_socket_buffer | default(65536) }}
+
+# --- SSL/TLS Settings ---
+
+# Enable or disable SSL certificate verification
+# Variable: ssl_verify_certificate
+# Disabling this is insecure and should only be done for testing or self-signed certs.
+set ssl:verify-certificate {{ 'yes' if ssl_verify_certificate | default(true) else 'no' }}
+
+# Path to CA certificate bundle file for SSL verification
+# Variable: ssl_ca_file
+# Required if ssl_verify_certificate is on and system certs are not in the default location.
+{% if ssl_ca_file | default('/etc/ssl/certs/ca-certificates.crt') %}
+set ssl:ca-file {{ ssl_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
+{% endif %}
+
+# --- Mirroring and Transfer Settings ---
+
+# Maximum number of parallel transfers during mirroring
+# Variable: mirror_parallel
+# Increases speed for large directory trees by downloading multiple files concurrently.
+set mirror:parallel {{ mirror_parallel | default(3) }}
+
+# Minimum file size (bytes) to trigger parallel transfer
+# Variable: mirror_parallel_min_size
+# Small files below this threshold are transferred sequentially to reduce overhead.
+set mirror:parallel-min-size {{ mirror_parallel_min_size | default(1048576) }}
+
+# --- Logging Settings ---
+
+# Path to transfer log file (empty = no log)
+# Variable: xfer_log
+# If specified, detailed transfer logs are written to this file.
+{% if xfer_log | default('') %}
+set xfer:log {{ xfer_log | default('') }}
+{% endif %}
+
+# Enable logging of transfers to syslog
+# Variable: xfer_log_syslog
+# When enabled, log output is sent to the system logger instead of (or in addition to) a file.
+set xfer:log-syslog {{ 'yes' if xfer_log_syslog | default(false) else 'no' }}
+
+# Format string for timestamps in log entries
+# Variable: xfer_log_time_format
+# Uses standard strftime format codes.
+set xfer:log-time-format {{ xfer_log_time_format | default('%Y-%m-%d %H:%M:%S') }}
+
+# --- Mirror Include/Exclude Patterns ---
+
+# List of shell-style glob patterns for files to always include during mirroring
+# Variable: mirror_include_patterns
+# Overrides standard include rules.
+{% for pattern in (mirror_include_patterns | default([])) %}mirror:include {{ pattern }}
+{% endfor %}
+
+# List of shell-style glob patterns for files to always exclude during mirroring
+# Variable: mirror_exclude_patterns
+# Commonly excludes temporary files, logs, and backups.
+{% for pattern in (mirror_exclude_patterns | default(['*.tmp', '*.log', '*.bak', '*.swp', '*~'])) %}mirror:exclude {{ pattern }}
+{% endfor %}
+
+# List of POSIX extended regex patterns for files to always include
+# Variable: mirror_include_regex_patterns
+# More powerful than glob patterns for complex matching.
+{% for pattern in (mirror_include_regex_patterns | default([])) %}mirror:include-regex {{ pattern }}
+{% endfor %}
+
+# List of POSIX extended regex patterns for files to always exclude
+# Variable: mirror_exclude_regex_patterns
+# Excludes hidden files, temp files, and compiled artifacts.
+{% for pattern in (mirror_exclude_regex_patterns | default(['\\.(tmp|log|bak|swp|pyc)$', '^[.#].*'])) %}mirror:exclude-regex {{ pattern }}
+{% endfor %}
+
+# --- Aliases ---
+
+# List of user-defined command aliases for convenience
+# Variable: aliases
+# Each alias must be a dictionary with 'name' and 'command' keys.
+{% for alias in (aliases | default([])) %}alias {{ alias.name }} {{ alias.command }}
+{% endfor %}

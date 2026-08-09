@@ -1,0 +1,176 @@
+{
+  "database_path": {
+    "type": "string",
+    "default": "/var/lib/fossil/fossil.db",
+    "description": "Path to the SQLite database file where Fossil stores repositories and metadata."
+  },
+  "root_name": {
+    "type": "string",
+    "default": "home",
+    "description": "Name of the default repository exposed at the root web path (e.g., /home). Use empty string to disable."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "HTTP port the server listens on."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind the server to (e.g., '127.0.0.1' for local-only access)."
+  },
+  "webui": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the built-in web interface (true recommended for most users)."
+  },
+  "ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS (requires valid SSL certificate and key paths)."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the SSL certificate file (PEM format). Required if SSL is enabled."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the SSL private key file (PEM format). Required if SSL is enabled."
+  },
+  "auto_create": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow creation of new repositories via the web UI."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum simultaneous connections (0 = unlimited)."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method: 'none' = no login required, 'form' = web-based login, etc."
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP addresses (supports wildcards like '192.168.1.*' or CIDR '10.0.0.0/8'). Empty = allow all.",
+    "items": {
+      "type": "string",
+      "description": "IP pattern for access control."
+    }
+  },
+  "default_access": {
+    "type": "string",
+    "default": "reader",
+    "description": "Default access level for unauthenticated or new users."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of authenticated users. Required for secure access (e.g., auth_method = 'form' or 'digest').",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Username."
+      },
+      "password_hash": {
+        "type": "string",
+        "description": "Password hash (e.g., SHA1, bcrypt). Use 'fossil hash' CLI to generate."
+      },
+      "access": {
+        "type": "string",
+        "enum": [
+          "anonymous",
+          "reader",
+          "committer",
+          "admin"
+        ],
+        "description": "Access level for this user."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional descriptive comment (e.g., real name or role)."
+      }
+    }
+  },
+  "hsts": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP Strict Transport Security (HSTS) header for HTTPS."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/fossil/fossil.log",
+    "description": "Path to log file (empty string = log only to stderr)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level of log output."
+  },
+  "base_url": {
+    "type": "string",
+    "default": "",
+    "description": "Base URL for the server (e.g., 'https://fossil.example.com/'). Used for absolute links in emails/emails."
+  },
+  "local_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically authenticate local requests (from same machine)."
+  },
+  "repository_root": {
+    "type": "string",
+    "default": "",
+    "description": "Base directory for relative repository paths in database (optional; leave empty to use absolute paths only)."
+  },
+  "cgi": {
+    "type": "bool",
+    "default": false,
+    "description": "Run Fossil in CGI mode instead of standalone HTTP server."
+  },
+  "cgi_path": {
+    "type": "string",
+    "default": "/usr/lib/fossil/fossil.cgi",
+    "description": "Path to CGI executable (used when cgi=true)."
+  },
+  "proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable support for reverse proxies (X-Forwarded-For, etc.)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Request timeout in seconds."
+  },
+  "compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for HTTP responses."
+  },
+  "cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Fossil\u2019s internal content cache (improves performance)."
+  },
+  "cache_size_kb": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum cache size in KB. 0 = default (~100 MB)."
+  },
+  "replication": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable experimental repository replication (not for production use)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug mode (very verbose logging)."
+  }
+}

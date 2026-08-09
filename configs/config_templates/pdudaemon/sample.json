@@ -1,0 +1,193 @@
+{
+  "template": "{\n    \"daemon\": {\n        \"hostname\": \"{{ daemon_hostname }}\",\n        \"port\": {{ daemon_port }},\n        \"logging_level\": \"{{ daemon_logging_level }}\",\n        \"listener\": \"{{ daemon_listener }}\"\n    },\n    \"pdus\": {\n        {% for pdu in pdus %}\n        \"{{ pdu.name }}\": {\n            {% if pdu.driver == 'localcmdline' %}\n            \"driver\": \"localcmdline\",\n            \"cmd_on\": \"echo '{{ pdu.name }} %s on' >> /tmp/pdu\",\n            \"cmd_off\": \"echo '{{ pdu.name }} %s off' >> /tmp/pdu\"\n            {% elif pdu.driver == 'acme' %}\n            \"driver\": \"acme\"\n            {% elif pdu.driver == 'apc9210' %}\n            \"driver\": \"apc9210\"\n            {% elif pdu.driver == 'apc7952' %}\n            \"driver\": \"apc7952\",\n            \"telnetport\": {{ pdu.port | default(5023) }}\n            {% if pdu.retries is defined %}\n            ,\"retries\": {{ pdu.retries }}\n            {% endif %}\n            {% elif pdu.driver == 'apc8959' %}\n            \"driver\": \"apc8959\"\n            {% elif pdu.driver == 'ubntmfi3port' %}\n            \"driver\": \"ubntmfi3port\",\n            \"username\": \"{{ pdu.username | default('ubnt') }}\",\n            \"password\": \"{{ pdu.password | default('ubnt') }}\",\n            \"sshport\": {{ pdu.port | default(22) }},\n            \"verify_hostkey\": true\n            {% elif pdu.driver == 'snmpv3' %}\n            \"driver\": \"snmpv3\",\n            \"username\": \"{{ pdu.username }}\",\n            {% if pdu.password %}\n            \"authpassphrase\": \"{{ pdu.password }}\",\n            \"privpassphrase\": \"{{ pdu.privpassphrase | default(pdu.password) }}\",\n            {% endif %}\n            \"mib\": \"{{ pdu.mib | default('PowerNet-MIB') }}\",\n            \"controlpoint\": \"{{ pdu.controlpoint | default('sPDUOutletCtl') }}\",\n            \"onsetting\": \"{{ pdu.onsetting | default('1') }}\",\n            \"offsetting\": {{ pdu.offsetting | default(2) }}\n            {% elif pdu.driver == 'snmpv1' %}\n            \"driver\": \"snmpv1\",\n            \"community\": \"{{ pdu.snmp_community | default('private') }}\",\n            \"mib\": \"{{ pdu.mib | default('PowerNet-MIB') }}\",\n            \"controlpoint\": \"{{ pdu.controlpoint | default('sPDUOutletCtl') }}\",\n            \"onsetting\": \"{{ pdu.onsetting | default('1') }}\",\n            \"offsetting\": {{ pdu.offsetting | default(2) }}\n            {% elif pdu.driver == 'ClewareUsbSwitch4' %}\n            \"driver\": \"ClewareUsbSwitch4\",\n            \"serial\": {{ pdu.serial | default(12345) }}\n            {% elif pdu.driver == 'ClewareUsbSwitch8' %}\n            \"driver\": \"ClewareUsbSwitch8\",\n            \"serial\": {{ pdu.serial | default(4321) }}\n            {% elif pdu.driver == 'intellinet' %}\n            \"driver\": \"intellinet\",\n            \"username\": \"{{ pdu.username | default('admin') }}\",\n            \"password\": \"{{ pdu.password | default('admin') }}\",\n            \"port\": {{ pdu.port | default(80) }}\n            {% elif pdu.driver == 'EG-PMS' %}\n            \"driver\": \"EG-PMS\",\n            \"device\": \"{{ pdu.device | default('aa:bb:cc:xx:yy') }}\"\n            {% elif pdu.driver == 'localcmdline' %}\n            \"driver\": \"localcmdline\"\n            {% elif pdu.driver == 'servertechpro2' %}\n            \"driver\": \"servertechpro2\",\n            \"ip\": \"{{ pdu.host | default('192.168.10.4') }}\",\n            \"protocol\": \"{{ pdu.protocol | default('https') }}\",\n            \"insecure\": {{ pdu.insecure | default(true) | lower }},\n            \"username\": \"{{ pdu.username | default('testuser') }}\",\n            \"password\": \"{{ pdu.password | default('testuser') }}\"\n            {% elif pdu.driver == 'tplink' %}\n            \"driver\": \"tplink\"\n            {% elif pdu.driver == 'ip9850' %}\n            \"driver\": \"ip9850\",\n            \"ip\": \"{{ pdu.host | default('192.168.1.5') }}\",\n            \"username\": \"{{ pdu.username | default('testuser') }}\",\n            \"password\": \"{{ pdu.password | default('testpass') }}\"\n            {% elif pdu.driver == 'esphome-http' %}\n            \"driver\": \"esphome-http\",\n            \"username\": \"{{ pdu.username | default('admin') }}\",\n            \"password\": \"{{ pdu.password | default('web') }}\"\n            {% elif pdu.driver == 'SERVO' %}\n            \"driver\": \"SERVO\",\n            \"ip\": \"{{ pdu.host | default('0.0.0.0') }}\",\n            \"port\": \"{{ pdu.port | default('9902') }}\",\n            \"ctrls\": \"{{ pdu.ctrls | default('cold_reset') }}\"\n            {% elif pdu.driver == 'LindyIPowerClassic8' %}\n            \"driver\": \"LindyIPowerClassic8\",\n            \"username\": \"{{ pdu.username | default('snmp') }}\",\n            \"password\": \"{{ pdu.password | default('1234') }}\"\n            {% elif pdu.driver == 'devantech_eth008' %}\n            \"driver\": \"devantech_eth008\",\n            \"ip\": \"{{ pdu.host | default('192.168.56.101') }}\",\n            \"port\": \"{{ pdu.port | default('17494') }}\",\n            \"password\": \"{{ pdu.password | default('password') }}\",\n            \"logic\": \"{{ pdu.logic | default('NO') }}\"\n            {% else %}\n            \"driver\": \"{{ pdu.driver }}\"\n            {% endif %}\n            {% if loop.last %}\n        }\n        {% else %}\n        },\n        {% endif %}\n        {% endfor %}\n    },\n    \"aliases\": {\n        {% for alias in aliases %}\n        \"{{ alias.name }}\": {\n            \"hostname\": \"{{ alias.pdu_name }}\",\n            \"port\": {{ alias.outlet }}\n        }{% if not loop.last %},{% endif %}\n        {% endfor %}\n    }\n}",
+  "daemon_hostname": "0.0.0.0",
+  "daemon_port": 16421,
+  "daemon_logging_level": "DEBUG",
+  "daemon_listener": "http",
+  "pdus": [
+    {
+      "name": "test",
+      "driver": "localcmdline",
+      "cmd_on": "echo 'test %s on' >> /tmp/pdu",
+      "cmd_off": "echo 'test %s off' >> /tmp/pdu"
+    },
+    {
+      "name": "drive",
+      "driver": "localcmdline",
+      "cmd_on": "echo 'drive %s on' >> /tmp/pdu",
+      "cmd_off": "echo 'drive %s off' >> /tmp/pdu"
+    },
+    {
+      "name": "drivealias",
+      "driver": "localcmdline",
+      "cmd_on": "echo 'drivealias %s on' >> /tmp/pdu",
+      "cmd_off": "echo 'drivealias %s off' >> /tmp/pdu"
+    },
+    {
+      "name": "http",
+      "driver": "localcmdline",
+      "cmd_on": "echo 'http %s on' >> /tmp/pdu",
+      "cmd_off": "echo 'http %s off' >> /tmp/pdu"
+    },
+    {
+      "name": "httpalias",
+      "driver": "localcmdline",
+      "cmd_on": "echo 'httpalias %s on' >> /tmp/pdu",
+      "cmd_off": "echo 'httpalias %s off' >> /tmp/pdu"
+    },
+    {
+      "name": "tcp",
+      "driver": "localcmdline",
+      "cmd_on": "echo 'tcp %s on' >> /tmp/pdu",
+      "cmd_off": "echo 'tcp %s off' >> /tmp/pdu"
+    },
+    {
+      "name": "baylibre-acme.local",
+      "driver": "acme"
+    },
+    {
+      "name": "apc9210",
+      "driver": "apc9210"
+    },
+    {
+      "name": "apc7952",
+      "driver": "apc7952",
+      "port": 5023
+    },
+    {
+      "name": "apc8959",
+      "driver": "apc8959"
+    },
+    {
+      "name": "apc7952-retries",
+      "driver": "apc7952",
+      "port": 23,
+      "retries": 2
+    },
+    {
+      "name": "ubntmfi3port",
+      "driver": "ubntmfi3port",
+      "username": "ubnt",
+      "password": "ubnt",
+      "port": 22
+    },
+    {
+      "name": "apc-snmpv3-withauth",
+      "driver": "snmpv3",
+      "username": "pdudaemon",
+      "password": "pdudaemonauthpassphrase",
+      "privpassphrase": "pdudaemonprivpassphrase",
+      "mib": "PowerNet-MIB",
+      "controlpoint": "sPDUOutletCtl",
+      "onsetting": "1",
+      "offsetting": 2
+    },
+    {
+      "name": "apc-snmpv3-noauth",
+      "driver": "snmpv3",
+      "username": "pdudaemon-noauth",
+      "mib": "PowerNet-MIB",
+      "controlpoint": "sPDUOutletCtl",
+      "onsetting": "1",
+      "offsetting": 2
+    },
+    {
+      "name": "apc-snmpv1-private",
+      "driver": "snmpv1",
+      "snmp_community": "private",
+      "mib": "PowerNet-MIB",
+      "controlpoint": "sPDUOutletCtl",
+      "onsetting": "1",
+      "offsetting": 2
+    },
+    {
+      "name": "cleware-usb-switch-4",
+      "driver": "ClewareUsbSwitch4",
+      "serial": 12345
+    },
+    {
+      "name": "cleware-usb-switch-8",
+      "driver": "ClewareUsbSwitch8",
+      "serial": 4321
+    },
+    {
+      "name": "intellinet163682",
+      "driver": "intellinet",
+      "username": "admin",
+      "password": "admin",
+      "port": 80
+    },
+    {
+      "name": "energenie",
+      "driver": "EG-PMS",
+      "device": "aa:bb:cc:xx:yy"
+    },
+    {
+      "name": "127.0.0.1",
+      "driver": "localcmdline"
+    },
+    {
+      "name": "servertechpro2",
+      "driver": "servertechpro2",
+      "host": "192.168.10.4",
+      "protocol": "https",
+      "insecure": true,
+      "username": "testuser",
+      "password": "testuser"
+    },
+    {
+      "name": "tplink_kp303",
+      "driver": "tplink"
+    },
+    {
+      "name": "tplink_kp105",
+      "driver": "tplink"
+    },
+    {
+      "name": "ip9850",
+      "driver": "ip9850",
+      "host": "192.168.1.5",
+      "username": "testuser",
+      "password": "testpass"
+    },
+    {
+      "name": "esphome",
+      "driver": "esphome-http",
+      "username": "admin",
+      "password": "web"
+    },
+    {
+      "name": "servo",
+      "driver": "SERVO",
+      "host": "0.0.0.0",
+      "port": "9902",
+      "ctrls": "cold_reset"
+    },
+    {
+      "name": "IPOWER",
+      "driver": "LindyIPowerClassic8",
+      "username": "snmp",
+      "password": "1234"
+    },
+    {
+      "name": "Devantech",
+      "driver": "devantech_eth008",
+      "host": "192.168.56.101",
+      "port": "17494",
+      "password": "password",
+      "logic": "NO"
+    }
+  ],
+  "aliases": [
+    {
+      "name": "aliastesthttp01",
+      "pdu_name": "httpalias",
+      "outlet": 1
+    },
+    {
+      "name": "aliastestdrive02",
+      "pdu_name": "drivealias",
+      "outlet": 2
+    }
+  ]
+}

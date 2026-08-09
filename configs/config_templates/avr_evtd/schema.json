@@ -1,0 +1,97 @@
+{
+  "watchdog_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the watchdog functionality. When enabled, the system will reset if the watchdog is not periodically pinged."
+  },
+  "device_path": {
+    "type": "string",
+    "default": "/dev/avr_evtd",
+    "description": "Path to the AVR watchdog device node. Usually `/dev/avr_evtd` on Linkstation devices."
+  },
+  "timeout_seconds": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (in seconds) without a watchdog ping before a hardware reset is triggered. Valid range: 1\u2013255. Set to 0 to disable timer (not recommended)."
+  },
+  "heartbeat_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between watchdog pings. Must be less than `timeout_seconds` to prevent resets."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging: `quiet` (only errors), `info` (normal), or `debug` (detailed)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use when logging messages. Common options: `daemon`, `local0`\u2013`local7`."
+  },
+  "pre_ping_command": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to execute before each watchdog ping (e.g., health check script). Should be lightweight and fast."
+  },
+  "post_reset_command": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to execute *after* a watchdog-triggered reset (e.g., cleanup, notification)."
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "root",
+    "description": "Unix username to run `avr_evtd` as. For security, consider using a dedicated non-root user."
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "root",
+    "description": "Unix group name to run `avr_evtd` as."
+  },
+  "monitored_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of files whose change should trigger a watchdog ping. Useful for detecting configuration reloads or critical file updates.",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Absolute path to the file to monitor.",
+        "default": ""
+      },
+      "trigger": {
+        "type": "string",
+        "description": "Event type to trigger ping: `modify`, `attrib`, `close_write`, `move` (inotify-style).",
+        "default": "close_write",
+        "enum": [
+          "modify",
+          "attrib",
+          "close_write",
+          "move"
+        ]
+      }
+    }
+  },
+  "monitored_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of services to check periodically. If a service fails, the watchdog is pinged to keep the system alive until the service recovers.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the service (must be manageable by `service` command).",
+        "default": ""
+      },
+      "timeout": {
+        "type": "number",
+        "description": "Seconds to wait for service status check before considering it failed. Defaults to global `heartbeat_seconds` if omitted.",
+        "default": 0
+      }
+    }
+  },
+  "no_auto_restart": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable automatic restart of `avr_evtd` if it crashes (for debugging). Leave disabled in production."
+  }
+}

@@ -1,0 +1,275 @@
+{
+  "listen_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for BitlBee to listen on (empty or 0.0.0.0 for all interfaces)"
+  },
+  "port": {
+    "type": "number",
+    "default": 6667,
+    "description": "TCP port for IRC client connections"
+  },
+  "protocol": {
+    "type": "string",
+    "default": "inet",
+    "description": "IP protocol version to use for listening"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed"
+  },
+  "max_accounts_per_user": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of IM accounts a single user may register"
+  },
+  "max_message_length": {
+    "type": "number",
+    "default": 512,
+    "description": "Maximum length (in bytes) for a single message (excluding control chars)"
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable extra-verbose debug mode (affects logging level)"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity level for logs (0=none, 5=debug)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/bitlbee/bitlbee.log",
+    "description": "Path to the main log file (use '/dev/stdout' in containers)"
+  },
+  "auth_mode": {
+    "type": "string",
+    "default": "password",
+    "description": "Authentication method: 'password' for IRC-level auth, 'unix' for local socket trust"
+  },
+  "root_dir": {
+    "type": "string",
+    "default": "/var/lib/bitlbee",
+    "description": "Root directory for persistent data (accounts, settings, etc.)"
+  },
+  "im_command": {
+    "type": "string",
+    "default": "/usr/lib/x86_64-linux-gnu/bitlbee/im",
+    "description": "Path to the IMC process binary (do not change unless installing plugins)"
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds of inactivity after which the client is disconnected"
+  },
+  "reconnect_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before attempting to reconnect to an IM service"
+  },
+  "reconnect_max_tries": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum reconnect attempts before giving up on an account"
+  },
+  "allow_nick_changes": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow users to change their IRC nicknames via /NICK"
+  },
+  "allow_register": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow new accounts to be registered via the IRC interface"
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for client connections (recommended for remote access)"
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/bitlbee/cert.pem",
+    "description": "Path to the SSL certificate file (PEM format)"
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/bitlbee/key.pem",
+    "description": "Path to the SSL private key file (PEM format)"
+  },
+  "ssl_chain_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to an intermediate certificate chain file"
+  },
+  "ssl_verify": {
+    "type": "bool",
+    "default": false,
+    "description": "Require clients to present valid SSL certificates (client-side cert auth)"
+  },
+  "hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Public hostname to advertise in server messages and SSL redirects"
+  },
+  "outgoing_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to bind to for outgoing connections (e.g., ['eth0'])"
+  },
+  "dnssec": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNSSEC validation for outgoing DNS lookups"
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for DNS resolution before failing"
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 for outgoing IM connections (services permitting)"
+  },
+  "proxy": {
+    "type": "object",
+    "default": {
+      "type": "none",
+      "host": "",
+      "port": 0,
+      "user": "",
+      "pass": ""
+    },
+    "description": "Outgoing proxy configuration (for environments with strict outbound filtering)",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "none",
+        "enum": [
+          "none",
+          "socks4",
+          "socks5"
+        ],
+        "description": "Proxy protocol (none = direct)"
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Proxy server hostname or IP"
+      },
+      "port": {
+        "type": "number",
+        "default": 0,
+        "description": "Proxy server port"
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Proxy username (if required)"
+      },
+      "pass": {
+        "type": "string",
+        "default": "",
+        "description": "Proxy password (if required)"
+      }
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of paths to additional plugin binaries to load on startup"
+  },
+  "plugin_options": {
+    "type": "list",
+    "default": [],
+    "description": "Per-plugin configuration key-value pairs (used by dynamic plugins)",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "Plugin config key (e.g., 'jabber_timeout')"
+      },
+      "value": {
+        "type": "string",
+        "description": "Config value (as it appears in the config file)"
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description for the wizard"
+      }
+    }
+  },
+  "allowed_protocols": {
+    "type": "list",
+    "default": [
+      "jabber",
+      "irc",
+      "twitter",
+      "oscar",
+      "msn",
+      "ymsg"
+    ],
+    "description": "List of protocols allowed for new accounts (see 'protocols' in bitlbee help)"
+  },
+  "default_account_settings": {
+    "type": "list",
+    "default": [],
+    "description": "Global default settings for newly registered accounts",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Config key suffix (e.g., 'auto_connect' \u2192 default_auto_connect)"
+      },
+      "value": {
+        "type": "string",
+        "description": "Default value as string (e.g., 'true')"
+      },
+      "description": {
+        "type": "string",
+        "description": "Description of the setting"
+      }
+    }
+  },
+  "unixsocket_path": {
+    "type": "string",
+    "default": "/var/run/bitlbee/bitlbee.sock",
+    "description": "Path to Unix domain socket for local clients (e.g., irssi via /dcc)"
+  },
+  "unixsocket_perms": {
+    "type": "string",
+    "default": "0750",
+    "description": "File permissions for the Unix socket (octal)"
+  },
+  "http_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable experimental HTTP API (not recommended for production)"
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "HTTP API port"
+  },
+  "http_root": {
+    "type": "string",
+    "default": "/",
+    "description": "Base URL path for HTTP API endpoints"
+  },
+  "http_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password (plain-text) to protect HTTP API endpoints"
+  },
+  "jsonrpc_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable JSON-RPC over Unix socket (advanced)"
+  },
+  "jsonrpc_path": {
+    "type": "string",
+    "default": "/var/run/bitlbee/jsonrpc.sock",
+    "description": "Path to the JSON-RPC Unix socket"
+  }
+}

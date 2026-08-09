@@ -1,0 +1,37 @@
+# Device Mapper Event Daemon configuration
+# Global settings for dmeventd, the daemon handling DM event notifications
+
+# Enable or disable dmeventd polling for events
+poll_interval = {{ values.poll_interval }}
+
+# Path to the D-Bus socket for inter-process communication
+# If empty or omitted, D-Bus integration is disabled
+dbus_socket = "{{ values.dbus_socket }}"
+
+# Maximum number of worker threads handling events
+max_workers = {{ values.max_workers }}
+
+# Log level: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG
+log_level = {{ values.log_level }}
+
+# Path for PID file
+pid_file = "{{ values.pid_file }}"
+
+# Path for log file (empty means syslog only)
+log_file = "{{ values.log_file }}"
+
+# Enable or disable background processing of events
+background_processing = {{ values.background_processing }}
+
+# List of monitoring targets (e.g., LVM devices, thin pools, snapshots)
+# Each target specifies how and when to monitor a device for events
+targets = [
+{% for target in values.targets %}  {
+    name = "{{ target.name }}",
+    path = "{{ target.path }}",
+    polling_enabled = {{ target.polling_enabled }},
+    event_types = [
+{% for et in target.event_types %}      "{{ et }}",
+{% endfor %}    ]
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]

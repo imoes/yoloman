@@ -1,0 +1,304 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Barbican worker service binds to. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 9311,
+    "description": "Port the Barbican worker listens on."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes (forks) to handle incoming requests."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/barbican/barbican-worker.log",
+    "description": "Path to the log file. Use '-' to log to stdout/stderr."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level for the worker service."
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "default": {
+      "auth_type": "password",
+      "www_authenticate_uri": "http://controller:5000/v3",
+      "project_domain_name": "Default",
+      "project_name": "service",
+      "user_domain_name": "Default",
+      "username": "barbican",
+      "password": "SERVICE_PASSWORD",
+      "auth_url": "http://controller:5000/v3"
+    },
+    "description": "Keystone authentication credentials and endpoint details for the Barbican worker.",
+    "items": {
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Keystone auth method (e.g., 'password')."
+      },
+      "www_authenticate_uri": {
+        "type": "string",
+        "default": "http://controller:5000/v3",
+        "description": "Public identity endpoint URL."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name containing the project."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Project (tenant) name for service user."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name containing the user."
+      },
+      "username": {
+        "type": "string",
+        "default": "barbican",
+        "description": "Service username for Barbican in Keystone."
+      },
+      "password": {
+        "type": "string",
+        "default": "SERVICE_PASSWORD",
+        "description": "Password for the service user. *Never store in plaintext in production.*",
+        "sensitive": true
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:5000/v3",
+        "description": "Admin identity endpoint (optional, used for admin operations)."
+      },
+      "insecure": {
+        "type": "bool",
+        "default": false,
+        "description": "Skip SSL verification when connecting to Keystone (not recommended in production)."
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "mysql+pymysql://barbican:BARBICAN_DB_PASS@controller/barbican",
+      "max_pool_size": 10,
+      "idle_timeout": 3600
+    },
+    "description": "Database connection configuration for persistent storage.",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://barbican:BARBICAN_DB_PASS@controller/barbican",
+        "description": "SQLAlchemy database connection string (DB://user:pass@host/dbname)."
+      },
+      "max_pool_size": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of DB connections in the pool."
+      },
+      "idle_timeout": {
+        "type": "number",
+        "default": 3600,
+        "description": "Idle DB connection timeout in seconds."
+      }
+    }
+  },
+  "secretstore": {
+    "type": "object",
+    "default": {
+      "enable_secretstore": true,
+      "enabled_plugins": [
+        "simple_crypto",
+        "pkcs11"
+      ],
+      "plugins": [
+        {
+          "name": "simple_crypto",
+          "enabled": true,
+          "config": {
+            "default_key_id": "default",
+            "key_label": "barbican",
+            "key_type": "AES",
+            "key_length": 256,
+            "mechanism": "CKM_AES_CBC"
+          }
+        },
+        {
+          "name": "pkcs11",
+          "enabled": true,
+          "config": {
+            "library_path": "/usr/lib/libsofthsm2.so",
+            "token_label_prefix": "barbican:",
+            "master_key_id": "barbican-default-key",
+            "slot_id": 1
+          }
+        }
+      ]
+    },
+    "description": "Secret store plugin configuration (e.g., encryption backends).",
+    "items": {
+      "enable_secretstore": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the SecretStore API extension."
+      },
+      "enabled_plugins": {
+        "type": "list",
+        "default": [
+          "simple_crypto",
+          "pkcs11"
+        ],
+        "description": "Ordered list of plugin names to enable. First enabled plugin becomes the default."
+      },
+      "plugins": {
+        "type": "list",
+        "default": [],
+        "description": "Detailed plugin configurations (one entry per plugin).",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Plugin name (e.g., 'simple_crypto', 'pkcs11')."
+          },
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Whether this plugin is active."
+          },
+          "config": {
+            "type": "object",
+            "default": {},
+            "description": "Plugin-specific configuration key-value pairs (string-to-string mapping)."
+          }
+        }
+      }
+    }
+  },
+  "otppkcs11": {
+    "type": "object",
+    "default": {
+      "library_path": "/usr/lib/libsofthsm2.so",
+      "pin": "12345",
+      "slot_id": 1,
+      "label": "barbican"
+    },
+    "description": "PKCS#11/HSM settings used by the PKCS11 secret store plugin.",
+    "items": {
+      "library_path": {
+        "type": "string",
+        "default": "/usr/lib/libsofthsm2.so",
+        "description": "Path to the PKCS#11 library (e.g., SoftHSM or vendor HSM)."
+      },
+      "pin": {
+        "type": "string",
+        "default": "12345",
+        "description": "PKCS#11 user (SO) PIN. *Must be secured in production.*",
+        "sensitive": true
+      },
+      "slot_id": {
+        "type": "number",
+        "default": 1,
+        "description": "HSM slot ID to use for key operations."
+      },
+      "label": {
+        "type": "string",
+        "default": "barbican",
+        "description": "Label prefix for generated keys in the HSM."
+      }
+    }
+  },
+  "admin": {
+    "type": "object",
+    "default": {
+      "user_name": "admin",
+      "project_name": "admin"
+    },
+    "description": "Keystone admin user/project context for CLI/admin tools.",
+    "items": {
+      "user_name": {
+        "type": "string",
+        "default": "admin",
+        "description": "Admin username for CLI operations."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "admin",
+        "description": "Admin project (tenant) name."
+      }
+    }
+  },
+  "notification": {
+    "type": "object",
+    "default": {
+      "notification_driver": "messagingv2",
+      "topics": [
+        {
+          "name": "barbican",
+          "topic_name": "barbican_notifications"
+        }
+      ]
+    },
+    "description": "Notification configuration for event-driven operations (e.g., audit, alerts).",
+    "items": {
+      "notification_driver": {
+        "type": "string",
+        "default": "messagingv2",
+        "description": "Notification driver (e.g., 'messagingv2' for Oslo messaging)."
+      },
+      "topics": {
+        "type": "list",
+        "default": [
+          {
+            "name": "barbican",
+            "topic_name": "barbican_notifications"
+          }
+        ],
+        "description": "List of notification topic configurations.",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Logical topic name (e.g., 'barbican', 'barbican_audit')."
+          },
+          "topic_name": {
+            "type": "string",
+            "description": "Actual messaging topic name (e.g., 'barbican_notifications')."
+          }
+        }
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "backend_url": "memcached://controller:11211",
+      "expiration_time": 600
+    },
+    "description": "Caching backend configuration for performance (e.g., for token caching).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable caching (recommended)."
+      },
+      "backend_url": {
+        "type": "string",
+        "default": "memcached://controller:11211",
+        "description": "Cache backend URL (e.g., 'memcached://host:port')."
+      },
+      "expiration_time": {
+        "type": "number",
+        "default": 600,
+        "description": "Cache entry TTL in seconds."
+      }
+    }
+  }
+}

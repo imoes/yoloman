@@ -1,0 +1,126 @@
+name: gitlab_user
+fqcn: community.general.gitlab_user
+collection: community.general
+short_description: Creates/updates/deletes/blocks/unblocks GitLab Users
+description: When the user does not exist in GitLab, it will be created. When the user exists and state=absent,
+  the user will be deleted. When the user exists and state=blocked, the user will be blocked. When changes
+  are made to user, the user will be updated.
+options:
+  access_level:
+    type: str
+    default: guest
+    choices:
+    - guest
+    - reporter
+    - developer
+    - master
+    - maintainer
+    - owner
+    description: The access level to the group. One of the following can be used. guest reporter developer
+      master (alias for maintainer) maintainer owner
+  api_job_token:
+    type: str
+    description: GitLab CI job token for logging in.
+  api_oauth_token:
+    type: str
+    description: GitLab OAuth token for logging in.
+  api_password:
+    type: str
+    description: The password to use for authentication against the API.
+  api_token:
+    type: str
+    description: GitLab access token with API permissions.
+  api_url:
+    type: str
+    description: The resolvable endpoint for the API.
+  api_username:
+    type: str
+    description: The username to use for authentication against the API.
+  ca_path:
+    type: str
+    description: The CA certificates bundle to use to verify GitLab server certificate.
+  confirm:
+    type: bool
+    default: true
+    description: Require confirmation.
+  email:
+    type: str
+    description: The email that belongs to the user. Required only if O(state=present).
+  external:
+    type: bool
+    default: false
+    description: Define external parameter for this user.
+  group:
+    type: str
+    description: Id or Full path of parent group in the form of group/name. Add user as a member to this
+      group.
+  identities:
+    type: list
+    description: List of identities to be added/updated for this user. To remove all other identities
+      from this user, set O(overwrite_identities=true).
+  isadmin:
+    type: bool
+    default: false
+    description: Grant admin privileges to the user.
+  name:
+    type: str
+    description: Name of the user you want to create. Required only if O(state=present).
+  overwrite_identities:
+    type: bool
+    default: false
+    description: Overwrite identities with identities added in this module. This means that all identities
+      that the user has and that are not listed in O(identities) are removed from the user. This is only
+      done if a list is provided for O(identities). To remove all identities, provide an empty list.
+  password:
+    type: str
+    description: The password of the user. GitLab server enforces minimum password length to 8, set this
+      value with 8 or more characters.
+  reset_password:
+    type: bool
+    default: false
+    description: Whether the user can change its password or not.
+  sshkey_expires_at:
+    type: str
+    description: The expiration date of the SSH public key in ISO 8601 format C(YYYY-MM-DDTHH:MM:SSZ).
+      This is only used when adding new SSH public keys.
+  sshkey_file:
+    type: str
+    description: The SSH public key itself.
+  sshkey_name:
+    type: str
+    description: The name of the SSH public key.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - blocked
+    - unblocked
+    description: Create, delete or block a user.
+  username:
+    type: str
+    required: true
+    description: The username of the user.
+  validate_certs:
+    type: bool
+    default: true
+    description: Whether or not to validate SSL certs when supplying a HTTPS endpoint.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: \"Delete GitLab User\"\n  community.general.gitlab_user:\n    api_url: https://gitlab.example.com/\n\
+  \    api_token: \"{{ access_token }}\"\n    username: myusername\n    state: absent\n\n- name: \"Create\
+  \ GitLab User\"\n  community.general.gitlab_user:\n    api_url: https://gitlab.example.com/\n    validate_certs:\
+  \ true\n    api_username: dj-wasabi\n    api_password: \"MySecretPassword\"\n    name: My Name\n   \
+  \ username: myusername\n    password: mysecretpassword\n    email: me@example.com\n    sshkey_name:\
+  \ MySSH\n    sshkey_file: ssh-rsa AAAAB3NzaC1yc...\n    state: present\n    group: super_group/mon_group\n\
+  \    access_level: owner\n\n- name: \"Create GitLab User using external identity provider\"\n  community.general.gitlab_user:\n\
+  \    api_url: https://gitlab.example.com/\n    validate_certs: true\n    api_token: \"{{ access_token\
+  \ }}\"\n    name: My Name\n    username: myusername\n    password: mysecretpassword\n    email: me@example.com\n\
+  \    identities:\n    - provider: Keycloak\n      extern_uid: f278f95c-12c7-4d51-996f-758cc2eb11bc\n\
+  \    state: present\n    group: super_group/mon_group\n    access_level: owner\n\n- name: \"Block GitLab\
+  \ User\"\n  community.general.gitlab_user:\n    api_url: https://gitlab.example.com/\n    api_token:\
+  \ \"{{ access_token }}\"\n    username: myusername\n    state: blocked\n\n- name: \"Unblock GitLab User\"\
+  \n  community.general.gitlab_user:\n    api_url: https://gitlab.example.com/\n    api_token: \"{{ access_token\
+  \ }}\"\n    username: myusername\n    state: unblocked\n"

@@ -1,0 +1,58 @@
+{# Grub-Customizer: /etc/default/grub configuration #}
+{# Self-documented by schema. All variables have defaults so the file renders even if omitted. #}
+{% if default_grub_customizer_enabled | default(False) | bool %}
+# Managed by grub-customizer (default_grub_customizer_enabled=True)
+{% endif %}
+
+# Seconds before booting the default entry.
+GRUB_TIMEOUT={{ (grub_timeout | default(10)) | int }}
+
+# Default boot entry (e.g., 'saved', '0', or a UUID-based identifier).
+GRUB_DEFAULT={{ grub_default | default('saved') | string }}
+
+# Distribution name for OS prober identification.
+GRUB_DISTRIBUTOR={{ grub_distro | default('Debian') | string }}
+
+# Kernel command line parameters for all Linux entries.
+GRUB_CMDLINE_LINUX={{ grub_cmdline_linux | default('') | string }}
+
+# Additional kernel command line parameters for default entries.
+GRUB_CMDLINE_LINUX_DEFAULT={{ grub_cmdline_linux_default | default('quiet splash') | string }}
+
+# Terminal output methods (e.g., 'console', 'serial', 'gfxterm'). Space-separated.
+GRUB_TERMINAL={{ grub_terminal | default('console') | string }}
+
+# Graphics mode resolution(s) for gfxterm. E.g., '1024x768,800x600'.
+GRUB_GFXMODE={{ grub_gfxmode | default('1024x768') | string }}
+
+# Path to background image for GRUB menu.
+GRUB_BACKGROUND={{ grub_background | default('/boot/grub/background.png') | string }}
+
+# Normal menu text color (foreground/background).
+GRUB_COLOR_NORMAL={{ grub_color_normal | default('light-gray/black') | string }}
+
+# Highlighted menu text color (foreground/background).
+GRUB_COLOR_HIGHLIGHT={{ grub_color_highlight | default('white/blue') | string }}
+
+# Whether to save the last-selected entry as the default boot entry.
+GRUB_SAVE_DEFAULT={{ (grub_save_default | default(True)) | bool | string | lower }}
+
+# Disable automatic detection of other OSes (e.g., Windows) via os-prober.
+GRUB_DISABLE_OS_PROBER={{ (grub_disable_os_prober | default(False)) | bool | string | lower }}
+
+# Disable generation of recovery mode entries in the boot menu.
+GRUB_DISABLE_RECOVERY={{ (grub_disable_recovery | default(False)) | bool | string | lower }}
+
+{# Custom GRUB menu entries injected by grub-customizer. #}
+{# These are NOT written to /etc/default/grub but usually appended to grub.cfg or handled via scripts. #}
+{# We emit them here as comments/structure to keep the role's intent visible, if desired. #}
+{% for entry in grub_custom_entries | default([]) %}
+# --- Custom Entry ---
+# Title: {{ entry.title | default('(unnamed)') | string }}
+{% if entry.hidden | default(False) | bool %}
+# hidden=true
+{% endif %}
+{% if entry.disabled | default(False) | bool %}
+# disabled=true
+{% endif %}
+{% endfor %}

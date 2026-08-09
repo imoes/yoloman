@@ -1,0 +1,77 @@
+{
+  "rdma_modules_to_load": {
+    "type": "list",
+    "default": [
+      "iser",
+      "rdma_ucm",
+      "rdma_cm",
+      "ib_uverbs",
+      "ib_mad",
+      "ib_sa",
+      "ib_core"
+    ],
+    "description": "List of RDMA kernel modules to load at boot (space-separated in config)."
+  },
+  "enable_kernel_module_loading": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to load RDMA kernel modules during system initialization."
+  },
+  "rdma_provider_lib_dir": {
+    "type": "string",
+    "default": "/usr/lib64",
+    "description": "Directory containing user-space RDMA provider libraries (e.g., librdmacm, libibverbs)."
+  },
+  "rdma_skip_device_prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "List of device name prefixes to exclude from automatic RDMA device probing (e.g., ['ib0', 'eth1'])."
+  },
+  "max_rdma_connections": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of RDMA connections per process. 0 means use system default (typically controlled by /proc/sys/rdma_cm/max_cm_events)."
+  },
+  "enable_rdma_netdev": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically create RDMA network interfaces (e.g., for RoCE/iWARP)."
+  },
+  "rdma_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "Per-interface RDMA network settings for RoCE/iWARP devices. Each entry configures a specific network interface.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the network interface (e.g., 'eth1', 'ib0'). Required."
+      },
+      "mode": {
+        "type": "string",
+        "default": "",
+        "description": "RDMA link mode (e.g., ' ethernet', ' infiniband'). For RoCE, usually 'ethernet'."
+      },
+      "mtu": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum Transmission Unit (MTU) in bytes (e.g., 1500 for standard Ethernet, 9000 for jumbo frames)."
+      },
+      "link_layer": {
+        "type": "string",
+        "default": "",
+        "description": "RDMA link layer type (e.g., 'ethernet', 'infiniband'). Usually auto-detected but can be overridden."
+      }
+    }
+  },
+  "enable_subnet_manager": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to start the InfiniBand Subnet Manager (SM) at boot. Only needed on fabrics without a primary SM."
+  },
+  "subnet_manager_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for the Subnet Manager (higher value = higher priority). Used when multiple SMs are present."
+  }
+}

@@ -1,0 +1,93 @@
+# =============================================================================
+# MPD Client GUI Configuration Template
+# =============================================================================
+# This configuration file defines connection and UI parameters for an MPD
+# (Music Player Daemon) client.
+#
+# Variables are sourced from Ansible facts or role defaults.
+# Every variable uses a |default() filter to ensure the template never fails
+# during rendering due to missing values.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Hostname or IP address of the MPD server to connect to.
+# -----------------------------------------------------------------------------
+host: {{ (mpd_host | default('localhost')) | string }}
+
+# -----------------------------------------------------------------------------
+# Port number of the MPD server.
+# -----------------------------------------------------------------------------
+port: {{ (mpd_port | default(6600)) | int }}
+
+# -----------------------------------------------------------------------------
+# Password required by MPD for authentication.
+# Leave empty if none is configured on the server.
+# -----------------------------------------------------------------------------
+{% if (mpd_password | default('')) | string | length > 0 %}
+password: "{{ (mpd_password | default('')) | string }}"
+{% else %}
+# password: ""
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Absolute path to the MPD Unix socket (alternative to host/port).
+# Leave empty to use TCP connection.
+# -----------------------------------------------------------------------------
+{% if (mpd_socket_path | default('')) | string | length > 0 %}
+socket_path: "{{ (mpd_socket_path | default('')) | string }}"
+{% else %}
+# socket_path: ""
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Initial volume level (0–100) for the client mixer UI.
+# -----------------------------------------------------------------------------
+mixer_volume: {{ (mixer_volume | default(75)) | int }}
+
+# -----------------------------------------------------------------------------
+# Whether the client should automatically connect to MPD on startup.
+# -----------------------------------------------------------------------------
+{% if (auto_connect | default(True)) | bool %}
+auto_connect: true
+{% else %}
+auto_connect: false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Path to the music library directory for UI display purposes
+# (e.g., file browser or playlist editing).
+# -----------------------------------------------------------------------------
+music_directory: "{{ (music_directory | default('/var/lib/mpd/music')) | string }}"
+
+# -----------------------------------------------------------------------------
+# Enable fetching and display of embedded or file-based cover art in the UI.
+# -----------------------------------------------------------------------------
+{% if (cover_art_enabled | default(True)) | bool %}
+cover_art_enabled: true
+{% else %}
+cover_art_enabled: false
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# List of cover art filenames to search for in album directories
+# (in order of preference).
+# -----------------------------------------------------------------------------
+custom_art_files:
+{% for filename in (custom_art_filenames | default(['cover.jpg', 'folder.jpg', 'front.jpg'])) %}  - "{{ filename }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Verbosity level: 0 (none) to 4 (debug).
+# Higher values produce more detailed logs.
+# -----------------------------------------------------------------------------
+log_level: {{ (log_level | default(2)) | int }}
+
+# -----------------------------------------------------------------------------
+# Enable systemd readiness notification for proper service lifecycle integration
+# (advanced).
+# -----------------------------------------------------------------------------
+{% if (systemd_notify | default(False)) | bool %}
+systemd_notify: true
+{% else %}
+systemd_notify: false
+{% endif %}

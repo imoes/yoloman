@@ -1,0 +1,76 @@
+@if (isLoggedIn() && !chromeless()) {
+  <div class="bm-shell">
+    <nav class="bm-nav" aria-label="Main navigation">
+      <div class="bm-nav-head">
+        <img class="bm-brand-logo" src="assets/bossman.jpg" alt="Bossman" />
+        <span class="bm-brand">Bossman</span>
+        <span class="bm-brand-sub">Fleet Commander</span>
+      </div>
+      <!-- Workspace switcher: five jobs, each with its own tree below (docs/ui-workspaces.md). -->
+      <div class="bm-ws-bar" role="tablist" aria-label="Workspaces">
+        @for (ws of workspaces; track ws.id) {
+          <button type="button" class="bm-ws-btn" role="tab"
+                  [class.bm-ws-btn-active]="activeWorkspace().id === ws.id"
+                  [attr.aria-selected]="activeWorkspace().id === ws.id"
+                  [attr.aria-label]="ws.label"
+                  [title]="ws.label + ' — ' + ws.hint"
+                  (click)="selectWorkspace(ws.id)">
+            <app-icon [name]="ws.icon" [size]="18" />
+          </button>
+        }
+      </div>
+      <div class="bm-ws-title">
+        <span class="bm-ws-name">{{ activeWorkspace().label }}</span>
+        <span class="bm-ws-hint">{{ activeWorkspace().hint }}</span>
+      </div>
+      @for (item of workspaceItems(); track item.path) {
+        <a class="bm-nav-item" [routerLink]="item.path" routerLinkActive="bm-nav-item-active">
+          <app-icon class="bm-nav-icon" [name]="navIcon(item.path)" [size]="20" />
+          <span class="bm-nav-label">{{ item.label }}</span>
+        </a>
+      }
+      <div class="bm-nav-footer">
+        <a class="bm-help" [routerLink]="helpItem.path" title="Help" aria-label="Help">
+          <app-icon name="help" [size]="18" />
+        </a>
+        <span class="bm-user">{{ auth.username() }}</span>
+        <button class="bm-logout" (click)="auth.logout()" title="Log out" aria-label="Log out">
+          <app-icon name="logout" [size]="18" />
+        </button>
+      </div>
+    </nav>
+    <div class="bm-content">
+      <!-- Event Console: top-right, clickable, badges the count of jobs running now. Opens the Event Browser as a popup. -->
+      <button type="button" class="bm-eventconsole" (click)="eventBrowserOpen.set(true)"
+         [class.bm-ec-active]="runningJobs() > 0"
+         [title]="runningJobs() > 0 ? runningJobs() + ' job(s) running — open Event Browser' : 'Event Browser'"
+         aria-label="Event Console">
+        <app-icon name="runs" [size]="18" />
+        @if (runningJobs() > 0) { <span class="bm-ec-badge">{{ runningJobs() }}</span> }
+      </button>
+
+      @if (eventBrowserOpen()) {
+        <div class="bm-ebpop-scrim" (click)="eventBrowserOpen.set(false)"></div>
+        <div class="bm-ebpop" role="dialog" aria-label="Event Browser">
+          <button class="bm-ebpop-close" (click)="eventBrowserOpen.set(false)" aria-label="Close"><app-icon name="close" [size]="18" /></button>
+          <app-event-browser />
+        </div>
+      }
+      <div class="bm-main">
+        <router-outlet></router-outlet>
+      </div>
+      <app-chat-dock />
+    </div>
+
+    <!-- P5: global Ctrl/Cmd+K fleet-search overlay (reuses the omnibox). -->
+    @if (searchOpen()) {
+      <div class="bm-gsearch-scrim" (click)="searchOpen.set(false)"></div>
+      <div class="bm-gsearch">
+        <app-fleet-search [autofocus]="true" />
+        <div class="bm-gsearch-hint">Enter to run · Esc to close</div>
+      </div>
+    }
+  </div>
+} @else {
+  <router-outlet></router-outlet>
+}

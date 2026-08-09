@@ -1,0 +1,77 @@
+name: cron
+fqcn: builtin.cron
+collection: builtin
+short_description: Ensure a crontab entry is present or absent for a given user, identified
+  by a named marker comment rather than its content — so changing the schedule or
+  command later replaces the same entry instead o
+description: 'Ensure a crontab entry is present or absent for a given user, identified
+  by a named marker comment rather than its content — so changing the schedule or
+  command later replaces the same entry instead of adding a duplicate. Idempotent
+  — a repeat call with the same parameters reports changed=false. Time fields default
+  to "*" (every minute/hour/day/month/weekday) unless given; alternatively set `special_time`
+  (e.g. "reboot", "daily") instead of the five numeric fields. Supports check_mode
+  via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.cron. Same name/job/user/minute/hour/day/weekday/month/special_time/state
+  semantics (a focused subset — Ansible also supports env vars and cron.d files, not
+  implemented here; entries always go into the user''s own crontab).
+
+  - Chef: the `cron`/`cron_d` resources.
+
+  - Puppet: the `cron` type.
+
+  - Salt: the `cron.present`/`cron.absent` states.
+
+  - Terraform: not applicable — Terraform does not manage host-level scheduled tasks.'
+options:
+  day:
+    type: string
+    description: Cron day-of-month field. Default "*".
+  hour:
+    type: string
+    description: Cron hour field. Default "*".
+  job:
+    type: string
+    description: The command to run, e.g. "/usr/local/bin/backup.sh". Required for
+      state=present.
+  minute:
+    type: string
+    description: Cron minute field. Default "*".
+  month:
+    type: string
+    description: Cron month field. Default "*".
+  name:
+    type: string
+    description: Unique identifier for this entry, used as its marker comment — required
+      to find/replace/remove it later.
+    required: true
+  special_time:
+    type: string
+    choices:
+    - reboot
+    - yearly
+    - annually
+    - monthly
+    - weekly
+    - daily
+    - hourly
+    description: Optional named schedule instead of the five numeric fields.
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the entry should be present or absent. Default "present".
+  user:
+    type: string
+    description: Which user's crontab to edit. Default "root".
+  weekday:
+    type: string
+    description: Cron day-of-week field. Default "*".
+native: true
+writes: true
+runtime: native
+source: agent-registry

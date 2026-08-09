@@ -1,0 +1,176 @@
+# ==============================================================================
+# gdnsd Configuration Template
+# ==============================================================================
+# This template generates a configuration file for gdnsd, a lightweight,
+# authoritative-only DNS server. It is self-documenting: every directive is
+# preceded by a comment explaining its purpose and default value.
+#
+# Global variables with defaults are handled using the |default() filter to
+# ensure robust rendering even if optional fields are not provided by Ansible.
+# ==============================================================================
+
+# ==============================================================================
+# Global Section
+# ==============================================================================
+# These settings control the general behavior of the DNS server process.
+
+global {
+  # listen_address: IP address (IPv4 or IPv6) on which the DNS server listens for incoming queries.
+  # Default: 0.0.0.0
+  # listen_port: UDP/TCP port number to bind for DNS queries (typically 53).
+  # The listen directive expects a host:port string.
+  listen = {{ listen_address | default('0.0.0.0') }}:{{ listen_port | default(53) }};
+
+  # max_udp_size: Maximum size in bytes of UDP responses (EDNS0 buffer size hint).
+  # Default: 4096
+  max_udp_size = {{ max_udp_size | default(4096) }};
+
+  # tcp_fallback: If true, fall back to TCP for responses exceeding UDP size limits.
+  # Default: True
+  tcp_fallback = {{ tcp_fallback | default(True) | lower }};
+
+  # min_negative_ttl: Minimum TTL (seconds) for negative caching (e.g., NXDOMAIN responses).
+  # Default: 60
+  min_negative_ttl = {{ min_negative_ttl | default(60) }};
+
+  # max_connections: Maximum concurrent client connections (0 = no limit).
+  # Default: 0
+  max_connections = {{ max_connections | default(0) }};
+
+  # chroot_dir: Path to chroot directory after startup (empty string to disable chroot).
+  # Default: /var/lib/gdnsd
+  chroot = "{{ chroot_dir | default('/var/lib/gdnsd') }}";
+
+  # user: System user account to drop privileges to after startup.
+  # Default: gdnsd
+  user = "{{ user | default('gdnsd') }}";
+
+  # group: System group to drop privileges to after startup.
+  # Default: gdnsd
+  group = "{{ group | default('gdnsd') }}";
+}
+
+# ==============================================================================
+# TLS/SSL Configuration (Optional)
+# ==============================================================================
+# Configures DNS over TLS (DoT) support if enabled.
+
+{% if (tls | default({})).enabled | default(False) %}
+# tls.enabled: Enable DNS over TLS (DoT) on a dedicated port. Default: False
+# Because enabled is true, we emit the TLS block.
+
+# tls.listen_address: IP address for TLS listener (empty = reuse main listen_address).
+# Default: ''
+# tls.listen_port: Port for DNS over TLS (standard: 853). Default: 853
+{% if (tls.listen_address | default('')) != '' %}
+  # Use the specific TLS listen address if provided.
+  listen = {{ tls.listen_address | default('') }}:{{ tls.listen_port | default(853) }};
+{% else %}
+  # Reuse the main global listen address if TLS-specific address is empty.
+  listen = {{ listen_address | default('0.0.0.0') }}:{{ tls.listen_port | default(853) }};
+{% endif %}
+
+# tls.cert_file: Path to TLS certificate file (PEM format).
+# Default: /etc/ssl/certs/gdnsd.crt
+  cert_file = "{{ tls.cert_file | default('/etc/ssl/certs/gdnsd.crt') }}";
+
+# tls.key_file: Path to TLS private key file (PEM format).
+# Default: /etc/ssl/private/gdnsd.key
+  key_file = "{{ tls.key_file | default('/etc/ssl/private/gdnsd.key') }}";
+
+# tls.protocols: List of allowed TLS protocols.
+# Default: ['TLSv1.2', 'TLSv1.3']
+  protocols = [{{ tls.protocols | default(['TLSv1.2', 'TLSv1.3']) | join(', ') }}];
+
+# tls.ciphers: Cipher list for TLS (OpenSSL-style format).
+# Default: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256
+  ciphers = "{{ tls.ciphers | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256') }}";
+{% endif %}
+
+# ==============================================================================
+# Logging Configuration
+# ==============================================================================
+# Controls where and how the DNS server logs events.
+
+log {
+  # log.syslog: Whether to send logs to syslog. Default: True
+  syslog = {{ (log | default({})).syslog | default(True) | lower }};
+
+  # log.file: Optional path to a log file (empty = log only to stderr/syslog).
+  # Default: ''
+  file = "{{ (log | default({})).file | default('') }}";
+
+  # log.level: Minimum log level (debug, info, notice, warn, error, crit, alert, emerg).
+  # Default: warn
+  level = "{{ (log | default({})).level | default('warn') }}";
+}
+
+# ==============================================================================
+# Zones Configuration
+# ==============================================================================
+# Defines the authoritative DNS zones served by this server.
+# zones: List of DNS zones served by this server. Default: []
+
+zones {
+{% for zone in zones | default([]) %}
+  # Zone Name: {{ zone.name | default('unknown') }}
+  {{ zone.name | default('unknown') }} {
+
+    # zone.file: Source file for zone data (AXFR/zonefile).
+    # Note: Schema did not explicitly list 'file' in top-level fields, but it is
+    # present in the zone object structure. We default to empty if missing.
+    file = "{{ zone.file | default('') }}";
+
+    # zone.allow_axfr: Allow zone transfers to these clients.
+    # Default: None (if not present)
+{% if zone.allow_axfr is defined and zone.allow_axfr %}
+    allow_axfr = [{{ zone.allow_axfr | join(', ') }}];
+{% else %}
+    # allow_axfr is not set or empty — defaults to none
+    # allow_axfr = none;
+{% endif %}
+
+    # zone.allow_notify: Allow notifies from these clients.
+    # Default: None (if not present)
+{% if zone.allow_notify is defined and zone.allow_notify %}
+    allow_notify = [{{ zone.allow_notify | join(', ') }}];
+{% else %}
+    # allow_notify is not set or empty — defaults to none
+    # allow_notify = none;
+{% endif %}
+
+    # zone.dnssec: Enable DNSSEC signing for this zone.
+    # Default: False (if not present)
+    dnssec = {{ zone.dnssec | default(False) | lower }};
+
+    # zone.soa: Optional SOA parameters override.
+    # Structure: { refresh, retry, expire, minimum, ttl }
+{% if zone.soa is defined and zone.soa %}
+    soa {
+      refresh = {{ zone.soa.refresh | default('3600') }};
+      retry   = {{ zone.soa.retry | default('900') }};
+      expire  = {{ zone.soa.expire | default('604800') }};
+      minimum = {{ zone.soa.minimum | default('86400') }};
+      ttl     = {{ zone.soa.ttl | default('3600') }};
+    }
+{% endif %}
+  }
+{% endfor %}
+}
+
+# ==============================================================================
+# Dynamic Updates (RFC 2136)
+# ==============================================================================
+# Enables secure dynamic updates for specified zones.
+
+{% if dynamic_updates | default(False) %}
+# dynamic_updates: Enable dynamic DNS updates. Default: False
+# dynamic_update_zones: List of zone names allowed to receive dynamic updates.
+# Default: []
+dynamic_updates {
+{% for zone in dynamic_update_zones | default([]) %}
+  # Zone allowed for dynamic updates: {{ zone }}
+  {{ zone }};
+{% endfor %}
+}
+{% endif %}

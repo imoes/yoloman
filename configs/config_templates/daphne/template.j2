@@ -1,0 +1,69 @@
+# Bind to this host and port (host:port or just port for localhost)
+bind_address: {{ bind_address }}
+
+# Number of worker processes
+workers: {{ workers }}
+
+# Timeout for idle connections (seconds)
+connection_timeout: {{ connection_timeout }}
+
+# Maximum number of connections
+max_connections: {{ max_connections }}
+
+# Log level: debug, info, warning, error, critical
+log_level: {{ log_level }}
+
+# Path to WSGI application module (e.g., myproject.asgi:application)
+application: {{ application }}
+
+# Optional: HTTP request header size limit (bytes)
+{%- if http_max_header_size is defined %}
+http_max_header_size: {{ http_max_header_size }}
+{% endif %}
+
+# Optional: WebSocket ping interval (seconds)
+{%- if websocket_ping_interval is defined %}
+websocket_ping_interval: {{ websocket_ping_interval }}
+{% endif %}
+
+# Optional: WebSocket ping timeout (seconds)
+{%- if websocket_ping_timeout is defined %}
+websocket_ping_timeout: {{ websocket_ping_timeout }}
+{% endif %}
+
+# Optional: SSL configuration
+{%- if ssl is defined %}
+ssl_keyfile: {{ ssl.keyfile }}
+ssl_certfile: {{ ssl.certfile }}
+{%- if ssl.ca_certs is defined %}
+ssl_ca_certs: {{ ssl.ca_certs }}
+{% endif %}
+{% endif %}
+
+# Optional: Access log file path
+{%- if access_log is defined %}
+access_log: {{ access_log }}
+{% endif %}
+
+# Optional: Error log file path
+{%- if error_log is defined %}
+error_log: {{ error_log }}
+{% endif %}
+
+# Optional: Extra command-line flags (as space-separated string)
+{%- if extra_args is defined %}
+extra_args: {{ extra_args }}
+{% endif %}
+
+# Optional: Custom server name (for HTTP response headers)
+{%- if server_name is defined %}
+server_name: {{ server_name }}
+{% endif %}
+
+# Optional: List of allowed hosts (for security)
+{%- if allowed_hosts is defined %}
+allowed_hosts:
+{%- for host in allowed_hosts %}
+  - {{ host }}
+{% endfor %}
+{% endif %}

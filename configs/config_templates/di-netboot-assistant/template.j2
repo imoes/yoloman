@@ -1,0 +1,61 @@
+# Configuration file for di-netboot-assistant
+#
+# This file controls the behavior of the Debian Installer Netboot Assistant (di-netboot-assistant).
+# It defines paths to TFTP resources, mirror rewrite rules, firmware sources, and keyrings
+# used for verifying downloaded installation media.
+
+# TFTP root directory (for netboot).
+# You will have to adjust the directory according to the tftp server setting.
+# Use option '--tftproot=DIR' to overwrite temporarily.
+# Default: '/var/lib/tftpboot'
+# Schema Field: TFTP_ROOT
+TFTP_ROOT={{ TFTP_ROOT | default('/var/lib/tftpboot') }}
+
+# Download Mirror
+# The variable MIRROR_REGEXPS contain a list of space separated sed
+# regular expression, to rewrite di-sources.list URLs, to match your
+# prefered mirror.  For example, in older releases the following has
+# been used (adapted in di-sources.list now):
+# Default: 's=://deb.debian.org/dists/=://deb.debian.org/debian/dists/='
+# Schema Field: MIRROR_REGEXPS
+MIRROR_REGEXPS={{ MIRROR_REGEXPS | default('s=://deb.debian.org/dists/=://deb.debian.org/debian/dists/=') }}
+
+## non-free firmware base URL:
+# Base URL for non-free firmware images required during installation.
+# Default: 'https://cdimage.debian.org/cdimage/unofficial/non-free/firmware/'
+# Schema Field: NONFREE_FW
+NONFREE_FW={{ NONFREE_FW | default('https://cdimage.debian.org/cdimage/unofficial/non-free/firmware/') }}
+
+# Location of the keyring to verify the signature of the downloaded
+# images:
+# Path to the Debian archive keyring file for GPG signature verification.
+# Default: '/usr/share/keyrings/debian-archive-keyring.gpg'
+# Schema Field: DEBIAN_KEYRING
+DEBIAN_KEYRING={{ DEBIAN_KEYRING | default('/usr/share/keyrings/debian-archive-keyring.gpg') }}
+
+# Path to the Ubuntu archive keyring file for GPG signature verification.
+# Default: '/usr/share/keyrings/ubuntu-archive-keyring.gpg'
+# Schema Field: UBUNTU_KEYRING
+UBUNTU_KEYRING={{ UBUNTU_KEYRING | default('/usr/share/keyrings/ubuntu-archive-keyring.gpg') }}
+
+# Debian-installer arguments.
+# The arguments listed here will be appended to the one provided by
+# the debian-installer pristine images (see di-netboot-assistant manpage).
+# Note: To use these, uncomment the line below and adjust values.
+#DI_ARGS="locale=en_US console-keymaps-at/keymap=fr-latin1 mirror/country=manual mirror/http/hostname=http.de.debian.org mirror/http/directory=/debian mirror/http/proxy="
+
+# Boot arguments for installed (target) system.
+# The arguments listed here will be appended to the one provided by
+# the debian-installer pristine images (see di-netboot-assistant manpage).
+# Note: To use these, uncomment the line below and adjust values.
+#TARGET_ARGS="vga=791"
+
+## URL to fetch the squashfs image of the root file system from for Debian Live.
+## Default ist the TFTP-server, however, you might want to provide a faster way.
+# Examples:
+#   SQUASHIMG='tftp://10.0.2.2/${LIVE_DIR}/${ISO_NAME}/live/filesystem.squashfs'
+#   SQUASHIMG="http://192.168.0.10/${ISO_NAME}/live/filesystem.squashfs"
+# For GRUB, the ${pxe_default_server} variable can be used inside the URL.
+# Default: 'tftp://${pxe_default_server}/${LIVE_DIR}/${ISO_NAME}/live/filesystem.squashfs'
+# Schema Field: SQUASHIMG
+SQUASHIMG={{ SQUASHIMG | default('tftp://\\${pxe_default_server}/${LIVE_DIR}/${ISO_NAME}/live/filesystem.squashfs') }}

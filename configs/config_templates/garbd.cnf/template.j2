@@ -1,0 +1,55 @@
+# Galera Arbitrator (garbd) configuration file
+# This file configures the galera-arbitrator daemon, which provides quorum voting
+# without storing data, used in Galera Cluster setups.
+#
+# This template is self-documenting. Every directive is preceded by its schema
+# description as a comment. All variables use default() to ensure safe rendering.
+
+# Name of the group (group) — must match the Galera cluster name.
+group = {{ vgroup | default('garbd') }}
+
+# Initial cluster address (GComm protocol).
+address = {{ vaddress | default('gcomm://') }}
+
+# Whether to enable SSL/TLS encryption for arbitrator-to-cluster communication.
+{% if ssl_enabled | default(false) | bool %}
+# Enable SSL for communication with Galera cluster
+ssl = true
+
+# Path to the SSL CA certificate file (used only if ssl_enabled is true).
+ssl_ca = {{ ssl_ca_path | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# Path to the SSL client certificate file (used only if ssl_enabled is true).
+ssl_cert = {{ ssl_cert_path | default('') }}
+
+# Path to the SSL client private key file (used only if ssl_enabled is true).
+ssl_key = {{ ssl_key_path | default('') }}
+{% endif %}
+
+# Verbosity of logging: 0=error, 1=warn, 2=info, 3=debug.
+log_level = {{ log_level | default(2) }}
+
+# Path to a log file; leave empty to log to syslog instead.
+{% if log_file | default('') | trim %}
+log = {{ log_file | default('') }}
+{% endif %}
+
+# Whether to run as a daemon.
+{% if daemon | default(false) | bool %}
+daemon = true
+{% endif %}
+
+# GCS/GCOMM option list.
+{% if options | default('') | trim %}
+options = {{ options | default('') }}
+{% endif %}
+
+# SST request string.
+{% if sst_request | default('') | trim %}
+sst = {{ sst_request | default('') }}
+{% endif %}
+
+# SST donor name.
+{% if donor | default('') | trim %}
+donor = {{ donor | default('') }}
+{% endif %}

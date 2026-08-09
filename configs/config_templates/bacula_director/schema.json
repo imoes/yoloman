@@ -1,0 +1,586 @@
+{
+  "director_name": {
+    "type": "string",
+    "default": " Bacula Director",
+    "description": "Unique name for this Director instance."
+  },
+  "director_port": {
+    "type": "number",
+    "default": 9101,
+    "description": "TCP port on which the Director listens for connections from other Bacula components."
+  },
+  "query_file_path": {
+    "type": "string",
+    "default": "/etc/bacula/query.sql",
+    "description": "Path to the SQL query file used by the bquery tool."
+  },
+  "working_directory": {
+    "type": "string",
+    "default": "/var/lib/bacula",
+    "description": "Working directory where Director stores runtime files."
+  },
+  "pid_directory": {
+    "type": "string",
+    "default": "/var/run/bacula",
+    "description": "Directory for PID files."
+  },
+  "max_concurrent_jobs": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of Jobs that can run simultaneously across all Storage Daemons."
+  },
+  "director_address": {
+    "type": "string",
+    "default": "localhost",
+    "description": "IP address or hostname on which the Director binds its service."
+  },
+  "dir_tls_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS encryption for Director-to-Client/Storage communications."
+  },
+  "catalog_name": {
+    "type": "string",
+    "default": "MyCatalog",
+    "description": "Name of the Catalog resource used by Director to track backups."
+  },
+  "catalog_dbname": {
+    "type": "string",
+    "default": "bacula",
+    "description": "Name of the database used by the Catalog."
+  },
+  "catalog_dbuser": {
+    "type": "string",
+    "default": "bacula",
+    "description": "Database user for the Catalog."
+  },
+  "catalog_dbpassword": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the Catalog database user (leave empty for peer auth or use DB-specific auth)."
+  },
+  "catalog_dbaddress": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Host address of the database server (Catalog backend)."
+  },
+  "catalog_dbport": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port of the database server (default for PostgreSQL)."
+  },
+  "catalog_dbsocket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to PostgreSQL socket (optional, overrides dbaddress)."
+  },
+  "filesets": {
+    "type": "list",
+    "default": [],
+    "description": "List of FileSet definitions (sets of files to backup).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique FileSet name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Default FileSet",
+        "description": "Description of what this FileSet backs up."
+      },
+      "enable_vss": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Windows VSS (Volume Shadow Copy Service) for consistent backups on Windows clients."
+      },
+      "includes": {
+        "type": "list",
+        "default": [],
+        "description": "List of Include blocks specifying files/directories.",
+        "items": {
+          "options": {
+            "type": "object",
+            "default": {},
+            "description": "Options for this Include block.",
+            "items": {
+              "signature": {
+                "type": "string",
+                "default": "SHA1",
+                "description": "Hash algorithm for file signatures (MD5, SHA1, SHA256, etc.)."
+              },
+              "compression": {
+                "type": "string",
+                "default": "GZIP",
+                "description": "Compression method for file data (GZIP, LZO, etc.)."
+              },
+              "hardlinks": {
+                "type": "bool",
+                "default": true,
+                "description": "Preserve hard links during backup."
+              }
+            }
+          },
+          "paths": {
+            "type": "list",
+            "default": [
+              "/"
+            ],
+            "description": "Absolute paths (files or directories) to include."
+          }
+        }
+      },
+      "excludes": {
+        "type": "list",
+        "default": [
+          {
+            "path": "/proc"
+          },
+          {
+            "path": "/sys"
+          },
+          {
+            "path": "/dev"
+          }
+        ],
+        "description": "List of file paths to exclude from backup.",
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/tmp",
+            "description": "Path to exclude."
+          }
+        }
+      }
+    }
+  },
+  "clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of File Daemon (client) definitions.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique client name (used by Director to refer to client)."
+      },
+      "fd_port": {
+        "type": "number",
+        "default": 9102,
+        "description": "Port on which the client's File Daemon listens."
+      },
+      "fd_address": {
+        "type": "string",
+        "description": "IP address or hostname of the client."
+      },
+      "tls_enable": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable TLS for communication with this client."
+      },
+      "tls_ca_certificate_file": {
+        "type": "string",
+        "default": "/etc/bacula/ssl/ca-cert.pem",
+        "description": "CA certificate file for TLS verification (optional)."
+      },
+      "tls_cert_file": {
+        "type": "string",
+        "default": "/etc/bacula/ssl/client-cert.pem",
+        "description": "Client certificate file (optional)."
+      },
+      "tls_key_file": {
+        "type": "string",
+        "default": "/etc/bacula/ssl/client-key.pem",
+        "description": "Client private key file (optional)."
+      },
+      "tls_ca_certificate_dir": {
+        "type": "string",
+        "default": "/etc/bacula/ssl/certs",
+        "description": "Directory of CA certificates for verification (optional)."
+      }
+    }
+  },
+  "storages": {
+    "type": "list",
+    "default": [],
+    "description": "List of Storage Daemon definitions (logical entries referencing physical devices).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique Storage name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Storage device",
+        "description": "Description of the storage."
+      },
+      "address": {
+        "type": "string",
+        "description": "Hostname or IP of the Storage Daemon."
+      },
+      "sd_port": {
+        "type": "number",
+        "default": 9103,
+        "description": "Port of the Storage Daemon."
+      },
+      "device_name": {
+        "type": "string",
+        "description": "Name of the Device resource this Storage references."
+      },
+      "media_type": {
+        "type": "string",
+        "default": "File",
+        "description": "Media type (e.g., File, LTO-8)."
+      },
+      "max_jbs": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of concurrent Jobs on this Storage (0 = unlimited)."
+      },
+      "max_volumes": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of volumes allowed."
+      },
+      "maximum_concurrent_jobs": {
+        "type": "number",
+        "default": 0,
+        "description": "Alias for max_jbs (preferred field)."
+      },
+      "tls_enable": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable TLS for Director-to-Storage communication."
+      },
+      "tls_ca_certificate_file": {
+        "type": "string",
+        "default": "",
+        "description": "CA certificate file for TLS (optional)."
+      },
+      "tls_cert_file": {
+        "type": "string",
+        "default": "",
+        "description": "Director certificate for TLS (optional)."
+      },
+      "tls_key_file": {
+        "type": "string",
+        "default": "",
+        "description": "Director private key for TLS (optional)."
+      }
+    }
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of physical Device definitions (where backup data actually resides).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique device name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Physical storage device",
+        "description": "Description of the device."
+      },
+      "device_type": {
+        "type": "string",
+        "default": "File",
+        "description": "Type of device (File,tape,CD-DVD)."
+      },
+      "media_type": {
+        "type": "string",
+        "default": "File",
+        "description": "Media type (must match Storage resource)."
+      },
+      "archive_device": {
+        "type": "string",
+        "description": "Path to storage directory or device file (e.g., /dev/st0 or /backup/volumes)."
+      },
+      "label_media": {
+        "type": "string",
+        "default": "yes",
+        "description": "Allow automatic labeling of new volumes (yes/no)."
+      },
+      "random_access": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable random access (true for disk, false for tape)."
+      },
+      "automatic_mount": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically mount media when needed (tape)."
+      },
+      "removable_media": {
+        "type": "bool",
+        "default": false,
+        "description": "Media is removable (e.g., tape, CD, DVD)."
+      },
+      "always_open": {
+        "type": "bool",
+        "default": false,
+        "description": "Keep device always open (performance optimization for tape)."
+      },
+      "maximum_concurrent_jobs": {
+        "type": "number",
+        "default": 0,
+        "description": "Max concurrent jobs on this device (0 = unlimited)."
+      },
+      "maximum_volume_size": {
+        "type": "string",
+        "default": "10G",
+        "description": "Maximum size of a volume (e.g., 10G, 1000M)."
+      },
+      "maximum_file_size": {
+        "type": "string",
+        "default": "",
+        "description": "Max file size when using File device (e.g., 2G)."
+      }
+    }
+  },
+  "schedules": {
+    "type": "list",
+    "default": [],
+    "description": "List of backup schedules (when and what type of backup).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique schedule name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Backup schedule",
+        "description": "Description of the schedule."
+      },
+      "run_type": {
+        "type": "string",
+        "default": "Daily",
+        "description": "Frequency (Daily, Weekly, Monthly, etc.)."
+      },
+      "level": {
+        "type": "string",
+        "default": "Full",
+        "description": "Backup level (Full, Incremental, Differential)."
+      },
+      "day": {
+        "type": "string",
+        "default": "*",
+        "description": "Day(s) to run (e.g., * = every day, Sun = Sunday)."
+      },
+      "time": {
+        "type": "string",
+        "default": "02:00",
+        "description": "Time of day (HH:MM format)."
+      }
+    }
+  },
+  "jobs": {
+    "type": "list",
+    "default": [],
+    "description": "List of actual backup jobs.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Job name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Backup job",
+        "description": "Description of the job."
+      },
+      "jobdefs": {
+        "type": "string",
+        "default": "DefaultJob",
+        "description": "Name of the JobDefs template this job inherits from."
+      },
+      "level": {
+        "type": "string",
+        "default": "Incremental",
+        "description": "Backup level (overrides JobDefs if specified)."
+      },
+      "client": {
+        "type": "string",
+        "description": "Name of the client to backup."
+      },
+      "fileset": {
+        "type": "string",
+        "description": "Name of the FileSet to use."
+      },
+      "schedule": {
+        "type": "string",
+        "description": "Name of the Schedule to use."
+      },
+      "storage": {
+        "type": "string",
+        "description": "Name of the Storage to use."
+      },
+      "pool": {
+        "type": "string",
+        "description": "Name of the Pool to allocate volumes from."
+      },
+      "priority": {
+        "type": "number",
+        "default": 10,
+        "description": "Priority of the job (higher = higher priority)."
+      },
+      "write_bootstrap": {
+        "type": "string",
+        "default": "",
+        "description": "Path to write bootstrap file (optional, for restore)."
+      }
+    }
+  },
+  "jobdefs": {
+    "type": "list",
+    "default": [],
+    "description": "List of JobDefs (reusable job templates).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "JobDefs name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Job template",
+        "description": "Description of the template."
+      },
+      "type": {
+        "type": "string",
+        "default": "Backup",
+        "description": "Job type (Backup/Restore/Verify/Console)."
+      },
+      "level": {
+        "type": "string",
+        "default": "Incremental",
+        "description": "Default backup level."
+      },
+      "client": {
+        "type": "string",
+        "default": "client1-fd",
+        "description": "Default client name."
+      },
+      "fileset": {
+        "type": "string",
+        "default": "MyFileSet",
+        "description": "Default FileSet."
+      },
+      "schedule": {
+        "type": "string",
+        "default": "WeeklyCycle",
+        "description": "Default schedule."
+      },
+      "storage": {
+        "type": "string",
+        "default": "File",
+        "description": "Default storage."
+      },
+      "pool": {
+        "type": "string",
+        "default": "Default",
+        "description": "Default pool for job."
+      },
+      "priority": {
+        "type": "number",
+        "default": 10,
+        "description": "Default priority."
+      },
+      "full_backup_pool": {
+        "type": "string",
+        "default": "FullPool",
+        "description": "Pool used for full backups (if different from pool)."
+      },
+      "incremental_backup_pool": {
+        "type": "string",
+        "default": "IncrementalPool",
+        "description": "Pool for incremental backups."
+      },
+      "differential_backup_pool": {
+        "type": "string",
+        "default": "DifferentialPool",
+        "description": "Pool for differential backups."
+      },
+      "accurate": {
+        "type": "string",
+        "default": "yes",
+        "description": "Enable accurate (file-recognized) backups (yes/no)."
+      }
+    }
+  },
+  "pools": {
+    "type": "list",
+    "default": [],
+    "description": "List of storage pools (logical groupings of volumes).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Pool name."
+      },
+      "description": {
+        "type": "string",
+        "default": "Storage pool",
+        "description": "Description of the pool."
+      },
+      "pool_type": {
+        "type": "string",
+        "default": "Backup",
+        "description": "Pool type (Backup, Scratch, Archive, etc.)."
+      },
+      "recycle": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically recycle volumes when full."
+      },
+      "auto_prune": {
+        "type": "bool",
+        "default": true,
+        "description": "Auto-prune expired volumes during job runs."
+      },
+      "volume_retention": {
+        "type": "string",
+        "default": "30 days",
+        "description": "Retention period for volumes (e.g., 30 days, 1 year)."
+      },
+      "maximum_volume_bytes": {
+        "type": "string",
+        "default": "50G",
+        "description": "Maximum size of each volume (e.g., 10G, 2000M)."
+      },
+      "maximum_volumes": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of volumes in the pool."
+      },
+      "label_format": {
+        "type": "string",
+        "default": "Pool-",
+        "description": "Prefix used for auto-labeled volumes."
+      }
+    }
+  },
+  "messages_standard": {
+    "type": "string",
+    "default": "mail = admin@{{ domain | default('localhost') }} all = /dev/stderr",
+    "description": "Default Messages directive content (custom format allowed)."
+  },
+  "messages_smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server host for email alerts."
+  },
+  "messages_from_addr": {
+    "type": "string",
+    "default": "bacula@{{ domain | default('localhost') }}",
+    "description": "Sender email address for alerts."
+  },
+  "messages_to_addrs": {
+    "type": "list",
+    "default": [
+      "admin@localhost"
+    ],
+    "description": "List of recipient email addresses for alerts."
+  },
+  "domain": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Domain name used for generating default email addresses (not a Bacula config field)."
+  }
+}

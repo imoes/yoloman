@@ -1,0 +1,57 @@
+{
+  "web_user": "www-data",
+  "web_group": "www-data",
+  "port": 8080,
+  "host": "127.0.0.1",
+  "document_root": "/var/www/minihttp",
+  "cgidir": "/usr/lib/minihttp-cgi",
+  "userdir": "www",
+  "default_index": "index.html,home.html",
+  "access_log_path": "/var/log/mini-httpd/access.log",
+  "error_log_path": "/var/log/mini-httpd/error.log",
+  "max_connections": 256,
+  "timeout_seconds": 30,
+  "enable_cgi": true,
+  "enable_directory_listing": true,
+  "enable_vhosts": true,
+  "enable_ssl": true,
+  "ssl_cert_path": "/etc/ssl/certs/minihttp.crt",
+  "ssl_key_path": "/etc/ssl/private/minihttp.key",
+  "ssl_protocols": [
+    "tlsv1_2",
+    "tlsv1_3"
+  ],
+  "mime_types": {
+    ".webp": "image/webp",
+    ".svg": "image/svg+xml"
+  },
+  "virtual_hosts": [
+    {
+      "name": "admin",
+      "root": "/var/www/admin",
+      "host": "admin.example.com",
+      "port": 8443,
+      "ssl": true,
+      "certfile": "/etc/ssl/certs/admin.crt",
+      "keyfile": "/etc/ssl/private/admin.key"
+    },
+    {
+      "name": "api",
+      "root": "/var/www/api",
+      "host": "api.example.com",
+      "port": 8081,
+      "ssl": false
+    }
+  ],
+  "custom_headers": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY"
+  },
+  "redirects": {
+    "/": "/index.html",
+    "/old": "/new"
+  },
+  "cgi_env": {
+    "PYTHONPATH": "/usr/local/lib/python3"
+  }
+}

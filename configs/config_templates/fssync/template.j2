@@ -1,0 +1,97 @@
+# fssync configuration file
+# ===========================
+# This file configures the fssync synchronization tool.
+# Format is simple key=value pairs.
+# Lines starting with # are comments and are ignored by fssync.
+# All paths must be absolute where applicable.
+
+# db: Path to the SQLite database file used to track synchronization state
+# Default: /var/lib/fssync/remote.db
+db={{ db | default('/var/lib/fssync/remote.db') }}
+
+# root: Absolute path of the local directory tree to synchronize
+# Default: /
+root={{ root | default('/') }}
+
+# host: Remote host (with optional user@ prefix) to synchronize to
+# Example: user@remotehost
+# Default: user@remotehost
+host={{ host | default('user@remotehost') }}
+
+# exclude_list: List of shell glob patterns specifying files/directories to exclude from sync
+# These patterns are passed to rsync/fssync's exclude mechanism.
+# Default: [] (empty list, no exclusions)
+{% set _exclude = exclude_list | default([]) %}
+{% if _exclude | length > 0 %}
+# Excluded patterns: {{ _exclude | join(', ') }}
+exclude={{ _exclude | join(',') }}
+{% endif %}
+
+# cipher: SSH cipher to use for data encryption
+# Options include 'aes128-ctr', 'chacha20-poly1305@openssh.com', or 'none' to disable encryption.
+# Default: aes128-ctr
+cipher={{ cipher | default('aes128-ctr') }}
+
+# parallel_jobs: Number of file transfers to run in parallel
+# Increasing this value may speed up large syncs but consumes more resources.
+# Default: 4
+parallel_jobs={{ parallel_jobs | default(4) }}
+
+# log_level: Verbosity level for logging output
+# 0 = quiet (errors only)
+# 1 = normal (standard progress)
+# 2 = verbose (detailed)
+# 3 = debug (maximum detail)
+# Default: 1
+log_level={{ log_level | default(1) }}
+
+# use_hardlinks: Whether to use hardlinks for deduplication during sync
+# When enabled, identical files on the remote side are hardlinked instead of copied.
+# Default: True
+use_hardlinks={{ 'true' if use_hardlinks | default(true) else 'false' }}
+
+# compress: Whether to compress data during transfer over SSH
+# Reduces bandwidth usage at the cost of CPU.
+# Default: True
+compress={{ 'true' if compress | default(true) else 'false' }}
+
+# remote_cmd: Custom command to use for fssync on the remote host
+# Use this if fssync is not in the PATH on the remote side or requires specific arguments.
+# Example: /usr/local/bin/fssync-server
+# Default: '' (empty, uses default PATH lookup)
+{% if remote_cmd | default('') %}
+remote_cmd={{ remote_cmd | default('') }}
+{% endif %}
+
+# ssh_key: Path to SSH private key file for authentication
+# If empty, the default SSH agent keys or system keys are used.
+# Example: ~/.ssh/id_ed25519
+# Default: '' (empty)
+{% if ssh_key | default('') %}
+ssh_key={{ ssh_key | default('') }}
+{% endif %}
+
+# dry_run: If true, only simulate the sync without making changes
+# Useful for testing what would be transferred or deleted.
+# Default: False
+dry_run={{ 'true' if dry_run | default(false) else 'false' }}
+
+# force_resync: If true, ignore database state and resync everything
+# Bypasses incremental checks and treats all files as new/changed.
+# Default: False
+force_resync={{ 'true' if force_resync | default(false) else 'false' }}
+
+# ssh_timeout: Timeout (in seconds) for SSH connection establishment
+# If the SSH handshake does not complete within this time, the sync fails.
+# Default: 60
+ssh_timeout={{ ssh_timeout | default(60) }}
+
+# block_size: Size of fixed blocks used for sparse file diffing (in bytes)
+# Determines the granularity of change detection for large files.
+# Default: 65536
+block_size={{ block_size | default(65536) }}
+
+# max_files_per_dir: Maximum number of files to process per directory scan
+# Set to 0 for unlimited. Limits memory usage during directory traversal.
+# Default: 0
+max_files_per_dir={{ max_files_per_dir | default(0) }}

@@ -1,0 +1,72 @@
+[cache]
+# Enable or disable caching of delivery results
+enabled = {{ cache.enabled }}
+
+# Maximum number of cached entries
+max_size = {{ cache.max_size }}
+
+# Cache expiration time in seconds
+ttl = {{ cache.ttl }}
+
+# Path to the cache directory
+path = {{ cache.path }}
+
+[delivery]
+# Enable or disable delivery service
+enabled = {{ delivery.enabled }}
+
+# Maximum number of concurrent delivery workers
+max_workers = {{ delivery.max_workers }}
+
+# Maximum size of a single delivery (in bytes)
+max_size = {{ delivery.max_size }}
+
+# Directory where delivered files are stored
+output_path = {{ delivery.output_path }}
+
+# List of allowed client hostnames (empty = allow all)
+{% if delivery.allowed_hosts %}
+allowed_hosts = {{ delivery.allowed_hosts | join(', ') }}
+{% else %}
+allowed_hosts =
+{% endif %}
+
+# List of allowed client CIDR blocks (empty = allow all)
+{% if delivery.allowed_cidrs %}
+allowed_cidrs = {{ delivery.allowed_cidrs | join(', ') }}
+{% else %}
+allowed_cidrs =
+{% endif %}
+
+[log]
+# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+level = {{ log.level }}
+
+# Path to log file
+path = {{ log.path }}
+
+# Enable log rotation
+rotate = {{ log.rotate }}
+
+# Maximum log file size in bytes (used only if rotate is enabled)
+max_size = {{ log.max_size }}
+
+# Number of old log files to keep (used only if rotate is enabled)
+max_files = {{ log.max_files }}
+
+[storage]
+# Backend type: filesystem, database, etc.
+type = {{ storage.type }}
+
+# Filesystem: path to base storage directory
+{% if storage.type == 'filesystem' %}
+base_path = {{ storage.base_path }}
+{% endif %}
+
+# Database: connection string
+{% if storage.type == 'database' %}
+connection = {{ storage.connection }}
+{% endif %}
+
+# Whether to compress stored files
+compress = {{ storage.compress }}

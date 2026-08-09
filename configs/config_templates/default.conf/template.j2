@@ -1,0 +1,91 @@
+[client]
+# The name of the IPA domain (e.g., 'example.com'). Must match the IPA server domain.
+realm = {{ realm | default('') }}
+
+# Hostname or IP of the primary IPA server (e.g., 'ipa.example.com').
+server = {{ server | default('') }}
+
+# Whether to automatically create a home directory for IPA users on first login.
+create_homedir = {{ create_homedir | default(true) }}
+
+# Custom text to prepend before password prompts (leave blank for default).
+prompt_password = {{ prompt_password | default('') }}
+
+# Maximum recursion depth when using DNS to discover IPA servers.
+# Set to 0 to disable DNS SRV lookups.
+dns_lookup_max_depth = {{ dns_lookup_max_depth | default(1) }}
+
+# Whether to use DNS to discover IPA realm (Kerberos realm discovery via SRV records).
+dns_lookup_realm = {{ dns_lookup_realm | default(true) }}
+
+# Whether to use DNS SRV records to discover IPA domain controllers.
+dns_discovery = {{ dns_discovery | default(true) }}
+
+# Explicit Kerberos realm name if different from the IPA realm. Defaults to 'realm'.
+krb5_realm = {{ krb5_realm | default(realm | default('')) }}
+
+# List of alternative KDC hostnames for Kerberos authentication (fallbacks).
+{% for kdc in (kdcs | default([])) %}# KDC: {{ kdc }}
+kdc = {{ kdc }}
+{% endfor %}
+
+# List of alternative admin servers for Kerberos administration (e.g., kadmin operations).
+{% for admin_server in (admin_servers | default([])) %}# Admin Server: {{ admin_server }}
+admin_server = {{ admin_server }}
+{% endfor %}
+
+# Path to the Kerberos configuration file. Usually /etc/krb5.conf.
+krb5_conf = {{ krb5_conf | default('/etc/krb5.conf') }}
+
+# Whether to enable retrieval and use of SSH public keys for IPA users.
+ssh_keys = {{ ssh_keys | default(false) }}
+
+# Whether to automatically update ~/.ssh/config with IPA host keys on login.
+update_ssh_client_config = {{ update_ssh_client_config | default(true) }}
+
+# Whether to automatically add IPA-managed hosts to ~/.ssh/known_hosts.
+add_to_known_hosts = {{ add_to_known_hosts | default(true) }}
+
+# Whether to configure the SSH daemon to use SSSD for IPA authentication.
+configure_sshd = {{ configure_sshd | default(true) }}
+
+# Whether to configure the system to use SSSD for user/group lookups and authentication.
+use_sssd = {{ use_sssd | default(true) }}
+
+[domain/{{ (realm | default('')) | lower }}]
+# Enable IPA provider for user and group lookups
+id_provider = ipa
+auth_provider = ipa
+access_provider = ipa
+
+# Custom LDAP URI for IPA server (e.g., 'ldap://ipa.example.com').
+# Auto-discovered if omitted.
+{% if ldap_uri | default('') %}ldap_uri = {{ ldap_uri | default('') }}
+{% endif %}
+
+# Base DN for LDAP searches (e.g., 'dc=example,dc=com').
+# Auto-discovered if omitted.
+{% if base_dn | default('') %}ldap_search_base = {{ base_dn | default('') }}
+{% endif %}
+
+# Whether to cache user credentials for offline authentication.
+cache_credentials = {{ cache_credentials | default(true) }}
+
+# Minimum UID/GID to consider valid (prevents conflicts with local accounts).
+min_id = {{ min_id | default(1000) }}
+
+# Maximum UID/GID to consider valid.
+max_id = {{ max_id | default(1999999999) }}
+
+# Whether to enumerate all IPA users and groups (may impact performance on large directories).
+enumerate = {{ enumerate | default(false) }}
+
+# Whether to allow authentication from trusted Active Directory domains (if configured in IPA).
+allow_trusted_domains = {{ allow_trusted_domains | default(false) }}
+
+# DNS forwarder IP for dynamic DNS updates (e.g., '8.8.8.8').
+# Leave blank to disable.
+dns_forwarder = {{ dns_forwarder | default('') }}
+
+# Whether to enable one-time password (OTP) authentication for IPA users.
+use_otp = {{ use_otp | default(false) }}

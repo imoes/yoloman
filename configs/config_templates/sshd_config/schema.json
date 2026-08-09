@@ -1,0 +1,252 @@
+{
+  "port": {
+    "type": "number",
+    "default": 22,
+    "description": "The port on which the SSH daemon listens for incoming connections."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "The IP address the SSH daemon binds to. Use '' or '0.0.0.0' to listen on all interfaces."
+  },
+  "protocol_version": {
+    "type": "number",
+    "default": 2,
+    "description": "SSH protocol version to use. Only version 2 is secure and supported."
+  },
+  "password_auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable password-based authentication. Recommended false in favor of public keys."
+  },
+  "pubkey_auth_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable public key (key-based) authentication."
+  },
+  "authorized_keys_file": {
+    "type": "string",
+    "default": ".ssh/authorized_keys",
+    "description": "Path to the file containing user public keys (relative to user's home directory)."
+  },
+  "login_grace_time": {
+    "type": "number",
+    "default": 120,
+    "description": "Time (in seconds) the server waits for client to complete authentication before disconnecting."
+  },
+  "permit_root_login": {
+    "type": "string",
+    "default": "prohibit-password",
+    "description": "Whether root login is allowed. Options: 'no', 'yes', 'without-password', 'forceroot'.",
+    "enum": [
+      "no",
+      "prohibit-password",
+      "forced-commands-only",
+      "without-password"
+    ]
+  },
+  "max_auth_tries": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of authentication attempts per connection."
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of open sessions per network connection."
+  },
+  "allow_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of usernames allowed to log in. If non-empty, only these users may log in.",
+    "item_type": "string"
+  },
+  "allow_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of group names whose members are allowed to log in. If non-empty, only members of these groups may log in.",
+    "item_type": "string"
+  },
+  "host_key_algorithms": {
+    "type": "list",
+    "default": [
+      "ssh-ed25519",
+      "ecdsa-sha2-nistp256",
+      "ecdsa-sha2-nistp384",
+      "ecdsa-sha2-nistp521",
+      "rsa-sha2-512",
+      "rsa-sha2-256"
+    ],
+    "description": "Ordered list of accepted host key algorithms (for server identification).",
+    "item_type": "string"
+  },
+  "kex_algorithms": {
+    "type": "list",
+    "default": [
+      "curve25519-sha256",
+      "curve25519-sha256@libssh.org",
+      "ecdh-sha2-nistp256",
+      "ecdh-sha2-nistp384",
+      "ecdh-sha2-nistp521"
+    ],
+    "description": "Ordered list of key exchange algorithms to support.",
+    "item_type": "string"
+  },
+  "ciphers": {
+    "type": "list",
+    "default": [
+      "chacha20-poly1305@openssh.com",
+      "aes256-gcm@openssh.com",
+      "aes128-gcm@openssh.com",
+      "aes256-ctr",
+      "aes192-ctr",
+      "aes128-ctr"
+    ],
+    "description": "Ordered list of encryption ciphers to support (cipher modes only).",
+    "item_type": "string"
+  },
+  "macs": {
+    "type": "list",
+    "default": [
+      "hmac-sha2-512-etm@openssh.com",
+      "hmac-sha2-256-etm@openssh.com",
+      "hmac-sha2-512",
+      "hmac-sha2-256"
+    ],
+    "description": "Ordered list of message authentication code (MAC) algorithms to support.",
+    "item_type": "string"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 20,
+    "description": "Verbosity level of logs. Use values like 10 (ERROR), 20 (WARN), 30 (INFO), 40 (DEBUG)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "AUTH",
+    "description": "Syslog facility for SSH logs. Options: DAEMON, USER, AUTH, LOCAL0\u2013LOCAL7.",
+    "enum": [
+      "DAEMON",
+      "USER",
+      "AUTH",
+      "LOCAL0",
+      "LOCAL1",
+      "LOCAL2",
+      "LOCAL3",
+      "LOCAL4",
+      "LOCAL6",
+      "LOCAL7"
+    ]
+  },
+  "x11_forwarding_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable X11 forwarding for GUI applications over SSH."
+  },
+  "x11_display_offset": {
+    "type": "number",
+    "default": 10,
+    "description": "First X11 display number to use for forwarded connections."
+  },
+  "tcp_forwarding_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow TCP port forwarding (tunnels)."
+  },
+  "agent_forwarding_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow authentication agent forwarding."
+  },
+  "sftp_subsystems": {
+    "type": "list",
+    "default": [
+      {
+        "name": "sftp",
+        "executable": "/usr/lib/openssh/sftp-server"
+      }
+    ],
+    "description": "Define one or more SFTP subsystems with name and executable path.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "sftp",
+        "description": "Subsystem name (e.g., 'sftp')"
+      },
+      "executable": {
+        "type": "string",
+        "default": "/usr/lib/openssh/sftp-server",
+        "description": "Path to the SFTP subsystem binary"
+      }
+    }
+  },
+  "match_blocks": {
+    "type": "list",
+    "default": [],
+    "description": "List of Match blocks for conditional configuration. Each block has criteria (e.g., 'User admin') and directives.",
+    "items": {
+      "reason": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable comment describing the match block purpose"
+      },
+      "criteria": {
+        "type": "string",
+        "default": "",
+        "description": "Match criteria (e.g., 'User alice', 'Group sftponly')"
+      },
+      "directives": {
+        "type": "list",
+        "default": [],
+        "description": "List of directives to apply when the match criteria is satisfied.",
+        "items": {
+          "key": {
+            "type": "string",
+            "default": "",
+            "description": "Config directive name (e.g., 'PasswordAuthentication')"
+          },
+          "value": {
+            "type": "string",
+            "default": "",
+            "description": "Directive value (as string; do not quote unless required)"
+          }
+        }
+      }
+    }
+  },
+  "client_alive_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds between server\u2192client keep-alive messages (0=disabled)."
+  },
+  "client_alive_count_max": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of missed keep-alive messages before server disconnects client."
+  },
+  "tcp_keep_alive": {
+    "type": "bool",
+    "default": true,
+    "description": "Send TCP keep-alive packets (use false with connection managers like SSH Multiplexing)."
+  },
+  "banner": {
+    "type": "string",
+    "default": "",
+    "description": "Path to banner file to display before authentication (e.g., /etc/issue.net). Leave empty to disable."
+  },
+  "strict_modes": {
+    "type": "bool",
+    "default": true,
+    "description": "Require strict permissions on user files and directories (recommended true for security)."
+  },
+  "ignore_rhosts": {
+    "type": "bool",
+    "default": true,
+    "description": "Ignore .rhosts and .shosts files (recommended true for security)."
+  },
+  "use_pam": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PAM for authentication (required for many advanced features like account/session modules)."
+  }
+}

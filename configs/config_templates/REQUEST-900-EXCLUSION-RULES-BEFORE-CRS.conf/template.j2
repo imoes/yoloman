@@ -1,0 +1,25 @@
+# ModSecurity CRS Exclusion Rules: Applied BEFORE the core rule set
+# This file contains SecRuleRemoveById / SecRuleRemoveTargetById directives to exclude known false positives
+# or overly aggressive rules per specific application or endpoint requirements
+#
+# This template is self-documenting. Each section corresponds to a schema field:
+# - excluded_rule_ids: List of ModSecurity rule IDs to disable entirely.
+# - excluded_rule_targets: List of per-parameter rule exclusions (e.g., for known false positives in specific query/body parameters).
+
+{# Exclude specific rule IDs globally if provided #}
+{%- for rule_id in excluded_rule_ids | default([]) %}
+# Exclude rule ID {{ rule_id }} globally
+# This directive tells ModSecurity to ignore the specified rule ID for all requests.
+SecRuleRemoveById {{ rule_id }}
+{%- endfor %}
+
+{# Exclude specific rule IDs for specific request parameters if provided #}
+{%- for target in excluded_rule_targets | default([]) %}
+# Exclude rule ID {{ target.rule_id }} for request parameter: {{ target.param_name }}
+# This directive tells ModSecurity to ignore the specified rule ID ONLY when the target parameter matches.
+# The target type (e.g., REQUEST_URI, REQUEST_HEADERS) is uppercased as required by ModSecurity syntax.
+SecRuleRemoveTargetById {{ target.rule_id }} REQUEST_{{ target.target_type | upper }}:{{ target.param_name }}
+{%- endfor %}
+
+# Ensure exclusions are processed before CRS rules (via Include directive in main ModSecurity config)
+# Note: This file should be included before the main CRS configuration file in the ModSecurity main configuration.

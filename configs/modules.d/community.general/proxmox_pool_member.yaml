@@ -1,0 +1,66 @@
+name: proxmox_pool_member
+fqcn: community.general.proxmox_pool_member
+collection: community.general
+short_description: Add or delete members from Proxmox VE cluster pools
+description: Create or delete a pool member in Proxmox VE clusters.
+options:
+  api_host:
+    type: str
+    required: true
+    description: Specify the target host of the Proxmox VE cluster.
+  api_password:
+    type: str
+    description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment
+      variable.
+  api_token_id:
+    type: str
+    description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+  api_token_secret:
+    type: str
+    description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+  api_user:
+    type: str
+    required: true
+    description: Specify the user to authenticate with.
+  member:
+    type: str
+    required: true
+    description: Specify the member name. For O(type=storage) it is a storage name. For O(type=vm) either
+      vmid or vm name could be used.
+  poolid:
+    type: str
+    required: true
+    aliases:
+    - name
+    description: The pool ID.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the pool member.
+  type:
+    type: str
+    default: vm
+    choices:
+    - vm
+    - storage
+    description: Member type to add/remove from the pool.
+  validate_certs:
+    type: bool
+    default: false
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add new VM to Proxmox VE pool\n  community.general.proxmox_pool_member:\n    api_host:\
+  \ node1\n    api_user: root@pam\n    api_password: password\n    poolid: test\n    member: 101\n\n-\
+  \ name: Add new storage to Proxmox VE pool\n  community.general.proxmox_pool_member:\n    api_host:\
+  \ node1\n    api_user: root@pam\n    api_password: password\n    poolid: test\n    member: zfs-data\n\
+  \    type: storage\n\n- name: Remove VM from the Proxmox VE pool using VM name\n  community.general.proxmox_pool_member:\n\
+  \    api_host: node1\n    api_user: root@pam\n    api_password: password\n    poolid: test\n    member:\
+  \ pxe.home.arpa\n    state: absent\n\n- name: Remove storage from the Proxmox VE pool\n  community.general.proxmox_pool_member:\n\
+  \    api_host: node1\n    api_user: root@pam\n    api_password: password\n    poolid: test\n    member:\
+  \ zfs-storage\n    type: storage\n    state: absent\n"

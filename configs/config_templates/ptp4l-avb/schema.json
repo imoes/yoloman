@@ -1,0 +1,118 @@
+{
+  "profile_id": {
+    "type": "string",
+    "default": "0x001b",
+    "description": "PTP profile identifier; 0x001b is IEEE 1722.1 AVB profile"
+  },
+  "priority1": {
+    "type": "number",
+    "default": 2,
+    "description": "Priority1 value in BMCA; lower = higher priority (0\u201314); typical for AVB boundary clocks"
+  },
+  "priority2": {
+    "type": "number",
+    "default": 6,
+    "description": "Priority2 value in BMCA; used to break ties among clocks with same priority1"
+  },
+  "clock_class": {
+    "type": "number",
+    "default": 248,
+    "description": "Clock class: 248 for AVB boundary clock, 254 for ordinary clock (OC)"
+  },
+  "offset_from_master": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 microseconds of offset from master; 0 means synced; adjust only for known calibration"
+  },
+  "path_delay": {
+    "type": "number",
+    "default": 0,
+    "description": "Mean path delay in microseconds (0 = auto-detect); set explicitly for deterministic behavior"
+  },
+  "master_acceptable": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of consecutive lost or out-of-sync Announce messages before rejecting master"
+  },
+  "slave_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Set to true for endpoints (e.g., AVB audio interfaces) that must never act as master"
+  },
+  "accuracy": {
+    "type": "string",
+    "default": "0x21",
+    "description": "Clock accuracy class (e.g., 0x21 = \u00b125 ns); match hardware capability"
+  },
+  "time_source": {
+    "type": "string",
+    "default": "0x10",
+    "description": "Time source type (e.g., 0x10 = GPS, 0x80 = atomic); affects grandmaster selection"
+  },
+  "domain_number": {
+    "type": "number",
+    "default": 0,
+    "description": "PTP domain number; AVB typically uses 0"
+  },
+  "sdo_id": {
+    "type": "number",
+    "default": 0,
+    "description": "SDO_ID for domain uniqueness (0\u201365535); used in multi-domain deployments"
+  },
+  "announce_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 of Announce interval in seconds (e.g., 0 = 1 s, -1 = 500 ms); AVB usually 0"
+  },
+  "sync_interval": {
+    "type": "number",
+    "default": -2,
+    "description": "Log2 of Sync interval in seconds (e.g., -2 = 25 ms, -3 = 12.5 ms); AVB typically -2 to -3"
+  },
+  "delayreq_interval": {
+    "type": "number",
+    "default": -2,
+    "description": "Log2 of Delay_Req interval in seconds (e.g., -2 = 25 ms); match sync interval for AVB"
+  },
+  "network_transport": {
+    "type": "string",
+    "default": "L2",
+    "description": "Transport type: L2 (Ethernet) for AVB; L3 (UDP) is not AVB-compliant"
+  },
+  "transport_specific": {
+    "type": "string",
+    "default": "0x0",
+    "description": "Transport-specific header bits (L2=0x0, L3=0x1); must match transport type"
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "delay_mechanism": "E2E"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Interface name (e.g., eth0, eno1); required"
+      },
+      "hw_timestamping": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable hardware timestamping on this interface; required for AVB"
+      },
+      "port_number": {
+        "type": "number",
+        "default": 1,
+        "description": "Port number (1-indexed); usually 1 for single-port NICs"
+      },
+      "delay_mechanism": {
+        "type": "string",
+        "default": "E2E",
+        "description": "Delay mechanism: E2E (End-to-End, via Delay_Req/Resp) or P2P (Peer-to-Peer, via PDelay_Req/Resp); P2P is preferred for AVB"
+      }
+    }
+  }
+}

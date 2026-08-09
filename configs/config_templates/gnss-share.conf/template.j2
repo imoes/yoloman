@@ -1,0 +1,92 @@
+# gnss-share main configuration file
+# Enables or disables the GNSS data sharing service
+# Defaults: enabled=True
+enabled: {{ enabled | default(True) | lower }}
+
+# Network interface to bind to for incoming connections
+# e.g., eth0, wg0, lo
+# Defaults: bind_interface='eth0'
+bind_interface: {{ bind_interface | default('eth0') }}
+
+# TCP port for the main GNSS data service (HTTP API)
+# Defaults: service_port=10110
+service_port: {{ service_port | default(10110) }}
+
+# UDP port for raw GNSS data streaming (NTRIP, RTCM)
+# Defaults: stream_port=10111
+stream_port: {{ stream_port | default(10111) }}
+
+# Path to the log file
+# Set to 'syslog' to use system logging instead of a file
+# Defaults: log_file='/var/log/gnss-share.log'
+log_file: {{ log_file | default('/var/log/gnss-share.log') }}
+
+# Log level: debug, info, warn, error, critical
+# Controls verbosity of output
+# Defaults: log_level='info'
+log_level: {{ log_level | default('info') }}
+
+# Path where the process PID file will be written
+# Defaults: pid_file='/run/gnss-share/gnss-share.pid'
+pid_file: {{ pid_file | default('/run/gnss-share/gnss-share.pid') }}
+
+# Number of worker threads
+# 0 = automatically detect CPU count
+# Defaults: worker_count=0
+worker_count: {{ worker_count | default(0) }}
+
+# Maximum number of simultaneous client connections allowed
+# Defaults: max_connections=100
+max_connections: {{ max_connections | default(100) }}
+
+# Idle timeout (seconds) for client connections before closing
+# Defaults: client_timeout=300
+client_timeout: {{ client_timeout | default(300) }}
+
+# List of allowed client IP addresses or CIDR subnets
+# Empty list = allow all clients
+# Defaults: allowed_clients=[]
+allowed_clients: {{ allowed_clients | default([]) | join(', ') }}
+
+# Enable TLS encryption for the HTTP service
+# Requires certificate and key files if enabled
+# Defaults: ssl_enabled=False
+ssl_enabled: {{ ssl_enabled | default(False) | lower }}
+
+# Path to SSL/TLS certificate file (PEM format)
+# Required if ssl_enabled=true
+# Defaults: ssl_cert_file='/etc/gnss-share/ssl/cert.pem'
+ssl_cert_file: {{ ssl_cert_file | default('/etc/gnss-share/ssl/cert.pem') }}
+
+# Path to SSL/TLS private key file (PEM format)
+# Required if ssl_enabled=true
+# Defaults: ssl_key_file='/etc/gnss-share/ssl/key.pem'
+ssl_key_file: {{ ssl_key_file | default('/etc/gnss-share/ssl/key.pem') }}
+
+# List of upstream GNSS data sources to fetch and re-share
+# e.g., NTRIP servers
+# Structure: list of objects with name, type, url, format, username (opt), password (opt)
+# Defaults: gnss_sources=[]
+{% for source in gnss_sources | default([]) %}
+# Source: {{ source.name | default('unknown') }}
+gnss_source_{{ loop.index }}_name: {{ source.name | default('') }}
+gnss_source_{{ loop.index }}_type: {{ source.type | default('') }}
+gnss_source_{{ loop.index }}_url: {{ source.url | default('') }}
+gnss_source_{{ loop.index }}_format: {{ source.format | default('') }}
+{% if source.username is defined %}
+gnss_source_{{ loop.index }}_username: {{ source.username | default('') }}
+{% endif %}
+{% if source.password is defined %}
+gnss_source_{{ loop.index }}_password: {{ source.password | default('') }}
+{% endif %}
+{% endfor %}
+
+# Enable HTTP Basic authentication for API access
+# Requires users file if enabled
+# Defaults: auth_enabled=False
+auth_enabled: {{ auth_enabled | default(False) | lower }}
+
+# Path to JSON file with username:hash pairs for authentication
+# e.g., using bcrypt hashes
+# Defaults: auth_users_file='/etc/gnss-share/users.json'
+auth_users_file: {{ auth_users_file | default('/etc/gnss-share/users.json') }}

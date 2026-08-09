@@ -1,0 +1,195 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for the proxy to listen on (e.g., '0.0.0.0' for all interfaces)"
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number for HTTP traffic"
+  },
+  "backend_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name identifying this proxy instance\u2019s backend group"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of concurrent client connections allowed"
+  },
+  "transparent": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable transparent proxy mode (typically used when proxy sits in-line on the network path)"
+  },
+  "proxy_protocol": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable PROXY protocol to preserve client IP when proxying through another proxy"
+  },
+  "timeout_connect": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) for establishing connection to backend servers"
+  },
+  "timeout_server": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) waiting for response from backend servers"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity level for logs (debug, info, notice, warning, error)",
+    "enum": [
+      "info",
+      "notice",
+      "warning"
+    ]
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ffproxy/ffproxy.log",
+    "description": "Path to the log file (if not specified, logs to stdout)"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/ffproxy/ffproxy.pid",
+    "description": "Path to the PID file"
+  },
+  "backend_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend servers to proxy requests to",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Unique name for this backend server (e.g., 'web1')"
+      },
+      "address": {
+        "type": "string",
+        "required": true,
+        "description": "IP address or hostname of backend server"
+      },
+      "port": {
+        "type": "number",
+        "required": true,
+        "description": "Port number of backend server"
+      },
+      "weight": {
+        "type": "number",
+        "default": 1,
+        "description": "Relative weight for load balancing (higher = more requests)"
+      },
+      "backup": {
+        "type": "bool",
+        "default": false,
+        "description": "Mark as backup server (only used when all non-backup servers fail)"
+      },
+      "check": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable health checks against this backend"
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 256,
+        "description": "Max concurrent connections allowed to this backend"
+      }
+    }
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS on a separate listener"
+  },
+  "ssl_listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address for SSL listener (ignored unless ssl_enabled)"
+  },
+  "ssl_listen_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port for SSL listener (e.g., 443 or 8443)"
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ffproxy/ssl/server.crt",
+    "description": "Path to the SSL certificate file"
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ffproxy/ssl/server.key",
+    "description": "Path to the SSL private key file"
+  },
+  "ssl_ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256",
+    "description": "Colon- or space-separated list of allowed SSL ciphers (fallback to defaults if omitted)"
+  },
+  "ssl_protocols": {
+    "type": "list",
+    "default": [
+      "TLSv1.2",
+      "TLSv1.3"
+    ],
+    "description": "List of allowed SSL/TLS protocols",
+    "items": {
+      "type": "string",
+      "enum": [
+        "TLSv1.0",
+        "TLSv1.1",
+        "TLSv1.2",
+        "TLSv1.3"
+      ]
+    }
+  },
+  "ssl_prefer_server_ciphers": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefer server cipher order over client order during TLS handshake"
+  },
+  "acl_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Access control rules for routing or blocking traffic",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Unique ACL rule name"
+      },
+      "pattern": {
+        "type": "string",
+        "required": true,
+        "description": "Regex pattern or prefix used to match request path or host"
+      }
+    }
+  },
+  "rate_limits": {
+    "type": "list",
+    "default": [],
+    "description": "Per-ACL or per-group rate limiting rules",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Name of the rate limit (must match an ACL rule or 'default')"
+      },
+      "requests": {
+        "type": "number",
+        "required": true,
+        "description": "Max number of requests allowed"
+      },
+      "window": {
+        "type": "number",
+        "required": true,
+        "description": "Time window in seconds over which to measure requests"
+      }
+    }
+  }
+}

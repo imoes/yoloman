@@ -1,0 +1,567 @@
+# ============================================================================
+# Configuration file for aMule daemon (amule_daemon)
+# ============================================================================
+# This file is managed by Ansible. Do not edit manually.
+# All values are injected from the role variables. Defaults are applied inline
+# to ensure the configuration is always valid, even if a variable is undefined.
+# ============================================================================
+
+# [General] — Global daemon settings
+[General]
+
+# Enables detailed logging (e.g., for debugging).
+# Default: false (NoDebug).
+# Debug: {{ "Debug" if (debug_enabled | default(False) | bool) else "NoDebug" }}
+{% if (debug_enabled | default(False) | bool) %}
+Debug
+{% else %}
+NoDebug
+{% endif %}
+
+# Name shown for this instance in the network (visible to peers).
+# Default: 'aMule Daemon'
+NickName={{ nick_name | default('aMule Daemon') }}
+
+# Enable remote control via amulecmd or WebUI.
+# Default: true (WebServerEnabled).
+# WebServerEnabled: {{ "WebServerEnabled" if (webui_enabled | default(True) | bool) else "WebServerDisabled" }}
+{% if (webui_enabled | default(True) | bool) %}
+WebServerEnabled
+{% else %}
+WebServerDisabled
+{% endif %}
+
+# Enable KAD network (decentralized peer discovery).
+# Default: true (KadEnabled).
+# KadEnabled: {{ "KadEnabled" if (kad_enabled | default(True) | bool) else "KadDisabled" }}
+{% if (kad_enabled | default(True) | bool) %}
+KadEnabled
+{% else %}
+KadDisabled
+{% endif %}
+
+# Enable eD2k network (centralized server-based).
+# Default: true (ED2kEnabled).
+# ED2kEnabled: {{ "ED2kEnabled" if (ed2k_enabled | default(True) | bool) else "ED2kDisabled" }}
+{% if (ed2k_enabled | default(True) | bool) %}
+ED2kEnabled
+{% else %}
+ED2kDisabled
+{% endif %}
+
+# Directory where completed downloads are stored.
+# Default: '/var/lib/amule/Incoming'
+Directory={{ downloads_dir | default('/var/lib/amule/Incoming') }}
+
+# Directory for temporary (incomplete) downloads.
+# Default: '/var/lib/amule/PartFiles'
+TempDirectory={{ temp_dir | default('/var/lib/amule/PartFiles') }}
+
+# Directory for temporary swap files (shared hash tables, etc.).
+# Default: '/var/lib/amule/sessions'
+SwapDirectory={{ swap_dir | default('/var/lib/amule/sessions') }}
+
+# Directory for configuration backups.
+# Default: '/etc/amule'
+ConfigDirectory={{ config_dir | default('/etc/amule') }}
+
+# Log directory (optional, leave blank to disable file logging).
+# Default: '' (empty string, logging disabled).
+# LogDirectory={{ log_dir | default('') }}
+{% if (log_dir | default('')) %}
+LogDirectory={{ log_dir | default('') }}
+{% else %}
+LogDirectory=
+{% endif %}
+
+# Number of connections per file (0 = automatic tuning).
+# Default: 5
+FilesConnections={{ files_connections | default(5) }}
+
+# Maximum simultaneous connections (0 = unlimited, but capped by system limits).
+# Default: 200
+MaxConnections={{ max_connections | default(200) }}
+
+# Upload bandwidth limit in KB/s (0 = unlimited).
+# Default: 0
+UploadLimit={{ upload_limit_kb | default(0) }}
+
+# Download bandwidth limit in KB/s (0 = unlimited).
+# Default: 0
+DownloadLimit={{ download_limit_kb | default(0) }}
+
+# Enable automatic server list update.
+# Default: true (AutoUpdateServers).
+# AutoUpdateServers: {{ "AutoUpdateServers" if (auto_update_servers | default(True) | bool) else "NoAutoUpdateServers" }}
+{% if (auto_update_servers | default(True) | bool) %}
+AutoUpdateServers
+{% else %}
+NoAutoUpdateServers
+{% endif %}
+
+# Enable automatic server list update from URL.
+# Default: true (AutoUpdateServerList).
+# AutoUpdateServerList: {{ "AutoUpdateServerList" if (auto_update_server_list | default(True) | bool) else "NoAutoUpdateServerList" }}
+{% if (auto_update_server_list | default(True) | bool) %}
+AutoUpdateServerList
+{% else %}
+NoAutoUpdateServerList
+{% endif %}
+
+# Server list update URL (only used if AutoUpdateServerList is enabled).
+# Default: 'http://ed2k.sourceforge.net servers.dat'
+ServerURL={{ server_list_url | default('http://ed2k.sourceforge.net servers.dat') }}
+
+# Enable automatic source exchange (ED2k-only).
+# Default: true (AutoUpdateSourceList).
+# AutoUpdateSourceList: {{ "AutoUpdateSourceList" if (auto_update_source_list | default(True) | bool) else "NoAutoUpdateSourceList" }}
+{% if (auto_update_source_list | default(True) | bool) %}
+AutoUpdateSourceList
+{% else %}
+NoAutoUpdateSourceList
+{% endif %}
+
+# Source list update URL (only used if AutoUpdateSourceList is enabled).
+# Default: 'http://amule.sourceforge.net sources.dat'
+SourceURL={{ source_list_url | default('http://amule.sourceforge.net sources.dat') }}
+
+# Enable automatic IP detection via UPnP/NAT-PMP.
+# Default: true (UPnPEnabled).
+# UPnPEnabled: {{ "UPnPEnabled" if (upnp_enabled | default(True) | bool) else "UPnPDisabled" }}
+{% if (upnp_enabled | default(True) | bool) %}
+UPnPEnabled
+{% else %}
+UPnPDisabled
+{% endif %}
+
+# Listen port for eD2k clients (TCP).
+# Default: 4662
+InboundPort={{ inbound_port_tcp | default(4662) }}
+
+# Listen port for KAD (UDP).
+# Default: 4672
+KadPort={{ inbound_port_udp | default(4672) }}
+
+# Enable remote access (amulecmd/webui) from any host.
+# Default: true (AllowExternalConnections).
+# AllowExternalConnections: {{ "AllowExternalConnections" if (allow_external | default(True) | bool) else "NoAllowExternalConnections" }}
+{% if (allow_external | default(True) | bool) %}
+AllowExternalConnections
+{% else %}
+NoAllowExternalConnections
+{% endif %}
+
+# Password for remote access (amulecmd/webui) — must be set for security.
+# Default: '' (empty string, no password enforced unless UsePassword is true, but recommended to set).
+# Note: If empty, remote access might be restricted depending on UsePassword setting.
+Password={{ admin_password | default('') }}
+
+# WebUI password (if different from admin_password; otherwise uses admin_password).
+# Default: '' (uses admin_password if empty or same).
+# WebPassword={{ (webui_password | default('')) if (webui_password | default('')) and (webui_password | default('')) != (admin_password | default('')) else admin_password | default('') }}
+{% if (webui_password | default('')) and (webui_password | default('')) != (admin_password | default('')) %}
+WebPassword={{ webui_password | default('') }}
+{% else %}
+WebPassword={{ admin_password | default('') }}
+{% endif %}
+
+# Enable WebUI (redundant with WebServerEnabled above, kept for legacy compatibility).
+# Default: true (WebServerEnabled).
+# WebServerEnabled: {{ "WebServerEnabled" if (webui_enabled | default(True) | bool) else "WebServerDisabled" }}
+{% if (webui_enabled | default(True) | bool) %}
+WebServerEnabled
+{% else %}
+WebServerDisabled
+{% endif %}
+
+# WebUI listen port.
+# Default: 4711
+WebServerPort={{ webui_port | default(4711) }}
+
+# WebUI listen interface (e.g., 127.0.0.1 for localhost only, or * for all).
+# Default: '0.0.0.0'
+WebServerInterface={{ webui_interface | default('0.0.0.0') }}
+
+# Enable SSL for WebUI (HTTPS).
+# Default: false (NoWebServerSSLPort).
+# WebServerSSLPort: {{ "WebServerSSLPort" if (webui_ssl_enabled | default(False) | bool) else "NoWebServerSSLPort" }}
+{% if (webui_ssl_enabled | default(False) | bool) %}
+WebServerSSLPort
+{% else %}
+NoWebServerSSLPort
+{% endif %}
+
+# SSL certificate file path (only used if SSL enabled).
+# Default: '/etc/amule/web_cert.pem'
+{% if (webui_ssl_enabled | default(False) | bool) %}
+SSLCertFile={{ webui_ssl_cert_path | default('/etc/amule/web_cert.pem') }}
+{% endif %}
+
+# Enable remote access via amulecmd.
+# Default: true (RemoteControlEnabled).
+# RemoteControlEnabled: {{ "RemoteControlEnabled" if (remote_control_enabled | default(True) | bool) else "RemoteControlDisabled" }}
+{% if (remote_control_enabled | default(True) | bool) %}
+RemoteControlEnabled
+{% else %}
+RemoteControlDisabled
+{% endif %}
+
+# amulecmd listen interface (e.g., 127.0.0.1 for local only).
+# Default: '127.0.0.1'
+RemoteInterface={{ remote_interface | default('127.0.0.1') }}
+
+# Listen interface for eD2k clients (e.g., 0.0.0.0 for all, or 127.0.0.1 for local only).
+# Default: '0.0.0.0'
+Interface={{ ed2k_interface | default('0.0.0.0') }}
+
+# Listen interface for KAD (UDP).
+# Default: '0.0.0.0'
+KadInterface={{ kad_interface | default('0.0.0.0') }}
+
+# Enable incoming connections logging.
+# Default: false (NoLogIncomingConnections).
+# LogIncomingConnections: {{ "LogIncomingConnections" if (log_incoming | default(False) | bool) else "NoLogIncomingConnections" }}
+{% if (log_incoming | default(False) | bool) %}
+LogIncomingConnections
+{% else %}
+NoLogIncomingConnections
+{% endif %}
+
+# Enable verbose logging.
+# Default: false (NoLogVerbose).
+# LogVerbose: {{ "LogVerbose" if (verbose_logging | default(False) | bool) else "NoLogVerbose" }}
+{% if (verbose_logging | default(False) | bool) %}
+LogVerbose
+{% else %}
+NoLogVerbose
+{% endif %}
+
+# Buffer size for reading files (in KB).
+# Default: 4096
+FileBufferSize={{ file_buffer_size_kb | default(4096) }}
+
+# Enable disk cache (speeds up I/O).
+# Default: true (DiskCacheEnabled).
+# DiskCacheEnabled: {{ "DiskCacheEnabled" if (disk_cache_enabled | default(True) | bool) else "NoDiskCacheEnabled" }}
+{% if (disk_cache_enabled | default(True) | bool) %}
+DiskCacheEnabled
+{% else %}
+NoDiskCacheEnabled
+{% endif %}
+
+# Disk cache size (in MB).
+# Default: 64
+DiskCacheSize={{ disk_cache_size_mb | default(64) }}
+
+# Enable sharing of partial files (aMule-specific).
+# Default: false (NoShareFilesFromTempDir).
+# ShareFilesFromTempDir: {{ "ShareFilesFromTempDir" if (share_temp | default(False) | bool) else "NoShareFilesFromTempDir" }}
+{% if (share_temp | default(False) | bool) %}
+ShareFilesFromTempDir
+{% else %}
+NoShareFilesFromTempDir
+{% endif %}
+
+# Enable auto-connection to last known servers.
+# Default: true (ConnectToServers).
+# ConnectToServers: {{ "ConnectToServers" if (connect_to_servers | default(True) | bool) else "NoConnectToServers" }}
+{% if (connect_to_servers | default(True) | bool) %}
+ConnectToServers
+{% else %}
+NoConnectToServers
+{% endif %}
+
+# Enable auto-reconnect on disconnect.
+# Default: true (AutoReconnect).
+# AutoReconnect: {{ "AutoReconnect" if (auto_reconnect | default(True) | bool) else "NoAutoReconnect" }}
+{% if (auto_reconnect | default(True) | bool) %}
+AutoReconnect
+{% else %}
+NoAutoReconnect
+{% endif %}
+
+# Enable auto-shutdown after idle (in minutes); 0 = disabled.
+# Default: 0
+{% if (idle_shutdown_minutes | default(0)) > 0 %}
+IdleTimeout={{ idle_shutdown_minutes | default(0) }}
+{% else %}
+IdleTimeout=0
+{% endif %}
+
+# Enable auto-shutdown after downloads complete (headless servers).
+# Default: false (NoAutoShutdownOnIdle).
+# AutoShutdownOnIdle: {{ "AutoShutdownOnIdle" if (shutdown_on_idle | default(False) | bool) else "NoAutoShutdownOnIdle" }}
+{% if (shutdown_on_idle | default(False) | bool) %}
+AutoShutdownOnIdle
+{% else %}
+NoAutoShutdownOnIdle
+{% endif %}
+
+# Enable auto-shutdown on exit (e.g., after Ctrl+C or signal).
+# Default: false (NoShutdownOnExit).
+# ShutdownOnExit: {{ "ShutdownOnExit" if (shutdown_on_exit | default(False) | bool) else "NoShutdownOnExit" }}
+{% if (shutdown_on_exit | default(False) | bool) %}
+ShutdownOnExit
+{% else %}
+NoShutdownOnExit
+{% endif %}
+
+# Maximum upload slots per file (0 = auto based on capacity).
+# Default: 0
+UploadSlots={{ upload_slots | default(0) }}
+
+# Minimum share ratio to stop seeding (0 = disabled).
+# Default: 0.0
+MinShareRatio={{ min_share_ratio | default(0.0) }}
+
+# Maximum share ratio to stop seeding (0 = unlimited).
+# Default: 0.0
+MaxShareRatio={{ max_share_ratio | default(0.0) }}
+
+# Enable auto-updating of aMule server list (duplicate of above, kept for compatibility).
+# Default: true (AutoUpdateServers).
+# AutoUpdateServers: {{ "AutoUpdateServers" if (auto_update_servers | default(True) | bool) else "NoAutoUpdateServers" }}
+{% if (auto_update_servers | default(True) | bool) %}
+AutoUpdateServers
+{% else %}
+NoAutoUpdateServers
+{% endif %}
+
+# Enable auto-updating of sources (ED2k) (duplicate of above, kept for compatibility).
+# Default: true (AutoUpdateSourceList).
+# AutoUpdateSourceList: {{ "AutoUpdateSourceList" if (auto_update_source_list | default(True) | bool) else "NoAutoUpdateSourceList" }}
+{% if (auto_update_source_list | default(True) | bool) %}
+AutoUpdateSourceList
+{% else %}
+NoAutoUpdateSourceList
+{% endif %}
+
+# Enable IPv6 support.
+# Default: true (IPv6Enabled).
+# IPv6Enabled: {{ "IPv6Enabled" if (ipv6_enabled | default(True) | bool) else "IPv6Disabled" }}
+{% if (ipv6_enabled | default(True) | bool) %}
+IPv6Enabled
+{% else %}
+IPv6Disabled
+{% endif %}
+
+# Prefer IPv4 over IPv6 (only relevant if IPv6 enabled).
+# Default: false (IPv6Only).
+# IPv4Only: {{ "IPv4Only" if (ipv4_preferred | default(False) | bool) else "IPv6Only" }}
+{% if (ipv4_preferred | default(False) | bool) %}
+IPv4Only
+{% else %}
+IPv6Only
+{% endif %}
+
+# Enable DHT (Kad) search (required for Kad network).
+# Default: true (KadDHTSearch).
+# KadDHTSearch: {{ "KadDHTSearch" if (kad_dht_search | default(True) | bool) else "NoKadDHTSearch" }}
+{% if (kad_dht_search | default(True) | bool) %}
+KadDHTSearch
+{% else %}
+NoKadDHTSearch
+{% endif %}
+
+# Enable Kad nodes cache (speeds up Kad startup).
+# Default: true (KadNodesCache).
+# KadNodesCache: {{ "KadNodesCache" if (kad_nodes_cache | default(True) | bool) else "NoKadNodesCache" }}
+{% if (kad_nodes_cache | default(True) | bool) %}
+KadNodesCache
+{% else %}
+NoKadNodesCache
+{% endif %}
+
+# Kad nodes cache file (optional override).
+# Default: '' (empty, uses default location).
+{% if (kad_nodes_cache_file | default('')) %}
+KadNodesCacheFile={{ kad_nodes_cache_file | default('') }}
+{% endif %}
+
+# Enable resource-intensive operations throttling.
+# Default: false (NoThrottleEnabled).
+# ThrottleEnabled: {{ "ThrottleEnabled" if (throttle_enabled | default(False) | bool) else "NoThrottleEnabled" }}
+{% if (throttle_enabled | default(False) | bool) %}
+ThrottleEnabled
+{% else %}
+NoThrottleEnabled
+{% endif %}
+
+# Upload throttle during download (KB/s, 0 = no throttle).
+# Default: 0
+UploadThrottle={{ upload_throttle_kb | default(0) }}
+
+# Download throttle (KB/s, 0 = no throttle).
+# Default: 0
+DownloadThrottle={{ download_throttle_kb | default(0) }}
+
+# Enable scheduled throttling.
+# Default: false (NoScheduleEnabled).
+# ScheduleEnabled: {{ "ScheduleEnabled" if (schedule_enabled | default(False) | bool) else "NoScheduleEnabled" }}
+{% if (schedule_enabled | default(False) | bool) %}
+ScheduleEnabled
+{% else %}
+NoScheduleEnabled
+{% endif %}
+
+# Schedule: start hour (0–23).
+# Default: 0
+{% if (schedule_enabled | default(False) | bool) %}
+ScheduleFrom={{ schedule_start_hour | default(0) }}
+{% else %}
+ScheduleFrom=0
+{% endif %}
+
+# Schedule: end hour (0–23).
+# Default: 23
+{% if (schedule_enabled | default(False) | bool) %}
+ScheduleTo={{ schedule_end_hour | default(23) }}
+{% else %}
+ScheduleTo=0
+{% endif %}
+
+# Throttle profile: upload limit during schedule (KB/s).
+# Default: 50
+{% if (schedule_enabled | default(False) | bool) %}
+ScheduleUpload={{ schedule_upload_limit_kb | default(50) }}
+{% else %}
+ScheduleUpload=0
+{% endif %}
+
+# Throttle profile: download limit during schedule (KB/s).
+# Default: 200
+{% if (schedule_enabled | default(False) | bool) %}
+ScheduleDownload={{ schedule_download_limit_kb | default(200) }}
+{% else %}
+ScheduleDownload=0
+{% endif %}
+
+# [Server] — Server connection preferences
+[Server]
+
+# Minimum server version required (e.g., 0.26 = eMule 0.26a).
+# Default: '0.26'
+MinServerVersion={{ min_server_version | default('0.26') }}
+
+# Maximum server version accepted (9999 = none allowed).
+# Default: '9999'
+MaxServerVersion={{ max_server_version | default('9999') }}
+
+# Minimum upload speed to consider server (KB/s).
+# Default: 50
+MinServerUpload={{ min_server_upload_kb | default(50) }}
+
+# Minimum download speed to consider server (KB/s).
+# Default: 100
+MinServerDownload={{ min_server_download_kb | default(100) }}
+
+# Minimum number of users required on server.
+# Default: 10
+MinUsers={{ min_users_on_server | default(10) }}
+
+# Minimum number of files required on server.
+# Default: 50
+MinFiles={{ min_files_on_server | default(50) }}
+
+# List of trusted servers (by IP:Port).
+# Default: [] (empty list)
+{% set trusted = trusted_servers | default([]) %}
+{% if trusted %}
+TrustedServers={{ trusted | join(', ') }}
+{% else %}
+TrustedServers=
+{% endif %}
+
+# List of blocked servers (by IP:Port).
+# Default: [] (empty list)
+{% set blocked = blocked_servers | default([]) %}
+{% if blocked %}
+BlockedServers={{ blocked | join(', ') }}
+{% else %}
+BlockedServers=
+{% endif %}
+
+# List of servers to always connect to (by IP:Port).
+# Default: [] (empty list)
+{% set always = always_connect | default([]) %}
+{% if always %}
+AlwaysConnect={{ always | join(', ') }}
+{% else %}
+AlwaysConnect=
+{% endif %}
+
+# [Security] — Access control and encryption
+[Security]
+
+# Require password for remote access (enforced by Password= above).
+# Default: true (UsePassword).
+# UsePassword: {{ "UsePassword" if (use_password | default(True) | bool) else "NoUsePassword" }}
+{% if (use_password | default(True) | bool) %}
+UsePassword
+{% else %}
+NoUsePassword
+{% endif %}
+
+# Enable IP filtering.
+# Default: false (NoIPFilterEnabled).
+# IPFilterEnabled: {{ "IPFilterEnabled" if (ip_filter_enabled | default(False) | bool) else "NoIPFilterEnabled" }}
+{% if (ip_filter_enabled | default(False) | bool) %}
+IPFilterEnabled
+{% else %}
+NoIPFilterEnabled
+{% endif %}
+
+# IP filter file path.
+# Default: '/etc/amule/FilteredIPs.dat'
+IPFilterFile={{ ip_filter_file | default('/etc/amule/FilteredIPs.dat') }}
+
+# Enable automatic IP filtering (block known bad IPs).
+# Default: true (AutoIPFilter).
+# AutoIPFilter: {{ "AutoIPFilter" if (auto_ip_filter | default(True) | bool) else "NoAutoIPFilter" }}
+{% if (auto_ip_filter | default(True) | bool) %}
+AutoIPFilter
+{% else %}
+NoAutoIPFilter
+{% endif %}
+
+# Enable encryption for eD2k connections (preferred to plain).
+# Default: true (CryptoRequired).
+# CryptoRequired: {{ "CryptoRequired" if (crypto_required | default(True) | bool) else "NoCryptoRequired" }}
+{% if (crypto_required | default(True) | bool) %}
+CryptoRequired
+{% else %}
+NoCryptoRequired
+{% endif %}
+
+# Enable encryption for Kad (UDP) — not all clients support this.
+# Default: true (KadCryptoRequired).
+# KadCryptoRequired: {{ "KadCryptoRequired" if (kad_crypto_required | default(True) | bool) else "NoKadCryptoRequired" }}
+{% if (kad_crypto_required | default(True) | bool) %}
+KadCryptoRequired
+{% else %}
+NoKadCryptoRequired
+{% endif %}
+
+# [View] — UI-related display settings (ignored by daemon, kept for compatibility)
+[View]
+ShowStats=0
+ShowDebug=0
+ShowServers=0
+ShowSources=0
+ShowDownloads=0
+ShowShared=0
+ShowTransfers=0
+ShowSearch=0
+ShowLog=0
+
+# [Stats] — Internal statistics for health monitoring
+[Stats]
+
+# Enable statistics collection (internal only, used for health checks).
+# Default: false (NoStatsEnabled).
+# StatsEnabled: {{ "StatsEnabled" if (stats_enabled | default(False) | bool) else "NoStatsEnabled" }}
+{% if (stats_enabled | default(False) | bool) %}
+StatsEnabled
+{% else %}
+NoStatsEnabled
+{% endif %}

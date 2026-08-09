@@ -1,0 +1,22 @@
+# Enriched template for puppetserver report cleanup cron script.
+# Generated from Ansible role; see schema for field details.
+#!/bin/sh
+
+# Ensure the `puppet` command is available on the system path.
+# If not installed, exit cleanly without errors.
+command -v puppet >/dev/null || exit 0
+
+# reportdir: Path to the Puppet report directory to be cleaned up by the cron job.
+# Default: /var/lib/puppet/reports
+reportdir="{{ reportdir | default('/var/lib/puppet/reports') }}"
+
+# Check if the report directory exists before attempting cleanup.
+if [ -e "$reportdir" ] ; then
+    # Delete report files older than 30 days.
+    find "$reportdir" -type f -ctime +30 -delete
+
+    # Remove empty subdirectories (but not the root directory itself).
+    find "$reportdir" -mindepth 1 -type d -empty -delete
+fi
+
+exit 0

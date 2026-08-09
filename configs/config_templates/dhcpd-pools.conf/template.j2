@@ -1,0 +1,104 @@
+# dhcpd-pools.conf — Configuration for dhcpd-pools status page generator
+#
+# This INI-style configuration controls the behavior of the dhcpd-pools utility,
+# which monitors DHCP lease pools and generates status reports in HTML, JSON,
+# and CSV formats. It also optionally exposes a small HTTP status server and
+# supports SNMP polling for external monitoring systems.
+#
+# All variables MUST have a safe default to prevent render failures when
+# the Ansible role is reused without explicit variable definition.
+
+[global]
+
+# Verbosity of logging: 0 = quiet, 1 = normal, 2 = verbose, 3 = debug.
+# Default 1 provides standard operational logging.
+log_level = {{ log_level | default(1) }}
+
+# Maximum number of recent lease entries to show in the HTML status page.
+# Helps prevent extremely large HTML pages in networks with many leases.
+max_lines = {{ max_lines | default(100) }}
+
+# Enable or disable generation of the HTML status page.
+# Set to False if you only want JSON or CSV outputs.
+html_status = {{ html_status | default(true) }}
+
+# File path where the HTML status page will be written.
+# The directory must exist and be writable by the dhcpd-pools process.
+html_output = {{ html_output | default('/var/www/html/dhcpd-pools/status.html') }}
+
+# File path where the JSON status page will be written (if enabled).
+# Useful for machine-readable consumption by other tools or scripts.
+json_output = {{ json_output | default('/var/www/html/dhcpd-pools/status.json') }}
+
+# Enable or disable generation of the JSON status page.
+json_status = {{ json_status | default(true) }}
+
+# File path for the CSV summary output; empty disables CSV output.
+# The directory must exist and be writable by the dhcpd-pools process.
+csv_output = {{ csv_output | default('/var/log/dhcpd-pools/daily-summary.csv') }}
+
+# Enable or disable generation of the CSV summary.
+csv_status = {{ csv_status | default(true) }}
+
+# Time zone offset in ±HHMM format (e.g., '+0800' for UTC+8).
+# Used for timestamping status page entries.
+tz_offset = {{ tz_offset | default('+0000') }}
+
+# Hostname or FQDN to use in status page URLs.
+# Leave empty to auto-detect the local hostname.
+hostname = {{ hostname | default('') }}
+
+# Network interface to bind the status HTTP server to.
+# Empty string disables the HTTP server entirely.
+listen_iface = {{ listen_iface | default('') }}
+
+# HTTP port for the status server.
+# Only used if listen_iface is set to a non-empty value.
+listen_port = {{ listen_port | default(8080) }}
+
+# Seconds between automatic status page updates.
+# Controls the refresh rate of the generated static files.
+update_interval = {{ update_interval | default(60) }}
+
+# Enable or disable SNMP polling for additional metrics.
+# Requires an SNMP agent to be running and configured.
+snmp_enable = {{ snmp_enable | default(false) }}
+
+# SNMP community string to use for polling (if enabled).
+# In production, use a read-only community string with restricted access.
+snmp_community = {{ snmp_community | default('public') }}
+
+# List of subnets and DHCP pools to monitor.
+# Each subnet block defines a DHCP range to track lease statistics.
+{% for subnet in subnets | default([]) %}
+[{{ subnet.name }}]
+
+# Network address in CIDR notation (e.g., 192.168.1.0/24)
+# This identifies the DHCP scope being monitored.
+network = {{ subnet.network | default('') }}
+
+# Netmask (optional; if omitted, derived from CIDR notation)
+# Explicitly specifying it can aid in clarity for non-CIDR representations.
+netmask = {{ subnet.netmask | default('') | trim | default('') }}
+
+# Start of the DHCP address pool
+# The first IP address offered by the DHCP server in this range.
+start = {{ subnet.start | default('') }}
+
+# End of the DHCP address pool
+# The last IP address offered by the DHCP server in this range.
+end = {{ subnet.end | default('') }}
+
+# Lease time in seconds
+# The duration for which an IP address is leased to a client.
+lease_time = {{ subnet.lease_time | default(3600) }}
+
+# Enable/disable tracking for this subnet
+# Set to False to exclude this pool from status reports.
+enabled = {{ subnet.enabled | default(true) }}
+
+# Optional description for the subnet/pool
+# Used for documentation purposes in the generated status pages.
+# comment = {{ subnet.comment | default('') | trim }}
+
+{% endfor %}

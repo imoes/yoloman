@@ -1,0 +1,307 @@
+{
+  "sudo_conf_plugins": {
+    "type": "list",
+    "default": [
+      {
+        "name": "sudoers_audit",
+        "path": "sudoers.so",
+        "args": []
+      },
+      {
+        "name": "sudoers_policy",
+        "path": "sudoers.so",
+        "args": []
+      },
+      {
+        "name": "sudoers_io",
+        "path": "sudoers.so",
+        "args": []
+      }
+    ],
+    "description": "List of sudo.conf plugin entries (name, path, optional args)"
+  },
+  "env_reset": {
+    "type": "bool",
+    "default": true,
+    "description": "Reset user environment to minimal defaults (true = secure; false = inherit all unless denied)"
+  },
+  "env_check": {
+    "type": "list",
+    "default": [],
+    "description": "List of regex patterns to match env vars whose *values* must be checked (e.g., bash functions)"
+  },
+  "env_delete": {
+    "type": "list",
+    "default": [],
+    "description": "List of regex patterns for env vars to remove from the user's environment"
+  },
+  "env_keep": {
+    "type": "list",
+    "default": [
+      "DISPLAY",
+      "HOME",
+      "LOGNAME",
+      "MAIL",
+      "PATH",
+      "SHELL",
+      "TERM",
+      "USER"
+    ],
+    "description": "List of env var name patterns to preserve from user's environment"
+  },
+  "secure_path": {
+    "type": "string",
+    "default": "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+    "description": "Safe PATH used for command execution (overrides user's PATH)"
+  },
+  "set_logname": {
+    "type": "bool",
+    "default": true,
+    "description": "Force LOGNAME/USER to target user, overriding SUDO_USER"
+  },
+  "always_set_home": {
+    "type": "bool",
+    "default": false,
+    "description": "Always set HOME to target user's home directory"
+  },
+  "set_home": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable -H to set HOME to target user's home (default with -i)"
+  },
+  "setenv": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow user to preserve environment with -E (default: false unless overridden)"
+  },
+  "timestamp_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Number of minutes to cache sudo authentication"
+  },
+  "logfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to sudo log file (empty = use syslog only)"
+  },
+  "syslog": {
+    "type": "string",
+    "default": "authpriv",
+    "description": "Syslog facility to use (e.g., auth, authpriv, local0, etc.)",
+    "enum": [
+      "authpriv",
+      "auth",
+      "daemon",
+      "user",
+      "local0",
+      "local1",
+      "local2",
+      "local3",
+      "local4",
+      "local5",
+      "local6",
+      "local7"
+    ]
+  },
+  "log_allowed": {
+    "type": "bool",
+    "default": true,
+    "description": "Log allowed/successful commands (default is to log all)"
+  },
+  "log_denied": {
+    "type": "bool",
+    "default": true,
+    "description": "Log denied/failed attempts (default is to log all)"
+  },
+  "mailto": {
+    "type": "string",
+    "default": "root",
+    "description": "Email address to notify about unauthorized sudo attempts"
+  },
+  "mail_always": {
+    "type": "bool",
+    "default": false,
+    "description": "Always send mail on sudo events (success or failure)"
+  },
+  "mail_badpass": {
+    "type": "bool",
+    "default": false,
+    "description": "Send mail when authentication fails"
+  },
+  "rlimit_core": {
+    "type": "string",
+    "default": "0",
+    "description": "Core dump file size limit (e.g., \"0\", \"infinity\", \"soft,hard\")"
+  },
+  "rlimit_nofile": {
+    "type": "string",
+    "default": "",
+    "description": "Max open file descriptors limit"
+  },
+  "rlimit_nproc": {
+    "type": "string",
+    "default": "",
+    "description": "Max number of processes limit"
+  },
+  "rlimit_cpu": {
+    "type": "string",
+    "default": "",
+    "description": "Max CPU time (seconds)"
+  },
+  "rlimit_as": {
+    "type": "string",
+    "default": "",
+    "description": "Max virtual address space (bytes or 'infinity')"
+  },
+  "rlimit_memlock": {
+    "type": "string",
+    "default": "",
+    "description": "Max locked-in-memory address space"
+  },
+  "rlimit_locks": {
+    "type": "string",
+    "default": "",
+    "description": "Max number of file locks"
+  },
+  "rlimit_fsize": {
+    "type": "string",
+    "default": "",
+    "description": "Max size of files created"
+  },
+  "rlimit_stack": {
+    "type": "string",
+    "default": "",
+    "description": "Max stack size"
+  },
+  "restricted_env_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to restricted environment file (applied before user env)"
+  },
+  "env_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to unrestricted environment file (applied last)"
+  },
+  "rootpw": {
+    "type": "bool",
+    "default": false,
+    "description": "Require root password instead of user\u2019s password"
+  },
+  "targetpw": {
+    "type": "bool",
+    "default": false,
+    "description": "Require target user\u2019s password instead of invoking user\u2019s"
+  },
+  "runaspw": {
+    "type": "bool",
+    "default": false,
+    "description": "Require the target user (specified by -u) to authenticate"
+  },
+  "timestamp_type": {
+    "type": "string",
+    "default": "tty",
+    "description": "Timestamp scoping: 'tty' (per-terminal), 'ppid' (per-parent), 'global', 'kernel'",
+    "enum": [
+      "global",
+      "ppid",
+      "tty",
+      "kernel"
+    ]
+  },
+  "error_recovery": {
+    "type": "bool",
+    "default": true,
+    "description": "Attempt recovery from syntax errors (true = ignore bad lines; false = fail hard)"
+  },
+  "ignore_perms": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable permission checks on sudoers file (dangerous; for testing only)"
+  },
+  "ldap_conf": {
+    "type": "string",
+    "default": "",
+    "description": "Override path to ldap.conf file (for LDAP sudoers)"
+  },
+  "ldap_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Override path to ldap.secret file (for LDAP sudoers)"
+  },
+  "sudoers_file": {
+    "type": "string",
+    "default": "",
+    "description": "Override path to sudoers file"
+  },
+  "sudoers_uid": {
+    "type": "number",
+    "default": 0,
+    "description": "Expected numeric UID for sudoers file ownership"
+  },
+  "sudoers_gid": {
+    "type": "number",
+    "default": 0,
+    "description": "Expected numeric GID for sudoers file group"
+  },
+  "sudoers_mode": {
+    "type": "number",
+    "default": 288,
+    "description": "Expected octal mode for sudoers file (e.g., 0440 \u2192 288)"
+  },
+  "log_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of hosts to forward sudo logs (requires sudo_logsrvd or compatible)"
+  },
+  "user_aliases": {
+    "type": "list",
+    "default": [],
+    "description": "User aliases in the form {name, members: []}"
+  },
+  "runas_aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Runas aliases in the form {name, members: []}"
+  },
+  "host_aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Host aliases in the form {name, members: []}"
+  },
+  "cmnd_aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Command aliases in the form {name, commands: []}"
+  },
+  "user_specs": {
+    "type": "list",
+    "default": [
+      {
+        "user": "root",
+        "hosts": [
+          "ALL"
+        ],
+        "runas": [
+          "ALL"
+        ],
+        "commands": [
+          "ALL"
+        ]
+      },
+      {
+        "user": "%wheel",
+        "hosts": [
+          "ALL"
+        ],
+        "runas": [
+          "ALL"
+        ],
+        "commands": [
+          "ALL"
+        ]
+      }
+    ],
+    "description": "User specifications: who may run what commands on which hosts as whom"
+  }
+}

@@ -1,0 +1,63 @@
+# csync2 configuration file — defines modules, peers, and file lists for cluster-wide synchronization
+# Global options
+# home: Home directory for csync2 runtime data (e.g., lock files, temp files)
+home {{ home | default('/var/lib/csync2') }}
+
+# Database directory for csync2's local state
+# database_dir: Directory where csync2 stores its local database of file checksums and state
+ database {{ database_dir | default('/var/lib/csync2') }}
+
+# Log file for csync2 operations
+# log_file: Path to the log file for csync2 operations
+log {{ log_file | default('/var/log/csync2.log') }}
+
+# Verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug
+# Increase if troubleshooting sync issues
+# verbose: Verbosity level: 0 (quiet) to 3 (debug); higher values produce more detailed logs
+verbose {{ verbose | default(1) }}
+
+# Enable/exclude specific file patterns from sync
+# exclude_patterns: List of file/directory patterns to exclude from synchronization (glob-style)
+exclude {
+{% for pattern in exclude_patterns | default(['*.tmp', '*.bak', '.git/', '*.swp']) %}
+  {{ pattern }}
+{% endfor %}
+}
+
+# Define authentication (shared secret or SSL-based)
+# auth_mode: Authentication method: 'shared_secret' for PSK or 'ssl' for TLS mutual authentication
+{% if auth_mode | default('shared_secret') == 'shared_secret' %}
+# Shared secret for peer authentication
+# secret: Shared secret passphrase used for peer authentication (only used if auth_mode=shared_secret)
+auth {{ secret | default('secret') }}
+{% elif auth_mode | default('shared_secret') == 'ssl' %}
+# SSL/TLS certificate and key paths
+# ssl_cert: Path to the SSL certificate file (PEM format) for mutual TLS authentication
+ssl_cert {{ ssl_cert | default('/etc/csync2/csync2_cert.pem') }}
+# ssl_key: Path to the SSL private key file (PEM format) for mutual TLS authentication
+ssl_key {{ ssl_key | default('/etc/csync2/csync2_key.pem') }}
+# ssl_ca: Path to the CA certificate file used to verify peer certificates (PEM format)
+ssl_ca {{ ssl_ca | default('/etc/csync2/ca_cert.pem') }}
+{% endif %}
+
+# One or more cluster peers (hosts) to synchronize with
+# peers: List of hostnames/IPs in the sync cluster; each is referenced in the 'host' directive
+{% for peer in peers | default([{'name': 'host1.example.com'}, {'name': 'host2.example.com'}]) %}
+host {{ peer.name }};
+{% endfor %}
+
+# Define groups of files/directories to sync
+# groups: List of file groups to synchronize, each with a set of paths and optional attributes
+{% for group in groups | default([{'name': 'webcontent', 'paths': ['/var/www', '/etc/nginx/sites-enabled'], 'auto': True, 'group': 'www-data', 'user': 'root'}]) %}
+# Group '{{ group.name }}': synchronize these paths bidirectionally
+{% if group.auto %}auto {{ group.auto }}{% endif %}
+{% if group.group %}group {{ group.group }}{% endif %}
+{% if group.user %}user {{ group.user }}{% endif %}
+{% if group.mode is defined %}mode {{ group.mode }}{% endif %}
+{% if group.timeout is defined %}timeout {{ group.timeout }}{% endif %}
+
+{% for path in group.paths %}
+  {{ path }}
+{% endfor %}
+
+{% endfor %}

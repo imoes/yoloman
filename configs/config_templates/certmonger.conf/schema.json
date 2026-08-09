@@ -1,0 +1,93 @@
+{
+  "max_tracking_cas": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of CAs certmonger will track. Set to 0 for unlimited."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/certmonger",
+    "description": "Directory where certmonger stores certificate request state, certificates, and keys (if not elsewhere specified)."
+  },
+  "ca_cert_dir": {
+    "type": "string",
+    "default": "/var/lib/certmonger/cas",
+    "description": "Directory where trusted CA certificates and trust anchors are cached for validation."
+  },
+  "intermediate_cert_dir": {
+    "type": "string",
+    "default": "/var/lib/certmonger/intermediates",
+    "description": "Directory used to store intermediate CA certificates for building full certificate chains."
+  },
+  "enable_tracking_daemon": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to start the internal certmonger tracking daemon to monitor certificate lifecycles."
+  },
+  "enable_autorenew": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic renewal of tracked certificates when approaching expiry."
+  },
+  "renewal_window": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days before certificate expiry to trigger automatic renewal."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging output to syslog for troubleshooting."
+  },
+  "cas": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted Certificate Authorities to use for certificate issuance and validation.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for the CA (used as section label in config)."
+      },
+      "type": {
+        "type": "string",
+        "default": "dogtag",
+        "description": "CA backend type (e.g., 'dogtag', 'freeipa', 'openca', 'simple')."
+      },
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "URL of the CA enrollment or management endpoint."
+      },
+      "ca_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the CA's root certificate file (or inline PEM if path unavailable)."
+      },
+      "nickname": {
+        "type": "string",
+        "default": "",
+        "description": "Nickname for the CA cert in an NSS database (used forDogtag/FreeIPA integration)."
+      },
+      "skip_verification": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, skip certificate chain verification during enrollment."
+      },
+      "trust_flags": {
+        "type": "string",
+        "default": "CT,,",
+        "description": "NSS trust flags for the CA certificate (e.g., 'CT,,', ',,')."
+      },
+      "pin": {
+        "type": "string",
+        "default": "",
+        "description": "Password or PIN for accessing HSM or protected token (if applicable)."
+      },
+      "pin_token": {
+        "type": "string",
+        "default": "",
+        "description": "Token label for HSM token requiring PIN (e.g., 'Smartcard')."
+      }
+    }
+  }
+}

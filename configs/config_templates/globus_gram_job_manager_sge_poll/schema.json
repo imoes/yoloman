@@ -1,0 +1,116 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SGE job polling for the GLOBUS_GRAM job manager. Required for SGE integration."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between polling cycles for job state updates."
+  },
+  "max_jobs_per_poll": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of jobs to query per poll. Reduce on large clusters to avoid overload."
+  },
+  "qmaster_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or FQDN of the SGE qmaster server. Must be reachable by the Globus service."
+  },
+  "cell_name": {
+    "type": "string",
+    "default": "default",
+    "description": "SGE cell name (e.g., 'default' or custom cell name used in your cluster)."
+  },
+  "sgeroot": {
+    "type": "string",
+    "default": "/opt/sge",
+    "description": "Root directory of the SGE installation on the Globus host (used for binary discovery and environment setup)."
+  },
+  "sge_bin": {
+    "type": "string",
+    "default": "/opt/sge/bin/lx-amd64",
+    "description": "Directory containing SGE binaries (qstat, qacct, etc.). Adjust for architecture (e.g., 'lx-arm64', 'solaris-x64')."
+  },
+  "qstat_path": {
+    "type": "string",
+    "default": "",
+    "description": "Full path to qstat binary. Leave empty to auto-detect using sgeroot and sge_bin."
+  },
+  "qacct_path": {
+    "type": "string",
+    "default": "",
+    "description": "Full path to qacct binary. Leave empty to auto-detect using sgeroot and sge_bin."
+  },
+  "exec_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of execution hostnames to restrict polling to. Empty list means poll all hosts.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "verbose_job_status": {
+    "type": "bool",
+    "default": false,
+    "description": "Log detailed SGE job state (e.g., 'running', 'suspended') to debug log. May increase log size."
+  },
+  "job_state_cache_file": {
+    "type": "string",
+    "default": "/var/lib/globus/job_state_cache.xml",
+    "description": "Path to cache file storing job states between restarts. Must be writable by the Globus user."
+  },
+  "job_state_cache_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live (seconds) for cached job state. Avoid setting too low to prevent excessive polling."
+  },
+  "use_pe_info": {
+    "type": "bool",
+    "default": true,
+    "description": "Include SGE parallel environment (PE) info (e.g., slots requested) in job attributes. Required for multi-slot jobs."
+  },
+  "resource_limits": {
+    "type": "list",
+    "default": [
+      {
+        "name": "h_vmem",
+        "type": "string",
+        "globus_attr": "Memory"
+      },
+      {
+        "name": "h_cpu",
+        "type": "string",
+        "globus_attr": "CPUTime"
+      }
+    ],
+    "description": "List of SGE resource limits to expose as GLOBUS_GRAM job attributes (e.g., h_vmem \u2192 Memory in MB).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "SGE resource name (e.g., h_vmem, h_cpu, s_cpu)."
+      },
+      "type": {
+        "type": "string",
+        "default": "string",
+        "description": "Type of resource value as exposed to Globus (e.g., 'string', 'integer')."
+      },
+      "globus_attr": {
+        "type": "string",
+        "description": "Globus job attribute name to map the SGE resource to (e.g., 'Memory', 'CPUTime')."
+      }
+    }
+  },
+  "enable_cleanup": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, kill orphaned SGE jobs when GLOBUS_GRAM job status is FAILED. Use with caution \u2014 may affect external job tracking."
+  },
+  "max_concurrent_polls": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of simultaneous polling operations. Higher values may improve responsiveness but increase SGE load."
+  }
+}

@@ -1,0 +1,77 @@
+# =============================================================================
+# Burp Client Configuration Template
+# This file configures the Burp backup client to connect to a Burp server.
+# It manages connection details, SSL/TLS settings, and backup inclusion rules.
+# =============================================================================
+
+# Mode of operation for this Burp instance.
+# Set to 'client' to run the Burp backup client.
+mode = client
+
+# =============================================================================
+# Connection Settings
+# =============================================================================
+
+# Burp server host and port in the form host:port.
+# This is the primary address the client uses to reach the backup server.
+server = {{ server | default('localhost:4971') }}
+
+# Port for client status queries.
+# Allows external tools or the server to query the client's current status.
+status_port = {{ status_port | default(4972) }}
+
+# Password for client authentication.
+# Used to authenticate the client to the Burp server.
+password = {{ password | default('abcdefgh') }}
+
+# Client name (common name) used in backups.
+# This identifier helps distinguish this client in the server's logs and database.
+cname = {{ cname | default('testclient') }}
+
+# =============================================================================
+# Restore Settings
+# =============================================================================
+
+# Allow the server to initiate restores (0=off, 1=on).
+# If set to 1, the server can trigger backups/restore operations for this client.
+server_can_restore = {{ server_can_restore | default(0) }}
+
+# =============================================================================
+# Filesystem & Backup Scope
+# =============================================================================
+
+# Mount point(s) across which file system boundaries should be crossed during backup.
+# Comma-separated list of paths where crossing filesystem boundaries is allowed.
+cross_filesystem = {{ cross_filesystem | default('/home') }}
+
+# Whether to cross all filesystem boundaries (0=no, 1=yes).
+# If 1, ignores filesystem boundaries entirely; if 0, respects cross_filesystem list.
+cross_all_filesystems = {{ cross_all_filesystems | default(0) }}
+
+# =============================================================================
+# SSL/TLS Configuration
+# =============================================================================
+
+# Path to SSL CA certificate file.
+# Used to verify the server's identity. Must match the CA used by the server.
+ssl_cert_ca = {{ ssl_cert_ca | default('/etc/burp/ssl_cert_ca.pem') }}
+
+# Path to client SSL certificate file.
+# The client's public certificate presented during TLS handshake.
+ssl_cert = {{ ssl_cert | default('/etc/burp/ssl_cert-client.pem') }}
+
+# Path to client SSL private key file.
+# The client's private key corresponding to ssl_cert. Keep this secure.
+ssl_key = {{ ssl_key | default('/etc/burp/ssl_cert-client.key') }}
+
+# Common name expected in the server's certificate.
+# The client will verify that the server's certificate CN matches this value.
+ssl_peer_cn = {{ ssl_peer_cn | default('burpserver') }}
+
+# =============================================================================
+# Backup Include/Exclude Rules
+# =============================================================================
+
+# Top-level directory or file to include in backups.
+# Specifies the root path for the backup job.
+include = {{ include_path | default('/home') }}

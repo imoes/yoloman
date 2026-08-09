@@ -1,0 +1,134 @@
+# ============================================================================
+# Hunchentoot Configuration Template
+# ============================================================================
+# This template generates a Common Lisp configuration file for the Hunchentoot
+# web server. It configures binding addresses, ports, static file serving,
+# SSL, threading, logging, MIME types, and URL routing.
+#
+# Variables are sourced from the Ansible playbook/role variables. Every
+# variable uses the `| default(...)` filter to ensure safe rendering even if
+# the variable is undefined.
+# ============================================================================
+
+# --- Library Loading --------------------------------------------------------
+# Loads external Lisp systems/libraries required by the application before
+# the server starts. The `library_paths` variable should be a list of strings.
+# Default: ['/usr/share/common-lisp/source/hunchentoot/hunchentoot.lisp']
+{% set _lib_paths = library_paths | default(['/usr/share/common-lisp/source/hunchentoot/hunchentoot.lisp']) %}
+(load "{{ _lib_paths | join('" "') }}")
+
+# --- Static File Serving ----------------------------------------------------
+# document_root: Filesystem path where static files are served from. Set to
+# empty string ('') or omit to disable static file serving.
+# Default: '/var/www/hunchentoot'
+(setf hunchentoot:*document-root* "{{ document_root | default('/var/www/hunchentoot') }}")
+
+# --- Network Binding --------------------------------------------------------
+# host: Hostname or IP address to bind the web server to (e.g., '0.0.0.0'
+# for all interfaces). Default: 'localhost'
+# port: TCP port number for HTTP requests. Default: 8080
+(setf hunchentoot:*host* "{{ host | default('localhost') }}")
+(setf hunchentoot:*port* {{ port | default(8080) }})
+
+# --- Response Defaults ------------------------------------------------------
+# default_content_type: Default MIME type sent in the Content-Type header for
+# dynamic responses. Default: 'text/html; charset=utf-8'
+(setf hunchentoot:*default-content-type* "{{ default_content_type | default('text/html; charset=utf-8') }}")
+
+# --- SSL/TLS Configuration --------------------------------------------------
+# enable_ssl: Whether to enable HTTPS support. Default: False
+# If SSL is enabled, the server loads the specified certificate and key files
+# and listens on the configured ssl_port.
+
+# ssl_certificate_file: Path to SSL certificate file (PEM format). Required if SSL enabled.
+# Default: '/etc/hunchentoot/ssl/cert.pem'
+# ssl_key_file: Path to SSL private key file (PEM format). Required if SSL enabled.
+# Default: '/etc/hunchentoot/ssl/key.pem'
+# ssl_port: TCP port number for HTTPS requests (only used if SSL enabled).
+# Default: 8443
+{% if enable_ssl | default(False) | bool %}
+# SSL is ENABLED
+(setf hunchentoot:*ssl-certificate-file* "{{ ssl_certificate_file | default('/etc/hunchentoot/ssl/cert.pem') }}")
+(setf hunchentoot:*ssl-key-file* "{{ ssl_key_file | default('/etc/hunchentoot/ssl/key.pem') }}")
+(setf hunchentoot:*ssl-port* {{ ssl_port | default(8443) }})
+{% else %}
+# SSL is DISABLED
+(setf hunchentoot:*ssl-port* nil)
+{% endif %}
+
+# --- Concurrency Settings ---------------------------------------------------
+# max_threads: Maximum number of concurrent request-handling threads.
+# Default: 32
+(setf hunchentoot:*max-threads* {{ max_threads | default(32) }})
+
+# max_connections: Maximum number of simultaneous HTTP connections allowed.
+# Default: 128
+(setf hunchentoot:*max-connections* {{ max_connections | default(128) }})
+
+# --- Timeouts ---------------------------------------------------------------
+# request_timeout: Seconds before idle connections are closed.
+# Default: 30
+(setf hunchentoot:*request-timeout* {{ request_timeout | default(30) }})
+
+# --- Logging ----------------------------------------------------------------
+# log_level: Verbosity of server logging. Default: 'info'
+(setf hunchentoot:*log-level* :{{ log_level | default('info') }})
+
+# custom_log_file: Path to a file where server logs will be appended. Leave
+# empty to log to stdout/stderr. Default: ''
+{% set _log_file = custom_log_file | default('') %}
+{% if _log_file %}
+(setf hunchentoot:*log-output*
+      (open "{{ _log_file }}" :direction :output :if-exists :append :if-does-not-exist :create))
+{% else %}
+(setf hunchentoot:*log-output* nil)
+{% endif %}
+
+# --- MIME Type Registry -----------------------------------------------------
+# extra_mime_types: Additional MIME type mappings for static file extensions.
+# This is a list of objects with 'extension' and 'mime_type' keys.
+# Default: []
+{% set _extra_mime = extra_mime_types | default([]) %}
+(let ((mimetypes '(#-sbcl (".html" . "text/html")
+                    (".css" . "text/css")
+                    (".js"  . "application/javascript")
+                    (".json" . "application/json")
+                    (".png" . "image/png")
+                    (".jpg" . "image/jpeg")
+                    (".gif" . "image/gif")
+                    (".svg" . "image/svg+xml")
+                    (".woff" . "font/woff")
+                    (".ttf" . "font/ttf")
+{% for mimetype in _extra_mime %}                    ("{{ mimetype.extension }}" . "{{ mimetype.mime_type }}")
+{% endfor %}                    )))
+  (setf hunchentoot:*mime-type-registry* (make-hash-table :test 'equalp))
+  (dolist (pair mimetypes)
+    (setf (gethash (car pair) hunchentoot:*mime-type-registry*) (cdr pair))))
+
+# --- Directory Listing Template ---------------------------------------------
+# directory_template: Name of a Common Lisp symbol that defines a custom
+# directory listing template. Set to 'nil' for default listing.
+# Default: 'nil'
+(setf hunchentoot:*directory-template* {{ directory_template | default('nil') }})
+
+# --- URL Routing ------------------------------------------------------------
+# routes: List of URL routes and their handler functions. Each item has
+# 'path' (URL prefix) and 'handler' (Lisp symbol/function name).
+# Default: []
+{% set _routes = routes | default([]) %}
+{% for route in _routes %}
+(push (create-prefix-dispatcher "{{ route.path }}" #'{{ route.handler }})
+      hunchentoot:*dispatch-table*)
+{% endfor %}
+
+# --- Server Startup ---------------------------------------------------------
+# Starts the Hunchentoot server using the configured variables.
+(hunchentoot:start-server
+  :host hunchentoot:*host*
+  :port hunchentoot:*port*
+{% if enable_ssl | default(False) | bool %}
+  :ssl-certificate-file hunchentoot:*ssl-certificate-file*
+  :ssl-key-file hunchentoot:*ssl-key-file*
+{% endif %}
+  :max-threads hunchentoot:*max-threads*
+  :max-connections hunchentoot:*max-connections*)

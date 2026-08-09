@@ -1,0 +1,82 @@
+[global]
+# Enable/disable the Kerberos 5 connector plugin
+enabled = {{ enabled | lower }}
+
+# Kerberos realm to use for authentication
+realm = {{ realm }}
+
+# KDC (Key Distribution Center) host for the realm
+kdc = {{ kdc }}
+
+# Admin server for Kerberos administrative tasks (e.g., password changes)
+admin_server = {{ admin_server }}
+
+# Default ticket lifetime in seconds
+default_ttl = {{ default_ttl }}
+
+# Maximum renewable ticket lifetime in seconds
+max_ttl = {{ max_ttl }}
+
+# Comma-separated list of allowed encryption types (cipher suites)
+encryption_types = {{ encryption_types | join(', ') }}
+
+# Logging level: debug, info, warning, error
+log_level = {{ log_level }}
+
+# Path to Kerberos configuration file (typically /etc/krb5.conf)
+krb5_conf = {{ krb5_conf }}
+
+# Path to keytab file for service principal authentication (optional)
+# If provided, the connector can authenticate to the KDC without user interaction
+keytab = {{ keytab | default('') }}
+
+# Service principal to use with the keytab (e.g., HTTP/router@REALM)
+service_principal = {{ service_principal }}
+
+[ldap]
+# Enable LDAP-based group mapping (e.g., for mapping Kerberos principal to Unix groups)
+enabled = {{ ldap.enabled | lower }}
+
+# LDAP server URI(s), space- or comma-separated (e.g., ldap://ldap.example.com ldaps://ldap2.example.com)
+uris = {{ ldap.uris | join(' ') }}
+
+# Base DN for group and user searches
+base_dn = {{ ldap.base_dn }}
+
+# Bind DN for authenticating to LDAP (use empty string for anonymous bind)
+bind_dn = {{ ldap.bind_dn }}
+
+# Bind password (leave blank if anonymous bind)
+bind_password = {{ ldap.bind_password }}
+
+# LDAP filter for user lookups (e.g., (&(objectClass=posixAccount)(krbPrincipalName={{principal}})))
+user_filter = {{ ldap.user_filter }}
+
+# LDAP filter for group lookups (e.g., (&(objectClass=posixGroup)(memberUid={{username}})))
+group_filter = {{ ldap.group_filter }}
+
+# Attribute used to map Kerberos principal to LDAP entry (e.g., krbPrincipalName)
+principal_attr = {{ ldap.principal_attr }}
+
+# Attribute used to map username (e.g., uid)
+username_attr = {{ ldap.username_attr }}
+
+# Attribute used to retrieve group memberships (e.g., memberUid or member)
+group_attr = {{ ldap.group_attr }}
+
+[cache]
+# Cache configuration for LDAP queries and Kerberos tickets
+enabled = {{ cache.enabled | lower }}
+
+# Cache TTL in seconds
+ ttl = {{ cache.ttl }}
+
+# Path to cache directory
+path = {{ cache.path }}
+
+[plugins]
+# Additional plugin-specific settings — left open for extensibility
+{% for plugin_name, plugin_config in plugins.items() %}
+[{{ plugin_name }}]
+{% for key, value in plugin_config.items() %}{{ key }} = {{ value }}
+{% endfor %}{% endfor %}

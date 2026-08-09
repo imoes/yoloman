@@ -1,0 +1,69 @@
+<?xml version="1.0"?>
+<!-- D-Bus broker configuration file for dbus-broker -->
+<!-- Controls logging verbosity -->
+<log level="{{ log_level }}"/>
+
+<!-- Controls where the broker listens for connections -->
+{% if listen_addresses %}
+<listen>{{ listen_addresses | join(' ') }}</listen>
+{% endif %}
+
+<!-- Controls authentication mechanisms allowed -->
+<auth>{{ auth_mechanisms | join(' ') }}</auth>
+
+<!-- Controls the service that runs when the bus starts (optional) -->
+{% if service_activation %}
+<service>
+  <name>{{ service_activation.name }}</name>
+  <exec>{{ service_activation.exec }}</exec>
+</service>
+{% endif %}
+
+<!-- Controls user/group allowed to connect and their default limits -->
+{% for user_rule in user_rules %}
+<user>{{ user_rule.user }}</user>
+{% if user_rule.max_replies_per_connection %}
+<max_replies_per_connection>{{ user_rule.max_replies_per_connection }}</max_replies_per_connection>
+{% endif %}
+{% if user_rule.max_connections_per_user %}
+<max_connections_per_user>{{ user_rule.max_connections_per_user }}</max_connections_per_user>
+{% endif %}
+{% if user_rule.max_services_per_user %}
+<max_services_per_user>{{ user_rule.max_services_per_user }}</max_services_per_user>
+{% endif %}
+{% endfor %}
+
+<!-- Controls where introspection is enabled (system bus usually restricts introspection) -->
+{% if introspection_enabled %}
+<introspection/>
+{% endif %}
+
+<!-- Controls the audit logging level (0=none, 1=enabled) -->
+<audit>{{ audit_level }}</audit>
+
+<!-- Controls the maximum number of pending outgoing messages per connection -->
+<inactivity_timeout>{{ inactivity_timeout }}</inactivity_timeout>
+
+<!-- Controls the maximum number of pending messages in the queue -->
+<max_outstanding_messages>{{ max_outstanding_messages }}</max_outstanding_messages>
+
+<!-- Controls the maximum size of a single message -->
+<max_message_size>{{ max_message_size }}</max_message_size>
+
+<!-- Controls the maximum number of file descriptors per connection -->
+<max_fds_per_connection>{{ max_fds_per_connection }}</max_fds_per_connection>
+
+<!-- Controls the maximum number of file descriptors the broker may open -->
+<max_fds>{{ max_fds }}</max_fds>
+
+<!-- Controls the maximum number of pending connections in the listen queue -->
+<listen_backlog>{{ listen_backlog }}</listen_backlog>
+
+<!-- Controls the maximum number of match rules per user -->
+<max_matches_per_user>{{ max_matches_per_user }}</max_matches_per_user>
+
+<!-- Controls the maximum number of unique object paths per user -->
+<max_objects_per_user>{{ max_objects_per_user }}</max_objects_per_user>
+
+<!-- Controls the maximum number of bytes of message payload per user -->
+<max_bytes_per_user>{{ max_bytes_per_user }}</max_bytes_per_user>

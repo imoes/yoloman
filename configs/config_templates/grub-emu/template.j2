@@ -1,0 +1,68 @@
+# ============================================================================
+# GRUB-emu Configuration Template
+# ============================================================================
+# This template generates command-line flags for the `grub-emu` utility.
+# `grub-emu` emulates GRUB bootloader behavior in a user-space environment,
+# allowing testing of GRUB configurations without rebooting the physical hardware.
+#
+# Each section corresponds to a specific runtime option for grub-emu.
+# Defaults are applied if variables are undefined or empty, per the schema.
+# ============================================================================
+
+# --directory=DIR
+# Path to directory containing GRUB files (grub.cfg, modules, etc.).
+# This tells grub-emu where to find the boot configuration and kernel modules.
+--directory={{ directory | default('/boot/grub') }}
+
+# --hold[=SECS]
+# Wait time (in seconds) for debugger attachment.
+# If this variable is a non-empty string, it is passed as the value `=SECS`.
+# If this variable is a boolean `true`, the flag is passed without a value
+# (meaning "wait indefinitely" or "wait for GDB attach").
+# If empty or false, this flag is omitted.
+{% if hold is defined %}
+{% if hold is string and hold | trim != '' %}
+--hold={{ hold | default('') }}
+{% elif hold is sameas true %}
+--hold
+{% elif hold is number and hold | int > 0 %}
+--hold={{ hold }}
+{% endif %}
+{% endif %}
+
+# --memdisk=FILE
+# Path to memdisk image file to use.
+# `memdisk` is a generic boot image used by SYSLINUX/GRUB for booting from
+# floppy disk images or other raw block devices.
+{% if memdisk is defined %}
+--memdisk={{ memdisk | default('') }}
+{% endif %}
+
+# --device-map=FILE
+# Path to device map file.
+# The device map maps BIOS disk names (e.g., (hd0)) to Linux device nodes.
+{% if device_map is defined %}
+--device-map={{ device_map | default('/boot/grub/device.map') }}
+{% endif %}
+
+# --root=DEVICE_NAME
+# Root device name (e.g., '(hd0,0)' or '/dev/sda1').
+# Specifies the root device that the emulated bootloader should use.
+{% if root is defined %}
+--root={{ root | default('') }}
+{% endif %}
+
+# --verbose
+# Enable verbose output messages.
+# If true, grub-emu will output detailed diagnostic information to stdout/stderr.
+{% if verbose is defined and verbose is sameas true %}
+--verbose
+{% endif %}
+
+# --kexec
+# Use kexec to boot Linux kernels via systemctl.
+# If true, the emulated environment may use kexec for kernel reloading.
+# Note: This is dangerous and typically requires specific kernel support.
+{% if kexec is defined and kexec is sameas true %}
+--kexec
+{% endif %}

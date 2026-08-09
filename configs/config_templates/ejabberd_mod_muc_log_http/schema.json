@@ -1,0 +1,116 @@
+{
+  "muc_http": {
+    "type": "object",
+    "description": "Configuration for the ejabberd_mod_muc_log_http module \u2014 serves MUC logs over HTTP.",
+    "properties": {
+      "http_path": {
+        "type": "string",
+        "default": "/muc_logs",
+        "description": "URL path prefix under which MUC logs are served (e.g., /muc_logs \u2192 http://example.com/muc_logs)."
+      },
+      "http_port": {
+        "type": "number",
+        "default": 0,
+        "description": "Port for the internal HTTP server for logs. Set to 0 to disable standalone HTTP (e.g., when using reverse proxy)."
+      },
+      "http_bind_address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Network interface or hostname to bind the HTTP listener to (e.g., '0.0.0.0' for all interfaces, '127.0.0.1' for localhost only)."
+      },
+      "gzip": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable gzip compression of log responses to reduce bandwidth."
+      },
+      "require_auth": {
+        "type": "bool",
+        "default": false,
+        "description": "Require ejabberd admin authentication (via ejabberdctl) to view logs. Disable only in trusted environments."
+      },
+      "http_options": {
+        "type": "object",
+        "description": "UI customization for the log web interface.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "default": "MUC Logs Archive",
+            "description": "Page title shown in browser tab and top of index."
+          },
+          "stylesheet": {
+            "type": "string",
+            "default": "",
+            "description": "URL or relative path to a custom CSS file (e.g., '/muc_logs.css'). Leave empty to use default styling."
+          },
+          "header_html": {
+            "type": "string",
+            "default": "",
+            "description": "Raw HTML to inject at the top of the page (e.g., branding logo or navigation)."
+          },
+          "footer_html": {
+            "type": "string",
+            "default": "",
+            "description": "Raw HTML to inject at the bottom of the page (e.g., copyright or support link)."
+          }
+        }
+      },
+      "rooms": {
+        "type": "list",
+        "default": [],
+        "description": "List of specific MUC room JIDs (e.g., 'support@conference.example.com') to include in logs. Leave empty to expose all rooms.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "log_dir": {
+        "type": "string",
+        "default": "/var/log/ejabberd/muc",
+        "description": "Directory where MUC log files are stored. Ensure ejabberd has read/write permissions."
+      },
+      "preserve_room_jid": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, log filenames preserve the room's full JID (e.g., 'support@conference.example.com.html'). If false, invalid characters are stripped for safer filenames."
+      },
+      "room_access_filter": {
+        "type": "list",
+        "default": [],
+        "description": "List of regex patterns to restrict which rooms' logs are accessible (e.g., ['.*@conference.example.com']). If empty, no filtering beyond 'rooms' list or auth rules.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "max_age_days": {
+        "type": "number",
+        "default": 365,
+        "description": "Maximum age (in days) for log entries. Logs older than this are auto-deleted. Set to 0 to retain indefinitely."
+      },
+      "localtime": {
+        "type": "bool",
+        "default": true,
+        "description": "Display timestamps in the server's local timezone (true) or UTC (false)."
+      },
+      "formats": {
+        "type": "object",
+        "description": "Enable or disable specific log output formats.",
+        "properties": {
+          "html": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable HTML log viewer (with chat threading, avatars, etc.)."
+          },
+          "text": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable plain-text log download."
+          },
+          "json": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable machine-readable JSON export for programmatic access."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+# Select time sources to use
+{{ source_selection }}
+
+# Enable kernel statistics logging for monitoring
+driftfile /var/lib/chrony/drift
+
+# Allow NTP clients from specified networks
+allow {{ allow_networks | join(' ') }}
+
+# Enable RTC synchronization if hardware clock is set to UTC
+rtcsync
+
+# Make step adjustments only within first 3 updates
+makestep 1.0 3
+
+# Specify GPS reference via GPSD
+gpsdevice /var/run/gpsd.sock
+refclock GPS SHM 0 refid GPS precision 1e-3
+refclock PHC /dev/ptp0 precision 1e-9 path /dev/ptp0 refid PTP
+
+# Optionally use PPS signal if available
+{% if pps_enabled %}
+refclock PPS /dev/pps0 refid PPS precision 1e-9 mode 1
+{% endif %}
+
+# Logging configuration
+logdir /var/log/chrony
+log measurements statistics tracking
+
+# Enable command socket for chronyc
+commandport 0
+
+# NTP server pool for fallback (optional)
+{% if fallback_servers | length > 0 %}
+{% for server in fallback_servers %}
+server {{ server.hostname }} iburst{{ ' prefer' if server.prefer else '' }}
+{% endfor %}
+{% else %}
+# No fallback servers configured
+# Uncomment and edit lines below to add NTP servers:
+# server 0.pool.ntp.org iburst
+# server 1.pool.ntp.org iburst
+# server 2.pool.ntp.org iburst
+# server 3.pool.ntp.org iburst
+{% endif %}
+
+# Security: restrict access to time service
+{% if restrict_enabled %}
+restrict -4 default kod notrap nomodify nopeer noquery
+restrict -6 default kod notrap nomodify nopeer noquery
+restrict 127.0.0.1
+{% endif %}
+
+# Leapsource for UTC leap second handling
+leapsource 0
+
+# Optional: NTP server mode (if this machine serves time)
+{% if serve_enabled %}
+local stratum 10
+{% endif %}
+
+# Keyfile and commandkey (optional but recommended for security)
+keyfile /etc/chrony/chrony.keys
+commandkey 1

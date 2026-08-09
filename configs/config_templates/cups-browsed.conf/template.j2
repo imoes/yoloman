@@ -1,0 +1,81 @@
+# ==============================================================================
+# cups-browsed Configuration Template
+# ==============================================================================
+# This template configures the CUPS-Browsed daemon, which automatically discovers
+# remote printers and creates local print queues.
+#
+# Self-Documenting: Every directive is preceded by a comment describing its
+# purpose and source field. All variables have safe defaults to prevent
+# runtime errors if undefined in the Ansible inventory.
+# ==============================================================================
+
+# [local_only]
+# If true, only allow local connections (no remote printer sharing).
+# Set to false to share printers over the network.
+LocalOnly {{ local_only | default(True) | lower }}
+
+# [timeout]
+# Seconds to wait before considering a remote printer unreachable.
+Timeout {{ timeout | default(30) }}
+
+# [max_retries]
+# Number of times to retry connecting to a failed remote printer before marking it unavailable.
+MaxRetries {{ max_retries | default(3) }}
+
+# [retry_interval]
+# Seconds to wait between retry attempts for unreachable printers.
+RetryInterval {{ retry_interval | default(60) }}
+
+# [browse_remote_protocols]
+# List of protocols for discovering remote CUPS printers. Common: 'cups', 'ipp', 'dnssd'.
+# Joins the list into a space-separated or comma-separated string depending on daemon expectations.
+BrowseRemoteProtocols {{ browse_remote_protocols | default(['cups', 'ipp']) | join(' ') }}
+
+# [browse_local_protocols]
+# List of local discovery protocols. Use 'dnssd' for mDNS/Bonjour support.
+BrowseLocalProtocols {{ browse_local_protocols | default(['dnssd', 'cups']) | join(' ') }}
+
+# [create_remote_ppds]
+# If true, automatically generate local PPD files for discovered remote printers.
+# Disable only if managing PPDs manually.
+CreateRemotePPDs {{ create_remote_ppds | default(True) | lower }}
+
+# [default_options]
+# List of default job options applied to all remote printers unless overridden.
+# Output is quoted to handle spaces in option strings safely.
+DefaultOptions "{{ default_options | default([]) | join(' ') }}"
+
+# [printers]
+# List of custom static printer configurations (override automatic discovery or predefine queues).
+{% for printer in printers | default([]) %}
+# Printer: {{ printer.name | default('Unknown') }}
+# Description: {{ printer.description | default('') }}
+{% if printer.uri %}PrinterURI {{ printer.uri }}{% endif %}
+{% if printer.location %}Location {{ printer.location }}{% endif %}
+{% if printer.make_and_model %}MakeModel {{ printer.make_and_model }}{% endif %}
+{% if printer.options %}Options {{ printer.options | join(' ') }}{% endif %}
+{% endfor %}
+
+# [convertpcltops]
+# If true, convert PCL to PostScript (for legacy PostScript-only printers).
+# Usually unnecessary for modern IPP printers.
+ConvertPCLToPS {{ convertpcltops | default(False) | lower }}
+
+# [create_ipp_printer_queues]
+# If true, create IPP-based queues (modern, standardized) instead of legacy CUPS queues.
+# Recommended for network printers.
+CreateIPPPrinterQueues {{ create_ipp_printer_queues | default(True) | lower }}
+
+# [cups_local_server]
+# Hostname or IP of the local CUPS server (the daemon communicates with this CUPS instance).
+CUPSLocalServer {{ cups_local_server | default('localhost') }}
+
+# [log_level]
+# Verbosity of logging. Use 'debug' only for troubleshooting.
+LogLevel {{ log_level | default('warn') }}
+
+# [log_file]
+# Optional absolute path to a dedicated log file. If empty, logs go to syslog.
+{% if log_file | default('') %}
+LogFile {{ log_file }}
+{% endif %}

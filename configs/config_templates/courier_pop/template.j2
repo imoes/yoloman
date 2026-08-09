@@ -1,0 +1,164 @@
+# Courier POP3 daemon configuration file
+# This file is sourced by the pop3d init script
+
+# Maximum number of simultaneous client connections
+MAXDAEMONS={{ max_daemons }}
+
+# Maximum number of connections per IP address (0 = unlimited)
+MAXCONNECTIONS={{ max_connections_per_ip }}
+
+# TCP port to listen on (standard POP3 port)
+POP3PORT={{ pop3_port }}
+
+# Enable SSL/TLS for POP3S (port 995)
+POP3SSLPORT={{ pop3s_port }}
+
+# Path to the SSL certificate (PEM format)
+POP3DSERVER={{ ssl_cert_path }}
+
+# Enable/disable STARTTLS support
+STARTTLS={{ starttls | lower }}
+
+# Path to TLS certificate chain (optional; if omitted, uses POP3DSERVER)
+{% if tls_chain_path is defined %}TLS_CERTIFICATE={{ tls_chain_path }}{% endif %}
+
+# Enable/disable PLAIN authentication over non-SSL connections
+# WARNING: Avoid enabling unless TLS/SSL is enforced (e.g., via firewall or TLS_REQUIRED)
+ALLOWPLAINTEXT={{ allow_plaintext_auth | lower }}
+
+# Require TLS for authentication (overrides ALLOWPLAINTEXT)
+TLS_REQUIRED={{ tls_required | lower }}
+
+# Authentication method: 'pam', 'shadow', or 'authmodule'
+# 'authmodule' uses Courier's internal auth daemon (recommended for virtual users)
+AUTHMODULES="{{ auth_modules | join(' ') }}"
+
+# Path to authentication module config (used when AUTHMODULES includes 'authdaemon')
+AUTHMODULES_ORIG="{{ auth_modules_orig | join(' ') }}"
+
+# Enable verbose logging (for debugging; set to 'NO' in production)
+DEBUGLOG={{ debug_log | lower }}
+
+# Log location (use syslog when empty)
+{% if log_path %}LOGDAYS={{ log_days }}
+LOGFILE={{ log_path }}{% else %}# Logging to syslog (no file)
+{% endif %}
+
+# Enable/disable POP3 banner greeting (set to 'NO' to suppress server info)
+POP3BANNER={{ pop3_banner }}
+
+# Timeout for client inactivity (seconds)
+POP3IDLE={{ pop3_idle_timeout }}
+
+# Maximum message size (in bytes); 0 = unlimited
+MAXMSGLEN={{ max_message_size }}
+
+# Enable/disable POP3 command logging (very verbose)
+POP3LOGCMD={{ pop3_log_commands | lower }}
+
+# Enable/disable mailbox locking using fcntl (recommended)
+LOCKMETHOD={{ lock_method | upper }}
+
+# Maildir vs MBOX format (default: maildir)
+MAILDIR={{ maildir_path }}
+
+# Enable/disable quota enforcement (requires Courier quota support)
+QUOTA={{ quota_enabled | lower }}
+
+# Path to quota config (for per-user quotas)
+{% if quota_enabled %}QUOTADIR={{ quota_dir }}{% endif %}
+
+# Enable/disable POP3 pipelining support
+PIPELINING={{ pipelining_enabled | lower }}
+
+# Enable/disable CAPA support (POP3 capabilities)
+CAPA={{ capa_enabled | lower }}
+
+# Enable/disable UIDL persistence (required for some clients)
+UIDLUTF8={{ uidl_utf8 | lower }}
+
+# Enable/disable USER/PASS case-insensitivity (for legacy clients)
+CASEINSENSITIVELOGIN={{ case_insensitive_login | lower }}
+
+# Enable/disable auto-logout on idle timeout
+AUTOLOGOUT={{ autologout_enabled | lower }}
+
+# Enable/disable proxying (for multi-host setups)
+{% if proxy_enabled %}PROXY={{ proxy_enabled | lower }}
+PROXYHOST={{ proxy_host }}
+PROXYPORT={{ proxy_port }}{% endif %}
+
+# Enable/disable IPv6 support
+IPv6={{ ipv6_enabled | lower }}
+
+# Bind to specific interface/IP (leave empty for all)
+{% if bind_address %}ADDRESS={{ bind_address }}{% endif %}
+
+# Enable/disable TCP wrapper support (hosts.allow/deny)
+TCPWRAP={{ tcpwrap_enabled | lower }}
+
+# Path to TCP wrapper config (optional override)
+{% if tcpwrap_config %}TCPWRAPNAME={{ tcpwrap_config }}{% endif %}
+
+# Enable/disable SMTPUTF8 support (for non-ASCII email addresses)
+SMTPUTF8={{ smtputf8_enabled | lower }}
+
+# Enable/disable BURL support (for big attachments)
+BURL={{ burl_enabled | lower }}
+
+# Enable/disable AUTH= support (SASL authentication mechanisms)
+AUTHSASL={{ auth_sasl | lower }}
+
+# Enable/disable CRAM-MD5/SCRAM mechanisms (when AUTHSASL=no, fallback)
+{% if cram_md5_enabled %}AUTHCRAM={{ cram_md5_enabled | lower }}
+{% endif %}
+{% if scram_enabled %}AUTHSCRAM={{ scram_enabled | lower }}
+{% endif %}
+
+# Enable/disable NTLM/LOGIN/DIGEST-MD5 (legacy mechanisms)
+{% if ntlm_enabled %}AUTHNTLM={{ ntlm_enabled | lower }}
+{% endif %}
+{% if login_enabled %}AUTHLOGIN={{ login_enabled | lower }}
+{% endif %}
+{% if digest_md5_enabled %}AUTHDIGEST={{ digest_md5_enabled | lower }}
+{% endif %}
+
+# Enable/disable ANONYMOUS mechanism (for testing only)
+AUTHANONYMOUS={{ auth_anonymous | lower }}
+
+# Enable/disable TLS session caching
+TLS_SESSION_CACHE={{ tls_session_cache_enabled | lower }}
+
+# TLS session cache size (in entries)
+TLS_CACHE_SIZE={{ tls_cache_size }}
+
+# TLS session cache timeout (seconds)
+TLS_CACHE_TIMEOUT={{ tls_cache_timeout }}
+
+# TLS minimum version (e.g., 'TLSv1.2')
+TLS_MIN_VERSION={{ tls_min_version }}
+
+# TLS cipher list (OpenSSL format)
+TLS_CIPHER_LIST={{ tls_cipher_list }}
+
+# Enable/disable OCSP stapling (requires OpenSSL >=1.0.2)
+TLS_OCSP_STAPLING={{ ocsp_stapling_enabled | lower }}
+
+# Enable/disable certificate verification for proxied connections
+PROXY_VERIFY={{ proxy_verify_enabled | lower }}
+
+# Enable/disable DNS SRV record lookups for proxying
+PROXY_DNS_SRV={{ proxy_dns_srv | lower }}
+
+# Enable/disable LMTP support (for mail delivery to POP3 users)
+LMTP={{ lmtp_enabled | lower }}
+
+# LMTP socket path (if LMTP enabled)
+{% if lmtp_enabled %}LMTPSOCKET={{ lmtp_socket }}{% endif %}
+
+# Enable/disable POP3 over UNIX socket (for local clients)
+{% if pop3_unix_socket_enabled %}POP3AUTHSOCKET={{ pop3_unix_socket }}{% endif %}
+
+# Enable/disable proxy authentication (for multi-tier setups)
+{% if proxy_auth_enabled %}PROXYAUTH={{ proxy_auth_enabled | lower }}
+PROXYAUTHSOCKET={{ proxy_auth_socket }}{% endif %}

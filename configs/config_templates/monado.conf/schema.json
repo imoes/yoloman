@@ -1,0 +1,134 @@
+{
+  "runtime_path": {
+    "type": "string",
+    "default": "/tmp/monado",
+    "description": "Root directory for runtime data (logs, IPC sockets, temporary files). Ensure the path exists and is writable by the service user."
+  },
+  "ipc_socket_path": {
+    "type": "string",
+    "default": "/tmp/monado-ipc",
+    "description": "Path to the Unix domain socket used for client-server communication. Must be unique per Monado instance to avoid conflicts."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity. Accepts DEBUG, INFO, WARN, ERROR, or FATAL."
+  },
+  "verbose_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable additional low-level logging for troubleshooting. Use only when debugging."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads for background processing (e.g., event handling, buffering). Increase for high-throughput or multi-device setups."
+  },
+  "input_devices": {
+    "type": "list",
+    "default": [
+      {
+        "type": "openxr",
+        "name": "generic-openxr",
+        "enabled": true,
+        "config": {
+          "timeout_ms": 1000
+        }
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Device class (e.g., 'openxr', 'keyboard', 'gamepad'). Must match a supported device driver."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable device identifier."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether this device is active and polled for input."
+        },
+        "config": {
+          "type": "object",
+          "description": "Device-specific settings (e.g., timeout, key mapping). Keys and values depend on the device type.",
+          "example": {
+            "timeout_ms": 1000
+          }
+        }
+      }
+    },
+    "description": "List of input devices to integrate with Monado. Each device may have its own configuration."
+  },
+  "compositor_layers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "debug-overlay",
+        "enabled": false,
+        "type": "overlay",
+        "options": {
+          "opacity": 0.7
+        }
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Unique name for the layer (used for debugging and layer management)."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether to render this layer during composition."
+        },
+        "type": {
+          "type": "string",
+          "description": "Layer kind (e.g., 'overlay', 'quad', 'cylinder'). Must be supported by the compositor backend."
+        },
+        "options": {
+          "type": "object",
+          "description": "Layer-specific rendering options (e.g., opacity, position, content source)."
+        }
+      }
+    },
+    "description": "Post-processing or overlay layers added to the final composited image. Useful for debugging or HUDs."
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "openxr-ovr",
+        "enabled": true,
+        "config": {
+          "display_refresh_rate": 72
+        }
+      }
+    ],
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Backend name (e.g., 'openxr-ovr', 'openxr-vk', 'openxr-sim')."
+        },
+        "enabled": {
+          "type": "bool",
+          "description": "Whether the backend is loaded at runtime."
+        },
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the shared library implementing the backend (optional if installed system-wide)."
+        },
+        "config": {
+          "type": "object",
+          "description": "Backend-specific settings (e.g., refresh rate, render resolution)."
+        }
+      }
+    },
+    "description": "List of OpenXR backend plugins to load. Each backend supports a specific runtime (e.g., Oculus, SteamVR, or software fallback)."
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "service_name": {
+    "type": "string",
+    "default": "ironic-inspector",
+    "description": "The name of the service (used for logging and service discovery)"
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging for detailed troubleshooting"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Global logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ironic-inspector/inspector.log",
+    "description": "Path to the inspector log file; leave empty to log only to stdout"
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP address to bind the API server to"
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 5050,
+    "description": "Port number for the API endpoint"
+  },
+  "ipa_ramdisk_path": {
+    "type": "string",
+    "default": "/var/lib/ironic-inspector/ipa-initramfs",
+    "description": "Absolute path to the Inspector's Provisioning Agent ramdisk image"
+  },
+  "ipa_ramdisk_type": {
+    "type": "string",
+    "default": "pxelinux",
+    "description": "IPA ramdisk type: 'pxelinux' for legacy BIOS/PXE or 'ipxe' for iPXE support"
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for the API endpoint (requires cert and key paths)"
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/ironic-inspector/ssl/inspector.crt",
+    "description": "Path to TLS certificate file (only used if TLS is enabled)"
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/ironic-inspector/ssl/inspector.key",
+    "description": "Path to TLS private key file (only used if TLS is enabled)"
+  },
+  "max_concurrent_cleaning_steps": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of cleaning steps executed concurrently per node"
+  },
+  "max_clean_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries for cleaning operations"
+  },
+  "max_inspect_retries": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of retries for inspection operations"
+  },
+  "retry_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait between retry attempts"
+  },
+  "enroll_nodes": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically create new node records in Ironic upon successful inspection"
+  },
+  "ironic_auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy used for Ironic API calls ('keystone' or 'noauth')"
+  },
+  "ironic_endpoint_type": {
+    "type": "string",
+    "default": "publicURL",
+    "description": "Endpoint type used to locate Ironic API ('publicURL', 'internalURL', or 'adminURL')"
+  },
+  "ironic_identity_api_version": {
+    "type": "string",
+    "default": "v3",
+    "description": "Keystone API version ('v2.0' or 'v3')"
+  },
+  "ironic_url": {
+    "type": "string",
+    "default": "http://localhost:6385",
+    "description": "Base URL of the Ironic API service"
+  },
+  "ironic_username": {
+    "type": "string",
+    "default": "ironic",
+    "description": "Service username for Ironic API authentication (if keystone is used)"
+  },
+  "ironic_password": {
+    "type": "string",
+    "default": "",
+    "description": "Service password for Ironic API authentication (if keystone is used)"
+  },
+  "ironic_project_name": {
+    "type": "string",
+    "default": "services",
+    "description": "Keystone project (tenant) name for the Ironic service (v3 only)"
+  },
+  "ironic_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name (v3 only)"
+  },
+  "ironic_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name (v3 only)"
+  },
+  "dhcp_filter": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DHCP filtering using dnsmasq to restrict PXE boot to inspected nodes"
+  },
+  "dnsmasq_config_dir": {
+    "type": "string",
+    "default": "/etc/dnsmasq.d",
+    "description": "Directory where dnsmasq looks for configuration files"
+  },
+  "dnsmasq_pid_file": {
+    "type": "string",
+    "default": "/run/dnsmasq/dnsmasq.pid",
+    "description": "Path to the dnsmasq PID file"
+  },
+  "dnsmasq_interface": {
+    "type": "string",
+    "default": "br-ctlplane",
+    "description": "Network interface used for DHCP provisioning (e.g., 'br-ctlplane')"
+  },
+  "dnsmasq_dhcp_range": {
+    "type": "string",
+    "default": "192.168.100.10,192.168.100.100",
+    "description": "DHCP range (IP start,IP end) for PXE-booting nodes"
+  },
+  "pxe_bootfile_name": {
+    "type": "string",
+    "default": "pxelinux.0",
+    "description": "PXE boot filename served to nodes (e.g., 'pxelinux.0', 'efi/ipxe.efi')"
+  },
+  "dnsmasq_dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "List of DNS servers provided to nodes via DHCP",
+    "items": {
+      "type": "string"
+    }
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent workers for Ironic API operations"
+  },
+  "log_levels_by_module": {
+    "type": "object",
+    "default": {
+      "ironic_inspector": "INFO",
+      "sqlalchemy": "WARNING"
+    },
+    "description": "Per-module logging levels (key = module name, value = level)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "ipxe_rules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "chain": "true",
+        "description": "Default iPXE script chain to IPA ramdisk"
+      }
+    ],
+    "description": "Custom iPXE script rules (one per rule block)",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Rule name (used as section suffix)"
+      },
+      "chain": {
+        "type": "bool",
+        "description": "Set to 'true' to chain-load IPA"
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of the rule"
+      }
+    }
+  }
+}

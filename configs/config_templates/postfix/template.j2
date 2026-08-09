@@ -1,0 +1,59 @@
+# Postfix Mail Transport Agent configuration
+# This template generates a `main.cf` configuration file for Postfix.
+# It uses Jinja2 variables defined in the Ansible role to configure the MTA.
+# Every variable has a default value to ensure the configuration is safe to render
+# even if the variable is not explicitly set in the playbook.
+
+# ==============================================================================
+# Basic Configuration
+# ==============================================================================
+
+# Primary hostname for the mail server
+myhostname = {{ hostname | default('mail.example.com') }}
+
+# Primary domain name
+mydomain = {{ domain | default('example.com') }}
+
+# ==============================================================================
+# Communications Infrastructure
+# ==============================================================================
+
+# Network interfaces to listen on (e.g., 'all', 'loopback-only')
+inet_interfaces = {{ inet_interfaces | default('all') }}
+
+# ==============================================================================
+# Mail Relay and Delivery
+# ==============================================================================
+
+# Outgoing SMTP relay host (with optional port)
+# Format: [host]:port or host
+relayhost = {{ relayhost | default('[smtp.upstream.example.com]:587') }}
+
+# Allowed networks for relay (space-separated CIDR/networks)
+# Defines which clients can use this server as a relay
+mynetworks = {{ mynetworks | default('127.0.0.0/8 10.0.0.0/24') }}
+
+# ==============================================================================
+# TLS Configuration
+# ==============================================================================
+# NOTE: If 'tls' is a dictionary, we iterate over key-value pairs.
+# If it is None or undefined, no TLS settings are emitted here.
+{% if tls is defined and tls is not none %}
+{% if tls is mapping %}
+{% for key, value in tls | dict2items %}
+# TLS setting: {{ key }}
+{{ key }} = {{ value | default('') }}
+{% endfor %}
+{% else %}
+# TLS configuration provided as a raw string/value
+# tls = {{ tls | default('') }}
+{% endif %}
+{% endif %}
+
+# ==============================================================================
+# Resource Limits
+# ==============================================================================
+
+# Maximum message size in bytes
+# Default is 25MB (26214400 bytes)
+message_size_limit = {{ message_size_limit | default(26214400) }}

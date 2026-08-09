@@ -1,0 +1,31 @@
+# Goss configuration template
+# Goss is a YAML based JSON/yaml validator for your system. It can check if packages are installed,
+# if ports are listening, if services are running, etc.
+# This template configures the global CLI options for Goss.
+
+# Goss log verbosity level (e.g., INFO, DEBUG, WARN, ERROR).
+# Controls the amount of log output produced by Goss commands.
+log-level: {{ log_level | default('INFO') }}
+
+# Path to the Goss test file to read from or write to.
+# This file contains the actual test assertions (e.g., package checks, port checks).
+gossfile: {{ gossfile | default('./goss.yaml') }}
+
+# Path to a JSON/YAML file containing variables for gossfile template expansion.
+# These variables can be used inside the gossfile to parameterize tests.
+vars: {{ vars | default('') }}
+
+# Inline JSON/YAML string containing variables for gossfile template expansion (overrides vars file).
+# Useful for passing small amounts of dynamic configuration directly.
+vars-inline: {{ vars_inline | default('') }}
+
+# Package manager type to assume for package-related tests: apk, dpkg, pacman, or rpm.
+# Helps Goss correctly identify installed packages on different distributions.
+package: {{ package | default('') }}
+
+# Command-specific options (used in validation/serve modes)
+# No additional global config keys documented for goss.yaml itself;
+# goss.yaml primarily holds test assertions (not configurable via CLI flags).
+# The above parameters are *only* those accepted as CLI flags documented in man goss(1).
+# Note: the 'goss.yaml' file itself (the 'gossfile') typically contains test definitions,
+# but those are not templated here — this template is for *global CLI options* only.

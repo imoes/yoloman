@@ -1,0 +1,66 @@
+# bdf2psf configuration
+# This file drives the bdf2psf font conversion tool.
+# Line 1: BDF source files (joined with '+')
+# Line 2: Equivalence files (joined with '+')
+# Line 3: Symbol set definitions
+# Line 4: Output font size (256 or 512)
+# Line 5: Output PSF filename
+# Line 6: Optional SFM filename
+# Line 7: Framebuffer flag
+# Line 8: Optional log file path
+
+# BDF font files: List of BDF font files to use (joined with '+' in invocation).
+# Order matters: first fonts take precedence for overlapping glyphs.
+{% for bdf_file in (bdf_files | default([])) %}
+{{ bdf_file }}{% if not loop.last %}+{% endif %}
+{% endfor %}
+{% if not bdf_files | default([]) %}
+# No BDF files specified; bdf2psf may fail or produce empty output.
+{% endif %}
+
+# Equivalence files: List of equivalence files (joined with '+' in invocation).
+# Defines glyph equivalences to reduce PSF size.
+{% for equiv_file in (equivalence_files | default([])) %}
+{{ equiv_file }}{% if not loop.last %}+{% endif %}
+{% endfor %}
+{% if not equivalence_files | default([]) %}
+# No equivalence files specified.
+{% endif %}
+
+# Symbol sets: List of character set files to include; order matters: first sets
+# take precedence if space is insufficient. Each item is a map with 'name' and
+# optional boolean 'warn'.
+{% for symbol_set in (symbol_sets | default([])) %}
+{% if symbol_set.get('warn', true) is defined and not symbol_set.warn %}:
+{% endif %}{{ symbol_set.name }}
+{% endfor %}
+{% if not symbol_sets | default([]) %}
+# No symbol sets specified; default set will be used.
+{% endif %}
+
+# Font size: Number of glyphs in the output PSF font. Must be 256 or 512.
+{{ (font_size | default(256)) }}
+
+# Output PSF filename: Filename of the generated PSF font file.
+# Will be overwritten if it exists.
+{{ (output_psf | default('output.psf')) }}
+
+# SFM file: Optional filename for the generated SFM file.
+# If empty, SFM output is suppressed.
+{% if (sfm_file | default('')) %}
+{{ (sfm_file | default('')) }}
+{% else %}
+# SFM output suppressed.
+{% endif %}
+
+# Framebuffer: If true, pass --fb to generate font for framebuffer mode
+# (handles glyph width and column copying differently).
+{% if (framebuffer | default(false)) %}
+--fb
+{% endif %}
+
+# Log file: If non-empty, pass --log <log_file> to record conversion issues
+# to this file.
+{% if (log_file | default('')) %}
+--log {{ (log_file | default('')) }}
+{% endif %}

@@ -1,0 +1,28 @@
+;; -*-emacs-lisp-*-
+;;
+;; Emacs startup file for the gtypist package.
+;; This file configures Emacs to recognize .typ files and load the gtypist major mode.
+;;
+;; Configuration parameters:
+;;   site_start_dir:      Directory where site-wide Emacs startup files are stored.
+;;   package_name:        Name of the Emacs package being configured (default: gtypist).
+;;   package_install_path: Base directory where site-lisp packages are installed.
+
+;; Load the configuration for the gtypist package from the site-lisp directory.
+;; The package directory is constructed by combining the base install path with the package name.
+(let ((package-dir (concat "{{ package_install_path | default('/usr/share/emacs/site-lisp') }}/{{ package_name | default('gtypist') }}")))
+  ;; Only proceed if the package directory actually exists on the filesystem.
+  (when (file-directory-p package-dir)
+    ;; Add the gtypist package directory to Emacs' load-path so its lisp files can be found.
+    (setq load-path (cons package-dir load-path))
+    
+    ;; Register the gtypist major mode.
+    ;; 'gtypist-mode' is the function name, "gtypist-mode" is the file containing the definition.
+    ;; The description string is displayed in help buffers.
+    ;; The 't' argument means the mode is available immediately (autoloaded).
+    (autoload 'gtypist-mode "gtypist-mode"
+      "Major mode for editing gtypist files." t)
+    
+    ;; Associate files ending in .typ with the gtypist major mode.
+    ;; When Emacs opens a file matching this regex, it will automatically invoke gtypist-mode.
+    (add-to-list 'auto-mode-alist '("\\.typ$" . gtypist-mode))))

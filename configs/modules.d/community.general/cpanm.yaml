@@ -1,0 +1,66 @@
+name: cpanm
+fqcn: community.general.cpanm
+collection: community.general
+short_description: Manages Perl library dependencies
+description: Manage Perl library dependencies using cpanminus.
+options:
+  executable:
+    type: path
+    description: Override the path to the cpanm executable.
+  from_path:
+    type: path
+    description: The local directory or C(tar.gz) file to install from.
+  installdeps:
+    type: bool
+    default: false
+    description: Only install dependencies.
+  locallib:
+    type: path
+    description: Specify the install base to install modules.
+  mirror:
+    type: str
+    description: Specifies the base URL for the CPAN mirror to use.
+  mirror_only:
+    type: bool
+    default: false
+    description: Use the mirror's index file instead of the CPAN Meta DB.
+  mode:
+    type: str
+    choices:
+    - compatibility
+    - new
+    description: Controls the module behavior. See notes below for more details. Default is V(compatibility)
+      but that behavior is deprecated and will be changed to V(new) in community.general 9.0.0.
+  name:
+    type: str
+    aliases:
+    - pkg
+    description: The Perl library to install. Valid values change according to the O(mode), see notes
+      for more details. Note that for installing from a local path the parameter O(from_path) should be
+      used.
+  name_check:
+    type: str
+    description: When O(mode=new), this parameter can be used to check if there is a module O(name) installed
+      (at O(version), when specified).
+  notest:
+    type: bool
+    default: false
+    description: Do not run unit tests.
+  version:
+    type: str
+    description: Version specification for the perl module. When O(mode) is V(new), C(cpanm) version operators
+      are accepted.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install Dancer perl package\n  community.general.cpanm:\n    name: Dancer\n\n- name:\
+  \ Install version 0.99_05 of the Plack perl package\n  community.general.cpanm:\n    name: MIYAGAWA/Plack-0.99_05.tar.gz\n\
+  \n- name: Install Dancer into the specified locallib\n  community.general.cpanm:\n    name: Dancer\n\
+  \    locallib: /srv/webapps/my_app/extlib\n\n- name: Install perl dependencies from local directory\n\
+  \  community.general.cpanm:\n    from_path: /srv/webapps/my_app/src/\n\n- name: Install Dancer perl\
+  \ package without running the unit tests in indicated locallib\n  community.general.cpanm:\n    name:\
+  \ Dancer\n    notest: true\n    locallib: /srv/webapps/my_app/extlib\n\n- name: Install Dancer perl\
+  \ package from a specific mirror\n  community.general.cpanm:\n    name: Dancer\n    mirror: 'http://cpan.cpantesters.org/'\n\
+  \n- name: Install Dancer perl package into the system root path\n  become: true\n  community.general.cpanm:\n\
+  \    name: Dancer\n\n- name: Install Dancer if it is not already installed OR the installed version\
+  \ is older than version 1.0\n  community.general.cpanm:\n    name: Dancer\n    version: '1.0'\n"

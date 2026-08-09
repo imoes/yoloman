@@ -1,0 +1,82 @@
+# ==============================================================================
+# fuseiso9660 Configuration Template
+#
+# This template generates a configuration or command-line argument list for
+# mounting ISO9660 filesystems using FUSE (Filesystem in Userspace).
+#
+# It maps the provided schema fields to fuseiso9660 command-line flags.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Mount point directory where the ISO image will be accessible.
+# This is a required parameter.
+# --------------------------------------------------------------------------
+{{ mount_point | default('') }}
+
+# --------------------------------------------------------------------------
+# Path to the ISO/BIN/NGR image file to be mounted.
+# This is a required parameter.
+# --------------------------------------------------------------------------
+{{ iso_image | default('') }}
+
+# --------------------------------------------------------------------------
+# Character set for Joliet filesystems.
+# See `iconv --list` for supported encodings.
+# Default: UTF-8
+# --------------------------------------------------------------------------
+-o iocharset={{ iocharset | default('UTF-8') }}
+
+# --------------------------------------------------------------------------
+# List of additional FUSE mount options.
+# These are joined with commas to form a comma-separated string passed to FUSE.
+# Default: [] (empty)
+# --------------------------------------------------------------------------
+{% if fuse_opts | default([]) | length > 0 %}
+-o {{ fuse_opts | default([]) | join(',') }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Run in foreground mode (do not daemonize).
+# Equivalent to the -f flag.
+# Default: False
+# --------------------------------------------------------------------------
+{% if foreground | default(False) %}
+-f
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Enable debug output.
+# Note: Debug mode implies foreground mode (-f).
+# Equivalent to the -d flag.
+# Default: False
+# --------------------------------------------------------------------------
+{% if debug | default(False) %}
+-d
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Run single-threaded.
+# Equivalent to the -s flag.
+# Default: False
+# --------------------------------------------------------------------------
+{% if single_threaded | default(False) %}
+-s
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Maintain ~/.mtab.fuseiso.
+# If false, the -n flag is used to disable mtab maintenance.
+# Default: True
+# --------------------------------------------------------------------------
+{% if not maintain_mtab | default(True) %}
+-n
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Create the mount point if it is missing, and delete it on exit.
+# Equivalent to the -p flag.
+# Default: False
+# --------------------------------------------------------------------------
+{% if create_mountpoint | default(False) %}
+-p
+{% endif %}

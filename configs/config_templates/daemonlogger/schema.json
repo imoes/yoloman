@@ -1,0 +1,87 @@
+{
+  "start_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Start daemonlogger automatically at boot. Set to false to install the package without activating the daemon."
+  },
+  "daemon_user": {
+    "type": "string",
+    "default": "daemonlogger",
+    "description": "System user account the daemon drops privileges to after opening the raw capture socket. Must have write access to log_dir."
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "daemonlogger",
+    "description": "System group the daemon drops privileges to after opening the raw capture socket."
+  },
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to capture packets from (e.g. eth0, ens3, bond0). The interface must be up before the daemon starts."
+  },
+  "tap_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Optional soft-tap output interface. A verbatim copy of each captured packet is injected here in addition to being logged. Leave empty to disable."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/daemonlogger",
+    "description": "Directory where pcap capture files are written. Must exist and be writable by daemon_user before the daemon starts."
+  },
+  "log_prefix": {
+    "type": "string",
+    "default": "daemonlogger",
+    "description": "Filename prefix for pcap log files. A Unix timestamp suffix is appended automatically (e.g. capture.1718000000.pcap)."
+  },
+  "snaplen": {
+    "type": "number",
+    "default": 1514,
+    "description": "Per-packet snapshot length in bytes. 1514 captures the full payload of a standard 1500-byte MTU Ethernet frame. Increase to 9014 for jumbo frames."
+  },
+  "rollover_size": {
+    "type": "number",
+    "default": 134217728,
+    "description": "Maximum pcap file size in bytes before rotating to a new file. 134217728 = 128 MiB. Set to 0 to disable size-based rotation."
+  },
+  "rollover_time": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum pcap file age in seconds before rotating to a new file. 3600 = 1 hour. Set to 0 to disable time-based rotation."
+  },
+  "max_files": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of pcap files to keep on disk. The oldest file is deleted when this limit is reached. 0 means unlimited \u2014 manage retention externally via logrotate or cron."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/daemonlogger/daemonlogger.pid",
+    "description": "Absolute path to the PID file. The parent directory must exist and be writable by daemon_user before the daemon starts."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug output to syslog. Useful for initial setup and troubleshooting; disable in production to avoid log noise."
+  },
+  "bpf_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of Berkeley Packet Filter rule atoms. They are OR-combined into a single BPF expression passed to libpcap. An empty list captures all traffic on the interface. See pcap-filter(7) for syntax.",
+    "items": {
+      "expr": {
+        "type": "string",
+        "description": "BPF filter atom or sub-expression (e.g. 'port 443', 'not host 10.0.0.1', 'tcp and portrange 8000-9000')."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable label for this rule, rendered as a comment above the generated BPF_FILTER line."
+      }
+    }
+  },
+  "extra_args": {
+    "type": "string",
+    "default": "",
+    "description": "Additional command-line flags passed verbatim to daemonlogger. Use only for options not exposed as dedicated variables above."
+  }
+}

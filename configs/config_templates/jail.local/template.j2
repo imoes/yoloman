@@ -1,0 +1,135 @@
+[DEFAULT]
+# Global default settings applied to all jails unless overridden.
+# If 'defaults' variable is undefined, this section is effectively empty of critical directives,
+# which may cause fail2ban to use its internal hardcoded defaults or fail to start.
+#
+# ignoreip: IP addresses to always allow (whitelist).
+ignoreip = {{ (defaults | default({})).ignore_ip | default(['127.0.0.1/8', '::ffff:127.0.0.1/104', '::1/128']) | join(', ') }}
+
+# bantime: Duration (in seconds) that a host is banned.
+bantime  = {{ (defaults | default({})).bantime | default('10m') }}
+
+# findtime: Duration (in seconds) in which maxretry failures must occur to trigger a ban.
+findtime  = {{ (defaults | default({})).findtime | default('10m') }}
+
+# maxretry: Number of failures within 'findtime' before banning.
+maxretry = {{ (defaults | default({})).maxretry | default(5) }}
+
+# backend: The logging backend to use for detecting failures (gamin, polling, pyinotify).
+backend = {{ (defaults | default({})).backend | default('auto') }}
+
+# logtarget: File or stream to write fail2ban's own log messages to.
+logtarget = {{ (defaults | default({})).logtarget | default('/var/log/fail2ban.log') }}
+
+# protocol: Network protocol to monitor (tcp, udp, or both). Used by some jails.
+protocol = {{ (defaults | default({})).protocol | default('tcp') }}
+
+# action: Default action to take when a ban occurs (e.g., iptables-multiport).
+action = {{ (defaults | default({})).action | default('%(action_)s') }}
+
+# Iterate over each jail configuration defined in the 'jails' variable.
+# Each key is a jail name (e.g., 'sshd', 'nginx-http-auth'), and the value is a dictionary
+# of configuration options for that specific jail.
+{% for jail_name, jail_config in (jails | default({})) | dict2items %}
+{% if jail_config.value.enabled is not false %}
+
+[{{ jail_name }}]
+# Jail Name: {{ jail_name }}
+# Enabled: {{ jail_config.value.enabled | default(true) | ternary('true', 'false') }}
+
+# filter: The filter file (from filter.d/) that defines the regex/log format for this jail.
+filter   = {{ (jail_config.value | default({})).filter | default(jail_name) }}
+
+# action: Action to take for this jail. Overrides global default if specified.
+# If not specified, it falls back to the global 'action' or default fail2ban actions.
+action   = {{ (jail_config.value | default({})).action | default() }}
+
+# logpath: Path(s) to the log file(s) to monitor. Accepts a list or comma-separated string.
+# Fail2ban will watch these files for changes.
+logpath  = {{ (jail_config.value | default({})).logpath | default([]) | join(', ') }}
+
+# --- Optional Jail-Specific Overrides ---
+# The following directives override the [DEFAULT] values if explicitly provided in the jail config.
+
+{% if (jail_config.value | default({})).bantime is defined %}
+# bantime: Override global ban duration for this specific jail.
+bantime  = {{ jail_config.value.bantime }}
+{% endif %}
+
+{% if (jail_config.value | default({})).findtime is defined %}
+# findtime: Override global find-time window for this specific jail.
+findtime = {{ jail_config.value.findtime }}
+{% endif %}
+
+{% if (jail_config.value | default({})).maxretry is defined %}
+# maxretry: Override global retry threshold for this specific jail.
+maxretry = {{ jail_config.value.maxretry }}
+{% endif %}
+
+{% if (jail_config.value | default({})).ignoreip is defined %}
+# ignoreip: Additional IPs to ignore for this jail.
+ignoreip = {{ jail_config.value.ignoreip | join(', ') }}
+{% endif %}
+
+{% if (jail_config.value | default({})).protocol is defined %}
+# protocol: Override protocol for this jail (tcp/udp).
+protocol = {{ jail_config.value.protocol }}
+{% endif %}
+
+{% if (jail_config.value | default({})).backend is defined %}
+# backend: Override logging backend for this jail.
+backend  = {{ jail_config.value.backend }}
+{% endif %}
+
+{% if (jail_config.value | default({})).port is defined %}
+# port: Specific port to monitor (used by some filters).
+port     = {{ jail_config.value.port }}
+{% endif %}
+
+{% if (jail_config.value | default({})).chain is defined %}
+# chain: iptables chain to use for banning (e.g., INPUT, FORWARD).
+chain    = {{ jail_config.value.chain }}
+{% endif %}
+
+{% if (jail_config.value | default({})).sendmail is defined %}
+# sendmail: Path to sendmail binary for sending ban notifications.
+sendmail = {{ jail_config.value.sendmail }}
+{% endif %}
+
+{% if (jail_config.value | default({})).destemail is defined %}
+# destemail: Email address to send ban notifications to.
+destemail = {{ jail_config.value.destemail }}
+{% endif %}
+
+{% if (jail_config.value | default({})).sender is defined %}
+# sender: Email address from which ban notifications are sent.
+sender   = {{ jail_config.value.sender }}
+{% endif %}
+
+{% if (jail_config.value | default({})).mta is defined %}
+# mta: Mail Transfer Agent to use (sendmail, postfix, qmail).
+mta      = {{ jail_config.value.mta }}
+{% endif %}
+
+{% if (jail_config.value | default({})).recipient is defined %}
+# recipient: Alias for destemail in some older configurations.
+recipient = {{ jail_config.value.recipient }}
+{% endif %}
+
+{% if (jail_config.value | default({})).mode is defined %}
+# mode: Action mode (aggressive, normal, etc., depending on action plugin).
+mode     = {{ jail_config.value.mode }}
+{% endif %}
+
+{% if (jail_config.value | default({})).ports is defined %}
+# ports: Comma-separated list of ports to monitor.
+ports    = {{ jail_config.value.ports | join(', ') }}
+{% endif %}
+
+{% if (jail_config.value | default({})).ignorecommand is defined %}
+# ignorecommand: Shell command to determine if an IP should be ignored dynamically.
+ignorecommand = {{ jail_config.value.ignorecommand }}
+{% endif %}
+
+{% endif %}
+{% endfor %}

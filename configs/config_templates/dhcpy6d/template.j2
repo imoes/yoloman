@@ -1,0 +1,45 @@
+# dhcpy6d configuration template
+# This file configures the DHCPv6 server dhcpy6d.
+# It manages IPv6 address allocation, primarily for link-local addresses (LLIP).
+
+[dhcpy6d]
+# Interface to listen to multicast DHCPv6 traffic (ff02::1:2).
+# Specifies the network interface on which dhcpy6d will listen for DHCPv6 requests.
+interface = {{ interface | default('eth0') }}
+
+# Do not identify and configure clients via persistent storage.
+# Set to 'none' to avoid writing client configuration data to disk.
+store_config = none
+
+# SQLite DB for leases and LLIP-MAC-mapping.
+# Specifies the storage backend for volatile data like leases and MAC mappings.
+store_volatile = sqlite
+
+# Path to the SQLite database for volatile (lease/LLIP-MAC mapping) data.
+# This file stores temporary DHCPv6 lease information and link-local IP mappings.
+store_sqlite_volatile = {{ sqlite_volatile_path | default('/var/lib/dhcpy6d/volatile.sqlite') }}
+
+# Enable logging.
+log = on
+
+# Path to the log file.
+# Specifies the file where dhcpy6d will write its log messages.
+log_file = {{ log_file | default('/var/log/dhcpy6d.log') }}
+
+# set to yes to really answer to clients
+# not necessary in Debian where it comes from /etc/default/dhcpy6d and /etc/init.d/dhcpy6
+#really_do_it = no
+
+# Special address type which applies to all not specially
+# configured clients.
+[address_default]
+# Choosing MAC-based addresses.
+# Defines the addressing category for default clients. 'mac' indicates
+# that the client's MAC address will be used to generate the IPv6 address.
+category = mac
+
+# ULA-type address pattern.
+# Specifies the IPv6 address pattern for default clients.
+# $mac$ is a placeholder that will be replaced by the client's MAC address.
+# This example uses a Unique Local Address (ULA) range.
+pattern = fd01:db8:dead:bad:beef:$mac$

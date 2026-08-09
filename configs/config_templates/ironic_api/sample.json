@@ -1,0 +1,112 @@
+{
+  "logging": {
+    "log_dir": "/var/log/ironic",
+    "log_file": "ironic-api.log"
+  },
+  "rpc": {
+    "transport_url": "rabbit://guest:guest@controller:5672/"
+  },
+  "database": {
+    "connection": "mysql+pymysql://ironic:secretpass@dbserver:3306/ironic?charset=utf8"
+  },
+  "keystone": {
+    "auth_url": "https://controller:5000/v3",
+    "auth_type": "password",
+    "project_domain_name": "Default",
+    "user_domain_name": "Default",
+    "project_name": "services",
+    "username": "ironic",
+    "password": "ironic_secret"
+  },
+  "service_credentials": {
+    "auth_type": "password",
+    "auth_url": "https://controller:5000/v3",
+    "project_domain_name": "Default",
+    "user_domain_name": "Default",
+    "project_name": "services",
+    "username": "ironic",
+    "password": "ironic_secret",
+    "interface": "internal",
+    "region_name": "RegionOne"
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 6385,
+    "workers": 4,
+    "max_limit": 1000
+  },
+  "conductor": {
+    "automated_clean": true,
+    "api_url": "http://localhost:6385"
+  },
+  "hardware_types": {
+    "enabled": [
+      "ipmi",
+      "redfish",
+      "idrac"
+    ]
+  },
+  "inspector": {
+    "enabled": true,
+    "auth_url": "http://controller:5050"
+  },
+  "dns": {
+    "enabled": true,
+    "domain": "baremetal.openstack.local"
+  },
+  "ipmi": {
+    "allow_insecure": false,
+    "remote_console_timeout": 600
+  },
+  "pxe": {
+    "tftp_root": "/var/lib/ironic/tftpboot",
+    "tftp_server": "10.0.0.5",
+    "boot_options": [
+      {
+        "key": "pxe_append_params",
+        "value": "noapic acpi=off selinux=0"
+      },
+      {
+        "key": "deploy_kernel",
+        "value": "http://10.0.0.5/images/deploy-kernel"
+      },
+      {
+        "key": "deploy_ramdisk",
+        "value": "http://10.0.0.5/images/deploy-ramdisk"
+      }
+    ]
+  },
+  "ssl": {
+    "enabled": true,
+    "cert_file": "/etc/ironic/ssl/ironic.crt",
+    "key_file": "/etc/ironic/ssl/ironic.key",
+    "ca_file": "/etc/ironic/ssl/ca.crt"
+  },
+  "notify": {
+    "state_changes": [
+      "info",
+      "warning",
+      "error"
+    ],
+    "notify_on_deprecation": true
+  },
+  "healthcheck": {
+    "backends": [
+      "disable_by_file",
+      "disable_by_file_path"
+    ],
+    "backends_extra": [
+      {
+        "name": "disable_by_file_path",
+        "options": {
+          "file_path": "/var/run/ironic-api/disable_healthcheck"
+        }
+      }
+    ]
+  },
+  "middleware": {
+    "rate_limiting_enabled": true,
+    "rate_limit_burst": 15,
+    "rate_limit_interval": 1
+  }
+}

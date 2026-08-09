@@ -1,0 +1,19 @@
+{# Configuration for cdsetool CLI tool #}
+{# This template configures the cdsetool tool, which is used for interacting with the Copernicus Data Space Ecosystem. #}
+{# It handles downloading datasets, managing concurrency, and applying search filters. #}
+
+[cdsetool]
+# Number of concurrent connections for downloads (positive integer)
+# Controls how many simultaneous HTTP requests cdsetool makes to the backend.
+# Higher values may speed up bulk downloads but can trigger rate limits.
+concurrency = {{ concurrency | default(1) }}
+
+# Whether to overwrite existing downloaded files
+# If True, existing files with the same path/name will be silently replaced.
+# If False, the tool will skip or error if a file already exists, preventing data loss.
+overwrite_existing = {{ overwrite_existing | default(False) | ternary('True', 'False') }}
+
+# List of search term expressions in key=value format (e.g., 'platform=web' 'instrument=Sentinel-2')
+# These terms are used to filter datasets before download.
+# The terms are joined into a single space-separated string as expected by the tool.
+search_term = {{ search_terms | default([]) | join(' ') }}

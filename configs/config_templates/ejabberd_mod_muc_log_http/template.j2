@@ -1,0 +1,44 @@
+# MUC Web Logging Module: ejabberd_mod_muc_log_http
+# Enable the MUC HTTP logging module with configurable host, port, and access options.
+modules:
+  mod_muc_log_http:
+    # Base URL path where logs will be served (e.g., http://host:port/muc_logs)
+    http_path: "{{ muc_http.http_path }}"
+    # Port to bind the HTTP server for MUC logs (0 = disable HTTP serving, rely on reverse proxy)
+    http_port: {{ muc_http.http_port }}
+    # Hostname or interface to bind to (e.g., "127.0.0.1", "0.0.0.0", or fully qualified domain)
+    http_bind_address: "{{ muc_http.http_bind_address }}"
+    # Whether to compress logs (gzip) on-the-fly for faster transfer
+    gzip: {{ muc_http.gzip | lower }}
+    # Whether to require authentication for log access (if true, users must be logged in admins via ejabberdctl)
+    require_auth: {{ muc_http.require_auth | lower }}
+    # Optional HTTP server options: title, favicon, CSS, etc.
+    http_options:
+      # HTML page title for the log index
+      title: "{{ muc_http.http_options.title }}"
+      # Optional: custom stylesheet URL or inline CSS path
+      stylesheet: "{{ muc_http.http_options.stylesheet }}"
+      # Optional: custom header HTML (e.g., logo, branding)
+      header_html: "{{ muc_http.http_options.header_html }}"
+      # Optional: custom footer HTML
+      footer_html: "{{ muc_http.http_options.footer_html }}"
+    # List of MUC services to include in logs (leave empty to include all rooms)
+    # If empty, logs from all MUC services (mod_muc domains) are accessible
+    rooms:
+{% for room in muc_http.rooms %}      - "{{ room }}"
+{% endfor %}    # Optional: directory where logs are stored (defaults to ejabberd's log_dir)
+    log_dir: "{{ muc_http.log_dir }}"
+    # Optional: whether to preserve log filenames with room JID (true) or normalize to safe names (false)
+    preserve_room_jid: {{ muc_http.preserve_room_jid | lower }}
+    # Optional: restrict access to rooms whose JID matches these regex patterns
+    room_access_filter:
+{% for pattern in muc_http.room_access_filter %}      - "{{ pattern }}"
+{% endfor %}    # Optional: number of days to keep logs before auto-purge (0 = keep forever)
+    max_age_days: {{ muc_http.max_age_days }}
+    # Optional: whether to show timestamps in local time (true) or UTC (false)
+    localtime: {{ muc_http.localtime | lower }}
+    # Optional: enable/disable access to HTML, plain-text, and JSON formats
+    formats:
+      html: {{ muc_http.formats.html | lower }}
+      text: {{ muc_http.formats.text | lower }}
+      json: {{ muc_http.formats.json | lower }}

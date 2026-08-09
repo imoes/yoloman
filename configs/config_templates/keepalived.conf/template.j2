@@ -1,0 +1,149 @@
+# Keepalived Configuration Template
+# This file manages VRRP instances for high-availability IP addresses and LVS load-balanced virtual servers.
+
+# Global VRRP Instance Definition
+# Defines a specific VRRP (Virtual Router Redundancy Protocol) instance for failover.
+# vrrp_instance_name: Name of the VRRP instance (e.g., VI_1, ETH0_VRRP).
+vrrp_instance {{ vrrp_instance_name | default('VI_1') }} {
+    # state: Initial state: MASTER (primary) or BACKUP (standby).
+{% if state | default('MASTER') == 'MASTER' %}
+    STATE MASTER
+{% else %}
+    STATE BACKUP
+{% endif %}
+
+    # interface: Network interface to bind to (e.g., eth0, ens33).
+    INTERFACE {{ interface | default('eth0') }}
+
+    # vrid: Virtual Router ID (1–255); must be unique per LAN segment.
+    VRID {{ vrid | default(51) }}
+
+    # priority: Priority (higher = more preferred); MASTER usually has highest.
+    PRIORITY {{ priority | default(100) }}
+
+    # advert_int: Advertisement interval in seconds (VRRP heartbeat frequency).
+    ADVERT_INT {{ advert_int | default(1) }}
+
+    # authentication: Optional VRRP authentication block (simple or password auth).
+{% if (authentication | default(null)) is not none %}
+    authentication {
+        # auth_type: Authentication type, typically PASS or AH.
+        auth_type {{ (authentication | default({})).type | default('PASS') }}
+{% if (authentication | default({})).pass is defined and (authentication | default({})).pass is not none %}
+        auth_pass "{{ (authentication | default({})).pass }}"
+{% endif %}
+    }
+{% endif %}
+
+    # virtual_ipaddress: List of VIPs (IPv4 or IPv6) assigned to the instance.
+{% if (virtual_ipaddress | default([])) | length > 0 %}
+    virtual_ipaddress {
+{% for vip in virtual_ipaddress | default([]) %}
+        {{ vip }}
+{% endfor %}
+    }
+{% endif %}
+
+    # preempt_delay: Seconds to delay preemption after startup (0 = no delay).
+{% if preempt_delay is defined and preempt_delay is not none %}
+    PREEMPT_DELAY {{ preempt_delay }}
+{% endif %}
+
+    # notify_master: Path to script to run on transition to MASTER state.
+{% if notify_master is defined and notify_master is not none %}
+    notify_master "{{ notify_master }}"
+{% endif %}
+
+    # notify_backup: Path to script to run on transition to BACKUP state.
+{% if notify_backup is defined and notify_backup is not none %}
+    notify_backup "{{ notify_backup }}"
+{% endif %}
+
+    # notify_fault: Path to script to run on transition to FAULT state.
+{% if notify_fault is defined and notify_fault is not none %}
+    notify_fault "{{ notify_fault }}"
+{% endif %}
+}
+
+# virtual_server: List of virtual servers (LVS NAT/DR/TUN mode load-balancing configs).
+{% if (virtual_server | default([])) | length > 0 %}
+{% for vs in virtual_server | default([]) %}
+virtual_server {{ vs.ip }} {{ vs.port }} {
+    # delay_loop: Delay loop in seconds.
+    delay_loop {{ vs.delay_loop | default(6) }}
+
+    # lb_algo: Load balancing algorithm.
+    lb_algo {{ vs.lb_algo | default('rr') }}
+
+    # lb_kind: Load balancing kind (NAT, DR, TUN).
+    lb_kind {{ vs.lb_kind | default('NAT') }}
+
+{% if vs.protocol is defined and vs.protocol is not none %}
+    # protocol: Protocol (TCP or UDP).
+    protocol {{ vs.protocol }}
+{% endif %}
+
+{% if vs.persistence is defined and vs.persistence is not none %}
+    # persistence_timeout: Persistence timeout in seconds.
+    persistence_timeout {{ vs.persistence }}
+{% endif %}
+
+{% if vs.sorry_server is defined and vs.sorry_server is not none %}
+    # sorry_server: Fallback real server configuration.
+    sorry_server {{ vs.sorry_server.ip }} {{ vs.sorry_server.port }}
+{% endif %}
+
+{% if vs.real_server is defined and vs.real_server is not none %}
+{% for rs in vs.real_server | default([]) %}
+    real_server {{ rs.ip }} {{ rs.port }} {
+{% if rs.weight is defined and rs.weight is not none %}
+        # weight: Weight of the real server.
+        weight {{ rs.weight }}
+{% endif %}
+
+{% if rs.notify_up is defined and rs.notify_up is not none %}
+        # notify_up: Script executed when server becomes UP.
+        notify_up "{{ rs.notify_up }}"
+{% endif %}
+
+{% if rs.notify_down is defined and rs.notify_down is not none %}
+        # notify_down: Script executed when server becomes DOWN.
+        notify_down "{{ rs.notify_down }}"
+{% endif %}
+
+{% if rs.HTTP_GET is defined and rs.HTTP_GET is not none %}
+        # HTTP_GET: HTTP health check configuration.
+        HTTP_GET {
+{% if rs.HTTP_GET.urls is defined and rs.HTTP_GET.urls is not none %}
+{% for url in rs.HTTP_GET.urls | default([]) %}
+            url {
+                path {{ url.path | default('/') }}
+{% if url.status_code is defined and url.status_code is not none %}
+                status_code {{ url.status_code }}
+{% endif %}
+            }
+{% endfor %}
+{% endif %}
+            connect_timeout {{ rs.HTTP_GET.connect_timeout | default(5) }}
+            retry {{ rs.HTTP_GET.retry | default(3) }}
+            delay_before_retry {{ rs.HTTP_GET.delay_before_retry | default(0) }}
+        }
+{% endif %}
+
+{% if rs.TCP_CHECK is defined and rs.TCP_CHECK is not none %}
+        # TCP_CHECK: TCP health check configuration.
+        TCP_CHECK {
+            connect_timeout {{ rs.TCP_CHECK.connect_timeout | default(5) }}
+{% if rs.TCP_CHECK.port is defined and rs.TCP_CHECK.port is not none %}
+            connect_port {{ rs.TCP_CHECK.port }}
+{% else %}
+            connect_port {{ rs.port }}
+{% endif %}
+        }
+{% endif %}
+    }
+{% endfor %}
+{% endif %}
+}
+{% endfor %}
+{% endif %}

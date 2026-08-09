@@ -1,0 +1,127 @@
+# ==============================================================================
+# CloudKitty API Configuration Template
+# ==============================================================================
+# This template generates the main configuration file for the CloudKitty API service.
+# It is organized into sections matching the standard OpenStack/CloudKitty INI format.
+# All variables are drawn from the Ansible role's schema defaults.
+# ==============================================================================
+
+[DEFAULT]
+# Enable debug-level logging — very verbose, disable in production.
+# When true, logs every internal operation and data payload.
+debug = {{ debug | default(False) | lower }}
+
+# Directory where CloudKitty writes its log files.
+# Ensure this directory exists and is writable by the service user.
+log_dir = {{ log_dir | default('/var/log/cloudkitty') }}
+
+# Log file name within log_dir.
+log_file = {{ log_file | default('cloudkitty.log') }}
+
+# AMQP URL for oslo.messaging; format rabbit://<user>:<pass>@<host>:<port>/<vhost>.
+# This connects the service to the message queue for asynchronous tasks.
+transport_url = {{ transport_url | default('rabbit://cloudkitty:cloudkitty@localhost:5672/cloudkitty') }}
+
+[api]
+# IP address the CloudKitty API process binds to; 0.0.0.0 binds to all interfaces.
+host = {{ api_host | default('0.0.0.0') }}
+
+# TCP port the CloudKitty API server listens on.
+port = {{ api_port | default(8889) }}
+
+# Number of parallel WSGI worker processes; recommended value is 1-2x the vCPU count.
+workers = {{ api_workers | default(2) }}
+
+[database]
+# SQLAlchemy connection URL for the main CloudKitty database.
+# Contains credentials, host, and database name for the persistent storage backend.
+connection = {{ db_connection | default('mysql+pymysql://cloudkitty:cloudkitty@localhost/cloudkitty') }}
+
+[keystone_authtoken]
+# Public Keystone endpoint URI advertised to unauthenticated clients in 401 responses.
+# Clients use this to redirect for authentication.
+www_authenticate_uri = {{ keystone_www_authenticate_uri | default('http://localhost:5000') }}
+
+# Internal Keystone endpoint this service uses to validate tokens and fetch service catalog.
+auth_url = {{ keystone_auth_url | default('http://localhost:5000') }}
+
+# Memcached server(s) for Keystone token cache; reduces repeated Keystone round-trips.
+# Format: comma-separated host:port pairs.
+memcached_servers = {{ (memcached_servers | default(['localhost:11211'])) | join(',') }}
+
+# Keystone authentication plugin for this service account — almost always 'password'.
+auth_type = {{ keystone_auth_type | default('password') }}
+
+# Keystone domain that owns the service project.
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+
+# Keystone domain that owns the cloudkitty service user account.
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# Keystone project the cloudkitty service account is a member of.
+project_name = {{ keystone_project_name | default('service') }}
+
+# Keystone username of the CloudKitty service account.
+username = {{ keystone_username | default('cloudkitty') }}
+
+# Password for the CloudKitty Keystone service account.
+password = {{ keystone_password | default('') }}
+
+# OpenStack region this CloudKitty instance is deployed in.
+region_name = {{ keystone_region_name | default('RegionOne') }}
+
+[storage]
+# Storage driver for rated data frames: 'sqlalchemy' (default) or 'elasticsearch'.
+backend = {{ storage_backend | default('sqlalchemy') }}
+
+# Storage API version — use 2 for CloudKitty >= Stein; use 1 only on Rocky or older.
+version = {{ storage_version | default(2) }}
+
+{% if storage_backend | default('sqlalchemy') == 'elasticsearch' %}
+[storage_elasticsearch]
+# Elasticsearch cluster URL — required only when storage_backend is 'elasticsearch'.
+host = {{ elasticsearch_host | default('http://localhost:9200') }}
+
+# Elasticsearch index name prefix for CloudKitty data — required only when storage_backend is 'elasticsearch'.
+index_name = {{ elasticsearch_index | default('cloudkitty') }}
+{% endif %}
+
+[fetcher]
+# Backend that discovers projects/tenants to rate: 'keystone' or 'source'.
+backend = {{ fetcher_backend | default('keystone') }}
+
+[fetcher_keystone]
+# Keystone Identity API version used by the project fetcher.
+# CloudKitty fetcher typically uses v3 of the API.
+keystone_version = 3
+
+# Config section whose credentials the fetcher reuses for Keystone API calls.
+auth_section = keystone_authtoken
+
+# OpenStack region the fetcher targets when listing projects via Keystone.
+region_name = {{ fetcher_region_name | default('RegionOne') }}
+
+[collect]
+# Width in seconds of each metrics time slice fetched per collection run.
+# Must divide evenly into collect_period to avoid gaps or overlaps.
+window = {{ collect_window | default(1800) }}
+
+# Length in seconds of each billing/rating period — typically 3600 (hourly) or 86400 (daily).
+period = {{ collect_period | default(3600) }}
+
+# CloudKitty service identifiers to collect and rate — must match configured collector metrics.
+services = {{ (collect_services | default(['compute', 'volume', 'image', 'network.bw.in', 'network.bw.out', 'network.floating'])) | join(',') }}
+
+[rating]
+# Rating module: 'hashmap' for rule-table pricing, 'pyscripts' for Python scripts, 'noop' to disable rating.
+backend = {{ rating_backend | default('hashmap') }}
+
+{% if rating_backend | default('hashmap') == 'hashmap' %}
+[hashmap]
+# SQLAlchemy connection URL for the hashmap module's rule database — usually identical to db_connection.
+database_connection = {{ hashmap_db_connection | default('mysql+pymysql://cloudkitty:cloudkitty@localhost/cloudkitty') }}
+{% endif %}
+
+[oslo_policy]
+# Directories relative to the config dir that contain additional policy override YAML files.
+policy_dirs = {{ (oslo_policy_dirs | default(['policy.d'])) | join(',') }}

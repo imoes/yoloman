@@ -1,0 +1,81 @@
+# ===========================================================================
+# avr-evtd daemon configuration
+#
+# This file controls the behavior of the avr-evtd service, which manages
+# hardware events for AVR-based devices (e.g. power strips, smart switches)
+# via serial communication. It also handles local disk monitoring and
+# scheduled power-on/power-off cycles.
+# ===========================================================================
+
+# LOG=<path>
+# Directory where log files are stored.
+# Default: /var/log
+LOG={{ LOG | default('/var/log') }}
+
+# DEBUG=<ON|OFF>
+# Enable debug logging. When enabled, the daemon produces verbose output
+# useful for troubleshooting connection or parsing issues.
+# Default: ON
+DEBUG={{ DEBUG | default('ON') }}
+
+# EMMODE=<YES|NO>
+# Enable EM-Mode feature. This may alter how events are processed or
+# reported by the daemon.
+# Default: NO
+EMMODE={{ EMMODE | default('NO') }}
+
+# TIMER=<ON|OFF>
+# Enable timed shutdown functionality. If set to ON, the daemon will
+# respect SHUTDOWN and POWERON schedules.
+# Default: OFF
+TIMER={{ TIMER | default('OFF') }}
+
+# DEVICE=<device_path>
+# Serial port device to use for AVR communication (e.g. /dev/ttyS1).
+# Leave empty to let the daemon auto-detect the device, or comment out
+# this line entirely.
+# Default: '' (empty, auto-detect)
+DEVICE={{ DEVICE | default('') }}
+
+# SHUTDOWN=<HH:MM>
+# Default shutdown time in 24-hour HH:MM format. Only effective if
+# TIMER=ON is also set.
+# Default: '' (empty, no scheduled shutdown)
+SHUTDOWN={{ SHUTDOWN | default('') }}
+
+# POWERON=<HH:MM>
+# Default power-on time in 24-hour HH:MM format. Only effective if
+# TIMER=ON is also set.
+# Default: '' (empty, no scheduled power-on)
+POWERON={{ POWERON | default('') }}
+
+# DISKCHECK=<percentage|OFF>
+# Disk usage percentage threshold to illuminate disk LED (0-100), or OFF
+# to disable disk monitoring.
+# Default: 90
+DISKCHECK={{ DISKCHECK | default('90') }}
+
+# ROOT=<partition>
+# Root partition for disk usage check (e.g. sda1).
+# Default: sda1
+ROOT={{ ROOT | default('sda1') }}
+
+# WORK=<partition>
+# Working partition for disk usage check (e.g. sda3).
+# Default: sda3
+WORK={{ WORK | default('sda3') }}
+
+# REFRESH=<seconds>
+# Disk/AVR refresh rate in seconds. Controls how often the daemon polls
+# disk status and AVR device state.
+# Default: 40
+REFRESH={{ REFRESH | default('40') }}
+
+# Hold time (seconds) for button power-off, default 3
+HOLD=3
+
+# Enable/disable continuous disk full messages, default off
+DISKNAG=OFF
+
+# Fan stationary fault timer (seconds), default 15
+FANSTOP=15

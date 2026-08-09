@@ -1,0 +1,169 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/mini-buildd",
+    "description": "Root directory where build artifacts, logs, and state are stored."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Directory for log files. If left blank, defaults to base_dir/logs."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum number of concurrent builds allowed."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the daemon binds to for its HTTP API and web UI."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port the daemon listens on for HTTP(S) requests."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS for the web UI and API."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/mini-buildd/ssl/cert.pem",
+    "description": "Path to SSL certificate file (only used if use_ssl=true)."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/mini-buildd/ssl/key.pem",
+    "description": "Path to SSL private key file (only used if use_ssl=true)."
+  },
+  "build_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum time (in seconds) allowed for a single build before timeout."
+  },
+  "min_free_disk_mb": {
+    "type": "number",
+    "default": 1024,
+    "description": "Minimum free disk space (MB) required to accept new builds."
+  },
+  "apt_sources_url": {
+    "type": "string",
+    "default": "http://deb.debian.org/debian",
+    "description": "Base URL template for Debian APT sources (supports {distro}, {suite}, {arch} placeholders)."
+  },
+  "extra_apt_keys": {
+    "type": "list",
+    "default": [],
+    "description": "List of paths to extra APT GPG keys (space-separated in rendered config)."
+  },
+  "distributions": {
+    "type": "list",
+    "default": [
+      {
+        "name": "bookworm",
+        "suites": [
+          "stable"
+        ],
+        "architectures": [
+          "amd64",
+          "arm64"
+        ]
+      }
+    ],
+    "description": "List of supported distributions to build for. Each entry defines name, suites, and architectures.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Distribution codename (e.g., bookworm, focal)."
+      },
+      "suites": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "APT suites (e.g., stable, testing, unstable)."
+      },
+      "architectures": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "Supported architectures (e.g., amd64, arm64)."
+      }
+    }
+  },
+  "builders": {
+    "type": "list",
+    "default": [
+      {
+        "name": "local",
+        "host": "localhost",
+        "port": 22,
+        "ssh_user": "mini-buildd"
+      }
+    ],
+    "description": "List of remote or local builders to use for builds.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Builder identifier (must be unique)."
+      },
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP of builder (use 'localhost' for local builder)."
+      },
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "SSH port for builder."
+      },
+      "ssh_user": {
+        "type": "string",
+        "description": "SSH username for builder."
+      },
+      "ssh_key_file": {
+        "type": "string",
+        "default": "",
+        "description": "Optional path to private SSH key file (if not default)."
+      },
+      "priority": {
+        "type": "number",
+        "default": 10,
+        "description": "Priority (higher = more preferred)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this builder is enabled for new builds."
+      }
+    }
+  },
+  "repo_sign_key_fingerprint": {
+    "type": "string",
+    "default": "",
+    "description": "Full fingerprint (space-separated hex) of the key to sign the local APT repository. Leave empty to skip signing."
+  },
+  "repo_distribution": {
+    "type": "string",
+    "default": "unstable",
+    "description": "Distribution name used in the generated APT repository (e.g., 'stable', 'unstable')."
+  },
+  "enable_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP Basic Authentication for the web UI and API."
+  },
+  "auth_users_file": {
+    "type": "string",
+    "default": "/etc/mini-buildd/htpasswd",
+    "description": "Path to file containing htpasswd-formatted user credentials (only used if enable_auth=true)."
+  }
+}

@@ -1,0 +1,84 @@
+# 6tunnel configuration template
+# Format: [options] listen_addr:listen_port target_host:target_port
+# See `man 6tunnel` for details.
+
+# ============================================
+# Global Flags Section
+# These flags apply to the entire 6tunnel process.
+# ============================================
+
+{# use_ipv6: If true, passes the -6 flag to listen on an IPv6 address instead of the default IPv4. #}
+{% if use_ipv6 | default(False) | bool %}
+# use_ipv6: If true, passes the -6 flag to listen on an IPv6 address instead of the default IPv4.
+# Default: false
+-6
+{% endif %}
+
+{# listen_addr: Local host address to bind to. If omitted, defaults to 0.0.0.0. Used with -l flag if specified explicitly. #}
+# Default: '0.0.0.0'
+-l {{ listen_addr | default('0.0.0.0') }}
+
+{# max_connections: Maximum number of simultaneous connections (passing -L flag). 0 means unlimited. #}
+# Default: 0
+{% if max_connections | default(0) > 0 %}
+-L {{ max_connections | default(0) }}
+{% endif %}
+
+{# force_resolve: If true, passes the -f flag to force tunneling even if the remote host is not resolvable at execution time. #}
+# Default: false
+{% if force_resolve | default(False) | bool %}
+-f
+{% endif %}
+
+{# once: If true, passes the -1 flag to exit after the first connection. #}
+# Default: false
+{% if once | default(False) | bool %}
+-1
+{% endif %}
+
+{# no_detach: If true, passes the -d flag to prevent detaching from the console (foreground mode). #}
+# Default: false
+{% if no_detach | default(False) | bool %}
+-d
+{% endif %}
+
+{# user: Username to switch to after binding (passes -u flag). 6tunnel must be run as root to use this. #}
+# Default: ''
+{% if user | default('') | trim %}
+-u {{ user | default('') | trim }}
+{% endif %}
+
+{# source_addr: Source address to connect from (passes -s flag). #}
+# Default: ''
+{% if source_addr | default('') | trim %}
+-s {{ source_addr | default('') | trim }}
+{% endif %}
+
+{# map_file: Path to the map file for binding IPv6 addresses based on source IPv4 addresses (passes -m flag). #}
+# Default: ''
+{% if map_file | default('') | trim %}
+-m {{ map_file | default('') | trim }}
+{% endif %}
+
+{# pid_file: Path to the file where the PID will be written (passes -p flag). #}
+# Default: ''
+{% if pid_file | default('') | trim %}
+-p {{ pid_file | default('') | trim }}
+{% endif %}
+
+# ============================================
+# Endpoint Definitions
+# Format: listen_endpoint target_endpoint
+# ============================================
+
+# listen_port: Local TCP port to listen on.
+# Default: 0
+# listen_addr: Local host address to bind to. If omitted, defaults to 0.0.0.0.
+# Default: '0.0.0.0'
+{{ listen_addr | default('0.0.0.0') }}:{{ listen_port | default(0) }}
+
+# target_host: Remote host to connect to.
+# Default: 'localhost'
+# target_port: Remote TCP port to connect to.
+# Default: 0
+{{ target_host | default('localhost') }}:{{ target_port | default(0) }}

@@ -1,0 +1,187 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the server binds to. Use 0.0.0.0 to allow connections from any network interface."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for incoming HTTP(S) connections."
+  },
+  "base_url_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional URL prefix (e.g., /bibledit) when deployed behind a reverse proxy."
+  },
+  "data_directory": {
+    "type": "string",
+    "default": "/var/lib/bibledit-cloud/data",
+    "description": "Absolute path to the directory where user projects, Bibles, and other persistent data are stored."
+  },
+  "temp_directory": {
+    "type": "string",
+    "default": "/var/tmp/bibledit-cloud",
+    "description": "Absolute path to a temporary directory for transient files (e.g., uploads, conversions)."
+  },
+  "max_connections_per_session": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent HTTP connections allowed per user session."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to serve the application over HTTPS."
+  },
+  "ssl_certificate_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/bibledit-cloud.crt",
+    "description": "Path to the SSL certificate file (used only if ssl_enabled is true)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/bibledit-cloud.key",
+    "description": "Path to the SSL private key file (used only if ssl_enabled is true)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging. One of: debug, info, warning, error, critical.",
+    "allowed_values": [
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "critical"
+    ],
+    "enum": [
+      "info",
+      "error"
+    ]
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/bibledit-cloud/bibledit-cloud.log",
+    "description": "Absolute path to the main log file."
+  },
+  "enable_modules": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable loading of external modules (e.g., plugins for translation tools or language support)."
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "List of external module paths to load (only active if enable_modules is true). Each item defines a module location.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute or relative path to the module directory."
+      }
+    }
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Authentication backend to use. Currently only 'sqlite' is supported.",
+    "allowed_values": [
+      "sqlite"
+    ]
+  },
+  "auth_database": {
+    "type": "string",
+    "default": "/var/lib/bibledit-cloud/auth.db",
+    "description": "Path to the SQLite database file storing users, passwords, and permissions (used only if auth_backend is 'sqlite')."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Session inactivity timeout in seconds (after which the user must re-authenticate)."
+  },
+  "cors_allowed_origins": {
+    "type": "list",
+    "default": [
+      "http://localhost:3000"
+    ],
+    "description": "List of allowed origins for CORS (cross-origin requests). Avoid using '*' in production.",
+    "items": {
+      "type": "string",
+      "description": "A single allowed origin (e.g., https://example.com)."
+    }
+  },
+  "branding_title": {
+    "type": "string",
+    "default": "Bible Editor Cloud",
+    "description": "Custom title displayed in the web UI (e.g., 'My Organization\u2019s Bible Editor')."
+  },
+  "backup_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically back up the data directory and database."
+  },
+  "backup_interval_hours": {
+    "type": "number",
+    "default": 24,
+    "description": "Number of hours between automatic backups."
+  },
+  "backup_retention_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain each backup before deletion."
+  },
+  "backup_directory": {
+    "type": "string",
+    "default": "/var/backups/bibledit-cloud",
+    "description": "Absolute path to the directory where backups are stored."
+  },
+  "database_backend": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend (currently only SQLite is supported).",
+    "allowed_values": [
+      "sqlite"
+    ]
+  },
+  "database_file": {
+    "type": "string",
+    "default": "/var/lib/bibledit-cloud/database.db",
+    "description": "Path to the main SQLite database file storing Bibles, projects, and documents."
+  },
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging (logs extra details, disables caching). Only for development or troubleshooting."
+  },
+  "smtp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable SMTP-based email sending (e.g., for password resets)."
+  },
+  "smtp_server": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP server hostname (e.g., smtp.example.com). Required if smtp_enabled is true."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (typically 587 for TLS or 465 for SSL)."
+  },
+  "smtp_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use TLS encryption for SMTP connections."
+  },
+  "smtp_username": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP authentication username (if required by the server)."
+  },
+  "smtp_from_address": {
+    "type": "string",
+    "default": "noreply@example.com",
+    "description": "Email address used as the sender for outgoing emails (e.g., password reset links)."
+  }
+}

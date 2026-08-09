@@ -1,0 +1,58 @@
+name: pacman_key
+fqcn: community.general.pacman_key
+collection: community.general
+short_description: Manage pacman's list of trusted keys
+description: Add or remove gpg keys from the pacman keyring.
+options:
+  data:
+    type: str
+    description: The keyfile contents to add to the keyring. Must be of C(PGP PUBLIC KEY BLOCK) type.
+  file:
+    type: path
+    description: The path to a keyfile on the remote server to add to the keyring. Remote file must be
+      of C(PGP PUBLIC KEY BLOCK) type.
+  force_update:
+    type: bool
+    default: false
+    description: This forces the key to be updated if it already exists in the keyring.
+  id:
+    type: str
+    required: true
+    description: The 40 character identifier of the key. Including this allows check mode to correctly
+      report the changed state. Do not specify a subkey ID, instead specify the primary key ID.
+  keyring:
+    type: path
+    default: /etc/pacman.d/gnupg
+    description: The full path to the keyring folder on the remote server. If not specified, module will
+      use pacman's default (V(/etc/pacman.d/gnupg)). Useful if the remote system requires an alternative
+      gnupg directory.
+  keyserver:
+    type: str
+    description: The keyserver used to retrieve key from.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Ensures that the key is present (added) or absent (revoked).
+  url:
+    type: str
+    description: The URL to retrieve keyfile from. Remote file must be of C(PGP PUBLIC KEY BLOCK) type.
+  verify:
+    type: bool
+    default: true
+    description: Whether or not to verify the keyfile's key ID against specified key ID.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Import a key via local file\n  community.general.pacman_key:\n    id: 01234567890ABCDE01234567890ABCDE12345678\n\
+  \    data: \"{{ lookup('file', 'keyfile.asc') }}\"\n    state: present\n\n- name: Import a key via remote\
+  \ file\n  community.general.pacman_key:\n    id: 01234567890ABCDE01234567890ABCDE12345678\n    file:\
+  \ /tmp/keyfile.asc\n    state: present\n\n- name: Import a key via url\n  community.general.pacman_key:\n\
+  \    id: 01234567890ABCDE01234567890ABCDE12345678\n    url: https://domain.tld/keys/keyfile.asc\n  \
+  \  state: present\n\n- name: Import a key via keyserver\n  community.general.pacman_key:\n    id: 01234567890ABCDE01234567890ABCDE12345678\n\
+  \    keyserver: keyserver.domain.tld\n\n- name: Import a key into an alternative keyring\n  community.general.pacman_key:\n\
+  \    id: 01234567890ABCDE01234567890ABCDE12345678\n    file: /tmp/keyfile.asc\n    keyring: /etc/pacman.d/gnupg-alternative\n\
+  \n- name: Remove a key from the keyring\n  community.general.pacman_key:\n    id: 01234567890ABCDE01234567890ABCDE12345678\n\
+  \    state: absent\n"

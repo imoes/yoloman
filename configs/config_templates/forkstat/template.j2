@@ -1,0 +1,74 @@
+# forkstat configuration — process event monitoring
+# Run forkstat as a long-running monitoring service with specified options
+#
+# Variables expected from Ansible inventory/vars:
+#   duration: Number of seconds to run forkstat (0 means indefinite).
+#   events: List of event types to trace (e.g., fork, exec, exit).
+#   enable_all_events: Boolean to trace all events, overriding 'events'.
+#   glyph_annotations: Boolean to enable glyph annotations (-g).
+#   realtime_fifo: Boolean to run with real-time FIFO scheduling (-r).
+#   stats_only: Boolean to run quietly and print statistics at end (-q).
+#   extra_info: Boolean to show extra process info (UID/TTY) (-x).
+#   short_names: Boolean to show short process names (comm) (-s).
+#   strip_path: Boolean to strip directory paths from process names (-d).
+#   use_comm_field: Boolean to use 16-char comm field instead of cmdline (-c).
+
+ExecStart=/usr/bin/forkstat {% set opts = [] %}
+
+{# --- Duration --- #}
+{# Duration in seconds to run forkstat (0 = run indefinitely) #}
+{% if (duration | default(0)) is number and (duration | default(0)) != 0 %}
+  {{ opts.append('-t ' + (duration | default(0) | int | string)) }}
+{% endif %}
+
+{# --- Event Selection --- #}
+{# If enable_all_events is true, trace all events (equivalent to -E); overrides 'events' #}
+{% if (enable_all_events | default(false) | bool) %}
+  {{ opts.append('-E') }}
+{% else %}
+  {# List of events to trace; valid values: fork, exec, exit, exitnonzero, core, comm, clone, ptrce, uid, sid, all #}
+  {# Default list: ['fork', 'exec', 'exit'] #}
+  {% set event_list = events | default(['fork', 'exec', 'exit']) %}
+  {% if event_list is iterable and event_list | length > 0 %}
+    {{ opts.append('-e ' + (event_list | join(',') | string)) }}
+  {% endif %}
+{% endif %}
+
+{# --- Display Options --- #}
+{# Enable glyph annotations for easier event identification (-g) #}
+{% if (glyph_annotations | default(false) | bool) %}
+  {{ opts.append('-g') }}
+{% endif %}
+
+{# Run with real-time FIFO scheduling for high-volume event capture (-r) #}
+{% if (realtime_fifo | default(false) | bool) %}
+  {{ opts.append('-r') }}
+{% endif %}
+
+{# Run quietly and print statistics at end (equivalent to -q); overrides other display options #}
+{% if (stats_only | default(false) | bool) %}
+  {{ opts.append('-q') }}
+{% endif %}
+
+{# Show extra process info: UID and TTY (-x) #}
+{% if (extra_info | default(false) | bool) %}
+  {{ opts.append('-x') }}
+{% endif %}
+
+{# Show short process name (comm field, not full cmdline) (-s) #}
+{% if (short_names | default(false) | bool) %}
+  {{ opts.append('-s') }}
+{% endif %}
+
+{# Strip directory path from process names (-d) #}
+{% if (strip_path | default(false) | bool) %}
+  {{ opts.append('-d') }}
+{% endif %}
+
+{# Use 16-char comm field instead of command line for process names (-c) #}
+{% if (use_comm_field | default(false) | bool) %}
+  {{ opts.append('-c') }}
+{% endif %}
+
+{# Combine all collected options into the command line #}
+{{ opts | join(' ') | trim }}

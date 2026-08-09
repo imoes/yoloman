@@ -1,0 +1,139 @@
+# =========================================================================
+# Dovecot Submission Service Configuration
+# Self-documenting template for Ansible.
+# Each directive is preceded by a comment explaining its purpose and default.
+# =========================================================================
+
+# List of enabled protocols (e.g., imap, pop3, submission).
+# Dovecot will enable protocol-specific daemons for these.
+protocols = {{ protocols | default(['imap', 'pop3', 'submission']) | join(' ') }}
+
+# IP addresses or hostnames to listen on.
+# Use ['*'] for IPv4 only, ['::'] for IPv6 only, or both for dual-stack.
+listen = {{ listen | default(['*', '::']) | join(', ') }}
+
+# Security: Reject authentication unless TLS is active.
+# Setting this to 'yes' is critical for production security to prevent
+# cleartext password transmission.
+{% if (disable_plaintext_auth | default(true)) %}
+disable_plaintext_auth = yes
+{% else %}
+disable_plaintext_auth = no
+{% endif %}
+
+# Mailbox storage format and path.
+# Examples: 'maildir:~/Maildir' for Maildir, 'mbox:~/mbox' for mbox.
+mail_location = {{ mail_location | default('maildir:~/Maildir') }}
+
+# SASL authentication mechanisms to support.
+# 'plain' and 'login' are standard. Prefer SCRAM-SHA-256 or external certs in production.
+auth_mechanisms = {{ auth_mechanisms | default(['plain', 'login']) | join(' ') }}
+
+# Password database configuration block.
+# Defines how user passwords are verified (driver: passwd-file, sql, pam, etc.).
+# If passdb is not defined or is False/None, this block is omitted.
+{% if (passdb | default(true)) is mapping %}
+passdb {
+  # Driver for password verification (e.g., 'passwd-file', 'sql', 'pam')
+  driver = {{ passdb.driver | default('passwd-file') }}
+
+  # Driver-specific arguments (e.g., '/etc/dovecot/passwd').
+  # Omitted if args is not defined or empty.
+  {% if passdb.args | default(none) is not none %}
+  args = {{ passdb.args | default('') }}
+  {% endif %}
+}
+{% endif %}
+
+# User database configuration block.
+# Defines how user information (UID, GID, home dir) is looked up.
+# Often mirrors passdb for simple setups.
+# Omitted if userdb is not defined or is False/None.
+{% if (userdb | default(true)) is mapping %}
+userdb {
+  # Driver for user lookup (e.g., 'passwd-file', 'sql', 'static').
+  driver = {{ userdb.driver | default('static') }}
+
+  # Driver-specific arguments.
+  # Omitted if args is not defined or empty.
+  {% if userdb.args | default(none) is not none %}
+  args = {{ userdb.args | default('') }}
+  {% endif %}
+}
+{% endif %}
+
+# SSL/TLS configuration.
+# Mode can be 'required', 'yes', 'no', or 'optional'.
+ssl = {{ ((ssl | default(true)).mode | default('required')) }}
+
+# SSL Certificate path.
+# Dovecot expects '<' followed by the file path for PEM certs.
+ssl_cert = <{{ ((ssl | default(true)).cert_path | default('/etc/dovecot/dovecot.pem')) }}
+
+# SSL Private Key path.
+ssl_key = <{{ ((ssl | default(true)).key_path | default('/etc/dovecot/private/dovecot.pem')) }}
+
+# Minimum SSL protocol version to allow (e.g., 'TLSv1.2').
+# Omitted if ssl.min_protocol is not defined.
+{% if ((ssl | default(true)).min_protocol | default(none)) is not none %}
+ssl_min_protocol = {{ (ssl | default(true)).min_protocol }}
+{% endif %}
+
+# Maximum concurrent connections per user/IP address.
+# Limits resource usage per authenticated session.
+mail_max_userip_connections = {{ mail_max_userip_connections | default(10) }}
+
+# Path to the Dovecot log file.
+log_path = {{ log_path | default('/var/log/dovecot.log') }}
+
+# Service definitions for Dovecot login processes.
+# Each service defines how login daemons (imap-login, submission-login, etc.) run.
+{% for svc in (services | default([{'name': 'imap-login', 'chroot': 'login', 'executable': 'imap-login', 'user': 'dovecot', 'group': '', 'extra_config': 'service_count = 1\nprocess_min_avail = 0\n'}, {'name': 'submission-login', 'chroot': 'login', 'executable': 'submission-login', 'user': 'dovecot', 'group': '', 'extra_config': 'inet_listener submission {\n  port = 587\n}\n'}])) %}
+service {{ svc.name }} {
+  # Chroot directory for the service (e.g., 'login' for /var/run/dovecot/login).
+  {% if svc.chroot | default(none) %}
+  chroot = {{ svc.chroot }}
+  {% endif %}
+
+  # Executable binary for this service.
+  {% if svc.executable | default(none) %}
+  executable = {{ svc.executable }}
+  {% endif %}
+
+  # System user to run this service as.
+  {% if svc.user | default(none) %}
+  user = {{ svc.user }}
+  {% endif %}
+
+  # System group to run this service as.
+  {% if svc.group | default(none) %}
+  group = {{ svc.group }}
+  {% endif %}
+
+  # Extra service-specific configuration lines.
+  # Indented by 2 spaces to fit inside the service block.
+  {% if svc.extra_config | default(none) %}
+  {{ svc.extra_config | indent(2, first=True) }}
+  {% endif %}
+}
+{% endfor %}
+
+# Maximum IMAP line length in bytes.
+# Increase for large IMAP folders or long ACL lists.
+imap_max_line_length = {{ imap_max_line_length | default(65536) }}
+
+# Verbosity of authentication logging.
+# 'yes' logs additional details, useful for troubleshooting but may leak info.
+{% if (auth_verbose | default(false)) %}
+auth_verbose = yes
+{% else %}
+auth_verbose = no
+{% endif %}
+
+# Debug mode for authentication.
+# 'yes' enables verbose auth debugging. NOT for production use.
+{% if (auth_debug | default(false)) %}
+auth_debug = yes
+{% else %}
+auth_debug = no
+{% endif %}

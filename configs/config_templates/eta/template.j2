@@ -1,0 +1,71 @@
+# eta(1) configuration template for Ansible
+# This Jinja2 template generates a systemd [Service] drop-in or
+# EnvironmentFile-compatible configuration for the 'eta' utility.
+#
+# Schema fields used:
+#   start    (string, default '0') - Starting value for progress bar.
+#   interval (int,    default 1)   - Seconds between progress updates.
+#   down     (bool,   default False) - Flag if progress decreases.
+#   width    (int,    default 80)   - Output width in columns.
+#   cont     (bool,   default False) - Flag to read continuously from stdin.
+#
+# Notes:
+# - 'interval' and 'cont' are mutually exclusive in eta(1).
+# - 'down' defaults to 'initial' start value if set, else '0'.
+
+[Service]
+# ETA_OPTIONS: A single string containing all command-line flags.
+# The wrapper script or unit file should expand this variable when invoking 'eta'.
+# We construct this string dynamically from the individual schema fields below.
+{% set _prebuilt = eta_options_string | default('') %}
+{% if _prebuilt is string and _prebuilt | trim != '' %}
+Environment=ETA_OPTIONS="{{ _prebuilt | trim }}"
+{% else %}
+# Construct the options string from individual schema fields.
+{% set _opts = [] %}
+
+# --start <start_value>
+# Schema: start (default '0'). Supports metric/binary suffixes or 'initial'.
+{% set _start_val = start | default('0') %}
+{% set _opts = _opts + ['--start', _start_val] %}
+
+# --interval <interval_value>
+# Schema: interval (default 1). Cannot be used with 'cont'.
+{% if not (cont | default(False) | bool) %}
+{% set _interval_val = interval | default(1) %}
+{% set _opts = _opts + ['--interval', _interval_val] %}
+{% endif %}
+
+# --down
+# Schema: down (default False). Set if progress value decreases.
+{% if down | default(False) | bool %}
+{% set _opts = _opts + ['--down'] %}
+{% endif %}
+
+# --width <width_value>
+# Schema: width (default 80). Width of the eta output in columns.
+{% set _width_val = width | default(80) %}
+{% set _opts = _opts + ['--width', _width_val] %}
+
+# --cont
+# Schema: cont (default False). Read progress continuously from command's stdout.
+{% if cont | default(False) | bool %}
+{% set _opts = _opts + ['--cont'] %}
+{% endif %}
+
+# Join all constructed options with spaces.
+Environment=ETA_OPTIONS="{{ _opts | join(' ') }}"
+{% endif %}
+
+# Internal documentation for how eta_options_string is built:
+# --start <start_value>
+# --interval <interval_value> (only if cont is false)
+# --down (if down is true)
+# --width <width_value>
+# --cont (if cont is true)
+# Note: eta command line syntax is: eta [OPTIONS] TARGET PROGRESS_COMMAND
+# The TARGET and PROGRESS_COMMAND are NOT defined in this schema; they must
+# be provided by the calling role/service context.
+
+[Install]
+WantedBy=multi-user.target

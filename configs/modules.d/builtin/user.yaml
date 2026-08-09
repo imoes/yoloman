@@ -1,0 +1,80 @@
+name: user
+fqcn: builtin.user
+collection: builtin
+short_description: Ensure a system user account exists (with a given uid/primary group/secondary
+  groups/shell/home/comment) or is absent
+description: 'Ensure a system user account exists (with a given uid/primary group/secondary
+  groups/shell/home/comment) or is absent. Idempotent — checks the account''s current
+  state via getent/id first and only calls useradd/usermod/userdel when something
+  actually needs to change. Supports check_mode via dry_run=true. Password/credential
+  management is deliberately not supported here — set that through a dedicated secrets-aware
+  path, not a tool call that ends up in an audit log.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.user. Same name/uid/group/groups/append/shell/home/create_home/comment/system/remove/state
+  parameter names (a focused subset — Ansible also supports password/expires/ssh_key_*/non_unique,
+  not implemented here).
+
+  - Chef: the `user` resource.
+
+  - Puppet: the `user` type.
+
+  - Salt: the `user.present`/`user.absent` states.
+
+  - Terraform: not applicable — Terraform does not manage OS-level accounts on a running
+  host.'
+options:
+  append:
+    type: bool
+    default: false
+    description: When true, add to existing secondary groups rather than replacing
+      them. Default false.
+  comment:
+    type: string
+    description: Optional GECOS/comment field (typically the user's real name).
+  create_home:
+    type: bool
+    default: true
+    description: 'For state=present when creating a new user: also create the home
+      directory. Default true.'
+  group:
+    type: string
+    description: Optional primary group name or gid.
+  groups:
+    type: list
+    description: Optional list of secondary group names.
+  home:
+    type: string
+    description: Optional home directory path.
+  name:
+    type: string
+    description: Username, e.g. "deploy".
+    required: true
+  remove:
+    type: bool
+    default: false
+    description: 'For state=absent: also remove the home directory and mail spool.
+      Default false.'
+  shell:
+    type: string
+    description: Optional login shell, e.g. "/bin/bash".
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the account should be present or absent. Default "present".
+  system:
+    type: bool
+    default: false
+    description: 'For state=present when creating a new user: create it as a system
+      account. Default false.'
+  uid:
+    type: string
+    description: Optional specific numeric uid to assign/enforce.
+native: true
+writes: true
+runtime: native
+source: agent-registry

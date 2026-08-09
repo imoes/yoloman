@@ -1,0 +1,152 @@
+package main
+
+import (
+	"crypto/tls"
+	"log/slog"
+	"net/http"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
+	"github.com/mutkluge/agentic-mcp/internal/authz"
+	"github.com/mutkluge/agentic-mcp/internal/config"
+	"github.com/mutkluge/agentic-mcp/internal/tlsauth"
+	"github.com/mutkluge/agentic-mcp/internal/webui"
+)
+
+// serveHTTP starts the Streamable HTTP MCP endpoint at /mcp (bearer-token
+// only — v1 has one fixed token identity for MCP, see docs/plan.md), the
+// REST API under /api/v1/ (bearer token OR a PAM-login session — REST
+// authenticates itself via its own middleware, see internal/server/rest.go's
+// withIdentity, so it is mounted here without an additional auth wrapper),
+// the static admin UI under /ui/ (public static assets; the page itself
+// authenticates against /api/v1/ once loaded), and an unauthenticated
+// /healthz. When cfg.TLS.TrustedClientKeys is configured, /mcp and
+// /api/v1/ additionally require a matching TLS client certificate — see
+// requireTrustedClientCert.
+func serveHTTP(cfg config.Config, mcpServer *mcp.Server, restHandler http.Handler) error {
+	mcpHandler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server {
+		return mcpServer
+	}, nil)
+
+	slog.Info("agentic-mcpd starting", "version", version)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"status":"ok","version":"` + version + `"}`))
+	})
+
+	mcpFinal := withBearerAuth(cfg.Token, cfg.TokenEntries(), mcpHandler)
+	restFinal := restHandler
+	if len(cfg.TLS.TrustedClientKeys) > 0 {
+		trusted := loadTrustedClientKeys(cfg.TLS.TrustedClientKeys)
+		mcpFinal = requireTrustedClientCert(trusted, mcpFinal)
+		restFinal = requireTrustedClientCert(trusted, restFinal)
+	}
+	mux.Handle("/mcp", mcpFinal)
+	mux.Handle("/api/v1/", restFinal)
+
+	if cfg.UI.Enabled {
+		uiHandler, err := webui.Handler("/ui")
+		if err != nil {
+			return err
+		}
+		mux.Handle("/ui/", uiHandler)
+		// Convenience for a standalone box: the bare root serves the console
+		// (redirect to /ui/). The API stays under /api/v1/. Other unmatched
+		// paths 404 as before — this catch-all only special-cases "/".
+		mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" {
+				http.Redirect(w, r, "/ui/", http.StatusFound)
+				return
+			}
+			http.NotFound(w, r)
+		})
+	}
+
+	if cfg.TLS.Enabled {
+		srv := &http.Server{Addr: cfg.Listen, Handler: mux}
+		if len(cfg.TLS.TrustedClientKeys) > 0 {
+			// Requested, not required, at the transport level: PAM-login
+			// browser access to /ui/ must keep working without a client
+			// certificate. requireTrustedClientCert enforces the actual
+			// requirement, scoped to /mcp and /api/v1/ only.
+			srv.TLSConfig = &tls.Config{ClientAuth: tls.RequestClientCert}
+		}
+		slog.Info("agentic-mcpd listening (TLS)", "addr", cfg.Listen)
+		return srv.ListenAndServeTLS(cfg.TLS.CertFile, cfg.TLS.KeyFile)
+	}
+	slog.Info("agentic-mcpd listening", "addr", cfg.Listen)
+	return http.ListenAndServe(cfg.Listen, mux)
+}
+
+// withBearerAuth wraps h with bearer-token authentication, checking the
+// presented token against legacyToken (the single, backward-compatible
+// token — matches on it resolve to the fixed authz.TokenIdentity) and each
+// of extra's named tokens (see docs/plan.md's per-token RBAC design and
+// internal/authz.ResolveBearerToken) — every comparison constant-time. On a
+// match, the resolved Identity is attached to the request context via
+// authz.WithIdentity, so downstream ACL checks — including MCP tool
+// dispatch, which only ever sees a context.Context, not this *http.Request
+// (see internal/server/modules.go) — can scope access per token instead of
+// treating every caller as the same fixed principal. If both legacyToken
+// and extra are empty, auth is disabled (intended only for local/dev use —
+// the packaged config always has a generated token).
+func withBearerAuth(legacyToken string, extra []authz.TokenEntry, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if legacyToken == "" && len(extra) == 0 {
+			h.ServeHTTP(w, r)
+			return
+		}
+		const prefix = "Bearer "
+		auth := r.Header.Get("Authorization")
+		if len(auth) < len(prefix) || auth[:len(prefix)] != prefix {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		given := auth[len(prefix):]
+		identity, ok := authz.ResolveBearerToken(given, legacyToken, extra)
+		if !ok {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		h.ServeHTTP(w, r.WithContext(authz.WithIdentity(r.Context(), identity)))
+	})
+}
+
+// loadTrustedClientKeys resolves each configured trusted_client_keys entry
+// to its DER-encoded public key, skipping (and logging) any that fail to
+// load — graceful degradation consistent with the rest of the daemon: a
+// broken entry never matches, it doesn't crash the server.
+func loadTrustedClientKeys(keys []config.TrustedClientKey) []tlsauth.TrustedKey {
+	var out []tlsauth.TrustedKey
+	for _, k := range keys {
+		tk, err := tlsauth.LoadTrustedKey(k.Name, k.PublicKeyPath)
+		if err != nil {
+			slog.Error("failed to load tls.trusted_client_keys entry, it will never match", "name", k.Name, "error", err)
+			continue
+		}
+		out = append(out, tk)
+	}
+	return out
+}
+
+// requireTrustedClientCert wraps h so that every request must present a TLS
+// client certificate matching one of trusted (see internal/tlsauth) before
+// reaching h — the authorization gate for machine callers (a Fleet
+// Commander or a proxy), checked in addition to whatever auth h itself
+// performs (bearer token, PAM session, ...).
+func requireTrustedClientCert(trusted []tlsauth.TrustedKey, h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.TLS == nil || len(r.TLS.PeerCertificates) == 0 {
+			http.Error(w, "client certificate required", http.StatusUnauthorized)
+			return
+		}
+		if _, ok := tlsauth.MatchesAny(r.TLS.PeerCertificates[0], trusted); !ok {
+			http.Error(w, "client certificate not trusted", http.StatusUnauthorized)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
+}

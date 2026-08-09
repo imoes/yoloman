@@ -1,0 +1,84 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          couriergraph
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+
+# Configuration file path for couriergraph, stored in /etc/default/
+CONFIG=/etc/default/{{ service_name | default('couriergraph') }}
+
+# Path to the mail log file that couriergraph monitors for statistics
+MAIL_LOG={{ mail_log_path | default('/var/log/mail.log') }}
+
+# Name of the service used in status messages and process identification
+NAME={{ service_name | default('couriergraph') }}
+
+# Human-readable description of the service, displayed during start/stop operations
+DESC="{{ description | default('Courier login Statistics') }}"
+
+# Absolute path to the couriergraph daemon executable
+DAEMON={{ daemon_path | default('/usr/sbin/couriergraph.pl') }}
+
+# Directory where the PID file for the daemon is stored
+PIDDIR={{ pid_dir | default('/var/run/servergraph') }}
+
+# Full path to the PID file, constructed from PIDDIR and pid_file_name
+PIDFILE=$PIDDIR/{{ pid_file_name | default('couriergraph.pid') }}
+
+# Directory where Round-Robin Database (RRD) files are stored for graphing
+RRD_DIR={{ rrd_dir | default('/var/lib/couriergraph') }}
+
+# Base name for RRD files (the extension .rrd is appended automatically by the daemon)
+RRD_NAME={{ rrd_name | default('couriergraph') }}
+
+# Check if the daemon executable exists and is executable; exit if not
+test -x $DAEMON || exit 0
+
+# Load additional configuration from the config file if it exists
+if [ -f $CONFIG ]; then
+        . $CONFIG
+fi
+
+# Ensure the PID directory exists with correct permissions
+if [ ! -d $PIDDIR ]; then
+	mkdir -p $PIDDIR
+	chown daemon:root $PIDDIR
+fi
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	# Start the daemon using start-stop-daemon
+	# Matches the process by name and sets nice level to 15
+	# Runs as user:group daemon:adm
+	start-stop-daemon --start --oknodo --quiet --pidfile $PIDFILE \
+		--startas $DAEMON --name {{ daemon_process_name | default('couriergraph.pl') }} -N 15 -c daemon:adm -- \
+		-l $MAIL_LOG -d --daemon_rrd=$RRD_DIR --rrd_name=$RRD_NAME
+	echo "$NAME."
+  ;;
+
+  stop)
+	echo -n "Stopping $DESC: "
+	# Stop the daemon by PID file and process name
+	# Waits up to 1 second for graceful shutdown
+	start-stop-daemon --stop --oknodo --pidfile $PIDFILE --name {{ daemon_process_name | default('couriergraph.pl') }} --retry 1
+	rm -f $PIDFILE
+	echo "$NAME."
+  ;;
+
+  restart|force-reload)
+	# Stop and then start the service
+	$0 stop
+	$0 start
+  ;;
+
+  *)
+    echo "Usage: $0 start|stop|restart|force-reload"
+    exit 1
+    ;;
+esac
+
+exit 0

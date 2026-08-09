@@ -1,0 +1,145 @@
+# ErgoChat IRCd Configuration
+#
+# This file configures the ErgoChat IRC daemon. It uses a YAML-like syntax.
+# All variables are drawn from the Ansible role defaults or inventory.
+# Every directive is documented with its schema description and default value.
+
+# hostname: Fully-qualified domain name (FQDN) of this server; must match SSL certificate and DNS.
+# Default: 'irc.example.com'
+hostname: {{ hostname | default('irc.example.com') }}
+
+# network: Network-wide settings
+network:
+  # network_name: Network name displayed in client whois and network lists.
+  # Default: 'ExampleNet'
+  name: {{ network_name | default('ExampleNet') }}
+
+  # network_description: Short human-readable description of the network.
+  # Default: 'A friendly IRC network for community discussion.'
+  description: {{ network_description | default('A friendly IRC network for community discussion.') }}
+
+# listeners: List of socket listeners for client/server connections.
+# Default: [{'address': '0.0.0.0', 'port': 6697, 'ssl': {'enabled': True, 'cert_path': '/etc/ssl/certs/irc.crt', 'key_path': '/etc/ssl/private/irc.key'}, 'protocol': 'ircs'}]
+listen:
+{% for listener in listeners | default([{
+  'address': '0.0.0.0',
+  'port': 6697,
+  'ssl': {
+    'enabled': true,
+    'cert_path': '/etc/ssl/certs/irc.crt',
+    'key_path': '/etc/ssl/private/irc.key'
+  },
+  'protocol': 'ircs'
+}]) %}
+  # List entry for: address (IP to bind), port (TCP port), ssl (TLS config), protocol ('irc' or 'ircs')
+  - address: {{ listener.address | default('0.0.0.0') }}
+    port: {{ listener.port | default(6697) }}
+
+    # ssl: TLS/SSL settings for this listener
+    ssl: {{ (listener.ssl | default({})).enabled | default(false) }}
+
+    # tls_cert: Path to SSL certificate file
+    tls_cert: {{ (listener.ssl | default({})).cert_path | default('') }}
+
+    # tls_key: Path to SSL private key file
+    tls_key: {{ (listener.ssl | default({})).key_path | default('') }}
+
+    # protocol: Connection protocol, auto-detected from ssl.enabled if not explicitly set
+    protocol: {{ (listener.protocol | default((listener.ssl | default({})).enabled | ternary('ircs', 'irc'))) }}
+{% endfor %}
+
+# max_connections_per_ip: Maximum concurrent connections allowed per client IP address.
+# Default: 5
+max_connections_per_ip: {{ max_connections_per_ip | default(5) }}
+
+# max_messages_per_second: Rate limit: maximum messages per client per second before throttling.
+# Default: 3
+max_messages_per_second: {{ max_messages_per_second | default(3) }}
+
+# ssl_verify: Require and verify SSL certificates for server-to-server links.
+# Default: True
+ssl_verify: {{ ssl_verify | default(true) }}
+
+# sasl_backend: Backend for SASL authentication: 'external' (TLS client certs), 'memory' (in-memory), or 'sql' (database-backed).
+# Default: 'memory'
+sasl_backend: {{ sasl_backend | default('memory') }}
+
+# SQL connection settings (used only if sasl_backend == 'sql')
+{% if sasl_backend | default('memory') == 'sql' %}
+sql:
+  # sql_driver: Database driver (e.g., 'sqlite3', 'postgres'). Only used if sasl_backend='sql'.
+  # Default: 'sqlite3'
+  driver: {{ sql_driver | default('sqlite3') }}
+
+  # sql_dsn: Data source name (connection string or file path) for SQL backend.
+  # Default: '/var/lib/ergochat/sasl.db'
+  dsn: {{ sql_dsn | default('/var/lib/ergochat/sasl.db') }}
+{% endif %}
+
+# tls: TLS configuration for server-to-server and client TLS connections
+tls:
+  # tls_min_version: Minimum TLS version for server-to-server and client TLS (1.2 recommended).
+  # Default: '1.2'
+  min_version: {{ tls_min_version | default('1.2') }}
+
+  # tls_ciphers: List of allowed TLS cipher suites (in order of preference).
+  # Default: ['TLS_AES_256_GCM_SHA384', 'TLS_CHACHA20_POLY1305_SHA256', 'TLS_AES_128_GCM_SHA256']
+  ciphers: {{ tls_ciphers | default(['TLS_AES_256_GCM_SHA384', 'TLS_CHACHA20_POLY1305_SHA256', 'TLS_AES_128_GCM_SHA256']) | join(', ') }}
+
+  # tls_prefer_server_ciphers: Prefer server cipher order over client order during TLS negotiation.
+  # Default: True
+  prefer_server_ciphers: {{ tls_prefer_server_ciphers | default(true) }}
+
+# log: Logging configuration
+log:
+  # log_level: Verbosity of server logs (debug includes full protocol traffic).
+  # Default: 'info'
+  level: {{ log_level | default('info') }}
+
+  # log_format: Log output format: 'json' (structured) or 'text' (human-readable).
+  # Default: 'json'
+  format: {{ log_format | default('json') }}
+
+  # log_file: Path to log file. If empty or null, logs go to stderr.
+  # Default: '/var/log/ergochat/ergochat.log'
+{% if log_file | default('/var/log/ergochat/ergochat.log') | length > 0 %}
+  file: {{ log_file | default('/var/log/ergochat/ergochat.log') }}
+{% else %}
+  file: stderr
+{% endif %}
+
+# links: List of upstream servers (for federated IRC networks).
+# Default: []
+links:
+{% for link in links | default([]) %}
+  # Link entry: name, address, port, password for upstream IRC server
+  - name: {{ link.name | default('') }}
+    address: {{ link.address | default('') }}
+    port: {{ link.port | default(6667) }}
+    password: {{ link.password | default('') }}
+{% endfor %}
+
+# server: Server-specific settings
+server:
+  # server_description: Server description sent to clients and upstream servers.
+  # Default: 'ErgoChat IRC server'
+  description: {{ server_description | default('ErgoChat IRC server') }}
+
+  # server_sid: Server ID (3-digit hex string, unique across all servers in the network).
+  # Default: '003'
+  sid: {{ server_sid | default('003') }}
+
+# opers: List of IRC operator accounts.
+# Default: []
+opers:
+{% for oper in opers | default([]) %}
+  # Oper entry: name, password_hash, flags, global privilege
+  - name: {{ oper.name | default('') }}
+    password_hash: {{ oper.password_hash | default('') }}
+    flags: {{ oper.flags | default([]) | join(', ') }}
+    global: {{ oper.global | default(true) }}
+{% endfor %}
+
+# idle_timeout: Seconds of inactivity after which a client is automatically disconnected.
+# Default: 900
+idle_timeout: {{ idle_timeout | default(900) }}

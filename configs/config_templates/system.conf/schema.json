@@ -1,0 +1,81 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "unix:path=/var/run/dbus/system_bus_socket",
+    "description": "D-Bus transport address to listen on; typically a Unix domain socket path."
+  },
+  "systemd_socket_activation": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable systemd socket activation for improved startup performance and resource management."
+  },
+  "system_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of system services requiring custom policy rules. Each entry defines a service and its allowed D-Bus operations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name of the service."
+      },
+      "uid": {
+        "type": "string",
+        "default": "",
+        "description": "Numeric UID or service username under which the service runs (e.g., 'root', 'systemd-network')."
+      },
+      "well_known_name": {
+        "type": "string",
+        "default": "",
+        "description": "Well-known D-Bus name (e.g., 'org.freedesktop.NetworkManager') the service owns and communicates on."
+      }
+    }
+  },
+  "trusted_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted system services (e.g., init, systemd) requiring elevated privileges. Each entry defines a service's D-Bus name.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name of the trusted service."
+      },
+      "well_known_name": {
+        "type": "string",
+        "default": "",
+        "description": "Well-known D-Bus name (e.g., 'org.freedesktop.systemd1') granted elevated access."
+      }
+    }
+  },
+  "includedir": {
+    "type": "string",
+    "default": "/etc/dbus-1/system.d",
+    "description": "Directory containing additional .conf fragments to include in the bus configuration."
+  },
+  "log_destination": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send D-Bus daemon log output (syslog, file, or stderr)."
+  },
+  "limits_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "limits_max_replies": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of reply messages a single connection may have queued at once."
+  },
+  "limits_max_message_size": {
+    "type": "number",
+    "default": 131072,
+    "description": "Maximum size (in bytes) of a single D-Bus message (default: 128 KiB)."
+  },
+  "shutdown_on_disconnect": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, shut down the D-Bus daemon when the last client disconnects. Dangerous in production."
+  }
+}

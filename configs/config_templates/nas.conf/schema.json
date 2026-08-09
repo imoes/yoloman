@@ -1,0 +1,111 @@
+{
+  "general.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the NAS service on startup."
+  },
+  "general.logger_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity level (e.g., DEBUG, INFO, WARN, ERROR)."
+  },
+  "general.worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for handling requests."
+  },
+  "general.max_open_files": {
+    "type": "number",
+    "default": 65535,
+    "description": "Maximum number of open file descriptors allowed for the service."
+  },
+  "general.listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP address the NAS service will bind to."
+  },
+  "general.listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number the NAS service will listen on."
+  },
+  "general.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for connections."
+  },
+  "general.tls.cert_file": {
+    "type": "string",
+    "default": "/etc/nas/tls/server.crt",
+    "description": "Path to the TLS certificate file (required if TLS is enabled)."
+  },
+  "general.tls.key_file": {
+    "type": "string",
+    "default": "/etc/nas/tls/server.key",
+    "description": "Path to the TLS private key file (required if TLS is enabled)."
+  },
+  "storage.default_path": {
+    "type": "string",
+    "default": "/var/lib/nas/data",
+    "description": "Default storage path for user files when no backend is specified."
+  },
+  "storage.backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "local",
+        "description": "Local filesystem backend",
+        "type": "local",
+        "path": "/mnt/nas/local"
+      }
+    ],
+    "description": "List of configured storage backends. Each backend defines a distinct storage target.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Unique identifier for the backend (used in section names)."
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the backend."
+        },
+        "type": {
+          "type": "string",
+          "default": "local",
+          "description": "Backend type (e.g., local, s3, nfs)."
+        },
+        "path": {
+          "type": "string",
+          "description": "Path or URI where this backend\u2019s data resides."
+        },
+        "max_size": {
+          "type": "number",
+          "optional": true,
+          "description": "Maximum size (in bytes) allowed for this backend."
+        },
+        "readonly": {
+          "type": "bool",
+          "optional": true,
+          "description": "If true, this backend accepts only read operations."
+        }
+      }
+    }
+  },
+  "auth.method": {
+    "type": "string",
+    "default": "local",
+    "description": "Authentication method used by the NAS service."
+  },
+  "auth.ldap_url": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "LDAP server URL (required if auth.method=ldap)."
+  },
+  "auth.ldap_base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base DN for LDAP directory searches (required if auth.method=ldap)."
+  }
+}

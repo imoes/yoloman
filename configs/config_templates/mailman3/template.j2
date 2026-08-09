@@ -1,0 +1,40 @@
+# /etc/cron.d/mailman3: crontab entries for the Mailman 3 package
+#
+# Self-documenting configuration. All variables are sourced from the Ansible role's defaults/vars
+# and are safe to reuse. Defaults are explicitly provided for every variable to prevent render errors.
+#
+# CRON SCHEDULE VARIABLES:
+# - cron_minute: Minute of the hour for scheduled tasks.
+# - cron_hour: Hour of the day for scheduled tasks.
+# - cron_user: System user to run the Mailman commands as.
+# - mailman_binary: Path to the mailman command-line executable.
+
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# --- Moderation Notifications ---
+# Sends out notifications of pending requests (e.g., new list join requests, moderation queues)
+# to list moderators.
+# Frequency: Defined by cron_minute and cron_hour.
+# User: {{ mailman3_cron_user | default('list') }}
+# Command: Executes the 'notify' subcommand.
+{% if mailman3_cron_minute is defined or mailman3_cron_hour is defined %}
+{{ mailman3_cron_minute | default('0') }}  {{ mailman3_cron_hour | default('8') }}  *  *  *  {{ mailman3_cron_user | default('list') }}	if [ -x {{ mailman3_binary_path | default('/usr/bin/mailman') }} ]; then {{ mailman3_binary_path | default('/usr/bin/mailman') }} notify; fi
+{% endif %}
+
+# --- Digests ---
+# Sends mail digests for lists that have periodic delivery enabled as well as those
+# using threshold delivery. This aggregates daily posts into a single email.
+# Frequency: Defined by cron_minute and cron_hour.
+# User: {{ mailman3_cron_user | default('list') }}
+# Command: Executes the 'digests --periodic' subcommand.
+{% if mailman3_digests_minute is defined or mailman3_digests_hour is defined %}
+{{ mailman3_digests_minute | default('0') }}  {{ mailman3_digests_hour | default('12') }}  *  *  *  {{ mailman3_cron_user | default('list') }}	if [ -x {{ mailman3_binary_path | default('/usr/bin/mailman') }} ]; then {{ mailman3_binary_path | default('/usr/bin/mailman') }} digests --periodic; fi
+{% endif %}
+
+# --- Manual/On-Demand Commands (Commented Out) ---
+# Uncomment the lines below to run these commands periodically.
+# They are commented out by default to prevent excessive load or email spam.
+
+# Archive purge or maintenance tasks (example)
+# {{ mailman3_cron_minute | default('0') }}  {{ mailman3_cron_hour | default('3') }}  *  *  *  {{ mailman3_cron_user | default('list') }}	if [ -x {{ mailman3_binary_path | default('/usr/bin/mailman') }} ]; then {{ mailman3_binary_path | default('/usr/bin/mailman') }} archive --purge; fi

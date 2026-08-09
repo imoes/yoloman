@@ -1,0 +1,60 @@
+# Hostname or IP address of the target hypervisor running the VM
+host = "{{ hypervisor_host }}"
+
+# Username to authenticate to the hypervisor (SSH key preferred)
+username = "{{ login_username }}"
+
+# Optional: Password (insecure; prefer key-based auth)
+{% if login_password is defined and login_password %}
+password = "{{ login_password }}"
+{% endif %}
+
+# SSH private key file path (e.g., /root/.ssh/id_rsa)
+{% if ssh_key_file is defined and ssh_key_file %}
+ssh_key = "{{ ssh_key_file }}"
+{% endif %}
+
+# Port for SSH connection (default: 22)
+port = {{ ssh_port }}
+
+# Timeout for each operation (seconds)
+timeout = {{ operation_timeout }}
+
+# Retry count and delay between retries
+retry = {{ retry_count }}
+retry_sleep = {{ retry_delay }}
+
+# Action to perform: on, off, status, reboot, list
+# (Note: In practice, this is passed at runtime via `fence_virsh --action=...`; this is for documentation)
+# action = "status"
+
+# List of VMs (guests) managed by this fence agent instance
+# Each entry maps a fence device name to a guest name/UUID
+{% for vm in vms %}
+guest{{ loop.index }} = "{{ vm.guest_name }}"
+{% endfor %}
+
+# Optional: TLS/SSL verification setting for libvirt URI
+# Set to '0' to disable verification (not recommended in production)
+{% if tls_verify is defined %}
+tls_verify = {{ tls_verify | int }}
+{% endif %}
+
+# Optional: Use secure connection (TLS) instead of plain SSH/libvirtd
+# When true, uses 'qemu+tls://host/system' instead of 'qemu+ssh://host/system'
+{% if use_tls is defined and use_tls %}
+use_tls = 1
+{% else %}
+use_tls = 0
+{% endif %}
+
+# Optional: Custom libvirt URI (overrides host, port, use_tls settings)
+{% if libvirt_uri is defined and libvirt_uri %}
+uri = "{{ libvirt_uri }}"
+{% endif %}
+
+# Optional: Subsystem (for multi-host or nested virtualization setups)
+# Typically left empty or set to 'system'
+{% if subsystem is defined and subsystem %}
+subsystem = "{{ subsystem }}"
+{% endif %}

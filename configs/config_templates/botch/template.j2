@@ -1,0 +1,48 @@
+{# botch.conf — configuration for the botch Debian package analysis toolchain #}
+# This file configures various aspects of botch, including working directories,
+# architecture handling, archive paths, and build order analysis parameters.
+
+# Working directory for intermediate files and temporary artifacts
+# Default: /tmp/botch
+workdir: {{ workdir | default('/tmp/botch') }}
+
+# List of architectures to consider (e.g., amd64, i386, arm64)
+# Must include at least one native arch; used by botch-convert-arch, botch-add-arch
+# Output is space-separated.
+architectures: {{ architectures | default(['amd64', 'i386']) | join(' ') }}
+
+# Absolute path to the root of the Debian archive (where dists/ and pool/ reside)
+# If empty, the tool may attempt to detect or use a default mirror location.
+archive_root: {{ archive_root | default('') }}
+
+# If true, only consider 'stable' and 'testing' suites for metadata and bootstrap analysis
+# Affects botch-cross, botch-native, and related scripts to ignore 'oldstable' or 'experimental'
+# unless explicitly included elsewhere.
+use_stable_testing_only: {% if use_stable_testing_only | default(true) | bool %}true{% else %}false{% endif %}
+
+# List of shell-glob-style patterns to exclude from source package processing
+# Applied by tools like botch-filter-src-builds-for, botch-optuniv
+# Each pattern is prefixed with '- ' in the output.
+exclude_packages: >-
+  {% for pattern in exclude_packages | default([]) %}
+  - {{ pattern }}{% endfor %}
+
+# Maximum number of parallel HTTP connections for fetching Packages/Sources files
+# Used by botch-download-pkgsrc to control concurrency and bandwidth usage.
+max_parallel_downloads: {{ max_parallel_downloads | default(4) }}
+
+# Path to custom dose3 config file for dose-builddebcheck/dose-distcheck wrappers
+# If empty or unset, the default system dose3 configuration is used.
+dose_config: {{ dose_config | default('') }}
+
+# If true, include arch:all packages in feedback vertex set computation
+# Affects botch-find-fvs, botch-print-stats by altering the dependency graph analysis.
+include_arch_all_fvs: {% if include_arch_all_fvs | default(false) | bool %}true{% else %}false{% endif %}
+
+# Path where build orders are written (used by botch-build-order-from-zero, botch-build-fixpoint)
+# Default is standard output. Can be set to a file path.
+build_order_output: {{ build_order_output | default('/dev/stdout') }}
+
+# If true, emit verbose progress output from most tools
+# Affects logging verbosity across the botch suite.
+verbose: {% if verbose | default(false) | bool %}true{% else %}false{% endif %}

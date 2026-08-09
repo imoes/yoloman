@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- MapCache configuration file: serves OGC WMS and WMTS requests -->
+<mapcache>
+  <!-- Global settings: cache mode, default tile size, etc. -->
+  <cache name="default" type="{% if cache_type == 'disk' %}disk{% elif cache_type == 'sqlite' %}sqlite{% elif cache_type == 'memcache' %}memcache{% elif cache_type == 'redis' %}redis{% else %}disk{% endif %}">
+{% if cache_type == 'disk' %}
+    <!-- Disk cache directory path -->
+    <directory>{{ cache_dir }}</directory>
+{% elif cache_type == 'sqlite' %}
+    <!-- SQLite cache file path -->
+    <database>{{ sqlite_db_path }}</database>
+{% elif cache_type == 'memcache' %}
+    <!-- Memcache servers (host:port) -->
+    <hosts>
+{% for server in memcache_hosts %}      <host>{{ server }}</host>
+{% endfor %}    </hosts>
+{% elif cache_type == 'redis' %}
+    <!-- Redis server connection string (host:port, optionally db and password) -->
+    <host>{{ redis_host }}</host>
+    <port>{{ redis_port }}</port>
+{% if redis_db is defined %}    <db>{{ redis_db }}</db>
+{% endif %}
+{% if redis_password is defined %}    <password>{{ redis_password }}</password>
+{% endif %}
+{% endif %}
+  </cache>
+
+  <!-- Global HTTP timeout and user-agent for upstream requests -->
+  <http>
+    <timeout>{{ http_timeout }}</timeout>
+{% if http_user_agent %}    <user_agent>{{ http_user_agent }}</user_agent>
+{% endif %}
+  </http>
+
+  <!-- Default image format and compression settings -->
+  <images>
+    <format>{{ image_format }}</format>
+    <quality>{{ image_quality }}</quality>
+    <interlaced>{{ 'true' if image_interlaced else 'false' }}</interlaced>
+  </images>
+
+  <!-- Access control and security -->
+  <errors>
+    <report>{{ 'true' if error_report else 'false' }}</report>
+  </errors>
+
+{% if wms_enabled %}  <!-- WMS service endpoint configuration -->
+  <service type="wms" enabled="true">
+    <param name="OnLineResource">{{ wms_online_resource }}</param>
+    <param name="Title">{{ wms_title }}</param>
+    <param name="Abstract">{{ wms_abstract }}</param>
+    <param name="Fees">{{ wms_fees }}</param>
+    <param name="AccessConstraints">{{ wms_access_constraints }}</param>
+{% for capability in wms_capabilities %}    <capability name="{{ capability.name }}">
+{% for layer in capability.layers %}      <layer name="{{ layer.name }}" />
+{% endfor %}    </capability>
+{% endfor %}
+  </service>
+{% else %}  <service type="wms" enabled="false"/>
+{% endif %}
+
+{% if wmts_enabled %}  <!-- WMTS service endpoint configuration -->
+  <service type="wmts" enabled="true">
+    <param name="OnLineResource">{{ wmts_online_resource }}</param>
+    <param name="Title">{{ wmts_title }}</param>
+    <param name="Abstract">{{ wmts_abstract }}</param>
+    <param name="Fees">{{ wmts_fees }}</param>
+    <param name="AccessConstraints">{{ wmts_access_constraints }}</param>
+  </service>
+{% else %}  <service type="wmts" enabled="false"/>
+{% endif %}
+
+{% if tiles_enabled %}  <!-- Tile endpoint configuration (REST, etc.) -->
+  <service type="tile" enabled="true">
+    <param name="OnLineResource">{{ tiles_online_resource }}</param>
+  </service>
+{% else %}  <service type="tile" enabled="false"/>
+{% endif %}
+
+  <!-- Source definitions: upstream WMS/TMS servers or tiles -->
+<sources>
+{% for source in sources %}  <source name="{{ source.name }}" type="{{ source.type }}">
+{% if source.type == 'wms' %}    <param name="url">{{ source.url }}</param>
+{% if source.req_params %}
+{% for key, value in source.req_params.items() %}    <param name="{{ key }}">{{ value }}</param>
+{% endfor %}
+{% endif %}    <extent>{{ source.extent[0] }} {{ source.extent[1] }} {{ source.extent[2] }} {{ source.extent[3] }}</extent>
+{% elif source.type == 'tms' %}    <param name="url">{{ source.url }}</param>
+    <tileset>{{ source.tileset }}</tileset>
+    <extent>{{ source.extent[0] }} {{ source.extent[1] }} {{ source.extent[2] }} {{ source.extent[3] }}</extent>
+{% elif source.type == 'image' %}    <file>{{ source.file }}</file>
+    <extent>{{ source.extent[0] }} {{ source.extent[1] }} {{ source.extent[2] }} {{ source.extent[3] }}</extent>
+{% endif %}
+  </source>
+{% endfor %}
+</sources>
+
+  <!-- Map definitions (layers) referencing sources and gridsets -->
+<maps>
+{% for map in maps %}  <map name="{{ map.name }}">
+    <source>{{ map.source }}</source>
+{% if map.grid %}    <grid>{{ map.grid }}</grid>
+{% endif %}
+{% if map.format %}    <format>{{ map.format }}</format>
+{% endif %}
+{% if map.metatile %}    <metatile>{{ map.metatile }}</metatile>
+{% endif %}
+    <expires>{{ map.expires }}</expires>
+{% if map.metadata %}
+{% for key, value in map.metadata.items() %}    <metadata name="{{ key }}">{{ value }}</metadata>
+{% endfor %}
+{% endif %}
+  </map>
+{% endfor %}
+</maps>
+
+  <!-- Gridsets: tile matrix sets for reprojection and tiling -->
+<gridsets>
+{% for grid in gridsets %}  <gridset name="{{ grid.name }}">
+    <srs>{{ grid.srs }}</srs>
+    <extent>{{ grid.extent[0] }} {{ grid.extent[1] }} {{ grid.extent[2] }} {{ grid.extent[3] }}</extent>
+    <resolutions>
+{% for res in grid.resolutions %}      <resolution>{{ res }}</resolution>
+{% endfor %}    </resolutions>
+    <tile_size>{{ grid.tile_size }}</tile_size>
+  </gridset>
+{% endfor %}
+</gridsets>
+</mapcache>

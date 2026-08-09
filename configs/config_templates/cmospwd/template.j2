@@ -1,0 +1,57 @@
+# cmospwd configuration file
+# Managed by configuration management (Ansible).
+# This template renders command-line flags for the cmospwd utility.
+# See: man cmospwd or https://github.com/nopcoder/cmospwd
+
+{% if dump_cmos | default(false) %}
+# dump_cmos: If true, dump CMOS memory to stdout (uses -d option).
+-d
+{% endif %}
+
+{% if kill_cmos | default(false) %}
+# kill_cmos: If true, clear/kill CMOS password (uses -k option).
+-k
+{% endif %}
+
+{% if force_mode | default(false) %}
+# force_mode: If true, enable force mode to bypass safety checks (uses -R option).
+-R
+{% endif %}
+
+{% if keyboard_layout | default('') %}
+# keyboard_layout: Set keyboard layout ('french_azerty' or 'german_qwertz').
+# Empty string defaults to US QWERTY.
+{% if keyboard_layout | default('') == 'french_azerty' %}-kfr
+{% elif keyboard_layout | default('') == 'german_qwertz' %}-kde
+{% endif %}
+{% endif %}
+
+{% if cmos_backup_action | default('') %}
+# cmos_backup_action: Action to perform with CMOS backup file.
+# Valid values: 'write' (-w), 'load' (-l), 'restore' (-r), 'set' (-s).
+# Empty string disables all backup-related operations.
+# cmos_backup_file: Path to the CMOS backup file. Must be set when action is non-empty.
+{% set _action = cmos_backup_action | default('') %}
+{% set _file = cmos_backup_file | default('') %}
+{% if _action == 'write' %}
+# Write CMOS backup file
+-w {{ _file | default('') }}
+{% elif _action == 'load' %}
+# Load CMOS backup file
+-l {{ _file | default('') }}
+{% elif _action == 'restore' %}
+# Restore CMOS from backup file
+-r {{ _file | default('') }}
+{% elif _action == 'set' %}
+# Set CMOS backup file path (synonym for -w)
+-s {{ _file | default('') }}
+{% endif %}
+{% endif %}
+
+{% if execute_module_list | default([]) | length > 0 %}
+# execute_module_list: List of CMOS module numbers (integers) to execute.
+# Each element corresponds to a -m<module> option.
+{% for module in execute_module_list | default([]) %}
+-m{{ module }}
+{% endfor %}
+{% endif %}

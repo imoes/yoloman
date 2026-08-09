@@ -1,0 +1,52 @@
+# cthumb album configuration
+# This template generates the cthumb album configuration file.
+# It iterates over the 'albums' list defined in the schema.
+# Each album contains files, optional titles, and support for single or multi-language captions.
+
+{% for album in (albums | default([])) %}
+# Album section: {{ album.title | default('Untitled') }}
+# Description: List of album configurations, each with files, titles, and optional per-language captions per file
+{% set files = album.files | default([]) %}
+{% if files %}
+{% for file in files %}
+# File entry: {{ file.path | default('') }}
+# Description: List of image files in the album (relative or absolute paths)
+
+{{ file.path | default('') }}
+
+{% set langs = album.langs | default([]) %}
+{% if langs %}
+# Multi-language captions mode
+# Description: List of language identifiers (e.g., 'en', 'es') for multi-language captions
+
+{% for lang in langs %}
+{% if loop.index == 1 %}
+# Default caption (language 1)
+{% else %}
+# Caption (language {{ loop.index }})
+{% endif %}
+
+{% set captions = file.captions | default([]) %}
+{% if captions %}
+# Description: List of captions, one per language (used if langs defined)
+{{ captions[loop.index - 1] | default('') }}
+{% else %}
+# No captions defined for this file in this language context
+{% endif %}
+{% endfor %}
+{% else %}
+# Single-language caption mode
+# Description: Single-language caption for the image (used if no langs defined)
+
+{% set caption = file.caption | default('') %}
+{% if caption %}
+{{ caption }}
+{% else %}
+# No caption defined
+{% endif %}
+{% endif %}
+{% endfor %}
+{% else %}
+# No files defined for this album
+{% endif %}
+{% endfor %}

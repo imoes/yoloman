@@ -1,0 +1,177 @@
+{#
+    gpgsm configuration template
+    ============================
+    This template generates a gpgsm.conf file.
+    It is self-documenting: every directive is preceded by a comment
+    explaining its purpose, derived from the schema description.
+    All variables use `| default(...)` to ensure safe rendering even
+    when the corresponding Ansible variable is undefined.
+#}
+
+{# Enable verbose output (repeat with -v/-vv for more verbosity). #}
+{% if (verbose | default(false)) %}verbose{% endif %}
+
+{# GnuPG home directory (overrides GNUPGHOME and registry). #}
+{% set _homedir = (homedir | default('')) %}
+{% if _homedir %}homedir {{ _homedir }}{% endif %}
+
+{# LDAP server for certificate lookup (deprecated; use dirmngr configuration instead). #}
+{% set _keyserver = (keyserver | default('')) %}
+{% if _keyserver %}keyserver {{ _keyserver }}{% endif %}
+
+{# Custom path to policies.txt. #}
+{% set _policy_file = (policy_file | default('')) %}
+{% if _policy_file %}policy-file {{ _policy_file }}{% endif %}
+
+{# Path to gpg-agent executable. #}
+{% set _agent_program = (agent_program | default('')) %}
+{% if _agent_program %}agent-program {{ _agent_program }}{% endif %}
+
+{# Path to dirmngr executable (default: /usr/bin/dirmngr). #}
+{% set _dirmngr_program = (dirmngr_program | default('')) %}
+{% if _dirmngr_program %}dirmngr-program {{ _dirmngr_program }}{% endif %}
+
+{# Disable all Dirmngr usage. #}
+{% if (disable_dirmngr | default(false)) %}disable-dirmngr{% endif %}
+
+{# Prevent automatic start of gpg-agent or dirmngr. #}
+{% if (no_autostart | default(false)) %}no-autostart{% endif %}
+
+{# Log file path (use 'socket://' to log to a socket). #}
+{% set _log_file = (log_file | default('')) %}
+{% if _log_file %}log-file {{ _log_file }}{% endif %}
+
+{# Prefix log lines with timestamps. #}
+{% if (log_time | default(false)) %}log-time{% endif %}
+
+{# Enable or disable policy checks (enabled by default). #}
+{% if not (policy_checks | default(true)) %}disable-policy-checks{% endif %}
+
+{# Enable or disable CRL checks via Dirmngr (enabled by default). #}
+{% if not (crl_checks | default(true)) %}disable-crl-checks{% endif %}
+
+{# Enable or disable CRL checks for trusted root certificates. #}
+{% if not (trusted_cert_crl_check | default(true)) %}disable-trusted-cert-crl-check{% endif %}
+
+{# Force dirmngr to reload CRL on each request (should not be used in config file). #}
+{% if (force_crl_refresh | default(false)) %}force-crl-refresh{% endif %}
+
+{# Enable CRL check even for certificates without a CRL distribution point. #}
+{% if (issuer_based_crl_check | default(false)) %}enable-issuer-based-crl-check{% endif %}
+
+{# Enable OCSP checks via Dirmngr (disabled by default). #}
+{% if (ocsp | default(false)) %}enable-ocsp{% endif %}
+
+{# Enable automatic retrieval of missing issuer certificates (set to false to disable). #}
+{% if not (auto_issuer_key_retrieve | default(true)) %}no-auto-issuer-key-retrieve{% endif %}
+
+{# Validation model: shell (default), chain, or steed. #}
+{% set _validation_model = (validation_model | default('shell')) %}
+{% if _validation_model %}validation-model {{ _validation_model }}{% endif %}
+
+{# List of certificate extension OIDs to ignore (treat as non-critical). #}
+{% for oid in (ignore_cert_extension | default([])) %}ignore-cert-extension {{ oid }}{% endfor %}
+
+{# Always produce PEM encoded output. #}
+{% if (armor | default(false)) %}armor{% endif %}
+
+{# Use base64 encoding without PEM headers. #}
+{% if (base64 | default(false)) %}base64{% endif %}
+
+{# Assume input is PEM encoded. #}
+{% if (assume_armor | default(false)) %}assume-armor{% endif %}
+
+{# Charset for PKCS#12 passphrase encoding (e.g., Latin1, CP850). #}
+{% set _p12_charset = (p12_charset | default('')) %}
+{% if _p12_charset %}p12-charset {{ _p12_charset }}{% endif %}
+
+{# Default key (by fingerprint, email, etc.) for signing. #}
+{% set _default_key = (default_key | default('')) %}
+{% if _default_key %}default-key {{ _default_key }}{% endif %}
+
+{# Key(s) to use for signing (overrides default-key; repeatable). #}
+{% set _local_user = (local_user | default('')) %}
+{% if _local_user %}local-user {{ _local_user }}{% endif %}
+
+{# Recipient key(s) for encryption (repeatable). #}
+{% set _recipient = (recipient | default('')) %}
+{% if _recipient %}recipient {{ _recipient }}{% endif %}
+
+{# Default output file. #}
+{% set _output = (output | default('')) %}
+{% if _output %}output {{ _output }}{% endif %}
+
+{# Include keygrip in key listings. #}
+{% if (with_key_data | default(false)) %}with-key-data{% endif %}
+
+{# Perform full validation on key listing operations. #}
+{% if (with_validation | default(false)) %}with-validation{% endif %}
+
+{# Include MD5 fingerprint in key listings. #}
+{% if (with_md5_fingerprint | default(false)) %}with-md5-fingerprint{% endif %}
+
+{# Include keygrip in key listings. #}
+{% if (with_keygrip | default(false)) %}with-keygrip{% endif %}
+
+{# Include secret key presence info in listings. #}
+{% if (with_secret | default(false)) %}with-secret{% endif %}
+
+{# Output distinguished names in RFC-2253 format. #}
+{% if (no_pretty_dn | default(false)) %}no-pretty-dn{% endif %}
+
+{# Number of certificates to include in CMS: -2 (skip root), -1 (all), 0 (none), 1 (signer only), n>1 (up to n). #}
+{% set _include_certs = (include_certs | default(-2)) %}
+{% if _include_certs is defined %}include-certs {{ _include_certs }}{% endif %}
+
+{# Cipher OID or alias (3DES, AES, AES256) for encryption. #}
+{% set _cipher_algo = (cipher_algo | default('AES')) %}
+{% if _cipher_algo %}cipher-algo {{ _cipher_algo }}{% endif %}
+
+{# Message digest algorithm (e.g., SHA256). Use with caution for interoperability. #}
+{% set _digest_algo = (digest_algo | default('')) %}
+{% if _digest_algo %}digest-algo {{ _digest_algo }}{% endif %}
+
+{# Skip certificate chain validation during encryption. #}
+{% if (always_trust | default(false)) %}always-trust{% endif %}
+
+{# List of extended key usage OIDs to ignore during smartcard learning. #}
+{% for oid in (ignore_cert_with_oid | default([])) %}ignore-cert-with-oid {{ oid }}{% endfor %}
+
+{# Suppress import of common certificates during keybox creation. #}
+{% if (no_common_certs_import | default(false)) %}no-common-certs-import{% endif %}
+
+{# Debug level: none, basic, advanced, expert, or guru. #}
+{% set _debug_level = (debug_level | default('none')) %}
+{% if _debug_level %}debug-level {{ _debug_level }}{% endif %}
+
+{# Pinentry behavior: default, ask, cancel, error, loopback. #}
+{% set _pinentry_mode = (pinentry_mode | default('default')) %}
+{% if _pinentry_mode %}pinentry-mode {{ _pinentry_mode }}{% endif %}
+
+{# Operation origin: local (default), remote, or browser. #}
+{% set _request_origin = (request_origin | default('local')) %}
+{% if _request_origin %}request-origin {{ _request_origin }}{% endif %}
+
+{# Fingerprint (compact, no colons) or path to file listing fingerprints to require for signatures. #}
+{% set _assert_signer = (assert_signer | default('')) %}
+{% if _assert_signer %}assert-signer {{ _assert_signer }}{% endif %}
+
+{# Compliance mode (e.g., de-vs). #}
+{% set _compliance = (compliance | default('')) %}
+{% if _compliance %}compliance {{ _compliance }}{% endif %}
+
+{# Minimum RSA key length (bits) for de-vs compliance. #}
+{% set _min_rsa_length = (min_rsa_length | default(0)) %}
+{% if _min_rsa_length %}min-rsa-length {{ _min_rsa_length }}{% endif %}
+
+{# Force exit failure if compliance rules are violated. #}
+{% if (require_compliance | default(false)) %}require-compliance{% endif %}
+
+{# Bypass certificate chain validation (debug only). #}
+{% if (debug_no_chain_validation | default(false)) %}debug-no-chain-validation{% endif %}
+
+{# Ignore certificate expiration dates (debug only). #}
+{% if (debug_ignore_expiration | default(false)) %}debug-ignore-expiration{% endif %}
+
+{# Enable all debug flags (equivalent to --debug=0xffffffff). #}
+{% if (debug_all | default(false)) %}debug-all{% endif %}

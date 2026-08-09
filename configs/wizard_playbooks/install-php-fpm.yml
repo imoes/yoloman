@@ -1,0 +1,60 @@
+- name: install-php-fpm
+  hosts: all
+  become: true
+  vars:
+    pool:
+      user: www-data
+      group: www-data
+      listen: /run/php/php-fpm.sock
+      slowlog: /var/log/php-fpm/www-slow.log
+      php_flags:
+        display_errors: false
+      php_values:
+        memory_limit: 128M
+        max_execution_time: "30"
+      listen_mode: "0660"
+      status_path: /status
+      listen_group: www-data
+      listen_owner: www-data
+      max_requests: 500
+      start_servers: 5
+      listen_backlog: -1
+      php_admin_flag:
+        log_errors: true
+      php_admin_value:
+        error_log: /var/log/php7-fpm-error.log
+      process_manager: dynamic
+      max_spare_servers: 5
+      min_spare_servers: 2
+      listen_allowed_clients:
+        - 127.0.0.1
+      request_slowlog_timeout: 5
+    global:
+      error_log: /var/log/php7-fpm.log
+      log_level: notice
+    _dest: /etc/php/*/fpm/pool.d/www.conf
+    _service: php-fpm
+    _packages:
+      - php-fpm
+  tasks:
+    - name: Install PHP-FPM
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: php-fpm.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        pool: "{{ pool }}"
+        global: "{{ global }}"
+
+    - name: Enable and restart PHP-FPM
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

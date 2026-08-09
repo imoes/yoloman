@@ -1,0 +1,238 @@
+# ============================================================
+# NGINX MAIN CONFIGURATION TEMPLATE (nginx.conf)
+# Self-documenting: every directive is preceded by its schema
+# description. Variables use schema defaults via `| default()`.
+# ============================================================
+
+# User account under which worker processes run.
+user {{ user | default('www-data') }};
+
+# Number of worker processes (often set to number of CPU cores).
+worker_processes {{ worker_processes | default(2) }};
+
+# Path to the file where nginx writes its master process PID.
+pid {{ pid_file | default('/run/nginx.pid') }};
+
+# Minimum level of messages logged to error_log (debug, info, notice, warn, error, crit, alert, emerg).
+error_log {{ error_log_path | default('/var/log/nginx/error.log') }} level {{ error_log_level | default('warn') }};
+
+# ============================================================
+# EVENT CONTEXT
+# Handles connection processing logic
+# ============================================================
+events {
+    # Maximum number of simultaneous connections that each worker can handle.
+    worker_connections {{ worker_connections | default(1024) }};
+
+    # Event method to use (e.g., epoll, kqueue, select, poll).
+    use {{ event_use | default('epoll') }};
+
+    # If true, workers accept all new connections at once; otherwise, accept one at a time.
+    multi_accept {{ 'on' if (multi_accept | default(true)) else 'off' }};
+}
+
+# ============================================================
+# HTTP CONTEXT
+# Main HTTP server behavior and virtual host definitions
+# ============================================================
+http {
+    # Path to file defining MIME types.
+    include {{ mime_types_file | default('/etc/nginx/mime.types') }};
+
+    # Fallback MIME type for unknown file types.
+    default_type {{ default_type | default('application/octet-stream') }};
+
+    # ============================================================
+    # LOGGING SETTINGS
+    # ============================================================
+
+    # Path to the access log file.
+    access_log {{ access_log_path | default('/var/log/nginx/access.log') }} {{ access_log_format | default('main') }};
+
+    # ============================================================
+    # PERFORMANCE TUNING
+    # ============================================================
+
+    # Use sendfile() to serve static files for better performance.
+    sendfile {{ 'on' if (sendfile | default(true)) else 'off' }};
+
+    # Enable TCP_NOPUSH (sendfile optimization).
+    tcp_nopush {{ 'on' if (tcp_nopush | default(true)) else 'off' }};
+
+    # Enable TCP_NODELAY on keepalive connections (disables Nagle's algorithm).
+    tcp_nodelay {{ 'on' if (tcp_nodelay | default(false)) else 'off' }};
+
+    # Timeout (in seconds) for keep-alive connections with clients.
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
+
+    # Maximum size of hash tables for MIME types.
+    types_hash_max_size {{ types_hash_max_size | default(2048) }};
+
+    # ============================================================
+    # GZIP COMPRESSION
+    # ============================================================
+
+    # Enable gzip compression for responses.
+    gzip {{ 'on' if (gzip_enabled | default(true)) else 'off' }};
+
+    # Add 'Vary: Accept-Encoding' header for proxied requests.
+    gzip_vary {{ 'on' if (gzip_vary | default(true)) else 'off' }};
+
+    # Conditions under which gzip is applied to proxied responses (off, any, expired, etc.).
+    gzip_proxied {{ gzip_proxied | default('off') }};
+
+    # MIME types to compress (applies only to response Content-Type header).
+    gzip_types {{ (gzip_types | default(['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml'])) | join(' ') }};
+
+    # Gzip compression level (1–9); higher = more compression but more CPU.
+    gzip_comp_level {{ gzip_comp_level | default(6) }};
+
+    # ============================================================
+    # VIRTUAL HOSTS (SERVER BLOCKS)
+    # Defined via the 'servers' list variable
+    # ============================================================
+    {% for server in (servers | default([])) %}
+    # Server: {{ server.name | default('unnamed') }}
+    server {
+        # Listen address and port
+        listen {{ server.listen | default('80') }};
+
+        # Server names (domains) for this virtual host
+        server_name {{ server.server_name | default([]) | join(' ') }};
+
+        # Root directory for static files
+        root {{ server.root | default('/var/www/html') }};
+
+        # Index files to serve when requesting a directory
+        index {{ server.index_files | default(['index.html']) | join(' ') }};
+
+        # ============================================================
+        # SSL/TLS CONFIGURATION (if enabled)
+        # ============================================================
+        {% if server.ssl | default(false) %}
+        # Path to the SSL certificate file
+        ssl_certificate {{ server.ssl_certificate | default('/etc/ssl/certs/cert.pem') }};
+
+        # Path to the SSL private key file
+        ssl_certificate_key {{ server.ssl_certificate_key | default('/etc/ssl/private/key.pem') }};
+
+        # SSL protocols to allow (e.g., TLSv1.2 TLSv1.3)
+        ssl_protocols {{ server.ssl_protocols | default(['TLSv1.2', 'TLSv1.3']) | join(' ') }};
+
+        # Ciphers suites to use for SSL connections
+        ssl_ciphers {{ server.ssl_ciphers | default('HIGH:!aNULL:!MD5') }};
+
+        # Prefer the server's cipher order over the client's
+        ssl_prefer_server_ciphers {{ 'on' if (server.ssl_prefer_server_ciphers | default(false)) else 'off' }};
+        {% endif %}
+
+        # ============================================================
+        # LOCATION BLOCKS
+        # Routing rules for specific URI paths
+        # ============================================================
+        {% for location in (server.locations | default([])) %}
+        # Location: {{ location.path | default('/') }}
+        location {{ location.path }} {
+            {% if location.type == 'proxy' %}
+            # ============================================================
+            # PROXY PASS CONFIGURATION
+            # Forwards requests to a backend application server
+            # ============================================================
+            # Backend URL (e.g., http://localhost:8080)
+            proxy_pass {{ location.target | default('http://localhost:8080') }};
+
+            # Standard proxy headers
+            proxy_set_header Host {{ location.host | default('host') }};
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Timeout for reading a response from the proxied server
+            proxy_read_timeout {{ location.proxy_timeout | default(60) }};
+
+            {% elif location.type == 'static' %}
+            # ============================================================
+            # STATIC FILE SERVING
+            # Directly serves files from the filesystem
+            # ============================================================
+            try_files {{ location.try_files | default('$uri $uri/ =404') }};
+
+            {% elif location.type == 'redirect' %}
+            # ============================================================
+            # REDIRECT CONFIGURATION
+            # Returns an HTTP redirect status code
+            # ============================================================
+            return {{ location.status | default(301) }} {{ location.target | default('/') }};
+
+            {% elif location.type == 'rewrite' %}
+            # ============================================================
+            # URL REWRITE CONFIGURATION
+            # Rewrites the URI internally before processing
+            # ============================================================
+            rewrite {{ location.regex | default('^') }} {{ location.target | default('/') }} {{ location.rewrite_flags | default('last') }};
+
+            {% elif location.type == 'static_with_headers' %}
+            # ============================================================
+            # STATIC FILE SERVING WITH CUSTOM HEADERS
+            # Serves files and adds specific HTTP headers
+            # ============================================================
+            try_files $uri $uri/ =404;
+
+            # Custom headers defined in the location headers list
+            {% for header in (location.headers | default([])) %}
+            add_header {{ header.name | default('X-Custom') }} {{ header.value | default('value') }};
+            {% endfor %}
+
+            {% endif %}
+
+            # Extra raw configuration lines for this location (if provided)
+            {% if location.extra_config | default(false) %}
+            # Extra configuration provided by the user
+            {{ location.extra_config | default('') | trim }}
+            {% endif %}
+        }
+        {% endfor %}
+
+        # ============================================================
+        # ERROR PAGES
+        # Custom error page mappings
+        # ============================================================
+        {% if server.error_pages | default([]) %}
+        # Maps error codes to custom error page locations
+        error_page {{ server.error_pages | default([]) | map(attribute='code') | join(' ') }} {{ server.error_pages | default([]) | map(attribute='path') | join(' ') }};
+        {% endif %}
+
+        # ============================================================
+        # CUSTOM SERVER CONFIGURATION
+        # Raw configuration lines for the server block
+        # ============================================================
+        {% if server.extra_config | default(false) %}
+        # Custom configuration provided by the user
+        {{ server.extra_config | default('') | trim }}
+        {% endif %}
+    }
+    {% endfor %}
+
+    # ============================================================
+    # UPSTREAM DEFINITIONS
+    # Load-balanced backend server groups
+    # ============================================================
+    {% for upstream in (upstreams | default([])) %}
+    # Upstream group: {{ upstream.name | default('unnamed') }}
+    upstream {{ upstream.name | default('unnamed') }} {
+        # Backend servers
+        {% for server_addr in (upstream.servers | default([])) %}
+        # Server address with optional weight and backup flags
+        server {{ server_addr.addr | default(server_addr) }}{% if server_addr.weight %} weight={{ server_addr.weight }}{% endif %}{% if server_addr.backup %} backup{% endif %};
+        {% endfor %}
+
+        # Load balancing hash configuration (if provided)
+        {% if upstream.hash | default(false) %}
+        hash {{ upstream.hash.key | default('$request_uri') }}{% if upstream.hash.consistent %} consistent{% endif %};
+        {% endif %}
+    }
+    {% endfor %}
+
+    # Path pattern for additional HTTP context configs (e.g., site-specific files).
+    include {{ http_include_path | default('/etc/nginx/conf.d/*.conf') }};
+}

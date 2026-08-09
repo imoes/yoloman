@@ -1,0 +1,41 @@
+{
+  "bind_tcp": {
+    "host": "0.0.0.0",
+    "port": 9292
+  },
+  "threads": {
+    "min": 4,
+    "max": 16
+  },
+  "workers": 4,
+  "preload_app": true,
+  "environment": "production",
+  "app_root": "/var/www/myapp",
+  "state_path": "/var/run/puma/puma.state",
+  "log_file": {
+    "stdout": "/var/log/puma/production.stdout.log",
+    "stderr": "/var/log/puma/production.stderr.log"
+  },
+  "worker_timeout": 60,
+  "worker_boot_timeout": 90,
+  "tcp_backlog": 1024,
+  "tcp_keepalive": 60,
+  "worker_shutdown_timeout": 30,
+  "control_server": {
+    "socket_path": "/var/run/puma/puma-control.sock",
+    "auth_token": "secret-token-123"
+  },
+  "ssl": {
+    "host": "0.0.0.0",
+    "port": 9283,
+    "options": [
+      "cert: '/etc/puma/ssl/cert.pem'",
+      "key: '/etc/puma/ssl/key.pem'",
+      "verify_mode: 'none'"
+    ]
+  },
+  "plugins": [
+    "tmp/restart.txt"
+  ],
+  "custom_config": "# Custom hooks\non_worker_boot do\n  ActiveRecord::Base.establish_connection if defined?(ActiveRecord)\nend\n"
+}

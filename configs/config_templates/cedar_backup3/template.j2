@@ -1,0 +1,68 @@
+# Cedar Backup 3 main configuration file — backup.conf
+# This file defines backup sources, destinations, and behavior.
+# Each backup set defines a source directory and its associated backup options.
+# All paths are absolute unless noted; relative paths are resolved from config dir.
+
+# System-wide runtime settings for cedar_backup3
+system:
+  # Directory where cedar_backup3 stores logs
+  log_dir: {{ (system | default({})).log_dir | default('/var/log/cedar-backup3') | quote }}
+  # Directory where cedar_backup3 stores state and metadata
+  state_dir: {{ (system | default({})).state_dir | default('/var/lib/cedar-backup3') | quote }}
+  # Enable verbose logging (true/false)
+  debug: {{ (system | default({})).debug | default(false) }}
+
+# Backup sets — each set defines what to backup, where to send it, and how often
+{% for set in (backup_sets | default([])) %}
+backup_set:
+  # Unique name for this backup set
+  name: {{ (set | default({})).name | quote }}
+  # Source directories to include in this backup set
+  sources:
+{% for src in ((set | default({})).sources | default([])) %}
+    - {{ src | quote }}
+{% endfor %}
+  # Destination configuration: either cdvd or s3
+  destination:
+    # Destination type: 'cdvd' for optical media, 's3' for cloud storage
+    type: {{ ((set | default({})).destination | default({})).type | quote }}
+{% if ((set | default({})).destination | default({})).type == 'cdvd' %}
+    # Device node for CD/DVD writer (e.g., /dev/sr0)
+    device: {{ ((set | default({})).destination | default({})).device | quote }}
+    # File system type for the media (UDF/ISO9660)
+    fs_type: {{ ((set | default({})).destination | default({})).fs_type | quote }}
+    # Label to apply to the medium (max 32 chars for ISO9660, 128 for UDF)
+    label: {{ ((set | default({})).destination | default({})).label | quote }}
+    # Burn speed (e.g., '4x', '8x' or 'auto')
+    speed: {{ ((set | default({})).destination | default({})).speed | quote }}
+{% elif ((set | default({})).destination | default({})).type == 's3' %}
+    # AWS S3 bucket name
+    bucket: {{ ((set | default({})).destination | default({})).bucket | quote }}
+    # S3 storage class (STANDARD, REDUCED_REDUNDANCY, etc.)
+    storage_class: {{ ((set | default({})).destination | default({})).storage_class | quote }}
+    # AWS region (e.g., us-east-1, eu-west-1)
+    region: {{ ((set | default({})).destination | default({})).region | quote }}
+{% endif %}
+  # Schedule for this backup set (cron-style: minute hour day month weekday)
+  schedule:
+    # When to run — cron expression
+    when: {{ ((set | default({})).schedule | default({})).when | quote }}
+    # Maximum duration (in minutes) before backup is considered failed
+    timeout_minutes: {{ ((set | default({})).schedule | default({})).timeout_minutes | default(360) }}
+  # Compression options
+  compression:
+    enabled: {{ ((set | default({})).compression | default({})).enabled | default(true) }}
+    # Algorithm: gzip, bzip2, or none
+    algorithm: {{ ((set | default({})).compression | default({})).algorithm | default('gzip') }}
+{% endfor %}
+
+# Global behavior overrides (optional)
+global_options:
+  # Pre-backup command (e.g., sync filesystems)
+  pre_backup_cmd: {{ (global_options | default({})).pre_backup_cmd | default('sync') | quote }}
+  # Post-backup command (e.g., eject CD)
+  post_backup_cmd: {{ (global_options | default({})).post_backup_cmd | default('') | quote }}
+  # If true, skip media verification (faster, but less safe)
+  skip_media_verify: {{ (global_options | default({})).skip_media_verify | default(false) }}
+  # If true, fail the backup if any source is missing
+  strict_sources: {{ (global_options | default({})).strict_sources | default(false) }}

@@ -1,0 +1,228 @@
+# Octavia Amphora Agent Configuration
+# This file configures the amphora-agent, which manages the load balancer amphora instances.
+# It is an INI-style configuration file.
+
+# ==============================================================================
+# [DEFAULT] - General logging and operational settings
+# ==============================================================================
+[DEFAULT]
+
+# Enable detailed debug logging for troubleshooting.
+# Set to True to enable verbose debug output.
+debug = {{ debug | default(false) | ternary('True', 'False') }}
+
+# Enable verbose logging (includes more context per message).
+# Set to True to enable verbose output.
+verbose = {{ verbose | default(false) | ternary('True', 'False') }}
+
+# Directory where amphora-agent log files are stored.
+log_dir = {{ log_dir | default('/var/log/octavia') }}
+
+# Name of the amphora-agent log file.
+log_file = {{ log_file | default('amphora-agent.log') }}
+
+# ==============================================================================
+# [agent] - Amphora instance identity and driver settings
+# ==============================================================================
+[agent]
+
+# Unique identifier for this amphora instance (assigned by Octavia controller at provisioning).
+# If empty, the agent may attempt to detect or leave it unset.
+{% if amphora_id | default('') %}
+amphora_id = {{ amphora_id | default('') }}
+{% endif %}
+
+# Human-readable name for this amphora (typically derived from Nova/VM hostname).
+{% if amphora_name | default('') %}
+amphora_name = {{ amphora_name | default('') }}
+{% endif %}
+
+# Number of worker processes to spawn for handling load balancer traffic.
+worker_count = {{ worker_count | default(2) }}
+
+# Maximum total concurrent connections allowed across all workers.
+max_connections = {{ max_connections | default(8192) }}
+
+# Maximum number of connections allowed per load balancer listener.
+max_concurrent_connections_per_listener = {{ max_concurrent_connections_per_listener | default(100) }}
+
+# Seconds between amphora heartbeat signals to Octavia controller.
+heartbeat_interval = {{ heartbeat_interval | default(5) }}
+
+# Seconds between amphora status updates to Octavia controller.
+status_update_interval = {{ status_update_interval | default(30) }}
+
+# Backend driver for amphora functionality. Common options: 'haproxy' or 'keepalivedlvs'.
+amp_driver = {{ amp_driver | default('keepalivedlvs') }}
+
+# Network management driver. Typically 'neutron' for OpenStack Networking integration.
+amp_network_driver = {{ amp_network_driver | default('neutron') }}
+
+# ==============================================================================
+# TLS / API Communication Settings
+# ==============================================================================
+
+# Enable TLS for secure communication between amphora and Octavia API.
+use_tls = {{ use_tls | default(true) | ternary('True', 'False') }}
+
+# Path to CA certificate used to verify Octavia API server.
+ca_cert = {{ ca_cert | default('/etc/octavia/certs/ca_01.pem') }}
+
+# Path to amphora client certificate for mutual TLS authentication.
+client_cert = {{ client_cert | default('/etc/octavia/certs/client.pem') }}
+
+# Path to amphora client private key for TLS authentication.
+client_key = {{ client_key | default('/etc/octavia/certs/client.key') }}
+
+# List of Octavia controller API endpoints (primary + fallbacks).
+# Each endpoint is written as a separate directive.
+{% for endpoint in api_endpoints | default([]) %}
+octavia_api_uri = {{ endpoint }}
+{% endfor %}
+
+# Enforce TLS certificate validation against CA when connecting to Octavia API.
+verify_server_cert = {{ verify_server_cert | default(true) | ternary('True', 'False') }}
+
+# ==============================================================================
+# Security Group Settings (Neutron)
+# ==============================================================================
+
+# Enable neutron security groups for amphora vNICs (requires Neutron driver).
+{% if security_group_enabled | default(true) %}
+security_group_enabled = True
+# Comma-separated list of security group IDs to apply to amphora vNICs (if enabled).
+security_group_id = {{ security_group_id | default('') }}
+{% else %}
+security_group_enabled = False
+{% endif %}
+
+# ==============================================================================
+# [metadata_proxy] - Metadata proxy settings for amphora
+# ==============================================================================
+[metadata_proxy]
+
+# Enable metadata proxy (allows amphora to serve metadata for load-balanced VMs via Neutron).
+{% if metadata_proxy_enabled | default(true) %}
+enabled = True
+# IP address on which metadata proxy listens for incoming requests.
+metadata_proxy_host = {{ metadata_proxy_host | default('127.0.0.1') }}
+# Port on which metadata proxy listens for incoming requests.
+metadata_proxy_port = {{ metadata_proxy_port | default(8775) }}
+# Time-to-live (TTL) in seconds for Keystone auth tokens cached by metadata proxy.
+auth_cache = {{ metadata_auth_cache | default(300) }}
+{% else %}
+enabled = False
+{% endif %}
+
+# ==============================================================================
+# [haproxy_amphora] - HAProxy-specific operational settings
+# ==============================================================================
+[haproxy_amphora]
+
+# Base directory for HAProxy configuration files (e.g., haproxy.cfg).
+base_config_path = {{ base_config_path | default('/var/lib/octavia') }}
+
+# Base directory for HAProxy runtime state (e.g., PID files, sockets).
+base_runtime_path = {{ base_runtime_path | default('/var/lib/octavia/runtime') }}
+
+# Use systemd to manage HAProxy service (recommended for modern amphora images).
+# Sets the restart command based on this choice.
+{% if use_systemd | default(true) %}
+restart_cmd = systemctl restart haproxy-amphora.service
+reload_cmd = systemctl reload haproxy-amphora.service
+{% else %}
+restart_cmd = service haproxy-amphora restart
+reload_cmd = service haproxy-amphora reload
+{% endif %}
+
+# Seconds to wait before timing out amphora management commands (e.g., restart/reload HAProxy).
+command_timeout = {{ command_timeout | default(30) }}
+
+# Path to HAProxy stats Unix socket (used by health manager for real-time stats).
+stats_socket = {{ stats_socket | default('/var/lib/octavia/haproxy.stats') }}
+
+# Seconds to wait for HAProxy stats socket operations (e.g., connection, query).
+stats_timeout = {{ stats_timeout | default(10) }}
+
+# ==============================================================================
+# [namespace_driver] - Network namespace settings (for LVS/Keepalived)
+# ==============================================================================
+[namespace_driver]
+
+# Enable Linux network namespaces for isolation (used by keepalivedlvs driver).
+{% if use_namespaces | default(true) %}
+# Prefix for network namespace names (e.g., 'octavia-lbaas-ns-123').
+namespace_prefix = {{ namespace_prefix | default('octavia-') }}
+{% endif %}
+
+# ==============================================================================
+# [systemd] - Systemd service management
+# ==============================================================================
+[systemd]
+
+# Enable systemd service control for amphora agent daemons.
+{% if systemd_enabled | default(true) %}
+enabled = True
+{% else %}
+enabled = False
+{% endif %}
+
+# ==============================================================================
+# [keepalived_lvs] - Keepalived LVS-specific settings
+# ==============================================================================
+[keepalived_lvs]
+
+# Directory containing Keepalived configuration files (if using keepalivedlvs driver).
+keepalived_conf_dir = {{ keepalived_conf_dir | default('/etc/keepalived') }}
+
+# Name of VRRP sync group for HA failover coordination.
+vrrp_sync_group = {{ vrrp_sync_group | default('VG_1') }}
+
+# Interval (seconds) between VRRP advertisements for master election.
+vrrp_advert_int = {{ vrrp_advert_int | default(1) }}
+
+# VRRP priority for this amphora when active (higher = preferred master).
+vrrp_priority = {{ vrrp_priority | default(100) }}
+
+# VRRP priority for this amphora when standby (lower for failover).
+vrrp_low_priority = {{ vrrp_low_priority | default(50) }}
+
+# Number of gratuitous ARP messages sent after becoming VRRP master (0 = disabled).
+{% if vrrp_garp_master_deliver is defined %}
+vrrp_garp_master_deliver = {{ vrrp_garp_master_deliver | default(0) }}
+{% else %}
+vrrp_garp_master_deliver = 0
+{% endif %}
+
+# Interface used by LVS sync daemon to replicate session tables (if using LVS).
+{% if lvs_sync_daemon_interface is defined %}
+lvs_sync_daemon_interface = {{ lvs_sync_daemon_interface | default('eth1') }}
+{% else %}
+lvs_sync_daemon_interface = eth1
+{% endif %}
+
+# ==============================================================================
+# [health_manager] - Health check and monitoring settings
+# ==============================================================================
+[health_manager]
+
+# IP address for health manager to bind on (localhost by default).
+bind_host = {{ health_bind_host | default('127.0.0.1') }}
+
+# Port for health manager to listen on for heartbeat traffic.
+bind_port = {{ health_bind_port | default(5555) }}
+
+# Number of threads to handle incoming heartbeat messages.
+heartbeat_receiver_threads = {{ heartbeat_receiver_threads | default(2) }}
+
+# Seconds between health check probes to backend members.
+health_check_interval = {{ health_check_interval | default(2) }}
+
+# Seconds to wait for a response before marking health check failed.
+health_check_timeout = {{ health_check_timeout | default(1) }}
+
+# Number of failed health checks before marking a member 'DOWN'.
+max_retries = {{ max_retries | default(3) }}
+
+# Minimum interval (seconds) between health check retries for same member.
+min_retry_interval = {{ min_retry_interval | default(2) }}

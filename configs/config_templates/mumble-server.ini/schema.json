@@ -1,0 +1,224 @@
+{
+  "port": {
+    "type": "number",
+    "default": 64738,
+    "description": "TCP port for client connections (must be open in firewall)"
+  },
+  "host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind to (empty = all interfaces)"
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/mumble-server.crt",
+    "description": "Absolute path to TLS certificate (required for encrypted connections)"
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/mumble-server.key",
+    "description": "Absolute path to TLS private key (must be readable by mumble user)"
+  },
+  "ssl_ca_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional: Path to CA chain file for client certificate validation"
+  },
+  "ssl_verify_peers": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce strict TLS certificate verification (recommended)"
+  },
+  "server_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password required for clients to connect (leave blank for open server)"
+  },
+  "super_user_password": {
+    "type": "string",
+    "default": "",
+    "description": "Initial SuperUser password; must be set once during first login"
+  },
+  "max_bandwidth": {
+    "type": "number",
+    "default": 72000,
+    "description": "Total audio bandwidth in bits per second (per-user limit is 1/3 of this)"
+  },
+  "max_users": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous users"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=none, 1=errors, 2=warnings, 3=info, 4=debug"
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file; empty means write to stderr/stdout"
+  },
+  "web_enable": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in web interface (requires external mumble-website backend)"
+  },
+  "web_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for web interface (0 = auto-select; typically 8080)"
+  },
+  "web_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Interface for web interface binding (127.0.0.1 for localhost only)"
+  },
+  "web_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "TLS certificate for web interface (if enabled)"
+  },
+  "web_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "TLS private key for web interface"
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/mumble-server/mumble-server.sqlite",
+    "description": "Path to SQLite user/channel database"
+  },
+  "pid_file_path": {
+    "type": "string",
+    "default": "/run/mumble-server/mumble-server.pid",
+    "description": "Path for PID file (created on startup)"
+  },
+  "locale": {
+    "type": "string",
+    "default": "en_US",
+    "description": "Language locale for server messages (e.g., 'de_DE', 'fr_FR')"
+  },
+  "timezone": {
+    "type": "string",
+    "default": "",
+    "description": "Timezone (IANA name); empty = system default"
+  },
+  "bonjour_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Publish server via Bonjour/Zeroconf for automatic discovery"
+  },
+  "config_reload_policy": {
+    "type": "number",
+    "default": 2,
+    "description": "Who may reload config: 0=never, 1=all, 2=superuser only"
+  },
+  "enable_registration": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow users to register accounts via client (insecure on public servers)"
+  },
+  "enable_recording": {
+    "type": "bool",
+    "default": true,
+    "description": "Permit users to record conversations"
+  },
+  "opus_mode": {
+    "type": "number",
+    "default": 0,
+    "description": "Opus encoding mode: 0=auto (voice/music), 1=voice-only, 2=music-optimized"
+  },
+  "opus_dtx": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable discontinuous transmission to save bandwidth during silence"
+  },
+  "silence_threshold": {
+    "type": "number",
+    "default": 0.03,
+    "description": "Silence detection threshold (0.0\u20131.0); lower = more sensitive"
+  },
+  "udp_packet_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Max UDP packet size in bytes (0 = auto-detect)"
+  },
+  "ice_no_tcp": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable TCP fallback for ICE connectivity (legacy clients only)"
+  },
+  "static_users": {
+    "type": "list",
+    "default": [],
+    "description": "Predefined user accounts (not recommended for production)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Username (must be unique)"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Initial password (should be changed post-login)"
+        },
+        "acl": {
+          "type": "list",
+          "default": [],
+          "description": "List of access control rules (e.g., 'admin' or 'whitelist')",
+          "items": {
+            "type": "string",
+            "default": ""
+          }
+        }
+      }
+    }
+  },
+  "default_channels": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Root",
+        "parent": "",
+        "description": "Root channel",
+        "max_users": 0,
+        "temp": false
+      }
+    ],
+    "description": "Predefined channels created on first startup",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Channel name"
+        },
+        "parent": {
+          "type": "string",
+          "default": "",
+          "description": "Parent channel name (empty = root)"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Channel description (shown in UI)"
+        },
+        "max_users": {
+          "type": "number",
+          "default": 0,
+          "description": "Max users in channel (0 = inherit server limit)"
+        },
+        "temp": {
+          "type": "bool",
+          "default": false,
+          "description": "Temporary channel (deleted when empty)"
+        }
+      }
+    }
+  }
+}

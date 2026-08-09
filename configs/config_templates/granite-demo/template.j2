@@ -1,0 +1,39 @@
+# granite-demo configuration file.
+# This is the primary configuration for the Granite Demo application.
+# It controls window visibility, dimensions, debugging verbosity,
+# and which widget demonstrations are loaded at startup.
+#
+# Variables are expected from the Ansible inventory or defaults.
+# All variables use the `| default(...)` filter to prevent render errors
+# if the variable is not explicitly defined in the play.
+
+[Window]
+# Show main window: Controls whether the demo application window is visible on startup.
+# Type: boolean. Default: True.
+Visible = {{ (show_window | default(true)) | string | lower }}
+
+# Window width in pixels: Initial width of the application window.
+# Must be a positive integer. Default: 800.
+{% if (window_width | default(800)) > 0 %}
+Width = {{ window_width | default(800) }}
+{% endif %}
+
+# Window height in pixels: Initial height of the application window.
+# Must be a positive integer. Default: 600.
+{% if (window_height | default(600)) > 0 %}
+Height = {{ window_height | default(600) }}
+{% endif %}
+
+# Debug mode: Enables verbose logging output to assist with troubleshooting.
+# Type: boolean. Default: False.
+{% if debug_mode | default(false) %}
+Debug = {{ debug_mode | default(false) | string | lower }}
+{% endif %}
+
+[Items]
+# Demo widgets list: Comma-separated list of Granite widget types to demonstrate.
+# Each entry corresponds to a documented widget demo name.
+# Default: Label, Button, Toggle, ComboBox.
+{% if demo_items | default(['Label', 'Button', 'Toggle', 'ComboBox']) | length > 0 %}
+Widgets = {{ demo_items | default(['Label', 'Button', 'Toggle', 'ComboBox']) | join(", ") }}
+{% endif %}

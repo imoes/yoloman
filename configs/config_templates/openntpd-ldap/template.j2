@@ -1,0 +1,100 @@
+# OpenNTPD Configuration with LDAP Source Discovery
+#
+# This template configures openntpd-ldap to discover NTP peers via an LDAP directory.
+# It handles listening addresses, access control networks, LDAP connection details,
+# polling intervals, clock discipline, and logging.
+
+# ============================================================
+# Listening and Access Control
+# ============================================================
+
+# IP addresses on which OpenNTPD will listen for NTP queries.
+# Use [0.0.0.0] to listen on all interfaces (⚠️ not recommended for production).
+# Default: ['127.0.0.1']
+{% for addr in (listen_addr | default(['127.0.0.1'])) %}
+listen_addr {{ addr }}
+{% endfor %}
+
+# List of networks allowed to synchronize with this NTP server.
+# Each item defines a network address and optional subnet mask (as CIDR or dotted).
+# Default: [] (empty list denies all external sync requests)
+{% if allowed_networks | default([]) | length > 0 %}
+# Restrict which networks may sync with this server
+{% for net in allowed_networks | default([]) %}allow {{ net.network }}{% if net.mask is defined and net.mask %} {{ net.mask }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# ============================================================
+# LDAP Integration for Dynamic Source Discovery
+# ============================================================
+
+# URI of the LDAP server (e.g., ldap://ldap.example.com or ldaps://ldap.example.com:636).
+# Default: 'ldap://ldap.example.com'
+ldap_uri {{ ldap_uri | default('ldap://ldap.example.com') }}
+
+# Base DN under which LDAP time source entries are stored.
+# Default: 'ou=TimeServers,dc=example,dc=com'
+ldap_base_dn {{ ldap_base_dn | default('ou=TimeServers,dc=example,dc=com') }}
+
+# DN used to bind to the LDAP server (service account with read access).
+# Default: 'cn=ntp,ou=Service,dc=example,dc=com'
+ldap_bind_dn {{ ldap_bind_dn | default('cn=ntp,ou=Service,dc=example,dc=com') }}
+
+# Password for the LDAP bind DN. Leave empty to use external authentication (e.g., SASL/GSSAPI) or read from secure file.
+# Default: ''
+ldap_bind_pw {{ ldap_bind_pw | default('') }}
+
+# LDAP search filter to find valid time sources (e.g., servers advertising time service).
+# Default: '(objectClass=ntpServer)(ntpEnabled=TRUE)'
+ldap_search_filter {{ ldap_search_filter | default('(objectClass=ntpServer)(ntpEnabled=TRUE)') }}
+
+# Directory containing CA certificates for LDAP over TLS (ldaps://). Use '' for default system CA store.
+# Default: '/etc/ssl/certs'
+ldap_tls_ca_dir {{ ldap_tls_ca_dir | default('/etc/ssl/certs') }}
+
+# TLS certificate verification level for LDAP: 'never', 'allow', 'try', or 'demand'.
+# Default: 'demand'
+ldap_tls_reqcert {{ ldap_tls_reqcert | default('demand') }}
+
+# ============================================================
+# Polling and Clock Discipline
+# ============================================================
+
+# Minimum interval (seconds) between queries to LDAP-sourced time servers. Range: 15–3600.
+# Default: 60
+min_poll_interval {{ min_poll_interval | default(60) }}
+
+# Maximum interval (seconds) between queries to LDAP-sourced time servers. Range: 60–86400.
+# Default: 600
+max_poll_interval {{ max_poll_interval | default(600) }}
+
+# Time offset (seconds) above which the clock will step (jump) instead of slewing.
+# Lower values = gentler corrections. Range: 0.001–10.0.
+# Default: 0.5
+step_threshold {{ step_threshold | default(0.5) }}
+
+# ============================================================
+# Fallback and Logging
+# ============================================================
+
+# Static NTP server hostnames/IPs used if LDAP returns no sources.
+# Empty list = default pool.ntp.org servers will be used.
+# Default: []
+{% if fallback_servers | default([]) | length > 0 %}
+# Fallback static servers defined
+{% for srv in fallback_servers | default([]) %}peer {{ srv }}
+{% endfor %}
+{% else %}
+# No static fallback servers defined; relying on default NTP pools
+{% endif %}
+
+# Verbosity of logging: 0 (quiet), 1 (normal), 2 (debug).
+# Default: 1
+log_level {{ log_level | default(1) }}
+
+# Path to a leap seconds file (e.g., /usr/share/zoneinfo/leap-seconds.list).
+# If empty, system default is used.
+# Default: ''
+{% if leapfile | default('') %}
+leapfile {{ leapfile | default('') }}
+{% endif %}

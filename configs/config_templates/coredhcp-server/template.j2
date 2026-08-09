@@ -1,0 +1,164 @@
+# ==============================================================================
+# CoreDHCP Configuration (YAML)
+# ==============================================================================
+#
+# This file configures the CoreDHCP server. It is structured into two main sections:
+#   - server6: DHCPv6 server settings (IPv6)
+#   - server4: DHCPv4 server settings (IPv4)
+#
+# Self-Documenting Principle:
+#   Every directive is preceded by a comment block describing its schema field,
+#   default value, and purpose. All variable references use `| default(...)` to
+#   ensure safe rendering even if the Ansible variable is undefined.
+#
+# ==============================================================================
+# DHCPv6 Configuration
+# ==============================================================================
+server6:
+    # listen: Optional list of addresses/ports/interfaces to bind the DHCPv6 server.
+    # Syntax: "[address%interface]:port"
+    # If omitted, the server joins standard DHCPv6 multicast groups on all interfaces.
+    # CoreDHCP v6 typically relies on multicast; specific binding is advanced.
+    # For standard DHCPv6 operation, leaving this commented out or empty is often correct
+    # unless you have specific relay or unicast requirements.
+    listen:
+        # Bind to specific interface and port.
+        # If server6_listen_interface is empty, it binds to all interfaces.
+        # Format: "[interface]:port"
+        - "[{{ server6_listen_interface | default('') }}]:{{ server6_listen_port | default(547) }}"
+
+    # plugins: Mandatory list of plugins to handle DHCPv6 requests.
+    # Order matters: requests are processed sequentially.
+    plugins:
+        # server_id: DUID (DHCP Unique Identifier) for this server.
+        # Required for RFC compliance. Uses DUID-LL (Link-layer address).
+        # Schema field: server6_server_id_mac
+        # Default: '00:de:ad:be:ef:00'
+        # Description: MAC address for server_id DUID-LL (format: XX:XX:XX:XX:XX:XX)
+        - server_id: LL {{ server6_server_id_mac | default('00:de:ad:be:ef:00') }}
+
+        # file: Static lease file plugin.
+        # Maps DHCP identifiers to IPv6 addresses from a static file.
+        # Supports 'autorefresh' to watch for file changes.
+        # Schema field: server6_file_leases_path
+        # Default: '/var/lib/coredhcp/leases.txt'
+        # Description: Path to file containing static DHCPv6 leases
+        - file: "{{ server6_file_leases_path | default('/var/lib/coredhcp/leases.txt') }}"
+
+        # dns: DNS Resolver plugin.
+        # Advertises IPv6 DNS server addresses to clients.
+        # The list is flattened into a space-separated string of arguments.
+        # Schema field: server6_dns_resolvers
+        # Default: ['2001:4860:4860::8888', '2001:4860:4860::8844']
+        # Description: List of IPv6 DNS resolvers to advertise
+        - dns: {{ server6_dns_resolvers | default(['2001:4860:4860::8888', '2001:4860:4860::8844']) | join(' ') }}
+
+        # nbp: Network Boot Program plugin.
+        # Provides the URL for clients to fetch network boot images.
+        # Schema field: server6_nbp_url
+        # Default: 'http://[2001:db8:a::1]/nbp'
+        # Description: URL to network boot program for NBP plugin
+        - nbp: "{{ server6_nbp_url | default('http://[2001:db8:a::1]/nbp') }}"
+
+        # prefix: Prefix Delegation plugin.
+        # Delegates IPv6 prefixes to clients.
+        # Arguments: <prefix_pool> <allocation_size>
+        # Example: 2001:db8::/48 64
+        # Schema field: server6_prefix_delegation_prefix
+        # Default: '2001:db8::/48'
+        # Description: IPv6 prefix pool for prefix delegation
+        # Schema field: server6_prefix_delegation_size
+        # Default: 64
+        # Description: Maximum prefix length to delegate (e.g., /64)
+        - prefix: {{ server6_prefix_delegation_prefix | default('2001:db8::/48') }} {{ server6_prefix_delegation_size | default(64) }}
+
+# ==============================================================================
+# DHCPv4 Configuration
+# ==============================================================================
+server4:
+    # listen: Optional list of addresses/ports/interfaces to bind the DHCPv4 server.
+    # Syntax: "address%interface:port"
+    # If omitted, listens on 0.0.0.0:67 (broadcast).
+    listen:
+        # Bind to specific interface and/or IP if provided, otherwise wildcard.
+        # Use the configured port for DHCPv4.
+        # Schema field: server4_listen_address
+        # Default: ''
+        # Description: Address to bind DHCPv4 server to (empty = wildcard 0.0.0.0)
+        # Schema field: server4_listen_interface
+        # Default: ''
+        # Description: Interface to bind DHCPv4 server to (optional, empty = all interfaces)
+        # Schema field: server4_listen_port
+        # Default: 67
+        # Description: DHCPv4 server port to listen on
+        - "{{ server4_listen_address | default('') }}%{{ server4_listen_interface | default('') }}:{{ server4_listen_port | default(67) }}"
+
+    # plugins: Mandatory list of plugins to handle DHCPv4 requests.
+    plugins:
+        # lease_time: Sets the default lease duration for IPv4 addresses.
+        # Format: Go duration string (e.g., '3600s', '1h', '10m').
+        # Schema field: server4_lease_time
+        # Default: '3600s'
+        # Description: Default lease duration for DHCPv4 (Go duration format, e.g., '3600s')
+        - lease_time: "{{ server4_lease_time | default('3600s') }}"
+
+        # server_id: DHCP Server Identifier.
+        # Advertises this server's IP to clients to distinguish it in multi-server environments.
+        # Schema field: server4_server_id
+        # Default: '10.10.10.1'
+        # Description: IPv4 address to use as DHCP Server Identifier
+        - server_id: "{{ server4_server_id | default('10.10.10.1') }}"
+
+        # dns: DNS Resolver plugin.
+        # Advertises IPv4 DNS server addresses to clients.
+        # The list is flattened into a space-separated string of arguments.
+        # Schema field: server4_dns_resolvers
+        # Default: ['8.8.8.8', '8.8.4.4']
+        # Description: List of IPv4 DNS resolvers to advertise
+        - dns: {{ server4_dns_resolvers | default(['8.8.8.8', '8.8.4.4']) | join(' ') }}
+
+        # router: Default Router plugin.
+        # Advertises the default gateway for the subnet.
+        # Schema field: server4_router
+        # Default: '192.168.1.1'
+        # Description: IPv4 address of default router to advertise
+        - router: "{{ server4_router | default('192.168.1.1') }}"
+
+        # netmask: Network Mask plugin.
+        # Advertises the subnet mask to clients.
+        # Schema field: server4_netmask
+        # Default: '255.255.255.0'
+        # Description: Network mask to advertise to DHCPv4 clients
+        - netmask: "{{ server4_netmask | default('255.255.255.0') }}"
+
+        # range: Dynamic Lease Range plugin.
+        # Defines the pool of IP addresses available for dynamic assignment.
+        # Arguments: <lease_file> <start_ip> <end_ip> <lease_duration>
+        # The lease file persists allocations across restarts.
+        # Schema field: server4_range_lease_file
+        # Default: 'leases.txt'
+        # Description: Path to file for persisting dynamic DHCPv4 leases
+        # Schema field: server4_range_start
+        # Default: '10.10.10.100'
+        # Description: First IP in dynamic lease range
+        # Schema field: server4_range_end
+        # Default: '10.10.10.200'
+        # Description: Last IP in dynamic lease range
+        # Schema field: server4_range_duration
+        # Default: '60s'
+        # Description: Lease duration in dynamic range (Go duration format, e.g., '60s')
+        - range: "{{ server4_range_lease_file | default('leases.txt') }}" "{{ server4_range_start | default('10.10.10.100') }}" "{{ server4_range_end | default('10.10.10.200') }}" "{{ server4_range_duration | default('60s') }}"
+
+        # staticroute: Static Route plugin.
+        # Advertises additional routes via Option 121 (RFC3442).
+        # Format: <destination_cidr>,<gateway_ip>
+        # Schema field: server4_static_route_dest
+        # Default: '10.20.20.0'
+        # Description: Destination network of static route (without CIDR)
+        # Schema field: server4_static_route_prefixlen
+        # Default: 24
+        # Description: Prefix length (CIDR bits) of static route
+        # Schema field: server4_static_route_gateway
+        # Default: '10.10.10.1'
+        # Description: Next-hop gateway for static route
+        - staticroute: "{{ server4_static_route_dest | default('10.20.20.0') }}/{{ server4_static_route_prefixlen | default(24) }},{{ server4_static_route_gateway | default('10.10.10.1') }}"

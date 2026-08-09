@@ -1,0 +1,61 @@
+# agentic-mcpd example configuration.
+# Copy to /etc/agentic-mcp/config.yaml and adjust for production use.
+
+listen: "127.0.0.1:8010"
+
+# Operating mode. The packaged default is a fully self-contained "standalone"
+# Duppy. `agentic-mcpd register` flips this to "satellite" on enrolment (a
+# Fleet Commander then pulls this agent's data). "proxy" (Selecta) polls other
+# satellites and re-serves the aggregate.
+mode: standalone
+
+# Load ONLY the built-in modules at startup (native Go + the embedded curated
+# Starlark set) instead of bulk-loading everything under modules_dir. A
+# standalone Duppy doesn't need a fleet-sized pushed library; extra modules
+# still load on demand when pushed via /api/v1/modules/apply. `register` sets
+# this true so an enrolled satellite loads the check/collection library a Fleet
+# Commander pushes it.
+modules_autoload: false
+
+# Bearer token required for MCP/REST access. The .deb postinst script
+# generates a random one; for local testing, set your own.
+token: ""
+
+# Master write gate. When false (default), all mutating tools/modules
+# (mode: put|update|delete) are not registered at all — only reads and
+# check_mode/dry-run previews are possible.
+write: false
+
+tls:
+  enabled: false
+  cert_file: ""
+  key_file: ""
+
+ebpf:
+  enabled: true
+
+# Periodic OS-metric sampler. interval is the sample cadence AND the stored
+# resolution (the agent buffers points at this rate; Bossman ingests all of
+# them). 60s keeps the metrics table an order of magnitude smaller than 30s.
+# Unconsumed metric families (per-service CPU/mem/io, PSI) default to OFF in the
+# agent, so they are absent here by design: the DB cannot be spammed by a metric
+# nobody reads just because a disable flag was forgotten. Enable one (services:
+# true / psi: true) only once something consumes it. See docs/metrics-storage.md.
+collect:
+  enabled: true
+  interval: 60s
+  docker: true
+
+db:
+  driver: sqlite
+  path: /var/lib/agentic-mcp/agentic-mcp.db
+
+pam:
+  enabled: true
+  service: agentic-mcp
+
+ui:
+  enabled: true
+
+tools_dir: /etc/agentic-mcp/tools.d
+commands_file: /etc/agentic-mcp/commands.yaml

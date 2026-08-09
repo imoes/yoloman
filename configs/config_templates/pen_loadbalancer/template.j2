@@ -1,0 +1,109 @@
+# ==============================================================================
+# Pen Load Balancer Configuration
+# ==============================================================================
+# This template generates a configuration file for the Pen (Proxy) load balancer.
+# It defines listening parameters, backend servers, health checks, and logging.
+# All variables use the schema field names and their specified defaults.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [listen_ip]: The IP address the load balancer should listen on (e.g., 0.0.0.0 for all
+# interfaces, or a specific IP).
+# ------------------------------------------------------------------------------
+# Listen on this IP and port for incoming connections.
+listen = {{ (listen_ip | default('0.0.0.0')) | string }}:{{ (listen_port | default(80)) | int }}
+
+# ------------------------------------------------------------------------------
+# [servers]: List of backend servers to balance traffic across.
+# Each server object contains 'name', 'protocol', 'host', 'port'.
+# ------------------------------------------------------------------------------
+# Backend servers to load balance across (TCP or UDP)
+{% for server in servers | default([]) %}
+# Server: {{ (server | default({})).name | default('unnamed') }}
+{% if (server.protocol | default('tcp')) == 'udp' %}
+server = udp:{{ (server.host | default('127.0.0.1')) | string }}:{{ (server.port | default(80)) | int }}
+{% else %}
+server = {{ (server.host | default('127.0.0.1')) | string }}:{{ (server.port | default(80)) | int }}
+{% endif %}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# [method]: Algorithm used to distribute traffic across backends.
+# Options: roundrobin, leastconn, first, iphash, urihash, urlhash, sourceiphash.
+# ------------------------------------------------------------------------------
+# Load balancing method
+method = {{ method | default('roundrobin') | string }}
+
+# ------------------------------------------------------------------------------
+# [healthcheck_interval]: Interval (in seconds) between health checks.
+# Set to 0 to disable health checks.
+# ------------------------------------------------------------------------------
+# Health check interval in seconds
+healthcheck = {{ healthcheck_interval | default(30) | int }}
+
+# ------------------------------------------------------------------------------
+# [timeout]: Connection timeout (in seconds) for backend connections.
+# ------------------------------------------------------------------------------
+# Timeout for backend connections in seconds
+timeout = {{ timeout | default(300) | int }}
+
+# ------------------------------------------------------------------------------
+# [max_connections]: Maximum simultaneous connections allowed per backend.
+# 0 = unlimited.
+# ------------------------------------------------------------------------------
+# Maximum number of connections per backend (0 = unlimited)
+maxconn = {{ max_connections | default(0) | int }}
+
+# ------------------------------------------------------------------------------
+# [transparent]: Enable transparent proxy mode to preserve client source IP
+# (requires kernel support).
+# ------------------------------------------------------------------------------
+# Enable client IP preservation (transparent proxy)
+{% if transparent | default(False) | bool %}
+transparent = yes
+{% else %}
+transparent = no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [log_file]: Path to log file. If empty, logging goes to syslog.
+# ------------------------------------------------------------------------------
+# Log to this file (use syslog if empty)
+{% if log_file | default('') %}
+log = {{ log_file | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [log_timestamps]: Include timestamps in access log entries.
+# ------------------------------------------------------------------------------
+# Enable access logging with timestamps
+{% if log_timestamps | default(True) | bool %}
+logtimestamps = yes
+{% else %}
+logtimestamps = no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [log_level]: Logging verbosity: 0 (quiet) to 3 (very verbose).
+# ------------------------------------------------------------------------------
+# Log level: 0 (quiet) to 3 (verbose)
+loglevel = {{ log_level | default(1) | int }}
+
+# ------------------------------------------------------------------------------
+# [outbound_ip]: Local IP address to use as source for connections to backends
+# (for multi-homed systems).
+# ------------------------------------------------------------------------------
+# Optional: bind to a specific local IP for outgoing connections
+{% if outbound_ip | default('') %}
+outbound_ip = {{ outbound_ip | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [sticky]: Enable sticky sessions using client source IP for session persistence.
+# ------------------------------------------------------------------------------
+# Optional: sticky sessions (client IP hash for persistence)
+{% if sticky | default(False) | bool %}
+sticky = yes
+{% else %}
+sticky = no
+{% endif %}

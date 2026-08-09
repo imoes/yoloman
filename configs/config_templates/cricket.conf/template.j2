@@ -1,0 +1,115 @@
+# Cricket global configuration
+# This file configures the Cricket network monitoring system.
+# It defines how data is collected, stored, and displayed.
+
+global:
+  # Interval (in seconds) between polling attempts
+  poll_interval: {{ poll_interval }}
+
+  # Number of worker threads for data collection
+  worker_threads: {{ worker_threads }}
+
+  # Maximum concurrent SNMP queries per poll cycle
+  max_snmp_queries: {{ max_snmp_queries }}
+
+  # Default SNMP timeout in seconds
+  snmp_timeout: {{ snmp_timeout }}
+
+  # Default SNMP retries
+  snmp_retries: {{ snmp_retries }}
+
+  # Enable verbose logging to syslog
+  verbose_logging: {{ verbose_logging }}
+
+  # Log file path (omit to log only to syslog)
+  log_file: {{ log_file }}
+
+# Data storage backend configuration
+database:
+  # Backend type: 'rrd' or 'sql'
+  type: {{ database.type }}
+
+  {% if database.type == 'rrd' %}
+  # Path to the root directory for RRD files
+  rrd_dir: {{ database.rrd_dir }}
+
+  # RRD step interval (seconds); must match poll_interval for optimal results
+  rrd_step: {{ database.rrd_step }}
+  {% elif database.type == 'sql' %}
+  # SQL connection DSN (e.g., 'mysql://user:pass@host/db')
+  dsn: {{ database.dsn }}
+
+  # Table prefix for Cricket tables (avoid collisions in shared DB)
+  table_prefix: {{ database.table_prefix }}
+  {% endif %}
+
+# SNMP target definitions: hosts to monitor
+hosts:
+  {% for host in hosts %}
+  - hostname: {{ host.hostname }}
+    # SNMP version: 1, 2c, or 3
+    version: {{ host.version }}
+
+    # SNMP community (v1/v2c) or security name (v3)
+    community: {{ host.community | default('public') }}
+
+    {% if host.version == '3' %}
+    # SNMPv3 security options
+    security_level: {{ host.security_level }}
+    auth_protocol: {{ host.auth_protocol }}
+    auth_passphrase: {{ host.auth_passphrase }}
+    priv_protocol: {{ host.priv_protocol }}
+    priv_passphrase: {{ host.priv_passphrase }}
+    {% else %}
+    # Optional SNMPv1/v2c context name (for some devices)
+    context: {{ host.context | default('') | default('') }}
+    {% endif %}
+
+    # List of targets (interfaces, services) to poll on this host
+    targets:
+      {% for target in host.targets %}
+      - name: {{ target.name }}
+        # OID or built-in target type (e.g., 'ifIndex', 'ifDescr')
+        type: {{ target.type }}
+        {% if target.type == 'ifIndex' %}
+        ifIndex: {{ target.ifIndex }}
+        {% elif target.type == 'ifDescr' %}
+        ifDescr: {{ target.ifDescr }}
+        {% elif target.type == 'custom' %}
+        oid: {{ target.oid }}
+        {% endif %}
+        # Data source type: gauge, counter, or derived
+        ds_type: {{ target.ds_type }}
+        # Description shown in reports
+        description: {{ target.description }}
+        # Optional threshold for alerting
+        thresholds:
+          warning: {{ target.thresholds.warning }}
+          critical: {{ target.thresholds.critical }}
+      {% endfor %}
+  {% endfor %}
+
+# Threshold configuration (global defaults if not set per target)
+thresholds:
+  warning_percent: {{ thresholds.warning_percent }}
+  critical_percent: {{ thresholds.critical_percent }}
+  # Time window (seconds) over which thresholds apply
+  window: {{ thresholds.window }}
+
+# Web UI configuration
+web:
+  # HTTP bind address
+  bind_address: {{ web.bind_address }}
+
+  # HTTP port
+  port: {{ web.port }}
+
+  # Base URL path (for reverse proxy setups)
+  base_url: {{ web.base_url }}
+
+  # Enable HTTPS
+  tls_enabled: {{ web.tls_enabled }}
+
+  # Paths to TLS key/cert (ignored if tls_enabled == false)
+  tls_key_file: {{ web.tls_key_file }}
+  tls_cert_file: {{ web.tls_cert_file }}

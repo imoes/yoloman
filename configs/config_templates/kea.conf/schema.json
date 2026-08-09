@@ -1,0 +1,161 @@
+{
+  "dhcps4_renew_timer": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time in seconds after which a client may attempt to renew its lease."
+  },
+  "dhcps4_rebind_timer": {
+    "type": "number",
+    "default": 6300,
+    "description": "Time in seconds after which a client may attempt to rebind its lease if renewal fails."
+  },
+  "dhcps4_max_lease_time": {
+    "type": "number",
+    "default": 7200,
+    "description": "Maximum time in seconds a lease may be assigned."
+  },
+  "dhcps4_lease_changes_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval in seconds between writes of lease changes to disk (0 = write on every change)."
+  },
+  "dhcps4_interfaces": {
+    "type": "list",
+    "default": [
+      "eth0"
+    ],
+    "description": "List of network interfaces to listen on for DHCP requests.",
+    "items": {
+      "type": "string",
+      "description": "Interface name (e.g., eth0, wlan0)"
+    }
+  },
+  "dhcps4_control_socket_name": {
+    "type": "string",
+    "default": "/run/kea/dhcp4-ctrl.sock",
+    "description": "Unix socket path for Kea DHCPv4 control agent communication."
+  },
+  "dhcps4_queue_capacity": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of incoming packets that may be queued when processing is delayed."
+  },
+  "dhcps4_enable_queue": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable packet queuing (recommended for high-load servers)."
+  },
+  "dhcps4_log_output": {
+    "type": "string",
+    "default": "/var/log/kea-dhcp4.log",
+    "description": "Path to log file for DHCPv4 server messages."
+  },
+  "dhcps4_log_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum severity level to log (DEBUG, INFO, WARN, ERROR, FATAL)."
+  },
+  "dhcps4_log_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug level (0 = minimal, up to 99 for verbose debug)."
+  },
+  "dhcps4_shared_networks": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "subnet": "192.168.1.0/24",
+        "pools": [
+          {
+            "start": "192.168.1.10",
+            "end": "192.168.1.200"
+          }
+        ],
+        "option_data": [
+          {
+            "name": "routers",
+            "data": "192.168.1.1"
+          },
+          {
+            "name": "domain-name-servers",
+            "data": "192.168.1.1"
+          }
+        ],
+        "reservations": [],
+        "client_class": ""
+      }
+    ],
+    "description": "List of DHCPv4 shared networks (each defines a subnet and related settings).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique name for the shared network."
+      },
+      "subnet": {
+        "type": "string",
+        "description": "Subnet in CIDR notation (e.g., 10.0.0.0/24)."
+      },
+      "pools": {
+        "type": "list",
+        "description": "Range(s) of IP addresses to lease.",
+        "items": {
+          "start": {
+            "type": "string",
+            "description": "First IP address in the pool range."
+          },
+          "end": {
+            "type": "string",
+            "description": "Last IP address in the pool range."
+          }
+        }
+      },
+      "option_data": {
+        "type": "list",
+        "description": "Custom DHCP options to include for clients in this network.",
+        "items": {
+          "name": {
+            "type": "string",
+            "description": "Option name (e.g., routers, domain-name-servers, ntp-servers)."
+          },
+          "data": {
+            "type": "string",
+            "description": "Option data as string (e.g., comma-separated IPs)."
+          }
+        }
+      },
+      "reservations": {
+        "type": "list",
+        "description": "Static DHCP reservations (fixed IPs for known MACs).",
+        "items": {
+          "hw_address": {
+            "type": "string",
+            "description": "MAC address (e.g., 00:11:22:33:44:55)."
+          },
+          "ip_address": {
+            "type": "string",
+            "description": "Fixed IPv4 address to assign."
+          },
+          "hostname": {
+            "type": "string",
+            "description": "Hostname to assign to this client."
+          }
+        }
+      },
+      "client_class": {
+        "type": "string",
+        "description": "Optional client class restriction for this network (leave empty to allow all)."
+      }
+    }
+  },
+  "dhcps4_hosts_lfc_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval in seconds for automatic log-file compaction of the hosts database."
+  },
+  "dhcps4_data_directory": {
+    "type": "string",
+    "default": "/var/lib/kea",
+    "description": "Directory for persistent data (leases, hosts, etc.)."
+  }
+}

@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# debci-worker: Bootstrap and health-check script for the debci CI worker.
+#
+# This script is intended to be managed by Ansible via a `copy` or `template` task,
+# or invoked by systemd. It performs the following:
+# 1. Verifies that the `debci-worker` package is installed.
+# 2. Verifies that the `debci` command-line tool is available.
+# 3. Runs `debci update-worker` to ensure the worker binary/plugins are up-to-date.
+# 4. Logs any errors encountered during the update process.
+#
+# Variables from schema (none defined; this is a static script).
+#
+
+set -e
+
+# Check if the debci-worker package is installed; if not, exit gracefully
+# as this node may not be a worker.
+if ! dpkg-query --show debci-worker >/dev/null 2>&1; then
+  exit 0
+fi
+
+# Check if the debci utility is in PATH; if not, something is wrong with the installation
+if ! which debci >/dev/null 2>&1; then
+  exit 1
+fi
+
+# Create a temporary file for capturing output from the worker update command
+log=$(mktemp)
+
+# Ensure the temporary log file is removed on exit, success or failure
+cleanup() {
+  rm -f "$log"
+}
+trap cleanup INT TERM EXIT
+
+# Run debci update-worker, capturing stdout/stderr to the log file.
+# If the command fails (non-zero exit code), we want to report it.
+rc=0
+debci update-worker >"$log" 2>&1 || rc=$?
+
+# If the update was successful (rc == 0), suppress output unless verbose logging is required.
+# If it failed, print the log to stderr/stdout so the orchestrator (systemd/journal) can see it.
+if [ $rc -ne 0 ]; then
+  cat "$log"
+fi
+
+# Exit with the same code returned by debci
+exit $rc

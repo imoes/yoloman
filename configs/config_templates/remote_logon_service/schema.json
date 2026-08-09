@@ -1,0 +1,118 @@
+{
+  "bus_address": {
+    "type": "string",
+    "default": "auto",
+    "description": "DBus system bus address; use 'auto' to auto-detect or specify a path (e.g., /run/dbus/system_bus_socket)"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/remote-logon/remote-logon.pid",
+    "description": "Path to the PID file for the service"
+  },
+  "max_connection_attempts": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of connection attempts to a remote server before marking it unavailable"
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (in seconds) for each individual remote server connection attempt"
+  },
+  "scan_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between scans to discover new remote logon servers"
+  },
+  "enable_logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging of connection successes/failures and discovery events"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity: 0=error, 1=warn, 2=info, 3=debug"
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/remote-logon",
+    "description": "Directory where discovered server metadata is cached"
+  },
+  "cache_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live (in seconds) for cached server entries"
+  },
+  "trusted_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted remote server hostnames or IPs (if empty, all discovered servers are considered untrusted and subject to filtering)",
+    "items": {
+      "type": "string"
+    }
+  },
+  "server_groups": {
+    "type": "list",
+    "default": [],
+    "description": "Custom server groups to prioritize or isolate; each group defines hosts, weight, and optional filter",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Group name"
+      },
+      "weight": {
+        "type": "number",
+        "description": "Priority weight (higher = more likely to be chosen)"
+      },
+      "hosts": {
+        "type": "list",
+        "description": "List of hosts in this group",
+        "items": {
+          "hostname": {
+            "type": "string",
+            "description": "Host FQDN or IP"
+          },
+          "port": {
+            "type": "number",
+            "description": "Port number"
+          },
+          "tls": {
+            "type": "bool",
+            "description": "Use TLS for this host (overrides global setting if present)"
+          }
+        }
+      },
+      "filter": {
+        "type": "string",
+        "default": "all",
+        "description": "Filter applied to discovered servers in this group (e.g., 'all', 'only_trusted')"
+      }
+    }
+  },
+  "credentials_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file containing authentication credentials (e.g., username/password); leave empty to disable auth"
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for outbound connections to remote servers (applies globally unless overridden in server_groups)"
+  },
+  "ca_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle (required only if enable_tls is true)"
+  },
+  "client_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate for mutual TLS (optional)"
+  },
+  "client_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key (required only if mutual TLS is enabled)"
+  }
+}

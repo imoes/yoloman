@@ -1,0 +1,34 @@
+# fusefile configuration template
+# This template generates the argument list for `fusefile`.
+# It constructs the command line arguments to fuse file fragments and overlays
+# into a single virtual file, which is then mounted at a specific path.
+
+# --- Mountpoint ---
+# The path where the fused file will be mounted.
+# Must be specified for actual mounts; optional for -dump/-push operations.
+{% if mountpoint is defined and mountpoint | length > 0 %}
+{{ mountpoint }}
+{% endif %}
+
+# --- Fragments ---
+# Ordered list of source file fragments to include in the fused output.
+# Each item defines a region of a source file to include.
+# Format: <filename>[:<start>:<end> | <start>+<length> | <start> | :<end>]
+{% if fragments is defined %}
+{% for fragment in fragments %}
+{{ fragment.filename | default('') }}/{% if fragment.range_type == 'start_end' %}{{ fragment.start }}:{{ fragment.end }}{% elif fragment.range_type == 'start_length' %}{{ fragment.start }}+{{ fragment.length }}{% elif fragment.range_type == 'start_only' %}{{ fragment.start }}{% elif fragment.range_type == 'end_only' %}:{{ fragment.end }}{% endif %}
+{% endfor %}
+{% endif %}
+
+# --- Overlay ---
+# Overlay configuration for capturing writes to the fused file.
+# Can be a single overlay file or an ordered list of overlay files.
+{% if overlay is defined and overlay is mapping %}
+{% if overlay.type == 'file' %}
+# Overlay file for capturing writes (single file)
+-overlay:{{ overlay.file | default('') }}
+{% elif overlay.type == 'list' %}
+# Ordered overlay list (colon-separated) for capturing writes
+-overlay:{{ overlay.files | default([]) | join(':') }}
+{% endif %}
+{% endif %}

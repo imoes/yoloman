@@ -1,0 +1,140 @@
+{
+  "run_dispatcher": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to run the networkd-dispatcher service at all. Set to false to disable."
+  },
+  "script_dirs": {
+    "type": "list",
+    "default": [
+      "/etc/networkd-dispatcher",
+      "/usr/lib/networkd-dispatcher"
+    ],
+    "items": {
+      "type": "string",
+      "description": "Absolute path to a directory containing state scripts (e.g., up.d/, down.d/)"
+    },
+    "description": "Colon-separated list of directories to search for state scripts. First match wins for script execution."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "allowed_values": [
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR"
+    ],
+    "description": "Minimum log level. Logs below this level are suppressed.",
+    "enum": [
+      "INFO",
+      "ERROR"
+    ]
+  },
+  "log_to_journal": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging to systemd journal. Recommended for production."
+  },
+  "log_to_file": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging to a file. Requires a valid `log_dir`."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/networkd-dispatcher",
+    "description": "Directory where log files are written if `log_to_file` is enabled."
+  },
+  "log_to_stdout": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable logging to standard output. Useful for debugging or containerized deployments."
+  },
+  "script_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Maximum time (in seconds) a script may run before being forcefully terminated."
+  },
+  "fail_on_script_error": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, the dispatcher exits with a non-zero code if any script fails. If false, script failures are logged but ignored."
+  },
+  "monitored_interfaces": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Interface name to monitor (e.g., eth0, wlan0). Empty means all interfaces."
+    },
+    "description": "If non-empty, only events for listed interfaces are processed. Supports wildcards via regex in `excluded_interfaces_regex`."
+  },
+  "excluded_interfaces_regex": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Regex pattern to exclude matching interfaces."
+    },
+    "description": "Space-separated list of regex patterns. Any interface matching a pattern is skipped."
+  },
+  "allow_root_scripts": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, allow scripts to run as root. \u26a0\ufe0f Security warning: Only enable if scripts are trusted and need elevated privileges."
+  },
+  "runtime_dir": {
+    "type": "string",
+    "default": "/run/networkd-dispatcher",
+    "description": "Directory for runtime state (locks, PID, temp files). Should be on tmpfs for ephemeral systems."
+  },
+  "extra_env_vars": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Environment variable assignment in KEY=VALUE format (e.g., MY_VAR=foo)."
+    },
+    "description": "Additional environment variables exposed to all scripts."
+  },
+  "event_filter": {
+    "type": "object",
+    "default": {},
+    "description": "Enable or disable specific event types. Keys are lowercase event names (e.g., up, down, dhcp, dns). Values are booleans or missing (no change).",
+    "properties": {
+      "up": {
+        "type": "bool",
+        "default": null
+      },
+      "down": {
+        "type": "bool",
+        "default": null
+      },
+      "carrier": {
+        "type": "bool",
+        "default": null
+      },
+      "dhcp": {
+        "type": "bool",
+        "default": null
+      },
+      "dns": {
+        "type": "bool",
+        "default": null
+      },
+      "route": {
+        "type": "bool",
+        "default": null
+      },
+      "address": {
+        "type": "bool",
+        "default": null
+      },
+      "link": {
+        "type": "bool",
+        "default": null
+      }
+    }
+  }
+}

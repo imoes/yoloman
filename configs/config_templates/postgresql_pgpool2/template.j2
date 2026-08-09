@@ -1,0 +1,95 @@
+# pgpool-II configuration template.
+# This configuration controls how pgpool-II manages connections to PostgreSQL backends,
+# handles load balancing, health checks, and high availability features.
+
+# IP addresses or hostnames on which pgpool-II listens for client connections.
+# Use '*' to listen on all interfaces.
+listen_addresses = '{{ listen_addresses | default("*") }}'
+
+# Port number pgpool-II listens on for client connections.
+port = {{ port | default(9999) }}
+
+# Directory path for Unix domain socket. Used for local client connections.
+unix_socket_directories = '{{ unix_socket_directories | default("/var/run/postgresql") }}'
+
+# Number of child processes to handle client requests.
+# Set higher for more concurrent clients.
+num_init_children = {{ num_init_children | default(32) }}
+
+# Maximum number of connections per child process to each PostgreSQL backend.
+# Avoid exceeding backend's max_connections.
+max_pool = {{ max_pool | default(4) }}
+
+# Backend PostgreSQL servers configuration.
+# Each backend entry requires a unique hostname, port, weight, data directory, and status.
+{% for backend in backends | default([]) %}
+backend_hostname{{ loop.index0 }} = '{{ backend.hostname | default("") }}'
+backend_port{{ loop.index0 }} = {{ backend.port | default(5432) }}
+backend_weight{{ loop.index0 }} = {{ backend.weight | default(1.0) }}
+backend_data_directory{{ loop.index0 }} = '{{ backend.data_directory | default("/var/lib/postgresql/data") }}'
+backend_status{{ loop.index0 }} = '{{ backend.status | default("up") }}'
+{% endfor %}
+
+# Number of backend servers defined in `backends`.
+# Must match the list length.
+num_backends = {{ num_backends | default(2) }}
+
+# Enable or disable SQL load balancing.
+# Must be enabled for read scaling.
+load_balance_mode = {{ load_balance_mode | default(True) | string | lower }}
+
+# Interval (seconds) between health checks to backends.
+# Set 0 to disable.
+health_check_period = {{ health_check_period | default(10) }}
+
+# Timeout (seconds) for a health check connection.
+# Lower values detect failures faster.
+health_check_timeout = {{ health_check_timeout | default(20) }}
+
+# If true, pgpool-II automatically promotes a standby if a backend fails health check.
+failover_on_backend_error = {{ failover_on_backend_error | default(True) | string | lower }}
+
+# Log all client connections (for auditing or troubleshooting).
+log_connections = {{ log_connections | default(False) | string | lower }}
+
+# Include client hostname in log entries (requires reverse DNS lookups).
+log_hostname = {{ log_hostname | default(False) | string | lower }}
+
+# Log all SQL statements (impact: high disk usage).
+# Use for debugging only.
+log_statement = {{ log_statement | default(False) | string | lower }}
+
+# Log SQL statements per backend node (useful for multi-tier replication).
+log_per_node_statement = {{ log_per_node_statement | default(False) | string | lower }}
+
+# Maximum time (seconds) to complete client authentication.
+authentication_timeout = {{ authentication_timeout | default(60) }}
+
+# Enable SSL/TLS encryption for client and/or backend connections.
+ssl = {{ ssl | default(False) | string | lower }}
+
+# Delay threshold (in bytes) for standby lag.
+# Queries to standbys are blocked if lag exceeds this. Set 0 for no check.
+delay_threshold = {{ delay_threshold | default(0) }}
+
+# If true, skip health check failures when `pg_control` parameter is missing
+# (helpful for older Postgres versions).
+ignore_missing_postmaster_parameter = {{ ignore_missing_postmaster_parameter | default(False) | string | lower }}
+
+# Enable query result caching in shared memory for read queries.
+memory_cache_enabled = {{ memory_cache_enabled | default(False) | string | lower }}
+
+# Enable Watchdog for high availability (synchronizes pgpool nodes via Pacemaker-like protocol).
+use_watchdog = {{ use_watchdog | default(False) | string | lower }}
+
+# Hostname/IP of this pgpool instance when Watchdog is enabled.
+{% if use_watchdog | default(False) %}wd_hostname = '{{ watchdog_hostname | default("") }}'
+{% endif %}
+
+# Port for Watchdog communication between pgpool instances.
+{% if use_watchdog | default(False) %}wd_port = {{ watchdog_port | default(9000) }}
+{% endif %}
+
+# Heartbeat interval (seconds) for Watchdog health monitoring.
+{% if use_watchdog | default(False) %}wd_interval = {{ watchdog_interval | default(1) }}
+{% endif %}

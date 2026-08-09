@@ -1,0 +1,23 @@
+# granite-7-demo configuration
+# Purpose: Demonstrates how to enrich a systemd service override template with
+# self-documentation, safe defaults, and strict Jinja2 compliance.
+#
+# This template generates a systemd service drop-in or override file.
+# Each directive is commented with its schema description for clarity.
+# All variable references use | default(...) to prevent rendering errors
+# when optional variables are absent.
+
+[Service]
+
+# Absolute path to the granite-7-demo binary (as per installed binary location)
+ExecStart={{ ExecStart | default('/usr/bin/granite-7-demo') }}
+
+# Environment variables to pass to the service (e.g., ['G_MESSAGES_DEBUG=all', 'GTK_DEBUG=interactive'])
+# Note: systemd Environment= expects space-separated KEY=VALUE pairs.
+{% set env_vars = Environment | default([]) %}
+{% if env_vars is iterable and env_vars | length > 0 %}
+Environment={% for var in env_vars %}{{ var }}{% if not loop.last %} {% endif %}{% endfor %}
+{% endif %}
+
+# Restart policy: one of no, on-success, on-failure, always, on-abnormal, on-abort, or on-watchdog
+Restart={{ Restart | default('on-failure') }}

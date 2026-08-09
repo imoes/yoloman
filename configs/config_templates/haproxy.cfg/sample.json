@@ -1,0 +1,112 @@
+{
+  "global_maxconn": 4096,
+  "global_ssl_default_bind": true,
+  "defaults_mode": "http",
+  "defaults_timeout_connect": "5s",
+  "defaults_timeout_client": "50s",
+  "defaults_timeout_server": "50s",
+  "defaults_retries": 3,
+  "defaults_option_httplog": "httplog",
+  "frontends": [
+    {
+      "name": "http-in",
+      "bind_address": "*",
+      "bind_port": 80,
+      "ssl_port": 443,
+      "ssl_cert": "/etc/haproxy/certs/site.pem",
+      "mode": "http",
+      "option_forwardfor": true,
+      "acl_rules": [
+        {
+          "name": "is_api",
+          "condition": "path_beg /api"
+        },
+        {
+          "name": "is_static",
+          "condition": "path_beg /static"
+        }
+      ],
+      "use_backend_rules": [
+        {
+          "condition_name": "is_api",
+          "backend_name": "api-servers"
+        },
+        {
+          "condition_name": "is_static",
+          "backend_name": "static-servers"
+        }
+      ],
+      "default_backend": "web-servers",
+      "stats_enable": true,
+      "stats_uri": "/stats",
+      "stats_refresh": "10s"
+    }
+  ],
+  "backends": [
+    {
+      "name": "web-servers",
+      "mode": "http",
+      "balance": "roundrobin",
+      "health_check_path": "/health",
+      "server_options": true,
+      "servers": [
+        {
+          "name": "web1",
+          "address": "10.0.0.10",
+          "port": 8080,
+          "check": true,
+          "weight": 128,
+          "backup": false
+        },
+        {
+          "name": "web2",
+          "address": "10.0.0.11",
+          "port": 8080,
+          "check": true,
+          "weight": 128,
+          "backup": false
+        }
+      ]
+    },
+    {
+      "name": "api-servers",
+      "mode": "http",
+      "balance": "leastconn",
+      "health_check_path": "/api/healthz",
+      "server_options": true,
+      "servers": [
+        {
+          "name": "api1",
+          "address": "10.0.1.10",
+          "port": 8081,
+          "check": true,
+          "weight": 100,
+          "backup": false
+        }
+      ]
+    },
+    {
+      "name": "static-servers",
+      "mode": "http",
+      "balance": "roundrobin",
+      "health_check_port": 8082,
+      "server_options": true,
+      "servers": [
+        {
+          "name": "static1",
+          "address": "10.0.2.10",
+          "port": 8082,
+          "check": true,
+          "weight": 128,
+          "backup": false
+        }
+      ]
+    }
+  ],
+  "stats_frontend_enable": true,
+  "stats_frontend_port": 9000,
+  "stats_frontend_uri": "/haproxy-stats",
+  "stats_frontend_refresh": "10s",
+  "stats_frontend_auth_user": "admin",
+  "stats_frontend_auth_pass": "secretpassword"
+}

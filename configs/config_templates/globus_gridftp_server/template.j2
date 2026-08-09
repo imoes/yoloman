@@ -1,0 +1,108 @@
+{# GridFTP server configuration file for Globus GridFTP Server #}
+{% if debug_mode %}
+{% comment %}Enable verbose debugging output to stdout and syslog{% endcomment %}
+debug_level = {{ debug_level | default(0) }}
+{% endif %}
+
+{% comment %}Network interface binding for the GridFTP service{% endcomment %}
+{% if listen_address %}
+listen_address = {{ listen_address | default('0.0.0.0') }}
+{% else %}
+listen_address = 0.0.0.0
+{% endif %}
+
+{% comment %}TCP port for the main control connection (GRIDFTP control port) — required for RFC-compliant GridFTP{% endcomment %}
+server_port = {{ server_port | default(2811) }}
+
+{% comment %}Port range for data connections (passive mode); must be open in firewall{% endcomment %}
+data_port_range_start = {{ data_port_range.start | default(50000) }}
+data_port_range_end = {{ data_port_range.end | default(51000) }}
+
+{% comment %}Maximum number of simultaneous client connections per service instance{% endcomment %}
+max_connections = {{ max_connections | default(50) }}
+
+{% comment %}GSI authentication and authorization settings{% endcomment %}
+{% if gsi_authentication | default(true) %}
+gsi_auth = on
+{% else %}
+gsi_auth = off
+{% endif %}
+
+{% comment %}Enable GSI proxy delegation (required for job submission workflows likeFTSR) {% endcomment %}
+{% if gsi_proxy_delegation | default(true) %}
+gsi_proxy_delegation = on
+{% else %}
+gsi_proxy_delegation = off
+{% endif %}
+
+{% comment %}GridFTP server identity (DN of host certificate) — auto-detected if omitted{% endcomment %}
+{% if server_dn %}
+server_dn = {{ server_dn | join('\n') }}
+{% endif %}
+
+{% comment %}Trusted certificate authorities (DNs or file/directory paths) {% endcomment %}
+{% for ca_entry in trusted_cas %}
+trusted_ca = {{ ca_entry.path }}
+{% endfor %}
+
+{% comment %}GridFTP access control: allow/deny by DN or FQAN{% endcomment %}
+{% for rule in access_rules %}
+{% if rule.type == 'allow' %}
+allow {{ rule.match_type }} {{ rule.pattern }}
+{% elif rule.type == 'deny' %}
+deny {{ rule.match_type }} {{ rule.pattern }}
+{% endif %}
+{% endfor %}
+
+{% comment %}Path to credential storage for delegated proxies (if proxy delegation enabled) {% endcomment %}
+{% if proxy_storage_path %}
+proxy_storage_path = {{ proxy_storage_path }}
+{% else %}
+proxy_storage_path = /var/lib/globus/proxy
+{% endif %}
+
+{% comment %}GridFTP transfer limits and timeouts (seconds) {% endcomment %}
+transfer_timeout = {{ transfer_timeout | default(3600) }}
+connection_idle_timeout = {{ connection_idle_timeout | default(600) }}
+
+{% comment %}Enable transfer rate limiting per client (in bytes/sec, 0 = unlimited) {% endcomment %}
+max_transfer_rate = {{ max_transfer_rate | default(0) }}
+
+{% comment %}Enable TLS (experimental in GridFTP v9+) {% endcomment %}
+{% if tls_enabled | default(false) %}
+tls_enabled = on
+tls_cipher_list = {{ tls_cipher_list | join(':') }}
+tls_client_auth = {{ 'required' if tls_client_auth_required else 'optional' }}
+{% else %}
+tls_enabled = off
+{% endif %}
+
+{% comment %}Logging configuration (syslog facility or file path) {% endcomment %}
+{% if log_file %}
+log_file = {{ log_file }}
+{% else %}
+log_file = syslog
+{% endif %}
+log_level = {{ log_level | default('notice') }}
+
+{% comment %}GridFTP server extensions — enable/disable optional features {% endcomment %}
+{% if enable_dirlist_cache %}
+dirlist_cache = on
+dirlist_cache_ttl = {{ dirlist_cache_ttl | default(60) }}
+{% else %}
+dirlist_cache = off
+{% endif %}
+
+{% if enable_server_side_copy | default(true) %}
+server_side_copy = on
+{% else %}
+server_side_copy = off
+{% endif %}
+
+{% if enable_http_proxy | default(false) %}
+http_proxy_enabled = on
+http_proxy_host = {{ http_proxy_host | default('') }}
+http_proxy_port = {{ http_proxy_port | default(0) }}
+{% else %}
+http_proxy_enabled = off
+{% endif %}

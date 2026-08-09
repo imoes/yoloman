@@ -1,0 +1,105 @@
+[main]
+# Enable or disable NetworkManager service at boot
+rc-manager={{ rc_manager }}
+
+# List of interfaces that NetworkManager should ignore
+unmanaged-devices={{ unmanaged_devices | map('regex_replace', '^(.*)$', 'interface-name:\1') | join('\n') | default('') }}
+
+# Enable/disable DNS plugin (dnsmasq, systemd-resolved, etc.)
+dns={{ dns_plugin }}
+
+# If dns=dnsmasq: configure local DNS settings
+{% if dns_plugin == 'dnsmasq' %}
+dnsmasq-config-file={{ dnsmasq_config_file }}
+{% endif %}
+
+# If dns=systemd-resolved: configure stub listener
+{% if dns_plugin == 'systemd-resolved' %}
+systemd-resolved={{ 'true' if systemd_resolved_stub_listener else 'false' }}
+{% endif %}
+
+# Default connection auto-activation behavior
+connection-auto-activation={{ 'true' if connection_auto_activation else 'false' }}
+
+# Maximum number of connection attempts per interface
+connection-attempts={{ connection_attempts }}
+
+# Enable/disable Wi-Fi scan on interface up
+wifi-scanning={{ 'true' if wifi_scanning else 'false' }}
+
+# Enable/disable WWAN (cellular) support
+wwan={{ 'true' if wwan_enabled else 'false' }}
+
+# Enable/disable Ethernet (wired) support
+ethernet={{ 'true' if ethernet_enabled else 'false' }}
+
+# Enable/disable Wi-Fi support
+wifi={{ 'true' if wifi_enabled else 'false' }}
+
+# Enable/disable hardware RF kill switch handling
+hardware-wifi={{ 'true' if hardware_rfkill_wifi else 'false' }}
+
+# Enable/disable hardware WWAN RF kill switch handling
+hardware-wwan={{ 'true' if hardware_rfkill_wwan else 'false' }}
+
+# Enable/disable ModemManager integration (for WWAN devices)
+modem-manager={{ 'true' if modem_manager_enabled else 'false' }}
+
+# Logging level: ERROR, WARN, INFO, DEBUG (case-insensitive)
+log-level={{ log_level }}
+
+# Logging domains (comma-separated, e.g., 'ALL,PLATFORM,DEVICE,ETH,WIFI,BT,WIMAX,MB,ODHCPV6,NDISC,DHCP6,DHCP4,IP4,IP6,RFKILL,VPN,SHARED')
+log-domains={{ log_domains | join(',') }}
+
+# File to write log messages (empty string means stdout only)
+log-file={{ log_file | default('') }}
+
+# Time (in seconds) before NM gives up on a connection attempt
+timeout={{ timeout_seconds }}
+
+# Enable/disable core DHCP client (DHCPv4/DHCPv6)
+dhcp={{ 'true' if dhcp_enabled else 'false' }}
+
+# DHCP client plugin: internal, dhcpcd, dhclient, systemd-dhcp
+{% if dhcp_enabled %}
+dhcp-client={{ dhcp_client_plugin }}
+{% endif %}
+
+# Enable/disable NetworkManager dispatcher service
+dispatcher={{ 'true' if dispatcher_enabled else 'false' }}
+
+# Paths to additional configuration fragments
+config-paths={{ config_paths | join(':') }}
+
+# Enable/disable use of PolicyKit for authorization
+policykit={{ 'true' if policykit_enabled else 'false' }}
+
+# Enable/disable use of udev for device discovery
+udev={{ 'true' if udev_enabled else 'false' }}
+
+# Enable/disable use of systemd for network device monitoring
+systemd={{ 'true' if systemd_enabled else 'false' }}
+
+# Enable/disable use of dnsmasq (if installed)
+{% if dns_plugin != 'dnsmasq' %}
+dnsmasq={{ 'true' if dnsmasq_fallback else 'false' }}
+{% endif %}
+
+# Enable/disable use of resolvconf (if installed)
+{% if dns_plugin != 'dnsmasq' and dns_plugin != 'systemd-resolved' %}
+resolvconf={{ 'true' if resolvconf_enabled else 'false' }}
+{% endif %}
+
+# Enable/disable use of netconfig (SUSE-specific)
+{% if netconfig_enabled is defined %}
+netconfig={{ 'true' if netconfig_enabled else 'false' }}
+{% endif %}
+
+# Enable/disable use of dhcpcd (if installed)
+dhcpcd={{ 'true' if dhcpcd_enabled else 'false' }}
+
+# Enable/disable use of dhclient (if installed)
+dhclient={{ 'true' if dhclient_enabled else 'false' }}
+
+# Enable/disable use of systemd-networkd as backend (advanced)
+systemd-networkd={{ 'true' if systemd_networkd_enabled else 'false' }}

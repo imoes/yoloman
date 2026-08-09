@@ -1,0 +1,109 @@
+# PCRF (Policy and Charging Rules Function) configuration for NextEPC
+# Logging configuration
+log:
+  level: "{{ log_level }}"
+  file: "{{ log_file }}"
+
+# MongoDB connection for database access
+db:
+  uri: "mongodb://{{ db_host }}:{{ db_port }}/{{ db_name }}"
+
+# S5/S8 interface (S-GW/P-GW peer)
+s5s8:
+  gtpc:
+    local_address: "{{ s5s8_gtpc_local_address }}"
+    peer:
+{% for peer in s5s8_gtpc_peers %}
+      - ip: "{{ peer.ip }}"
+        hostname: "{{ peer.hostname }}"
+{% endfor %}
+
+# S6a interface (MME peer)
+s6a:
+  sctp:
+    local_address: "{{ s6a_local_address }}"
+    peer:
+{% for peer in s6a_peers %}
+      - ip: "{{ peer.ip }}"
+        hostname: "{{ peer.hostname }}"
+{% if peer.sgsa %}
+        sgsa: true
+{% endif %}
+{% endfor %}
+
+# Gx interface (PGW peer)
+gx:
+  diameter:
+    local_address: "{{ gx_local_address }}"
+    peer:
+{% for peer in gx_peers %}
+      - ip: "{{ peer.ip }}"
+        hostname: "{{ peer.hostname }}"
+{% endfor %}
+
+# Gy interface (OCS/OCSS)
+gy:
+  diameter:
+    local_address: "{{ gy_local_address }}"
+    peer:
+{% for peer in gy_peers %}
+      - ip: "{{ peer.ip }}"
+        hostname: "{{ peer.hostname }}"
+{% endfor %}
+
+# Charging function (offline/online)
+charging:
+  offline:
+    enabled: {{ charging_offline_enabled }}
+    file_path: "{{ charging_offline_file_path }}"
+  online:
+    enabled: {{ charging_online_enabled }}
+    server:
+{% for srv in charging_online_servers %}
+      - host: "{{ srv.host }}"
+        port: {{ srv.port }}
+        realm: "{{ srv.realm }}"
+{% endfor %}
+
+# Rate limiting and session control
+session:
+  max_sessions_per_ue: {{ session_max_sessions_per_ue }}
+  max_rate_uplink_kbps: {{ session_max_rate_uplink_kbps }}
+  max_rate_downlink_kbps: {{ session_max_rate_downlink_kbps }}
+  bearer_qos:
+    enabled: {{ bearer_qos_enabled }}
+{% if bearer_qos_enabled %}
+    default:
+      priority_level: {{ bearer_qos_default_priority_level }}
+      preemption_capability: {{ bearer_qos_preemption_capability }}
+      preemption_vulnerability: {{ bearer_qos_preemption_vulnerability }}
+{% endif %}
+
+# Default charging rules (if not provided by OCS)
+default_charging_rules:
+{% for rule in default_charging_rules_list %}
+  - name: "{{ rule.name }}"
+    rating_group: {{ rule.rating_group }}
+    service_id: {{ rule.service_id }}
+    qos:
+      qci: {{ rule.qos_qci }}
+      arp:
+        priority_level: {{ rule.arp_priority_level }}
+        preemption_capability: {{ rule.arp_preemption_capability }}
+        preemption_vulnerability: {{ rule.arp_preemption_vulnerability }}
+{% endfor %}
+
+# Real-time billing mode toggle
+realtime_billing:
+  enabled: {{ realtime_billing_enabled }}
+
+# Optional debug features
+debug:
+  enable_s6a_logging: {{ debug_enable_s6a_logging }}
+  enable_gx_logging: {{ debug_enable_gx_logging }}
+  enable_charging_logging: {{ debug_enable_charging_logging }}
+
+# Identity and realm configuration
+realm: "{{ realm }}"
+mcc: "{{ mcc }}"
+mnc: "{{ mnc }}"

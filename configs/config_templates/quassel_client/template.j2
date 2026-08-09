@@ -1,0 +1,86 @@
+# Quassel Client configuration file
+# This file is auto-generated; manual changes may be overwritten
+# For documentation, see: https://quassel-irc.org/
+
+[Core]
+# Database backend to use: SQLite or PostgreSQL
+DatabaseType={{ database.type }}
+
+# SQLite-specific settings (ignored if DatabaseType is PostgreSQL)
+# Path to the SQLite database file
+DatabaseName={{ database.sqlite.path }}
+
+# PostgreSQL-specific settings (ignored if DatabaseType is SQLite)
+# Hostname or IP of PostgreSQL server
+DatabaseHost={{ database.postgres.host }}
+# PostgreSQL port
+DatabasePort={{ database.postgres.port }}
+# Database name
+DatabaseName={{ database.postgres.name }}
+# Database username
+DatabaseUser={{ database.postgres.user }}
+# Database password (stored insecurely — use env var in production)
+DatabasePassword={{ database.postgres.password }}
+
+# Whether to use SSL for PostgreSQL connections
+DatabaseSSLMode={{ database.postgres.ssl_mode }}
+
+[Core𝘨]
+# Hostname or IP to bind the core listener to (use * for all interfaces)
+BindAddress={{ core.bind_address }}
+# Port to listen on for client connections
+Port={{ core.port }}
+# Whether to use SSL for client connections
+UseSSL={{ core.use_ssl }}
+
+# SSL certificate path (required if UseSSL=true)
+SSLCertFile={{ core.ssl_cert_file }}
+# SSL private key path (required if UseSSL=true)
+SSLPKeyFile={{ core.ssl_pkey_file }}
+
+# Maximum number of concurrent client connections
+MaxConnections={{ core.max_connections }}
+
+# Whether to compress data between core and clients
+UseCompression={{ core.use_compression }}
+
+[UI𝘨]
+# Window geometry saved on last exit
+Geometry={{ ui.geometry }}
+
+# Whether to show the message view sidebar by default
+ShowSidebar={{ ui.show_sidebar }}
+
+# Default buffer view layout
+BufferView={{ ui.buffer_view }}
+
+# List of active network connections (user-configurable)
+{% for network in ui.networks %}
+[Network/{{ network.name }}]
+# Network name (display name)
+Name={{ network.name }}
+# List of servers for failover
+{% for server in network.servers %}
+Server={{ server.host }}:{{ server.port }}{% if server.use_ssl %}:1{% else %}:0{% endif %}
+{% endfor %}
+# Username (ident/ircname)
+User={{ network.user }}
+# Nickname (primary IRC nick)
+Nick={{ network.nick }}
+# Alternative nicks
+AltNicks={{ network.alt_nicks | join(', ') }}
+# Real name (GECOS field)
+RealName={{ network.real_name }}
+# Whether to auto-connect on startup
+AutoConnect={{ network.auto_connect }}
+# Default channel list (joined on connect if AutoJoin=true)
+{% if network.auto_join | length > 0 %}
+AutoJoin={{ network.auto_join | join(', ') }}
+{% endif %}
+{% endfor %}
+
+# Whether to store passwords in config (insecure — prefer keyring)
+# (Only for older Quassel versions; newer use secure storage)
+{% if ui.store_passwords is defined %}
+StorePasswords={{ ui.store_passwords }}
+{% endif %}

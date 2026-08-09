@@ -1,0 +1,82 @@
+{
+  "web_listen_address": {
+    "type": "string",
+    "default": ":9253",
+    "description": "The address and port on which the exporter exposes metrics (e.g., ':9253' or '127.0.0.1:9253')."
+  },
+  "metrics_path": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "Path under which metrics are exposed (commonly '/metrics')."
+  },
+  "fpm_status_path": {
+    "type": "string",
+    "default": "/status",
+    "description": "The default path to PHP-FPM status endpoint on each pool (e.g., '/status' if accessible at pool-url/status)."
+  },
+  "scrape_timeout": {
+    "type": "string",
+    "default": "5s",
+    "description": "Global scrape timeout for the exporter when connecting to PHP-FPM pools (e.g., '5s')."
+  },
+  "fpm_ping_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom path to PHP-FPM ping endpoint (e.g., '/ping') for liveness checks. Leave empty to use default '/ping'."
+  },
+  "fpm_pool_pattern": {
+    "type": "string",
+    "default": "",
+    "description": "Regex pattern to auto-discover PHP-FPM pools via process name matching. Leave empty to disable auto-discovery."
+  },
+  "fpm_scrape_interval": {
+    "type": "string",
+    "default": "",
+    "description": "Global scrape interval override (e.g., '30s'). Leave empty to use the exporter default."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of exporter logs: 'debug', 'info', 'warn', or 'error'."
+  },
+  "fpm_scrape_timeout": {
+    "type": "string",
+    "default": "",
+    "description": "Per-pool scrape timeout override (e.g., '2s'). Leave empty to fall back to 'scrape_timeout'."
+  },
+  "fpm_pools": {
+    "type": "list",
+    "default": [],
+    "description": "Legacy comma-separated list of pool URLs (deprecated). Prefer using `pools` instead.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "pools": {
+    "type": "list",
+    "default": [],
+    "description": "List of PHP-FPM pools to explicitly scrape. Each pool must include at least a name and URL.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name of the pool (e.g., 'www', 'api')."
+      },
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "Full HTTP(S) endpoint of the pool's status page (e.g., 'http://127.0.0.1:9000/status')."
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Basic auth username for the pool endpoint (if required). Leave blank for no auth."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Basic auth password for the pool endpoint (if required). Leave blank for no auth."
+      }
+    }
+  }
+}

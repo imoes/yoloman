@@ -1,0 +1,279 @@
+name: img_docker
+description: >
+  Installs and configures Docker CE on a host, translated from the real Ansible
+  role ~/Dev/ansible/ansible03/roles/img_docker (tasks/main.yml + debian/ubuntu/redhat
+  packages.yml + handlers/main.yml). Data directories live under /data1 with symlinks
+  into their standard locations; the Docker apt/yum repository and packages are
+  installed via an OS-dispatch chunk; an optional systemd proxy override is written
+  when docker_proxy_url is set; docker-compose is wrapped as `docker compose
+  --compatibility`; Docker is restarted only if something actually changed.
+params:
+  docker_apt_codename:
+    type: string
+    required: false
+    default: bookworm
+  docker_proxy_url:
+    type: string
+    required: false
+  docker_noproxy:
+    type: string
+    required: false
+    default: ""
+chunks:
+  - name: data_dirs
+    source_hash: b0feaf5a49ec5a91474bd6a8533a91b7b40fe9b57f3b9682128484347004c6b3
+    steps:
+      - name: create_var_lib_docker_dir
+        file:
+          path: /data1/var_lib_docker
+          state: directory
+          owner: root
+          group: root
+          mode: "0755"
+      - name: symlink_var_lib_docker
+        file:
+          src: /data1/var_lib_docker
+          path: /var/lib/docker
+          owner: root
+          group: root
+          state: link
+      - name: create_var_lib_containerd_dir
+        file:
+          path: /data1/var_lib_containerd
+          state: directory
+          owner: root
+          group: root
+          mode: "0711"
+      - name: check_var_lib_containerd
+        register: _containerd_dir
+        stat:
+          path: /var/lib/containerd
+      - name: symlink_var_lib_containerd
+        when: not _containerd_dir.data.exists
+        file:
+          src: /data1/var_lib_containerd
+          path: /var/lib/containerd
+          owner: root
+          group: root
+          state: link
+
+  - name: debian_packages
+    os_family: [debian]
+    source_hash: 16f8093b3695419a2d618ec353365caff14b0e3c25dba6afb123c9526e6b7f47
+    steps:
+      - name: install_prereq_packages
+        apt:
+          name: [ca-certificates, curl, gnupg, lsb-release]
+          state: present
+          update_cache: true
+      - name: ensure_apt_keyrings_dir
+        file:
+          path: /etc/apt/keyrings
+          owner: root
+          group: root
+          state: directory
+          mode: "0755"
+      - name: remove_stale_docker_gpg
+        file:
+          path: /etc/apt/keyrings/docker.gpg
+          state: absent
+      - name: install_docker_gpg_key
+        get_url:
+          url: https://download.docker.com/linux/debian/gpg
+          dest: /etc/apt/keyrings/docker.asc
+          mode: "0644"
+          force: false
+      - name: add_docker_repository
+        copy:
+          dest: /etc/apt/sources.list.d/docker.list
+          content: |
+            deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian {{ docker_apt_codename }} stable
+          owner: root
+          group: root
+          mode: "0644"
+      - name: install_docker_packages
+        apt:
+          name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+          state: present
+          update_cache: true
+      - name: ensure_etc_docker_dir
+        file:
+          path: /etc/docker
+          state: directory
+          mode: "0755"
+      - name: write_daemon_json
+        copy:
+          dest: /etc/docker/daemon.json
+          content: |
+            {
+              "default-address-pools": [
+                {"base": "172.29.0.0/16", "size": 24}
+              ],
+              "live-restore": true,
+              "log-driver": "gelf",
+              "log-opts": {
+                "gelf-address": "tcp://graylog.example.com:12201",
+                "tag": "{{.Name}}",
+                "gelf-tcp-max-reconnect": "3",
+                "gelf-tcp-reconnect-delay": "1",
+                "cache-disabled": "false",
+                "cache-max-size": "100m",
+                "cache-max-file": "7"
+              }
+            }
+          owner: root
+          group: root
+          mode: "0644"
+      - name: enable_and_start_docker
+        service:
+          name: docker
+          state: started
+          enabled: true
+
+  - name: ubuntu_packages
+    os_family: [ubuntu]
+    source_hash: a1be865596794cd10ae7ab1cc56f31792dd5931685765ee6229d71951f1689f5
+    steps:
+      - name: install_prereq_packages
+        apt:
+          name: [ca-certificates, curl, gnupg, lsb-release]
+          state: present
+      - name: ensure_apt_keyrings_dir
+        file:
+          path: /etc/apt/keyrings
+          owner: root
+          group: root
+          state: directory
+          mode: "0755"
+      - name: check_docker_gpg_key
+        register: _ubuntu_gpg_stat
+        stat:
+          path: /etc/apt/keyrings/docker.gpg
+      - name: install_docker_gpg_key
+        when: not _ubuntu_gpg_stat.data.exists
+        pipeline:
+          - ["curl", "-fsSL", "https://download.docker.com/linux/ubuntu/gpg"]
+          - ["gpg", "--dearmor", "-o", "/etc/apt/keyrings/docker.gpg"]
+      - name: add_docker_repository
+        copy:
+          dest: /etc/apt/sources.list.d/docker.list
+          content: |
+            deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ docker_apt_codename }} stable
+          owner: root
+          group: root
+          mode: "0644"
+      - name: install_docker_packages
+        apt:
+          name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+          state: present
+          update_cache: true
+      - name: ensure_etc_docker_dir
+        file:
+          path: /etc/docker
+          state: directory
+          mode: "0755"
+      - name: write_daemon_json
+        copy:
+          dest: /etc/docker/daemon.json
+          content: |
+            {
+              "default-address-pools": [
+                {"base": "172.29.0.0/16", "size": 24}
+              ],
+              "log-driver": "json-file",
+              "log-opts": {"max-size": "1024m", "max-file": "5"}
+            }
+          owner: root
+          group: root
+          mode: "0644"
+      - name: enable_and_start_docker
+        service:
+          name: docker
+          state: started
+          enabled: true
+
+  - name: redhat_packages
+    os_family: [redhat]
+    source_hash: eb11ad9540a970824fa76344b1c62354577d62fffef12a8ea77d02e37610198a
+    steps:
+      - name: add_docker_repository
+        yum_repository:
+          name: docker-ce
+          description: "Docker CE Stable - $basearch"
+          baseurl: "https://download.docker.com/linux/rhel/$releasever/$basearch/stable"
+          gpgkey: "https://download.docker.com/linux/rhel/gpg"
+      - name: install_docker_packages
+        package:
+          name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+          state: present
+      - name: ensure_etc_docker_dir
+        file:
+          path: /etc/docker
+          state: directory
+          mode: "0755"
+      - name: write_daemon_json
+        copy:
+          dest: /etc/docker/daemon.json
+          content: |
+            {
+              "default-address-pools": [
+                {"base": "172.29.0.0/16", "size": 24}
+              ],
+              "log-driver": "json-file",
+              "log-opts": {"max-size": "1024m", "max-file": "5"}
+            }
+          owner: root
+          group: root
+          mode: "0644"
+      - name: enable_and_start_docker
+        service:
+          name: docker
+          state: started
+          enabled: true
+
+  - name: proxy_config
+    source_hash: b0feaf5a49ec5a91474bd6a8533a91b7b40fe9b57f3b9682128484347004c6b3
+    steps:
+      - name: ensure_docker_service_override_dir
+        when: docker_proxy_url is defined
+        file:
+          path: /etc/systemd/system/docker.service.d
+          state: directory
+          owner: root
+          group: root
+          mode: "0755"
+      - name: install_proxy_override
+        when: docker_proxy_url is defined
+        copy:
+          dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+          content: |
+            [Service]
+            Environment="HTTP_PROXY={{ docker_proxy_url }}" "HTTPS_PROXY={{ docker_proxy_url }}" "NO_PROXY={{ docker_noproxy }}"
+          owner: root
+          group: root
+          mode: "0644"
+
+  - name: docker_compose_wrapper
+    source_hash: b0feaf5a49ec5a91474bd6a8533a91b7b40fe9b57f3b9682128484347004c6b3
+    steps:
+      - name: install_docker_compose_wrapper
+        copy:
+          dest: /usr/bin/docker-compose
+          content: |
+            docker compose --compatibility "$@"
+          owner: root
+          group: root
+          mode: "0755"
+
+  - name: daemon_reload
+    source_hash: b0feaf5a49ec5a91474bd6a8533a91b7b40fe9b57f3b9682128484347004c6b3
+    steps:
+      - name: systemctl_daemon_reload
+        pipeline:
+          - ["systemctl", "daemon-reload"]
+
+final_handler:
+  name: restart_docker
+  systemd:
+    name: docker
+    state: restarted

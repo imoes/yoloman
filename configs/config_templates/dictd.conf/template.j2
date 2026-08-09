@@ -1,0 +1,43 @@
+# dictd.conf - Configuration for the dictd dictionary server
+# This file defines the network port, idle timeout, access control lists,
+# and available dictionary databases.
+
+# Global settings
+
+# TCP port for the dictd server to listen on.
+# Default: 2628
+port: {{ port | default(2628) }}
+
+# Idle timeout in seconds before disconnecting a client.
+# A value of 0 means no limit.
+# Default: 0
+delay: {{ delay | default(0) }}
+
+# List of allowed client hosts/networks (CIDR or IP).
+# If empty, all hosts are allowed.
+# Format matches dictd.conf allow directive (e.g., '10.0.0.0/8').
+# Default: [] (empty list)
+{% for item in allow | default([]) %}
+allow {{ item }}
+{% endfor %}
+
+# List of denied client hosts/networks (overrides `allow`).
+# Format matches `allow`.
+# Default: [] (empty list)
+{% for item in deny | default([]) %}
+deny {{ item }}
+{% endfor %}
+
+# List of dictionary databases to make available.
+# Each entry maps a database name to its data and index files.
+# Default: [] (empty list)
+{% for dict_source in dictionaries | default([]) %}
+# Dictionary: {{ dict_source.name | default('') }}
+database {{ dict_source.name | default('') }} {
+  data {{ dict_source.datafile | default('') }}
+  index {{ dict_source.index | default('') }}
+{% if dict_source.short_name is defined %}  name "{{ dict_source.short_name }}"
+{% endif %}{% if dict_source.desc is defined %}  info "{{ dict_source.desc }}"
+{% endif %}
+}
+{% endfor %}

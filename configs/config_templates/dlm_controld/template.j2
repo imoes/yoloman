@@ -1,0 +1,158 @@
+# =============================================================================
+# DLM Control Daemon Configuration Template
+# =============================================================================
+# This template generates the configuration file for dlm_controld (Distributed
+# Lock Manager control daemon). It handles startup behavior, logging, cluster
+# topology, and optional tuning for fencing and network layers.
+#
+# Self-Documenting: Every directive is preceded by a comment explaining its
+# purpose and source schema field. All variables use | default() to prevent
+# render errors when variables are undefined.
+# =============================================================================
+
+# -------------------------------------------------------------------------
+# General Startup & Basic Settings
+# -------------------------------------------------------------------------
+
+# autostart (default: true)
+# Whether to automatically start the dlm_controld service on boot.
+autostart = {{ autostart | default(true) | lower }}
+
+# debug_level (default: 0)
+# Verbosity of debug logging. Higher numbers produce more log detail (0–7).
+debug_level = {{ debug_level | default(0) }}
+
+# kernel_module (default: /lib/modules/$(uname -r)/kernel/fs/dlm/dlm.ko)
+# Path to the DLM kernel module. Leave default unless using a custom-built module.
+kernel_module = "{{ kernel_module | default('/lib/modules/$(uname -r)/kernel/fs/dlm/dlm.ko') }}"
+
+# lockspace_dir (default: /var/lib/dlm)
+# Directory where user-space lockspaces store state files.
+lockspace_dir = "{{ lockspace_dir | default('/var/lib/dlm') }}"
+
+# start_timeout (default: 30)
+# Seconds to wait for the kernel DLM module to load before failing.
+start_timeout = {{ start_timeout | default(30) }}
+
+# threads (default: 8)
+# Number of worker threads to handle lock operations. Increase for high-lock-throughput workloads.
+threads = {{ threads | default(8) }}
+
+# voting (default: true)
+# Enable or disable voting protocol for cluster membership. Disable only for non-clustered deployments.
+voting = {{ voting | default(true) | lower }}
+
+# quorum_threshold (default: 0)
+# Minimum number of votes required for quorum. 0 uses cluster manager default.
+quorum_threshold = {{ quorum_threshold | default(0) }}
+
+# -------------------------------------------------------------------------
+# Logging Configuration
+# -------------------------------------------------------------------------
+
+# log_file (default: '')
+# Path to the DLM log file. Leave empty to log to syslog instead.
+# Note: If empty, the daemon logs to the system logger.
+log_file = "{{ log_file | default('') }}"
+
+# log_subsys (default: 'syslog')
+# Logging destination: 'syslog' for system logs or 'file' for dedicated log file.
+log_subsys = "{{ log_subsys | default('syslog') }}"
+
+# log_priority (default: 'info')
+# Minimum log priority level (e.g., 'debug', 'info', 'warning', 'error').
+log_priority = "{{ log_priority | default('info') }}"
+
+# -------------------------------------------------------------------------
+# Cluster Node Configuration
+# -------------------------------------------------------------------------
+
+# cluster_nodes (default: [])
+# List of cluster nodes (for static configuration when cluster manager is not available).
+# Format: name = address
+# If empty, the cluster relies on the cluster manager for node discovery.
+{% set nodes = cluster_nodes | default([]) %}
+{% if nodes | length > 0 %}
+# Cluster Nodes (Static Configuration)
+{% for node in nodes %}
+node {
+	# name: Unique identifier for this cluster node
+	name = "{{ node.name | default('') }}"
+	# addr: IP address or hostname of the cluster node
+	addr = "{{ node.addr | default('') }}"
+}
+{% endfor %}
+{% endif %}
+
+# -------------------------------------------------------------------------
+# Lockspace-Specific Tuning (Optional)
+# -------------------------------------------------------------------------
+
+# lockspace_config (default: [])
+# Optional per-lockspace tuning. Each entry configures a named lockspace.
+# These parameters control recovery behavior and timeouts for specific lockspaces.
+{% set ls_configs = lockspace_config | default([]) %}
+{% if ls_configs | length > 0 %}
+# Lockspace-Specific Parameters (Advanced)
+{% for ls in ls_configs %}
+lockspace {
+	# name: Identifier of the lockspace this configuration applies to
+	name = "{{ ls.name | default('') }}"
+	# recovery_slot_timeout (default: 300)
+	# Timeout in seconds for slot recovery operations.
+	recovery_slot_timeout = {{ ls.recovery_slot_timeout | default(300) }}
+	# recovery_retries (default: 3)
+	# Number of retry attempts for recovery operations.
+	recovery_retries = {{ ls.recovery_retries | default(3) }}
+	# recovery_timeout (default: 60)
+	# Total timeout for recovery process in seconds.
+	recovery_timeout = {{ ls.recovery_timeout | default(60) }}
+	# client_timeout (default: 120)
+	# Timeout for client connections in seconds.
+	client_timeout = {{ ls.client_timeout | default(120) }}
+}
+{% endfor %}
+{% endif %}
+
+# -------------------------------------------------------------------------
+# Fencing Configuration (Optional)
+# -------------------------------------------------------------------------
+
+# fencing (default: {'enabled': False})
+# Fencing configuration for cluster safety. Required in shared-disk clusters.
+# Controls whether fencing is active and how long to wait before taking over.
+{% set fencing_cfg = fencing | default({'enabled': False}) %}
+{% if fencing_cfg.enabled | default(false) %}
+# Fencing Configuration (Active)
+# Fencing method (e.g., 'cman', 'sbd', 'none').
+fencing = "{{ fencing_cfg.method | default('none') }}"
+
+# Fallback timeout (default: 30)
+# Seconds to wait before taking over as lock manager after fencing failure.
+fence_timeout = {{ fencing_cfg.fence_timeout | default(30) }}
+{% endif %}
+
+# -------------------------------------------------------------------------
+# Network Tuning (Optional)
+# -------------------------------------------------------------------------
+
+# network (default: {'max_retries': 3})
+# Network communication tuning for DLM inter-node protocol.
+# Controls retries and timeouts for network operations with other cluster nodes.
+{% set net_cfg = network | default({'max_retries': 3}) %}
+# Only emit network block if explicitly provided or if defaults differ from implicit None
+{% if net_cfg is mapping %}
+network {
+	# max_retries (default: 3)
+	# Maximum number of network retry attempts.
+	max_retries = {{ net_cfg.max_retries | default(3) }}
+
+	# retry_delay (default: 5)
+	# Delay in seconds between retry attempts.
+	retry_delay = {{ net_cfg.retry_delay | default(5) }}
+
+	# connect_timeout (default: 10)
+	# Timeout in seconds for establishing connections to other nodes.
+	connect_timeout = {{ net_cfg.connect_timeout | default(10) }}
+}
+{% endif %}

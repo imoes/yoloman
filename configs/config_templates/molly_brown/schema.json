@@ -1,0 +1,97 @@
+{
+  "listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Gemini server binds to. Use '127.0.0.1' for localhost-only or '0.0.0.0' for all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 1965,
+    "description": "Port number the Gemini server listens on. Standard Gemini port is 1965."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/molly-brown/tls/cert.pem",
+    "description": "Absolute path to the TLS certificate file (PEM format). Required for secure connections."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/molly-brown/tls/key.pem",
+    "description": "Absolute path to the TLS private key file (PEM format). Required for secure connections."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether TLS is enabled. Disabling TLS is insecure and violates the Gemini protocol\u2019s intent."
+  },
+  "root_path": {
+    "type": "string",
+    "default": "/var/lib/molly-brown/root",
+    "description": "Absolute path to the default document root directory containing Gemini content (gmi, gemini files, etc.)."
+  },
+  "mime_types": {
+    "type": "object",
+    "default": {
+      "gemini": "text/gemini",
+      "gmi": "text/gemini",
+      "txt": "text/plain",
+      "md": "text/markdown",
+      "png": "image/png",
+      "jpg": "image/jpeg",
+      "gif": "image/gif"
+    },
+    "description": "File extension \u2192 MIME type mapping. Add or override as needed for custom content types."
+  },
+  "vhosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual hosts (hostnames) with custom root directories. Each entry defines a hostname and its document root.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "default": "example.gemini",
+        "description": "Hostname for the virtual host (e.g., blog.gemini)."
+      },
+      "root": {
+        "type": "string",
+        "default": "/var/lib/molly-brown/vhosts/blog",
+        "description": "Absolute path to the document root for this virtual host."
+      }
+    }
+  },
+  "max_goroutines": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrent goroutines handling requests. Increase for high-traffic deployments."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum number of simultaneous connections. Must be \u2265 max_goroutines for safe operation."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/molly-brown/access.log",
+    "description": "Absolute path to the access log file. Set to '-' to log to stdout."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity. 'debug' is for troubleshooting; 'info' is production-sane."
+  },
+  "rate_limiting_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable request rate limiting to prevent abuse."
+  },
+  "rate_limit_rps": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum requests per second per client IP when rate limiting is enabled."
+  },
+  "directory_listing": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to serve directory index pages when a directory is requested. Disabled by default for security."
+  }
+}

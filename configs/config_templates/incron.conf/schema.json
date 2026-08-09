@@ -1,0 +1,58 @@
+{
+  "db_dir": {
+    "type": "string",
+    "default": "/var/lib/incron",
+    "description": "Directory where incron stores its internal database and state files"
+  },
+  "max_events": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of inotify events queued per user; helps prevent memory exhaustion"
+  },
+  "recursive": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable recursive inotify watches (i.e., watch subdirectories automatically); disable for security in untrusted environments"
+  },
+  "max_watches": {
+    "type": "number",
+    "default": 8192,
+    "description": "Hard limit on the number of inotify watches per user (system-wide limit is usually higher)"
+  },
+  "log_dest": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send incron log messages: either 'syslog' (recommended) or 'file' to a custom path"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/incron.log",
+    "description": "Path to the log file when log_dest is set to 'file'; ignored otherwise"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity level: 0 (none), 1 (errors), 2 (warnings), 3 (info), 4 (debug); higher levels produce more verbose logs"
+  },
+  "exclude_users": {
+    "type": "list",
+    "default": [
+      "nobody",
+      "daemon"
+    ],
+    "description": "List of system or untrusted users explicitly denied access to incrontab",
+    "items": {
+      "type": "string",
+      "description": "Username to deny incrontab access"
+    }
+  },
+  "include_users": {
+    "type": "list",
+    "default": [],
+    "description": "If non-empty, *only* these users may use incrontab (whitelist mode); leave empty to allow all users except those in EXCLUDE_USERS",
+    "items": {
+      "type": "string",
+      "description": "Username allowed to use incrontab"
+    }
+  }
+}

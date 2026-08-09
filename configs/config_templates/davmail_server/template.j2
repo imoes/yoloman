@@ -1,0 +1,92 @@
+# Enable debug logging (true/false)
+davmail.enableDebug={{ enable_debug | string | lower }}
+
+# Log file path (leave empty for stdout)
+davmail.logFile={{ log_file }}
+
+# Server binding addresses
+# Bind to localhost only (true) or all interfaces (false)
+davmail.bindAllInterfaces={{ bind_all_interfaces | string | lower }}
+# Local address to bind services (e.g., 127.0.0.1)
+davmail.localAddress={{ local_address }}
+
+# Exchange server details
+# Full URL to Exchange Web Services (EWS) endpoint (e.g., https://outlook.office365.com/EWS/Exchange.asmx)
+davmail.url={{ exchange_url }}
+
+# Authentication
+# Username (e.g., user@domain.com or domain\user for on-prem)
+davmail.credential.username={{ username }}
+# Password — recommended to use OAuth2 or keep empty and prompt at startup; leave blank to defer
+{% if password %}davmail.credential.password={{ password }}{% else %}# davmail.credential.password=
+{% endif %}# Enable OAuth2 (true/false) — requires Microsoft Entra ID configuration
+davmail.oauth2.enabled={{ oauth2_enabled | string | lower }}
+# OAuth2 client ID and tenant ID (required for OAuth2)
+davmail.oauth2.clientId={{ oauth2_client_id }}
+davmail.oauth2.tenantId={{ oauth2_tenant_id }}
+
+# Network ports
+# POP3 port
+davmail.popPort={{ ports.pop3 }}
+# IMAP port
+davmail.imapPort={{ ports.imap }}
+# SMTP port
+davmail.smtpPort={{ ports.smtp }}
+# CalDAV port
+davmail.caldavPort={{ ports.caldav }}
+# LDAP port
+davmail.ldapPort={{ ports.ldap }}
+# HTTP admin port (optional; use 0 to disable)
+davmail.adminPort={{ ports.admin }}
+
+# Service limits and timeouts
+# Max connections per service
+davmail.ssl.maxConnections={{ limits.max_connections }}
+# Connection timeout in seconds
+davmail.ssl.timeout={{ limits.timeout_seconds }}
+# Message size limit (in KB); 0 = unlimited
+davmail.imap.messageSizeLimit={{ limits.message_size_kb }}
+
+# SSL/TLS settings
+# Path to keystore for HTTPS/admin UI (optional)
+{% if keystore_path %}davmail.ssl.keystoreFile={{ keystore_path }}
+davmail.ssl.keystoreType={{ keystore_type }}
+davmail.ssl.keystorePassword={{ keystore_password }}{% else %}# davmail.ssl.keystoreFile=
+{% endif %}# Trust all certificates (false recommended for production)
+davmail.ssl.trustAll={{ trust_all_certs | string | lower }}
+
+# Service toggles (enable/disable protocols)
+davmail.enablePop={{ services.pop3 | string | lower }}
+davmail.enableImap={{ services.imap | string | lower }}
+davmail.enableSmtp={{ services.smtp | string | lower }}
+davmail.enableCaldav={{ services.caldav | string | lower }}
+davmail.enableLdap={{ services.ldap | string | lower }}
+
+# IMAP-specific options
+# Show deleted messages in Trash folder
+davmail.imap.showDeletedMessages={{ imap_show_deleted | string | lower }}
+# Keep draft messages on server
+davmail.imap.keepDraftsOnServer={{ imap_keep_drafts | string | lower }}
+
+# LDAP-specific options
+# Base DN for LDAP searches
+davmail.ldap.baseDN={{ ldap_base_dn }}
+# LDAP server bind DN (optional)
+davmail.ldap.bindDN={{ ldap_bind_dn }}
+# LDAP server password (optional)
+{% if ldap_bind_password %}davmail.ldap.bindPassword={{ ldap_bind_password }}{% else %}# davmail.ldap.bindPassword=
+{% endif %}# LDAP server URL (optional; if blank, davmail.ldap.baseDN used for search)
+{% if ldap_server_url %}davmail.ldap.serverURL={{ ldap_server_url }}{% else %}# davmail.ldap.serverURL=
+{% endif %}
+
+# CalDAV options
+# Default calendar name
+davmail.caldav.defaultCalendar={{ caldav_default_calendar }}
+
+# SMTP options
+# Allow relaying from localhost only
+davmail.smtpRelayAllowed=true
+
+# Advanced: Java system properties passed to JVM (comma-separated key=value)
+# Example: davmail.jvmArgs=-Xmx512m,-Dfile.encoding=UTF-8
+davmail.jvmArgs={{ jvm_args | join(',') }}

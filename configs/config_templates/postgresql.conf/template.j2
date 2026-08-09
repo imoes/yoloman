@@ -1,0 +1,57 @@
+# The PostgreSQL server configuration file.
+# This file controls runtime parameters of the PostgreSQL server.
+# Changes here require a server restart (or `pg_ctl reload` for some parameters).
+# For a complete list of options, see: https://www.postgresql.org/docs/current/runtime-config.html
+
+# --- Connection Settings ---
+listen_addresses = '{{ listen_addresses }}'  # Comma-separated list of hostnames or IPs
+port = {{ port }}  # Port number PostgreSQL listens on
+max_connections = {{ max_connections }}  # Maximum concurrent connections
+
+# --- Memory Settings ---
+shared_buffers = '{{ shared_buffers }}'  # e.g., '256MB'
+work_mem = '{{ work_mem }}'  # e.g., '16MB'
+maintenance_work_mem = '{{ maintenance_work_mem }}'  # e.g., '128MB'
+wal_buffers = '{{ wal_buffers }}'  # e.g., '16MB'
+
+# --- Write-Ahead Log (WAL) ---
+wal_level = '{{ wal_level }}'  # e.g., 'replica' or 'logical'
+max_wal_size = '{{ max_wal_size }}'  # e.g., '1GB'
+min_wal_size = '{{ min_wal_size }}'  # e.g., '80MB'
+
+# --- Checkpoints ---
+checkpoint_timeout = '{{ checkpoint_timeout }}'  # e.g., '5min'
+checkpoint_completion_target = {{ checkpoint_completion_target }}  # Fraction of WAL written before checkpoint timeout
+
+# --- Autovacuum ---
+autovacuum = {{ 'on' if autovacuum else 'off' }}
+autovacuum_max_workers = {{ autovacuum_max_workers }}
+autovacuum_naptime = '{{ autovacuum_naptime }}'  # e.g., '1min'
+autovacuum_vacuum_threshold = {{ autovacuum_vacuum_threshold }}
+autovacuum_analyze_threshold = {{ autovacuum_analyze_threshold }}
+autovacuum_vacuum_scale_factor = {{ autovacuum_vacuum_scale_factor }}
+autovacuum_analyze_scale_factor = {{ autovacuum_analyze_scale_factor }}
+
+# --- Logging ---
+logging_collector = {{ 'on' if logging_collector else 'off' }}
+log_directory = '{{ log_directory }}'  # e.g., 'pg_log'
+log_filename = '{{ log_filename }}'  # e.g., 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_rotation_age = '{{ log_rotation_age }}'  # e.g., '1d'
+log_rotation_size = {{ log_rotation_size }}  # e.g., 0 (unlimited), or bytes (e.g., 100*1024*1024)
+log_min_duration_statement = {{ log_min_duration_statement }}  # ms; -1 disables logging slow queries
+log_line_prefix = '{{ log_line_prefix }}'  # e.g., '%m [%p] %u@%d ' (timestamp, pid, user, db)
+
+# --- File Locations ---
+data_directory = '{{ data_directory }}'  # Path to cluster data directory
+hba_file = '{{ hba_file }}'  # Path to pg_hba.conf (typically data_directory/pg_hba.conf)
+ident_file = '{{ ident_file }}'  # Path to pg_ident.conf (typically data_directory/pg_ident.conf)
+
+# --- Replication (Basic) ---
+# Primary/standby roles controlled by recovery.conf (in PostgreSQL ≤12) or `primary_conninfo` (≥13)
+# This template focuses on general server config — replication settings vary by deployment
+
+# --- Custom Application Settings (example: extensions) ---
+{% for ext in shared_preload_libraries %}
+# Extension '{{ ext }}' is preloaded at server startup
+{% endfor %}
+shared_preload_libraries = '{{ shared_preload_libraries | join(", ") }}'  # e.g., 'pg_stat_statements, timescaledb'

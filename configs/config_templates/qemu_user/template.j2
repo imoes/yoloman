@@ -1,0 +1,39 @@
+# =============================================================================
+# QEMU User-Mode Binary Format Registration Configuration
+# =============================================================================
+#
+# This template generates entries for the Linux binfmt_misc interface.
+# It allows the kernel to automatically invoke QEMU user-mode interpreters
+# when an executable of a foreign architecture is executed.
+#
+# The configuration is driven by the `qemu_binfmt_entries` variable, which
+# must be a list of mappings. Each mapping describes one binary format
+# registration.
+#
+# Variable: qemu_binfmt_entries
+# Type: list of dicts
+# Default: [] (empty list, no registrations)
+#
+# Expected dict keys per entry:
+#   - name:      A unique identifier for this registration (e.g., 'arm_exec').
+#   - type:      The file type check method ('M' for magic, 'E' for extension).
+#   - offset:    Offset into the file where the magic string or extension starts (usually 0).
+#   - magic:     Hexadecimal magic string to match against the file content (required if type=M).
+#   - mask:      Hexadecimal mask to apply to the magic string (required if type=M).
+#   - interpreter: Path to the QEMU interpreter executable (e.g., '/usr/bin/qemu-arm-static').
+#   - flags:     Optional flags for the registration (e.g., 'O' for open, 'C' for convert).
+# =============================================================================
+
+{% for entry in (qemu_binfmt_entries | default([])) %}
+# -----------------------------------------------------------------------------
+# Registering binary format: {{ entry.name | default('unnamed') }}
+# Architecture/Format details:
+#   Type check     : {{ entry.type | default('N/A') }}
+#   Offset         : {{ entry.offset | default('0') }}
+#   Magic String   : {{ entry.magic | default('(none)') }}
+#   Mask           : {{ entry.mask | default('(none)') }}
+#   Interpreter    : {{ entry.interpreter | default('(undefined)') }}
+#   Flags          : {{ entry.flags | default('(none)') }}
+# -----------------------------------------------------------------------------
+:{{ entry.name }}:{{ entry.type }}:{{ entry.offset }}:{{ entry.magic | default('') }}:{{ entry.mask | default('') }}:{{ entry.interpreter }}:{{ entry.flags | default('') }}
+{% endfor %}

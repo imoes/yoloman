@@ -1,0 +1,192 @@
+# ==============================================================================
+# GnuPG Agent Configuration (gpg-agent.conf)
+#
+# This file configures gpg-agent, the secret key management daemon for GnuPG.
+# It handles passphrase caching, SSH agent emulation, pinentry integration,
+# and smartcard communication.
+#
+# See `man gpg-agent` for a complete list of options and detailed behavior.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# General Behavior & Features
+# ------------------------------------------------------------------------------
+
+# Enable SSH agent support (gpg-agent implements ssh-agent protocol)
+# If true, gpg-agent will respond to SSH authentication requests using GPG keys.
+# This allows SSH clients to use GPG keys for login without exporting private keys.
+{% if enable_ssh_support | default(False) %}
+enable-ssh-support 1
+{% endif %}
+
+# Disable scdaemon (smart card daemon); disables smartcard operations
+# If true, the internal smart card daemon (scdaemon) is disabled.
+# Smartcards will not function if this is enabled.
+{% if disable_scdaemon | default(False) %}
+disable-scdaemon 1
+{% endif %}
+
+# Allow clients to use loopback pinentry (e.g., for non-interactive signing)
+# If true, allows applications to request passphrases directly from gpg-agent
+# without using a graphical pinentry dialog. Useful for scripting or non-interactive
+# environments, but reduces security by allowing apps to see the passphrase.
+{% if allow_loopback_pinentry | default(False) %}
+allow-loopback-pinentry 1
+{% endif %}
+
+# Prevent pinentry from using external cache (e.g., KDE/KWallet, GNOME keyring)
+# If true, pins the pinentry program to NOT use external credential stores.
+# This enforces local passphrase handling within the GnuPG trust model.
+{% if no_allow_external_cache | default(True) %}
+no-allow-external-cache 1
+{% endif %}
+
+# Disallow clients from marking keys as trusted in trustlist.txt
+# If true, prevents clients from writing trust records to the global trustlist.
+# This ensures trust levels are managed centrally rather than per-application.
+{% if no_allow_mark_trusted | default(True) %}
+no-allow-mark-trusted 1
+{% endif %}
+
+# Ignore user trustlist and use only the global trustlist (/etc/gnupg/trustlist.txt)
+# If true, user-specific trust settings in ~/.gnupg/ are ignored; only system-wide
+# trust settings apply.
+{% if no_user_trustlist | default(False) %}
+no-user-trustlist 1
+{% endif %}
+
+# Use standard socket (since GnuPG 2.1, no-use-standard-socket is deprecated and has no effect)
+# Note: Since GnuPG 2.1, the standard socket location (~/.gnupg/S.gpg-agent) is always used.
+# The option `no-use-standard-socket` is deprecated and has no effect.
+# Keeping this block for historical compatibility or future-proofing, but it is effectively inert.
+{% if not use_standard_socket | default(True) %}
+# no-use-standard-socket
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Pinentry Configuration
+# ------------------------------------------------------------------------------
+
+# Path to the pinentry program (e.g., /usr/bin/pinentry-gtk)
+# Specifies which binary gpg-agent should invoke to prompt users for passphrases.
+# If empty or not set, gpg-agent tries to auto-detect a suitable pinentry.
+{% if pinentry_program | default('pinentry') | trim != 'pinentry' %}
+pinentry-program {{ pinentry_program | default('pinentry') }}
+{% endif %}
+
+# Pinentry timeout in seconds (0 = no timeout; pinentry may use its own default)
+# Sets the maximum time pinentry will wait for user input before failing.
+# 0 indicates no timeout.
+{% if pinentry_timeout | default(0) | int != 0 %}
+pinentry-timeout {{ pinentry_timeout | default(0) }}
+{% endif %}
+
+# List of characters to use for hiding input in pinentry (UTF-8); one per line in config.
+# Commonly one entry: '*'. This controls how the pinentry dialog masks user input.
+# If the list is empty, default masking is used.
+{% for char in pinentry_invisible_char_list | default([]) %}
+pinentry-invisible-char-list {{ char }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Passphrase Caching and TTL
+# ------------------------------------------------------------------------------
+
+# Default passphrase cache TTL in seconds
+# How long gpg-agent caches a passphrase for general GPG operations.
+default-cache-ttl {{ default_cache_ttl | default(600) }}
+
+# Default SSH key cache TTL in seconds
+# How long gpg-agent caches a passphrase for SSH agent operations (when enable-ssh-support is on).
+# Typically shorter or longer than general cache depending on security policy.
+default-cache-ttl-ssh {{ default_cache_ttl_ssh | default(1800) }}
+
+# Maximum passphrase cache TTL in seconds
+# The absolute maximum time any passphrase can be cached, regardless of specific settings.
+max-cache-ttl {{ max_cache_ttl | default(7200) }}
+
+# Maximum SSH key cache TTL in seconds
+# The absolute maximum time an SSH key passphrase can be cached.
+max-cache-ttl-ssh {{ max_cache_ttl_ssh | default(7200) }}
+
+# ------------------------------------------------------------------------------
+# Passphrase Policy and Complexity
+# ------------------------------------------------------------------------------
+
+# Minimum required passphrase length
+# Enforces a minimum character count for new or changed passphrases.
+min-passphrase-length {{ min_passphrase_len | default(8) }}
+
+# Minimum number of digits or special characters required in passphrase
+# Enforces complexity by requiring a minimum count of non-alphabetic characters.
+min-passphrase-nonalpha {{ min_passphrase_nonalpha | default(1) }}
+
+# Path or filename (relative to /etc/gnupg if no slashes) of passphrase pattern file
+# Points to a file containing regular expressions. Passphrases must match at least
+# one pattern in this file (or fail if the file dictates rejection).
+{% if check_passphrase_pattern | default('') | trim != '' %}
+check-passphrase-pattern {{ check_passphrase_pattern | default('') }}
+{% endif %}
+
+# Path or filename (relative to /etc/gnupg if no slashes) of symmetric passphrase pattern file
+# Similar to check-passphrase-pattern but applies specifically to symmetric encryption operations.
+{% if check_sym_passphrase_pattern | default('') | trim != '' %}
+check-sym-passphrase-pattern {{ check_sym_passphrase_pattern | default('') }}
+{% endif %}
+
+# Maximum days before passphrase must be changed (0 = disable expiration)
+# Forces users to change their passphrase after this many days. 0 means no expiration.
+{% if max_passphrase_days | default(0) | int != 0 %}
+max-passphrase-days {{ max_passphrase_days | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Key Generation and Scrypt (S2K) Settings
+# ------------------------------------------------------------------------------
+
+# S2K iteration count (0 = use auto-calibrated value)
+# Controls the speed of key derivation for symmetric encryption. Higher values
+# slow down brute-force attacks but increase CPU usage during encryption/decryption.
+# 0 triggers auto-calibration based on system speed.
+{% if s2k_count | default(0) | int != 0 %}
+s2k-count {{ s2k_count | default(0) }}
+{% endif %}
+
+# S2K calibration time in milliseconds (0 = use compiled-in default)
+# When S2K iteration count is auto-calibrated, this sets the target CPU time.
+# Only effective if s2k-count is 0.
+{% if s2k_calibration | default(0) | int != 0 %}
+s2k-calibration {{ s2k_calibration | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Socket and Connection Handling
+# ------------------------------------------------------------------------------
+
+# Listen backlog size for pending socket connections
+# Maximum number of pending connection requests in the OS queue for the gpg-agent socket.
+listen-backlog {{ listen_backlog | default(64) }}
+
+# Path for extra socket; use /dev/null to disable
+# Allows gpg-agent to listen on an additional socket path for specific client types.
+# Set to /dev/null to disable any extra socket.
+{% if extra_socket | default('none') | trim != 'none' %}
+extra-socket {{ extra_socket | default('none') }}
+{% endif %}
+
+# Path to log file (use 'socket://' to log via systemd socket)
+# Redirects gpg-agent logs to a specific file. 'socket://' enables journald integration.
+{% if log_file | default('') | trim != '' %}
+log-file {{ log_file | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Memory Management
+# ------------------------------------------------------------------------------
+
+# Allow Libgcrypt to expand secure memory; optional size in bytes (rounded up to 32 KiB)
+# Permits the secure memory allocator to grow beyond its initial allocation.
+# Useful for large key operations. 0 disables dynamic expansion.
+{% if auto_expand_secmem | default(0) | int != 0 %}
+auto-expand-secmem {{ auto_expand_secmem | default(0) }}
+{% endif %}

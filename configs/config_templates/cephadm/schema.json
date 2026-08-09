@@ -1,0 +1,127 @@
+{
+  "cluster_fsid": {
+    "type": "string",
+    "default": "",
+    "description": "UUID of the Ceph cluster. Must be generated once and reused across all nodes in the cluster."
+  },
+  "monitor_initial_members": {
+    "type": "list",
+    "default": [],
+    "description": "List of monitor hostnames/names that should be part of the initial monitor quorum.\nitems:\n  type: string\n  description: A monitor node hostname (e.g., 'ceph-mon-01').\n"
+  },
+  "monitor_host": {
+    "type": "list",
+    "default": [],
+    "description": "List of monitor addresses (hostname or IP) used to reach monitors. Usually derived from monitor hosts.\nitems:\n  type: string\n  description: Monitor reachable address:hostname or IP:port (e.g., '192.168.1.10:6789').\n"
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/ceph/$cluster_name/$cluster-$type.$id.log",
+    "description": "Path template for log files. Use $cluster_name, $type, $id as placeholders."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 131072,
+    "description": "Maximum number of open file descriptors allowed for Ceph daemons."
+  },
+  "public_network": {
+    "type": "string",
+    "default": "",
+    "description": "CIDR or IP range for the public (client-facing) network. Required for proper node discovery."
+  },
+  "cluster_network": {
+    "type": "string",
+    "default": "",
+    "description": "CIDR or IP range for the cluster (internal replication traffic) network. Optional but recommended for production."
+  },
+  "auth_cluster_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication protocol required for cluster daemons (e.g., mon, osd) to talk to each other."
+  },
+  "auth_service_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication protocol required for services (e.g., mgr, mds, rgw) to authenticate to the cluster."
+  },
+  "auth_client_required": {
+    "type": "string",
+    "default": "cephx",
+    "description": "Authentication protocol required for clients (e.g., rados, CephFS, RBD) to access the cluster."
+  },
+  "mon_clock_drift_allowed": {
+    "type": "number",
+    "default": 0.05,
+    "description": "Maximum clock drift (seconds) allowed between monitors before quorum is broken."
+  },
+  "mon_clock_drift_warn_extra_allowed": {
+    "type": "number",
+    "default": 0.1,
+    "description": "Clock drift (seconds) threshold above which warnings are logged but quorum is not broken."
+  },
+  "mon_sync_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for monitor synchronization operations."
+  },
+  "osd_journal_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Size (MB) of the journal for each BlueStore OSD (if using filestore/journal fallback or legacy)."
+  },
+  "osd_op_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of threads used for OSD operations. Increase for SSDs/NVMe with high IOPS."
+  },
+  "osd_max_object_name_len": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum length (in characters) of an object name in RADOS."
+  },
+  "osd_max_object_namespace_len": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum length (in characters) of an object namespace string."
+  },
+  "rgw_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the RADOS Gateway (RGW) service for S3/Swift-compatible object storage."
+  },
+  "rgw_frontends": {
+    "type": "string",
+    "default": "civetweb port=8080",
+    "description": "RGW frontend configuration string (e.g., 'civetweb port=80 port=443 ssl_certificate=/etc/ssl/rgw.crt')."
+  },
+  "rgw_dns_name": {
+    "type": "string",
+    "default": "rgw",
+    "description": "DNS name used for the RGW service (for virtual-host-style bucket access)."
+  },
+  "monitors": {
+    "type": "list",
+    "default": [],
+    "description": "List of monitor daemon entries. Usually auto-populated by cephadm, but can override.\nitems:\n  type: object\n  properties:\n    name:\n      type: string\n      description: Monitor name (e.g., 'a', 'b', 'mon0').\n    host:\n      type: string\n      description: Hostname or IP of the host running the monitor daemon.\n    address:\n      type: string\n      description: Monitor address and port in 'host:port' format.\n  required:\n  - name\n  - host\n  - address\n"
+  },
+  "osds": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit OSD entries (rarely used with cephadm; cephadm auto-adds OSDs from devices).\nitems:\n  type: object\n  properties:\n    id:\n      type: number\n      description: OSD ID (e.g., 0, 1).\n    host:\n      type: string\n      description: Hostname of the host where the OSD daemon runs.\n    device:\n      type: string\n      description: Block device path (e.g., /dev/nvme0n1) \u2014 used for bluestore DB/WAL separation.\n  required:\n  - id\n  - host\n"
+  },
+  "mdss": {
+    "type": "list",
+    "default": [],
+    "description": "List of Metadata Server (MDS) daemon entries for CephFS.\nitems:\n  type: object\n  properties:\n    name:\n      type: string\n      description: MDS daemon name (e.g., 'a', 'ceph-mds-1').\n    host:\n      type: string\n      description: Hostname of the host running the MDS.\n  required:\n  - name\n  - host\n"
+  },
+  "rgws": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit RGW daemon entries (for multi-instance RGW setups).\nitems:\n  type: object\n  properties:\n    name:\n      type: string\n      description: RGW instance name (e.g., 'a', 'gateway-1').\n    host:\n      type: string\n      description: Hostname of the host running this RGW instance.\n    frontends:\n      type: string\n      description: RGW frontend config for this instance (e.g., 'civetweb port=8080').\n  required:\n  - name\n  - host\n  - frontends\n"
+  },
+  "mgrs": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit manager daemon entries (cephadm usually auto-deploys).\nitems:\n  type: object\n  properties:\n    name:\n      type: string\n      description: Manager daemon name (e.g., 'a', 'mgr0').\n    host:\n      type: string\n      description: Hostname of the host running the manager daemon.\n  required:\n  - name\n  - host\n"
+  }
+}

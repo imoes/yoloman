@@ -1,0 +1,29 @@
+# foxeye configuration file
+# Generated using foxeye(1) service template
+# Every directive below is optional; omit to use built-in defaults
+
+# Network identity
+[network]
+# Nickname to use when connecting to the network (required for IRC, etc.)
+nick = {{ values.network.nick | default('foxeye_user') }}
+
+# Log level (0=quiet, 5=max debug); each '-d' flag increments by 1
+# Default: 0 (no debug output beyond fatal errors)
+debug_level = {{ values.network.debug_level | default(0) }}
+
+# Runtime mode
+[mode]
+# If true, don't detach from controlling terminal (equivalent to '-c')
+detach = {{ values.mode.detach | default(true) | string | lower }}
+# If true, reset all config parameters and start clean (implies '-c')
+reset = {{ values.mode.reset | default(false) | string | lower }}
+# If true, only print fatal errors to stderr (implies '-q')
+fatal_only = {{ values.mode.fatal_only | default(false) | string | lower }}
+
+# Input/output
+[file]
+# Path to the configuration file; used with -t (test) and -g (generate)
+# If omitted, foxeye will expect a command-line argument or default path
+path = {{ values.file.path | default('') }}
+# Path to the listfile (channel/user list) — empty means no listfile
+listfile = {{ values.file.listfile | default('') }}

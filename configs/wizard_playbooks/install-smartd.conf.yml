@@ -1,0 +1,31 @@
+- name: install-smartd.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/smartd.conf"
+    devices: []
+    _service: ""
+    _packages:
+      - smartmontools
+    default_directives: []
+    devicescan_directives: []
+  tasks:
+    - name: Install Smartd Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: smartd.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        devices: "{{ devices }}"
+        default_directives: "{{ default_directives }}"
+        devicescan_directives: "{{ devicescan_directives }}"
+
+    - name: Enable and restart Smartd Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

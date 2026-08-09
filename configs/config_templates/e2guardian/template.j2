@@ -1,0 +1,416 @@
+# ============================================================================
+# E2Guardian HTTP Proxy Configuration
+# ============================================================================
+# This file configures the E2Guardian web content filter service.
+# E2Guardian operates as a reverse proxy or transparent proxy to filter
+# HTTP/HTTPS traffic based on user-defined lists and settings.
+# ============================================================================
+
+### ========================================================================
+### QUICK_START - Essential settings to get the service running
+### ========================================================================
+
+# Language file to use for block pages and messages.
+# Located in the directory specified by languagedir.
+language = 'ukenglish'
+
+# Container mode. If 'on', the process does not fork into the background
+# and logs to stdout/stderr. Useful for Docker/Supervisor environments.
+#dockermode = off
+
+# Loop prevention configuration.
+# Define the IPs this proxy instance is reachable on to prevent proxy loops.
+# Specify multiple IPs on one line separated by ':' or on separate lines.
+#checkip = 127.0.0.1
+
+# Extra ports to check for loop prevention (e.g., if behind another proxy).
+#extracheckports = 3128
+
+# Port for transparent HTTPS traffic.
+# If set to 0, transparent HTTPS is disabled.
+# Note: Firewall must redirect TCP 443 to this port if enabled.
+transparenthttpsport = {{ transparent_http_port | default(0) }}
+
+# Port for ICAP server mode.
+# If set to 0, ICAP server mode is disabled.
+icapport = {{ icap_port | default(0) }}
+
+# Upstream proxy settings.
+#proxyip = 127.0.0.1
+#proxyport = 3128
+
+# Number of filter groups (sets of filtering rules).
+filtergroups = {{ filter_groups | default(1) }}
+
+# Default filter group ID to use when no specific group is assigned.
+defaultfiltergroup = {{ default_filter_group | default(1) }}
+
+# Enable SSL MITM (Man-in-the-Middle) inspection.
+# Must be 'on' to inspect HTTPS traffic. Requires CA certificates.
+enablessl = {{ enable_ssl | default('off') }}
+
+### ========================================================================
+### END of QUICK_START section
+### ========================================================================
+
+
+### ========================================================================
+### NAMES_PATHS - Directory and path definitions
+### ========================================================================
+
+# Directory containing language files for block pages.
+languagedir = '/usr/share/e2guardian/languages'
+
+# Directory for pre-auth storyboards (if used).
+#preauthstoryboard = '/etc/e2guardian/preauth.story'
+
+# Directory for per-room definitions (advanced usage).
+#perroomdirectory = '__LISTDIR__/../rooms/'
+
+# Output destinations for internal error, info, and warning messages.
+# Defaults are usually syslog.
+# set_error = 'syslog:LOG_ERR'
+# set_info = 'syslog:LOG_INFO'
+# set_warning = 'syslog:LOG_WARNING'
+
+### ========================================================================
+### END of NAMES_PATHS section
+### ========================================================================
+
+
+### ========================================================================
+### NETWORK - Network binding and listening configuration
+### ========================================================================
+
+# IP address to bind the HTTP proxy listener.
+# Empty means all interfaces. Use ':' to bind to multiple specific IPs.
+filterip = {{ listen_address | default('0.0.0.0') }}
+
+# Port(s) for standard HTTP proxy traffic.
+# Use ':' to separate multiple ports (e.g., 8080:3128).
+filterports = {{ listen_port | default(8080) }}
+
+# Port(s) for TLS (HTTPS) explicit proxy traffic.
+#tlsfilterports = {{ tls_listen_port | default(0) }}
+
+# Common Name (CN) for the TLS server certificate.
+#tlsproxycn = {{ listen_address | default('0.0.0.0') }}
+
+### ========================================================================
+### END of NETWORK section
+### ========================================================================
+
+
+### ========================================================================
+### MITM - SSL Man-in-the-Middle Configuration
+### ========================================================================
+# Required only if enablessl = on
+
+# Path to the CA certificate used to sign generated certificates.
+cacertificatepath = '/etc/e2guardian/private/ca.pem'
+
+# Path to the CA private key.
+caprivatekeypath = '/etc/e2guardian/private/ca.key'
+
+# Path to the certificate private key used for generated certs.
+certprivatekeypath = '/etc/e2guardian/private/cert.key'
+
+# Directory to store generated certificates.
+generatedcertpath = '/etc/e2guardian/private/generatedcerts/'
+
+# List of sites that should NOT be MITM inspected.
+sitelist = 'name=nomitm,path=__LISTDIR__/nomitmsitelist'
+ipsitelist = 'name=nomitm,path=__LISTDIR__/nomitmsiteiplist'
+
+# Use OpenSSL configuration file for cipher/protocol settings.
+#useopensslconf = off
+#opensslconffile = '/etc/e2guardian/openssl.conf'
+
+### ========================================================================
+### END of MITM section
+### ========================================================================
+
+
+### ========================================================================
+### ICAP_SERVICE - ICAP Server Mode Settings
+### ========================================================================
+
+# Default filter group for ICAP requests.
+defaulticapfiltergroup = {{ default_icap_filter_group | default(1) }}
+
+# URL to respond to ICAP request modification queries.
+#icapreqmodurl = 'request'
+
+# URL to respond to ICAP response modification queries.
+#icapresmodurl = 'response'
+
+### ========================================================================
+### END of ICAP_SERVICE section
+### ========================================================================
+
+
+### ========================================================================
+### TRANSPARENT - Transparent Proxy Settings
+### ========================================================================
+
+# Default filter group for transparent HTTP and HTTPS traffic.
+defaulttransparentfiltergroup = {{ default_transparent_filter_group | default(1) }}
+
+# Use original destination IP/Port for upstream requests.
+# Solves "Snapchat" issues on Linux. Ignored on BSD.
+#useoriginalip = on
+
+### ========================================================================
+### END of TRANSPARENT section
+### ========================================================================
+
+
+### ========================================================================
+### AUTH - Authentication and User/Group Mapping
+### ========================================================================
+# E2Guardian uses authentication primarily to assign users to filter groups.
+
+# Authentication plugins define how usernames/groups are extracted.
+# Uncomment to enable.
+#authplugin = '/etc/e2guardian/authplugins/ip.conf'
+
+# Mapping lists: Map users (or IPs) to filter groups.
+# Default user-to-group map.
+maplist = 'name=defaultusermap, path=__LISTDIR__/../authplugins/filtergroupslist'
+# IP-to-group map.
+ipmaplist = 'name=ipmap, path=__LISTDIR__/../authplugins/ipgroups'
+# Port-to-group map.
+#maplist = 'name=portmap, path=__LISTDIR__/../authplugins/portgroups'
+
+# Banned client IP list.
+iplist = 'name=bannedclient,messageno=100,logmessageno=103,path=__LISTDIR__/bannediplist'
+
+# Exception client IP list.
+iplist = 'name=exceptionclient,messageno=600,path=__LISTDIR__/exceptioniplist'
+
+# Perform reverse DNS lookups on banned/exception IPs to log hostnames.
+reverseclientiplookups = {{ reverse_client_ip_lookups | default('off') }}
+
+# Exception lists for sites/URLs allowed before authentication.
+ipsitelist = 'name=authexception,messageno=602,path=__LISTDIR__/authexceptioniplist'
+sitelist = 'name=authexception,messageno=602,path=__LISTDIR__/authexceptionsitelist'
+urllist = 'name=authexception,messageno=603,path=__LISTDIR__/authexceptionurllist'
+
+# Browser detection via User-Agent regex.
+regexpboollist = 'name=browser,path=__LISTDIR__/browserregexplist'
+
+### ========================================================================
+### END of AUTH section
+### ========================================================================
+
+
+### ========================================================================
+### ACCESS_LOG - Logging Configuration
+### ========================================================================
+
+# Log file destination.
+#set_accesslog = 'file:/var/log/e2guardian/access.log'
+
+# Log file path (legacy, ignored if set_accesslog is defined).
+#loglocation = '/var/log/e2guardian/access.log'
+
+# Log file format ID (1-8). Default 8 is detailed Protex/Squid-style.
+logfileformat = {{ log_file_format | default(8) }}
+
+# Logging level: 0=none, 1=denied only, 2=text-based, 3=all requests.
+loglevel = {{ log_level | default(3) }}
+
+# Log exception hits: 0=never, 1=log only, 2=always mark/log.
+logexceptionhits = {{ log_exception_hits | default(2) }}
+
+# Show weighted phrases found in logs.
+showweightedfound = {{ show_weighted_found | default('on') }}
+
+# Log both client hostname and IP (formats 5,6,7,8).
+logclientnameandip = {{ log_client_name_and_ip | default('on') }}
+
+### ========================================================================
+### END of ACCESS_LOG section
+### ========================================================================
+
+
+### ========================================================================
+### MONITORING - Dynamic Statistics and Internal URLs
+### ========================================================================
+
+# Dynamic stats log file location.
+dstatlocation = '/var/log/e2guardian/dstats.log'
+
+# Interval in seconds between stats output (10-3600).
+dstatinterval = {{ dstats_interval | default(300) }}
+
+# Internal test URL for load balancers/monitors.
+# internaltesturl = 'internal.test.e2guardian.org'
+
+# Internal status URL for user info.
+# internalstatusurl = 'internal.status.e2guardian.org'
+
+### ========================================================================
+### END of MONITORING section
+### ========================================================================
+
+
+### ========================================================================
+### URL_FILTERING - URL and Site Filtering Behavior
+### ========================================================================
+
+# Perform reverse DNS lookups on IP addresses found in site lists.
+# Prevents bypassing bans via direct IP entry.
+reverseaddresslookups = {{ reverse_address_lookups | default('off') }}
+
+### ========================================================================
+### END of URL_FILTERING section
+### ========================================================================
+
+
+### ========================================================================
+### LIST_SETTINGS - List Handling Configuration
+### ========================================================================
+
+# Search site lists for IP entries (backward compatibility).
+searchsitelistforip = {{ search_sitelist_for_ip | default('on') }}
+
+### ========================================================================
+### END of LIST_SETTINGS section
+### ========================================================================
+
+
+### ========================================================================
+### AV_SCANNERS - Antivirus/Content Scanner Configuration
+### ========================================================================
+# Comment out all except the desired scanner.
+#contentscanner = '/etc/e2guardian/contentscanners/clamdscan.conf'
+#contentscanner = '/etc/e2guardian/contentscanners/icapscan.conf'
+
+# Timeout for content scanners in seconds.
+#contentscannertimeout = 60
+
+### ========================================================================
+### END of AV_SCANNERS section
+### ========================================================================
+
+
+### ========================================================================
+### HEADER - HTTP Header Handling
+### ========================================================================
+
+# Use X-Forwarded-For header to determine client IP.
+# Warning: Easily spoofed. Use only if behind a trusted proxy (e.g., Squid).
+usexforwardedfor = {{ use_x_forwarded_for | default('off') }}
+
+### ========================================================================
+### END of HEADER section
+### ========================================================================
+
+
+### ========================================================================
+### BLOCK_PAGE - Block Page Display Settings
+### ========================================================================
+
+# Reporting level: -1=stealth, 0=denied, 1=partial, 2=full, 3=HTML template.
+reportinglevel = {{ reporting_level | default(3) }}
+
+### ========================================================================
+### END of BLOCK_PAGE section
+### ========================================================================
+
+
+### ========================================================================
+### DOWNLOAD_MANAGER - Download Handling
+### ========================================================================
+
+# Download manager plugin configuration.
+downloadmanager = '/etc/e2guardian/downloadmanagers/default.conf'
+
+# Temporary directory for downloaded files to be scanned.
+#filecachedir = '/tmp'
+
+# Delete temp files after successful download.
+#deletedownloadedtempfiles = on
+
+### ========================================================================
+### END of DOWNLOAD_MANAGER section
+### ========================================================================
+
+
+### ========================================================================
+### PHRASES - Content Phrase Filtering
+### ========================================================================
+
+# Weighted phrase mode: 0=off, 1=normal, 2=singular (count once per page).
+weightedphrasemode = {{ weighted_phrase_mode | default(2) }}
+
+# Phrase filter mode: 0=raw, 1=smart, 2=both, 3=meta/title.
+phrasefiltermode = {{ phrase_filter_mode | default(2) }}
+
+# Case preservation: 0=lower, 1=keep, 2=both.
+preservecase = {{ preserve_case | default(0) }}
+
+# Hex decode content before scanning.
+hexdecodecontent = {{ hex_decode_content | default('off') }}
+
+# Force Quick Search (Big5 compatible, slower than DFA).
+#forcequicksearch = off
+
+### ========================================================================
+### END of PHRASES section
+### ========================================================================
+
+
+### ========================================================================
+### TUNING - Performance and Timeout Parameters
+### ========================================================================
+
+# Number of HTTP worker threads.
+#httpworkers = 500
+
+# Max content filter size in KB.
+#maxcontentfiltersize = 2048
+
+# Max content RAM cache scan size in KB.
+#maxcontentramcachescansize = 2048
+
+# Max content file cache scan size in KB.
+#maxcontentfilecachescansize = 20000
+
+# Proxy timeout (seconds).
+#proxytimeout = 5
+
+# Connect timeout (seconds).
+#connecttimeout = 10
+
+### ========================================================================
+### END of TUNING section
+### ========================================================================
+
+
+### ========================================================================
+### DEBUG - Debugging Configuration
+### ========================================================================
+
+# Debug format: 1-6. 1 is standard developer format.
+#debugformat = 1
+
+### ========================================================================
+### END of DEBUG section
+### ========================================================================
+
+
+### ========================================================================
+### PROCESS - Process Management
+### ========================================================================
+
+# PID file location.
+#pidfilename = '/var/run/e2guardian.pid'
+
+# Disable daemoning (run in foreground).
+#nodaemon = off
+
+### ========================================================================
+### END of PROCESS section
+### ========================================================================

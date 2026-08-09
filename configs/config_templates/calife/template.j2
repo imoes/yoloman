@@ -1,0 +1,48 @@
+# ==============================================================================
+# pam_env.conf - PAM environment configuration for calife
+#
+# This module sets the environment based on variable definitions.
+# It is part of the Pluggable Authentication Modules (PAM) system.
+#
+# Syntax:
+#   varname TYPE [DEFAULT=default_value] [OVERRIDE=default_value]
+#   - varname: The name of the environment variable to set.
+#   - TYPE: 'ENV' for environment variables, 'SYSTEM' for system variables (e.g., PATH, USER).
+#   - DEFAULT: The value to use if the variable is not found in the system.
+#   - OVERRIDE: The value to use regardless of the system value (use with caution).
+#
+# Comments are indicated by '#'. Empty lines are ignored.
+# ==============================================================================
+
+# Load standard system environment variables (like PATH, USER, HOME, SHELL, LOGNAME).
+# These are typically provided by the operating system and should generally be trusted.
+# If no specific variables are listed here, the default behavior is to import system
+# variables. However, explicitly listing common ones ensures predictable behavior
+# across different Linux distributions.
+SYSTEM PATH /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+SYSTEM HOME $HOME
+SYSTEM USER $USER
+SYSTEM LOGNAME $LOGNAME
+SYSTEM SHELL $SHELL
+# PAGER is often used by interactive tools; set a sensible default.
+SYSTEM PAGER less
+# TERM is crucial for terminal-based applications to render correctly.
+SYSTEM TERM $TERM
+# LANG or LC_ALL determine locale settings for text processing.
+# If not set by the caller, default to C (POSIX) for maximum compatibility.
+SYSTEM LANG C
+SYSTEM LC_ALL C
+# LANGUAGE is used by GNU gettext for translation fallback.
+SYSTEM LANGUAGE C
+
+# ==============================================================================
+# Optional: Define application-specific defaults for the 'calife' service.
+# These ensure that even if the user's session environment is incomplete,
+# critical service variables are set.
+# ==============================================================================
+
+# Example: Set a default configuration directory if not provided by PAM stack.
+# ENV CALIFE_CONFIG_DIR /etc/calife
+
+# Example: Set the home directory for service operations if not inherited.
+# ENV CALIFE_HOME $HOME

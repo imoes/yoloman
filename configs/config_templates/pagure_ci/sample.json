@@ -1,0 +1,52 @@
+{
+  "pagure_name": "pagure",
+  "db_url": "postgresql://pagure_ci:secretpass@db.internal/pagure_ci",
+  "git_clone_dir": "/var/lib/pagure-ci/git",
+  "artifact_dir": "/var/lib/pagure-ci/artifacts",
+  "log_level": "INFO",
+  "debug": false,
+  "num_workers": 3,
+  "max_concurrent_builds": 4,
+  "build_timeout": 900,
+  "smtp_enabled": true,
+  "smtp_server": "smtp.internal.example.com",
+  "smtp_port": 587,
+  "smtp_username": "ci-notifications",
+  "smtp_password": "smtp_secret_token",
+  "smtp_from_addr": "ci-notifications@example.com",
+  "webhook_enabled": true,
+  "webhook_secret_token": "webhook-shared-secret-123",
+  "github_enabled": true,
+  "github_cid": "Iv1.abc123xyz",
+  "github_csecret": "ghp_secret_key_123",
+  "github_api_url": "https://api.github.com",
+  "gitlab_enabled": false,
+  "gitlab_cid": "",
+  "gitlab_csecret": "",
+  "gitlab_api_url": "https://gitlab.com/api/v4",
+  "builders": [
+    {
+      "name": "default",
+      "type": "docker",
+      "image": "python:3.11-slim",
+      "setup_commands": [
+        "pip install -U pip",
+        "pip install -r requirements.txt",
+        "pip install pytest"
+      ]
+    },
+    {
+      "name": "node",
+      "type": "docker",
+      "image": "node:20-bullseye",
+      "setup_commands": [
+        "npm ci"
+      ]
+    }
+  ],
+  "redis_url": "redis://redis.internal:6379/0",
+  "cors_allowed_origins": [
+    "https://pagure.example.com",
+    "https://admin.pagure.example.com"
+  ]
+}

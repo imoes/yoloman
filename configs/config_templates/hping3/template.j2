@@ -1,0 +1,233 @@
+# =============================================================================
+# hping3 Network Packet Generator Configuration
+# =============================================================================
+# This template generates a configuration block for hping3, a command-line tool
+# for generating and sending custom network packets. It is primarily used for
+# firewall auditing, fuzzing, and traceroute.
+#
+# hping3 is NOT a network service; it is a client-side testing tool. Therefore,
+# it has no "provides" capability in the standard sense (it does not listen
+# on a port for others to connect to). It may "require" network reachability
+# to a target, but this is an operational concern, not a service dependency.
+#
+# Variables are mapped to hping3 command-line flags as described in the comments.
+# See the schema defaults for expected types.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Target Specification
+# -----------------------------------------------------------------------------
+
+# Target hostname or IP address to send packets to.
+# Maps to the positional argument in hping3: hping3 <target>
+# Default: 127.0.0.1 (localhost)
+TARGET_HOST: {{ target_host|default('127.0.0.1') }}
+
+# -----------------------------------------------------------------------------
+# Protocol Mode
+# -----------------------------------------------------------------------------
+
+# Protocol mode: tcp (default, no flag), rawip (-0), icmp (-1), udp (-2), scan (-8).
+# This determines the fundamental structure of the packets sent.
+# Default: tcp
+PROTOCOL_MODE: {{ protocol_mode|default('tcp') }}
+
+# -----------------------------------------------------------------------------
+# Packet Count and Timing
+# -----------------------------------------------------------------------------
+
+# Number of packets to send. 0 means unlimited (until interrupted by Ctrl+C).
+# Maps to -c <count>
+# Default: 0 (unlimited)
+PACKET_COUNT: {{ packet_count|default(0) }}
+
+# Wait time between packets.
+# Suffix 'u' indicates microseconds (e.g., 'u100000' for 0.1s).
+# Without suffix, it is treated as seconds.
+# Maps to -i <wait>
+# Default: '1' (1 second)
+INTERVAL: {{ interval|default('1') }}
+
+# -----------------------------------------------------------------------------
+# Network Interface and Address Spoofing
+# -----------------------------------------------------------------------------
+
+# Network interface name to bind the socket to (e.g., eth0, ens33).
+# If empty, hping3 selects the default interface.
+# Maps to -I <interface>
+# Default: '' (default interface)
+INTERFACE: {{ interface|default('') }}
+
+# Fake source IP address for spoofing.
+# Useful for testing firewall rules against specific source IPs.
+# Maps to -a <hostname>
+# Default: '' (no spoofing)
+SPOOFED_IP: {{ spoofed_ip|default('') }}
+
+# -----------------------------------------------------------------------------
+# IP Header Options
+# -----------------------------------------------------------------------------
+
+# Time To Live (TTL) value for outgoing IP packets.
+# Maps to -t <ttl>
+# Default: 64
+TTL: {{ ttl|default(64) }}
+
+# -----------------------------------------------------------------------------
+# Port Configuration
+# -----------------------------------------------------------------------------
+
+# Destination port number to send packets to.
+# Maps to -p <destport>
+# Default: 0
+DEST_PORT: {{ dest_port|default(0) }}
+
+# Base source port number. hping3 will increment this for each packet unless
+# KEEP_SOURCE_PORT is enabled.
+# Maps to -s <sourceport>
+# Default: 0
+SOURCE_PORT: {{ source_port|default(0) }}
+
+# -----------------------------------------------------------------------------
+# TCP Specific Options
+# -----------------------------------------------------------------------------
+
+# Comma-separated list of TCP flags to set.
+# Valid flags: SYN, ACK, FIN, RST, PSH, URG, XMAS, YMAS.
+# Example: 'SYN,ACK'
+# Maps to -F (FIN), -S (SYN), -R (RST), -P (PSH), -A (ACK), -U (URG), -X (XMAS), -Y (YMAS)
+# Default: '' (no specific flags set, depends on protocol mode)
+TCP_FLAGS: {{ tcp_flags|default('') }}
+
+# TCP window size.
+# Maps to -w <windowsize>
+# Default: 64
+TCP_WINDOW: {{ tcp_window|default(64) }}
+
+# Fixed TCP sequence number.
+# Maps to -M <tcpseq>
+# Default: 0
+TCP_SEQUENCE: {{ tcp_sequence|default(0) }}
+
+# Fixed TCP acknowledgement number.
+# Maps to -L <tcpack>
+# Default: 0
+TCP_ACK: {{ tcp_ack|default(0) }}
+
+# Keep source port constant instead of incrementing it for each packet.
+# Useful for testing stateful firewalls that track connections.
+# Maps to -k <keep>
+# Default: false
+KEEP_SOURCE_PORT: {{ keep_source_port|default(false) }}
+
+# -----------------------------------------------------------------------------
+# Payload Data
+# -----------------------------------------------------------------------------
+
+# Size of the data payload in bytes.
+# Maps to -d <datasize>
+# Default: 0
+DATA_SIZE: {{ data_size|default(0) }}
+
+# Filename to read data from for the packet payload.
+# If specified, this overrides DATA_SIZE.
+# Maps to -E <filename>
+# Default: ''
+DATA_FILE: {{ data_file|default('') }}
+
+# Signature string to embed in packet data.
+# Often used for testing IDS/IPS signatures.
+# Maps to -e <signature>
+# Default: ''
+SIGNATURE: {{ signature|default('') }}
+
+# -----------------------------------------------------------------------------
+# Output and Verbosity
+# -----------------------------------------------------------------------------
+
+# Output level.
+# Options: 'none' (quiet), 'verbose' (normal), 'debug' (detailed hexdump).
+# Maps to -v (verbose) and -V (debug)
+# Default: 'verbose'
+VERBOSITY: {{ verbosity|default('verbose') }}
+
+# Disable DNS lookups; display all addresses and names numerically.
+# Faster and safer in untrusted networks.
+# Maps to -n <numeric>
+# Default: false
+NUMERIC_ONLY: {{ numeric_only|default(false) }}
+
+# -----------------------------------------------------------------------------
+# ICMP Specific Options (used when protocol_mode is 'icmp')
+# -----------------------------------------------------------------------------
+
+# ICMP type code.
+# Example: 8 for Echo Request (Ping), 0 for Echo Reply.
+# Maps to -C <type>
+# Default: 8
+ICMP_TYPE: {{ icmp_type|default(8) }}
+
+# ICMP code.
+# Maps to -K <code>
+# Default: 0
+ICMP_CODE: {{ icmp_code|default(0) }}
+
+# -----------------------------------------------------------------------------
+# Raw IP Specific Options (used when protocol_mode is 'rawip')
+# -----------------------------------------------------------------------------
+
+# IP protocol number for raw IP mode.
+# Example: 6 for TCP, 1 for ICMP, 17 for UDP.
+# Maps to -H <ipproto>
+# Default: 6
+RAW_IP_PROTO: {{ raw_ip_proto|default(6) }}
+
+# -----------------------------------------------------------------------------
+# Scan and Traceroute Modes
+# -----------------------------------------------------------------------------
+
+# Enable traceroute mode.
+# Automatically increments TTL and adjusts ports to trace the path.
+# Maps to -T <traceroute>
+# Default: false
+TRACEROUTE: {{ traceroute|default(false) }}
+
+# Port groups to scan in scan mode (protocol_mode must be 'scan' or -8).
+# Example: '1-1000', '80', 'known' (well-known ports).
+# Maps to --scan <portgroups>
+# Default: ''
+SCAN_PORT_GROUPS: {{ scan_port_groups|default('') }}
+
+# -----------------------------------------------------------------------------
+# Advanced/Special Options
+# -----------------------------------------------------------------------------
+
+# Enable safe protocol for file transfers.
+# Uses a custom protocol to reliably transfer files over TCP.
+# Maps to -B <safe>
+# Default: false
+SAFE_MODE: {{ safe_mode|default(false) }}
+
+# Beep on matching received packets.
+# Audible alert when a packet with expected characteristics is received.
+# Maps to --beep
+# Default: false
+BEEP_ON_MATCH: {{ beep_on_match|default(false) }}
+
+# Enable IP fragmentation.
+# Splits packets into smaller fragments.
+# Maps to -f <frag>
+# Default: false
+FRAGMENTATION: {{ fragmentation|default(false) }}
+
+# Set the Don't Fragment (DF) IP flag.
+# Prevents packets from being fragmented by routers.
+# Maps to -y <dontfrag>
+# Default: false
+DONT_FRAGMENT: {{ dont_fragment|default(false) }}
+
+# Virtual MTU for fragmentation.
+# Used in conjunction with FRAGMENTATION to set the fragment size.
+# Maps to -m <mtu>
+# Default: 16
+MTU: {{ mtu|default(16) }}

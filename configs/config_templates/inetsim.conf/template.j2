@@ -1,0 +1,77 @@
+# Configuration file for inetsim — Internet Services Simulation
+# Main service port (HTTP, SMTP, etc. will be relative to this)
+service_port {{ service_port }}
+
+# Network interface to bind to
+service_bind_address {{ bind_address }}
+
+# Enable or disable DNS simulation
+enable_dns {{ enable_dns | string | lower }}
+
+# Enable or disable FTP simulation
+enable_ftp {{ enable_ftp | string | lower }}
+
+# Enable or disable HTTP simulation
+enable_http {{ enable_http | string | lower }}
+
+# Enable or disable SMTP simulation
+enable_smtp {{ enable_smtp | string | lower }}
+
+# Enable or disable SSH simulation
+enable_ssh {{ enable_ssh | string | lower }}
+
+# Enable or disable Telnet simulation
+enable_telnet {{ enable_telnet | string | lower }}
+
+# Enable or disable HTTPS simulation (requires ssl_cert and ssl_key)
+enable_https {{ enable_https | string | lower }}
+
+# SSL certificate file path (used if enable_https is true)
+ssl_cert {{ ssl_cert }}
+
+# SSL private key file path (used if enable_https is true)
+ssl_key {{ ssl_key }}
+
+# Log file path (use '-' for stdout)
+log_file {{ log_file }}
+
+# Log level: debug, info, notice, warning, error
+log_level {{ log_level }}
+
+# Directory for simulated files (e.g., web content, FTP files)
+www_directory {{ www_directory }}
+
+# Default user agent for HTTP responses
+user_agent {{ user_agent }}
+
+# TCP services to run (list of port->service mappings)
+{% for mapping in tcp_services %}
+tcp_service {{ mapping.port }} {{ mapping.service }}
+{% endfor %}
+
+# UDP services to run (list of port->service mappings)
+{% for mapping in udp_services %}
+udp_service {{ mapping.port }} {{ mapping.service }}
+{% endfor %}
+
+# DNS resolution behavior
+{% if dns_simulation == 'internal' %}
+dns_simulation internal
+{% else %}
+dns_simulation external
+{% endif %}
+
+# DNS server to use when dns_simulation=external
+dns_server {{ dns_server }}
+
+# Whether to randomize service ports (for testing)
+randomize_port {{ randomize_port | string | lower }}
+
+# Time to wait before closing idle connections (seconds)
+close_timeout {{ close_timeout }}
+
+# Maximum number of concurrent connections
+max_connections {{ max_connections }}
+
+# User to run services as
+service_run_as_user {{ service_run_as_user }}

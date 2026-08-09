@@ -1,0 +1,298 @@
+{
+  "region_name": {
+    "type": "string",
+    "default": "RegionOne",
+    "description": "The OpenStack region name where this cinder-volume service is deployed."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:password@controller:5672/",
+    "description": "RabbitMQ or other message bus transport URL (e.g., 'rabbit://user:pass@host:5672/')"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/cinder",
+    "description": "Directory to store cinder-volume log files (optional; omit for syslog-only)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/cinder/volume.log",
+    "description": "Primary log file for volume service (optional)."
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "mysql+pymysql://cinder:password@controller/cinder"
+    },
+    "items": {
+      "connection": {
+        "type": "string",
+        "description": "Database connection URL (SQLAlchemy format)."
+      }
+    }
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "default": {
+      "auth_url": "http://controller:5000/v3",
+      "project_domain_name": "Default",
+      "user_domain_name": "Default",
+      "project_name": "service",
+      "username": "cinder",
+      "password": "password"
+    },
+    "items": {
+      "auth_url": {
+        "type": "string",
+        "description": "Keystone identity endpoint (including version path, e.g., /v3)."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "description": "Keystone project domain name."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "description": "Keystone user domain name."
+      },
+      "project_name": {
+        "type": "string",
+        "description": "Service project (tenant) name."
+      },
+      "username": {
+        "type": "string",
+        "description": "Service username (e.g., cinder)."
+      },
+      "password": {
+        "type": "string",
+        "description": "Service user password.",
+        "sensitive": true
+      }
+    }
+  },
+  "volume": {
+    "type": "object",
+    "default": {
+      "driver": "cinder.volume.drivers.lvm.LVMVolumeDriver",
+      "volume_group": "cinder-volumes",
+      "is_thin_provisioning": true,
+      "max_lvm_volume_size_gb": 1024,
+      "lvm": {
+        "is_active": true,
+        "volume_scan_timeout": 60,
+        "backup_dir": "/var/lib/cinder/volumes-backups"
+      },
+      "iscsi": {
+        "is_active": true,
+        "iscsi_protocol": "auto",
+        "iscsi_helper": "lioadm",
+        "iscsi_ip_address": "10.0.0.10",
+        "iscsi_port": 3260
+      },
+      "glusterfs": {
+        "is_active": false,
+        "volume_backend_name": "glusterfs_backend",
+        "volume_driver": "cinder.volume.drivers.glusterfs.GlusterfsDriver",
+        "shares": []
+      },
+      "nfs": {
+        "is_active": false,
+        "mount_options": [
+          "rw",
+          "soft",
+          "intr"
+        ],
+        "shares": []
+      },
+      "replication": {
+        "enabled": false,
+        "dr_driver": "cinder.volume.drivers.dell_emc.powermax.replication.PowerMaxReplicationDriver",
+        "dr_config": {}
+      },
+      "backup": {
+        "enabled": false,
+        "driver": "cinder.backup.drivers.ceph",
+        "ceph_conf": "/etc/ceph/ceph.conf"
+      }
+    },
+    "items": {
+      "driver": {
+        "type": "string",
+        "description": "Volume driver class path (e.g., LVM, NFS, GlusterFS, Ceph RBD)."
+      },
+      "volume_group": {
+        "type": "string",
+        "default": "cinder-volumes",
+        "description": "LVM volume group name for backstore (required for LVM driver)."
+      },
+      "is_thin_provisioning": {
+        "type": "boolean",
+        "description": "Whether to use thin provisioning for LVM volumes."
+      },
+      "max_lvm_volume_size_gb": {
+        "type": "number",
+        "default": 1024,
+        "description": "Maximum size (GB) for a single LVM volume."
+      },
+      "lvm": {
+        "type": "object",
+        "items": {
+          "is_active": {
+            "type": "boolean",
+            "description": "Enable LVM-specific options (set true if LVM driver used)."
+          },
+          "volume_scan_timeout": {
+            "type": "number",
+            "default": 60,
+            "description": "Timeout (seconds) for LVM volume scan operation."
+          },
+          "backup_dir": {
+            "type": "string",
+            "description": "Directory to store LVM metadata backups."
+          }
+        }
+      },
+      "iscsi": {
+        "type": "object",
+        "items": {
+          "is_active": {
+            "type": "boolean",
+            "description": "Enable iSCSI-specific options (set true for iSCSI backends)."
+          },
+          "iscsi_protocol": {
+            "type": "string",
+            "default": "auto",
+            "description": "iSCSI protocol version (auto, v1, v2)."
+          },
+          "iscsi_helper": {
+            "type": "string",
+            "default": "lioadm",
+            "description": "iSCSI target helper (e.g., lioadm, tgtadm, iscsitarget)."
+          },
+          "iscsi_ip_address": {
+            "type": "string",
+            "default": "10.0.0.10",
+            "description": "IP address of this host used for iSCSI target connections."
+          },
+          "iscsi_port": {
+            "type": "number",
+            "default": 3260,
+            "description": "TCP port for iSCSI target."
+          }
+        }
+      },
+      "glusterfs": {
+        "type": "object",
+        "items": {
+          "is_active": {
+            "type": "boolean",
+            "description": "Enable GlusterFS backend (set true for GlusterFS driver)."
+          },
+          "volume_backend_name": {
+            "type": "string",
+            "description": "Backend name for GlusterFS volumes (used for multi-backend)."
+          },
+          "volume_driver": {
+            "type": "string",
+            "description": "GlusterFS volume driver class."
+          },
+          "shares": {
+            "type": "list",
+            "default": [],
+            "description": "List of GlusterFS shares (host and path).",
+            "items": {
+              "type": "object",
+              "items": {
+                "host": {
+                  "type": "string",
+                  "description": "GlusterFS server hostname or IP."
+                },
+                "path": {
+                  "type": "string",
+                  "description": "GlusterFS export path (e.g., /share)."
+                }
+              }
+            }
+          }
+        }
+      },
+      "nfs": {
+        "type": "object",
+        "items": {
+          "is_active": {
+            "type": "boolean",
+            "description": "Enable NFS backend (set true for NFS driver)."
+          },
+          "mount_options": {
+            "type": "list",
+            "default": [
+              "rw",
+              "soft",
+              "intr"
+            ],
+            "description": "List of NFS mount options."
+          },
+          "shares": {
+            "type": "list",
+            "default": [],
+            "description": "List of NFS exports (host and path).",
+            "items": {
+              "type": "object",
+              "items": {
+                "host": {
+                  "type": "string",
+                  "description": "NFS server hostname or IP."
+                },
+                "path": {
+                  "type": "string",
+                  "description": "NFS export path (e.g., /exports/cinder)."
+                }
+              }
+            }
+          }
+        }
+      },
+      "replication": {
+        "type": "object",
+        "items": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable replication for high availability."
+          },
+          "dr_driver": {
+            "type": "string",
+            "description": "Disaster recovery replication driver class."
+          },
+          "dr_config": {
+            "type": "object",
+            "default": {},
+            "description": "Key-value pair configuration for DR driver (driver-specific)."
+          }
+        }
+      },
+      "backup": {
+        "type": "object",
+        "items": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable Cinder backups."
+          },
+          "driver": {
+            "type": "string",
+            "default": "cinder.backup.drivers.ceph",
+            "description": "Backup driver class (e.g., Ceph, NFS)."
+          },
+          "ceph_conf": {
+            "type": "string",
+            "default": "/etc/ceph/ceph.conf",
+            "description": "Path to Ceph configuration file (if using Ceph backup driver)."
+          }
+        }
+      }
+    }
+  },
+  "nfs_mount_point_base": {
+    "type": "string",
+    "default": "/var/lib/cinder/mnt",
+    "description": "Base directory where NFS mounts are created (for NFS driver)."
+  }
+}

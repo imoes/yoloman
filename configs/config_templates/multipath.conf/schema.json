@@ -1,0 +1,189 @@
+{
+  "defaults": {
+    "type": "object",
+    "default": {
+      "user_friendly_names": "no",
+      "path_grouping_policy": "group_by_prio",
+      "path_selector": "round-robin 0",
+      "failback": "manual",
+      "no_path_retry": "queue",
+      "rr_weight": "priorities",
+      "priority_exponent": 10,
+      "mac_prefix": "0",
+      "fast_io_fail_tmo": "off",
+      "dev_loss_tmo": "off",
+      "max_fds": "max",
+      "detect_prio": "yes",
+      "checker_timeout": "12"
+    },
+    "description": "Global defaults for multipath behavior. Adjust these only if you understand the implications."
+  },
+  "devices": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "vendor": {
+        "type": "string",
+        "default": "",
+        "description": "Vendor ID (e.g., 'NETAPP', 'IBM') \u2014 matches sysfs /sys/block/*/device/vendor"
+      },
+      "product": {
+        "type": "string",
+        "default": "",
+        "description": "Product ID (e.g., 'LUN', '1814') \u2014 matches sysfs /sys/block/*/device/model"
+      },
+      "features": {
+        "type": "string",
+        "default": "",
+        "description": "Device-mapper features string (e.g., '1 queue_if_no_path')"
+      },
+      "hwhandler": {
+        "type": "string",
+        "default": "",
+        "description": "Hardware handler (e.g., '0 alua' for ALUA devices)"
+      },
+      "pgpolicy": {
+        "type": "string",
+        "default": "",
+        "description": "Path grouping policy: 'group_by_prio', 'multibus', 'failover', etc."
+      },
+      "prio": {
+        "type": "string",
+        "default": "",
+        "description": "Path priority algorithm: 'alua', 'emc', 'hp_sw', 'const', 'random'"
+      },
+      "selector": {
+        "type": "string",
+        "default": "",
+        "description": "Path selection algorithm: 'round-robin', 'queue-depth', 'service-time'"
+      },
+      "checker": {
+        "type": "string",
+        "default": "readsector0",
+        "description": "Path checker: 'tur', 'emc_clariion', 'hp_sw', 'rdac', 'readsector0'"
+      },
+      "fast_io_fail_tmo": {
+        "type": "string",
+        "default": "off",
+        "description": "Fast I/O fail timeout in seconds ('off' disables)"
+      },
+      "dev_loss_tmo": {
+        "type": "string",
+        "default": "off",
+        "description": "Device loss timeout in seconds ('off' disables)"
+      }
+    },
+    "description": "List of device-specific rules for storage arrays that differ from global defaults. Add one entry per device type."
+  },
+  "blacklist": {
+    "type": "object",
+    "default": {
+      "wwids": [],
+      "devices": [],
+      "excludes": []
+    },
+    "description": "Devices to exclude from multipath management. Prefer explicit device matching over broad patterns.",
+    "fields": {
+      "wwids": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "List of WWIDs (World Wide Identifiers) to blacklist"
+      },
+      "devices": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "fields": {
+            "vendor": {
+              "type": "string",
+              "default": ""
+            },
+            "product": {
+              "type": "string",
+              "default": ""
+            },
+            "devnode": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        },
+        "default": [],
+        "description": "List of vendor/product or devnode patterns to blacklist"
+      },
+      "excludes": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "fields": {
+            "wwid": {
+              "type": "string",
+              "default": ""
+            },
+            "vendor": {
+              "type": "string",
+              "default": ""
+            },
+            "product": {
+              "type": "string",
+              "default": ""
+            },
+            "devnode": {
+              "type": "string",
+              "default": ""
+            },
+            "adapter": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        },
+        "default": [],
+        "description": "Additional blacklist entries (mixed criteria). Use sparingly."
+      }
+    }
+  },
+  "blacklist_exceptions": {
+    "type": "object",
+    "default": {
+      "wwids": [],
+      "devices": []
+    },
+    "description": "Devices to explicitly include despite matching a blacklist rule. Useful for mixed environments.",
+    "fields": {
+      "wwids": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "List of WWIDs to un-blacklist"
+      },
+      "devices": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "fields": {
+            "vendor": {
+              "type": "string",
+              "default": ""
+            },
+            "product": {
+              "type": "string",
+              "default": ""
+            },
+            "devnode": {
+              "type": "string",
+              "default": ""
+            }
+          }
+        },
+        "default": [],
+        "description": "Vendor/product or devnode exceptions to blacklist patterns"
+      }
+    }
+  }
+}

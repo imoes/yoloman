@@ -1,0 +1,41 @@
+# -----------------------------------------------------------------------------
+# Heimdal KDC Service Configuration Template
+#
+# This template generates the systemd service drop-in or environment configuration
+# for the Heimdal Key Distribution Center (KDC). It controls the lifecycle of
+# three potential daemons:
+# 1. KDC (Kerberos Key Distribution Center)
+# 2. kpasswdd (Password Change Daemon)
+# 3. kprop (KDC Replication Slave/Master)
+#
+# All variables are sourced from the Ansible role variables. Defaults are applied
+# inline to ensure the template is self-contained and safe to reuse.
+# -----------------------------------------------------------------------------
+
+# kdc_enabled: Whether to start the Heimdal KDC daemon.
+# Default: True
+KDC_ENABLED={{ kdc_enabled | default(true) }}
+
+# kdc_config_file: Path to the KDC configuration file.
+# Default: '/etc/heimdal-kdc/kdc.conf'
+KDC_PARAMS="--config-file={{ kdc_config_file | default('/etc/heimdal-kdc/kdc.conf') }}"
+
+# kpasswdd_enabled: Whether to start the Heimdal kpasswdd (password change) daemon.
+# Default: True
+KPASSWDD_ENABLED={{ kpasswdd_enabled | default(true) }}
+
+# kpasswdd_params: Additional command-line parameters for kpasswdd.
+# Default: ''
+KPASSWDD_PARAMS="{{ kpasswdd_params | default('') }}"
+
+# master_enabled: Whether this host is the KDC master (used for iprop replication).
+# Default: False
+MASTER_ENABLED={{ master_enabled | default(false) }}
+
+# slave_enabled: Whether this host is a KDC slave (for iprop replication).
+# Default: False
+SLAVE_ENABLED={{ slave_enabled | default(false) }}
+
+# slave_params: Additional parameters for the KDC slave (e.g., master hostname for iprop).
+# Default: ''
+SLAVE_PARAMS="{{ slave_params | default('') }}"

@@ -1,0 +1,112 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 7624,
+      "version": "1.9",
+      "webcontrol": false,
+      "webcontrol_port": 8624
+    },
+    "description": "INDI server network and protocol settings",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Hostname or IP address the INDI server listens on"
+      },
+      "port": {
+        "type": "number",
+        "default": 7624,
+        "description": "TCP port for INDI client connections"
+      },
+      "version": {
+        "type": "string",
+        "default": "1.9",
+        "description": "INDI protocol version to advertise"
+      },
+      "webcontrol": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable built-in web control interface"
+      },
+      "webcontrol_port": {
+        "type": "number",
+        "default": 8624,
+        "description": "TCP port for web control interface (used only if webcontrol is true)"
+      }
+    }
+  },
+  "drivers": {
+    "type": "object",
+    "default": {
+      "default_log_level": "LOG_NORMAL",
+      "default_timeout": 3,
+      "enabled": []
+    },
+    "description": "Driver configuration: global defaults and list of active drivers",
+    "properties": {
+      "default_log_level": {
+        "type": "string",
+        "default": "LOG_NORMAL",
+        "description": "Default logging verbosity level (LOG_DEBUG, LOG_INFO, LOG_NORMAL, LOG_ERROR)"
+      },
+      "default_timeout": {
+        "type": "number",
+        "default": 3,
+        "description": "Default timeout in seconds for device communication"
+      },
+      "enabled": {
+        "type": "list",
+        "default": [],
+        "description": "List of INDI drivers to load and enable at startup",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Driver executable name (e.g., 'indi_simulator_telescope')"
+            },
+            "log_level": {
+              "type": "string",
+              "enum": [
+                "LOG_DEBUG",
+                "LOG_INFO",
+                "LOG_NORMAL",
+                "LOG_ERROR"
+              ],
+              "description": "Per-driver override of log verbosity (optional)"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Per-driver override of communication timeout (optional)"
+            },
+            "options": {
+              "type": "object",
+              "default": {},
+              "description": "Driver-specific key-value options (e.g., device paths, simulation flags)"
+            }
+          },
+          "required": [
+            "name"
+          ]
+        }
+      }
+    }
+  },
+  "groups": {
+    "type": "object",
+    "default": {
+      "default_group": "Default"
+    },
+    "description": "Device group configuration",
+    "properties": {
+      "default_group": {
+        "type": "string",
+        "default": "Default",
+        "description": "Name of the default device group for devices that don\u2019t explicitly belong to another group"
+      }
+    }
+  }
+}

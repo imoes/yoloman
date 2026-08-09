@@ -1,0 +1,107 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          portsentry
+# Required-Start:    $remote_fs $syslog $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: # start and stop portsentry
+### END INIT INFO
+#
+# $Id: init.d,v 1.7 2002/01/05 14:52:14 agx Exp $
+
+. /lib/lsb/init-functions
+
+PATH=/bin:/usr/bin:/sbin:/usr/sbin
+DAEMON=/usr/sbin/portsentry
+CONFIG=/etc/default/portsentry
+BUILDSCRIPT=/usr/lib/portsentry/portsentry-build-ignore-file
+
+test -f $DAEMON || exit 0
+test -f $CONFIG || exit 0
+test -f $BUILDSCRIPT || exit 0
+
+# source the config file
+. $CONFIG
+
+startup () {
+
+if [ \\( ! "$TCP_MODE" \\) -a \\( ! "$UDP_MODE" \\) ]; then
+echo "Not starting anti portscan daemon (no modes in $CONFIG)."
+	exit 0
+fi
+
+echo -n "Starting anti portscan daemon: "
+# populate portsentry.ignore first
+$BUILDSCRIPT
+
+case "$TCP_MODE" in
+	"tcp"|"stcp"|"atcp")
+# Make sure we're not already listening for tcp scans
+		if ! ps awx | grep -q "$DAEMON -[as]*tcp" 
+		then
+			$DAEMON -$TCP_MODE
+			echo -n "portsentry in $TCP_MODE"
+		else
+			TCP_MODE=""
+		fi
+	;;
+# do nothing if TCP_MODE is not set
+	"")	
+	;;
+	*)
+	echo "$TCP_MODE is not a valid mode."
+        exit 1;
+	;;
+esac
+
+case "$UDP_MODE" in
+	"udp"|"sudp"|"audp")
+		if ! ps awx | grep -q "$DAEMON -[as]*udp" 
+		then
+			$DAEMON -$UDP_MODE
+			if [ "$TCP_MODE" ]; then
+				echo -n " &"
+			else
+				echo -n "portsentry in"
+			fi
+			echo -n " $UDP_MODE"
+		else
+			UDP_MODE=""
+		fi
+	;;
+# do nothing if UDP_MODE is not set
+	"")
+	;;
+	*)
+	echo "$UDP_MODE is not a valid mode."
+	exit 1;
+	;;
+esac
+if [ "$TCP_MODE" -o "$UDP_MODE" ]; then
+	echo " mode."
+fi
+}
+
+case "$1" in
+  start)
+    startup
+    ;;
+  stop)
+    echo -n "Stopping anti portscan daemon: portsentry"
+    start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+    echo "."
+    ;;
+  restart|force-reload)
+    echo -n "Stopping anti portscan daemon: portsentry"
+    start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+    echo "."
+    startup 
+    ;;
+  *)
+    echo "Usage: /etc/init.d/portsentry {start|stop|restart|force-reload}"
+    exit 1
+    ;;
+esac
+
+exit 0

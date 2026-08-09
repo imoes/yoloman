@@ -1,0 +1,84 @@
+# ==============================================================================
+# gpg-wks-server Configuration Template
+# ==============================================================================
+# This template configures the GnuPG Web Key Service (WKS) server.
+# The WKS server allows users to publish their public keys to a well-known
+# HTTP location, facilitating OpenPGP key discovery for email encryption.
+#
+# Self-documenting: Every configuration directive is preceded by a comment
+# explaining its purpose and source in the gpg-wks-server(1) man page.
+# All variables use `default()` filters to ensure safe rendering even if
+# an upstream role omits a value.
+# ==============================================================================
+
+{#
+  Top-level directory for WKS domains.
+  Specifies where the server stores domain-specific configuration and state.
+  Default: /var/lib/gnupg/wks
+  Reference: gpg-wks-server(1) OPTIONS --directory
+#}
+--directory {{ directory | default('/var/lib/gnupg/wks') }}
+
+{#
+  Default sender address for all outgoing WKS service mails.
+  Used as the From: address when the server notifies users or sends
+  confirmation emails regarding key uploads.
+  Reference: gpg-wks-server(1) OPTIONS --from
+#}
+--from {{ from | default('') }}
+
+{#
+  Custom mail headers.
+  Adds custom headers to all outgoing WKS service emails.
+  Each item in the list must define a 'name' and a 'value'.
+  Reference: gpg-wks-server(1) OPTIONS --header
+#}
+{% if headers is defined and headers | length > 0 %}
+{% for header in headers | default([]) %}
+--header {{ header.name }}={{ header.value }}
+{% endfor %}
+{% endif %}
+
+{#
+  Domain-specific configuration.
+  Defines domains handled by the WKS server and their submission addresses.
+  The submission address is where users send their signed keys.
+#}
+{% if domains is defined and domains | length > 0 %}
+{% for domain in domains | default([]) %}
+
+{#
+  Domain entry: {{ domain.name }}
+  Configures the specific domain handled by this section.
+#}
+{% if domain.name is defined %}
+{#
+  Domain name.
+  The domain name being configured for WKS service.
+#}
+domain: {{ domain.name }}
+{% endif %}
+{% if domain.submission_address is defined %}
+{#
+  Submission address for {{ domain.name }}.
+  The mail address to which users send their keys for publication.
+  Format: domain/submission-address: <email>
+  If not defined, the domain configuration is incomplete.
+#}
+submission-address: {{ domain.submission_address }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{#
+  Example Procmail recipe.
+  Optional documentation-only field. Provides a sample procmail rule
+  to redirect mail sent to submission addresses into the WKS server
+  process. This is NOT active config for the server itself, but
+  helpful for administrators setting up mail routing.
+  Reference: gpg-wks-server(1) OPTIONS --procmail-recipe
+#}
+{% if procmail_recipe is defined and procmail_recipe | length > 0 %}
+# Example procmail recipe for redirecting submission addresses to gpg-wks-server
+{{ procmail_recipe | indent(width=0) }}
+{% endif %}

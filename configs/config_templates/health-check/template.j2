@@ -1,0 +1,64 @@
+{# ============================================================================ #}
+{# health-check Configuration Template                                          #}
+{# This template generates a systemd unit snippet or configuration file for the #}
+{# `health-check` utility (by Michael Kerrisk). It monitors system calls for     #}
+{# specified processes and logs analysis data.                                   #}
+{#                                                                               #}
+{# Self-Documenting: Every configuration directive is preceded by a comment      #}
+{# derived from the Ansible schema description, explaining its purpose and       #}
+{# constraints.                                                                  #}
+{# ============================================================================ #}
+
+{% if (service | default({})).enabled | default(true) %}
+[Service]
+# Whether the health-check service is enabled. Controls inclusion of [Service] section and ExecStart.
+# If disabled, no service configuration is emitted.
+Type=oneshot
+{% endif %}
+
+# Command line arguments for health-check
+{% if (service | default({})).enabled | default(true) %}
+ExecStart=/usr/bin/health-check \
+{% endif %}
+{# List of process IDs or process names to monitor. May be empty if monitoring by other means (e.g., user mode). Cannot be used with options.us [sic - likely 'user' or similar conflict, check man page]. #}
+  {% if (options | default({})).pid | default([]) | length > 0 %}-p {{ (options | default({})).pid | default([]) | join(',') }} \
+{% else %}# -p PID or process name (not set)
+{% endif %}
+{# Analysis duration in seconds. A value of 0 runs indefinitely until monitored process exits. #}
+  -d {{ (options | default({})).duration | default(60) }} \
+{# Maximum number of timeout-blocking system calls logged before completing. Prevents overwhelming logging for very busy processes. #}
+  -m {{ (options | default({})).max_timeouts | default(1000000) }} \
+{# Path to output JSON formatted log file. If empty, no log file is written. #}
+  {% if (options | default({})).logfile | default('') | length > 0 %}-o {{ (options | default({})).logfile | default('') }} \
+{% else %}# -o output JSON log file (not set)
+{% endif %}
+{# User to run health-check as. Cannot be used with -p. If empty, runs as root (default). #}
+  {% if (options | default({})).username | default('') | length > 0 %}-u {{ (options | default({})).username | default('') }} \
+{% else %}# -u username (not set, root by default)
+{% endif %}
+{# Follow fork, vfork, and clone system calls to track new child processes. #}
+  {% if (options | default({})).follow_forks | default(false) %}-f \
+{% else %}# -f follow forks (not enabled)
+{% endif %}
+{# Resolve IP addresses (slow, opt-in). #}
+  {% if (options | default({})).resolve_ips | default(false) %}-r \
+{% else %}# -r resolve IPs (not enabled)
+{% endif %}
+{# Enable deep wakelock monitoring using system call inspection (uses more CPU). Incompatible with brief mode. #}
+  {% if (options | default({})).wakelock_deep | default(false) %}-W \
+{% elif (options | default({})).wakelock_light | default(false) %}-w \
+{% else %}# -W/-w wakelock monitoring (not enabled)
+{% endif %}
+{# Enable verbose mode (currently only for -W). Incompatible with -b. #}
+  {% if (options | default({})).verbose | default(false) %}-v \
+{% else %}# -v verbose mode (not enabled)
+{% endif %}
+{# Brief (terse) output. Incompatible with -v. #}
+  {% if (options | default({})).brief | default(false) %}-b \
+{% else %}# -b brief output (not enabled)
+{% endif %}
+{# Find and monitor all child processes and threads (useful with -p to attach to running processes). #}
+  {% if (options | default({})).monitor_children | default(false) %}-c \
+{% else %}# -c monitor children (not enabled)
+{% endif %}
+  # end of health-check options

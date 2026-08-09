@@ -1,0 +1,68 @@
+name: template
+fqcn: builtin.template
+collection: builtin
+short_description: Render {{ variable }} placeholders in template text against a `vars`
+  map and write the result to `dest` — the same {{ }} placeholder convention this
+  agent's own tools.d task definitions use, kept cons
+description: 'Render {{ variable }} placeholders in template text against a `vars`
+  map and write the result to `dest` — the same {{ }} placeholder convention this
+  agent''s own tools.d task definitions use, kept consistent rather than introducing
+  a second templating syntax. This is a deliberately reduced subset of Jinja2: plain
+  variable substitution only — no filters, conditionals, loops, or macros. Provide
+  `content` (the template text inline) or `src` (a path to an existing template file
+  already on this host — there is no separate control-node filesystem in this agent''s
+  single-host model, unlike a real Ansible control node). Idempotent — compares the
+  rendered output against dest''s current bytes and only writes when they differ.
+  Supports check_mode via dry_run=true. Every placeholder referenced in the template
+  must have a corresponding entry in `vars`, or the call fails with an error naming
+  the missing variable — silently rendering a blank would be worse than refusing.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.template. Ansible''s template engine is full Jinja2 (filters,
+  conditionals, loops, macros); this module supports only {{ variable }} substitution
+  — treat it as covering the common case, not a full replacement for complex Jinja2
+  templates.
+
+  - Chef: ERB templates via the `template` resource (`erb` — a different, more powerful,
+  Ruby-based syntax).
+
+  - Puppet: ERB or EPP templates via the `template()`/`epp()` functions inside a `file`
+  resource''s `content`.
+
+  - Salt: Jinja2 templates via the `file.managed` state''s `template: jinja` option
+  — much closer to Ansible''s own templating than this module''s reduced subset.
+
+  - Terraform: the `templatefile()` function or a `local_file`/`template_file` resource,
+  using Terraform''s own `${}` interpolation syntax.'
+options:
+  content:
+    type: string
+    description: Literal template text, containing {{ variable }} placeholders. Mutually
+      exclusive with src.
+  dest:
+    type: string
+    description: Destination path to write the rendered content, e.g. "/etc/nginx/conf.d/app.conf".
+    required: true
+  group:
+    type: string
+    description: Optional desired group (group name or numeric gid).
+  mode:
+    type: string
+    description: Optional desired permission mode as an octal string, e.g. "0644".
+  owner:
+    type: string
+    description: Optional desired owner (username or numeric uid).
+  src:
+    type: string
+    description: Path to an existing template file on this host, containing {{ variable
+      }} placeholders. Mutually exclusive with content.
+  vars:
+    type: object
+    description: Values to substitute for each {{ name }} placeholder found in the
+      template.
+native: true
+writes: true
+runtime: native
+source: agent-registry

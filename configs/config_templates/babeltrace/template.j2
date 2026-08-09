@@ -1,0 +1,117 @@
+{# Babeltrace CLI invocation template #}
+{# Generates a command line for the `babeltrace` trace viewer/converter #}
+{# based on the provided schema fields. #}
+
+{# Command prefix #}
+babeltrace
+
+{# Inputs: Input trace file or directory paths (positional arguments) #}
+{# These are positional arguments at the start of the command. #}
+{# Iterates over the list of input paths. #}
+{% for input in inputs | default([], true) %}
+{{ input }}{% if not loop.last %} {% endif %}
+{% endfor %}
+
+{# Output trace path (default: stdout) #}
+{# Specifies the output file path using the -w flag. #}
+{% if output_path is defined and output_path | default('', true) | length > 0 %}
+-w {{ output_path | default('', true) }}
+{% endif %}
+
+{# Input trace format (currently only 'ctf' is supported) #}
+{# Specifies the input format using the -i flag. Defaults to 'ctf', so we only emit if different. #}
+{% if input_format is defined and input_format | default('ctf', true) != 'ctf' %}
+-i {{ input_format | default('ctf', true) }}
+{% endif %}
+
+{# Output trace format (e.g., 'text', 'ctf') #}
+{# Specifies the output format using the -o flag. Defaults to 'text', so we only emit if different. #}
+{% if output_format is defined and output_format | default('text', true) != 'text' %}
+-o {{ output_format | default('text', true) }}
+{% endif %}
+
+{# Activate verbose mode (overrides BABELTRACE_VERBOSE env) #}
+{# Enables verbose output with the -v flag. #}
+{% if verbose is defined and verbose | default(False, true) %}
+-v
+{% endif %}
+
+{# Activate debug mode (overrides BABELTRACE_DEBUG env) #}
+{# Enables debug output with the -d flag. #}
+{% if debug is defined and debug | default(False, true) %}
+-d
+{% endif %}
+
+{# Do not print time delta between consecutive events #}
+{# Suppresses time delta printing with the --no-delta flag. #}
+{% if no_delta is defined and no_delta | default(False, true) %}
+--no-delta
+{% endif %}
+
+{# Field names to print: options include 'payload', 'args', 'arg', 'none', 'all', 'scope', 'header', 'context', 'ctx' #}
+{# Specifies which field names to include in the output using the -n flag. #}
+{# Defaults to ['payload', 'context']. #}
+{% if names is defined and names | default(['payload', 'context'], true) | length > 0 %}
+-n {{ names | default(['payload', 'context'], true) | join(',') }}
+{% endif %}
+
+{# Additional fields to print: options include 'all', 'trace', 'trace:hostname', 'trace:domain', 'trace:procname', 'trace:vpid', 'loglevel' #}
+{# Specifies additional fields to include in the output using the -f flag. #}
+{% if fields is defined and fields | default([], true) | length > 0 %}
+-f {{ fields | default([], true) | join(',') }}
+{% endif %}
+
+{# Disregard internal clock offset (use raw value) #}
+{# Uses raw clock values with the --clock-cycles flag. #}
+{% if clock_cycles is defined and clock_cycles | default(False, true) %}
+--clock-cycles
+{% endif %}
+
+{# Clock offset in seconds #}
+{# Applies a clock offset in seconds using the --clock-offset flag. #}
+{% if clock_offset is defined %}
+--clock-offset {{ clock_offset | default(0, true) }}
+{% endif %}
+
+{# Print timestamps as [sec.ns] #}
+{# Formats timestamps as seconds.nanoseconds using the --clock-seconds flag. #}
+{% if clock_seconds is defined and clock_seconds | default(False, true) %}
+--clock-seconds
+{% endif %}
+
+{# Print clock date #}
+{# Includes the date in the timestamp using the --clock-date flag. #}
+{% if clock_date is defined and clock_date | default(False, true) %}
+--clock-date
+{% endif %}
+
+{# Print clock in GMT timezone (default: local) #}
+{# Forces GMT timezone for timestamps using the --clock-gmt flag. #}
+{% if clock_gmt is defined and clock_gmt | default(False, true) %}
+--clock-gmt
+{% endif %}
+
+{# Only print events when all streams are active #}
+{# Filters output to only show events present in all streams using the --stream-intersection flag. #}
+{% if stream_intersection is defined and stream_intersection | default(False, true) %}
+--stream-intersection
+{% endif %}
+
+{# Directory to look for debug info files #}
+{# Specifies the directory for debug symbols using the --debug-info-dir flag. #}
+{# Defaults to '/usr/lib/debug/', so we only emit if different. #}
+{% if debug_info_dir is defined and debug_info_dir | default('/usr/lib/debug/', true) != '/usr/lib/debug/' %}
+--debug-info-dir {{ debug_info_dir | default('/usr/lib/debug/', true) }}
+{% endif %}
+
+{# Directory prefix for executable lookup #}
+{# Specifies a prefix for looking up executables in debug info using the --debug-info-target-prefix flag. #}
+{% if debug_info_target_prefix is defined and debug_info_target_prefix | default('', true) | length > 0 %}
+--debug-info-target-prefix {{ debug_info_target_prefix | default('', true) }}
+{% endif %}
+
+{# Show full debug info source and binary paths #}
+{# Displays full paths for debug info sources and binaries using the --debug-info-full-path flag. #}
+{% if debug_info_full_path is defined and debug_info_full_path | default(False, true) %}
+--debug-info-full-path
+{% endif %}

@@ -1,0 +1,120 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (use only for troubleshooting)."
+  },
+  "sqlite_db_path": {
+    "type": "string",
+    "default": "/var/lib/osmocom/hlr.db",
+    "description": "Path to the SQLite database file storing subscriber and location data."
+  },
+  "msc_listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which the HLR listens for MSC connections (A-bis interface)."
+  },
+  "msc_listen_port": {
+    "type": "number",
+    "default": 4222,
+    "description": "TCP port for MSC connections."
+  },
+  "auth_policy": {
+    "type": "string",
+    "default": "comp128v1",
+    "description": "Authentication algorithm used for SIM/USIM verification. Choose from: comp128v1 (default), comp128v2, comp128v3, or none."
+  },
+  "apn": {
+    "type": "string",
+    "default": "internet",
+    "description": "Default APN used for subscriber lookups in GPRS/IMS contexts."
+  },
+  "max_msc_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous connections allowed to the HLR from MSCs."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for MSC connections (requires valid certificate and key)."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/osmocom/tls/hlr.crt",
+    "description": "Path to TLS certificate file (PEM format). Only used if TLS is enabled."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/osmocom/tls/hlr.key",
+    "description": "Path to TLS private key file (PEM format). Only used if TLS is enabled."
+  },
+  "log_levels": {
+    "type": "object",
+    "default": {
+      "DHLR": "debug",
+      "DIUC": "info",
+      "DMNCC": "info",
+      "DSP": "info"
+    },
+    "description": "Per-subsystem logging levels (e.g., DHLR, DIUC, DMNCC, DSP). Use: 'none', 'error', 'notice', 'info', 'debug'.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "none",
+        "error",
+        "notice",
+        "info",
+        "debug"
+      ],
+      "description": "Logging level for the subsystem."
+    }
+  },
+  "gprs_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable GPRS/SGSN support (required for 4G/IMS integration)."
+  },
+  "sgsn_ggsn_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the GGSN used for APN resolution (e.g., in S4/IMS scenarios)."
+  },
+  "sgsn_apn": {
+    "type": "string",
+    "default": "ims",
+    "description": "APN used for GPRS context setup (e.g., for IMS or data services)."
+  },
+  "gsup_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of GSUP peer HLRs for inter-HLR communication (e.g., roaming).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "peer1",
+        "description": "Friendly name for the GSUP peer."
+      },
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address or hostname of the GSUP peer."
+      },
+      "port": {
+        "type": "number",
+        "default": 4224,
+        "description": "GSUP server port (standard port: 4224)."
+      }
+    }
+  },
+  "cli_telnet_port": {
+    "type": "number",
+    "default": 4242,
+    "description": "Port for CLI access via Telnet (local management only)."
+  },
+  "cli_telnet_password": {
+    "type": "string",
+    "default": "",
+    "description": "Optional password for CLI access via Telnet. Leave empty for no password (not recommended in production)."
+  }
+}

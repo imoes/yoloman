@@ -1,0 +1,69 @@
+{
+  "amqp_host": "rabbitmq.internal",
+  "amqp_port": 5672,
+  "amqp_vhost": "/",
+  "amqp_user": "app_user",
+  "amqp_password": "s3cur3p@ss",
+  "amqp_use_tls": false,
+  "amqp_ca_cert_path": "",
+  "amqp_client_cert_path": "",
+  "amqp_client_key_path": "",
+  "amqp_protocol_version": "",
+  "amqp_connection_timeout": 30,
+  "amqp_retry_max": 5,
+  "amqp_retry_delay": 2,
+  "default_exchange": "amq.topic",
+  "default_routing_key": "",
+  "default_message_ttl": 86400000,
+  "queues": [
+    {
+      "name": "jobs.pending",
+      "durable": true,
+      "auto_delete": false,
+      "exclusive": false,
+      "arguments": {
+        "x-message-ttl": 3600000,
+        "x-dead-letter-exchange": "dlx"
+      }
+    },
+    {
+      "name": "jobs.dead",
+      "durable": true,
+      "auto_delete": false,
+      "exclusive": false,
+      "arguments": {}
+    }
+  ],
+  "exchanges": [
+    {
+      "name": "amq.topic",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "dlx",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "id": "jobs-pending-to-topic",
+      "source_exchange": "amq.topic",
+      "target_queue": "jobs.pending",
+      "routing_key": "jobs.#"
+    },
+    {
+      "id": "jobs-pending-to-dlx",
+      "source_exchange": "amq.topic",
+      "target_queue": "jobs.dead",
+      "routing_key": "jobs.dlq.*"
+    }
+  ]
+}

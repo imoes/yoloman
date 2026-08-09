@@ -1,0 +1,80 @@
+# =============================================================================
+# fence_ilo2 Configuration Template
+# =============================================================================
+# Self-documenting Jinja2 template for generating fence_ilo2 configuration.
+# This file is parsed by the fence_ilo2 agent (part of pcs/cluster suite)
+# to manage out-of-band hardware via HP iLO2 interfaces.
+#
+# All variables use schema defaults to ensure safe rendering even if omitted.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# [Global] IP address or hostname of the iLO2 management interface.
+# Schema: hostname (string, default: 'ilo2.example.com')
+# -----------------------------------------------------------------------------
+hostname = {{ hostname | default('ilo2.example.com') }}
+
+# -----------------------------------------------------------------------------
+# [Global] iLO2 username with sufficient privileges.
+# Schema: login (string, default: 'Administrator')
+# -----------------------------------------------------------------------------
+login = {{ login | default('Administrator') }}
+
+# -----------------------------------------------------------------------------
+# [Global] iLO2 password for the login user.
+# NOTE: In production, this should be empty ('') and passed via environment
+# variables or external secret stores (e.g., HashiCorp Vault, Ansible vault).
+# Schema: password (string, default: '')
+# -----------------------------------------------------------------------------
+password = {{ password | default('') }}
+
+# -----------------------------------------------------------------------------
+# [Global] TCP port for the iLO2 HTTPS service.
+# Schema: port (integer, default: 443)
+# -----------------------------------------------------------------------------
+port = {{ port | default(443) }}
+
+# -----------------------------------------------------------------------------
+# [Global] SSL/TLS mode.
+#   0 = Disabled (not recommended)
+#   1 = Enabled (default, no certificate verification)
+#   2 = Verify certificate (strict)
+# Schema: ssl (integer, default: 1)
+# -----------------------------------------------------------------------------
+ssl = {{ ssl | default(1) }}
+
+# -----------------------------------------------------------------------------
+# [Global] Maximum seconds to wait for iLO2 login connection to complete.
+# Schema: login_timeout (integer, default: 10)
+# -----------------------------------------------------------------------------
+login_timeout = {{ login_timeout | default(10) }}
+
+# -----------------------------------------------------------------------------
+# [Global] Maximum seconds to wait for a fencing command (off/on/reboot).
+# Schema: command_timeout (integer, default: 30)
+# -----------------------------------------------------------------------------
+command_timeout = {{ command_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# [Global] Seconds to wait between power state changes before retrying.
+# Helps avoid race conditions with iLO2 power management cycles.
+# Schema: power_wait (integer, default: 5)
+# -----------------------------------------------------------------------------
+power_wait = {{ power_wait | default(5) }}
+
+# -----------------------------------------------------------------------------
+# [Global] Additional iLO2 devices for multi-node clusters.
+# Each entry defines a separate fenced target.
+# Schema: devices (list of objects, default: [])
+# -----------------------------------------------------------------------------
+{% for device in devices | default([]) %}
+# -----------------------------------------------------------------------------
+# [Device] Configuration for iLO2 device: {{ device.name | default('unnamed') }}
+# Fields: hostname, login, password
+# -----------------------------------------------------------------------------
+device {{ device.name | default('unnamed') }} {
+  hostname = {{ device.hostname | default('') }}
+  login    = {{ device.login | default('Administrator') }}
+  password = {{ device.password | default('') }}
+}
+{% endfor %}

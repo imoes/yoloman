@@ -1,0 +1,90 @@
+# ==============================================================================
+# globus-gram-job-manager-pbs Configuration
+# ==============================================================================
+# This configuration file controls the behavior of the Globus GRAM PBS LRM
+# (Load Resource Manager) interface. It defines paths to PBS tools, MPI
+# execution commands, cluster distribution settings, and logging locations.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# log_path: Path to the directory containing PBS log files.
+# The SEG module parses log messages from this directory to determine job status.
+# Default: /var/spool/torque
+# -----------------------------------------------------------------------------
+log_path="{{ log_path | default('/var/spool/torque') }}"
+
+# -----------------------------------------------------------------------------
+# pbs_default: Hostname or FQDN of the PBS server.
+# If the PBS server runs on a different node than GRAM, set this to the
+# server's hostname. Leave empty if GRAM and PBS reside on the same node.
+# Default: (empty)
+# -----------------------------------------------------------------------------
+pbs_default="{{ pbs_default | default('') }}"
+
+# -----------------------------------------------------------------------------
+# mpiexec: Path to the mpiexec executable.
+# Used to start MPI job processes. Preferred over mpirun if both are defined.
+# Set to "no" to disable MPI execution via mpiexec.
+# Default: no
+# -----------------------------------------------------------------------------
+mpiexec={{ mpiexec | default('no') }}
+
+# -----------------------------------------------------------------------------
+# mpirun: Path to the mpirun executable.
+# Used as a fallback if mpiexec is disabled or not found. Set to "no" to disable.
+# Default: no
+# -----------------------------------------------------------------------------
+mpirun={{ mpirun | default('no') }}
+
+# -----------------------------------------------------------------------------
+# qsub: Path to the qsub command.
+# Required for the PBS LRM to submit jobs to the scheduler.
+# Default: /usr/bin/qsub
+# -----------------------------------------------------------------------------
+qsub="{{ qsub | default('/usr/bin/qsub') }}"
+
+# -----------------------------------------------------------------------------
+# qstat: Path to the qstat command.
+# Required to query job status and determine completion.
+# Default: /usr/bin/qstat
+# -----------------------------------------------------------------------------
+qstat="{{ qstat | default('/usr/bin/qstat') }}"
+
+# -----------------------------------------------------------------------------
+# qdel: Path to the qdel command.
+# Required to cancel PBS jobs.
+# Default: /usr/bin/qdel
+# -----------------------------------------------------------------------------
+qdel="{{ qdel | default('/usr/bin/qdel') }}"
+
+# -----------------------------------------------------------------------------
+# cluster: Enable cluster mode (PBS_NODEFILE-based job distribution).
+# If set to 1, the LRM submits scripts using the remote_shell to distribute
+# jobs across nodes listed in the PBS_NODEFILE.
+# Default: 1
+# -----------------------------------------------------------------------------
+cluster={{ cluster | default('1') }}
+
+# -----------------------------------------------------------------------------
+# remote_shell: Path to the remote shell executable for cluster mode.
+# Used by the LRM to start jobs on remote nodes defined in the nodefile.
+# Set to "no" to disable remote shell usage.
+# Default: no
+# -----------------------------------------------------------------------------
+remote_shell={{ remote_shell | default('no') }}
+
+# -----------------------------------------------------------------------------
+# cpu_per_node: Number of CPUs per node for process distribution.
+# Used in cluster mode to calculate how many processes to start on each node
+# (job_count / cpu_per_node).
+# Default: 1
+# -----------------------------------------------------------------------------
+cpu_per_node={{ cpu_per_node | default('1') }}
+
+# -----------------------------------------------------------------------------
+# softenv_dir: Path to the softenv directory.
+# Enables environment setup for jobs via the softenv RSL attribute.
+# Set to empty string to disable softenv support.
+# Default: (empty)
+# -----------------------------------------------------------------------------
+softenv_dir="{{ softenv_dir | default('') }}"

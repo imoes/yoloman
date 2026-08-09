@@ -1,0 +1,319 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory to store agent log files."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "neutron-ovn-agent.log",
+    "description": "Name of the agent log file."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable verbose logging output (INFO level)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging (detailed trace output)."
+  },
+  "ovs_bridge": {
+    "type": "string",
+    "default": "br-int",
+    "description": "Name of the Open vSwitch integration bridge used for VM traffic."
+  },
+  "integration_bridge": {
+    "type": "string",
+    "default": "br-int",
+    "description": "Integration bridge for local VM-to-VM and VM-to-gateway traffic."
+  },
+  "enable_tunneling": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable overlay network tunneling (e.g., Geneve, VXLAN)."
+  },
+  "tunnel_type": {
+    "type": "string",
+    "default": "geneve",
+    "description": "Tunnel type to use (geneve, vxlan, or gre)."
+  },
+  "local_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Local IP address on the hypervisor used as tunnel endpoint (required if tunneling enabled)."
+  },
+  "vtep_udp_checksum": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable UDP checksum for VXLAN traffic (improves reliability, may impact performance)."
+  },
+  "vtep_flow_offload": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hardware offload for VXLAN flow processing (if supported)."
+  },
+  "tunnel_mtu": {
+    "type": "number",
+    "default": 1450,
+    "description": "Maximum transmission unit (MTU) for tunnel interfaces. Lower than physical interface MTU to avoid fragmentation."
+  },
+  "ovn_nb_db": {
+    "type": "string",
+    "default": "tcp:127.0.0.1:6641",
+    "description": "OVN Northbound database connection string(s) (comma-separated for HA)."
+  },
+  "ovn_sb_db": {
+    "type": "string",
+    "default": "tcp:127.0.0.1:6642",
+    "description": "OVN Southbound database connection string(s) (comma-separated for HA)."
+  },
+  "ovn_nb_db_timeout": {
+    "type": "number",
+    "default": 180,
+    "description": "Timeout (seconds) for Northbound OVSDB connections."
+  },
+  "ovn_sb_db_timeout": {
+    "type": "number",
+    "default": 180,
+    "description": "Timeout (seconds) for Southbound OVSDB connections."
+  },
+  "enable_chassis_as_edge": {
+    "type": "bool",
+    "default": false,
+    "description": "Treat each chassis (compute node) as a distributed edge router."
+  },
+  "enable_distributed_floating_ip": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable distributed routing for floating IPs (requires L3 agent disabled)."
+  },
+  "enable_ha_for_floating_ips": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable high availability (HA) for floating IPs (requires distributed routing)."
+  },
+  "enable_snat": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SNAT (source NAT) on chassis for external network traffic."
+  },
+  "snat_gateway_port": {
+    "type": "string",
+    "default": "",
+    "description": "Gateway port name or UUID used for SNAT (optional; auto-selected if not set)."
+  },
+  "enable_fip_nat": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NAT rules for floating IPs (required unless using distributed SNAT)."
+  },
+  "max_l3_router_ports": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of L3 router ports (interfaces) per chassis."
+  },
+  "max_floating_ips_per_router": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of floating IPs per router."
+  },
+  "enable_metadata": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable metadata service proxy (requires Neutron metadata agent disabled)."
+  },
+  "tenant_network_type": {
+    "type": "string",
+    "default": "geneve",
+    "description": "Tenant network type (geneve, vxlan, vlan, flat) used for metadata traffic."
+  },
+  "metadata_proxy_secret": {
+    "type": "string",
+    "default": "",
+    "description": "Shared secret between Neutron server and agents for metadata proxy authentication."
+  },
+  "metadata_network": {
+    "type": "string",
+    "default": "metadata",
+    "description": "Name or ID of the metadata network used by the agent."
+  },
+  "ovn_l3_scheduler": {
+    "type": "string",
+    "default": "leastloaded",
+    "description": "L3 scheduler algorithm (leastloaded, mostloaded, random) to assign routers to chassis."
+  },
+  "enable_qos_ext_driver": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable QoS (Quality of Service) extension driver for rate limiting and bandwidth allocation."
+  },
+  "enable_sg_ext_driver": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable security group extension driver for firewall rules."
+  },
+  "audit_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OVN audit logging (records all DB changes for debugging/forensics)."
+  },
+  "polling_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Interval (seconds) between OVSDB polling for changes."
+  },
+  "ovsdb_connection_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (seconds) for OVSDB command execution."
+  },
+  "ovsdb_connection_max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of OVSDB connection retries on failure."
+  },
+  "ovsdb_transaction_concurrency": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of concurrent OVSDB transactions."
+  },
+  "min_workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum number of worker threads for async event processing."
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of worker threads for async event processing."
+  },
+  "enable_security_group": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Neutron security groups (requires OpenStack security group API enabled)."
+  },
+  "log_security_group_events": {
+    "type": "bool",
+    "default": false,
+    "description": "Log security group rule updates and port updates."
+  },
+  "debug_security_group_events": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging for security group events (very verbose)."
+  },
+  "firewall_driver": {
+    "type": "string",
+    "default": "ovn",
+    "description": "Firewall driver (ovn, iptables_hybrid, none). 'ovn' uses OVN-native ACLs."
+  },
+  "enable_ipset": {
+    "type": "bool",
+    "default": true,
+    "description": "Use ipset for efficient SG member tracking (requires ipset kernel module)."
+  },
+  "enable_flood_rules": {
+    "type": "bool",
+    "default": true,
+    "description": "Drop packets early if too many SG rules are added (prevents OVS rule overflow)."
+  },
+  "enable_dhcp_options": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable OVN to inject DHCP options via DHCP options table (requires OVN >= 20.06)."
+  },
+  "enable_dhcpv6_stateful": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable stateful DHCPv6 (server-assigned addresses)."
+  },
+  "enable_dhcpv6_stateless": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable stateless DHCPv6 (RA + DHCP for metadata, DNS, etc)."
+  },
+  "type_drivers": {
+    "type": "list",
+    "default": [
+      "geneve",
+      "vlan",
+      "flat"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "geneve",
+        "vxlan",
+        "vlan",
+        "flat"
+      ]
+    },
+    "description": "List of supported network type drivers (must include at least one)."
+  },
+  "tenant_network_types": {
+    "type": "list",
+    "default": [
+      "geneve"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "geneve",
+        "vxlan",
+        "vlan",
+        "flat"
+      ]
+    },
+    "description": "Tenant network types to allocate by default (subset of type_drivers)."
+  },
+  "mechanism_drivers": {
+    "type": "list",
+    "default": [
+      "ovn"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "ovn",
+        "linuxbridge",
+        "openvswitch"
+      ]
+    },
+    "description": "Mechanism drivers to integrate with OVS/OVN."
+  },
+  "extension_drivers": {
+    "type": "list",
+    "default": [
+      "port_security",
+      "qos",
+      "security_group"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "port_security",
+        "qos",
+        "security_group",
+        "dns"
+      ]
+    },
+    "description": "Extension drivers enabled on this agent (e.g., for port security, QoS, DNS)."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "",
+    "description": "Optional separate database connection string for agent metadata (rarely needed)."
+  },
+  "database_max_retries": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of retries for database connection."
+  },
+  "database_retry_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Delay (seconds) between database connection retries."
+  }
+}

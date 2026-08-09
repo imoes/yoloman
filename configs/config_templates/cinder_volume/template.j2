@@ -1,0 +1,124 @@
+[DEFAULT]
+# The name of the region where this cinder-volume instance resides
+region_name = {{ region_name }}
+
+# Transport URL for RabbitMQ / message broker
+transport_url = {{ transport_url }}
+
+# Authentication backend (keystone is standard for production)
+auth_strategy = keystone
+
+# Logging configuration
+{% if log_dir %}
+# Directory for log files
+log_dir = {{ log_dir }}
+{% endif %}
+{% if log_file %}
+# Primary log file (e.g., /var/log/cinder/volume.log)
+log_file = {{ log_file }}
+{% endif %}
+
+# Database connection string
+[database]
+# Connection URL for the backend database
+connection = {{ database.connection }}
+
+# Authentication credentials for keystone
+[keystone_authtoken]
+# Auth URL for keystone (e.g., http://controller:5000/v3)
+auth_url = {{ keystone_authtoken.auth_url }}
+# Project domain name (typically Default)
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+# User domain name (typically Default)
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+# Service project name (typically service)
+project_name = {{ keystone_authtoken.project_name }}
+# Service username (typically cinder)
+username = {{ keystone_authtoken.username }}
+# Service user password
+password = {{ keystone_authtoken.password }}
+
+# Configuration for the default volume driver
+[volume]
+# Volume driver to use (e.g., cinder.volume.drivers.lvm.LVMVolumeDriver)
+driver = {{ volume.driver }}
+# Name of the volume group used for volumes
+volume_group = {{ volume.volume_group }}
+# Whether to use thin provisioning
+{% if volume.is_thin_provisioning is defined %}
+thin_provisioning = {{ volume.is_thin_provisioning | lower }}
+{% endif %}
+# Maximum number of volumes to create per host per operation
+max_lvm_volume_size_gb = {{ volume.max_lvm_volume_size_gb }}
+
+# LVM-specific settings (if LVM driver is used)
+{% if volume.lvm.is_active %}
+[lvm]
+# LVM volume scan command timeout (seconds)
+volume_scan_timeout = {{ volume.lvm.volume_scan_timeout }}
+# LVM metadata backup directory
+{% if volume.lvm.backup_dir %}
+backup_dir = {{ volume.lvm.backup_dir }}
+{% endif %}
+{% endif %}
+
+# iSCSI configuration (if iSCSI is used)
+{% if volume.iscsi.is_active %}
+[iscsi]
+# iSCSI protocol version (e.g., auto, v1, v2)
+iscsi_protocol = {{ volume.iscsi.iscsi_protocol }}
+# iSCSI target IP address or hostname
+iscsi_helper = {{ volume.iscsi.iscsi_helper }}
+# iSCSI target portal IP (e.g., 192.168.1.10)
+iscsi_ip_address = {{ volume.iscsi.iscsi_ip_address }}
+# iSCSI target port (default 3260)
+iscsi_port = {{ volume.iscsi.iscsi_port }}
+{% endif %}
+
+# GlusterFS configuration (if GlusterFS driver is used)
+{% if volume.glusterfs.is_active %}
+[glusterfs]
+# Gluster share path (e.g., 10.0.0.1:/share)
+volume_backend_name = {{ volume.glusterfs.volume_backend_name }}
+volume_driver = {{ volume.glusterfs.volume_driver }}
+# GlusterFS volumes are specified via volume_backend_name + volume_driver
+# The actual share(s) are passed via config options per backend, if needed
+{% for share in volume.glusterfs.shares %}
+# Mount point for GlusterFS share: {{ share.host }}:{{ share.path }}
+glusterfs_{{ loop.index }}_share = {{ share.host }}:{{ share.path }}
+{% endfor %}
+{% endif %}
+
+# NFS configuration (if NFS driver is used)
+{% if volume.nfs.is_active %}
+[nfs]
+# NFS export(s) as a list
+{% for nfs_share in volume.nfs.shares %}
+# NFS share: {{ nfs_share.path }} on {{ nfs_share.host }}
+nfs_shares_config = {{ nfs_share.path | replace('/', '%%2F') | replace(':', '%%3A') | join(' ') }}
+nfs_mount_point_base = {{ nfs_mount_point_base | default('/var/lib/cinder/mnt') }}
+{% endfor %}
+# Mount options (e.g., rw,sync,hard,intr)
+nfs_mount_options = {{ volume.nfs.mount_options | join(',') }}
+{% endif %}
+
+# Replication and failover (optional, for high availability)
+{% if volume.replication.enabled %}
+[replication]
+# Enable volume replication
+dr_driver = {{ volume.replication.dr_driver }}
+# DR replication driver configuration
+{% for key, value in volume.replication.dr_config.items() %}
+# Replication config: {{ key }}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+
+# Cinder backup service (optional)
+{% if volume.backup.enabled %}
+[backup]
+# Enable backups
+backup_driver = {{ volume.backup.driver }}
+# Backup share (e.g., ceph://cinderbackup/backups)
+backup_ceph_conf = {{ volume.backup.ceph_conf | default('/etc/ceph/ceph.conf') }}
+{% endif %}

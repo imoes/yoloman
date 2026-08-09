@@ -1,0 +1,129 @@
+# ext4magic recovery command generator
+# This template assembles the command-line invocation for ext4magic.
+# It supports magic mode, informational mode, selection criteria,
+# time windows, actions, expert options, and output configuration.
+#
+# All variables are safely defaulted to ensure valid output even if
+# not provided by the playbook context.
+
+# === Recovery Mode ===
+# Magic recovery mode: 'full' for -M (entire FS), 'deleted' for -m (only deleted files)
+# If omitted, no magic mode flag is emitted (standard mode).
+{% if magic_mode | default(None) == 'full' %}
+-M
+{% elif magic_mode | default(None) == 'deleted' %}
+-m
+{% endif %}
+
+# === Informational Mode ===
+# Informational mode: 'superblock', 'superblock_extended', 'journal', 'histogram',
+# 'histogram_extended', 'version', 'transaction_list', 'transaction_list_extended'.
+# These flags are mutually exclusive with each other.
+{% set im = info_mode | default('superblock') %}
+{% if im == 'superblock' %}
+-S
+{% elif im == 'superblock_extended' %}
+-S -x
+{% elif im == 'journal' %}
+-J
+{% elif im == 'histogram' %}
+-H
+{% elif im == 'histogram_extended' %}
+-H -x
+{% elif im == 'version' %}
+-V
+{% elif im == 'transaction_list' %}
+-T
+{% elif im == 'transaction_list_extended' %}
+-T -x
+{% endif %}
+
+# === Selection Mode ===
+# Selection mode: 'block', 'inode', 'filename', 'input_list'.
+# Only one selection method should be active at a time.
+{% set sm = selection_mode | default('filename') %}
+{% if sm == 'block' %}
+-B {{ block_number | default(0) }}
+{% elif sm == 'inode' %}
+-I {{ inode_number | default(0) }}
+{% elif sm == 'filename' %}
+-f "{{ filename | default('') }}"
+{% elif sm == 'input_list' %}
+-i "{{ input_list_file | default('') }}"
+{% endif %}
+
+# === Time Window ===
+# Time options: -a (after) and -b (before) define a window for recovery.
+# If omitted, ext4magic may use defaults or current time depending on implementation.
+# We emit comments if variables are not defined to clarify intent.
+{% if time_after | default(None) is not none %}
+-a {{ time_after | default(0) }}
+{% else %}
+# time_after omitted: defaults to now -24h (or as per ext4magic default)
+{% endif %}
+{% if time_before | default(None) is not none %}
+-b {{ time_before | default(0) }}
+{% else %}
+# time_before omitted: defaults to now (or as per ext4magic default)
+{% endif %}
+
+# === Action ===
+# Action mode: 'list_all' (-L), 'list_empty' (-l), 'recover_selected' (-r), 'recover_full' (-R).
+# Mutually exclusive.
+{% set act = action | default(None) %}
+{% if act == 'list_all' %}
+-L
+{% elif act == 'list_empty' %}
+-l
+{% elif act == 'recover_selected' %}
+-r
+{% elif act == 'recover_full' %}
+-R
+{% endif %}
+
+# === Optional Modifiers ===
+# quality_high: Enable -Q for high-quality recovery using directory journal data.
+{% if quality_high | default(false) %}
+-Q
+{% endif %}
+
+# expert_mode: Enable expert mode (--enable-expert-mode).
+{% if expert_mode | default(false) %}
+--enable-expert-mode
+{% endif %}
+
+# === Expert Options ===
+# blocksize and blocknumber are often used together for specific block targeting.
+# -s <size>: Block size (1024, 2048, 4096).
+# -n <num>: Backup superblock block number.
+{% if blocksize | default(None) is not none %}
+-s {{ blocksize | default(0) }}
+{% endif %}
+{% if blocknumber | default(None) is not none %}
+-n {{ blocknumber | default(0) }}
+{% endif %}
+
+# try_journal_superblock: Attempt to find journal using superblock data (-c).
+{% if try_journal_superblock | default(false) %}
+-c
+{% endif %}
+
+# recover_damaged: Attempt to recover all files from damaged FS (-D).
+{% if recover_damaged | default(false) %}
+-D
+{% endif %}
+
+# === Input/Output ===
+# journal_file: Path to external journal file for -j.
+{% if journal_file | default(None) is not none %}
+-j "{{ journal_file | default('') }}"
+{% endif %}
+
+# target_dir: Output directory for recovered files (-d). Created if missing.
+-d "{{ target_dir | default('RECOVERDIR') }}"
+
+# filesystem_path: Path to block device or filesystem image.
+# This is the required positional argument for ext4magic.
+# Note: ext4magic requires a filesystem path. If not provided, the command
+# will fail at runtime. A placeholder is used to prevent template errors.
+<filesystem> {{ filesystem_path | default('/dev/sda1') }}

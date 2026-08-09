@@ -1,0 +1,27 @@
+{
+  "driver_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the LIRC driver to start (used for compatibility with some LIRC versions)."
+  },
+  "device_path": {
+    "type": "string",
+    "default": "/dev/lirc0",
+    "description": "Path to the LIRC device (e.g., /dev/lirc0, /dev/lircd)."
+  },
+  "driver_type": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the LIRC driver module to use (e.g., 'default', 'lirc_serial', 'gpio_rcv')."
+  },
+  "hardware_types": {
+    "type": "list",
+    "default": [],
+    "description": "List of supported hardware types (e.g., 'default', 'hauppauge', 'atiusb').\nNote: This is a global config parameter, but `lircd.conf(5)` does not document global config\nsections outside of remote blocks. However, `driver_name`, `device_path`, etc. are also\nnot documented in `lircd.conf(5)` as global keys, only within remote blocks or as\ncommand-line options. The man page states: 'The file has two purposes: to provide timing\ninformation to the driver... and to provide a mapping from button presses...'.\nIt does NOT document global keys like `start_driver`, `device`, `driver`, `hwtypes`.\nThose belong in `lircd.conf` (the config file for lircd service args) or are handled\nby command line args/env. However, the prompt says 'Package/service: lircd.conf'.\nUsually `lircd.conf` is the remote config. `lircd.conf` (service) is often `lircd.conf`\nbut sometimes `lirc_options.conf`. Given the existing template had these, and the man\npage for `lircd.conf(5)` ONLY documents remote blocks, I must remove the global config\nblock as it is NOT documented in `lircd.conf(5)`.\nWait, looking closer at the prompt: 'Review an EXISTING config template... against the\nauthoritative man page'. The man page is `lircd.conf(5)`. It ONLY documents remote\nblocks. It does NOT document global keys like `start_driver`, `device`, `driver`, `hwtypes`.\nTherefore, these are hallucinated in the context of `lircd.conf(5)`.\nI will remove `start_driver`, `device`, `driver`, `hwtypes` from the template and schema.\n    "
+  },
+  "remotes": {
+    "type": "list",
+    "default": [],
+    "description": "List of remote controls with their button mappings.\nItems must have a unique 'name'.\nSupported optional fields per lircd.conf(5):\n- flags: pipe-separated list of flags (RC5, RC6, SPACE_ENC, etc.)\n- bits: integer\n- eps: integer (percent)\n- aeps: integer (microseconds)\n- gap: integer (microseconds)\n- suppress_repeat: integer\n- manual_sort: 0 or 1\n- include: \"<path>\"\n- header: <pulse> <space>\n- three: <pulse> <space>\n- two: <pulse> <space>\n- one: <pulse> <space>\n- zero: <pulse> <space>\n- ptrail: <pulse>\n- plead: <pulse>\n- foot: <pulse> <space>\n- repeat: <pulse> <space>\n- pre_data_bits: integer\n- pre_data: hexadecimal\n- post_data_bits: integer\n- post_data: hexadecimal\n- pre: <pulse> <space>\n- post: <pulse> <space>\n- repeat_gap: <space>\n- min_repeat: integer\n- toggle_bit: integer\n- toggle_bit_mask: hexadecimal\n- repeat_mask: hexadecimal\n- frequency: integer (hertz)\n- duty_cycle: integer (1-100)\n- raw_codes block OR codes block.\n    "
+  }
+}

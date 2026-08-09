@@ -1,0 +1,132 @@
+name: keycloak_user_federation
+fqcn: community.general.keycloak_user_federation
+collection: community.general
+short_description: Allows administration of Keycloak user federations via Keycloak API
+description: This module allows you to add, remove or modify Keycloak user federations via the Keycloak
+  REST API. It requires access to the REST API via OpenID Connect; the user connecting and the client
+  being used must have the requisite access rights. In a default Keycloak installation, admin-cli and
+  an admin user would work, as would a separate client definition with the scope tailored to your needs
+  and a user having the expected roles. The names of module options are snake_cased versions of the camelCase
+  ones found in the Keycloak API and its documentation at U(https://www.keycloak.org/docs-api/20.0.2/rest-api/index.html).
+options:
+  auth_client_id:
+    type: str
+    default: admin-cli
+    description: OpenID Connect C(client_id) to authenticate to the API with.
+  auth_client_secret:
+    type: str
+    description: Client Secret to use in conjunction with O(auth_client_id) (if required).
+  auth_keycloak_url:
+    type: str
+    required: true
+    aliases:
+    - url
+    description: URL to the Keycloak instance.
+  auth_password:
+    type: str
+    aliases:
+    - password
+    description: Password to authenticate for API access with.
+  auth_realm:
+    type: str
+    description: Keycloak realm name to authenticate to for API access.
+  auth_username:
+    type: str
+    aliases:
+    - username
+    description: Username to authenticate for API access with.
+  config:
+    type: dict
+    description: Dict specifying the configuration options for the provider; the contents differ depending
+      on the value of O(provider_id). Examples are given below for V(ldap), V(kerberos) and V(sssd). It
+      is easiest to obtain valid config values by dumping an already-existing user federation configuration
+      through check-mode in the RV(existing) field. The value V(sssd) has been supported since community.general
+      4.2.0.
+  connection_timeout:
+    type: int
+    default: 10
+    description: Controls the HTTP connections timeout period (in seconds) to Keycloak API.
+  http_agent:
+    type: str
+    default: Ansible
+    description: Configures the HTTP User-Agent header.
+  id:
+    type: str
+    description: The unique ID for this user federation. If left empty, the user federation will be searched
+      by its O(name).
+  mappers:
+    type: list
+    description: A list of dicts defining mappers associated with this Identity Provider.
+  name:
+    type: str
+    description: Display name of provider when linked in admin console.
+  parent_id:
+    type: str
+    aliases:
+    - parentId
+    description: Unique ID for the parent of this user federation. Realm ID will be automatically used
+      if left blank.
+  provider_id:
+    type: str
+    aliases:
+    - providerId
+    description: Provider for this user federation. Built-in providers are V(ldap), V(kerberos), and V(sssd).
+      Custom user storage providers can also be used.
+  provider_type:
+    type: str
+    default: org.keycloak.storage.UserStorageProvider
+    aliases:
+    - providerType
+    description: Component type for user federation (only supported value is V(org.keycloak.storage.UserStorageProvider)).
+  realm:
+    type: str
+    default: master
+    description: The Keycloak realm under which this user federation resides.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: State of the user federation. On V(present), the user federation will be created if it
+      does not yet exist, or updated with the parameters you provide. On V(absent), the user federation
+      will be removed if it exists.
+  token:
+    type: str
+    description: Authentication token for Keycloak API.
+  validate_certs:
+    type: bool
+    default: true
+    description: Verify TLS certificates (do not disable this in production).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Create LDAP user federation\n    community.general.keycloak_user_federation:\n\
+  \      auth_keycloak_url: https://keycloak.example.com/auth\n      auth_realm: master\n      auth_username:\
+  \ admin\n      auth_password: password\n      realm: my-realm\n      name: my-ldap\n      state: present\n\
+  \      provider_id: ldap\n      provider_type: org.keycloak.storage.UserStorageProvider\n      config:\n\
+  \        priority: 0\n        enabled: true\n        cachePolicy: DEFAULT\n        batchSizeForSync:\
+  \ 1000\n        editMode: READ_ONLY\n        importEnabled: true\n        syncRegistrations: false\n\
+  \        vendor: other\n        usernameLDAPAttribute: uid\n        rdnLDAPAttribute: uid\n        uuidLDAPAttribute:\
+  \ entryUUID\n        userObjectClasses: inetOrgPerson, organizationalPerson\n        connectionUrl:\
+  \ ldaps://ldap.example.com:636\n        usersDn: ou=Users,dc=example,dc=com\n        authType: simple\n\
+  \        bindDn: cn=directory reader\n        bindCredential: password\n        searchScope: 1\n   \
+  \     validatePasswordPolicy: false\n        trustEmail: false\n        useTruststoreSpi: ldapsOnly\n\
+  \        connectionPooling: true\n        pagination: true\n        allowKerberosAuthentication: false\n\
+  \        debug: false\n        useKerberosForPasswordAuthentication: false\n      mappers:\n       \
+  \ - name: \"full name\"\n          providerId: \"full-name-ldap-mapper\"\n          providerType: \"\
+  org.keycloak.storage.ldap.mappers.LDAPStorageMapper\"\n          config:\n            ldap.full.name.attribute:\
+  \ cn\n            read.only: true\n            write.only: false\n\n  - name: Create Kerberos user federation\n\
+  \    community.general.keycloak_user_federation:\n      auth_keycloak_url: https://keycloak.example.com/auth\n\
+  \      auth_realm: master\n      auth_username: admin\n      auth_password: password\n      realm: my-realm\n\
+  \      name: my-kerberos\n      state: present\n      provider_id: kerberos\n      provider_type: org.keycloak.storage.UserStorageProvider\n\
+  \      config:\n        priority: 0\n        enabled: true\n        cachePolicy: DEFAULT\n        kerberosRealm:\
+  \ EXAMPLE.COM\n        serverPrincipal: HTTP/host.example.com@EXAMPLE.COM\n        keyTab: keytab\n\
+  \        allowPasswordAuthentication: false\n        updateProfileFirstLogin: false\n\n  - name: Create\
+  \ sssd user federation\n    community.general.keycloak_user_federation:\n      auth_keycloak_url: https://keycloak.example.com/auth\n\
+  \      auth_realm: master\n      auth_username: admin\n      auth_password: password\n      realm: my-realm\n\
+  \      name: my-sssd\n      state: present\n      provider_id: sssd\n      provider_type: org.keycloak.storage.UserStorageProvider\n\
+  \      config:\n        priority: 0\n        enabled: true\n        cachePolicy: DEFAULT\n\n  - name:\
+  \ Delete user federation\n    community.general.keycloak_user_federation:\n      auth_keycloak_url:\
+  \ https://keycloak.example.com/auth\n      auth_realm: master\n      auth_username: admin\n      auth_password:\
+  \ password\n      realm: my-realm\n      name: my-federation\n      state: absent\n\n"

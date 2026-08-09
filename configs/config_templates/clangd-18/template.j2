@@ -1,0 +1,177 @@
+# clangd-18 Configuration Template
+# This template generates a YAML configuration file for clangd (C/C++ language server).
+# It uses the standard .clangd project config format.
+# All variables are sourced from the Ansible role's variable scope, with safe defaults applied.
+
+{% if enable_config | default(False) %}
+# Enable reading user and project configuration from YAML files.
+# Requires --enable-config flag.
+# Default: False
+EnableConfig: true
+{% endif %}
+
+{% if compile_commands_dir | default('') %}
+# Path to look for compile_commands.json.
+# Falls back to current/parent directories if invalid or empty.
+# Default: '' (empty string implies fallback behavior)
+CompileCommandsDir: "{{ compile_commands_dir | default('') }}"
+{% endif %}
+
+{% if query_driver | default([]) | length > 0 %}
+# Comma-separated list of globs for whitelisting gcc-compatible drivers
+# to extract system includes. Must be a list of glob strings.
+# Example: ['/usr/bin/clang++', '/usr/bin/g++']
+# Default: [] (empty list)
+QueryDriver:
+{% for driver in query_driver | default([]) %}
+  - "{{ driver }}"
+{% endfor %}
+{% endif %}
+
+{% if all_scopes_completion | default(False) %}
+# If true, code completion includes index symbols from non-visible scopes.
+# Default: False
+AllScopesCompletion: {{ all_scopes_completion | default(False) | lower }}
+{% endif %}
+
+{% if background_index | default(True) %}
+# If true, index project code in the background and persist on disk.
+# Default: True
+BackgroundIndex: {{ background_index | default(True) | lower }}
+{% endif %}
+
+{% if background_index_priority | default('background') %}
+# Thread priority for background index.
+# Valid values: 'background', 'low', 'normal'.
+# Default: 'background'
+BackgroundIndexPriority: "{{ background_index_priority | default('background') }}"
+{% endif %}
+
+{% if clang_tidy | default(False) %}
+# If true, enable clang-tidy diagnostics.
+# Default: False
+ClangTidy: {{ clang_tidy | default(False) | lower }}
+{% endif %}
+
+{% if completion_style | default('detailed') %}
+# Granularity of code completion suggestions.
+# Valid values: 'detailed', 'bundled'.
+# Default: 'detailed'
+CompletionStyle: "{{ completion_style | default('detailed') }}"
+{% endif %}
+
+{% if fallback_style | default('') %}
+# clang-format style applied when no .clang-format is found.
+# Default: '' (empty string implies no fallback style override)
+FallbackStyle: "{{ fallback_style | default('') }}"
+{% endif %}
+
+{% if function_arg_placeholders | default(True) %}
+# If true, completions include placeholders for function parameters.
+# Default: True
+FunctionArgPlaceholders: {{ function_arg_placeholders | default(True) | lower }}
+{% endif %}
+
+{% if header_insertion | default('never') %}
+# Controls #include insertion on completion acceptance.
+# Valid values: 'iwyu', 'never'.
+# Default: 'never'
+HeaderInsertion: "{{ header_insertion | default('never') }}"
+{% endif %}
+
+{% if header_insertion_decorators | default(False) %}
+# If true, prepend circular dot/space to completion label based on include insertion.
+# Default: False
+HeaderInsertionDecorators: {{ header_insertion_decorators | default(False) | lower }}
+{% endif %}
+
+{% if import_insertions | default(False) %}
+# If header insertion is enabled, add #import directives for Objective-C.
+# Default: False
+ImportInsertions: {{ import_insertions | default(False) | lower }}
+{% endif %}
+
+{% if limit_references | default(1000) != 0 %}
+# Limit number of references returned.
+# 0 means no limit.
+# Default: 1000
+LimitReferences: {{ limit_references | default(1000) }}
+{% endif %}
+
+{% if limit_results | default(100) != 0 %}
+# Limit number of results returned.
+# 0 means no limit.
+# Default: 100
+LimitResults: {{ limit_results | default(100) }}
+{% endif %}
+
+{% if project_root | default('') %}
+# Path to project root.
+# Requires RemoteIndexAddress to be set for remote indexing to be effective.
+# Default: '' (empty string implies current directory)
+ProjectRoot: "{{ project_root | default('') }}"
+{% endif %}
+
+{% if remote_index_address | default('') %}
+# Address of the remote index server.
+# Default: '' (empty string implies no remote index)
+RemoteIndexAddress: "{{ remote_index_address | default('') }}"
+{% endif %}
+
+{% if rename_file_limit | default(50) != 0 %}
+# Limit number of files affected by symbol renaming.
+# 0 means no limit.
+# Default: 50
+RenameFileLimit: {{ rename_file_limit | default(50) }}
+{% endif %}
+
+{% if log | default('error') %}
+# Verbosity of log messages.
+# Valid values: 'error', 'info', 'verbose'.
+# Default: 'error'
+Log: "{{ log | default('error') }}"
+{% endif %}
+
+{% if offset_encoding | default('') %}
+# Force offsetEncoding ('utf-8', 'utf-16', 'utf-32').
+# Overrides client negotiation.
+# Default: '' (empty string implies automatic negotiation)
+OffsetEncoding: "{{ offset_encoding | default('') }}"
+{% endif %}
+
+{% if path_mappings | default([]) | length > 0 %}
+# List of '<client_path>=<server_path>' pairs to translate client/server paths.
+# Useful for remote development environments.
+# Default: [] (empty list)
+PathMappings:
+{% for mapping in path_mappings | default([]) %}
+  - "{{ mapping }}"
+{% endfor %}
+{% endif %}
+
+{% if pch_storage | default('memory') %}
+# Where to store PCHs (Precompiled Headers).
+# Valid values: 'disk', 'memory'.
+# Default: 'memory'
+PCHStorage: "{{ pch_storage | default('memory') }}"
+{% endif %}
+
+{% if malloc_trim | default(False) %}
+# If true, release memory periodically via malloc_trim(3).
+# Default: False
+MallocTrim: {{ malloc_trim | default(False) | lower }}
+{% endif %}
+
+{% if workers | default(0) > 0 %}
+# Number of async workers (including background index).
+# Mirrors -j flag. 0 uses default.
+# Default: 0 (uses default)
+Workers: {{ workers | default(0) }}
+{% endif %}
+
+{% if check | default('') %}
+# Parse one file in isolation (e.g., 'main.cpp').
+# Enables --check mode.
+# Default: '' (empty string disables single-file check)
+Check: "{{ check | default('') }}"
+{% endif %}

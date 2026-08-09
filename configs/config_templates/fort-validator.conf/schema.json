@@ -1,0 +1,147 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level (e.g., debug, info, warn, error)"
+  },
+  "refresh_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Number of minutes between automatic trust anchor list refreshes"
+  },
+  "max_sessions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of concurrent validation sessions"
+  },
+  "strict_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, strict validation rejects invalid or malformed data; if false, warnings are logged but processing continues"
+  },
+  "max_chain_depth": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum allowed depth for certificate chains during validation"
+  },
+  "tal_files": {
+    "type": "list",
+    "default": [
+      "/etc/fort-validator/ta/*.tal"
+    ],
+    "description": "List of file paths (or glob patterns) to Trust Anchor Locator (TAL) files",
+    "items": {
+      "type": "string"
+    }
+  },
+  "repositories": {
+    "type": "list",
+    "default": [
+      {
+        "uri": "https://rpki.afrinic.net/repository/afrinic.tal",
+        "name": "AFRINIC"
+      },
+      {
+        "uri": "https://rpki.arin.net/repository/arin.tal",
+        "name": "ARIN"
+      },
+      {
+        "uri": "https://rpki.ripe.net/repository/ripe.tal",
+        "name": "RIPE NCC"
+      }
+    ],
+    "description": "List of default RPKI repositories to include by default (by TAL URI + name)",
+    "items": {
+      "uri": {
+        "type": "string",
+        "description": "URI of the repository"
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable label for the repository",
+        "optional": true
+      }
+    }
+  },
+  "trust_anchors": {
+    "type": "list",
+    "default": [],
+    "description": "Optional explicit trust anchor certificates to use instead of TAL-derived ones",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Descriptive name for the trust anchor"
+      },
+      "cert_file": {
+        "type": "string",
+        "description": "Path to the trust anchor certificate file (PEM format)"
+      }
+    }
+  },
+  "ca_repos": {
+    "type": "list",
+    "default": [],
+    "description": "Optional custom CA repository endpoints (e.g., for testing or private RPKI deployments)",
+    "items": {
+      "uri": {
+        "type": "string",
+        "description": "URI of the CA repository"
+      },
+      "name": {
+        "type": "string",
+        "description": "Human-readable label for the repository",
+        "optional": true
+      }
+    }
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/fort-validator",
+    "description": "Path to a persistent local cache directory for repository data; defaults to system temp if omitted",
+    "optional": true
+  },
+  "http2_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable HTTP/2 protocol support for repository downloads",
+    "optional": true
+  },
+  "timeouts": {
+    "type": "object",
+    "default": {
+      "connect": 10,
+      "read": 60,
+      "write": 30
+    },
+    "description": "Connection and I/O timeout settings in seconds",
+    "fields": {
+      "connect": {
+        "type": "number",
+        "description": "Timeout to establish connection to repository (seconds)"
+      },
+      "read": {
+        "type": "number",
+        "description": "Timeout for read operations (seconds)"
+      },
+      "write": {
+        "type": "number",
+        "description": "Timeout for write operations (seconds)"
+      }
+    }
+  },
+  "rate_limits": {
+    "type": "list",
+    "default": [],
+    "description": "Per-repository rate limits to avoid throttling; each entry specifies a repository URI and max requests per minute",
+    "items": {
+      "uri": {
+        "type": "string",
+        "description": "Repository URI to apply the limit to"
+      },
+      "requests_per_minute": {
+        "type": "number",
+        "description": "Maximum requests per minute to that repository"
+      }
+    }
+  }
+}

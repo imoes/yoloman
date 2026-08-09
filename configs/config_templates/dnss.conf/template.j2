@@ -1,0 +1,66 @@
+# dnss configuration file
+# This file manages the DNS server instance. It defines zones, listen addresses,
+# forwarders, rate-limiting, caching, logging, and security policies.
+
+# === DNS Zones ===
+# List of DNS zones to serve (each with a name, domain, and file path).
+# Each zone definition maps a logical domain name to its local data file.
+zones:
+{%- for zone in (zones | default([])) %}
+  - name: {{ zone.name | default('') }}
+    domain: {{ zone.domain | default('') }}
+    file: {{ zone.file | default('') }}
+{%- endfor %}
+
+# === Listen Addresses ===
+# Network addresses (host:port) to bind the DNS server to.
+# Controls which interfaces and ports accept incoming DNS queries.
+listen:
+{%- for addr in (listen | default([{'host': '0.0.0.0', 'port': 53}])) %}
+  - host: {{ addr.host | default('0.0.0.0') }}
+    port: {{ addr.port | default(53) }}
+{%- endfor %}
+
+# === Forwarders ===
+# Upstream DNS resolvers to forward queries to when not authoritative.
+# Used for recursive resolution of external domains.
+forwarders:
+{%- for resolver in (forwarders | default([{'address': '8.8.8.8', 'port': 53}, {'address': '8.8.4.4', 'port': 53}])) %}
+  - address: {{ resolver.address | default('8.8.8.8') }}
+    port: {{ resolver.port | default(53) }}
+{%- endfor %}
+
+# === Rate Limiting ===
+# Rate-limiting to protect against DNS floods and resource exhaustion.
+rate_limit:
+  enabled: {{ (rate_limit | default({'enabled': true})).enabled | default(true) }}
+  max_queries_per_second: {{ (rate_limit | default({'max_queries_per_second': 100})).max_queries_per_second | default(100) }}
+  burst_size: {{ (rate_limit | default({'burst_size': 150})).burst_size | default(150) }}
+
+# === Caching ===
+# Caching behavior for responses to reduce upstream load and improve latency.
+cache:
+  enabled: {{ (cache | default({'enabled': true})).enabled | default(true) }}
+  size_mb: {{ (cache | default({'size_mb': 64})).size_mb | default(64) }}
+  ttl_min: {{ (cache | default({'ttl_min': 60})).ttl_min | default(60) }}
+  ttl_max: {{ (cache | default({'ttl_max': 86400})).ttl_max | default(86400) }}
+
+# === Logging ===
+# Logging configuration for operational visibility and debugging.
+logging:
+  level: {{ (logging | default({'level': 'info'})).level | default('info') }}
+  file: {{ (logging | default({'file': '/var/log/dnss/dnss.log'})).file | default('/var/log/dnss/dnss.log') }}
+  max_size_mb: {{ (logging | default({'max_size_mb': 50})).max_size_mb | default(50) }}
+  max_backups: {{ (logging | default({'max_backups': 5})).max_backups | default(5) }}
+
+# === Security ===
+# Security hardening options for the DNS service.
+security:
+  recursion: {{ (security | default({'recursion': true})).recursion | default(true) }}
+  dnssec_validation: {{ (security | default({'dnssec_validation': true})).dnssec_validation | default(true) }}
+  allow_query:
+{%- for allow in (security | default({'allow_query': ['any']}) ).allow_query | default(['any']) %}    - {{ allow }}
+{%- endfor %}
+  allow_transfer:
+{%- for allow in (security | default({'allow_transfer': ['none']}) ).allow_transfer | default(['none']) %}    - {{ allow }}
+{%- endfor %}

@@ -1,0 +1,42 @@
+# =============================================================================
+# QEMU Guest Agent Configuration Template
+# =============================================================================
+# This template generates the qemu-ga configuration file.
+# It is self-documenting: every directive is preceded by a comment
+# derived from the schema definition.
+# =============================================================================
+
+# Path where the QEMU Guest Agent writes its PID file.
+# Default: /var/run/qemu-ga/qemu-ga.pid
+pid-file = {{ pid_file | default('/var/run/qemu-ga/qemu-ga.pid') }}
+
+# Path to the log file. Leave empty to disable file logging (only syslog is used).
+# Default: '' (empty string)
+log-file = {{ log_file | default('') }}
+
+# Log verbosity level: 0=INFO, 1=DEBUG, 2=TRACE, 3=CRITICAL.
+# Higher values produce more logs.
+# Default: 0
+log-verbosity = {{ log_verbosity | default(0) }}
+
+# Path to the script executed when the filesystem is frozen/thawed.
+# Disable by setting to an empty string.
+# Default: /usr/lib/qemu/qemu-ga-fsfreeze-hook
+fsfreeze-hook = {{ fsfreeze_hook | default('/usr/lib/qemu/qemu-ga-fsfreeze-hook') }}
+
+# Additional hooks to run during filesystem freeze/thaw events.
+# Each hook defines a script path and optional arguments.
+# Default: [] (empty list)
+{% for hook in fsfreeze_hooks | default([]) %}
+# Hook: {{ hook.path }}
+fsfreeze-hook = {{ hook.path | default('') }}
+{% if hook.args | default([]) | length > 0 %}
+# Args: {{ hook.args | default([]) | join(' ') }}
+fsfreeze-arg = {{ hook.args | default([]) | join(' ') }}
+{% endif %}
+{% endfor %}
+
+# Enable QGA over ACPI device (recommended for standard KVM deployments).
+# Set to 'no' to disable (e.g., for non-ACPI guests).
+# Default: yes
+acpi-device-path = {{ acpi_device_path | default('yes') }}

@@ -1,0 +1,120 @@
+# ==========================================
+# Cyrus Murder Configuration
+# ==========================================
+# This template configures the Cyrus Murder proxy/aggregator service.
+# Murder acts as a load-balancing proxy for IMAP/POP3 connections,
+# distributing clients across multiple backend mailbox servers.
+
+# ==========================================
+# Master Switch: Enable Murder Service
+# ==========================================
+# murder_enabled: default=False
+# Enable the Cyrus Murder proxy/aggregator role. When false, Murder functionality is disabled.
+{% if murder_enabled | default(false) %}
+
+# ==========================================
+# Global Proxy Settings
+# ==========================================
+
+# murder.port: default=143
+# Murder proxy port (standard: 143 for IMAP) for client connections.
+# This port listens for incoming IMAP/POP3 requests from clients.
+MURDER_PORT {{ (murder | default({})).port | default(143) }}
+
+# murder.hostname: default=localhost
+# Murder proxy hostname.
+# Used for identification in logs and potentially in X-UNIX-USER headers.
+# Should match the server's DNS name or a recognizable alias.
+MURDER_HOSTNAME {{ (murder | default({})).hostname | default('localhost') }}
+
+# ==========================================
+# Backend Mailbox Servers
+# ==========================================
+
+# murder.backends: default=[]
+# Backend server list: Defines where real mailboxes reside.
+# Each line specifies a backend server's address, port, and relative weight.
+# Weight influences load balancing; higher weight = more traffic.
+# Format: MURDER_SERVER <host> <port> <weight>
+#
+# Expected structure for murder.backends:
+# - item.host: string, e.g., "imap1.example.com"
+# - item.port: integer, e.g., 143
+# - item.weight: integer, e.g., 100
+#
+# If murder.backends is not provided or is empty, no backends are configured.
+{% for server in (murder.backends | default([])) %}
+MURDER_SERVER {{ server.host | default('localhost') }} {{ server.port | default(143) }} {{ server.weight | default(100) }}
+{% endfor %}
+
+# ==========================================
+# Health Checks
+# ==========================================
+
+# murder.check_interval: default=60
+# Backend health check interval in seconds.
+# Time between checks to determine if backends are alive.
+# Ensures dead backends are removed from the rotation automatically.
+MURDER_CHECK_INTERVAL {{ (murder | default({})).check_interval | default(60) }}
+
+# ==========================================
+# TLS/SSL for Backend Connections
+# ==========================================
+
+# murder.tls: default={}
+# Enable TLS for connections between Murder and backend mailbox servers.
+# When enabled, Murder verifies backends using CA certs and authenticates itself.
+#
+# Expected structure for murder.tls:
+# - item.enabled: boolean
+# - item.cacert: string, path to CA certificate
+# - item.cert: string, path to client certificate
+# - item.key: string, path to client private key
+{% if (murder.tls | default({})).enabled | default(false) %}
+# TLS is enabled. Provide the certificate paths below.
+MURDER_TLS {{ (murder.tls | default({})).cacert | default('/etc/pki/tls/certs/ca-bundle.crt') }} {{ (murder.tls | default({})).cert | default('/etc/pki/tls/certs/murder.crt') }} {{ (murder.tls | default({})).key | default('/etc/pki/tls/private/murder.key') }}
+{% endif %}
+
+# ==========================================
+# Connection Limits
+# ==========================================
+
+# murder.max_backend_conns: default=256
+# Maximum number of simultaneous connections allowed per backend server.
+# Prevents any single backend from being overwhelmed by the proxy.
+MURDER_MAX_BACKEND_CONNS {{ (murder | default({})).max_backend_conns | default(256) }}
+
+# ==========================================
+# LDAP Backend Discovery (Optional)
+# ==========================================
+
+# murder.ldap: default={}
+# Dynamic backend discovery via LDAP.
+# If enabled, Murder queries LDAP to find available backend servers instead
+# of relying solely on the static MURDER_SERVER list.
+#
+# Expected structure for murder.ldap:
+# - item.enabled: boolean
+# - item.url: string, LDAP URI (e.g., "ldap://ldap.example.com")
+# - item.bind_dn: string, DN to bind with
+# - item.bind_password: string, password for bind DN
+# - item.base: string, base DN for search
+# - item.filter: string, LDAP filter to find backends
+{% if (murder.ldap | default({})).enabled | default(false) %}
+# LDAP is enabled for dynamic backend discovery.
+MURDER_LDAP_URL {{ (murder.ldap | default({})).url | default('ldap://localhost:389') }}
+MURDER_LDAP_BIND_DN {{ (murder.ldap | default({})).bind_dn | default('cn=admin,dc=example,dc=com') }}
+MURDER_LDAP_BIND_PW {{ (murder.ldap | default({})).bind_password | default('') }}
+MURDER_LDAP_BASE {{ (murder.ldap | default({})).base | default('ou=servers,dc=example,dc=com') }}
+MURDER_LDAP_FILTER {{ (murder.ldap | default({})).filter | default('(objectClass=imapServer)') }}
+{% endif %}
+
+{% else %}
+# ==========================================
+# Murder Disabled
+# ==========================================
+# murder_enabled is false or not defined.
+# Murder proxy functionality is disabled.
+# To enable, set murder_enabled to true and configure the backends above.
+# MURDER_PORT 143
+{% endif %}

@@ -1,0 +1,109 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0:5667",
+    "description": "Network address (host:port or just port) to bind the server to"
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum seconds to wait for an incoming connection before timing out"
+  },
+  "packet_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum seconds to wait for a complete encrypted packet before disconnecting"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of queued incoming connections"
+  },
+  "enable_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for client communication"
+  },
+  "tls_certificate_file": {
+    "type": "string",
+    "default": "/etc/nsca-ng/tls/server.crt",
+    "description": "Path to the TLS certificate (PEM format) \u2014 required if TLS is enabled"
+  },
+  "tls_private_key_file": {
+    "type": "string",
+    "default": "/etc/nsca-ng/tls/server.key",
+    "description": "Path to the TLS private key (PEM format) \u2014 required if TLS is enabled"
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "/etc/nsca-ng/tls/ca.crt",
+    "description": "Path to the CA certificate (PEM format) for verifying clients \u2014 optional, enables client cert auth"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/nsca-ng/nsca-ng.pid",
+    "description": "Path to the PID file"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nsca-ng/nsca-ng.log",
+    "description": "Path to the log file; use '-' to log to stdout (e.g., with systemd)"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity (0=error, 1=warn, 2=info, 3=debug, 4=trace); higher = more verbose"
+  },
+  "run_as_user": {
+    "type": "string",
+    "default": "nsca",
+    "description": "System user to run the server process as"
+  },
+  "run_as_group": {
+    "type": "string",
+    "default": "nsca",
+    "description": "System group to run the server process as (optional)"
+  },
+  "command_pipe": {
+    "type": "string",
+    "default": "/var/spool/nagios/cmd/nagios.cmd",
+    "description": "Path to the command FIFO (named pipe) where NSCA-NG writes processed checks"
+  },
+  "enable_include_dir": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable reading extra config files from a directory (e.g., per-client configs)"
+  },
+  "include_dir": {
+    "type": "string",
+    "default": "/etc/nsca-ng/conf.d",
+    "description": "Directory to scan for additional .cfg files (if enabled)"
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client hosts (IP or hostname) and their authentication details",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable label for this client (e.g., 'monitoring-server')"
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "IP address or hostname allowed to connect"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Shared secret password (plaintext or hash) for this client"
+      },
+      "encryption": {
+        "type": "string",
+        "default": "none",
+        "description": "Encryption method: 'none', 'aes256', 'aes192', 'aes128', 'blowfish', etc. (defaults to server-wide TLS if enabled)"
+      }
+    }
+  }
+}

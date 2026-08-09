@@ -1,0 +1,201 @@
+#
+################################################################################
+#
+# GOsa Schema Configuration for goFax
+# This template defines the LDAP schema objects and attributes required by the
+# goFax fax management system. It generates an LDIF entry for OpenLDAP's
+# cn=config backend (slapd).
+#
+# Schema Entry DN and Common Name
+# The 'cn' (Common Name) identifies this schema entry within the LDAP directory.
+# Default: 'gofax'
+#
+################################################################################
+dn: {{ (gosa_schema_cn | default('gofax')) }}
+objectClass: olcSchemaConfig
+cn: {{ (gosa_schema_cn | default('gofax')) }}
+
+#
+################################################################################
+# Attribute Definitions
+# These define the LDAP attributes used by goFax.
+################################################################################
+
+# goFaxDeliveryMode: Defines the delivery mode for fax operations.
+# Syntax: IA5 String, Single-Valued.
+# Description: goFax delivery mode is defined here
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.1
+  NAME 'goFaxDeliveryMode'
+  DESC 'goFax delivery mode is defined here'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+  SINGLE-VALUE
+)
+
+# goFaxPrinter: Specifies the printer used for fax output.
+# Syntax: IA5 String, Single-Valued.
+# Description: defines which printer is used to print a fax
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.2
+  NAME 'goFaxPrinter'
+  DESC 'defines which printer is used to print a fax'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+  SINGLE-VALUE
+)
+
+# goFaxDivertNumber: Sets a diversion number for incoming faxes.
+# Syntax: Numeric String, Single-Valued.
+# Description: for fax diversion services
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.3
+  NAME 'goFaxDivertNumber'
+  DESC 'for fax diversion services'
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.22
+  SINGLE-VALUE
+)
+
+# goFaxLanguage: Sets the preferred language for goFax user entries.
+# Syntax: IA5 String, Single-Valued.
+# Description: preferred language for the users goFax entry
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.4
+  NAME 'goFaxLanguage'
+  DESC 'preferred language for the users goFax entry'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+  SINGLE-VALUE
+)
+
+# goFaxFormat: Defines the file format for mail attachments.
+# Syntax: IA5 String, Single-Valued.
+# Description: defines the fileformat for mailattachments
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.5
+  NAME 'goFaxFormat'
+  DESC 'defines the fileformat for mailattachments'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+  SINGLE-VALUE
+)
+
+# goFaxRBlocklist: Lists fax numbers blocked from receiving faxes (from user).
+# Syntax: IA5 String.
+# Description: defines faxnumbers the user is not allowed to get fax from
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.6
+  NAME 'goFaxRBlocklist'
+  DESC 'defines faxnumbers the user is not allowed to get fax from'
+  EQUALITY caseExactIA5Match
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+)
+
+# goFaxSBlocklist: Lists fax numbers blocked from sending faxes (to user).
+# Syntax: IA5 String.
+# Description: defines faxnumbers the user is not allowed to fax to
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.8
+  NAME 'goFaxSBlocklist'
+  DESC 'defines faxnumbers the user is not allowed to fax to'
+  EQUALITY caseExactIA5Match
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+)
+
+# goFaxRBlockgroups: Groups of receive blocklists the user belongs to.
+# Syntax: IA5 String.
+# Description: defines groups of receive blocklists the user belongs to
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.7
+  NAME 'goFaxRBlockgroups'
+  DESC 'defines groups of receive blocklists the user belongs to'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+)
+
+# goFaxSBlockgroups: Groups of sender blocklists the user belongs to.
+# Syntax: IA5 String.
+# Description: defines groups of sender blocklists the user belongs to
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.9
+  NAME 'goFaxSBlockgroups'
+  DESC 'defines groups of sender blocklists the user belongs to'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+)
+
+# goFaxIsEnabled: Indicates if the goFax account is active.
+# Syntax: IA5 String, Single-Valued.
+# Description: This account is enabled or not
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.10
+  NAME 'goFaxIsEnabled'
+  DESC 'This account is enabled or not'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+  SINGLE-VALUE
+)
+
+# facsimileAlternateTelephoneNumber: RFC 2798 alternate fax number.
+# Syntax: Numeric String (max 32 chars).
+# Description: RFC 2798 facsimile telephone number alternate
+olcAttributeTypes: (
+  1.3.6.1.4.1.10098.1.1.7.11
+  NAME 'facsimileAlternateTelephoneNumber'
+  EQUALITY telephoneNumberMatch
+  SUBSTR telephoneNumberSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.50{32}
+)
+
+#
+################################################################################
+# Object Class Definitions
+# These define the LDAP object classes used by goFax.
+################################################################################
+
+# goFaxAccount: The main object class for a goFax user account.
+# Description: goFax Account objectclass (v1.0.4)
+# MUST: goFaxDeliveryMode, facsimileTelephoneNumber, uid, goFaxIsEnabled
+# MAY: goFaxPrinter, goFaxDivertNumber, goFaxLanguage, goFaxFormat,
+#      goFaxRBlocklist, goFaxRBlockgroups, goFaxSBlocklist, goFaxSBlockgroups,
+#      mail, facsimileAlternateTelephoneNumber
+olcObjectClasses: (
+  1.3.6.1.4.1.10098.1.2.1.11
+  NAME 'goFaxAccount'
+  DESC 'goFax Account objectclass (v1.0.4)'
+  SUP top
+  AUXILIARY
+  MUST ( goFaxDeliveryMode $ facsimileTelephoneNumber $ uid $ goFaxIsEnabled )
+  MAY ( goFaxPrinter $ goFaxDivertNumber $ goFaxLanguage $ goFaxFormat $ goFaxRBlocklist $ goFaxRBlockgroups $ goFaxSBlocklist $ goFaxSBlockgroups $ mail $ facsimileAlternateTelephoneNumber )
+)
+
+# goFaxSBlock: Group object for sender blocklists.
+# Description: goFax send blocklist groups (v1.0.4)
+# MUST: cn
+# MAY: goFaxSBlocklist, description
+olcObjectClasses: (
+  1.3.6.1.4.1.10098.1.2.1.12
+  NAME 'goFaxSBlock'
+  DESC 'goFax send blocklist groups (v1.0.4)'
+  MUST ( cn )
+  MAY ( goFaxSBlocklist $ description )
+)
+
+# goFaxRBlock: Group object for receive blocklists.
+# Description: goFax receive blocklist groups (v1.0.4)
+# MUST: cn
+# MAY: goFaxRBlocklist, description
+olcObjectClasses: (
+  1.3.6.1.4.1.10098.1.2.1.13
+  NAME 'goFaxRBlock'
+  DESC 'goFax receive blocklist groups (v1.0.4)'
+  MUST ( cn )
+  MAY ( goFaxRBlocklist $ description )
+)

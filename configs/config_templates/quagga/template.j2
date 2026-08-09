@@ -1,0 +1,29 @@
+# Interface configuration: Define interfaces with optional attributes (name, type, MTU, etc.)
+{% for iface in interfaces %}interface {{ iface.name }}{% if iface.type %} type {{ iface.type }}{% endif %}{% if iface.mtu %} mtu {{ iface.mtu }}{% endif %}
+{% endfor %}
+# Loopback interface (optional): Enable and optionally configure description
+{% if loopback %}interface lo
+  description Loopback interface
+{% endif %}
+# Logging: Set log level and destination
+{% if logging.destinations %}log file {{ logging.destinations.log_file | default('/var/log/quagga/zebra.log') }}{% if logging.level %} {{ logging.level }}{% endif %}
+{% endif %}
+# Router identification: Set router ID and hostname
+{% if router_id %}router-id {{ router_id }}
+{% endif %}
+{% if hostname %}hostname {{ hostname }}
+{% endif %}
+# Zebra defaults: Set default redistribute and metric behavior
+{% if redistribute %}{% for r in redistribute %}redistribute {{ r.type }}{% if r.metric is defined %} metric {{ r.metric }}{% endif %}{% if r.route_map is defined %} route-map {{ r.route_map }}{% endif %}
+{% endfor %}{% endif %}
+# Passwords: Set enable and VTY passwords
+{% if passwords %}{% if passwords.enable %}enable password {{ passwords.enable }}
+{% endif %}{% if passwords.vty %}password {{ passwords.vty }}
+{% endif %}{% endif %}
+# VTY access: Allow VTY access from specified hosts or networks
+{% if vty_access %}{% for v in vty_access %}line vty
+{% for host in v.hosts %} allow {{ host }}
+{% endfor %}{% endfor %}{% endif %}
+# Zebra-specific options
+{% if zebra_options %}{% for opt in zebra_options %}{{ opt }}
+{% endfor %}{% endif %}

@@ -1,0 +1,90 @@
+# =============================================================================
+# dleyna-renderer configuration template
+# =============================================================================
+# This file configures the dleyna-renderer daemon, which provides DLNA/UPnP
+# AV rendering capabilities (streaming media to display devices).
+#
+# All variables use the `default()` filter to ensure safe rendering even if
+# the variable is not provided by Ansible. Defaults match the software's
+# standard behaviour.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# log_level
+# Description: Verbosity of logging. Choose from: debug, info, warning, error, critical.
+# -----------------------------------------------------------------------------
+# Default: info
+log_level = "{{ log_level | default('info') }}"
+
+# -----------------------------------------------------------------------------
+# max_transfers
+# Description: Maximum number of concurrent media transfers (playback, streaming, etc.).
+# -----------------------------------------------------------------------------
+# Default: 5
+max_transfers = {{ max_transfers | default(5) }}
+
+# -----------------------------------------------------------------------------
+# dbus_timeout
+# Description: Timeout (in seconds) for D-Bus operations before failing.
+# -----------------------------------------------------------------------------
+# Default: 30
+dbus_timeout = {{ dbus_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# verbose
+# Description: Enable extra verbose logging to the systemd journal.
+#              Increases I/O and log volume.
+# -----------------------------------------------------------------------------
+# Default: false
+verbose = {{ verbose | default(false) | ternary('true', 'false') }}
+
+# -----------------------------------------------------------------------------
+# interfaces
+# Description: List of network interfaces (e.g., ['eth0', 'wlan0']) to bind to.
+#              Leave empty to use all interfaces.
+# -----------------------------------------------------------------------------
+# Default: [] (empty list, binds to all)
+interfaces = "{{ interfaces | default([]) | join(', ') }}"
+
+# -----------------------------------------------------------------------------
+# supported_protocols
+# Description: UPnP AV protocol prefixes and optional MIME types the renderer supports.
+#              Each entry is written as a separate `supported_protocol` directive.
+#              Format: `protocol:mime_type`
+# -----------------------------------------------------------------------------
+# Default: standard UPnP AV protocols
+{% for item in (supported_protocols | default([{'protocol': 'http-get', 'mime_type': '*'}, {'protocol': 'rtsp-rtp-udp', 'mime_type': '*'}, {'protocol': 'liveserver', 'mime_type': '*'}])) %}
+supported_protocol = "{{ item.protocol }}:{{ item.mime_type }}"
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# enable_external
+# Description: Enable discovery and support for external or remote DLNA renderers
+#              via SSDP/GSSDP. If disabled, the comment out directive is emitted.
+# -----------------------------------------------------------------------------
+# Default: false
+{% if enable_external | default(false) %}
+enable_external_renderers = true
+{% else %}
+# disable_external_renderers = true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# friendly_name
+# Description: Human-readable name shown in DLNA control points
+#              (e.g., 'Living Room Speaker'). If empty, hostname is used.
+# -----------------------------------------------------------------------------
+# Default: '' (empty, uses system hostname)
+{% if friendly_name | default('') | trim != '' %}
+friendly_name = "{{ friendly_name | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# location_url
+# Description: Base URL where this renderer exposes web UI or control endpoints
+#              (e.g., 'http://192.168.1.10:9790'). Optional.
+# -----------------------------------------------------------------------------
+# Default: '' (empty)
+{% if location_url | default('') | trim != '' %}
+location_url = "{{ location_url | default('') }}"
+{% endif %}

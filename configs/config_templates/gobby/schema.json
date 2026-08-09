@@ -1,0 +1,195 @@
+{
+  "server": {
+    "type": "object",
+    "default": {},
+    "description": "Core server configuration",
+    "properties": {
+      "listen_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the server listens on (e.g., 127.0.0.1 for localhost only, 0.0.0.0 for all interfaces)"
+      },
+      "port": {
+        "type": "number",
+        "default": 5222,
+        "description": "TCP port for incoming client connections"
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of simultaneous client connections allowed"
+      },
+      "ssl": {
+        "type": "object",
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable SSL/TLS encryption for client connections"
+          },
+          "certificate_path": {
+            "type": "string",
+            "default": "/etc/ssl/certs/gobby.crt",
+            "description": "Path to SSL certificate file (PEM format)"
+          },
+          "key_path": {
+            "type": "string",
+            "default": "/etc/ssl/private/gobby.key",
+            "description": "Path to SSL private key file (PEM format)"
+          }
+        }
+      },
+      "auth": {
+        "type": "object",
+        "default": {
+          "method": "none"
+        },
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": [
+              "none",
+              "password",
+              "ldap"
+            ],
+            "default": "none",
+            "description": "Authentication method: 'none' = open access, 'password' = file-based, 'ldap' = directory-based"
+          },
+          "password_file": {
+            "type": "string",
+            "default": "/etc/gobby-0.5/passwords",
+            "description": "Path to password file (HMAC-SHA256 hashed passwords, one per line: username:hash)"
+          },
+          "ldap": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "default": "ldap://localhost:389",
+                "description": "LDAP server URL (e.g., ldap://ldap.example.com:389 or ldaps:// for SSL)"
+              },
+              "bind_dn": {
+                "type": "string",
+                "default": "cn=admin,dc=example,dc=com",
+                "description": "DN used to bind to the LDAP server for user lookup"
+              },
+              "bind_password": {
+                "type": "string",
+                "default": "",
+                "description": "Password for LDAP bind account (store securely in production)"
+              },
+              "base_dn": {
+                "type": "string",
+                "default": "ou=users,dc=example,dc=com",
+                "description": "Base DN for user search"
+              },
+              "filter": {
+                "type": "string",
+                "default": "(uid=%s)",
+                "description": "LDAP filter for user lookup (%s replaced with username)"
+              },
+              "user_attribute": {
+                "type": "string",
+                "default": "uid",
+                "description": "LDAP attribute used as the username identifier"
+              }
+            }
+          }
+        }
+      },
+      "session_timeout": {
+        "type": "number",
+        "default": 3600,
+        "description": "Session timeout in seconds (0 = no timeout)"
+      },
+      "persistent_storage": {
+        "type": "object",
+        "default": {
+          "enabled": false
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Persist documents to disk after session ends"
+          },
+          "path": {
+            "type": "string",
+            "default": "/var/lib/gobby-0.5/documents",
+            "description": "Directory for persistent document storage"
+          }
+        }
+      },
+      "max_doc_size": {
+        "type": "number",
+        "default": 10485760,
+        "description": "Maximum document size in bytes (10 MB default)"
+      },
+      "log_level": {
+        "type": "string",
+        "enum": [
+          "debug",
+          "info",
+          "warning",
+          "error",
+          "critical"
+        ],
+        "default": "warning",
+        "description": "Minimum logging level"
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/gobby-0.5/server.log",
+        "description": "Path to log file (empty string = log to stderr)"
+      },
+      "groups": {
+        "type": "list",
+        "default": [],
+        "description": "Predefined document groups with access control",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique group name (used as prefix in group_{{i}}_name keys)"
+            },
+            "description": {
+              "type": "string",
+              "description": "Optional human-readable description of the group"
+            },
+            "members": {
+              "type": "list",
+              "description": "List of usernames allowed in this group"
+            }
+          }
+        }
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Public hostname/FQDN for WebSocket/SSE fallback (e.g., gobby.example.com)"
+      },
+      "websocket": {
+        "type": "object",
+        "default": {
+          "enabled": true
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable WebSocket support for real-time collaboration"
+          },
+          "path": {
+            "type": "string",
+            "default": "/gobby",
+            "description": "WebSocket endpoint path"
+          }
+        }
+      }
+    }
+  }
+}

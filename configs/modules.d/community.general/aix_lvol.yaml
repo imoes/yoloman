@@ -1,0 +1,64 @@
+name: aix_lvol
+fqcn: community.general.aix_lvol
+collection: community.general
+short_description: Configure AIX LVM logical volumes
+description: This module creates, removes or resizes AIX logical volumes. Inspired by lvol module.
+options:
+  copies:
+    type: int
+    default: 1
+    description: The number of copies of the logical volume. Maximum copies are 3.
+  lv:
+    type: str
+    required: true
+    description: The name of the logical volume.
+  lv_type:
+    type: str
+    default: jfs2
+    description: The type of the logical volume.
+  opts:
+    type: str
+    default: ''
+    description: Free-form options to be passed to the mklv command.
+  policy:
+    type: str
+    default: maximum
+    choices:
+    - maximum
+    - minimum
+    description: Sets the interphysical volume allocation policy. V(maximum) allocates logical partitions
+      across the maximum number of physical volumes. V(minimum) allocates logical partitions across the
+      minimum number of physical volumes.
+  pvs:
+    type: list
+    default: []
+    description: A list of physical volumes, for example V(hdisk1,hdisk2).
+  size:
+    type: str
+    description: The size of the logical volume with one of the [MGT] units.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Control if the logical volume exists. If V(present) and the volume does not already exist
+      then the O(size) option is required.
+  vg:
+    type: str
+    required: true
+    description: The volume group this logical volume is part of.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a logical volume of 512M\n  community.general.aix_lvol:\n    vg: testvg\n\
+  \    lv: testlv\n    size: 512M\n\n- name: Create a logical volume of 512M with disks hdisk1 and hdisk2\n\
+  \  community.general.aix_lvol:\n    vg: testvg\n    lv: test2lv\n    size: 512M\n    pvs: [ hdisk1,\
+  \ hdisk2 ]\n\n- name: Create a logical volume of 512M mirrored\n  community.general.aix_lvol:\n    vg:\
+  \ testvg\n    lv: test3lv\n    size: 512M\n    copies: 2\n\n- name: Create a logical volume of 1G with\
+  \ a minimum placement policy\n  community.general.aix_lvol:\n    vg: rootvg\n    lv: test4lv\n    size:\
+  \ 1G\n    policy: minimum\n\n- name: Create a logical volume with special options like mirror pool\n\
+  \  community.general.aix_lvol:\n    vg: testvg\n    lv: testlv\n    size: 512M\n    opts: -p copy1=poolA\
+  \ -p copy2=poolB\n\n- name: Extend the logical volume to 1200M\n  community.general.aix_lvol:\n    vg:\
+  \ testvg\n    lv: test4lv\n    size: 1200M\n\n- name: Remove the logical volume\n  community.general.aix_lvol:\n\
+  \    vg: testvg\n    lv: testlv\n    state: absent\n"

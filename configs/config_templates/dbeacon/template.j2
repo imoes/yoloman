@@ -1,0 +1,118 @@
+{# ==============================================================================
+  # dbeacon configuration file
+  #
+  # This template generates the command-line arguments for dbeacon.
+  # Each directive is self-documenting with a description comment.
+  # Variables are sourced from the Ansible inventory/vars and default to safe
+  # values if not provided.
+  # ============================================================================== #}
+
+{# --- General Identification --- #}
+
+{# The name identifying this beacon instance (defaults to hostname if omitted). #}
+-name {{ (name | default('')) | trim }}
+
+{# --- Administrative Contact --- #}
+
+{# Administrative contact e-mail for notifications. #}
+-a {{ (admin_email | default('')) | trim }}
+
+{# --- Network Interface --- #}
+
+{# Network interface to use for multicast (e.g., 'eth0'). #}
+-i {{ (interface | default('')) | trim }}
+
+{# --- Group Addresses (ASM/SSM) --- #}
+
+{# ASM beacon group address (with optional port, e.g., '224.0.1.1:10001'). #}
+-b {{ (beacon_addr | default('')) | trim }}
+
+{# SSM group address (with optional port, e.g., '232.1.2.3:10001'). #}
+-S {{ (ssm_group | default('')) | trim }}
+
+{# Enable SSM data sending in addition to ASM (i.e., -O). #}
+{% if ssm_send | default(False) | bool %}
+-O
+{% endif %}
+
+{# Bootstrap peer address to use when ASM is broken but SSM works. #}
+-B {{ (bootstrap_addr | default('')) | trim }}
+
+{# Enable SSM Ping server capability (i.e., -P). #}
+{% if ssmping_server | default(False) | bool %}
+-P
+{% endif %}
+
+{# --- Source Address --- #}
+
+{# Local source address for multicast packets (e.g., '192.0.2.1'). #}
+-s {{ (local_addr | default('')) | trim }}
+
+{# --- Dump Configuration --- #}
+
+{# Path to periodic dump file in XML format. #}
+-d {{ (dump_file | default('dump.xml')) | trim }}
+
+{# Interval (seconds) between dump file refreshes. #}
+-I {{ interval | default(5) | int }}
+
+{# --- Announcements (URLs & Metadata) --- #}
+
+{# Website URL to announce (e.g., 'https://example.com'). #}
+-W {{ (website_url | default('')) | trim }}
+
+{# Matrix URL to announce (e.g., 'https://matrix.example.com'). #}
+-Wm {{ (matrix_url | default('')) | trim }}
+
+{# Looking glass URL to announce (e.g., 'https://lg.example.com'). #}
+-Wl {{ (lg_url | default('')) | trim }}
+
+{# Two-letter ISO 3166-1 country code (e.g., 'US', 'DE'). #}
+-C {{ (country_code | default('')) | trim }}
+
+{# --- Actions --- #}
+
+{# Program to run after each dump. First argument will be dump filename. #}
+-L {{ (program_to_launch | default('')) | trim }}
+
+{# List of flags to announce (e.g., ['ssmping']). #}
+{% if flags is defined %}
+-F {{ flags | default([]) | join(',') }}
+{% endif %}
+
+{# --- Protocol Preferences --- #}
+
+{# Force IPv4 usage (overrides default IPv6 preference). #}
+{% if ipv4_only | default(False) | bool %}
+-4
+{% endif %}
+
+{# Force IPv6 usage. #}
+{% if ipv6_only | default(False) | bool %}
+-6
+{% endif %}
+
+{# Verbosity level; value determines number of -v flags. #}
+{% for _ in range(verbose | default(0) | int) %}
+-v
+{% endfor %}
+
+{# Dump bandwidth usage to stdout (i.e., -U). #}
+{% if dump_bandwidth | default(False) | bool %}
+-U
+{% endif %}
+
+{# --- Daemon Options --- #}
+
+{# Run in background (daemonize; i.e., -D). #}
+{% if daemon | default(False) | bool %}
+-D
+{% endif %}
+
+{# Path to PID file for daemonized instance. #}
+-pidfile {{ (pidfile | default('')) | trim }}
+
+{# Use syslog facility for output (i.e., -syslog). #}
+{% if use_syslog | default(False) | bool %}
+-syslog
+{% endif %}

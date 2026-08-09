@@ -1,0 +1,98 @@
+# ==============================================================================
+# dublin-traceroute configuration template
+#
+# This template generates the command-line arguments for the `dublin-traceroute`
+# tool. Dublin-traceroute is a network diagnostic tool that traces the path
+# packets take to a target by using parallel flows.
+#
+# The configuration consists of a single required positional argument (the target)
+# followed by optional flags that control probe behavior, timing, and protocol
+# selection.
+# ==============================================================================
+
+# Target hostname or IP address to trace.
+# Required argument. If not provided, the command may fail depending on the
+# orchestrator's validation logic, so this field is typically mandatory in practice.
+{{ (target | default('')) | trim }}
+
+# Maximum number of parallel flows.
+# Controls the concurrency of the traceroute. Higher values may speed up the
+# trace but could trigger rate-limiting on the target or intermediate routers.
+--max-flows {{ max_parallel_flows | default(1) }}
+
+# Minimum TTL for traceroute.
+# The starting Time-To-Live value for probe packets. Usually 1 to detect the
+# first hop.
+--min-ttl {{ min_ttl | default(1) }}
+
+# Maximum TTL for traceroute.
+# The maximum number of hops to trace before stopping.
+--max-ttl {{ max_ttl | default(30) }}
+
+# Source UDP port for probes.
+# The UDP source port used for sending probe packets.
+--src-port {{ src_port | default(33434) }}
+
+# Destination UDP port for probes.
+# The UDP destination port used for sending probe packets.
+--dst-port {{ dst_port | default(33435) }}
+
+# Probe packet size in bytes.
+# Size of the payload sent in each probe. Minimum 28 bytes is required to elicit
+# valid ICMP replies from some systems.
+--probe-size {{ probe_size | default(60) }}
+
+# Number of probes per hop.
+# How many packets are sent to each TTL value to ensure at least one response is
+# received despite packet loss.
+--num-probes {{ num_probes | default(1) }}
+
+# Timeout per probe in milliseconds.
+# Maximum time to wait for a response to a single probe packet before considering
+# it lost.
+--timeout {{ timeout | default(1000) }}
+
+# Delay between probes in milliseconds.
+# Time interval to wait between sending consecutive probe packets.
+--delay {{ delay | default(100) }}
+
+# Enable parsing and use of ICMP error messages.
+# When enabled, the tool uses ICMP unreachable messages to determine hop paths.
+{% if icmp_errors | default(false) %}
+--icmp-errors
+{% endif %}
+
+# Use TCP SYN packets instead of UDP.
+# Changes the probe packet type from UDP to TCP SYN. Useful for tracing paths
+# through firewalls that block UDP but allow specific TCP ports (handled by
+# --dst-port).
+{% if use_tcp | default(false) %}
+--use-tcp
+{% endif %}
+
+# Use ICMP ECHO packets instead of UDP.
+# Changes the probe packet type to ICMP Echo Request (ping-like). Useful for
+# tracing paths where TCP and UDP are blocked or to verify basic ICMP connectivity.
+{% if use_icmp | default(false) %}
+--use-icmp
+{% endif %}
+
+# Set the Don't Fragment bit in IPv4 header.
+# Linux-only feature. Prevents intermediate routers from fragmenting the probe
+# packets, which can help identify MTU issues along the path.
+{% if df_bit | default(false) %}
+--df-bit
+{% endif %}
+
+# Disable randomization of probe payload data.
+# By default, dublin-traceroute randomizes payload to avoid caching issues.
+# Setting this flag makes payloads deterministic, which can be useful for debugging
+# or ensuring consistent packet sizes.
+{% if no_random_payload | default(false) %}
+--no-random-payload
+{% endif %}
+
+# Additional hop distance in bytes between successive probe payloads.
+# Adds bytes to the payload size as the TTL increases, helping to identify
+# changes in path MTU or specific router behaviors based on packet size.
+--payload-hop {{ payload_hop | default(0) }}

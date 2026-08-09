@@ -1,0 +1,72 @@
+# AppArmor profile for Akonadi's embedded MariaDB server.
+# This profile confines the mariadbd process started by Akonadi,
+# restricting its filesystem and capability access.
+#
+# Variables:
+#   abi_version: The ABI version used by the AppArmor profile; matches the package’s expected ABI level.
+
+# Define the ABI version for the AppArmor profile header.
+# Uses the schema default if the variable is not provided by Ansible.
+abi {{ abi_version | default('3.0') }},
+
+#include <tunables/global>
+
+# XDG Base Directory specification for Akonadi data.
+# @{xdg_data_home}=@{HOME}/.local/share
+
+profile mariadbd_akonadi {
+  #include <abstractions/base>
+  #include <abstractions/bash>
+  #include <abstractions/consoles>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+  #include <abstractions/user-tmp>
+
+  # Allow setting GID/UID to switch user context if needed.
+  capability setgid,
+  capability setuid,
+
+  # Allow receiving signal from the Akonadi server process.
+  signal receive set=kill peer=/usr/bin/akonadiserver,
+  signal receive set=term peer=/usr/bin/akonadiserver,
+
+  # Read access to MySQL/MariaDB configuration directories.
+  /etc/mysql/ r,
+  /etc/mysql/** r,
+  /etc/my.cnf{,.d/**} r,
+
+  # Read access to CPU information.
+  @{sys}/devices/system/cpu/ r,
+
+  # Execute access for basic shell utilities.
+  /{usr/,}bin/{b,d}ash mrix,
+  /{usr/,}bin/cat mrix,
+  /{usr/,}bin/chmod mrix,
+  /{usr/,}bin/dirname mrix,
+  /{usr/,}bin/hostname mrix,
+  /{usr/,}bin/mkdir mrix,
+  /{usr/,}bin/sed mrix,
+
+  # Execute access for specific MariaDB utility tools.
+  /usr/bin/my_print_defaults mrix,
+  /usr/bin/mariadb-admin mrix,
+  /usr/bin/mariadb-check mrix,
+  /usr/bin/mariadb-install-db mrix,
+  /usr/bin/mariadb-upgrade mrix,
+  /usr/{,s}bin/mariadbd mrix,
+
+  # Read access to MySQL shared files.
+  /usr/share/mysql/** r,
+
+  # Read/Write/Kill access to Akonadi runtime data in user's XDG directory.
+  owner @{xdg_data_home}/akonadi/** rwk,
+
+  # Read access to process loginuid (for auditing).
+  owner @{PROC}/@{pid}/loginuid r,
+
+  # Read/Write/Kill access to Akonadi runtime data in user's run directory.
+  owner /{,var/}run/user/@{uid}/akonadi** rwk,
+
+  # Site-specific additions and overrides.  See local/README for details.
+  #include <local/mariadbd_akonadi>
+}

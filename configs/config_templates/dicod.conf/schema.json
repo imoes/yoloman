@@ -1,0 +1,104 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the DICOD service listens on. Use 0.0.0.0 to listen on all interfaces."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8090,
+    "description": "TCP port the DICOD service listens on."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "storage_path": {
+    "type": "string",
+    "default": "/var/lib/dicod",
+    "description": "Filesystem path where DICOD stores its data and metadata."
+  },
+  "compact_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable automatic background compaction of old data to reclaim space."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: debug, info, warn, error, fatal.",
+    "enum": [
+      "info",
+      "error"
+    ]
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/dicod/dicod.log",
+    "description": "Path to the DICOD log file."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to process incoming requests."
+  },
+  "worker_queue_size": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum size of the per-worker job queue."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [
+      "127.0.0.1/32"
+    ],
+    "description": "List of allowed client IP ranges (CIDR) or hostnames. Connections from other sources will be rejected.",
+    "items": {
+      "type": "string",
+      "description": "An allowed client address, either an IPv4/IPv6 CIDR block (e.g., '192.168.1.0/24') or a hostname."
+    }
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable TLS encryption for client connections."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/dicod/tls.crt",
+    "description": "Path to the TLS certificate file (PEM format). Required if TLS is enabled.",
+    "condition": "tls_enabled"
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/dicod/tls.key",
+    "description": "Path to the TLS private key file (PEM format). Required if TLS is enabled.",
+    "condition": "tls_enabled"
+  },
+  "rate_limits": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-IP rate limits (optional). Leave empty to disable rate limiting.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "description": "IP address or CIDR block to apply the rate limit to."
+      },
+      "requests_per_minute": {
+        "type": "number",
+        "description": "Maximum number of requests allowed per minute from this IP."
+      }
+    }
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to expose an internal metrics endpoint."
+  },
+  "metrics_port": {
+    "type": "number",
+    "default": 9090,
+    "description": "Port for the metrics endpoint (only active if metrics are enabled)."
+  }
+}

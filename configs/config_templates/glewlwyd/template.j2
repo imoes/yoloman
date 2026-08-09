@@ -1,0 +1,72 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          glewlwyd
+# Required-Start:    $remote_fs $network $time
+# Required-Stop:     $remote_fs $network $time
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Starts the glewlwyd daemon
+# Description:
+### END INIT INFO
+
+# System user under which the glewlwyd daemon runs.
+user={{ init_user | default('glewlwyd') }}
+
+# Installation prefix for glewlwyd binary.
+prefix={{ init_prefix | default('/usr/bin') }}
+
+exec_prefix=${prefix}
+
+# Path to the glewlwyd binary, constructed from the installation prefix.
+glewlwyd=${prefix}/glewlwyd
+
+# Command-line flag to specify the configuration file path.
+glewlwydconf=--config=/etc/glewlwyd.conf
+
+# Path to PID file used by init script.
+pidfile={{ init_pidfile | default('/var/run/glewlwyd.pid') }}
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  stop)
+    echo -n "Stopping Glewlwyd "
+    # Stops the daemon using the specified PID file.
+    start-stop-daemon --stop --pidfile $pidfile
+    echo "OK"
+    ;;
+
+  start)
+    echo -n "Starting Glewlwyd "
+    # Creates the PID file and sets ownership to the designated service user.
+    touch $pidfile
+    chown $user $pidfile
+    # Starts the daemon in the background, running as $user, with the PID file managed.
+    start-stop-daemon --start --quiet --make-pidfile --pidfile $pidfile \
+      --chuid $user --background --exec $glewlwyd -- $glewlwydconf
+    echo "OK"
+    ;;
+
+  status)
+    echo "Not implemented"
+    ;;
+
+  restart)
+    # Restarts the service by stopping and starting it.
+    $0 stop
+    $0 start
+    ;;
+
+  force-reload)
+    # Forces a reload by stopping and starting the service.
+    $0 stop
+    $0 start
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop|restart|force-reload}"
+    exit 1
+    ;;
+esac

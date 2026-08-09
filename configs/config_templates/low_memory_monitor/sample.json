@@ -1,0 +1,39 @@
+{
+  "enabled": true,
+  "interval": 15,
+  "min_free_mb": 128,
+  "min_free_percent": 8,
+  "actions": [
+    {
+      "type": "notify",
+      "target": "systemd",
+      "args": "priority=critical"
+    },
+    {
+      "type": "kill",
+      "target": "highest_oom_score",
+      "args": "max_retries=2"
+    },
+    {
+      "type": "reboot",
+      "target": "",
+      "args": "delay=60"
+    }
+  ],
+  "log_file": "/var/log/low-memory-monitor.log",
+  "verbose": false,
+  "kill_threshold": -750,
+  "max_kills": 5,
+  "pid_whitelist": [
+    1,
+    2
+  ],
+  "protected_patterns": [
+    "systemd",
+    "sshd",
+    "cron",
+    "low-memory-monitor"
+  ],
+  "memory_pressure_threshold": 20000,
+  "disable_oom_killer": false
+}

@@ -1,0 +1,84 @@
+name: ss_3par_cpg
+fqcn: community.general.ss_3par_cpg
+collection: community.general
+short_description: Manage HPE StoreServ 3PAR CPG
+description: Create and delete CPG on HPE 3PAR.
+options:
+  cpg_name:
+    type: str
+    required: true
+    description: Name of the CPG.
+  disk_type:
+    type: str
+    choices:
+    - FC
+    - NL
+    - SSD
+    description: Specifies that physical disks must have the specified device type.
+  domain:
+    type: str
+    description: Specifies the name of the domain in which the object will reside.
+  growth_increment:
+    type: str
+    description: Specifies the growth increment(in MiB, GiB or TiB) the amount of logical disk storage
+      created on each auto-grow operation.
+  growth_limit:
+    type: str
+    description: Specifies that the autogrow operation is limited to the specified storage amount that
+      sets the growth limit(in MiB, GiB or TiB).
+  growth_warning:
+    type: str
+    description: Specifies that the threshold(in MiB, GiB or TiB) of used logical disk space when exceeded
+      results in a warning alert.
+  high_availability:
+    type: str
+    choices:
+    - PORT
+    - CAGE
+    - MAG
+    description: Specifies that the layout must support the failure of one port pair, one cage, or one
+      magazine.
+  raid_type:
+    type: str
+    choices:
+    - R0
+    - R1
+    - R5
+    - R6
+    description: Specifies the RAID type for the logical disk.
+  secure:
+    type: bool
+    default: false
+    description: Specifies whether the certificate needs to be validated while communicating.
+  set_size:
+    type: int
+    description: Specifies the set size in the number of chunklets.
+  state:
+    type: str
+    required: true
+    choices:
+    - present
+    - absent
+    description: Whether the specified CPG should exist or not.
+  storage_system_ip:
+    type: str
+    required: true
+    description: The storage system IP address.
+  storage_system_password:
+    type: str
+    required: true
+    description: The storage system password.
+  storage_system_username:
+    type: str
+    required: true
+    description: The storage system user name.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create CPG sample_cpg\n  community.general.ss_3par_cpg:\n    storage_system_ip: 10.10.10.1\n\
+  \    storage_system_username: username\n    storage_system_password: password\n    state: present\n\
+  \    cpg_name: sample_cpg\n    domain: sample_domain\n    growth_increment: 32000 MiB\n    growth_limit:\
+  \ 64000 MiB\n    growth_warning: 48000 MiB\n    raid_type: R6\n    set_size: 8\n    high_availability:\
+  \ MAG\n    disk_type: FC\n    secure: false\n\n- name: Delete CPG sample_cpg\n  community.general.ss_3par_cpg:\n\
+  \    storage_system_ip: 10.10.10.1\n    storage_system_username: username\n    storage_system_password:\
+  \ password\n    state: absent\n    cpg_name: sample_cpg\n    secure: false\n"

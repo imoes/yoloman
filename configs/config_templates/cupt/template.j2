@@ -1,0 +1,95 @@
+# ==============================================================================
+# cupt configuration file (see cupt.conf(5) for full documentation)
+# This template is self-documenting: every configuration directive is preceded
+# by a comment describing its source field and purpose.
+# ==============================================================================
+
+# ------------------------------------------
+# General cupt options
+# ------------------------------------------
+# Source: cupt_options
+# Description: List of top-level cupt:: option assignments (e.g., cupt::resolver::keep-recommends).
+#              Each item must contain 'name' and optionally 'value'.
+#              If empty or undefined, no general options are emitted.
+{% for opt in (cupt_options | default([])) %}
+# {{ opt.comment | default('') }}
+option {{ opt.name }} "{{ opt.value | default('true') }}";
+{% endfor %}
+
+# ------------------------------------------
+# Limit repositories by archive name
+# ------------------------------------------
+# Source: limit_releases_by_archive
+# Description: List of archive names (e.g., 'stable', 'testing') to include/exclude.
+#              Use with cupt::cache::limit-releases::by-archive.
+#              Defaults to an empty list if undefined.
+# Source: limit_releases_by_archive_type
+# Description: Type for archive limiting (include or exclude).
+#              Corresponds to cupt::cache::limit-releases::by-archive::type.
+#              Defaults to an empty string if undefined.
+{% if limit_releases_by_archive | default([]) | length > 0 %}
+cupt::cache::limit-releases::by-archive "{{ limit_releases_by_archive | default([]) | join(',') }}";
+{% endif %}
+
+{% if limit_releases_by_archive_type | default('') | length > 0 %}
+cupt::cache::limit-releases::by-archive::type "{{ limit_releases_by_archive_type | default('') }}";
+{% endif %}
+
+# ------------------------------------------
+# Limit repositories by codename
+# ------------------------------------------
+# Source: limit_releases_by_codename
+# Description: List of codenames (e.g., 'bullseye', 'focal') to include/exclude.
+#              Use with cupt::cache::limit-releases::by-codename.
+#              Defaults to an empty list if undefined.
+# Source: limit_releases_by_codename_type
+# Description: Type for codename limiting (include or exclude).
+#              Corresponds to cupt::cache::limit-releases::by-codename::type.
+#              Defaults to an empty string if undefined.
+{% if limit_releases_by_codename | default([]) | length > 0 %}
+cupt::cache::limit-releases::by-codename "{{ limit_releases_by_codename | default([]) | join(',') }}";
+{% endif %}
+
+{% if limit_releases_by_codename_type | default('') | length > 0 %}
+cupt::cache::limit-releases::by-codename::type "{{ limit_releases_by_codename_type | default('') }}";
+{% endif %}
+
+# ------------------------------------------
+# Resolver settings
+# ------------------------------------------
+# Source: resolver_options
+# Description: Resolver-specific options (e.g., cupt::resolver::type,
+#              cupt::resolver::keep-recommends, cupt::resolver::max-solution-count).
+#              Each item must contain 'name' and optionally 'value'.
+#              Defaults to an empty list if undefined.
+{% for opt in (resolver_options | default([])) %}
+# {{ opt.comment | default('') }}
+{{ opt.name }} {{ opt.value | default('true') }};
+{% endfor %}
+
+# ------------------------------------------
+# APT settings
+# ------------------------------------------
+# Source: apt_options
+# Description: APT-level options (e.g., apt::install-recommends, apt::cache::allversions,
+#              apt::cache::recursedepends, apt::cache::important, apt::cache::narrow).
+#              Each item must contain 'name' and optionally 'value'.
+#              Defaults to an empty list if undefined.
+{% for opt in (apt_options | default([])) %}
+# {{ opt.comment | default('') }}
+{{ opt.name }} {{ opt.value | default('true') }};
+{% endfor %}
+
+# ------------------------------------------
+# Console preview settings
+# ------------------------------------------
+# Source: console_actions_preview
+# Description: Console preview settings that control actions-preview output
+#              (e.g., cupt::console::actions-preview::show-archives,
+#              show-codenames, show-reasons).
+#              Each item must contain 'name' and optionally 'value'.
+#              Defaults to an empty list if undefined.
+{% for opt in (console_actions_preview | default([])) %}
+# {{ opt.comment | default('') }}
+{{ opt.name }} {{ opt.value | default('true') }};
+{% endfor %}

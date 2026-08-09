@@ -1,0 +1,78 @@
+; crmsh configuration file
+; To override per user, create a file ~/.config/crm/crm.conf
+;
+; This section defines core behavior for the crmsh command-line interface.
+[core]
+
+; Editor used when editing cluster resources or configuration interactively.
+; Default: 'vi'
+; Editor = {{ editor | default('vi') }}
+
+; Pager used for multi-page command output (e.g., 'more', 'less').
+; Default: 'less'
+; Pager = {{ pager | default('less') }}
+
+; Whether to start crmsh in interactive mode by default.
+; Default: False
+interactive = {{ interactive | default(False) }}
+
+; Default shell invoked by crmsh for command execution (e.g., 'sh', 'bash').
+; Default: 'sh'
+; Shell = {{ shell | default('sh') }}
+
+; Timeout in seconds for interactive operations (e.g., resource operations).
+; Default: 60
+; timeout = {{ timeout | default(60) }}
+
+; Timeout in seconds for acquiring locks on cluster resources.
+; Default: 120
+; lock_timeout = {{ lock_timeout | default(120) }}
+
+; If true, skip confirmation prompts for dangerous operations (use with caution).
+; Default: False
+; noconfirm = {{ noconfirm | default(False) }}
+
+; Enable colored output in terminal sessions (requires terminal support).
+; Default: True
+; color = {{ color | default(True) }}
+
+; Whether to persist command history to ~/.crm/shellhistory.
+; Default: True
+; history = {{ history | default(True) }}
+
+; Default cluster name to use when operating on a single-cluster system.
+; Empty to require explicit specification.
+; Default: ''
+; cluster_name = {{ cluster_name | default('') }}
+
+; CIB source: 'live' (default, current live config), 'file:/path/to/file.xml' (read-only from file), or 'xml' (raw XML input).
+; Default: 'live'
+; crm_cibsh = {{ crm_cibsh | default('live') }}
+
+; Pattern(s) to obscure sensitive values (e.g., 'passw*') when displaying configuration.
+; Supports regex-like patterns with wildcards. The default option is passw*.
+; If you don't want to obscure, change the value to blank.
+; Example: obscure_pattern = passw* | ip
+; Default: 'passw*'
+; obscure_pattern = {{ obscure_pattern | default('passw*') }}
+
+; [path]
+; This section defines system paths for crmsh and Pacemaker components.
+
+; User account under which the Pacemaker daemon runs.
+; Default: 'hacluster'
+; crm_daemon_user = {{ crm_daemon_user | default('hacluster') }}
+
+; Root directory for OCF resource agents.
+; Default: '/usr/lib/ocf'
+; ocf_root = {{ ocf_root | default('/usr/lib/ocf') }}
+
+; Directory where crmsh stores automatic backups of the CIB.
+; Default: '/var/lib/pacemaker/backup'
+; backupdir = {{ backupdir | default('/var/lib/pacemaker/backup') }}
+
+; List of crmsh plugins to load at startup. Each plugin may define its own options.
+; Default: []
+{% if plugins | default([]) | length > 0 %}
+; plugins = {{ plugins | default([]) | join(',') }}
+{% endif %}

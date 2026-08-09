@@ -1,0 +1,61 @@
+{
+  "local_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Local IP address to bind the DNS server to (e.g., '0.0.0.0' for all interfaces)."
+  },
+  "local_port": {
+    "type": "number",
+    "default": 53,
+    "description": "UDP/TCP port to listen on for DNS queries."
+  },
+  "api": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the PowerDNS API (query console) on port 8081."
+  },
+  "api_key": {
+    "type": "string",
+    "default": "",
+    "description": "Secret key used to authenticate API requests (required if API is enabled)."
+  },
+  "recursor": {
+    "type": "string",
+    "default": "",
+    "description": "IP address of an upstream recursive resolver to forward non-authoritative queries to (optional)."
+  },
+  "max_qps": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum queries per second allowed before throttling starts."
+  },
+  "query_local_address_timeout": {
+    "type": "number",
+    "default": 2000,
+    "description": "Timeout (in ms) for queries to local addresses (e.g., when resolving internal names)."
+  },
+  "threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads to spawn (set to CPU core count for best performance)."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging (0 = minimal, 9 = extremely verbose)."
+  },
+  "log_dns_queries": {
+    "type": "bool",
+    "default": false,
+    "description": "Log every incoming DNS query to syslog."
+  },
+  "dnssec": {
+    "type": "string",
+    "default": "off",
+    "description": "DNSSEC validation behavior. 'process' actively validates; 'log-*' only logs results.\nenum: off, process\n\nNote: This variable is not used in the default config file provided. It maps to 'dnssec-engine' in newer PowerDNS versions, but the shipped default config does not contain it. Therefore, it is not templated here to maintain verbatim compliance with the shipped file.\n\nIf the user requires DNSSEC support in the backend, they should use gsqlite3_dnssec, gmysql_dnssec, etc.\n\nHowever, looking at the provided values_schema, 'dnssec' is listed. If the default config file *did* have 'dnssec=off', I would template it. Since it doesn't, I leave it out.\n\nWait, I must check if I missed 'dnssec' in the provided config text.\nScanning...\nNo 'dnssec=' line in the provided text.\n\nSo 'dnssec' from values_schema is not applicable to this specific default config file.\n\nI will proceed with the variables that ARE in the file.\n    },\n    ",
+    "enum": [
+      "off",
+      "process"
+    ]
+  }
+}

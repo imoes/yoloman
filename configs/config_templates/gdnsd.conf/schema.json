@@ -1,0 +1,223 @@
+{
+  "enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to start the gdnsd server and listen for queries."
+  },
+  "listen_addrs": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 53
+      },
+      {
+        "address": "::",
+        "port": 53
+      }
+    ],
+    "description": "List of IP addresses and ports to listen on for DNS traffic.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "address": {
+          "type": "string",
+          "default": "0.0.0.0",
+          "description": "IP address to bind to (IPv4 or IPv6)."
+        },
+        "port": {
+          "type": "number",
+          "default": 53,
+          "description": "UDP/TCP port to listen on."
+        }
+      }
+    }
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/gdnsd/gdnsd.log",
+    "description": "Path to the log file. Use '-' to log to stdout."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Minimum log level: debug, info, notice, warn, or error."
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "chroot": "/var/lib/gdnsd",
+      "user": "gdnsd",
+      "group": "gdnsd"
+    },
+    "description": "Security hardening settings.",
+    "fields": {
+      "chroot": {
+        "type": "string",
+        "default": "/var/lib/gdnsd",
+        "description": "Directory to chroot to after startup (empty string disables chroot)."
+      },
+      "user": {
+        "type": "string",
+        "default": "gdnsd",
+        "description": "User to drop privileges to after startup."
+      },
+      "group": {
+        "type": "string",
+        "default": "gdnsd",
+        "description": "Group to drop privileges to after startup."
+      }
+    }
+  },
+  "server": {
+    "type": "object",
+    "default": {
+      "workers": 0,
+      "max_udp_size": 4096,
+      "tcp_timeout": 30,
+      "max_tcp_connections": 100
+    },
+    "description": "Server performance and resource settings.",
+    "fields": {
+      "workers": {
+        "type": "number",
+        "default": 0,
+        "description": "Number of worker threads (0 = automatic based on CPU count)."
+      },
+      "max_udp_size": {
+        "type": "number",
+        "default": 4096,
+        "description": "Maximum size (in bytes) of UDP packets to accept."
+      },
+      "tcp_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout (in seconds) for idle TCP connections."
+      },
+      "max_tcp_connections": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum TCP connections allowed per worker thread."
+      }
+    }
+  },
+  "zones": {
+    "type": "object",
+    "default": {
+      "root": "/var/lib/gdnsd/zones",
+      "auto_reload": true,
+      "reload_interval": 60,
+      "zones": []
+    },
+    "description": "Zone data configuration.",
+    "fields": {
+      "root": {
+        "type": "string",
+        "default": "/var/lib/gdnsd/zones",
+        "description": "Base directory for zone files."
+      },
+      "auto_reload": {
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to automatically reload zones when their files change."
+      },
+      "reload_interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Maximum interval (in seconds) between zone checks for changes."
+      },
+      "zones": {
+        "type": "list",
+        "default": [],
+        "description": "List of zones to serve.",
+        "items": {
+          "type": "object",
+          "fields": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "DNS zone name (e.g., example.com). Required."
+            },
+            "file": {
+              "type": "string",
+              "default": "",
+              "description": "Path to zone file, relative to zones.root. Defaults to zone.name + .zone."
+            }
+          }
+        }
+      }
+    }
+  },
+  "dnssec": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "keys_dir": "/var/lib/gdnsd/dnssec-keys",
+      "rrsig_ttl": 86400
+    },
+    "description": "DNSSEC signing and validation settings (disabled by default).",
+    "fields": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable DNSSEC for all served zones."
+      },
+      "keys_dir": {
+        "type": "string",
+        "default": "/var/lib/gdnsd/dnssec-keys",
+        "description": "Directory containing DNSSEC private keys for signing."
+      },
+      "rrsig_ttl": {
+        "type": "number",
+        "default": 86400,
+        "description": "Default TTL (in seconds) for RRSIG records."
+      }
+    }
+  },
+  "access_control": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "default": "allow",
+      "rules": []
+    },
+    "description": "Client IP-based access control (disabled by default).",
+    "fields": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable access control rules."
+      },
+      "default": {
+        "type": "string",
+        "default": "allow",
+        "description": "Default action for unmatched clients: allow, deny, or ignore.",
+        "enum": [
+          "allow",
+          "deny",
+          "ignore"
+        ]
+      },
+      "rules": {
+        "type": "list",
+        "default": [],
+        "description": "Ordered list of access control rules.",
+        "items": {
+          "type": "object",
+          "fields": {
+            "action": {
+              "type": "string",
+              "default": "",
+              "description": "Action for matching clients: allow or deny."
+            },
+            "client": {
+              "type": "string",
+              "default": "",
+              "description": "IP range in CIDR notation (e.g., 192.168.1.0/24 or ::1)."
+            }
+          }
+        }
+      }
+    }
+  }
+}

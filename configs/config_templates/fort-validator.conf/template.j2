@@ -1,0 +1,76 @@
+# Configuration for fort-validator, a RPKI validation tool
+# This template is self-documenting: every setting includes its schema description.
+
+# Logging verbosity level (e.g., debug, info, warn, error)
+# Default: 'info'
+log_level: {{ log_level | default('info') }}
+
+# Number of minutes between automatic trust anchor list refreshes
+# Default: 3600
+refresh_interval: {{ refresh_interval | default(3600) }}
+
+# Maximum number of concurrent validation sessions
+# Default: 10
+max_sessions: {{ max_sessions | default(10) }}
+
+# If true, strict validation rejects invalid or malformed data; if false, warnings are logged but processing continues
+# Default: True
+strict_mode: {{ strict_mode | default(True) }}
+
+# Maximum allowed depth for certificate chains during validation
+# Default: 10
+max_chain_depth: {{ max_chain_depth | default(10) }}
+
+# List of file paths (or glob patterns) to Trust Anchor Locator (TAL) files
+# Default: ['/etc/fort-validator/ta/*.tal']
+tal_files:
+{% for tal in tal_files | default(['/etc/fort-validator/ta/*.tal']) %}
+  - {{ tal }}
+{% endfor %}
+
+# List of default RPKI repositories to include by default (by TAL URI + name)
+# Default: [{'uri': 'https://rpki.afrinic.net/repository/afrinic.tal', 'name': 'AFRINIC'}, {'uri': 'https://rpki.arin.net/repository/arin.tal', 'name': 'ARIN'}, {'uri': 'https://rpki.ripe.net/repository/ripe.tal', 'name': 'RIPE NCC'}]
+repositories:
+{% for repo in repositories | default([{'uri': 'https://rpki.afrinic.net/repository/afrinic.tal', 'name': 'AFRINIC'}, {'uri': 'https://rpki.arin.net/repository/arin.tal', 'name': 'ARIN'}, {'uri': 'https://rpki.ripe.net/repository/ripe.tal', 'name': 'RIPE NCC'}]) %}
+  - uri: {{ repo.uri }}
+    name: {{ repo.name | default(repo.uri) }}
+{% endfor %}
+
+# Optional explicit trust anchor certificates to use instead of TAL-derived ones
+# Default: []
+trust_anchors:
+{% for ta in trust_anchors | default([]) %}
+  - name: {{ ta.name }}
+    cert_file: {{ ta.cert_file }}
+{% endfor %}
+
+# Optional custom CA repository endpoints (e.g., for testing or private RPKI deployments)
+# Default: []
+ca_repos:
+{% for repo in ca_repos | default([]) %}
+  - uri: {{ repo.uri }}
+    name: {{ repo.name | default(repo.uri) }}
+{% endfor %}
+
+# Path to a persistent local cache directory for repository data; defaults to system temp if omitted
+# Default: '/var/cache/fort-validator'
+cache_dir: {{ cache_dir | default('/var/cache/fort-validator') }}
+
+# Enable HTTP/2 protocol support for repository downloads
+# Default: True
+http2_enabled: {{ http2_enabled | default(True) }}
+
+# Connection and I/O timeout settings in seconds
+# Default: {'connect': 10, 'read': 60, 'write': 30}
+timeouts:
+  connect: {{ (timeouts | default({'connect': 10, 'read': 60, 'write': 30})).connect }}
+  read: {{ (timeouts | default({'connect': 10, 'read': 60, 'write': 30})).read }}
+  write: {{ (timeouts | default({'connect': 10, 'read': 60, 'write': 30})).write }}
+
+# Per-repository rate limits to avoid throttling; each entry specifies a repository URI and max requests per minute
+# Default: []
+rate_limits:
+{% for rl in rate_limits | default([]) %}
+  - uri: {{ rl.uri }}
+    requests_per_minute: {{ rl.requests_per_minute }}
+{% endfor %}

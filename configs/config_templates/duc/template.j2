@@ -1,0 +1,240 @@
+# ============================================================================
+# duc configuration file (duc.conf)
+# ============================================================================
+# This file is managed by Ansible. Do not edit manually.
+#
+# Sections:
+#   [global]   - Global settings (database location)
+#   [ls]       - Options for 'duc ls' command
+#   [ui]       - Options for the default UI output
+#   [graph]    - Options for 'duc graph' command
+#   [cgi]      - Options for 'duc cgi' command
+#   [index]    - Options for 'duc index' command
+#   [info]     - Options for 'duc info' command
+#   [xml]      - Options for 'duc xml' output
+#   [json]     - Options for 'duc json' output
+#   [gui]      - Options for 'duc gui' command
+# ============================================================================
+
+[global]
+# Default database file path for all commands; overridden by per-command database setting
+database {{ (default_values | default({})).database | default('~/.duc.db') }}
+
+{% if (default_values | default({})).ls is defined and (default_values | default({})).ls | length > 0 %}
+[ls]
+{% for item in (default_values | default({})).ls %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'bytes' %}
+bytes
+{% elif item.option == 'color' %}
+color
+{% elif item.option == 'classify' %}
+classify
+{% elif item.option == 'count' %}
+count
+{% elif item.option == 'directory' %}
+directory
+{% elif item.option == 'dirs-only' %}
+dirs-only
+{% elif item.option == 'full-path' %}
+full-path
+{% elif item.option == 'graph' %}
+graph
+{% elif item.option == 'name-sort' %}
+name-sort
+{% elif item.option == 'recursive' %}
+recursive
+{% elif item.option == 'levels' %}
+levels {{ item.value | default(4) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).ui is defined and (default_values | default({})).ui | length > 0 %}
+[ui]
+{% for item in (default_values | default({})).ui %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'bytes' %}
+bytes
+{% elif item.option == 'count' %}
+count
+{% elif item.option == 'name-sort' %}
+name-sort
+{% elif item.option == 'no-color' %}
+no-color
+{% elif item.option == 'levels' %}
+levels {{ item.value | default(4) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).graph is defined and (default_values | default({})).graph | length > 0 %}
+[graph]
+{% for item in (default_values | default({})).graph %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'count' %}
+count
+{% elif item.option == 'dpi' %}
+dpi {{ item.value | default(96.0) }}
+{% elif item.option == 'format' %}
+format {{ item.value | default('png') }}
+{% elif item.option == 'fuzz' %}
+fuzz {{ item.value | default(0.7) }}
+{% elif item.option == 'gradient' %}
+gradient
+{% elif item.option == 'levels' %}
+levels {{ item.value | default(4) }}
+{% elif item.option == 'output' %}
+output {{ item.value | default('duc.png') }}
+{% elif item.option == 'palette' %}
+palette {{ item.value | default('size') }}
+{% elif item.option == 'ring-gap' %}
+ring-gap {{ item.value | default(0) }}
+{% elif item.option == 'size' %}
+size {{ item.value | default(800) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).cgi is defined and (default_values | default({})).cgi | length > 0 %}
+[cgi]
+{% for item in (default_values | default({})).cgi %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'bytes' %}
+bytes
+{% elif item.option == 'count' %}
+count
+{% elif item.option == 'css-url' %}
+css-url {{ item.value | default('') }}
+{% elif item.option == 'dpi' %}
+dpi {{ item.value | default(96.0) }}
+{% elif item.option == 'fuzz' %}
+fuzz {{ item.value | default(0.7) }}
+{% elif item.option == 'gradient' %}
+gradient
+{% elif item.option == 'levels' %}
+levels {{ item.value | default(4) }}
+{% elif item.option == 'list' %}
+list
+{% elif item.option == 'palette' %}
+palette {{ item.value | default('size') }}
+{% elif item.option == 'ring-gap' %}
+ring-gap {{ item.value | default(0) }}
+{% elif item.option == 'size' %}
+size {{ item.value | default(800) }}
+{% elif item.option == 'tooltip' %}
+tooltip
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).index is defined and (default_values | default({})).index | length > 0 %}
+[index]
+{% for item in (default_values | default({})).index %}
+{% if item.option == 'bytes' %}
+bytes
+{% elif item.option == 'force' %}
+force
+{% elif item.option == 'hide-file-names' %}
+hide-file-names
+{% elif item.option == 'progress' %}
+progress
+{% elif item.option == 'dry-run' %}
+dry-run
+{% elif item.option == 'uncompressed' %}
+uncompressed
+{% elif item.option == 'check-hard-links' %}
+check-hard-links
+{% elif item.option == 'one-file-system' %}
+one-file-system
+{% elif item.option == 'exclude' %}
+exclude {{ item.value | default('') }}
+{% elif item.option == 'fs-exclude' %}
+fs-exclude {{ item.value | default('') }}
+{% elif item.option == 'fs-include' %}
+fs-include {{ item.value | default('') }}
+{% elif item.option == 'uid' %}
+uid {{ item.value | default('') }}
+{% elif item.option == 'username' %}
+username {{ item.value | default('') }}
+{% elif item.option == 'max-depth' %}
+max-depth {{ item.value | default('') }}
+{% elif item.option == 'database' %}
+database {{ item.value | default('~/.duc.db') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).info is defined and (default_values | default({})).info | length > 0 %}
+[info]
+{% for item in (default_values | default({})).info %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'bytes' %}
+bytes
+{% elif item.option == 'database' %}
+database {{ item.value | default('~/.duc.db') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).xml is defined and (default_values | default({})).xml | length > 0 %}
+[xml]
+{% for item in (default_values | default({})).xml %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'exclude-files' %}
+exclude-files
+{% elif item.option == 'min_size' %}
+min_size {{ item.value | default('') }}
+{% elif item.option == 'database' %}
+database {{ item.value | default('~/.duc.db') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).json is defined and (default_values | default({})).json | length > 0 %}
+[json]
+{% for item in (default_values | default({})).json %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'exclude-files' %}
+exclude-files
+{% elif item.option == 'min_size' %}
+min_size {{ item.value | default('') }}
+{% elif item.option == 'database' %}
+database {{ item.value | default('~/.duc.db') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if (default_values | default({})).gui is defined and (default_values | default({})).gui | length > 0 %}
+[gui]
+{% for item in (default_values | default({})).gui %}
+{% if item.option == 'apparent' %}
+apparent
+{% elif item.option == 'bytes' %}
+bytes
+{% elif item.option == 'count' %}
+count
+{% elif item.option == 'dark' %}
+dark
+{% elif item.option == 'fuzz' %}
+fuzz {{ item.value | default(0.7) }}
+{% elif item.option == 'gradient' %}
+gradient
+{% elif item.option == 'levels' %}
+levels {{ item.value | default(4) }}
+{% elif item.option == 'palette' %}
+palette {{ item.value | default('size') }}
+{% elif item.option == 'ring-gap' %}
+ring-gap {{ item.value | default(0) }}
+{% elif item.option == 'database' %}
+database {{ item.value | default('~/.duc.db') }}
+{% endif %}
+{% endfor %}
+{% endif %}

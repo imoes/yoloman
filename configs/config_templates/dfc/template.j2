@@ -1,0 +1,37 @@
+{# dfc(1) configuration file #}
+{# The file is read from: XDG_CONFIG_HOME/dfc/dfcrc, $HOME/.config/dfc/dfcrc, or $HOME/.dfcrc #}
+{# Only color and graph settings are documented as configurable #}
+
+# color_mode: Sets the color output behavior.
+# Valid values: 'always', 'auto', 'never'.
+# 'auto' enables colors only if stdout is a TTY.
+color: {{ (color_mode | default('auto')) }}
+
+# graph_symbols: Defines custom symbols for text-mode graph bars.
+# Keys: 'left' (left bracket), 'right' (right bracket), 'fill' (filled char), 'empty' (empty char).
+# Defaults to empty list if not specified; if provided, must be a mapping.
+{% set _graph_symbols = graph_symbols | default([]) %}
+{% if _graph_symbols is mapping and _graph_symbols | length > 0 %}
+graph_symbols:
+{% for key, val in _graph_symbols | dict2items %}  {{ key.key }}: "{{ val.value }}"
+{% endfor %}
+{% endif %}
+
+# colors: Custom colors for disk usage graph fields.
+# Keys: 'header', 'total', 'filesystem', 'size', 'used', 'avail', 'use%', 'mount'.
+# Values: HTML hex codes (e.g., "#FF0000") or ANSI color names (e.g., "red").
+{% set _colors = colors | default([]) %}
+{% if _colors is mapping and _colors | length > 0 %}
+colors:
+{% for key, val in _colors | dict2items %}  {{ key.key }}: "{{ val.value }}"
+{% endfor %}
+{% endif %}
+
+# export_colors: Color overrides specifically for HTML export output.
+# Same keys as 'colors', but overrides the default color scheme when exporting to HTML.
+{% set _export_colors = export_colors | default([]) %}
+{% if _export_colors is mapping and _export_colors | length > 0 %}
+export_colors:
+{% for key, val in _export_colors | dict2items %}  {{ key.key }}: "{{ val.value }}"
+{% endfor %}
+{% endif %}

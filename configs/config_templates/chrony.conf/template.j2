@@ -1,0 +1,178 @@
+# ==========================================
+# Chrony Configuration Template
+# ==========================================
+# This configuration file manages the NTP client and server
+# behavior of the Chrony daemon (chronyd/chronyc).
+# It handles time synchronization, server selection,
+# access control, and logging.
+
+# ------------------------------------------
+# Access Control: Allow
+# ------------------------------------------
+# {{ comment_allow | default('# Allow clients from these networks') }}
+# Allow specific networks or hosts to query this server for time.
+# If no allow directives are present, the default restrict policy blocks all.
+{% for net in allow_networks | default([]) %}allow {{ net.ip }}/{{ net.prefix }}
+{% endfor %}
+{% for host in allow_hosts | default([]) %}allow {{ host }}
+{% endfor %}
+
+# ------------------------------------------
+# Access Control: Restrict
+# ------------------------------------------
+# {{ comment_restrict | default('# Relax restrictions for these networks') }}
+# Relax default restrictions (which block all) for specific networks/hosts.
+# This is often paired with 'allow' to whitelist peers or clients.
+{% for net in restrict_networks | default([]) %}restrict {{ net.ip }}/{{ net.prefix }}
+{% endfor %}
+{% for host in restrict_hosts | default([]) %}restrict {{ host }}
+{% endfor %}
+
+# ------------------------------------------
+# NTP Server Sources
+# ------------------------------------------
+# {{ comment_server_mode | default('# Upstream NTP servers') }}
+# Define upstream NTP servers to synchronize against.
+# The 'iburst' option speeds up initial synchronization.
+{% if server_mode | default(True) %}
+{% for server in ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) %}server {{ server }} iburst
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------
+# Local Reference Clock
+# ------------------------------------------
+# {{ comment_local_reference | default('# Use local hardware clock as reference') }}
+# If no external servers are available, use the local clock as a reference.
+# Stratum 10 indicates a lower-accuracy source (unsynchronized).
+{% if local_reference | default(False) %}
+local stratum {{ local_stratum | default(10) }}
+{% endif %}
+
+# ------------------------------------------
+# Runtime Directory
+# ------------------------------------------
+# {{ comment_base_dir | default('# Runtime data directory') }}
+# Directory for runtime data, including the drift file.
+dir /var/lib/chrony
+
+# ------------------------------------------
+# Drift File
+# ------------------------------------------
+# {{ comment_driftfile | default('# Drift file') }}
+# Path to the file storing clock drift measurements.
+# Helps the daemon estimate clock frequency errors between boots.
+driftfile /var/lib/chrony/drift
+
+# ------------------------------------------
+# Initial Step Threshold
+# ------------------------------------------
+# {{ comment_step_first | default('# Allow stepping on initial sync') }}
+# Allow the daemon to 'step' (instantly adjust) the clock if the offset
+# is larger than `makestep_threshold`.
+# This prevents slewing for very large initial offsets.
+makestep {{ makestep_threshold | default(1.0) }} {{ makestep_burst_count | default(3) }}
+
+# ------------------------------------------
+# Logging Options
+# ------------------------------------------
+# {{ comment_logging | default('# Logging options') }}
+# Specify which types of data to log (measurements, statistics, tracking, etc.).
+# Defaults to logging measurements, statistics, and tracking.
+log {{ logging_destinations | default(['measurements', 'statistics', 'tracking']) | join(' ') }}
+
+# ------------------------------------------
+# RTC Synchronization
+# ------------------------------------------
+# {{ comment_rtcsync | default('# Sync to hardware clock') }}
+# Continuously synchronize the system clock to the RTC (hardware clock).
+# Ensures the system clock persists correctly across reboots.
+{% if rtcsync | default(False) %}
+rtcsync
+{% endif %}
+
+# ------------------------------------------
+# Leap Second Handling
+# ------------------------------------------
+# {{ comment_leapsecmode | default('# Leap second handling') }}
+# How to handle leap seconds. Options: 'system', 'step', 'slew', 'ignore'.
+# 'system' relies on the kernel to step time.
+leapsecmode {{ leapsec_mode | default('system') }}
+
+# ------------------------------------------
+# Authentication Key File
+# ------------------------------------------
+# {{ comment_keyfile | default('# Authentication key file') }}
+# Path to the file containing NTP authentication keys.
+# Empty string disables authentication key loading.
+{% if keyfile | default('') | trim != '' %}
+keyfile {{ keyfile | default('') }}
+{% endif %}
+
+# ------------------------------------------
+# NTP Version & Signing
+# ------------------------------------------
+# {{ comment_ntp4 | default('# Use NTPv4') }}
+# Enable NTP version 4 support.
+# If NTPv4 is enabled, optionally configure the Samba ntp_signd socket
+# for MS-SNTP signing on Windows clients.
+{% if ntp4_enabled | default(True) %}
+{% if ntpsigndsocket | default('') | trim != '' %}
+ntpsigndsocket {{ ntpsigndsocket | default('') }}
+{% endif %}
+{% endif %}
+
+# ------------------------------------------
+# Initial Slew at Startup
+# ------------------------------------------
+# {{ comment_initstepslew | default('# Initial slew at startup') }}
+# Use 'initstepslew' to rapidly step the clock on startup if the offset
+# exceeds `initstepslew_threshold`. This runs before the main server sync.
+initstepslew {{ initstepslew_threshold | default(0.1) }} {{ ntp_servers | default(['0.pool.ntp.org', '1.pool.ntp.org', '2.pool.ntp.org', '3.pool.ntp.org']) | join(' ') }}
+
+# ------------------------------------------
+# Hardware Timestamping
+# ------------------------------------------
+# {{ comment_hwtimestamp | default('# Hardware timestamping') }}
+# Enable hardware timestamping on specific network interfaces.
+# Requires NIC and kernel support for higher precision.
+{% if hwtimestamp_interfaces | default([]) %}
+hwtimestamp {{ hwtimestamp_interfaces | default([]) | join(' ') }}
+{% endif %}
+
+# ------------------------------------------
+# Poll Interval Range
+# ------------------------------------------
+# {{ comment_minpoll_maxpoll | default('# Poll interval range') }}
+# Set the minimum and maximum poll intervals (in seconds).
+# Values are exponents: minpoll 6 = 2^6 = 64s, maxpoll 10 = 2^10 = 1024s.
+minpoll {{ minpoll_exp | default(6) }}
+maxpoll {{ maxpoll_exp | default(10) }}
+
+# ------------------------------------------
+# Maximum Sources
+# ------------------------------------------
+# {{ comment_sources | default('# Max NTP sources') }}
+# Limit the number of NTP sources chronyd will use for synchronization.
+# Prevents resource exhaustion from too many peers.
+maxsources {{ max_sources | default(6) }}
+
+# ------------------------------------------
+# Web UI Settings
+# ------------------------------------------
+# {{ comment_webserver | default('# Web UI settings') }}
+# Enable the built-in web server for the Chrony Web UI dashboard.
+# Exposes metrics and status via HTTP on the specified port.
+{% if webserver_enabled | default(False) %}
+webport {{ webserver_port | default(8080) }}
+{% endif %}
+
+# ------------------------------------------
+# Tracking/Diagnostic Logs
+# ------------------------------------------
+# {{ comment_tracking | default('# Tracking logs') }}
+# Enable dumping of tracking/measurements history to a file.
+# Useful for debugging time synchronization issues.
+{% if enable_tracking_files | default(False) %}
+dumpdir /var/log/chrony
+{% endif %}

@@ -1,0 +1,85 @@
+# ============================================================================
+# btrfsmaintenance.conf
+# This file configures the btrfsmaintenance package, which provides periodic
+# maintenance tasks (scrub, balance, defrag, trim) for Btrfs filesystems.
+# ============================================================================
+
+# Output target for messages. Valid values: none, stdout, journal, syslog.
+# Journal and syslog messages are tagged by the task name like 'btrfs-scrub' etc.
+BTRFS_LOG_OUTPUT="{{ BTRFS_LOG_OUTPUT | default('stdout') }}"
+
+# Colon-separated list of paths to defragment periodically. Empty means none.
+# Run periodic defrag on selected paths. The files from a given path do not
+# cross mount points or other subvolumes/snapshots. If you want to defragment
+# nested subvolumes, all have to be listed in this variable.
+BTRFS_DEFRAG_PATHS="{{ BTRFS_DEFRAG_PATHS | default('') }}"
+
+# Frequency of periodic defragmentation. Valid values: none, daily, weekly, monthly.
+# Also supports systemd.time(7) calendar events.
+# ServiceRestart: btrfsmaintenance-refresh
+BTRFS_DEFRAG_PERIOD="{{ BTRFS_DEFRAG_PERIOD | default('none') }}"
+
+# Minimal file size to consider for defragmentation.
+BTRFS_DEFRAG_MIN_SIZE="{{ BTRFS_DEFRAG_MIN_SIZE | default('+1M') }}"
+
+# Colon-separated list of mountpoints/filesystems to balance periodically.
+# 'auto' means all mounted btrfs filesystems.
+# Which mountpoints/filesystems to balance periodically. This may reclaim unused
+# portions of the filesystem and make the rest more compact.
+BTRFS_BALANCE_MOUNTPOINTS="{{ BTRFS_BALANCE_MOUNTPOINTS | default('/') }}"
+
+# Frequency of periodic balance. Valid values: none, daily, weekly, monthly.
+# Also supports systemd.time(7) calendar events.
+# Periodic balance is not required, nor useful, in most cases. Cases where it is
+# beneficial should be reported upstream.
+# ServiceRestart: btrfsmaintenance-refresh
+BTRFS_BALANCE_PERIOD="{{ BTRFS_BALANCE_PERIOD | default('none') }}"
+
+# Usage percent range for balancing data block groups (space-separated min max).
+# Note: default values should not disturb normal work but may not reclaim
+# enough block groups. If you observe that, add higher values but beware that
+# this will increase IO load on the system.
+BTRFS_BALANCE_DUSAGE="{{ BTRFS_BALANCE_DUSAGE | default('5 10') }}"
+
+# Usage percent for balancing metadata block groups (and mixed blockgroups).
+# Note: default values should not disturb normal work but may not reclaim
+# enough block groups. If you observe that, add higher values but beware that
+# this will increase IO load on the system.
+BTRFS_BALANCE_MUSAGE="{{ BTRFS_BALANCE_MUSAGE | default('5') }}"
+
+# Colon-separated list of mountpoints/filesystems to scrub periodically.
+# 'auto' means all mounted btrfs filesystems.
+# Which mountpoints/filesystems to scrub periodically.
+BTRFS_SCRUB_MOUNTPOINTS="{{ BTRFS_SCRUB_MOUNTPOINTS | default('/') }}"
+
+# Frequency of periodic scrub. Valid values: none, weekly, monthly.
+# Also supports systemd.time(7) calendar events.
+# ServiceRestart: btrfsmaintenance-refresh
+BTRFS_SCRUB_PERIOD="{{ BTRFS_SCRUB_PERIOD | default('monthly') }}"
+
+# I/O priority for scrub. Valid values: idle, normal.
+# Priority of IO at which the scrub process will run. Idle should not degrade
+# performance but may take longer to finish.
+BTRFS_SCRUB_PRIORITY="{{ BTRFS_SCRUB_PRIORITY | default('idle') }}"
+
+# If true, perform read-only scrub without attempting repairs.
+# Do read-only scrub and don't try to repair anything.
+BTRFS_SCRUB_READ_ONLY="{{ BTRFS_SCRUB_READ_ONLY | default(false) }}"
+
+# Frequency of periodic trim. Valid values: none, daily, weekly, monthly.
+# Also supports systemd.time(7) calendar events.
+# Off by default so it does not collide with fstrim.timer. If you do not use
+# the timer, turn it on here. The recommended period is 'weekly'.
+# ServiceRestart: btrfsmaintenance-refresh
+BTRFS_TRIM_PERIOD="{{ BTRFS_TRIM_PERIOD | default('none') }}"
+
+# Colon-separated list of mountpoints/filesystems to trim periodically.
+# 'auto' means all mounted btrfs filesystems.
+# Which mountpoints/filesystems to trim periodically.
+BTRFS_TRIM_MOUNTPOINTS="{{ BTRFS_TRIM_MOUNTPOINTS | default('/') }}"
+
+# If true, allow concurrent btrfs maintenance jobs (otherwise they run in FIFO order).
+# These maintenance tasks may compete for resources with each other, blocking
+# out other tasks from using the file systems. This option will force
+# these jobs to run in FIFO order when scheduled at overlapping times.
+BTRFS_ALLOW_CONCURRENCY="{{ BTRFS_ALLOW_CONCURRENCY | default(false) }}"

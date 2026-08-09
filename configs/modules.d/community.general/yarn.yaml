@@ -1,0 +1,60 @@
+name: yarn
+fqcn: community.general.yarn
+collection: community.general
+short_description: Manage node.js packages with Yarn
+description: Manage node.js packages with the Yarn package manager (https://yarnpkg.com/)
+options:
+  executable:
+    type: path
+    description: The executable location for yarn.
+  global:
+    type: bool
+    default: false
+    description: Install the node.js library globally
+  ignore_scripts:
+    type: bool
+    default: false
+    description: Use the --ignore-scripts flag when installing.
+  name:
+    type: str
+    description: The name of a node.js library to install If omitted all packages in package.json are
+      installed. To globally install from local node.js library. Prepend "file:" to the path of the node.js
+      library.
+  path:
+    type: path
+    description: The base path where Node.js libraries will be installed. This is where the node_modules
+      folder lives.
+  production:
+    type: bool
+    default: false
+    description: Install dependencies in production mode. Yarn will ignore any dependencies under devDependencies
+      in package.json
+  registry:
+    type: str
+    description: The registry to install modules from.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - latest
+    description: Installation state of the named node.js library If absent is selected, a name option
+      must be provided
+  version:
+    type: str
+    description: The version of the library to be installed. Must be in semver format. If "latest" is
+      desired, use "state" arg instead
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Install \"imagemin\" node.js package.\n  community.general.yarn:\n    name: imagemin\n\
+  \    path: /app/location\n\n- name: Install \"imagemin\" node.js package on version 5.3.1\n  community.general.yarn:\n\
+  \    name: imagemin\n    version: '5.3.1'\n    path: /app/location\n\n- name: Install \"imagemin\" node.js\
+  \ package globally.\n  community.general.yarn:\n    name: imagemin\n    global: true\n\n- name: Remove\
+  \ the globally-installed package \"imagemin\".\n  community.general.yarn:\n    name: imagemin\n    global:\
+  \ true\n    state: absent\n\n- name: Install \"imagemin\" node.js package from custom registry.\n  community.general.yarn:\n\
+  \    name: imagemin\n    registry: 'http://registry.mysite.com'\n\n- name: Install packages based on\
+  \ package.json.\n  community.general.yarn:\n    path: /app/location\n\n- name: Update all packages in\
+  \ package.json to their latest version.\n  community.general.yarn:\n    path: /app/location\n    state:\
+  \ latest\n"

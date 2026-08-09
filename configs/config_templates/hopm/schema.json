@@ -1,0 +1,938 @@
+{
+  "hopm_pidfile": {
+    "type": "string",
+    "default": "/run/hopm/hopm.pid",
+    "description": "Full path and filename for storing the process ID of the running HOPM."
+  },
+  "hopm_command_queue_size": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum commands to queue."
+  },
+  "hopm_command_interval": {
+    "type": "string",
+    "default": "10 seconds",
+    "description": "Interval to check command queue for timed out commands."
+  },
+  "hopm_command_timeout": {
+    "type": "string",
+    "default": "180 seconds",
+    "description": "Timeout of commands."
+  },
+  "hopm_negcache": {
+    "type": "string",
+    "default": "1 hour",
+    "description": "Time to store IP addresses of confirmed secure hosts."
+  },
+  "hopm_negcache_rebuild": {
+    "type": "string",
+    "default": "12 hours",
+    "description": "How long between rebuilds of the negative cache."
+  },
+  "hopm_dns_fdlimit": {
+    "type": "number",
+    "default": 64,
+    "description": "Amount of file descriptors to allocate to asynchronous DNS."
+  },
+  "hopm_dns_timeout": {
+    "type": "string",
+    "default": "5 seconds",
+    "description": "Amount of time the resolver waits until a response is received from a name server."
+  },
+  "hopm_scanlog": {
+    "type": "string",
+    "default": "/var/log/hopm/scan.log",
+    "description": "Full path and filename of a logfile for every scan."
+  },
+  "hopm_irc_bind": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind to for the IRC connection."
+  },
+  "hopm_irc_nick": {
+    "type": "string",
+    "default": "MyHopm",
+    "description": "Nickname for HOPM to use."
+  },
+  "hopm_irc_realname": {
+    "type": "string",
+    "default": "Hybrid Open Proxy Monitor",
+    "description": "Text to appear in the 'realname' field of HOPM's /whois output."
+  },
+  "hopm_irc_username": {
+    "type": "string",
+    "default": "hopm",
+    "description": "Username to use if no identd is running."
+  },
+  "hopm_irc_server": {
+    "type": "string",
+    "default": "irc.example.org",
+    "description": "Hostname or IP address of the IRC server."
+  },
+  "hopm_irc_password": {
+    "type": "string",
+    "default": "secret",
+    "description": "Password used to connect to the IRC server."
+  },
+  "hopm_irc_port": {
+    "type": "number",
+    "default": 6667,
+    "description": "Port of the IRC server to connect to."
+  },
+  "hopm_irc_tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to use TLS when connecting to the IRC server."
+  },
+  "hopm_irc_rsa_private_key_file": {
+    "type": "string",
+    "default": "etc/rsa.key",
+    "description": "Path to the file containing the RSA key for TLS."
+  },
+  "hopm_irc_tls_certificate_file": {
+    "type": "string",
+    "default": "etc/cert.pem",
+    "description": "Path to the file containing the TLS certificate."
+  },
+  "hopm_irc_tls_hostname_verification": {
+    "type": "bool",
+    "default": true,
+    "description": "Checks if the host name matches the identity in the certificate."
+  },
+  "hopm_irc_readtimeout": {
+    "type": "string",
+    "default": "15 minutes",
+    "description": "Time in which bot will timeout if no data is received."
+  },
+  "hopm_irc_reconnectinterval": {
+    "type": "string",
+    "default": "30 seconds",
+    "description": "Interval in how often we try to reconnect to the IRC server."
+  },
+  "hopm_irc_nickserv": {
+    "type": "string",
+    "default": "NS IDENTIFY password",
+    "description": "Command to execute to identify to NickServ."
+  },
+  "hopm_irc_oper": {
+    "type": "string",
+    "default": "hopm operpass",
+    "description": "The username and password needed for HOPM to oper up."
+  },
+  "hopm_irc_mode": {
+    "type": "string",
+    "default": "+c",
+    "description": "Mode string that HOPM needs to set on itself as soon as it opers up."
+  },
+  "hopm_irc_away": {
+    "type": "string",
+    "default": "I'm a bot. Your messages will be ignored.",
+    "description": "Away message sent on connection."
+  },
+  "hopm_irc_channel_name": {
+    "type": "string",
+    "default": "#hopm",
+    "description": "Channel name for HOPM to join."
+  },
+  "hopm_irc_channel_key": {
+    "type": "string",
+    "default": "somekey",
+    "description": "Key to enter the channel if required."
+  },
+  "hopm_irc_channel_invite": {
+    "type": "string",
+    "default": "CS INVITE #hopm",
+    "description": "Invite command for ChanServ."
+  },
+  "hopm_irc_connregex": {
+    "type": "string",
+    "default": "\\\\*\\\\*\\\\* Notice -- Client connecting: ([^ ]+) \\\\(([^@]+)@([^\\\\)]+)\\\\) \\\\[([0-9a-f\\\\.:]+)\\\\].*",
+    "description": "Regex for connection notices (bahamut/charybdis/etc)."
+  },
+  "hopm_irc_connregex_far": {
+    "type": "string",
+    "default": "\\\\*\\\\*\\\\* Notice -- Client connecting.*: ([^ ]+) \\\\(([^@]+)@([^\\\\)]+)\\\\) \\\\[([0-9a-f\\\\.:]+)\\\\].*",
+    "description": "Regex for connection notices with far connect notices."
+  },
+  "hopm_irc_connregex_unreal": {
+    "type": "string",
+    "default": "\\\\*\\\\*\\\\* Client connecting: ([^ ]+) \\\\(([^@]+)@([^\\\\)]+)\\\\) \\\\[([0-9a-f\\\\.:]+)\\\\].*",
+    "description": "Regex for connection notices (UnrealIRCd 4.0.x)."
+  },
+  "hopm_irc_connregex_inspircd": {
+    "type": "string",
+    "default": "\\\\*\\\\*\\\\* .*CONNECT: Client connecting.*: ([^ ]+)!([^@]+)@([^\\\\)]+) \\\\(([0-9a-f\\\\.:]+)\\\\) \\\\[.*\\\\]",
+    "description": "Regex for connection notices (InspIRCd)."
+  },
+  "hopm_irc_connregex_ngircd": {
+    "type": "string",
+    "default": "Client connecting: ([^ ]+) \\\\(([^@]+)@([^\\\\)]+)\\\\) \\\\[([0-9a-f\\\\.:]+)\\\\].*",
+    "description": "Regex for connection notices (ngIRCd)."
+  },
+  "hopm_irc_kline_default": {
+    "type": "string",
+    "default": "KLINE 180 *@%i :Open proxy found on your host.",
+    "description": "KLINE command for bahamut/charybdis/ircd-hybrid/ircd-ratbox."
+  },
+  "hopm_irc_kline_inspircd": {
+    "type": "string",
+    "default": "KLINE *@%i 3h :Open proxy found on your host.",
+    "description": "KLINE command for InspIRCd."
+  },
+  "hopm_irc_kline_ngircd": {
+    "type": "string",
+    "default": "KLINE *@%i 10800 :Open proxy found on your host.",
+    "description": "KLINE command for ngIRCd."
+  },
+  "hopm_irc_kline_ircu": {
+    "type": "string",
+    "default": "GLINE +*@%i 10800 :Open proxy found on your host.",
+    "description": "GLINE command for ircu."
+  },
+  "hopm_irc_kline_unreal": {
+    "type": "string",
+    "default": "ZLINE *@%i 3h :Open proxy found on your host.",
+    "description": "ZLINE command for UnrealIRCd."
+  },
+  "hopm_irc_kline_akill": {
+    "type": "string",
+    "default": "OS AKILL ADD +3h *@%i Open proxy found on your host.",
+    "description": "AKILL command for OperServ."
+  },
+  "hopm_irc_perform": {
+    "type": "string",
+    "default": "PROTOCTL HCN",
+    "description": "Text to send on connection."
+  },
+  "hopm_irc_notice": {
+    "type": "string",
+    "default": "You are now being scanned for open proxies. If you have nothing to hide, you have nothing to fear.",
+    "description": "Text to send, via NOTICE, immediately when a new client connects."
+  },
+  "hopm_opm_blacklist_0_name": {
+    "type": "string",
+    "default": "dnsbl.dronebl.org",
+    "description": "DNS name of the blacklist."
+  },
+  "hopm_opm_blacklist_0_address_family": {
+    "type": "list",
+    "default": [
+      "ipv4",
+      "ipv6"
+    ],
+    "description": "Address families supported by the blacklist."
+  },
+  "hopm_opm_blacklist_0_type": {
+    "type": "string",
+    "default": "A record reply",
+    "description": "Type of A record bitmask/reply.",
+    "enum": [
+      "A record bitmask",
+      "A record reply"
+    ]
+  },
+  "hopm_opm_blacklist_0_ban_unknown": {
+    "type": "bool",
+    "default": false,
+    "description": "Kline types not listed in the reply list."
+  },
+  "hopm_opm_blacklist_0_reply_2": {
+    "type": "string",
+    "default": "Sample data used for heuristical analysis",
+    "description": "Reply value 2 description."
+  },
+  "hopm_opm_blacklist_0_reply_3": {
+    "type": "string",
+    "default": "IRC spam drone (litmus/sdbot/fyle)",
+    "description": "Reply value 3 description."
+  },
+  "hopm_opm_blacklist_0_reply_5": {
+    "type": "string",
+    "default": "Bottler (experimental)",
+    "description": "Reply value 5 description."
+  },
+  "hopm_opm_blacklist_0_reply_6": {
+    "type": "string",
+    "default": "Unknown worm or spambot",
+    "description": "Reply value 6 description."
+  },
+  "hopm_opm_blacklist_0_reply_7": {
+    "type": "string",
+    "default": "DDoS drone",
+    "description": "Reply value 7 description."
+  },
+  "hopm_opm_blacklist_0_reply_8": {
+    "type": "string",
+    "default": "Open SOCKS proxy",
+    "description": "Reply value 8 description."
+  },
+  "hopm_opm_blacklist_0_reply_9": {
+    "type": "string",
+    "default": "Open HTTP proxy",
+    "description": "Reply value 9 description."
+  },
+  "hopm_opm_blacklist_0_reply_10": {
+    "type": "string",
+    "default": "ProxyChain",
+    "description": "Reply value 10 description."
+  },
+  "hopm_opm_blacklist_0_reply_11": {
+    "type": "string",
+    "default": "Web Page Proxy",
+    "description": "Reply value 11 description."
+  },
+  "hopm_opm_blacklist_0_reply_12": {
+    "type": "string",
+    "default": "Open DNS Resolver",
+    "description": "Reply value 12 description."
+  },
+  "hopm_opm_blacklist_0_reply_13": {
+    "type": "string",
+    "default": "Automated dictionary attacks",
+    "description": "Reply value 13 description."
+  },
+  "hopm_opm_blacklist_0_reply_14": {
+    "type": "string",
+    "default": "Open WINGATE proxy",
+    "description": "Reply value 14 description."
+  },
+  "hopm_opm_blacklist_0_reply_15": {
+    "type": "string",
+    "default": "Compromised router / gateway",
+    "description": "Reply value 15 description."
+  },
+  "hopm_opm_blacklist_0_reply_16": {
+    "type": "string",
+    "default": "Autorooting worms",
+    "description": "Reply value 16 description."
+  },
+  "hopm_opm_blacklist_0_reply_17": {
+    "type": "string",
+    "default": "Automatically determined botnet IPs (experimental)",
+    "description": "Reply value 17 description."
+  },
+  "hopm_opm_blacklist_0_reply_18": {
+    "type": "string",
+    "default": "Possibly compromised DNS/MX type hostname detected on IRC",
+    "description": "Reply value 18 description."
+  },
+  "hopm_opm_blacklist_0_reply_19": {
+    "type": "string",
+    "default": "Abused VPN Service",
+    "description": "Reply value 19 description."
+  },
+  "hopm_opm_blacklist_0_reply_255": {
+    "type": "string",
+    "default": "Uncategorized threat class",
+    "description": "Reply value 255 description."
+  },
+  "hopm_opm_blacklist_0_kline": {
+    "type": "string",
+    "default": "KLINE 180 *@%i :You have a host listed in the DroneBL. For more information, visit https://dronebl.org/lookup_branded?ip=%i&network=Network",
+    "description": "KLINE message for DroneBL."
+  },
+  "hopm_opm_blacklist_1_name": {
+    "type": "string",
+    "default": "rbl.efnetrbl.org",
+    "description": "DNS name of the blacklist."
+  },
+  "hopm_opm_blacklist_1_type": {
+    "type": "string",
+    "default": "A record reply",
+    "description": "Type of A record bitmask/reply.",
+    "enum": [
+      "A record bitmask",
+      "A record reply"
+    ]
+  },
+  "hopm_opm_blacklist_1_ban_unknown": {
+    "type": "bool",
+    "default": false,
+    "description": "Kline types not listed in the reply list."
+  },
+  "hopm_opm_blacklist_1_reply_1": {
+    "type": "string",
+    "default": "Open proxy",
+    "description": "Reply value 1 description."
+  },
+  "hopm_opm_blacklist_1_reply_2": {
+    "type": "string",
+    "default": "spamtrap666",
+    "description": "Reply value 2 description."
+  },
+  "hopm_opm_blacklist_1_reply_3": {
+    "type": "string",
+    "default": "spamtrap50",
+    "description": "Reply value 3 description."
+  },
+  "hopm_opm_blacklist_1_reply_4": {
+    "type": "string",
+    "default": "TOR",
+    "description": "Reply value 4 description."
+  },
+  "hopm_opm_blacklist_1_reply_5": {
+    "type": "string",
+    "default": "Drones / Flooding",
+    "description": "Reply value 5 description."
+  },
+  "hopm_opm_blacklist_1_kline": {
+    "type": "string",
+    "default": "KLINE 180 *@%i :Blacklisted proxy found. For more information, visit https://rbl.efnetrbl.org/?i=%i",
+    "description": "KLINE message for efnetrbl."
+  },
+  "hopm_opm_blacklist_2_name": {
+    "type": "string",
+    "default": "tor.efnetrbl.org",
+    "description": "DNS name of the blacklist."
+  },
+  "hopm_opm_blacklist_2_type": {
+    "type": "string",
+    "default": "A record reply",
+    "description": "Type of A record bitmask/reply.",
+    "enum": [
+      "A record bitmask",
+      "A record reply"
+    ]
+  },
+  "hopm_opm_blacklist_2_ban_unknown": {
+    "type": "bool",
+    "default": false,
+    "description": "Kline types not listed in the reply list."
+  },
+  "hopm_opm_blacklist_2_reply_1": {
+    "type": "string",
+    "default": "TOR",
+    "description": "Reply value 1 description."
+  },
+  "hopm_opm_blacklist_2_kline": {
+    "type": "string",
+    "default": "KLINE 180 *@%i :TOR exit node found. For more information, visit https://rbl.efnetrbl.org/?i=%i",
+    "description": "KLINE message for efnetrbl TOR."
+  },
+  "hopm_opm_dnsbl_from": {
+    "type": "string",
+    "default": "mybopm@myserver.org",
+    "description": "Email address to send reports FROM."
+  },
+  "hopm_opm_dnsbl_to": {
+    "type": "string",
+    "default": "bopm-report@dronebl.org",
+    "description": "Email address to send reports TO."
+  },
+  "hopm_opm_sendmail": {
+    "type": "string",
+    "default": "/usr/sbin/sendmail",
+    "description": "Full path to your sendmail binary."
+  },
+  "hopm_scanner_0_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Unique name of this scanner."
+  },
+  "hopm_scanner_0_protocol_0": {
+    "type": "string",
+    "default": "HTTP:80",
+    "description": "Protocol definition.",
+    "enum": [
+      "HTTP:80",
+      "HTTP:8080",
+      "HTTP:3128",
+      "HTTP:6588",
+      "HTTPS:443",
+      "HTTPS:8443",
+      "SOCKS4:1080",
+      "SOCKS5:1080",
+      "ROUTER:23",
+      "WINGATE:23",
+      "DREAMBOX:23",
+      "HTTPPOST:80",
+      "HTTPSPOST:443",
+      "HTTPSPOST:8443"
+    ]
+  },
+  "hopm_scanner_0_protocol_1": {
+    "type": "string",
+    "default": "HTTP:8080",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_2": {
+    "type": "string",
+    "default": "HTTP:3128",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_3": {
+    "type": "string",
+    "default": "HTTP:6588",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_4": {
+    "type": "string",
+    "default": "HTTPS:443",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_5": {
+    "type": "string",
+    "default": "HTTPS:8443",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_6": {
+    "type": "string",
+    "default": "SOCKS4:1080",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_7": {
+    "type": "string",
+    "default": "SOCKS5:1080",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_8": {
+    "type": "string",
+    "default": "ROUTER:23",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_9": {
+    "type": "string",
+    "default": "WINGATE:23",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_10": {
+    "type": "string",
+    "default": "DREAMBOX:23",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_11": {
+    "type": "string",
+    "default": "HTTPPOST:80",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_12": {
+    "type": "string",
+    "default": "HTTPSPOST:443",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_protocol_13": {
+    "type": "string",
+    "default": "HTTPSPOST:8443",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_0_bind": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address this scanner will bind to."
+  },
+  "hopm_scanner_0_fd": {
+    "type": "number",
+    "default": 512,
+    "description": "Maximum file descriptors this scanner can use."
+  },
+  "hopm_scanner_0_max_read": {
+    "type": "string",
+    "default": "4 kbytes",
+    "description": "Maximum data read from a proxy before considering it closed."
+  },
+  "hopm_scanner_0_timeout": {
+    "type": "string",
+    "default": "30 seconds",
+    "description": "Amount of time before a test is considered timed out."
+  },
+  "hopm_scanner_0_target_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Target IP to tell the proxy to connect to."
+  },
+  "hopm_scanner_0_target_port": {
+    "type": "number",
+    "default": 6667,
+    "description": "Target port to tell the proxy to connect to."
+  },
+  "hopm_scanner_0_target_string_0": {
+    "type": "string",
+    "default": ":irc.example.org NOTICE * :*** Looking up your hostname",
+    "description": "Target string for normal connection."
+  },
+  "hopm_scanner_0_target_string_1": {
+    "type": "string",
+    "default": "ERROR :Your host is trying to (re)connect too fast -- throttled.",
+    "description": "Target string for throttled connection."
+  },
+  "hopm_scanner_1_name": {
+    "type": "string",
+    "default": "extended",
+    "description": "Unique name of this scanner."
+  },
+  "hopm_scanner_1_protocol_0": {
+    "type": "string",
+    "default": "HTTP:81",
+    "description": "Protocol definition.",
+    "enum": [
+      "HTTP:81",
+      "HTTP:8000",
+      "HTTP:8001",
+      "HTTP:8081",
+      "HTTPPOST:81",
+      "HTTPPOST:6588",
+      "HTTPPOST:4480",
+      "HTTPPOST:8000",
+      "HTTPPOST:8001",
+      "HTTPPOST:8080",
+      "HTTPPOST:8081",
+      "SOCKS4:4914",
+      "SOCKS4:6826",
+      "SOCKS4:7198",
+      "SOCKS4:7366",
+      "SOCKS4:9036",
+      "SOCKS5:4438",
+      "SOCKS5:5104",
+      "SOCKS5:5113",
+      "SOCKS5:5262",
+      "SOCKS5:5634",
+      "SOCKS5:6552",
+      "SOCKS5:6561",
+      "SOCKS5:7464",
+      "SOCKS5:7810",
+      "SOCKS5:8130",
+      "SOCKS5:8148",
+      "SOCKS5:8520",
+      "SOCKS5:8814",
+      "SOCKS5:9100",
+      "SOCKS5:9186",
+      "SOCKS5:9447",
+      "SOCKS5:9578",
+      "SOCKS4:29992",
+      "SOCKS4:38884",
+      "SOCKS4:18844",
+      "SOCKS4:17771",
+      "SOCKS4:31121"
+    ]
+  },
+  "hopm_scanner_1_protocol_1": {
+    "type": "string",
+    "default": "HTTP:8000",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_2": {
+    "type": "string",
+    "default": "HTTP:8001",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_3": {
+    "type": "string",
+    "default": "HTTP:8081",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_4": {
+    "type": "string",
+    "default": "HTTPPOST:81",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_5": {
+    "type": "string",
+    "default": "HTTPPOST:6588",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_6": {
+    "type": "string",
+    "default": "HTTPPOST:4480",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_7": {
+    "type": "string",
+    "default": "HTTPPOST:8000",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_8": {
+    "type": "string",
+    "default": "HTTPPOST:8001",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_9": {
+    "type": "string",
+    "default": "HTTPPOST:8080",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_10": {
+    "type": "string",
+    "default": "HTTPPOST:8081",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_11": {
+    "type": "string",
+    "default": "SOCKS4:4914",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_12": {
+    "type": "string",
+    "default": "SOCKS4:6826",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_13": {
+    "type": "string",
+    "default": "SOCKS4:7198",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_14": {
+    "type": "string",
+    "default": "SOCKS4:7366",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_15": {
+    "type": "string",
+    "default": "SOCKS4:9036",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_16": {
+    "type": "string",
+    "default": "SOCKS5:4438",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_17": {
+    "type": "string",
+    "default": "SOCKS5:5104",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_18": {
+    "type": "string",
+    "default": "SOCKS5:5113",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_19": {
+    "type": "string",
+    "default": "SOCKS5:5262",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_20": {
+    "type": "string",
+    "default": "SOCKS5:5634",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_21": {
+    "type": "string",
+    "default": "SOCKS5:6552",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_22": {
+    "type": "string",
+    "default": "SOCKS5:6561",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_23": {
+    "type": "string",
+    "default": "SOCKS5:7464",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_24": {
+    "type": "string",
+    "default": "SOCKS5:7810",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_25": {
+    "type": "string",
+    "default": "SOCKS5:8130",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_26": {
+    "type": "string",
+    "default": "SOCKS5:8148",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_27": {
+    "type": "string",
+    "default": "SOCKS5:8520",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_28": {
+    "type": "string",
+    "default": "SOCKS5:8814",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_29": {
+    "type": "string",
+    "default": "SOCKS5:9100",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_30": {
+    "type": "string",
+    "default": "SOCKS5:9186",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_31": {
+    "type": "string",
+    "default": "SOCKS5:9447",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_32": {
+    "type": "string",
+    "default": "SOCKS5:9578",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_33": {
+    "type": "string",
+    "default": "SOCKS4:10000",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_34": {
+    "type": "string",
+    "default": "SOCKS4:64101",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_35": {
+    "type": "string",
+    "default": "SOCKS4:29992",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_36": {
+    "type": "string",
+    "default": "SOCKS4:38884",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_37": {
+    "type": "string",
+    "default": "SOCKS4:18844",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_38": {
+    "type": "string",
+    "default": "SOCKS4:17771",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_protocol_39": {
+    "type": "string",
+    "default": "SOCKS4:31121",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_1_fd": {
+    "type": "number",
+    "default": 400,
+    "description": "Maximum file descriptors this scanner can use."
+  },
+  "hopm_scanner_2_name": {
+    "type": "string",
+    "default": "ssh",
+    "description": "Unique name of this scanner."
+  },
+  "hopm_scanner_2_protocol_0": {
+    "type": "string",
+    "default": "SSH:22",
+    "description": "Protocol definition."
+  },
+  "hopm_scanner_2_target_string_0": {
+    "type": "string",
+    "default": "SSH-1.99-OpenSSH_5.1",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_1": {
+    "type": "string",
+    "default": "SSH-2.0-dropbear_0.51",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_2": {
+    "type": "string",
+    "default": "SSH-2.0-dropbear_0.52",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_3": {
+    "type": "string",
+    "default": "SSH-2.0-dropbear_0.53.1",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_4": {
+    "type": "string",
+    "default": "SSH-2.0-dropbear_2012.55",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_5": {
+    "type": "string",
+    "default": "SSH-2.0-dropbear_2013.62",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_6": {
+    "type": "string",
+    "default": "SSH-2.0-dropbear_2014.63",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_7": {
+    "type": "string",
+    "default": "SSH-2.0-OpenSSH_4.3",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_8": {
+    "type": "string",
+    "default": "SSH-2.0-OpenSSH_5.1",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_9": {
+    "type": "string",
+    "default": "SSH-2.0-OpenSSH_5.5p1",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_10": {
+    "type": "string",
+    "default": "SSH-2.0-ROSSSH",
+    "description": "Target string for SSH version."
+  },
+  "hopm_scanner_2_target_string_11": {
+    "type": "string",
+    "default": "SSH-2.0-SSH_Server",
+    "description": "Target string for SSH version."
+  },
+  "hopm_user_0_mask": {
+    "type": "string",
+    "default": "*!*@*",
+    "description": "Users matching this host mask will be scanned."
+  },
+  "hopm_user_0_scanner": {
+    "type": "string",
+    "default": "default",
+    "description": "Scanner to use for this user block."
+  },
+  "hopm_user_1_mask_commented": {
+    "type": "string",
+    "default": "*!~*@*",
+    "description": "Connections without ident (commented out example)."
+  },
+  "hopm_user_1_mask_0": {
+    "type": "string",
+    "default": "*!squid@*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_mask_1": {
+    "type": "string",
+    "default": "*!nobody@*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_mask_2": {
+    "type": "string",
+    "default": "*!www-data@*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_mask_3": {
+    "type": "string",
+    "default": "*!cache@*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_mask_4": {
+    "type": "string",
+    "default": "*!CacheFlowS@*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_mask_5": {
+    "type": "string",
+    "default": "*!*@*www*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_mask_6": {
+    "type": "string",
+    "default": "*!*@*proxy*",
+    "description": "Mask definition."
+  },
+  "hopm_user_1_scanner": {
+    "type": "string",
+    "default": "extended",
+    "description": "Scanner to use for this user block."
+  },
+  "hopm_exempt_mask": {
+    "type": "string",
+    "default": "*!*@127.0.0.1",
+    "description": "Exempt hosts matching this string."
+  }
+}

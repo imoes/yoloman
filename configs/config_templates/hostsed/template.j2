@@ -1,0 +1,15 @@
+# hostsed configuration template
+# This template generates a script or config for the `hostsed` utility to manage /etc/hosts entries.
+
+## Location of the target hosts file to manage.
+## Defaults to '/etc/hosts' if not specified in variables.
+-f {{ hosts_file_path | default('/etc/hosts') }}
+
+## List of host entries to add.
+# Each item in `entries` is a map containing:
+#   - host: The IP address (IPv4 or IPv6)
+#   - hosts: A list of hostnames/aliases associated with that IP
+{% for entry in entries | default([]) %}
+## Entry: {{ entry.host }} {{ entry.hosts | join(' ') }}
+add {{ entry.host }} {{ entry.hosts | join(' ') }}
+{% endfor %}

@@ -1,0 +1,53 @@
+- name: install-logind.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/systemd/logind.conf
+    _service: ""
+    _packages:
+      - systemd
+    n_auto_vts: 6
+    remove_ipc: "yes"
+    reserve_vts:
+      - 6
+    kill_only_users: []
+    handle_power_key: "poweroff"
+    handle_lid_switch: "suspend"
+    handle_suspend_key: "suspend"
+    kill_exclude_users:
+      - root
+    kill_user_processes: "no"
+    handle_hibernate_key: "hibernate"
+    handle_lid_switch_docked: "ignore"
+  tasks:
+    - name: Install Logind Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: logind.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: "0644"
+      vars:
+        n_auto_vts: "{{ n_auto_vts }}"
+        remove_ipc: "{{ remove_ipc }}"
+        reserve_vts: "{{ reserve_vts | join(',') }}"
+        kill_only_users: "{{ kill_only_users | join(',') }}"
+        handle_power_key: "{{ handle_power_key }}"
+        handle_lid_switch: "{{ handle_lid_switch }}"
+        handle_suspend_key: "{{ handle_suspend_key }}"
+        kill_exclude_users: "{{ kill_exclude_users | join(',') }}"
+        kill_user_processes: "{{ kill_user_processes }}"
+        handle_hibernate_key: "{{ handle_hibernate_key }}"
+        handle_lid_switch_docked: "{{ handle_lid_switch_docked }}"
+
+    - name: Enable and restart Logind Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

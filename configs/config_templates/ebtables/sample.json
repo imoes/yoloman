@@ -1,0 +1,27 @@
+{
+  "input_rules": [
+    {
+      "comment": "Allow IPv4 from trusted subnet (10.0.0.0/8)",
+      "match": "-i eth0 --proto IPv4 --ip-src 10.0.0.0/8",
+      "target": "ACCEPT"
+    },
+    {
+      "comment": "Drop IPv6 from untrusted interface (br-wan)",
+      "match": "-i br-wan --proto IPv6",
+      "target": "DROP"
+    }
+  ],
+  "output_rules": [],
+  "forward_rules": [
+    {
+      "comment": "Allow bridged traffic between eth0 and br-lan",
+      "match": "-i eth0 -o br-lan",
+      "target": "ACCEPT"
+    },
+    {
+      "comment": "Allow bridged traffic between br-lan and eth0",
+      "match": "-i br-lan -o eth0",
+      "target": "ACCEPT"
+    }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the ptp2 service at boot."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "eth0"
+    ],
+    "description": "List of network interfaces to use for PTP communication. Must support IEEE 1588 PTP timestamping (PHC)."
+  },
+  "transport": {
+    "type": "string",
+    "default": "udp",
+    "description": "PTP transport mode. Common: 'udp' (IPv4/IPv6 over UDP), 'l2' (raw Ethernet), 'ethernet' (alias for l2)."
+  },
+  "clock_identity": {
+    "type": "string",
+    "default": null,
+    "description": "Optional 8-byte clock identity in hex (e.g., '00:1b:2b:ff:fe:3c:4d:5e'). If omitted, derived from MAC address."
+  },
+  "domain_number": {
+    "type": "number",
+    "default": 0,
+    "description": "PTP domain number (0\u2013127). Must match across all clocks in the same PTP network."
+  },
+  "primary": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, this node will act as the primary (best master) clock on the domain (assuming it meets criteria)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 7,
+    "description": "Logging verbosity (0=none, 7=debug). Matches syslog levels."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/linuxptp/ptp2.log",
+    "description": "Path to the PTP daemon log file."
+  },
+  "announce_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval between Announce messages as power-of-two seconds (e.g., 0 = 1s, -1 = 0.5s, 1 = 2s). Default 0."
+  },
+  "sync_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval between Sync messages as power-of-two seconds. Default 0 (1s)."
+  },
+  "delay_req_timeout": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of missed Delay_Req messages before reselecting master. Range: 1\u201320."
+  },
+  "delay_req_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval between Delay_Req messages as power-of-two seconds. Default 0 (1s)."
+  },
+  "faulty_path_timeout": {
+    "type": "number",
+    "default": null,
+    "description": "Seconds before marking a path as faulty (disabled if null)."
+  },
+  "watchdog_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds before the watchdog triggers a restart (0 = disabled)."
+  },
+  "allow_multiple_domains": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow multiple PTP domains on same network. Enable only if necessary and understood."
+  },
+  "fallback_to_generic_phc": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow use of non-PHC (e.g., software timestamped) devices if no hardware PHC available."
+  },
+  "initial_offset_ns": {
+    "type": "number",
+    "default": null,
+    "description": "Initial clock offset (nanoseconds) to apply on startup. Useful for calibration."
+  },
+  "extra_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional command-line options (e.g., ['-s'] for software timestamping, ['-a'] for auto-selection)."
+  },
+  "interface_overrides": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-interface configuration overrides. Each entry configures one interface with specific settings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Interface name (e.g., 'eth0')."
+      },
+      "transport": {
+        "type": "string",
+        "default": "udp",
+        "description": "Transport mode for this interface (e.g., 'l2', 'udp')."
+      },
+      "priority1": {
+        "type": "number",
+        "default": 248,
+        "description": "Priority1 value (0\u2013254) used in Best Master Clock Algorithm (BMCA). Lower = higher priority."
+      },
+      "priority2": {
+        "type": "number",
+        "default": 248,
+        "description": "Priority2 value (0\u2013254) in BMCA."
+      },
+      "clock_class": {
+        "type": "number",
+        "default": 248,
+        "description": "Clock class (0\u2013255). Lower values indicate higher-quality clocks (0 = primary reference)."
+      },
+      "clock_accuracy": {
+        "type": "string",
+        "default": "255",
+        "description": "Clock accuracy code (e.g., '255' = unknown, '10' = 25ns\u2013100ns)."
+      },
+      "offset_scaled_log_variance": {
+        "type": "number",
+        "default": 65535,
+        "description": "Offset scaled log variance (e.g., 65535 = unknown)."
+      },
+      "master_offset": {
+        "type": "number",
+        "default": 0,
+        "description": "Initial master offset for this interface (nanoseconds, signed)."
+      },
+      "log_sync_interval": {
+        "type": "number",
+        "default": 0,
+        "description": "Sync interval as power-of-two seconds (e.g., -1 = 0.5s, 0 = 1s)."
+      },
+      "log_announce_interval": {
+        "type": "number",
+        "default": 0,
+        "description": "Announce interval as power-of-two seconds."
+      },
+      "log_delay_req_interval": {
+        "type": "number",
+        "default": 0,
+        "description": "Delay request interval as power-of-two seconds."
+      }
+    }
+  }
+}

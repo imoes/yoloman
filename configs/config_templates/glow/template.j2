@@ -1,0 +1,90 @@
+# ==========================================================
+# Glow Configuration Template
+# Glow is a terminal-based code viewer. This template configures
+# its visual style, display behavior, and shell completions.
+# ==========================================================
+
+# Style name (e.g. 'dracula', 'bubble') or path to JSON style file.
+# If 'auto' (the default), Glow selects a style based on the terminal
+# environment. You can also provide an absolute path to a custom
+# JSON style file.
+style: {{ style | default("auto") }}
+
+# Word-wrap width; set to 0 to disable wrapping.
+# When set to a positive integer, lines wider than this value will
+# be wrapped at the specified width.
+width: {{ width | default(0) }}
+
+# Preserve newlines in the output.
+# When enabled, Glow will respect newlines present in the source
+# text rather than collapsing them.
+preserve_newlines: {{ preserve_newlines | default(false) }}
+
+# Show line numbers (TUI-mode only).
+# Displays line numbers next to the code. This option is only
+# effective when Glow is running in TUI (Terminal User Interface)
+# mode.
+show_line_numbers: {{ show_line_numbers | default(false) }}
+
+# Show system files and directories (TUI-mode only).
+# Includes hidden files and system directories in the file browser.
+# This option is only effective in TUI mode.
+show_system_files: {{ show_system_files | default(false) }}
+
+# Enable mouse wheel (TUI-mode only).
+# Allows scrolling through the document using the mouse wheel.
+# This option is only effective in TUI mode.
+mouse: {{ mouse | default(false) }}
+
+# Display with pager.
+# If enabled, Glow will pipe its output through the system's default
+# pager (usually less) instead of printing directly to stdout.
+use_pager: {{ use_pager | default(false) }}
+
+# Path to config file. Empty string uses default location.
+# Specify an explicit path to a configuration file. If left empty,
+# Glow will search standard configuration directories.
+config_file: {{ config_file | default("") | default("", true) }}
+
+# ==========================================================
+# Shell Completions Configuration
+# Configures auto-completion scripts for supported shells.
+# Each shell requires a specific key in the completion_shells list.
+# ==========================================================
+
+{% if completion_shells is defined %}
+{% for shell in completion_shells %}
+{#
+  Each shell completion block is generated only if the shell name
+  matches one of the supported shells: bash, fish, zsh, powershell.
+  The `no_descriptions` flag, if true, generates completions
+  without descriptive text to save space/complexity.
+#}
+
+{% if shell.name == "bash" %}
+# Bash completion configuration
+# Controls whether descriptions are included in the generated
+# completion script.
+bash_completion_no_descriptions: {{ shell.no_descriptions | default(false) }}
+
+{% elif shell.name == "fish" %}
+# Fish completion configuration
+# Controls whether descriptions are included in the generated
+# completion script.
+fish_completion_no_descriptions: {{ shell.no_descriptions | default(false) }}
+
+{% elif shell.name == "powershell" %}
+# PowerShell completion configuration
+# Controls whether descriptions are included in the generated
+# completion script.
+powershell_completion_no_descriptions: {{ shell.no_descriptions | default(false) }}
+
+{% elif shell.name == "zsh" %}
+# Zsh completion configuration
+# Controls whether descriptions are included in the generated
+# completion script.
+zsh_completion_no_descriptions: {{ shell.no_descriptions | default(false) }}
+
+{% endif %}
+{% endfor %}
+{% endif %}

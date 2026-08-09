@@ -1,0 +1,87 @@
+# =========================================================================
+# Claws Mail Feeds Reader Plugin Configuration
+# =========================================================================
+# This file configures the 'feeds-reader' plugin for Claws Mail.
+# It defines RSS/Atom feed subscriptions and global network/SSL settings.
+#
+# Structure:
+#   - One section per feed account, named after the feed's human-readable name.
+#   - A '[global]' section for shared settings (SSL, proxy).
+#
+# Notes:
+#   - 'feed_accounts' is a list of mappings. If empty, no feeds are configured.
+#   - 'global_*' variables control HTTPS behavior and proxy usage.
+# =========================================================================
+
+# -------------------------------------------------------------------------
+# Feed Accounts
+# -------------------------------------------------------------------------
+# Each entry in 'feed_accounts' creates a section for an RSS/Atom feed.
+# Required field: url
+# Optional fields: name, interval, max_age, max_articles
+# -------------------------------------------------------------------------
+
+{% for account in (feed_accounts | default([])) %}
+# -----------------------------------------------------------------------
+# Feed Account: {{ account.get('name', 'Unnamed Feed') | default('Unnamed Feed') }}
+# URL: {{ account.get('url', '') | default('') }}
+# -----------------------------------------------------------------------
+# [Section Name]
+# The name of this feed as it will appear in Claws Mail.
+# Default: 'Unnamed Feed' if 'account.name' is empty or unset.
+[{{ account.get('name', 'Unnamed Feed') | default('Unnamed Feed') }}]
+
+# Feed URL (required)
+# The RSS or Atom feed URI.
+# Default: '' (empty string if 'account.url' is not provided)
+url={{ account.get('url', '') | default('') }}
+
+# Feed Name
+# Human-readable label for this subscription.
+# Default: 'Unnamed Feed'
+name={{ account.get('name', 'Unnamed Feed') | default('Unnamed Feed') }}
+
+# Update Interval (minutes)
+# How often Claws Mail checks this feed for new items.
+# Default: 30 minutes
+interval={{ account.get('interval', 30) | default(30) }}
+
+# Max Age (days)
+# Maximum age of articles to retain from this feed.
+# 0 means keep all articles regardless of age.
+# Default: 0 (unlimited)
+max_age={{ account.get('max_age', 0) | default(0) }}
+
+# Max Articles
+# Maximum number of articles to keep from this feed.
+# Older articles beyond this limit are discarded.
+# Default: 100 articles
+max_articles={{ account.get('max_articles', 100) | default(100) }}
+
+{% endfor %}
+
+# -------------------------------------------------------------------------
+# Global Settings
+# -------------------------------------------------------------------------
+# Shared configuration for all feed operations.
+# -------------------------------------------------------------------------
+[global]
+
+# Use SSL/TLS
+# Enable secure connections when downloading feeds.
+# Recommended: true for feeds served over HTTPS.
+# Default: true
+use_ssl={{ global_use_ssl | default(true) }}
+
+# Verify SSL Certificates
+# Validate the server's SSL certificate against system CAs.
+# Set to false only if using self-signed certs and you cannot install them.
+# Default: true
+verify_ssl={{ global_verify_ssl | default(true) }}
+
+# Proxy URL
+# HTTP/HTTPS proxy to use for feed downloads.
+# Leave empty to use system default or no proxy.
+# Example: 'http://proxy.example.com:8080'
+# Default: '' (empty, no proxy)
+proxy_url={{ global_proxy_url | default('') }}

@@ -1,0 +1,62 @@
+{
+  "global_maxconn": 8192,
+  "defaults_timeout_connect": 5,
+  "defaults_timeout_client": 300,
+  "defaults_timeout_server": 300,
+  "defaults_retries": 2,
+  "frontends": [
+    {
+      "name": "policy-ipv4",
+      "bind_host": "127.0.0.1",
+      "bind_port": 12340,
+      "default_backend": "postfix-pool"
+    },
+    {
+      "name": "policy-ipv6",
+      "bind_host": "::1",
+      "bind_port": 12340,
+      "default_backend": "postfix-pool"
+    }
+  ],
+  "backends": [
+    {
+      "name": "postfix-pool",
+      "balance": "leastconn",
+      "check_enabled": true,
+      "servers": [
+        {
+          "name": "policyd1",
+          "host": "192.168.1.10",
+          "port": 12340,
+          "check_interval": 2,
+          "fall": 3,
+          "rise": 2,
+          "backup": false
+        },
+        {
+          "name": "policyd2",
+          "host": "192.168.1.11",
+          "port": 12340,
+          "check_interval": 2,
+          "fall": 3,
+          "rise": 2,
+          "backup": false
+        },
+        {
+          "name": "policyd-backup",
+          "host": "192.168.1.12",
+          "port": 12340,
+          "check_interval": 5,
+          "fall": 3,
+          "rise": 1,
+          "backup": true
+        }
+      ]
+    }
+  ],
+  "stats_enabled": true,
+  "stats_port": 8404,
+  "stats_uri": "/stats",
+  "stats_user": "admin",
+  "stats_password": "secretpass123"
+}

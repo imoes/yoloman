@@ -1,0 +1,41 @@
+[general]
+# Path to the config directory (read-only, not editable via settings)
+configlocation = {{ (configlocation | default('')) }}
+
+# Protocol scheme assumed when missing from a URL (gopher/gemini/http/https)
+defaultscheme = {{ (defaultscheme | default('gopher')) }}
+
+# How to render preformatted blocks in gemini docs (block/alt/both/neither)
+geminiblocks = {{ (geminiblocks | default('block')) }}
+
+# Startup/ home command target URL
+homeurl = {{ (homeurl | default('gopher://bombadillo.colorfield.space')) }}
+
+# Max line width for text wrapping (min enforced: 10)
+maxwidth = {{ (maxwidth | default(80)) }}
+
+# Directory path for file writes (must exist)
+savelocation = {{ (savelocation | default('./')) }}
+
+# Base URL template for search engine queries
+searchengine = {{ (searchengine | default('https://duckduckgo.com/?q=')) }}
+
+# Shell command to invoke for telnet (URL appended automatically)
+telnetcommand = {{ (telnetcommand | default('telnet')) }}
+
+# Visual theme (normal/color/inverse)
+theme = {{ (theme | default('normal')) }}
+
+# Connection timeout in seconds for gopher/gemini
+timeout = {{ (timeout | default(10)) }}
+
+# HTTP/HTTPS handling (none/gui/lynx/w3m/elinks)
+webmode = {{ (webmode | default('none')) }}
+
+# Bookmarks (one per line: id|url|name)
+# Each entry is an id, url, and name (for display only).
+# Not editable via INI syntax — simulated via comments for clarity.
+{% for bm in (bookmarks | default([])) %}
+# Bookmark {{ loop.index }}: {{ (bm.name | default('')) }} (id={{ (bm.id | default('')) }})
+bm.{{ (bm.id | default('')) }} = {{ (bm.url | default('')) }}
+{% endfor %}

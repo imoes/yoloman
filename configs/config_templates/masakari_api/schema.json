@@ -1,0 +1,145 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/masakari",
+    "description": "Directory where log files are stored."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "masakari-api.log",
+    "description": "Name of the log file (relative to log_dir)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed debug logging for troubleshooting."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:password@localhost:5672/",
+    "description": "Message broker connection URL (e.g., RabbitMQ, Redis)."
+  },
+  "api_paste_config": {
+    "type": "string",
+    "default": "/etc/masakari/api-paste.ini",
+    "description": "Path to the paste deploy configuration file."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the API server binds to."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number the API server listens on."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for API connections."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/masakari.pem",
+    "description": "Path to SSL certificate file (required if ssl_enabled is true)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/masakari.key",
+    "description": "Path to SSL private key file (required if ssl_enabled is true)."
+  },
+  "database": {
+    "type": "object",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://masakari:password@localhost/masakari",
+        "description": "Database connection string (driver://user:pass@host/db)."
+      }
+    },
+    "description": "Database backend configuration."
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "items": {
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Authentication method (typically 'password')."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone project domain name."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Keystone project name for Masakari service user."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Keystone user domain name."
+      },
+      "username": {
+        "type": "string",
+        "default": "masakari",
+        "description": "Keystone username for Masakari service."
+      },
+      "password": {
+        "type": "string",
+        "default": "changeme",
+        "description": "Password for the Masakari service user (securely manage in production)."
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://localhost:5000/v3",
+        "description": "Keystone authentication endpoint URL."
+      }
+    },
+    "description": "Keystone integration for API authentication and authorization."
+  },
+  "notifications": {
+    "type": "object",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "masakari.notifications.api.APINotification",
+        "description": "Notification driver for event publishing."
+      }
+    },
+    "description": "Notification delivery configuration."
+  },
+  "lock_path": {
+    "type": "string",
+    "default": "/var/lib/masakari/lock",
+    "description": "Path for lock files to coordinate concurrent operations."
+  },
+  "workers": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes for the API server."
+  },
+  "endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of optional custom endpoint configurations (used by some deployments for extended services). Each item defines a named endpoint and its enabled status.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "custom_service",
+          "description": "Name of the endpoint (e.g., 'event_api', 'process_manager')."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether this endpoint is active."
+        }
+      }
+    }
+  }
+}

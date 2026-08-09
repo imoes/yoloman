@@ -1,0 +1,27 @@
+{
+  "pin_pages": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of pages to pin in memory per table (0 = no limit). Set to a positive integer to pin up to N pages."
+  },
+  "pin_on_first_access": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically pin a table\u2019s pages in memory on first access (after restart or cache flush)."
+  },
+  "pin_tables": {
+    "type": "list",
+    "default": [],
+    "description": "List of table patterns (schema.table or schema.*) to automatically pin. Supports wildcards like `*`.\nNote: The actual GUC `pgfincore.pin_tables` in pgfincore is a string pattern, not a list. The template generates multiple lines, which is non-standard for this GUC (which typically takes a single glob pattern). However, preserving the existing variable name `pin_tables` and structure, we keep the list type but note that standard usage is a single string pattern like `'public.*'`. For the purpose of schema correction, we keep the variable name. The documentation for `pgfincore.pin_tables` indicates it is a string (pattern). The existing template logic creates multiple assignments if a list is provided, which is likely incorrect for this specific GUC. However, the prompt asks to preserve variable names. If the GUC doesn't support multiple lines, this entire block might be hallucinated structure. Let's check `pgfincore` docs. `pgfincore.pin_tables` is a string pattern. `pgfincore.pin_on_first_access` is boolean. `pgfincore.unpin_on_checkpoint` is boolean. `pgfincore.pin_pages` is integer. `pgfincore.log_level` is string. `pgfincore.min_free_memory_mb` is integer. `pgfincore.max_pages_per_table` is integer. `pgfincore.exclude_tables` is NOT a standard GUC in pgfincore. The standard GUC for excluding tables is not present; exclusion is usually handled by pattern in `pin_tables` or not at all. Actually, `pgfincore` does NOT have an `exclude_tables` GUC. It has `pin_tables`. If `pin_tables` matches, it pins. There is no exclusion list GUC. Therefore `exclude_tables` is a hallucinated variable/directive. Similarly, `pin_on_first_access` IS a valid GUC. `unpin_on_checkpoint` IS a valid GUC. `min_free_memory_mb` IS a valid GUC. `max_pages_per_table` IS a valid GUC. `log_level` IS a valid GUC. `pin_pages` IS a valid GUC. `shared_preload_libraries` is a standard PostgreSQL GUC, not specific to pgfincore config but required to load it. \n\nCorrection:\n1. `exclude_tables` is NOT documented in pgfincore man page. Remove it.\n2. The `pin_tables` GUC in pgfincore is a string pattern, e.g., `'public.*'`. The template treats it as a list. This is a structural mismatch, but since I must preserve variable names, I will leave `pin_tables` but the description/type might need adjustment if it's fundamentally wrong. However, the prompt says "
+  },
+  "removed": {
+    "type": "list",
+    "default": [],
+    "description": "List of table patterns (schema.table or schema.*) to automatically pin. Supports wildcards like `*`."
+  },
+  "exclude_tables": {
+    "type": "list",
+    "default": [],
+    "description": "List of table patterns to *exclude* from automatic pinning, even if matched by pin_tables."
+  }
+}

@@ -1,0 +1,261 @@
+{
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads; set to 0 for auto-detection (recommended)."
+  },
+  "trust_anchors_path": {
+    "type": "string",
+    "default": "/etc/knot-resolver/roots.txt",
+    "description": "Path to the root trust anchors file (e.g., from IANA or Knot DNS utils)."
+  },
+  "cache_size": {
+    "type": "string",
+    "default": "128M",
+    "description": "Size of the DNS cache (e.g., '64M', '1G')."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logs: debug, info, notice, warning, error, or critical."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      {
+        "address": "127.0.0.1",
+        "port": 53,
+        "net": "udp"
+      },
+      {
+        "address": "::1",
+        "port": 53,
+        "net": "udp"
+      }
+    ],
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "IP address to bind to."
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Port number (53 for DNS)."
+      },
+      "net": {
+        "type": "string",
+        "default": "udp",
+        "description": "Transport protocol: 'udp', 'tcp', or omitted for UDP."
+      }
+    }
+  },
+  "upstream_resolvers": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "9.9.9.9",
+        "protocol": "udp"
+      },
+      {
+        "hostname": "2620:fe::fe",
+        "protocol": "udp"
+      }
+    ],
+    "items": {
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of upstream resolver."
+      },
+      "port": {
+        "type": "number",
+        "default": 53,
+        "description": "Port (e.g., 5353 for DoH/DoT upstreams if supported)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "udp",
+        "description": "Protocol: 'udp', 'tcp', 'dot' (DNS over TLS), or 'doh' (DNS over HTTPS)."
+      }
+    }
+  },
+  "policy_rules": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "domain": {
+        "type": "string",
+        "default": "",
+        "description": "Domain pattern to match (supports wildcards like '*.evil.com')."
+      },
+      "action": {
+        "type": "string",
+        "default": "block",
+        "description": "Policy action: 'block' (drop), 'refuse' (deny), 'redirect' (custom answer), or 'pass' (skip)."
+      },
+      "target": {
+        "type": "string",
+        "default": "",
+        "description": "Required for 'redirect' action: target IP or domain (e.g., '127.0.0.1' or 'localhost.localdomain')."
+      }
+    }
+  },
+  "doh_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS over HTTPS (DoH) listener."
+  },
+  "doh_listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for DoH listener."
+  },
+  "doh_port": {
+    "type": "number",
+    "default": 443,
+    "description": "Port for DoH listener (typically 443 or 8443)."
+  },
+  "doh_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/doh.crt",
+    "description": "Path to TLS certificate for DoH (PEM format)."
+  },
+  "doh_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/doh.key",
+    "description": "Path to TLS private key for DoH."
+  },
+  "dot_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS over TLS (DoT) listener."
+  },
+  "dot_listen_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for DoT listener."
+  },
+  "dot_port": {
+    "type": "number",
+    "default": 853,
+    "description": "Port for DoT listener (standard: 853)."
+  },
+  "dot_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/dot.crt",
+    "description": "Path to TLS certificate for DoT (PEM format)."
+  },
+  "dot_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/dot.key",
+    "description": "Path to TLS private key for DoT."
+  },
+  "query_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable query logging (to syslog or journal if supported)."
+  },
+  "query_log_format": {
+    "type": "string",
+    "default": "txt",
+    "description": "Format for query log: 'txt' (human-readable) or 'json' (structured)."
+  },
+  "net_timeout": {
+    "type": "number",
+    "default": 4,
+    "description": "Timeout for upstream queries in seconds."
+  },
+  "net_max_queries_per_client": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum concurrent queries per client IP."
+  },
+  "neg_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "TTL for negative responses (NXDOMAIN, NODATA) in seconds."
+  },
+  "dnssec_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation (recommended for security)."
+  },
+  "local_data_entries": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Domain name (e.g., 'example.com')."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 3600,
+        "description": "Record TTL in seconds."
+      },
+      "class": {
+        "type": "string",
+        "default": "IN",
+        "description": "Record class (usually 'IN' for Internet)."
+      },
+      "type": {
+        "type": "string",
+        "default": "A",
+        "description": "DNS record type: 'A', 'AAAA', 'CNAME', etc."
+      },
+      "data": {
+        "type": "string",
+        "default": "",
+        "description": "Record value (e.g., '192.0.2.1' for A)."
+      }
+    }
+  },
+  "prefetch_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable prefetching of recently used records before TTL expires."
+  },
+  "stale_ttl": {
+    "type": "number",
+    "default": 86400,
+    "description": "Seconds to serve stale data when upstream is unreachable."
+  },
+  "cache_purge_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval in seconds between cache purges (to reclaim memory)."
+  },
+  "random_seed": {
+    "type": "bool",
+    "default": true,
+    "description": "Seed random number generator from system entropy (recommended for security)."
+  },
+  "experimental": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable experimental features (e.g., HTTP API if not yet stable)."
+  },
+  "http_api_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP management API (read-only by default)."
+  },
+  "http_api_listen": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP for HTTP API listener."
+  },
+  "http_api_port": {
+    "type": "number",
+    "default": 8443,
+    "description": "Port for HTTP API listener (typically 8443 or 9443)."
+  },
+  "http_api_token": {
+    "type": "string",
+    "default": "",
+    "description": "Optional bearer token for API authentication."
+  }
+}

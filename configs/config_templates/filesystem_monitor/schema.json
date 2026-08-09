@@ -1,0 +1,204 @@
+{
+  "daemon_user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user account under which the iWatch daemon runs (must have read permissions on monitored paths)."
+  },
+  "daemon_group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "System group for the daemon process."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/iwatch.pid",
+    "description": "Full path to the PID file used for daemon control."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Full path to log file; empty string means use syslog."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "allowed_values": [
+      "debug",
+      "info",
+      "notice",
+      "warning",
+      "error",
+      "critical",
+      "alert",
+      "emergency"
+    ],
+    "description": "Verbosity of logging output.",
+    "enum": [
+      "info",
+      "none"
+    ]
+  },
+  "scan_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Interval (seconds) between periodic filesystem scans (use 0 to disable fallback polling)."
+  },
+  "use_inotify": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable inotify-based real-time monitoring. Disable only for legacy or debugging use."
+  },
+  "max_files": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum number of files and directories to monitor simultaneously."
+  },
+  "xmlrpc_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable XML-RPC interface for remote configuration and status queries."
+  },
+  "xmlrpc_port": {
+    "type": "number",
+    "default": 1900,
+    "description": "Port number for XML-RPC service."
+  },
+  "xmlrpc_bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind XML-RPC service to (use 0.0.0.0 to allow remote access \u2014 not recommended for production)."
+  },
+  "email_use_smtp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email alerts via SMTP."
+  },
+  "email_from": {
+    "type": "string",
+    "default": "iwatch@example.com",
+    "description": "Sender email address for alerts."
+  },
+  "email_to": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "List of recipient email addresses for alerts."
+  },
+  "smtp_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname or IP to use for sending emails."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "SMTP server port (typically 25, 465 for SSL, or 587 for STARTTLS)."
+  },
+  "watches": {
+    "type": "list",
+    "items": {
+      "path": {
+        "type": "string",
+        "required": true,
+        "description": "Absolute path of directory to monitor (e.g., /var/www/html)."
+      },
+      "events": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [
+          "create",
+          "delete",
+          "modify",
+          "move"
+        ],
+        "allowed_values": [
+          "modify",
+          "access",
+          "create",
+          "delete",
+          "rename",
+          "chmod",
+          "attrib",
+          "move",
+          "all"
+        ],
+        "description": "Filesystem events to monitor (e.g., file creation, deletion, rename)."
+      },
+      "alert_email_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable per-watch email alerts (overrides global email config)."
+      },
+      "alert_email_to": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Recipient list for this watch's alerts."
+      },
+      "use_regex": {
+        "type": "bool",
+        "default": false,
+        "description": "Use regular expressions instead of shell globs for include/exclude patterns."
+      },
+      "include_patterns": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "List of filename patterns to include (files matching any pattern are monitored)."
+      },
+      "exclude_patterns": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "List of filename patterns to exclude (files matching any pattern are ignored)."
+      },
+      "on_event_script": {
+        "type": "string",
+        "default": "",
+        "description": "Path to a script to execute when an event occurs (passive events: filename and event type passed as arguments)."
+      },
+      "max_depth": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum subdirectory depth to monitor (0 = unlimited)."
+      },
+      "ignore_self": {
+        "type": "bool",
+        "default": false,
+        "description": "Ignore events triggered by the script/process itself (prevents recursion loops)."
+      }
+    },
+    "default": [
+      {
+        "path": "/var/www/html",
+        "events": [
+          "create",
+          "delete",
+          "modify",
+          "move"
+        ],
+        "alert_email_enabled": true,
+        "alert_email_to": [
+          "admin@example.com"
+        ],
+        "include_patterns": [],
+        "exclude_patterns": [
+          "*.tmp",
+          "*.log"
+        ],
+        "ignore_self": true
+      }
+    ],
+    "description": "List of directories to monitor, each with its own rule set."
+  }
+}

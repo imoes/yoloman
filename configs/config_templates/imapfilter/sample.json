@@ -1,0 +1,66 @@
+{
+  "servers": [
+    {
+      "name": "gmail",
+      "host": "imap.gmail.com",
+      "port": 993,
+      "ssl": true,
+      "username": "user@gmail.com",
+      "password": "app_password_here",
+      "auth_type": "PLAIN"
+    },
+    {
+      "name": "work",
+      "host": "mail.company.com",
+      "port": 993,
+      "ssl": true,
+      "username": "jane.doe@company.com",
+      "password": "secure_password"
+    }
+  ],
+  "logfile": "~/.imapfilter/log",
+  "timeout": 600,
+  "poll": 300,
+  "subscribe": true,
+  "create_folders": false,
+  "accounts": [
+    {
+      "server_name": "gmail",
+      "rules": [
+        {
+          "description": "Move spam from known sender to Trash",
+          "condition": "message.is_from('noreply@spam.com')",
+          "move_to": "[Gmail]/Trash"
+        },
+        {
+          "description": "Flag and archive newsletters",
+          "condition": "message.is_subject('Newsletter')",
+          "mark_flagged": true,
+          "move_to": "[Gmail]/Archive"
+        },
+        {
+          "description": "Delete messages from marketing list",
+          "condition": "message.is_header('List-Unsubscribe', '<mailto:unsubscribe@example.com>')",
+          "delete": true
+        }
+      ]
+    },
+    {
+      "server_name": "work",
+      "rules": [
+        {
+          "description": "Forward urgent emails to manager",
+          "condition": "message.is_subject('URGENT')",
+          "forward_to": [
+            "manager@company.com"
+          ]
+        },
+        {
+          "description": "Move internal emails to Inbox/Subfolders",
+          "condition": "message.is_header('X-Company', 'Internal')",
+          "move_to": "Internal"
+        }
+      ]
+    }
+  ]
+}

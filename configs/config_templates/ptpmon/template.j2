@@ -1,0 +1,112 @@
+# ==============================================================================
+# PTPMON Configuration Template
+# ==============================================================================
+# This file configures the ptpmon daemon, which monitors PTP (Precision Time
+# Protocol) synchronization quality. It defines global daemon behavior, alarm
+# thresholds for time error detection, notification handlers, health checks,
+# and external PTP sink endpoints for validation.
+# ==============================================================================
+
+# [Global Options]
+# Global daemon options: logging, PID file, interface, and PTP domain to monitor.
+[global]
+
+# Log level: 0 (debug) to 7 (emerg), or specific numeric levels.
+# Default: 3 (notice/info)
+log_level = {{ (global | default({})).log_level | default(3) }}
+
+# Path to the log file. Use '-' for stdout.
+# Default: '-'
+log_file = {{ (global | default({})).log_file | default('-') }}
+
+# Path to the PID file for the daemon process.
+# Default: '/run/ptpmon.pid'
+pid_file = {{ (global | default({})).pid_file | default('/run/ptpmon.pid') }}
+
+# Network interface to monitor for PTP packets. Empty string means auto-detect.
+# Default: ''
+interface = {{ (global | default({})).interface | default('') }}
+
+# PTP domain number to monitor. -1 means all domains.
+# Default: -1
+domain_number = {{ (global | default({})).domain_number | default(-1) }}
+
+# [Alarm Thresholds]
+# Time error alarm thresholds and behavior (values in nanoseconds).
+[alarm]
+
+# Enable alarm monitoring.
+# Default: True
+enabled = {{ (alarm | default({})).enabled | default(true) }}
+
+# Warning threshold for total time error (nanoseconds).
+# Default: 1000
+warn_threshold = {{ (alarm | default({})).warn_threshold | default(1000) }}
+
+# Warning threshold for RMS time error (nanoseconds).
+# Default: 100
+warn_threshold_rms = {{ (alarm | default({})).warn_threshold_rms | default(100) }}
+
+# Error threshold for total time error (nanoseconds).
+# Default: 10000
+error_threshold = {{ (alarm | default({})).error_threshold | default(10000) }}
+
+# Error threshold for RMS time error (nanoseconds).
+# Default: 1000
+error_threshold_rms = {{ (alarm | default({})).error_threshold_rms | default(1000) }}
+
+# Hold time in seconds before triggering an alarm state change.
+# Default: 5
+hold_time = {{ (alarm | default({})).hold_time | default(5) }}
+
+# [Notifications]
+# Notification configuration for alarm events and status updates.
+[notifications]
+
+# Enable ready notifications when the monitor is synchronized.
+# Default: False
+ready_notify = {{ (notifications | default({})).ready_notify | default(false) }}
+
+# List of notification handlers (e.g., scripts, URLs, or system names).
+# Default: []
+{% for handler in (notifications | default({})).handlers | default([]) %}
+# Handler {{ loop.index }}
+handler = {{ handler | string }}
+{% endfor %}
+{% if (notifications | default({})).handlers is undefined or (notifications | default({})).handlers is none or ((notifications | default({})).handlers | length) == 0 %}
+# No handlers configured.
+{% endif %}
+
+# [Health Monitoring]
+# Internal health monitoring settings for the daemon itself.
+[health]
+
+# Enable internal health checks.
+# Default: True
+enabled = {{ (health | default({})).enabled | default(true) }}
+
+# Health check interval in seconds.
+# Default: 5
+interval = {{ (health | default({})).interval | default(5) }}
+
+# Health check timeout in seconds.
+# Default: 10
+timeout = {{ (health | default({})).timeout | default(10) }}
+
+# [PTP Sinks]
+# Optional external PTP sink endpoints to verify sync quality from the local device’s perspective.
+[sinks]
+
+# Enable PTP sink verification.
+# Default: False
+enabled = {{ (sinks | default({})).enabled | default(false) }}
+
+# List of endpoint configurations for external PTP sinks.
+# Default: []
+{% for endpoint in (sinks | default({})).endpoints | default([]) %}
+# Sink Endpoint {{ loop.index }}
+endpoint_{{ loop.index }} = {{ endpoint | string }}
+{% endfor %}
+{% if (sinks | default({})).endpoints is undefined or (sinks | default({})).endpoints is none or ((sinks | default({})).endpoints | length) == 0 %}
+# No sink endpoints configured.
+{% endif %}

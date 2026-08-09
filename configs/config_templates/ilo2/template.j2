@@ -1,0 +1,112 @@
+# ==============================================================================
+# Fence Agent: ilo2 (IPMI / iLO2 Management Interface)
+# ==============================================================================
+# This configuration defines the parameters for fencing a node via an
+# HP/iLO2 (Integrated Lights-Out) management interface using IPMI over LAN.
+# It is typically consumed by `fence_xvm` or similar fence agents in a
+# Pacemaker/Corosync cluster environment.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Field: ipaddr
+# Description: IP address or hostname of the iLO2 management interface.
+# --------------------------------------------------------------------------
+# The target management controller's reachable address.
+ipaddr={{ ipaddr | default('') }}
+
+# --------------------------------------------------------------------------
+# Field: login
+# Description: Username to authenticate to the iLO2 interface.
+# --------------------------------------------------------------------------
+# The account name used for IPMI authentication.
+# Default is 'root', which is common for out-of-band management controllers.
+login={{ login | default('root') }}
+
+# --------------------------------------------------------------------------
+# Field: passwd
+# Description: Password for the iLO2 account.
+# --------------------------------------------------------------------------
+# Plaintext password.
+# SECURITY WARNING: Storing passwords directly in config files is insecure.
+# Prefer using `passwd_file` to read credentials from a protected file on disk.
+passwd={{ passwd | default('') }}
+
+# --------------------------------------------------------------------------
+# Field: passwd_file
+# Description: Path to a file containing the iLO2 password.
+# --------------------------------------------------------------------------
+# Path to a secure file (e.g., /etc/fence_agents/ilo2_pass) that contains
+# the password. This is the recommended method for production environments
+# to avoid plaintext passwords in configuration.
+passwd_file={{ passwd_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Field: interface
+# Description: IPMI interface type.
+# --------------------------------------------------------------------------
+# Specifies the protocol variant used for IPMI communication.
+# - 'lan': Basic IPMI over LAN.
+# - 'lanplus': IPMI 2.0 features, including encryption and stronger authentication.
+# Default is 'lanplus' for better security if supported by the hardware.
+interface={{ interface | default('lanplus') }}
+
+# --------------------------------------------------------------------------
+# Field: port
+# Description: UDP port for IPMI over LAN.
+# --------------------------------------------------------------------------
+# Standard IPMI over LAN port. Rarely needs changing from the default.
+# Ensure this UDP port is open between the fence agent host and the iLO2.
+port={{ port | default(623) }}
+
+# --------------------------------------------------------------------------
+# Field: privilege
+# Description: IPMI privilege level required for fencing operations.
+# --------------------------------------------------------------------------
+# The minimum IPMI privilege level required to execute power commands.
+# Valid values typically include 'user', 'operator', or 'admin'.
+# Higher privileges ensure the agent can perform the fencing action.
+privilege={{ privilege | default('operator') }}
+
+# --------------------------------------------------------------------------
+# Field: delay
+# Description: Seconds to wait after powering on before checking status.
+# --------------------------------------------------------------------------
+# A grace period in seconds after sending a 'on' command before the agent
+# attempts to verify that the node has booted. Helps prevent race conditions.
+delay={{ delay | default(5) }}
+
+# --------------------------------------------------------------------------
+# Field: ssl
+# Description: Whether to use SSL/TLS for communication.
+# --------------------------------------------------------------------------
+# Enables SSL/TLS encryption for the IPMI session.
+# Note: iLO2 firmware supports only basic TLS 1.0 with limited cipher suites.
+# Set to '1' (or 'true') to enable; '0' (or 'false') to disable.
+ssl={{ ssl | default(false) | ternary('1', '0') }}
+
+# --------------------------------------------------------------------------
+# Field: ssl_insecure
+# Description: Skip certificate verification when SSL is enabled.
+# --------------------------------------------------------------------------
+# If SSL is enabled, this option disables strict certificate chain verification.
+# Use ONLY in trusted internal networks or lab environments with self-signed
+# certificates. Never use in production with public-facing management interfaces.
+ssl_insecure={{ ssl_insecure | default(false) | ternary('1', '0') }}
+
+# --------------------------------------------------------------------------
+# Field: power_timeout
+# Description: Maximum time (seconds) to wait for a power command to complete.
+# --------------------------------------------------------------------------
+# The fence agent will wait up to this many seconds for the iLO2 to respond
+# to power commands (on, off, status). If the command exceeds this timeout,
+# it is considered failed.
+power_timeout={{ power_timeout | default(20) }}
+
+# --------------------------------------------------------------------------
+# Field: test
+# Description: Enable test (dry-run) mode.
+# --------------------------------------------------------------------------
+# If set to '1', the fence agent parses the configuration and validates
+# parameters but DOES NOT send any actual commands to the iLO2 device.
+# Useful for troubleshooting configuration issues without affecting cluster nodes.
+test={{ test | default(false) | ternary('1', '0') }}

@@ -1,0 +1,61 @@
+- name: install-proftpd
+  hosts: all
+  become: true
+  vars:
+    port: 21
+    umask: "022"
+    run_user: "proftpd"
+    use_ipv6: "off"
+    run_group: "nogroup"
+    max_clients: 50
+    server_name: "ProFTPD Server"
+    server_type: "standalone"
+    default_root: "~"
+    timeout_idle: 600
+    ident_lookups: "off"
+    max_instances: 30
+    passive_ports: "49152 65534"
+    default_server: "on"
+    allow_overwrite: "on"
+    use_reverse_dns: "off"
+    require_valid_shell: "off"
+    max_clients_per_host: 5
+  tasks:
+    - name: Install ProFTPD Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: proftpd.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        port: "{{ port }}"
+        umask: "{{ umask }}"
+        run_user: "{{ run_user }}"
+        use_ipv6: "{{ use_ipv6 }}"
+        run_group: "{{ run_group }}"
+        max_clients: "{{ max_clients }}"
+        server_name: "{{ server_name }}"
+        server_type: "{{ server_type }}"
+        default_root: "{{ default_root }}"
+        timeout_idle: "{{ timeout_idle }}"
+        ident_lookups: "{{ ident_lookups }}"
+        max_instances: "{{ max_instances }}"
+        passive_ports: "{{ passive_ports }}"
+        default_server: "{{ default_server }}"
+        allow_overwrite: "{{ allow_overwrite }}"
+        use_reverse_dns: "{{ use_reverse_dns }}"
+        require_valid_shell: "{{ require_valid_shell }}"
+        max_clients_per_host: "{{ max_clients_per_host }}"
+
+    - name: Validate configuration
+      ansible.builtin.command: proftpd --configtest
+
+    - name: Enable and restart ProFTPD Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

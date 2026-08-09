@@ -1,0 +1,77 @@
+# ==============================================================================
+# ipp-usb.conf - Configuration for ipp-usb (IPP-over-USB bridge)
+#
+# This file configures the ipp-usb daemon, which allows printing via USB
+# using the IPP (Internet Printing Protocol) standard, bridging CUPS to USB devices.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# General Settings
+# --------------------------------------------------------------------------
+
+# log_level: Verbosity of ipp-usb logging. Use 'debug' for detailed diagnostics, 'info' for normal operation.
+# Accepted values: debug, info, warn, error
+# Default: info
+log_level: {{ log_level | default('info') }}
+
+# ipp_usb_socket: Unix domain socket path used for IPC with clients (e.g., CUPS).
+# Default: /run/ipp-usb/ipp-usb.sock
+ipp_usb_socket: {{ ipp_usb_socket | default('/run/ipp-usb/ipp-usb.sock') }}
+
+# lock_file: Lock file path to ensure only one instance manages USB devices.
+# Default: /run/ipp-usb/ipp-usb.lock
+lock_file: {{ lock_file | default('/run/ipp-usb/ipp-usb.lock') }}
+
+# max_open_handles: Maximum number of USB device handles to keep open concurrently. Increase if you use many simultaneous devices.
+# Default: 10
+max_open_handles: {{ max_open_handles | default(10) }}
+
+# auto_start: If enabled, the ipp-usb service is started automatically on system boot via systemd.
+# Default: true
+auto_start: {{ auto_start | default(true) }}
+
+# --------------------------------------------------------------------------
+# Device Filtering
+# --------------------------------------------------------------------------
+
+# blacklisted_devices: List of USB vendor:product IDs (e.g., '045e:07c6') to explicitly ignore, even if not blacklisted by ipp-usb internally.
+# Format: A list of strings in "VENDOR:PRODUCT" hex format.
+# Default: [] (empty list)
+blacklisted_devices:
+{%- for device in (blacklisted_devices | default([])) %}
+  - "{{ device }}"
+{%- endfor %}
+{%- if not blacklisted_devices | default([]) %}
+#   (none configured)
+{%- endif %}
+
+# whitelisted_devices: If non-empty, only devices in this list will be handled (allowlist). Empty list = handle all except blacklisted devices.
+# Format: A list of strings in "VENDOR:PRODUCT" hex format.
+# Default: [] (empty list, meaning allow all non-blacklisted)
+whitelisted_devices:
+{%- for device in (whitelisted_devices | default([])) %}
+  - "{{ device }}"
+{%- endfor %}
+{%- if not whitelisted_devices | default([]) %}
+#   (none configured)
+{%- endif %}
+
+# --------------------------------------------------------------------------
+# Retry & Debug Settings
+# --------------------------------------------------------------------------
+
+# retry_delay_ms: Delay in milliseconds between retry attempts when attaching a USB device.
+# Default: 500
+retry_delay_ms: {{ retry_delay_ms | default(500) }}
+
+# max_retries: Maximum number of retries when attempting to attach a USB device before giving up.
+# Default: 5
+max_retries: {{ max_retries | default(5) }}
+
+# libusb_debug: Debug level for libusb (0–4). 0 = no logging, 4 = full verbose logging. Use only for troubleshooting.
+# Default: 0
+libusb_debug: {{ libusb_debug | default(0) }}
+
+# log_target: Where to send logs: 'syslog' (recommended), 'stderr' (for foreground debugging), or 'none' (disable logging).
+# Default: syslog
+log_target: {{ log_target | default('syslog') }}

@@ -1,0 +1,58 @@
+{# ========================================================================== #}
+{# dkopp configuration template - Self-Documenting                           #}
+{# This template generates a configuration file for the 'dkopp' backup tool. #}
+{# Every directive is commented with its schema description and safe defaults #}
+{# are applied to ensure robust rendering even when variables are unset.      #}
+{# ========================================================================== #}
+
+# Name of the backup job
+# Default: 'Backup Job'
+JobName={{ (job_name | default('Backup Job')) }}
+
+# Target media type (e.g., DVD-R, DVD+R, BD-R, BD-RE)
+# Default: 'DVD-R'
+MediaType={{ (media_type | default('DVD-R')) }}
+
+# Backup mode: full, incremental, or accumulate
+# Default: 'full'
+BackupMode={{ (backup_mode | default('full')) }}
+
+# Verification mode: full, incremental, or thorough
+# Default: 'full'
+VerifyMode={{ (verify_mode | default('full')) }}
+
+# Source directories or files to include in backup
+# Default: [] (empty list)
+# Each source is emitted on its own line as 'Source=<path>'
+{% for src in (sources | default([])) %}
+Source={{ src }}
+{% endfor %}
+
+# Optional destination directory for partial backup
+# If omitted, only media is used (empty string).
+# Default: ''
+{% if (destination | default('')) | length > 0 %}
+Destination={{ (destination | default('')) }}
+{% endif %}
+
+# List of glob patterns to exclude from backup
+# Default: [] (empty list)
+# Each pattern is emitted on its own line as 'Exclude=<pattern>'
+{% for pattern in (exclude_patterns | default([])) %}
+Exclude={{ pattern }}
+{% endfor %}
+
+# Whether to preserve file ownership and permissions during restore
+# Default: True
+PreservePerms={{ (preserve_perms | default(true)) | ternary('yes', 'no') }}
+
+# Whether to force a full backup despite incremental mode setting
+# Default: False
+ForceFull={{ (force_full | default(false)) | ternary('yes', 'no') }}
+
+# Path to write operation logs
+# If omitted, no log file is written.
+# Default: ''
+{% if (log_file | default('')) | length > 0 %}
+LogFile={{ (log_file | default('')) }}
+{% endif %}

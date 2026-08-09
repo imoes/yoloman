@@ -1,0 +1,179 @@
+{#
+    Collectd main configuration file
+    This file configures the Collectd daemon for metrics collection and output.
+    It is self-documenting: every directive is preceded by a comment explaining
+    the source schema field, its default, and its purpose.
+#}
+
+{# ============================================================ #}
+{# Global Daemon Settings                                         #}
+{# ============================================================ #}
+
+{#
+    Hostname to report to remote plugins (e.g., network, relays).
+    Schema field: hostname (default: 'localhost')
+    If set to an empty string, collectd may auto-detect the hostname.
+#}
+Hostname "{{ hostname | default('localhost') }}"
+
+{#
+    FQDN lookup: whether to perform full DNS lookups for hostnames.
+    Schema field: fqdn_lookup (default: false)
+    Set to false in environments with unreliable DNS to avoid delays.
+#}
+FQDNLookup {{ fqdn_lookup | default(false) | bool | ternary('true', 'false') }}
+
+{#
+    Base directory where collectd stores persistent state (e.g., plugin values, state files).
+    Schema field: base_dir (default: '/var/lib/collectd')
+#}
+BaseDir "{{ base_dir | default('/var/lib/collectd') }}"
+
+{#
+    Directory where collectd loads plugin modules (.so files) from.
+    Schema field: plugin_dir (default: '/usr/lib/collectd')
+#}
+PluginDir "{{ plugin_dir | default('/usr/lib/collectd') }}"
+
+{#
+    Path to optional plugin cache file for automatic plugin loading.
+    Schema field: plugin_cache_file (default: '')
+    Leave empty to disable automatic plugin caching.
+#}
+{% if plugin_cache_file | default('') != '' %}
+LoadPluginCacheFile "{{ plugin_cache_file | default('') }}"
+{% endif %}
+
+{#
+    List of plugin names to load (e.g., cpu, memory, network).
+    Schema field: enabled_plugins (default: [])
+    Plugins must exist in the plugin_dir. Each name generates a LoadPlugin directive.
+#}
+{% for plugin in enabled_plugins | default([]) %}
+LoadPlugin {{ plugin | string }}
+{% endfor %}
+
+{#
+    Global collection interval in seconds.
+    Schema field: interval (default: 10)
+    Plugins may override this with their own Interval directive.
+#}
+Interval {{ interval | default(10) | int }}
+
+{#
+    Number of threads used for reading (collecting) metrics.
+    Schema field: read_threads (default: 5)
+    Increase if collection latency is high.
+#}
+ReadThreads {{ read_threads | default(5) | int }}
+
+{#
+    Number of threads used for writing (outputting) metrics.
+    Schema field: write_threads (default: 5)
+    Increase if output lag occurs.
+#}
+WriteThreads {{ write_threads | default(5) | int }}
+
+{# ============================================================ #}
+{# Logging Configuration                                          #}
+{# ============================================================ #}
+
+{#
+    Verbosity of logging. One of: debug, info, notice, warning, err.
+    Schema field: log_level (default: 'warning')
+#}
+LogLevel "{{ log_level | default('warning') }}"
+
+{#
+    Path to log file.
+    Schema field: log_file (default: '')
+    If empty or unset, logs go to syslog instead.
+#}
+{% if log_file | default('') != '' %}
+LogFile "{{ log_file | default('') }}"
+{% endif %}
+
+{#
+    Syslog facility to use if logging to syslog.
+    Schema field: syslog_facility (default: 'daemon')
+    Ignored if log_file is set to a non-empty value.
+#}
+{% if log_file | default('') == '' %}
+SysLog "{{ syslog_facility | default('daemon') }}"
+{% endif %}
+
+{# ============================================================ #}
+{# Network / Protocol Settings                                    #}
+{# ============================================================ #}
+
+{#
+    Time-to-live for multicast UDP packets (used by the 'network' plugin).
+    Schema field: ttl (default: 1)
+#}
+TTL {{ ttl | default(1) | int }}
+
+{# ============================================================ #}
+{# Configuration Snippets                                         #}
+{# ============================================================ #}
+
+{#
+    List of file paths to include additional configuration blocks.
+    Schema field: include_snippets (default: [])
+    Supports glob-like paths or explicit file paths.
+#}
+{% for snippet in include_snippets | default([]) %}
+Include "{{ snippet | string }}"
+{% endfor %}
+
+{# ============================================================ #}
+{# Plugin-Specific Configuration                                  #}
+{# ============================================================ #}
+
+{#
+    Detailed configuration blocks for plugins.
+    Schema field: plugins_config (default: [])
+    Each item defines a <Plugin> section with optional sub-options and list items.
+#}
+{% for plugin in plugins_config | default([]) %}
+{# Configuration for plugin: {{ plugin.name }} #}
+<Plugin "{{ plugin.name | string }}">
+{% if plugin.options is mapping %}
+{% for key, val in plugin.options | dict2items %}
+{# Plugin option: {{ key }} #}
+{% if val is string and val | length > 0 %}
+  {{ key }} "{{ val }}"
+{% elif val is number %}
+  {{ key }} {{ val }}
+{% elif val is boolean %}
+  {{ key }} {{ val | ternary('true', 'false') }}
+{% elif val is none %}
+  {# Skipping null value for {{ key }} #}
+{% else %}
+  {# Non-standard type for {{ key }}: {{ val | tojson }} #}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if plugin.list_items is iterable %}
+{% for item in plugin.list_items %}
+{# List item tag: {{ item.tag }} #}
+{% if item.tag is defined %}
+  <{{ item.tag | string }}>
+{% if item.options is mapping %}
+{% for key, val in item.options | dict2items %}
+{# Option in {{ item.tag }}: {{ key }} #}
+{% if val is string and val | length > 0 %}
+    {{ key }} "{{ val }}"
+{% elif val is number %}
+    {{ key }} {{ val }}
+{% elif val is boolean %}
+    {{ key }} {{ val | ternary('true', 'false') }}
+{% endif %}
+{% endfor %}
+{% endif %}
+  </{{ item.tag | string }}>
+{% endif %}
+{% endfor %}
+{% endif %}
+</Plugin>
+{% endfor %}

@@ -1,0 +1,103 @@
+# MiniUPnPd configuration template
+# This file configures the miniupnpd daemon which handles UPnP-IGD, PCP, and NAT-PMP protocols.
+# It manages port forwarding rules on a NAT device for internal hosts.
+
+# Network interface used for external (WAN) traffic (e.g., PPPoE, cable, DSL).
+external_iface={{ (external_iface | default('eth0')) }}
+
+# List of internal (LAN) interfaces with optional network CIDR. Supports multiple LANs.
+# Each item is a mapping with 'name' and optional 'cidr'.
+{% for iface in (internal_ifaces | default([{'name': 'eth1', 'cidr': '192.168.1.0/24'}]) | list) %}
+internal_iface={{ iface.name }}{% if iface.cidr is defined and iface.cidr %} {{ iface.cidr }}{% endif %}
+{% endfor %}
+
+# Legacy network configuration block (deprecated).
+# Provided for backward compatibility if legacy_networks variable is defined.
+{% if legacy_networks is defined and legacy_networks %}
+# Legacy network addresses (deprecated)
+{% for net in legacy_networks %}network={{ net.address }}/{{ net.prefix }}
+{% endfor %}
+{% endif %}
+
+# Enable UPnP Internet Gateway Device (IGD) service.
+enable_upnp={{ (enable_upnp | default(true)) | lower }}
+
+# Enable Port Control Protocol (PCP) for advanced NAT traversal.
+enable_pcp={{ (enable_pcp | default(true)) | lower }}
+
+# Enable NAT-PMP (legacy NAT mapping protocol). Disable unless required by legacy clients.
+enable_natpmp={{ (enable_natpmp | default(false)) | lower }}
+
+# Exact name of the external interface (must match system interface name).
+ifname={{ (ifname | default('eth0')) }}
+
+# Only allow port forwarding rules from internal IPs. Prevents rogue external port mapping attempts.
+secure_mode={{ (secure_mode | default(true)) | lower }}
+
+# Interval in seconds between SSDP system-update notifications. Set to 0 to disable.
+system_update={{ (system_update | default(1800)) }}
+
+# Web UI URL advertised via UPnP for gateway management. Set to '' to disable.
+presentation_url={{ (presentation_url | default('')) }}
+
+# Human-readable name shown in UPnP control points.
+friendly_name={{ (friendly_name | default('MiniUPnPd')) }}
+
+# Unique device identifier (UPnP UUID format). Leave empty for auto-generate.
+uuid={{ (uuid | default('')) }}
+
+# Device serial number for UPnP identification.
+serial={{ (serial | default('1')) }}
+
+# Model name advertised via UPnP.
+model_name={{ (model_name | default('MiniUPnPd')) }}
+
+# Model version or revision.
+model_number={{ (model_number | default('1')) }}
+
+# Path to persistent lease file for dynamic port mappings. Set to '' to disable persistence.
+lease_file={{ (lease_file | default('')) }}
+
+# Minimum external port allowed in port mappings (0 = no limit).
+upnp_port_min={{ (upnp_port_min | default(0)) }}
+
+# Maximum external port allowed in port mappings (0 = no limit).
+upnp_port_max={{ (upnp_port_max | default(65535)) }}
+
+# Path to log file (empty = no file logging).
+logfile={{ (logfile | default('')) }}
+
+# Log verbosity: 1=errors, 2=warnings, 3=info, 4=debug.
+log_verbosity={{ (log_verbosity | default(1)) }}
+
+# Log to syslog in addition to file.
+log_syslog={{ (log_syslog | default(false)) | lower }}
+
+# Whitelist of allowed port mappings.
+# Each entry: 'port:protocol[:ip[:internal_port]]'. Wildcards (*), e.g., '*:tcp'.
+{% for port_entry in (allow_ports | default([]) | list) %}
+allow_port={{ port_entry }}
+{% endfor %}
+
+# Blacklist of port mappings. Higher precedence than allow list. Same format as allow_ports.
+{% for port_entry in (deny_ports | default([]) | list) %}
+deny_port={{ port_entry }}
+{% endfor %}
+
+# Write lease file incrementally on changes instead of full rewrite (safer for flash storage).
+incremental_lease_update={{ (incremental_lease_update | default(true)) | lower }}
+
+# Enable IPv6 support (requires IPv6-enabled kernel and compiled miniupnpd).
+enable_ipv6={{ (enable_ipv6 | default(false)) | lower }}
+
+# Interval (seconds) between SSDP multicast broadcasts.
+ssdp_broadcast_interval={{ (ssdp_broadcast_interval | default(180)) }}
+
+# Time (seconds) before SSDP entries expire and require re-broadcast.
+ssdp_alive_time={{ (ssdp_alive_time | default(1800)) }}
+
+# Time-to-live (TTL) for SSDP multicast packets.
+ssdp_ttl={{ (ssdp_ttl | default(2)) }}
+
+# UPnP device type string (IGDv1 or IGDv2). Change only for compatibility.
+igd_device_type={{ (igd_device_type | default('urn:schemas-upnp-org:device:InternetGatewayDevice:1')) }}

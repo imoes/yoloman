@@ -1,0 +1,158 @@
+# ==============================================================================
+# fsarchiver configuration template
+# ==============================================================================
+# This configuration defines default options for `fsarchiver`, a tool for
+# creating and restoring filesystem archives (saves) and converting/restoring
+# filesystems (restores).
+#
+# The file is structured into INI-style sections:
+# - [global]:   Runtime behavior (verbosity, threads, compression, encryption)
+# - [archive]:  Metadata for the archive itself (labeling)
+# - [excludes]: Patterns to skip when saving filesystems
+# - [restore_defaults]: Default parameters used during 'restfs' operations
+#
+# All variables are safely defaulted using Ansible's `default()` filter to
+# prevent rendering errors if the role is used without explicit variable definitions.
+# ==============================================================================
+
+[global]
+
+# --------------------------------------------------------------------------
+# Verbose mode level
+# --------------------------------------------------------------------------
+# 0 = off, 1 = normal, 2 = verbose, etc. Controls the amount of output
+# printed to stdout/stderr during operations.
+verbose = {{ verbose | default(0) }}
+
+# --------------------------------------------------------------------------
+# Debug mode level
+# --------------------------------------------------------------------------
+# 0 = off, 1 = enabled, 2 = more verbose, etc. Enables debug logging,
+# typically writing to /var/log/fsarchiver.log or syslog depending on setup.
+debug = {{ debug | default(0) }}
+
+# --------------------------------------------------------------------------
+# Compression level (Legacy)
+# --------------------------------------------------------------------------
+# Legacy compression level (0-9). -1 indicates the default level.
+# Note: If zstd_level is set, this legacy compress setting may be overridden
+# depending on the fsarchiver version and compression backend selected.
+compress = {{ compress | default(-1) }}
+
+# --------------------------------------------------------------------------
+# Zstandard compression level
+# --------------------------------------------------------------------------
+# Zstandard compression level (1-22). -1 indicates the default level.
+# If set, this usually takes precedence or is used when explicitly selecting
+# zstd compression, overriding the legacy 'compress' setting.
+zstd_level = {{ zstd_level | default(-1) }}
+
+# --------------------------------------------------------------------------
+# Archive split size (in MB)
+# --------------------------------------------------------------------------
+# Split the resulting archive file into multiple volumes of this size.
+# Value is in Megabytes. 0 means do not split (single large file).
+# Useful for storing backups on FAT32 or other file systems with size limits.
+split_size_mb = {{ split_size_mb | default(0) }}
+
+# --------------------------------------------------------------------------
+# Number of compression threads
+# --------------------------------------------------------------------------
+# Sets the number of parallel compression threads.
+# Default is 1. Increasing this can speed up compression on multi-core systems
+# but increases CPU and I/O load.
+jobs = {{ jobs | default(1) }}
+
+# --------------------------------------------------------------------------
+# Encryption password
+# --------------------------------------------------------------------------
+# Password for encrypting the archive (6-64 characters).
+# Empty string means no encryption.
+# ⚠️ SECURITY WARNING: Storing passwords in plain text config files is unsafe.
+# For production environments, omit this and provide the password via
+# command-line flag (-p) or environment variable.
+crypt_password = "{{ crypt_password | default('') }}"
+
+# --------------------------------------------------------------------------
+# Allow saving read-write mounted filesystems
+# --------------------------------------------------------------------------
+# Boolean: true to allow saving filesystems that are currently mounted
+# and read-write (live backup). false (default) prevents saving live RW
+# filesystems to ensure data consistency. Not recommended without LVM snapshots.
+allow_rw_mounted = {{ allow_rw_mounted | default(false) }}
+
+# --------------------------------------------------------------------------
+# Allow saving without ACL/xattr support
+# --------------------------------------------------------------------------
+# Boolean: true to skip failures if the source filesystem does not support
+# Access Control Lists (ACL) or Extended Attributes (xattr). false (default)
+# will cause an error if these are missing, ensuring metadata preservation.
+allow_no_acl_xattr = {{ allow_no_acl_xattr | default(false) }}
+
+# --------------------------------------------------------------------------
+# Allow experimental filesystem support
+# --------------------------------------------------------------------------
+# Boolean: true to enable support for experimental or less common filesystem
+# types. false (default) restricts fsarchiver to well-supported types (ext2/3/4,
+# xfs, btrfs, reiserfs, etc.).
+experimental = {{ experimental | default(false) }}
+
+[archive]
+
+# --------------------------------------------------------------------------
+# Archive label
+# --------------------------------------------------------------------------
+# A short comment or label attached to the archive file.
+# Used for identification during listing or restoration.
+# Example: 'backup-2025-06-01'
+label = "{{ label | default('') }}"
+
+[excludes]
+
+# --------------------------------------------------------------------------
+# Exclude patterns
+# --------------------------------------------------------------------------
+# List of shell wildcard patterns to exclude from the archive.
+# Each pattern generates an 'exclude = "pattern"' line.
+# Examples: 'pagefile.*', '/tmp/*', '*.log'
+{% if exclude_patterns is defined and exclude_patterns is iterable %}
+{% for pattern in exclude_patterns %}
+# Excluding: {{ pattern }}
+exclude = "{{ pattern }}"
+{% endfor %}
+{% else %}
+# No exclude patterns defined.
+{% endif %}
+
+[restore_defaults]
+
+# --------------------------------------------------------------------------
+# Default filesystem type for restfs
+# --------------------------------------------------------------------------
+# Default filesystem type (e.g., 'ext4', 'xfs') used when converting
+# a saved archive to a different filesystem type during restore ('restfs').
+# Leave empty to restore the archive with its original filesystem type.
+mkfs = "{{ mkfs | default('') }}"
+
+# --------------------------------------------------------------------------
+# Extra mkfs options
+# --------------------------------------------------------------------------
+# Extra options passed to the mkfs command during restore.
+# Must be a quoted string. Example: '-I 256' for inode size.
+mkfs_options = "{{ mkfs_options | default('') }}"
+
+# --------------------------------------------------------------------------
+# New filesystem label on restore
+# --------------------------------------------------------------------------
+# Label to assign to the restored filesystem.
+# Empty string means preserve the original label from the archive.
+new_label = "{{ new_label | default('') }}"
+
+# --------------------------------------------------------------------------
+# New filesystem UUID on restore
+# --------------------------------------------------------------------------
+# New UUID to assign to the restored filesystem.
+# Empty string means preserve the original UUID from the archive.
+# Format: 8-4-4-4-12 hex digits (e.g., '5f6e5f4f-dc2a-4dbd-a6ea-9ca997cde75e').
+# Generating a new UUID is recommended to avoid conflicts if cloning.
+new_uuid = "{{ new_uuid | default('') }}"

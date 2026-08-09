@@ -1,0 +1,37 @@
+# === ejabberd_mod_default_rooms module configuration ===
+# This module configures the `mod_default_rooms` plugin for ejabberd.
+# It manages MUC (Multi-User Chat) room bookmarks for new users.
+#
+# Schema fields used:
+#   storage_dir: Directory where user-specific MUC bookmark files will be stored; must be writable by the ejabberd process.
+#   default_rooms: List of default MUC rooms to pre-add to new users' bookmarks.
+#   merge_with_existing: If true, append default rooms to any existing bookmarks. If false, replace existing bookmarks entirely with the defaults.
+
+modules:
+  mod_default_rooms:
+    # Directory where bookmark files are stored (per user, by JID hash)
+    # This path should be writable by the ejabberd user
+    storage:
+      file:
+        # Base directory for storing user bookmarks
+        # Default: /var/lib/ejabberd/default_rooms
+        dir: {{ storage_dir | default('/var/lib/ejabberd/default_rooms') }}
+
+    # Default MUC rooms to add to new users' bookmarks
+    # Each entry defines a room JID, nickname, autojoin flag, and optional name
+    # Default: [] (empty list, no default rooms)
+    default_rooms:
+      {% for room in default_rooms | default([]) %}
+      # Room entry {{ loop.index }}:
+      - jid: {{ room.jid | to_json }}
+        # Nickname to use when joining the room
+        nick: {{ room.nick | to_json }}
+        # Whether to autojoin this room on first login
+        autojoin: {{ room.autojoin | lower }}
+        # Human-readable room name (optional; uses room's displayed name if missing)
+        name: {{ room.name | default('none') | to_json }}
+      {% endfor %}
+
+    # Whether to merge with existing bookmarks (if any) vs. replace entirely
+    # Default: false
+    merge_with_existing: {{ merge_with_existing | default(false) | lower }}

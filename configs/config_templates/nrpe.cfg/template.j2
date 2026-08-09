@@ -1,0 +1,111 @@
+# ============================================================================
+# NRPE (Nagios Remote Plugin Executor) Daemon Configuration
+# ============================================================================
+# This file configures the NRPE daemon. NRPE allows Nagios to remotely
+# execute plugins on other machines. It listens for connections from
+# allowed_hosts and executes predefined commands.
+# ============================================================================
+
+[nrpe]
+
+# --------------------------------------------------------------------------
+# Port on which the NRPE daemon listens for incoming connections.
+# --------------------------------------------------------------------------
+port = {{ nrpe_port | default(5666) }}
+
+# --------------------------------------------------------------------------
+# List of hosts permitted to connect to this NRPE daemon.
+# These hosts must be able to reach the NRPE port.
+# --------------------------------------------------------------------------
+allowed_hosts = {{ allowed_hosts | default(['127.0.0.1']) | join(',') }}
+
+# --------------------------------------------------------------------------
+# System user account under which the NRPE daemon process runs.
+# --------------------------------------------------------------------------
+user = {{ nrpe_user | default('nagios') }}
+
+# --------------------------------------------------------------------------
+# System group for the NRPE daemon process.
+# --------------------------------------------------------------------------
+group = {{ nrpe_group | default('nagios') }}
+
+# --------------------------------------------------------------------------
+# Path to the NRPE daemon log file.
+# --------------------------------------------------------------------------
+logfile = {{ nrpe_logfile | default('/var/log/nrpe.log') }}
+
+# --------------------------------------------------------------------------
+# Verbosity of logging: 0 (none) to 4 (debug).
+# Higher levels increase log size and may impact performance.
+# --------------------------------------------------------------------------
+log_level = {{ nrpe_log_level | default(1) }}
+
+# --------------------------------------------------------------------------
+# Maximum time (seconds) allowed for any check command to complete
+# before the daemon terminates it.
+# --------------------------------------------------------------------------
+command_timeout = {{ command_timeout | default(60) }}
+
+# --------------------------------------------------------------------------
+# Maximum time (seconds) allowed for a client to remain connected
+# before the server closes the connection.
+# --------------------------------------------------------------------------
+connection_timeout = {{ connection_timeout | default(300) }}
+
+# --------------------------------------------------------------------------
+# Whether to use SSL/TLS encryption for communication between Nagios
+# and NRPE.
+# --------------------------------------------------------------------------
+ssl = {{ nrpe_ssl | default(true) | lower }}
+
+# --------------------------------------------------------------------------
+# SSL/TLS Configuration
+# These directives are active when ssl = true.
+# --------------------------------------------------------------------------
+{% if nrpe_ssl | default(true) %}
+# --------------------------------------------------------------------------
+# Path to the SSL certificate file (PEM format).
+# Required if SSL is enabled.
+# --------------------------------------------------------------------------
+ssl_cert_file = {{ nrpe_ssl_cert_file | default('/etc/nagios/nrpe.pem') }}
+
+# --------------------------------------------------------------------------
+# Path to the SSL private key file (PEM format).
+# Required if SSL is enabled.
+# --------------------------------------------------------------------------
+ssl_key_file = {{ nrpe_ssl_key_file | default('/etc/nagios/nrpe.key') }}
+
+# --------------------------------------------------------------------------
+# Path to optional CA certificate for validating client certificates.
+# Empty string disables CA validation (optional).
+# --------------------------------------------------------------------------
+ssl_ca_cert_file = {{ nrpe_ssl_ca_cert_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Whether to verify the client's SSL certificate if client certs are used.
+# --------------------------------------------------------------------------
+ssl_check_peer = {{ nrpe_ssl_check_peer | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Whether to verify the hostname in the client's certificate matches
+# the connecting host.
+# --------------------------------------------------------------------------
+ssl_check_host = {{ nrpe_ssl_check_host | default(true) | lower }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# List of directories from which to load extra command definitions.
+# Standard path: /etc/nagios/nrpe.d
+# --------------------------------------------------------------------------
+{% for cmd_def_path in include_cmd_def_paths | default(['/etc/nagios/nrpe.d']) %}
+include_dir = {{ cmd_def_path }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# List of custom command definitions.
+# Each definition provides a named check available to Nagios.
+# Format: command[<name>] = <executable> [arguments...]
+# --------------------------------------------------------------------------
+{% for cmd in custom_commands | default([]) %}
+command[{{ cmd.name }}] = {{ cmd.executable }} {{ cmd.arguments | default([]) | join(' ') }}
+{% endfor %}

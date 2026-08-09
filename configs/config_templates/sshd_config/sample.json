@@ -1,0 +1,83 @@
+{
+  "port": 22,
+  "listen_address": "",
+  "protocol_version": 2,
+  "password_auth_enabled": false,
+  "pubkey_auth_enabled": true,
+  "authorized_keys_file": ".ssh/authorized_keys",
+  "login_grace_time": 120,
+  "permit_root_login": "no",
+  "max_auth_tries": 3,
+  "max_sessions": 10,
+  "allow_users": [],
+  "allow_groups": [
+    "sftponly"
+  ],
+  "host_key_algorithms": [
+    "ssh-ed25519",
+    "ecdsa-sha2-nistp256"
+  ],
+  "kex_algorithms": [
+    "curve25519-sha256"
+  ],
+  "ciphers": [
+    "chacha20-poly1305@openssh.com",
+    "aes256-gcm@openssh.com"
+  ],
+  "macs": [
+    "hmac-sha2-512-etm@openssh.com"
+  ],
+  "log_level": 30,
+  "syslog_facility": "AUTH",
+  "x11_forwarding_enabled": false,
+  "x11_display_offset": 10,
+  "tcp_forwarding_enabled": true,
+  "agent_forwarding_enabled": true,
+  "sftp_subsystems": [
+    {
+      "name": "sftp",
+      "executable": "/usr/lib/openssh/sftp-server"
+    }
+  ],
+  "match_blocks": [
+    {
+      "reason": "Restrict sftponly group to SFTP only",
+      "criteria": "Group sftponly",
+      "directives": [
+        {
+          "key": "ForceCommand",
+          "value": "internal-sftp"
+        },
+        {
+          "key": "AllowTcpForwarding",
+          "value": "no"
+        },
+        {
+          "key": "X11Forwarding",
+          "value": "no"
+        }
+      ]
+    },
+    {
+      "reason": "Admin users: full access",
+      "criteria": "User admin,sysadmin",
+      "directives": [
+        {
+          "key": "MaxSessions",
+          "value": "20"
+        },
+        {
+          "key": "MaxAuthTries",
+          "value": "10"
+        }
+      ]
+    }
+  ],
+  "client_alive_interval": 300,
+  "client_alive_count_max": 2,
+  "tcp_keep_alive": false,
+  "banner": "/etc/ssh/banner",
+  "strict_modes": true,
+  "ignore_rhosts": true,
+  "use_pam": true
+}

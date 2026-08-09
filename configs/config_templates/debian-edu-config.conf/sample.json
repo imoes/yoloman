@@ -1,0 +1,148 @@
+{
+  "debian_edu": {
+    "enabled": true,
+    "hostname_prefix": "edu",
+    "language": "en",
+    "locale": "en_US.UTF-8",
+    "timezone": "Europe/Berlin",
+    "keyboard": "de"
+  },
+  "apt": {
+    "use_debian_edu_repo": true,
+    "extra_repos": [
+      {
+        "name": "Local Packages",
+        "url": "http://mirror.local/debian-edu",
+        "section": "main",
+        "components": [
+          "main"
+        ],
+        "architectures": [
+          "amd64"
+        ],
+        "key_url": "http://mirror.local/debian-edu/keyring.gpg",
+        "suite": "bullseye"
+      }
+    ]
+  },
+  "ldap": {
+    "enabled": true,
+    "hostname": "ldap.school.local",
+    "base_dn": "dc=school,dc=local",
+    "bind_dn": "cn=admin,dc=school,dc=local",
+    "bind_password": "secretpass",
+    "groups": [
+      {
+        "cn": "students",
+        "base": "ou=groups",
+        "members": [
+          "alice",
+          "bob"
+        ]
+      },
+      {
+        "cn": "teachers",
+        "base": "ou=groups",
+        "members": [
+          "teacher1"
+        ]
+      }
+    ]
+  },
+  "nis": {
+    "enabled": false,
+    "name": "nis-school",
+    "master": ""
+  },
+  "pam": {
+    "use_ldap": true,
+    "use_nis": false
+  },
+  "filesystem": {
+    "create_home": true,
+    "home_mount_opts": "defaults,noatime,acl"
+  },
+  "users": {
+    "roles": [
+      {
+        "name": "student",
+        "uid_min": 2000,
+        "uid_max": 2999,
+        "shell": "/bin/bash",
+        "groups": [
+          "students",
+          "audio",
+          "video"
+        ]
+      },
+      {
+        "name": "teacher",
+        "uid_min": 3000,
+        "uid_max": 3999,
+        "shell": "/bin/bash",
+        "groups": [
+          "teachers",
+          "audio",
+          "video",
+          "sudo"
+        ]
+      }
+    ]
+  },
+  "boot": {
+    "grub_timeout": 5,
+    "kernel_cmdline": [
+      "quiet",
+      "splash"
+    ]
+  },
+  "logging": {
+    "rsyslog_server": "syslog.school.local",
+    "log_level": "info"
+  },
+  "security": {
+    "ssh_password_auth": false,
+    "fail2ban_enabled": true
+  },
+  "workstation": {
+    "desktops": [
+      {
+        "name": "xfce",
+        "theme": "default-xfce",
+        "wallpaper": "/usr/share/backgrounds/xfce/xfce-blue.jpg",
+        "autologin": true
+      }
+    ]
+  },
+  "school": {
+    "school_name": "Greenwood Secondary",
+    "class_groups": [
+      "math101",
+      "science9",
+      "history10"
+    ],
+    "shared_printers": [
+      "ipp://printers/school1",
+      "ipp://printers/lab2"
+    ]
+  },
+  "backup": {
+    "enabled": true,
+    "target": "/mnt/backup",
+    "retention_days": 14,
+    "paths": [
+      {
+        "source": "/home",
+        "dest": "home"
+      },
+      {
+        "source": "/etc/school",
+        "dest": "etc"
+      }
+    ]
+  },
+  "monitoring": {
+    "nagios_enabled": true,
+    "nagios_server": "monitoring.school.local"
+  }
+}

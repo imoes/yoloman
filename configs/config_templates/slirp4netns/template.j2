@@ -1,0 +1,54 @@
+# slirp4netns configuration file
+# This file is sourced by slirp4netns when invoked with --config
+# Each line is a key=value pair; empty lines and lines starting with # are ignored
+
+# Specify CIDR, e.g. 10.0.2.0/24. Controls the IPv4 network used for the virtual interface.
+cidr={{ cidr | default('10.0.2.0/24') }}
+
+# Specify MTU (max=65521). Default is 1500.
+mtu={{ mtu | default(1500) }}
+
+# Enable IPv6 (EXPERIMENTAL). Allows IPv6 traffic through the slirp interface.
+enable_ipv6={{ enable_ipv6 | default(false) | ternary('1', '0') }}
+
+# Specify network namespace type ([path|pid|tapfd], default=pid).
+netns_type={{ netns_type | default('pid') }}
+
+# Specify user namespace path. Empty string means default.
+userns_path={{ userns_path | default('') }}
+
+# Enter the user namespace and create a new mount namespace where only /etc and /run are mounted from the host.
+enable_sandbox={{ enable_sandbox | default(false) | ternary('1', '0') }}
+
+# Enable seccomp(2) to limit syscalls. Typically used in conjunction with --enable-sandbox. EXPERIMENTAL.
+enable_seccomp={{ enable_seccomp | default(false) | ternary('1', '0') }}
+
+# Prohibit connecting to 127.0.0.1:* on the host namespace.
+disable_host_loopback={{ disable_host_loopback | default(false) | ternary('1', '0') }}
+
+# Disable built-in DNS (10.0.2.3 by default).
+disable_dns={{ disable_dns | default(false) | ternary('1', '0') }}
+
+# Specify MAC address of the TAP interface (only valid with --configure/-c).
+macaddress={{ macaddress | default('') }}
+
+# Specify the target type ([netns|bess], default=netns).
+# The bess mode (since v1.2.0, EXPERIMENTAL) is expected to be used with User Mode Linux.
+target_type={{ target_type | default('netns') }}
+
+# Specify outbound ipv4 address slirp should bind to.
+outbound_addr={{ outbound_addr | default('') }}
+
+# Specify outbound interface slirp should bind to (ipv4 traffic only).
+outbound_addr_interface={{ outbound_addr_interface | default('') }}
+
+# Specify outbound ipv6 address slirp should bind to.
+outbound_addr6={{ outbound_addr6 | default('') }}
+
+# Specify outbound interface slirp should bind to (ipv6 traffic only).
+outbound_addr6_interface={{ outbound_addr6_interface | default('') }}
+
+# Additional slirp4netns options (passed as-is; e.g., '--disable-host-loopback').
+# Each extra_option goes on its own line
+{% for option in extra_options | default([]) %}{{ option }}
+{% endfor %}

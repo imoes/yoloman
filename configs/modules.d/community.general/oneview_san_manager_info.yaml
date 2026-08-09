@@ -1,0 +1,51 @@
+name: oneview_san_manager_info
+fqcn: community.general.oneview_san_manager_info
+collection: community.general
+short_description: Retrieve information about one or more of the OneView SAN Managers
+description: Retrieve information about one or more of the SAN Managers from OneView
+options:
+  api_version:
+    type: int
+    description: OneView API Version.
+  config:
+    type: path
+    description: Path to a JSON configuration file containing the OneView client configuration. The configuration
+      file is optional and when used should be present in the host running the ansible commands. If the
+      file path is not provided, the configuration will be loaded from environment variables. For links
+      to example configuration files or how to use the environment variables verify the notes section.
+  hostname:
+    type: str
+    description: IP address or hostname for the appliance.
+  image_streamer_hostname:
+    type: str
+    description: IP address or hostname for the HPE Image Streamer REST API.
+  params:
+    type: dict
+    description: 'List of params to delimit, filter and sort the list of resources. params allowed: -
+      V(start): The first item to return, using 0-based indexing. - V(count): The number of resources
+      to return. - V(query): A general query string to narrow the list of resources returned. - V(sort):
+      The sort order of the returned data set.'
+  password:
+    type: str
+    description: Password for API authentication.
+  provider_display_name:
+    type: str
+    description: Provider Display Name.
+  username:
+    type: str
+    description: Username for API authentication.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Gather information about all SAN Managers\n  community.general.oneview_san_manager_info:\n\
+  \    config: /etc/oneview/oneview_config.json\n  delegate_to: localhost\n  register: result\n\n- name:\
+  \ Print fetched information about SAN Managers\n  ansible.builtin.debug:\n    msg: \"{{ result.san_managers\
+  \ }}\"\n\n- name: Gather paginated, filtered and sorted information about SAN Managers\n  community.general.oneview_san_manager_info:\n\
+  \    config: /etc/oneview/oneview_config.json\n    params:\n      start: 0\n      count: 3\n      sort:\
+  \ name:ascending\n      query: isInternal eq false\n  delegate_to: localhost\n  register: result\n\n\
+  - name: Print fetched information about paginated, filtered and sorted list of SAN Managers\n  ansible.builtin.debug:\n\
+  \    msg: \"{{ result.san_managers }}\"\n\n- name: Gather information about a SAN Manager by provider\
+  \ display name\n  community.general.oneview_san_manager_info:\n    config: /etc/oneview/oneview_config.json\n\
+  \    provider_display_name: Brocade Network Advisor\n  delegate_to: localhost\n  register: result\n\n\
+  - name: Print fetched information about SAN Manager found by provider display name\n  ansible.builtin.debug:\n\
+  \    msg: \"{{ result.san_managers }}\"\n"

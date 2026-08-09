@@ -1,0 +1,181 @@
+{
+  "monitoring": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable device-mapper event monitoring for activation (e.g., thin pool status, LV lock status). Disable only in minimal environments or debugging."
+  },
+  "min_initial_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum free space (in MiB) required in a volume group before activating logical volumes. Helps prevent out-of-space failures."
+  },
+  "activation_retry": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for an LV to become free before failing activation. Increase for systems with slow I/O or high contention."
+  },
+  "use_polling": {
+    "type": "bool",
+    "default": false,
+    "description": "Use polling instead of asynchronous device-mapper event notifications for activation checks. Avoid unless dm-notify is unavailable."
+  },
+  "read_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Activate all logical volumes in read-only mode by default. Useful for disaster recovery or testing scenarios."
+  },
+  "auto_activation_volume_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of volume or LV names (patterns or exact) that should be auto-activated on boot. Empty list = all eligible LVs auto-activate.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "raid.min_home_pages": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum number of RAID home pages (metadata pages) required before RAID LV activation. Prevents degraded RAID activation if metadata is too sparse."
+  },
+  "raid.sync_max": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of sync operations LVM will attempt before aborting RAID rebuild/resync."
+  },
+  "mirror.log_failures": {
+    "type": "bool",
+    "default": true,
+    "description": "Log failures of mirror logs (e.g., when metadata is lost). Helps diagnose mirror inconsistencies."
+  },
+  "mirror.auto_recovery": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically recover failed mirror images (if possible) after activation. Disable if manual intervention preferred."
+  },
+  "mirror.min_recovery_rate": {
+    "type": "number",
+    "default": 25,
+    "description": "Minimum number of mirror images required to be healthy before mirror LV activates. Prevents activation of critically degraded mirrors."
+  },
+  "thin_pool.metadata_read_ahead": {
+    "type": "number",
+    "default": 0,
+    "description": "Read-ahead (in sectors) for thin pool metadata devices. 0 = use kernel default."
+  },
+  "thin_pool.check_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for thin pool health check before treating pool as unhealthy (e.g., near full)."
+  },
+  "thin_pool.error_when_full": {
+    "type": "bool",
+    "default": true,
+    "description": "Fail activation of thin pool when pool is full (or near full). Set false to allow activation in degraded mode."
+  },
+  "scan": {
+    "type": "list",
+    "default": [
+      "\"a|/dev/sd.*|\"",
+      "\"r|.*|\""
+    ],
+    "description": "List of device filters (regexes with a=accept, r=reject) to determine which block devices LVM scans for PVs.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "preferred_names": {
+    "type": "list",
+    "default": [],
+    "description": "List of device name patterns (regexes) used to prefer one path over others in multipath setups.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "filtering": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable device filtering via the scan rules above. Disable only for debugging or trusted environments."
+  },
+  "md_component_detection": {
+    "type": "bool",
+    "default": true,
+    "description": "Detect and exclude Linux MD RAID components to avoid confusion between LVM PVs and MD arrays."
+  },
+  "aliases": {
+    "type": "list",
+    "default": [],
+    "description": "Optional device alias mappings (e.g., multipath wwid \u2192 /dev/mapper/...) for consistent naming.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "backup.backup": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic backup of LVM metadata before modifications (e.g., lvcreate, vgreduce)."
+  },
+  "backup.backup_dir": {
+    "type": "string",
+    "default": "/etc/lvm/backup",
+    "description": "Directory to store per-VG metadata backups. Should be on a reliable filesystem."
+  },
+  "backup.archives": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of old metadata archives to retain per volume group. Older archives are pruned automatically."
+  },
+  "backup.archive_prefix": {
+    "type": "string",
+    "default": "vgname",
+    "description": "Prefix for archive filenames (usually 'vgname' or 'lvmbackup'). Archives named: vgname_timestamp"
+  },
+  "activation_hooks": {
+    "type": "list",
+    "default": [],
+    "description": "List of activation event hooks (e.g., 'pre_pvmove', 'post_lvcreate'). Each hook executes a shell command.",
+    "items": {
+      "description": {
+        "type": "string",
+        "description": "Human-readable purpose of the hook (used only for inline comments)."
+      },
+      "event": {
+        "type": "string",
+        "description": "LVM activation event to hook into (e.g., 'pre_lvcreate', 'post_vgchange')."
+      },
+      "command": {
+        "type": "string",
+        "description": "Shell command to run on event. Can use environment variables (e.g., $VG_NAME, $LV_NAME)."
+      }
+    }
+  },
+  "log.verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Log verbosity: 0=errors only, 1=warnings, 2=info, 3=debug. Higher values produce more detail."
+  },
+  "log.prefix": {
+    "type": "string",
+    "default": "LVM2",
+    "description": "String prefix for all LVM log messages (e.g., '[LVM2] ')."
+  },
+  "log.syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Send LVM logs to system syslog (true) or to a file (false)."
+  },
+  "log.file": {
+    "type": "string",
+    "default": "/var/log/lvm2.log",
+    "description": "Path to file for logs when syslog=false. Requires write permission."
+  },
+  "log.overwrite": {
+    "type": "bool",
+    "default": true,
+    "description": "Overwrite log file (true) or append (false) when logging to a file."
+  },
+  "log.level": {
+    "type": "number",
+    "default": 0,
+    "description": "Global minimum log level (0=error, 1=warn, 2=info, 3=debug). Only messages \u2265 this level are logged."
+  }
+}

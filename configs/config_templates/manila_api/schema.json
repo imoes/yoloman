@@ -1,0 +1,156 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/manila/manila-api.log",
+    "description": "Path to the log file for the Manila API server."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/manila",
+    "description": "Directory where log files are stored."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug-level logging for troubleshooting."
+  },
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Manila API server will listen on."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8786,
+    "description": "Port on which the Manila API server listens."
+  },
+  "api_paste_config": {
+    "type": "string",
+    "default": "/etc/manila/api-paste.ini",
+    "description": "Path to the PasteDeploy configuration file."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy (e.g., 'keystone' or 'noauth')."
+  },
+  "enable_proxy_headers_parsing": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, parse X-Forwarded-* headers to determine client IP and protocol."
+  },
+  "rate_limit_incoming_requests": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of incoming requests per project per minute allowed (0 = unlimited)."
+  },
+  "max_shares_per_tenant": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of share instances allowed per tenant."
+  },
+  "max_snapshots_per_share": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of snapshots allowed per share."
+  },
+  "share_driver_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of share driver configurations (one per backend).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Logical name for the driver/backend (used in log messages and section labels)."
+      },
+      "section": {
+        "type": "string",
+        "default": "",
+        "description": "Section name (e.g., 'DEFAULT' or '[nfs]' for custom section)."
+      },
+      "share_driver": {
+        "type": "string",
+        "default": "manila.share.drivers.generic.GenericShareDriver",
+        "description": "Fully qualified class name of the share driver."
+      },
+      "extra_opts": {
+        "type": "object",
+        "default": {},
+        "description": "Driver-specific key-value options (e.g., 'share_backend_name', 'driver_handles_share_servers')."
+      }
+    }
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://manila:manila@localhost/manila",
+    "description": "Database connection string ( SQLAlchemy URI format )."
+  },
+  "notifications_driver": {
+    "type": "string",
+    "default": "messagingv2",
+    "description": "Notification driver (e.g., 'messaging', 'messagingv2')."
+  },
+  "keystone_authtoken_auth_url": {
+    "type": "string",
+    "default": "http://localhost:5000",
+    "description": "Keystone authentication endpoint URL."
+  },
+  "keystone_authtoken_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name."
+  },
+  "keystone_authtoken_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name."
+  },
+  "keystone_authtoken_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Service project name in Keystone."
+  },
+  "keystone_authtoken_username": {
+    "type": "string",
+    "default": "manila",
+    "description": "Service user name in Keystone."
+  },
+  "keystone_authtoken_password": {
+    "type": "string",
+    "default": "manila",
+    "description": "Service user password in Keystone (secret)."
+  },
+  "lock_path": {
+    "type": "string",
+    "default": "/var/lib/manila/tmp",
+    "description": "Directory used for filesystem-based locking."
+  },
+  "policy_file": {
+    "type": "string",
+    "default": "/etc/manila/policy.yaml",
+    "description": "Path to the policy definition file (YAML format)."
+  },
+  "endpoint_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of service endpoint configuration sections (optional, rarely used in modern deployments).",
+    "items": {
+      "service_type": {
+        "type": "string",
+        "default": "",
+        "description": "OpenStack service type (e.g., 'share')."
+      },
+      "section": {
+        "type": "string",
+        "default": "oslo_middleware",
+        "description": "Section name for endpoint template config."
+      },
+      "endpoint_template": {
+        "type": "string",
+        "default": "",
+        "description": "Template string for endpoint URLs (e.g., 'http://localhost:8786/v1/%(project_id)s')."
+      }
+    }
+  }
+}

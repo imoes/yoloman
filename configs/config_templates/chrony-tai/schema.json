@@ -1,0 +1,87 @@
+{
+  "ntp_server": {
+    "type": "string",
+    "default": "pool.ntp.org",
+    "description": "Primary NTP server to synchronize time with."
+  },
+  "ntp_pools": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional NTP pools to include for redundancy.\n      items:\n        type: object\n        fields:\n          name: { type: string, default: '', description: 'Descriptive name for the pool (e.g., \"Regional Pool\").' }\n          hostname: { type: string, default: '', description: 'Hostname or FQDN of the NTP pool (e.g., \"0.pool.ntp.org\").' }\n          description: { type: string, default: '', description: 'Brief description of the pool purpose or region.' }"
+  },
+  "subnet": {
+    "type": "string",
+    "default": "192.168.0.0/16",
+    "description": "CIDR subnet from which clients may synchronize (set to '0.0.0.0/0' to allow all, but not recommended)."
+  },
+  "leapsec_tz": {
+    "type": "string",
+    "default": "right/UTC",
+    "description": "Time zone setting that includes leap seconds for TAI time support (e.g., 'right/UTC', 'right/UTC-tai')."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/chrony",
+    "description": "Directory where chronyd logs will be written."
+  },
+  "ntp_port": {
+    "type": "number",
+    "default": 123,
+    "description": "UDP port on which the NTP server listens (123 is standard)."
+  },
+  "driftfile_path": {
+    "type": "string",
+    "default": "/var/lib/chrony/drift",
+    "description": "Path to the file storing the system clock drift."
+  },
+  "enable_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NTP command authentication using keys (requires keyfile)."
+  },
+  "keyfile_path": {
+    "type": "string",
+    "default": "/etc/chrony/keys",
+    "description": "Path to the file containing NTP authentication keys (used only if authentication is enabled)."
+  },
+  "makestep_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Maximum time offset (in seconds) beyond which the clock is stepped (not slewn) at startup."
+  },
+  "max_steps": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of steps allowed during initial slew (used with makestep)."
+  },
+  "leapfile_path": {
+    "type": "string",
+    "default": "/usr/share/zoneinfo/leap-seconds.list",
+    "description": "Path to the leap second table file (required for TAI time reporting)."
+  },
+  "smooth_start": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, use initstepslew to smoothly correct large initial offsets instead of stepping."
+  },
+  "max_slew_steps": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of initial steps used by initstepslew when smooth_start is enabled."
+  },
+  "enable_server": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable chronyd to act as an NTP server for local clients (requires binding to localhost)."
+  },
+  "command_port": {
+    "type": "number",
+    "default": 323,
+    "description": "Port used for chronyd command interface (e.g., `chronyc tracking`)."
+  },
+  "enable_rtc": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable synchronization with the hardware RTC (recommended for most systems)."
+  }
+}

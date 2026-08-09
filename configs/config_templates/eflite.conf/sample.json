@@ -1,0 +1,52 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 9000,
+    "max_connections": 2048,
+    "ssl_enabled": true,
+    "ssl_cert_path": "/etc/eflite/ssl/server.crt",
+    "ssl_key_path": "/etc/eflite/ssl/server.key"
+  },
+  "worker": {
+    "processes": 4,
+    "threads": 2
+  },
+  "paths": {
+    "base_dir": "/var/lib/eflite",
+    "log_dir": "/var/log/eflite",
+    "cache_dir": "/var/cache/eflite"
+  },
+  "logging": {
+    "level": "warning",
+    "access_log": true
+  },
+  "security": {
+    "rate_limiting_enabled": true,
+    "rate_limit_max": 50,
+    "rate_limit_window": 30
+  },
+  "upstreams": [
+    {
+      "name": "api-v1",
+      "host": "10.0.0.10",
+      "port": 8081,
+      "weight": 10,
+      "check_path": "/healthz",
+      "check_interval": 15
+    },
+    {
+      "name": "api-v2",
+      "host": "10.0.0.11",
+      "port": 8082,
+      "weight": 5,
+      "check_interval": 10
+    }
+  ],
+  "features": {
+    "experimental_features": [
+      "grpc_fallback",
+      "webp_conversion"
+    ],
+    "debug_mode": false
+  }
+}

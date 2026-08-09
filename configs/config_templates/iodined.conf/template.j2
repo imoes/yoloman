@@ -1,0 +1,91 @@
+# ==============================================================================
+# iodined Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of the iodined DNS tunnel server.
+# iodined creates a virtual network interface over DNS packets, allowing tunnels
+# to be established through DNS infrastructure.
+#
+# All variables here map to the Ansible role's schema. Defaults are explicitly
+# set to ensure the configuration is robust and self-documenting.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [server] Connection Settings
+# ------------------------------------------------------------------------------
+
+# IP address or hostname to bind the server to. Use '0.0.0.0' to listen on all
+# interfaces.
+listen = {{ (server | default({})).listen_addr | default('0.0.0.0') }}
+
+# UDP port to listen on. Port 53 is standard for DNS traffic, but other ports
+# may be required if 53 is blocked or in use.
+port = {{ (server | default({})).port | default(53) }}
+
+# The DNS domain you own and will use for tunneling (e.g., 'tunnel.example.com').
+# This domain MUST resolve (A/AAAA record) to the server's public IP address.
+domain = {{ (server | default({})).domain | default('tunnel.example.com') }}
+
+# ------------------------------------------------------------------------------
+# [auth] Authentication
+# ------------------------------------------------------------------------------
+
+# Shared secret password used by clients to authenticate with this server.
+# All connecting clients MUST provide this exact password.
+password = {{ (auth | default({})).password | default('') }}
+
+# ------------------------------------------------------------------------------
+# [limits] Resource Limits
+# ------------------------------------------------------------------------------
+
+# Maximum number of concurrent client sessions allowed.
+# Prevents resource exhaustion by limiting active tunnels.
+max_sessions = {{ (limits | default({})).max_sessions | default(100) }}
+
+# Number of seconds of inactivity before an idle session is dropped.
+# Helps clean up stale connections.
+timeout = {{ (limits | default({})).timeout | default(300) }}
+
+# Maximum Transmission Unit (MTU) in bytes for tunnel packets.
+# Values typically between 1140 and 1280 to avoid IP fragmentation over DNS.
+mtu = {{ (limits | default({})).mtu | default(1140) }}
+
+# ------------------------------------------------------------------------------
+# [logging] Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Enable verbose debug logging for troubleshooting.
+# WARNING: Do not use in production as it generates excessive output.
+debug = {{ (logging | default({})).debug | default(false) }}
+
+# Whether to output logs to standard output (console).
+# Ignored if log_file is set to a non-empty path.
+log_stdout = {{ (logging | default({})).log_stdout | default(true) }}
+
+# Path to the log file. Set to empty string ('') to disable file logging.
+log_file = {{ (logging | default({})).log_file | default('/var/log/iodined.log') }}
+
+# ------------------------------------------------------------------------------
+# [features] Optional Features
+# ------------------------------------------------------------------------------
+
+# Type of Service (ToS) byte (0–255) to set on outgoing IP packets.
+# 0 means default service (no QoS marking).
+tos = {{ (features | default({})).tos | default(0) }}
+
+# Enable IPv6 support for the server. Requires kernel and system support.
+ipv6 = {{ (features | default({})).ipv6 | default(false) }}
+
+# Enable zlib compression for payload data.
+# Improves throughput over slow or high-latency links.
+zlib = {{ (features | default({})).zlib | default(false) }}
+
+# ------------------------------------------------------------------------------
+# [users] Authorized Users
+# ------------------------------------------------------------------------------
+
+# List of authorized users with fixed IP addresses.
+# Format: username = assigned_ip
+{% for user in (users | default([])) %}
+# User: {{ user.name | default('unknown') }} (if defined) -> Fixed IP: {{ user.ip | default('0.0.0.0') }} (if defined)
+{{ user.name | default('unknown_user') }} = {{ user.ip | default('0.0.0.0') }}
+{% endfor %}

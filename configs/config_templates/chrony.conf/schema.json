@@ -1,0 +1,227 @@
+{
+  "allow_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of networks to allow NTP clients from. Each item has IP and prefix length."
+  },
+  "allow_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific hosts (by IP or hostname) to allow NTP clients from."
+  },
+  "restrict_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of networks to restrict (relax default restrictions for)."
+  },
+  "restrict_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific hosts to restrict."
+  },
+  "server_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, configure NTP servers and run as NTP server (allowing clients to sync to this host)."
+  },
+  "ntp_servers": {
+    "type": "list",
+    "default": [
+      "0.pool.ntp.org",
+      "1.pool.ntp.org",
+      "2.pool.ntp.org",
+      "3.pool.ntp.org"
+    ],
+    "description": "List of upstream NTP servers to use (as servers or peers)."
+  },
+  "local_reference": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, use the local directive to act as an NTP server with an unsynchronized clock."
+  },
+  "local_stratum": {
+    "type": "number",
+    "default": 10,
+    "description": "Stratum level for the local reference mode. Must be 1-15. Default 10."
+  },
+  "makestep_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "If initial clock offset > this (seconds), allow stepping (non-slew) for up to `makestep_burst_count` updates."
+  },
+  "makestep_burst_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of steps allowed during initial sync (only if offset > `makestep_threshold`)."
+  },
+  "logging_destinations": {
+    "type": "list",
+    "default": [
+      "measurements",
+      "statistics",
+      "tracking"
+    ],
+    "description": "Types of data to log (e.g., measurements, statistics, tracking)."
+  },
+  "rtcsync": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable continuous synchronization of the system clock to the RTC (hardware clock)."
+  },
+  "leapsec_mode": {
+    "type": "string",
+    "default": "system",
+    "description": "How to handle leap seconds: 'system' (kernel steps), 'step' (chronyd steps), 'slew' (gradual), or 'ignore'. Default is 'system' on Linux.",
+    "enum": [
+      "system",
+      "step",
+      "slew",
+      "ignore"
+    ]
+  },
+  "keyfile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to NTP authentication keys file (e.g., '/etc/chrony/chrony.keys'). Leave empty to disable auth."
+  },
+  "ntp4_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Use NTP version 4 (RFC 5905). Set to false for NTPv3 compatibility (rarely needed)."
+  },
+  "ntpsigndsocket": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the Samba ntp_signd socket for MS-SNTP signing. Required if ntp4_enabled and MS-SNTP is needed."
+  },
+  "initstepslew_threshold": {
+    "type": "number",
+    "default": 0.1,
+    "description": "If initial offset > this (seconds), use `initstepslew` to step the clock on startup (before slewing)."
+  },
+  "hwtimestamp_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network interfaces to enable hardware timestamping on (if supported by NIC/kernel)."
+  },
+  "minpoll_exp": {
+    "type": "number",
+    "default": 6,
+    "description": "Minimum NTP poll interval exponent (2^6 = 64 seconds)."
+  },
+  "maxpoll_exp": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum NTP poll interval exponent (2^10 = 1024 seconds)."
+  },
+  "max_sources": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of sources to use for synchronization (0-16)."
+  },
+  "webserver_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable built-in web server (for chrony-webui dashboard)."
+  },
+  "webserver_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port for the web UI (only if `webserver_enabled` is true)."
+  },
+  "enable_tracking_files": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging/dump of measurement histories to /var/log/chrony/"
+  },
+  "comment_allow": {
+    "type": "string",
+    "default": "# Allow clients from these networks",
+    "description": "Comment header for `allow_*` section."
+  },
+  "comment_restrict": {
+    "type": "string",
+    "default": "# Relax restrictions for these networks",
+    "description": "Comment header for `restrict_*` section."
+  },
+  "comment_server_mode": {
+    "type": "string",
+    "default": "# Upstream NTP servers",
+    "description": "Comment header for `server` directives."
+  },
+  "comment_local_reference": {
+    "type": "string",
+    "default": "# Use local hardware clock as reference",
+    "description": "Comment header for local reference clock."
+  },
+  "comment_base_dir": {
+    "type": "string",
+    "default": "# Runtime data directory",
+    "description": "Comment header for `dir` directive."
+  },
+  "comment_driftfile": {
+    "type": "string",
+    "default": "# Drift file",
+    "description": "Comment header for `driftfile`."
+  },
+  "comment_step_first": {
+    "type": "string",
+    "default": "# Allow stepping on initial sync",
+    "description": "Comment header for `makestep`."
+  },
+  "comment_logging": {
+    "type": "string",
+    "default": "# Logging options",
+    "description": "Comment header for `log`."
+  },
+  "comment_rtcsync": {
+    "type": "string",
+    "default": "# Sync to hardware clock",
+    "description": "Comment header for `rtcsync`."
+  },
+  "comment_leapsecmode": {
+    "type": "string",
+    "default": "# Leap second handling",
+    "description": "Comment header for `leapsecmode`."
+  },
+  "comment_keyfile": {
+    "type": "string",
+    "default": "# Authentication key file",
+    "description": "Comment header for `keyfile`."
+  },
+  "comment_ntp4": {
+    "type": "string",
+    "default": "# Use NTPv4",
+    "description": "Comment header for NTP version options."
+  },
+  "comment_initstepslew": {
+    "type": "string",
+    "default": "# Initial slew at startup",
+    "description": "Comment header for `initstepslew`."
+  },
+  "comment_hwtimestamp": {
+    "type": "string",
+    "default": "# Hardware timestamping",
+    "description": "Comment header for `hwtimestamp`."
+  },
+  "comment_minpoll_maxpoll": {
+    "type": "string",
+    "default": "# Poll interval range",
+    "description": "Comment header for min/max poll."
+  },
+  "comment_sources": {
+    "type": "string",
+    "default": "# Max NTP sources",
+    "description": "Comment header for `maxsources`."
+  },
+  "comment_webserver": {
+    "type": "string",
+    "default": "# Web UI settings",
+    "description": "Comment header for web UI config."
+  },
+  "comment_tracking": {
+    "type": "string",
+    "default": "# Tracking logs",
+    "description": "Comment header for debug logging."
+  }
+}

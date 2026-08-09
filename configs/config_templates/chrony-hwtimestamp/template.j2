@@ -1,0 +1,126 @@
+# Chrony Configuration Template
+# This file configures the chrony NTP client/daemon with support for hardware timestamping (PTP/HWTSTAMP).
+
+# =============================================================================
+# Hardware Timestamping Configuration
+# =============================================================================
+
+# Enable hardware timestamping on the specified network interface.
+# Set to 'all' to enable on every interface, or specify a single interface name (e.g., 'eth0').
+hwtimestamp {{ hw_timestamp_interface | default('all') }}
+
+# Minimum polling interval for hardware timestamp availability checks.
+# This value is in log2 seconds. Default is 6 (64 seconds).
+# Increase this value (e.g., 7 = 128s) if you observe frequent timestamping failures or excessive CPU usage.
+hwtimestamp_minpoll {{ hw_timestamp_minpoll | default(6) }}
+
+# =============================================================================
+# NTP Server Sources
+# =============================================================================
+
+# Primary NTP servers list. Each server entry should contain at least a 'host'.
+# Optional keys: 'prefer' (boolean) to mark as preferred, 'key' (string) for cryptographically authenticated NTP.
+{% for server in ntp_servers | default([
+    {'host': '0.pool.ntp.org'},
+    {'host': '1.pool.ntp.org'},
+    {'host': '2.pool.ntp.org'},
+    {'host': '3.pool.ntp.org'}
+]) %}
+# NTP Server Entry
+# Host: {{ server.host | default('undefined') }}
+# Prefer: {{ 'yes' if server.prefer | default(false) else 'no' }}
+# Auth Key ID: {{ server.key | default('none') | string }}
+server {{ server.host | default('0.pool.ntp.org') }} iburst{{ ' prefer' if server.prefer | default(false) else '' }}{{ ' key ' + (server.key | default('') | string) if server.key is defined and server.key != '' else '' }}
+{% endfor %}
+
+# Optional NTP Pool Fallback
+# If a pool domain is provided, it is used as a backup source when specific servers are unavailable.
+{% if ntp_pool is defined and ntp_pool %}
+# NTP Pool Fallback
+# Domain: {{ ntp_pool }}
+pool {{ ntp_pool }} iburst
+{% endif %}
+
+# =============================================================================
+# Local Reference Clock (PHC)
+# =============================================================================
+
+# Enable local reference clock using the Physical Hardware Clock (PHC).
+# This acts as a fallback time source when external NTP sources are unavailable.
+{% if local_reference_enable | default(false) %}
+# Local Reference Clock (PHC)
+# Uses the hardware timestamp interface configured above.
+refclock PHC {{ hw_timestamp_interface | default('all') }} poll 3 dpoll 2 offset 0.0
+{% endif %}
+
+# =============================================================================
+# Step Threshold and Slew Rate
+# =============================================================================
+
+# Allow time to be stepped (set abruptly) during the first few updates.
+# This prevents the clock from taking too long to converge after a long downtime.
+# The second value (3) limits stepping to the first 3 updates.
+makestep 1.0 3
+
+# Maximum rate of slew adjustment (microseconds per second).
+# Adjust if you experience high CPU usage or need tighter synchronization limits.
+maxslewrate 1000
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Directory for chrony log files.
+logdir /var/log/chrony
+
+# Detailed logging options for troubleshooting hardware timestamping issues.
+# Enable if debug_logging is set to true.
+{% if debug_logging | default(false) %}
+# Debug Logging Enabled
+# Logs measurements, statistics, and tracking data.
+log measurements statistics tracking
+{% endif %}
+
+# =============================================================================
+# Drift File and RTC Tracking
+# =============================================================================
+
+# Path to the drift file. Chrony uses this to track frequency errors across reboots.
+driftfile /var/lib/chrony/drift
+
+# Adjust the system time based on RTC (Real-Time Clock) settings.
+rtconutc
+
+# =============================================================================
+# Access Control
+# =============================================================================
+
+# Allow control commands (chronyc) from localhost only.
+allow 127.0.0.1
+
+# Deny all other clients by default. This is a security best practice for hardened setups.
+deny all
+
+# =============================================================================
+# Interface Binding
+# =============================================================================
+
+# Bind the NTP service to a specific network interface.
+# This is useful when hardware timestamping is restricted to a specific NIC.
+{% if bind_interface is defined and bind_interface %}
+# Interface Binding
+# Bind to: {{ bind_interface }}
+bindaddress {{ bind_interface }}
+{% endif %}
+
+# =============================================================================
+# Performance Tuning
+# =============================================================================
+
+# Delay before switching to a new best source.
+# Prevents flapping between servers in unstable network conditions.
+sourceswitchingdelay 10
+
+# Maximum packet size for NTP packets.
+# Default is 120 bytes; increase only if using specific extensions.
+maxpacketsize 120

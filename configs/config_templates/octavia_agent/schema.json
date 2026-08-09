@@ -1,0 +1,246 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed debug logging for troubleshooting."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (includes more context per message)."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/octavia",
+    "description": "Directory where amphora-agent log files are stored."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "amphora-agent.log",
+    "description": "Name of the amphora-agent log file."
+  },
+  "amphora_id": {
+    "type": "string",
+    "default": "",
+    "description": "Unique identifier for this amphora instance (assigned by Octavia controller at provisioning)."
+  },
+  "amphora_name": {
+    "type": "string",
+    "default": "",
+    "description": "Human-readable name for this amphora (typically derived from Nova/VM hostname)."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes to spawn for handling load balancer traffic."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum total concurrent connections allowed across all workers."
+  },
+  "max_concurrent_connections_per_listener": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of connections allowed per load balancer listener."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between amphora heartbeat signals to Octavia controller."
+  },
+  "status_update_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between amphora status updates to Octavia controller."
+  },
+  "amp_driver": {
+    "type": "string",
+    "default": "keepalivedlvs",
+    "description": "Backend driver for amphora functionality. Common options: 'haproxy' or 'keepalivedlvs'."
+  },
+  "amp_network_driver": {
+    "type": "string",
+    "default": "neutron",
+    "description": "Network management driver. Typically 'neutron' for OpenStack Networking integration."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TLS for secure communication between amphora and Octavia API."
+  },
+  "ca_cert": {
+    "type": "string",
+    "default": "/etc/octavia/certs/ca_01.pem",
+    "description": "Path to CA certificate used to verify Octavia API server."
+  },
+  "client_cert": {
+    "type": "string",
+    "default": "/etc/octavia/certs/client.pem",
+    "description": "Path to amphora client certificate for mutual TLS authentication."
+  },
+  "client_key": {
+    "type": "string",
+    "default": "/etc/octavia/certs/client.key",
+    "description": "Path to amphora client private key for TLS authentication."
+  },
+  "api_endpoints": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "URL of Octavia API endpoint (e.g., 'https://192.0.2.10:9876'). Include multiple for high availability."
+    },
+    "description": "List of Octavia controller API endpoints (primary + fallbacks)."
+  },
+  "verify_server_cert": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce TLS certificate validation against CA when connecting to Octavia API."
+  },
+  "security_group_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable neutron security groups for amphora vNICs (requires Neutron driver)."
+  },
+  "security_group_id": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated list of security group IDs to apply to amphora vNICs (if enabled)."
+  },
+  "metadata_proxy_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable metadata proxy (allows amphora to serve metadata for load-balanced VMs via Neutron)."
+  },
+  "metadata_proxy_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address on which metadata proxy listens for incoming requests."
+  },
+  "metadata_proxy_port": {
+    "type": "number",
+    "default": 8775,
+    "description": "Port on which metadata proxy listens for incoming requests."
+  },
+  "metadata_auth_cache": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live (TTL) in seconds for Keystone auth tokens cached by metadata proxy."
+  },
+  "base_config_path": {
+    "type": "string",
+    "default": "/var/lib/octavia",
+    "description": "Base directory for HAProxy configuration files (e.g., haproxy.cfg)."
+  },
+  "base_runtime_path": {
+    "type": "string",
+    "default": "/var/lib/octavia/runtime",
+    "description": "Base directory for HAProxy runtime state (e.g., PID files, sockets)."
+  },
+  "use_systemd": {
+    "type": "bool",
+    "default": true,
+    "description": "Use systemd to manage HAProxy service (recommended for modern amphora images)."
+  },
+  "command_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait before timing out amphora management commands (e.g., restart/reload HAProxy)."
+  },
+  "stats_socket": {
+    "type": "string",
+    "default": "/var/lib/octavia/haproxy.stats",
+    "description": "Path to HAProxy stats Unix socket (used by health manager for real-time stats)."
+  },
+  "stats_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for HAProxy stats socket operations (e.g., connection, query)."
+  },
+  "use_namespaces": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Linux network namespaces for isolation (used by keepalivedlvs driver)."
+  },
+  "namespace_prefix": {
+    "type": "string",
+    "default": "octavia-",
+    "description": "Prefix for network namespace names (e.g., 'octavia-lbaas-ns-123')."
+  },
+  "systemd_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable systemd service control for amphora agent daemons."
+  },
+  "keepalived_conf_dir": {
+    "type": "string",
+    "default": "/etc/keepalived",
+    "description": "Directory containing Keepalived configuration files (if using keepalivedlvs driver)."
+  },
+  "vrrp_sync_group": {
+    "type": "string",
+    "default": "VG_1",
+    "description": "Name of VRRP sync group for HA failover coordination."
+  },
+  "vrrp_advert_int": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval (seconds) between VRRP advertisements for master election."
+  },
+  "vrrp_priority": {
+    "type": "number",
+    "default": 100,
+    "description": "VRRP priority for this amphora when active (higher = preferred master)."
+  },
+  "vrrp_low_priority": {
+    "type": "number",
+    "default": 50,
+    "description": "VRRP priority for this amphora when standby (lower for failover)."
+  },
+  "vrrp_garp_master_deliver": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of gratuitous ARP messages sent after becoming VRRP master (0 = disabled)."
+  },
+  "lvs_sync_daemon_interface": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Interface used by LVS sync daemon to replicate session tables (if using LVS)."
+  },
+  "health_bind_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for health manager to bind on (localhost by default)."
+  },
+  "health_bind_port": {
+    "type": "number",
+    "default": 5555,
+    "description": "Port for health manager to listen on for heartbeat traffic."
+  },
+  "heartbeat_receiver_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of threads to handle incoming heartbeat messages."
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Seconds between health check probes to backend members."
+  },
+  "health_check_timeout": {
+    "type": "number",
+    "default": 1,
+    "description": "Seconds to wait for a response before marking health check failed."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of failed health checks before marking a member 'DOWN'."
+  },
+  "min_retry_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum interval (seconds) between health check retries for same member."
+  }
+}

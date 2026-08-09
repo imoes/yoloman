@@ -1,0 +1,150 @@
+{
+  "service_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to start the QAT daemon automatically on boot."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity of logging: 0 (error) to 4 (trace). Set to 2 (info) for normal operation."
+  },
+  "max_instances": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum number of QAT instances (devices) the daemon will manage. Must match hardware capabilities."
+  },
+  "device_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for device initialization and shutdown. Increase if devices fail to come up reliably."
+  },
+  "auto_load_firmware": {
+    "type": "bool",
+    "default": true,
+    "description": "If supported, automatically load firmware to QAT devices at startup. Disable only if firmware is preloaded."
+  },
+  "firmware_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom path to firmware images. If empty, default locations are used."
+  },
+  "pci_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of PCI devices (in BDF format) to be managed by this daemon. Leave empty to auto-discover all QAT devices.",
+    "items": {
+      "domain": {
+        "type": "string",
+        "description": "PCI domain (hex, 4 digits, e.g. '0000')."
+      },
+      "bus": {
+        "type": "string",
+        "description": "PCI bus number (hex, 2 digits, e.g. '03')."
+      },
+      "slot": {
+        "type": "string",
+        "description": "PCI slot number (hex, 2 digits, e.g. '14')."
+      },
+      "func": {
+        "type": "string",
+        "description": "PCI function number (0\u20137)."
+      },
+      "bdf": {
+        "type": "string",
+        "description": "Full BDF string: 'domain:bus:slot.func'. Read-only, auto-generated."
+      }
+    }
+  },
+  "instances": {
+    "type": "list",
+    "default": [
+      {
+        "id": 0,
+        "type": "typical",
+        "num_vfs": 0,
+        "shm_enabled": false,
+        "shm_size": 64,
+        "num_work_queues": 1,
+        "queue_types": [
+          "sym"
+        ],
+        "worker_affinity": "auto",
+        "poll_mode": false,
+        "max_pending_requests": 256,
+        "compress_enabled": false
+      }
+    ],
+    "description": "List of QAT instance configurations. Each instance corresponds to a set of work queues and workers.",
+    "items": {
+      "id": {
+        "type": "number",
+        "description": "Unique instance ID (0-based)."
+      },
+      "type": {
+        "type": "string",
+        "default": "typical",
+        "description": "Instance type label (e.g., 'typical', 'high_throughput', 'low_latency'). Not used by daemon directly; for reference only."
+      },
+      "num_vfs": {
+        "type": "number",
+        "default": 0,
+        "description": "Number of PCI virtual functions (VFs) to allocate for this instance. Set to 0 to use PF directly."
+      },
+      "shm_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable shared memory interface for inter-process communication (requires user-space driver support)."
+      },
+      "shm_size": {
+        "type": "number",
+        "default": 64,
+        "description": "Size of shared memory region (in MiB) per instance. Only applicable if shm_enabled is true."
+      },
+      "num_work_queues": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of work queues to create for this instance."
+      },
+      "queue_types": {
+        "type": "list",
+        "default": [
+          "sym"
+        ],
+        "description": "Types of queues to instantiate: 'sym' (symmetric crypto), 'asym' (asymmetric crypto), 'compress' (compression), 'deflate' (deflate), 'dsa' (data streaming acceleration), etc.",
+        "items": {
+          "type": "string",
+          "enum": [
+            "sym",
+            "asym",
+            "compress",
+            "deflate",
+            "dsa",
+            "sa"
+          ],
+          "description": "Queue type name."
+        }
+      },
+      "worker_affinity": {
+        "type": "string",
+        "default": "auto",
+        "description": "CPU core(s) to bind worker threads (e.g., 'auto', '0,1', '0x3'). Use 'auto' for automatic balancing."
+      },
+      "poll_mode": {
+        "type": "bool",
+        "default": false,
+        "description": "Use polling (low-latency, high-CPU) instead of interrupt-driven mode. Recommended only for deterministic low-latency use cases."
+      },
+      "max_pending_requests": {
+        "type": "number",
+        "default": 256,
+        "description": "Maximum number of pending requests per work queue. Increase under high concurrency, reduce to lower memory usage."
+      },
+      "compress_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable hardware-accelerated compression for compress/deflate queues. Has no effect for non-compression queue types."
+      }
+    }
+  }
+}

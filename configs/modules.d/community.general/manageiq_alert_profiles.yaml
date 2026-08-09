@@ -1,0 +1,49 @@
+name: manageiq_alert_profiles
+fqcn: community.general.manageiq_alert_profiles
+collection: community.general
+short_description: Configuration of alert profiles for ManageIQ
+description: The manageiq_alert_profiles module supports adding, updating and deleting alert profiles
+  in ManageIQ.
+options:
+  alerts:
+    type: list
+    description: List of alert descriptions to assign to this profile. Required if state is "present"
+  manageiq_connection:
+    type: dict
+    description: ManageIQ connection configuration information.
+  name:
+    type: str
+    description: The unique alert profile name in ManageIQ. Required when state is "absent" or "present".
+  notes:
+    type: str
+    description: Optional notes for this profile
+  resource_type:
+    type: str
+    choices:
+    - Vm
+    - ContainerNode
+    - MiqServer
+    - Host
+    - Storage
+    - EmsCluster
+    - ExtManagementSystem
+    - MiddlewareServer
+    description: The resource type for the alert profile in ManageIQ. Required when state is "present".
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: absent - alert profile should not exist, present - alert profile should exist,
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add an alert profile to ManageIQ\n  community.general.manageiq_alert_profiles:\n\
+  \    state: present\n    name: Test profile\n    resource_type: ContainerNode\n    alerts:\n      -\
+  \ Test Alert 01\n      - Test Alert 02\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n\n- name: Delete an alert profile from ManageIQ\n  community.general.manageiq_alert_profiles:\n\
+  \    state: absent\n    name: Test profile\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n"

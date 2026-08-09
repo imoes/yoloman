@@ -1,0 +1,131 @@
+{
+  "input_file": {
+    "type": "string",
+    "default": "",
+    "description": "Input file/device path (required). Use '-' for stdin. Must be specified.",
+    "enum": [
+      "-",
+      "/dev/zero"
+    ]
+  },
+  "output_file": {
+    "type": "string",
+    "default": "/dev/null",
+    "description": "Output file/device path (optional). Defaults to /dev/null. Use '-' for stdout.",
+    "enum": [
+      "-",
+      "/dev/null",
+      "."
+    ]
+  },
+  "block_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Uniform block size in bytes for both IFILE and OFILE (conflicts with ibs/obs). For pt devices, must match device logical block size."
+  },
+  "input_block_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Input block size in bytes (conflicts with bs). Default: same as bs."
+  },
+  "output_block_size": {
+    "type": "number",
+    "default": 512,
+    "description": "Output block size in bytes (conflicts with bs). Default: same as bs."
+  },
+  "blocks_per_transfer": {
+    "type": "number",
+    "default": 128,
+    "description": "Number of input blocks per transfer buffer (BPT). Controls copy buffer size: IBS * BPT. Must satisfy ((IBS * BPT) % OBS == 0)."
+  },
+  "skip_blocks": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of input blocks to skip before copying."
+  },
+  "seek_blocks": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of output blocks to seek before writing."
+  },
+  "copy_blocks": {
+    "type": "number",
+    "default": -1,
+    "description": "Number of blocks to copy. -1 means 'all available'."
+  },
+  "continue_on_error": {
+    "type": "bool",
+    "default": false,
+    "description": "Continue copying despite input errors (coe=1). Not effective for output errors on regular files."
+  },
+  "pt_access": {
+    "type": "bool",
+    "default": false,
+    "description": "Use SCSI pass-through (pt) access. Required for raw SCSI commands on devices that support both pt and standard I/O."
+  },
+  "oflag_pt": {
+    "type": "bool",
+    "default": false,
+    "description": "Force pt access for output (oflag=pt)."
+  },
+  "sparse_writes": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip writing blocks that are entirely zero (sparse writes)."
+  },
+  "protect_read": {
+    "type": "number",
+    "default": 0,
+    "description": "RDPROTECT field for READ commands (0-7). Requires IFILE to be a pt device if >0."
+  },
+  "protect_write": {
+    "type": "number",
+    "default": 0,
+    "description": "WRPROTECT field for WRITE commands (0-7). Requires OFILE to be a pt device if >0."
+  },
+  "cmd_duration_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Command duration limit (CDL) value (0-7). 0 means no limit. Only effective with cdbsz >= 16."
+  },
+  "cdb_size": {
+    "type": "number",
+    "default": 0,
+    "description": "SCSI CDB size in bytes (0=auto, or 6,10,12,16,32). 0 uses auto-selection logic."
+  },
+  "retries": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of retries for transient SCSI errors on pt devices."
+  },
+  "verbose_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbose/diagnostic level (0-5). Higher values increase stderr output."
+  },
+  "use_xcopy": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable offloaded copy using XCOPY(LID1) commands."
+  },
+  "use_odx": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable offloaded copy using ODX (XCOPY(LID4) subset)."
+  },
+  "verify_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verify mode (--verify). Compares IFILE and OFILE contents without copying."
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable dry-run mode (--dry-run). Parses and validates arguments but skips actual I/O."
+  },
+  "progress_report": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable progress reporting (status=progress). Prints throughput/ETA periodically to stderr."
+  }
+}

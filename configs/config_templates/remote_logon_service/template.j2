@@ -1,0 +1,120 @@
+# ==============================================================================
+# Remote Logon Service Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the `remote-logon` service.
+# It handles service discovery, connection management, TLS settings, and logging.
+# All variables are sourced from Ansible facts or role defaults.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Bus Address Configuration
+# ------------------------------------------------------------------------------
+# bus_address: DBus system bus address; use 'auto' to auto-detect or specify a path (e.g., /run/dbus/system_bus_socket)
+# If 'auto', the service attempts to locate the system bus automatically.
+bus_address: {{ bus_address | default('auto') }}
+
+# ------------------------------------------------------------------------------
+# Process Management
+# ------------------------------------------------------------------------------
+# pid_file: Path to the PID file for the service
+# This file stores the process ID to aid in service management and signal handling.
+pid_file: {{ pid_file | default('/run/remote-logon/remote-logon.pid') }}
+
+# ------------------------------------------------------------------------------
+# Connection Management
+# ------------------------------------------------------------------------------
+# max_connection_attempts: Maximum number of connection attempts to a remote server before marking it unavailable
+# Determines how many times the service retries connecting to a server before giving up.
+max_connection_attempts: {{ max_connection_attempts | default(3) | int }}
+
+# connection_timeout: Timeout (in seconds) for each individual remote server connection attempt
+# Sets the maximum time to wait for a connection handshake or response.
+connection_timeout: {{ connection_timeout | default(5) | int }}
+
+# scan_interval: Interval (in seconds) between scans to discover new remote logon servers
+# Frequency of the discovery mechanism to find available remote logon endpoints.
+scan_interval: {{ scan_interval | default(60) | int }}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+# enable_logging: Enable logging of connection successes/failures and discovery events
+# Turn on detailed logs for troubleshooting connection issues and discovery processes.
+enable_logging: {{ enable_logging | default(true) | bool | lower }}
+
+# log_level: Verbosity: 0=error, 1=warn, 2=info, 3=debug
+# Controls the detail level of log output. Higher numbers mean more verbose logs.
+log_level: {{ log_level | default(2) | int }}
+
+# ------------------------------------------------------------------------------
+# Caching Configuration
+# ------------------------------------------------------------------------------
+# cache_dir: Directory where discovered server metadata is cached
+# Local storage directory for caching server information to reduce network lookups.
+cache_dir: {{ cache_dir | default('/var/cache/remote-logon') }}
+
+# cache_ttl: Time-to-live (in seconds) for cached server entries
+# How long a cached server entry is considered valid before being refreshed.
+cache_ttl: {{ cache_ttl | default(300) | int }}
+
+# ------------------------------------------------------------------------------
+# Trust and Server Groups
+# ------------------------------------------------------------------------------
+# trusted_servers: List of trusted remote server hostnames or IPs
+# If empty, all discovered servers are considered untrusted and subject to filtering.
+# If populated, only these specific hosts are considered valid sources.
+{% if trusted_servers | default([]) | length > 0 %}
+trusted_servers:
+{% for server in trusted_servers %}
+  - {{ server }}
+{% endfor %}
+{% else %}
+trusted_servers: []
+{% endif %}
+
+# server_groups: Custom server groups to prioritize or isolate
+# Allows grouping servers with specific weights and filters for advanced routing.
+{% if server_groups | default([]) | length > 0 %}
+server_groups:
+{% for group in server_groups | default([]) %}
+  - name: {{ group.name | default('group') }}
+    weight: {{ group.weight | default(1) }}
+    hosts:
+{% for host in group.hosts | default([]) %}
+      - hostname: {{ host.hostname | default('') }}
+        port: {{ host.port | default(0) }}
+        {% if host.tls is defined and host.tls %}
+        tls: {{ host.tls | lower }}
+        {% endif %}
+{% endfor %}
+    filter: {{ group.filter | default('all') }}
+{% endfor %}
+{% else %}
+server_groups: []
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Authentication
+# ------------------------------------------------------------------------------
+# credentials_file: Path to file containing authentication credentials
+# Leave empty to disable authentication. If set, must point to a file with valid credentials.
+credentials_file: {{ credentials_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# TLS Configuration
+# ------------------------------------------------------------------------------
+# enable_tls: Enable TLS for outbound connections to remote servers
+# Applies globally unless overridden in specific server groups.
+enable_tls: {{ enable_tls | default(false) | bool | lower }}
+
+# ca_cert_path: Path to CA certificate bundle
+# Required only if enable_tls is true. Points to the standard system CA bundle or custom CA.
+ca_cert_path: {{ ca_cert_path | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# client_cert_path: Path to client certificate for mutual TLS
+# Optional. Required only if mutual TLS is enabled by the remote server policy.
+client_cert_path: {{ client_cert_path | default('') }}
+
+# client_key_path: Path to client private key
+# Required only if mutual TLS is enabled and client_cert_path is specified.
+client_key_path: {{ client_key_path | default('') }}

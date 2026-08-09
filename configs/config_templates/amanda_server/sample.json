@@ -1,0 +1,82 @@
+{
+  "org": "Contoso Corp IT",
+  "dumpuser": "backup",
+  "tapedev": "/dev/nst0",
+  "changer": "ch-grup",
+  "tapeutil": "mt-st",
+  "tpchanger": "",
+  "changerparams": "",
+  "tapecycle": 4,
+  "tapesize": "500G",
+  "maxdumps": 4,
+  "defaultcycle": "2 weeks",
+  "maxdumpsize": "20G",
+  "maxdumpfile_size": "4G",
+  "auth": "ssh",
+  "tlog": "/var/log/amanda/server.log",
+  "elog": "/var/log/amanda/server-elog",
+  "mailto": "amanda-alerts@contoso.com",
+  "mailfrom": "amanda@contoso.com",
+  "mailto_success": "",
+  "mailto_failure": "ops-oncall@contoso.com",
+  "hosts": [
+    {
+      "name": "db1.contoso.com",
+      "comment": "Primary database server",
+      "disklist_file": "/etc/amanda/disklists/db1"
+    },
+    {
+      "name": "web1.contoso.com",
+      "comment": "Web tier node",
+      "disks": [
+        {
+          "name": "/",
+          "mountpoint": "/",
+          "level": "0",
+          "comment": "Root filesystem"
+        },
+        {
+          "name": "/var/www",
+          "mountpoint": "/var/www",
+          "level": "1",
+          "comment": "Web content"
+        }
+      ]
+    }
+  ],
+  "devices": [
+    {
+      "name": "nst0",
+      "labeltype": "amlabel",
+      "labelname": "CONTOSO-%03d",
+      "labelparams": "500000000"
+    }
+  ],
+  "use_encryption": false,
+  "encryption_type": "aes256",
+  "use_compression": true,
+  "compression_type": "lzo",
+  "directory": "/var/lib/amanda",
+  "schedule": {
+    "name": "standard-weekly",
+    "rules": [
+      {
+        "name": "full-sun",
+        "pattern": "Sun",
+        "level": "0"
+      },
+      {
+        "name": "inc-mon-sat",
+        "pattern": "Mon-Sat",
+        "level": "1"
+      }
+    ]
+  },
+  "extra_options": {
+    "dumptimeout": "600",
+    "identtimeout": "60",
+    "amrecover_changer": " changer",
+    "dumpprescript": "pre-dump",
+    "dumppostscript": "post-dump"
+  }
+}

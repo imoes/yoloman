@@ -1,0 +1,20 @@
+# Configuration file for apt-rdepends (apt-rdepends.conf)
+# Generated using Ansible Jinja2 engine
+# Ref: apt-rdepends(1) man page, section 5
+#
+# This file controls the behavior of the 'apt-rdepends' utility,
+# which is used to determine package dependencies.
+# Each entry corresponds to a configuration option for APT or
+# apt-rdepends itself, formatted as:
+#   Apt::Rdepends::<Key> "<Value>";
+#
+# The list of options is provided via the 'config_options' variable,
+# which should be a list of mappings containing 'key' and 'value'.
+
+{# Iterate over the list of configuration options. If the variable is not defined, default to an empty list to prevent errors. #}
+{% for option in (config_options | default([])) %}
+# Description for this option
+# {{ option.get('description', 'No description provided for this option') | default('No description provided for this option') }}
+# Key for the APT configuration option
+Apt::Rdepends::{{ option.get('key', '') | default('') }} "{{ option.get('value', '') | default('') }}";
+{% endfor %}

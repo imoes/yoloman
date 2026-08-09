@@ -1,0 +1,37 @@
+# nftlb configuration file - manages load balancing rules for nftables
+# Auto-generated via nftlb config generator
+{% for service in services %}
+# Service: {{ service.name }}
+# Type: {{ service.mode | default('snat') }}
+{% if service.mode == 'dsr' %}
+# DSR-specific interfaces and MAC
+nftlb add lb {{ service.name }} {{ service.family | default('ipv4') }} {{ service.iface }} {{ service.oface }} {{ service.ether_addr | default('00:00:00:00:00:00') }}
+{% else %}
+# Virtual address and ports
+nftlb add lb {{ service.name }} {{ service.family | default('ipv4') }} {{ service.virtual_addr }} {{ service.virtual_ports | default('80') }}
+{% endif %}
+# Protocol and scheduler
+nftlb set lb {{ service.name }} protocol {{ service.proto | default('tcp') }}
+nftlb set lb {{ service.name }} scheduler {{ service.scheduler | default('rr') }}
+# Topology mode (snat/dnat/dsr)
+nftlb set lb {{ service.name }} mode {{ service.mode | default('snat') }}
+# Service state
+nftlb set lb {{ service.name }} state {{ service.state | default('up') }}
+# Upstream servers
+{% for backend in service.backends %}
+nftlb add backend {{ service.name }} {{ backend.name | default('bck' ~ loop.index0) }} {{ backend.ip_addr }}{% if backend.weight is defined %} weight {{ backend.weight }}{% endif %}{% if backend.priority is defined %} priority {{ backend.priority }}{% endif %}
+nftlb set backend {{ service.name }} {{ backend.name | default('bck' ~ loop.index0) }} state {{ backend.state | default('up') }}
+{% if backend.ether_addr is defined %}
+nftlb set backend {{ service.name }} {{ backend.name | default('bck' ~ loop.index0) }} ether-addr {{ backend.ether_addr }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+# Global settings
+{% if global_settings is defined %}
+{% if global_settings.log_level is defined %}
+nftlb set global log {{ global_settings.log_level }}
+{% endif %}
+{% if global_settings.persistence_default is defined %}
+nftlb set global persistence {{ global_settings.persistence_default }}
+{% endif %}
+{% endif %}

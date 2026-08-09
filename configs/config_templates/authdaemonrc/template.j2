@@ -1,0 +1,51 @@
+# ============================================================================
+# Courier-Authdaemon Configuration Template
+# ============================================================================
+# This file configures the authdaemond service, which handles
+# authentication for Courier-IMAP/POP3 and related MTA components.
+# It is part of the Courier Mail Server suite.
+# ============================================================================
+
+# Path to the UNIX socket for authentication communication
+# Used by Courier MTA and other services to connect to authdaemond
+VAR_PATH=/var/run/authdaemond
+
+# Minimum number of idle child processes to maintain
+# Controls concurrency and resource usage; keeps workers ready
+VAR_MINSPARE=2
+
+# Maximum number of idle child processes allowed
+# Once this limit is reached, excess idle children are terminated
+VAR_MAXSPARE=5
+
+# Number of child processes to spawn immediately at startup
+# Ensures a baseline of available workers before incoming requests
+VAR_STARTSERVERS=3
+
+# Maximum number of simultaneous connections per user
+# 0 means no limit; prevents a single user from exhausting resources
+VAR_MAXCLIENTS=200
+
+# Timeout in seconds for client connections to authdaemond
+# Connections idle for this duration are closed
+VAR_TIMEOUT=60
+
+# Enable debug logging (0=off, 1=on)
+# When enabled, logs authentication attempts to syslog for troubleshooting
+VAR_DEBUG=0
+
+# Authentication modules to load and try, in order of preference
+# Each module is specified by its basename (without .so extension)
+# Modules correspond to shared objects in the authdaemon module directory
+# Default list: authuserdb, authpam, authldap
+{% for module in (AUTH_MODULES | default(['authuserdb', 'authpam', 'authldap'])) %}
+VAR_AUTHMODULES={{ module }}
+{% endfor %}
+
+# Path to the PID file created by the daemon
+# Used for process management and signaling
+VAR_PIDFILE="/var/run/authdaemond.pid"
+
+# Syslog priority mask for logging
+# Higher values mean more verbose logging (e.g., 0=no debug, 7=all)
+VAR_LOGLEVEL=0

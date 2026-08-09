@@ -1,0 +1,174 @@
+# =============================================================================
+# iSCSI Initiator Daemon (open-iscsi) Configuration
+# =============================================================================
+# This template configures the iSCSI initiator (client) behavior, not the target daemon (tgtd).
+# The format is key = value, similar to a standard INI file.
+# Every variable uses `| default(...)` to ensure safe rendering even when variables are undefined.
+
+# =============================================================================
+# Global Daemon Settings
+# =============================================================================
+
+# Logging verbosity level for iscsid.
+# Range: 0 (least verbose) to 8 (most verbose).
+# Default: 7
+node.conn[0].iscsi.LogLevel = {{ log_level | default(7) }}
+
+# Time in seconds before the initiator attempts to replace a failed session.
+# This is used during recovery procedures when a session is lost.
+# Default: 12
+node.session.timeo.replacement_timeout = {{ node_session_timeo_replacement_timeout | default(12) }}
+
+# =============================================================================
+# Discovery Configuration
+# =============================================================================
+
+# Static Discovery Addresses
+# List of iSCSI target discovery addresses used to send sendto/poll requests.
+# Format per item: 'IP:Port' or just 'IP'.
+# Example: ['192.168.1.100:3260', '10.0.0.5']
+# Default: [] (empty list, no static discovery addresses configured)
+{% for address in static_discovery_addresses | default([]) %}
+node.discovery.sendto = {{ address }}
+{% endfor %}
+
+# =============================================================================
+# Target Session Configuration
+# =============================================================================
+
+# Loop through each configured iSCSI target to apply session parameters.
+# Each target in the list gets its own configuration block.
+# Default: [] (empty list, no targets configured)
+{% for target in targets | default([]) %}
+
+# -----------------------------------------------------------------------------
+# Target Identity
+# -----------------------------------------------------------------------------
+
+# Target Node Name (IQN)
+# The unique name of the iSCSI target to connect to.
+# Required for each target entry to identify the destination.
+node.name = {{ (target | default({})).name | default('') }}
+
+# Transport Name
+# The network transport protocol used to communicate with the target.
+# For modern iSCSI setups, this is almost always 'tcp'.
+node.transport_name = tcp
+
+# -----------------------------------------------------------------------------
+# Session Parameters
+# -----------------------------------------------------------------------------
+
+# Initial Command Sequence Number (cmdsn)
+# The starting sequence number for commands sent to the target.
+# Default: 0
+node.session.initial_cmdsn = {{ node_session_initial_cmdsn | default(0) }}
+
+# Initial Login Retry Maximum
+# Maximum number of retries for the initial login process to the target.
+# Helps prevent flapping if the target is temporarily unavailable during boot.
+# Default: 8
+node.session.initial_login_retry_max = {{ node_session_initial_login_retry_max | default(8) }}
+
+# Maximum Commands
+# The maximum number of commands the initiator can send to the target at once.
+# Limits the command queue depth to manage memory and target resources.
+# Default: 128
+node.session.cmds_max = {{ node_session_cmds_max | default(128) }}
+
+# Queue Depth
+# The number of commands the target should queue for this session.
+# Affects how many outstanding IOs can be in flight simultaneously.
+# Default: 32
+node.session.queue_depth = {{ node_session_queue_depth | default(32) }}
+
+# -----------------------------------------------------------------------------
+# iSCSI Protocol Parameters
+# -----------------------------------------------------------------------------
+
+# Initial Ready To Transfer (R2T)
+# Determines if R2T (Ready To Transfer) PDUs are expected for data-in transfers.
+# 'Yes' = R2T is required; 'No' = R2T is not required (immediate data transfer).
+# Default: 'No'
+node.session.iscsi.InitialR2T = {{ node_session_iscsi_initial_r2t | default('No') }}
+
+# Immediate Data
+# Determines if the initiator can send data without waiting for R2T.
+# 'Yes' = Immediate Data is allowed; 'No' = Immediate Data is not allowed.
+# Default: 'Yes'
+node.session.iscsi.ImmediateData = {{ node_session_iscsi_immediate_data | default('Yes') }}
+
+# First Burst Length
+# The maximum amount of data (in bytes) that can be sent in the first burst
+# of a PDU exchange. Optimizes small IO performance.
+# Default: 262144 (256 KB)
+node.session.iscsi.FirstBurstLength = {{ node_session_iscsi_first_burst_length | default(262144) }}
+
+# Max Burst Length
+# The maximum amount of data (in bytes) that can be sent in subsequent bursts
+# of a PDU exchange. Limits large IO transfer sizes per PDU.
+# Default: 16776192 (~16 MB)
+node.session.iscsi.MaxBurstLength = {{ node_session_iscsi_max_burst_length | default(16776192) }}
+
+# Default Time2Retain
+# The time in seconds the target should retain the command after the initiator
+# has released it, allowing for recovery if the session drops.
+# Default: 0 (target does not retain)
+node.session.iscsi.DefaultTime2Retain = {{ node_session_iscsi_default_time2retain | default(0) }}
+
+# Default Time2Wait
+# The time in seconds the target should wait after the session closes
+# before releasing resources associated with that session.
+# Default: 2
+node.session.iscsi.DefaultTime2Wait = {{ node_session_iscsi_default_time2wait | default(2) }}
+
+# Max Connections
+# The maximum number of connections allowed in this session.
+# Typically 1 for standard setups, higher values enable multi-path/high-throughput.
+# Default: 1
+node.session.iscsi.MaxConnections = {{ node_session_iscsi_max_connections | default(1) }}
+
+# Max Outstanding R2T
+# The maximum number of outstanding R2T PDUs allowed in the session.
+# Default: 1
+node.session.iscsi.MaxOutstandingR2T = {{ node_session_iscsi_max_outstanding_r2t | default(1) }}
+
+# Error Recovery Level (ERL)
+# Level of error recovery required by the session.
+# 0 = no recovery; 1 = limited recovery; 3 = full recovery.
+# Default: 0
+node.session.iscsi.ERL = {{ node_session_iscsi_erl | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Authentication (CHAP)
+# -----------------------------------------------------------------------------
+
+# Check if CHAP authentication configuration exists for this target.
+{% set chap = (target | default({})).chap | default(None) %}
+{% if chap %}
+# CHAP Authentication is enabled for this target.
+node.session.auth.authmethod = CHAP
+
+# CHAP Username
+# The username used for CHAP authentication with the target.
+node.session.auth.username = {{ (chap | default({})).user | default('') }}
+
+# CHAP Password
+# The password used for CHAP authentication with the target.
+node.session.auth.password = {{ (chap | default({})).password | default('') }}
+
+# Check if Mutual CHAP (Peer Authentication) is enabled.
+{% set mutual = (chap | default({})).mutual | default(None) %}
+{% if mutual %}
+# Mutual CHAP (Peer Authentication) is enabled.
+# The target will also authenticate the initiator.
+node.session.auth.username_in = {{ (mutual | default({})).user | default('') }}
+node.session.auth.password_in = {{ (mutual | default({})).password | default('') }}
+{% endif %}
+
+{% else %}
+# No CHAP authentication is configured for this target.
+node.session.auth.authmethod = None
+{% endif %}
+
+{% endfor %}

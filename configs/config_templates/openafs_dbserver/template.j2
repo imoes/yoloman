@@ -1,0 +1,81 @@
+# OpenAFS Database Server Configuration File (vlserver)
+#
+# Self-documented and safe for reuse in Ansible roles.
+# All variables use explicit defaults derived from the schema.
+# Comments below each directive explain the purpose and constraints.
+
+# Enable or disable the database server daemon (VLServer).
+# True starts the daemon, False runs it in foreground (or disables depending on wrapper).
+{% if enable_dbserver | default(True) %}
+daemon
+{% else %}
+nodaemon
+{% endif %}
+
+# Number of worker threads for handling database requests.
+# Scale based on expected load and available CPU cores.
+threads {{ threads | default(4) }}
+
+# Maximum number of in-memory database entries (cells, users, groups).
+# Increase this value for large deployments with many identities.
+maxentries {{ maxentries | default(100000) }}
+
+# Working directory for the database server.
+# This directory must exist and be writable by the openafs user.
+workdir {{ workdir | default('/var/lib/openafs/dbserver') }}
+
+# Path to the database server log file.
+# Ensure system log rotation is configured if this file grows large.
+logpath {{ logpath | default('/var/log/openafs/dbserver.log') }}
+
+# List of database peers (other VLServer nodes in the cluster).
+# Each peer line specifies the host and port of a synchronized node.
+{% for peer in peers | default([]) %}
+dbserver {{ (peer | default({})).host | default('localhost') }} {{ (peer | default({})).port | default(7001) }}
+{% endfor %}
+
+# List of AFS cells managed by this DB server.
+# Each cell line specifies the cell name and its local database path.
+{% for cell in cells | default([]) %}
+cell {{ (cell | default({})).name | default('') }} {{ (cell | default({})).dbpath | default('/var/lib/openafs/dbserver') }}
+{% endfor %}
+
+# Enable verbose debug logging.
+# Use 'debug' for verbose output, 'nodb' for standard logging.
+# Only enable for troubleshooting as it may impact performance.
+{% if verbose | default(False) %}
+debug
+{% else %}
+nodb
+{% endif %}
+
+# Start in backup (standalone) mode.
+# Use 'backup' for recovery or initial setup, 'primary' for normal operation.
+{% if backup_mode | default(False) %}
+backup
+{% else %}
+primary
+{% endif %}
+
+# Maximum size (in MB) for each database dump file.
+# Dumps are split at this size if they exceed the limit.
+maxdumpsize {{ maxdumpsize | default(1024) }}
+
+# Directory to store database dump files for backup and recovery.
+dumppath {{ dumppath | default('/var/lib/openafs/dump') }}
+
+# Enable or disable TLS encryption for inter-server communication.
+# Use 'tls' to enable encryption, 'notls' to disable.
+{% if use_tls | default(False) %}
+tls
+{% else %}
+notls
+{% endif %}
+
+# TLS certificate and key paths (only used if TLS is enabled).
+# certpath: Path to the TLS certificate file (PEM format).
+# keypath: Path to the TLS private key file (PEM format).
+{% if use_tls | default(False) %}
+certpath {{ tls_cert_path | default('/etc/openafs/AFSDev.cert') }}
+keypath {{ tls_key_path | default('/etc/openafs/AFSDev.key') }}
+{% endif %}

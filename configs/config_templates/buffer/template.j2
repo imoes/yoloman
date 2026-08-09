@@ -1,0 +1,89 @@
+{# ============================================================================== #}
+{# buffer.conf - Configuration for buffer(1)                                  #}
+{#                                                                              #}
+{# buffer is a block-copy utility used for writing data to tape drives or other #}
+{# sequential-access devices. It improves throughput by buffering I/O.          #}
+{#                                                                              #}
+{# This template renders into a shell command (or wrapper script) that invokes  #}
+{# `buffer` with the appropriate arguments. Every option from the schema is     #}
+{# documented below with its purpose, default value, and rendering logic.       #}
+{#                                                                              #}
+{# IMPORTANT: buffer(1) reads its configuration from command-line flags;        #}
+{# there is no native config-file format. This template serves as a             #}
+{# canonical, self-documenting representation of all available options.         #}
+{# ============================================================================== #}
+
+{% set _input_file = input_file | default('') %}
+{% set _output_file = output_file | default('') %}
+{% set _block_size = block_size | default('10k') %}
+{% set _max_shared_mem = max_shared_mem | default('1m') %}
+{% set _buffer_blocks = buffer_blocks | default(0) %}
+{% set _min_fill_pct = min_fill_pct | default(0) %}
+{% set _sleep_usecs = sleep_usecs | default(0) %}
+{% set _pad_last_block = pad_last_block | default(false) %}
+{% set _summary_on_exit = summary_on_exit | default(false) %}
+{% set _seek_after_1gb = seek_after_1gb | default(false) %}
+{% set _debug = debug | default(false) %}
+
+{# --- Input / Output Files --- #}
+
+{# -i <file>: Specify the input file path. #}
+{#   Default: '' (empty string means stdin). #}
+{% if _input_file %}-i {{ _input_file }} {% endif %}
+
+{# -o <file>: Specify the output file path. #}
+{#   Default: '' (empty string means stdout). #}
+{% if _output_file %}-o {{ _output_file }} {% endif %}
+
+{# --- Block Size and Memory --- #}
+
+{# -s <size>: Set the block size in bytes. #}
+{#   Accepts optional suffixes: 'b' (512), 'k' (1024), 'm' (1048576). #}
+{#   Default: '10k'. #}
+-s {{ _block_size }} \
+
+{# -m <size>: Maximum size of the shared memory segment. #}
+{#   Determines how much data buffer can hold in RAM before flushing. #}
+{#   Accepts suffixes (b, k, m). Default: '1m'. #}
+-m {{ _max_shared_mem }} \
+
+{# -b <num>: Number of blocks for the shared memory circular buffer. #}
+{#   0 means auto-detect based on system resources. #}
+{#   Default: 0. #}
+{% if _buffer_blocks != 0 %}-b {{ _buffer_blocks }} \{% endif %}
+
+{# --- Performance Tuning --- #}
+
+{# -p <pct>: Minimum fill percentage of the queue before writing starts. #}
+{#   Range: 0-100. Recommended ~75 for tape drives to reduce tape-start/stop cycles. #}
+{#   Default: 0. #}
+{% if _min_fill_pct != 0 %}-p {{ _min_fill_pct }} \{% endif %}
+
+{# -u <usecs>: Microseconds to sleep after each write. #}
+{#   Useful for slowing down writes to match slow devices. #}
+{#   0 means no sleep. Default: 0. #}
+{% if _sleep_usecs != 0 %}-u {{ _sleep_usecs }} \{% endif %}
+
+{# --- Tape-Specific Options --- #}
+
+{# -B: Pad the last block to the full block size. #}
+{#   Required for some tape drives that cannot handle partial blocks at EOF. #}
+{#   Default: False. #}
+{% if _pad_last_block %}-B {% endif %}
+
+{# --- Diagnostic / Maintenance Options --- #}
+
+{# -t: Print a summary of total bytes written to stderr on exit. #}
+{#   Useful for verifying transfer completeness. #}
+{#   Default: False. #}
+{% if _summary_on_exit %}-t {% endif %}
+
+{# -Z: Perform lseek() after each GiB written. #}
+{#   Use with extreme care on character devices (like tapes) as it may damage state. #}
+{#   Default: False. #}
+{% if _seek_after_1gb %}-Z {% endif %}
+
+{# -d: Enable debug mode. Prints debug information to stderr. #}
+{#   Useful for troubleshooting I/O issues. #}
+{#   Default: False. #}
+{% if _debug %}-d {% endif %}

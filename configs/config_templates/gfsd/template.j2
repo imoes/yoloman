@@ -1,0 +1,68 @@
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:          gfsd
+# Required-Start:    $local_fs $remote_fs $network $time
+# Required-Stop:     $local_fs $remote_fs $network $time
+# Should-Start:      $syslog
+# Should-Stop:      $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Gfarm filesystem node daemon
+# Description: Gfarm file system daemon
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DESC="Gfarm filesystem node daemon"
+
+# The name of the daemon process; used for $NAME, $PIDFILE, and $DAEMON.
+NAME={{ name | default('gfsd') }}
+
+DAEMON=/usr/sbin/$NAME
+PIDFILE=/var/run/$NAME.pid
+SCRIPTNAME=$NAME
+
+CONFIG=/etc/gfarm2.conf
+
+# Additional command-line options passed to the gfsd daemon.
+OPTIONS={{ options | default('') }}
+
+test -f $DAEMON || exit 0
+test -f $CONFIG || exit 0
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $DESC: $NAME"
+	start-stop-daemon --quiet --start \
+             --pidfile $PIDFILE --exec $DAEMON -- -P $PIDFILE $OPTIONS
+	case "$?" in
+		0) log_end_msg 0 ;;
+		1) log_progress_msg "already started"
+		   log_end_msg 0 ;;
+		*) log_end_msg 1 ;;
+	esac
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
+	case "$?" in
+		0) log_end_msg 0 ;;
+		1) log_progress_msg "already stopped"
+		   log_end_msg 0 ;;
+		*) log_end_msg 1 ;;
+	esac
+	;;
+  restart|force-reload)
+	$0 stop
+	$0 start
+	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME && exit 0 || exit $?
+	;;
+  *)
+	echo "Usage: /etc/init.d/$SCRIPTNAME {start|stop|restart|force-reload|status}" >&2
+	exit 1
+	;;
+esac

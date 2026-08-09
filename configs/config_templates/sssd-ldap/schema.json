@@ -1,0 +1,127 @@
+{
+  "services": {
+    "type": "list",
+    "default": [
+      "nss",
+      "pam"
+    ],
+    "description": "List of SSSD services to enable (e.g., nss for name resolution, pam for authentication)."
+  },
+  "domains": {
+    "type": "list",
+    "default": [
+      "ldap"
+    ],
+    "description": "List of domain names (each becomes [domain/<name>] section)."
+  },
+  "ldap_uris": {
+    "type": "list",
+    "default": [
+      "ldap://ldap.example.com"
+    ],
+    "description": "LDAP server URIs (space/comma separated). Include ldaps:// for TLS."
+  },
+  "search_base": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base DN for LDAP user/group searches (e.g., 'ou=people,dc=example,dc=com')."
+  },
+  "ldap_schema": {
+    "type": "string",
+    "default": "rfc2307",
+    "description": "LDAP schema in use: 'rfc2307' (standard POSIX), 'rfc2307bis' (group-of-names), or 'apple_mactelnet'.",
+    "enum": [
+      "rfc2307",
+      "rfc2307bis",
+      "IPA",
+      "AD"
+    ]
+  },
+  "default_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "DN to bind as for authentication queries (leave empty for anonymous bind)."
+  },
+  "default_authtok": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the bind DN. Preferably set via file or environment in production."
+  },
+  "tls_reqcert": {
+    "type": "string",
+    "default": "demand",
+    "description": "Certificate verification level: 'never', 'allow', 'try', or 'demand'.",
+    "enum": [
+      "never",
+      "allow",
+      "try",
+      "demand",
+      "hard"
+    ]
+  },
+  "tls_ca_cert_dir": {
+    "type": "string",
+    "default": "/etc/ssl/certs",
+    "description": "Path to directory containing CA certificates (for TLS verification). Optional."
+  },
+  "tls_ca_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a specific CA certificate file. Optional."
+  },
+  "user_name_attr": {
+    "type": "string",
+    "default": "uid",
+    "description": "LDAP attribute to use as the username (e.g., 'uid', 'sAMAccountName')."
+  },
+  "user_uid_attr": {
+    "type": "string",
+    "default": "uidNumber",
+    "description": "LDAP attribute for the user's numeric UID."
+  },
+  "user_gid_attr": {
+    "type": "string",
+    "default": "gidNumber",
+    "description": "LDAP attribute for the user's primary GID."
+  },
+  "user_homedir_attr": {
+    "type": "string",
+    "default": "homeDirectory",
+    "description": "LDAP attribute for the user's home directory path."
+  },
+  "user_shell_attr": {
+    "type": "string",
+    "default": "loginShell",
+    "description": "LDAP attribute for the user's default shell."
+  },
+  "group_name_attr": {
+    "type": "string",
+    "default": "cn",
+    "description": "LDAP attribute to use as the group name (e.g., 'cn', 'sAMAccountName')."
+  },
+  "group_gid_attr": {
+    "type": "string",
+    "default": "gidNumber",
+    "description": "LDAP attribute for the group's numeric GID."
+  },
+  "cache_credentials": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of credentials for offline authentication (e.g., for laptops)."
+  },
+  "enable_authorization": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable LDAP-based authorization (e.g., for sudo rules or SELinux mapping)."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 2,
+    "description": "SSSD internal log verbosity (0\u20139). Higher values increase log detail."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/sssd/sssd.log",
+    "description": "Path to the main SSSD log file."
+  }
+}

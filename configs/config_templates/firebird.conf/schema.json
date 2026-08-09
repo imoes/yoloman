@@ -1,0 +1,403 @@
+{
+  "firebird_root_dir": {
+    "type": "string",
+    "default": "/usr/firebird",
+    "description": "Root directory where Firebird binaries, libraries, and default data are installed."
+  },
+  "tcpip_port": {
+    "type": "number",
+    "default": 3050,
+    "description": "TCP port for remote connections. Set to 0 to disable TCP/IP."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 200,
+    "description": "Maximum concurrent connections allowed. Must not exceed your license limit."
+  },
+  "cached_pages": {
+    "type": "number",
+    "default": 2048,
+    "description": "Page cache size (in 8 KB pages). Increase for better performance on large databases."
+  },
+  "security_database": {
+    "type": "string",
+    "default": "/etc/firebird/3.0/security2.fdb",
+    "description": "Path to the Firebird security database (gsec user database)."
+  },
+  "remote_access": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow remote clients to connect over TCP/IP. Set false for local-only use."
+  },
+  "default_database_path": {
+    "type": "string",
+    "default": "/var/lib/firebird/data",
+    "description": "Default directory used when CREATE DATABASE is given a relative path."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle connection timeout in seconds. Set to 0 for no timeout (not recommended)."
+  },
+  "thread_pool_size": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker threads for background tasks like shadow creation."
+  },
+  "lock_file_prefix": {
+    "type": "string",
+    "default": "/tmp/firebird.lock",
+    "description": "Path prefix for lock files used by the lock manager."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/firebird",
+    "description": "Directory for server log files. Leave blank to disable logging."
+  },
+  "log_max_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum log file size in MB before rotation. 0 = no rotation."
+  },
+  "query_logging": {
+    "type": "string",
+    "default": "none",
+    "description": "Level of query logging: 'none', 'time', 'plan', 'stats', or 'all'."
+  },
+  "auth_server": {
+    "type": "list",
+    "default": [
+      "Srp",
+      "Legacy_Auth"
+    ],
+    "description": "Authentication methods the server offers to clients, ordered by preference.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "Srp",
+        "Legacy_Auth"
+      ],
+      "description": "Authentication plugin name (e.g., 'Srp' for secure password protocol, 'Legacy_Auth' for compatibility)."
+    }
+  },
+  "auth_client": {
+    "type": "list",
+    "default": [
+      "Srp",
+      "Legacy_Auth"
+    ],
+    "description": "Authentication methods the server will accept from clients.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "Srp",
+        "Legacy_Auth"
+      ],
+      "description": "Allowed client authentication method."
+    }
+  },
+  "allow_user_creation": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow database users to be created via SQL (e.g., CREATE USER)."
+  },
+  "allow_shadow_creation": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic creation of shadow files for database durability."
+  },
+  "database_encryption": {
+    "type": "string",
+    "default": "none",
+    "description": "Database encryption algorithm: 'none' (disabled), 'aes128', or 'aes256'."
+  },
+  "gc_max_threads": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum garbage collection threads per database (for high-concurrency workloads)."
+  },
+  "temp_directory": {
+    "type": "string",
+    "default": "/tmp/firebird",
+    "description": "Directory for temporary files (e.g., sort spills, blob staging)."
+  },
+  "sql_dialect": {
+    "type": "number",
+    "default": 3,
+    "description": "SQL dialect: 1 (Firebird 1.x), 2 (intermediate), or 3 (modern; recommended)."
+  },
+  "auto_cleanup": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic cleanup of unused database segments."
+  },
+  "lock_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for a lock before raising an error."
+  },
+  "use_shared_memory": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable shared memory for local connections (faster; disable for NFS-only setups)."
+  },
+  "read_ahead_pages": {
+    "type": "number",
+    "default": 32,
+    "description": "Number of pages to read ahead per I/O for sequential scans."
+  },
+  "reverse_dns_lookup": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS reverse lookups to log hostnames instead of IPs in connection logs."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [],
+    "description": "IP addresses to bind to (empty = all). Use IPv6 in brackets if needed.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address (e.g., '127.0.0.1', '[::1]')"
+    }
+  },
+  "default_isolation": {
+    "type": "string",
+    "default": "SNAPSHOT",
+    "description": "Default transaction isolation: 'SNAPSHOT' (recommended), 'SNAPSHOT NO WAIT', or 'READ COMMITTED'."
+  },
+  "default_transaction_access_mode": {
+    "type": "string",
+    "default": "READ WRITE",
+    "description": "Default transaction access: 'READ WRITE' or 'READ ONLY'."
+  },
+  "max_transaction_count": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum concurrent transactions per database."
+  },
+  "aliases_file": {
+    "type": "string",
+    "default": "/etc/firebird/aliases.conf",
+    "description": "Path to the aliases configuration file."
+  },
+  "allow_config_overrides": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow environment variable FIREBIRD_CONF to override firebird.conf path."
+  },
+  "database_trace": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable database-level tracing (requires Firebird 4.0+ and plugin)."
+  },
+  "io_worker_threads": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of I/O worker threads (Linux uses POSIX AIO; usually 1 is sufficient)."
+  },
+  "worker_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle worker thread timeout in seconds."
+  },
+  "remote_gstat_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable remote gstat queries (for monitoring tools)."
+  },
+  "remote_sql_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable remote service queries via isql and similar tools."
+  },
+  "external_function_path": {
+    "type": "string",
+    "default": "/usr/firebird/UDF",
+    "description": "Directory for external functions (UDFs)."
+  },
+  "external_table_path": {
+    "type": "string",
+    "default": "/var/lib/firebird/external",
+    "description": "Directory for external tables."
+  },
+  "message_length": {
+    "type": "number",
+    "default": 8192,
+    "description": "Maximum message buffer size in bytes (for event notification)."
+  },
+  "full_text_search_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable full-text search support (requires plugin)."
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of plugins to load. Each has name, library, enabled flag, and optional description.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Plugin name (e.g., 'Srp')"
+      },
+      "library": {
+        "type": "string",
+        "description": "Plugin library filename (e.g., 'fb_srp')"
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether the plugin is active"
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description (shown in comments)"
+      }
+    }
+  },
+  "sysdba_password": {
+    "type": "string",
+    "default": "",
+    "description": "Initial SYSDBA password (for first-time setup only). Leave blank to prompt interactively. Not for production."
+  },
+  "connection_log": {
+    "type": "string",
+    "default": "none",
+    "description": "Connection logging level: 'none', 'auth', or 'all'."
+  },
+  "cache_encryption_key": {
+    "type": "bool",
+    "default": false,
+    "description": "Cache encryption key in memory (only if database encryption is enabled)."
+  },
+  "max_prepared_statements": {
+    "type": "number",
+    "default": 100,
+    "description": "Max prepared statements per connection."
+  },
+  "plan_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Log query execution plans (requires QueryLogging = 'plan' or 'all')."
+  },
+  "auto_reconnect_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable client-side automatic reconnection (driver-specific feature)."
+  },
+  "reconnect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Reconnection attempt timeout in seconds."
+  },
+  "reconnect_max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum reconnection attempts before failing."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS for remote connections (Firebird 4.0+)."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/firebird/ssl/server.crt",
+    "description": "Path to SSL certificate (PEM format)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/firebird/ssl/server.key",
+    "description": "Path to SSL private key (PEM format)."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "/etc/firebird/ssl/ca.crt",
+    "description": "Path to CA certificate bundle for client/server verification."
+  },
+  "ssl_versions": {
+    "type": "list",
+    "default": [
+      "TLSv1.2",
+      "TLSv1.3"
+    ],
+    "description": "Allowed TLS protocol versions.",
+    "items": {
+      "type": "string",
+      "description": "TLS version string (e.g., 'TLSv1.2')"
+    }
+  },
+  "ssl_verify_certs": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable certificate revocation checking (CRL/OCSP)."
+  },
+  "fips_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable FIPS-compliant cryptographic operations."
+  },
+  "role_mapping_file": {
+    "type": "string",
+    "default": "/etc/firebird/role_mapping.conf",
+    "description": "Path to external authentication role mapping file."
+  },
+  "max_fetch_buffer_size": {
+    "type": "number",
+    "default": 1000,
+    "description": "Rows fetched per server-side cursor batch."
+  },
+  "stats_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable database statistics collection for monitoring."
+  },
+  "stats_log_path": {
+    "type": "string",
+    "default": "/var/log/firebird/stats.log",
+    "description": "Path for statistics log (if enabled)."
+  },
+  "shadow_auto_create": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically create shadow files on database creation."
+  },
+  "shadow_max_count": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of shadow files per database."
+  },
+  "shadow_directory": {
+    "type": "string",
+    "default": "/var/lib/firebird/shadows",
+    "description": "Directory for shadow database files."
+  },
+  "backup_logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Log backup operations (gfix -backup, gbak)."
+  },
+  "idle_gc_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Run garbage collection during idle periods."
+  },
+  "idle_gc_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Interval (seconds) between idle GC runs (0 = disabled)."
+  },
+  "use_huge_pages": {
+    "type": "bool",
+    "default": false,
+    "description": "Use Linux HugeTLB for large caches (requires system config)."
+  },
+  "huge_page_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Huge page size in MB (0 = kernel default)."
+  },
+  "config_reload_file": {
+    "type": "string",
+    "default": "/var/run/firebird/reload.conf",
+    "description": "Touch this file to reload firebird.conf without restart. Empty to disable."
+  }
+}

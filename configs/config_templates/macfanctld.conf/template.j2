@@ -1,0 +1,43 @@
+[# macfanctld configuration file
+# Controls fan speeds based on temperature sensors on Apple hardware
+# This file uses INI format with [section] and key=value pairs
+# Section: global settings
+[global]
+# Path to the syslog facility (e.g., user, daemon)
+syslog_facility = {{ syslog_facility }}
+# Verbosity level: 0 (quiet) to 4 (debug)
+log_level = {{ log_level }}
+# Interval between sensor reads in seconds
+read_interval = {{ read_interval }}
+# Minimum fan speed as percentage (0–100)
+min_fan_speed = {{ min_fan_speed }}
+# Maximum fan speed as percentage (0–100)
+max_fan_speed = {{ max_fan_speed }}
+# Enable passive cooling mode (true/false)
+passive_cooling = {{ passive_cooling }}
+# Enable forced fan control even when SMC firmware reports fans are auto-controlled
+force_fan_control = {{ force_fan_control }}
+
+[# Temperature sensor mappings
+# Each entry maps a sensor name (from SMC) to a fan or zone
+[ sensors ]
+{% for sensor in sensors %}
+# Sensor: {{ sensor.name }}
+{{ sensor.name }} = {{ sensor.fan }}{% if sensor.threshold is defined %}, {{ sensor.threshold }}{% endif %}
+{% endfor %}
+
+[# Fan control zones
+# Define per-zone temperature thresholds and associated fan(s)
+[ zones ]
+{% for zone in zones %}
+# Zone: {{ zone.name }}
+{{ zone.name }} = {{ zone.thresholds | join(', ') }}, {{ zone.fans | join(', ') }}
+{% endfor %}
+
+[# Sensor-based fan overrides (optional)
+# Explicit override of fan speed for a given sensor (overrides automatic logic)
+[overrides]
+{% for override in overrides %}
+# Fan: {{ override.fan }}
+{{ override.fan }} = {{ override.speed }}
+{% endfor %}

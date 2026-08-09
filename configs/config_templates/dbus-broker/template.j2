@@ -1,0 +1,49 @@
+# dbus-broker configuration snippet
+# This template generates systemd-style Environment lines for the dbus-broker service.
+# It is self-contained and does not depend on external services (databases, caches, etc.).
+# All variables use their schema defaults to prevent render failures.
+
+[Service]
+
+# Enable Linux audit logging (if compiled-in); only presence matters, no value required
+# If audit.enabled is true, set the DBUS_BROKER_AUDIT environment variable to 1.
+# audit.enabled defaults to False, so this block is omitted unless explicitly enabled.
+{% if (audit | default({})).enabled | default(false) | bool %}
+# Enable Linux audit logging
+Environment=DBUS_BROKER_AUDIT=1
+{% endif %}
+
+# Controller file descriptor passed to the broker.
+# This is required for the broker to function. Defaults to None, which will render as empty string.
+# If controller_fd is not provided, the broker will fail to start.
+# controller_fd defaults to None.
+Environment=DBUS_BROKER_CONTROLLER={{ (controller_fd | default(None)) | string }}
+
+# Optional logging file descriptor.
+# If omitted, logging defaults to no logging.
+# log_fd defaults to None.
+{% if log_fd | default(None) is not none %}
+# Optional logging file descriptor
+Environment=DBUS_BROKER_LOG={{ log_fd | default(None) | string }}
+{% endif %}
+
+# Required machine ID for the bus identity.
+# Typically read from /etc/machine-id.
+# machine_id defaults to None.
+Environment=DBUS_BROKER_MACHINE_ID={{ (machine_id | default(None)) | string }}
+
+# Maximum bytes each user may allocate in the broker.
+# Defaults to 16777216 (16 MiB).
+Environment=DBUS_BROKER_MAX_BYTES={{ max_bytes | default(16777216) }}
+
+# Maximum file descriptors each user may allocate in the broker.
+# Defaults to 64.
+Environment=DBUS_BROKER_MAX_FDS={{ max_fds | default(64) }}
+
+# Maximum match rules each user may allocate in the broker.
+# Defaults to 16384.
+Environment=DBUS_BROKER_MAX_MATCHES={{ max_matches | default(16384) }}
+
+# Maximum objects (names, peers, etc.) each user may allocate.
+# Defaults to 16384.
+Environment=DBUS_BROKER_MAX_OBJECTS={{ max_objects | default(16384) }}

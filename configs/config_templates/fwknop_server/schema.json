@@ -1,0 +1,107 @@
+{
+  "pcap_intf": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface fwknopd sniffs for SPA packets (e.g. eth0, ens3, bond0)"
+  },
+  "pcap_filter": {
+    "type": "string",
+    "default": "udp port 62201",
+    "description": "libpcap BPF filter expression; restrict to the SPA UDP port to reduce CPU load"
+  },
+  "enable_pcap_promisc": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable promiscuous mode on the capture interface; normally not required for single-host SPA"
+  },
+  "pcap_loop_sleep": {
+    "type": "number",
+    "default": 100000,
+    "description": "Microseconds to sleep between pcap_loop iterations; lower values reduce latency but increase CPU use"
+  },
+  "max_sniff_bytes": {
+    "type": "number",
+    "default": 1500,
+    "description": "Maximum bytes inspected per captured packet; 1500 safely covers any standard SPA payload"
+  },
+  "max_spa_packet_age": {
+    "type": "number",
+    "default": 120,
+    "description": "Seconds; SPA packets with an older embedded timestamp are dropped as potential replays"
+  },
+  "enable_spa_packet_aging": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce the max_spa_packet_age timestamp check; set false only for testing without NTP sync"
+  },
+  "enable_digest_persistence": {
+    "type": "bool",
+    "default": true,
+    "description": "Write seen packet digests to disk so replay attacks are blocked across daemon restarts"
+  },
+  "digest_file": {
+    "type": "string",
+    "default": "/var/lib/fwknop/digest.cache",
+    "description": "Absolute path to the file where SPA packet digests are stored"
+  },
+  "enable_spa_over_http": {
+    "type": "bool",
+    "default": false,
+    "description": "Accept SPA payloads embedded in HTTP request bodies; requires the client to use --http-proxy mode"
+  },
+  "enable_tcp_server": {
+    "type": "bool",
+    "default": false,
+    "description": "Run a decoy TCP listener that accepts and drops connections to disguise the knock port"
+  },
+  "tcpserv_port": {
+    "type": "number",
+    "default": 62201,
+    "description": "TCP port the decoy listener binds on; only effective when enable_tcp_server is true"
+  },
+  "gpg_home_dir": {
+    "type": "string",
+    "default": "",
+    "description": "GnuPG home directory containing the server private key; leave empty to use pre-shared-key (Rijndael) mode only"
+  },
+  "enable_ipt_forwarding": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow fwknopd to insert FORWARD chain rules; enable for VPN gateways or hosts that route traffic"
+  },
+  "enable_ipt_local_nat": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow DNAT rules redirecting inbound traffic to a local port; useful for single-packet NAT scenarios"
+  },
+  "enable_ipt_output": {
+    "type": "bool",
+    "default": false,
+    "description": "Insert OUTPUT chain rules in addition to INPUT when granting a client access"
+  },
+  "enable_ipt_conntrack_input": {
+    "type": "bool",
+    "default": true,
+    "description": "Add a RELATED,ESTABLISHED conntrack rule to INPUT; required for correct TCP session teardown through the firewall"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/fwknopd.pid",
+    "description": "Absolute path where fwknopd writes its PID; used by systemd and init scripts for process management"
+  },
+  "syslog_identity": {
+    "type": "string",
+    "default": "fwknopd",
+    "description": "Program name tag that appears in every syslog / journald log line from this daemon"
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "LOG_DAEMON",
+    "description": "Syslog facility for log messages (LOG_DAEMON, LOG_LOCAL0 through LOG_LOCAL7)"
+  },
+  "verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Logging verbosity level: 0 = normal operation, 1 = verbose SPA processing detail, 2+ = full debug output"
+  }
+}

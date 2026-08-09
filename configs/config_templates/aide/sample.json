@@ -1,0 +1,62 @@
+{
+  "aide_version": "5.4",
+  "db_dir": "/var/lib/aide",
+  "db_file": "aide.db.gz",
+  "db_url": "file:///var/lib/aide/aide.db.gz",
+  "log_file": "/var/log/aide/aide.log",
+  "db_compress": "gz",
+  "verbose": false,
+  "db_new": "aide.db.new",
+  "reread_conf": true,
+  "symlink_count": 5,
+  "timeout": 0,
+  "rules": [
+    {
+      "name": "Basic",
+      "desc": "Standard file attributes and checksums",
+      "expression": "p+u+g+acl+selinux+xattrs+sha256"
+    },
+    {
+      "name": "Dir",
+      "desc": "Directories only",
+      "expression": "p+u+g+acl+selinux+xattrs+sha256+dir"
+    }
+  ],
+  "file_groups": [
+    {
+      "name": "Bin",
+      "desc": "Essential system binaries",
+      "paths": [
+        "/bin",
+        "/sbin",
+        "/usr/bin",
+        "/usr/sbin"
+      ]
+    },
+    {
+      "name": "Etc",
+      "desc": "Critical configuration files",
+      "paths": [
+        "/etc",
+        "/etc/passwd",
+        "/etc/group",
+        "/etc/hosts",
+        "/etc/ssh"
+      ]
+    }
+  ],
+  "mappings": [
+    {
+      "name": "FullSystem",
+      "desc": "Default integrity mapping",
+      "group": "Bin Etc",
+      "rules": [
+        "Basic",
+        "Dir"
+      ]
+    }
+  ],
+  "default_rule_set": [
+    "FullSystem"
+  ]
+}

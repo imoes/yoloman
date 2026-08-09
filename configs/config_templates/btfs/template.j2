@@ -1,0 +1,80 @@
+# =============================================================================
+# btfs Configuration Template
+# =============================================================================
+# This file defines BitTorrent FileSystem (btfs) mount instances and global
+# operational options. It is auto-generated from an Ansible role's schema.
+#
+# Format:
+#   <metadata_uri> <mountpoint>
+#
+# Metadata can be a local .torrent file path or a magnet URI.
+# Mountpoint is the local directory where the torrent content will be mounted.
+# =============================================================================
+
+# --- Mount Instances ----------------------------------------------------------
+# List of btfs mount instances. Each entry consists of a metadata source
+# (torrent file path or magnet URI) followed by the local mountpoint directory.
+#
+# Schema Fields:
+#   instances[].metadata  : Path to .torrent file or magnet URI
+#   instances[].mountpoint: Mount point directory for this instance
+{% if instances is defined %}
+{% for instance in instances %}
+# Instance {{ loop.index }}
+# Metadata: {{ instance.metadata | default('') }}
+# Mountpoint: {{ instance.mountpoint | default('') }}
+{{ instance.metadata | default('') }} {{ instance.mountpoint | default('') }}
+{% endfor %}
+{% else %}
+# No instances defined.
+{% endif %}
+
+# --- Global Options -----------------------------------------------------------
+# Optional global btfs options applied to all instances.
+# These correspond to CLI flags such as --browse-only, --keep, etc.
+#
+# Schema Fields:
+#   global_options.browse_only       : If true, download metadata only (--browse-only)
+#   global_options.keep              : If true, retain files after unmount (--keep)
+#   global_options.utp_only          : If true, disable TCP, use uTP only (--utp-only)
+#   global_options.data_directory    : Override default data directory (--data-directory)
+#   global_options.min_port          : Start of listen port range for peer connections (--min-port)
+#   global_options.max_port          : End of listen port range for peer connections (--max-port)
+#   global_options.max_download_rate : Max download rate in KB/s (--max-download-rate)
+#   global_options.max_upload_rate   : Max upload rate in KB/s (--max-upload-rate)
+
+{% if global_options is defined %}
+{% set go = global_options | default({}) %}
+
+# Browse-only mode: Download metadata only, do not download files.
+{% if go.browse_only is defined and go.browse_only %}--browse-only
+{% endif %}
+
+# Keep mode: Retain downloaded files after unmounting the instance.
+{% if go.keep is defined and go.keep %}--keep
+{% endif %}
+
+# uTP only: Disable TCP transport, use only uTP for peer connections.
+{% if go.utp_only is defined and go.utp_only %}--utp-only
+{% endif %}
+
+# Data Directory: Custom directory for btfs internal data.
+{% if go.data_directory is defined and go.data_directory %}--data-directory={{ go.data_directory }}
+{% endif %}
+
+# Min Port: Start of the port range for peer connections.
+{% if go.min_port is defined and go.min_port != 0 %}--min-port={{ go.min_port }}
+{% endif %}
+
+# Max Port: End of the port range for peer connections.
+{% if go.max_port is defined and go.max_port != 0 %}--max-port={{ go.max_port }}
+{% endif %}
+
+# Max Download Rate: Limit download speed in kilobytes per second.
+{% if go.max_download_rate is defined and go.max_download_rate != 0 %}--max-download-rate={{ go.max_download_rate }}
+{% endif %}
+
+# Max Upload Rate: Limit upload speed in kilobytes per second.
+{% if go.max_upload_rate is defined and go.max_upload_rate != 0 %}--max-upload-rate={{ go.max_upload_rate }}
+{% endif %}
+{% endif %}

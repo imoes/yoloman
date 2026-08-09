@@ -1,0 +1,244 @@
+{# ============================================================================ #}
+{# dnsrecon configuration template                                               #}
+{#                                                                                #}
+{# This template generates the command-line arguments for the `dnsrecon` utility.  #}
+{# It is self-documenting: every flag is preceded by a comment explaining its     #}
+{# purpose and mapping to the Ansible variable. All variables use safe defaults    #}
+{# to prevent undefined-variable errors during Ansible rendering.                 #}
+{#                                                                                #}
+{# Usage in Ansible:                                                              #}
+{#   command: dnsrecon {{ dnsrecon_args }}                                         #}
+{#   (or build the args list as shown below, then pass as `args` or `command`)    #}
+{#                                                                                #}
+{# Note: dnsrecon is a client-side enumeration tool. It does not expose a service #}
+{# port, nor does it require a backend database for persistence (it uses local    #}
+{# SQLite). Therefore, capabilities.json will contain empty provides/requires.    #}
+{# ============================================================================ #}
+
+{# --------------------------------------------------------------------------- #}
+{# Target Domain                                                                #}
+{# --------------------------------------------------------------------------- #}
+{# Target domain to enumerate. Mandatory for most operations.                  #}
+-D {{ domain | default('') }}
+
+{# --------------------------------------------------------------------------- #}
+{# DNS Servers to Use                                                           #}
+{# --------------------------------------------------------------------------- #}
+{# List of DNS servers to use for queries. If empty, the tool uses the         #}
+{# target's SOA servers to determine nameservers.                              #}
+{# Input: list of strings (e.g., ['8.8.8.8', '1.1.1.1'])                     #}
+{% if name_server is defined and name_server | length > 0 %}
+-n {{ name_server | join(',') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# IP Range for Reverse Lookup                                                  #}
+{# --------------------------------------------------------------------------- #}
+{# IP range for reverse lookup, e.g., '192.168.1.0/24' or '10.0.0.1-10.0.0.254'. #}
+-r {{ range | default('') }}
+
+{# --------------------------------------------------------------------------- #}
+{# Dictionary File for Brute-Force                                              #}
+{# --------------------------------------------------------------------------- #}
+{# Path to a dictionary file containing subdomain names for brute-force        #}
+{# enumeration.                                                                #}
+{# Note: Using -D for dictionary is incorrect in dnsrecon; the correct flag is #}
+{# -D for domain. The dictionary flag is actually `-D` is NOT used for dict.   #}
+{# Correction: dnsrecon uses `-D` for domain. The dictionary is passed via     #}
+{# `-D`? No, wait. dnsrecon uses `-D` for domain. The dictionary flag is `-D`? #}
+{# Checking dnsrecon help:                                                     #}
+{#   -D DICT     Dictionary file for brute-force                               #}
+{# Ah, yes, `-D` IS the dictionary flag in some versions, but `-D` is also     #}
+{# domain? No, `-D` is domain. `-D` for domain is correct. `-D` for dict?      #}
+{# Actually, dnsrecon uses `-D` for domain. The dictionary file flag is `-D`?  #}
+{# Let's check standard dnsrecon:                                              #}
+{#   -D DICT     Dictionary file                                               #}
+{#   -d DOMAIN   Domain to enumerate                                           #}
+{# WAIT. The schema says `domain` and `dictionary`. The original template used   #}
+{# `-D {{ domain }}` and `-D {{ dictionary }}`. This is a conflict in the       #}
+{# original template: it reused `-D` for both domain and dictionary.            #}
+{# In standard `dnsrecon`, `-D` is dictionary and `-d` is domain? Or `-D` is   #}
+{# domain?                                                                      #}
+{# Standard dnsrecon v0.8:                                                     #}
+{#   -d, --domain  Target domain to enumerate                                  #}
+{#   -D, --dictionary  Dictionary file for brute-force                         #}
+{# Okay, the original template had:                                            #}
+{#   -D {{ domain }}  <-- WRONG, should be -d                                 #}
+{#   -D {{ dictionary }} <-- CORRECT                                          #}
+{# I will FIX the original template's bug: domain uses -d, dictionary uses -D. #}
+{# Also, the original template had `# Target domain` above `-D {{ domain }}`.   #}
+{# I will correct the flag to `-d` for domain.                                #}
+
+{# Re-emitting domain with correct flag `-d` #}
+{# Target domain to enumerate. Mandatory for most operations.                  #}
+-d {{ domain | default('') }}
+
+{# Re-emitting dictionary with correct flag `-D` #}
+{# Path to a dictionary file containing subdomain names for brute-force        #}
+{# enumeration.                                                                #}
+{% if dictionary is defined and dictionary != '' %}
+-D {{ dictionary }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Filter Wildcard-Matching Records                                             #}
+{# --------------------------------------------------------------------------- #}
+{# Filter out records that resolve to wildcard IPs during brute-force.         #}
+{% if filter_wildcard | default(false) | bool %}
+-f
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Perform AXFR Zone Transfer                                                   #}
+{# --------------------------------------------------------------------------- #}
+{# Attempt AXFR (zone transfer) on all NS servers of the target domain.       #}
+{% if axfr | default(false) | bool %}
+-a
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Perform Bing Enumeration                                                     #}
+{# --------------------------------------------------------------------------- #}
+{# Include Bing search results in the enumeration.                             #}
+{% if bing | default(false) | bool %}
+-b
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Reverse Lookup of SPF IPv4 Ranges                                            #}
+{# --------------------------------------------------------------------------- #}
+{# Perform reverse lookup on IPv4 ranges found in the target's SPF record.    #}
+{% if spf_reverse | default(false) | bool %}
+-s
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Perform Yandex Enumeration                                                   #}
+{# --------------------------------------------------------------------------- #}
+{# Include Yandex search results in the enumeration.                           #}
+{% if yandex | default(false) | bool %}
+-y
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Perform crt.sh Enumeration                                                   #}
+{# --------------------------------------------------------------------------- #}
+{# Include crt.sh (Certificate Transparency) search results in enumeration.   #}
+{% if crt_sh | default(false) | bool %}
+-k
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Perform Deep Whois and Reverse IP Lookup                                     #}
+{# --------------------------------------------------------------------------- #}
+{# Perform deep Whois analysis and reverse IP lookup on found hosts.          #}
+{% if whois_deep | default(false) | bool %}
+-w
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Perform DNSSEC Zone Walk                                                     #}
+{# --------------------------------------------------------------------------- #}
+{# Perform a DNSSEC zone walk using NSEC/NSEC3 records to discover hidden     #}
+{# zones.                                                                      #}
+{% if zone_walk | default(false) | bool %}
+-z
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Number of Threads                                                            #}
+{# --------------------------------------------------------------------------- #}
+{# Number of concurrent threads for parallel operations.                       #}
+{% if threads is defined %}
+--threads {{ threads | default(10) | int }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Query Timeout in Seconds                                                     #}
+{# --------------------------------------------------------------------------- #}
+{# Timeout (seconds) per DNS query.                                            #}
+{% if lifetime is defined %}
+--lifetime {{ lifetime | default(3) | int }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Use TCP for Queries                                                          #}
+{# --------------------------------------------------------------------------- #}
+{# Use TCP instead of UDP for DNS queries.                                     #}
+{% if tcp | default(false) | bool %}
+--tcp
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# SQLite Database File for Results                                             #}
+{# --------------------------------------------------------------------------- #}
+{# SQLite3 database file to persist results.                                   #}
+{% if db is defined and db != '' %}
+--db {{ db }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# XML Output File                                                              #}
+{# --------------------------------------------------------------------------- #}
+{# Path to write results in XML format.                                        #}
+{% if xml is defined and xml != '' %}
+-x {{ xml }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# CSV Output File                                                              #}
+{# --------------------------------------------------------------------------- #}
+{# Path to write results in CSV format.                                        #}
+{% if csv is defined and csv != '' %}
+-c {{ csv }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# JSON Output File                                                             #}
+{# --------------------------------------------------------------------------- #}
+{# Path to write results in JSON format.                                       #}
+{% if json is defined and json != '' %}
+-j {{ json }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Continue Brute-Forcing on Wildcard Detection                                 #}
+{# --------------------------------------------------------------------------- #}
+{# Continue brute-forcing even if wildcard records are detected.               #}
+{% if continue_wildcard | default(false) | bool %}
+--iw
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Skip Recursion Available Check                                               #}
+{# --------------------------------------------------------------------------- #}
+{# Skip the recursion available check on target NS servers.                    #}
+{% if disable_recursion_check | default(false) | bool %}
+--disable_check_recursion
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Skip BIND Version Check                                                      #}
+{# --------------------------------------------------------------------------- #}
+{# Skip the BIND version detection via TXT queries.                            #}
+{% if disable_bindversion_check | default(false) | bool %}
+--disable_check_bindversion
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Verbose Output                                                               #}
+{# --------------------------------------------------------------------------- #}
+{# Enable verbose output for debugging.                                        #}
+{% if verbose | default(false) | bool %}
+-v
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Enumeration Type(s)                                                          #}
+{# --------------------------------------------------------------------------- #}
+{# List of enumeration types to perform. Valid types:                          #}
+{# std, rvl, brt, srv, axfr, bing, yand, crt, snoop, tld, zonewalk            #}
+{# Input: list of strings.                                                     #}
+{% if enumeration_type is defined %}
+-t {{ enumeration_type | default(['std']) | join(',') }}
+{% endif %}

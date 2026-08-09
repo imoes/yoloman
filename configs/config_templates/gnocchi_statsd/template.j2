@@ -1,0 +1,36 @@
+[statsd]
+# Listen address for incoming StatsD metrics (UDP and TCP)
+host = {{ statsd_host }}
+
+# UDP port to listen on
+udp_port = {{ statsd_udp_port }}
+
+# TCP port to listen on (set to 0 to disable TCP)
+tcp_port = {{ statsd_tcp_port }}
+
+# Prefix to prepend to all StatsD metric names before storing in Gnocchi
+metric_prefix = {{ statsd_metric_prefix }}
+
+# Buffer size (in bytes) for incoming UDP packets
+udp_buffer_size = {{ statsd_udp_buffer_size }}
+
+# Maximum number of metrics that can be buffered before flush
+max_metrics_per_message = {{ statsd_max_metrics_per_message }}
+
+# Flush interval (in seconds) — metrics are flushed periodically regardless of buffer fill
+flush_interval = {{ statsd_flush_interval }}
+
+# Enable/disable creation of metrics when no matching metric name pattern is found
+create_metrics = {{ statsd_create_metrics }}
+
+# List of metric definitions (optional explicit mapping from StatsD name to Gnocchi metric type and unit)
+{% for metric in statsd_metrics %}# Metric: {{ metric.name }}
+# Type: {{ metric.type }} | Unit: {{ metric.unit }}
+{{ metric.name }} = {{ metric.type }}, {{ metric.unit }}
+{% endfor %}
+
+# Log level: debug, info, warning, error, critical
+log_level = {{ statsd_log_level }}
+
+# Path to the logging configuration file (optional, uses default if not set)
+# log_config_path = /etc/gnocchi/logging.conf

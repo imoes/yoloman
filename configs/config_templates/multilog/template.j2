@@ -1,0 +1,22 @@
+#!/bin/sh
+# =============================================================================
+# Service Wrapper with multilog Integration
+# =============================================================================
+# This script executes the defined service command and pipes all output
+# (stdout and stderr) into multilog for structured log rotation.
+#
+# multilog configuration is applied via the pipe invocation:
+#   exec ... | multilog <options>
+#
+# The multilog_opts variable should contain a list of options to pass
+# to the multilog command. These are joined with spaces.
+# =============================================================================
+
+# Redirect standard error to standard output so multilog captures both streams
+exec 2>&1
+
+# Execute the service binary/command defined by service_command
+# This command is piped into multilog.
+# Default command: /usr/local/bin/myapp
+# multilog options: empty list by default (no extra args passed)
+exec {{ service_command | default('/usr/local/bin/myapp') }} | multilog {{ multilog_opts | default([]) | join(' ') }}

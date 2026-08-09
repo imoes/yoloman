@@ -1,0 +1,81 @@
+# mbsync configuration — generated from template
+# Run:  mbsync -a          sync all channels
+#       mbsync <channel>   sync a single channel
+# Docs: man mbsync
+
+{% for account in accounts %}
+########################################################################
+# Account: {{ account.name }}
+########################################################################
+
+# Connection parameters for the remote IMAP server
+IMAPAccount {{ account.name }}
+# Hostname or IP address of the IMAP server
+Host {{ account.host }}
+# TCP port — 993 for IMAPS (implicit TLS), 143 for STARTTLS or plain
+Port {{ account.port }}
+# Login username, typically the full e-mail address
+User {{ account.user }}
+# Shell command whose stdout is used as the password — avoids plaintext storage
+PassCmd "{{ account.pass_cmd }}"
+# Encryption mode: IMAPS (implicit TLS on dedicated port), STARTTLS, or None
+SSLType {{ account.ssl_type }}
+# TLS protocol versions the client will accept
+SSLVersions {{ account.ssl_versions }}
+{% if account.cert_file %}
+# Path to the CA certificate bundle used to verify the server certificate
+CertificateFile {{ account.cert_file }}
+{% endif %}
+# SASL mechanisms to attempt in order; LOGIN and PLAIN are universally supported
+AuthMechs {{ account.auth_mechs }}
+# Seconds before an idle socket is considered dead (0 = OS TCP keepalive default)
+Timeout {{ account.timeout }}
+
+# Exposes the IMAPAccount above as a named store (the remote / Far side)
+IMAPStore {{ account.name }}-remote
+# References the IMAPAccount block defined above
+Account {{ account.name }}
+
+# Defines the local Maildir storage tree (the local / Near side)
+MaildirStore {{ account.name }}-local
+# Sub-folder name mapping: Verbatim keeps IMAP names as-is; Maildir++ uses dot-delimited paths
+SubFolders {{ account.subfolder_style }}
+# Root directory for all local folders; trailing slash is mandatory
+Path {{ account.local_path }}
+# Absolute path to the local INBOX folder (may differ from the sub-folder layout)
+Inbox {{ account.inbox_path }}
+
+# A Channel binds one remote store to one local store and governs sync behaviour
+Channel {{ account.name }}
+# Remote (Far) side — colon-delimited store reference
+Far :{{ account.name }}-remote:
+# Local (Near) side — colon-delimited store reference
+Near :{{ account.name }}-local:
+# IMAP folder name globs to include; * matches all folders
+Patterns {{ account.patterns | join(' ') }}
+# Auto-create missing folders on the specified side: Both | Far | Near | None
+Create {{ account.create }}
+# Permanently expunge \Deleted messages after sync: Both | Far | Near | None
+Expunge {{ account.expunge }}
+# UID state file location; * stores the state file inside each Maildir folder itself
+SyncState {{ account.sync_state }}
+# Sync scope: All (full bidirectional), Pull (remote→local only), Push (local→remote only)
+Sync {{ account.sync }}
+{% if account.max_messages > 0 %}
+# Download only the newest N messages per folder; older messages are not fetched
+MaxMessages {{ account.max_messages }}
+{% endif %}
+{% if account.max_size > 0 %}
+# Skip messages whose size exceeds this byte count; keeps large attachments off the local disk
+MaxSize {{ account.max_size }}
+{% endif %}
+
+{% endfor %}
+{% if group_name %}
+# A Group aggregates multiple channels into a single sync target for convenience
+Group {{ group_name }}
+{% for account in accounts %}
+# Include the channel for account {{ account.name }}
+Channel {{ account.name }}
+{% endfor %}
+{% endif %}

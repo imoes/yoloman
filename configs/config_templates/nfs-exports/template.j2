@@ -1,0 +1,37 @@
+# NFS Exports Configuration
+# This template generates /etc/exports entries.
+# Each entry defines an exported directory and the clients allowed to access it.
+#
+# Schema variable: exports (list of dicts)
+# Expected structure for each item in 'exports':
+#   - path: str (the directory to export)
+#   - clients: list of str (client specifications, e.g., '192.168.1.0/24', 'client.example.com')
+#   - options: dict or str (NFS options. If dict, keys are option names, values are values or true).
+#     If omitted, defaults to '(rw,sync,no_root_squash)' for security and convenience.
+
+# Iterate over the list of exports defined in the schema.
+# 'exports' is expected to be a list; we provide an empty list default to ensure idempotency
+# and prevent undefined variable errors if the role is used without this variable.
+{% for export in exports | default([], true) %}
+
+# Path being exported: {{ export.path | default('/') }}
+# This is the absolute filesystem path on the NFS server that will be shared.
+# Default is '/' (root) if not specified, though typically a specific subdirectory is used.
+# The 'true' in default() prevents Ansible from failing on undefined variables during play.
+# (export.path | default('/'))
+#
+# Clients allowed to mount this export.
+# These are the IP addresses, subnets, or hostnames permitted to access the NFS share.
+# They are joined with spaces to form the client specification part of the exports line.
+# (export.clients | default([]) | join(' '))
+#
+# NFS Options for this export.
+# Options can be a string (e.g., 'rw,sync') or a dictionary.
+# If a dictionary is provided, it is converted to a comma-separated string of key=value pairs.
+# Default options: rw,sync,no_root_squash (read-write, synchronous writes, do not squash root).
+# (export.options | default('rw,sync,no_root_squash'))
+
+# The actual exports line format is: <path> <client>(<options>)
+# We construct this line by concatenating the path, the space-separated clients, and the parenthesized options.
+{{ export.path | default('/') }} {{ export.clients | default([]) | join(' ') }}({{ export.options | default('rw,sync,no_root_squash') }})
+{% endfor %}

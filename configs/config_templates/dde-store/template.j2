@@ -1,0 +1,55 @@
+{# ============================================================================== #}
+{# dde-store Configuration Template                                               #}
+{# This template generates command-line arguments for the Deepin Store application. #}
+{# All variables use the 'default()' filter to ensure safe rendering even if not   #}
+{# provided by the Ansible host variables.                                        #}
+{# ============================================================================== #}
+
+{# QML/JS debugger port (optional) #}
+{# Format: port:1234[,block]; leave empty to disable #}
+{% if (qmljsdebugger_port | default('')) != '' %}
+--qmljsdebugger {{ qmljsdebugger_port | default('') }}
+{% endif %}
+
+{# Window geometry in X11 syntax (optional) #}
+{# WIDTHxHEIGHT+X+Y (e.g., 1000x600+100+50) #}
+{% if (window_geometry | default('')) != '' %}
+--qwindowgeometry {{ window_geometry | default('') }}
+{% endif %}
+
+{# Title of the main window (optional) #}
+{% if (window_title | default('')) != '' %}
+--qwindowtitle {{ window_title | default('') }}
+{% endif %}
+
+{# Path to default window icon file (optional) #}
+{% if (window_icon | default('')) != '' %}
+--qwindowicon {{ window_icon | default('') }}
+{% endif %}
+
+{# Platform theme to use (optional) #}
+{# Examples: 'dark', 'light' #}
+{% if (platform_theme | default('')) != '' %}
+--platformtheme {{ platform_theme | default('') }}
+{% endif %}
+
+{# QPA platform plugin name with optional parameters (optional) #}
+{# Examples: 'wayland' or 'xcb:displays=:0' #}
+{% if (platform | default('')) != '' %}
+--platform {{ platform | default('') }}
+{% endif %}
+
+{# List of additional plugin paths or names to load at startup (optional) #}
+{% for plugin in (plugins | default([])) %}--plugin {{ plugin }}
+{% endfor %}
+
+{# Path to session file to restore application state from (optional) #}
+{% if (session_path | default('')) != '' %}
+--session {{ session_path | default('') }}
+{% endif %}
+
+{# AppStream URL to open on startup (optional) #}
+{# Example: 'appstream://com.deepin.Stock' #}
+{% if (appstream_url | default('')) != '' %}
+{{ appstream_url | default('') }}
+{% endif %}

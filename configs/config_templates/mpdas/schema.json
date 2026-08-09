@@ -1,0 +1,89 @@
+{
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the MPD server. Can include port (e.g., 'localhost:6600')."
+  },
+  "port": {
+    "type": "number",
+    "default": 6600,
+    "description": "Port number for MPD connection. Only used if host does not specify a port."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for MPD authentication. Leave empty if MPD has no password."
+  },
+  "username": {
+    "type": "string",
+    "default": "",
+    "description": "Username for your Last.fm or Libre.fm account."
+  },
+  "password_hash": {
+    "type": "string",
+    "default": "",
+    "description": "MD5 hash of your scrobbler account password (not plain text). For Last.fm, hash = md5(username + raw_password)."
+  },
+  "service": {
+    "type": "string",
+    "default": "lastfm",
+    "description": "Scrobbler service to use. Supported values: 'lastfm' or 'librefm'.",
+    "enum": [
+      "lastfm",
+      "librefm"
+    ]
+  },
+  "mpd_status_path": {
+    "type": "string",
+    "default": "",
+    "description": "Optional absolute path to MPD's status file (e.g., /var/lib/mpd/status) for faster song info reads. Leave blank to query MPD directly."
+  },
+  "min_play_time": {
+    "type": "number",
+    "default": 240,
+    "description": "Minimum play time (in seconds) before a track is eligible for scrobbling. Shorter plays are ignored."
+  },
+  "debug": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to standard error instead."
+  },
+  "skip_shorter_than": {
+    "type": "number",
+    "default": 30,
+    "description": "Tracks shorter than this (in seconds) are always ignored for scrobbling, overriding min_play_time."
+  },
+  "fallback_format": {
+    "type": "string",
+    "default": "%t",
+    "description": "Format string for missing track metadata. Supports %a (artist), %t (title), %A (album), %n (track number)."
+  },
+  "online_status": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable sending 'now playing' status updates in real time (requires scrobbler API support)."
+  },
+  "ignored_artists": {
+    "type": "list",
+    "default": [],
+    "description": "List of artist names (case-insensitive) to skip scrobbling for.",
+    "items": {
+      "type": "string",
+      "description": "Artist name to ignore."
+    }
+  },
+  "ignored_paths": {
+    "type": "list",
+    "default": [],
+    "description": "List of music directory paths (case-sensitive) to skip scrobbling for.",
+    "items": {
+      "type": "string",
+      "description": "Path relative to MPD's music directory to ignore (e.g., 'Podcasts/')."
+    }
+  }
+}

@@ -1,0 +1,58 @@
+# phpMyAdmin default Apache configuration
+# This template generates the Apache virtual host/alias configuration for phpMyAdmin.
+# It defines the URL alias, document root, PHP execution security settings,
+# and directory access restrictions to prevent exposure of sensitive files.
+
+# URL alias path for phpMyAdmin (e.g., '/phpmyadmin')
+# This determines the URL path where phpMyAdmin will be accessible.
+Alias {{ phpmyadmin_alias_path | default('/phpmyadmin') }} {{ phpmyadmin_docroot | default('/usr/share/phpmyadmin') }}
+
+# Directory block for the phpMyAdmin installation root
+# Restricts access and configures PHP runtime parameters for the installation directory.
+<Directory {{ phpmyadmin_docroot | default('/usr/share/phpmyadmin') }}>
+    # SymLinksIfOwnerMatch: Only follow symlinks if they point to files owned by the directory owner.
+    # This prevents symbolic link attacks within the web directory.
+    Options SymLinksIfOwnerMatch
+    # Only index.php is allowed as the default directory index.
+    DirectoryIndex index.php
+
+    # PHP 7.x configuration block (legacy modules)
+    # Applied only if mod_php7 is loaded.
+    <IfModule mod_php7.c>
+        # PHP temporary upload directory for phpMyAdmin (must be writable by web server)
+        # Defines where PHP stores uploaded files temporarily during operations.
+        php_admin_value upload_tmp_dir {{ phpmyadmin_tmp_dir | default('/var/lib/phpmyadmin/tmp') }}
+
+        # open_basedir restriction for PHP 7
+        # Limits PHP file access to specific directories for security isolation.
+        # Includes: pma root, documentation, config, tmp dir, generic php shares, javascript.
+        php_admin_value open_basedir {{ phpmyadmin_docroot | default('/usr/share/phpmyadmin') }}/:/usr/share/doc/phpmyadmin/:/etc/phpmyadmin/:{{ phpmyadmin_tmp_dir | default('/var/lib/phpmyadmin/tmp') }}/:/usr/share/php/:/usr/share/javascript/
+    </IfModule>
+
+    # PHP 8+ configuration block (modern modules)
+    # Applied only if mod_php is loaded (standard for PHP 8+).
+    <IfModule mod_php.c>
+        # PHP temporary upload directory for phpMyAdmin (must be writable by web server)
+        php_admin_value upload_tmp_dir {{ phpmyadmin_tmp_dir | default('/var/lib/phpmyadmin/tmp') }}
+
+        # open_basedir restriction for PHP 8+
+        # Limits PHP file access to specific directories for security isolation.
+        php_admin_value open_basedir {{ phpmyadmin_docroot | default('/usr/share/phpmyadmin') }}/:/usr/share/doc/phpmyadmin/:/etc/phpmyadmin/:{{ phpmyadmin_tmp_dir | default('/var/lib/phpmyadmin/tmp') }}/:/usr/share/php/:/usr/share/javascript/
+    </IfModule>
+
+</Directory>
+
+# Disallow web access to directories that don't need it
+# These directories contain source code or templates that should not be directly executed or viewed.
+
+# Block access to templates directory
+<Directory {{ phpmyadmin_docroot | default('/usr/share/phpmyadmin') }}/templates>
+    # Deny all requests to this directory (Apache 2.4+ syntax)
+    Require all denied
+</Directory>
+
+# Block access to libraries directory
+<Directory {{ phpmyadmin_docroot | default('/usr/share/phpmyadmin') }}/libraries>
+    # Deny all requests to this directory (Apache 2.4+ syntax)
+    Require all denied
+</Directory>

@@ -1,0 +1,52 @@
+{
+  "listen_addr": "0.0.0.0",
+  "listen_port": 8888,
+  "entropy_source_path": "/dev/hwrng",
+  "fallback_entropy_source_path": "/dev/urandom",
+  "min_pool_size": 256,
+  "max_draw_bits": 4096,
+  "workers": 2,
+  "metrics_enabled": true,
+  "metrics_addr": "0.0.0.0",
+  "metrics_port": 9100,
+  "log_level": "info",
+  "log_format": "json",
+  "log_file": "/var/log/entropybroker/entropybroker.log",
+  "report_hostname": "entropy-node-1.internal.example.com",
+  "allowed_clients": [
+    "10.0.0.0/8",
+    "172.16.0.0/12"
+  ],
+  "tls": {
+    "enabled": true,
+    "cert_file": "/etc/entropybroker/tls/server.crt",
+    "key_file": "/etc/entropybroker/tls/server.key",
+    "ca_file": "/etc/entropybroker/tls/ca.crt"
+  },
+  "rate_limit": {
+    "requests_per_second": 15,
+    "burst_size": 30
+  },
+  "backends": [
+    {
+      "name": "hwrng",
+      "enabled": true,
+      "type": "local",
+      "device": "/dev/hwrng"
+    },
+    {
+      "name": "cloud-entropy",
+      "enabled": true,
+      "type": "remote",
+      "url": "https://entropy.cloud.example.com/api/v1/entropy",
+      "timeout": 3
+    }
+  ],
+  "health_check_path": "/healthz",
+  "readiness_path": "/readyz",
+  "shutdown_timeout": 30,
+  "refresh_interval": 5,
+  "stirring_enabled": true,
+  "buffer_memory_limit": 16777216,
+  "compression_enabled": false
+}

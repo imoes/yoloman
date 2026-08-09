@@ -1,0 +1,51 @@
+{
+  "interval": 60,
+  "email_from": "mon-alerts@example.com",
+  "email_to": [
+    "ops@example.com",
+    "oncall@example.com"
+  ],
+  "smtp_host": "smtp.example.com",
+  "smtp_port": 587,
+  "smtp_user": "mon@example.com",
+  "smtp_pass": "s3cr3t",
+  "use_tls": true,
+  "monitors": [
+    {
+      "name": "Web Server",
+      "comment": "HTTP health check on primary frontend",
+      "type": "http",
+      "host": "web1.example.com",
+      "port": 80,
+      "interval": 30,
+      "timeout": 5,
+      "up_cmd": "/usr/bin/logger -t mon 'web1 HTTP OK'",
+      "down_cmd": "/usr/bin/logger -t mon 'web1 HTTP DOWN'",
+      "alert_on_down": true
+    },
+    {
+      "name": "Database",
+      "comment": "TCP port 5432 on database server",
+      "type": "tcp",
+      "host": "db1.example.com",
+      "port": 5432,
+      "interval": 60,
+      "timeout": 10,
+      "up_cmd": "",
+      "down_cmd": "/usr/bin/logger -t mon 'db1 PostgreSQL DOWN'",
+      "alert_on_down": true
+    }
+  ],
+  "recipients": [
+    {
+      "name": "Ops Team",
+      "type": "email",
+      "to": "ops@example.com"
+    },
+    {
+      "name": "PagerDuty Hook",
+      "type": "exec",
+      "exec": "/usr/local/bin/send-pagerduty.sh '{{service}}' '{{status}}'"
+    }
+  ]
+}

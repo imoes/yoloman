@@ -1,0 +1,142 @@
+# Nginx Configuration with OpenTracing Support
+# This template generates a complete nginx configuration file, including global settings,
+# upstream load-balancing groups, and server virtual host blocks.
+# It is self-documenting: every configuration directive is preceded by a comment
+# describing its source schema field and purpose.
+
+# Main NGINX configuration with OpenTracing support
+# Global user and group context for worker processes
+# Field: user (Not in schema, using standard default for nginx roles)
+user nginx;
+
+# Field: worker_processes (Not in schema, using standard default 'auto')
+worker_processes auto;
+
+# Field: error_log (Not in schema, using standard default)
+error_log /var/log/nginx/error.log warn;
+
+# Field: pid (Not in schema, using standard default)
+pid /var/run/nginx.pid;
+
+# Event-driven I/O model tuning
+events {
+    # Field: worker_connections (Not in schema, using standard default)
+    worker_connections 1024;
+}
+
+# HTTP block: core routing, tracing, and upstream configuration
+http {
+    # Field: mime_types_include (Not in schema, using standard path)
+    include /etc/nginx/mime.types;
+
+    # Field: default_type (Not in schema, using standard default)
+    default_type application/octet-stream;
+
+    # Logging format and access log path
+    # Field: log_format_name (Not in schema, using standard name)
+    # Field: log_format_string (Not in schema, using standard format)
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+
+    # Field: access_log_path (Not in schema, using standard path)
+    access_log /var/log/nginx/access.log main;
+
+    # Enable sendfile for optimized static file delivery
+    # Field: sendfile (Not in schema, using standard default)
+    sendfile on;
+
+    # Field: keepalive_timeout (Not in schema, using standard default)
+    keepalive_timeout 65;
+
+    # OpenTracing global configuration
+    # Initialize OpenTracing library and specify tracing provider
+    # Field: opentracing_enabled (Not in schema, but implied by package name)
+    opentracing on;
+
+    # Field: opentracing_config_path (Not in schema, using standard path)
+    opentracing_configuration /etc/nginx/opentracing.json;
+
+    # Load dynamic modules (e.g., opentracing module)
+    # Field: module_include_path (Not in schema, using standard path)
+    include /etc/nginx/modules-enabled/*.conf;
+
+    # Upstream definitions for load-balanced backends
+    # Field: upstreams
+{% for upstream in (upstreams | default([])) %}
+    # {{ upstream.name | default('unknown') }}: {{ upstream.description | default('No description') }}
+    upstream {{ upstream.name | default('unknown') }} {
+{%     for server in (upstream.servers | default([])) %}
+        # Server in upstream {{ upstream.name | default('unknown') }}
+        server {{ server.address | default('127.0.0.1') }}:{{ server.port | default(8080) }} weight={{ server.weight | default(1) }}{% if server.backup | default(false) %} backup{% endif %};
+{%     endfor %}
+    }
+{% endfor %}
+
+    # Server blocks (virtual hosts)
+    # Field: servers
+{% for server in (servers | default([])) %}
+    server {
+        # Field: server_listen_port
+        # Field: server_listen_ssl
+        listen {{ server.listen.port | default(80) }}{% if server.listen.ssl | default(false) %} ssl{% endif %};
+
+        # Field: server_name
+        server_name {{ server.name | default('_') }};
+
+{%     if server.listen.ssl | default(false) %}
+        # TLS configuration for HTTPS
+        # Field: server_ssl_cert
+        ssl_certificate /etc/nginx/ssl/{{ server.ssl_cert | default('server.crt') }};
+        # Field: server_ssl_key
+        ssl_certificate_key /etc/nginx/ssl/{{ server.ssl_key | default('server.key') }};
+        ssl_protocols TLSv1.2 TLSv1.3;
+        ssl_ciphers HIGH:!aNULL:!MD5;
+{%     endif %}
+
+        # Tracing span tags for request context
+        opentracing_propagate_context;
+
+{%     if server.tracing_enabled | default(true) %}
+        # OpenTracing-specific tags for this virtual host
+        opentracing_tag http.method $request_method;
+        opentracing_tag http.url $request_uri;
+{%     endif %}
+
+        # Root location block (default)
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+{%     for location in (server.locations | default([])) %}
+        # {{ location.path | default('/') }}: {{ location.description | default('No description') }}
+        location {{ location.path | default('/') }} {
+{%         if location.upstream | default(false) %}
+            proxy_pass http://{{ location.upstream }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+{%         endif %}
+{%         if location.auth_basic | default(false) %}
+            auth_basic "{{ location.auth_basic }}";
+            # Field: location_auth_basic_file
+            auth_basic_user_file {{ location.auth_basic_file | default('/etc/nginx/.htpasswd') }};
+{%         endif %}
+{%         if location.rate_limit_zone | default(false) %}
+            # Field: location_rate_limit_zone
+            # Field: location_rate_limit_burst
+            limit_req zone={{ location.rate_limit_zone }} burst={{ location.rate_limit_burst | default(10) }} nodelay;
+{%         endif %}
+{%         if location.root | default(false) %}
+            # Field: location_root
+            root {{ location.root }};
+            # Field: location_index
+            index {{ location.index | default(['index.html']) | join(' ') }};
+{%         endif %}
+        }
+{%     endfor %}
+
+    }
+{% endfor %}
+}

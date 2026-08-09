@@ -1,0 +1,122 @@
+{
+  "global_access_control": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable access control (restricts LNS to authorized IPs only)."
+  },
+  "global_port": {
+    "type": "number",
+    "default": 1701,
+    "description": "UDP port for L2TP control traffic (standard is 1701)."
+  },
+  "global_require_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Require mutual authentication (PAP/CHAP) for all L2TP connections."
+  },
+  "global_ipsec_suffix": {
+    "type": "string",
+    "default": "",
+    "description": "Optional suffix appended to IPSEC security associations (e.g., '@example.com')."
+  },
+  "global_debug_avp": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level for AVP parsing (0=off, 1=normal, 2=verbose)."
+  },
+  "global_debug_network": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level for network packet tracing (0=off, 1=normal)."
+  },
+  "global_debug_state": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level for state machine events (0=off)."
+  },
+  "global_debug_tunnel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level for tunnel management (0=off)."
+  },
+  "lns_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of LNS (L2TP Network Server) sections \u2014 one per tunnel endpoint or customer.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Unique name for this LNS section (required for identification)."
+        },
+        "ipsec": {
+          "type": "string",
+          "default": "no",
+          "description": "IPSEC mode: 'yes', 'optional', or 'no'. Requires xl2tpd with IPSEC support."
+        },
+        "ip_range": {
+          "type": "string",
+          "default": "",
+          "description": "CIDR range (e.g., '192.168.10.0/24') from which client IPs are assigned."
+        },
+        "local_ip": {
+          "type": "string",
+          "default": "",
+          "description": "Local IP address of the server used as the LNS endpoint."
+        },
+        "ppp_profile": {
+          "type": "string",
+          "default": "default",
+          "description": "Name of the PPP profile (from [ppp <name>] section) to apply to sessions."
+        },
+        "min_session_id": {
+          "type": "number",
+          "default": 1,
+          "description": "Minimum session ID value (for debugging or isolation)."
+        },
+        "max_session_id": {
+          "type": "number",
+          "default": 65535,
+          "description": "Maximum session ID value (for debugging or isolation)."
+        },
+        "access_list": {
+          "type": "string",
+          "default": "",
+          "description": "Comma-separated list of allowed source IPs (e.g., '10.0.0.0/8,192.168.0.0/16')."
+        }
+      }
+    }
+  },
+  "ppp_options_comment": {
+    "type": "string",
+    "default": "",
+    "description": "Optional comment describing global PPP options (not rendered into config)."
+  },
+  "ppp_options": {
+    "type": "string",
+    "default": "",
+    "description": "Comma-separated list of global PPP options (e.g., 'auth, noauth, require-pap, require-chap')."
+  },
+  "ppp_profiles": {
+    "type": "list",
+    "default": [],
+    "description": "List of named PPP option profiles, referenced by LNS sections.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Unique name for the PPP profile."
+        },
+        "options": {
+          "type": "string",
+          "default": "",
+          "description": "Comma-separated PPP options specific to this profile (e.g., 'mtu 1400, noauth, require-chap')."
+        }
+      }
+    }
+  }
+}

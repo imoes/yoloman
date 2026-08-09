@@ -1,0 +1,43 @@
+{# ============================================================================== #}
+{# gftp-text per-user configuration file ~/.gftp/gftprc                        #}
+{#                                                                              #}
+{# This template generates the configuration for the gftp-text FTP client.      #}
+{# It handles default connection parameters and allows injecting arbitrary       #}
+{# key=value options via the extra_options list.                                 #}
+{#                                                                              #}
+{# Self-documenting: every directive is preceded by its schema description.      #}
+{# Every variable uses a default value to prevent rendering errors when the      #}
+{# variable is undefined.                                                      #}
+{# ============================================================================== #}
+
+{# default_protocol: Protocol used when none is specified in the URL.         #}
+{# One of: ftp, ftps, ssh, local, bookmark, http, https, fsp.                #}
+default_protocol={{ default_protocol | default('ftp') }}
+
+{# default_username: Username to use by default.                            #}
+{# Empty string means use current user for most protocols.                   #}
+default_username={{ default_username | default('') }}
+
+{# default_password: Password to use by default.                            #}
+{# Empty means prompt or email for anonymous FTP.                            #}
+default_password={{ default_password | default('') }}
+
+{# default_server: Server hostname or IP.                                   #}
+{# Must be set at connect-time unless overridden.                            #}
+default_server={{ default_server | default('') }}
+
+{# default_port: Port number.                                               #}
+{# 0 means use protocol default or services(5) lookup.                       #}
+default_port={{ default_port | default('0') }}
+
+{# default_directory: Initial directory after login.                        #}
+{# Empty means login home.                                                   #}
+default_directory={{ default_directory | default('') }}
+
+{# extra_options: Additional key=value configuration lines for              #}
+{# undocumented or advanced options (e.g., proxy settings).                 #}
+{# Each item must have 'key' and 'value'.                                   #}
+{% for item in extra_options | default([]) %}
+{# Injected advanced option: {{ item.key }}={{ item.value }}               #}
+{{ item.key }}={{ item.value }}
+{% endfor %}

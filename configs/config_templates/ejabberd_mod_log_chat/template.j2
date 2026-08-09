@@ -1,0 +1,41 @@
+# ==============================================================================
+# ejabberd_mod_log_chat — Chat Logging Module Configuration
+# ==============================================================================
+# This template configures the `mod_log_chat` module for ejabberd.
+# It controls where XMPP chat transcripts are stored and in what format.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Module Registration
+# ------------------------------------------------------------------------------
+# The fully-qualified Erlang module name for the chat logging functionality.
+# Rarely changed; usually left as the default 'mod_log_chat'.
+modules:
+  # Field: module_path
+  # Default: mod_log_chat
+  # Desc: Fully-qualified Erlang module name for the chat logging module (rarely changed).
+  mod_log_chat: "{{ (mod_log_chat | default({})).module_path | default('mod_log_chat') }}"
+
+# ------------------------------------------------------------------------------
+# Logging Parameters
+# ------------------------------------------------------------------------------
+# Configuration block for the specific behaviors of mod_log_chat.
+mod_log_chat:
+  # Field: log_dir
+  # Default: /var/log/ejabberd/chat
+  # Desc: Directory where chat log files are stored. Must be writable by the ejabberd process.
+  log_dir: "{{ log_dir | default('/var/log/ejabberd/chat') }}"
+
+  # Field: format
+  # Default: text
+  # Desc: Format of log files. Choose 'text' for plain text or 'html' for styled web-readable logs.
+  format: "{{ format | default('text') }}"
+
+  # Field: vhosts
+  # Default: []
+  # Desc: List of XMPP virtual hosts (domains) to log chat for. Leave empty to log all vhosts.
+  vhosts:
+  {# Iterate over the list of virtual hosts. If empty, this block produces no entries. #}
+  {% for vhost in (vhosts | default([])) %}
+    - "{{ vhost }}"
+  {% endfor %}

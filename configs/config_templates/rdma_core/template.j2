@@ -1,0 +1,87 @@
+# ==============================================================================
+# RDMA Core Infrastructure Configuration
+# ==============================================================================
+# This file configures the RDMA (Remote Direct Memory Access) subsystem,
+# including kernel module loading, user-space library paths, device probing
+# policies, network interface settings, and Subnet Manager options.
+#
+# Variable Convention:
+#   - Variables are sourced from Ansible facts/variables.
+#   - All variables MUST have a default value to ensure safe rendering.
+#   - List variables are joined with spaces where the config format requires.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# RDMA_MODULES
+# Description: List of RDMA kernel modules to load at boot (space-separated).
+# Default: iser rdma_ucm rdma_cm ib_uverbs ib_mad ib_sa ib_core
+# ------------------------------------------------------------------------------
+RDMA_MODULES="{{ (rdma_modules_to_load | default(['iser', 'rdma_ucm', 'rdma_cm', 'ib_uverbs', 'ib_mad', 'ib_sa', 'ib_core'])) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# LOAD_RDMA_MODULES
+# Description: Whether to load RDMA kernel modules during system initialization.
+# Values: yes | no
+# Default: yes
+# ------------------------------------------------------------------------------
+LOAD_RDMA_MODULES="{{ 'yes' if (enable_kernel_module_loading | default(true)) else 'no' }}"
+
+# ------------------------------------------------------------------------------
+# RDMA_PROVIDER_LIB_DIR
+# Description: Directory containing user-space RDMA provider libraries.
+# Default: /usr/lib64
+# ------------------------------------------------------------------------------
+RDMA_PROVIDER_LIB_DIR="{{ rdma_provider_lib_dir | default('/usr/lib64') }}"
+
+# ------------------------------------------------------------------------------
+# RDMA_SKIP_DEVICE_PREFIXES
+# Description: List of device name prefixes to exclude from automatic RDMA
+#              device probing (e.g., ['ib0', 'eth1']).
+# Default: (empty)
+# ------------------------------------------------------------------------------
+RDMA_SKIP_DEVICE_PREFIXES="{{ rdma_skip_device_prefixes | default([]) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# MAX_RDMA_CONNECTIONS
+# Description: Maximum number of RDMA connections per process.
+#              0 means use system default (controlled by /proc/sys/rdma_cm/max_cm_events).
+# Default: 0
+# ------------------------------------------------------------------------------
+MAX_RDMA_CONNECTIONS="{{ max_rdma_connections | default(0) }}"
+
+# ------------------------------------------------------------------------------
+# RDMA_NETDEV_AUTO
+# Description: Whether to automatically create RDMA network interfaces
+#              (e.g., for RoCE/iWARP).
+# Values: yes | no
+# Default: yes
+# ------------------------------------------------------------------------------
+RDMA_NETDEV_AUTO="{{ 'yes' if (enable_rdma_netdev | default(true)) else 'no' }}"
+
+# ------------------------------------------------------------------------------
+# Per-Interface RDMA Network Settings
+# Description: Configures specific network interfaces for RoCE/iWARP devices.
+#              Each interface generates a variable IFACE_<NAME>.
+# ------------------------------------------------------------------------------
+{% for iface in rdma_interfaces | default([]) %}
+# Interface: {{ iface.name | default('unknown') }}
+{% set iface_name = iface.name | default('unknown') | upper | replace('-', '_') %}
+IFACE_{{ iface_name }}="{% if iface.mode is defined %}mode={{ iface.mode }}{% endif %}{% if iface.mtu is defined %} mtu={{ iface.mtu }}{% endif %}{% if iface.link_layer is defined %} link_layer={{ iface.link_layer }}{% endif %}"
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# SUBNET_MANAGER
+# Description: Whether to start the InfiniBand Subnet Manager (SM) at boot.
+#              Only needed on fabrics without a primary SM.
+# Values: yes | no
+# Default: no
+# ------------------------------------------------------------------------------
+SUBNET_MANAGER="{{ 'yes' if (enable_subnet_manager | default(false)) else 'no' }}"
+
+# ------------------------------------------------------------------------------
+# SUBNET_MANAGER_PRIORITY
+# Description: Priority for the Subnet Manager (higher value = higher priority).
+#              Used when multiple SMs are present.
+# Default: 0
+# ------------------------------------------------------------------------------
+SUBNET_MANAGER_PRIORITY="{{ subnet_manager_priority | default(0) }}"

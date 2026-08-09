@@ -1,0 +1,53 @@
+- name: install-ldap.conf
+  hosts: all
+  become: true
+  vars:
+    uri: "ldap://127.0.0.1/"
+    base_dn: "dc=example,dc=com"
+    bind_dn: ""
+    bind_pw: ""
+    referrals: "follow"
+    sasl_mech: "GSSAPI"
+    sizelimit: 1000
+    timelimit: 10
+    sasl_realm: ""
+    tls_reqcert: "demand"
+    ldap_version: 3
+    sasl_authcid: ""
+    sasl_enabled: false
+    extra_options: []
+    tls_ca_cert_path: "/etc/ssl/certs/ca-certificates.crt"
+  tasks:
+    - name: Install Ldap Conf
+      ansible.builtin.apt:
+        name:
+          - libldap-common
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: ldap.conf.j2
+        dest: "/etc/ldap/ldap.conf"
+        mode: "0644"
+      vars:
+        uri: "{{ uri }}"
+        base_dn: "{{ base_dn }}"
+        bind_dn: "{{ bind_dn }}"
+        bind_pw: "{{ bind_pw }}"
+        referrals: "{{ referrals }}"
+        sasl_mech: "{{ sasl_mech }}"
+        sizelimit: "{{ sizelimit }}"
+        timelimit: "{{ timelimit }}"
+        sasl_realm: "{{ sasl_realm }}"
+        tls_reqcert: "{{ tls_reqcert }}"
+        ldap_version: "{{ ldap_version }}"
+        sasl_authcid: "{{ sasl_authcid }}"
+        sasl_enabled: "{{ sasl_enabled }}"
+        extra_options: "{{ extra_options }}"
+        tls_ca_cert_path: "{{ tls_ca_cert_path }}"
+
+    - name: Enable and restart Ldap Conf
+      ansible.builtin.service:
+        name: ""
+        state: restarted
+        enabled: true

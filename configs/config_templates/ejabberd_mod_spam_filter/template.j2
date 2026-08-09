@@ -1,0 +1,31 @@
+# Load ejabberd_mod_spam_filter module
+{{ "  - mod_spam_filter:" if modules_list else "" }}
+{{ "    # Enable spam filtering (must be enabled for other options to take effect)" if modules_list else "" }}
+{{ "    enable: " + (spam_filter.enabled | string | lower) if modules_list else "" }}
+{{ "    # List of JIDs to ignore (not filtered)" if modules_list else "" }}
+{{ "    ignore_jids:" if modules_list else "" }}
+{{ "      " + spam_filter.ignore_jids | join("\n      - ") if modules_list and spam_filter.ignore_jids else "" }}
+{{ "    # Block messages from blacklisted JIDs" if modules_list else "" }}
+{{ "    block_from_jids:" if modules_list else "" }}
+{{ "      " + spam_filter.block_from_jids | join("\n      - ") if modules_list and spam_filter.block_from_jids else "" }}
+{{ "    # Block messages containing these substrings (case-insensitive)" if modules_list else "" }}
+{{ "    block_content_substrings:" if modules_list else "" }}
+{{ "      " + spam_filter.block_content_substrings | join("\n      - ") if modules_list and spam_filter.block_content_substrings else "" }}
+{{ "    # Reject messages larger than this many bytes (0 = no limit)" if modules_list else "" }}
+{{ "    max_message_size: " + (spam_filter.max_message_size | string) if modules_list else "" }}
+{{ "    # Reject messages with more than this many recipients (0 = no limit)" if modules_list else "" }}
+{{ "    max_recipients: " + (spam_filter.max_recipients | string) if modules_list else "" }}
+{{ "    # Log blocked messages?" if modules_list else "" }}
+{{ "    log_blocked: " + (spam_filter.log_blocked | string | lower) if modules_list else "" }}
+{{ "    # Block messages matching these regex patterns (PCRE, case-sensitive by default)" if modules_list else "" }}
+{{ "    block_content_regexes:" if modules_list else "" }}
+{{ "      " + spam_filter.block_content_regexes | join("\n      - ") if modules_list and spam_filter.block_content_regexes else "" }}
+{{ "    # Per-user spam score thresholds (optional; overrides global setting)" if modules_list else "" }}
+{{ "    user_thresholds:" if modules_list else "" }}
+{{ "      " + spam_filter.user_thresholds | map(attribute='user') | list | join("\n      - ") if modules_list and spam_filter.user_thresholds else "" }}
+{{ "      # Score threshold to block the user’s outgoing messages" if modules_list and spam_filter.user_thresholds else "" }}
+{{ "      # score_threshold: " + (spam_filter.user_thresholds[0].score_threshold | string if spam_filter.user_thresholds else "") if modules_list and spam_filter.user_thresholds else "" }}
+{{ "" }}
+{{ "# Global spam score thresholds (applies unless overridden per-user)" if modules_list else "" }}
+{{ "# spam_filter.score_threshold: " + (spam_filter.score_threshold | string) if modules_list and spam_filter.score_threshold else "" }}
+{{ "# spam_filter.warning_threshold: " + (spam_filter.warning_threshold | string) if modules_list and spam_filter.warning_threshold else "" }}

@@ -1,0 +1,83 @@
+{
+  "working_directory": {
+    "type": "string",
+    "default": "/var/cache/bind",
+    "description": "Working directory for zone files, transfer files, and other runtime data."
+  },
+  "port": {
+    "type": "number",
+    "default": 53,
+    "description": "Main DNS port to listen on (typically 53 for both TCP and UDP)."
+  },
+  "listen_on": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4 addresses (and optional ports) to bind DNS services to. If empty, defaults to all interfaces."
+  },
+  "listen_on_v6": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv6 addresses to bind DNS services to. If empty, disables IPv6 listening."
+  },
+  "allow_query": {
+    "type": "list",
+    "default": [
+      "any"
+    ],
+    "description": "List of IP addresses, networks (CIDR), or named ACLs allowed to query this server."
+  },
+  "allow_recursion": {
+    "type": "list",
+    "default": [],
+    "description": "List of networks permitted to perform recursive queries. If empty, defaults to 'localhost' and 'localnets'."
+  },
+  "dnssec_validation": {
+    "type": "string",
+    "default": "auto",
+    "description": "Enable DNSSEC validation: 'auto', 'yes', 'no', or 'strict'. Use 'auto' for recommended behavior.",
+    "enum": [
+      "auto",
+      "yes",
+      "no"
+    ]
+  },
+  "forwarders": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream DNS servers to forward unresolved queries to."
+  },
+  "forward_policy": {
+    "type": "string",
+    "default": "first",
+    "description": "Forwarding behavior: 'first' (try forwarders, then recursive), 'only' (only forward), or 'none'.",
+    "enum": [
+      "first",
+      "only"
+    ]
+  },
+  "max_cache_size": {
+    "type": "string",
+    "default": "90%",
+    "description": "Maximum cache size in megabytes (MB) for the answer cache. Set to 0 for unlimited (not recommended)."
+  },
+  "querylog": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable query logging (to syslog). Useful for troubleshooting; disable in production unless needed."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/named/named.pid",
+    "description": "Path to the PID file used to track the running daemon process."
+  },
+  "stats_file": {
+    "type": "string",
+    "default": "/var/cache/bind/named.stats",
+    "description": "Path to the statistics output file (used by 'rndc stats')."
+  },
+  "doh_endpoint": {
+    "type": "object",
+    "default": null,
+    "description": "Configure DNS over HTTPS (DoH). Requires BIND 9.16+ and TLS certificates."
+  }
+}

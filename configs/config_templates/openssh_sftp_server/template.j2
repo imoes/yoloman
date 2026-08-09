@@ -1,0 +1,113 @@
+# ==============================================================================
+# SSH/SFTP Server Configuration Template
+# ==============================================================================
+# This template generates an sshd_config suitable for SFTP-only or hybrid
+# SSH/SFTP access. It enforces security best practices (no forwarding,
+# chroot jails) while allowing flexible user/group management.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Network Listeners
+# ------------------------------------------------------------------------------
+
+# Port on which the SSH/SFTP server listens for incoming connections.
+Port {{ sftp_listen_port | default(22) }}
+
+# IP address to bind to. Empty means all interfaces (default behavior).
+{% if sftp_bind_address | default('') | trim %}
+ListenAddress {{ sftp_bind_address | default('') | trim }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Authentication & Security
+# ------------------------------------------------------------------------------
+
+# Require public key authentication. This is standard for SFTP-only setups.
+PubkeyAuthentication yes
+
+# Allow password-based authentication. Set to 'no' for key-only access (recommended).
+{% if password_auth_enabled | default(False) | bool %}
+PasswordAuthentication yes
+{% else %}
+PasswordAuthentication no
+{% endif %}
+
+# Use PAM for account/session management. Required for chroot and group handling.
+UsePAM yes
+
+# ------------------------------------------------------------------------------
+# Forwarding Restrictions (Security Best Practices)
+# ------------------------------------------------------------------------------
+
+# Disable X11 forwarding. Not needed for SFTP; reduces attack surface.
+X11Forwarding no
+
+# Disable TCP forwarding. Prevents tunneling through SSH.
+AllowTcpForwarding no
+
+# Disable agent forwarding. Prevents credential relay via ssh-agent.
+AllowAgentForwarding no
+
+# Disable stream local (Unix socket) forwarding.
+AllowStreamLocalForwarding no
+
+# ------------------------------------------------------------------------------
+# SFTP-Only User Restrictions
+# ------------------------------------------------------------------------------
+
+# Apply chroot and internal-sftp restrictions to specific users.
+# The 'Match User' block restricts these users to SFTP only.
+{% if sftp_only_users | default([]) | length > 0 %}
+Match User {{ sftp_only_users | default([]) | join(',') }}
+    # Force the internal-sftp subsystem. Users cannot execute shell commands.
+    ForceCommand internal-sftp
+    # Root directory for the SFTP chroot jail. Must be owned by root, not writable by user.
+    ChrootDirectory {{ sftp_chroot_dir | default('/sftp') }}
+    # Disable tunneling.
+    PermitTunnel no
+    # Re-affirm forwarding restrictions within the Match block.
+    AllowAgentForwarding no
+    AllowTcpForwarding no
+    X11Forwarding no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# SFTP Subsystem Definition
+# ------------------------------------------------------------------------------
+
+# Define the SFTP subsystem to use the internal implementation.
+Subsystem sftp internal-sftp
+
+# ------------------------------------------------------------------------------
+# Connection Management
+# ------------------------------------------------------------------------------
+
+# Seconds between client alive messages to detect dead connections.
+# Set to 0 to disable keep-alive checks.
+ClientAliveInterval {{ sftp_client_alive_interval | default(300) }}
+
+# Number of unanswered keep-alive messages before disconnecting the client.
+ClientAliveCountMax {{ sftp_client_alive_count_max | default(3) }}
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+
+# Verbosity of logging (QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG).
+LogLevel {{ sftp_log_level | default('INFO') }}
+
+# Maximum number of concurrent sessions per network connection.
+# Limits simultaneous uploads/downloads per connection.
+MaxSessions {{ sftp_max_sessions | default(10) }}
+
+# Seconds the server waits for successful authentication before disconnecting.
+LoginGraceTime {{ sftp_login_grace_time | default(120) }}
+
+# ------------------------------------------------------------------------------
+# Access Control Groups
+# ------------------------------------------------------------------------------
+
+# List of Unix groups permitted to connect. Leave empty to allow all users.
+{% if ssh_allow_groups | default([]) | length > 0 %}
+AllowGroups {{ ssh_allow_groups | default([]) | join(' ') }}
+{% endif %}

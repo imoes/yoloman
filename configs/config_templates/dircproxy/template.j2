@@ -1,0 +1,181 @@
+# ==============================================================================
+# DircProxy Configuration Template
+# ==============================================================================
+# This file configures dircproxy, an IRC proxy that sits between clients and
+# IRC servers, allowing connection splitting and persistence.
+#
+# All variables are derived from the 'values' dictionary provided by Ansible.
+# Defaults are applied using Jinja2's `default` filter to ensure safe rendering
+# even if a variable is undefined.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# General Settings
+# ------------------------------------------------------------------------------
+
+# IP address (or hostname) the proxy listens on for client connections.
+# If left empty or not set, defaults to 127.0.0.1.
+bind_address {{ (values | default({})).bind_address | default('127.0.0.1') }}
+
+# TCP port for incoming client connections.
+port {{ (values | default({})).port | default(6667) }}
+
+# Path to the log file. Use /dev/stdout to log to stdout (useful in containers).
+logfile {{ (values | default({})).logfile | default('/var/log/dircproxy/dircproxy.log') }}
+
+# Run as a background daemon process. Set to 'yes' or 'no'.
+daemon {{ (values | default({})).daemon | default(True) | lower }}
+
+# Maximum number of concurrent client connections allowed.
+# Connections exceeding this limit will be refused.
+max_clients {{ (values | default({})).max_clients | default(5) }}
+
+# Maximum number of channels a single client may auto-join.
+# This limits the scope of automatic channel participation.
+max_channels {{ (values | default({})).max_channels | default(20) }}
+
+# Default nickname used when connecting to IRC servers, if the client doesn't provide one.
+default_nick {{ (values | default({})).default_nick | default('dircproxy') }}
+
+# Username (ident) used when connecting to IRC servers.
+default_user {{ (values | default({})).default_user | default('dircproxy') }}
+
+# Real name (GECOS) field used when connecting to IRC servers.
+default_realname {{ (values | default({})).default_realname | default('dircproxy IRC proxy') }}
+
+# Seconds of inactivity before disconnecting an idle client.
+client_timeout {{ (values | default({})).client_timeout | default(300) }}
+
+# Seconds of inactivity before disconnecting an idle server connection.
+server_timeout {{ (values | default({})).server_timeout | default(600) }}
+
+# Seconds to wait before retrying a failed server connection.
+reconnect_delay {{ (values | default({})).reconnect_delay | default(5) }}
+
+# Maximum number of consecutive failed reconnection attempts before giving up.
+max_reconnects {{ (values | default({})).max_reconnects | default(3) }}
+
+# Enable SSL/TLS encryption for all outgoing server connections.
+# Can be overridden per-server in the 'servers' list.
+ssl {{ (values | default({})).ssl | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# SSL Configuration
+# ------------------------------------------------------------------------------
+
+# The following SSL settings are applied if 'ssl' is enabled above.
+# Paths to PEM-formatted certificate and key files.
+# If 'ssl' is disabled, these are generally ignored, but providing them
+# is required for global SSL mode.
+{% if (values | default({})).ssl | default(False) == True %}
+# Path to client certificate file (PEM format), required if SSL is enabled globally.
+ssl_cert {{ (values | default({})).ssl_cert | default('/etc/dircproxy/ssl/client.crt') }}
+
+# Path to client private key file (PEM format).
+ssl_key {{ (values | default({})).ssl_key | default('/etc/dircproxy/ssl/client.key') }}
+
+# Path to CA certificate bundle (PEM format), used for server cert verification.
+ssl_cafile {{ (values | default({})).ssl_cafile | default('/etc/dircproxy/ssl/ca.crt') }}
+{% endif %}
+
+# Password used to authenticate to IRC servers (e.g., SASL or legacy pass).
+# Leave empty to skip authentication.
+{% set _pwd = (values | default({})).server_password | default('') %}
+{% if _pwd != '' %}
+server_password {{ _pwd | quote }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Server Definitions
+# ------------------------------------------------------------------------------
+
+# List of IRC servers to connect to.
+# Each entry defines a server, its connection settings, and default autojoin channels.
+# Syntax:
+#   server {
+#     host <hostname>
+#     port <port>
+#     [ssl <yes|no>]
+#     [ssl_verify <yes|no>]
+#     [ssl_cafile <path>]
+#     [password <pass>]
+#     autojoin #channel1, #channel2
+#   }
+{% for server in ((values | default({})).servers | default([{'host': 'irc.libera.chat', 'port': 6697, 'ssl': True, 'ssl_verify': True, 'ssl_cafile': '/etc/dircproxy/ssl/ca.crt', 'autojoin': ['#dircproxy', '#help']}])) %}
+server {
+  # Hostname or IP of the IRC server
+  host {{ server.host | default('') }}
+
+  # Port of the IRC server
+  port {{ server.port | default(6697) }}
+
+  # Enable SSL for this specific server (overrides global 'ssl' if present)
+  {% if server.ssl | default(False) %}
+  ssl {{ server.ssl | lower }}
+  {% endif %}
+
+  # Verify SSL certificate validity
+  {% if server.ssl_verify | default(True) %}
+  ssl_verify {{ server.ssl_verify | lower }}
+  {% endif %}
+
+  # CA certificate file for this specific server
+  {% if server.ssl_cafile | default('/etc/dircproxy/ssl/ca.crt') %}
+  ssl_cafile {{ server.ssl_cafile | default('/etc/dircproxy/ssl/ca.crt') }}
+  {% endif %}
+
+  # Server-specific password if different from global 'server_password'
+  {% if server.password | default('') %}
+  password {{ server.password | quote }}
+  {% endif %}
+
+  # Channels to automatically join upon connection
+  autojoin {{ server.autojoin | default([]) | join(', ') }}
+}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Access Control
+# ------------------------------------------------------------------------------
+
+# Optional list of allowed client IPs/nets with optional passwords (whitelist).
+# If empty, all clients are allowed.
+{% set _allow_clients = (values | default({})).allow_clients | default([]) %}
+{% if _allow_clients | length > 0 %}
+{% for client in _allow_clients %}
+allow {
+  # Host/IP of the allowed client
+  host {{ client.host | default('') }}
+
+  # Optional password for this specific client entry
+  {% if client.password | default('') %}
+  password {{ client.password | quote }}
+  {% endif %}
+}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Admin Settings
+# ------------------------------------------------------------------------------
+
+# Shared password for administrative commands sent via client (e.g., /DIRCPROXY).
+# Leave empty to disable administrative access.
+{% set _admin_pwd = (values | default({})).admin_password | default('') %}
+{% if _admin_pwd != '' %}
+admin_password {{ _admin_pwd | quote }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Logging Preferences
+# ------------------------------------------------------------------------------
+
+# Log public channel traffic.
+log_channels {{ (values | default({})).log_channels | default(True) | lower }}
+
+# Log private messages (if disabled, only server commands are logged).
+log_privates {{ (values | default({})).log_privates | default(True) | lower }}
+
+# Log line format (strftime-compatible). Default is ISO-8601.
+# Note: This directive is static in this template but can be templated if needed.
+log_timestamp_format %Y-%m-%d %H:%M:%S

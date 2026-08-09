@@ -1,0 +1,123 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname to bind the WebSocket proxy to. Use '0.0.0.0' for all interfaces."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 6080,
+    "description": "Port number to listen for incoming WebSocket connections."
+  },
+  "target_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Backend host to which WebSocket traffic will be proxied (single-target mode)."
+  },
+  "target_port": {
+    "type": "number",
+    "default": 5900,
+    "description": "Backend port (e.g., VNC, RDP, SSH) to proxy to (single-target mode)."
+  },
+  "ssl_target": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable WSS (secure WebSocket) by presenting TLS to clients. Requires ssl_cert and ssl_key."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL/TLS certificate file (PEM format). Required if ssl_target=true."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL/TLS private key file (PEM format). Required if ssl_target=true."
+  },
+  "ssl_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA bundle (PEM format) for mutual TLS client authentication (optional)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. If empty, logs to stdout (stderr in some builds)."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Seconds of inactivity before closing idle WebSocket or backend connections."
+  },
+  "tcp_keepalive": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP keepalive probes to backend connections to detect dead peers."
+  },
+  "allowed_origins": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed HTTP origins for CORS. If empty, all origins are permitted (not recommended for production).",
+    "items": {
+      "type": "string",
+      "description": "Allowed origin value (e.g., 'https://example.com')."
+    }
+  },
+  "routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of path-based routing rules. Use when proxying multiple backends on different paths (e.g., /vnc1\u2192localhost:5900, /vnc2\u2192localhost:5901).",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "URL path (e.g., '/vnc' or '/proxy/5901'). Must start with '/' and be unique.",
+        "default": ""
+      },
+      "target_host": {
+        "type": "string",
+        "description": "Backend host for this route.",
+        "default": "localhost"
+      },
+      "target_port": {
+        "type": "number",
+        "description": "Backend port for this route.",
+        "default": 5900
+      }
+    }
+  },
+  "daemonize": {
+    "type": "bool",
+    "default": false,
+    "description": "Run websockify as a background daemon process (requires root for binding low ports)."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/websockify.pid",
+    "description": "File path to write the daemon process PID (used only if daemonize=true)."
+  },
+  "user": {
+    "type": "string",
+    "default": "websockify",
+    "description": "System user to drop privileges to after startup (requires root initially)."
+  },
+  "group": {
+    "type": "string",
+    "default": "websockify",
+    "description": "System group to drop privileges to after startup (requires root initially)."
+  },
+  "compression": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable permessage-deflate compression for WebSocket messages (may reduce CPU if bandwidth-limited)."
+  },
+  "ws_path": {
+    "type": "string",
+    "default": "/",
+    "description": "URL path prefix for the WebSocket endpoint (e.g., '/ws' or '/proxy')."
+  }
+}

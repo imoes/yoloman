@@ -1,0 +1,114 @@
+# bpftrace systemd service override configuration
+# Generated from schema-driven template.
+# See `man bpftrace(8)` and `bpftrace --info` for full list of options.
+#
+# This file is intended to be placed in /etc/systemd/system/bpftrace.service.d/override.conf
+# or similar, providing an [Service] section with Environment= lines.
+
+[Service]
+
+# Maximum number of BPF programs (functions) that bpftrace can generate
+Environment="BPFTRACE_MAX_BPF_PROGS={{ max_bpf_progs | default(1024) }}"
+
+# Maximum number of probes that bpftrace can attach to
+Environment="BPFTRACE_MAX_PROBES={{ max_probes | default(1024) }}"
+
+# Maximum number of keys that can be stored in a map
+Environment="BPFTRACE_MAX_MAP_KEYS={{ max_map_keys | default(4096) }}"
+
+# Maximum length (in bytes) for values created by str(), buf(), and path()
+Environment="BPFTRACE_MAX_STRLEN={{ max_strlen | default(1024) }}"
+
+# Caching strategy for user symbols (PER_PROGRAM, PER_PID, or NONE)
+Environment="BPFTRACE_CACHE_USER_SYMBOLS={{ cache_user_symbols | default('PER_PID') }}"
+
+# Output format for ustack and kstack builtins (bpftrace, perf, or raw)
+Environment="BPFTRACE_STACK_MODE={{ stack_mode | default('bpftrace') }}"
+
+# Enable kprobe_multi link (disable via BPFTRACE_NO_FEATURE)
+# Note: If both kprobe_multi and uprobe_multi are disabled, both are listed in BPFTRACE_NO_FEATURE.
+# If only one is disabled, only that one is listed.
+{% if (kprobe_multi | default(true)) == false and (uprobe_multi | default(true)) == false %}
+Environment="BPFTRACE_NO_FEATURE={{ ['kprobe_multi', 'uprobe_multi'] | join(',') }}"
+{% elif (kprobe_multi | default(true)) == false %}
+Environment="BPFTRACE_NO_FEATURE={{ ['kprobe_multi'] | join(',') }}"
+{% elif (uprobe_multi | default(true)) == false %}
+Environment="BPFTRACE_NO_FEATURE={{ ['uprobe_multi'] | join(',') }}"
+{% else %}
+# kprobe_multi and uprobe_multi are enabled (default)
+{% endif %}
+
+# Enable uprobe_multi link (disable via BPFTRACE_NO_FEATURE)
+# Note: kprobe_multi and uprobe_multi are handled together above via BPFTRACE_NO_FEATURE
+
+# Maximum number of CPUs to use (0 = auto)
+Environment="BPFTRACE_CPUS={{ max_cpus | default(0) }}"
+
+# Number of pages to allocate per CPU perf ring buffer (must be power of 2)
+Environment="BPFTRACE_PERF_RB_PAGES={{ perf_rb_pages | default(64) }}"
+
+# Log size in bytes
+Environment="BPFTRACE_LOG_SIZE={{ log_size | default(1000000) }}"
+
+# Maximum size (in bytes) of individual objects stored on the BPF stack
+Environment="BPFTRACE_ON_STACK_LIMIT={{ on_stack_limit | default(32) }}"
+
+# Maximum bytes read by cat builtin
+Environment="BPFTRACE_MAX_CAT_BYTES={{ max_cat_bytes | default(10000) }}"
+
+# Handling for probes with multiple attach points (error, warn, or ignore)
+Environment="BPFTRACE_MISSING_PROBES={{ missing_probes | default('warn') }}"
+
+# Enable C++ symbol demangling
+Environment="BPFTRACE_CPP_DEMANGLE={{ cpp_demangle | default(true) | ternary(1, 0) }}"
+
+# Enable colorized log output (overrides auto-detection)
+Environment="BPFTRACE_COLOR={{ color | default(false) | ternary(1, 'auto') }}"
+
+# Directory containing kernel headers
+Environment="BPFTRACE_KERNEL_SOURCE={{ kernel_source | default('/lib/modules/' + (kernel_release | default('5.15.0-107-generic'))) }}"
+
+# Directory containing kernel build artifacts (for out-of-tree builds)
+Environment="BPFTRACE_KERNEL_BUILD={{ kernel_build | default('/lib/modules/' + (kernel_release | default('5.15.0-107-generic'))) }}"
+
+# Path to a BTF file
+Environment="BPFTRACE_BTF={{ btf_path | default('') }}"
+
+# Path to the vmlinux file for kernel symbol resolution
+Environment="BPFTRACE_VMLINUX={{ vmlinux_path | default('') }}"
+
+# Enable debug output
+Environment="BPFTRACE_VFS_BPFTRACE_DEBUG={{ debug_output | default(false) | ternary(1, 0) }}"
+Environment="BPFTRACE_DEBUG={{ debug_output | default(false) | ternary(1, 0) }}"
+
+# Output debug messages to trace_pipe
+Environment="BPFTRACE_TRACE_PIPE={{ trace_pipe | default(false) | ternary(1, 0) }}"
+
+# Path to kernel symbol table (kallsyms)
+Environment="BPFTRACE_KERNEL_SYMBOL_PATH={{ kernel_symbol_path | default('') }}"
+
+# Colon-separated list of directories for user symbol resolution
+Environment="BPFTRACE_USER_SYMBOL_PATHS={{ user_symbol_paths | default('') }}"
+
+# Trailing string added to truncated strings
+Environment="BPFTRACE_STR_TRUNC_TRAILER={{ str_trunc_trailer | default('..') }}"
+
+# Print maps on program exit
+Environment="BPFTRACE_PRINT_MAPS_ON_EXIT={{ print_maps_on_exit | default(true) | ternary(1, 0) }}"
+
+# Enable lazy symbolication for user-space symbols
+Environment="BPFTRACE_LAZY_SYMBOLICATION={{ lazy_symbolication | default(false) | ternary(1, 0) }}"
+
+# Maximum levels of nested field accesses for tracepoint args
+Environment="BPFTRACE_MAX_TYPE_RES_ITERATIONS={{ max_type_res_iterations | default(0) }}"
+
+# Source for uprobe symbol resolution (dwarf or symbol_table)
+Environment="BPFTRACE_SYMBOL_SOURCE={{ symbol_source | default('dwarf') }}"
+
+# Enable USDT file-based activation
+Environment="BPFTRACE_USDT_FILE_ACTIVATION={{ usdt_file_activation | default(false) | ternary(1, 0) }}"
+
+# Enable unsafe functions (system, etc.)
+Environment="BPFTRACE_UNSAFE={{ unsafe | default(false) | ternary(1, 0) }}"
+
+# End of bpftrace configuration

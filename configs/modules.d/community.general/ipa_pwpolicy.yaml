@@ -1,0 +1,131 @@
+name: ipa_pwpolicy
+fqcn: community.general.ipa_pwpolicy
+collection: community.general
+short_description: Manage FreeIPA password policies
+description: Add, modify, or delete a password policy using the IPA API.
+options:
+  dictcheck:
+    type: bool
+    description: Check whether the password (with possible modifications) matches a word in a dictionary
+      (using cracklib).
+  failinterval:
+    type: str
+    description: Period (in seconds) after which the number of failed login attempts is reset.
+  gracelimit:
+    type: int
+    description: Maximum number of LDAP logins after password expiration.
+  group:
+    type: str
+    aliases:
+    - name
+    description: Name of the group that the policy applies to. If omitted, the global policy is used.
+  historylength:
+    type: str
+    description: Number of previous passwords that are remembered. Users cannot reuse remembered passwords.
+  ipa_host:
+    type: str
+    default: ipa.example.com
+    description: IP or hostname of IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_HOST) will be used instead. If both the environment variable E(IPA_HOST)
+      and the value are not specified in the task, then DNS will be used to try to discover the FreeIPA
+      server. The relevant entry needed in FreeIPA is the C(ipa-ca) entry. If neither the DNS entry, nor
+      the environment E(IPA_HOST), nor the value are available in the task, then the default value will
+      be used.
+  ipa_pass:
+    type: str
+    description: Password of administrative user. If the value is not specified in the task, the value
+      of environment variable E(IPA_PASS) will be used instead. Note that if the C(urllib_gssapi) library
+      is available, it is possible to use GSSAPI to authenticate to FreeIPA. If the environment variable
+      E(KRB5CCNAME) is available, the module will use this kerberos credentials cache to authenticate
+      to the FreeIPA server. If the environment variable E(KRB5_CLIENT_KTNAME) is available, and E(KRB5CCNAME)
+      is not; the module will use this kerberos keytab to authenticate. If GSSAPI is not available, the
+      usage of O(ipa_pass) is required.
+  ipa_port:
+    type: int
+    default: 443
+    description: Port of FreeIPA / IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PORT) will be used instead. If both the environment variable E(IPA_PORT)
+      and the value are not specified in the task, then default value is set.
+  ipa_prot:
+    type: str
+    default: https
+    choices:
+    - http
+    - https
+    description: Protocol used by IPA server. If the value is not specified in the task, the value of
+      environment variable E(IPA_PROT) will be used instead. If both the environment variable E(IPA_PROT)
+      and the value are not specified in the task, then default value is set.
+  ipa_timeout:
+    type: int
+    default: 10
+    description: Specifies idle timeout (in seconds) for the connection. For bulk operations, you may
+      want to increase this in order to avoid timeout from IPA server. If the value is not specified in
+      the task, the value of environment variable E(IPA_TIMEOUT) will be used instead. If both the environment
+      variable E(IPA_TIMEOUT) and the value are not specified in the task, then default value is set.
+  ipa_user:
+    type: str
+    default: admin
+    description: Administrative account used on IPA server. If the value is not specified in the task,
+      the value of environment variable E(IPA_USER) will be used instead. If both the environment variable
+      E(IPA_USER) and the value are not specified in the task, then default value is set.
+  lockouttime:
+    type: str
+    description: Period (in seconds) for which users are locked out.
+  maxfailcount:
+    type: str
+    description: Maximum number of consecutive failures before lockout.
+  maxpwdlife:
+    type: str
+    description: Maximum password lifetime (in days).
+  maxrepeat:
+    type: int
+    description: Maximum number of allowed same consecutive characters in the new password.
+  maxsequence:
+    type: int
+    description: Maximum length of monotonic character sequences in the new password. An example of a
+      monotonic sequence of length 5 is V(12345).
+  minclasses:
+    type: str
+    description: Minimum number of character classes.
+  minlength:
+    type: str
+    description: Minimum password length.
+  minpwdlife:
+    type: str
+    description: Minimum password lifetime (in hours).
+  priority:
+    type: str
+    description: Priority of the policy. High number means lower priority. Required when C(cn) is not
+      the global policy.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: State to ensure.
+  usercheck:
+    type: bool
+    description: Check whether the password (with possible modifications) contains the user name in some
+      form (if the name has > 3 characters).
+  validate_certs:
+    type: bool
+    default: true
+    description: This only applies if O(ipa_prot) is V(https). If set to V(false), the SSL certificates
+      will not be validated. This should only set to V(false) used on personally controlled sites using
+      self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Modify the global password policy\n  community.general.ipa_pwpolicy:\n      maxpwdlife:\
+  \ '90'\n      minpwdlife: '1'\n      historylength: '8'\n      minclasses: '3'\n      minlength: '16'\n\
+  \      maxfailcount: '6'\n      failinterval: '60'\n      lockouttime: '600'\n      ipa_host: ipa.example.com\n\
+  \      ipa_user: admin\n      ipa_pass: topsecret\n\n- name: Ensure the password policy for the group\
+  \ admins is present\n  community.general.ipa_pwpolicy:\n      group: admins\n      state: present\n\
+  \      maxpwdlife: '60'\n      minpwdlife: '24'\n      historylength: '16'\n      minclasses: '4'\n\
+  \      priority: '10'\n      minlength: '6'\n      maxfailcount: '4'\n      failinterval: '600'\n  \
+  \    lockouttime: '1200'\n      gracelimit: 3\n      maxrepeat: 3\n      maxsequence: 3\n      dictcheck:\
+  \ true\n      usercheck: true\n      ipa_host: ipa.example.com\n      ipa_user: admin\n      ipa_pass:\
+  \ topsecret\n\n- name: Ensure that the group sysops does not have a unique password policy\n  community.general.ipa_pwpolicy:\n\
+  \      group: sysops\n      state: absent\n      ipa_host: ipa.example.com\n      ipa_user: admin\n\
+  \      ipa_pass: topsecret\n"

@@ -1,0 +1,123 @@
+{
+  "sentinel_port": {
+    "type": "number",
+    "default": 26379,
+    "description": "Port on which Redis Sentinel listens for client connections."
+  },
+  "sentinel_bind": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address(es) Sentinel binds to (space-separated or `*` for all interfaces)."
+  },
+  "sentinel_dir": {
+    "type": "string",
+    "default": "/var/lib/redis",
+    "description": "Working directory for Sentinel \u2014 used for temp files and persistence (must be writable by redis user)."
+  },
+  "sentinel_myid": {
+    "type": "string",
+    "default": "auto",
+    "description": "Unique node ID. Use `auto` to let Redis generate it automatically."
+  },
+  "master_name": {
+    "type": "string",
+    "default": "mymaster",
+    "description": "Name used to identify this Redis master group in Sentinel."
+  },
+  "master_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address of the Redis master instance."
+  },
+  "master_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Port of the Redis master instance."
+  },
+  "quorum": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum number of Sentinels that must agree a master is down before initiating failover."
+  },
+  "sentinel_down_after_milliseconds": {
+    "type": "number",
+    "default": 30000,
+    "description": "Milliseconds to wait before marking the master as subjectively down (SDOWN)."
+  },
+  "sentinel_parallel_syncs": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of replicas that can be reconfigured to replicate from the new master in parallel after a failover."
+  },
+  "sentinel_failover_timeout": {
+    "type": "number",
+    "default": 180000,
+    "description": "Maximum time (ms) allowed for a failover to complete before it is aborted."
+  },
+  "sentinel_notification_script": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a script executed when Sentinel detects state changes (e.g., master down, failover started)."
+  },
+  "sentinel_client_reconfig_script": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a script executed after a successful failover to reconfigure clients (e.g., notify load balancers)."
+  },
+  "sentinel_replicas": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit known replica configurations (optional; usually auto-discovered).",
+    "items": {
+      "ip": {
+        "type": "string",
+        "required": true,
+        "description": "IP address of the replica."
+      },
+      "port": {
+        "type": "number",
+        "required": true,
+        "description": "Port of the replica (typically 6379)."
+      },
+      "name": {
+        "type": "string",
+        "required": false,
+        "description": "Optional replica name (used for easier tracking)."
+      }
+    }
+  },
+  "sentinel_known_sentinels": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit known Sentinel nodes in the cluster (optional; auto-discovery recommended).",
+    "items": {
+      "ip": {
+        "type": "string",
+        "required": true,
+        "description": "IP address of the known Sentinel."
+      },
+      "port": {
+        "type": "number",
+        "required": true,
+        "default": 26379,
+        "description": "Port of the known Sentinel (default: 26379)."
+      },
+      "current_epoch": {
+        "type": "number",
+        "required": false,
+        "default": 0,
+        "description": "Current config epoch (usually omitted unless debugging)."
+      }
+    }
+  },
+  "sentinel_loglevel": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of log messages."
+  },
+  "sentinel_logfile": {
+    "type": "string",
+    "default": "/var/log/redis/sentinel.log",
+    "description": "Path to the Sentinel log file. Use `-` to log to stdout."
+  }
+}

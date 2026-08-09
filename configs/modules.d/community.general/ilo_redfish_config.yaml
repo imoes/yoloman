@@ -1,0 +1,52 @@
+name: ilo_redfish_config
+fqcn: community.general.ilo_redfish_config
+collection: community.general
+short_description: Sets or updates configuration attributes on HPE iLO with Redfish OEM extensions
+description: Builds Redfish URIs locally and sends them to iLO to set or update a configuration attribute.
+  For use with HPE iLO operations that require Redfish OEM extensions.
+options:
+  attribute_name:
+    type: str
+    required: true
+    description: Name of the attribute to be configured.
+  attribute_value:
+    type: str
+    description: Value of the attribute to be configured.
+  auth_token:
+    type: str
+    description: Security token for authenticating to iLO.
+  baseuri:
+    type: str
+    required: true
+    description: Base URI of iLO.
+  category:
+    type: str
+    required: true
+    choices:
+    - Manager
+    description: Command category to execute on iLO.
+  command:
+    type: list
+    required: true
+    description: List of commands to execute on iLO.
+  password:
+    type: str
+    description: Password for authenticating to iLO.
+  timeout:
+    type: int
+    default: 10
+    description: Timeout in seconds for HTTP requests to iLO.
+  username:
+    type: str
+    description: Username for authenticating to iLO.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Disable WINS Registration\n    community.general.ilo_redfish_config:\n      category:\
+  \ Manager\n      command: SetWINSReg\n      baseuri: 15.X.X.X\n      username: Admin\n      password:\
+  \ Testpass123\n      attribute_name: WINSRegistration\n\n  - name: Set Time Zone\n    community.general.ilo_redfish_config:\n\
+  \      category: Manager\n      command: SetTimeZone\n      baseuri: 15.X.X.X\n      username: Admin\n\
+  \      password: Testpass123\n      attribute_name: TimeZone\n      attribute_value: Chennai\n\n  -\
+  \ name: Set NTP Servers\n    community.general.ilo_redfish_config:\n      category: Manager\n      command:\
+  \ SetNTPServers\n      baseuri: 15.X.X.X\n      username: Admin\n      password: Testpass123\n     \
+  \ attribute_name: StaticNTPServers\n      attribute_value: X.X.X.X\n\n"

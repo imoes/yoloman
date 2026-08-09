@@ -1,0 +1,204 @@
+# ==============================================================================
+# GarageMQ Configuration Template
+# ==============================================================================
+# This file configures the GarageMQ message broker.
+# It is structured as a YAML document.
+# ==============================================================================
+
+# Global settings for GarageMQ broker
+# desc: Global configuration block (YAML snippet). Typically left empty or used for metadata like version or environment tag.
+{% set _global = global | default({}) %}
+{% if _global is mapping and _global|length > 0 %}
+{{ _global | to_yaml | indent(2) }}
+{% else %}
+# (global section is empty or not defined)
+{% endif %}
+
+# ==============================================================================
+# Clustering configuration
+# ==============================================================================
+
+# desc: Enable clustering mode. When false, GarageMQ runs as a standalone node.
+cluster:
+  enabled: {{ (cluster | default({})).enabled | default(false) | to_yaml }}
+  
+  {%- if (cluster | default({})).enabled is sameas true %}
+  # desc: List of known GarageMQ nodes to contact for cluster bootstrap.
+  seed_nodes:
+    {% for node in ((cluster | default({})).seed_nodes | default([])) -%}
+    - {{ node }}
+    {% endfor %}
+  
+  # desc: Unique node name for this instance (e.g., garage@node1). Must match Erlang node naming convention if clustering.
+  node_name: "{{ (cluster | default({})).node_name | default('garage@localhost') }}"
+  
+  # desc: Erlang distribution cookie used for node authentication. Must be identical across all cluster nodes.
+  cookie: "{{ (cluster | default({})).cookie | default('garage-cluster-cookie') }}"
+  
+  # desc: Timeout (ms) for inter-node RPC calls.
+  rpc_timeout_ms: {{ (cluster | default({})).rpc_timeout_ms | default(5000) }}
+  
+  # desc: Interval (seconds) between retries when joining a cluster.
+  join_retry_interval_sec: {{ (cluster | default({})).join_retry_interval_sec | default(10) }}
+  {%- else %}
+  # Clustering is disabled.
+  seed_nodes: []
+  node_name: "garage@localhost"
+  cookie: "garage-cluster-cookie"
+  rpc_timeout_ms: 5000
+  join_retry_interval_sec: 10
+  {%- endif %}
+
+# ==============================================================================
+# Network listening configuration
+# ==============================================================================
+
+# desc: Network listener settings
+listener:
+  # desc: IP address to bind the MQTT listener to.
+  host: "{{ (listener | default({})).host | default('0.0.0.0') }}"
+  
+  # desc: TCP port for unencrypted MQTT connections.
+  port: {{ (listener | default({})).port | default(1883) }}
+  
+  # desc: Maximum number of simultaneous MQTT client connections.
+  max_connections: {{ (listener | default({})).max_connections | default(1000) }}
+
+# ==============================================================================
+# TLS configuration
+# ==============================================================================
+
+# desc: TLS settings for the listener
+listener.tls:
+  # desc: Enable TLS for MQTT connections on the main listener.
+  enabled: {{ ((listener | default({})).tls | default({})).enabled | default(false) | to_yaml }}
+  
+  # desc: Path to the TLS certificate file (PEM format).
+  cert_file: "{{ ((listener | default({})).tls | default({})).cert_file | default('/etc/garagemq/tls/cert.pem') }}"
+  
+  # desc: Path to the TLS private key file (PEM format).
+  key_file: "{{ ((listener | default({})).tls | default({})).key_file | default('/etc/garagemq/tls/key.pem') }}"
+  
+  # desc: Optional path to CA certificate bundle for client certificate verification (PEM format).
+  ca_file: "{{ ((listener | default({})).tls | default({})).ca_file | default('') }}"
+
+# ==============================================================================
+# Authentication and authorization
+# ==============================================================================
+
+# desc: Authentication settings
+auth:
+  # desc: Enable authentication and authorization.
+  enabled: {{ (auth | default({})).enabled | default(false) | to_yaml }}
+  
+  # desc: List of authentication provider configurations. One or more providers may be defined.
+  providers:
+    {% for provider in ((auth | default({})).providers | default([])) -%}
+    # Provider entry {{ loop.index }}
+    - type: "{{ provider.type | default('') }}"
+{{ provider | to_yaml | indent(6) }}
+    {% endfor %}
+
+# ==============================================================================
+# Persistence settings
+# ==============================================================================
+
+# desc: Storage configuration
+storage:
+  # desc: Persistence backend: 'leveldb' or 'badger'.
+  backend: "{{ (storage | default({})).backend | default('leveldb') }}"
+  
+  # desc: Directory for persistent storage (messages, sessions, subscriptions).
+  data_dir: "{{ (storage | default({})).data_dir | default('/var/lib/garagemq/data') }}"
+  
+  # desc: Maximum size (MB) of a single data segment before compaction.
+  max_segment_size_mb: {{ (storage | default({})).max_segment_size_mb | default(64) }}
+  
+  # desc: When ratio of obsolete data exceeds this value, compaction is triggered.
+  compaction_threshold: {{ (storage | default({})).compaction_threshold | default(0.75) }}
+  
+  # desc: Force sync writes to disk for durability (slower but safer).
+  sync_write: {{ (storage | default({})).sync_write | default(true) | to_yaml }}
+
+# ==============================================================================
+# Logging configuration
+# ==============================================================================
+
+# desc: Logging settings
+log:
+  # desc: Minimum log level: 'debug', 'info', 'warn', or 'error'.
+  level: "{{ (log | default({})).level | default('info') }}"
+  
+  # desc: Log format: 'text' or 'json'.
+  format: "{{ (log | default({})).format | default('text') }}"
+  
+  # desc: Log destination: 'stdout', 'stderr', or 'file'.
+  output: "{{ (log | default({})).output | default('stdout') }}"
+  
+  {%- if ((log | default({})).output | default('stdout')) == 'file' %}
+  # desc: Path to log file (only used if log.output = 'file').
+  file_path: "{{ (log | default({})).file_path | default('/var/log/garagemq/garagemq.log') }}"
+  
+  # desc: Maximum size (MB) per rotated log file.
+  max_size_mb: {{ (log | default({})).max_size_mb | default(100) }}
+  
+  # desc: Number of rotated log files to retain.
+  max_backups: {{ (log | default({})).max_backups | default(5) }}
+  
+  # desc: Compress rotated log files with gzip.
+  compress: {{ (log | default({})).compress | default(false) | to_yaml }}
+  {%- endif %}
+
+# ==============================================================================
+# Telemetry & metrics
+# ==============================================================================
+
+# desc: Metrics configuration for Prometheus compatibility
+metrics:
+  # desc: Enable Prometheus-compatible metrics endpoint.
+  enabled: {{ (metrics | default({})).enabled | default(false) | to_yaml }}
+  
+  # desc: Port to expose the /metrics endpoint on.
+  port: {{ (metrics | default({})).port | default(9090) }}
+  
+  # desc: HTTP path for metrics endpoint.
+  path: "{{ (metrics | default({})).path | default('/metrics') }}"
+  
+  {%- if (metrics | default({})).enabled is sameas true %}
+  # desc: Enable histogram metrics for latency (increases cardinality).
+  enable_histograms: {{ (metrics | default({})).enable_histograms | default(false) | to_yaml }}
+  
+  # desc: Custom histogram bucket boundaries (seconds).
+  histogram_buckets: [{{ (metrics | default({})).histogram_buckets | default([0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10]) | join(', ') }}]
+  {%- endif %}
+
+# ==============================================================================
+# System limits
+# ==============================================================================
+
+# desc: Limits configuration
+limits:
+  # desc: Maximum size (KB) per MQTT message.
+  max_message_size_kb: {{ (limits | default({})).max_message_size_kb | default(256) }}
+  
+  # desc: Maximum number of QoS 1/2 messages in-flight per client.
+  max_inflight_messages: {{ (limits | default({})).max_inflight_messages | default(1000) }}
+  
+  # desc: Queue depth at which a warning is logged (for slow clients or offline storage).
+  queue_depth_warning_threshold: {{ (limits | default({})).queue_depth_warning_threshold | default(10000) }}
+  
+  # desc: Default session expiry interval (seconds) after client disconnect.
+  session_expiry_sec: {{ (limits | default({})).session_expiry_sec | default(3600) }}
+
+# ==============================================================================
+# Default subscription options
+# ==============================================================================
+
+# desc: Default settings for subscriptions
+defaults:
+  subscription:
+    # desc: Maximum topic levels (depth) allowed in a subscription filter.
+    max_topic_levels: {{ ((defaults | default({})).subscription | default({})).max_topic_levels | default(10) }}
+    
+    # desc: Maximum number of wildcards (+ or #) allowed per topic filter.
+    max_wildcards_per_topic: {{ ((defaults | default({})).subscription | default({})).max_wildcards_per_topic | default(3) }}

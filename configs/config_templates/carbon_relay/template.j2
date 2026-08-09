@@ -1,0 +1,104 @@
+{# Carbon Relay (Graphite) main configuration — /etc/carbon/carbon.conf #}
+{# Global settings: behavior of the relay daemon itself #}
+[common]
+{# Enable or disable debug logging #}
+LOG_DEBUG = {{ log_debug | lower }}
+{# Path to the log file #}
+LOG_FILE = {{ log_file }}
+{# Path to the PID file #}
+PID_FILE = {{ pid_file }}
+{# Maximum number of open file descriptors (ulimit -n) #}
+MAX_OPEN_FILES = {{ max_open_files }}
+{# Maximum size (in bytes) of the log buffer before flushing #}
+LOG_BUFFER_SIZE = {{ log_buffer_size }}
+{# Interval (in seconds) between log flushes #}
+LOG_FLUSH_INTERVAL = {{ log_flush_interval }}
+
+{# Listener configuration for incoming metrics #}
+[listener:tcp]
+{# Enable TCP listener #}
+ENABLE_LISTENER = {{ listeners.tcp.enabled }}
+{# IP address to bind to #}
+LINE_RECEIVER_HOSTNAME = {{ listeners.tcp.bind_address }}
+{# Port to listen on #}
+LINE_RECEIVER_PORT = {{ listeners.tcp.port }}
+{# Maximum length of a single metric line (bytes) #}
+MAX_METRIC_LENGTH = {{ listeners.tcp.max_metric_length }}
+{# Enable or disable TCP keep-alive #}
+ENABLE_TCP_KEEPALIVE = {{ listeners.tcp.tcp_keepalive | lower }}
+
+{# UDP listener configuration (optional) #}
+{% if listeners.udp.enabled %}
+[listener:udp]
+ENABLE_LISTENER = true
+UDP_RECEIVER_HOSTNAME = {{ listeners.udp.bind_address }}
+UDP_RECEIVER_PORT = {{ listeners.udp.port }}
+MAX_METRIC_LENGTH = {{ listeners.udp.max_metric_length }}
+{% endif %}
+
+{# Relay rules — how metrics are routed to destination clusters #}
+{% for rule in relay_rules %}
+[rule:{{ rule.name | replace(' ', '_') | lower }}]
+{# Pattern to match metric names (regex) #}
+match = {{ rule.match }}
+{# Destination cluster(s) — comma-separated or `*` for all #}
+ destinations = {{ rule.destinations | join(', ') }}
+{# Optional: whether to replicate (for fan-out clusters) #}
+{% if rule.replicate is defined %}replicate = {{ rule.replicate | lower }}{% endif %}
+{% endfor %}
+
+{# Destination cluster definitions — backends to forward metrics to #}
+{% for cluster in destination_clusters %}
+[cluster:{{ cluster.name | replace(' ', '_') | lower }}]
+{# Enable or disable this cluster #}
+ENABLE = {{ cluster.enabled }}
+{# Hostname prefix for servers (e.g., `server-` → server-1.example.com, etc.) #}
+SERVERS = {{ cluster.servers | join(', ') }}
+{# Port for all servers in this cluster (default: 2003) #}
+PORT = {{ cluster.port }}
+{# Protocol: `tcp` or `udp` #}
+PROTOCOL = {{ cluster.protocol }}
+{# Replication factor for this cluster (number of copies) #}
+REPLICATION_FACTOR = {{ cluster.replication_factor }}
+{# Timeout (seconds) for connecting/sending to backend #}
+CONNECT_TIMEOUT = {{ cluster.connect_timeout }}
+{# Use consistent hashing for routing (required for replication) #}
+USE_CONSISTENT_HASHING = {{ cluster.consistent_hashing | lower }}
+{# Hash function: `md5`, `sha256`, or `murmur` #}
+HASH_FUNCTION = {{ cluster.hash_function }}
+{% endfor %}
+
+{# Caching — buffer metrics before forwarding #}
+[cache]
+{# Enable or disable the local write cache #}
+ENABLE_CACHE = {{ cache.enabled }}
+{# Maximum number of metrics in the cache #}
+MAX_CACHE_SIZE = {{ cache.max_size }}
+{# Threshold to start aggressive flushing (percent of max cache) #}
+CACHE_WRITE_STRATEGY = {{ cache.write_strategy }}
+{# Maximum time (seconds) to wait before flushing a batch #}
+MAX_UPDATES_BEFORE_FLUSH = {{ cache.max_updates_before_flush }}
+{# Interval (seconds) between flushes #}
+CACHE_FLUSH_INTERVAL = {{ cache.flush_interval }}
+{# Maximum number of metrics in a single flush batch #}
+CACHE_FLUSH_MAX_PACKS = {{ cache.flush_max_packs }}
+
+{# Aggregation — optional metric aggregation rules #}
+{% for agg in aggregations %}
+[aggregation:{{ agg.name | replace(' ', '_') | lower }}]
+{# Metric pattern to match #}
+match = {{ agg.match }}
+{# Aggregation function: `sum`, `avg`, `min`, `max`, `count`, `last`, `rate` #}
+function = {{ agg.function }}
+{# Aggregation interval (seconds) #}
+interval = {{ agg.interval }}
+{# Prefix to prepend to aggregated metric name #}
+prefix = {{ agg.prefix }}
+{% endfor %}
+
+{# Forwarding rules — legacy alias for relay rules (kept for compatibility) #}
+{% for forward_rule in forward_rules %}
+[forward:{{ forward_rule.name | replace(' ', '_') | lower }}]
+match = {{ forward_rule.match }}
+destinations = {{ forward_rule.destinations | join(', ') }}
+{% endfor %}

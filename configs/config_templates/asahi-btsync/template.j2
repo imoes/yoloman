@@ -1,0 +1,38 @@
+# asahi-btsync configuration for bluez sync
+# This template generates a BlueZ-compatible configuration file
+# that describes Bluetooth devices to be paired/synced from macOS NVRAM.
+# Each entry in the 'devices' list results in a block of directives.
+
+# Iterate over the list of Bluetooth devices provided by the schema.
+# Each 'device' is an object with keys like name, address, pin, trusted, alias.
+{% for device in devices | default([]) %}
+    # --- Start of block for a single Bluetooth device ---
+
+    # Check if the device has a valid MAC address; if not, skip this device.
+    {% if device.address is defined and device.address %}
+        # Comment identifying the device: uses the 'name' field, defaulting to 'unnamed' if missing.
+        # Then shows the MAC 'address'.
+        # Device: {{ device.name | default('unnamed') }} ({{ device.address }})
+
+        # OPTIONAL: Pin code for pairing.
+        # Only emitted if the 'pin' field is present in the device object.
+        {% if device.pin is defined %}
+        Pin = {{ device.pin }}
+        {% endif %}
+
+        # OPTIONAL: Trusted flag.
+        # Only emitted if the 'trusted' field is present in the device object.
+        # The value is converted to a lowercase string ('true' or 'false').
+        {% if device.trusted is defined %}
+        Trusted = {{ device.trusted | string | lower }}
+        {% endif %}
+
+        # OPTIONAL: Alias for the device.
+        # Only emitted if the 'alias' field is present in the device object.
+        {% if device.alias is defined %}
+        Alias = {{ device.alias }}
+        {% endif %}
+    {% endif %}
+    # --- End of block for a single Bluetooth device ---
+
+{% endfor %}

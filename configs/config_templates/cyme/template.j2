@@ -1,0 +1,237 @@
+# cyme configuration
+# Generated from documented command-line options.
+# This file follows TOML syntax. Values are booleans, integers, or strings.
+# Arrays are rendered as comma-separated strings inside quotes.
+
+# =============================================================================
+# [output] Section
+# Controls the structure, formatting, and content of the lsusb-compatible output.
+# =============================================================================
+[output]
+
+# Enable lsusb-compatible output (corresponds to -l/--lsusb)
+# Default: False
+lsusb = {{ output_lsusb|default(false) }}
+
+# Dump device hierarchy as a tree (corresponds to -t/--tree)
+# Default: False
+tree = {{ output_tree|default(false) }}
+
+# Blocks to display for each device (e.g., 'name', 'vendor-id', 'product-id')
+# Corresponds to multiple -b/--blocks options.
+# Rendered as a comma-separated string inside quotes.
+# Default: [] (empty list)
+blocks = "{{ output_blocks|default([])|join(',') }}"
+
+# Blocks to display for each bus; corresponds to --bus-blocks
+# Rendered as a comma-separated string inside quotes.
+# Default: [] (empty list)
+buses = "{{ output_bus_blocks|default([])|join(',') }}"
+
+# Blocks to display for each configuration; corresponds to --config-blocks
+# Rendered as a comma-separated string inside quotes.
+# Default: [] (empty list)
+configs = "{{ output_config_blocks|default([])|join(',') }}"
+
+# Blocks to display for each interface; corresponds to --interface-blocks
+# Rendered as a comma-separated string inside quotes.
+# Default: [] (empty list)
+interfaces = "{{ output_interface_blocks|default([])|join(',') }}"
+
+# Blocks to display for each endpoint; corresponds to --endpoint-blocks
+# Rendered as a comma-separated string inside quotes.
+# Default: [] (empty list)
+endpoints = "{{ output_endpoint_blocks|default([])|join(',') }}"
+
+# Show block headings (corresponds to --headings)
+# Default: False
+headings = {{ output_headings|default(false) }}
+
+# Disable padding for aligned blocks (corresponds to --no-padding)
+# Default: False
+no_padding = {{ output_no_padding|default(false) }}
+
+# =============================================================================
+# Sorting and grouping
+# Controls how devices and buses are ordered and grouped in the output.
+# =============================================================================
+
+# Sort devices by (device-number|branch-position|no-sort); corresponds to --sort-devices
+# Possible values:
+#   device-number: Sort by bus device number.
+#   branch-position: Sort by branch position in the tree.
+#   no-sort: No sorting.
+# Default: 'device-number'
+sort_devices = "{{ output_sort_devices|default('device-number') }}"
+
+# Sort devices by bus number. If using any sort-devices other than no-sort, this happens automatically
+# (corresponds to --sort-buses)
+# Default: False
+sort_buses = {{ output_sort_buses|default(false) }}
+
+# Group devices by value when listing (corresponds to --group-devices)
+# Possible values:
+#   no-group: No grouping
+#   bus: Group into buses with bus id
+#   vendor: Group by vendor
+#   product: Group by product
+#   class: Group by class
+# Default: 'no-group'
+group_devices = "{{ output_group_devices|default('no-group') }}"
+
+# Hide empty buses when printing tree; those with no devices (corresponds to --hide-buses)
+# Default: False
+hide_buses = {{ output_hide_buses|default(false) }}
+
+# Hide empty hubs when printing tree; those with no devices. When listing will hide hubs regardless
+# of whether empty or not (corresponds to --hide-hubs)
+# Default: False
+hide_hubs = {{ output_hide_hubs|default(false) }}
+
+# Show root hubs when listing; Linux only (corresponds to --list-root-hubs)
+# Default: False
+list_root_hubs = {{ output_list_root_hubs|default(false) }}
+
+# =============================================================================
+# Filtering
+# Filters applied to device names, serials, and class codes.
+# =============================================================================
+
+# Filter on string contained in name (corresponds to --filter-name)
+# Default: '' (empty string, no filter)
+filter_name = "{{ filter_name|default('') }}"
+
+# Filter on string contained in serial (corresponds to --filter-serial)
+# Default: '' (empty string, no filter)
+filter_serial = "{{ filter_serial|default('') }}"
+
+# Filter on USB class code (corresponds to --filter-class)
+# Possible values:
+#   use-interface-descriptor: Device class is unspecified, interface descriptors used.
+#   device: Device class.
+#   vendor: Vendor class.
+#   class: Class code.
+# Default: '' (empty string, no filter)
+filter_class = "{{ filter_class|default('') }}"
+
+# =============================================================================
+# Device/bus filtering
+# Specific selectors for individual devices or buses.
+# =============================================================================
+
+# Show only devices with specified device and/or bus numbers (in decimal)
+# in format [[bus]:][devnum] (corresponds to -s/--show)
+# Default: '' (empty string, no filter)
+show = "{{ show|default('') }}"
+
+# Show only devices with the specified vendor and product ID numbers (in hexadecimal)
+# in format VID:[PID] (corresponds to -d/--vidpid)
+# Default: '' (empty string, no filter)
+vidpid = "{{ vidpid|default('') }}"
+
+# Selects which device lsusb will examine - supplied as Linux /dev/bus/usb/BBB/DDD style path
+# (corresponds to -D/--device)
+# Default: '' (empty string, no filter)
+device = "{{ device|default('') }}"
+
+# =============================================================================
+# Display formatting
+# Controls verbosity, numeric base, coloring, encoding, and icons.
+# =============================================================================
+
+# Verbosity level (repeat provides count):
+# 0: Basic device list
+# 1: Prints device configurations
+# 2: Prints interfaces
+# 3: Prints interface endpoints
+# 4: Prints everything
+# (corresponds to -v/--verbose)
+# Default: 0
+verbose = {{ output_verbose|default(0) }}
+
+# Show base16 values as base10 decimal instead (corresponds to --decimal)
+# Default: False
+decimal = {{ output_decimal|default(false) }}
+
+# Output coloring mode (corresponds to --color)
+# Possible values:
+#   auto: Show colours if the output goes to an interactive console
+#   always: Always show colours
+#   never: Never show colours
+# Default: 'always'
+color = "{{ output_color|default('always') }}"
+
+# Output character encoding (corresponds to --encoding)
+# Possible values:
+#   glyphs: Use UTF-8 private use area characters
+#   ascii: Use ASCII characters
+#   unicode: Use standard Unicode characters
+# Default: 'glyphs'
+encoding = "{{ output_encoding|default('glyphs') }}"
+
+# When to print icon blocks (corresponds to --icon)
+# Possible values:
+#   auto: Show icon blocks if the [Encoding] supports icons matched in the db
+#   always: Always show icon blocks
+#   never: Never show icon blocks
+# Default: 'auto'
+icon = "{{ output_icon|default('auto') }}"
+
+# Print more blocks by default at each verbosity (corresponds to -m/--more)
+# Default: False
+more = {{ output_more|default(false) }}
+
+# =============================================================================
+# Masking serial numbers
+# Security feature to hide sensitive serial numbers in output.
+# =============================================================================
+
+# Mask serial numbers with '*' or random chars (corresponds to --mask-serials)
+# Possible values:
+#   hide: Hide with '*' char
+#   scramble: Mask by random chars
+# Default: 'hide'
+mask_serials = "{{ mask_serials|default('hide') }}"
+
+# =============================================================================
+# Platform-specific behavior
+# Options for macOS and other non-Linux environments.
+# =============================================================================
+
+# Force pure libusb profiler on macOS rather than combining system_profiler output.
+# Has no effect on other platforms or when using nusb (corresponds to --force-libusb)
+# Default: False
+force_libusb = {{ output_force_libusb|default(false) }}
+
+# Use the system_profiler command on macOS to get USB data. If not using nusb this is the
+# default for macOS, merging with libusb data for verbosity levels > 0 (corresponds to --system-profiler)
+# Default: False
+system_profiler = {{ output_system_profiler|default(false) }}
+
+# =============================================================================
+# I/O
+# Input/Output format and configuration file path.
+# =============================================================================
+
+# Output as json format after sorting, filters and tree settings are applied;
+# without -tree will be flattened dump of devices (corresponds to -j/--json-output)
+# Default: False
+json_output = {{ output_json_output|default(false) }}
+
+# Read from json output rather than profiling system (corresponds to --from-json)
+# Default: '' (empty string, read from system)
+json_input = "{{ output_json_input|default('') }}"
+
+# Path to user config file to use for custom icons, colours and default settings
+# (corresponds to -c/--config)
+# Default: '/etc/cyme.toml'
+config = "{{ config_file|default('/etc/cyme.toml') }}"
+
+# =============================================================================
+# Debugging
+# =============================================================================
+
+# Turn debugging information on. Alternatively can use RUST_LOG env: INFO, DEBUG, TRACE
+# (corresponds to -z/--debug)
+# Default: 0
+debug = {{ output_debug|default(0) }}

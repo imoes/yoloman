@@ -1,0 +1,96 @@
+[filter]
+# Enable CORS support for cross-origin requests (GNOCCHI_API_CORS_ENABLED)
+gnocchi_api_cors_enabled = {{ gnocchi_api_cors_enabled }}
+
+[filter:healthcheck]
+# Enable health check endpoint at /healthcheck (GNOCCHI_API_HEALTHCHECK_ENABLED)
+gnocchi_api_healthcheck_enabled = {{ gnocchi_api_healthcheck_enabled }}
+
+[filter:cache]
+# Enable response caching for GET requests (GNOCCHI_API_CACHE_ENABLED)
+gnocchi_api_cache_enabled = {{ gnocchi_api_cache_enabled }}
+
+[filter:standardattr]
+# Enable standard attributes (project_id, user_id, etc.) in API responses (GNOCCHI_API_STANDARD_ATTR_ENABLED)
+gnocchi_api_standard_attr_enabled = {{ gnocchi_api_standard_attr_enabled }}
+
+[filter:versionnegotiation]
+# Enable automatic API version negotiation (GNOCCHI_API_VERSION_NEGOTIATION_ENABLED)
+gnocchi_api_version_negotiation_enabled = {{ gnocchi_api_version_negotiation_enabled }}
+
+[filter:auth_token]
+# Enable token-based authentication (GNOCCHI_API_AUTH_TOKEN_ENABLED)
+gnocchi_api_auth_token_enabled = {{ gnocchi_api_auth_token_enabled }}
+
+[filter:keystoneauth]
+# Enable Keystone authentication (GNOCCHI_API_KEYSTONEAUTH_ENABLED)
+gnocchi_api_keystoneauth_enabled = {{ gnocchi_api_keystoneauth_enabled }}
+
+[keystone_authtoken]
+# Auth URI for Keystone (GNOCCHI_AUTH_URL)
+auth_uri = {{ keystone_authtoken.auth_uri }}
+# Auth type (e.g., password) (GNOCCHI_AUTH_TYPE)
+auth_type = {{ keystone_authtoken.auth_type }}
+# Project domain name (GNOCCHI_PROJECT_DOMAIN_NAME)
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+# Project name (GNOCCHI_PROJECT_NAME)
+project_name = {{ keystone_authtoken.project_name }}
+# User domain name (GNOCCHI_USER_DOMAIN_NAME)
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+# Username (GNOCCHI_USERNAME)
+username = {{ keystone_authtoken.username }}
+# Password (GNOCCHI_PASSWORD)
+password = {{ keystone_authtoken.password }}
+# API endpoint (GNOCCHI_GNOCCHI_URL)
+gnocchi_url = {{ keystone_authtoken.gnocchi_url }}
+# Disable SSL verification (GNOCCHI_SSL_VERIFY)
+ssl_verify = {{ keystone_authtoken.ssl_verify }}
+
+[api]
+# Host to bind the API server to (GNOCCHI_API_HOST)
+host = {{ api.host }}
+# Port to bind the API server to (GNOCCHI_API_PORT)
+port = {{ api.port }}
+# Number of workers for eventlet/gunicorn (GNOCCHI_API_WORKERS)
+workers = {{ api.workers }}
+# Enable debug mode (GNOCCHI_DEBUG)
+debug = {{ api.debug }}
+# Enable paste configuration (GNOCCHI_PASTE_CONFIG)
+paste_config = {{ api.paste_config }}
+
+[storage]
+# Driver for metric storage (e.g., file, redis, kafka, etc.) (GNOCCHI_STORAGE_DRIVER)
+driver = {{ storage.driver }}
+# Base path for file driver (GNOCCHI_FILE_BASE_PATH)
+base_path = {{ storage.base_path }}
+
+ indexer:
+# Indexer driver (e.g., sql, redis) (GNOCCHI_INDEXER_DRIVER)
+driver = {{ indexer.driver }}
+# Redis URL for indexer (GNOCCHI_INDEXER_URL)
+url = {{ indexer.url }}
+
+[metricd]
+# Number of metricd workers (GNOCCHI_METRICD_WORKERS)
+workers = {{ metricd.workers }}
+# Metric processing batch size (GNOCCHI_METRICD_BATCH_SIZE)
+batch_size = {{ metricd.batch_size }}
+
+[statsd]
+# Enable statsd listener (GNOCCHI_STATSD_ENABLED)
+enabled = {{ statsd.enabled }}
+# Host to bind statsd to (GNOCCHI_STATSD_HOST)
+host = {{ statsd.host }}
+# Port to bind statsd to (GNOCCHI_STATSD_PORT)
+port = {{ statsd.port }}
+
+{% for service in gnocchi_services %}
+[{{ service.name }}]
+# Service-specific config for {{ service.name }}
+{% for key, value in service.config.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+[listener:gnocchi_api]
+# Endpoint to listen on for gnocchi_api (GNOCCHI_LISTENER_GNOCCHI_API_ENDPOINT)
+endpoint = {{ listener.gnocchi_api.endpoint }}

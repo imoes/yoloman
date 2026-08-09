@@ -1,0 +1,81 @@
+# Global server configuration for Debusine
+# Enables or disables debug logging
+{{ debug | default(false) | lower }}
+
+# HTTP server listening address and port
+server:
+  host: "{{ server.host | default('0.0.0.0') }}"
+  port: {{ server.port | default(8000) }}
+
+# Path to store worker and job state persistently
+state_dir: "{{ state_dir | default('/var/lib/debusine') }}"
+
+# Path to store temporary files (e.g., uploads, artifacts)
+tmp_dir: "{{ tmp_dir | default('/var/tmp/debusine') }}"
+
+# Database configuration
+# Uses SQLite by default; supports PostgreSQL via optional connection URI
+database:
+  backend: "{{ database.backend | default('sqlite') }}"
+  path: "{{ database.path | default('/var/lib/debusine/db.sqlite3') }}"
+{% if database.backend == 'postgres' %}
+  uri: "{{ database.uri | required }}"
+{% endif %}
+
+# Worker configuration
+# Defines how many workers to spawn per queue, and optional queue-specific overrides
+workers:
+  # Global default worker count per queue
+  count: {{ workers.count | default(4) }}
+{% if workers.queues %}
+  # Per-queue worker counts (overrides global count)
+  queues:
+{% for queue in workers.queues %}
+    - name: "{{ queue.name }}"
+      count: {{ queue.count | default(workers.count) }}
+{% endfor %}
+{% endif %}
+
+# Authentication and authorization
+auth:
+  # Enables JWT-based authentication (must be true for production)
+  enabled: {{ auth.enabled | default(true) | lower }}
+  # JWT secret key; must be a strong random string
+  secret_key: "{{ auth.secret_key | required }}"
+  # Token expiration duration (seconds)
+  token_expiry: {{ auth.token_expiry | default(86400) }}
+
+# CORS configuration
+# Controls allowed origins for cross-origin requests
+cors:
+  enabled: {{ cors.enabled | default(false) | lower }}
+  allowed_origins:
+{% for origin in cors.allowed_origins | default([]) %}
+    - "{{ origin }}"
+{% endfor %}
+
+# Email notification settings (optional; only required if notifications enabled)
+notifications:
+  enabled: {{ notifications.enabled | default(false) | lower }}
+{% if notifications.enabled %}
+  smtp:
+    host: "{{ notifications.smtp.host }}"
+    port: {{ notifications.smtp.port | default(587) }}
+    use_tls: {{ notifications.smtp.use_tls | default(true) | lower }}
+    from_address: "{{ notifications.smtp.from_address | required }}"
+    user: "{{ notifications.smtp.user | default('') }}"
+{% endif %}
+
+# Resource limits
+limits:
+  # Maximum size (in bytes) of uploaded files/artifacts
+  max_upload_size: {{ limits.max_upload_size | default(1073741824) }}
+  # Maximum number of concurrent job runs
+  max_concurrent_jobs: {{ limits.max_concurrent_jobs | default(25) }}
+  # Maximum number of worker processes (soft cap)
+  max_workers_total: {{ limits.max_workers_total | default(32) }}
+
+# Logging configuration
+logging:
+  level: "{{ logging.level | default('info') }}"
+  path: "{{ logging.path | default('/var/log/debusine/server.log') }}"

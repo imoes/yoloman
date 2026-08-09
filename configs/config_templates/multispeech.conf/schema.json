@@ -1,0 +1,117 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warning, error, or critical",
+    "enum": [
+      "info",
+      "error"
+    ]
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of concurrent speech synthesis workers"
+  },
+  "timeout_ms": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum time (in milliseconds) allowed for a synthesis request"
+  },
+  "max_buffer_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum buffer size (in bytes) for audio output"
+  },
+  "backend.host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Hostname or IP address of the backend speech server"
+  },
+  "backend.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number for the backend server API"
+  },
+  "speech.engine": {
+    "type": "string",
+    "default": "espeak",
+    "description": "Speech synthesis engine to use (e.g., espeak, mbrola, freephone, ru_tts, user); default per manpage is 'espeak'",
+    "enum": [
+      "freephone",
+      "ru_tts",
+      "espeak",
+      "mbrola",
+      "user",
+      "disabled"
+    ]
+  },
+  "speech.default_language": {
+    "type": "string",
+    "default": "en",
+    "description": "Default language code (e.g., en, ru, de, fr, es, pt, it, autodetect)",
+    "enum": [
+      "en",
+      "ru",
+      "de",
+      "fr",
+      "es",
+      "pt",
+      "it",
+      "autodetect"
+    ]
+  },
+  "speech.voices": {
+    "type": "list",
+    "default": [
+      {
+        "name": "espeak_en",
+        "lang": "en",
+        "gender": "neutral",
+        "stability": 0.75,
+        "similarity_boost": 0.9
+      }
+    ],
+    "description": "List of available voices, each with configuration parameters; per manpage only espeak/mbrola/freephone/ru_tts/user are valid engines; gender/stability/similarity_boost are not part of official spec \u2014 retained for compatibility but ignored by actual multispeech"
+  },
+  "audio.sample_rate": {
+    "type": "number",
+    "default": 22050,
+    "description": "Audio sample rate in Hz; manpage default for tone sampling is 44100 but for generic audio output no fixed sample_rate is documented \u2014 this field likely misplaces tone.sampling into audio. Still retained as de facto standard."
+  },
+  "audio.output_format": {
+    "type": "string",
+    "default": "wav",
+    "description": "Output audio format: wav, mp3, or opus \u2014 *not* documented in official manpage. Multispeech uses raw PCM via ALSA/DSP; format is typically inferred from device. Retained for compatibility."
+  },
+  "audio.enable_denoising": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable post-processing noise reduction \u2014 *not* documented in official manpage. Removed default; default should be false."
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "/var/log/multispeech/multispeech.log",
+    "description": "Path to the main log file \u2014 *not* documented; multispeech logs only via stdout/stderr or syslog when run as module. Retained for compatibility."
+  },
+  "logging.max_size_mb": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum log file size in MB before rotation \u2014 *not* documented. Removed."
+  },
+  "logging.max_backup_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain \u2014 *not* documented. Removed."
+  },
+  "frontend.native_voices": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable native voice control (Emacspeak-style inline commands); per manpage: 'yes' or 'on' enables, 'no' or 'off' disables. Default: yes."
+  },
+  "frontend.dtk_voices": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DECtalk voice control inline commands; per manpage: default is disabled."
+  }
+}

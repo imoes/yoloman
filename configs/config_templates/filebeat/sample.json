@@ -1,0 +1,93 @@
+{
+  "inputs": [
+    {
+      "type": "filestream",
+      "enabled": true,
+      "paths": [
+        "/var/log/syslog",
+        "/var/log/*.log"
+      ],
+      "config": {
+        "fields": {
+          "log_source": "system"
+        },
+        "fields_under_root": true
+      },
+      "multiline": {
+        "pattern": "^\\s",
+        "negate": false,
+        "match": "after"
+      },
+      "scan_frequency": "1s",
+      "close_on_rotate": true
+    },
+    {
+      "type": "log",
+      "enabled": true,
+      "paths": [
+        "/var/log/nginx/access.log",
+        "/var/log/nginx/error.log"
+      ],
+      "document_type": "nginx",
+      "config": {
+        "fields": {
+          "log_source": "nginx"
+        },
+        "fields_under_root": true
+      }
+    }
+  ],
+  "processors": [
+    {
+      "type": "add_tags",
+      "enabled": true,
+      "config": {
+        "tags": [
+          "filebeat",
+          "logshipper"
+        ]
+      }
+    },
+    {
+      "type": "drop_fields",
+      "enabled": true,
+      "config": {
+        "fields": [
+          "host.architecture",
+          "agent.id"
+        ]
+      }
+    }
+  ],
+  "output": {
+    "type": "elasticsearch",
+    "config": {
+      "hosts": [
+        "http://es01.internal:9200",
+        "http://es02.internal:9200"
+      ],
+      "index": "filebeat-%{+yyyy.MM.dd}",
+      "pipeline": "filebeat-default",
+      "loadbalance": true
+    }
+  },
+  "logging": {
+    "level": "info",
+    "to_files": true,
+    "files": {
+      "path": "/var/log/filebeat",
+      "name": "filebeat",
+      "keepfiles": 5,
+      "permissions": "0640"
+    }
+  },
+  "config_modules_reload_enabled": false,
+  "kibana_host": "kibana.internal",
+  "kibana_port": 5601,
+  "kibana_username": null,
+  "kibana_password": null,
+  "template_enabled": true,
+  "template_name": "filebeat",
+  "template_pattern": "filebeat-*",
+  "template_fields": "fields.yml"
+}

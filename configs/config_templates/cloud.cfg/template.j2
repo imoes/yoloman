@@ -1,0 +1,106 @@
+# cloud-init configuration file
+# Managed by configuration management; DO NOT EDIT manually
+
+# System-wide settings
+{{ '# ' if system_config_disabled | default(false) }}system:
+  {{ '# ' if system_config_disabled | default(false) }}distro: {{ distro | default('ubuntu') }}
+  {{ '# ' if system_config_disabled | default(false) }}search_domain: {{ search_domain | default([]) | join(', ') }}
+  {{ '# ' if system_config_disabled | default(false) }}search_dns: {{ search_dns | default(false) }}
+
+# Network configuration
+{{ '# ' if network_config_disabled | default(false) }}network:
+  {{ '# ' if network_config_disabled | default(false) }}version: 2
+  {{ '# ' if network_config_disabled | default(false) }}renderer: {{ network_renderer | default('netplan') }}
+  {{ '# ' if network_config_disabled | default(false) }}{% if network_config_disabled | default(false) %}
+  # Network definitions omitted due to system configuration
+{% else %}
+{% for iface in network_interfaces %}
+  {{ '  ' }}{% if iface.name %}{{ iface.name }}:{% endif %}
+  {{ '    ' }}{% if iface.type == 'ethernet' %}renderer: ethernets{% endif %}
+  {{ '    ' }}{% if iface.type == 'bridge' %}renderer: bridges{% endif %}
+  {{ '    ' }}{% if iface.type == 'bond' %}renderer: bonds{% endif %}
+{% endfor %}
+{% endif %}
+
+# Users and ssh keys
+users:
+  - name: {{ default_user.name | default('ubuntu') }}
+    sudo: {{ default_user.sudo | default('ALL=(ALL) NOPASSWD:ALL') }}
+    ssh_authorized_keys:
+{% for key in ssh_authorized_keys %}
+      - {{ key | quote }}
+{% endfor %}
+
+# Package updates and upgrades
+package_update: {{ package_update | default(true) }}
+package_upgrade: {{ package_upgrade | default(false) }}
+package_reboot_if_required: {{ package_reboot_if_required | default(false) }}
+
+# Boot commands
+bootcmd:
+{% for cmd in boot_commands %}
+  - {{ cmd | quote }}
+{% endfor %}
+
+# Runcmd (run once on first boot)
+runcmd:
+{% for cmd in runcmd %}
+  - {{ cmd | quote }}
+{% endfor %}
+
+# Final commands (run after all modules)
+final_message: {{ final_message | default('The system is finally up, after $uptime seconds') }}
+
+# Local hostname setup
+preserve_hostname: {{ preserve_hostname | default(false) }}
+
+# Time and timezone
+timezone: {{ timezone | default('Etc/UTC') }}
+
+# Data source selection
+_datasource_list: ['{{ datasource_list | join('", "') }}']
+
+# Cloud config modules to run (and their order)
+cloud_init_modules:
+  - migrator
+  - seed_random
+  - bootcmd
+  - write_files
+  - generate_hostname
+  - ssh_authkey_fingerprints
+  - keys_to_console
+  - install_ssh
+{% for mod in cloud_init_modules | default([]) %}
+{% if mod not in ['migrator','seed_random','bootcmd','write_files','generate_hostname','ssh_authkey_fingerprints','keys_to_console','install_ssh'] %}
+  - {{ mod }}
+{% endif %}
+{% endfor %}
+
+# Cloud config modules that configure the system after networking
+cloud_config_modules:
+  - mounts
+  - locale
+  - set_passwords
+  - ssh
+  - ubuntu-advantage
+  - update_etc_hosts
+  - resize_fs
+{% for mod in cloud_config_modules | default([]) %}
+{% if mod not in ['mounts','locale','set_passwords','ssh','ubuntu-advantage','update_etc_hosts','resize_fs'] %}
+  - {{ mod }}
+{% endif %}
+{% endfor %}
+
+# Modules that run at last (cleanup, finalization)
+cloud_final_modules:
+  - package-update-upgrade-install
+  - fan
+  - landscape
+  - lxd
+  - ubuntu-drivers
+  - puppet
+  - chef
+  - salt-minion
+  - mcollective
+  - disable-ec2-metadata
+  - runcmd

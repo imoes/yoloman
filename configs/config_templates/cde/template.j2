@@ -1,0 +1,51 @@
+# ==============================================================================
+# cde Package Configuration Template
+# ==============================================================================
+# This template generates the configuration for the `cde` packaging utility.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose, derived from the schema definition.
+#
+# Variables used:
+#   - output_dir      : Path to the custom output directory (default: cde-package)
+#   - verbose         : Boolean to enable verbose/debug output (default: False)
+#   - no_forks        : Boolean to disable tracking of child processes (default: False)
+#   - ignore_files    : List of exact file paths to exclude from packaging (default: [])
+#   - ignore_prefixes : List of file path prefixes to exclude from packaging (default: [])
+# ==============================================================================
+
+# Output directory for the packaged environment.
+# Default: cde-package
+OUTPUT_DIR: {{ output_dir | default('cde-package') }}
+
+# Verbosity: enable verbose logging for debugging.
+# Corresponds to the -v flag.
+# Default: false
+VERBOSE: {{ verbose | default(false) | lower }}
+
+# Fork handling: whether to follow and package child processes.
+# When true, child processes (forks) are NOT packaged.
+# Corresponds to the -f flag.
+# Default: false
+NO_FORKS: {{ no_forks | default(false) | lower }}
+
+# Ignore files by exact path.
+# Lists specific file paths that should be skipped during packaging.
+# Corresponds to the -i flag.
+# Default: empty list
+{% if ignore_files | default([]) | length > 0 %}
+IGNORE_FILES:
+{% for item in ignore_files | default([]) %}
+- {{ item }}
+{% endfor %}
+{% endif %}
+
+# Ignore file prefixes.
+# Lists path prefixes; any file path starting with one of these prefixes is skipped.
+# Corresponds to the -p flag.
+# Default: empty list
+{% if ignore_prefixes | default([]) | length > 0 %}
+IGNORE_PREFIXES:
+{% for item in ignore_prefixes | default([]) %}
+- {{ item }}
+{% endfor %}
+{% endif %}

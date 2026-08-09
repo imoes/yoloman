@@ -1,0 +1,52 @@
+{
+  "enabled": {
+    "type": "number",
+    "default": 0,
+    "description": "Master switch. Set to 1 to enable rescue-volume pivoting; 0 leaves the hook installed but completely inert."
+  },
+  "rescue_label": {
+    "type": "string",
+    "default": "RESCUE",
+    "description": "Filesystem label of the rescue block device, resolved with blkid -L. Unused when rescue_uuid is set."
+  },
+  "rescue_uuid": {
+    "type": "string",
+    "default": "",
+    "description": "UUID of the rescue volume (e.g. 550e8400-e29b-41d4-a716-446655440000). When non-empty, overrides rescue_label."
+  },
+  "rescue_fstype": {
+    "type": "string",
+    "default": "ext4",
+    "description": "Filesystem type of the rescue volume passed to mount -t. Common values: ext4, xfs, btrfs."
+  },
+  "mount_opts": {
+    "type": "string",
+    "default": "ro,noatime",
+    "description": "Mount options for both the probe mount and the root pivot. Use 'ro' for an immutable rescue image or 'rw' if the rescue environment must write state."
+  },
+  "cmdline_trigger": {
+    "type": "string",
+    "default": "rescuevol",
+    "description": "Kernel command-line token whose presence (in /proc/cmdline) activates rescue mode. Pass this word via GRUB or cloud instance user-data to trigger a rescue boot."
+  },
+  "marker_file": {
+    "type": "string",
+    "default": ".rescuevol",
+    "description": "Filename that must exist in the root directory of the rescue volume. Acts as a safety guard to prevent accidentally pivoting root to a wrong unlabeled device."
+  },
+  "device_wait_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for the rescue block device to appear (udev settle / slow disk). After timeout the hook logs a warning and normal boot continues."
+  },
+  "probe_mountpoint": {
+    "type": "string",
+    "default": "/run/rescuevol-probe",
+    "description": "Temporary path relative to rootmnt where the rescue volume is mounted for marker verification before the final root pivot."
+  },
+  "verbosity": {
+    "type": "number",
+    "default": 1,
+    "description": "Log verbosity written to the kernel ring buffer: 0=silent (failures only), 1=key milestones, 2=every step (useful during initial deployment)."
+  }
+}

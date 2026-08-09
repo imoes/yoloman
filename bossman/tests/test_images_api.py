@@ -1,0 +1,684 @@
+"""Bare-metal deployment API: images, restore jobs, and the netboot check-in.
+
+The check-in is where the restore is planned, because the target's real disk size is not known until
+the machine boots and says so — and that size decides how far the last volume grows. So most of what
+matters here is tested through that endpoint.
+"""
+
+import uuid
+from datetime import datetime, timezone
+
+from fastapi.testclient import TestClient
+from sqlalchemy import delete, select, text
+
+from bossman.db.models import AccessGrant, Agent, DiskImage, RestoreJob
+from bossman.main import create_app
+from bossman.services.auth import new_api_token
+from bossman.services.imaging import layout_to_dict, parse_layout
+
+GiB = 1024**3
+SECRET = "netboot-test-secret"
+
+SDA = {
+    "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None, "rm": False,
+    "children": [
+        {"name": "sda1", "type": "part", "size": 1 * GiB, "fstype": "vfat",
+         "fsused": 8 * 1024**2, "mountpoint": "/boot/efi"},
+        {"name": "sda2", "type": "part", "size": 2 * GiB, "fstype": "ext4",
+         "fsused": 300 * 1024**2, "mountpoint": "/boot"},
+        {"name": "sda3", "type": "part", "size": 46 * GiB, "fstype": "LVM2_member", "fsused": None,
+         "children": [
+             {"name": "ubuntu--vg-ubuntu--lv", "type": "lvm", "size": 46 * GiB, "fstype": "ext4",
+              "fsused": 6 * GiB, "mountpoint": "/"},
+         ]},
+    ],
+}
+SFDISK = {"partitiontable": {"label": "gpt", "sectorsize": 512, "partitions": [
+    {"node": "/dev/sda1", "type": "C12A7328-F81F-11D2-BA4B-00A0C93EC93B"},
+    {"node": "/dev/sda2", "type": "0FC63DAF-8483-4772-8E79-3D69D8477DE4"},
+    {"node": "/dev/sda3", "type": "E6D6D379-F507-44C2-A23C-238F2A3DF928"},
+]}}
+
+# What a booted target reports about itself: a much bigger disk than the source had.
+TARGET_DEVICES = [
+    {"name": "loop0", "type": "loop", "rm": False, "size": 4096},
+    {"name": "nvme0n1", "type": "disk", "rm": False, "size": 400 * GiB},
+    {"name": "sdb", "type": "disk", "rm": True, "size": 64 * GiB},
+]
+
+
+async def _token(db_session):
+    name = f"img-caller-{uuid.uuid4().hex[:6]}"
+    row, raw = new_api_token(name)
+    db_session.add(row)
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
+    await db_session.commit()
+    return row, raw
+
+
+def _h(raw):
+    return {"Authorization": f"Bearer {raw}"}
+
+
+async def _ready_image(db_session, name=None) -> DiskImage:
+    layout = parse_layout(sfdisk=SFDISK, lsblk_disk=SDA)
+    img = DiskImage(
+        name=name or f"golden-{uuid.uuid4().hex[:6]}",
+        status="ready",
+        manifest=layout_to_dict(layout),
+        files={"root-ubuntu-lv": {"name": "root-ubuntu-lv.pcl.zst", "bytes": 2 * GiB, "sha256": "x"}},
+    )
+    db_session.add(img)
+    await db_session.commit()
+    return img
+
+
+async def _cleanup(db_session, *rows):
+    for r in rows:
+        if isinstance(r, DiskImage):
+            await db_session.execute(delete(RestoreJob).where(RestoreJob.image_id == r.id))
+    await db_session.flush()
+    for r in rows:
+        await db_session.delete(r)
+    await db_session.commit()
+
+
+# ---------------------------------------------------------------------------
+# Images
+
+
+async def test_an_image_reports_its_shape_without_the_caller_reading_the_manifest(db_session):
+    token, raw = await _token(db_session)
+    img = await _ready_image(db_session)
+    with TestClient(create_app()) as client:
+        body = client.get(f"/api/v1/images/{img.id}", headers=_h(raw)).json()
+    assert body["disk_size"] == 50 * GiB
+    assert [v["role"] for v in body["volumes"]] == ["esp", "boot", "root"]
+    assert body["stored_bytes"] == 2 * GiB
+    await _cleanup(db_session, img, token)
+
+
+async def test_a_duplicate_image_name_is_a_conflict(db_session):
+    token, raw = await _token(db_session)
+    name = f"dup-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        first = client.post("/api/v1/images", json={"name": name}, headers=_h(raw))
+        second = client.post("/api/v1/images", json={"name": name}, headers=_h(raw))
+    assert first.status_code == 201 and second.status_code == 409
+    img = await db_session.scalar(select(DiskImage).where(DiskImage.name == name))
+    await _cleanup(db_session, img, token)
+
+
+async def test_a_new_image_starts_out_capturing(db_session):
+    """It is not deployable until the capture says so — see the ready-check on job creation."""
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        body = client.post("/api/v1/images", json={"name": f"cap-{uuid.uuid4().hex[:6]}"}, headers=_h(raw)).json()
+    assert body["status"] == "capturing"
+    img = await db_session.get(DiskImage, uuid.UUID(body["id"]))
+    await _cleanup(db_session, img, token)
+
+
+async def test_an_image_with_an_active_job_cannot_be_deleted(db_session):
+    """The delete cascades to jobs, so removing it under a machine mid-install would take away the
+    plan it is executing."""
+    token, raw = await _token(db_session)
+    img = await _ready_image(db_session)
+    with TestClient(create_app()) as client:
+        client.post(
+            "/api/v1/restore-jobs",
+            json={"image_id": str(img.id), "target_mac": "aa:bb:cc:00:00:01", "target_hostname": "h"},
+            headers=_h(raw),
+        )
+        resp = client.delete(f"/api/v1/images/{img.id}", headers=_h(raw))
+    assert resp.status_code == 409
+    assert "still pending" in resp.text
+    await _cleanup(db_session, img, token)
+
+
+# ---------------------------------------------------------------------------
+# Restore jobs
+
+
+async def test_a_job_cannot_be_armed_from_an_unfinished_image(db_session):
+    token, raw = await _token(db_session)
+    img = DiskImage(name=f"half-{uuid.uuid4().hex[:6]}", status="capturing")
+    db_session.add(img)
+    await db_session.commit()
+    with TestClient(create_app()) as client:
+        resp = client.post(
+            "/api/v1/restore-jobs",
+            json={"image_id": str(img.id), "target_mac": "aa:bb:cc:00:00:02", "target_hostname": "h"},
+            headers=_h(raw),
+        )
+    assert resp.status_code == 409 and "not ready" in resp.text
+    await _cleanup(db_session, img, token)
+
+
+async def test_mac_addresses_are_normalised_however_they_are_written(db_session):
+    """PXE firmware, dnsmasq and operators spell the same machine three ways. Without normalising, a
+    target checks in and finds no job that is plainly sitting right there — the most confusing
+    failure available."""
+    token, raw = await _token(db_session)
+    img = await _ready_image(db_session)
+    with TestClient(create_app()) as client:
+        created = client.post(
+            "/api/v1/restore-jobs",
+            json={"image_id": str(img.id), "target_mac": "AA-BB-CC-DD-EE-01", "target_hostname": "h"},
+            headers=_h(raw),
+        )
+        assert created.status_code == 201
+        assert created.json()["target_mac"] == "aa:bb:cc:dd:ee:01"
+
+        # The same machine, written as Cisco-style dotted hex, must collide.
+        again = client.post(
+            "/api/v1/restore-jobs",
+            json={"image_id": str(img.id), "target_mac": "aabb.ccdd.ee01", "target_hostname": "h"},
+            headers=_h(raw),
+        )
+        assert again.status_code == 409, "recognised as the same target"
+
+        bad = client.post(
+            "/api/v1/restore-jobs",
+            json={"image_id": str(img.id), "target_mac": "not-a-mac", "target_hostname": "h"},
+            headers=_h(raw),
+        )
+        assert bad.status_code == 422
+    await _cleanup(db_session, img, token)
+
+
+# ---------------------------------------------------------------------------
+# The netboot check-in
+
+
+async def _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:10", disk=None, hostname="web07"):
+    img = await _ready_image(db_session)
+    body = {"image_id": str(img.id), "target_mac": mac, "target_hostname": hostname}
+    if disk:
+        body["target_disk"] = disk
+    resp = client.post("/api/v1/restore-jobs", json=body, headers=_h(raw))
+    # Checked, not ignored. A leftover job holding this MAC answers 409 here, and swallowing that
+    # turned into a baffling failure three assertions later — the checkin quietly served the OLD job's
+    # image, so the test reported an image-id mismatch instead of "the MAC was already armed".
+    assert resp.status_code == 201, f"arming {mac} failed: {resp.status_code} {resp.text}"
+    return img
+
+
+def _secret_headers():
+    return {"X-Netboot-Secret": SECRET}
+
+
+async def test_checkin_is_refused_when_no_secret_is_configured(db_session, monkeypatch):
+    """Fail closed: shipping this code must not open an unauthenticated install endpoint."""
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:11")
+        resp = client.post(
+            "/api/v1/netboot/checkin",
+            json={"mac": "aa:bb:cc:dd:ee:11", "blockdevices": TARGET_DEVICES},
+        )
+    assert resp.status_code == 403
+    assert "disabled" in resp.text
+    await _cleanup(db_session, img, token)
+
+
+async def test_checkin_plans_the_restore_against_the_disk_the_target_reports(db_session, monkeypatch):
+    """The core of the feature, end to end through the API: a 50 GiB source arriving on a 400 GiB
+    machine gets a plan whose last volume grows."""
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    monkeypatch.setenv("BOSSMAN_IMAGE_BASE_URL", "https://boss.example")
+    token, raw = await _token(db_session)
+    if True:
+        with TestClient(create_app()) as client:
+            img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:12")
+            resp = client.post(
+                "/api/v1/netboot/checkin",
+                json={"mac": "AA:BB:CC:DD:EE:12", "blockdevices": TARGET_DEVICES},
+                headers=_secret_headers(),
+            )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["target_disk"] == "nvme0n1", "the largest non-removable disk, not sda"
+        assert body["hostname"] == "web07"
+        assert body["sfdisk_script"].startswith("label: gpt")
+        # Playbook-driven restore: the response carries the two canonical runbooks + the resolved vars,
+        # not a shell-step list. Phase 1 (PE) restores the images; phase 2 (chroot) installs the bootloader.
+        pe = body["pe_vars"]
+        assert pe["target_disk"] == "/dev/nvme0n1"
+        assert pe["restore_volumes"], "at least one volume to restore"
+        assert any(f"/images/{img.id}" in r["source_url"] for r in pe["restore_volumes"])
+        # Mounts are parents-first: root (/mnt/target) before /boot (/mnt/target/boot).
+        mps = [m["mountpoint"] for m in body["mounts"]]
+        assert mps and mps[0] == "/mnt/target"
+        assert all(m.startswith("/mnt/target") for m in mps)
+        # The bootloader is a task in the chroot-phase runbook.
+        tgt_modules = [s.get("module") for s in body["target_runbook"]["steps"]]
+        assert "yoloman.bootloader" in tgt_modules
+        assert body["target_vars"]["firmware"] in ("bios", "uefi")
+        assert body["target_vars"]["target_hostname"] == "web07"
+        assert body["pe_runbook"]["steps"], "PE-phase runbook has steps"
+
+        job = await db_session.scalar(select(RestoreJob).where(RestoreJob.target_mac == "aa:bb:cc:dd:ee:12"))
+        await db_session.refresh(job)
+        assert job.status == "running"
+        assert job.target_disk == "nvme0n1"
+        assert len(job.steps) == len(body["steps"]), "the coarse phase list is stored for progress"
+    await _cleanup(db_session, img, token)
+
+
+async def test_checkin_without_a_job_says_so(db_session, monkeypatch):
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    if True:
+        with TestClient(create_app()) as client:
+            resp = client.post(
+                "/api/v1/netboot/checkin",
+                json={"mac": "aa:bb:cc:00:00:99", "blockdevices": TARGET_DEVICES},
+                headers=_secret_headers(),
+            )
+        assert resp.status_code == 404
+        assert "no job armed" in resp.text
+
+
+async def test_a_target_too_small_fails_the_job_where_an_operator_will_see_it(db_session, monkeypatch):
+    """An unplannable restore is the job's failure, recorded on the row — not a 500 that exists only
+    in a log the operator does not have."""
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    token, raw = await _token(db_session)
+    if True:
+        with TestClient(create_app()) as client:
+            img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:13")
+            resp = client.post(
+                "/api/v1/netboot/checkin",
+                json={
+                    "mac": "aa:bb:cc:dd:ee:13",
+                    "blockdevices": [{"name": "sda", "type": "disk", "rm": False, "size": 4 * GiB}],
+                },
+                headers=_secret_headers(),
+            )
+        assert resp.status_code == 409
+        job = await db_session.scalar(select(RestoreJob).where(RestoreJob.target_mac == "aa:bb:cc:dd:ee:13"))
+        await db_session.refresh(job)
+        assert job.status == "failed"
+        assert "bytes of data" in (job.error or "")
+    await _cleanup(db_session, img, token)
+
+
+async def test_progress_is_monotonic_and_the_log_is_bounded(db_session, monkeypatch):
+    """A retried step must not make progress look like it went backwards — an operator watching a
+    long install would read that as a loop. And a runaway helper must not fill the table."""
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    token, raw = await _token(db_session)
+    if True:
+        with TestClient(create_app()) as client:
+            img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:14")
+            job_id = client.post(
+                "/api/v1/netboot/checkin",
+                json={"mac": "aa:bb:cc:dd:ee:14", "blockdevices": TARGET_DEVICES},
+                headers=_secret_headers(),
+            ).json()["job_id"]
+
+            client.post(f"/api/v1/netboot/progress/{job_id}",
+                        json={"step_index": 12, "log": "x" * 100}, headers=_secret_headers())
+            back = client.post(f"/api/v1/netboot/progress/{job_id}",
+                               json={"step_index": 3, "log": "y" * 100_000}, headers=_secret_headers())
+        assert back.json()["step_index"] == 12, "never regresses"
+        job = await db_session.get(RestoreJob, uuid.UUID(job_id))
+        await db_session.refresh(job)
+        assert len(job.log) <= 64_000
+    await _cleanup(db_session, img, token)
+
+
+async def test_a_reported_failure_ends_the_job_and_frees_the_mac(db_session, monkeypatch):
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    token, raw = await _token(db_session)
+    if True:
+        with TestClient(create_app()) as client:
+            img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:15")
+            job_id = client.post(
+                "/api/v1/netboot/checkin",
+                json={"mac": "aa:bb:cc:dd:ee:15", "blockdevices": TARGET_DEVICES},
+                headers=_secret_headers(),
+            ).json()["job_id"]
+            client.post(f"/api/v1/netboot/progress/{job_id}",
+                        json={"step_index": 5, "failed": True, "error": "restore root: curl exited 22"},
+                        headers=_secret_headers())
+            # The MAC is free again, so the machine can be re-armed.
+            again = client.post(
+                "/api/v1/restore-jobs",
+                json={"image_id": str(img.id), "target_mac": "aa:bb:cc:dd:ee:15", "target_hostname": "h"},
+                headers=_h(raw),
+            )
+        assert again.status_code == 201
+        job = await db_session.get(RestoreJob, uuid.UUID(job_id))
+        await db_session.refresh(job)
+        assert job.status == "failed" and "curl exited 22" in (job.error or "")
+        assert job.finished_at is not None
+    await _cleanup(db_session, img, token)
+
+
+# ---------------------------------------------------------------------------
+# Streaming a captured file in, and finishing the image
+
+
+def _img_headers(image_id):
+    from bossman.api.images import image_upload_token
+    from bossman.config import get_settings
+
+    return {"X-Image-Token": image_upload_token(get_settings(), image_id)}
+
+
+async def _capturing_image(db_session) -> DiskImage:
+    img = DiskImage(name=f"cap-{uuid.uuid4().hex[:6]}", status="capturing")
+    db_session.add(img)
+    await db_session.commit()
+    return img
+
+
+async def test_an_upload_is_hashed_by_the_receiver(db_session, monkeypatch, tmp_path):
+    """The checksum is computed on what ARRIVED, not reported by the sender — a truncated upload is
+    exactly what a sender cannot notice, and a truncated image on a disk is an unbootable machine
+    that looks like a successful restore."""
+    import hashlib
+
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    payload = b"partclone-image-bytes" * 1000
+    with TestClient(create_app()) as client:
+        resp = client.put(
+            f"/api/v1/images/{img.id}/files/root-ubuntu-lv",
+            content=payload,
+            headers=_img_headers(img.id),
+        )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["bytes"] == len(payload)
+    assert body["sha256"] == hashlib.sha256(payload).hexdigest()
+    assert (tmp_path / str(img.id) / "root-ubuntu-lv.pcl.zst").read_bytes() == payload
+
+    await db_session.refresh(img)
+    assert img.files["root-ubuntu-lv"]["sha256"] == body["sha256"]
+    await _cleanup(db_session, img)
+
+
+async def test_an_upload_needs_the_token_for_that_image(db_session, monkeypatch, tmp_path):
+    """The token is scoped to one image, so handing it to a capture grants exactly that capture's
+    permission rather than a general API credential."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    other = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        none = client.put(f"/api/v1/images/{img.id}/files/root", content=b"x")
+        wrong = client.put(
+            f"/api/v1/images/{img.id}/files/root", content=b"x", headers=_img_headers(other.id)
+        )
+    assert none.status_code == 403
+    assert wrong.status_code == 403, "another image's token must not work"
+    await _cleanup(db_session, img)
+    await _cleanup(db_session, other)
+
+
+async def test_a_stem_cannot_escape_the_store(db_session, monkeypatch, tmp_path):
+    """`../../etc/shadow` as a stem would otherwise write wherever the process can."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        for bad in ("../escape", "root/../../x", "with space", ""):
+            resp = client.put(
+                f"/api/v1/images/{img.id}/files/{bad}", content=b"x", headers=_img_headers(img.id)
+            )
+            assert resp.status_code in (404, 422), f"{bad!r} was accepted"
+    assert list(tmp_path.rglob("*.pcl.zst")) == []
+    await _cleanup(db_session, img)
+
+
+async def test_an_interrupted_upload_leaves_no_file_under_the_real_name(db_session, monkeypatch, tmp_path):
+    """A restore fetches by name, so a partial file there would be fetched and written to a disk."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.put(f"/api/v1/images/{img.id}/files/root", content=b"", headers=_img_headers(img.id))
+    assert resp.status_code == 422
+    assert list((tmp_path / str(img.id)).glob("root.pcl.zst")) == []
+    assert list((tmp_path / str(img.id)).glob(".*.part")) == [], "the temp file is cleaned up too"
+    await _cleanup(db_session, img)
+
+
+async def test_a_ready_image_does_not_accept_more_files(db_session, monkeypatch, tmp_path):
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    img = await _ready_image(db_session)
+    with TestClient(create_app()) as client:
+        resp = client.put(f"/api/v1/images/{img.id}/files/root", content=b"x", headers=_img_headers(img.id))
+    assert resp.status_code == 409
+    await _cleanup(db_session, img)
+
+
+async def test_finishing_folds_in_the_measured_usage_and_marks_it_ready(db_session, monkeypatch, tmp_path):
+    """The cold-capture case end to end: the manifest arrives with usage unknown, partclone's own
+    measurement fills it, and only then is the image deployable."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    cold_sda = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None,
+        "children": [{"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+                      "fsused": None, "mountpoint": "/"}],
+    }
+    manifest = layout_to_dict(parse_layout(sfdisk=None, lsblk_disk=cold_sda))
+    assert manifest["volumes"][0]["used_bytes"] is None
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        client.put(f"/api/v1/images/{img.id}/files/root", content=b"x" * 100, headers=_img_headers(img.id))
+        resp = client.post(
+            f"/api/v1/images/{img.id}/finish",
+            json={"manifest": manifest, "used_bytes": {"root": 7 * GiB}},
+            headers=_img_headers(img.id),
+        )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "ready"
+    assert resp.json()["volumes"][0]["used_bytes"] == 7 * GiB
+    await _cleanup(db_session, img)
+
+
+async def test_finishing_without_the_usage_fails_the_image_here_not_at_3am(db_session, monkeypatch, tmp_path):
+    """Without it `plan_restore` cannot even decide whether a target is big enough, so the failure
+    would otherwise surface on the machine being installed."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    cold_sda = {
+        "name": "sda", "type": "disk", "size": 50 * GiB, "fstype": None,
+        "children": [{"name": "sda1", "type": "part", "size": 40 * GiB, "fstype": "ext4",
+                      "fsused": None, "mountpoint": "/"}],
+    }
+    manifest = layout_to_dict(parse_layout(sfdisk=None, lsblk_disk=cold_sda))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        client.put(f"/api/v1/images/{img.id}/files/root", content=b"x", headers=_img_headers(img.id))
+        resp = client.post(
+            f"/api/v1/images/{img.id}/finish",
+            json={"manifest": manifest},
+            headers=_img_headers(img.id),
+        )
+    assert resp.status_code == 422
+    assert "still unknown" in resp.text
+    await db_session.refresh(img)
+    assert img.status == "failed" and "unknown" in (img.error or "")
+    await _cleanup(db_session, img)
+
+
+async def test_finishing_refuses_a_volume_whose_file_never_arrived(db_session, monkeypatch, tmp_path):
+    """Three volumes captured, two uploaded: restoring that would leave a machine with no /boot."""
+    monkeypatch.setenv("BOSSMAN_IMAGE_STORE_DIR", str(tmp_path))
+    manifest = layout_to_dict(parse_layout(sfdisk=SFDISK, lsblk_disk=SDA))
+    img = await _capturing_image(db_session)
+    with TestClient(create_app()) as client:
+        client.put(f"/api/v1/images/{img.id}/files/esp", content=b"x", headers=_img_headers(img.id))
+        client.put(f"/api/v1/images/{img.id}/files/root-ubuntu-lv", content=b"x", headers=_img_headers(img.id))
+        resp = client.post(
+            f"/api/v1/images/{img.id}/finish", json={"manifest": manifest}, headers=_img_headers(img.id)
+        )
+    assert resp.status_code == 422
+    assert "no uploaded file for: boot" in resp.text
+    await _cleanup(db_session, img)
+
+
+async def test_checkin_also_enrols_the_target_and_shields_it_from_alerting(db_session, monkeypatch):
+    """Checkin is where the target becomes a fleet member, and where it stops being able to page.
+
+    Both halves matter and neither is obvious. The agent row must exist BEFORE the machine boots, or
+    the booting agent is not recognised at all. But an enrolled host that has not reported is DOWN and
+    CRITICAL (L1) — and this one will not report until it has finished installing and rebooted. So the
+    enrolment opens a whole-host downtime, and without it every single install would page.
+    """
+    monkeypatch.setenv("BOSSMAN_NETBOOT_SECRET", SECRET)
+    monkeypatch.setenv("BOSSMAN_IMAGE_BASE_URL", "https://boss.example")
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        img = await _armed(db_session, client, raw, mac="aa:bb:cc:dd:ee:21", hostname="web21.example")
+        resp = client.post(
+            "/api/v1/netboot/checkin",
+            json={"mac": "aa:bb:cc:dd:ee:21", "blockdevices": TARGET_DEVICES},
+            headers=_secret_headers(),
+        )
+    assert resp.status_code == 200, resp.text
+    # The agent enrol is served as its own chroot shell steps (run after the two restore playbooks).
+    names = [s["name"] for s in resp.json()["agent_install_steps"]]
+    assert "install the agent into the target" in names
+    assert "fetch the agent package" in names
+
+    agent = await db_session.scalar(select(Agent).where(Agent.name == "web21.example"))
+    assert agent is not None, "the target must be a fleet member before it boots"
+
+    from bossman.services.monitoring import is_in_downtime
+
+    now = datetime.now(timezone.utc)
+    assert await is_in_downtime(db_session, agent.id, "Host alive", now), "an install must not page"
+
+    # The token in the plan is the one the enrolled agent will present, not a second unrelated one.
+    install_step = next(s for s in resp.json()["agent_install_steps"] if s["name"] == "install the agent into the target")
+    assert install_step["chroot"] is True, "the install runs inside the target, not on the helper"
+
+    await db_session.execute(text("DELETE FROM downtimes WHERE agent_id = :i"), {"i": str(agent.id)})
+    await db_session.execute(text("DELETE FROM agents WHERE id = :i"), {"i": str(agent.id)})
+    await db_session.commit()
+    await _cleanup(db_session, img, token)
+
+
+async def test_netboot_toggle_disables_checkin_even_with_a_db_secret(db_session, monkeypatch):
+    """Once a secret is entered in the WebUI (DB), the enable toggle is authoritative: off ⇒ /netboot/*
+    refuse even though the presented secret matches. This is the operator's segment-safety switch."""
+    from uuid import UUID as _UUID
+    from bossman.db.models import SYSTEM_SETTINGS_ID, SystemSettings
+
+    # No env secret — the DB row is the only source of truth here.
+    monkeypatch.delenv("BOSSMAN_NETBOOT_SECRET", raising=False)
+    row = await db_session.get(SystemSettings, _UUID(SYSTEM_SETTINGS_ID))
+    if row is None:
+        row = SystemSettings(id=_UUID(SYSTEM_SETTINGS_ID), yolo_mode=False)
+        db_session.add(row)
+    row.netboot_secret = SECRET
+    row.netboot_enabled = False
+    await db_session.commit()
+
+    with TestClient(create_app()) as client:
+        off = client.get("/api/v1/netboot/pending", headers=_secret_headers())
+        assert off.status_code == 403 and "disabled" in off.text
+        # Flip it on → the same correct secret now passes.
+        row.netboot_enabled = True
+        await db_session.commit()
+        on = client.get("/api/v1/netboot/pending", headers=_secret_headers())
+        assert on.status_code == 200 and on.json()["dhcp"] is False  # no armed jobs
+        # A wrong secret is still rejected while enabled.
+        bad = client.get("/api/v1/netboot/pending", headers={"X-Netboot-Secret": "nope"})
+        assert bad.status_code == 403 and "bad netboot secret" in bad.text
+
+    row.netboot_secret = ""
+    row.netboot_enabled = False
+    await db_session.commit()
+
+
+async def test_deployment_template_save_list_and_delete(db_session):
+    """A deployment template bundles image + grow policy + network + roles for reuse; the wizard's 'save' is
+    an upsert by name, so re-saving updates in place instead of 409'ing."""
+    token, raw = await _token(db_session)
+    img = await _ready_image(db_session)
+    name = f"deploytmpl-{uuid.uuid4().hex[:6]}"
+    body = {
+        "name": name, "description": "web tier", "image_id": str(img.id),
+        "grow_mode": "absolute", "grow_policy": {"root": 0, "var": 30},
+        "network": {"mode": "static", "address": "10.0.0.5/24"}, "roles": ["install-nginx"],
+    }
+    with TestClient(create_app()) as client:
+        created = client.post("/api/v1/provisioning/templates", json=body, headers=_h(raw))
+        assert created.status_code == 201, created.text
+        tid = created.json()["id"]
+        assert created.json()["grow_mode"] == "absolute"
+        assert created.json()["roles"] == ["install-nginx"]
+
+        # Re-save under the same name → upsert (200/201, same id), roles updated.
+        body["roles"] = ["install-nginx", "install-postgres"]
+        again = client.post("/api/v1/provisioning/templates", json=body, headers=_h(raw))
+        assert again.json()["id"] == tid, "same name must update in place, not create a second row"
+        assert again.json()["roles"] == ["install-nginx", "install-postgres"]
+
+        listed = client.get("/api/v1/provisioning/templates", headers=_h(raw)).json()
+        assert any(t["id"] == tid and t["name"] == name for t in listed)
+
+        assert client.delete(f"/api/v1/provisioning/templates/{tid}", headers=_h(raw)).status_code == 204
+        after = client.get("/api/v1/provisioning/templates", headers=_h(raw)).json()
+        assert not any(t["id"] == tid for t in after)
+    await _cleanup(db_session, img)
+
+
+async def test_deployment_template_rejects_a_bad_grow_mode(db_session):
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        r = client.post("/api/v1/provisioning/templates",
+                        json={"name": f"bad-{uuid.uuid4().hex[:6]}", "grow_mode": "sideways"}, headers=_h(raw))
+    assert r.status_code == 422
+
+
+async def test_vm_host_crud_detects_kind_and_encrypts_the_secret(db_session, monkeypatch, tmp_path):
+    """Registering a hypervisor auto-detects proxmox|vcenter (operator doesn't choose) and stores the
+    password vault-encrypted — the API never echoes it back."""
+    from bossman.services import hypervisor
+    from bossman.services.vault import Vault
+    from bossman.api import images as images_api
+    from bossman.db.models import VmHost as _VmHost
+
+    async def fake_detect(host, user, pw, *, verify_tls=False):
+        return "proxmox"
+    monkeypatch.setattr(hypervisor, "detect", fake_detect)
+    # A writable vault key for the test (the default /etc/bossman is not writable here).
+    monkeypatch.setattr(images_api, "_vault", lambda: Vault("", str(tmp_path / "vault.key")))
+
+    token, raw = await _token(db_session)
+    name = f"pve-{uuid.uuid4().hex[:6]}"
+    with TestClient(create_app()) as client:
+        created = client.post("/api/v1/provisioning/vm-hosts", headers=_h(raw), json={
+            "name": name, "host": "pve.example", "username": "root@pam", "password": "s3cret"})
+        assert created.status_code == 201, created.text
+        body = created.json()
+        assert body["kind"] == "proxmox"
+        assert "password" not in body and "secret" not in body   # never echoed
+        hid = body["id"]
+
+        listed = client.get("/api/v1/provisioning/vm-hosts", headers=_h(raw)).json()
+        assert any(h["id"] == hid for h in listed)
+
+    # stored secret is vault-encrypted, not the plaintext
+    row = await db_session.get(_VmHost, uuid.UUID(hid))
+    assert row.secret != "s3cret" and row.secret.startswith("vault:")
+
+    with TestClient(create_app()) as client:
+        assert client.delete(f"/api/v1/provisioning/vm-hosts/{hid}", headers=_h(raw)).status_code == 204
+
+
+async def test_vm_host_registration_rejects_an_undetectable_host(db_session, monkeypatch):
+    from bossman.services import hypervisor
+
+    async def fake_detect(host, user, pw, *, verify_tls=False):
+        raise hypervisor.HypervisorError("Proxmox probe failed; vCenter not wired up")
+    monkeypatch.setattr(hypervisor, "detect", fake_detect)
+
+    token, raw = await _token(db_session)
+    with TestClient(create_app()) as client:
+        r = client.post("/api/v1/provisioning/vm-hosts", headers=_h(raw), json={
+            "name": f"bad-{uuid.uuid4().hex[:6]}", "host": "nope", "username": "x", "password": "y"})
+    assert r.status_code == 422 and "probe failed" in r.json()["detail"]

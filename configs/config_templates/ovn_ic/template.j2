@@ -1,0 +1,49 @@
+{# OVN Interconnection (OVN-IC) configuration file #}
+[global]
+{# Enable or disable OVN-IC daemon #}
+enable={{ global_enabled | lower }}
+{# Logging verbosity level: info, notice, warning, error, critical, daemon, trace #}
+log_level={{ log_level | default('info') }}
+{# Directory for logging and runtime files #}
+log={{ log_dir | default('/var/log/ovn') }}
+{# PID file path #}
+pid_file={{ pid_file | default('/run/ovn/ovn-ic.pid') }}
+
+{# Database connection settings for southbound (SB) and northbound (NB) databases #}
+[sb_db]
+{# Connection string to OVN Southbound database #}
+connection={{ sb_db_connection | default('unix:///var/run/ovn/ovnsb_db.sock') }}
+{# Maximum number of retries on connection failure #}
+connection_timeout={{ sb_connection_timeout | default(15 }}
+{# Retry interval in seconds #}
+connection_retry_interval={{ sb_connection_retry_interval | default(5 }}
+
+[nb_db]
+{# Connection string to OVN Northbound database #}
+connection={{ nb_db_connection | default('unix:///var/run/ovn/ovnnb_db.sock') }}
+{# Maximum number of retries on connection failure #}
+connection_timeout={{ nb_connection_timeout | default(15 }}
+{# Retry interval in seconds #}
+connection_retry_interval={{ nb_connection_retry_interval | default(5 }}
+
+{# Interconnection options #}
+[interconnection]
+{# Enable or disable interconnection mode #}
+enable={{ ic_enabled | lower }}
+{# OVN Interconnection region ID (string identifier, e.g., "region-0") #}
+region={{ region_id | default('region-0') }}
+{# OVN Interconnection chassis ID (must be unique per node) #}
+chassis_id={{ chassis_id | default('chassis-0') }}
+{# Optional external ID key used to map chassis to physical nodes #}
+external_ids={{ external_ids | to_json | safe }}
+
+{# Optional: list of connected peers (other regions) for multi-region setups #}
+{% for peer in interconnection_peers %}
+[peer:{{ peer.name }}]
+{# Name of peer region #}
+region={{ peer.region_name }}
+{# Connection string to peer OVN NB/SB DB (typically TCP to peer host) #}
+connection={{ peer.connection }}
+{# Enable or disable bidirectional sync for this peer #}
+bidirectional={{ peer.bidirectional | lower }}
+{% endfor %}

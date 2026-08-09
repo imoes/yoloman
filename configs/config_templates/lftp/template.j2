@@ -1,0 +1,362 @@
+# =============================================================================
+# LFTP Configuration Template
+# =============================================================================
+# This template generates an lftp settings file.
+# All variables use defaults defined in the schema to ensure safe rendering.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Alias definitions for common commands
+# -----------------------------------------------------------------------------
+
+## Alias: dir -> ls
+## Description: Make 'dir' command an alias for 'ls'.
+alias dir ls
+
+## Alias: less -> more
+## Description: Make 'less' command an alias for 'more'.
+alias less more
+
+## Alias: zless -> zmore
+## Description: Make 'zless' command an alias for 'zmore'.
+alias zless zmore
+
+## Alias: bzless -> bzmore
+## Description: Make 'bzless' command an alias for 'bzmore'.
+alias bzless bzmore
+
+## Alias: reconnect
+## Description: Reconnect to the current site by closing the connection,
+## flushing the cache, and returning to the original directory.
+alias reconnect "close; cache flush; cd ."
+
+# -----------------------------------------------------------------------------
+# Prompt customization
+# -----------------------------------------------------------------------------
+
+## Setting: prompt
+## Description: Customizes the lftp shell prompt.
+## Uses lftp escape sequences: \S (server), \u (user), \h (host), \w (workdir).
+set prompt "lftp \S\? \u\@\h:\w> "
+
+# -----------------------------------------------------------------------------
+# Protocol and Sync Settings
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Default Protocol Selection
+# -----------------------------------------------------------------------------
+# Uncomment the following lines to automatically select protocols based on
+# the URL pattern.
+#
+## Set default protocol for FTP URLs
+# set default-protocol/ftp.* ftp
+## Set default protocol for HTTP/WWW URLs
+# set default-protocol/www.* http
+## Set default protocol for Localhost URLs
+# set default-protocol/localhost file
+
+# -----------------------------------------------------------------------------
+# FTP Sync Mode
+# -----------------------------------------------------------------------------
+## Setting: ftp:sync-mode
+## Description: Enables synchronous mode for specific broken servers/routers.
+## This ensures reliable transfers by disabling parallel operations for listed hosts.
+
+## Sync mode for idsoftware FTP server
+set sync-mode/ftp.idsoftware.com on
+
+## Sync mode for Microsoft FTP server
+set sync-mode/ftp.microsoft.com on
+
+## Sync mode for SunSolve FTP server
+set sync-mode/sunsolve.sun.com on
+
+## Setting: auto-sync-mode
+## Description: Extended regex to automatically enable sync mode for servers
+## matching these patterns (e.g., IIS, MikroTik).
+set auto-sync-mode "icrosoft FTP Service|MadGoat|MikroTik"
+
+# -----------------------------------------------------------------------------
+# FTP Passive Mode
+# -----------------------------------------------------------------------------
+
+## Setting: ftp:passive-mode
+## Description: Controls whether lftp uses passive FTP mode.
+## Recommended: true for traversing firewalls/NAT.
+{% if ftp_passive_mode | default(True) %}
+set ftp:passive-mode on
+{% else %}
+set ftp:passive-mode off
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Transfer Settings
+# -----------------------------------------------------------------------------
+
+## Setting: xfer:max-redirections
+## Description: Maximum number of HTTP redirect hops allowed during transfers.
+set xfer:max-redirections {{ xfer_max_redirections | default(10) }}
+
+# -----------------------------------------------------------------------------
+# Proxy Settings
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Proxy Configuration
+# -----------------------------------------------------------------------------
+## Note: Environment variables ftp_proxy, http_proxy, and no_proxy are
+## automatically used to initialize proxy variables. You can override them here.
+#
+## ftp:proxy must speak FTP protocol (e.g., TIS-FWTK, rftpd).
+## Format: ftp://[user:pass@]proxy_host:port
+# set ftp:proxy ftp://[user:pass@]your_ftp_proxy:port
+#
+## Squid can be used with hftp protocol for FTP access.
+## Format: http://squid_host:port
+# set ftp:proxy http://your.squid.address:port
+#
+## If squid allows CONNECT, you can use CONNECT instead of hftp.
+# set ftp:use-hftp no
+#
+## Exclude specific hosts or domains from proxy usage.
+# set ftp:proxy/local_host ""
+# set ftp:proxy/*.domain.com ...
+#
+## http:proxy must speak HTTP (e.g., Squid). Default port 3128.
+# set http:proxy your_http_proxy[:port]
+#
+## hftp:proxy also speaks HTTP, used for FTP over HTTP access.
+# set hftp:proxy your_http_proxy[:port]
+#
+## Disable proxy for specific domains.
+# set net:no-proxy .domain.com,.otherdom.net
+
+# -----------------------------------------------------------------------------
+# FTP over HTTP Access
+# -----------------------------------------------------------------------------
+## Setting: ftp:proxy (hftp fallback)
+## Description: If direct FTP is blocked, this forces use of hftp via an HTTP proxy.
+# set ftp:proxy http://your.http.proxy:port
+
+# -----------------------------------------------------------------------------
+# Automatic Configuration Saving
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Save/Restore Configuration
+# -----------------------------------------------------------------------------
+## Note: Uncomment the following lines to automatically save and restore
+## the current session configuration.
+#
+## Save settings to file on exit
+# set at-exit "set > ~/.lftp/settings"
+## Restore settings from file
+# source ~/.lftp/settings
+
+# -----------------------------------------------------------------------------
+# Remember Last Site
+# -----------------------------------------------------------------------------
+## Note: Combine with the 'at-exit' save rule above.
+## 'bo a last' opens the last accessed site automatically.
+# set at-exit "bo a last"
+# open last
+
+# -----------------------------------------------------------------------------
+# Terminal Title Settings
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Terminal Title/Status Bar
+# -----------------------------------------------------------------------------
+## Description: Sets terminal title strings for terminals that don't
+## properly specify tsl/fsl capabilities. Requires 'cmd:set-term-status on'.
+
+## Title setting for GNU Screen
+set cmd:term-status/*screen* "\e_\T\e\\"
+
+## Title setting for xterm
+set cmd:term-status/*xterm* "\e[11;0]\e]2;\T\007\e[11]"
+
+## Title setting for rxvt
+set cmd:term-status/*rxvt* "\e[11;0]\e]2;\T\007\e[11]"
+
+## Enable terminal title setting globally
+# set cmd:set-term-status on
+
+# -----------------------------------------------------------------------------
+# Anonymous Login & User Agent
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# FTP Anonymous & Client Identity
+# -----------------------------------------------------------------------------
+## Description: Customize anonymous login password and client identity strings.
+## Uncomment to override defaults.
+#
+## Set anonymous user password
+# set ftp:anon-pass "mozilla@"
+## Set client name string
+# set ftp:client ""
+## Set HTTP User-Agent string
+# set http:user-agent "Mozilla/4.7 [en] (WinNT; I)"
+
+# -----------------------------------------------------------------------------
+# DNS Resolution Order
+# -----------------------------------------------------------------------------
+
+## Setting: dns:order
+## Description: Specifies the order of address families for DNS resolution.
+## "inet6 inet" tries IPv6 first.
+set dns:order "inet6 inet"
+
+# -----------------------------------------------------------------------------
+# Network Timeouts and Retries
+# -----------------------------------------------------------------------------
+
+## Setting: net:timeout
+## Description: Global network timeout in seconds for idle connections.
+set net:timeout {{ net_timeout | default(30) }}
+
+## Setting: net:reconnect-interval-base
+## Description: Base interval in seconds for reconnection attempts.
+## Actual intervals may vary based on retry count.
+set net:reconnect-interval-base {{ net_reconnect_interval_base | default(1) }}
+
+# -----------------------------------------------------------------------------
+# FTP Specific Settings
+# -----------------------------------------------------------------------------
+
+## Setting: ftp:reconnect-interval
+## Description: Seconds between FTP reconnect attempts.
+set ftp:reconnect-interval {{ ftp_reconnect_interval | default(2) }}
+
+## Setting: ftp:reconnect-retries
+## Description: Maximum number of FTP reconnect retries before giving up.
+set ftp:reconnect-retries {{ ftp_reconnect_retries | default(5) }}
+
+## Setting: ftp:conn-limit
+## Description: Max simultaneous FTP connections (0 = unlimited).
+set ftp:conn-limit {{ ftp_conn_limit | default(0) }}
+
+## Setting: ftp:passive-limit
+## Description: Max passive FTP ports to reserve (0 = none).
+set ftp:passive-limit {{ ftp_passive_limit | default(0) }}
+
+## Setting: ftp:preserve-mtime
+## Description: Preserve original modification time during transfers.
+{% if ftp_preserve_mtime | default(False) %}
+set ftp:preserve-mtime on
+{% else %}
+set ftp:preserve-mtime off
+{% endif %}
+
+## Setting: ftp:use-list-options
+## Description: Options passed to the FTP LIST command.
+## Example: '-a' to show hidden files.
+set ftp:use-list-options {{ ftp_use_list_options | default('-a') }}
+
+## Setting: ftp:debug
+## Description: Enable FTP protocol debug output.
+{% if ftp_debug | default(False) %}
+set ftp:debug on
+{% else %}
+set ftp:debug off
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# HTTP Specific Settings
+# -----------------------------------------------------------------------------
+
+## Setting: http:conn-limit
+## Description: Max simultaneous HTTP connections (0 = unlimited).
+set http:conn-limit {{ http_conn_limit | default(0) }}
+
+## Setting: http:debug
+## Description: Enable HTTP protocol debug output.
+{% if http_debug | default(False) %}
+set http:debug on
+{% else %}
+set http:debug off
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# SFTP Specific Settings
+# -----------------------------------------------------------------------------
+
+## Setting: sftp:connect-retries
+## Description: Maximum SFTP connection retries.
+set sftp:connect-retries {{ sftp_connect_retries | default(3) }}
+
+## Setting: sftp:debug
+## Description: Enable SFTP protocol debug output.
+{% if sftp_debug | default(False) %}
+set sftp:debug on
+{% else %}
+set sftp:debug off
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Socket Buffer Settings
+# -----------------------------------------------------------------------------
+
+## Setting: net:socket-buffer
+## Description: Socket buffer size in bytes (0 = system default).
+set net:socket-buffer {{ net_socket_buffer | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Character Set Settings
+# -----------------------------------------------------------------------------
+
+## Setting: file:charset
+## Description: Default character set for file names and listings.
+## Examples: 'utf-8', 'iso-889-1'.
+set file:charset {{ file_charset | default('utf-8') }}
+
+# -----------------------------------------------------------------------------
+# Default Aliases for Commands
+# -----------------------------------------------------------------------------
+
+## Setting: alias cd
+## Description: Default action when 'cd' is executed.
+## Example: 'ls -la' to show files upon changing directory.
+alias cd {{ default_alias_cd | default('ls -la') }}
+
+## Setting: alias get
+## Description: Default action for 'get' command.
+## Example: 'mget -c' for continuing interrupted transfers.
+alias get {{ default_alias_get | default('mget -c') }}
+
+## Setting: alias put
+## Description: Default action for 'put' command.
+## Example: 'mput -c' for continuing interrupted transfers.
+alias put {{ default_alias_put | default('mput -c') }}
+
+# -----------------------------------------------------------------------------
+# Default Mirror Settings
+# -----------------------------------------------------------------------------
+
+## Setting: mirror:dir
+## Description: Default root directory for mirror commands.
+set mirror:dir {{ default_mirror_dir | default('/') }}
+
+# -----------------------------------------------------------------------------
+# Default Site Settings
+# -----------------------------------------------------------------------------
+
+## Setting: default-site
+## Description: Default URL opened by 'default-site' alias.
+set default-site {{ default_site_url | default('ftp://anonymous@ftp.example.com') }}
+
+# -----------------------------------------------------------------------------
+# Predefined Sites
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Predefined Remote Sites
+# -----------------------------------------------------------------------------
+## Description: List of predefined remote sites with mirrored configurations.
+## Each site is a mapping with keys like 'host', 'user', 'pass', etc.
+{% for site in sites | default([]) %}
+## Site: {{ site.name | default('unnamed') }}
+{% for item in site | dict2items %}
+{% if item.key != 'name' %}
+##   {{ item.key }}: {{ item.value }}
+{% endif %}
+{% endfor %}
+{% endfor %}

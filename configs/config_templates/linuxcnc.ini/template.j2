@@ -1,0 +1,180 @@
+[EMC]
+# Name of the machine, used in logs and GUI titlebar.
+MACHINE = {{ machine_name | default('MyCNC') }}
+
+# Debug verbosity level (0–99). Higher = more logs. Start at 0 for production.
+DEBUG = {{ emc_debug_level | default(0) }}
+
+[DISPLAY]
+# GUI type: AXIS (default), TK, QTVCP, or custom.
+DISPLAY = {{ display_type | default('AXIS') }}
+
+# Path to a QTVCP .ui file (optional). Leave empty for default AXIS.
+{% if display_ui_path | default('') %}# Path to a QTVCP .ui file (optional). Leave empty for default AXIS.
+UI = {{ display_ui_path | default('') }}{% endif %}
+
+# GUI refresh interval in milliseconds (100 = 10 Hz). Lower = smoother UI, but higher CPU use.
+CYCLE_TIME = {{ display_cycle_time | default(100) }}
+
+# Maximum feed override multiplier (e.g., 1.5 = 150%).
+MAX_FEED_OVERRIDE = {{ max_feed_override | default(1.5) }}
+
+# Minimum spindle override multiplier (e.g., 0.5 = 50%).
+MIN_SPINDLE_OVERRIDE = {{ min_spindle_override | default(0.5) }}
+
+# Maximum spindle override multiplier (e.g., 2.0 = 200%).
+MAX_SPINDLE_OVERRIDE = {{ max_spindle_override | default(2.0) }}
+
+# Position display source: ACTUAL (encoder feedback) or COMMANDED (commanded positions).
+POSITION_OFFSET = {{ position_offset | default('ACTUAL') }}
+
+# Position display mode: RELATIVE (G91) or MACHINE (G53).
+POSITION_FEEDBACK = {{ position_feedback | default('RELATIVE') }}
+
+# Default linear unit system: MM (millimeters) or INCHES.
+DEFAULT_LINEAR_UNITS = {{ default_linear_units | default('MM') }}
+
+# Default angular unit system: DEGREES or RADIANS.
+DEFAULT_ANGULAR_UNITS = {{ default_angular_units | default('DEGREES') }}
+
+[RS274NGC]
+# Path to the primary HAL configuration file loaded at startup.
+HALFILE = {{ halfile_path | default('/usr/share/linuxcnc/hal/components/default.hal') }}
+
+# Additional HAL files (relative paths) to load in order. Useful for custom hardware.
+{% if halfile_extra | default([]) %}# Additional HAL files (relative paths) to load in order. Useful for custom hardware.
+{% for extra_hal in halfile_extra | default([]) %}HALFILE = {{ extra_hal }}
+{% endfor %}{% endif %}
+
+# Optional G-code file to run after HAL load (e.g., tool change setup).
+{% if startup_gcode_path | default('') %}# Optional G-code file to run after HAL load (e.g., tool change setup).
+RUN_INI = {{ startup_gcode_path | default('') }}{% endif %}
+
+# Directory path containing user G-code subroutines (M-codes, etc.).
+SUBROUTINE_PATH = {{ subroutine_path | default('/usr/share/linuxcnc/subroutines') }}
+
+# Log level for error reporting: LOG (info), WARN (warnings), ERROR (errors only).
+ERROR_LOG_LEVEL = {{ error_log_level | default('LOG') }}
+
+[EMCMOT]
+# Motion controller module: 'emcmotc' (core) or 'emcmotp' (preview).
+EMCMOT = {{ emcmot_module | default('emcmotc') }}
+
+# Timeout (seconds) for communications with the motion controller.
+COMM_TIMEOUT = {{ emcmot_comm_timeout | default(1.0) }}
+
+# Time (seconds) to wait for motion controller heartbeat before timeout.
+COMM_WAIT = {{ emcmot_comm_wait | default(0.1) }}
+
+# Base task period (seconds) for real-time scheduler. Must match HAL base thread period (e.g., 1ms).
+BASE_PERIOD = {{ base_period | default(0.001) }}
+
+# Servo task period (seconds); usually same as BASE_PERIOD for rigid motion control.
+SERVO_PERIOD = {{ servo_period | default(0.001) }}
+
+[HAL]
+# List of HAL configuration files to load via loadusr. Each entry specifies file name, path, and load priority.
+{% for halfile in hal_files | default([{'name': 'core.hal', 'path': '/usr/share/linuxcnc/hal/components/core.hal', 'load_before_motion': False}]) %}
+# Load HAL component: {{ halfile.name }}
+{% if halfile.load_before_motion %}# Loaded before motion controller
+{% endif %}HALCMD = [HAL] loadusr -W {{ halfile.path }}{% endfor %}
+
+[HALUI]
+# List of HAL UI module names (e.g., 'halui') to load for custom user interface extensions.
+{% if halui_modules | default([]) %}# List of HAL UI module names (e.g., 'halui') to load for custom user interface extensions.
+{% for mod in halui_modules | default([]) %}HALCMD = [HALUI] loadusr -W {{ mod }}
+{% endfor %}{% endif %}
+
+[TRAJ]
+# Total number of axes (including spindles as virtual axes). Must match sum of [AXIS_#] sections.
+AXES = {{ traj_axes | default(3) }}
+
+# Machine-wide maximum linear velocity (in configured units per second).
+MAX_LINEAR_VELOCITY = {{ traj_max_linear_velocity | default(25.0) }}
+
+# Default linear acceleration (e.g., mm/s²) applied if not overridden in axis section.
+DEFAULT_LINEAR_ACCEL = {{ traj_default_linear_accel | default(100.0) }}
+
+# Absolute maximum linear acceleration allowed across axes.
+MAX_LINEAR_ACCEL = {{ traj_max_linear_accel | default(500.0) }}
+
+# Maximum angular velocity (e.g., for A/B/C axes) in deg/s or rad/s as per DEFAULT_ANGULAR_UNITS.
+MAX_ANGULAR_VELOCITY = {{ traj_max_angular_velocity | default(0.0) }}
+
+[AXIS_0]
+# Axis 0 configuration (typically X-axis). Required for ≥1 axis.
+{% if axis_0 is defined %}
+# Axis 0 configuration (typically X-axis). Required for ≥1 axis.
+TYPE = {{ axis_0.type | default('X') }}
+MAX_VELOCITY = {{ axis_0.max_velocity | default(100.0) }}
+MAX_ACCELERATION = {{ axis_0.max_acceleration | default(1000.0) }}
+BACKLASH = {{ axis_0.backlash | default(0.0) }}
+INPUT_SCALE = {{ axis_0.input_scale | default(1000.0) }}
+OUTPUT_SCALE = {{ axis_0.output_scale | default(1.0) }}
+MIN_LIMIT = {{ axis_0.min_limit | default(-1.0) }}
+MAX_LIMIT = {{ axis_0.max_limit | default(1.0) }}
+HOME = {{ axis_0.home | default(0) }}
+HOME_OFFSET = {{ axis_0.home_offset | default(0.0) }}
+HOME_SEARCH_VEL = {{ axis_0.home_search_vel | default(10.0) }}
+HOME_LATCH_VEL = {{ axis_0.home_latch_vel | default(1.0) }}{% endif %}
+
+{% if axis_1 is defined %}
+[AXIS_1]
+# Axis 1 configuration (typically Y-axis). Omit if not needed.
+TYPE = {{ axis_1.type | default('Y') }}
+MAX_VELOCITY = {{ axis_1.max_velocity | default(100.0) }}
+MAX_ACCELERATION = {{ axis_1.max_acceleration | default(1000.0) }}
+BACKLASH = {{ axis_1.backlash | default(0.0) }}
+INPUT_SCALE = {{ axis_1.input_scale | default(1000.0) }}
+OUTPUT_SCALE = {{ axis_1.output_scale | default(1.0) }}
+MIN_LIMIT = {{ axis_1.min_limit | default(-1.0) }}
+MAX_LIMIT = {{ axis_1.max_limit | default(1.0) }}
+HOME = {{ axis_1.home | default(0) }}
+HOME_OFFSET = {{ axis_1.home_offset | default(0.0) }}
+HOME_SEARCH_VEL = {{ axis_1.home_search_vel | default(10.0) }}
+HOME_LATCH_VEL = {{ axis_1.home_latch_vel | default(1.0) }}{% endif %}
+
+{% if axis_2 is defined %}
+[AXIS_2]
+# Axis 2 configuration (typically Z-axis). Omit if not needed.
+TYPE = {{ axis_2.type | default('Z') }}
+MAX_VELOCITY = {{ axis_2.max_velocity | default(100.0) }}
+MAX_ACCELERATION = {{ axis_2.max_acceleration | default(1000.0) }}
+BACKLASH = {{ axis_2.backlash | default(0.0) }}
+INPUT_SCALE = {{ axis_2.input_scale | default(1000.0) }}
+OUTPUT_SCALE = {{ axis_2.output_scale | default(1.0) }}
+MIN_LIMIT = {{ axis_2.min_limit | default(-1.0) }}
+MAX_LIMIT = {{ axis_2.max_limit | default(1.0) }}
+HOME = {{ axis_2.home | default(0) }}
+HOME_OFFSET = {{ axis_2.home_offset | default(0.0) }}
+HOME_SEARCH_VEL = {{ axis_2.home_search_vel | default(10.0) }}
+HOME_LATCH_VEL = {{ axis_2.home_latch_vel | default(1.0) }}{% endif %}
+
+{% if axis_3 is defined %}
+[AXIS_3]
+# Axis 3 configuration (typically A-axis rotary). Omit if not needed.
+TYPE = {{ axis_3.type | default('A') }}
+MAX_VELOCITY = {{ axis_3.max_velocity | default(100.0) }}
+MAX_ACCELERATION = {{ axis_3.max_acceleration | default(1000.0) }}
+BACKLASH = {{ axis_3.backlash | default(0.0) }}
+INPUT_SCALE = {{ axis_3.input_scale | default(1000.0) }}
+OUTPUT_SCALE = {{ axis_3.output_scale | default(1.0) }}
+MIN_LIMIT = {{ axis_3.min_limit | default(-1.0) }}
+MAX_LIMIT = {{ axis_3.max_limit | default(1.0) }}
+HOME = {{ axis_3.home | default(0) }}
+HOME_OFFSET = {{ axis_3.home_offset | default(0.0) }}
+HOME_SEARCH_VEL = {{ axis_3.home_search_vel | default(10.0) }}
+HOME_LATCH_VEL = {{ axis_3.home_latch_vel | default(1.0) }}{% endif %}
+
+[SPINDLE_0]
+# Spindle 0 configuration (required for spindle control).
+{% if spindle_0 is defined %}
+# Spindle 0 configuration (required for spindle control).
+MAX_SPEED = {{ spindle_0.max_speed | default(10000.0) }}
+MIN_SPEED = {{ spindle_0.min_speed | default(0.0) }}
+TYPE = {{ spindle_0.type | default('SPINDLE') }}
+PID_P = {{ spindle_0.pid_p | default(1.0) }}
+PID_I = {{ spindle_0.pid_i | default(0.0) }}
+PID_D = {{ spindle_0.pid_d | default(0.0) }}
+FF_ENABLE = {{ spindle_0.ff_enable | default(1) }}
+SPEED_FEEDBACK = {{ spindle_0.speed_feedback | default('NONE') }}{% endif %}

@@ -1,0 +1,91 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the 9P service to (e.g., '127.0.0.1' or '0.0.0.0' for all interfaces)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 564,
+    "description": "TCP port for the 9P service. Default 564 is the standard 9P port."
+  },
+  "root_path": {
+    "type": "string",
+    "default": "/export",
+    "description": "Absolute path to the directory to be exported as the root filesystem."
+  },
+  "auth_mode": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method for clients. 'none' allows unauthenticated access, 'user' maps UIDs/GIDs, and 'tls' requires client TLS certificates."
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "/etc/p9ufs/tls/server.crt",
+    "description": "Path to the server TLS certificate file (PEM format). Required when auth='tls'."
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "/etc/p9ufs/tls/server.key",
+    "description": "Path to the server TLS private key file (PEM format). Required when auth='tls'."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum number of simultaneous client connections to accept."
+  },
+  "verbose_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed debug logging to stderr (includes request traces and internal state)."
+  },
+  "extra_filesystems": {
+    "type": "list",
+    "default": [],
+    "description": "Additional filesystems to mount under the 9P namespace (beyond root). Each item defines a source path and a virtual mount point.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name for this filesystem entry (used for comments)."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path on the host to expose."
+      },
+      "mount_point": {
+        "type": "string",
+        "default": "",
+        "description": "Virtual path in the 9P namespace where this filesystem will appear (e.g., 'data', 'backup')."
+      }
+    }
+  },
+  "user_map": {
+    "type": "list",
+    "default": [],
+    "description": "Mapping of remote usernames to local UIDs/GIDs for 'user' authentication. Each entry maps a username to 'uid:gid'.",
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Remote username as presented by the client."
+      },
+      "uid": {
+        "type": "string",
+        "default": "",
+        "description": "Local numeric user ID to map to."
+      },
+      "gid": {
+        "type": "string",
+        "default": "",
+        "description": "Local numeric group ID to map to."
+      }
+    }
+  },
+  "server_name": {
+    "type": "string",
+    "default": "p9ufs",
+    "description": "Server name announced during 9P protocol negotiation. Helps clients identify the service."
+  }
+}

@@ -1,0 +1,169 @@
+{
+  "daemon.bind_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the daemon listens on. Use 0.0.0.0 to listen on all interfaces."
+  },
+  "daemon.port": {
+    "type": "number",
+    "default": 7902,
+    "description": "TCP port for incoming LAM daemon connections."
+  },
+  "paths.pid_file": {
+    "type": "string",
+    "default": "/var/run/lamdaemon/lamdaemon.pid",
+    "description": "Full path to the PID file for the daemon process."
+  },
+  "daemon.log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "paths.log_file": {
+    "type": "string",
+    "default": "/var/log/lamdaemon/lamdaemon.log",
+    "description": "Path to the log file. Leave empty to log to stdout."
+  },
+  "daemon.ldap_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (seconds) to wait for LDAP operations before timing out."
+  },
+  "daemon.ldap_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use STARTTLS for LDAP connections (recommended for production)."
+  },
+  "daemon.ldap_uris": {
+    "type": "list",
+    "default": [
+      "ldap://localhost"
+    ],
+    "items": {
+      "type": "string",
+      "pattern": "^ldaps?://[a-zA-Z0-9._-]+(:\\d+)?$",
+      "description": "LDAP server URI(s). Use ldaps:// for SSL/TLS."
+    },
+    "description": "Comma-separated list of LDAP URIs (servers) in order of preference."
+  },
+  "ldap.basedn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Base DN where user and group entries are stored."
+  },
+  "ldap.binddn": {
+    "type": "string",
+    "default": "cn=lamdaemon,ou=Services,dc=example,dc=com",
+    "description": "DN of the service account used to bind to LDAP."
+  },
+  "ldap.bindpw": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the LDAP bind DN. In production, prefer secure credential storage."
+  },
+  "ldap.schema_version": {
+    "type": "string",
+    "default": "2.5",
+    "description": "LDAP schema version supported by the server (e.g., RFC 2307, RFC 2307bis)."
+  },
+  "daemon.max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent incoming connections."
+  },
+  "quota.mode": {
+    "type": "string",
+    "default": "soft",
+    "description": "Quota enforcement mode: 'strict' (block over quota), 'soft' (warn but allow), or 'off' (disabled)."
+  },
+  "paths.home_dir_prefix": {
+    "type": "string",
+    "default": "/home",
+    "description": "Prefix for user home directories (e.g., '/home', '/users')."
+  },
+  "users.default_shell": {
+    "type": "string",
+    "default": "/bin/bash",
+    "description": "Default login shell for new users."
+  },
+  "users.uid_start": {
+    "type": "number",
+    "default": 1000,
+    "description": "Starting UID number for new users."
+  },
+  "users.gid_start": {
+    "type": "number",
+    "default": 1000,
+    "description": "Starting GID number for new groups."
+  },
+  "users.user_objectclass": {
+    "type": "string",
+    "default": "inetOrgPerson,posixAccount",
+    "description": "Comma-separated list of objectClass values for user entries."
+  },
+  "users.group_objectclass": {
+    "type": "string",
+    "default": "posixGroup",
+    "description": "ObjectClass for group entries."
+  },
+  "users.uid_attr": {
+    "type": "string",
+    "default": "uid",
+    "description": "LDAP attribute used for user login names (e.g., 'uid', 'sAMAccountName')."
+  },
+  "users.cn_attr": {
+    "type": "string",
+    "default": "cn",
+    "description": "LDAP attribute used for user/common-name display name."
+  },
+  "users.group_cn_attr": {
+    "type": "string",
+    "default": "cn",
+    "description": "LDAP attribute for group display name."
+  },
+  "users.group_member_attr": {
+    "type": "string",
+    "default": "memberUid",
+    "description": "LDAP attribute listing group members (e.g., 'memberUid' for RFC 2307, 'member' for RFC 2307bis)."
+  },
+  "ldap.follow_referrals": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to follow LDAP referrals (not recommended unless explicitly needed)."
+  },
+  "ldap.tls_cacert": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for TLS verification. Leave empty to skip verification (not recommended)."
+  },
+  "ldap.sasl_mech": {
+    "type": "string",
+    "default": "",
+    "description": "SASL mechanism for authentication (e.g., 'EXTERNAL'). Leave empty for simple bind."
+  },
+  "daemon.restart_grace_period": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait for in-flight requests to complete during service restart."
+  },
+  "quota.scan_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable background scanning to enforce quotas and update usage stats."
+  },
+  "quota.scan_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Minutes between quota scans."
+  },
+  "quota.excluded_groups": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_.-]+$",
+      "description": "Group names to exclude from quota enforcement (e.g., system accounts)."
+    },
+    "description": "List of LDAP group CNs that should not be subject to quota checks."
+  }
+}

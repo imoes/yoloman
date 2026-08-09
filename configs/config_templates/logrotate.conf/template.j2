@@ -1,0 +1,170 @@
+# ==============================================================================
+# logrotate.conf - Enriched Configuration Template
+# ==============================================================================
+# This template generates a self-documenting /etc/logrotate.conf file.
+# Global defaults are applied first, followed by per-log-file rotation blocks
+# defined in the `log_blocks` variable.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Global Defaults
+# ------------------------------------------------------------------------------
+# compress: compress rotated log files using gzip(1)
+{% if global_compress is not false %}compress{% endif %}
+
+# dateext: append date extension to rotated log file names
+{% if global_dateext is not false %}dateext{% endif %}
+
+# dateformat: format string for date extension; %Y%m%d%H%M%S is used by default if unspecified
+dateformat {{ global_dateformat | default('-%Y%m%d') }}
+
+# weekly: rotate weekly (default weekday: Sunday)
+# Note: If a specific frequency (daily, monthly, yearly) is set in a block, it overrides this.
+{% if global_weekly is not false %}weekly{% endif %}
+
+# rotate: number of rotated logs to keep (0 = remove immediately)
+rotate {{ global_rotate | default(0) }}
+
+# create: create new log file with given mode, owner, and group after rotation
+create {{ global_create | default('0640 root adm') }}
+
+# missingok: do not issue an error if a log file is missing
+{% if global_missingok is not false %}missingok{% endif %}
+
+# notifempty: do not rotate if the log file is empty
+{% if global_notifempty is not false %}notifempty{% endif %}
+
+# ------------------------------------------------------------------------------
+# Per-Log Rotation Blocks
+# ------------------------------------------------------------------------------
+# Iterate over the `log_blocks` list. Each item is a dictionary describing
+# a log file or set of files and their rotation parameters.
+#
+# Expected structure of an item in `log_blocks`:
+#   {
+#     "path": "/var/log/app.log",          # File path or glob pattern
+#     "frequency": "weekly",               # daily, weekly, monthly, yearly
+#     "rotate": 4,                         # Number of rotated logs to keep
+#     "compress": true,                    # Compress rotated logs?
+#     "dateext": true,                     # Append date to rotated filenames?
+#     "missingok": true,                   # Ignore missing log files?
+#     "notifempty": true,                  # Skip empty log files?
+#     "create": "0640 root adm",           # Permissions for new log file
+#     "copy": false,                       # Copy then truncate log?
+#     "copytruncate": false,               # Truncate original log in place?
+#     "olddir": "/var/log/old",            # Directory for rotated logs
+#     "sharedscripts": false,              # Run postrotate script once for all logs in block?
+#     "postrotate_command": "/bin/kill ...", # Command to run after rotation
+#     "size": "100k",                      # Force rotation if log exceeds this size
+#     "maxage": 30,                        # Remove rotated logs older than N days
+#     "minage": 1,                         # Don't rotate logs younger than N days
+#     "nocompress": false,                 # Explicitly disable compression
+#     "delaycompress": false,              # Delay compression by one rotation cycle
+#     "su": "loguser adm",                 # Run rotation as this user/group
+#     "tabooext": [".gz", ".bz2"],         # Extensions to ignore
+#     "taboopat": ["*~"],                  # Patterns to ignore
+#     "shred": false,                      # Securely delete old logs?
+#     "shredcycles": 3,                    # Number of overwrite passes for shred
+#     "maxsize": "1M",                     # Force rotation if log exceeds maxsize, even before interval
+#     "minsize": "10k",                    # Rotate only if size > minsize AND interval passed
+#     "mail": "admin@example.com"          # Email rotated logs to address
+#   }
+# ==============================================================================
+
+{% for block in log_blocks | default([]) %}
+# --- Block for: {{ block.path | default('unknown') }} ---
+# Frequency: {{ block.frequency | default('weekly') }}
+# Rotate count: {{ block.rotate | default(global_rotate | default(0)) }}
+# Path: {{ block.path }}
+{{ block.path | default('/var/log/unknown.log') }} {
+    # frequency: rotation interval (daily, weekly, monthly, yearly)
+    {% if block.frequency %}{{ block.frequency }}{% endif %}
+
+    # rotate: number of rotated logs to keep
+    {% if block.rotate is defined %}rotate {{ block.rotate }}{% else %}rotate {{ global_rotate | default(0) }}{% endif %}
+
+    # compress: compress rotated log files
+    {% if block.compress is defined %}{% if block.compress %}compress{% else %}nocompress{% endif %}
+    {% elif global_compress is not false %}compress{% else %}nocompress{% endif %}
+
+    # dateext: append date extension to rotated filenames
+    {% if block.dateext is defined %}{% if block.dateext %}dateext{% endif %}
+    {% elif global_dateext is not false %}dateext{% endif %}
+
+    # dateformat: format string for date extension
+    {% if block.dateformat %}dateformat {{ block.dateformat }}
+    {% elif global_dateformat is defined %}dateformat {{ global_dateformat }}{% endif %}
+
+    # missingok: do not issue an error if a log file is missing
+    {% if block.missingok is defined %}{% if block.missingok %}missingok{% endif %}
+    {% elif global_missingok is not false %}missingok{% endif %}
+
+    # notifempty: do not rotate if the log file is empty
+    {% if block.notifempty is defined %}{% if block.notifempty %}notifempty{% endif %}
+    {% elif global_notifempty is not false %}notifempty{% endif %}
+
+    # create: create new log file with mode, owner, group
+    {% if block.create %}create {{ block.create }}
+    {% elif global_create is defined %}create {{ global_create }}{% endif %}
+
+    # copy: make a copy of the log file instead of moving it
+    {% if block.copy is defined %}{% if block.copy %}copy{% endif %}{% endif %}
+
+    # copytruncate: truncate original file in place instead of moving
+    {% if block.copytruncate is defined %}{% if block.copytruncate %}copytruncate{% endif %}{% endif %}
+
+    # olddir: move rotated logs to this directory
+    {% if block.olddir %}olddir {{ block.olddir }}{% endif %}
+
+    # su: rotate logs as this user/group
+    {% if block.su %}su {{ block.su }}{% endif %}
+
+    # sharedscripts: run postrotate script only once for all logs in a block
+    {% if block.sharedscripts is defined %}{% if block.sharedscripts %}sharedscripts{% endif %}{% endif %}
+
+    # size: force rotation if log exceeds this size
+    {% if block.size %}size {{ block.size }}{% endif %}
+
+    # maxsize: force rotation if log exceeds this size, even before interval
+    {% if block.maxsize %}maxsize {{ block.maxsize }}{% endif %}
+
+    # minsize: rotate only if size > minsize AND interval passed
+    {% if block.minsize %}minsize {{ block.minsize }}{% endif %}
+
+    # maxage: remove rotated logs older than this many days
+    {% if block.maxage is defined %}maxage {{ block.maxage }}{% endif %}
+
+    # minage: do not rotate logs younger than this many days
+    {% if block.minage is defined %}minage {{ block.minage }}{% endif %}
+
+    # nocompress: explicitly disable compression
+    {% if block.nocompress is defined %}{% if block.nocompress %}nocompress{% endif %}{% endif %}
+
+    # delaycompress: delay compression by one rotation cycle
+    {% if block.delaycompress is defined %}{% if block.delaycompress %}delaycompress{% endif %}{% endif %}
+
+    # tabooext: list of extensions to ignore
+    {% if block.tabooext is defined and block.tabooext is iterable and not block.tabooext is string %}
+    tabooext {{ block.tabooext | join(' ') }}{% endif %}
+
+    # taboopat: list of patterns to ignore
+    {% if block.taboopat is defined and block.taboopat is iterable and not block.taboopat is string %}
+    taboopat {{ block.taboopat | join(' ') }}{% endif %}
+
+    # mail: email rotated logs to this address
+    {% if block.mail %}mail {{ block.mail }}{% endif %}
+
+    # shred: securely delete old rotated logs
+    {% if block.shred is defined %}{% if block.shred %}shred{% endif %}{% endif %}
+
+    # shredcycles: number of overwrite passes for shred
+    {% if block.shredcycles is defined %}shredcycles {{ block.shredcycles }}{% endif %}
+
+    {% if block.postrotate_command is defined and block.postrotate_command %}
+    sharedscripts
+    postrotate
+        {{ block.postrotate_command | default('/bin/true') }}
+    endscript
+    {% endif %}
+}
+{% endfor %}

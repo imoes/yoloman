@@ -1,0 +1,241 @@
+# ==============================================================================
+# kdc.conf - Kerberos KDC Configuration Template
+# ==============================================================================
+# This template generates a kdc.conf file for the Kerberos Key Distribution Center (KDC).
+# It supports global defaults in [kdcdefaults], realm-specific settings in [realms],
+# and service logging in [logging].
+#
+# Variables are sourced from the `kdc` dictionary.
+# If `kdc` is undefined, defaults are applied or the block is skipped.
+
+{% if kdc is defined %}
+
+# [kdcdefaults] section: Default KDC behavior
+# These settings apply to all realms unless overridden.
+[kdcdefaults]
+
+# Maximum UDP packet reply size (bytes)
+# Schema: kdc.kdc_max_dgram_reply_size (int)
+# Default: None (OS default, usually 1472 or similar)
+kdc_max_dgram_reply_size = {{ (kdc | default({})).kdc_max_dgram_reply_size | default(omit) }}
+
+# TCP listen queue length
+# Schema: kdc.kdc_tcp_listen_backlog (int)
+# Default: None
+kdc_tcp_listen_backlog = {{ (kdc | default({})).kdc_tcp_listen_backlog | default(omit) }}
+
+# SPAKE optimistic challenge group
+# Schema: kdc.spake_preauth_kdc_challenge (str/int)
+# Default: None
+spake_preauth_kdc_challenge = {{ (kdc | default({})).spake_preauth_kdc_challenge | default(omit) }}
+
+# [realms] section: Realm-specific KDC configuration
+# Iterate over the `realms` mapping. Each key is a realm name (e.g., EXAMPLE.COM).
+# Schema: kdc.realms (mapping of realm_name -> dict of realm_config)
+[realms]
+{% set realms = (kdc | default({})).realms | default({}) %}
+{% for realm_name, realm_config in realms | dict2items %}
+{% set rc = realm_config.value %}
+
+[{{ realm_name }}]
+
+# Maximum ticket lifetime
+# Schema: realm_config.max_life (str) e.g., "1d"
+# Default: omit
+max_life = {{ rc.max_life | default(omit) }}
+
+# Maximum renewable ticket lifetime
+# Schema: realm_config.max_renewable_life (str)
+# Default: omit
+max_renewable_life = {{ rc.max_renewable_life | default(omit) }}
+
+# Master key encryption type
+# Schema: realm_config.master_key_type (str)
+# Default: omit
+master_key_type = {{ rc.master_key_type | default(omit) }}
+
+# Supported encryption types for principals
+# Schema: realm_config.supported_enctypes (list/str)
+# Default: omit
+supported_enctypes = {{ rc.supported_enctypes | default(omit) }}
+
+# Database module name
+# Schema: realm_config.database_module (str)
+# Default: omit
+database_module = {{ rc.database_module | default(omit) }}
+
+# Access control file
+# Schema: realm_config.acl_file (str)
+# Default: omit
+acl_file = {{ rc.acl_file | default(omit) }}
+
+# Principal expiration date (abstime)
+# Schema: realm_config.default_principal_expiration (str)
+# Default: omit
+default_principal_expiration = {{ rc.default_principal_expiration | default(omit) }}
+
+# Default principal flags
+# Schema: realm_config.default_principal_flags (list/str)
+# Default: omit
+default_principal_flags = {{ rc.default_principal_flags | default(omit) }}
+
+# Dictionary file for password checking
+# Schema: realm_config.dict_file (str)
+# Default: omit
+dict_file = {{ rc.dict_file | default(omit) }}
+
+# Disable PAC issuance
+# Schema: realm_config.disable_pac (bool)
+# Default: omit
+disable_pac = {{ rc.disable_pac | default(omit) }}
+
+# Encrypted challenge indicator
+# Schema: realm_config.encrypted_challenge_indicator (str/bool)
+# Default: omit
+encrypted_challenge_indicator = {{ rc.encrypted_challenge_indicator | default(omit) }}
+
+# Host-based services for referral processing
+# Schema: realm_config.host_based_services (list/str)
+# Default: omit
+host_based_services = {{ rc.host_based_services | default(omit) }}
+
+# Incremental propagation enable
+# Schema: realm_config.iprop_enable (bool)
+# Default: omit
+iprop_enable = {{ rc.iprop_enable | default(omit) }}
+
+# Incremental propagation log size
+# Schema: realm_config.iprop_ulogsize (int)
+# Default: omit
+iprop_ulogsize = {{ rc.iprop_ulogsize | default(omit) }}
+
+# Incremental propagation replica poll interval
+# Schema: realm_config.iprop_replica_poll (int)
+# Default: omit
+iprop_replica_poll = {{ rc.iprop_replica_poll | default(omit) }}
+
+# Incremental propagation listen address/port
+# Schema: realm_config.iprop_listen (list)
+# Default: omit
+iprop_listen = {{ rc.iprop_listen | default(omit) | join(', ') }}
+
+# Incremental propagation port
+# Schema: realm_config.iprop_port (int/str)
+# Default: omit
+iprop_port = {{ rc.iprop_port | default(omit) }}
+
+# Incremental propagation resync timeout
+# Schema: realm_config.iprop_resync_timeout (int)
+# Default: omit
+iprop_resync_timeout = {{ rc.iprop_resync_timeout | default(omit) }}
+
+# Incremental propagation log file
+# Schema: realm_config.iprop_logfile (str)
+# Default: omit
+iprop_logfile = {{ rc.iprop_logfile | default(omit) }}
+
+# kadmin daemon listening address/port
+# Schema: realm_config.kadmind_listen (list)
+# Default: omit
+kadmind_listen = {{ rc.kadmind_listen | default(omit) | join(', ') }}
+
+# kadmin daemon port
+# Schema: realm_config.kadmind_port (int)
+# Default: omit
+kadmind_port = {{ rc.kadmind_port | default(omit) }}
+
+# Key stash file for master key
+# Schema: realm_config.key_stash_file (str)
+# Default: omit
+key_stash_file = {{ rc.key_stash_file | default(omit) }}
+
+# KDC listening address/port
+# Schema: realm_config.kdc_listen (list)
+# Default: omit
+kdc_listen = {{ rc.kdc_listen | default(omit) | join(', ') }}
+
+# KDC TCP listening address/port
+# Schema: realm_config.kdc_tcp_listen (list)
+# Default: omit
+kdc_tcp_listen = {{ rc.kdc_tcp_listen | default(omit) | join(', ') }}
+
+# kpasswd daemon listening address/port
+# Schema: realm_config.kpasswd_listen (list)
+# Default: omit
+kpasswd_listen = {{ rc.kpasswd_listen | default(omit) | join(', ') }}
+
+# kpasswd daemon port
+# Schema: realm_config.kpasswd_port (int)
+# Default: omit
+kpasswd_port = {{ rc.kpasswd_port | default(omit) }}
+
+# Master key principal name
+# Schema: realm_config.master_key_name (str)
+# Default: omit
+master_key_name = {{ rc.master_key_name | default(omit) }}
+
+# No host referral list
+# Schema: realm_config.no_host_referral (bool/list)
+# Default: omit
+no_host_referral = {{ rc.no_host_referral | default(omit) }}
+
+# Reject bad transit paths
+# Schema: realm_config.reject_bad_transit (bool)
+# Default: omit
+reject_bad_transit = {{ rc.reject_bad_transit | default(omit) }}
+
+# Restrict anonymous to TGT only
+# Schema: realm_config.restrict_anonymous_to_tgt (bool)
+# Default: omit
+restrict_anonymous_to_tgt = {{ rc.restrict_anonymous_to_tgt | default(omit) }}
+
+# SPAKE authentication indicator
+# Schema: realm_config.spake_preauth_indicator (str/list)
+# Default: omit
+{% if rc.spake_preauth_indicator is defined %}
+{% if rc.spake_preauth_indicator is iterable and rc.spake_preauth_indicator is not string %}
+{% for indicator in rc.spake_preauth_indicator %}
+spake_preauth_indicator = {{ indicator }}
+{% endfor %}
+{% else %}
+spake_preauth_indicator = {{ rc.spake_preauth_indicator }}
+{% endif %}
+{% endif %}
+
+# PKINIT options (if defined and iterable)
+# Schema: realm_config.pkinit (mapping/list)
+{% if rc.pkinit is defined and rc.pkinit is iterable %}
+# PKINIT configuration
+{% for pk_key, pk_val in rc.pkinit | dict2items %}
+{{ pk_key.value }} = {{ pk_val.value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# [logging] section: Logging configuration
+# Controls where the KDC, kadmin, and default services send their logs.
+[logging]
+
+# KDC daemon logging
+# Schema: kdc.logging.kdc (str)
+# Default: 'SYSLOG:AUTH'
+kdc = {{ (kdc | default({})).logging | default({}) | attr('kdc') | default('SYSLOG:AUTH') }}
+
+# Admin server (kadmin) logging
+# Schema: kdc.logging.admin_server (str)
+# Default: 'SYSLOG:AUTH'
+admin_server = {{ (kdc | default({})).logging | default({}) | attr('admin_server') | default('SYSLOG:AUTH') }}
+
+# Default logging
+# Schema: kdc.logging.default (str)
+# Default: None
+{% if (kdc | default({})).logging | default({}) | attr('default') is defined %}
+default = {{ (kdc | default({})).logging | default({}) | attr('default') }}
+{% endif %}
+
+# Enable debug messages in non-syslog output
+# Schema: kdc.logging.debug (bool)
+# Default: 'false'
+debug = {{ (kdc | default({})).logging | default({}) | attr('debug') | default('false') }}
+
+{% endif %}

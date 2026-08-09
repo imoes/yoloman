@@ -1,0 +1,46 @@
+name: package
+fqcn: builtin.package
+collection: builtin
+short_description: Ensure one or more packages are present, absent, or upgraded to
+  the latest available version, using whichever package manager frontend this host
+  actually has (apt-get, dnf, dnf5, or yum, checked in th
+description: 'Ensure one or more packages are present, absent, or upgraded to the
+  latest available version, using whichever package manager frontend this host actually
+  has (apt-get, dnf, dnf5, or yum, checked in that order) — for tasks/playbooks that
+  need to run unmodified across both Debian- and RedHat-family hosts. Prefer the specific
+  module (apt/dnf/yum/dnf5) when you already know the target distro family; use this
+  one when you don''t, or when translating a playbook that itself used the generic
+  module. Same idempotency/check_mode behavior as whichever underlying module it dispatches
+  to.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.package. Same dispatch-by-detected-package-manager idea;
+  same name/state parameter names.
+
+  - Chef: the generic `package` resource, which similarly dispatches by platform.
+
+  - Puppet: the `package` type without an explicit `provider` (auto-detected).
+
+  - Salt: the `pkg.installed`/`pkg.removed`/`pkg.latest` states (Salt''s `pkg` state
+  module auto-dispatches by the minion''s grains).
+
+  - Terraform: not applicable — Terraform does not manage OS packages on a running
+  host.'
+options:
+  name:
+    type: list
+    description: One or more package names, e.g. ["nginx"].
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    - latest
+    description: Desired package state. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

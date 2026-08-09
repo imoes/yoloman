@@ -1,0 +1,42 @@
+#!/bin/sh
+# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
+if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
+    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
+fi
+### BEGIN INIT INFO
+# Provides the service name registered with the init system.
+# Provides:          {{ service_name | default('courier-imap') }}
+# Specifies dependencies that must be started before this service.
+# Required-Start:    {{ required_start_services | default('courier-authdaemon $remote_fs $syslog') }}
+# Specifies dependencies that must be stopped before this service stops.
+# Required-Stop:     $remote_fs $syslog
+# Defines the runlevels where the service should be started.
+# Default-Start:     2 3 4 5
+# Defines the runlevels where the service should be stopped.
+# Default-Stop:      0 1 6
+# One-line description of the service.
+# Short-Description: {{ short_description | default('Courier IMAP server') }}
+### END INIT INFO
+
+# Author: Ondřej Surý <ondrej@debian.org>
+# Updated by Soren Stoutner <soren@debian.org>
+
+# Full path to the Courier IMAP daemon binary.
+# Note: This variable is often overridden by settings in /etc/courier/imapd.
+DAEMON="{{ daemon_path | default('/usr/lib/courier/imapd') }}"
+
+# Human-readable description of the service, used for logging/status.
+DESC="{{ desc | default('Courier IMAP server') }}"
+
+# Extracts the IMAPDSTART setting from the main Courier config.
+# Reads /etc/courier/imapd and extracts the value assigned to IMAPDSTART,
+# stripping quotes and converting to lowercase.
+DO_START=$(sed -ne "s/^IMAPDSTART[[:space:]]*=[[:space:]]*[\\'\\\"]\\?\\(\\w*\\)[\\'\\\"]\\?/\\L\\1/p" /etc/courier/imapd)
+
+# Extracts the PIDFILE path from the main Courier config.
+# Reads /etc/courier/imapd and extracts the path assigned to PIDFILE.
+PIDFILE=$(sed -ne "s/^PIDFILE[[:space:]]*=[[:space:]]*[\\'\\\"]\\?\\([^[:space:]]*\\)[\\'\\\"]\\?/\\1/p" /etc/courier/imapd)
+
+# Sourcing the generic Courier init script helpers which handle
+# standard start/stop/status/restart logic using the variables above.
+. /usr/lib/courier/init-d-script-courier

@@ -1,0 +1,41 @@
+# ==============================================================================
+# hdapsd Configuration Template
+# ==============================================================================
+# This template configures the hdapsd service, which monitors the Hard Drive
+# Active Protection System (HDAPS) sensors on Lenovo ThinkPads. It automatically
+# parks/unloads the disk head when sudden movement (like a drop) is detected.
+
+# ------------------------------------------------------------------------------
+# Device to Monitor
+# ------------------------------------------------------------------------------
+# Description: The block device path to monitor for disk activity (e.g., /dev/sda).
+# Note: hdapsd primarily uses the accelerometer; the disk device is used to
+# trigger the unload command on the correct device.
+DISK="{{ device | default('sda') }}"
+
+# ------------------------------------------------------------------------------
+# Sensitivity Threshold
+# ------------------------------------------------------------------------------
+# Description: Minimum movement amplitude (in arbitrary sensor units) required
+# to trigger disk unloading. Lower values mean the system is more sensitive to
+# movement.
+SENSITIVITY={{ sensitivity | default(15) }}
+
+# ------------------------------------------------------------------------------
+# Additional Command-Line Options
+# ------------------------------------------------------------------------------
+# Description: Additional command-line options to pass to hdapsd.
+# Note: The -d (device), -s (sensitivity), -b (block on park), and -p (pidfile)
+# options are handled by the service script itself and should not be repeated here
+# unless specifically required by a custom wrapper.
+OPTIONS="{{ options | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Force Enable HDAPS Support
+# ------------------------------------------------------------------------------
+# Description: Set to 'yes' to force-enable HDAPS support on kernels >=2.6.28
+# where it might be wrongly detected as unsupported.
+# Warning: Please be careful with this setting! Ensure your hardware actually
+# supports HDAPS before enabling this, as incorrect settings may lead to
+# unexpected behavior.
+FORCEENABLE="{{ forceenable | default('no') }}"

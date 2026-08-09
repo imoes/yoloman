@@ -1,0 +1,46 @@
+{
+  "udp_port": {
+    "type": "number",
+    "default": 514,
+    "description": "UDP port on which rsyslog listens for incoming syslog messages."
+  },
+  "udp_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the UDP listener to (e.g., `0.0.0.0` for all interfaces, or `127.0.0.1` for local-only)."
+  },
+  "tcp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TCP input in addition to UDP for receiving syslog messages."
+  },
+  "tcp_port": {
+    "type": "number",
+    "default": 514,
+    "description": "TCP port to use if TCP input is enabled.",
+    "condition": "tcp_enabled"
+  },
+  "tcp_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the TCP listener to if enabled.",
+    "condition": "tcp_enabled"
+  },
+  "log_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of rsyslog routing rules (selector + action). Each rule defines how matched messages are processed.",
+    "items": {
+      "selector": {
+        "type": "string",
+        "default": "*.info;/var/log/syslog",
+        "description": "Syslog selector (e.g., `*.info`, `authpriv.*`, `=warn`) followed by optional facility priority modifiers."
+      },
+      "action": {
+        "type": "string",
+        "default": "/var/log/syslog",
+        "description": "Target action (e.g., file path `/var/log/syslog`, pipe `|/path/to/script`, or special destination `:omusrmsg:;template`)"
+      }
+    }
+  }
+}

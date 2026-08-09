@@ -1,0 +1,63 @@
+{
+  "type": "system",
+  "include_dir": "/etc/dbus-1/system.d",
+  "include_dir_ignore_missing": true,
+  "run_as_user": "messagebus",
+  "fork": true,
+  "pidfile": "/run/dbus/pid",
+  "listen_addresses": [
+    "unix:path=/var/run/dbus/system_bus_socket",
+    "unix:abstract=/dbus/system_bus_socket"
+  ],
+  "auth_mechanisms": [
+    "EXTERNAL"
+  ],
+  "standard_system_servicedirs": true,
+  "servicehelper": "/usr/lib/dbus-1.0/dbus-daemon-launch-helper",
+  "limits": {
+    "max_completed_connections": 512,
+    "max_message_size": 64,
+    "service_start_timeout": 30000
+  },
+  "policies": [
+    {
+      "context": "default",
+      "rules": [
+        {
+          "type": "deny",
+          "attrs": {
+            "send_destination": "org.freedesktop.DBus",
+            "send_interface": "org.freedesktop.DBus.Introspectable",
+            "send_member": "Introspect",
+            "send_requested_reply": "false"
+          }
+        },
+        {
+          "type": "allow",
+          "attrs": {
+            "send_destination": "org.freedesktop.DBus",
+            "send_interface": "org.freedesktop.DBus.Introspectable",
+            "send_member": "Introspect",
+            "send_requested_reply": "true"
+          }
+        },
+        {
+          "type": "allow",
+          "attrs": {
+            "send_destination": "org.freedesktop.DBus",
+            "send_interface": "org.freedesktop.DBus.Peer",
+            "send_member": "Ping"
+          }
+        }
+      ]
+    }
+  ],
+  "selinux_enabled": true,
+  "selinux_associations": [
+    {
+      "name": "org.freedesktop.hostname1",
+      "context": "system_dbusd_t"
+    }
+  ],
+  "apparmor_mode": "enabled"
+}

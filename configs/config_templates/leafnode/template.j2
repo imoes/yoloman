@@ -1,0 +1,62 @@
+#!/bin/sh
+#
+# Leafnode cron job. To be run daily.
+# By Joey Hess <joeyh@master.debian.org>
+# with bugs by Mark Brown <broonie@debian.org>
+#
+# This script is managed by Ansible. Do not edit manually.
+# It sources the Debian-specific config and performs routine NNTP maintenance:
+#   - Expiring old articles via texpire
+#   - Marking newsgroups as read via touch_newsgroup (optional)
+#   - Reporting failed postings via newsq
+
+# Get configuration
+# Source the Debian-specific configuration file where Leafnode's runtime settings are defined.
+# This file typically defines variables like max_articles, max_age, spool_directory, etc.
+. {{ debian_config_path | default('/etc/news/leafnode/debian-config') }}
+
+# Do the cd so that it doesn't matter if we cannot read /root.
+cd /
+
+# Expire old news.
+# Removes articles older than max_age days from the spool directory.
+# Ignores the messages texpire generates to stdout about which articles it
+# expires. If you'd rather get that info mailed to you, remove the >/dev/null
+if [ -x /usr/sbin/texpire ]; then
+   su news -s /bin/sh -c "/usr/sbin/texpire" >/dev/null
+fi
+
+# Run touch_newsgroups if the user wants it and we can
+# This marks specific newsgroups as "read" for local users.
+# It requires Perl and the Net::NNTP module (libnet-perl).
+if [ -x /usr/bin/touch_newsgroup -a -f {{ touch_groups_file | default('/etc/news/leafnode/touch_groups') }} ]; then
+   if /usr/bin/perl -MNet::NNTP < /dev/null 2>/dev/null ; then
+      su news -s /bin/sh -c "/usr/bin/touch_newsgroup -f {{ touch_groups_file | default('/etc/news/leafnode/touch_groups') }}"
+   else
+      cat << EOF
+      You have requested that touch_newsgroup be run to mark the groups 
+      listed in {{ touch_groups_file | default('/etc/news/leafnode/touch_groups') }} as read.  This requires
+      that both perl and the Net::NNTP module (part of libnet-perl) are
+      avalible, which does not appear to be the case:
+
+EOF
+      /usr/bin/perl -MNet::NNTP < /dev/null
+   fi
+fi
+
+# generate mail about any failed postings.
+# Checks if there are any files in the failed.postings directory.
+# If so, it notifies the admin that articles were rejected by upstream servers.
+if [ "" != "`ls {{ failed_postings_dir | default('/var/spool/news/failed.postings') }}/ 2>/dev/null`" ]; then
+   cat << EOF
+Some articles posted via Leafnode have been placed in the
+failed.postings directory.  This typically means that they were
+rejected by one or more of the upstream news servers.  Examining the
+news log files should provide some indication as to why.
+
+To retry the posting move the queue files into /var/spool/news/out.going
+and run /usr/sbin/fetchnews.
+
+EOF
+   /usr/bin/newsq -f
+fi

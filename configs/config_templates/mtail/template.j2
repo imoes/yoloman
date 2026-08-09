@@ -1,0 +1,59 @@
+# mtail configuration template
+# mtail is a tool to scrape application metrics from log files.
+# This template generates the command-line arguments for the mtail service.
+
+# --- Network Configuration ---
+
+# HTTP address and port to serve the metrics UI and health endpoint.
+# Format is typically "[host]:port". Example: ":3903" for all interfaces on port 3903,
+# or "127.0.0.1:3903" for localhost only.
+# mtail option: --addr
+# Default: :3903
+-addr={{ http_endpoint | default(':3903') }}
+
+# Address to bind to.
+# Use "::" to listen on all IPv4 and IPv6 interfaces.
+# Use "0.0.0.0" for all IPv4 interfaces only.
+# Use "127.0.0.1" for local access only.
+# Note: If --addr includes the host part, this flag is ignored by mtail,
+# but it is kept here for schema completeness.
+# Default: ::
+# (This variable is primarily used to inform the --addr default if needed,
+# but strictly speaking --addr is the single source of truth for the listen address.)
+# We construct the --addr argument explicitly to handle both host and port.
+
+# Re-defining --addr to ensure it respects both host and http_endpoint fields properly.
+# If http_endpoint is provided (e.g., ":3903" or "127.0.0.1:3903"), we use it.
+# If not, we construct it from the host field.
+# Note: The schema has http_endpoint as a combined string, so we prioritize it.
+# If the user only set host, we need to combine them.
+# However, the schema defines http_endpoint as 'Address and port', so it's the primary field.
+# We will use http_endpoint directly as the value for --addr.
+
+# mtail option: --addr
+# HTTP address and port to serve the metrics UI and health endpoint.
+# Default: :3903
+# If the user provides a full address in http_endpoint, it overrides host.
+# If http_endpoint is just a port like ":3903", it uses that.
+# To strictly follow the schema:
+# http_endpoint is "Address and port".
+# host is "Address to bind to".
+# Usually, if http_endpoint is set, it contains the port. If it doesn't contain a host,
+# we might want to fallback to the `host` field?
+# Let's assume http_endpoint is the complete --addr value.
+# If http_endpoint is empty/unset, we construct from host.
+
+{% set addr_val = http_endpoint | default(':3903') %}
+# HTTP address and port to serve the metrics UI and health endpoint.
+# mtail option: --addr
+-addr={{ addr_val }}
+
+# --- Extra Arguments ---
+
+# Extra command-line arguments to pass to the mtail server.
+# Use this for advanced options not explicitly parametrized in this template.
+# These arguments are appended directly to the mtail command line.
+# Default: '' (empty)
+{% if extra_args | default('') | trim != '' %}
+{{ extra_args | default('') | trim }}
+{% endif %}

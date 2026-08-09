@@ -1,0 +1,130 @@
+# Configuration file for gnupg-pkcs11-scd
+# This file is read at startup; comment lines start with #
+
+# Path to log file. Empty string means logging to stderr/stdout only.
+# If left empty, no logfile directive is emitted (logging goes to stderr/stdout).
+{% if log_file | default('') %}
+# Log file path: {{ log_file | default('') }}
+log-file {{ log_file | default('') }}
+{% endif %}
+
+# Enable verbose logging. When present, the service outputs detailed information.
+# Default: false (no verbose output).
+{% if verbose | default(false) %}
+# Verbose logging is enabled.
+verbose
+{% endif %}
+
+# Enable full debug output. WARNING: This may expose sensitive information.
+# Default: false (no debug output).
+{% if debug_all | default(false) %}
+# Debug mode is enabled (full debug output).
+debug-all
+{% endif %}
+
+# PIN cache expiration period in seconds.
+# 0 means no caching (PIN is requested for every operation).
+# Default: 0.
+#pin-cache {{ pin_cache | default(0) }}
+
+# Use GnuPG's built-in PIN cache (requires gnupg >= 2.3.0).
+# If set to true, this overrides the pin-cache setting in some contexts.
+# Default: false.
+{% if use_gnupg_pin_cache | default(false) %}
+# Using GnuPG's built-in PIN cache.
+use-gnupg-pin-cache
+{% endif %}
+
+# List of provider names (must be non-empty if using PKCS#11).
+# Each provider in this list must have corresponding settings defined below.
+# Default: [] (empty list).
+{% for provider in providers | default([]) %}
+
+# -----------------------------------------------------------------------------
+# Provider: {{ provider }}
+# -----------------------------------------------------------------------------
+{% set p_settings = provider_settings | default([]) %}
+{% for p_item in p_settings %}
+    {% if p_item.provider == provider %}
+        {% set p_cfg = p_item %}
+    {% else %}
+        {% set p_cfg = {} %}
+    {% endif %}
+{% endfor %}
+{# Fallback if loop didn't find a match or provider_settings is not a list of dicts #}
+{# The following block assumes provider_settings is a list of dicts with 'provider' key #}
+{# If provider_settings is a dict of dicts, the loop above fails. #}
+{# Let's assume provider_settings is a list of dicts based on schema description: #}
+{# "Each item is a provider name key with nested attributes" -> This implies list of objects. #}
+{# However, the schema says "Flat structure required". This is contradictory. #}
+{# Assuming list of dicts: [{provider: 'p1', library: ...}, ...] #}
+
+{# Re-evaluating provider_settings handling: #}
+{# If provider_settings is a list of dicts, we iterate and find the one matching 'provider'. #}
+{# If it's a dict, we access directly. #}
+
+{# Let's try to handle both or assume list as per "list" type in schema often implies list of objects #}
+{# Schema says: "default=[]" and "desc='... Each item is a provider name key ...'" #}
+{# This suggests a list of objects. #}
+
+{% for p_item in provider_settings | default([]) %}
+    {% if p_item.provider is defined and p_item.provider == provider %}
+        {% set p_cfg = p_item %}
+    {% endif %}
+{% endfor %}
+
+{# If we didn't find it in the list, try treating provider_settings as a dict #}
+{% if not p_cfg or not p_cfg.provider %}
+    {% if provider_settings is mapping %}
+        {% set p_cfg = provider_settings.get(provider, {}) %}
+    {% else %}
+        {% set p_cfg = {} %}
+    {% endif %}
+{% endif %}
+
+# Full path to PKCS#11 library for provider '{{ provider }}'.
+# Default: '' (empty, no library specified).
+{% if p_cfg.library | default('') %}
+provider-{{ provider }}-library {{ p_cfg.library | default('') }}
+{% endif %}
+
+# Allow protected authentication for provider '{{ provider }}'.
+# Default: false.
+{% if p_cfg.allow_protected_auth | default(false) %}
+provider-{{ provider }}-allow-protected-auth
+{% endif %}
+
+# Require authentication before accessing certificates for provider '{{ provider }}'.
+# Default: false.
+{% if p_cfg.cert_private | default(false) %}
+provider-{{ provider }}-cert-private
+{% endif %}
+
+# Private key mask mode for provider '{{ provider }}'.
+# 0=auto, 1=force sign, 2=sign with recovery, 4=decrypt, 8=decrypt unwrap.
+# Default: 0.
+provider-{{ provider }}-private-mask {{ p_cfg.private_mask | default(0) }}
+
+{% endfor %}
+
+# OpenPGP key mappings (for gnupg-2.0 to <2.1.19).
+# These map specific OpenPGP keys to operations.
+# Values are SHA1 hashes (uppercase hex, no spaces).
+
+# SHA1 hash of signing key.
+# Default: '' (empty, no signing key mapped).
+{% if openpgp_keys_sign | default('') %}
+openpgp-sign {{ openpgp_keys_sign | default('') }}
+{% endif %}
+
+# SHA1 hash of encryption key.
+# Default: '' (empty, no encryption key mapped).
+{% if openpgp_keys_encr | default('') %}
+openpgp-encr {{ openpgp_keys_encr | default('') }}
+{% endif %}
+
+# SHA1 hash of authentication key.
+# Default: '' (empty, no authentication key mapped).
+{% if openpgp_keys_auth | default('') %}
+openpgp-auth {{ openpgp_keys_auth | default('') }}
+{% endif %}

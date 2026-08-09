@@ -1,0 +1,70 @@
+{# MooseFS master configuration file (mfsmaster.cfg) #}
+{# Listen address for the main MFS master server #}
+MASTER_HOST = {{ master_host }}
+
+{# Port for client connections (MFS client mounts) #}
+MASTER_PORT = {{ master_port }}
+
+{# Port for metalogger connections (if used) #}
+METALOGGER_PORT = {{ metalogger_port }}
+
+{# Port for chunkserver connections #}
+WORKER_PORT = {{ worker_port }}
+
+{# Data directory where metadata and logs are stored #}
+DATA_PATH = {{ data_path }}
+
+{# Number of worker threads handling chunkserver communications #}
+WORKER_THREADS = {{ worker_threads }}
+
+{# Maximum number of open file descriptors per worker #}
+MAX_OPEN_FILES = {{ max_open_files }}
+
+{# Time (in seconds) to wait before reconnecting to a chunkserver after failure #}
+CHUNKSERVER_RECONNECT_INTERVAL = {{ chunkserver_reconnect_interval }}
+
+{# Enable/disable access logging to file system operations (true/false) #}
+ACCESS_LOG = {{ access_log }}
+
+{# Enable/disable detailed transaction logging (true/false) #}
+TRANSACTION_LOG = {{ transaction_log }}
+
+{# Enable/disable statistics collection (true/false) #}
+STATISTICS_LOG = {{ statistics_log }}
+
+{# Enable/disable read-only mode (e.g., for maintenance) #}
+READ_ONLY = {{ read_only }}
+
+{# Enable/disable quota support #}
+QUOTA_SUPPORT = {{ quota_support }}
+
+{# Time (in seconds) between periodic metadata exports (snapshots) #}
+EXPORTS_INTERVAL = {{ exports_interval }}
+
+{# List of chunkserver entries; each entry defines a chunkserver to trust and use for data storage #}
+{% for chunkserver in chunkservers %}
+# Chunkserver: {{ chunkserver.hostname }} (ID: {{ chunkserver.id }})
+CHUNKSERVER_HOST_{{ loop.index }} = {{ chunkserver.hostname }}
+CHUNKSERVER_ID_{{ loop.index }} = {{ chunkserver.id }}
+{% endfor %}
+
+{# Optional: list of hosts allowed to connect as clients (empty = allow all) #}
+{% if allowed_hosts %}
+ALLOWED_HOSTS = {{ allowed_hosts | join(', ') }}
+{% else %}
+ALLOWED_HOSTS = *
+{% endif %}
+
+{# Optional: list of hosts allowed to connect as metaloggers #}
+{% if allowed_metalogger_hosts %}
+ALLOWED_METALOGGER_HOSTS = {{ allowed_metalogger_hosts | join(', ') }}
+{% else %}
+ALLOWED_METALOGGER_HOSTS = *
+{% endif %}
+
+{# Optional: list of hosts allowed to connect as chunkservers #}
+{% if allowed_chunkserver_hosts %}
+ALLOWED_CHUNKSERVER_HOSTS = {{ allowed_chunkserver_hosts | join(', ') }}
+{% else %}
+ALLOWED_CHUNKSERVER_HOSTS = *
+{% endif %}

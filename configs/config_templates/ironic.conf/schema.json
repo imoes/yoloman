@@ -1,0 +1,302 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "api_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the Ironic API server binds to."
+  },
+  "api_port": {
+    "type": "number",
+    "default": 6385,
+    "description": "Port the Ironic API server listens on."
+  },
+  "api_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for the Ironic API service."
+  },
+  "auth_strategy": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication strategy: 'keystone' for integration with OpenStack Identity, or 'noauth' for development/testing."
+  },
+  "enable_ssl_api": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/HTTPS for the Ironic API endpoint."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "/etc/ironic/ssl/server.crt",
+    "description": "Path to the TLS certificate file (required if TLS is enabled)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "/etc/ironic/ssl/server.key",
+    "description": "Path to the TLS private key file (required if TLS is enabled)."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "/etc/ironic/ssl/ca.crt",
+    "description": "Path to the CA certificate bundle for client verification (optional)."
+  },
+  "default_conductor_group": {
+    "type": "string",
+    "default": "default",
+    "description": "Default conductor group for bare metal nodes without a specific assignment."
+  },
+  "default_power_interface": {
+    "type": "string",
+    "default": "ipmitool",
+    "description": "Default power management interface (e.g., ipmitool, redfish)."
+  },
+  "default_management_interface": {
+    "type": "string",
+    "default": "ipmitool",
+    "description": "Default management interface (typically matches power interface)."
+  },
+  "default_boot_interface": {
+    "type": "string",
+    "default": "pxe",
+    "description": "Default boot interface for node provisioning."
+  },
+  "keystone_endpoint_type": {
+    "type": "string",
+    "default": "internal",
+    "description": "Keystone endpoint type used by Ironic: 'public', 'internal', or 'admin'."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://keystone:5000/v3",
+    "description": "Keystone authentication URL."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Project (tenant) name for Ironic's service user in Keystone."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "ironic",
+    "description": "Service username in Keystone."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "IRONIC_PASSWORD",
+    "description": "Password for Ironic's Keystone service user. *Do not expose in plaintext.*"
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "User domain name in Keystone."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Project domain name in Keystone."
+  },
+  "keystone_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable TLS certificate verification for Keystone communication (not recommended in production)."
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://ironic:IRONIC_DB_PWD@db/ironic?charset=utf8",
+    "description": "Database connection string. Supports SQLite for development: 'sqlite:////var/lib/ironic/ironic.sqlite'."
+  },
+  "db_max_pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of database connections in the pool."
+  },
+  "db_max_overflow": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of additional connections beyond the pool."
+  },
+  "db_pool_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for acquiring a database connection."
+  },
+  "publish_errors_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable publishing of Ironic errors as notifications on the message bus."
+  },
+  "conductor_task_processing_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Maximum time (seconds) a task can remain unprocessed before being requeued."
+  },
+  "conductor_heartbeat_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds after last heartbeat before a conductor is considered offline."
+  },
+  "agent_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable agent-based deployment (requires Ironic Inspector)."
+  },
+  "agent_api_url": {
+    "type": "string",
+    "default": "http://ironic-inspector:5050",
+    "description": "Base URL for the Ironic Inspector API."
+  },
+  "agent_connect_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) when connecting to the agent on a node."
+  },
+  "agent_call_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum time (seconds) to wait for agent operations to complete."
+  },
+  "image_download_chunk_size": {
+    "type": "number",
+    "default": 131072,
+    "description": "Chunk size (bytes) for downloading images via agent."
+  },
+  "ipxe_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable iPXE boot instead of legacy PXE (for advanced boot control)."
+  },
+  "ipxe_menu_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) before iPXE boots the default menu entry."
+  },
+  "tftp_server_ip": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "IP address of the TFTP server (must be reachable by bare metal nodes)."
+  },
+  "tftp_root_dir": {
+    "type": "string",
+    "default": "/tftpboot",
+    "description": "Root directory for TFTP files (e.g., PXE boot images)."
+  },
+  "pxe_bootfile_name": {
+    "type": "string",
+    "default": "pxelinux.0",
+    "description": "Name of the BIOS PXE boot file (for legacy BIOS nodes)."
+  },
+  "pxe_uefi_bootfile_name": {
+    "type": "string",
+    "default": "grubaa64.efi",
+    "description": "Name of the UEFI PXE boot file (for UEFI-capable nodes)."
+  },
+  "dhcp_provider": {
+    "type": "string",
+    "default": "dnsmasq",
+    "description": "DHCP provider: 'dnsmasq' (built-in) or 'neutron' (integration required)."
+  },
+  "dns_lookup_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS resolution for nodes via dnsmasq."
+  },
+  "neutron_auth_url": {
+    "type": "string",
+    "default": "http://neutron:9696",
+    "description": "Neutron API endpoint URL."
+  },
+  "neutron_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Project name for Ironic in Neutron (for port management)."
+  },
+  "neutron_username": {
+    "type": "string",
+    "default": "neutron",
+    "description": "Service username for Neutron."
+  },
+  "neutron_password": {
+    "type": "string",
+    "default": "NEUTRON_PASSWORD",
+    "description": "Password for Ironic's Neutron service user."
+  },
+  "neutron_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Neutron user domain name."
+  },
+  "neutron_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Neutron project domain name."
+  },
+  "neutron_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable TLS verification for Neutron API."
+  },
+  "inspector_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hardware inspection via Ironic Inspector."
+  },
+  "inspector_url": {
+    "type": "string",
+    "default": "http://ironic-inspector:5050",
+    "description": "URL of the Ironic Inspector API."
+  },
+  "inspector_auth_type": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Authentication type for Inspector API: 'keystone' or 'noauth'."
+  },
+  "node_drivers": {
+    "type": "list",
+    "default": [],
+    "description": "List of node-type-specific driver configurations.",
+    "items": {
+      "node_type": {
+        "type": "string",
+        "description": "Logical group name for node types (e.g., 'compute', 'storage', 'baremetal')."
+      },
+      "drivers": {
+        "type": "object",
+        "properties": {
+          "power": {
+            "type": "string",
+            "default": "ipmitool"
+          },
+          "management": {
+            "type": "string",
+            "default": "ipmitool"
+          },
+          "boot": {
+            "type": "string",
+            "default": "pxe"
+          },
+          "ipmi": {
+            "type": "string",
+            "default": "ipmitool"
+          },
+          "raid": {
+            "type": "string",
+            "default": "no-raid"
+          },
+          "bios": {
+            "type": "string",
+            "default": "no-bios"
+          },
+          "vendor": {
+            "type": "string",
+            "default": "ipmitool"
+          }
+        },
+        "description": "Interface driver overrides for this node type."
+      }
+    }
+  }
+}

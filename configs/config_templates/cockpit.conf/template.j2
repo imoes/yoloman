@@ -1,0 +1,59 @@
+[WebService]
+# Bind the Cockpit web service to a specific address (IP or hostname); use `*` to bind to all interfaces
+Address = {{ ws_address }}
+
+# Listen port for the Cockpit web service
+Port = {{ ws_port }}
+
+# Use HTTPS (TLS) for secure connections (requires valid TLS certificates)
+TLSCert = {{ ws_tls_cert }}
+TLSKey = {{ ws_tls_key }}
+
+# Enable TLS (HTTPS) encryption for Cockpit connections. Requires valid certificate and key paths.
+# Note: TLS is implicitly enabled if TLSCert/TLSKey are present; set AllowUnencrypted=true to allow HTTP.
+{% if ws_tls is defined %}
+# TLS enabled (implicit); AllowUnencrypted controls HTTP fallback
+{% endif %}
+
+{% if ws_cors_domains %}
+# Comma-separated list of allowed origins for CORS (Cross-Origin Resource Sharing); empty or absent disables CORS
+Origins = {{ ws_cors_domains | join(', ') }}
+{% endif %}
+
+# Allow unencrypted HTTP connections; if false, HTTP is redirected to HTTPS
+{% if ws_allow_unencrypted is not none %}
+AllowUnencrypted = {{ ws_allow_unencrypted | lower }}
+{% endif %}
+
+[Login]
+# Disable login banner (set to `false` to remove or hide it)
+Banner = {{ login_banner }}
+
+# Banner text shown on the login page
+BannerText = {{ login_banner_text }}
+
+[Session]
+# Session timeout in minutes; 0 means no timeout (not recommended for production)
+{% if session_timeout_minutes is not none %}
+IdleTimeout = {{ session_timeout_minutes }}
+{% endif %}
+
+# Session idle timeout in minutes; 0 means no idle timeout (not recommended)
+{% if session_idle_timeout_minutes is not none %}
+IdleTimeout = {{ session_idle_timeout_minutes }}
+{% endif %}
+
+# Maximum number of concurrent sessions per user (0 = no limit)
+{% if session_max_per_user is not none %}
+MaxSessionsPerUser = {{ session_max_per_user }}
+{% endif %}
+
+{% if session_recording_path %}
+# Enable session recording and store logs at this path
+SessionRecording = {{ session_recording_path }}
+{% endif %}
+
+{% if session_recording_exclude_users %}
+# List of users excluded from session recording
+SessionRecordingExcludeUsers = {{ session_recording_exclude_users | join(', ') }}
+{% endif %}

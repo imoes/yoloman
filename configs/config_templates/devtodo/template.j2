@@ -1,0 +1,104 @@
+#
+# devtodo configuration file (todorc)
+# This file can be placed in /etc/todorc or ~/.todorc
+#
+
+# Filter settings: exclude certain items from views.
+# filter -children means child items are hidden from the default list.
+filter -children
+
+# Colour settings for priority levels and info fields.
+# Uncomment and modify to suit your terminal theme.
+# Colours can be standard names or hex codes if supported.
+#colour title=+green
+#colour info=green
+#colour veryhigh=+red
+#colour high=yellow
+#colour medium=white
+#colour low=cyan
+#colour verylow=blue
+
+# Display mode: enable summary view by default.
+#summary
+
+# Security: enforce strict file ownerships and permissions on the database.
+paranoid
+
+# Global Database Path
+# Specifies the path to the global todo database file.
+# This is used when the --global or -G flag is specified during command execution.
+# Default is the user's home directory.
+global-database {{ global_database | default('$HOME/.todo_global') }}
+
+# Database Loaders
+# Specifies the order of formats to try when loading the database.
+# 'binary' is faster, 'xml' is human-readable/editable.
+#database-loaders binary,xml
+
+# Backup Settings
+# Number of backup copies to keep for the database file.
+#backup 2
+
+# Sort Order
+# Defines how todo items are sorted in the display list.
+# -done: completed items go to the bottom
+# priority: highest priority first
+# -created: newest first
+# -text: alphabetical by text
+sort -done,priority,-created,-text
+
+# Date Format
+# Custom date format string for displaying dates.
+# Uses strftime-like syntax. Example: Australian/UK format.
+#date-format %d/%m/%y, %H:%M
+
+# Alternative Date Format (American)
+# Uncomment to switch to American date format.
+#format date=%m/%d/%y, %H:%M
+
+# Default Display Format
+# Customizes the layout of each todo item in the list.
+# %i: ID, %p: priority, %c: created date, %d: done date, %T: text
+#format display=%4>%i%[info]%f%2n.%[priority]%+1T\n
+
+# Verbose Display Format
+# More detailed list item format including added/completion info.
+#format verbose-display=%4>%i%[info]%f%2n.(added %c) %[priority]%+1T\n
+
+# Generated File Format
+# Format for output when generating a text report.
+#format generated=%2>%i- %+1T\n
+#format verbose-generated=%2>%i- (added %c, completed %d) %+1T\n
+
+# User-Defined Formats
+# You can define named formats here and use them with 'use-format'.
+# Example full report format:
+#format full-report=%i%[info]%f%2n.%[priority]%+1T%+1i%[info]Added: %[normal]%c  %[info]Completed: %[normal]%d\n%+1i%[info]Duration: %[normal]%D  %[info]Priority: %[normal]%p\n\n
+# Override the display format to use "full-report".
+#use-format display=full-report
+
+# Post-Creation Hook
+# Force removal of world and group permissions from the database file immediately after creation.
+#on create {
+#	exec chmod 600 $TODODB
+#}
+
+# Post-Save Hook
+# Create an HTML version of the todo list upon saving.
+# Requires libxslt and the todo2html.xslt stylesheet.
+#on save {
+#	   echo HTML created
+#	   exec xsltproc /usr/share/devtodo/todo2html.xslt $TODODB > `dirname $TODODB`/.todo.html
+#	   exec chmod 600 `dirname $TODODB`/.todo.html
+#}
+
+# Verbosity Settings
+# Make the tool verbose during specific actions to show prompts.
+on add verbose
+on edit verbose
+on title verbose
+
+# Default Priority
+# Use default priority when editing, adding, or grafting items.
+# This suppresses interactive prompting for priority if a default is configured.
+#priority default

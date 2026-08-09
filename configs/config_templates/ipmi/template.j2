@@ -1,0 +1,52 @@
+# IPMI daemon configuration — sets operational parameters for ipmi-sel, ipmi-watchdog, and lan interface
+
+# Path to the IPMI device node (e.g., /dev/ipmi0 for kernel interface).
+device={{ device_path | default('/dev/ipmi0') }}
+
+# Enable or disable kernel watchdog timer support.
+watchdog={{ watchdog_enabled | default(false) | lower }}
+
+# Seconds before watchdog reset when pre-timeout interrupt is triggered (set to 0 to disable).
+watchdog_pretimeout={{ watchdog_pretimeout | default(10) }}
+
+# Watchdog timeout in seconds (0 = use hardware default).
+watchdog_timeout={{ watchdog_timeout | default(60) }}
+
+# Enable logging of System Event Log (SEL) entries to files.
+event_logging={{ event_logging_enabled | default(true) | lower }}
+
+# Maximum size (KB) of SEL log file before rotation.
+sel_max_size={{ sel_max_size_kb | default(1024) }}
+
+# Number of rotated SEL log files to retain.
+sel_max_files={{ sel_max_files_retained | default(5) }}
+
+# Enable or disable IPMI LAN (RMCP) interface configuration.
+lan_enabled={{ lan_enabled | default(false) | lower }}
+
+{% if lan_enabled | default(false) %}
+# LAN interface configuration
+{% for lan in lan_configs | default([]) %}
+# LAN Interface Configuration
+# The interface identifier (e.g., 'lan0', 'lan1').
+# Note: The underlying daemon uses the interface name as a prefix for these directives.
+# auth_type: Authentication type for the interface.
+lan_auth_type={{ lan.iface | default('lan0') }} {{ lan.auth_type | default('none') }}
+# ipaddr: The IP address for the LAN interface.
+lan_ipaddr={{ lan.iface | default('lan0') }} {{ lan.ipaddr | default('') }}
+# netmask: The subnet mask for the LAN interface.
+lan_netmask={{ lan.iface | default('lan0') }} {{ lan.netmask | default('') }}
+# def_gw_ipaddr: The default gateway IP address.
+lan_def_gw_ipaddr={{ lan.iface | default('lan0') }} {{ lan.def_gw_ipaddr | default('') }}
+# macaddr: The MAC address for the LAN interface.
+lan_macaddr={{ lan.iface | default('lan0') }} {{ lan.macaddr | default('') }}
+# rmcp_port: The RMCP UDP port number.
+lan_rmcp_port={{ lan.iface | default('lan0') }} {{ lan.rmcp_port | default('623') }}
+{% endfor %}
+{% endif %}
+
+# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug.
+logging_level={{ logging_level | default(2) }}
+
+# Path to write the daemon PID file.
+pidfile={{ pidfile_path | default('/run/ipmitool/ipmi-sel.pid') }}

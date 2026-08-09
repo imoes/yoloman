@@ -1,0 +1,42 @@
+{# ============================================================================= #}
+{# Lomiri Online Accounts — Nextcloud plugin configuration                       #}
+{# Self-documenting Jinja2 template. Every directive is annotated with its       #}
+{# source schema description. Defaults are applied inline to ensure safe         #}
+{# rendering when variables are omitted.                                         #}
+{# ============================================================================= #}
+
+{# The full base URL of your Nextcloud server (e.g., https://cloud.example.com)  #}
+{# Required. No default in schema, but we provide an empty string to avoid     #}
+{# Jinja undefined errors. The consuming application must validate this value. #}
+URL={{ url | default('') }}
+
+{# Username to pre-fill in login dialog (optional). Leave blank to prompt user.#}
+{% if (username | default('')) | length > 0 %}
+{# The username to use for initial authentication (optional, can be overridden by user) #}
+Username={{ username | default('') }}
+{% endif %}
+
+{# App password or OAuth client secret for non-interactive login (optional).   #}
+{# If omitted, user must enter credentials.                                    #}
+{% if (app_password | default('')) | length > 0 %}
+AppPassword={{ app_password | default('') }}
+{% endif %}
+
+{# Enable synchronization of contacts via WebDAV (default: true)               #}
+{# Boolean value. Defaults to true if not provided.                            #}
+WebDAVContacts={{ webdav_contacts | default(true) | lower }}
+
+{# Enable synchronization of calendars via WebDAV (default: true)              #}
+{# Boolean value. Defaults to true if not provided.                            #}
+WebDAVCalendars={{ webdav_calendars | default(true) | lower }}
+
+{# Enable synchronization of files via WebDAV (Nextcloud Files app)            #}
+{# Boolean value. Defaults to true if not provided.                            #}
+WebDAVFiles={{ webdav_files | default(true) | lower }}
+
+{# Custom WebDAV paths (e.g., remote.php/dav/files/username/MyFolder).         #}
+{# One per line. Useful for non-standard setups. This is a list of strings.    #}
+{# Empty list results in no additional paths.                                  #}
+{% for path in (webdav_paths | default([])) %}
+WebDAVPath={{ path }}
+{% endfor %}

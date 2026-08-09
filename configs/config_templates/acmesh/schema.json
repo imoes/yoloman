@@ -1,0 +1,197 @@
+{
+  "account_key_path": {
+    "type": "string",
+    "default": "~/.acme.sh/ca/account.key",
+    "description": "Path to the account private key used to authenticate with the CA. Must be unique per account."
+  },
+  "acme_directory": {
+    "type": "string",
+    "default": "https://acme-v02.api.letsencrypt.org/directory",
+    "description": "ACME directory URL for the certificate authority (e.g., Let's Encrypt production)."
+  },
+  "default_ca": {
+    "type": "string",
+    "default": "letsencrypt",
+    "description": "Default CA identifier (e.g., 'letsencrypt', 'zerossl'). Used when omitting the --ca flag."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to stderr."
+  },
+  "dns_alias": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS alias mode for challenges (allows pointing DNS records to a proxy zone)."
+  },
+  "custom_ca_bundle": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a custom CA certificate bundle (PEM format) for verifying TLS connections."
+  },
+  "http_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout in seconds for HTTP requests to the ACME server."
+  },
+  "retry_max": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries for failed HTTP requests."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 2,
+    "description": "Delay in seconds between retries of failed requests."
+  },
+  "acme_home": {
+    "type": "string",
+    "default": "~/.acme.sh",
+    "description": "Base directory for storing account, domain, and certificate data."
+  },
+  "account_key_length": {
+    "type": "number",
+    "default": 4096,
+    "description": "Default bit length for account keys (RSA only). Use 256 or 384 for ECDSA."
+  },
+  "cert_key_length": {
+    "type": "number",
+    "default": 4096,
+    "description": "Default key length for domain certificates (unless overridden per site)."
+  },
+  "use_eab": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable External Account Binding (required by some CAs like GoDaddy for account migration)."
+  },
+  "eab_kid": {
+    "type": "string",
+    "default": "",
+    "description": "External Account Binding Key Identifier (provided by CA)."
+  },
+  "eab_hmac_key": {
+    "type": "string",
+    "default": "",
+    "description": "Base64-encoded HMAC key for EAB (provided by CA)."
+  },
+  "dns_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS plugins to enable (must exist in acme_home/dnsapi/).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "DNS provider name (e.g., 'cloudflare', 'digitalocean')"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": false,
+          "description": "Whether this plugin is enabled (sets _DNS<NAME>=1)"
+        }
+      }
+    }
+  },
+  "dns_credentials": {
+    "type": "list",
+    "default": [],
+    "description": "API credentials for DNS providers (e.g., for manual or alias mode).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "provider": {
+          "type": "string",
+          "default": "",
+          "description": "Provider name (e.g., 'cloudflare')"
+        },
+        "api_key": {
+          "type": "string",
+          "default": "",
+          "description": "API key or token for the provider (e.g., CF_API_KEY=...)"
+        }
+      }
+    }
+  },
+  "ocsp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OCSP stapling (requires OCSP-capable server setup)."
+  },
+  "acme_sh_path": {
+    "type": "string",
+    "default": "/usr/local/bin/acme.sh",
+    "description": "Path to the main acme.sh script (if installed in a non-standard location)."
+  },
+  "auto_renew": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic renewal of certificates via cron/systemd."
+  },
+  "auto_renew_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days before certificate expiry to trigger renewal."
+  },
+  "account_email": {
+    "type": "string",
+    "default": "",
+    "description": "Email address for account registration and expiry notifications."
+  },
+  "no_reinstall": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip reinstalling renewed certificates (useful in containerized setups)."
+  },
+  "strict_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable strict TLS validation (recommended for production)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Empty to disable file logging."
+  },
+  "default_key_algo": {
+    "type": "string",
+    "default": "rsa",
+    "description": "Default key algorithm for new certificates ('rsa' or 'ecdsa')."
+  },
+  "country_code": {
+    "type": "string",
+    "default": "",
+    "description": "Two-letter ISO 3166-1 country code for certificate subject (e.g., 'US')."
+  },
+  "state": {
+    "type": "string",
+    "default": "",
+    "description": "State or province name for certificate subject."
+  },
+  "location": {
+    "type": "string",
+    "default": "",
+    "description": "City or locality for certificate subject."
+  },
+  "organization": {
+    "type": "string",
+    "default": "",
+    "description": "Organization name for certificate subject."
+  },
+  "organization_unit": {
+    "type": "string",
+    "default": "",
+    "description": "Organizational unit (e.g., department) for certificate subject."
+  },
+  "json_output": {
+    "type": "bool",
+    "default": false,
+    "description": "Output status and results in JSON format for external tools."
+  }
+}

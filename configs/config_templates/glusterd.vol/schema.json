@@ -1,0 +1,195 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address on which glusterd listens for incoming connections."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 24007,
+    "description": "TCP port for glusterd management traffic (must match across cluster)."
+  },
+  "nodelay": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable Nagle\u2019s algorithm to reduce latency on socket communication."
+  },
+  "keepalive": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP keepalive probes to detect dead peers."
+  },
+  "keepalive_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Interval (in seconds) between keepalive probes after initial inactivity."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Time (in seconds) to wait before closing connection after keepalive failure."
+  },
+  "linger": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SO_LINGER to control socket shutdown behavior."
+  },
+  "rmem": {
+    "type": "number",
+    "default": 1048576,
+    "description": "TCP receive buffer size in bytes (kernel adjusts up to this)."
+  },
+  "wmem": {
+    "type": "number",
+    "default": 1048576,
+    "description": "TCP send buffer size in bytes (kernel adjusts up to this)."
+  },
+  "auth_allow": {
+    "type": "list",
+    "default": [
+      "*"
+    ],
+    "items": {
+      "type": "string",
+      "description": "CIDR or hostname patterns allowed for RPC authentication (e.g., '192.168.1.0/24', 'gluster1.example.com')."
+    },
+    "description": "List of clients permitted to connect to glusterd."
+  },
+  "auth_reject": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "CIDR or hostname patterns explicitly denied access."
+    },
+    "description": "List of clients denied from connecting to glusterd."
+  },
+  "auth_password_file": {
+    "type": "string",
+    "default": "/etc/glusterfs/glusterd.vol",
+    "description": "Path to file containing basic auth credentials (for LDAP fallback or legacy auth)."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "LDAP DN used to bind to the LDAP server (for authentication)."
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the LDAP bind DN."
+  },
+  "ldap_server": {
+    "type": "string",
+    "default": "",
+    "description": "LDAP server hostname or URL (e.g., 'ldap://ldap.example.com')."
+  },
+  "ldap_search_base_dn": {
+    "type": "string",
+    "default": "",
+    "description": "Base DN for LDAP user/group searches."
+  },
+  "ldap_search_filter": {
+    "type": "string",
+    "default": "(uid=%s)",
+    "description": "LDAP search filter string; %s is replaced with username."
+  },
+  "ldap_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file for LDAPS/TLS verification."
+  },
+  "ldap_use_starttls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable STARTTLS for LDAP (non-SSL connection upgraded to TLS)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/glusterfs/glusterd.log",
+    "description": "Path to glusterd log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "WARNING",
+    "description": "Logging verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL, or NONE.",
+    "enum": [
+      "TRACE",
+      "DEBUG",
+      "INFO",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ]
+  },
+  "log_format": {
+    "type": "string",
+    "default": "[%b %d %H:%M:%S] [glusterd] [%p:%l] [%T] %g",
+    "description": "Log message format (Gluster-specific directives supported)."
+  },
+  "volfile_format": {
+    "type": "string",
+    "default": "native",
+    "description": "Format of volume files: 'native' (Gluster\u2019s own format) or 'xml'."
+  },
+  "volume_root": {
+    "type": "string",
+    "default": "/var/lib/glusterfs",
+    "description": "Root directory for GlusterFS metadata and configuration files."
+  },
+  "peer_statistics": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable collection of peer statistics for metrics and monitoring."
+  },
+  "client_port": {
+    "type": "number",
+    "default": 49152,
+    "description": "Lower bound for client RPC port range (glusterfsd connections)."
+  },
+  "server_port": {
+    "type": "number",
+    "default": 49152,
+    "description": "Lower bound for server RPC port range (glusterd-to-server connections)."
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of RPC worker threads to handle concurrent client requests."
+  },
+  "insecure_access": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow RPC connections from non-privileged ports (insecure; disables port-checking)."
+  },
+  "server_allow_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow 'insecure' client mounts (e.g., without Kerberos or SSL)."
+  },
+  "mgmt_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for glusterd-to-glusterd management traffic."
+  },
+  "mgmt_ssl_cipher_list": {
+    "type": "string",
+    "default": "HIGH:MEDIUM:!aNULL:!MD5:!SSLv2",
+    "description": "OpenSSL cipher list for management-plane SSL/TLS."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "Hostname or IP of peer node."
+      },
+      "uuid": {
+        "type": "string",
+        "description": "UUID of peer node (optional; auto-discovered on first connect)."
+      }
+    },
+    "description": "List of static peer nodes (used for cluster bootstrap or DNS-less setups)."
+  }
+}

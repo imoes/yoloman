@@ -1,0 +1,97 @@
+# ==============================================================================
+# Plan 9 Filesystem Server (p9ufs) Configuration
+# ==============================================================================
+# This template configures the p9ufs daemon. It defines the network binding,
+# authentication strategy, TLS settings (if enabled), logging, and exported
+# filesystems.
+# ==============================================================================
+
+# ==============================================================================
+# Network Binding
+# ==============================================================================
+# IP address to bind the 9P service to (e.g., '127.0.0.1' or '0.0.0.0' for all interfaces).
+# Default: '0.0.0.0'
+listen_addr: "{{ (listen_addr | default('0.0.0.0')) | string }}"
+
+# TCP port for the 9P service. Default 564 is the standard 9P port.
+# Default: 564
+listen_port: {{ (listen_port | default(564)) | int }}
+
+# ==============================================================================
+# Root Export
+# ==============================================================================
+# Absolute path to the directory to be exported as the root filesystem.
+# Default: '/export'
+root_path: "{{ (root_path | default('/export')) | string }}"
+
+# ==============================================================================
+# Authentication
+# ==============================================================================
+# Authentication method for clients. 'none' allows unauthenticated access,
+# 'user' maps UIDs/GIDs, and 'tls' requires client TLS certificates.
+# Default: 'none'
+auth_mode: "{{ (auth_mode | default('none')) | string }}"
+
+# ==============================================================================
+# TLS Configuration
+# ==============================================================================
+# These directives are ONLY emitted if auth_mode is 'tls'.
+# They define the paths to the server's PEM-encoded certificate and private key.
+
+{% if (auth_mode | default('none')) == 'tls' %}
+# Path to the server TLS certificate file (PEM format). Required when auth='tls'.
+# Default: '/etc/p9ufs/tls/server.crt'
+tls_cert_path: "{{ (tls_cert_path | default('/etc/p9ufs/tls/server.crt')) | string }}"
+
+# Path to the server TLS private key file (PEM format). Required when auth='tls'.
+# Default: '/etc/p9ufs/tls/server.key'
+tls_key_path: "{{ (tls_key_path | default('/etc/p9ufs/tls/server.key')) | string }}"
+{% endif %}
+
+# ==============================================================================
+# Connection Limits
+# ==============================================================================
+# Maximum number of simultaneous client connections to accept.
+# Default: 128
+max_connections: {{ (max_connections | default(128)) | int }}
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+# If verbose logging is enabled, the 'verbose_logging' directive is set to true.
+# This causes the daemon to print detailed debug traces to stderr.
+# Default: False
+verbose_logging: {{ (verbose_logging | default(False)) | bool }}
+
+# ==============================================================================
+# Additional Filesystems
+# ==============================================================================
+# Additional filesystems to mount under the 9P namespace (beyond root).
+# Each item defines a source path and a virtual mount point.
+# Default: [] (empty, no extra mounts)
+{% for fs in (extra_filesystems | default([])) %}
+# Source: {{ fs.path | string }} -> Virtual Mount: {{ fs.mount_point | string }}
+extra_fs: "{{ fs.path | string }}:{{ fs.mount_point | string }}"
+{% endfor %}
+
+# ==============================================================================
+# User Mapping
+# ==============================================================================
+# Mapping of remote usernames to local UIDs/GIDs for 'user' authentication.
+# Each entry maps a username to 'uid:gid'.
+# Default: [] (empty, mapping omitted)
+{% if (auth_mode | default('none')) == 'user' and (user_map | default([])) %}
+# Usermap block emitted when auth_mode is 'user' and user_map is not empty.
+usermap:
+{% for entry in (user_map | default([])) %}
+  {{ (entry.username | default('')) | string }}: "{{ (entry.uid | default(0)) | string }}:{{ (entry.gid | default(0)) | string }}"
+{% endfor %}
+{% endif %}
+
+# ==============================================================================
+# Server Identity
+# ==============================================================================
+# Server name announced during 9P protocol negotiation.
+# Helps clients identify the service.
+# Default: 'p9ufs'
+server_name: "{{ (server_name | default('p9ufs')) | string }}"

@@ -1,0 +1,161 @@
+# ============================================================================
+# Avahi Daemon Configuration
+# ============================================================================
+# This file controls the behavior of avahi-daemon, a system service for
+# multicast DNS (mDNS) and DNS Service Discovery (DNS-SD). It allows
+# services and applications to register and discover each other on the local
+# network without manual configuration.
+#
+# Sections:
+#   [server]     - General daemon behavior and published records
+#   [wide-area]  - Wide Area mDNS (WAM) settings for cross-subnet discovery
+#   [publish]    - Local service and domain publishing settings
+#   [reflector]  - Reflector mode to forward mDNS packets between subnets
+#   [nss-mdns]   - Name Service Switch (nss-mdns) plugin settings
+#   [rlimits]    - Resource limits for the avahi-daemon process
+# ============================================================================
+
+[server]
+# ---------------------------------------------------------------------------
+# General Server Settings
+# ---------------------------------------------------------------------------
+
+# Enable or disable IPv4-based mDNS/DNS-SD
+# Set to 'yes' to allow Avahi to listen on IPv4 interfaces.
+use-ipv4={{ use_ipv4 | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable IPv6-based mDNS/DNS-SD
+# Set to 'yes' to allow Avahi to listen on IPv6 interfaces.
+use-ipv6={{ use_ipv6 | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing HINFO (hardware/OS) records for this host
+# When enabled, Avahi advertises the host's CPU architecture and operating system.
+publish-hinfo={{ publish_hinfo | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing MX (mail server) records for the local domain
+# Advertises mail server priority and target for the local domain.
+publish-mx={{ publish_mx | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing SRV records for local services
+# Allows local services to be discovered via SRV records.
+publish-srv={{ publish_srv | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing TXT records for local services
+# Allows arbitrary key-value data to be attached to discovered services.
+publish-txt={{ publish_txt | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing local domain name
+# Publishes the local domain (e.g., 'local') via DNS-SD.
+publish-domain={{ publish_domain | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing workstation (network browsing) service record
+# Allows the host to appear in network browsing lists (like Windows Network Neighborhood).
+publish-workstation={{ publish_workstation | default(True) | ternary('yes', 'no') }}
+
+# Enable or disable publishing SSH service (requires sshd running)
+# Advertises an SSH service record if the SSH daemon is active.
+publish-ssh={{ publish_ssh | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing FTP service (requires FTP daemon running)
+# Advertises an FTP service record if the FTP daemon is active.
+publish-ftp={{ publish_ftp | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing WebDAV service (requires WebDAV daemon running)
+# Advertises a WebDAV service record if the WebDAV daemon is active.
+publish-webdav={{ publish_webdav | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing AirPrint service (requires CUPS AirPrint support)
+# Advertises AirPrint capability for iOS device printing.
+publish-airprint={{ publish_airprint | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing IPP (Internet Printing Protocol) service
+# Advertises IPP printing capabilities.
+publish-ipp={{ publish_ipp | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing CUPS printing service
+# Advertises CUPS printing capabilities.
+publish-cups={{ publish_cups | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing LPD (Line Printer Daemon) service
+# Advertises LPD printing capabilities.
+publish-lpd={{ publish_lpd | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing Avahi API service (advanced/debug use only)
+# Exposes the Avahi D-Bus API via mDNS.
+publish-apia={{ publish_apia | default(False) | ternary('yes', 'no') }}
+
+# Enable or disable publishing DNS resolver configuration (e.g., upstream DNS servers)
+# Publishes DNS resolver info found in /etc/resolv.conf.
+publish-resolv-conf={{ publish_resolv_conf | default(True) | ternary('yes', 'no') }}
+
+# ---------------------------------------------------------------------------
+# Rate Limiting
+# ---------------------------------------------------------------------------
+
+# Rate-limit interval in microseconds; packets beyond the burst are dropped
+# Prevents the daemon from being overwhelmed by excessive mDNS traffic.
+ratelimit-interval-usec={{ rate_limit_interval_usec | default(1000000) }}
+
+# Maximum packets allowed per rate-limit interval
+# If this limit is reached, subsequent packets are dropped until the next interval.
+ratelimit-burst={{ rate_limit_burst | default(50) }}
+
+[wide-area]
+# ---------------------------------------------------------------------------
+# Wide Area mDNS (WAM)
+# ---------------------------------------------------------------------------
+
+# Enable Wide Area mDNS (not recommended without explicit infrastructure)
+# Allows Avahi to forward discovery traffic across routers/subnets via WAM servers.
+enable-wide-area={{ enable_wide_area | default(False) | ternary('yes', 'no') }}
+
+[publish]
+# ---------------------------------------------------------------------------
+# Local Publishing
+# ---------------------------------------------------------------------------
+
+# Publish local domain name (e.g., 'local')
+# Controls whether the local domain name is published via DNS-SD.
+publish-domain={{ publish_local_domain | default(True) | ternary('yes', 'no') }}
+
+# Publish locally configured services (e.g., from /etc/avahi/services)
+# Controls whether static service definitions in /etc/avahi/services are advertised.
+publish-services={{ publish_local_services | default(True) | ternary('yes', 'no') }}
+
+[reflector]
+# ---------------------------------------------------------------------------
+# Reflector Mode
+# ---------------------------------------------------------------------------
+
+# Enable reflector mode: forward mDNS packets across subnets (for multi-subnet networks)
+# When enabled, Avahi forwards mDNS packets between interfaces, acting as a bridge.
+enable-reflector={{ enable_reflector | default(False) | ternary('yes', 'no') }}
+
+# Reflect IPv4 mDNS packets across subnets when reflector is enabled
+reflect-ipv4={{ reflect_ipv4 | default(True) | ternary('yes', 'no') }}
+
+# Reflect IPv6 mDNS packets across subnets when reflector is enabled
+reflect-ipv6={{ reflect_ipv6 | default(True) | ternary('yes', 'no') }}
+
+[nss-mdns]
+# ---------------------------------------------------------------------------
+# Name Service Switch (nss-mdns)
+# ---------------------------------------------------------------------------
+
+# Minimum TTL (in seconds) for mDNS-resolved hostnames; prevents aggressive caching
+# Ensures that resolved hostnames are not cached for too short a period,
+# reducing resolution storms.
+min-ttl={{ min_ttl | default(120) }}
+
+[rlimits]
+# ---------------------------------------------------------------------------
+# Resource Limits
+# ---------------------------------------------------------------------------
+
+# Maximum number of open file descriptors for the avahi-daemon process
+# Limits the number of files/sockets the daemon can have open simultaneously.
+rlimit-nofile={{ rlimit_nofile | default(512) }}
+
+# Maximum size of core dumps (0 = use system default)
+# 0 disables core dump generation; otherwise specifies the max size in bytes.
+rlimit-core={{ rlimit_core | default(0) }}

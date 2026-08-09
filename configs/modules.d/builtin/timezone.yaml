@@ -1,0 +1,34 @@
+name: timezone
+fqcn: builtin.timezone
+collection: builtin
+short_description: Ensure the system timezone matches a desired IANA zone name (e.g
+description: 'Ensure the system timezone matches a desired IANA zone name (e.g. "Europe/Berlin",
+  "UTC"), using timedatectl (systemd-based Linux, like the rest of this agent). Idempotent
+  — reads /etc/localtime''s symlink target to determine the current zone before deciding
+  whether timedatectl needs to run. Supports check_mode via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.timezone. Same name parameter; Ansible supports multiple
+  per-distro strategies, this module only implements the systemd (timedatectl) strategy.
+
+  - Chef: no single built-in resource; typically a `execute` resource wrapping timedatectl,
+  or the community ''timezone_ii''/''timezone'' cookbooks.
+
+  - Puppet: the puppetlabs ''timezone'' or saz-timezone third-party modules — no core
+  equivalent.
+
+  - Salt: the `timezone.system` state.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s kernel/system
+  clock configuration.'
+options:
+  name:
+    type: string
+    description: Desired IANA timezone name, e.g. "Europe/Berlin" or "UTC".
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

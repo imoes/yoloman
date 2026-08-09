@@ -1,0 +1,217 @@
+# ==============================================================================
+# DHCPv6 Server Configuration Template (Dibbler/Kea compatible syntax)
+# ==============================================================================
+# This template generates the configuration file for a DHCPv6 server.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and source variable.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Interface Configuration
+# ------------------------------------------------------------------------------
+
+# Name of the network interface to listen on (e.g., 'eth0', 'wg0', or 'all' for all interfaces).
+# interface_type: Usually 'unicast' or 'multicast'.
+interface {{ interface_name | default('eth0') }}, {{ interface_type | default('unicast') }}
+
+# ------------------------------------------------------------------------------
+# Primary Address Pool
+# ------------------------------------------------------------------------------
+
+# IPv6 prefix for the primary address pool (e.g., '2001:db8:1::').
+# Prefix length for the primary pool (e.g., 64).
+# Prefix delegation length for PD (Prefix Delegation); typically same as prefix length for L3 subnets.
+# This defines the subnet from which IPv6 addresses are assigned.
+address-pool {{ pool_prefix | default('2001:db8:1::') }}/{{ pool_prefix_length | default(64) }} {{ pool_delegation_length | default(64) }}
+
+# ------------------------------------------------------------------------------
+# Additional Address Pools
+# ------------------------------------------------------------------------------
+
+# Additional IPv6 address pools to allocate from.
+# Each pool entry should define: prefix, prefix_length, delegation_length.
+{% set pools = address_pools | default([]) %}
+{% if pools | length > 0 %}
+# Optional: Define multiple address pools (one per line)
+{% for pool in pools %}
+address-pool {{ pool.prefix | default('') }}/{{ pool.prefix_length | default(64) }} {{ pool.delegation_length | default(64) }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Leases Persistence
+# ------------------------------------------------------------------------------
+
+# Path to the file where assigned leases are persisted.
+# Set to empty to disable persistence.
+leases-file {{ leases_file | default('/var/lib/dibbler/server-leases') }}
+
+# ------------------------------------------------------------------------------
+# Client Class Definitions
+# ------------------------------------------------------------------------------
+
+# Client class definitions to match and categorize clients.
+# Each class entry should define: name, match_rule.
+{% set classes = class_definitions | default([]) %}
+{% if classes | length > 0 %}
+# Client classification (optional: assign addresses based on vendor/class info)
+# Class name -> address range mapping (uses existing pools by default if omitted)
+{% for cls in classes %}
+# Class: {{ cls.name | default('') }}
+class {{ cls.name | default('') }} {{ cls.match_rule | default('') }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Server Identification
+# ------------------------------------------------------------------------------
+
+# Unique server identifier (DUID-LLT format recommended).
+# Can be auto-generated if omitted, but static is recommended for production.
+# This ensures the server is uniquely identified on the network.
+server-id {{ server_id | default('00:03:00:01:aa:bb:cc:dd:ee:ff') }}
+
+# ------------------------------------------------------------------------------
+# DNS Servers
+# ------------------------------------------------------------------------------
+
+# List of IPv6 DNS server addresses for clients (e.g., ['2001:4860:4860::8888', '2001:4860:4860::8844']).
+{% set dns = dns_servers | default([]) %}
+{% if dns | length > 0 %}
+dns-server {{ dns | join(', ') }}
+{% else %}
+# No DNS servers configured (comment out if DNS is not needed)
+# dns-server 2001:db8::1
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Domain Search List
+# ------------------------------------------------------------------------------
+
+# Domain search list to provide to clients (e.g., ['example.com', 'internal.net']).
+{% set domains = domain_search | default([]) %}
+{% if domains | length > 0 %}
+domain-search {{ domains | join(', ') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# NTP Servers
+# ------------------------------------------------------------------------------
+
+# List of NTP server IPv6 addresses for time synchronization.
+{% set ntp = ntp_servers | default([]) %}
+{% if ntp | length > 0 %}
+# Note: Directive name 'tp-server' is preserved from original template syntax.
+# It likely expands to 'ntp-server' or similar in the specific DHCPv6 daemon.
+tp-server {{ ntp | join(', ') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# S46 Rules (IPv4/IPv6 Translation)
+# ------------------------------------------------------------------------------
+
+# Stateful IPv4/IPv6 translation rules (S46 lightweight 4over6).
+# Each rule entry should define: bridge, lsr, mt.
+{% set s46 = s46_rules | default([]) %}
+{% if s46 | length > 0 %}
+{% for rule in s46 %}
+# S46 rule: bridge LSR MT
+s46-rule {{ rule.bridge | default('') }} {{ rule.lsr | default('') }} {{ rule.mt | default('') }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+
+# Logging verbosity (0–7). 4 = default (INFO); 7 = debug.
+log-level {{ log_level | default(4) }}
+
+# ------------------------------------------------------------------------------
+# Accepted Message Types
+# ------------------------------------------------------------------------------
+
+# Enable/reject specific DHCPv6 message types
+# Uncomment to override defaults (defaults: accept all except SOLICIT if not configured for relay)
+# accept SOLICIT
+# accept REQUEST
+# accept CONFIRM
+# accept RENEW
+# accept REBIND
+# accept RELEASE
+# accept DECLINE
+# accept INFORMATION-REQUEST
+# accept RELAY-FORW
+# accept RELAY-REP
+
+# ------------------------------------------------------------------------------
+# Relay Support
+# ------------------------------------------------------------------------------
+
+# Upstream relay servers to forward client packets to (for relay-mode operation).
+# Each relay entry should define: target, port.
+{% set relays = relay_upstream | default([]) %}
+{% if relays | length > 0 %}
+# Upstream relay targets (IP:port)
+{% for relay in relays %}
+relay {{ relay.target | default('') }} {{ relay.port | default(0) }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Lease Times
+# ------------------------------------------------------------------------------
+
+# Maximum lease duration in seconds (e.g., 86400 = 1 day).
+max-lease-time {{ max_lease_time | default(86400) }}
+
+# Minimum allowed lease duration in seconds (e.g., 600 = 10 minutes).
+min-lease-time {{ min_lease_time | default(600) }}
+
+# Default lease duration in seconds (e.g., 7200 = 2 hours).
+default-lease-time {{ default_lease_time | default(7200) }}
+
+# ------------------------------------------------------------------------------
+# Interface Bindings
+# ------------------------------------------------------------------------------
+
+# Bind specific client classes to specific interfaces (e.g., for multi-homed servers).
+# Each binding entry should define: interface_name, class.
+{% set bindings = interface_bindings | default([]) %}
+{% if bindings | length > 0 %}
+# Enable interface-specific options (e.g., link-layer address binding)
+# Interface binding example:
+{% for binding in bindings %}
+# Bind class {{ binding.class | default('') }} to interface {{ binding.interface_name | default('') }}
+interface-class {{ binding.interface_name | default('') }} {{ binding.class | default('') }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Static Mappings
+# ------------------------------------------------------------------------------
+
+# Static IPv6 address assignments by client identifier (MAC address).
+# Each mapping entry should define: mac, address.
+{% set mappings = static_mappings | default([]) %}
+{% if mappings | length > 0 %}
+# Client reservation (static assignment)
+{% for mapping in mappings %}
+# Reservation for client MAC={{ mapping.mac | default('') }}
+client {{ mapping.mac | default('') }} {{ mapping.address | default('') }}
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Multicast Relay
+# ------------------------------------------------------------------------------
+
+# Enable relay of multicast DHCPv6 messages (for large-scale deployments).
+multicast-relay {{ 'yes' if multicast_relay | default(False) else 'no' }}
+
+# ------------------------------------------------------------------------------
+# Rapid Commit
+# ------------------------------------------------------------------------------
+
+# Enable rapid commit (2-packet exchange) for faster address assignment.
+rapid-commit {{ 'yes' if rapid_commit | default(True) else 'no' }}

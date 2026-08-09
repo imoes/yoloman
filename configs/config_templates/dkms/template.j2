@@ -1,0 +1,14 @@
+#!/bin/sh
+
+# Path to the dkms_autoinstaller executable.
+# Schema: dkms_autoinstaller_path (string, default: '/usr/lib/dkms/dkms_autoinstaller')
+# Description: Path to the dkms_autoinstaller executable
+
+# We're passed the version of the kernel being installed
+inst_kern=$1
+
+# Execute the autoinstaller if it is found and executable.
+# Uses the schema default for the path to ensure correctness.
+if [ -x {{ dkms_autoinstaller_path | default('/usr/lib/dkms/dkms_autoinstaller') }} ]; then
+    exec {{ dkms_autoinstaller_path | default('/usr/lib/dkms/dkms_autoinstaller') }} start "$inst_kern"
+fi

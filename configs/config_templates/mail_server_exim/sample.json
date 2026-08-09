@@ -1,0 +1,97 @@
+{
+  "primary_hostname": "mail.example.com",
+  "local_domains": [
+    "example.com",
+    "example.org"
+  ],
+  "smtp_port": 25,
+  "listen_address": "0.0.0.0",
+  "use_tls": true,
+  "tls_private_key_path": "/etc/ssl/private/mail.example.com.key",
+  "tls_certificate_path": "/etc/ssl/certs/mail.example.com.crt",
+  "spool_directory": "/var/spool/exim4",
+  "log_directory": "/var/log/exim4",
+  "auth_mechanisms": [
+    {
+      "name": "cram_md5",
+      "driver": "cram_md5",
+      "public_name": "CRAM-MD5",
+      "server_set_id": "$auth2"
+    },
+    {
+      "name": "login",
+      "driver": "login",
+      "public_name": "LOGIN",
+      "server_set_id": "$auth2"
+    },
+    {
+      "name": "plain",
+      "driver": "plaintext",
+      "public_name": "PLAIN",
+      "server_set_id": "$auth2",
+      "server_condition": "true"
+    }
+  ],
+  "routers": [
+    {
+      "name": "dnslookup",
+      "driver": "dnslookup",
+      "domainlist": "*",
+      "transport": "remote_smtp",
+      "ignore_target_hosts": []
+    },
+    {
+      "name": "system_aliases",
+      "driver": "redirect",
+      "local_parts": "/etc/aliases",
+      "file": "/etc/aliases",
+      "user": "mail",
+      "group": "mail"
+    }
+  ],
+  "transports": [
+    {
+      "name": "remote_smtp",
+      "driver": "smtp",
+      "hosts_try_auth": []
+    },
+    {
+      "name": "maildir_home",
+      "driver": "appendfile",
+      "directory": "$home/Maildir",
+      "maildir_format": true,
+      "mode": "0600",
+      "group": "mail"
+    }
+  ],
+  "retry_rules": [],
+  "enable_rewrite_rules": false,
+  "rewrite_rules": [],
+  "enable_acls": true,
+  "acls": [
+    {
+      "name": "main",
+      "statements": [
+        {
+          "condition": "accept",
+          "action": "accept"
+        }
+      ]
+    },
+    {
+      "name": "rcpt",
+      "statements": [
+        {
+          "condition": "verify = recipient",
+          "action": "accept"
+        }
+      ]
+    }
+  ],
+  "max_message_size": 25000000,
+  "smtp_accept_timeout": 120,
+  "queue_run_timeout": 300,
+  "queue_run_max": 5,
+  "dns_retimeout": 30,
+  "disable_dns_lookup": false
+}

@@ -1,0 +1,132 @@
+{
+  "worker_processes": {
+    "type": "string",
+    "default": "auto",
+    "description": "Number of worker processes. 'auto' lets NGINX choose based on CPU cores."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/nginx/error.log warn",
+    "description": "Error log path and minimum severity level (e.g., debug, info, notice, warn, error, crit, alert, emerg)."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/nginx.pid",
+    "description": "Path to the PID file."
+  },
+  "worker_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous connections that can be opened by a worker process."
+  },
+  "sendfile": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable use of sendfile() for efficient static file serving."
+  },
+  "tcp_nopush": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP_CORK / TCP_NOPUSH \u2014 sends minimal TCP packets with full headers."
+  },
+  "tcp_nodelay": {
+    "type": "bool",
+    "default": true,
+    "description": "Disable Nagle\u2019s algorithm for low-latency transmission (useful for real-time apps)."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Time (seconds) to keep a client connection open on the server side."
+  },
+  "types_hash_max_size": {
+    "type": "number",
+    "default": 2048,
+    "description": "Maximum size of hash tables used for MIME types mapping."
+  },
+  "enable_security_headers": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to add common security headers (X-Frame-Options, X-Content-Type-Options, X-XSS-Protection)."
+  },
+  "include_conf_d": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to include *.conf files from /etc/nginx/conf.d/ (typically used for server blocks)."
+  },
+  "include_sites_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to include configs from /etc/nginx/sites-enabled/ (Debian/Ubuntu convention)."
+  },
+  "custom_server_blocks": {
+    "type": "list",
+    "default": [],
+    "description": "List of server block configurations (e.g., for auth_request proxying). Each element defines a virtual host or auth-protected location.",
+    "items": {
+      "server_name": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname(s) for the server block (e.g., 'app.example.com')."
+      },
+      "listen": {
+        "type": "string",
+        "default": "80",
+        "description": "IP:port or port to listen on (e.g., '80', '443 ssl', '127.0.0.1:8080')."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL certificate file (required for HTTPS)."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to SSL private key file (required for HTTPS)."
+      },
+      "auth_request_url": {
+        "type": "string",
+        "default": "",
+        "description": "Full URL of the auth subrequest endpoint (e.g., 'https://auth.internal/auth')."
+      },
+      "auth_request_set": {
+        "type": "string",
+        "default": "",
+        "description": "Directive to capture auth response variables (e.g., '$auth_header_x-user $auth_status')."
+      },
+      "auth_request_pass_request_body": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to pass the original request body to the auth endpoint."
+      },
+      "locations": {
+        "type": "list",
+        "default": [],
+        "description": "List of location blocks for this server.",
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/",
+            "description": "Location path (e.g., '/', '/api', '~ ^/admin/')."
+          },
+          "auth_enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Whether to require authentication for this location."
+          },
+          "proxy_pass": {
+            "type": "string",
+            "default": "",
+            "description": "Upstream URL to proxy to (e.g., 'http://backend:3000')."
+          },
+          "proxy_set_headers": {
+            "type": "list",
+            "default": [],
+            "description": "HTTP headers to pass to the backend.",
+            "items": {}
+          }
+        }
+      }
+    }
+  }
+}

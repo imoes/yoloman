@@ -1,0 +1,72 @@
+name: datadog_event
+fqcn: community.general.datadog_event
+collection: community.general
+short_description: Posts events to Datadog  service
+description: Allows to post events to Datadog (www.datadoghq.com) service. Uses http://docs.datadoghq.com/api/#events
+  API.
+options:
+  aggregation_key:
+    type: str
+    description: An arbitrary string to use for aggregation.
+  alert_type:
+    type: str
+    default: info
+    choices:
+    - error
+    - warning
+    - info
+    - success
+    description: Type of alert.
+  api_host:
+    type: str
+    description: DataDog API endpoint URL.
+  api_key:
+    type: str
+    required: true
+    description: Your DataDog API key.
+  app_key:
+    type: str
+    required: true
+    description: Your DataDog app key.
+  date_happened:
+    type: int
+    description: POSIX timestamp of the event. Default value is now.
+  host:
+    type: str
+    description: Host name to associate with the event. If not specified, it defaults to the remote system's
+      hostname.
+  priority:
+    type: str
+    default: normal
+    choices:
+    - normal
+    - low
+    description: The priority of the event.
+  tags:
+    type: list
+    description: Comma separated list of tags to apply to the event.
+  text:
+    type: str
+    required: true
+    description: The body of the event.
+  title:
+    type: str
+    required: true
+    description: The event title.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Post an event with low priority\n  community.general.datadog_event:\n    title: Testing\
+  \ from ansible\n    text: Test\n    priority: low\n    api_key: 9775a026f1ca7d1c6c5af9d94d9595a4\n \
+  \   app_key: j4JyCYfefWHhgFgiZUqRm63AXHNZQyPGBfJtAzmN\n\n- name: Post an event with several tags\n \
+  \ community.general.datadog_event:\n    title: Testing from ansible\n    text: Test\n    api_key: 9775a026f1ca7d1c6c5af9d94d9595a4\n\
+  \    app_key: j4JyCYfefWHhgFgiZUqRm63AXHNZQyPGBfJtAzmN\n    tags: 'aa,bb,#host:{{ inventory_hostname\
+  \ }}'\n\n- name: Post an event with several tags to another endpoint\n  community.general.datadog_event:\n\
+  \    title: Testing from ansible\n    text: Test\n    api_key: 9775a026f1ca7d1c6c5af9d94d9595a4\n  \
+  \  app_key: j4JyCYfefWHhgFgiZUqRm63AXHNZQyPGBfJtAzmN\n    api_host: 'https://example.datadoghq.eu'\n\
+  \    tags:\n      - aa\n      - b\n      - '#host:{{ inventory_hostname }}'\n\n"

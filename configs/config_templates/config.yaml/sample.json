@@ -1,0 +1,61 @@
+{
+  "config_version": "1",
+  "backend": {
+    "type": "s3",
+    "bucket": "my-guerilla-backups",
+    "region": "us-west-2",
+    "endpoint": "https://minio.example.com:9000"
+  },
+  "encryption": {
+    "enabled": true,
+    "key": "aGVsbG93b3JsZHRlc3RrZXkxMjM0NTY3ODkwYWJjZGVm"
+  },
+  "compression": {
+    "enabled": true,
+    "algorithm": "zstd",
+    "level": 3
+  },
+  "retention": {
+    "max_backups": 5,
+    "min_age": "7d"
+  },
+  "backup_schedule": "0 4 * * *",
+  "backup_sources": [
+    {
+      "name": "home-data",
+      "paths": [
+        "/home/*",
+        "/srv/data"
+      ],
+      "dest_path": "/custom/backups/home",
+      "schedule": "0 3 * * *",
+      "retention": {
+        "max_backups": 14,
+        "min_age": "30d"
+      },
+      "compression": {
+        "enabled": true,
+        "algorithm": "zstd",
+        "level": 19
+      }
+    },
+    {
+      "name": "database-dumps",
+      "paths": [
+        "/var/backups/pg_dump/*"
+      ],
+      "encryption": {
+        "enabled": true,
+        "key": "ZGF0YWJhc2VrZXkxMjM0NTY3ODkwYWJjZGVmMTIzNDU2Nzg5"
+      },
+      "compression": {
+        "enabled": false
+      }
+    }
+  ],
+  "logging": {
+    "level": "info",
+    "dest": "file",
+    "file_path": "/var/log/guerillabackup.log"
+  }
+}

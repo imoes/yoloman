@@ -1,0 +1,68 @@
+# gprename user configuration file
+# Generated for batch renaming in GTK2-Perl
+# See gprename(1) man page for details
+
+# Default directory to scan for renaming operations. Overridden by CLI argument if provided.
+directory = {{ directory | default('.') }}
+
+# Whether to show the preview before applying changes.
+# Values: 0 (disabled), 1 (enabled)
+show_preview = {{ show_preview | default(true) | ternary(1, 0) }}
+
+# Default encoding for filenames.
+encoding = {{ encoding | default('UTF-8') }}
+
+# Whether to process subdirectories recursively.
+# Values: 0 (no), 1 (yes)
+recursive = {{ recursive | default(false) | ternary(1, 0) }}
+
+# List of rename operations to apply (in order).
+# Each operation is an object with a 'type' field and operation-specific fields.
+# Supported operation types: replace, remove, insert, number, case.
+{% for op in (operations | default([])) %}
+# Operation {{ loop.index }}: {{ (op.type | default('unknown')) }}
+# Type of rename operation to apply.
+type = {{ op.type | default('replace') }}
+
+{% if op.type == 'replace' %}
+    # The string/pattern to find.
+    find = {{ op.find | default('') }}
+    # The string to replace the found pattern with.
+    replace_with = {{ op.replace_with | default('') }}
+
+{% elif op.type == 'remove' %}
+    # The text to remove from filenames.
+    text = {{ op.text | default('') }}
+
+{% elif op.type == 'insert' %}
+    # The text to insert into filenames.
+    text = {{ op.text | default('') }}
+    # The position where text should be inserted (e.g., 'start', 'end').
+    position = {{ op.position | default('end') }}
+
+{% elif op.type == 'number' %}
+    # The starting number for the sequence.
+    start = {{ op.start | default(1) | int }}
+    # The step value for the sequence.
+    step = {{ op.step | default(1) | int }}
+    # The number of digits for zero-padding.
+    digits = {{ op.digits | default(1) | int }}
+
+{% elif op.type == 'case' %}
+    # The case mode to apply (e.g., 'upper', 'lower', 'title').
+    mode = {{ op.mode | default('lower') }}
+
+{% else %}
+    # Unknown operation type or missing type field.
+    # This block may produce invalid config if op.type is not recognized.
+    # Please review the generated configuration for this operation.
+
+{% endif %}
+{% endfor %}
+
+# Whether to preserve file timestamps after renaming.
+# Values: 0 (no), 1 (yes)
+preserve_timestamps = {{ preserve_timestamps | default(true) | ternary(1, 0) }}
+
+# Log file path (default: ~/.gprename_log).
+log_file = {{ log_file | default('~/.gprename_log') }}

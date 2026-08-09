@@ -1,0 +1,112 @@
+# ============================================================================
+# ProFTPD StatsD Module Configuration
+#
+# This template configures the mod_statsd module for ProFTPD. It sends
+# operational metrics (sessions, authentication, commands) to a StatsD
+# collector.
+#
+# Variables are sourced from the role's defaults or variables file. Every
+# variable reference includes a default value to ensure safe rendering even
+# if the variable is not explicitly set.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Module Loading
+# ---------------------------------------------------------------------------
+# LoadModule mod_statsd.c
+# Description: Ensures the statsd module is loaded by ProFTPD.
+LoadModule mod_statsd.c
+
+# ---------------------------------------------------------------------------
+# StatsD Server Connection
+# ---------------------------------------------------------------------------
+
+# StatsDHost {{ statsd_host | default('127.0.0.1') }}
+# Description: Hostname or IP address of the StatsD server to send metrics to.
+# Schema: statsd_host (str, default: '127.0.0.1')
+# Capability: This package requires a 'metrics_sink' capability.
+StatsDHost {{ statsd_host | default('127.0.0.1') }}
+
+# StatsDPort {{ statsd_port | default(8125) }}
+# Description: UDP port on which StatsD listens (commonly 8125).
+# Schema: statsd_port (int, default: 8125)
+# Capability: This package requires a 'metrics_sink' capability.
+StatsDPort {{ statsd_port | default(8125) }}
+
+# ---------------------------------------------------------------------------
+# Metrics Namespace / Prefix
+# ---------------------------------------------------------------------------
+
+# StatsDPrefix {{ statsd_prefix | default('') }}
+# Description: Optional prefix for all metric names (e.g., 'proftpd.prod' for
+#              namespace separation). If empty, no prefix is added.
+# Schema: statsd_prefix (str, default: '')
+# Note: The condition checks if the value is non-empty to avoid emitting an
+#       empty directive which might be interpreted as using the default.
+{% if statsd_prefix | default('') %}StatsDPrefix {{ statsd_prefix | default('') }}{% endif %}
+
+# ---------------------------------------------------------------------------
+# Transport Protocol
+# ---------------------------------------------------------------------------
+
+# StatsDTransport udp
+# Description: Transport protocol to use for sending metrics: 'udp' (faster,
+#              lossy) or 'tcp' (reliable). Defaults to 'udp'.
+# Schema: statsd_transport (str, default: 'udp')
+# Note: Explicitly setting the transport ensures clarity in the config file.
+{% if statsd_transport | default('udp') == 'tcp' %}StatsDTransport tcp{% elif statsd_transport | default('udp') == 'udp' %}StatsDTransport udp{% endif %}
+
+# ---------------------------------------------------------------------------
+# Flush Interval
+# ---------------------------------------------------------------------------
+
+# StatsDFlushInterval {{ statsd_flush_interval | default(1000) }}
+# Description: Interval (in milliseconds) between metric flushes to StatsD.
+#              Set to override default (1000 ms).
+# Schema: statsd_flush_interval (int, default: 1000)
+StatsDFlushInterval {{ statsd_flush_interval | default(1000) }}
+
+# ---------------------------------------------------------------------------
+# Debug Logging
+# ---------------------------------------------------------------------------
+
+# StatsDDebug off
+# Description: Enable/disable verbose logging (default: off). When 'on',
+#              metric payloads are logged to the ProFTPD log for debugging.
+# Schema: statsd_debug (bool, default: False)
+{% if statsd_debug | default(False) %}StatsDDebug on{% else %}StatsDDebug off{% endif %}
+
+# ---------------------------------------------------------------------------
+# Enabled Metrics
+# ---------------------------------------------------------------------------
+
+# StatsDMetrics session.count
+# Description: List of metric types to emit. The default includes session
+#              counts, duration, bytes sent/recv, and auth success/failure.
+# Schema: enabled_metrics (list, default: ['session.count', 'session.duration',
+#         'session.bytes_sent', 'session.bytes_recv', 'auth.success', 'auth.failure', 'cmd.count'])
+{% for metric_type in enabled_metrics | default(['session.count', 'session.duration', 'session.bytes_sent', 'session.bytes_recv', 'auth.success', 'auth.failure', 'cmd.count']) %}StatsDMetrics {{ metric_type }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Static Tags
+# ---------------------------------------------------------------------------
+
+# StatsDTag key=value
+# Description: Optional static key-value tags to attach to every metric
+#              (e.g., environment=prod, service=ftp).
+# Schema: statsd_tags (dict, default: {})
+# Note: Uses dict2items to iterate the mapping safely in Jinja2.
+{% for tag in statsd_tags | default({}) | dict2items %}StatsDTag {{ tag.key }}={{ tag.value }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Histogram Buckets
+# ---------------------------------------------------------------------------
+
+# StatsDHistogram 0.001
+# Description: Histogram bucket boundaries (in seconds) for timing-based
+#              metrics like session.duration. Values must be positive numbers.
+# Schema: histogram_buckets (list, default: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0])
+{% for bucket in histogram_buckets | default([0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0, 5.0]) %}StatsDHistogram {{ bucket }}
+{% endfor %}

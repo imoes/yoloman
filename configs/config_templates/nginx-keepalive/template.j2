@@ -1,0 +1,166 @@
+# =============================================================================
+# NGINX Configuration Template
+# =============================================================================
+# This template generates a complete nginx configuration file. It handles global
+# worker settings, the events block, and the http block which contains logging,
+# keepalive tuning, upstream definitions for load balancing, and server blocks
+# for virtual hosts.
+#
+# Self-documentation: Every directive is preceded by a comment explaining its
+# purpose and source field. All variables use Jinja2 defaults to ensure the
+# configuration renders correctly even if optional fields are undefined.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings: Worker processes
+# -----------------------------------------------------------------------------
+# worker_processes: Number of worker processes; 'auto' sets it equal to the number of CPU cores.
+worker_processes {{ worker_processes | default('auto') }};
+
+# -----------------------------------------------------------------------------
+# Events Block
+# -----------------------------------------------------------------------------
+events {
+    # worker_connections: Maximum number of simultaneous connections that each worker process can handle.
+    worker_connections {{ worker_connections | default(1024) }};
+}
+
+# -----------------------------------------------------------------------------
+# HTTP Block: Core settings, logging, and keepalive tuning
+# -----------------------------------------------------------------------------
+http {
+
+    # Gzip Compression: Enable gzip compression for improved performance.
+    gzip on;
+    gzip_types text/plain application/json application/javascript text/css;
+
+    # -----------------------------------------------------------------------------
+    # Logging Configuration
+    # -----------------------------------------------------------------------------
+
+    # access_log_path: Path to the access log file.
+    access_log {{ access_log_path | default('/var/log/nginx/access.log') }};
+
+    # error_log_path: Path to the error log file.
+    error_log {{ error_log_path | default('/var/log/nginx/error.log') }};
+
+    # Security: Server tokens off to hide version info.
+    server_tokens off;
+
+    # -----------------------------------------------------------------------------
+    # Keepalive & Performance Tuning
+    # -----------------------------------------------------------------------------
+
+    # keepalive_timeout: Time (in seconds) that the server keeps connections open for keepalive reuse. Reduce for high-churn workloads.
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
+
+    # keepalive_requests: Maximum number of requests per keepalive connection before it is closed. Higher values reduce connection churn.
+    keepalive_requests {{ keepalive_requests | default(10000) }};
+
+    # Performance: Enable sendfile, tcp_nopush, and tcp_nodelay for optimal file serving and latency.
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+
+    # -----------------------------------------------------------------------------
+    # Proxy Headers & HTTP Version
+    # -----------------------------------------------------------------------------
+
+    # Upstream connection reuse settings: Use HTTP 1.1 for keepalive to upstreams.
+    proxy_http_version 1.1;
+
+    # Clear the Connection header to allow keepalive with upstreams.
+    proxy_set_header Connection "";
+
+    # Standard proxy headers to pass client information to upstreams.
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+
+    # -----------------------------------------------------------------------------
+    # Upstream Groups: Load Balancing Backends
+    # -----------------------------------------------------------------------------
+    # upstreams: List of upstream groups for load balancing. Each defines a group of backend servers with optional keepalive tuning.
+{% for upstream in upstreams | default([]) %}
+    # Upstream group: {{ upstream.name | default('unnamed') }}
+    upstream {{ upstream.name | default('unnamed') }} {
+{% for server in upstream.servers | default([]) %}
+        # Backend server: {{ server.address | default('127.0.0.1') }} port {{ server.port | default(80) }}
+        # This server is configured with optional backup and down flags.
+        server {{ server.address | default('127.0.0.1') }}:{{ server.port | default(80) }}{{ ' backup' if server.backup else '' }}{{ ' down' if server.down else '' }};
+{% endfor %}
+        # keepalive: Number of idle keepalive connections to upstream servers that are preserved in the cache of each worker process.
+        keepalive {{ upstream.keepalive_connections | default(32) }};
+    }
+{% endfor %}
+
+    # -----------------------------------------------------------------------------
+    # Server Blocks: Virtual Hosts
+    # -----------------------------------------------------------------------------
+    # servers: List of server blocks (virtual hosts) to define.
+{% for server in servers | default([]) %}
+
+    # Virtual host: {{ server.name | default('_') }}
+    server {
+        # listen: Port and interface to listen on. Defaults to 80 if not specified.
+        listen {{ server.listen | default('80') }};
+
+{% if server.ssl | default(false) %}
+        # SSL/TLS Configuration
+        # ssl_cert_path: Path to the SSL certificate file.
+        ssl_certificate {{ server.ssl_cert_path | default('/etc/nginx/ssl/cert.pem') }};
+
+        # ssl_key_path: Path to the SSL private key file.
+        ssl_certificate_key {{ server.ssl_key_path | default('/etc/nginx/ssl/key.pem') }};
+
+        # Supported TLS protocols for security.
+        ssl_protocols TLSv1.2 TLSv1.3;
+
+        # Cipher suite selection.
+        ssl_ciphers HIGH:!aNULL:!MD5;
+
+        # Prefer server ciphers over client ciphers.
+        ssl_prefer_server_ciphers on;
+{% endif %}
+
+        # server_name: The hostname this virtual host responds to.
+        server_name {{ server.name | default('_') }};
+
+{% for location in server.locations | default([]) %}
+        # Location: {{ location.path | default('/') }}
+        location {{ location.path | default('/') }} {
+{% if location.static_root | default(false) %}
+            # static_root: Root directory for static files.
+            root {{ location.static_root | default('/var/www/html') }};
+
+            # try_files: Check for exact file, then directory, then return 404.
+            try_files $uri $uri/ =404;
+{% endif %}
+
+{% if location.proxy_pass | default(false) %}
+            # proxy_pass: URL to proxy requests to (usually an upstream name).
+            proxy_pass http://{{ location.proxy_pass | default('localhost') }};
+
+            # proxy_connect_timeout: Timeout for establishing a connection with the proxied server.
+            proxy_connect_timeout {{ location.proxy_connect_timeout | default(60) }};
+
+            # proxy_read_timeout: Timeout for reading a response from the proxied server.
+            proxy_read_timeout {{ location.proxy_read_timeout | default(60) }};
+{% endif %}
+        }
+{% endfor %}
+    }
+{% endfor %}
+
+    # -----------------------------------------------------------------------------
+    # Default Catch-All Server
+    # -----------------------------------------------------------------------------
+    # This server block catches all requests not matching any other server_name.
+    # It returns 444 (connection closed without response) to drop unwanted traffic.
+    server {
+        listen 80 default_server;
+        listen [::]:80 default_server;
+        server_name _;
+        return 444;
+    }
+}

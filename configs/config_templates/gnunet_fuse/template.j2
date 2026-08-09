@@ -1,0 +1,37 @@
+# gnunet.conf — GNU GNUNET FUSE client configuration
+# This file configures the FUSE filesystem client for GNU GNUNET, enabling secure P2P mounted filesystems.
+# The FUSE-specific options are defined under the [fuse] section.
+
+[FUSE]
+# Enable or disable the FUSE filesystem client. Set to true to activate the mount.
+ENABLE = {{ enable_fuse | default(false) | lower }}
+
+# Absolute path where the GNUNET FUSE filesystem will be mounted. Must exist and be accessible.
+MOUNTPOINT = {{ mountpoint | default('/mnt/gnunet-fuse') }}
+
+# Numeric user ID of the process owner. Typically 0 (root) unless running in user namespace.
+UID = {{ uid | default(0) }}
+
+# Numeric group ID of the process owner.
+GID = {{ gid | default(0) }}
+
+# Octal permission bits for the mountpoint (e.g., '0700' for owner-only, '0755' for world-readable).
+PERMISSIONS = {{ permissions | default('0755') }}
+
+# Maximum number of concurrent I/O requests. Higher values improve throughput on fast systems.
+MAX_PENDING = {{ max_pending | default(32) }}
+
+# If enabled, directory entries are fetched on-demand rather than fully upfront — improves responsiveness with large directories.
+LAZY_LISTING = {{ lazy_listing | default(true) | lower }}
+
+# Seconds of inactivity after which the mount is automatically unmounted (to save resources).
+IDLE_TIMEOUT = {{ idle_timeout | default(300) }}
+
+# Path to the peer's private identity key (used to authenticate this mount to other peers).
+IDENTITY_KEY_FILE = {{ identity_key_file | default('${HOME}/.gnunet/identity/private_key') }}
+
+# Additional FUSE mount options (strings) — e.g., 'allow_other', 'allow_root', 'utime_ok'. Leave empty for defaults.
+MOUNT_OPTIONS = {{ mount_options | default([]) | join(',') }}
+
+# Verbosity of logging for the FUSE subsystem.
+LOG_LEVEL = {{ log_level | default('INFO') }}

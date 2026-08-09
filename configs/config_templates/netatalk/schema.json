@@ -1,0 +1,100 @@
+{
+  "afp_interfaces": {
+    "type": "list",
+    "default": [
+      "en0"
+    ],
+    "description": "List of network interfaces (e.g., 'eth0', 'en0') on which AFP will listen. Use empty list to listen on all interfaces."
+  },
+  "mimic_model": {
+    "type": "string",
+    "default": "TimeCapsule6,108",
+    "description": "AFP server model identifier presented to clients (e.g., 'TimeCapsule6,108', 'Macmini7,1'). Affects macOS client UI behavior."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "default:note",
+    "description": "Comma-separated log level for default and subsystem logs (e.g., 'default:note', 'afp:warn', 'afp:debug')."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/netatalk.log",
+    "description": "Path to the log file for AFP server activity."
+  },
+  "home_path": {
+    "type": "string",
+    "default": "/home/%U",
+    "description": "Path template for user home directories. '%U' is replaced with the username."
+  },
+  "home_afp_flags": {
+    "type": "string",
+    "default": "dperm=0700,fperm=0600",
+    "description": "Default permissions (octal) for home directory creation: dperm for directories, fperm for files."
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Data",
+        "path": "/srv/afp/data",
+        "description": "Shared data volume for users"
+      }
+    ],
+    "description": "List of additional AFP volumes to expose. Each entry defines a shareable volume with its own options."
+  },
+  "services[].name": {
+    "type": "string",
+    "default": "unnamed",
+    "description": "Volume name (must be unique, no spaces). Appears in AFP browser."
+  },
+  "services[].path": {
+    "type": "string",
+    "default": "/srv/afp/unnamed",
+    "description": "Filesystem path to the volume root."
+  },
+  "services[].description": {
+    "type": "string",
+    "default": "",
+    "description": "Optional human-readable description for documentation or UI."
+  },
+  "services[].hidden": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, the volume is hidden from AFP browser but still mountable by known path."
+  },
+  "services[].readonly": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, clients can only read from this volume."
+  },
+  "services[].valid_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of usernames allowed to mount this volume. If empty, all authenticated users may access."
+  },
+  "services[].allow": {
+    "type": "list",
+    "default": [],
+    "description": "Legacy alias for 'valid users' (Netatalk 3+ uses 'valid users'; keep for compatibility if needed)."
+  },
+  "services[].hosts_allow": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames or CIDR subnets permitted to mount this volume (e.g., ['192.168.1.0/24', 'macbook.local'])."
+  },
+  "services[].file_perm": {
+    "type": "string",
+    "default": "",
+    "description": "Octal file permission mask (e.g., '0644') for newly created files. Empty inherits from umask."
+  },
+  "services[].directory_perm": {
+    "type": "string",
+    "default": "",
+    "description": "Octal directory permission mask (e.g., '0755') for newly created directories. Empty inherits from umask."
+  },
+  "services[].extended_attributes": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable support for macOS extended attributes (required for Finder tags, resource forks, etc.)"
+  }
+}

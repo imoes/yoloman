@@ -1,0 +1,94 @@
+name: scaleway_database_backup
+fqcn: community.general.scaleway_database_backup
+collection: community.general
+short_description: Scaleway database backups management module
+description: This module manages database backups on Scaleway account U(https://developer.scaleway.com).
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  database_name:
+    type: str
+    description: Name used to identify the database. Required for V(present) and V(restored) states. Ignored
+      when O(state=absent) or O(state=exported).
+  expires_at:
+    type: str
+    description: Expiration datetime of the database backup (ISO 8601 format). Ignored when O(state=absent),
+      O(state=exported) or O(state=restored).
+  id:
+    type: str
+    description: UUID used to identify the database backup. Required for V(absent), V(exported) and V(restored)
+      states.
+  instance_id:
+    type: str
+    description: UUID of the instance associated to the database backup. Required for V(present) and V(restored)
+      states. Ignored when O(state=absent) or O(state=exported).
+  name:
+    type: str
+    description: Name used to identify the database backup. Required for V(present) state. Ignored when
+      O(state=absent), O(state=exported) or O(state=restored).
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  region:
+    type: str
+    required: true
+    choices:
+    - fr-par
+    - nl-ams
+    - pl-waw
+    description: Scaleway region to use (for example V(fr-par)).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - exported
+    - restored
+    description: Indicate desired state of the database backup. V(present) creates a backup. V(absent)
+      deletes the backup. V(exported) creates a download link for the backup. V(restored) restores the
+      backup to a new database.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+  wait:
+    type: bool
+    default: false
+    description: Wait for the instance to reach its desired state before returning.
+  wait_sleep_time:
+    type: int
+    default: 3
+    description: Time to wait before every attempt to check the state of the backup.
+  wait_timeout:
+    type: int
+    default: 300
+    description: Time to wait for the backup to reach the expected state.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Create a backup\n    community.general.scaleway_database_backup:\n        name:\
+  \ 'my_backup'\n        state: present\n        region: 'fr-par'\n        database_name: 'my-database'\n\
+  \        instance_id: '50968a80-2909-4e5c-b1af-a2e19860dddb'\n\n  - name: Export a backup\n    community.general.scaleway_database_backup:\n\
+  \        id: '6ef1125a-037e-494f-a911-6d9c49a51691'\n        state: exported\n        region: 'fr-par'\n\
+  \n  - name: Restore a backup\n    community.general.scaleway_database_backup:\n        id: '6ef1125a-037e-494f-a911-6d9c49a51691'\n\
+  \        state: restored\n        region: 'fr-par'\n        database_name: 'my-new-database'\n     \
+  \   instance_id: '50968a80-2909-4e5c-b1af-a2e19860dddb'\n\n  - name: Remove a backup\n    community.general.scaleway_database_backup:\n\
+  \        id: '6ef1125a-037e-494f-a911-6d9c49a51691'\n        state: absent\n        region: 'fr-par'\n"

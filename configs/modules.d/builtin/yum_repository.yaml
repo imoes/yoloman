@@ -1,0 +1,63 @@
+name: yum_repository
+fqcn: builtin.yum_repository
+collection: builtin
+short_description: Ensure a yum/dnf repository definition (an INI-style [id] section)
+  is present or absent in /etc/yum.repos.d/<file>.repo
+description: 'Ensure a yum/dnf repository definition (an INI-style [id] section) is
+  present or absent in /etc/yum.repos.d/<file>.repo. Idempotent — only writes when
+  the rendered stanza differs from the file''s current content. Supports check_mode
+  via dry_run=true. Unit-tested only in this project — no RPM-based host in the real
+  verification environment (contrast with apt_repository, which is real-tested on
+  Debian).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.yum_repository. Covers the common name/description/baseurl/enabled/gpgcheck/gpgkey/file/state
+  fields (a focused subset — Ansible''s own module supports many more optional .repo
+  keys, not implemented here).
+
+  - Chef: the `yum_repository` resource.
+
+  - Puppet: the `yumrepo` type.
+
+  - Salt: the `pkgrepo.managed`/`pkgrepo.absent` states.
+
+  - Terraform: not applicable — Terraform does not manage a running host''s package
+  manager configuration.'
+options:
+  baseurl:
+    type: string
+    description: Repository base URL. Required for state=present.
+  description:
+    type: string
+    description: Human-readable repo name (the .repo file's name= field).
+  enabled:
+    type: bool
+    default: true
+    description: Whether the repository is enabled. Default true.
+  file:
+    type: string
+    description: Target file name (without .repo) under /etc/yum.repos.d/. Defaults
+      to name.
+  gpgcheck:
+    type: bool
+    default: true
+    description: Whether to verify package signatures. Default true.
+  gpgkey:
+    type: string
+    description: Optional URL to the repository's GPG key.
+  name:
+    type: string
+    description: Repository id — the INI section header, e.g. "myrepo".
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    description: Whether the repository should be present or absent. Default "present".
+native: true
+writes: true
+runtime: native
+source: agent-registry

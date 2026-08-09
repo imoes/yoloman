@@ -1,0 +1,108 @@
+# =============================================================================
+# amd-smi Configuration Template
+# =============================================================================
+# This template generates an environment script for the AMD System Management
+# Interface (amd-smi). Note that amd-smi is primarily a CLI tool and does not
+# run as a long-running daemon. This configuration allows persistent defaults
+# via environment variables or CLI flags for automated or scripted usage.
+# =============================================================================
+
+{% if enabled | default(true) %}
+# -----------------------------------------------------------------------------
+# Enable amd-smi configuration
+# -----------------------------------------------------------------------------
+# Controls whether the configuration file is present and applied.
+# If set to 'False', no configuration directives will be generated.
+# Source: enabled (default: True)
+# -----------------------------------------------------------------------------
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Global amd-smi Defaults
+# -----------------------------------------------------------------------------
+# These environment variables set default behaviors for amd-smi CLI operations.
+# They are typically sourced in shell profiles or systemd service environments.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Log Verbosity Level
+# -----------------------------------------------------------------------------
+# Controls the verbosity of amd-smi logs.
+# Valid values: 'error', 'warn', 'info', 'debug'.
+# Defaults to 'info' if not specified.
+# Source: log_level (default: 'info')
+# -----------------------------------------------------------------------------
+# Note: The original template used an if-block that might skip this if the
+# default was falsy in some contexts, but 'info' is truthy. We ensure it is
+# always present if the package is enabled, as it is a fundamental setting.
+AMDSMI_LOG_LEVEL={{ log_level | default('info') }}
+
+# -----------------------------------------------------------------------------
+# Default Timeout for Synchronous Operations
+# -----------------------------------------------------------------------------
+# Specifies the default timeout in seconds for synchronous operations,
+# such as metric retrieval or hardware queries.
+# Defaults to 30 seconds if not specified.
+# Source: default_timeout (default: 30)
+# -----------------------------------------------------------------------------
+AMDSMI_DEFAULT_TIMEOUT={{ default_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# Default GPU Device Index
+# -----------------------------------------------------------------------------
+# Specifies the default GPU device index (0-based) when no device is
+# explicitly specified in CLI arguments.
+# Defaults to device 0 if not specified.
+# Source: default_device (default: 0)
+# -----------------------------------------------------------------------------
+AMDSMI_DEFAULT_DEVICE={{ default_device | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Syslog Error Logging
+# -----------------------------------------------------------------------------
+# Whether to send error messages to the system syslog in addition to stderr.
+# Accepts boolean-like values (true/false, yes/no, 1/0).
+# Defaults to True if not specified.
+# Source: syslog_enabled (default: True)
+# -----------------------------------------------------------------------------
+AMDSMI_SYSLOG={{ syslog_enabled | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Explicitly Included GPU Devices
+# -----------------------------------------------------------------------------
+# List of PCI bus IDs to include for amd-smi operations.
+# If empty (default), all detectable devices are used.
+# Each item in the list is a PCI bus ID (e.g., '0000:06:00.0').
+# Source: include_devices (default: [])
+# -----------------------------------------------------------------------------
+{% if include_devices | default([]) | length > 0 %}
+{% for device in include_devices | default([]) %}
+AMDSMI_INCLUDE_DEVICES={{ device | join(',') }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Explicitly Excluded GPU Devices
+# -----------------------------------------------------------------------------
+# List of PCI bus IDs to exclude from amd-smi operations.
+# Useful for ignoring specific GPUs in multi-GPU systems.
+# Each item in the list is a PCI bus ID (e.g., '0000:07:00.0').
+# Source: exclude_devices (default: [])
+# -----------------------------------------------------------------------------
+{% if exclude_devices | default([]) | length > 0 %}
+{% for device in exclude_devices | default([]) %}
+AMDSMI_EXCLUDE_DEVICES={{ device | join(',') }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Custom ROCm SMI Library Path
+# -----------------------------------------------------------------------------
+# Optional: Custom path to the librccl.so or ROCm SMI library.
+# Use this for non-standard installations or custom builds.
+# If empty (default), the system default library path is used.
+# Source: rocm_lib_path (default: '')
+# -----------------------------------------------------------------------------
+{% if rocm_lib_path | default('') | trim | length > 0 %}
+AMDSMI_ROCM_LIB_PATH={{ rocm_lib_path | default('') }}
+{% endif %}

@@ -1,0 +1,296 @@
+{# gallery-dl configuration file in JSON format #}
+{# This template configures the global 'gallery-dl' client settings. #}
+{# It maps Ansible variables (values.*) to JSON keys expected by gallery-dl. #}
+{# Self-documenting: every JSON key is preceded by a comment describing its schema field. #}
+{
+  {# Output formatting options #}
+  "extractor": {
+    {# verbose: Enable verbose output (default: false) #}
+    {% if (values | default({})).verbose | default(False) %}
+    "verbose": true,
+    {% endif %}
+
+    {# quiet: Enable quiet mode (default: false) #}
+    {% if (values | default({})).quiet | default(False) %}
+    "quiet": true,
+    {% endif %}
+
+    {# no_colors: Disable ANSI color codes in output (default: false) #}
+    {% if (values | default({})).no_colors | default(False) %}
+    "no-colors": true,
+    {% endif %}
+
+    {# destination: Target location for file downloads (global destination directory) (default: '') #}
+    {% if (values | default({})).destination | default('') %}
+    "destination": "{{ (values | default({})).destination | default('') }}",
+    {% endif %}
+
+    {# directory: Exact location for file downloads (overrides destination per extraction) (default: '') #}
+    {% if (values | default({})).directory | default('') %}
+    "directory": "{{ (values | default({})).directory | default('') }}",
+    {% endif %}
+
+    {# filename: Filename format string for downloaded files (default: '') #}
+    {% if (values | default({})).filename | default('') %}
+    "filename": "{{ (values | default({})).filename | default('') }}",
+    {% endif %}
+
+    {# retries: Maximum number of retries for failed HTTP requests (-1 for infinite) (default: 4) #}
+    "retries": {{ (values | default({})).retries | default(4) }},
+
+    {# sleep: Seconds to wait before each download (e.g., '2.0-3.5' or '1.5') (default: '') #}
+    {% if (values | default({})).sleep | default('') %}
+    "sleep": "{{ (values | default({})).sleep | default('') }}",
+    {% endif %}
+
+    {# sleep_request: Seconds to wait between HTTP requests during extraction (default: '') #}
+    {% if (values | default({})).sleep_request | default('') %}
+    "sleep-request": "{{ (values | default({})).sleep_request | default('') }}",
+    {% endif %}
+
+    {# sleep_extractor: Seconds to wait before starting extraction for an input URL (default: '') #}
+    {% if (values | default({})).sleep_extractor | default('') %}
+    "sleep-extractor": "{{ (values | default({})).sleep_extractor | default('') }}",
+    {% endif %}
+
+    {# limit_rate: Maximum download rate (e.g., '500k' or '2.5M') (default: '') #}
+    {% if (values | default({})).limit_rate | default('') %}
+    "limit-rate": "{{ (values | default({})).limit_rate | default('') }}",
+    {% endif %}
+
+    {# no_part: Disable use of .part files during downloads (default: false) #}
+    {% if (values | default({})).no_part | default(False) %}
+    "no-part": true,
+    {% endif %}
+
+    {# no_skip: Disable skipping downloads; overwrite existing files (default: false) #}
+    {% if (values | default({})).no_skip | default(False) %}
+    "no-skip": true,
+    {% endif %}
+
+    {# no_mtime: Do not set file modification times from Last-Modified headers (default: false) #}
+    {% if (values | default({})).no_mtime | default(False) %}
+    "no-mtime": true,
+    {% endif %}
+
+    {# no_download: Simulate only: do not download any files (default: false) #}
+    {% if (values | default({})).no_download | default(False) %}
+    "no-download": true,
+    {% endif %}
+
+    {# download_archive: Path to archive file for tracking already downloaded/skipped files (default: '') #}
+    {% if (values | default({})).download_archive | default('') %}
+    "download-archive": "{{ (values | default({})).download_archive | default('') }}",
+    {% endif %}
+
+    {# range: Index range(s) specifying which files to download (e.g., '5', '8-20') (default: '') #}
+    {% if (values | default({})).range | default('') %}
+    "range": "{{ (values | default({})).range | default('') }}",
+    {% endif %}
+
+    {# chapter_range: Chapter/index range for manga and delegated content (default: '') #}
+    {% if (values | default({})).chapter_range | default('') %}
+    "chapter-range": "{{ (values | default({})).chapter_range | default('') }}",
+    {% endif %}
+
+    {# filter: Python expression controlling which files to download (default: '') #}
+    {% if (values | default({})).filter | default('') %}
+    "filter": "{{ (values | default({})).filter | default('') }}",
+    {% endif %}
+
+    {# chapter_filter: Python expression filtering chapters (default: '') #}
+    {% if (values | default({})).chapter_filter | default('') %}
+    "chapter-filter": "{{ (values | default({})).chapter_filter | default('') }}",
+    {% endif %}
+
+    {# filesize_min: Minimum file size to download (e.g., '500k') (default: '') #}
+    {% if (values | default({})).filesize_min | default('') %}
+    "filesize-min": "{{ (values | default({})).filesize_min | default('') }}",
+    {% endif %}
+
+    {# filesize_max: Maximum file size to download (e.g., '2.5M') (default: '') #}
+    {% if (values | default({})).filesize_max | default('') %}
+    "filesize-max": "{{ (values | default({})).filesize_max | default('') }}",
+    {% endif %}
+
+    {# http_timeout: Timeout for HTTP connections in seconds (default: 30.0) #}
+    "http-timeout": {{ (values | default({})).http_timeout | default(30.0) }},
+
+    {# proxy: HTTP(S) proxy URL to use (default: '') #}
+    {% if (values | default({})).proxy | default('') %}
+    "proxy": "{{ (values | default({})).proxy | default('') }}",
+    {% endif %}
+
+    {# source_address: Client-side IP address to bind to (default: '') #}
+    {% if (values | default({})).source_address | default('') %}
+    "source-address": "{{ (values | default({})).source_address | default('') }}",
+    {% endif %}
+
+    {# force_ipv4: Force all connections to use IPv4 (default: false) #}
+    {% if (values | default({})).force_ipv4 | default(False) %}
+    "force-ipv4": true,
+    {% endif %}
+
+    {# force_ipv6: Force all connections to use IPv6 (default: false) #}
+    {% if (values | default({})).force_ipv6 | default(False) %}
+    "force-ipv6": true,
+    {% endif %}
+
+    {# no_check_certificate: Disable HTTPS certificate validation (default: false) #}
+    {% if (values | default({})).no_check_certificate | default(False) %}
+    "no-check-certificate": true,
+    {% endif %}
+
+    {# netrc: Enable .netrc authentication (default: false) #}
+    {% if (values | default({})).netrc | default(False) %}
+    "netrc": true,
+    {% endif %}
+
+    {# cookies: Path to file containing additional cookies (default: '') #}
+    {% if (values | default({})).cookies | default('') %}
+    "cookies": "{{ (values | default({})).cookies | default('') }}",
+    {% endif %}
+
+    {# cookies_from_browser: Browser to load cookies from, optionally with DOMAIN, KEYRING, PROFILE, CONTAINER (default: '') #}
+    {% if (values | default({})).cookies_from_browser | default('') %}
+    "cookies-from-browser": "{{ (values | default({})).cookies_from_browser | default('') }}",
+    {% endif %}
+
+    {# write_metadata: Write metadata to separate JSON files (default: false) #}
+    {% if (values | default({})).write_metadata | default(False) %}
+    "write-metadata": true,
+    {% endif %}
+
+    {# write_info_json: Write gallery metadata to info.json (default: false) #}
+    {% if (values | default({})).write_info_json | default(False) %}
+    "write-info-json": true,
+    {% endif %}
+
+    {# write_tags: Write image tags to separate text files (default: false) #}
+    {% if (values | default({})).write_tags | default(False) %}
+    "write-tags": true,
+    {% endif %}
+
+    {# zip: Store downloaded files in ZIP archive (default: false) #}
+    {% if (values | default({})).zip | default(False) %}
+    "zip": true,
+    {% endif %}
+
+    {# cbz: Store downloaded files in CBZ archive (default: false) #}
+    {% if (values | default({})).cbz | default(False) %}
+    "cbz": true,
+    {% endif %}
+
+    {# mtime: Source metadata field to set file modification time (e.g., 'date') (default: '') #}
+    {% if (values | default({})).mtime | default('') %}
+    "mtime": "{{ (values | default({})).mtime | default('') }}",
+    {% endif %}
+
+    {# postprocessors: List of postprocessor names/objects (e.g., ['ffmpeg', 'exiftool']) (default: []) #}
+    {% if (values | default({})).postprocessors | default([]) | length > 0 %}
+    "postprocessors": [
+      {{ (values | default({})).postprocessors | default([]) | map('tojson') | join(',\n  ') | indent(2) }}
+    ],
+    {% endif %}
+
+    {# exec: Command to execute per downloaded file (supports {} placeholders) (default: '') #}
+    {% if (values | default({})).exec | default('') %}
+    "exec": "{{ (values | default({})).exec | default('') }}",
+    {% endif %}
+
+    {# exec_after: Command to execute after all downloads complete (default: '') #}
+    {% if (values | default({})).exec_after | default('') %}
+    "exec-after": "{{ (values | default({})).exec_after | default('') }}",
+    {% endif %}
+
+    {# ugoira: Ugoira conversion format (e.g., 'webm', 'mp4') (default: 'webm') #}
+    {% if (values | default({})).ugoira | default('webm') %}
+    "ugoira": "{{ (values | default({})).ugoira | default('webm') }}",
+    {% endif %}
+
+    {# rename: Rename previously downloaded files from FORMAT to current format (default: '') #}
+    {% if (values | default({})).rename | default('') %}
+    "rename": "{{ (values | default({})).rename | default('') }}",
+    {% endif %}
+
+    {# rename_to: Rename previously downloaded files from current format to FORMAT (default: '') #}
+    {% if (values | default({})).rename_to | default('') %}
+    "rename-to": "{{ (values | default({})).rename_to | default('') }}",
+    {% endif %}
+
+    {# abort: Stop after N consecutive skipped downloads (default: 0) #}
+    {% if (values | default({})).abort | default(0) != 0 %}
+    "abort": {{ (values | default({})).abort | default(0) }},
+    {% endif %}
+
+    {# terminate: Stop extractor and parent runs after N consecutive skipped downloads (default: 0) #}
+    {% if (values | default({})).terminate | default(0) != 0 %}
+    "terminate": {{ (values | default({})).terminate | default(0) }},
+    {% endif %}
+
+    {# user_agent: User-Agent header to use in HTTP requests (default: '') #}
+    {% if (values | default({})).user_agent | default('') %}
+    "user-agent": "{{ (values | default({})).user_agent | default('') }}",
+    {% endif %}
+
+    {# browser: Browser profile for extractor (e.g., 'firefox') (default: '') #}
+    {% if (values | default({})).browser | default('') %}
+    "browser": "{{ (values | default({})).browser | default('') }}",
+    {% endif %}
+
+    {# print: Print EVENT:FORMAT during download (default event is 'prepare') (default: 'prepare') #}
+    {% if (values | default({})).print | default('prepare') %}
+    "print": "{{ (values | default({})).print | default('prepare') }}",
+    {% endif %}
+
+    {# print_to_file: Append EVENT:FORMAT to file during download (default: '') #}
+    {% if (values | default({})).print_to_file | default('') %}
+    "print-to-file": "{{ (values | default({})).print_to_file | default('') }}",
+    {% endif %}
+
+    {# error_file: File to record input URLs that returned an error (default: '') #}
+    {% if (values | default({})).error_file | default('') %}
+    "error-file": "{{ (values | default({})).error_file | default('') }}",
+    {% endif %}
+
+    {# write_log: Write logging output to this file (default: '') #}
+    {% if (values | default({})).write_log | default('') %}
+    "write-log": "{{ (values | default({})).write_log | default('') }}",
+    {% endif %}
+
+    {# write_unsupported: File to record unsupported URLs (default: '') #}
+    {% if (values | default({})).write_unsupported | default('') %}
+    "write-unsupported": "{{ (values | default({})).write_unsupported | default('') }}",
+    {% endif %}
+
+    {# extractors: List of per-extractor configurations with name, username, password, and options fields (default: []) #}
+    {% if (values | default({})).extractors | default([]) | length > 0 %}
+    "extractors": {
+      {% for ex in (values | default({})).extractors | default([]) | list %}
+      "{{ ex.name | default('') | lower }}": {
+        {% if ex.username | default('') %}
+        "username": "{{ ex.username | default('') }}",
+        {% endif %}
+        {% if ex.password | default('') %}
+        "password": "{{ ex.password | default('') }}",
+        {% endif %}
+        {% if (ex.options | default({})) is mapping %}
+        {% for k, v in ex.options | default({}) | dict2items %}
+        "{{ k.key }}": {{ v.value | tojson }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+        {% endif %}
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    },
+    {% endif %}
+
+    {# extra_options: Arbitrary key-value settings for advanced or extractor-specific options (default: None) #}
+    {% if (values | default({})).extra_options | default(None) is mapping %}
+    {% for k, v in (values | default({})).extra_options | default({}) | dict2items %}
+    {% if v.value is not none %}
+    "{{ k.key }}": {{ v.value | tojson }}{% if not loop.last %},{% endif %}
+    {% endif %}
+    {% endfor %}
+    {% endif %}
+  }
+}

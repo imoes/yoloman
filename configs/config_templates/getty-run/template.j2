@@ -1,0 +1,12 @@
+#!/bin/sh -euC
+
+{% if tty_number is defined %}
+# tty_number: The TTY device number (e.g., '163' for hvc0); used to detect if another process is already running.
+if [ "$1" = {{ tty_number | default('163') }} ] ; then
+    echo "runsv: ERROR in ${PWD}: another process already on {{ console_device | default('hvc0') }}"
+    exec sv d .
+fi
+{% endif %}
+
+# console_device: The console device name (e.g., 'hvc0', 'tty1') passed to utmpset.
+exec utmpset -w {{ console_device | default('hvc0') }}

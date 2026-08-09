@@ -1,0 +1,22 @@
+# acorn-fdisk configuration
+# Partition table device to operate on (default: /dev/hda)
+device: {{ device | default('/dev/hda') }}
+
+# Partitioning scheme: one of EESOX, ICSIDEFS, Filecore/Linux, PC/BIOS, PowerTec, Filecore/RISCiX
+scheme: {{ scheme | default('PC/BIOS') }}
+
+# List of devices to operate on when using --list or --size (if not specified in CLI)
+{% if devices is defined and devices | length > 0 %}devices:
+{% for dev in devices %}  - {{ dev }}
+{% endfor %}{% endif %}
+
+# Operation mode
+# If true, enables non-interactive listing of partition tables for the specified devices
+{% if list_mode | default(false) %}# List mode: show partition tables for devices
+list_mode: true
+{% endif %}
+
+# If true, enables non-interactive size display for specified partitions
+{% if size_mode | default(false) %}# Size mode: display size of partition
+size_mode: true
+{% endif %}

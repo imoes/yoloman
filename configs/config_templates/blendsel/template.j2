@@ -1,0 +1,68 @@
+# /etc/blendsel/blendsel.conf
+# Blendsel runtime configuration
+# One directive per line. Lines starting with '#' are comments.
+#
+# This configuration file controls the behavior of the blendsel utility,
+# which assists in task-based installation on Debian systems.
+#
+# Variables used:
+#   test_mode             (bool) Run in test mode, no actual package changes.
+#   new_install           (bool) Enable automatic task selection without user prompt.
+#   list_tasks            (bool) List all available tasks to stdout instead of launching UI.
+#   task_packages         (list) List of packages available for specific tasks.
+#   task_desc             (str)  Extended description for a single task.
+#   debconf_apt_progress  (str)  Space-separated options for debconf-apt-progress.
+
+# test_mode: Run blendsel in test mode; do not install or remove packages.
+# Corresponds to the -t/--test command-line flag.
+# When enabled, the utility simulates actions without modifying the system.
+{% if test_mode | default(False) | bool %}
+# ENABLED: Test mode active. No packages will be installed or removed.
+test 1
+{% else %}
+# DISABLED: Normal operation mode. Packages will be installed/removed as required.
+test 0
+{% endif %}
+
+# new_install: Enable automatic task selection without user prompt.
+# Used primarily during new Debian installations to skip interactive UI.
+# Corresponds to the --new-install command-line flag.
+{% if new_install | default(False) | bool %}
+# ENABLED: New installation mode. Tasks are selected automatically.
+new-install 1
+{% else %}
+# DISABLED: Interactive mode. User will be prompted for task selection.
+new-install 0
+{% endif %}
+
+# list_tasks: List all available tasks to stdout instead of launching the UI.
+# If enabled, blendsel prints the list of available tasks and exits.
+# Corresponds to the --list-tasks command-line flag.
+{% if list_tasks | default(False) | bool %}
+# ENABLED: List tasks mode. Output goes to stdout.
+list-tasks 1
+{% else %}
+# DISABLED: UI mode. Launches the interactive task selection interface.
+list-tasks 0
+{% endif %}
+
+# task_packages: List packages available for these tasks to stdout.
+# Corresponds to the --task-packages task flag (repeatable).
+# Accepts a comma-separated list of task names.
+{% if task_packages | default([]) | length > 0 %}
+# Active task packages: {{ task_packages | default([]) | join(", ") }}
+task-packages {{ task_packages | default([]) | join(",") }}
+{% endif %}
+
+# task_desc: Output the extended description for this single task to stdout.
+# Corresponds to the --task-desc task flag.
+# Accepts a single task name string.
+{% if task_desc | default('') | trim | length > 0 %}
+# Target task for description: {{ task_desc | default('') | trim }}
+task-desc {{ task_desc | default('') | trim }}
+{% endif %}
+
+# debconf_apt_progress: Space-separated options to pass to the debconf-apt-progress command.
+# Corresponds to the --debconf-apt-progress options flag.
+# Allows customizing the progress bar behavior during package installation.
+debconf-apt-progress {{ debconf_apt_progress | default('') | trim | default('') }}

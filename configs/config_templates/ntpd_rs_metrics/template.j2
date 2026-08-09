@@ -1,0 +1,118 @@
+# =============================================================================
+# ntpd-rs-metrics configuration template
+# Self-documenting Jinja2 template for Ansible
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Section: [general]
+# Basic network binding and endpoint configuration for the metrics HTTP server.
+# ------------------------------------------------------------------------------
+
+# IP address the metrics exporter should listen on (e.g., '127.0.0.1' or '0.0.0.0')
+# Default: 127.0.0.1
+bind = "{{ (bind_addr | default('127.0.0.1')) }}:{{ (bind_port | default(9638)) }}"
+
+# Path where metrics are exposed (e.g., '/metrics' or '/ntpd/metrics')
+# Default: /metrics
+metrics_path = "{{ (metrics_path | default('/metrics')) }}"
+
+# ------------------------------------------------------------------------------
+# Section: [scrape]
+# Controls how frequently the exporter polls the ntpd-rs backend for data.
+# ------------------------------------------------------------------------------
+
+# How often (in seconds) the exporter polls ntpd-rs for metrics
+# Default: 15
+scrape_interval = {{ (scrape_interval | default(15)) }}
+
+# Maximum time (in seconds) to wait for a scrape response before timing out
+# Default: 10
+scrape_timeout = {{ (scrape_timeout | default(10)) }}
+
+# ------------------------------------------------------------------------------
+# Section: [tls]
+# TLS/HTTPS configuration for the metrics endpoint.
+# Only relevant if tls_enabled is true.
+# ------------------------------------------------------------------------------
+
+# Enable HTTPS/TLS for the metrics endpoint (requires valid cert/key paths)
+# Default: False
+tls_enabled = {{ tls_enabled | default(False) | lower }}
+
+{% if (tls_enabled | default(False)) %}
+# Path to the TLS certificate file (PEM format) — only used if TLS is enabled
+# Default: '' (empty)
+tls_cert = "{{ (tls_cert_path | default('')) }}"
+
+# Path to the TLS private key file (PEM format) — only used if TLS is enabled
+# Default: '' (empty)
+tls_key = "{{ (tls_key_path | default('')) }}"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Section: [labels]
+# Static key-value labels to attach to all exported metrics.
+# Useful for environment or cluster identification in Prometheus.
+# ------------------------------------------------------------------------------
+
+# Labels to attach to all metrics
+# The list is provided by the 'labels' variable (list of dicts with 'name' and 'value').
+# Comments above are for documentation; the actual key=value pairs are below.
+{% if (labels | default([])) %}
+{% for label in labels %}
+# Label: {{ label.name }} = {{ label.value }}
+{% endfor %}
+{% endif %}
+[labels]
+{% if (labels | default([])) %}
+{% for label in labels %}{{ (label.name | default('')) | replace('.', '_') | replace('-', '_') | lower }} = "{{ (label.value | default('')) }}"
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Section: [filter]
+# Optional metric filtering rules to include/exclude metrics by name.
+# Uses regex patterns for whitelisting and blacklisting.
+# ------------------------------------------------------------------------------
+
+# Optional: extra Prometheus metric filters (e.g., include only specific metrics)
+# The 'extra_filters' variable is expected to be a dict with 'whitelist' and 'blacklist' keys.
+{% if (extra_filters | default(None) is not none) and extra_filters %}
+# Enable metric filtering
+[filter]
+
+# Whitelist of metric names (regex patterns)
+# If provided, only metrics matching these patterns are exported.
+whitelist = [
+{% if (extra_filters.whitelist | default([])) %}
+{% for pattern in extra_filters.whitelist %}  "{{ pattern }}",
+{% endfor %}
+{% endif %}
+]
+
+# Blacklist of metric names (regex patterns)
+# Metrics matching these patterns are excluded from the output.
+blacklist = [
+{% if (extra_filters.blacklist | default([])) %}
+{% for pattern in extra_filters.blacklist %}  "{{ pattern }}",
+{% endfor %}
+{% endif %}
+]
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Section: [server]
+# HTTP server behavior tuning for the metrics exporter.
+# ------------------------------------------------------------------------------
+
+# Maximum time (in seconds) to wait for an HTTP request header/body
+# Default: 10
+read_timeout = {{ (server_read_timeout | default(10)) }}
+
+# Maximum time (in seconds) to wait for an HTTP response write
+# Default: 10
+write_timeout = {{ (server_write_timeout | default(10)) }}
+
+# Maximum number of simultaneous HTTP connections accepted
+# Default: 100
+max_connections = {{ (server_max_connections | default(100)) }}

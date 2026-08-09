@@ -1,0 +1,191 @@
+[DEFAULT]
+# The log format used by metadata agent
+log_file = {{ log_file }}
+log_dir = {{ log_dir }}
+
+# Number of worker processes for handling requests
+workers = {{ workers }}
+
+# Enable or disable verbose logging
+verbose = {{ verbose }}
+debug = {{ debug }}
+
+# Metadata proxy user (for security isolation)
+metadata_proxy_user = {{ metadata_proxy_user }}
+metadata_proxy_group = {{ metadata_proxy_group }}
+
+# Hostname or IP for the metadata proxy to bind to
+metadata_proxy_bind_host = {{ metadata_proxy_bind_host }}
+metadata_proxy_bind_port = {{ metadata_proxy_bind_port }}
+
+# Metadata proxy socket path
+metadata_proxy_socket = {{ metadata_proxy_socket }}
+
+# Maximum number of TCP connections to the metadata proxy
+metadata_proxy_tcp_backlog = {{ metadata_proxy_tcp_backlog }}
+
+# Maximum number of workers for the metadata proxy
+metadata_proxy_workers = {{ metadata_proxy_workers }}
+
+# Enable metadata network support
+metadata_proxy_shared_secret = {{ metadata_proxy_shared_secret }}
+
+# Auth URL for the metadata proxy (Keystone endpoint)
+auth_url = {{ auth_url }}
+
+# Region name for the metadata proxy
+region_name = {{ region_name }}
+
+# Auth type for metadata proxy (e.g., password, token)
+auth_type = {{ auth_type }}
+
+# Project domain name
+project_domain_name = {{ project_domain_name }}
+
+# Project name
+project_name = {{ project_name }}
+
+# User domain name
+user_domain_name = {{ user_domain_name }}
+
+# Username for metadata proxy
+username = {{ username }}
+
+# Password for metadata proxy
+password = {{ password }}
+
+# Interface for metadata proxy
+interface = {{ interface }}
+
+# CA certificate for SSL verification (optional)
+cafile = {{ cafile }}
+
+# Insecure mode (disable SSL cert verification)
+insecure = {{ insecure }}
+
+# List of endpoints to use for metadata proxy (overriding defaults)
+endpoint_overrides = {{ endpoint_overrides | join(', ') }}
+
+# Enable or disable metadata network (used by Neutron DHCP agent)
+enable_isolated_metadata = {{ enable_isolated_metadata }}
+
+# Use network namespace for isolated metadata
+use_namespace = {{ use_namespace }}
+
+# DNS servers for isolated metadata (if use_namespace=true)
+dns_servers = {{ dns_servers | join(', ') }}
+
+# Hostname for isolated metadata (fallback if not set by DHCP)
+isolated_metadata_hostname = {{ isolated_metadata_hostname }}
+
+# Metadata IP for isolated metadata (fallback if not set by DHCP)
+isolated_metadata_ip = {{ isolated_metadata_ip }}
+
+# Enable or disable metadata network on the metadata proxy
+metadata_network = {{ metadata_network }}
+
+# Network type for metadata (e.g., 'ipv4', 'ipv6', or both)
+metadata_ip_version = {{ metadata_ip_version }}
+
+# TTL for metadata cache
+metadata_cache_ttl = {{ metadata_cache_ttl }}
+
+# Max idle time for metadata proxy connections
+metadata_proxy_max_idle_time = {{ metadata_proxy_max_idle_time }}
+
+# Maximum size of metadata proxy request body
+metadata_proxy_max_body_size = {{ metadata_proxy_max_body_size }}
+
+# Maximum number of concurrent metadata requests
+metadata_proxy_max_concurrent_requests = {{ metadata_proxy_max_concurrent_requests }}
+
+# Timeout for metadata proxy requests
+metadata_proxy_request_timeout = {{ metadata_proxy_request_timeout }}
+
+# Retry count for metadata proxy requests
+metadata_proxy_retries = {{ metadata_proxy_retries }}
+
+# Retry backoff factor for metadata proxy requests
+metadata_proxy_retry_backoff = {{ metadata_proxy_retry_backoff }}
+
+# Metadata proxy health check interval
+metadata_proxy_health_check_interval = {{ metadata_proxy_health_check_interval }}
+
+# Metadata proxy health check timeout
+metadata_proxy_health_check_timeout = {{ metadata_proxy_health_check_timeout }}
+
+# Enable or disable SSL for metadata proxy
+metadata_proxy_ssl = {{ metadata_proxy_ssl }}
+
+# Path to SSL certificate
+metadata_proxy_ssl_cert = {{ metadata_proxy_ssl_cert }}
+
+# Path to SSL private key
+metadata_proxy_ssl_key = {{ metadata_proxy_ssl_key }}
+
+# Path to SSL CA certificate chain
+metadata_proxy_ssl_ca_cert = {{ metadata_proxy_ssl_ca_cert }}
+
+# Enable or disable client SSL verification
+metadata_proxy_ssl_verify = {{ metadata_proxy_ssl_verify }}
+
+# Metadata agent transport URL
+transport_url = {{ transport_url }}
+
+# RabbitMQ host(s) for transport
+rabbit_host = {{ rabbit_host }}
+rabbit_port = {{ rabbit_port }}
+
+# RabbitMQ user
+rabbit_userid = {{ rabbit_userid }}
+
+# RabbitMQ password
+rabbit_password = {{ rabbit_password }}
+
+# RabbitMQ virtual host
+rabbit_virtual_host = {{ rabbit_virtual_host }}
+
+# RabbitMQ HA mode
+rabbit_ha_queues = {{ rabbit_ha_queues }}
+
+# Redis host(s) for caching (optional)
+redis_hosts = {{ redis_hosts | join(', ') }}
+
+# Redis password (optional)
+redis_password = {{ redis_password }}
+
+# Redis socket timeout
+redis_socket_timeout = {{ redis_socket_timeout }}
+
+# Redis connection pool size
+redis_pool_size = {{ redis_pool_size }}
+
+# Redis DB index
+redis_db = {{ redis_db }}
+
+# Enable or disable JSON logging
+use_json_logging = {{ use_json_logging }}
+
+# Log date format
+log_date_format = {{ log_date_format }}
+
+# Syslog facility
+syslog_log_facility = {{ syslog_log_facility }}
+
+# Enable or disable logging to stdout
+log_to_stdout = {{ log_to_stdout }}
+
+# Enable or disable logging to syslog
+log_to_syslog = {{ log_to_syslog }}
+
+# Log level
+log_level = {{ log_level }}
+
+{% for endpoint in metadata_endpoints %}
+# Metadata endpoint override {{ loop.index }}: {{ endpoint.service }} ({{ endpoint.region }})
+[{{ endpoint.service }}:{{ endpoint.region }}]
+endpoint_override = {{ endpoint.endpoint_override }}
+{% if endpoint.interface %}
+interface = {{ endpoint.interface }}
+{% endif %}
+{% endfor %}

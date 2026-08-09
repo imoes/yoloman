@@ -1,0 +1,82 @@
+###############################################################################
+#
+# Copyright (C) 2006,2010 Red Hat, Inc. All Rights Reserved.
+# Written by David Howells (dhowells@redhat.com)
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version
+# 2 of the License, or (at your option) any later version.
+#
+###############################################################################
+
+# Primary cache directory — must be on an already-mounted filesystem with fscache support.
+# This is the main directory where the FSCache backend stores cached data.
+dir {{ cache_dir | default('/var/cache/fscache') }}
+
+# Optional cache tag — useful when multiple caches are managed by a single host (e.g., for NFS server clustering).
+# Tags help distinguish different cache instances or purposes.
+tag {{ tag | default('mycache') }}
+
+# Debug verbosity level (0–5). Higher values produce more logging to syslog.
+# 0 = no debug, 5 = maximum debug detail.
+debug {{ debug | default(0) }}
+
+# Memory tuning directives for cache culling and replacement policies.
+# These control how much of the cache can be held in memory (buffers/blocks).
+# brun: percentage of buffer cache to run (retain) during culling.
+brun 10%
+
+# bcull: percentage of buffer cache to cull (remove) during culling.
+bcull 7%
+
+# bstop: percentage of buffer cache above which no new allocations are allowed.
+bstop 3%
+
+# frun: percentage of file cache to run (retain) during culling.
+frun 10%
+
+# fcull: percentage of file cache to cull (remove) during culling.
+fcull 7%
+
+# fstop: percentage of file cache above which no new allocations are allowed.
+fstop 3%
+
+# User account to drop privileges to when not running as root.
+# Only used if run_as_root is set to false.
+# If run_as_root is true, the daemon runs as root and this user is ignored.
+{% if run_as_root | default(True) is sameas false %}
+user {{ user | default('nobody') }}
+
+# Group to drop privileges to (optional; only used if not run_as_root).
+# If not specified, the daemon may use the user's primary group.
+{% if group | default('nogroup') is not none %}
+group {{ group | default('nogroup') }}
+{% endif %}
+{% endif %}
+
+# Path to the PID file for the daemon.
+# This file is created when the daemon starts and removed on stop.
+pidfile {{ pidfile | default('/run/cachefilesd.pid') }}
+
+# Lower bound on cache size (e.g., '1G', '500M' or '0' for unlimited minimum).
+# The cache will not be pruned below this limit.
+cache_lower {{ cache_lower | default('0') }}
+
+# Upper bound on cache size (e.g., '10G', '500M'). Cache will be pruned when exceeded.
+# If 0, there is no upper limit enforced by this directive.
+cache_upper {{ cache_upper | default('0') }}
+
+# Seconds between automatic cache scans. Set to 0 to disable scanning.
+# Scanning helps maintain cache health and consistency.
+scan_interval {{ scan_interval | default(10) }}
+
+# List of additional cache directories for tiered or mirrored caching.
+# Each directory is specified on its own 'dir' line.
+{% for extra_dir in extra_dirs | default([]) %}
+dir {{ extra_dir }}
+{% endfor %}
+
+# Assuming you're using SELinux with the default security policy included in
+# this package
+# secctx system_u:system_r:cachefiles_kernel_t:s0

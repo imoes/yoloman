@@ -1,0 +1,62 @@
+# General backup settings
+# --------------------------------------------
+export BM_BACKUP_DIRS="{{ backup_dirs | join(' ') }}"
+export BM_HOSTNAME="{{ hostname }}"
+export BM_TARBALL_DATE_FORMAT="{{ tarball_date_format }}"
+
+# Compression settings
+# --------------------------------------------
+export BM_COMPRESSION="{{ compression }}"
+export BM_COMPRESS_EXTENSIONS="{{ compress_extensions }}"
+export BM_COMPRESS_LEVEL="{{ compression_level }}"
+
+# Repository settings
+# --------------------------------------------
+export BM_REPOSITORY_ROOT="{{ repository_root }}"
+export BM_REPOSITORY_SUBDIR="{{ repository_subdir }}"
+export BM_USE_TAR_PREFIX="{{ use_tar_prefix | lower }}"
+
+# Cleanup & retention settings
+# --------------------------------------------
+export BM_DELETE_AFTER_BACKUP="{{ delete_after_backup | lower }}"
+export BM_OLDEST_FILE_DAYS="{{ oldest_file_days }}"
+export BM_MAX_BACKUP_DAYS="{{ max_backup_days }}"
+
+# SSH/rsync remote backup settings
+# --------------------------------------------
+export BM_USE_RSYNC="{{ use_rsync | lower }}"
+export BM_RSYNC_HOST="{{ rsync_host }}"
+export BM_RSYNC_USER="{{ rsync_user }}"
+export BM_RSYNC_PORT="{{ rsync_port }}"
+export BM_RSYNC_PATH="{{ rsync_path }}"
+export BM_RSYNC_OPTIONS="{{ rsync_options | join(' ') }}"
+
+# Database export settings (MySQL/PostgreSQL)
+# --------------------------------------------
+export BM_EXPORT_DATABASES="{{ export_databases | lower }}"
+{% for db in databases %}
+export BM_DB_TYPE_{{ loop.index }}="{{ db.type }}"
+export BM_DB_HOST_{{ loop.index }}="{{ db.host }}"
+export BM_DB_USER_{{ loop.index }}="{{ db.user }}"
+export BM_DB_PASS_{{ loop.index }}="{{ db.password | default('') }}"
+export BM_DB_NAME_{{ loop.index }}="{{ db.name }}"
+export BM_DB_PORT_{{ loop.index }}="{{ db.port | default(3306 if db.type == 'mysql' else 5432) }}"
+export BM_DB_FILE_{{ loop.index }}="{{ db.file }}"
+{% endfor %}
+
+# SSH key and identity
+# --------------------------------------------
+export BM_SSH_KEY="{{ ssh_key }}"
+export BM_SSH_OPTIONS="{{ ssh_options | join(' ') }}"
+
+# Mail notification settings
+# --------------------------------------------
+export BM_MAIL_ALERT="{{ mail_alert | lower }}"
+export BM_MAIL_ADDRESS="{{ mail_address }}"
+export BM_MAIL_SUBJECT_PREFIX="{{ mail_subject_prefix }}"
+export BM_MAIL_FROM="{{ mail_from }}"
+
+# Additional hooks
+# --------------------------------------------
+export BM_PRE_BACKUP_HOOK="{{ pre_backup_hook }}"
+export BM_POST_BACKUP_HOOK="{{ post_backup_hook }}"

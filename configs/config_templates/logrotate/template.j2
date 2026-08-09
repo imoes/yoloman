@@ -1,0 +1,64 @@
+{#
+  Logrotate main configuration template.
+  This template generates /etc/logrotate.conf, the global configuration file
+  for the logrotate utility. It applies global directives that affect all
+  log groups defined elsewhere or in included snippets.
+
+  Variables are sourced from the role's input schema. Every variable uses
+  the `default()` filter to ensure safe rendering even if the variable is
+  not provided by the caller.
+#}
+
+{#
+  frequency: Log rotation frequency (e.g., daily, weekly, monthly, or custom interval like 'daily' or 'weekly')
+  Valid values: daily, weekly, monthly, yearly.
+  The directive name in logrotate.conf matches the frequency string directly.
+#}
+{{ frequency | default('weekly') }}
+
+{#
+  su directive: Rotate logs as this user/group.
+  Prevents logrotate from needing to run as root for log files owned by
+  specific users, enhancing security.
+#}
+su {{ user | default('root') }} {{ group | default('adm') }}
+
+{#
+  rotate directive: Number of rotated log files to keep.
+  Determines how many old versions of the log file are retained before
+  the oldest one is deleted.
+#}
+rotate {{ rotate_count | default(4) }}
+
+{#
+  create directive: Create new empty log files after rotation.
+  When true, logrotate creates a new empty log file with the same permissions
+  as the original after moving the old one.
+#}
+{% if create | default(true) | bool %}
+create
+{% else %}
+nocreate
+{% endif %}
+
+{#
+  dateext directive: Use date-based extension for rotated files.
+  If enabled, rotated files get a date suffix (e.g., app.log.20231025) instead
+  of a numeric index. This can make identifying log ages easier.
+#}
+{% if dateext | default(false) | bool %}
+dateext
+{% else %}
+nodateext
+{% endif %}
+
+{#
+  compress directive: Compress rotated log files.
+  If enabled, old log files are compressed using gzip (default) to save disk space.
+  This applies only to logs rotated previously; current logs are not compressed.
+#}
+{% if compress | default(false) | bool %}
+compress
+{% else %}
+nocompress
+{% endif %}

@@ -1,0 +1,163 @@
+{
+  "nfs_protocols": [
+    {
+      "version": 3
+    },
+    {
+      "version": 4
+    }
+  ],
+  "nfs_v3": {
+    "acl": {
+      "enabled": true
+    },
+    "posix_acl": true
+  },
+  "nfs_v4": {
+    "minor_versions": [
+      {
+        "version": 0
+      },
+      {
+        "version": 1
+      },
+      {
+        "version": 2
+      }
+    ],
+    "drc": {
+      "size_in_mem": 2048,
+      "memory_size": 32
+    },
+    "delegation": true
+  },
+  "exports": [
+    {
+      "id": 10,
+      "path": "/data/public",
+      "protocols": [
+        {
+          "version": 3
+        },
+        {
+          "version": 4
+        }
+      ],
+      "transports": [
+        {
+          "transport": "TCP"
+        }
+      ],
+      "access_type": "RW",
+      "squash": "Root_Squash",
+      "security_flavors": [
+        {
+          "flavor": "sys"
+        },
+        {
+          "flavor": "krb5i"
+        }
+      ],
+      "pseudo_path": "/exports/public",
+      "require_krb5": false,
+      "enable_48_hour_clock": true,
+      "clients": [
+        {
+          "name": "Internal LAN",
+          "type": "network",
+          "network": "10.0.0.0/8"
+        },
+        {
+          "name": "Admins",
+          "type": "ip",
+          "ip": "192.168.1.10",
+          "access_type": "RO",
+          "security_flavors": [
+            {
+              "flavor": "krb5p"
+            }
+          ]
+        }
+      ],
+      "default_permissions": 493,
+      "async_enabled": true,
+      "write_through_enabled": false
+    },
+    {
+      "id": 20,
+      "path": "/data/private",
+      "protocols": [
+        {
+          "version": 4
+        }
+      ],
+      "access_type": "RO",
+      "squash": "No_Root_Squash",
+      "security_flavors": [
+        {
+          "flavor": "krb5"
+        }
+      ],
+      "pseudo_path": "/exports/private",
+      "clients": [
+        {
+          "type": "network",
+          "network": "10.10.0.0/16",
+          "squash": "Root_Squash"
+        }
+      ]
+    }
+  ],
+  "log": {
+    "level": "DEFAULT",
+    "file": "/var/log/ganesha/ganesha.log",
+    "purge_enabled": true,
+    "max_log_files": 7
+  },
+  "cache": {
+    "flush_interval": 5,
+    "cache_size": 2048,
+    "object_caching": true
+  },
+  "fsals": [
+    {
+      "name": "VfsData",
+      "driver": "VFS",
+      "path": "/data"
+    },
+    {
+      "name": "CephFS",
+      "driver": "CEPH",
+      "ceph_conf": "/etc/ceph/ceph.conf",
+      "user_id": "client.ganesha"
+    }
+  ],
+  "ha": {
+    "enabled": true,
+    "mode": "HA_ENABLED",
+    "peers": [
+      {
+        "name": "nfs-server-2",
+        "address": "10.0.0.3",
+        "heartbeat": {
+          "interval": 2,
+          "timeout": 6
+        }
+      },
+      {
+        "name": "nfs-server-3",
+        "address": "10.0.0.4",
+        "heartbeat": {
+          "interval": 2,
+          "timeout": 6
+        }
+      }
+    ]
+  },
+  "rpc": {
+    "transport": "TCP",
+    "mount_port": 0,
+    "nfs_port": 2049,
+    "threads": 32
+  }
+}

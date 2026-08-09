@@ -1,0 +1,64 @@
+# ccrypt configuration for system-wide defaults
+# This file is NOT a native config file — ccrypt has no config file.
+# Instead, this template describes how to configure ccrypt usage via wrapper scripts or systemd environment files.
+# To use, generate wrapper scripts or drop-in environment overrides.
+
+{% if default_mode %}# Default mode (override via command-line flags or wrapper script)
+# MODE={{ default_mode | upper }}
+{% endif %}
+
+{% if default_suffix %}# Default file suffix (instead of .cpt)
+# SUFFIX={{ default_suffix }}
+{% endif %}
+
+{% if use_brave is defined %}# Skip double-key prompt (dangerous — see --brave)
+# BRAVE={{ 'true' if use_brave else 'false' }}
+{% endif %}
+
+{% if use_timid is defined %}# Enforce double-key prompt (default; --brave overrides)
+# TIMID={{ 'true' if use_timid else 'false' }}
+{% endif %}
+
+{% if strict_suffix is defined %}# Refuse to encrypt already-suffixed files
+# STRICT_SUFFIX={{ 'true' if strict_suffix else 'false' }}
+{% endif %}
+
+{% if use_tmpfiles is defined %}# Use temporary files (less secure; safer against crashes)
+# TMPFILES={{ 'true' if use_tmpfiles else 'false' }}
+{% endif %}
+
+{% if use_symlinks is defined %}# Process symbolic links (default: skip except in cat/unixcrypt)
+# SYMLINKS={{ 'true' if use_symlinks else 'false' }}
+{% endif %}
+
+{% if envvar %}# Read key from environment variable (unsafe if visible via ps)
+# KEY_ENVVAR={{ envvar }}
+{% endif %}
+
+{% if keyfile %}# Read key from file (first line only; use '-' for stdin)
+# KEYFILE={{ keyfile }}
+{% endif %}
+
+{% if prompt %}# Custom prompt (e.g., for scripts)
+# PROMPT='{{ prompt | replace("'", "\\'") }}'
+{% endif %}
+
+# Recursive traversal of subdirectories
+{% if recursive is defined %}
+# RECURSIVE={{ 'true' if recursive else 'false' }}
+{% endif %}
+
+# Follow symlinks when recursing
+{% if follow_symlinks is defined %}
+# FOLLOW_SYMLINKS={{ 'true' if follow_symlinks else 'false' }}
+{% endif %}
+
+# Key reference file (to validate key before processing)
+{% if keyref %}
+# KEYREF={{ keyref }}
+{% endif %}
+
+# Force overwrite (dangerous on write-protected or existing files)
+{% if force is defined %}
+# FORCE={{ 'true' if force else 'false' }}
+{% endif %}

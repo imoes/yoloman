@@ -1,0 +1,186 @@
+<?php
+
+/* Main configuration file for Roundcube Webmail */
+
+# Database connection settings
+# Desc: Hostname of the MySQL/MariaDB database server
+# Desc: Port number of the database server
+# Desc: Database username for Roundcube
+# Desc: Password for the database user (will be written to config file in plaintext)
+# Desc: Name of the database to use
+$config['db_dsnw'] = 'mysql://{{ db_user | default("roundcube") }}:{{ db_pass | default("") }}@{{ db_host | default("localhost") }}:{{ db_port | default(3306) | int }}/{{ db_name | default("roundcube") }}';
+
+# Mail server (IMAP) settings
+# Desc: Default IMAP server hostname
+$config['default_host'] = '{{ imap_host | default("localhost") }}';
+# Desc: Default IMAP server port (143=unencrypted, 993=SSL)
+$config['default_port'] = {{ imap_port | default(143) | int }};
+# Desc: IMAP authentication method (e.g., 'login', 'cram-md5', 'digest-md5', 'gssapi')
+$config['imap_auth_type'] = '{{ imap_auth_type | default("login") }}';
+# Desc: IMAP connection timeout in seconds
+$config['imap_timeout'] = {{ imap_timeout | default(10) | int }};
+
+# SMTP server settings
+# Desc: SMTP server hostname
+$config['smtp_server'] = '{{ smtp_host | default("localhost") }}';
+# Desc: SMTP server port (587= Submission, 465=SMTPS)
+$config['smtp_port'] = {{ smtp_port | default(587) | int }};
+# Desc: SMTP user placeholder (Roundcube internal)
+$config['smtp_user'] = '%u';
+# Desc: SMTP pass placeholder (Roundcube internal)
+$config['smtp_pass'] = '%p';
+
+# Session and security settings
+# Desc: Session lifetime in minutes before logout
+$config['session_lifetime'] = {{ session_lifetime | default(480) | int }};
+# Desc: Domain for session cookies (empty = use current hostname)
+$config['session_domain'] = '{{ session_domain | default("") }}';
+# Desc: Session cookie name
+$config['session_name'] = '{{ session_name | default("roundcubemachine") }}';
+# Desc: Encryption key for cookies and stored passwords (minimum 24 chars, base64-safe)
+$config['des_key'] = '{{ des_key | default("") }}';
+# Desc: Character set used in password-related operations
+$config['password_charset'] = '{{ password_charset | default("UTF-8") }}';
+# Desc: Enable spell checking (requires installed backend)
+$config['enable_spellcheck'] = {{ spellcheck_enabled | default(false) | ternary('true', 'false') }};
+# Desc: Spell check engine: 'pspell' or 'googie'
+$config['spellcheck_engine'] = '{{ spellcheck_engine | default("pspell") }}';
+
+# Skin and UI settings
+# Desc: UI skin name (e.g., 'elastic', 'larry')
+$config['skin'] = '{{ skin_name | default("elastic") }}';
+# Desc: Default language (ISO 639-1 + ISO 3166-1, e.g., 'de_DE', 'fr_FR')
+$config['language'] = '{{ default_language | default("en_US") }}';
+# Desc: Default timezone for the application (e.g., 'America/New_York')
+$config['timezone'] = '{{ timezone | default("UTC") }}';
+
+# Message display and composition settings
+# Desc: Enable the preview pane (shows message content next to the folder list)
+$config['preview_pane'] = {{ preview_pane_enabled | default(true) | ternary('true', 'false') }};
+# Desc: Delay (in seconds) before a message is marked as read in preview pane
+$config['preview_pane_mark_as_read'] = {{ preview_pane_mark_as_read_delay | default(2) | int }};
+# Desc: Seconds between draft autosaves while composing
+$config['draft_autosave'] = {{ draft_autosave_delay | default(60) | int }};
+# Desc: Maximum allowed message size (e.g., '5M', '100K')
+$config['max_message_size'] = '{{ max_message_size | default("10M") }}';
+# Desc: MIME header folding: 0=RFC2231 only, 1=RFC2047+RFC2231, 2=RFC2047 only
+$config['mime_param_folding'] = {{ mime_param_folding | default(0) | int }};
+
+# Plugins
+# Desc: List of enabled plugins (must match installed plugins)
+$config['plugins'] = [{{ plugins | default(['archive', 'zipdownload', 'password', 'managesieve', 'acl', 'additional_message_headers', 'enigma']) | join(', ') }}];
+
+# Logging
+# Desc: Log driver: 'file', 'syslog', 'stderr', or 'null'
+$config['log_driver'] = '{{ log_driver | default("file") }}';
+# Desc: Directory for log files (if using 'file' driver)
+$config['log_dir'] = '{{ log_dir | default("/var/log/roundcube") }}';
+# Desc: Date/time format for log entries
+$config['log_date_format'] = '{{ log_date_format | default("Y-m-d H:i:s") }}';
+# Desc: Syslog identity string (if using 'syslog' driver)
+$config['syslog_id'] = '{{ syslog_id | default("roundcube") }}';
+# Desc: Syslog facility (0=LOG_USER, 6=LOG_MAIL, etc.)
+$config['syslog_facility'] = {{ syslog_facility | default(6) | int }};
+
+# Additional IMAP hosts for fallback (if supported)
+# Desc: List of additional IMAP hosts (for fallback, failover, or domain-based routing). Each host object includes: hostname, port, tls, auth_type, user, pass
+{% if additional_imap_hosts | default([]) | length > 0 %}
+$config['additional_imap_hosts'] = [
+{% for host in additional_imap_hosts %}    '{{ host.hostname }}' => [
+      'host' => '{{ host.hostname | default("") }}',
+      'port' => {{ host.port | default(143) }},
+      'tls' => {{ host.tls | default(false) | ternary('true', 'false') }}{% if host.auth_type is defined and host.auth_type %},
+      'auth_type' => '{{ host.auth_type }}'{% endif %}{% if host.user is defined and host.user %},
+      'user' => '{{ host.user }}'{% endif %}{% if host.pass is defined and host.pass %},
+      'pass' => '{{ host.pass }}'{% endif %}
+    ],
+{% endfor %}
+];
+{% endif %}
+
+# Optional: LDAP settings for address book
+# Desc: Public LDAP address book servers. Each server defines host(s), base DN, filters, field mappings.
+{% if ldap_servers | default([]) | length > 0 %}
+$config['ldap_public'] = [
+{% for server in ldap_servers %}    '{{ server.name }}' => [
+      'name'       => '{{ server.name }}',
+      'hosts'      => ['{{ server.host | default([]) | join(", ") }}'],
+      'port'       => {{ server.port | default(389) }},
+      'use_tls'    => {{ server.use_tls | default(false) | ternary('true', 'false') }},
+      'bind_dn'    => '{{ server.bind_dn | default("") }}',
+      'bind_pass'  => '{{ server.bind_pass | default("") }}',
+      'base_dn'    => '{{ server.base_dn | default("") }}',
+      'filter'     => '{{ server.filter | default("") }}',
+      'scope'      => '{{ server.scope | default("") }}',
+      'charset'    => '{{ server.charset | default("") }}',
+      'fields'     => [
+        'name'  => '{{ server.fields.name | default("cn") }}',
+        'email' => '{{ server.fields.email | default("mail") }}',
+        'phone' => '{{ server.fields.phone | default("telephoneNumber") }}',
+        'title' => '{{ server.fields.title | default("title") }}'
+      ]
+    ],
+{% endfor %}
+];
+{% endif %}
+
+# Optional: Active Directory / Kerberos integration
+# Desc: Kerberos realm name (e.g., 'EXAMPLE.COM') for GSSAPI auth
+$config['krb5_realm'] = '{{ krb5_realm | default("") }}';
+# Desc: Kerberos principal pattern (e.g., 'imap/%u@EXAMPLE.COM')
+$config['krb5_principal'] = '{{ krb5_principal | default("") }}';
+
+# Optional: Custom identity settings
+# Desc: Maximum number of identities a user can have
+$config['identity_limit'] = {{ identity_limit | default(5) | int }};
+# Desc: Allow users to delete their primary identity
+$config['remove_identity'] = {{ remove_identity | default(false) | ternary('true', 'false') }};
+
+# Optional: Archive settings
+# Desc: Name of the IMAP folder used for archiving
+$config['archive_mbox'] = '{{ archive_mbox | default("Archive") }}';
+# Desc: Name of the IMAP Trash folder
+$config['trash_mbox'] = '{{ trash_mbox | default("Trash") }}';
+# Desc: Name of the IMAP Sent folder
+$config['sent_mbox'] = '{{ sent_mbox | default("Sent") }}';
+# Desc: Name of the IMAP Drafts folder
+$config['drafts_mbox'] = '{{ drafts_mbox | default("Drafts") }}';
+
+# Optional: Search folders
+# Desc: User-defined search folders (DNs for IMAP search)
+{% if search_folders | default([]) | length > 0 %}
+$config['search_folders'] = [
+{% for folder in search_folders %}    '{{ folder.name }}' => '{{ folder.dn }}',
+{% endfor %}
+];
+{% endif %}
+
+# Optional: IMAP ACL support
+# Desc: Enable IMAP ACL support (requires server-side ACL extension)
+$config['imap_acl'] = {{ imap_acl_enabled | default(false) | ternary('true', 'false') }};
+
+# Optional: Sieve script management
+# Desc: Directory for global Sieve scripts (if managed externally)
+$config['sieve_script_root'] = '{{ sieve_script_root | default("/etc/dovecot/sieve-global") }}';
+# Desc: Maximum number of user Sieve scripts
+$config['sieve_max_scripts'] = {{ sieve_max_scripts | default(50) | int }};
+
+# Optional: Shared folders
+# Desc: Prefix or suffix for shared folders (e.g., 'shared/' or '.shared.')
+$config['shared_folder'] = '{{ shared_folder | default("shared") }}';
+# Desc: Backend for shared folders: 'imap' or 'sql'
+$config['shared_storage'] = '{{ shared_storage | default("imap") }}';
+
+# Optional: User preferences storage (e.g., SQLite fallback)
+# Desc: User preferences backend: 'sql' or 'ldap'
+$config['preferences_storage'] = '{{ preferences_storage | default("sql") }}';
+# Desc: Make preferences read-only (admin-controlled only)
+$config['preferences_storage_readonly'] = {{ preferences_storage_readonly | default(false) | ternary('true', 'false') }};
+
+# Optional: Skin-specific settings (e.g., for Elastic)
+# Desc: Include PHP files in skin directory (use only for trusted skins)
+$config['skin_include_php'] = {{ skin_include_php | default(false) | ternary('true', 'false') }};
+# Desc: Product name shown in UI and headers
+$config['product_name'] = '{{ product_name | default("Roundcube Webmail") }}';
+# Desc: URL for support/help link in UI
+$config['support_url'] = '{{ support_url | default("https://roundcube.net") }}';

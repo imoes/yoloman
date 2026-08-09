@@ -1,0 +1,134 @@
+{# ============================================================================
+   kresd.conf — Knot Resolver (kresd) configuration template
+   ============================================================================
+   Self-documenting Jinja2 template for Ansible.
+   All variables use `| default(...)` to prevent rendering errors when
+   the variable is undefined. Comments above each directive reflect the
+   schema description to ensure human readability.
+   ============================================================================
+#}
+
+{# validation: 'auto' - Fixed default mode, not configurable via schema #}
+# Default DNSSEC validation mode
+validation: 'auto'
+
+{# workers: Number of worker threads; set to 0 for auto-detection (recommended). #}
+# Number of worker threads (set to 0 to disable multi-threading)
+workers: {{ workers | default(0) }}
+
+{# trust_anchors_path: Path to the root trust anchors file (e.g., from IANA or Knot DNS utils). #}
+# Root trust anchors file path
+trust_anchors: '{{ trust_anchors_path | default("/etc/knot-resolver/roots.txt") }}'
+
+{# cache_size: Size of the DNS cache (e.g., '64M', '1G'). #}
+# Cache size in bytes (e.g., '64M', '1G')
+cache_size: '{{ cache_size | default("128M") }}'
+
+{# log_level: Verbosity of logs: debug, info, notice, warning, error, or critical. #}
+# Log level: debug, info, notice, warning, error, critical
+log_level: '{{ log_level | default("notice") }}'
+
+{# listen_addresses: List of address/port/net tuples. #}
+# Listen on these addresses and ports (IPv4 and/or IPv6)
+listen:
+{% for addr in (listen_addresses | default([{'address': '127.0.0.1', 'port': 53, 'net': 'udp'}, {'address': '::1', 'port': 53, 'net': 'udp'}])) %}
+  - address: '{{ addr.address }}'
+{% if addr.port is defined and addr.port %}    port: {{ addr.port }}{% endif %}
+{% if addr.net is defined and addr.net == 'tcp' %}    net: tcp{% elif addr.net is defined and addr.net == 'udp' %}    net: udp{% endif %}
+{% endfor %}
+
+{# upstream_resolvers: List of upstream resolver objects. #}
+# Forward upstream recursive resolvers (with optional port and protocol)
+forward:
+{% for upstream in (upstream_resolvers | default([{'hostname': '9.9.9.9', 'protocol': 'udp'}, {'hostname': '2620:fe::fe', 'protocol': 'udp'}])) %}
+  - {{ upstream.hostname }}{% if upstream.port is defined and upstream.port %}:{{ upstream.port }}{% endif %}{% if upstream.protocol is defined and upstream.protocol == 'tcp' %}#tcp{% elif upstream.protocol is defined and upstream.protocol == 'udp' %}#udp{% elif upstream.protocol is defined and upstream.protocol == 'dot' %}#dot{% elif upstream.protocol is defined and upstream.protocol == 'doh' %}#doh{% endif %}
+{% endfor %}
+
+{# policy_rules: List of policy rules. #}
+# Policy zones — block or redirect specific domains
+policy:
+{% for rule in (policy_rules | default([])) %}
+  - matches: ['{{ rule.domain }}']
+    action: {{ rule.action }}
+{% if rule.target is defined and rule.target %}    target: '{{ rule.target }}'{% endif %}
+{% endfor %}
+
+{# doh_enabled: Enable DNS over HTTPS (DoH) listener. #}
+# Enable DNS over HTTPS (DoH) listener
+{% if doh_enabled | default(False) %}doh:
+  listen: '{{ doh_listen_address | default("127.0.0.1") }}:{{ doh_port | default(443) }}'
+  tls:
+    certificate: '{{ doh_cert_path | default("/etc/ssl/certs/doh.crt") }}'
+    key: '{{ doh_key_path | default("/etc/ssl/private/doh.key") }}'
+{% endif %}
+
+{# dot_enabled: Enable DNS over TLS (DoT) listener. #}
+# Enable DNS over TLS (DoT) listener
+{% if dot_enabled | default(False) %}dot:
+  listen: '{{ dot_listen_address | default("127.0.0.1") }}:{{ dot_port | default(853) }}'
+  tls:
+    certificate: '{{ dot_cert_path | default("/etc/ssl/certs/dot.crt") }}'
+    key: '{{ dot_key_path | default("/etc/ssl/private/dot.key") }}'
+{% endif %}
+
+{# query_log: Enable query logging (to syslog or journal if supported). #}
+# Query log format (json or txt)
+{% if query_log | default(False) %}log:
+  query: true
+  format: '{{ query_log_format | default("txt") }}'{% endif %}
+
+{# net_timeout: Timeout for upstream queries in seconds. #}
+# Timeout for upstream queries (seconds)
+net.timeout: {{ net_timeout | default(4) }}
+
+{# net_max_queries_per_client: Maximum concurrent queries per client IP. #}
+# Maximum number of concurrent queries per client
+net.max_queries_per_client: {{ net_max_queries_per_client | default(50) }}
+
+{# neg_ttl: TTL for negative responses (NXDOMAIN, NODATA) in seconds. #}
+# Minimum TTL for negative responses (seconds)
+neg_ttl: {{ neg_ttl | default(3600) }}
+
+{# dnssec_enabled: Enable DNSSEC validation (recommended for security). #}
+# Enable DNSSEC validation (true/false)
+{% if dnssec_enabled | default(True) %}dnssec: true{% else %}dnssec: false{% endif %}
+
+{# local_data_entries: List of local data overrides. #}
+# Local data overrides (e.g., /etc/hosts style)
+local_data:
+{% for entry in (local_data_entries | default([])) %}
+  - name: '{{ entry.name }}'
+    ttl: {{ entry.ttl }}
+    class: '{{ entry.class }}'
+    type: '{{ entry.type }}'
+    data: '{{ entry.data }}'
+{% endfor %}
+
+{# prefetch_enabled: Enable prefetching of recently used records before TTL expires. #}
+# Prefetching behavior
+prefetch: {{ prefetch_enabled | default(True) }}
+
+{# stale_ttl: Seconds to serve stale data when upstream is unreachable. #}
+# Stale TTL (seconds) — how long to serve stale data when upstream is down
+stale_ttl: {{ stale_ttl | default(86400) }}
+
+{# cache_purge_interval: Interval in seconds between cache purges (to reclaim memory). #}
+# Cache purge interval (seconds)
+cache_purge_interval: {{ cache_purge_interval | default(3600) }}
+
+{# random_seed: Seed random number generator from system entropy (recommended for security). #}
+# Seed random number generator with system entropy (true/false)
+random_seed: {{ random_seed | default(True) }}
+
+{# experimental: Enable experimental features (e.g., HTTP API if not yet stable). #}
+# Enable experimental features
+{% if experimental | default(False) %}experimental:
+  http_api: true
+{% endif %}
+
+{# http_api_enabled: Enable HTTP management API (read-only by default). #}
+# HTTP management API (optional)
+{% if http_api_enabled | default(False) %}http_api:
+  listen: '{{ http_api_listen | default("127.0.0.1") }}:{{ http_api_port | default(8443) }}'
+{% if http_api_token is defined and http_api_token %}  token: '{{ http_api_token }}'{% endif %}
+{% endif %}

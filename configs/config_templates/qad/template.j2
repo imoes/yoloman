@@ -1,0 +1,41 @@
+# Global server settings
+server:
+  host: {{ server.host }}
+  port: {{ server.port }}
+
+# Logging configuration
+logging:
+  level: {{ logging.level }}
+  path: {{ logging.path }}
+
+# Test execution limits and concurrency
+execution:
+  max_workers: {{ execution.max_workers }}
+  timeout_seconds: {{ execution.timeout_seconds }}
+  retry_count: {{ execution.retry_count }}
+
+# Test suites to run (loaded from disk)
+suites:
+{% for suite in suites %}  - name: {{ suite.name }}
+    path: {{ suite.path }}
+    tags: {{ suite.tags | join(', ') | d('') }}
+{% endfor %}
+
+# REST API endpoints
+endpoints:
+  status: {{ endpoints.status }}
+  run_test: {{ endpoints.run_test }}
+  health: {{ endpoints.health }}
+
+# Optional authentication (disabled by default)
+{% if auth.enabled %}authentication:
+  type: {{ auth.type }}
+  token_secret: {{ auth.token_secret }}
+  token_expiry_hours: {{ auth.token_expiry_hours }}
+{% endif %}
+
+# Metrics collection
+metrics:
+  enabled: {{ metrics.enabled }}
+  pushgateway_url: {{ metrics.pushgateway_url }}
+  interval_seconds: {{ metrics.interval_seconds }}

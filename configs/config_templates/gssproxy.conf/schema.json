@@ -1,0 +1,138 @@
+{
+  "sock_paths": {
+    "type": "list",
+    "default": [
+      "/run/gssproxy.sock"
+    ],
+    "description": "List of Unix socket paths where gssproxy will accept client connections."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Debug verbosity level (0 = quiet, 1 = normal, 2 = verbose, 3 = debug)."
+  },
+  "use_socket_activation": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, gssproxy will use systemd socket activation instead of binding sockets itself."
+  },
+  "ccache_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Time (in seconds) after which a credential cache entry is considered expired."
+  },
+  "ecosystem_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for ecosystem extensions (e.g., integration with SSSD, Kerberos, etc.)."
+  },
+  "mechanisms": {
+    "type": "list",
+    "default": [
+      {
+        "name": "krb5",
+        "oid": "1.2.840.113554.1.2.2",
+        "keytab": "/etc/krb5.keytab",
+        "ccache": "FILE:/run/gssproxy.d/krb5_ccache",
+        "allowed_enctypes": [
+          "aes256-cts-hmac-sha1-96",
+          "aes128-cts-hmac-sha1-96"
+        ],
+        "server_principal": "host@EXAMPLE.COM",
+        "credentials_cache": "FILE:/run/gssproxy.d/krb5_ccache"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "krb5",
+        "description": "Unique name for this mechanism (used as section header in config)."
+      },
+      "oid": {
+        "type": "string",
+        "default": "1.2.840.113554.1.2.2",
+        "description": "GSS mechanism OID in dotted decimal notation."
+      },
+      "keytab": {
+        "type": "string",
+        "default": "/etc/krb5.keytab",
+        "description": "Path to the keytab file containing service keys."
+      },
+      "ccache": {
+        "type": "string",
+        "default": "FILE:/run/gssproxy.d/krb5_ccache",
+        "description": "Default credential cache location for this mechanism."
+      },
+      "allowed_enctypes": {
+        "type": "list",
+        "default": [
+          "aes256-cts-hmac-sha1-96",
+          "aes128-cts-hmac-sha1-96"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "description": "List of encryption types allowed for this mechanism (e.g., aes256-cts-hmac-sha1-96)."
+      },
+      "client_principal": {
+        "type": "string",
+        "default": null,
+        "description": "Optional client principal to use when initiating GSS context."
+      },
+      "server_principal": {
+        "type": "string",
+        "default": "host@EXAMPLE.COM",
+        "description": "Target service principal name (e.g., 'host/server.example.com@EXAMPLE.COM')."
+      },
+      "credentials_cache": {
+        "type": "string",
+        "default": "FILE:/run/gssproxy.d/krb5_ccache",
+        "description": "Credential cache path for server-side use."
+      },
+      "euid": {
+        "type": "number",
+        "default": null,
+        "description": "Effective UID used when accessing credentials (for file-backed caches)."
+      }
+    },
+    "description": "List of GSS mechanisms (e.g., Kerberos) to support, each with its own configuration."
+  },
+  "emulated_principals": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "principal": {
+        "type": "string",
+        "default": "",
+        "description": "Source principal (e.g., 'nfs@OLD realm') to be emulated."
+      },
+      "target": {
+        "type": "string",
+        "default": "",
+        "description": "Target principal it should map to (e.g., 'nfs@REALM')."
+      }
+    },
+    "description": "List of principal emulations to support legacy client requests."
+  },
+  "trusted_principals": {
+    "type": "list",
+    "default": [
+      "root@EXAMPLE.COM"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of principals (with realm) that are trusted to use delegated credentials."
+  },
+  "trusted_dirs": {
+    "type": "list",
+    "default": [
+      "/etc/gssproxy",
+      "/var/lib/gssproxy"
+    ],
+    "items": {
+      "type": "string"
+    },
+    "description": "List of directories whose contents (e.g., keytabs) are trusted for reading."
+  }
+}

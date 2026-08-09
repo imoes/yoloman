@@ -1,0 +1,97 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface IP address the collector HTTP server binds to."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 9100,
+    "description": "TCP port the collector HTTP server listens on."
+  },
+  "queue_dir": {
+    "type": "string",
+    "default": "/var/lib/debci/collector/queue",
+    "description": "Absolute path to the directory where incoming job results are staged before processing."
+  },
+  "max_payload_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum allowed size (in bytes) for a single job result payload (e.g., build log)."
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of concurrent HTTP request handlers (workers)."
+  },
+  "use_ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables HTTPS using the specified certificate and key."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/debci/ssl/cert.pem",
+    "description": "Absolute path to the SSL certificate file (only used if use_ssl is true)."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/debci/ssl/key.pem",
+    "description": "Absolute path to the SSL private key file (only used if use_ssl is true)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging output. Options: debug, info, warning, error, critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/debci/collector.log",
+    "description": "Absolute path to the log file. Set to empty string ('') to disable file logging (stdout only)."
+  },
+  "upstream_collectors": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream DebCI collector endpoints to which this collector may forward results.",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the upstream collector."
+      },
+      "port": {
+        "type": "number",
+        "description": "Port number of the upstream collector's HTTP endpoint."
+      }
+    }
+  },
+  "forward_results": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically forwards completed job results to all configured upstream collectors."
+  },
+  "archive_ttl": {
+    "type": "number",
+    "default": 604800,
+    "description": "Time (in seconds) after which archived job results are eligible for deletion from the queue directory."
+  },
+  "db_uri": {
+    "type": "string",
+    "default": "postgresql://debci:password@localhost/debci_collector",
+    "description": "Database connection URI for metadata storage (e.g., PostgreSQL connection string)."
+  },
+  "use_db": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, persists job metadata in the configured database instead of using filesystem-only storage."
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Minimum interval (in seconds) between internal health checks for collector subsystems."
+  },
+  "health_check_path": {
+    "type": "string",
+    "default": "/healthz",
+    "description": "HTTP path exposed for external health check requests (e.g., by Kubernetes liveness probes)."
+  }
+}

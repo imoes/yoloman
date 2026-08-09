@@ -1,0 +1,93 @@
+#! /usr/bin/env lua
+# conky configuration for CLI mode (no X11)
+--
+conky.config = {
+    -- General settings
+    -- Show information on stdout, not as GUI
+    background = false,
+    -- Output interval in seconds
+    update_interval = {{ update_interval }},
+    -- Number of lines of output to retain (0 = unlimited)
+    total_run_times = 0,
+    -- Use Unicode (UTF-8) characters
+    use_utf8 = true,
+    -- Disable X11 display (CLI mode)
+    no_x11 = true,
+    -- Suppress scrolling text (fixed output)
+    no_buffers = true,
+    -- Show memory values in MB (not KB)
+    unit_print_scale = 1024,
+    -- Output format (plain text or HTML-like tags)
+    text_buffer_size = 2048,
+    -- Log to syslog? (true/false)
+    own_window = false,
+    -- Suppress extra output
+    extra_newline = false,
+
+    -- Formatting options
+    -- Format used for time/date (%Y-%m-%d %H:%M:%S)
+    time_format = '{{ time_format }}',
+
+    -- Text alignment: left, right, center
+    alignment = '{{ alignment }}',
+
+    -- Spacing (padding) between lines
+    gap_x = 1,
+    gap_y = 1,
+
+    -- Font settings (ignored in CLI, but required for valid config)
+    font = '{{ font }}',
+
+    -- Color theme (ignored in CLI; kept for compatibility)
+    default_color = '{{ default_color }}',
+    default_shade_color = '{{ default_shade_color }}',
+    default_outline_color = '{{ default_outline_color }}',
+
+    -- Disk & mount info
+    -- List of disks/mountpoints to monitor
+    disks = {
+{% for disk in disks %}
+        '{{ disk.mountpoint }}',
+{% endfor %}
+    },
+
+    -- Network interfaces to monitor
+    network_interfaces = {
+{% for iface in network_interfaces %}
+        '{{ iface.name }}',
+{% endfor %}
+    },
+
+    -- CPU monitoring
+    -- Number of CPUs to display individually (0 = auto)
+    cpu_cpu_num = {{ cpu_cpu_num }},
+
+    -- RAM/Swap
+    -- Show swap usage?
+    show_swap = {{ show_swap }},
+
+    -- Process list
+    -- Max number of processes to list
+    max_user_text = {{ max_user_text }},
+    -- Sort order for processes (rss, name, percent_cpu, etc.)
+    process_sort = '{{ process_sort }}',
+    -- Show processes for all users?
+    show_user_processes = {{ show_user_processes }},
+
+    -- Header & footer
+    -- Header string (shown once at top)
+    text_header = [[
+{{ text_header }}
+]],
+    -- Footer string (shown once at bottom)
+    text_footer = [[
+{{ text_footer }}
+]],
+
+    -- Main body of output — dynamic content
+    -- Each line may include conky variables like ${cpu}, ${mem}, etc.
+    -- Note: CLI version supports only ${var} syntax (not ${alias})
+    text = [[
+{{ text_body }}
+]],
+};

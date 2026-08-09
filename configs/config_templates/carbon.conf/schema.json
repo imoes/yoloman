@@ -1,0 +1,208 @@
+{
+  "whisper_dir": {
+    "type": "string",
+    "default": "/var/lib/graphite/whisper",
+    "description": "Directory where Whisper database files are stored."
+  },
+  "whisper_user": {
+    "type": "string",
+    "default": "carbon",
+    "description": "System user account under which Carbon processes run (for file permissions)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging (debug, info, warning, error, critical)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/carbon/carbon.log",
+    "description": "Path to the Carbon log file."
+  },
+  "use_systick": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to use syslog instead of file logging."
+  },
+  "max_creates_per_minute": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum Whisper file creation rate per minute per process."
+  },
+  "max_updates_per_second": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum total metric update rate across all daemons."
+  },
+  "max_updates_queue_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of pending updates queued before dropping data."
+  },
+  "max_updates_buffer_size": {
+    "type": "number",
+    "default": 1048576,
+    "description": "Maximum buffer size (bytes) for incoming updates (pickle)."
+  },
+  "relay": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "destinations": [],
+      "method": "all",
+      "consistent_hashing": false,
+      "hash_key": "metric"
+    },
+    "description": "Relay configuration (optional).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable the relay daemon."
+      },
+      "destinations": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend destinations (carbon-cache instances).",
+        "items": {
+          "host": {
+            "type": "string",
+            "default": "localhost",
+            "description": "Hostname or IP of the backend instance."
+          },
+          "port": {
+            "type": "number",
+            "default": 2004,
+            "description": "Port number (e.g., 2004 for line, 2003 for pickle)."
+          },
+          "instance": {
+            "type": "string",
+            "default": "a",
+            "description": "Carbon instance name suffix (e.g., 'a' \u2192 carbon-cache-a)."
+          }
+        }
+      },
+      "method": {
+        "type": "string",
+        "default": "all",
+        "description": "Routing method: 'all', 'none', 'first', or 'consistent' (for consistent hashing)."
+      },
+      "consistent_hashing": {
+        "type": "bool",
+        "default": false,
+        "description": "Use consistent hashing to route metrics (requires 'consistent' method)."
+      },
+      "hash_key": {
+        "type": "string",
+        "default": "metric",
+        "description": "Field used as key for hashing: 'metric' (metric name) or 'source' (remote IP)."
+      }
+    }
+  },
+  "aggregator": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "rules_file": "/etc/carbon/aggregator-rules.conf",
+      "max_queue_size": 10000
+    },
+    "description": "Aggregator configuration (optional).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable the aggregator daemon."
+      },
+      "rules_file": {
+        "type": "string",
+        "default": "/etc/carbon/aggregator-rules.conf",
+        "description": "Path to aggregation rules file."
+      },
+      "max_queue_size": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum number of metrics in the aggregator queue."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "line_receiver_port": 2003,
+      "pickle_receiver_port": 2004,
+      "max_connections": 1000,
+      "pickle_receiver_buffer_size": 1048576,
+      "enable_logging": true,
+      "max_updates_per_second": 1000,
+      "max_creates_per_minute": 100,
+      "max_updates_queue_size": 10000,
+      "max_creates_queue_size": 1000,
+      "enable_udp_listener": false,
+      "udp_receiver_port": 2003
+    },
+    "description": "Cache daemon configuration (required for basic operation).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the carbon-cache daemon."
+      },
+      "line_receiver_port": {
+        "type": "number",
+        "default": 2003,
+        "description": "Port to listen for plaintext line protocol metrics (e.g., 'metric value timestamp\\n')."
+      },
+      "pickle_receiver_port": {
+        "type": "number",
+        "default": 2004,
+        "description": "Port to listen for pickled metrics (used by python-carbon clients)."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of concurrent TCP connections."
+      },
+      "pickle_receiver_buffer_size": {
+        "type": "number",
+        "default": 1048576,
+        "description": "Maximum size of incoming pickle payload in bytes."
+      },
+      "enable_logging": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable pickle packet logging for debugging."
+      },
+      "max_updates_per_second": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum metric update rate allowed per second (drops excess)."
+      },
+      "max_creates_per_minute": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of new Whisper files created per minute."
+      },
+      "max_updates_queue_size": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum pending update operations before dropping metrics."
+      },
+      "max_creates_queue_size": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum pending file-creation operations."
+      },
+      "enable_udp_listener": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable listening on UDP for line protocol metrics (not recommended for high volume)."
+      },
+      "udp_receiver_port": {
+        "type": "number",
+        "default": 2003,
+        "description": "UDP port for plaintext line protocol metrics."
+      }
+    }
+  }
+}

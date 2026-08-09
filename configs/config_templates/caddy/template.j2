@@ -1,0 +1,29 @@
+{# Full Caddyfile rendered from values. Caddy does automatic HTTPS (Let's
+   Encrypt) by default for public hostnames — set acme_email once. Per site,
+   the tls field is optional: empty = automatic HTTPS, "internal" = self-signed
+   (local/testing), or "<cert> <key>" for an explicit pair. A site either
+   reverse-proxies (upstream) or serves files (root). #}
+{
+{% if acme_email %}
+	email {{ acme_email }}
+{% endif %}
+{% if admin_off %}
+	admin off
+{% endif %}
+}
+{% for s in sites %}
+{{ s.domain }} {
+{% if s.tls %}
+	tls {{ s.tls }}
+{% endif %}
+{% if s.upstream %}
+	reverse_proxy {{ s.upstream }}
+{% elif s.root %}
+	root * {{ s.root }}
+	file_server
+{% endif %}
+{% if s.extra %}
+	{{ s.extra }}
+{% endif %}
+}
+{% endfor %}

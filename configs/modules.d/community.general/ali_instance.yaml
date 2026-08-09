@@ -1,0 +1,318 @@
+name: ali_instance
+fqcn: community.general.ali_instance
+collection: community.general
+short_description: Create, Start, Stop, Restart or Terminate an Instance in ECS; Add or Remove Instance
+  to/from a Security Group
+description: Create, start, stop, restart, modify or terminate ecs instances. Add or remove ecs instances
+  to/from security group.
+options:
+  alicloud_access_key:
+    type: str
+    aliases:
+    - access_key_id
+    - access_key
+    description: Alibaba Cloud access key. If not set then the value of environment variable E(ALICLOUD_ACCESS_KEY),
+      E(ALICLOUD_ACCESS_KEY_ID) will be used instead.
+  alicloud_assume_role:
+    type: dict
+    aliases:
+    - assume_role
+    description: If provided with a role ARN, Ansible will attempt to assume this role using the supplied
+      credentials. The nested assume_role block supports C(alicloud_assume_role_arn), C(alicloud_assume_role_session_name),
+      C(alicloud_assume_role_session_expiration) and C(alicloud_assume_role_policy).
+  alicloud_assume_role_arn:
+    type: str
+    aliases:
+    - assume_role_arn
+    description: The Alibaba Cloud C(role_arn). The ARN of the role to assume. If ARN is set to an empty
+      string, it does not perform role switching. It supports environment variable E(ALICLOUD_ASSUME_ROLE_ARN).
+      ansible will execute with provided credentials.
+  alicloud_assume_role_session_expiration:
+    type: int
+    aliases:
+    - assume_role_session_expiration
+    description: The Alibaba Cloud C(session_expiration). The time after which the established session
+      for assuming role expires. Valid value range 900-3600 seconds. Default to 3600 (in this case Alicloud
+      use own default value). It supports environment variable E(ALICLOUD_ASSUME_ROLE_SESSION_EXPIRATION).
+  alicloud_assume_role_session_name:
+    type: str
+    aliases:
+    - assume_role_session_name
+    description: The Alibaba Cloud session_name. The session name to use when assuming the role. If omitted,
+      'ansible' is passed to the AssumeRole call as session name. It supports environment variable E(ALICLOUD_ASSUME_ROLE_SESSION_NAME).
+  alicloud_region:
+    type: str
+    required: true
+    aliases:
+    - region
+    - region_id
+    description: The Alibaba Cloud region to use. If not specified then the value of environment variable
+      E(ALICLOUD_REGION), E(ALICLOUD_REGION_ID) will be used instead.
+  alicloud_secret_key:
+    type: str
+    aliases:
+    - secret_access_key
+    - secret_key
+    description: Alibaba Cloud secret key. If not set then the value of environment variable E(ALICLOUD_SECRET_KEY),
+      E(ALICLOUD_SECRET_ACCESS_KEY) will be used instead.
+  alicloud_security_token:
+    type: str
+    aliases:
+    - security_token
+    description: The Alibaba Cloud security token. If not specified then the value of environment variable
+      E(ALICLOUD_SECURITY_TOKEN) will be used instead.
+  allocate_public_ip:
+    type: bool
+    default: false
+    aliases:
+    - assign_public_ip
+    description: Whether allocate a public ip for the new instance.
+  auto_renew:
+    type: bool
+    default: false
+    description: Whether automate renew the charge of the instance.
+  auto_renew_period:
+    type: int
+    choices:
+    - 1
+    - 2
+    - 3
+    - 6
+    - 12
+    description: The duration of the automatic renew the charge of the instance. Required when O(auto_renew=true).
+  availability_zone:
+    type: str
+    aliases:
+    - alicloud_zone
+    - zone_id
+    description: Aliyun availability zone ID in which to launch the instance. If it is not specified,
+      it will be allocated by system automatically.
+  count:
+    type: int
+    default: 1
+    description: The number of the new instance. An integer value which indicates how many instances that
+      match O(count_tag) should be running. Instances are either created or terminated based on this value.
+  count_tag:
+    type: str
+    description: O(count) determines how many instances based on a specific tag criteria should be present.
+      This can be expressed in multiple ways and is shown in the EXAMPLES section. The specified count_tag
+      must already exist or be passed in as the O(tags) option. If it is not specified, it will be replaced
+      by O(instance_name).
+  description:
+    type: str
+    description: The description of ECS instance, which is a string of 2 to 256 characters. It cannot
+      begin with http:// or https://.
+  dry_run:
+    type: bool
+    default: false
+    description: Specifies whether to send a dry-run request. If O(dry_run=true), Only a dry-run request
+      is sent and no instance is created. The system checks whether the required parameters are set, and
+      validates the request format, service permissions, and available ECS instances. If the validation
+      fails, the corresponding error code is returned. If the validation succeeds, the DryRunOperation
+      error code is returned. If O(dry_run=false), A request is sent. If the validation succeeds, the
+      instance is created.
+  ecs_role_name:
+    type: str
+    aliases:
+    - role_name
+    description: The RAM Role Name attached on a ECS instance for API operations. You can retrieve this
+      from the 'Access Control' section of the Alibaba Cloud console. If you're running Ansible from an
+      ECS instance with RAM Instance using RAM Role, Ansible will just access the metadata U(http://100.100.100.200/latest/meta-data/ram/security-credentials/<ecs_role_name>)
+      to obtain the STS credential. This is a preferred approach over any other when running in ECS as
+      you can avoid hard coding credentials. Instead these are leased on-the-fly by Ansible which reduces
+      the chance of leakage.
+  force:
+    type: bool
+    default: false
+    description: Whether the current operation needs to be execute forcibly.
+  host_name:
+    type: str
+    description: Instance host name. Ordered hostname is not supported.
+  image_id:
+    type: str
+    aliases:
+    - image
+    description: Image ID used to launch instances. Required when O(state=present) and creating new ECS
+      instances.
+  include_data_disks:
+    type: bool
+    default: true
+    description: Whether to change instance disks charge type when changing instance charge type.
+  instance_charge_type:
+    type: str
+    default: PostPaid
+    choices:
+    - PrePaid
+    - PostPaid
+    description: The charge type of the instance.
+  instance_ids:
+    type: list
+    description: A list of instance ids. It is required when need to operate existing instances. If it
+      is specified, O(count) will lose efficacy.
+  instance_name:
+    type: str
+    aliases:
+    - name
+    description: The name of ECS instance, which is a string of 2 to 128 Chinese or English characters.
+      It must begin with an uppercase/lowercase letter or a Chinese character and can contain numerals,
+      ".", "_" or "-". It cannot begin with http:// or https://.
+  instance_type:
+    type: str
+    aliases:
+    - type
+    description: Instance type used to launch instances. Required when O(state=present) and creating new
+      ECS instances.
+  internet_charge_type:
+    type: str
+    default: PayByBandwidth
+    choices:
+    - PayByBandwidth
+    - PayByTraffic
+    description: Internet charge type of ECS instance.
+  key_name:
+    type: str
+    aliases:
+    - keypair
+    description: The name of key pair which is used to access ECS instance in SSH.
+  max_bandwidth_in:
+    type: int
+    default: 200
+    description: Maximum incoming bandwidth from the public network, measured in Mbps (Megabits per second).
+  max_bandwidth_out:
+    type: int
+    default: 0
+    description: Maximum outgoing bandwidth to the public network, measured in Mbps (Megabits per second).
+      Required when O(allocate_public_ip=true). Ignored when O(allocate_public_ip=false).
+  password:
+    type: str
+    description: The password to login instance. After rebooting instances, modified password will take
+      effect.
+  period:
+    type: int
+    default: 1
+    description: The charge duration of the instance, in months. Required when O(instance_charge_type=PrePaid).
+      The valid value are [1-9, 12, 24, 36].
+  period_unit:
+    type: str
+    default: Month
+    choices:
+    - Month
+    - Week
+    description: The duration unit that you will buy the resource. It is valid when O(instance_charge_type=PrePaid).
+  profile:
+    type: str
+    description: This is the Alicloud profile name as set in the shared credentials file. It can also
+      be sourced from the E(ALICLOUD_PROFILE) environment variable.
+  purge_tags:
+    type: bool
+    default: false
+    description: Delete any tags not specified in the task that are on the instance. If True, it means
+      you have to specify all the desired tags on each task affecting an instance.
+  ram_role_name:
+    type: str
+    description: The name of the instance RAM role.
+  security_groups:
+    type: list
+    aliases:
+    - group_ids
+    description: A list of security group IDs.
+  shared_credentials_file:
+    type: str
+    description: This is the path to the shared credentials file. It can also be sourced from the E(ALICLOUD_SHARED_CREDENTIALS_FILE)
+      environment variable. If this is not set and a profile is specified, C(~/.aliyun/config.json) will
+      be used.
+  spot_price_limit:
+    type: float
+    description: The maximum hourly price for the preemptible instance. This parameter supports a maximum
+      of three decimal places and takes effect when the SpotStrategy parameter is set to SpotWithPriceLimit.
+  spot_strategy:
+    type: str
+    default: NoSpot
+    choices:
+    - NoSpot
+    - SpotWithPriceLimit
+    - SpotAsPriceGo
+    description: The bidding mode of the pay-as-you-go instance. This parameter is valid when InstanceChargeType
+      is set to PostPaid.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - running
+    - stopped
+    - restarted
+    - absent
+    description: The state of the instance after operating.
+  system_disk_category:
+    type: str
+    default: cloud_efficiency
+    choices:
+    - cloud_efficiency
+    - cloud_ssd
+    description: Category of the system disk.
+  system_disk_description:
+    type: str
+    description: Description of the system disk.
+  system_disk_name:
+    type: str
+    description: Name of the system disk.
+  system_disk_size:
+    type: int
+    default: 40
+    description: Size of the system disk, in GB. The valid values are 40~500.
+  tags:
+    type: dict
+    aliases:
+    - instance_tags
+    description: A hash/dictionaries of instance tags, to add to the new instance or for starting/stopping
+      instance by tag. V({"key":"value"})
+  unique_suffix:
+    type: bool
+    default: false
+    description: Specifies whether to add sequential suffixes to the host_name. The sequential suffix
+      ranges from 001 to 999.
+  user_data:
+    type: str
+    description: User-defined data to customize the startup behaviors of an ECS instance and to pass data
+      into an ECS instance. It only will take effect when launching the new ECS instances.
+  vswitch_id:
+    type: str
+    aliases:
+    - subnet_id
+    description: The subnet ID in which to launch the instances (VPC).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# basic provisioning example vpc network\n- name: Basic provisioning example\n  hosts: localhost\n\
+  \  vars:\n    alicloud_access_key: <your-alicloud-access-key-id>\n    alicloud_secret_key: <your-alicloud-access-secret-key>\n\
+  \    alicloud_region: cn-beijing\n    image: ubuntu1404_64_40G_cloudinit_20160727.raw\n    instance_type:\
+  \ ecs.n4.small\n    vswitch_id: vsw-abcd1234\n    assign_public_ip: true\n    max_bandwidth_out: 10\n\
+  \    host_name: myhost\n    password: mypassword\n    system_disk_category: cloud_efficiency\n    system_disk_size:\
+  \ 100\n    internet_charge_type: PayByBandwidth\n    security_groups: [\"sg-f2rwnfh23r\"]\n\n    instance_ids:\
+  \ [\"i-abcd12346\", \"i-abcd12345\"]\n    force: true\n\n  tasks:\n    - name: Launch ECS instance in\
+  \ VPC network\n      community.general.ali_instance:\n        alicloud_access_key: '{{ alicloud_access_key\
+  \ }}'\n        alicloud_secret_key: '{{ alicloud_secret_key }}'\n        alicloud_region: '{{ alicloud_region\
+  \ }}'\n        image: '{{ image }}'\n        system_disk_category: '{{ system_disk_category }}'\n  \
+  \      system_disk_size: '{{ system_disk_size }}'\n        instance_type: '{{ instance_type }}'\n  \
+  \      vswitch_id: '{{ vswitch_id }}'\n        assign_public_ip: '{{ assign_public_ip }}'\n        internet_charge_type:\
+  \ '{{ internet_charge_type }}'\n        max_bandwidth_out: '{{ max_bandwidth_out }}'\n        tags:\n\
+  \            Name: created_one\n        host_name: '{{ host_name }}'\n        password: '{{ password\
+  \ }}'\n\n    - name: With count and count_tag to create a number of instances\n      community.general.ali_instance:\n\
+  \        alicloud_access_key: '{{ alicloud_access_key }}'\n        alicloud_secret_key: '{{ alicloud_secret_key\
+  \ }}'\n        alicloud_region: '{{ alicloud_region }}'\n        image: '{{ image }}'\n        system_disk_category:\
+  \ '{{ system_disk_category }}'\n        system_disk_size: '{{ system_disk_size }}'\n        instance_type:\
+  \ '{{ instance_type }}'\n        assign_public_ip: '{{ assign_public_ip }}'\n        security_groups:\
+  \ '{{ security_groups }}'\n        internet_charge_type: '{{ internet_charge_type }}'\n        max_bandwidth_out:\
+  \ '{{ max_bandwidth_out }}'\n        tags:\n            Name: created_one\n            Version: 0.1\n\
+  \        count: 2\n        count_tag:\n            Name: created_one\n        host_name: '{{ host_name\
+  \ }}'\n        password: '{{ password }}'\n\n    - name: Start instance\n      community.general.ali_instance:\n\
+  \        alicloud_access_key: '{{ alicloud_access_key }}'\n        alicloud_secret_key: '{{ alicloud_secret_key\
+  \ }}'\n        alicloud_region: '{{ alicloud_region }}'\n        instance_ids: '{{ instance_ids }}'\n\
+  \        state: 'running'\n\n    - name: Reboot instance forcibly\n      ecs:\n        alicloud_access_key:\
+  \ '{{ alicloud_access_key }}'\n        alicloud_secret_key: '{{ alicloud_secret_key }}'\n        alicloud_region:\
+  \ '{{ alicloud_region }}'\n        instance_ids: '{{ instance_ids }}'\n        state: 'restarted'\n\
+  \        force: '{{ force }}'\n\n    - name: Add instances to an security group\n      ecs:\n      \
+  \  alicloud_access_key: '{{ alicloud_access_key }}'\n        alicloud_secret_key: '{{ alicloud_secret_key\
+  \ }}'\n        alicloud_region: '{{ alicloud_region }}'\n        instance_ids: '{{ instance_ids }}'\n\
+  \        security_groups: '{{ security_groups }}'\n"

@@ -1,0 +1,151 @@
+# AMQP Tools Configuration
+# This file configures the global AMQP connection and declaration behaviour
+# for the amqp_tools CLI suite.  All directives use standard INI syntax.
+# Variables MUST have their schema defaults provided inline via | default()
+# to ensure the template renders safely even when some role variables are
+# absent.
+
+# ============================================================
+# Global AMQP connection settings
+# ============================================================
+[amqp]
+
+# Hostname or IP address of the AMQP server
+# (e.g., 'rabbitmq.example.com' or '10.0.0.5')
+host = {{ amqp_host | default('localhost') }}
+
+# TCP port of the AMQP server
+# (5672 for AMQP 0-9-1, 5671 for AMQPS/TLS)
+port = {{ amqp_port | default(5672) }}
+
+# AMQP virtual host path
+# (e.g., '/' or '/production')
+vhost = {{ amqp_vhost | default('/') }}
+
+# Username for AMQP authentication
+user = {{ amqp_user | default('guest') }}
+
+# Password for AMQP authentication
+# Leave blank to use the AMQP_PASSWORD environment variable at runtime.
+password = {{ amqp_password | default('') }}
+
+# Enable TLS/SSL encryption for AMQP connections
+use_tls = {{ amqp_use_tls | default(False) | lower }}
+
+# Path to CA certificate file for TLS verification
+# Required if using a custom or enterprise CA.
+ca_cert_path = {{ amqp_ca_cert_path | default('') }}
+
+# Path to client certificate file (for mutual TLS auth)
+client_cert_path = {{ amqp_client_cert_path | default('') }}
+
+# Path to client private key file (for mutual TLS auth)
+client_key_path = {{ amqp_client_key_path | default('') }}
+
+# TLS protocol version (e.g., 'TLSv1.2')
+# Leave empty to use system default.
+protocol_version = {{ amqp_protocol_version | default('') }}
+
+# Maximum time (seconds) to wait for connection establishment
+connection_timeout = {{ amqp_connection_timeout | default(30) }}
+
+# Maximum number of retry attempts for transient failures
+retry_max = {{ amqp_retry_max | default(3) }}
+
+# Delay (seconds) between retries
+retry_delay = {{ amqp_retry_delay | default(1) }}
+
+# ============================================================
+# Optional: default exchange and routing settings
+# ============================================================
+[defaults]
+
+# Default exchange name to use when none is specified in commands
+# (e.g., 'amq.direct')
+exchange = {{ default_exchange | default('') }}
+
+# Default routing key for publish operations
+# (ignored for fanout exchanges)
+routing_key = {{ default_routing_key | default('') }}
+
+# Default message TTL in milliseconds (0 means no TTL)
+default_message_ttl = {{ default_message_ttl | default(0) }}
+
+# ============================================================
+# Queue declarations
+# Lists of queues to ensure exist at startup.
+# Each entry becomes a [queue:<name>] section.
+# ============================================================
+{% for queue in queues | default([]) %}
+[queue:{{ queue.name }}]
+
+# Durable: survives broker restart
+durable = {{ queue.durable | default(False) | lower }}
+
+# Auto-delete: remove when no consumers
+auto_delete = {{ queue.auto_delete | default(False) | lower }}
+
+# Exclusive: only accessible by this connection
+exclusive = {{ queue.exclusive | default(False) | lower }}
+
+# Optional queue arguments (e.g., x-max-length, x-overflow)
+# Iterates over the arguments mapping safely using dict2items.
+{% if queue.arguments is mapping %}
+{% for arg_key, arg_value in queue.arguments | dict2items %}
+argument.{{ arg_key }} = {{ arg_value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# ============================================================
+# Exchange declarations
+# Lists of exchanges to ensure exist.
+# Each entry becomes a [exchange:<name>] section.
+# ============================================================
+{% for exchange in exchanges | default([]) %}
+[exchange:{{ exchange.name }}]
+
+# Type: direct, fanout, topic, headers
+type = {{ exchange.type | default('direct') }}
+
+# Durable: survives broker restart
+durable = {{ exchange.durable | default(False) | lower }}
+
+# Auto-delete: remove when no consumers
+auto_delete = {{ exchange.auto_delete | default(False) | lower }}
+
+# Internal: not published to directly (used for routing between exchanges)
+internal = {{ exchange.internal | default(False) | lower }}
+
+# Optional exchange arguments
+{% if exchange.arguments is mapping %}
+{% for arg_key, arg_value in exchange.arguments | dict2items %}
+argument.{{ arg_key }} = {{ arg_value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# ============================================================
+# Binding declarations
+# Lists of exchange ↔ queue bindings.
+# Each entry becomes a [bind:<id>] section.
+# ============================================================
+{% for binding in bindings | default([]) %}
+[bind:{{ binding.id }}]
+
+# Source exchange
+source_exchange = {{ binding.source_exchange | default('') }}
+
+# Target queue
+target_queue = {{ binding.target_queue | default('') }}
+
+# Routing key (required for direct/topic; optional for fanout)
+routing_key = {{ binding.routing_key | default('') }}
+
+# Optional binding arguments
+{% if binding.arguments is mapping %}
+{% for arg_key, arg_value in binding.arguments | dict2items %}
+argument.{{ arg_key }} = {{ arg_value }}
+{% endfor %}
+{% endif %}
+{% endfor %}

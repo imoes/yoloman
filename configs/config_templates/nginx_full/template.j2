@@ -1,0 +1,100 @@
+# /etc/nginx/nginx.conf — main configuration file
+# This template generates a self-documenting Nginx configuration.
+# Every directive is preceded by a comment describing its purpose and schema default.
+
+# User under which worker processes run.
+# Default: www-data
+user {{ nginx_user | default('www-data') }} {{ nginx_group | default('www-data') }};
+
+# Number of worker processes. 'auto' matches the number of CPUs.
+worker_processes auto;
+
+# Path to error log file.
+# Default: /var/log/nginx/error.log
+error_log {{ nginx_error_log | default('/var/log/nginx/error.log') }};
+
+# Path to PID file.
+# Default: /run/nginx.pid
+pid {{ nginx_pid | default('/run/nginx.pid') }};
+
+events {
+    # Maximum number of simultaneous connections per worker process.
+    # Default: 768
+    worker_connections {{ nginx_worker_connections | default(768) }};
+
+    # Event notification method (e.g., epoll, kqueue, select).
+    # Default: epoll
+    use {{ nginx_event_method | default('epoll') }};
+}
+
+http {
+    # Include mime types and default settings
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Path to access log file.
+    # Default: /var/log/nginx/access.log
+    access_log {{ nginx_access_log | default('/var/log/nginx/access.log') }};
+
+    # Performance tuning
+
+    # Use sendfile() for static file transfers.
+    # Default: True
+    sendfile {{ nginx_sendfile | default(True) | ternary('on', 'off') }};
+
+    # Enable TCP_CORK (send headers + first chunk in one packet).
+    # Default: True
+    tcp_nopush {{ nginx_tcp_nopush | default(True) | ternary('on', 'off') }};
+
+    # Disable Nagle's algorithm (send small packets immediately).
+    # Default: True
+    tcp_nodelay {{ nginx_tcp_nodelay | default(True) | ternary('on', 'off') }};
+
+    # Keepalive settings
+
+    # Time (seconds) to keep keep-alive connections open.
+    # Default: 65
+    keepalive_timeout {{ nginx_keepalive_timeout | default(65) }};
+
+    # Maximum number of requests per keep-alive connection.
+    # Default: 1000
+    keepalive_requests {{ nginx_keepalive_requests | default(1000) }};
+
+    # Gzip compression
+
+    # Enable gzip compression.
+    # Default: True
+    gzip {{ nginx_gzip | default(True) | ternary('on', 'off') }};
+
+    # Add 'Vary: Accept-Encoding' header for proxied requests.
+    # Default: True
+    gzip_vary {{ nginx_gzip_vary | default(True) | ternary('on', 'off') }};
+
+    # Conditions under which to compress proxied responses (e.g., expired, no-cache, no-store, authorization).
+    # Default: any
+    gzip_proxied {{ nginx_gzip_proxied | default('any') }};
+
+    # MIME types to compress (only these will be gzip’d).
+    # Default: ['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml', 'application/xml', 'application/xml+rss', 'text/javascript']
+    gzip_types {{ nginx_gzip_types | default(['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml', 'application/xml', 'application/xml+rss', 'text/javascript']) | join(', ') }};
+
+    # Minimum response size (bytes) to compress (smaller responses skipped).
+    # Default: 256
+    gzip_min_length {{ nginx_gzip_min_length | default(256) }};
+
+    # Client body settings
+
+    # Maximum allowed size of client request body (e.g., 1m, 100m).
+    # Default: 1m
+    client_max_body_size {{ nginx_client_max_body_size | default('1m') }};
+
+    # Server tokens (hide version info if disabled)
+
+    # Hide Nginx version in error pages and response headers for security.
+    # Default: True
+    server_tokens {{ nginx_hide_version | default(True) | ternary('off', 'on') }};
+
+    # Include additional configuration files
+    include /etc/nginx/conf.d/*.conf;
+    include /etc/nginx/sites-enabled/*;
+}

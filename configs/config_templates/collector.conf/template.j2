@@ -1,0 +1,42 @@
+# IP address the collector binds to. Use 0.0.0.0 for all interfaces, or a specific IP to restrict.
+listen: {{ listen_address | default('0.0.0.0') }}
+
+# TCP port on which the collector service accepts incoming HTTP requests.
+port: {{ port | default(8080) }}
+
+# Number of worker processes to handle incoming requests. Set higher for high throughput.
+workers: {{ workers | default(4) }}
+
+# Path to the directory where collected test artifacts (logs, reports, binaries) are stored.
+artifacts_dir: {{ artifacts_dir | default('/var/lib/debci/collector/artifacts') }}
+
+# Maximum allowed size (in MiB) for a single artifact. Larger artifacts are rejected.
+max_artifact_size_mb: {{ max_artifact_size_mb | default(256) }}
+
+# Maximum number of simultaneous open connections allowed.
+max_connections: {{ max_connections | default(1000) }}
+
+# Whether to compress artifacts (gzip) before saving them to disk to reduce storage usage.
+compress_artifacts: {{ compress_artifacts | default(True) }}
+
+# List of trusted upstream debci relays to fetch job definitions and metadata from.
+relays:
+{% for relay in relays | default([]) %}  - host: {{ relay.get('host', '') | default('') }}
+    port: {{ relay.get('port', 0) | default(0) }}
+    use_tls: {{ relay.get('use_tls', False) | default(False) }}
+{% endfor %}
+
+# Verbosity of application logging.
+log_level: {{ log_level | default('info') }}
+
+# Path to the log file. Use '-' for standard error.
+log_file: {{ log_file | default('/var/log/debci/collector.log') }}
+
+# Whether to expose Prometheus-compatible metrics endpoint.
+metrics_enabled: {{ metrics_enabled | default(False) }}
+
+# Port on which the metrics endpoint is served (if enabled).
+metrics_port: {{ metrics_port | default(9102) }}
+
+# HTTP path for the health check endpoint (e.g., used by Kubernetes liveness/readiness probes).
+health_endpoint: {{ health_endpoint | default('/healthz') }}

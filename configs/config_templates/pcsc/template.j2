@@ -1,0 +1,54 @@
+# pcscd configuration
+# Manages PC/SC (Personal Computer/Smart Card) middleware, enabling applications
+# to communicate with smart card readers and tokens.
+
+# Enable verbose debug logging to syslog or console.
+# Set to 'yes' or 'no'.
+Debug {{ debug_enabled | default(False) | lower }}
+
+# Maximum number of simultaneous client connections allowed.
+# Limits concurrency to prevent resource exhaustion.
+MaxClients {{ max_clients | default(10) }}
+
+# Directory where the PC/SC socket will be created for client communication.
+# Applications connect to this socket to use smart card services.
+SocketDir {{ socket_dir | default('/run/pcscd') }}
+
+# Unix group that owns the PC/SC socket.
+# Clients in this group can access smart cards without root privileges.
+SocketGroup {{ socket_group | default('pcscd') }}
+
+# Automatically enable readers when they are detected (hot-plug support).
+# Set to 'yes' or 'no'.
+AutoEnable {{ auto_enable | default(True) | lower }}
+
+# Path to the directory containing reader driver shared libraries.
+# Drivers are loaded dynamically to support specific hardware.
+DriversDir {{ drivers_dir | default('/usr/lib/pcsc/drivers') }}
+
+# Enable built-in USB device scanning.
+# May be deprecated or unsupported on some systems. Set to 'yes' or 'no'.
+EnableUSBScanner {{ enable_usb_scanner | default(False) | lower }}
+
+# Reader driver configuration blocks for custom readers.
+# Each entry defines a specific reader and its associated driver library.
+{% for reader in readers | default([]) %}
+# Reader: {{ reader.name | default('unknown') }}
+# Device path: {{ reader.device | default('') }}
+# Driver library (e.g., libccid.so)
+Driver {{ reader.driver | default('') }}
+
+{% endfor %}
+
+# Path to a log file, or 'SysLog' to use systemd journal/syslog.
+# Controls where pcscd writes its operational logs.
+LogFile {{ log_file | default('SysLog') }}
+
+# Verbosity level of the log output.
+# 0=none, 1=error, 2=info, 3=debug.
+LogLevel {{ log_level | default(1) }}
+
+# Allow non-root users to access external card readers.
+# Security-sensitive: enabling this permits broader hardware access.
+# Set to 'yes' or 'no'.
+AllowExternalCardRdr {{ allow_external_card_rdr | default(False) | lower }}

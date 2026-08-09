@@ -1,0 +1,71 @@
+{# =============================================================================
+   bgpdump configuration template
+   =============================================================================
+   This template generates the command-line invocation (or a script wrapper) for
+   bgpdump, a tool that processes BGP Route Views dump files (MRT format).
+
+   Key concepts:
+   - inputs: List of MRT files to process. Use ['-' ] to read from stdin.
+   - output_mode: Controls the output format (-H, -m, -M).
+   - timestamp_mode: Controls timestamp source in RIB dumps (-t).
+   - show_packet_index: Include packet index (-p).
+   - output_file: Redirect output to a file (-O).
+   - log_to_syslog: Log to syslog (-s) or stderr (-v).
+
+   bgpdump is a CLI tool; this template effectively assembles the command arguments.
+   ============================================================================= #}
+
+# --- Inputs ---
+# inputs: List of input MRT files (supports gz/bz2); empty list means stdin (use ['-'])
+# If inputs is empty or undefined, we default to reading from stdin ('-').
+{% set inputs_list = inputs | default(['-']) %}
+{% for input_item in inputs_list %}
+# Input file specification: {{ input_item }}
+# bgpdump expects the file path as an argument.
+{{ input_item }}
+{% endfor %}
+
+# --- Output Mode ---
+# output_mode: Output format: 'human_multiline' (-H, default), 'unix_one_line' (-m), or 'human_one_line' (-M)
+{% set mode = output_mode | default('human_multiline') %}
+{% if mode == 'unix_one_line' %}
+-m
+{% elif mode == 'human_one_line' %}
+-M
+{% else %}
+# -H (implicit default: human-readable, multi-line output)
+{% endif %}
+
+# --- Timestamp Mode ---
+# timestamp_mode: Timestamp source for RIB dumps: 'dump' (time of dump, default) or 'change' (last route modification)
+{% set ts_mode = timestamp_mode | default('dump') %}
+{% if ts_mode == 'change' %}
+# -t change: Use the time of the last route modification
+-t change
+{% else %}
+# -t dump (implicit default: Use the time of the dump)
+{% endif %}
+
+# --- Packet Index ---
+# show_packet_index: Include packet index in -m/-M output
+{% if show_packet_index | default(False) %}
+# -p: Include packet index in output
+-p
+{% endif %}
+
+# --- Output File ---
+# output_file: Output file path; empty means stdout
+{% set out_file = output_file | default('') %}
+{% if out_file %}
+# -O <file>: Redirect output to the specified file
+-O {{ out_file }}
+{% endif %}
+
+# --- Logging ---
+# log_to_syslog: Log to syslog (true) or stderr (false)
+{% if log_to_syslog | default(True) %}
+# -s (implicit default: Log to syslog)
+{% else %}
+# -v: Log to stderr
+-v
+{% endif %}

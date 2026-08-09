@@ -1,0 +1,94 @@
+# ksmbd.conf - KSMBD Server Configuration
+# KSMBD is a high-performance SMB server for Linux.
+# This configuration file controls global server behavior and exported shares.
+
+[global]
+
+# NetBIOS name of the server as seen by Windows clients.
+netbios name = {{ netbios_name | default('KSMBD SERVER') }}
+
+# Windows workgroup or domain name. Must match the clients’ workgroup for unauthenticated access.
+workgroup = {{ workgroup | default('WORKGROUP') }}
+
+# TCP port that is listened to. Typically 445.
+tcp port = {{ tcp_port | default('445') }}
+
+# Enable SMB packet signing for integrity and anti-replay protection.
+# Options: 'yes', 'no', 'auto', 'disabled', 'mandatory'. Default is disabled.
+server signing = {{ server_signing | default('disabled') | lower }}
+
+# Maximum number of simultaneous connections to the server.
+# With max connections = 0, the value will be set to the maximum allowed number (usually 65535).
+max connections = {{ max_connections | default(128) }}
+
+# Verbosity of logging: 0 (none) to 10 (debug). Higher values increase I/O and log size.
+log level = {{ log_level | default(1) }}
+
+# Absolute path to the log file. Set to empty string to disable logging to file (logs only to syslog).
+{% if log_file | default('/var/log/ksmbd/ksmbd.log') is defined and log_file | default('/var/log/ksmbd/ksmbd.log') != '' %}
+log file = {{ log_file | default('/var/log/ksmbd/ksmbd.log') }}
+{% endif %}
+
+# Enable SMB Unix extensions for POSIX semantics (required for Linux/macOS clients).
+unix extensions = {{ unix_extensions | default(True) | lower }}
+
+# Octal permission mask applied to new files (if inherit_permissions=false).
+default file permission = {{ default_file_permission | default('0644') }}
+
+# Octal permission mask applied to new directories (if inherit_permissions=false).
+default directory permission = {{ default_directory_permission | default('0755') }}
+
+# If enabled, new files/dirs inherit parent directory's permissions.
+inherit permissions = {{ inherit_permissions | default(True) | lower }}
+
+# If enabled, new files/dirs inherit parent directory’s ownership (owner and group).
+inherit owner = {{ inherit_owner | default(False) | lower }}
+
+# List of shares to expose. Each share defines a directory and access rules.
+{% for share in shares | default([{'name': 'shared', 'path': '/srv/ksmbd/shared', 'read_only': False, 'comment': 'Shared documents'}]) %}
+[{{ share.name }}]
+# {{ share.comment | default('Shared directory') }}
+path = {{ share.path }}
+read only = {{ share.read_only | default(False) | lower }}
+
+# Allow guest access if true.
+{% if share.guest_ok is defined and share.guest_ok %}
+guest ok = {{ share.guest_ok | lower }}
+{% endif %}
+
+# List of users allowed to access this share.
+{% if share.valid_users is defined and share.valid_users %}
+valid users = {{ share.valid_users | join(', ') }}
+{% endif %}
+
+# List of users allowed to write to this share.
+{% if share.write_list is defined and share.write_list %}
+write list = {{ share.write_list | join(', ') }}
+{% endif %}
+
+# Force all file operations to be owned by this user.
+{% if share.force_user is defined and share.force_user %}
+force user = {{ share.force_user }}
+{% endif %}
+
+# Force all file operations to be owned by this group.
+{% if share.force_group is defined and share.force_group %}
+force group = {{ share.force_group }}
+{% endif %}
+
+# Mask for newly created files.
+{% if share.create_mask is defined and share.create_mask %}
+create mask = {{ share.create_mask }}
+{% endif %}
+
+# Mask for newly created directories.
+{% if share.directory_mask is defined and share.directory_mask %}
+directory mask = {{ share.directory_mask }}
+{% endif %}
+
+# If true, the share is visible in network browsing.
+{% if share.browsable is defined and share.browsable %}
+browsable = {{ share.browsable | lower }}
+{% endif %}
+
+{% endfor %}

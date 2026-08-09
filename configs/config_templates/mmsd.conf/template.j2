@@ -1,0 +1,59 @@
+[service]
+# Service name for identification in logs
+name = {{ service.name }}
+
+# Path to the service runtime directory
+runtime_dir = {{ service.runtime_dir }}
+
+# Maximum number of simultaneous connections
+max_connections = {{ service.max_connections }}
+
+# Worker count for parallel request handling
+worker_count = {{ service.worker_count }}
+
+# Hostname to bind to (empty string = all interfaces)
+host = {{ service.host }}
+
+# Port to listen on
+port = {{ service.port }}
+
+# Whether to enable SSL/TLS support
+ssl_enabled = {{ service.ssl_enabled | lower }}
+
+# Path to SSL certificate chain (only if ssl_enabled is true)
+ssl_cert_chain = {{ service.ssl_cert_chain }}
+
+# Path to SSL private key (only if ssl_enabled is true)
+ssl_key = {{ service.ssl_key }}
+
+# List of allowed origins (CORS) — empty list disables CORS
+{% if service.allowed_origins | length %}
+[origins]
+{% for origin in service.allowed_origins %}{{ loop.index }} = {{ origin }}
+{% endfor %}
+{% else %}
+[origins]
+# CORS disabled
+enabled = false
+{% endif %}
+
+# Log level: DEBUG, INFO, WARNING, ERROR
+log_level = {{ service.log_level }}
+
+# Path to log file (empty string = stdout only)
+log_file = {{ service.log_file }}
+
+# Enable verbose debug logging
+verbose = {{ service.verbose | lower }}
+
+# Timeout (in seconds) for backend service calls
+backend_timeout = {{ service.backend_timeout }}
+
+# Retry attempts for transient failures
+max_retries = {{ service.max_retries }}
+
+# Whether to enable health endpoint
+health_endpoint_enabled = {{ service.health_endpoint_enabled | lower }}
+
+# Health endpoint path (e.g. /healthz)
+health_endpoint_path = {{ service.health_endpoint_path }}

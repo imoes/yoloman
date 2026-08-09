@@ -1,0 +1,77 @@
+{
+  "pgsql_server": {
+    "type": "string",
+    "default": "postgresql://ftpuser:secret@localhost:5432/ftp",
+    "description": "PostgreSQL connection URL in the form 'postgresql://user:password@host:port/database'"
+  },
+  "pgsql_user": {
+    "type": "string",
+    "default": "",
+    "description": "PostgreSQL username (optional if embedded in `pgsql_server`)"
+  },
+  "pgsql_password": {
+    "type": "string",
+    "default": "",
+    "description": "PostgreSQL password (optional if embedded in `pgsql_server`)"
+  },
+  "pgsql_database": {
+    "type": "string",
+    "default": "",
+    "description": "PostgreSQL database name (optional if embedded in `pgsql_server`)"
+  },
+  "pgsql_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL server port (used if not embedded in `pgsql_server`)"
+  },
+  "pgsql_connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for establishing a connection to PostgreSQL"
+  },
+  "pgsql_query_getpw": {
+    "type": "string",
+    "default": "SELECT home FROM ftp_users WHERE username = ':username'",
+    "description": "SQL query to fetch the user's home directory (required)"
+  },
+  "pgsql_query_getuid": {
+    "type": "string",
+    "default": "SELECT uid FROM ftp_users WHERE username = ':username'",
+    "description": "SQL query to fetch the user's numeric UID (required)"
+  },
+  "pgsql_query_getgid": {
+    "type": "string",
+    "default": "SELECT gid FROM ftp_users WHERE username = ':username'",
+    "description": "SQL query to fetch the user's numeric GID (required)"
+  },
+  "pgsql_query_getquota": {
+    "type": "string",
+    "default": "SELECT quota_size, quota_files FROM ftp_users WHERE username = ':username'",
+    "description": "SQL query to fetch upload quota (max space in MB and max files). Returns NULL for unlimited."
+  },
+  "pgsql_query_checkuser": {
+    "type": "string",
+    "default": "SELECT 1 FROM ftp_users WHERE username = ':username'",
+    "description": "SQL query to verify user existence. Should return at least one row if user exists."
+  },
+  "pgsql_query_getbwup": {
+    "type": "string",
+    "default": "",
+    "description": "Optional SQL query to fetch per-user upload bandwidth limit (in bytes/sec)."
+  },
+  "pgsql_query_getbwdown": {
+    "type": "string",
+    "default": "",
+    "description": "Optional SQL query to fetch per-user download bandwidth limit (in bytes/sec)."
+  },
+  "pgsql_query_getallowedips": {
+    "type": "string",
+    "default": "",
+    "description": "Optional SQL query to fetch allowed IP ranges (CIDR) per user, comma-separated. If empty, all IPs allowed."
+  },
+  "pgsql_query_gettls": {
+    "type": "string",
+    "default": "",
+    "description": "Optional SQL query to enforce TLS. If query returns non-empty (e.g., 'Y'), user must use FTPS."
+  }
+}

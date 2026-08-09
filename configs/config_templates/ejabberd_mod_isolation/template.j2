@@ -1,0 +1,30 @@
+# ============================================================================
+# ejabberd_mod_isolation Configuration Template
+# ============================================================================
+# This template configures the ejabberd_mod_isolation module for specific
+# virtual hosts. The isolation module prevents users from communicating with
+# users on other virtual hosts, unless explicitly allowed via the
+# `allowed_peers` list.
+#
+# Variables:
+#   isolated_hosts: List of dictionaries, each containing:
+#     - vhost: (string) The virtual host (domain) to isolate.
+#     - allowed_peers: (list of strings) List of vhosts allowed to communicate
+#       with this vhost. If omitted or empty, the vhost is fully isolated from
+#       all others except itself (typically).
+# ============================================================================
+
+# Enable ejabberd_mod_isolation module for each virtual host that should be isolated
+# The 'isolated_hosts' variable is expected to be a list of mappings.
+# If undefined, an empty list is used to prevent errors.
+modules:
+{% for host in isolated_hosts | default([]) %}
+  # Virtual host (domain) to apply isolation rules to
+  "{{ host.vhost | default('localhost') }}":
+    mod_isolation:
+      # Enable the isolation module for this virtual host
+      enabled: true
+      # List of vhosts that this vhost is allowed to communicate with.
+      # An empty list means this vhost is isolated from all other vhosts.
+      allowed_peers: {{ host.allowed_peers | default([]) | to_json }}
+{% endfor %}

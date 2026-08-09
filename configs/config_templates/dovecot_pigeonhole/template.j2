@@ -1,0 +1,150 @@
+{# ==============================================================================
+  # Dovecot Pigeonhole Sieve Plugin Configuration
+  #
+  # This template generates the Sieve plugin configuration block for Dovecot.
+  # It handles global scripts, per-user scripts, execution order, limits,
+  # extensions, and debug settings.
+  #
+  # Self-Documenting Principle:
+  # Every configuration directive is preceded by a comment derived from the
+  # schema description. All variables use safe defaults to prevent render failures
+  # when variables are undefined.
+  # ============================================================================== %}
+
+{# --------------------------------------------------------------------------
+  # Global Sieve Script
+  # If true, enables a global Sieve script for all users (not common, typically avoided).
+  # Requires sieve_global_script to be set.
+  # -------------------------------------------------------------------------- #}
+{% if (sieve_global | default(false)) is boolean and sieve_global | default(false) %}
+plugin {
+  # Path to the global Sieve script (e.g., /etc/dovecot/sieve/global.sieve).
+  # Ignored unless sieve_global is true.
+  sieve = {{ sieve_global_script | default('') }}
+}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Global Sieve Script Directory (Legacy/Compatibility)
+  # (Deprecated) Legacy path to global Sieve scripts directory.
+  # Prefer sieve_global_script_dir in modern Dovecot.
+  # -------------------------------------------------------------------------- #}
+{% if sieve_global_scripts_dir | default('') %}
+# Path to the global Sieve script directory (deprecated in newer versions, use sieve_global_dir)
+sieve_global_scripts_dir = {{ sieve_global_scripts_dir | default('') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Global Sieve Script Directory (Modern)
+  # Directory where global Sieve scripts are stored (used by some Sieve implementations for compiled scripts).
+  # -------------------------------------------------------------------------- #}
+{% if sieve_global_script_dir | default('/var/lib/dovecot/sieve/global/') %}
+# Sieve global directory
+sieve_global_dir = {{ sieve_global_script_dir | default('/var/lib/dovecot/sieve/global/') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Per-User Sieve Script Location
+  # Location of per-user Sieve scripts.
+  # Common values: file:~/sieve, file:~/.dovecot.sieve, or dir:~/.dovecot.sieve.d/
+  # -------------------------------------------------------------------------- #}
+{% if sieve_user_script | default('file:~/sieve') %}
+plugin {
+  sieve = {{ sieve_user_script | default('file:~/sieve') }}
+}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Per-User Sieve Script Directory
+  # Directory where users can store multiple Sieve scripts (used with script name selection via active file).
+  # -------------------------------------------------------------------------- #}
+{% if sieve_user_script_dir | default('~/.dovecot.sieve.d/') %}
+# User-specific Sieve script directory
+sieve_user_script_dir = {{ sieve_user_script_dir | default('~/.dovecot.sieve.d/') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Pre-Execution Script
+  # Path to a global Sieve script that runs *before* user scripts
+  # (e.g., for spam filtering or logging).
+  # -------------------------------------------------------------------------- #}
+{% if sieve_before | default('') %}
+# Default Sieve script to run before user scripts
+sieve_before = {{ sieve_before | default('') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Post-Execution Script
+  # Path to a global Sieve script that runs *after* user scripts
+  # (e.g., for archiving or notifications).
+  # -------------------------------------------------------------------------- #}
+{% if sieve_after | default('') %}
+# Default Sieve script to run after user scripts
+sieve_after = {{ sieve_after | default('') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Maximum Script Size
+  # Maximum allowed size (in bytes) of a single Sieve script.
+  # Prevents oversized or malicious scripts.
+  # -------------------------------------------------------------------------- #}
+# Max Sieve script size (in bytes)
+sieve_max_script_size = {{ sieve_max_script_size | default(102400) }}
+
+{# --------------------------------------------------------------------------
+  # Maximum Total Scripts
+  # Maximum total number of Sieve scripts (global + personal) allowed per user.
+  # -------------------------------------------------------------------------- #}
+# Max number of Sieve scripts a user can have
+sieve_max_scripts = {{ sieve_max_scripts | default(50) }}
+
+{# --------------------------------------------------------------------------
+  # Maximum Personal Scripts
+  # Maximum number of personal Sieve scripts (excluding global ones) a user may store.
+  # -------------------------------------------------------------------------- #}
+# Max number of personal sieve scripts stored per user
+sieve_max_personal_scripts = {{ sieve_max_personal_scripts | default(30) }}
+
+{# --------------------------------------------------------------------------
+  # Enabled Extensions
+  # List of Sieve extensions to enable.
+  # Omit extensions your site doesn’t need for security.
+  # -------------------------------------------------------------------------- #}
+{% if sieve_extensions | default(['fileinto', 'reject', 'envelope', 'vacation', 'imapflags', 'notify', 'include', 'variables', 'date', 'editheader', 'copy', 'subaddress', 'relational', 'regex']) %}
+# Enable or disable Sieve redirect, fileinto, copy, etc.
+sieve_extensions = {{ sieve_extensions | default(['fileinto', 'reject', 'envelope', 'vacation', 'imapflags', 'notify', 'include', 'variables', 'date', 'editheader', 'copy', 'subaddress', 'relational', 'regex']) | join(' ') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Debug Mode
+  # Enable verbose debugging of Sieve script execution
+  # (only for troubleshooting — not for production).
+  # -------------------------------------------------------------------------- #}
+{% if (sieve_debug | default(false)) is boolean and sieve_debug | default(false) %}
+# Debug logging for Sieve
+sieve_debug = {{ sieve_debug | default(false) }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Storage Backend
+  # Storage backend used for Sieve scripts (usually 'maildir' or 'file').
+  # 'maildir' stores scripts in Maildir++ hierarchy.
+  # -------------------------------------------------------------------------- #}
+{% if sieve_storage | default('maildir') %}
+# Storage backend for Sieve scripts (e.g., maildir, file)
+sieve_storage = {{ sieve_storage | default('maildir') }}
+{% endif %}
+
+{# --------------------------------------------------------------------------
+  # Additional/Custom Plugin Settings
+  # Additional Sieve-related settings (key=value pairs) to include in the plugin block.
+  # Use for advanced tuning.
+  # -------------------------------------------------------------------------- #}
+{% if sieve_include | default({}) is mapping and sieve_include | default({}) %}
+# Include plugin block with all Sieve-related settings for Dovecot
+plugin {
+{% for key, val in sieve_include | default({}) | dict2items %}
+  {{ key.key }} = {{ val.value }}
+{% endfor %}
+}
+{% endif %}

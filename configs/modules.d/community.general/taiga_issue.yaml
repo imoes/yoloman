@@ -1,0 +1,69 @@
+name: taiga_issue
+fqcn: community.general.taiga_issue
+collection: community.general
+short_description: Creates/deletes an issue in a Taiga Project Management Platform
+description: Creates/deletes an issue in a Taiga Project Management Platform (U(https://taiga.io)). An
+  issue is identified by the combination of project, issue subject and issue type. This module implements
+  the creation or deletion of issues (not the update).
+options:
+  attachment:
+    type: path
+    description: Path to a file to be attached to the issue.
+  attachment_description:
+    type: str
+    default: ''
+    description: A string describing the file to be attached to the issue.
+  description:
+    type: str
+    default: ''
+    description: The issue description.
+  issue_type:
+    type: str
+    required: true
+    description: The issue type. Must exist previously.
+  priority:
+    type: str
+    default: Normal
+    description: The issue priority. Must exist previously.
+  project:
+    type: str
+    required: true
+    description: Name of the project containing the issue. Must exist previously.
+  severity:
+    type: str
+    default: Normal
+    description: The issue severity. Must exist previously.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the issue should be present or not.
+  status:
+    type: str
+    default: New
+    description: The issue status. Must exist previously.
+  subject:
+    type: str
+    required: true
+    description: The issue subject.
+  tags:
+    type: list
+    default: []
+    description: A lists of tags to be assigned to the issue.
+  taiga_host:
+    type: str
+    default: https://api.taiga.io
+    description: The hostname of the Taiga instance.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create an issue in the my hosted Taiga environment and attach an error log\n  community.general.taiga_issue:\n\
+  \    taiga_host: https://mytaigahost.example.com\n    project: myproject\n    subject: An error has\
+  \ been found\n    issue_type: Bug\n    priority: High\n    status: New\n    severity: Important\n  \
+  \  description: An error has been found. Please check the attached error log for details.\n    attachment:\
+  \ /path/to/error.log\n    attachment_description: Error log file\n    tags:\n      - Error\n      -\
+  \ Needs manual check\n    state: present\n\n- name: Deletes the previously created issue\n  community.general.taiga_issue:\n\
+  \    taiga_host: https://mytaigahost.example.com\n    project: myproject\n    subject: An error has\
+  \ been found\n    issue_type: Bug\n    state: absent\n"

@@ -1,0 +1,61 @@
+name: oneview_network_set
+fqcn: community.general.oneview_network_set
+collection: community.general
+short_description: Manage HPE OneView Network Set resources
+description: Provides an interface to manage Network Set resources. Can create, update, or delete.
+options:
+  api_version:
+    type: int
+    description: OneView API Version.
+  config:
+    type: path
+    description: Path to a JSON configuration file containing the OneView client configuration. The configuration
+      file is optional and when used should be present in the host running the ansible commands. If the
+      file path is not provided, the configuration will be loaded from environment variables. For links
+      to example configuration files or how to use the environment variables verify the notes section.
+  data:
+    type: dict
+    required: true
+    description: List with the Network Set properties.
+  hostname:
+    type: str
+    description: IP address or hostname for the appliance.
+  image_streamer_hostname:
+    type: str
+    description: IP address or hostname for the HPE Image Streamer REST API.
+  password:
+    type: str
+    description: Password for API authentication.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicates the desired state for the Network Set resource. - V(present) will ensure data
+      properties are compliant with OneView. - V(absent) will remove the resource from OneView, if it
+      exists.
+  username:
+    type: str
+    description: Username for API authentication.
+  validate_etag:
+    type: bool
+    default: true
+    description: When the ETag Validation is enabled, the request will be conditionally processed only
+      if the current ETag for the resource matches the ETag provided in the data.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a Network Set\n  community.general.oneview_network_set:\n    config: /etc/oneview/oneview_config.json\n\
+  \    state: present\n    data:\n      name: OneViewSDK Test Network Set\n      networkUris:\n      \
+  \  - Test Ethernet Network_1                                       # can be a name\n        - /rest/ethernet-networks/e4360c9d-051d-4931-b2aa-7de846450dd8\
+  \  # or a URI\n  delegate_to: localhost\n\n- name: Update the Network Set name to 'OneViewSDK Test Network\
+  \ Set - Renamed' and change the associated networks\n  community.general.oneview_network_set:\n    config:\
+  \ /etc/oneview/oneview_config.json\n    state: present\n    data:\n      name: OneViewSDK Test Network\
+  \ Set\n      newName: OneViewSDK Test Network Set - Renamed\n      networkUris:\n        - Test Ethernet\
+  \ Network_1\n  delegate_to: localhost\n\n- name: Delete the Network Set\n  community.general.oneview_network_set:\n\
+  \    config: /etc/oneview/oneview_config.json\n    state: absent\n    data:\n        name: OneViewSDK\
+  \ Test Network Set - Renamed\n  delegate_to: localhost\n\n- name: Update the Network set with two scopes\n\
+  \  community.general.oneview_network_set:\n    config: /etc/oneview/oneview_config.json\n    state:\
+  \ present\n    data:\n      name: OneViewSDK Test Network Set\n      scopeUris:\n        - /rest/scopes/01SC123456\n\
+  \        - /rest/scopes/02SC123456\n  delegate_to: localhost\n"

@@ -1,0 +1,25 @@
+# boomaga CUPS backend configuration
+# Virtual printer settings for preview and booklet handling
+# This file generates a systemd service unit for the boomaga print backend.
+# boomaga intercepts print jobs to allow preview before printing.
+
+[Service]
+# Type=oneshot: The service runs once and exits; systemd considers it active
+# until the process finishes, suitable for short-lived backend tasks.
+Type={{ service_type | default('oneshot') }}
+
+# RemainAfterExit=no: The service is considered inactive after ExecStart exits.
+# Set to true if you want the unit to remain 'active (exited)' for dependency ordering.
+RemainAfterExit={{ remain_after_exit | default(False) | lower }}
+
+# ExecStart: The command to run boomaga. -v enables verbose logging for debugging.
+ExecStart={{ exec_start | default('/usr/bin/boomaga -v') }}
+
+# Environment: Pass CUPS_SERVER address to the boomaga process.
+# boomaga connects to the CUPS daemon to handle print jobs.
+Environment=CUPS_SERVER={{ cups_server | default('localhost') }}
+
+[Install]
+# WantedBy=printers.target: Starts boomaga when the printers target is reached.
+# This ensures the backend is available when CUPS is managing printers.
+WantedBy={{ wanted_by | default('printers.target') }}

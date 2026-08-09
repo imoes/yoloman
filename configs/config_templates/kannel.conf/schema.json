@@ -1,0 +1,277 @@
+{
+  "core_smsc": {
+    "type": "string",
+    "default": "smpp",
+    "description": "SMSC interface type: 'smpp' (most common), 'http', 'smpp-emulator', 'file-smsc', etc."
+  },
+  "core_smsc_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the SMSC server (SMS Center)."
+  },
+  "core_smsc_port": {
+    "type": "number",
+    "default": 2775,
+    "description": "Port number for SMPP (default 2775), HTTP (e.g., 8080), etc."
+  },
+  "core_smsc_username": {
+    "type": "string",
+    "default": "kannel",
+    "description": "System ID (SMPP) or username (HTTP) for SMSC authentication."
+  },
+  "core_smsc_password": {
+    "type": "string",
+    "default": "kannel",
+    "description": "Password for SMSC authentication (never use default in production)."
+  },
+  "core_smsc_type": {
+    "type": "string",
+    "default": "sms",
+    "description": "SMSC connection mode: 'sms' (SMS only), 'smsc' (SMPP transceiver), 'emulator' (testing)."
+  },
+  "core_log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Log verbosity: 0 (none), 1 (errors), 2 (warnings), 3 (info), 4 (debug)."
+  },
+  "core_log_file": {
+    "type": "string",
+    "default": "/var/log/kannel/kannel.log",
+    "description": "Path to the main Kannel log file. Use 'stdout' to log to console."
+  },
+  "core_pidfile": {
+    "type": "string",
+    "default": "/var/run/kannel/kannel.pid",
+    "description": "Path to the PID file for the Kannel process."
+  },
+  "admin_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the Kannel admin web interface for monitoring and control."
+  },
+  "admin_port": {
+    "type": "number",
+    "default": 13000,
+    "description": "Port for the admin interface (e.g., http://localhost:13000)."
+  },
+  "admin_username": {
+    "type": "string",
+    "default": "admin",
+    "description": "Username for admin interface authentication."
+  },
+  "admin_password": {
+    "type": "string",
+    "default": "kannel",
+    "description": "Password for admin interface (MUST be changed in production)."
+  },
+  "admin_accept_ip": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of allowed IP addresses for admin interface access (CIDR not supported).",
+    "items": {
+      "type": "string",
+      "pattern": "^(\\d{1,3}\\.){3}\\d{1,3}$|^::1$|^fe80::.*$"
+    }
+  },
+  "sms_delivery_report_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SMS delivery reports (DLR) to track message status."
+  },
+  "dlr_backend": {
+    "type": "string",
+    "default": "memory",
+    "description": "DLR storage backend: 'memory' (fast, ephemeral), 'db' (persistent)."
+  },
+  "dlr_db_type": {
+    "type": "string",
+    "default": "mysql",
+    "description": "Database type if using DLR database backend (e.g., 'mysql', 'postgres')."
+  },
+  "dlr_db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP of the DLR database server."
+  },
+  "dlr_db_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "Port of the DLR database server."
+  },
+  "dlr_db_user": {
+    "type": "string",
+    "default": "kannel",
+    "description": "Database user for DLR storage."
+  },
+  "dlr_db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for DLR database user (empty = no password)."
+  },
+  "dlr_db_name": {
+    "type": "string",
+    "default": "kannel",
+    "description": "Name of the DLR database."
+  },
+  "dlr_db_table": {
+    "type": "string",
+    "default": "dlr",
+    "description": "Name of the DLR table."
+  },
+  "bearerbox_links": {
+    "type": "list",
+    "default": [
+      {
+        "smsc_type": "smpp",
+        "smsc_host": "smsc.provider.com",
+        "smsc_port": 2775,
+        "smsc_username": "myuser",
+        "smsc_password": "mypassword",
+        "smsc_id": "primary-smsc"
+      }
+    ],
+    "description": "List of SMSC link configurations (one per SMSC connection).",
+    "items": {
+      "smsc_type": {
+        "type": "string",
+        "default": "smpp",
+        "description": "SMSC interface type (e.g., 'smpp', 'http')."
+      },
+      "smsc_host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "SMSC server hostname or IP."
+      },
+      "smsc_port": {
+        "type": "number",
+        "default": 2775,
+        "description": "SMSC port number."
+      },
+      "smsc_username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for SMSC authentication."
+      },
+      "smsc_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for SMSC authentication."
+      },
+      "smsc_id": {
+        "type": "string",
+        "default": "smsc1",
+        "description": "Unique identifier for this SMSC link (e.g., 'primary', 'backup')."
+      },
+      "transceiver_mode": {
+        "type": "string",
+        "default": "",
+        "description": "Set to 'yes' for SMPP transceiver mode."
+      },
+      "max_smsc_connections": {
+        "type": "number",
+        "default": 1,
+        "description": "Maximum concurrent connections to this SMSC."
+      },
+      "connect_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Connection timeout in seconds."
+      },
+      "keepalive": {
+        "type": "number",
+        "default": 30,
+        "description": "Keepalive interval (seconds) for persistent SMPP connections."
+      },
+      "reconnect_delay": {
+        "type": "number",
+        "default": 10,
+        "description": "Delay (seconds) before reconnecting to SMSC after disconnect."
+      },
+      "smsc_ready_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Timeout (seconds) to wait for SMSC to become ready."
+      },
+      "log_level": {
+        "type": "number",
+        "default": 1,
+        "description": "Per-link log verbosity (overrides global log-level)."
+      }
+    }
+  },
+  "smsbox_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the SMS Box to accept SMS submissions via HTTP API."
+  },
+  "smsbox_port": {
+    "type": "number",
+    "default": 13001,
+    "description": "HTTP port for SMS Box (e.g., http://localhost:13001/cgi-bin/sendsms)."
+  },
+  "smsbox_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Host to bind SMS Box (e.g., 0.0.0.0 for all interfaces)."
+  },
+  "smsbox_smsc": {
+    "type": "string",
+    "default": "",
+    "description": "SMS center ID to use (must match a bearerbox_link.smsc_id)."
+  },
+  "smsbox_max_sms_per_connection": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum SMS messages allowed per HTTP connection."
+  },
+  "smsbox_log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "SMS Box log verbosity."
+  },
+  "relay_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SMS relay mode for interconnecting Kannel instances."
+  },
+  "relay_port": {
+    "type": "number",
+    "default": 13010,
+    "description": "Port for SMS relay communication."
+  },
+  "file_smsc_sources": {
+    "type": "list",
+    "default": [],
+    "description": "List of file-based SMS sources (for batch SMS injection from files).",
+    "items": {
+      "spool_dir": {
+        "type": "string",
+        "default": "/var/spool/kannel/smsc1",
+        "description": "Directory to monitor for incoming SMS files."
+      },
+      "done_dir": {
+        "type": "string",
+        "default": "/var/spool/kannel/smsc1/done",
+        "description": "Directory to move processed SMS files to."
+      },
+      "failed_dir": {
+        "type": "string",
+        "default": "/var/spool/kannel/smsc1/failed",
+        "description": "Directory to move failed SMS files to."
+      },
+      "charset": {
+        "type": "string",
+        "default": "",
+        "description": "Character set of SMS files (e.g., 'UTF-8', 'ISO-8859-1')."
+      },
+      "log_level": {
+        "type": "number",
+        "default": 1,
+        "description": "Per-source log verbosity."
+      }
+    }
+  }
+}

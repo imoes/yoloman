@@ -1,0 +1,75 @@
+# Console Server Client configuration — connects to console servers for out-of-band management
+# This template generates a conserver_client.conf file.
+#
+# Structure:
+# 1. 'host' blocks define individual console servers (serial/console access points).
+# 2. 'default' block sets global fallback values for hosts that do not override them.
+
+# --- Global Default Settings ---
+# These apply to all hosts unless explicitly overridden in a 'host' block.
+default {
+    # Default timeout in seconds for establishing a connection
+    timeout {{ (defaults | default({})).timeout | default(30) }}
+
+    # Default delay in seconds before retrying a failed connection
+    retrydelay {{ (defaults | default({})).retrydelay | default(5) }}
+
+    # Default compression setting (yes/no)
+    compress {% if (defaults | default({})).compression | default(True) %}yes{% else %}no{% endif %}
+}
+
+# --- Console Host Definitions ---
+# Iterates over the 'hosts' list provided in the schema.
+{% for host in hosts | default([]) %}
+host {{ host.name | default('unknown') }} {
+    # Aliases for this host (alternative names to reference it)
+{% for alias in (host.aliases | default([])) %}
+    alias {{ alias }}
+{% endfor %}
+
+    # Console server hostname or IP address to connect to
+    defaulthost {{ host.console_server | default('') }}
+
+    # Connection port on the console server (standard is 3038)
+    port {{ host.port | default(3038) }}
+
+    # Authentication: Password for the console server (if required)
+    # Note: Ensure appropriate file permissions on this config file to protect credentials.
+    {% if host.password is defined %}
+    password {{ host.password }}
+    {% endif %}
+
+    # Authentication: Username for the console server (if required)
+    {% if host.username is defined %}
+    username {{ host.username }}
+    {% endif %}
+
+    # Read-only mode: Prevents sending keystrokes to the console
+    readonly {% if host.readonly | default(False) %}yes{% else %}no{% endif %}
+
+    # Compression: Enables compression for the data stream
+    compress {% if host.compression | default(True) %}yes{% else %}no{% endif %}
+
+    # Connection timeout in seconds for this specific host
+    timeout {{ host.timeout | default((defaults | default({})).timeout | default(30)) }}
+
+    # Connection retry delay in seconds for this specific host
+    retrydelay {{ host.retrydelay | default((defaults | default({})).retrydelay | default(5)) }}
+
+    # Per-port configuration blocks (optional)
+    # Allows specific settings for different serial ports on the same console server
+{% if host.ports is defined and host.ports %}
+{% for portconf in host.ports %}
+    port {{ portconf.port | default('') }} {
+        # Port-specific password override
+        {% if portconf.password is defined %}
+        password {{ portconf.password }}
+        {% endif %}
+
+        # Port-specific read-only override
+        readonly {% if portconf.readonly | default(False) %}yes{% else %}no{% endif %}
+    }
+{% endfor %}
+{% endif %}
+}
+{% endfor %}

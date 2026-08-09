@@ -1,0 +1,102 @@
+# Listen on these addresses for DNS queries (IPv4 and/or IPv6)
+listen_addresses = [{{ listen_addresses | map('quote') | join(', ') }}]
+
+# Maximum number of simultaneous client connections
+max_clients = {{ max_clients }}
+
+# Maximum number of simultaneous queries in flight
+query_window = {{ query_window }}
+
+# Log level: 0=quiet, 1=info, 2=debug
+log_level = {{ log_level }}
+
+# Log file path (empty string = stderr only)
+log_file = {{ log_file | quote }}
+
+# Use syslog instead of file logging
+use_syslog = {{ use_syslog }}
+
+# Keep logs for this many days
+log_days = {{ log_days }}
+
+# Local DoH server configuration (RFC 8484)
+[local_doH]
+  enabled = {{ local_doH.enabled }}
+  listen_addresses = [{{ local_doH.listen_addresses | map('quote') | join(', ') }}]
+  path = {{ local_doH.path | quote }}
+
+# DoH upstream servers for fallback
+[doh_servers]
+{% for server in doh_servers %}
+  [doh_servers.{{ server.name | replace('.', '_') | replace('-', '_') }}]
+    provider_name = {{ server.provider_name | quote }}
+    bootstrap_dns = [{{ server.bootstrap_dns | map('quote') | join(', ') }}]
+    url = {{ server.url | quote }}
+    public_key = {{ server.public_key | quote }}
+{% endfor %}
+
+# DNSCrypt servers
+[dnscrypt_servers]
+{% for server in dnscrypt_servers %}
+  [dnscrypt_servers.{{ server.name | replace('.', '_') | replace('-', '_') }}]
+    provider_name = {{ server.provider_name | quote }}
+    provider_fp = {{ server.provider_fp | quote }}
+    provider_cert = {{ server.provider_cert | quote }}
+    server_cert = {{ server.server_cert | quote }}
+    server_key = {{ server.server_key | quote }}
+    server_ip = {{ server.server_ip | quote }}
+{% endfor %}
+
+# Fallback resolvers (plain DNS over UDP/TCP)
+[fallback_resolvers]
+{% for resolver in fallback_resolvers %}
+  [fallback_resolvers.{{ resolver.name | replace('.', '_') | replace('-', '_') }}]
+    address = {{ resolver.address | quote }}
+{% endfor %}
+
+# Route traffic to specific servers based on query rules
+[route]
+{% if routes is defined %}
+{% for route in routes %}
+  [route.rules.{{ loop.index }}]
+    name = {{ route.name | quote }}
+    server_name = [{{ route.server_names | map('quote') | join(', ') }}]
+{% endfor %}
+{% else %}
+  # No custom routing defined
+{% endif %}
+
+# Block certain query types (e.g., to prevent zone transfers)
+[block_ipv6_queries] = {{ block_ipv6_queries }}
+[block_certain_queries] = {{ block_certain_queries }}
+
+# Timeout (in seconds) for upstream connections
+server_timeout = {{ server_timeout }}
+
+# Retry failed servers after this many seconds
+server_retry_delay = {{ server_retry_delay }}
+
+# Minimum and maximum time-to-live for cached entries
+cache = true
+cache_size = {{ cache_size }}
+cache_min_ttl = {{ cache_min_ttl }}
+cache_max_ttl = {{ cache_max_ttl }}
+
+# Enable query logging in JSON format
+[query_log]
+  file = {{ query_log.file | quote }}
+  format = {{ query_log.format | quote }}
+
+# Enable blocklists (if installed)
+[blocklists]
+  enabled = {{ blocklists.enabled }}
+  dirs = [{{ blocklists.dirs | map('quote') | join(', ') }}]
+
+# Performance tuning
+[network]
+  # Enable TCP-only mode (for DoT/DoH fallback only)
+  tcp_only = {{ network.tcp_only }}
+  # EDNS Client Subnet (ECS) settings
+  ecs_override = {{ network.ecs_override }}
+  ecs_range_ipv4 = {{ network.ecs_range_ipv4 }}
+  ecs_range_ipv6 = {{ network.ecs_range_ipv6 }}

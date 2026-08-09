@@ -1,0 +1,116 @@
+{
+  "daemon_run_as_daemon": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether lbcd should run as a background daemon (true) or foreground (false)."
+  },
+  "daemon_run_as_user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "User account under which lbcd runs (for security)."
+  },
+  "daemon_run_as_group": {
+    "type": "string",
+    "default": "nogroup",
+    "description": "Group account under which lbcd runs."
+  },
+  "daemon_pidfile": {
+    "type": "string",
+    "default": "/var/run/lbcd.pid",
+    "description": "Path to the PID file used by lbcd for process tracking."
+  },
+  "logging_log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level: 0 (errors only) to 3 (debug). Higher values produce more verbose logs."
+  },
+  "logging_log_destination": {
+    "type": "string",
+    "default": "syslog",
+    "description": "Where to send log messages. Use 'file' to write to a log file, 'syslog' for system logging, or 'stdout' for console output.",
+    "enum": [
+      "syslog",
+      "file"
+    ]
+  },
+  "logging_log_file": {
+    "type": "string",
+    "default": "/var/log/lbcd/lbcd.log",
+    "description": "Path to the log file when log_destination=file."
+  },
+  "server_bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) on which lbcd listens for incoming connections."
+  },
+  "server_bind_port": {
+    "type": "number",
+    "default": 4330,
+    "description": "UDP port number on which lbcd accepts queries (default 4330)."
+  },
+  "server_max_connections": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of concurrent client connections lbcd will handle."
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "web1",
+        "host": "192.168.1.10",
+        "port": 8080,
+        "weight": 100,
+        "enabled": true
+      },
+      {
+        "name": "web2",
+        "host": "192.168.1.11",
+        "port": 8080,
+        "weight": 100,
+        "enabled": true
+      }
+    ],
+    "description": "A list of backend servers for load balancing. Each backend defines a target host, port, and weight used by the load balancer when querying lbcd instances."
+  },
+  "healthcheck_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic health monitoring of backend servers."
+  },
+  "healthcheck_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds between consecutive health checks of all backends."
+  },
+  "healthcheck_timeout": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum seconds to wait for a health check response before marking as failed."
+  },
+  "healthcheck_failure_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of consecutive failed health checks before marking a backend as down."
+  },
+  "healthcheck_success_count": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of consecutive successful health checks before marking a backend as up."
+  },
+  "failover_strategy": {
+    "type": "string",
+    "default": "roundrobin",
+    "description": "Algorithm to distribute traffic across healthy backends."
+  },
+  "failover_preserve_client_ip": {
+    "type": "bool",
+    "default": false,
+    "description": "Preserve client's source IP in forwarded requests (requires kernel support and may affect balancing fairness)."
+  },
+  "failover_grace_period": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds lbcd waits before removing a failed backend from the rotation (allows quick recovery)."
+  }
+}

@@ -1,0 +1,87 @@
+# =============================================================================
+# dhcpcd Configuration Template
+# =============================================================================
+# This template generates the dhcpcd.conf file.
+# dhcpcd is a DHCP client daemon that supports IPv4 and IPv6 (SLAAC/DHCPv6).
+#
+# See dhcpcd.conf(5) for full documentation of all directives.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Group Control
+# ------------------------------------------------------------------------------
+# desc="Group allowed to interact with dhcpcd via the control socket (e.g., 'wheel')."
+# If this group is specified, only users in the group can send commands to dhcpcd
+# via its control socket. If left empty, the line remains commented out,
+# potentially allowing broader access or relying on other security mechanisms.
+{% if controlgroup is defined and controlgroup != '' %}controlgroup {{ controlgroup }}
+{% else %}#controlgroup wheel
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Hostname
+# ------------------------------------------------------------------------------
+# desc="Inform the DHCP server of our hostname for DDNS."
+# If 'yes', dhcpcd sends the system hostname to the DHCP server.
+# If 'no', it does not. If empty, it defaults to 'yes' in many configurations,
+# but here we explicitly leave it as the directive to allow dhcpcd's internal default
+# or explicit system setting.
+hostname
+
+# ------------------------------------------------------------------------------
+# Client Identifier
+# ------------------------------------------------------------------------------
+# desc="Identifier sent by the client to the DHCP server."
+# Uncomment 'clientid' to use the link layer address (MAC) as the Client ID.
+# Uncomment 'duid' to use a DUID-LL or DUID-UUID (RFC 4361).
+# dhcpcd typically defaults to DUID if supported.
+clientid
+#duid
+
+# ------------------------------------------------------------------------------
+# Persistence
+# ------------------------------------------------------------------------------
+# desc="Persist interface configuration when dhcpcd exits."
+# If 'yes', dhcpcd writes the leased IP address and configuration to a state file
+# so it can be restored upon restart or network interface toggle.
+persistent
+
+# ------------------------------------------------------------------------------
+# Vendor Class Identifier
+# ------------------------------------------------------------------------------
+# desc="Value for vendorclassid; empty string results in no vendorclassid line being uncommented."
+# This option allows you to specify a Vendor Class Identifier string to send to
+# the DHCP server. If left blank or commented out, dhcpcd may send a default
+# string or none, depending on compilation options.
+{% if vendorclassid_value is defined and vendorclassid_value != '' %}vendorclassid {{ vendorclassid_value }}
+{% else %}vendorclassid
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# DHCP Options to Request
+# ------------------------------------------------------------------------------
+# desc="A list of options to request from the DHCP server."
+# These are standard DHCP options. You can add more as needed.
+option domain_name_servers, domain_name, domain_search
+option classless_static_routes
+option interface_mtu
+option host_name
+option ntp_servers
+
+# ------------------------------------------------------------------------------
+# Required Options
+# ------------------------------------------------------------------------------
+# desc="A ServerID is required by RFC2131."
+# This directive ensures dhcpcd only accepts DHCP offers from the server it
+# originally got the lease from, preventing rogue server attacks.
+require dhcp_server_identifier
+
+# ------------------------------------------------------------------------------
+# SLAAC (Stateless Address Autoconfiguration) Mode
+# ------------------------------------------------------------------------------
+# desc="SLAAC mode: either 'hwaddr' (using hardware address) or 'private' (stable private IPv6 addresses)."
+# Controls how dhcpcd generates IPv6 addresses using SLAAC.
+# 'hwaddr': Uses the interface's MAC address (privacy risk).
+# 'private': Uses a random stable private identifier (better privacy, RFC 7217).
+# slaac hwaddr
+slaac {{ slaac_mode | default('private') }}

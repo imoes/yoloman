@@ -1,0 +1,60 @@
+name: oneview_ethernet_network_info
+fqcn: community.general.oneview_ethernet_network_info
+collection: community.general
+short_description: Retrieve the information about one or more of the OneView Ethernet Networks
+description: Retrieve the information about one or more of the Ethernet Networks from OneView.
+options:
+  api_version:
+    type: int
+    description: OneView API Version.
+  config:
+    type: path
+    description: Path to a JSON configuration file containing the OneView client configuration. The configuration
+      file is optional and when used should be present in the host running the ansible commands. If the
+      file path is not provided, the configuration will be loaded from environment variables. For links
+      to example configuration files or how to use the environment variables verify the notes section.
+  hostname:
+    type: str
+    description: IP address or hostname for the appliance.
+  image_streamer_hostname:
+    type: str
+    description: IP address or hostname for the HPE Image Streamer REST API.
+  name:
+    type: str
+    description: Ethernet Network name.
+  options:
+    type: list
+    description: 'List with options to gather additional information about an Ethernet Network and related
+      resources. Options allowed: V(associatedProfiles) and V(associatedUplinkGroups).'
+  params:
+    type: dict
+    description: 'List of parameters to delimit, filter and sort the list of resources. Parameter keys
+      allowed are: C(start): The first item to return, using 0-based indexing. C(count): The number of
+      resources to return. C(filter): A general filter/query string to narrow the list of items returned.
+      C(sort): The sort order of the returned data set.'
+  password:
+    type: str
+    description: Password for API authentication.
+  username:
+    type: str
+    description: Username for API authentication.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Gather information about all Ethernet Networks\n  community.general.oneview_ethernet_network_info:\n\
+  \    config: /etc/oneview/oneview_config.json\n  delegate_to: localhost\n  register: result\n\n- name:\
+  \ Print fetched information about Ethernet Networks\n  ansible.builtin.debug:\n    msg: \"{{ result.ethernet_networks\
+  \ }}\"\n\n- name: Gather paginated and filtered information about Ethernet Networks\n  community.general.oneview_ethernet_network_info:\n\
+  \    config: /etc/oneview/oneview_config.json\n    params:\n      start: 1\n      count: 3\n      sort:\
+  \ 'name:descending'\n      filter: 'purpose=General'\n  delegate_to: localhost\n  register: result\n\
+  \n- name: Print fetched information about paginated and filtered list of Ethernet Networks\n  ansible.builtin.debug:\n\
+  \    msg: \"{{ result.ethernet_networks }}\"\n\n- name: Gather information about an Ethernet Network\
+  \ by name\n  community.general.oneview_ethernet_network_info:\n    config: /etc/oneview/oneview_config.json\n\
+  \    name: Ethernet network name\n  delegate_to: localhost\n  register: result\n\n- name: Print fetched\
+  \ information about Ethernet Network found by name\n  ansible.builtin.debug:\n    msg: \"{{ result.ethernet_networks\
+  \ }}\"\n\n- name: Gather information about an Ethernet Network by name with options\n  community.general.oneview_ethernet_network_info:\n\
+  \    config: /etc/oneview/oneview_config.json\n    name: eth1\n    options:\n      - associatedProfiles\n\
+  \      - associatedUplinkGroups\n  delegate_to: localhost\n  register: result\n\n- name: Print fetched\
+  \ information about Ethernet Network Associated Profiles\n  ansible.builtin.debug:\n    msg: \"{{ result.enet_associated_profiles\
+  \ }}\"\n\n- name: Print fetched information about Ethernet Network Associated Uplink Groups\n  ansible.builtin.debug:\n\
+  \    msg: \"{{ result.enet_associated_uplink_groups }}\"\n"

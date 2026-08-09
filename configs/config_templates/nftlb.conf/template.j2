@@ -1,0 +1,42 @@
+# nftlb main configuration file
+# Load nftlb configuration from YAML
+# Global options
+# Enables or disables the daemon
+# {{ enabled | lower }}
+# Listens on these addresses/ports
+# {{ bind_addresses | map('string') | join(', ') }}
+# Upstream backend pools
+# {{ backend_pools | length }} pools defined
+{% for pool in backend_pools %}
+{% if loop.first %}
+# Backend pool definitions:
+{% endif %}
+# {{ pool.name }}: {{ pool.algorithm }} balancing with {{ pool.servers | length }} servers
+{% for server in pool.servers %}
+#   server {{ server.name }} ({{ server.address }}:{{ server.port }}) weight={{ server.weight }}{% if server.enabled | lower == 'false' %} [disabled]{% endif %}
+{% endfor %}
+{% endfor %}
+# Frontend service definitions
+# {{ frontends | length }} services defined
+{% for frontend in frontends %}
+{% if loop.first %}
+# Frontend definitions:
+{% endif %}
+# {{ frontend.name }}: protocol={{ frontend.protocol }}, listen={{ frontend.listen_address }}:{{ frontend.listen_port }}
+{% if frontend.default_backend %}
+#   default backend: {{ frontend.default_backend }}
+{% endif %}
+{% if frontend.rules | length > 0 %}
+#   rules:
+{% for rule in frontend.rules %}
+#     {% if rule.match_type == 'path' %}path{% elif rule.match_type == 'host' %}host{% elif rule.match_type == 'header' %}header{% else %}{{ rule.match_type }}{% endif %} {{ rule.match_value }} -> {{ rule.backend }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+# Global settings
+# {{ max_connections }} max concurrent connections
+# {{ connection_timeout }} second connection timeout
+# {{ health_check_interval }} second health check interval
+# {{ log_level | lower }} logging level
+# {{ stats_socket }} stats socket path
+# {{ enable_debug | lower }} debug mode

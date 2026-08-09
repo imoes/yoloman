@@ -1,0 +1,119 @@
+{
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Interface to bind the proxy to (e.g., '127.0.0.1' for local-only, '0.0.0.0' for all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port on which the proxy listens for client connections."
+  },
+  "http2": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable HTTP/2 protocol support (recommended to leave enabled)."
+  },
+  "ssl_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, skip validation of upstream server TLS certificates (useful for testing with self-signed certs, but not recommended in production)."
+  },
+  "cert_gen": {
+    "type": "string",
+    "default": "~/.mitmproxy",
+    "description": "Directory where dynamically generated TLS certificates (for HTTPS MITM) are stored."
+  },
+  "mode": {
+    "type": "string",
+    "default": "normal",
+    "description": "Proxy mode. 'normal' = standard HTTP proxy (requires client proxy config), 'transparent' = intercepts transparently (requires OS routing rules), 'reverse' = reverse proxy, 'local' = local-only (no network binding)."
+  },
+  "reverse_upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of reverse proxy targets. Each entry forwards requests matching a pattern to an upstream URL.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable label for this reverse upstream (not used programmatically)."
+      },
+      "match": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or path prefix to match (e.g., 'example.com' or '/api/v1')."
+      },
+      "upstream": {
+        "type": "string",
+        "default": "",
+        "description": "Target backend URL (e.g., 'http://localhost:3000' or 'https://backend.internal')."
+      }
+    }
+  },
+  "server_replay": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, serve responses from previously captured flows instead of contacting the real server (useful for deterministic testing)."
+  },
+  "client_replay": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, replay recorded client requests against the upstream server (e.g., for load simulation)."
+  },
+  "web_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Interface for the web UI (mitmweb). Set to '0.0.0.0' to expose it externally (with caution)."
+  },
+  "web_port": {
+    "type": "number",
+    "default": 8081,
+    "description": "Port for the web UI (mitmweb)."
+  },
+  "web_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debugging in the web UI (e.g., show full request/response headers)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of console logs. 'error' (minimal), 'warn', 'info' (recommended), 'debug' (detailed), 'trace' (extreme detail).",
+    "enum": [
+      "error",
+      "info"
+    ]
+  },
+  "save_stream_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a file where all intercepted flows are streamed in real-time (e.g., for offline analysis or integration with other tools)."
+  },
+  "transparent_proxy": {
+    "type": "bool",
+    "default": true,
+    "description": "For 'transparent' mode only \u2014 overrides automatic detection of transparency support (e.g., for OSes like Linux with netfilter)."
+  },
+  "bypass_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames or IP addresses to exclude from HTTPS interception (e.g., ['169.254.169.254'] to avoid metadata services like AWS EC2 IMDS).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "addons": {
+    "type": "list",
+    "default": [],
+    "description": "List of built-in or custom addons to load (e.g., ['anticache', 'stickyauth', 'stream_large_bodies']). See full list at https://docs.mitmproxy.org/stable/addons-overview/",
+    "items": {
+      "type": "string"
+    }
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout (in seconds) for establishing connections to upstream servers. Increase for slow endpoints."
+  }
+}

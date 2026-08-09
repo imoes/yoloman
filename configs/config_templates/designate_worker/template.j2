@@ -1,0 +1,110 @@
+# Designate Worker Configuration Template
+# Self-documenting Jinja2 template for OpenStack Designate Worker service.
+# Variables map 1:1 to schema fields. Defaults are inline to ensure
+# safe rendering even if a variable is omitted.
+
+[DEFAULT]
+# Path to the log file for designate-worker.
+log_file = {{ log_file | default('/var/log/designate/designate-worker.log') }}
+
+# Directory to store log files.
+log_dir = {{ log_dir | default('/var/log/designate') }}
+
+# Enable debug-level logging.
+debug = {{ debug | default(false) }}
+
+# Enable verbose logging output.
+verbose = {{ verbose | default(true) }}
+
+# Hostname for this worker instance. Leave empty to auto-detect.
+host = {{ host | default('') }}
+
+# Message broker connection URL (e.g., RabbitMQ, Redis).
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Keystone authentication endpoint URL.
+auth_url = {{ auth_url | default('http://localhost:5000/v3') }}
+
+# Keystone project domain name for the service project.
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# Keystone project name under which the service runs.
+project_name = {{ project_name | default('service') }}
+
+# Keystone user domain name for the service user.
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Keystone username for the Designate service.
+username = {{ username | default('designate') }}
+
+# Keystone password for the Designate service user (should be provided securely, e.g., via config file permissions or secrets manager).
+password = {{ password | default('') }}
+
+# Number of worker processes to spawn.
+workers = {{ workers | default(1) }}
+
+# Number of threads per worker process.
+threads = {{ threads | default(10) }}
+
+# Interval (in seconds) between periodic task runs (e.g., cleanup, zone sync).
+periodic_interval = {{ periodic_interval | default(60) }}
+
+# Maximum number of concurrent outgoing DNS update requests to DNS backends.
+max_concurrent_updates = {{ max_concurrent_updates | default(10) }}
+
+# Maximum retry attempts for failed DNS updates.
+max_retries = {{ max_retries | default(3) }}
+
+# Enable zone export to local files.
+enabled_export = {{ enabled_export | default(false) }}
+
+# Directory where zone export files are stored when enabled.
+export_dir = {{ export_dir | default('/var/lib/designate/exports') }}
+
+# ID of the default pool for zone assignments. Used when zone creation omits a pool ID.
+default_pool_id = {{ default_pool_id | default('default') }}
+
+[storage]
+# Database connection string for zone/pool data persistence.
+connection = {{ storage_connection | default('mysql+pymysql://designate:designate@localhost/designate?charset=utf8') }}
+
+# Maximum number of database connections in the pool.
+pool_size = {{ storage_pool_size | default(10) }}
+
+# Timeout (seconds) for acquiring a connection from the pool.
+pool_timeout = {{ storage_pool_timeout | default(30) }}
+
+# Optional: Backend-specific configuration for external storage
+[backend:bind9]
+# Enable BIND9 backend integration (if used).
+enabled = {{ bind9_enabled | default(false) }}
+
+# List of BIND9 DNS servers to manage (only needed if using BIND9 backend).
+# Each server is rendered as a separate subsection.
+{% for server in bind9_servers | default([]) %}
+# BIND9 server configuration for: {{ server.name | default('unknown') }}
+[backend:bind9:{{ server.name | default('server' + loop.index|string) }}]
+api_endpoint = {{ server.api_endpoint | default('') }}
+api_key = {{ server.api_key | default('') }}
+{% if server.md5_auth_key %}
+md5_auth_key = {{ server.md5_auth_key }}
+{% endif %}
+{% if server.tsig_key_name %}
+tsig_key_name = {{ server.tsig_key_name }}
+{% endif %}
+{% endfor %}
+
+[rpc_notifier]
+# Enable custom event notifications (e.g., for external monitoring or audit).
+enabled = {{ notifier_enabled | default(false) }}
+
+# List of custom notifier endpoints with their configuration.
+{% for endpoint in notifier_endpoints | default([]) %}
+[rpc_notifier:endpoint_{{ loop.index }}]
+backend = {{ endpoint.backend | default('') }}
+
+# Optional endpoint configuration options
+{% for key, value in endpoint.options | default({}) | dict2items %}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

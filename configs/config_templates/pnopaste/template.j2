@@ -1,0 +1,81 @@
+# ============================================================================
+# pnopaste - Apache Virtual Host Configuration Template
+# ============================================================================
+# This template generates an Apache HTTPd virtual host block for the
+# pnopaste pastebin application. It is designed to be included in an
+# Ansible role managing Apache configurations.
+#
+# Variables used:
+#   - admin_email: Administrator contact email
+#   - bind_address: IP address for the virtual host listener
+#   - http_port: TCP port number for the HTTP service
+#   - server_name: The hostname or domain name for this virtual host
+# ============================================================================
+
+# --- Global Alias Configuration ---
+# Maps the URL path /pnopaste to the local filesystem directory where
+# the pnopaste application files are stored.
+Alias /pnopaste /usr/share/pnopaste
+
+# --- Directory Access and Handler Settings ---
+# Configures Apache to allow execution of Perl CGI scripts within the
+# application directory.
+<Directory /usr/share/pnopaste>
+    # Allow configuration overrides via .htaccess files if present
+    AllowOverride all
+
+    # Define the default index file to serve
+    DirectoryIndex index.pl
+
+    # Tell Apache that .pl files should be treated as CGI scripts
+    AddHandler cgi-script .pl
+
+    # Enable CGI execution options
+    Options ExecCGI
+</Directory>
+
+# --- Listener Declaration ---
+# Ensures Apache listens on the specified port for incoming HTTP traffic.
+Listen {{ http_port | default(8080) }}
+
+# --- Virtual Host Block ---
+# Defines the virtual host container for the pnopaste service.
+<VirtualHost {{ bind_address | default('127.0.0.1') }}:{{ http_port | default(8080) }}>
+
+    # --- Server Identification ---
+    # The email address of the server administrator, used for error messages
+    # and contact purposes.
+    ServerAdmin {{ admin_email | default('webmaster@localhost') }}
+
+    # The primary hostname or domain name that this virtual host responds to.
+    ServerName {{ server_name | default('paste.example.com') }}
+
+    # The root directory of the web application files served by this virtual host.
+    DocumentRoot /usr/share/pnopaste
+
+    # --- CGI Alias for System Scripts ---
+    # Maps the /cgi-bin/ URL path to the system's standard CGI binary directory.
+    ScriptAlias /cgi-bin/ /usr/lib/cgi-bin/
+
+    # --- System CGI Directory Permissions ---
+    # Configures security and execution options for the system CGI directory.
+    <Directory /usr/lib/cgi-bin>
+        # Do not allow overrides via .htaccess for system scripts for security
+        AllowOverride None
+
+        # Enable specific options: CGI execution, MultiViews (content negotiation),
+        # and symlink ownership matching
+        Options +ExecCGI -MultiViews +SymLinksIfOwnerMatch
+
+        # Allow access to all users (standard for CGI directories in many setups)
+        Require all granted
+    </Directory>
+
+    # --- Logging Configuration ---
+    # Path to the error log file for this virtual host.
+    ErrorLog /var/log/apache2/pnopaste_error.log
+
+    # Path to the access log file and the format to use (combined format).
+    CustomLog /var/log/apache2/pnopaste_access.log combined
+
+</VirtualHost>

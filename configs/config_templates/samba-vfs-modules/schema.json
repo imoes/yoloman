@@ -1,0 +1,146 @@
+{
+  "workgroup": {
+    "type": "string",
+    "default": "WORKGROUP",
+    "description": "Workgroup or domain name for Samba."
+  },
+  "server_string": {
+    "type": "string",
+    "default": "Samba Server %v",
+    "description": "Description string displayed by `nmblookup` and other tools. %v is replaced with Samba version."
+  },
+  "security": {
+    "type": "string",
+    "default": "user",
+    "description": "Security mode: 'user' for local accounts, 'domain' for NT domain, 'ads' for Active Directory."
+  },
+  "map_to_guest": {
+    "type": "string",
+    "default": "Bad User",
+    "description": "Controls when a user is mapped to the guest account (e.g., 'Bad User' when username is unknown)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/samba/log.%m",
+    "description": "Path for log files. %m expands to the client machine name."
+  },
+  "max_log_size": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum size (in KB) of each log file before rotation."
+  },
+  "dns_update_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable DNS dynamic update support (required for AD DC mode)."
+  },
+  "vfs_modules_global": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "enum": [
+        "recycle",
+        "audit",
+        "quota",
+        "aio_fork",
+        "shadow_copy2",
+        "snapshot",
+        "prealloc",
+        "full_audit",
+        "xattr_tdb"
+      ],
+      "description": "List of VFS modules to enable globally for all shares. Common: 'recycle' for trash functionality, 'audit' for logging, 'quota' for disk quotas."
+    },
+    "description": "Global list of VFS modules to load for every share."
+  },
+  "shares": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Share name (used as section header, e.g., [documents])."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Filesystem path to share."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description shown by clients."
+      },
+      "browseable": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, the share appears in network browsing lists."
+      },
+      "read_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, users cannot write to the share (unless overridden with 'writable = yes')."
+      },
+      "guest_ok": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow guest access to this share."
+      },
+      "create_mask": {
+        "type": "string",
+        "default": "0644",
+        "description": "Unix permission mask (octal) applied to new files."
+      },
+      "directory_mask": {
+        "type": "string",
+        "default": "0755",
+        "description": "Unix permission mask (octal) applied to new directories."
+      },
+      "force_user": {
+        "type": "string",
+        "default": "",
+        "description": "Force all file operations to run as this user (e.g., 'nobody')."
+      },
+      "force_group": {
+        "type": "string",
+        "default": "",
+        "description": "Force all file operations to run as this group."
+      },
+      "vfs_modules": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "enum": [
+            "recycle",
+            "audit",
+            "quota",
+            "shadow_copy2",
+            "snapshot",
+            "full_audit",
+            "xattr_tdb"
+          ],
+          "description": "VFS modules specific to this share (overrides global)."
+        },
+        "description": "Per-share VFS modules, e.g., enable 'recycle' only for 'shared' files."
+      },
+      "vfs_options": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value map of VFS module options. Each key is a module name; each value is a list of option strings (e.g., {'recycle': ['touch = true', 'versions = *.backup']}))"
+      }
+    },
+    "description": "List of shares to configure. Each share defines path, permissions, and optional VFS behavior."
+  },
+  "include_files": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Additional config file paths to include (e.g., '/etc/samba/smb.conf.local')."
+    },
+    "description": "Extra config snippets (one per line) to include at end of smb.conf. Useful for AD integration or per-site customizations."
+  }
+}

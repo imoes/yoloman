@@ -1,0 +1,63 @@
+[DEFAULT]
+# Log output level
+log_level = {{ log_level }}
+# Bind address for the API service
+bind_host = {{ bind_host }}
+# TCP port for the API service
+bind_port = {{ bind_port }}
+
+# API-specific settings
+[oslo_middleware]
+# Maximum request body size (in bytes)
+max_request_body_size = {{ max_request_body_size }}
+
+[oslo_policy]
+# Policy file path
+policy_file = {{ policy_file }}
+
+[keystone_authtoken]
+# Auth URI for Keystone
+auth_uri = {{ keystone_auth_uri }}
+# Project domain name
+project_domain_name = {{ project_domain_name }}
+# User domain name
+user_domain_name = {{ user_domain_name }}
+# Project name for service user
+project_name = {{ project_name }}
+# Username for service user
+username = {{ username }}
+# Password for service user
+password = {{ password }}
+# Auth URL for Keystone
+auth_url = {{ keystone_auth_url }}
+# memcached servers for token caching (comma-separated list)
+memcached_servers = {{ memcached_servers | join(', ') }}
+# Enable/disable TLS verification for Keystone connection
+insecure = {{ keystone_insecure }}
+# CA certificate for Keystone TLS verification (if insecure=false)
+cafile = {{ keystone_cafile }}
+
+[service:api]
+# API workers count (0 = use cpu_count)
+api_workers = {{ api_workers }}
+# Enable/disable API HTTPS
+enable_api_v2 = {{ enable_api_v2 }}
+enable_api_v1 = {{ enable_api_v1 }}
+
+[service:api:auth]
+# Authentication strategy: 'keystone' or 'noauth'
+auth_strategy = {{ auth_strategy }}
+
+{% for endpoint in endpoints %}
+[service:endpoint:{{ endpoint.name }}]
+# Endpoint name
+name = {{ endpoint.name }}
+# Enabled status
+enabled = {{ endpoint.enabled }}
+# Listen host
+host = {{ endpoint.host }}
+# Listen port
+port = {{ endpoint.port }}
+# TLS enabled
+tls_enabled = {{ endpoint.tls_enabled }}
+{% endfor %}

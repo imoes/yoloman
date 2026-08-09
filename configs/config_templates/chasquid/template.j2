@@ -1,0 +1,127 @@
+# ==============================================================================
+# chasquid SMTP Server Configuration Template
+# ==============================================================================
+# This template configures chasquid, a simple, lightweight SMTP server.
+# All directives are commented with their schema descriptions and default values.
+# Variables use Jinja2 defaults to ensure valid output even if variables are unset.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Hostname
+# Description: Default hostname for HELO/EHLO and server identification.
+# Default: mx.example.com
+# -----------------------------------------------------------------------------
+hostname: "{{ hostname | default('mx.example.com') }}"
+
+# -----------------------------------------------------------------------------
+# Maximum Email Data Size
+# Description: Maximum email size in megabytes.
+# Default: 50
+# -----------------------------------------------------------------------------
+max_data_size_mb: {{ max_data_size_mb | default(50) }}
+
+# -----------------------------------------------------------------------------
+# SMTP Listening Address
+# Description: Port for SMTP (typically 25).
+# Note: This template uses a direct bind to the specified port.
+# Default: 25
+# -----------------------------------------------------------------------------
+smtp_address: ":{{ (port | default({})).smtp | default(25) }}"
+
+# -----------------------------------------------------------------------------
+# Submission Listening Address
+# Description: Port for submission (typically 587).
+# Note: This template uses a direct bind to the specified port.
+# Default: 587
+# -----------------------------------------------------------------------------
+submission_address: ":{{ (submission_port | default({})).submission | default(587) }}"
+
+# -----------------------------------------------------------------------------
+# Monitoring Address
+# Description: Address for the monitoring HTTP server (localhost only).
+# Security: Do NOT expose this to the public internet.
+# Default: 127.0.0.1:1099
+# -----------------------------------------------------------------------------
+monitoring_address: "{{ monitoring_address | default('127.0.0.1:1099') }}"
+
+# -----------------------------------------------------------------------------
+# Mail Delivery Agent Binary
+# Description: Path to mail delivery agent binary.
+# Default: maildrop
+# -----------------------------------------------------------------------------
+mail_delivery_agent_bin: "{{ mail_delivery_agent_bin | default('maildrop') }}"
+
+# -----------------------------------------------------------------------------
+# Mail Delivery Agent Arguments
+# Description: Command-line arguments for the mail delivery agent.
+# Supported replacements:
+#   %from%       -> from address (e.g. marsnik@mars)
+#   %from_user%  -> from user (e.g. marsnik)
+#   %from_domain%-> from domain (e.g. mars)
+#   %to%         -> to address (e.g. venera@venus)
+#   %to_user%    -> to user (e.g. venera)
+#   %to_domain%  -> to domain (e.g. venus)
+# Default: ['-f', '%from%', '-d', '%to_user%']
+# -----------------------------------------------------------------------------
+{% for arg in mail_delivery_agent_args | default(['-f', '%from%', '-d', '%to_user%']) %}
+mail_delivery_agent_args: {{ arg | tojson }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Data Directory
+# Description: Directory where persistent data is stored.
+# Default: /var/lib/chasquid
+# -----------------------------------------------------------------------------
+data_dir: "{{ data_dir | default('/var/lib/chasquid') }}"
+
+# -----------------------------------------------------------------------------
+# Suffix Separators
+# Description: Suffix separators to strip from local usernames (e.g., user+tag -> user).
+# Default: +
+# -----------------------------------------------------------------------------
+suffix_separators: "{{ suffix_separators | default('+') }}"
+
+# -----------------------------------------------------------------------------
+# Drop Characters
+# Description: Characters to drop from local usernames during normalization.
+# Default: .
+# -----------------------------------------------------------------------------
+drop_characters: "{{ drop_characters | default('.') }}"
+
+# -----------------------------------------------------------------------------
+# Log Destination
+# Description: Logging destination: '<syslog>', '<stdout>', or '<stderr>'.
+# Default: syslog
+# -----------------------------------------------------------------------------
+log: "{{ log | default('syslog') }}"
+
+# -----------------------------------------------------------------------------
+# Dovecot Authentication
+# Description: Enable Dovecot authentication for unknown users.
+# Default: false
+# -----------------------------------------------------------------------------
+dovecot_auth: {{ dovecot_auth | default(false) | lower }}
+
+# -----------------------------------------------------------------------------
+# Dovecot Userdb Socket Path
+# Description: Explicit path to Dovecot userdb socket (leave blank for auto-detect).
+# Default: (empty/autodetect)
+# -----------------------------------------------------------------------------
+dovecot_userdb_path: "{{ dovecot_userdb_path | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Dovecot Client Socket Path
+# Description: Explicit path to Dovecot client socket (leave blank for auto-detect).
+# Default: (empty/autodetect)
+# -----------------------------------------------------------------------------
+dovecot_client_path: "{{ dovecot_client_path | default('') }}"
+
+# -----------------------------------------------------------------------------
+# HAProxy Protocol
+# Description: Expect incoming SMTP connections to use the HAProxy protocol.
+# Note: EXPERIMENTAL - Might change in backwards-incompatible ways.
+# Allows deploying chasquid behind a HAProxy server to preserve client address
+# info for SPF checks.
+# Default: false
+# -----------------------------------------------------------------------------
+haproxy_incoming: {{ haproxy_incoming | default(false) | lower }}

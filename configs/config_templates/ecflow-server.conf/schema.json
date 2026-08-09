@@ -1,0 +1,164 @@
+{
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "The network interface address the server will bind to (e.g., '0.0.0.0' or '127.0.0.1')."
+  },
+  "port": {
+    "type": "number",
+    "default": 31415,
+    "description": "TCP port on which the ecFlow server listens for client connections."
+  },
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/ecflow-server",
+    "description": "Absolute path to the directory where workflow definitions, logs, and state are stored."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum log level to record (DEBUG, INFO, WARNING, ERROR, or FATAL)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ecflow-server/ecflow-server.log",
+    "description": "Path to the primary log file. Set to empty string ('') to disable file logging."
+  },
+  "log_max_size_mb": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (in MB) of a log file before it is rotated."
+  },
+  "log_keep_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain."
+  },
+  "num_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle concurrent client requests."
+  },
+  "http_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for HTTP requests (connect, read, write)."
+  },
+  "enable_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS instead of HTTP for secure communication."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ecflow-server.crt",
+    "description": "Path to the TLS certificate file (used only if HTTPS is enabled)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/ecflow-server.key",
+    "description": "Path to the TLS private key file (used only if HTTPS is enabled)."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable password or token-based authentication for clients."
+  },
+  "auth_password_file": {
+    "type": "string",
+    "default": "/etc/ecflow-server/passwd",
+    "description": "Path to the file containing username:password:role entries for basic auth."
+  },
+  "auth_token_expiry": {
+    "type": "number",
+    "default": 86400,
+    "description": "Time (in seconds) after which authentication tokens expire."
+  },
+  "allowed_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP networks allowed to connect. Empty list = allow all clients.",
+    "items": {
+      "network": {
+        "type": "string",
+        "default": "",
+        "description": "CIDR notation of the allowed network (e.g., '10.0.0.0/24' or '192.168.1.0/24')."
+      },
+      "desc": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the allowed client group."
+      }
+    }
+  },
+  "restart_on_config_change": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically restarts the server when configuration is changed (e.g., via `ecflow_client --reload`)."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between heartbeat messages to detect client health."
+  },
+  "debug_endpoints": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable internal debug HTTP endpoints (e.g., /debug/vars, /debug/pprof) \u2014 not for production."
+  },
+  "smtp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SMTP for sending email alerts on workflow events (failures, completions, etc.)."
+  },
+  "smtp_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname or IP address (used only if SMTP is enabled)."
+  },
+  "smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (typically 25, 465, or 587)."
+  },
+  "smtp_from_addr": {
+    "type": "string",
+    "default": "ecflow-alerts@localhost",
+    "description": "Sender email address used in alert notifications."
+  },
+  "smtp_use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Use STARTTLS to secure the SMTP connection (true recommended)."
+  },
+  "smtp_username": {
+    "type": "string",
+    "default": "",
+    "description": "SMTP authentication username (leave empty if not using auth)."
+  },
+  "admin_emails": {
+    "type": "list",
+    "default": [],
+    "description": "List of email addresses to receive administrative alerts.",
+    "items": {
+      "type": "string",
+      "default": "",
+      "description": "Email address of an admin to notify."
+    }
+  },
+  "failover": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable failover mode for high-availability (requires a paired failover peer)."
+  },
+  "failover_peer_host": {
+    "type": "string",
+    "default": "ecflow-backup.local",
+    "description": "Hostname or IP of the failover peer server (used only if failover is enabled)."
+  },
+  "failover_peer_port": {
+    "type": "number",
+    "default": 31415,
+    "description": "Port of the failover peer server (used only if failover is enabled)."
+  }
+}

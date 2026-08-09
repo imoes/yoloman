@@ -1,0 +1,100 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/var/lib/netscript",
+    "description": "Base directory where netscript stores runtime data, state, and generated scripts."
+  },
+  "script_dir": {
+    "type": "string",
+    "default": "/etc/netscript/scripts",
+    "description": "Directory where custom network scripts are stored and executed from."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug output to stderr when running netscript commands."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of concurrent script executions allowed at once."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Default timeout (in seconds) for script execution before it is killed."
+  },
+  "log_to_syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to send log messages to the system logger (syslog)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "local0",
+    "description": "Syslog facility to use for logging (e.g., local0 through local7)."
+  },
+  "namespaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of network namespaces to configure and manage.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for the network namespace (e.g., 'dmz', 'mgmt')."
+      },
+      "iface": {
+        "type": "string",
+        "default": "",
+        "description": "Host interface to attach to this namespace (e.g., 'eth1')."
+      },
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "Static IPv4 address to assign to the namespace interface (e.g., '10.0.1.1'). Leave empty to disable static IP."
+      },
+      "netmask": {
+        "type": "string",
+        "default": "255.255.255.0",
+        "description": "Subnet mask for the namespace interface."
+      },
+      "gateway": {
+        "type": "string",
+        "default": "",
+        "description": "Gateway IP for the namespace interface. Leave empty if not routing."
+      },
+      "dns": {
+        "type": "list",
+        "default": [],
+        "description": "List of DNS servers for this namespace (e.g., ['8.8.8.8', '1.1.1.1']). If empty, falls back to DEFAULT_DNS.",
+        "items": {
+          "type": "string"
+        }
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this namespace is active and should be created on startup."
+      }
+    }
+  },
+  "default_dns": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "1.1.1.1"
+    ],
+    "description": "Default DNS servers used when a namespace doesn\u2019t specify its own DNS list."
+  },
+  "use_systemd": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable integration with systemd for service management (e.g., auto-restart of scripts)."
+  },
+  "cleanup_on_shutdown": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically remove all network namespaces and associated interfaces on service shutdown."
+  }
+}

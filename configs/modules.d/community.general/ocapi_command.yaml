@@ -1,0 +1,67 @@
+name: ocapi_command
+fqcn: community.general.ocapi_command
+collection: community.general
+short_description: Manages Out-Of-Band controllers using Open Composable API (OCAPI)
+description: Builds OCAPI URIs locally and sends them to remote OOB controllers to perform an action.
+  Manages OOB controller such as Indicator LED, Reboot, Power Mode, Firmware Update.
+options:
+  baseuri:
+    type: str
+    required: true
+    description: Base URI of OOB controller.
+  category:
+    type: str
+    required: true
+    description: Category to execute on OOB controller.
+  command:
+    type: str
+    required: true
+    description: Command to execute on OOB controller.
+  job_name:
+    type: str
+    description: For O(command=DeleteJob) command, the name of the job to delete.
+  password:
+    type: str
+    required: true
+    description: Password for authenticating to OOB controller.
+  proxy_slot_number:
+    type: int
+    description: For proxied inband requests, the slot number of the IOM.  Only applies if O(baseuri)
+      is a proxy server.
+  timeout:
+    type: int
+    default: 10
+    description: Timeout in seconds for URL requests to OOB controller.
+  update_image_path:
+    type: str
+    description: For O(command=FWUpload), the path on the local filesystem of the firmware update image.
+  username:
+    type: str
+    required: true
+    description: Username for authenticating to OOB controller.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Set the power state to low\n    community.general.ocapi_command:\n      category:\
+  \ Chassis\n      command: PowerModeLow\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username\
+  \ }}\"\n      password: \"{{ password }}\"\n\n  - name: Set the power state to normal\n    community.general.ocapi_command:\n\
+  \      category: Chassis\n      command: PowerModeNormal\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n  - name: Set chassis indicator LED to on\n\
+  \    community.general.ocapi_command:\n      category: Chassis\n      command: IndicatorLedOn\n    \
+  \  baseuri: \"{{ baseuri }}\"\n      proxy_slot_number: 2\n      username: \"{{ username }}\"\n    \
+  \  password: \"{{ password }}\"\n  - name: Set chassis indicator LED to off\n    community.general.ocapi_command:\n\
+  \      category: Chassis\n      command: IndicatorLedOff\n      baseuri: \"{{ baseuri }}\"\n      proxy_slot_number:\
+  \ 2\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n  - name: Reset Enclosure\n\
+  \    community.general.ocapi_command:\n      category: Systems\n      command: PowerGracefulRestart\n\
+  \      baseuri: \"{{ baseuri }}\"\n      proxy_slot_number: 2\n      username: \"{{ username }}\"\n\
+  \      password: \"{{ password }}\"\n  - name: Firmware Upload\n    community.general.ocapi_command:\n\
+  \      category: Update\n      command: FWUpload\n      baseuri: \"iom1.wdc.com\"\n      proxy_slot_number:\
+  \ 2\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n      update_image_path:\
+  \ \"/path/to/firmware.tar.gz\"\n  - name: Firmware Update\n    community.general.ocapi_command:\n  \
+  \    category: Update\n      command: FWUpdate\n      baseuri: \"iom1.wdc.com\"\n      proxy_slot_number:\
+  \ 2\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n  - name: Firmware Activate\n\
+  \    community.general.ocapi_command:\n      category: Update\n      command: FWActivate\n      baseuri:\
+  \ \"iom1.wdc.com\"\n      proxy_slot_number: 2\n      username: \"{{ username }}\"\n      password:\
+  \ \"{{ password }}\"\n  - name: Delete Job\n    community.general.ocapi_command:\n      category: Jobs\n\
+  \      command: DeleteJob\n      job_name: FirmwareUpdate\n      baseuri: \"{{ baseuri }}\"\n      proxy_slot_number:\
+  \ 2\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n"

@@ -1,0 +1,142 @@
+{
+  "retriever_type": {
+    "type": "string",
+    "default": "SimpleIMAPSSLRetriever",
+    "description": "Retriever protocol class. Determines transport (IMAP/POP3), encryption (SSL/plain), and delivery mode (simple/multidrop). Common values: SimpleIMAPSSLRetriever, SimplePOP3SSLRetriever, SimpleIMAPRetriever, SimplePOP3Retriever"
+  },
+  "retriever_server": {
+    "type": "string",
+    "default": "imap.example.com",
+    "description": "Hostname or IP address of the incoming mail server"
+  },
+  "retriever_port": {
+    "type": "number",
+    "default": 993,
+    "description": "TCP port of the mail server. Standard ports: 993 (IMAPS), 143 (IMAP STARTTLS), 995 (POP3S), 110 (POP3)"
+  },
+  "retriever_username": {
+    "type": "string",
+    "default": "user@example.com",
+    "description": "Login name for the mail account, typically the full e-mail address"
+  },
+  "retriever_password": {
+    "type": "string",
+    "default": "",
+    "description": "Plaintext password for the mail account. Ignored when retriever_password_command is set"
+  },
+  "retriever_password_command": {
+    "type": "list",
+    "default": null,
+    "description": "Shell command as an argument list whose stdout is read as the password (e.g. a pass/secret-tool call). Set to null to use retriever_password instead",
+    "items": {
+      "type": "string",
+      "description": "One argv element of the password command (e.g. '/usr/bin/pass' or 'email/work')"
+    }
+  },
+  "retriever_mailboxes": {
+    "type": "list",
+    "default": [
+      "INBOX"
+    ],
+    "description": "IMAP mailboxes to retrieve messages from. Only relevant for IMAP retriever types; ignored for POP3",
+    "items": {
+      "type": "string",
+      "description": "IMAP mailbox name exactly as it appears on the server (e.g. INBOX, Sent, Drafts)"
+    }
+  },
+  "destination_type": {
+    "type": "string",
+    "default": "Maildir",
+    "description": "Delivery method. Maildir is recommended for reliability. Options: Maildir, Mboxrd, MDA_external, MDA_qmaillocal"
+  },
+  "destination_path": {
+    "type": "string",
+    "default": "~/Maildir/",
+    "description": "Filesystem path to the Maildir directory or mbox file; or path to the MDA executable when destination_type is MDA_external"
+  },
+  "destination_arguments": {
+    "type": "list",
+    "default": null,
+    "description": "Argument list passed to the MDA executable. Only used when destination_type is MDA_external; set to null otherwise",
+    "items": {
+      "type": "string",
+      "description": "One argument token passed to the MDA program"
+    }
+  },
+  "filters": {
+    "type": "list",
+    "default": [],
+    "description": "Message filters applied to each message before delivery. Each entry produces a [filter] section. Typical use: spam tagging (SpamAssassin), DKIM checking",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "Filter_external",
+        "description": "Filter class name (Filter_external runs an arbitrary program; Filter_classifier is for trainable classifiers)"
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to the filter program executable"
+      },
+      "arguments": {
+        "type": "list",
+        "default": null,
+        "description": "Arguments passed to the filter executable; set to null to omit the arguments line",
+        "items": {
+          "type": "string",
+          "description": "One argument token"
+        }
+      }
+    }
+  },
+  "options_read_all": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, retrieve all messages present on the server. If false, skip messages whose UID was already retrieved in a previous session"
+  },
+  "options_delete": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, delete messages from the server immediately after successful local delivery. Use with caution \u2014 set to false until delivery is verified"
+  },
+  "options_message_log": {
+    "type": "string",
+    "default": "~/.getmail/log",
+    "description": "Absolute or tilde-expanded path to the retrieval log file. Set to an empty string to disable logging entirely"
+  },
+  "options_verbose": {
+    "type": "number",
+    "default": 1,
+    "description": "Log verbosity: 0=silent (errors only), 1=normal one-line status per session, 2=verbose per-message output for debugging"
+  },
+  "options_received": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, prepend a Received: header to each message documenting when and from where it was retrieved"
+  },
+  "options_delivered_to": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, prepend a Delivered-To: header containing the envelope recipient address"
+  },
+  "options_max_message_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Skip retrieval of any message larger than this many bytes. Set to 0 to retrieve messages of any size"
+  },
+  "options_max_bytes_per_session": {
+    "type": "number",
+    "default": 0,
+    "description": "Stop the retrieval session after downloading this many bytes. Useful to cap bandwidth per run. Set to 0 for no limit"
+  },
+  "options_delete_after": {
+    "type": "number",
+    "default": 0,
+    "description": "Delete messages from the server that are older than this many days, regardless of whether they have been retrieved. Set to 0 to disable"
+  },
+  "options_delete_bigger_than": {
+    "type": "number",
+    "default": 0,
+    "description": "Delete messages larger than this many bytes from the server without downloading them. Set to 0 to disable"
+  }
+}

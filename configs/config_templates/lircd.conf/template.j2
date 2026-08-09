@@ -1,0 +1,69 @@
+# /etc/lirc/lircd.conf - LIRC daemon configuration file
+# Self-documented by Ansible Jinja2 template.
+#
+# Global settings
+# Name of the LIRC driver to start (used for compatibility with some LIRC versions).
+driver_name = {{ (lircd | default({})).driver_name | default('default') }}
+
+# Path to the LIRC device (e.g., /dev/lirc0, /dev/lircd).
+device_path = {{ (lircd | default({})).device_path | default('/dev/lirc0') }}
+
+# Name of the LIRC driver module to use (e.g., 'default', 'lirc_serial', 'gpio_rcv').
+driver_type = {{ (lircd | default({})).driver_type | default('default') }}
+
+# List of supported hardware types (e.g., 'default', 'hauppauge', 'atiusb').
+# Note: This is a global config parameter, but `lircd.conf(5)` does not
+# typically support a list of hardware types in this format directly;
+# if intended for lirc.conf (hardware config), this section might be
+# ignored or require specific formatting. For now, we output as a
+# commented list or omit if empty, as lircd.conf primarily handles
+# remote definitions. However, sticking to the schema field:
+# Hardware types:
+{% if (lircd | default({})).hardware_types | default([]) | length > 0 %}
+hardware_types = {{ (lircd | default({})).hardware_types | default([]) | join(', ') }}
+{% else %}
+# hardware_types is empty
+{% endif %}
+
+# Remote control definitions
+# List of remote controls with their button mappings.
+# Items must have a unique 'name'.
+{% for remote in (lircd | default({})).remotes | default([]) %}
+# Remote: {{ remote.name | default('unknown') }}
+begin remote
+  # Name of this remote control.
+  name  = {{ remote.name | default('remote') }}
+
+  # Flags for the remote (e.g., NEED_CLEAR, NEED_SPLIT, etc.)
+  # Joined by ' | ' if multiple.
+  flags = {% for flag in (remote.flags | default([])) %}{{ flag }}{% if not loop.last %} | {% endif %}{% endfor %}
+
+  # Number of bits per code.
+  bits  = {{ remote.bits | default(32) }}
+  # End pulse size in microseconds.
+  eps   = {{ remote.eps | default(30) }}
+  # Accuracy for split codes.
+  aeps  = {{ remote.aeps | default(100) }}
+  # Gap between codes in microseconds.
+  gap   = {{ remote.gap | default(108000) }}
+
+  {% if remote.protocol | default('standard') == 'raw' %}
+  # Raw timing codes section for raw protocol remotes.
+  begin raw_codes
+    {% for button in (remote.buttons | default([])) %}
+    # Button: {{ button.key_name | default('UNKNOWN') }}
+    {{ button.key_name | default('UNKNOWN') }} {% for t in (button.raw_timings | default([])) %}{{ t }}{% if not loop.last %} {% endif %}{% endfor %}
+    {% endfor %}
+  end raw_codes
+  {% else %}
+  # Standard button mappings section.
+  begin codes
+    {% for button in (remote.buttons | default([])) %}
+    # Button: {{ button.key_name | default('UNKNOWN') }} -> Scan code: {{ button.scan_code | default(0) }}
+    {{ button.key_name | default('UNKNOWN') }} {{ button.scan_code | default(0) }}
+    {% endfor %}
+  end codes
+  {% endif %}
+
+end remote
+{% endfor %}

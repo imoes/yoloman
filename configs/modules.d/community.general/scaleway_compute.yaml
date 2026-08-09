@@ -1,0 +1,113 @@
+name: scaleway_compute
+fqcn: community.general.scaleway_compute
+collection: community.general
+short_description: Scaleway compute management module
+description: This module manages compute instances on Scaleway.
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  commercial_type:
+    type: str
+    required: true
+    description: Commercial name of the compute node
+  enable_ipv6:
+    type: bool
+    default: false
+    description: Enable public IPv6 connectivity on the instance
+  image:
+    type: str
+    required: true
+    description: Image identifier used to start the instance with
+  name:
+    type: str
+    description: Name of the instance
+  organization:
+    type: str
+    description: Organization identifier. Exactly one of O(project) and O(organization) must be specified.
+  project:
+    type: str
+    description: Project identifier. Exactly one of O(project) and O(organization) must be specified.
+  public_ip:
+    type: str
+    default: absent
+    description: Manage public IP on a Scaleway server Could be Scaleway IP address UUID V(dynamic) Means
+      that IP is destroyed at the same time the host is destroyed V(absent) Means no public IP at all
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  region:
+    type: str
+    required: true
+    choices:
+    - ams1
+    - EMEA-NL-EVS
+    - par1
+    - EMEA-FR-PAR1
+    - par2
+    - EMEA-FR-PAR2
+    - waw1
+    - EMEA-PL-WAW1
+    description: Scaleway compute zone
+  security_group:
+    type: str
+    description: Security group unique identifier If no value provided, the default security group or
+      current security group will be used
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - running
+    - restarted
+    - stopped
+    description: Indicate desired state of the instance.
+  tags:
+    type: list
+    default: []
+    description: List of tags to apply to the instance (5 max)
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+  wait:
+    type: bool
+    default: false
+    description: Wait for the instance to reach its desired state before returning.
+  wait_sleep_time:
+    type: int
+    default: 3
+    description: Time to wait before every attempt to check the state of the server
+  wait_timeout:
+    type: int
+    default: 300
+    description: Time to wait for the server to reach the expected state
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a server\n  community.general.scaleway_compute:\n    name: foobar\n    state:\
+  \ present\n    image: 89ee4018-f8c3-4dc4-a6b5-bca14f985ebe\n    project: 951df375-e094-4d26-97c1-ba548eeb9c42\n\
+  \    region: ams1\n    commercial_type: VC1S\n    tags:\n      - test\n      - www\n\n- name: Create\
+  \ a server attached to a security group\n  community.general.scaleway_compute:\n    name: foobar\n \
+  \   state: present\n    image: 89ee4018-f8c3-4dc4-a6b5-bca14f985ebe\n    project: 951df375-e094-4d26-97c1-ba548eeb9c42\n\
+  \    region: ams1\n    commercial_type: VC1S\n    security_group: 4a31b633-118e-4900-bd52-facf1085fc8d\n\
+  \    tags:\n      - test\n      - www\n\n- name: Destroy it right after\n  community.general.scaleway_compute:\n\
+  \    name: foobar\n    state: absent\n    image: 89ee4018-f8c3-4dc4-a6b5-bca14f985ebe\n    project:\
+  \ 951df375-e094-4d26-97c1-ba548eeb9c42\n    region: ams1\n    commercial_type: VC1S\n"

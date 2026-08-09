@@ -1,0 +1,126 @@
+{
+  "kdcdefaults": {
+    "type": "object",
+    "default": {
+      "kdc_ports": [
+        88
+      ],
+      "kdc_tcp_ports": [
+        88
+      ]
+    },
+    "description": "Global KDC default settings for listening ports.",
+    "items": {
+      "kdc_ports": {
+        "type": "list",
+        "default": [
+          88
+        ],
+        "description": "List of UDP ports on which the KDC listens for Kerberos requests."
+      },
+      "kdc_tcp_ports": {
+        "type": "list",
+        "default": [
+          88
+        ],
+        "description": "List of TCP ports on which the KDC listens for Kerberos requests (used for large tickets or referrals)."
+      }
+    }
+  },
+  "realms": {
+    "type": "list",
+    "default": [],
+    "description": "List of Kerberos realms managed by this KDC.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "EXAMPLE.COM",
+          "description": "The canonical uppercase Kerberos realm name (e.g., 'ATHENA.MIT.EDU')."
+        },
+        "database_name": {
+          "type": "string",
+          "default": "/var/krb5/principal",
+          "description": "Path to the KDC database file (main principal store)."
+        },
+        "admin_keytab": {
+          "type": "string",
+          "default": "/var/krb5kdc/kadm5.keytab",
+          "description": "Path to the keytab file containing the admin server principal keys."
+        },
+        "acl_file": {
+          "type": "string",
+          "default": "/var/krb5kdc/kadm5.acl",
+          "description": "Path to the ACL file that defines administrative access control for this realm."
+        },
+        "key_stash_file": {
+          "type": "string",
+          "default": "/var/krb5kdc/.k5.EXAMPLE.COM",
+          "description": "Path to the stash file (encrypted master key storage)."
+        },
+        "kdc_ports": {
+          "type": "list",
+          "default": [
+            88
+          ],
+          "description": "List of UDP ports on which this realm's KDC listens (overrides kdcdefaults)."
+        },
+        "max_life": {
+          "type": "string",
+          "default": "1d",
+          "description": "Maximum lifetime of a ticket (e.g., '10h', '1d')."
+        },
+        "max_renewable_life": {
+          "type": "string",
+          "default": "7d",
+          "description": "Maximum renewable lifetime of a ticket."
+        },
+        "master_key_type": {
+          "type": "string",
+          "default": "aes256-cts-hmac-sha1-96",
+          "description": "Encryption type used for the master key (must match stash file)."
+        },
+        "supported_enctypes": {
+          "type": "list",
+          "default": [
+            "aes256-cts-hmac-sha1-96",
+            "aes128-cts-hmac-sha1-96"
+          ],
+          "description": "Colon-separated list of encryption types supported for this realm (order matters: strongest first)."
+        },
+        "extra_params": {
+          "type": "object",
+          "default": {},
+          "description": "Additional custom KDC parameters not covered above (key-value pairs)."
+        }
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "kdc": "FILE:/var/log/krb5kdc.log",
+      "admin_server": "FILE:/var/log/kadmin.log",
+      "default": "FILE:/var/log/krb5lib.log"
+    },
+    "description": "Logging destination configuration for KDC, admin server, and general Kerberos library messages.",
+    "items": {
+      "kdc": {
+        "type": "string",
+        "default": "FILE:/var/log/krb5kdc.log",
+        "description": "Log destination for KDC events (e.g., FILE: or SYSLOG: with optional level, e.g., 'FILE:/path INFO')."
+      },
+      "admin_server": {
+        "type": "string",
+        "default": "FILE:/var/log/kadmin.log",
+        "description": "Log destination for admin server operations (kadmin)."
+      },
+      "default": {
+        "type": "string",
+        "default": "FILE:/var/log/krb5lib.log",
+        "description": "General Kerberos library log destination (e.g., authentication failures)."
+      }
+    }
+  }
+}

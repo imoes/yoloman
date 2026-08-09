@@ -1,0 +1,39 @@
+# Cyrus IMAP/POP3 configuration file
+# This template manages the service daemons section of Cyrus IMAP.
+# It is self-documenting: every directive is preceded by its schema description.
+
+# Main master process for Cyrus services
+# Starts and manages all Cyrus daemons.
+# The `-d` flag keeps the master in the foreground for debugging or container entrypoints.
+master    /usr/sbin/master -d
+
+# POP3 daemon (with optional TLS support)
+# Handles POP3 connections for mailbox retrieval on the standard port.
+# pop3_enabled: Enable the standard POP3 service on port 110.
+{% if pop3_enabled | default(True) | bool %}
+# pop3_port: TCP port number for POP3 service. Typically 110 (or 0 to disable).
+# debug_port: Port used for debug-mode POP3 listener (usually localhost only).
+# prefork_workers: Number of preforked worker processes per service. 0 = let master manage dynamically.
+pop3    cmd="cyrus_pop3d" listen="pop3:{{ pop3_port | default(110) }}" prefork={{ prefork_workers | default(0) }}
+
+{% endif %}
+
+# POP3S daemon (POP3 over TLS/SSL)
+# Secure POP3 service for encrypted connections.
+# pop3s_port: TCP port number for POP3S service. Typically 995.
+# pop3_tls_enabled: Enable POP3 over SSL/TLS (POP3S) on the configured port.
+{% if pop3_tls_enabled | default(True) | bool %}
+# prefork_workers: Number of preforked worker processes per service. 0 = let master manage dynamically.
+pop3s   cmd="cyrus_pop3d -s" listen="pop3s:{{ pop3s_port | default(995) }}" prefork={{ prefork_workers | default(0) }}
+
+{% endif %}
+
+# Optional: Enable debug mode by uncommenting (for troubleshooting only)
+# debug_mode: Enable debug mode (logs verbose output). Should be disabled in production.
+# debug_port: Port used for debug-mode POP3 listener (usually localhost only).
+# prefork_workers: Number of preforked worker processes per service. 0 = let master manage dynamically.
+{% if debug_mode | default(False) | bool %}
+debug   cmd="cyrus_pop3d -d" listen="localhost:{{ debug_port | default(110) }}" prefork=1
+{% endif %}
+
+# End of /etc/cyrus.conf — do not edit after this line unless instructed

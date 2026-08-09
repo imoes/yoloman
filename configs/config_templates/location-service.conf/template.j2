@@ -1,0 +1,70 @@
+# ==============================================================================
+# Location Service Configuration (Lomiri)
+# ==============================================================================
+#
+# This file configures the location-service component responsible for
+# aggregating location data from various providers (GPS, Network, Cell)
+# and serving it to applications via D-Bus or local API.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# All variables use `| default(...)` to ensure safe rendering even if
+# the variable is undefined in the Ansible inventory.
+# ==============================================================================
+
+# Verbosity level for logging (e.g., 'debug', 'info', 'warning', 'error')
+log-level: {{ log_level | default('info') }}
+
+# Data sources (providers) to use for location data
+providers:
+{% for provider in data_sources | default([{'name': 'network', 'enabled': True, 'timeout': 30, 'priority': 1}, {'name': 'gps', 'enabled': True, 'timeout': 60, 'priority': 2}, {'name': 'cell', 'enabled': False, 'timeout': 45, 'priority': 3}]) %}
+  # Provider name identifier
+  - name: {{ provider.name }}
+    # Enable or disable this specific provider
+    enabled: {{ provider.enabled | default(True) | lower }}
+    # Timeout in seconds for this provider's response
+    {% if provider.timeout is defined %}
+    timeout: {{ provider.timeout | default(30) }}
+    {% else %}
+    timeout: {{ provider.timeout | default(30) }}
+    {% endif %}
+    # Priority of this provider (lower number = higher priority)
+    {% if provider.priority is defined %}
+    priority: {{ provider.priority | default(1) }}
+    {% else %}
+    priority: {{ provider.priority | default(1) }}
+    {% endif %}
+{% endfor %}
+
+# Default accuracy level requested by applications: 'high', 'medium', or 'low'
+default-accuracy: {{ default_accuracy | default('medium') }}
+
+# Enable privacy mode — redact location data in logs and API responses
+# Output is lowercased boolean string for config file compatibility
+privacy-mode: {{ privacy_mode | default(False) | lower }}
+
+# Maximum number of simultaneous client connections allowed
+max-clients: {{ max_clients | default(10) }}
+
+# Interval (in seconds) between passive location updates (e.g., Wi-Fi scanning)
+polling-interval: {{ polling_interval | default(30) }}
+
+# Whitelist of allowed countries (ISO 3166-1 alpha-2 codes); empty list = all countries
+{% if allowed_countries | default([]) | length > 0 %}
+allowed-countries: [{{ allowed_countries | default([]) | join(', ') }}]
+{% else %}
+allowed-countries: []
+{% endif %}
+
+# Time-to-live (in seconds) for cached location entries
+location-cache-ttl: {{ location_cache_ttl | default(300) }}
+
+# Geoclue2 service configuration
+{% if geoclue_service | default('org.freedesktop.GeoClue2') or geoclue_provider | default('') %}
+geoclue:
+  # D-Bus service name for the Geoclue2 backend (if used)
+  service: {{ geoclue_service | default('org.freedesktop.GeoClue2') }}
+  # Optional specific Geoclue2 provider name (e.g., 'org.freedesktop.GeoClue2.Providers.Network')
+  {% if geoclue_provider | default('') %}
+  provider: {{ geoclue_provider | default('') }}
+  {% endif %}
+{% endif %}

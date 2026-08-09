@@ -1,0 +1,52 @@
+{# ============================================================================== #}
+{# grml-hwinfo configuration template                                              #}
+{# This template generates the command-line arguments for the grml-hwinfo tool.    #}
+{# It controls how hardware data is collected, where it is saved, and any          #}
+{# additional flags passed to the utility.                                         #}
+{#                                                                                 #}
+{# Variables used:                                                                 #}
+{#   - save_to_dir:       Boolean. Save data to a timestamped directory.           #}
+{#   - save_to_tarball:   Boolean. Save data to a .tar.bz2 tarball.                #}
+{#   - output_dir:        String. Path to the output directory.                    #}
+{#   - extra_args:        List of strings. Additional CLI arguments.               #}
+{# ============================================================================== #}
+
+{# --------------------------------------------------------------------------- #}
+{# Flag: Save collected data to a directory named 'grml-hwinfo-TIMESTAMP'      #}
+{# Equivalent to grml-hwinfo option: -d                                        #}
+{# Schema field: save_to_dir                                                   #}
+{# --------------------------------------------------------------------------- #}
+{% if save_to_dir | default(false) | bool %}
+-d
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Flag: Save collected data to a tarball named 'grml-hwinfo-TIMESTAMP.tar.bz2'#}
+{# Equivalent to grml-hwinfo option: -f                                        #}
+{# Schema field: save_to_tarball                                               #}
+{# --------------------------------------------------------------------------- #}
+{% if save_to_tarball | default(false) | bool %}
+-f
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Option: Custom output directory path                                        #}
+{# Used when save_to_dir or save_to_tarball is enabled to specify where data   #}
+{# should be stored. If empty, grml-hwinfo uses the current working directory. #}
+{# Schema field: output_dir                                                    #}
+{# --------------------------------------------------------------------------- #}
+{% set _output_dir = output_dir | default('') | trim %}
+{% if _output_dir %}
+# Custom output directory: {{ _output_dir }}
+-o {{ _output_dir }}
+{% endif %}
+
+{# --------------------------------------------------------------------------- #}
+{# Option: List of additional command-line arguments                           #}
+{# Each item in the list is passed as a separate argument to grml-hwinfo.      #}
+{# Schema field: extra_args                                                    #}
+{# --------------------------------------------------------------------------- #}
+{% for arg in extra_args | default([]) %}
+# Extra argument: {{ arg }}
+{{ arg }}
+{% endfor %}

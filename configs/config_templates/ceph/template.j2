@@ -1,0 +1,137 @@
+[global]
+# Global cluster-wide settings
+
+# The cluster filesystem ID (UUID). Required. Example: '5d42928f-b53a-4f3e-8c7a-1f4e8e9f6b2a'.
+fsid = {{ fsid | default('') }}
+
+# List of initial monitor hostnames for bootstrap.
+mon_initial_members = {{ mon_initial_members | default([]) | join(', ') }}
+
+# List of monitor IP addresses or hostnames (must match mon_initial_members or be resolvable).
+mon_host = {{ mon_host | default([]) | join(', ') }}
+
+# Network & security
+
+# CIDR notation of the public (client) network.
+public_network = {{ public_network | default('10.0.0.0/24') }}
+
+# CIDR notation of the cluster (replication) network.
+cluster_network = {{ cluster_network | default('10.1.0.0/24') }}
+
+# Authentication required for cluster daemons (e.g., mon->mon, osd->osd). Usually 'cephx'.
+auth_cluster_required = {{ auth_cluster_required | default('cephx') }}
+
+# Authentication required for services (e.g., MDS, RGW). Usually 'cephx'.
+auth_service_required = {{ auth_service_required | default('cephx') }}
+
+# Authentication required for clients. Usually 'cephx'.
+auth_client_required = {{ auth_client_required | default('cephx') }}
+
+# Logging
+
+# Path to the log file (fixed template path).
+log_file = /var/log/ceph/$cluster.$name.log
+
+# Whether to log to standard error (console). Enable for containerized or systemd-managed setups.
+log_to_stderr = {{ log_to_stderr | default(true) | lower }}
+
+# Whether to send logs to syslog. Useful for central log aggregation.
+log_to_syslog = {{ log_to_syslog | default(false) | lower }}
+
+# Performance tuning
+
+# Number of threads per OSD for handling client operations. Higher values may improve throughput on multi-core systems.
+osd_op_threads = {{ osd_op_threads | default(2) }}
+
+# Maximum length of an object name (bytes).
+osd_max_object_name_len = {{ osd_max_object_name_len | default(256) }}
+
+# Maximum length of an object namespace (bytes).
+osd_max_object_namespace_len = {{ osd_max_object_namespace_len | default(64) }}
+
+{% if monitors | default([]) | length > 0 %}
+# Monitor-specific settings (applied to each mon)
+{% for mon in monitors %}
+[mon.{{ mon.name }}]
+host = {{ mon.host }}
+mon_addr = {{ mon.addr }}
+{% endfor %}
+{% endif %}
+
+{% if osds | default([]) | length > 0 %}
+# OSD-specific settings (applied to each osd)
+{% for osd in osds %}
+[osd.{{ osd.id }}]
+host = {{ osd.host }}
+devs = {{ osd.devs | join(' ') }}
+{% if osd.journal_dev is defined %}journal_dev = {{ osd.journal_dev }}{% endif %}
+{% if osd.journal_size is defined %}journal_size = {{ osd.journal_size }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if pools | default([]) | length > 0 %}
+# Pool configurations
+{% for pool in pools %}
+[pool {{ pool.name }}]
+pg_num = {{ pool.pg_num | default(64) }}
+pgp_num = {{ pool.pgp_num | default(64) }}
+size = {{ pool.size | default(3) }}
+min_size = {{ pool.min_size | default(2) }}
+{% if pool.crush_rule is defined %}crush_rule = {{ pool.crush_rule }}{% endif %}
+{% if pool.enable_ec is defined and pool.enable_ec %}ec_profile = {{ pool.ec_profile }}{% endif %}
+{% if pool.application is defined %}application = {{ pool.application }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if ec_profiles | default([]) | length > 0 %}
+# Erasure code profile definitions
+{% for prof in ec_profiles %}
+[erasure_code_profile {{ prof.name }}]
+plugin = {{ prof.plugin }}
+k = {{ prof.k }}
+m = {{ prof.m }}
+{% if prof.crush_locality is defined %}crush_locality = {{ prof.crush_locality }}{% endif %}
+{% if prof.ruleset_failure_domain is defined %}ruleset_failure_domain = {{ prof.ruleset_failure_domain }}{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if mgrs | default([]) | length > 0 %}
+# MGR-specific settings
+{% for mgr in mgrs %}
+[mgr.{{ mgr.name }}]
+host = {{ mgr.host }}
+{% endfor %}
+{% endif %}
+
+[mds]
+# Metadata server defaults
+max_mds = {{ mds_max_mds | default(1) }}
+
+{% if mds_instances | default([]) | length > 0 %}
+# MDS instance configurations
+{% for mds in mds_instances %}
+[mds.{{ mds.id }}]
+host = {{ mds.host }}
+zone = {{ mds.zone }}
+{% endfor %}
+{% endif %}
+
+[rbd]
+# RBD defaults
+default format = {{ rbd_default_format | default(2) }}
+
+[rgw]
+# RADOS Gateway defaults
+rgw_frontends = {{ rgw_frontends | default(['civetweb port=80']) | join(', ') }}
+{% if rgw_dns_name is defined %}rgw_dns_name = {{ rgw_dns_name }}{% endif %}
+{% if rgw_socket_path is defined %}rgw_socket_path = {{ rgw_socket_path }}{% endif %}
+
+{% if rgw_instances | default([]) | length > 0 %}
+# RGW instance configurations
+{% for rgw in rgw_instances %}
+[client.rgw.{{ rgw.name }}]
+rgw_frontends = {{ rgw.frontends | default(['civetweb port=80']) | join(', ') }}
+host = {{ rgw.host }}
+rgw_enable_usage_log = {{ rgw.enable_usage_log | default(false) | lower }}
+{% endfor %}
+{% endif %}

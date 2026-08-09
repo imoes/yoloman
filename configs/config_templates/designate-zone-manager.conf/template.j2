@@ -1,0 +1,110 @@
+# =========================================================================
+# designate-zone-manager.conf
+#
+# This template configures the OpenStack Designate Zone Manager.
+# The Zone Manager is responsible for synchronizing zone data with backend
+# DNS servers and handling zone updates.
+#
+# It communicates via RPC (typically RabbitMQ) and uses a SQL database
+# to persist zone and pool state.
+#
+# Self-documentation principle: every directive is preceded by a comment
+# explaining its purpose, derived from the schema definition.
+# =========================================================================
+
+[DEFAULT]
+
+# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL
+log_level = {{ log_level | default('INFO') }}
+
+# Host interface to bind RPC server to (usually not exposed externally)
+bind_host = {{ bind_host | default('127.0.0.1') }}
+
+# Port to bind RPC server to (typically unused in zone-manager)
+bind_port = {{ bind_port | default(9000) }}
+
+# Number of worker processes for handling zone management tasks
+workers = {{ workers | default(1) }}
+
+# Number of RPC worker threads (often set equal to workers)
+rpc_workers = {{ rpc_workers | default(1) }}
+
+# Message broker URL (e.g., RabbitMQ or other supported transport)
+# Format: <transport>://[<user>:<password>@]<host>:<port>[/<vhost>]
+rpc_transport_url = {{ rpc_transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Enable SSL/TLS for RPC communication
+# Must be a boolean value (True/False)
+rpc_use_ssl = {{ rpc_use_ssl | default(False) | lower }}
+
+[service:zone_manager]
+
+# Interval (in seconds) between zone synchronization runs
+zone_sync_interval = {{ zone_sync_interval | default(60) }}
+
+# Maximum number of zones processed in each synchronization batch
+zone_sync_batch_size = {{ zone_sync_batch_size | default(100) }}
+
+# Number of retry attempts when processing a zone fails
+zone_processing_retries = {{ zone_processing_retries | default(3) }}
+
+# Delay (in seconds) between retries for failed zone processing
+zone_retry_delay = {{ zone_retry_delay | default(5) }}
+
+# Enable the zone manager service
+# Must be a boolean value (True/False)
+enabled = {{ enabled | default(True) | lower }}
+
+# -----------------------------------------------------------------
+# OpenStack Service Endpoints
+# These define how the zone manager interacts with other Designate
+# services (e.g., Core, Producer) or external services.
+# -----------------------------------------------------------------
+{% for service in service_endpoints | default([]) %}
+[service_endpoint:{{ service.name | default('unknown') }}]
+# URL for the {{ service.name | default('unknown') | replace('_', ' ') | title }} service
+endpoint = {{ service.url | default('') }}
+
+# Region where the service is located
+region_name = {{ service.region | default('RegionOne') }}
+
+# Service type as known to OpenStack service catalog
+service_type = {{ service.service_type | default('dns') }}
+
+# Enable or disable this endpoint
+enabled = {{ service.enabled | default(True) | lower }}
+
+# Optional: auth-related overrides (rarely used in zone-manager)
+{% if service.username is defined and service.username %}
+username = {{ service.username }}
+{% endif %}
+{% if service.password is defined and service.password %}
+password = {{ service.password }}
+{% endif %}
+{% if service.project_name is defined and service.project_name %}
+project_name = {{ service.project_name }}
+{% endif %}
+{% if service.auth_url is defined and service.auth_url %}
+auth_url = {{ service.auth_url }}
+{% endif %}
+{% endfor %}
+
+[storage:sqlalchemy]
+
+# SQLAlchemy database connection URI
+# Examples:
+#   mysql+pymysql://designate:pass@localhost/designate
+#   postgresql+psycopg2://designate:pass@localhost/designate
+database_connection = {{ database_connection | default('mysql+pymysql://designate:designate@localhost/designate?charset=utf8mb4') }}
+
+# Enable connection pooling for the database backend
+pool_enabled = {{ pool_enabled | default(True) | lower }}
+
+# Maximum number of persistent DB connections in the pool
+pool_size = {{ pool_size | default(10) }}
+
+# Maximum number of additional DB connections beyond pool_size
+pool_max_overflow = {{ pool_max_overflow | default(20) }}
+
+# Timeout (in seconds) for acquiring a DB connection
+pool_timeout = {{ pool_timeout | default(30) }}

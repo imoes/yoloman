@@ -1,0 +1,22 @@
+# ACME HTTP-01 Challenge Configuration
+# This block configures the web server to serve ACME challenge files
+# for certificate validation (Let's Encrypt / ACME protocol).
+# It maps a URL path prefix to a filesystem directory and grants
+# public access to that directory.
+
+# Alias directive: maps the URL path prefix to the filesystem location.
+# acme_challenge_path_prefix: URL path prefix for ACME HTTP-01 challenge responses.
+# Must match Let's Encrypt requirement. Default: '/.well-known/acme-challenge/'
+Alias "{{ acme_challenge_path_prefix | default('/.well-known/acme-challenge/') }}" "{{ acme_challenge_dir | default('/run/acme/acme-challenge') }}/"
+
+# Directory block: configures access controls for the challenge directory.
+# acme_challenge_dir: Absolute filesystem path where ACME HTTP-01 challenge files are written.
+# Default: '/run/acme/acme-challenge'
+<Directory "{{ acme_challenge_dir | default('/run/acme/acme-challenge') }}">
+  # AllowOverride None: Disallows .htaccess files in this directory for security/performance.
+  AllowOverride None
+  # Options None: Disables all directory-specific features (e.g., Indexes, CGI).
+  Options None
+  # Require all granted: Allows public access to challenge files for ACME validation.
+  Require all granted
+</Directory>

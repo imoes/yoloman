@@ -1,0 +1,25 @@
+# ejabberd_mod_grafite module configuration
+# This block configures the ejabberd module responsible for exporting
+# XMPP server metrics to a Graphite/StatsD-compatible backend.
+ejabberd_modules:
+  grafite:
+    # Hostname or IP address of the Graphite/StatsD server to send metrics to.
+    host: "{{ grafite_host | default('localhost') }}"
+    # Port number of the Graphite plaintext receiver (typically 2003) or StatsD UDP port (typically 8125).
+    port: {{ grafite_port | default(2003) }}
+    # Prefix to prepend to all metric keys (e.g., 'ejabberd.prod.node1').
+    prefix: "{{ grafite_prefix | default('ejabberd') }}"
+    # Interval in seconds between metric collection and sending to Graphite.
+    interval: {{ grafite_interval | default(60) }}
+    # Static tags to attach to every metric (e.g., environment, datacenter, service).
+    tags:
+{# Iterate over the list of tags defined in the schema. If empty, this block renders nothing. #}
+{% for tag in grafite_tags | default([]) %}
+      - "{{ tag }}"
+{% endfor %}
+    # List of ejabberd statistics to collect and export. See ejabberd_mod_grafite docs for valid stat names.
+    enabled_stats:
+{# Iterate over the list of enabled statistics. Defaults to a sensible set of core XMPP metrics. #}
+{% for stat in grafite_enabled_stats | default(['active_users', 'sessions', 'messages_sent', 'messages_received', 'roster_items', 'online_nodes']) %}
+      - "{{ stat }}"
+{% endfor %}

@@ -1,0 +1,45 @@
+# CoreDHCP server configuration
+# Base configuration block for the server
+server:
+  # Address to listen on (host:port or :port for all interfaces)
+  address: "{{ server.address }}"
+  # Log level: debug, info, warn, error
+  log_level: "{{ server.log_level }}"
+  # Enable or disable IPv6 support
+  ipv6_enabled: {{ server.ipv6_enabled | lower }}
+
+# Plugin loading
+plugins:
+  # List of plugins to load (by path or builtin name)
+{% for plugin in plugins %}  - {{ plugin | quote }}
+{% endfor %}
+
+# Lease database configuration
+leases:
+  # Backend type: file, memory
+  backend: "{{ leases.backend }}"
+{% if leases.backend == 'file' %}  # Path to lease file for file backend
+  path: "{{ leases.path }}"
+{% endif %}
+
+# Subnet definitions
+subnets:
+{% for subnet in subnets %}  - network: "{{ subnet.network }}"
+{% if subnet.prefix %}    prefix: {{ subnet.prefix }}
+{% endif %}    gateway: "{{ subnet.gateway }}"
+    dns_servers:
+{% for dns in subnet.dns_servers | default([]) %}      - "{{ dns }}"
+{% endfor %}    ntp_servers:
+{% for ntp in subnet.ntp_servers | default([]) %}      - "{{ ntp }}"
+{% endfor %}    range:
+      start: "{{ subnet.range.start }}"
+      end: "{{ subnet.range.end }}"
+{% if subnet.options %}    options:
+{% for opt_key, opt_val in subnet.options | dict2items %}      {{ opt_key }}: {{ opt_val | yaml }}
+{% endfor %}{% endif %}
+{% endfor %}
+
+# Optional global options
+{% if global_options %}options:
+{% for opt_key, opt_val in global_options | dict2items %}  {{ opt_key }}: {{ opt_val | yaml }}
+{% endfor %}{% endif %}

@@ -1,0 +1,78 @@
+# dnsmasq TFTP Configuration Template
+# This template generates the TFTP-specific configuration for dnsmasq.
+# It is self-documenting: every directive is preceded by its schema description.
+
+# Root directory where TFTP files are served from. Must exist and be readable.
+tftp-root={{ tftp_root | default('/var/lib/tftpboot') }}
+
+# Enable TFTP server functionality (implicit when tftp-root is set, but explicit flag is safer)
+tftp
+
+# Enable verbose TFTP logging (optional; comment to disable)
+# log-tftp
+
+# If true, TFTP is read-only (no uploads allowed, ensures safety).
+{% if tftp_no_fail | default(True) %}
+tftp-no-fail
+{% endif %}
+
+# Maximum number of simultaneous TFTP connections.
+tftp-connections={{ tftp_connections | default(256) }}
+
+# UDP port for TFTP server. 0 = use IANA standard port 69. Change only if needed.
+tftp-port={{ tftp_port | default(0) }}
+
+# Maximum TFTP block size (in bytes). RFC 2348 allows up to 65464. Default 512 (legacy).
+tftp-blocksize={{ tftp_blocksize | default(512) }}
+
+# If true, allows TFTP option negotiation (e.g., blksize). Usually safe to leave true.
+{% if tftp_unique_root | default(False) %}
+tftp-unique-root
+{% endif %}
+
+# List of network interfaces to *only* use for TFTP traffic (restricts TFTP to these).
+{% for iface in tftp_interfaces | default([]) %}
+# TFTP only on interface {{ iface }}
+interface={{ iface }}
+{% endfor %}
+
+# List of network interfaces to *exclude* from TFTP service.
+{% for iface in tftp_no_interfaces | default([]) %}
+# Do not serve TFTP on interface {{ iface }}
+except-interface={{ iface }}
+{% endfor %}
+
+# List of IP addresses to bind TFTP service to. If omitted, binds to all interfaces.
+# Note: bind-interfaces is set once globally; local directive binds specific IPs.
+{% set _bind_addrs = tftp_bind_addresses | default([]) %}
+{% if _bind_addrs | length > 0 %}
+# Bind TFTP to specific addresses: {{ _bind_addrs | join(', ') }}
+bind-interfaces
+{% for addr in _bind_addrs %}
+local={{ addr }}
+{% endfor %}
+{% endif %}
+
+# Name of the default boot file served (e.g., 'pxelinux.0' or 'grubaa64.efi'). Optional.
+{% if tftp_boot_file | default('') %}
+# Default boot file name for TFTP (e.g., pxelinux.0)
+# Note: In dnsmasq, this is usually set via dhcp-boot, but tftp-root defines the base dir.
+# Using boot-file directive if supported by specific dnsmasq version/build for TFTP root default.
+boot-file={{ tftp_boot_file | default('') }}
+{% endif %}
+
+# Text prompt shown before PXE boot menu (e.g., 'Press F8 for boot menu'). Optional.
+{% if pxe_prompt | default('') %}
+# Enable PXE boot prompt
+pxe-prompt={{ pxe_prompt | default('') | quote }}
+{% endif %}
+
+# List of PXE service entries (boot menu items). Each defines a boot option shown during PXE.
+{% for entry in pxe_services | default([]) %}
+# PXE service: {{ entry.type | default('') }}
+# Format: pxe-service=<tag>,<text>,<bootfile>
+pxe-service={{ entry.type | default('') }}, {{ entry.desc | default('') | quote }}{% if entry.bootfile %}, {{ entry.bootfile | default('') }}{% endif %}
+{% endfor %}
+
+# Optional: disable TFTP over IPv6 (static directive kept for compatibility)
+# no-dhcp-ipv6

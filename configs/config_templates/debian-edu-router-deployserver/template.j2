@@ -1,0 +1,77 @@
+# ==============================================================================
+# Debian Edu Router Deployserver Configuration
+# ==============================================================================
+# This template generates an Apache HTTP Server configuration snippet for the
+# Debian Edu Router deployserver. It sets up URL aliases to serve ISO and
+# SquashFS images from specific directories, configures directory access
+# permissions for the FAI (Fully Automatic Installation) infrastructure,
+# and provides a redirect from the legacy deployment URL to the current one.
+#
+# The configuration is driven by the following variables:
+# - debian_edu_router_config_path: Path to the router configuration directory.
+# - debian_edu_router_iso_images_path: Path to production ISO images.
+# - debian_edu_router_squashfs_images_path: Path to production SquashFS images.
+# - debian_edu_router_staging_iso_images_path: Path to staging ISO images.
+# - debian_edu_router_staging_squashfs_images_path: Path to staging SquashFS images.
+# - debian_edu_router_fai_dir: Path to the main (non-production) FAI directory.
+# - debian_edu_router_fai_production_dir: Path to the production FAI directory.
+
+# Alias /debian-edu-router/config to the configuration directory.
+# This allows web clients to access configuration files under the /debian-edu-router/config URL path.
+Alias /debian-edu-router/config {{ debian_edu_router_config_path | default('/var/lib/debian-edu-router-fai/config') }}
+
+# Alias /debian-edu-router/iso-images to the production ISO images directory.
+# This serves production ISO images under the /debian-edu-router/iso-images URL path.
+Alias /debian-edu-router/iso-images {{ debian_edu_router_iso_images_path | default('/var/lib/debian-edu-router-fai/iso-images.production') }}
+
+# Alias /debian-edu-router/squashfs-images to the production SquashFS images directory.
+# This serves production SquashFS images under the /debian-edu-router/squashfs-images URL path.
+Alias /debian-edu-router/squashfs-images {{ debian_edu_router_squashfs_images_path | default('/var/lib/debian-edu-router-fai/squashfs-images.production') }}
+
+# Alias /debian-edu-router.staging/iso-images to the staging ISO images directory.
+# This serves staging ISO images under the /debian-edu-router.staging/iso-images URL path.
+Alias /debian-edu-router.staging/iso-images {{ debian_edu_router_staging_iso_images_path | default('/var/lib/debian-edu-router-fai/iso-images') }}
+
+# Alias /debian-edu-router.staging/squashfs-images to the staging SquashFS images directory.
+# This serves staging SquashFS images under the /debian-edu-router.staging/squashfs-images URL path.
+Alias /debian-edu-router.staging/squashfs-images {{ debian_edu_router_staging_squashfs_images_path | default('/var/lib/debian-edu-router-fai/squashfs-images') }}
+
+# ==============================================================================
+# Directory Access Configuration: Main FAI Directory
+# ==============================================================================
+# Configures access rules for the main (non-production) FAI directory.
+# Options enable symlink following, content negotiation (MultiViews), and directory listing (Indexes).
+# Access is granted to all clients (require all granted).
+#
+# Note: Ensure the directory exists and permissions are set correctly on the filesystem.
+<Directory {{ debian_edu_router_fai_dir | default('/var/lib/debian-edu-router-fai') }}>
+    Options +FollowSymLinks +MultiViews +Indexes
+    Require all granted
+</Directory>
+
+# ==============================================================================
+# Directory Access Configuration: Production FAI Directory
+# ==============================================================================
+# Configures access rules for the production FAI directory.
+# Options enable symlink following, content negotiation (MultiViews), and directory listing (Indexes).
+# Access is granted to all clients (require all granted).
+#
+# Note: Ensure the directory exists and permissions are set correctly on the filesystem.
+<Directory {{ debian_edu_router_fai_production_dir | default('/var/lib/debian-edu-router-fai.production') }}>
+    Options +FollowSymLinks +MultiViews +Indexes
+    Require all granted
+</Directory>
+
+# ==============================================================================
+# Legacy URL Redirect
+# ==============================================================================
+# Redirects requests from the old deployment server URL (/debian-edu-router-deployserver/)
+# to the new base URL (/debian-edu-router/) with a permanent 301 redirect.
+# This ensures backward compatibility for clients using older URLs.
+# Requires mod_rewrite to be enabled in Apache.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # Capture the path after the old prefix and append it to the new prefix.
+    # [R=301,L] means: Redirect with status 301 (Moved Permanently) and stop processing further rules.
+    RewriteRule ^/debian-edu-router-deployserver/(.*) /debian-edu-router/$1 [R=301,L]
+</IfModule>

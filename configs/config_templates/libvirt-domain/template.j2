@@ -1,0 +1,76 @@
+{# ============================================================================= #}
+{# libvirt-domain XML configuration template                                     #}
+{# This template generates a libvirt domain XML definition for a virtual machine.  #}
+{# It is self-documenting: every directive is preceded by a comment describing     #}
+{# its source field and purpose.                                                  #}
+{# ============================================================================= #}
+
+{# Set defaults for list fields to prevent rendering errors if they are undefined. #}
+{# disks: List of disk definitions [{format, file, target, bus}]                  #}
+{% set disks = disks | default([]) %}
+{# interfaces: List of network interface definitions [{bridge, model}]            #}
+{% set interfaces = interfaces | default([]) %}
+
+{# Root element: domain definition.                                                #}
+{# dtype: Virtualization driver type (e.g., 'kvm', 'qemu') for the domain.        #}
+<domain type='{{ dtype | default('kvm') }}'>
+
+  {# <name>: Unique name for the virtual machine domain.                           #}
+  {# Note: 'name' can be None, but libvirt requires a name. If None, libvirt may #}
+  {# auto-generate or fail. We leave it as-is to allow external provisioning.     #}
+  <name>{{ name | default('') }}</name>
+
+  {# <memory>: RAM allocation.                                                     #}
+  {# memory_kib: Amount of RAM allocated to the VM in KiB.                        #}
+  <memory unit='KiB'>{{ memory_kib | default(2097152) }}</memory>
+
+  {# <vcpu>: CPU assignment.                                                       #}
+  {# vcpu: Number of virtual CPUs assigned to the VM.                             #}
+  <vcpu placement='static'>{{ vcpu | default(2) }}</vcpu>
+
+  {# <os>: Operating system and bootloader configuration.                          #}
+  <os>
+    {# <type>: Hypervisor mode and architecture/machine details.                   #}
+    {# arch: CPU architecture of the guest (e.g., 'x86_64', 'aarch64').          #}
+    {# machine: Machine type/hardware model used by the VM (e.g., 'pc-q35-8.1'). #}
+    <type arch='{{ arch | default('x86_64') }}' machine='{{ machine | default('pc-q35-8.1') }}'>hvm</type>
+    {# Boot from hard drive by default.                                            #}
+    <boot dev='hd'/>
+  </os>
+
+  {# <devices>: Hardware devices attached to the domain.                           #}
+  <devices>
+    {# <emulator>: Path to the hypervisor emulator binary.                         #}
+    {# emulator: Path to the hypervisor emulator binary used for this domain.     #}
+    <emulator>{{ emulator | default('/usr/bin/qemu-system-x86_64') }}</emulator>
+
+    {# Disks: Iterate over the list of disk configurations.                        #}
+    {% for d in disks %}
+    <disk type='file' device='disk'>
+      {# driver: Disk driver type.                                                 #}
+      {# d.format: Format of the disk image (e.g., 'qcow2', 'raw').              #}
+      <driver name='qemu' type='{{ d.format | default('qcow2') }}'/>
+      {# source: Path to the disk image file.                                      #}
+      {# d.file: File path of the disk image.                                     #}
+      <source file='{{ d.file }}'/>
+      {# target: Device name and bus type.                                         #}
+      {# d.target: Target device name (e.g., 'vda').                              #}
+      {# d.bus: Bus type (e.g., 'virtio', 'sata').                                #}
+      <target dev='{{ d.target }}' bus='{{ d.bus }}'/>
+    </disk>
+    {% endfor %}
+
+    {# Interfaces: Iterate over the list of network interfaces.                    #}
+    {% for i in interfaces %}
+    <interface type='bridge'>
+      {# source: Bridge name.                                                      #}
+      {# i.bridge: Name of the Linux bridge to connect to.                        #}
+      <source bridge='{{ i.bridge }}'/>
+      {# model: Network model type.                                                #}
+      {# i.model: Model type (e.g., 'virtio', 'e1000').                           #}
+      <model type='{{ i.model }}'/>
+    </interface>
+    {% endfor %}
+
+  </devices>
+</domain>

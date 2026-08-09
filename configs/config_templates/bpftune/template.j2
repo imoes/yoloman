@@ -1,0 +1,50 @@
+# bpftune main configuration file
+#
+# This file controls the behavior of bpftune, a system tuner that uses eBPF to
+# automatically adjust kernel parameters based on workload.
+#
+# Each directive is documented below with its default value and description.
+# Variables should be provided via Ansible inventory or group_vars.
+# If a variable is not defined, the schema default is used.
+
+# Log to standard error instead of syslog.
+# When enabled, bpftune writes logs to stderr rather than the system syslog daemon.
+# Useful for debugging or when running in a container/environment without syslog.
+# Default: false
+{% if stderr | default(false) %}stderr{% endif %}
+
+# Filter events for specific cgroup path.
+# Restricts bpftune to monitor only processes within the specified cgroup hierarchy.
+# Example: /sys/fs/cgroup/mygroup
+# Empty string (default) means monitor all cgroups.
+# Default: ''
+{% if cgroup is defined and cgroup != '' %}cgroup {{ cgroup }}{% endif %}
+
+# Extra plugin directory.
+# Overrides the default plugin search path (/usr/local/lib64/bpftune) with a custom directory.
+# Useful for deploying custom eBPF tuning plugins outside the system paths.
+# Empty string (default) means use the default directory.
+# Default: ''
+{% if libdir is defined and libdir != '' %}libdir {{ libdir }}{% endif %}
+
+# Learning rate level.
+# Controls the aggressiveness of parameter adjustments.
+# 0 = ±1.0625% (conservative)
+# 1 = ±3.125%
+# 2 = ±6.25%
+# 3 = ±12.5%
+# 4 = ±25% (aggressive)
+# Default: 4
+learning_rate {{ learning_rate | default(4) }}
+
+# Roll back sysctl settings on exit.
+# When enabled, bpftune restores original sysctl values when it terminates.
+# This prevents unintended side effects if the service is stopped unexpectedly.
+# Default: false
+{% if rollback | default(false) %}rollback{% endif %}
+
+# TCP port to listen on for queries.
+# Specifies the port bpftune uses to accept remote tuning queries.
+# 0 means use an ephemeral (random) port, typically for local-only or auto-configured scenarios.
+# Default: 0
+port {{ port | default(0) }}

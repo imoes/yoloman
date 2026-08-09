@@ -1,0 +1,41 @@
+name: nictagadm
+fqcn: community.general.nictagadm
+collection: community.general
+short_description: Manage nic tags on SmartOS systems
+description: Create or delete nic tags on SmartOS systems.
+options:
+  etherstub:
+    type: bool
+    default: false
+    description: Specifies that the nic tag will be attached to a created O(etherstub). Parameter O(etherstub)
+      is mutually exclusive with both O(mtu), and O(mac).
+  force:
+    type: bool
+    default: false
+    description: When O(state=absent) this switch will use the C(-f) parameter and delete the nic tag
+      regardless of existing VMs.
+  mac:
+    type: str
+    description: Specifies the O(mac) address to attach the nic tag to when not creating an O(etherstub).
+      Parameters O(mac) and O(etherstub) are mutually exclusive.
+  mtu:
+    type: int
+    description: Specifies the size of the O(mtu) of the desired nic tag. Parameters O(mtu) and O(etherstub)
+      are mutually exclusive.
+  name:
+    type: str
+    required: true
+    description: Name of the nic tag.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Create or delete a SmartOS nic tag.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create 'storage0' on '00:1b:21:a3:f5:4d'\n  community.general.nictagadm:\n    name:\
+  \ storage0\n    mac: 00:1b:21:a3:f5:4d\n    mtu: 9000\n    state: present\n\n- name: Remove 'storage0'\
+  \ nic tag\n  community.general.nictagadm:\n    name: storage0\n    state: absent\n"

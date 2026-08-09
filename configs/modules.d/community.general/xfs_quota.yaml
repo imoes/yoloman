@@ -1,0 +1,57 @@
+name: xfs_quota
+fqcn: community.general.xfs_quota
+collection: community.general
+short_description: Manage quotas on XFS filesystems
+description: Configure quotas on XFS filesystems. Before using this module /etc/projects and /etc/projid
+  need to be configured.
+options:
+  bhard:
+    type: str
+    description: Hard blocks quota limit. This argument supports human readable sizes.
+  bsoft:
+    type: str
+    description: Soft blocks quota limit. This argument supports human readable sizes.
+  ihard:
+    type: int
+    description: Hard inodes quota limit.
+  isoft:
+    type: int
+    description: Soft inodes quota limit.
+  mountpoint:
+    type: str
+    required: true
+    description: The mount point on which to apply the quotas.
+  name:
+    type: str
+    description: The name of the user, group or project to apply the quota to, if other than default.
+  rtbhard:
+    type: str
+    description: Hard realtime blocks quota limit. This argument supports human readable sizes.
+  rtbsoft:
+    type: str
+    description: Soft realtime blocks quota limit. This argument supports human readable sizes.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether to apply the limits or remove them. When removing limit, they are set to 0, and
+      not quite removed.
+  type:
+    type: str
+    required: true
+    choices:
+    - user
+    - group
+    - project
+    description: The XFS quota type.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Set default project soft and hard limit on /opt of 1g\n  community.general.xfs_quota:\n\
+  \    type: project\n    mountpoint: /opt\n    bsoft: 1g\n    bhard: 1g\n    state: present\n\n- name:\
+  \ Remove the default limits on /opt\n  community.general.xfs_quota:\n    type: project\n    mountpoint:\
+  \ /opt\n    state: absent\n\n- name: Set default soft user inode limits on /home of 1024 inodes and\
+  \ hard of 2048\n  community.general.xfs_quota:\n    type: user\n    mountpoint: /home\n    isoft: 1024\n\
+  \    ihard: 2048\n\n"

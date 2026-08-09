@@ -1,0 +1,92 @@
+[# fapolicyd main configuration file
+# Enable/disable debug mode for verbose logging
+[debug]
+# Controls whether debug logging is enabled
+# Set to 1 for verbose logging, 0 for normal operation
+debug = {{ debug_enabled | default(0) }}
+
+[# Log file path
+# Where fapolicyd writes its log messages
+log_file = {{ log_file_path | default('/var/log/fapolicyd.log') }}
+
+[# Number of log files to retain (for log rotation)
+# Max number of archived log files before oldest is deleted
+log_file_max = {{ log_file_max | default(5) }}
+
+[# Size limit per log file (in KB)
+# Maximum size of each log file before rotation
+log_file_size = {{ log_file_size | default(10240) }}
+
+[# Watched directories (file access policy sources)
+# Each entry is a directory to scan for file access rules
+[watch]
+{% for dir in watched_dirs %}{{ dir }}
+{% endfor %}
+
+[# File access rule types
+# Controls which events trigger policy enforcement
+[rule]
+# Enable logging of allowed accesses
+allow_logging = {{ rule_allow_logging | default(1) }}
+# Enable logging of denied accesses
+deny_logging = {{ rule_deny_logging | default(1) }}
+# Enable enforcement of file access rules
+enforce = {{ rule_enforce | default(1) }}
+
+[# File classification and trust rules
+# Paths or globs defining trusted/untrusted files
+[trust]
+# Default trust level for system binaries (true = trusted by default)
+default_trust = {{ trust_default_trust | default(true) }}
+# Paths considered trusted (space-separated list in INI line)
+trust_paths = {{ trust_paths | join(' ') }}
+
+[# Kernel module loading policy
+# Whether fapolicyd should block or allow kernel module loading
+[kernel]
+# Block loading of unsigned kernel modules
+block_unsigned_modules = {{ kernel_block_unsigned_modules | default(1) }}
+
+[# Network policy (optional)
+# Controls network-related enforcement
+[network]
+# Enable network connection logging
+log_connections = {{ network_log_connections | default(1) }}
+# Block outbound connections (non-zero = block by default)
+block_outbound = {{ network_block_outbound | default(0) }}
+
+[# Resource limits
+# Tuning for memory and CPU usage
+[resources]
+# Maximum number of file descriptors to hold open
+max_fds = {{ resources_max_fds | default(65535) }}
+# Maximum number of inotify watches
+max_watches = {{ resources_max_watches | default(524288) }}
+
+[# Service behavior
+# Startup and runtime tuning
+[server]
+# Number of worker threads (0 = auto-detect based on CPU cores)
+workers = {{ server_workers | default(0) }}
+# Enable/disable foreground mode (for testing)
+foreground = {{ server_foreground | default(0) }}
+# PID file path
+pid_file = {{ server_pid_file | default('/run/fapolicyd.pid') }}
+
+[# Audit backend selection
+# Choose between audit subsystem or internal event capture
+[backend]
+# Use kernel audit subsystem (1) or internal polling (0)
+use_audit = {{ backend_use_audit | default(1) }}
+
+[# Loading order of rule files
+# Controls precedence of multiple rule files (if used)
+[order]
+# Priority order for loading rule files (space-separated list)
+order = {{ order_rule_files | default('fapolicyd.rules') | join(' ') }}
+
+[# Additional configuration file includes (optional)
+# Include additional rule or config files
+[include]
+{% for inc in included_files %}{{ inc }}
+{% endfor %}

@@ -1,0 +1,123 @@
+{
+  "username": {
+    "type": "string",
+    "default": "testuser",
+    "description": "Windows domain account username for NTLM authentication (without domain prefix)"
+  },
+  "domain": {
+    "type": "string",
+    "default": "corp-uk",
+    "description": "Windows domain name \u2014 use the NetBIOS short name (e.g. CORP) or FQDN"
+  },
+  "plaintext_password": {
+    "type": "string",
+    "default": "password",
+    "description": "Plaintext password \u2014 only use if you understand risks; prefer hash variants below"
+  },
+  "pass_ntlmv2": {
+    "type": "string",
+    "default": "D5826E9C665C37C80B53397D5C07BBCB",
+    "description": "NTLMv2 password hash \u2014 generate with: cntlm -H -u user@DOMAIN -d DOMAIN (never store plaintext passwords)"
+  },
+  "pass_lm": {
+    "type": "string",
+    "default": "1AD35398BE6565DDB5C4EF70C0593492",
+    "description": "LM password hash \u2014 only required when Auth includes LM; generate with cntlm -H"
+  },
+  "pass_nt": {
+    "type": "string",
+    "default": "77B9081511704EE852F94227CF48A793",
+    "description": "NT password hash \u2014 only required when Auth includes NT; generate with cntlm -H"
+  },
+  "auth": {
+    "type": "string",
+    "default": "NTLMv2",
+    "description": "NTLM authentication method: NTLMv2 (recommended), NTLM, NTLM2SR, LM, NT, or a space-separated combination",
+    "enum": [
+      "NTLMv2",
+      "NTLM2SR",
+      "NT",
+      "NTLM",
+      "LM"
+    ]
+  },
+  "flags": {
+    "type": "string",
+    "default": "0x06820000",
+    "description": "NTLM protocol flags bitmask \u2014 leave at default unless the upstream proxy requires specific flags"
+  },
+  "proxies": {
+    "type": "list",
+    "default": [
+      "10.0.0.41:8080",
+      "10.0.0.42:8080"
+    ],
+    "description": "One or more upstream corporate NTLM proxy endpoints; tried in order for failover"
+  },
+  "no_proxy": {
+    "type": "list",
+    "default": [
+      "localhost",
+      "127.0.0.*",
+      "10.*",
+      "192.168.*"
+    ],
+    "description": "Hosts, IPs, and wildcard patterns to connect to directly, bypassing the proxy"
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 3128,
+    "description": "Local TCP port cntlm listens on; point applications at 127.0.0.1:<listen_port>"
+  },
+  "gateway": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, bind all interfaces so remote clients can use cntlm; if false, localhost only"
+  },
+  "isa_scanner_size": {
+    "type": "number",
+    "default": 1024,
+    "description": "Skip ISA virus scanner pre-authorization for responses larger than this many kB; 0 disables"
+  },
+  "workstation": {
+    "type": "string",
+    "default": "netbios_hostname",
+    "description": "NetBIOS hostname cntlm sends to parent proxies; auto-guessed if omitted"
+  },
+  "allow_rules": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "IP addresses or CIDR ranges allowed to connect to cntlm; evaluated before Deny rules"
+  },
+  "deny_rules": {
+    "type": "list",
+    "default": [
+      "0/0"
+    ],
+    "description": "IP addresses or CIDR ranges denied access; add 0/0 last to block all unmatched clients"
+  },
+  "socks5_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a SOCKS5 proxy listener in addition to the HTTP proxy"
+  },
+  "socks5_port": {
+    "type": "number",
+    "default": 8010,
+    "description": "TCP port for the SOCKS5 listener (only active when socks5_enabled is true)"
+  },
+  "socks5_user": {
+    "type": "string",
+    "default": "dave:password",
+    "description": "Optional SOCKS5 client username; leave empty to allow unauthenticated SOCKS5 access"
+  },
+  "tunnels": {
+    "type": "list",
+    "default": [
+      "11443:remote.com:443"
+    ],
+    "description": "TCP port-forwarding tunnels routed through the corporate proxy (useful for non-HTTP protocols)"
+  }
+}

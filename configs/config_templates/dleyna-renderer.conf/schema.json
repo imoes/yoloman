@@ -1,0 +1,113 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "dleyna-renderer",
+    "description": "Hostname used to identify this renderer on the network (via mDNS/D-Bus)."
+  },
+  "rest_api_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port to expose the internal REST API for diagnostics and control. Set to 0 to disable."
+  },
+  "dbus_port": {
+    "type": "number",
+    "default": 0,
+    "description": "D-Bus daemon port to connect to. Set to 0 to use the system bus default."
+  },
+  "max_transcoding_sessions": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of simultaneous audio/video transcoding sessions allowed."
+  },
+  "enable_discovery": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to actively discover and register UPnP/AV devices on the network."
+  },
+  "media_profiles": {
+    "type": "list",
+    "default": [
+      {
+        "name": "audio-mp3",
+        "encoder": [
+          "ffmpeg",
+          "-i",
+          "%i",
+          "-acodec",
+          "libmp3lame",
+          "-ab",
+          "192k",
+          "-f",
+          "mp3",
+          "%o"
+        ],
+        "mime_type": "audio/mpeg",
+        "enabled": true,
+        "max_resolution": ""
+      },
+      {
+        "name": "video-h264",
+        "encoder": [
+          "ffmpeg",
+          "-i",
+          "%i",
+          "-c:v",
+          "libx264",
+          "-preset",
+          "fast",
+          "-crf",
+          "23",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "128k",
+          "-f",
+          "mp4",
+          "%o"
+        ],
+        "mime_type": "video/mp4",
+        "enabled": true,
+        "max_resolution": "1920x1080"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable name for the media profile."
+      },
+      "encoder": {
+        "type": "list",
+        "description": "Command to invoke for transcoding; supports %i (input), %o (output), %f (format)."
+      },
+      "mime_type": {
+        "type": "string",
+        "description": "MIME type of the transcoded output (e.g., 'audio/mpeg', 'video/mp4')."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether this profile is active for transcoding."
+      },
+      "max_resolution": {
+        "type": "string",
+        "default": "",
+        "description": "Maximum supported resolution (WxH) for video profiles. Leave empty for audio."
+      }
+    },
+    "description": "List of transcoding profiles to use when rendering media from incompatible sources."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity of logging: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG, 4=TRACE."
+  },
+  "dbus_service_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom path to a D-Bus service file override. Empty = use default."
+  },
+  "enable_glib": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GLib main loop integration for event handling and signal processing."
+  }
+}

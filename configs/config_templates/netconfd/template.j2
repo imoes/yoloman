@@ -1,0 +1,53 @@
+# Netconfd main configuration file for RFC 6241 NETCONF protocol
+# Enable or disable NETCONF over SSH
+netconf-ssh {{ enable_ssh }}
+
+# Listen address and port for SSH-based NETCONF
+ssh-listen {{ ssh_listen_address }} {{ ssh_listen_port }}
+
+# SSH host key path (optional, defaults to /etc/ssh/ssh_host_rsa_key)
+{% if ssh_host_key_file %}ssh-host-key {{ ssh_host_key_file }}{% endif %}
+
+# Enable or disable NETCONF over TLS
+netconf-tls {{ enable_tls }}
+
+# Listen address and port for TLS-based NETCONF
+{% if enable_tls %}tls-listen {{ tls_listen_address }} {{ tls_listen_port }}{% endif %}
+
+# TLS server certificate and key paths (required if TLS enabled)
+{% if enable_tls %}tls-server-cert {{ tls_server_cert_file }}{% endif %}
+{% if enable_tls %}tls-server-key {{ tls_server_key_file }}{% endif %}
+{% if enable_tls and tls_ca_cert_file %}tls-ca-cert {{ tls_ca_cert_file }}{% endif %}
+
+# Authentication method (password | key-based | both)
+auth-method {{ auth_method }}
+
+# Allowed users for NETCONF (empty = all users permitted if auth-method = key-based)
+{% for user in allowed_users %}allowed-user {{ user.name }}{% endfor %}
+
+# Lock timeout in seconds (0 = no timeout, i.e., wait indefinitely)
+lock-timeout {{ lock_timeout }}
+
+# Maximum concurrent sessions
+max-sessions {{ max_sessions }}
+
+# Enable or disable draft-ietf-netconf-nmda (NMDA support)
+nmda {{ enable_nmda }}
+
+# Enable or disable ietf-netconf-with-defaults support
+with-defaults {{ with_defaults_mode }}
+
+# YANG module search paths
+{% for path in yang_module_paths %}yang-module-path {{ path }}{% endfor %}
+
+# Custom RPC modules (e.g., vendor-specific)
+{% for rpc in custom_rpcs %}# RPC module: {{ rpc.name }}
+{% if rpc.module %}rpc-module {{ rpc.module }}{% endif %}
+{% if rpc.path %}rpc-path {{ rpc.path }}{% endif %}
+{% endfor %}
+
+# Log level (debug | info | notice | warning | error | critical)
+log-level {{ log_level }}
+
+# Log output file (optional; if omitted, logs to stderr/syslog)
+{% if log_file %}log-file {{ log_file }}{% endif %}

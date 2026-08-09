@@ -1,0 +1,53 @@
+name: one_image
+fqcn: community.general.one_image
+collection: community.general
+short_description: Manages OpenNebula images
+description: Manages OpenNebula images
+options:
+  api_password:
+    type: str
+    description: Password of the user to login into OpenNebula RPC server. If not set then the value of
+      the E(ONE_PASSWORD) environment variable is used.
+  api_url:
+    type: str
+    description: URL of the OpenNebula RPC server. It is recommended to use HTTPS so that the username/password
+      are not transferred over the network unencrypted. If not set then the value of the E(ONE_URL) environment
+      variable is used.
+  api_username:
+    type: str
+    description: Name of the user to login into the OpenNebula RPC server. If not set then the value of
+      the E(ONE_USERNAME) environment variable is used.
+  enabled:
+    type: bool
+    description: Whether the image should be enabled or disabled.
+  id:
+    type: int
+    description: A O(id) of the image you would like to manage.
+  name:
+    type: str
+    description: A O(name) of the image you would like to manage.
+  new_name:
+    type: str
+    description: A name that will be assigned to the existing or new image. In the case of cloning, by
+      default O(new_name) will take the name of the origin image with the prefix 'Copy of'.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - cloned
+    - renamed
+    description: V(present) - state that is used to manage the image V(absent) - delete the image V(cloned)
+      - clone the image V(renamed) - rename the image to the O(new_name)
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Fetch the IMAGE by id\n  community.general.one_image:\n    id: 45\n  register: result\n\
+  \n- name: Print the IMAGE properties\n  ansible.builtin.debug:\n    var: result\n\n- name: Rename existing\
+  \ IMAGE\n  community.general.one_image:\n    id: 34\n    state: renamed\n    new_name: bar-image\n\n\
+  - name: Disable the IMAGE by id\n  community.general.one_image:\n    id: 37\n    enabled: false\n\n\
+  - name: Enable the IMAGE by name\n  community.general.one_image:\n    name: bar-image\n    enabled:\
+  \ true\n\n- name: Clone the IMAGE by name\n  community.general.one_image:\n    name: bar-image\n   \
+  \ state: cloned\n    new_name: bar-image-clone\n  register: result\n\n- name: Delete the IMAGE by id\n\
+  \  community.general.one_image:\n    id: '{{ result.id }}'\n    state: absent\n"

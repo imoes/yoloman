@@ -1,0 +1,37 @@
+name: atomic_image
+fqcn: community.general.atomic_image
+collection: community.general
+short_description: Manage the container images on the atomic host platform
+description: Manage the container images on the atomic host platform. Allows to execute the commands specified
+  by the RUN label in the container image when present.
+options:
+  backend:
+    type: str
+    choices:
+    - docker
+    - ostree
+    description: Define the backend where the image is pulled.
+  name:
+    type: str
+    required: true
+    description: Name of the container image.
+  started:
+    type: bool
+    default: true
+    description: Start or Stop the container.
+  state:
+    type: str
+    default: latest
+    choices:
+    - absent
+    - latest
+    - present
+    description: The state of the container image. The state V(latest) will ensure container image is
+      upgraded to the latest version and forcefully restart container, if running.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Execute the run command on rsyslog container image (atomic run rhel7/rsyslog)\n \
+  \ community.general.atomic_image:\n    name: rhel7/rsyslog\n    state: latest\n\n- name: Pull busybox\
+  \ to the OSTree backend\n  community.general.atomic_image:\n    name: busybox\n    state: latest\n \
+  \   backend: ostree\n"

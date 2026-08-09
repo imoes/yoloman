@@ -1,0 +1,68 @@
+- name: install-resolved.conf
+  hosts: all
+  become: true
+  vars:
+    dnssec: false
+    caching: true
+    domains: []
+    use_mdns: false
+    use_llmnr: true
+    cache_size: 512
+    dns_servers: []
+    dns_timeout: 2
+    dns_over_tls: "off"
+    negative_ttl: 60
+    preserve_dns: false
+    read_etc_hosts: true
+    dns_max_retries: 3
+    tcp_dns_queries: false
+    trust_anchor_file:
+      - "/etc/systemd/resolved.conf.d/root-trust-anchor.dnskey"
+    fallback_dns_servers:
+      - "127.0.0.53"
+    dnssec_cache_max_size: 0
+    dns_stub_listener_port: 53
+    dns_stub_listener_addresses: []
+    dnssec_negative_trust_anchors: []
+    resolve_unicast_reverse_lookups: false
+  tasks:
+    - name: Install Resolved Conf
+      ansible.builtin.package:
+        name:
+          - systemd-resolved
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: resolved.conf.j2
+        dest: /etc/systemd/resolved.conf
+      vars:
+        dnssec: false
+        caching: true
+        domains: []
+        use_mdns: false
+        use_llmnr: true
+        cache_size: 512
+        dns_servers: []
+        dns_timeout: 2
+        dns_over_tls: "off"
+        negative_ttl: 60
+        preserve_dns: false
+        read_etc_hosts: true
+        dns_max_retries: 3
+        tcp_dns_queries: false
+        trust_anchor_file:
+          - "/etc/systemd/resolved.conf.d/root-trust-anchor.dnskey"
+        fallback_dns_servers:
+          - "127.0.0.53"
+        dnssec_cache_max_size: 0
+        dns_stub_listener_port: 53
+        dns_stub_listener_addresses: []
+        dnssec_negative_trust_anchors: []
+        resolve_unicast_reverse_lookups: false
+
+    - name: Enable and restart Resolved Conf
+      ansible.builtin.service:
+        name: ""
+        state: restarted
+        enabled: true

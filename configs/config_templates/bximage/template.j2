@@ -1,0 +1,22 @@
+{# bximage command configuration for non-interactive operation #}
+{# This template generates a sequence of bximage CLI commands based on a list of operations. #}
+{# Each operation (command) is defined by a dictionary in the 'commands' variable. #}
+
+{# Iterate over the list of bximage operations to perform. #}
+{# The 'commands' variable is expected to be a list of dictionaries, each specifying at least #}
+{# 'func' (the operation type) and 'filename1' (the target image file). #}
+{% for cmd in (commands | default([])) %}
+{# Generate a comment identifying the operation function. #}
+# bximage {{ cmd.func | default('unknown') }} operation
+
+{# Execute the bximage command. #}
+{# -q: quiet mode. #}
+{# -func=<operation>: specifies the operation to perform (create, convert, resize, commit, info). #}
+{# -fd=<size>: specifies size for floppy disk images (only for 'create'). #}
+{# -hd=<size>: specifies size for hard disk images (for 'create' or 'resize'). #}
+{# -imgmode=<mode>: specifies image mode/format. #}
+{# -b: create a backup of the existing image before modification. #}
+{# <filename1>: the target image file. #}
+{# <filename2>: secondary file, used for 'convert' or 'commit' operations. #}
+bximage -q -func={{ cmd.func | default('unknown') }} {% if cmd.size_fd is defined %}-fd={{ cmd.size_fd }}{% endif %} {% if (cmd.func | default('') == 'create' or cmd.func | default('') == 'resize') and cmd.size_hd is defined %}-hd={{ cmd.size_hd }}{% endif %} {% if cmd.imgmode is defined %}-imgmode={{ cmd.imgmode }}{% endif %} {% if cmd.backup is defined and cmd.backup %}-b{% endif %} {{ cmd.filename1 | default('') }}{% if cmd.filename2 is defined and cmd.filename2 != '' %} {{ cmd.filename2 }}{% endif %}
+{% endfor %}

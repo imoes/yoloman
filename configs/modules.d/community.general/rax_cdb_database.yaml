@@ -1,0 +1,74 @@
+name: rax_cdb_database
+fqcn: community.general.rax_cdb_database
+collection: community.general
+short_description: Create / delete a database in the Cloud Databases
+description: create / delete a database in the Cloud Databases.
+options:
+  api_key:
+    type: str
+    aliases:
+    - password
+    description: Rackspace API key, overrides O(credentials).
+  auth_endpoint:
+    type: str
+    description: The URI of the authentication service. If not specified will be set to U(https://identity.api.rackspacecloud.com/v2.0/).
+  cdb_id:
+    type: str
+    required: true
+    description: The databases server UUID
+  character_set:
+    type: str
+    default: utf8
+    description: Set of symbols and encodings
+  collate:
+    type: str
+    default: utf8_general_ci
+    description: Set of rules for comparing characters in a character set
+  credentials:
+    type: path
+    aliases:
+    - creds_file
+    description: File to find the Rackspace credentials in. Ignored if O(api_key) and O(username) are
+      provided.
+  env:
+    type: str
+    description: Environment as configured in C(~/.pyrax.cfg), see U(https://github.com/rackspace/pyrax/blob/master/docs/getting_started.md#pyrax-configuration).
+  identity_type:
+    type: str
+    default: rackspace
+    description: Authentication mechanism to use, such as rackspace or keystone.
+  name:
+    type: str
+    required: true
+    description: Name to give to the database
+  region:
+    type: str
+    description: Region to create an instance in.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the resource
+  tenant_id:
+    type: str
+    description: The tenant ID used for authentication.
+  tenant_name:
+    type: str
+    description: The tenant name used for authentication.
+  username:
+    type: str
+    description: Rackspace username, overrides O(credentials).
+  validate_certs:
+    type: bool
+    aliases:
+    - verify_ssl
+    description: Whether or not to require SSL validation of API endpoints.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Build a database in Cloud Databases\n  tasks:\n    - name: Database build request\n\
+  \      local_action:\n        module: rax_cdb_database\n        credentials: ~/.raxpub\n        region:\
+  \ IAD\n        cdb_id: 323e7ce0-9cb0-11e3-a5e2-0800200c9a66\n        name: db1\n        state: present\n\
+  \      register: rax_db_database\n"

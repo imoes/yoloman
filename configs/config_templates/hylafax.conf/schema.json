@@ -1,0 +1,215 @@
+{
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/spool/hylafax",
+    "description": "Root directory for HylaFAX spool data (jobs, status, etc.)"
+  },
+  "config_dir": {
+    "type": "string",
+    "default": "/etc/hylafax",
+    "description": "Directory containing static configuration files and templates"
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/hylafax",
+    "description": "Directory for fax transaction logs"
+  },
+  "var_dir": {
+    "type": "string",
+    "default": "/var",
+    "description": "Base path for variable data; used to resolve relative paths like /var/spool"
+  },
+  "system_id": {
+    "type": "string",
+    "default": "",
+    "description": "Human-readable identifier for this fax server (e.g., 'OfficeFax1'); leave blank for auto-detect"
+  },
+  "country_code": {
+    "type": "number",
+    "default": 1,
+    "description": "International dialing prefix (e.g., 1 for US/Canada, 44 for UK)"
+  },
+  "area_code": {
+    "type": "string",
+    "default": "415",
+    "description": "Default area code for outbound calls (used when fax number is local-only)"
+  },
+  "fax_number": {
+    "type": "string",
+    "default": "",
+    "description": "Primary fax number (e.g., '+14155551234'); required for sending"
+  },
+  "time_zone": {
+    "type": "string",
+    "default": "US/Pacific",
+    "description": "Time zone string (e.g., 'US/Eastern', 'Europe/London'); used for timestamps"
+  },
+  "modems": {
+    "type": "list",
+    "default": [
+      {
+        "device": "/dev/ttyS0"
+      }
+    ],
+    "description": "List of modem devices to use; each entry defines a physical or virtual modem",
+    "items": {
+      "device": {
+        "type": "string",
+        "default": "/dev/ttyS0",
+        "description": "Path to the modem device node (e.g., /dev/ttyUSB0, /dev/ttyS1)"
+      },
+      "speed": {
+        "type": "number",
+        "default": 115200,
+        "description": "Baud rate for modem communication (e.g., 57600, 115200); optional, auto-detected if omitted"
+      }
+    }
+  },
+  "receive_threads": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of concurrent threads listening for incoming faxes (increase for multi-line setups)"
+  },
+  "send_threads": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of concurrent outgoing fax jobs"
+  },
+  "max_msg_size": {
+    "type": "number",
+    "default": 10240,
+    "description": "Maximum incoming fax size in KB (10240 = 10 MB); larger faxes are rejected"
+  },
+  "caller_id": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable caller ID extraction for inbound calls (requires compatible modem)"
+  },
+  "t30_auto_negotiate": {
+    "type": "boolean",
+    "default": true,
+    "description": "Automatically negotiate T.30 parameters (e.g., V.27ter, V.29, V.34) with remote fax"
+  },
+  "t30_parameters": {
+    "type": "string",
+    "default": "Class:2.0,Modem:V.27ter,V.29,V.34,Rate:14400,EC:MMR,Compression:True",
+    "description": "Comma-separated T.30 capability list for negotiation; usually left as default"
+  },
+  "pagers": {
+    "type": "list",
+    "default": [],
+    "description": "Email/HTTP endpoints to notify on fax receipt or error; supports multiple destinations",
+    "items": {
+      "destination": {
+        "type": "string",
+        "default": "fax-notify@example.com",
+        "description": "Email address or HTTP URL for pager notification"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds to wait for pager acknowledgment (default 30)"
+      }
+    }
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      {
+        "action": "allow",
+        "network": "127.0.0.0/8"
+      },
+      {
+        "action": "allow",
+        "network": "192.168.0.0/16"
+      }
+    ],
+    "description": "IP-based access control list; processed in order (first match wins)",
+    "items": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "default": "allow",
+        "description": "Whether to allow or deny traffic from this network"
+      },
+      "network": {
+        "type": "string",
+        "default": "127.0.0.0/8",
+        "description": "IPv4 or IPv6 network in CIDR notation (e.g., '10.0.0.0/8')"
+      }
+    }
+  },
+  "admin_util": {
+    "type": "string",
+    "default": "/usr/sbin/faxadmin",
+    "description": "Path to the HylaFAX administration utility"
+  },
+  "sendmail": {
+    "type": "string",
+    "default": "/usr/sbin/sendmail",
+    "description": "Path to a sendmail-compatible MTA binary (e.g., Postfix, Exim)"
+  },
+  "verbose_logging": {
+    "type": "boolean",
+    "default": false,
+    "description": "Log every fax step (e.g., modems signals, protocol events); useful for debugging"
+  },
+  "page_size": {
+    "type": "string",
+    "default": "letter",
+    "description": "Default paper size for outgoing faxes (e.g., 'letter', 'a4', 'legal')"
+  },
+  "resolution": {
+    "type": "string",
+    "default": "196x196",
+    "description": "Fax resolution in dots per inch (e.g., '98x98' for fine, '196x196' for standard)"
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum retry attempts per failed outbound fax job"
+  },
+  "retry_time": {
+    "type": "number",
+    "default": 5,
+    "description": "Minutes to wait before retrying a failed send (min 1, typical 5\u201315)"
+  },
+  "compression": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable T.6/T.4 compression (recommended for faster transmission)"
+  },
+  "page_margin": {
+    "type": "number",
+    "default": 10,
+    "description": "White margin around fax content (in 1/100 inch); prevents clipping at page edges"
+  },
+  "t38_enable": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable T.38 fax-over-IP (replaces voice channel with UDP data stream)"
+  },
+  "t38_udp_port": {
+    "type": "number",
+    "default": 4455,
+    "description": "UDP port to listen on for T.38 sessions (if enabled)"
+  },
+  "dialout_enable": {
+    "type": "boolean",
+    "default": true,
+    "description": "Allow outbound fax dialing; disable to make server receive-only"
+  },
+  "auto_answer": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable automatic answering of incoming calls (required for receive mode)"
+  },
+  "answer_delay": {
+    "type": "number",
+    "default": 4,
+    "description": "Seconds to wait after ring before picking up (adjust for multi-ring lines)"
+  }
+}

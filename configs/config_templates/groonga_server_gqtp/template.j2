@@ -1,0 +1,63 @@
+# Configuration file for groonga_server_gqtp
+# This template is self-documenting: every directive is preceded by a comment
+# describing its purpose and default value, as derived from the role's schema.
+
+# IP address the GQTP server will listen on (e.g., 127.0.0.1 for localhost only).
+# Default: 0.0.0.0
+bind_address {{ bind_address | default('0.0.0.0') }}
+
+# TCP port number for GQTP server communication.
+# Default: 10041
+port {{ port | default(10041) }}
+
+# Maximum number of simultaneous client connections allowed.
+# Default: 1024
+max_connections {{ max_connections | default(1024) }}
+
+# Number of worker threads to handle incoming requests.
+# Default: 2
+n_workers {{ n_workers | default(2) }}
+
+# Path to the Groonga database file or directory (must be writable by the groonga user).
+# Default: /var/lib/groonga/db
+db_path {{ db_path | default('/var/lib/groonga/db') }}
+
+# Enable or disable logging of server activity.
+# Default: true
+log {{ log | default(true) }}
+
+# Verbosity level of log messages.
+# Default: notice
+log_level {{ log_level | default('notice') }}
+
+# Path to the log file. Set to empty string to disable file logging (logs go to stdout/stderr).
+# Default: /var/log/groonga/groonga.log
+log_path {{ log_path | default('/var/log/groonga/groonga.log') }}
+
+# Enable or disable response compression to reduce bandwidth usage.
+# Default: true
+compression {{ compression | default(true) }}
+
+# Enable or disable SSL/TLS encryption for GQTP connections (requires SSL-enabled Groonga build).
+# Default: false
+ssl {{ ssl | default(false) }}
+
+# Path to the SSL certificate file (PEM format).
+# Default: /etc/groonga/ssl/server.crt
+ssl_cert_path {{ ssl_cert_path | default('/etc/groonga/ssl/server.crt') }}
+
+# Path to the SSL private key file (PEM format).
+# Default: /etc/groonga/ssl/server.key
+ssl_key_path {{ ssl_key_path | default('/etc/groonga/ssl/server.key') }}
+
+# Optional path to CA certificate chain file for client certificate verification.
+# Set to empty string (default) to disable client auth.
+{% if (ssl_ca_cert_path | default('')) != '' %}
+ssl_ca_cert_path {{ ssl_ca_cert_path | default('') }}
+{% endif %}
+
+# Additional arguments to pass to the GQTP server on startup (e.g., plugin options, security flags).
+# Default: empty list
+{% for arg in extra_args | default([]) %}
+{{ arg }}
+{% endfor %}

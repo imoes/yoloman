@@ -1,0 +1,168 @@
+{
+  "instance_name": {
+    "type": "string",
+    "default": "",
+    "description": "Unique identifier for this Daphne instance; used in process titles and logs."
+  },
+  "bind_hosts": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "IP addresses or hostnames to bind the server to (e.g., ['0.0.0.0', '::1']).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "bind_ports": {
+    "type": "list",
+    "default": [
+      8000
+    ],
+    "description": "Port numbers to listen on (e.g., [8000, 8001]).",
+    "items": {
+      "type": "integer"
+    }
+  },
+  "unix_socket_path": {
+    "type": "string",
+    "default": "",
+    "description": "Unix socket path to bind to (alternative to host/port; use with caution in multi-process setups)."
+  },
+  "asgi_application": {
+    "type": "string",
+    "default": "myproject.asgi:application",
+    "description": "Python dotted-path to the ASGI application callable (e.g., 'myapp.asgi:application')."
+  },
+  "num_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes. Increase for CPU-bound workloads (typically CPU cores + 1)."
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of threads per worker. Set >1 only if your application is I/O-bound."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "allowed_values": [
+      "debug",
+      "info",
+      "warning",
+      "error",
+      "critical"
+    ],
+    "description": "Logging verbosity level."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write error logs; leave empty to log to stderr/stdout."
+  },
+  "serve_static": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable serving static files directly from Daphne (NOT recommended for production\u2014use a dedicated web server instead)."
+  },
+  "static_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Static file mount points: list of URL path prefix \u2192 filesystem directory mappings.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "path": {
+          "type": "string",
+          "default": "/static/",
+          "description": "URL path prefix for static files (e.g., '/static/')"
+        },
+        "directory": {
+          "type": "string",
+          "default": "/var/www/static",
+          "description": "Local directory containing static files"
+        }
+      }
+    }
+  },
+  "health_check_path": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP GET endpoint path to use for health checks (e.g., '/health/' for load balancers)."
+  },
+  "worker_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds before Daphne kills an unresponsive worker."
+  },
+  "websocket_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Idle timeout (seconds) for WebSocket connections; 0 means no timeout."
+  },
+  "websocket_max_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum WebSocket frame size (bytes); 0 = default (65536)."
+  },
+  "websocket_max_queue": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of queued WebSocket messages per connection; 0 = default (100)."
+  },
+  "process_name": {
+    "type": "string",
+    "default": "daphne",
+    "description": "Process name prefix shown in `ps` output (e.g., 'myapp-daphne')."
+  },
+  "environment_variables": {
+    "type": "list",
+    "default": [],
+    "description": "Environment variables passed to worker processes.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "key": {
+          "type": "string",
+          "default": "",
+          "description": "Variable name"
+        },
+        "value": {
+          "type": "string",
+          "default": "",
+          "description": "Variable value"
+        }
+      }
+    }
+  },
+  "access_log": {
+    "type": "string",
+    "default": "-",
+    "description": "Path for HTTP access logs; '-' logs to stdout.",
+    "enum": [
+      "-",
+      "stdout"
+    ]
+  },
+  "user": {
+    "type": "string",
+    "default": "",
+    "description": "Run as this system user (requires privileges to switch)."
+  },
+  "group": {
+    "type": "string",
+    "default": "",
+    "description": "Run as this system group."
+  },
+  "daemon": {
+    "type": "bool",
+    "default": false,
+    "description": "Run Daphne as a background daemon process."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/daphne/daphne.pid",
+    "description": "Path to PID file (required when daemon=true)."
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "global_listen_ips": [
+    "192.168.1.10",
+    "10.0.0.10"
+  ],
+  "global_listen_port": 3260,
+  "global_node_system_name": "storage1.example.com",
+  "global_auth_method": [
+    "CHAP"
+  ],
+  "global_auth_file": "/etc/istgt/auth.conf",
+  "global_max_connections": 128,
+  "log_level": 2,
+  "log_file": "/var/log/istgt.log",
+  "storage_units": [
+    {
+      "name": "lun0_disk1",
+      "type": "FileIo",
+      "path": "/data/iscsi/disk1.img",
+      "blocksize": 512,
+      "blocks": "",
+      "write_cache": false,
+      "lun_map": [
+        "prod-target:0",
+        "dev-target:0"
+      ]
+    },
+    {
+      "name": "lun1_backup",
+      "type": "BlockIo",
+      "path": "/dev/sdb",
+      "blocksize": 512,
+      "blocks": "976773168",
+      "write_cache": true,
+      "lun_map": [
+        "backup-target:1"
+      ]
+    }
+  ],
+  "targets": [
+    {
+      "name": "iqn.2024-05.com.example:storage.prod",
+      "auth_type": "CHAP",
+      "allowed_initiators": [
+        "192.168.1.20",
+        "192.168.1.30/32"
+      ],
+      "deny_initiators": [
+        "192.168.1.99"
+      ]
+    },
+    {
+      "name": "iqn.2024-05.com.example:storage.dev",
+      "auth_type": "None",
+      "allowed_initiators": [
+        "10.0.0.0/24"
+      ],
+      "deny_initiators": []
+    }
+  ],
+  "storage_mappings": [],
+  "auth_file_override": "/etc/istgt/auth.conf"
+}

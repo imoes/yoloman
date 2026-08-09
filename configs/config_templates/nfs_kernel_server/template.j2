@@ -1,0 +1,34 @@
+# =============================================================================
+# NFS Kernel Server Configuration (exports)
+# =============================================================================
+# This template generates the /etc/exports configuration for the Linux NFS kernel server.
+# Each entry in the `exports` list defines a directory path, the allowed client(s),
+# and the access options for that share.
+#
+# Schema Reference:
+#   exports: List[dict]
+#     - path: str
+#         The absolute path to the directory to be exported.
+#     - client: str
+#         The client host, IP network, or wildcard that is allowed to access this export.
+#         Example: "192.168.1.0/24", "client.example.com", "*"
+#     - options: List[str]
+#         A list of NFS export options (e.g., "rw", "sync", "no_root_squash").
+# =============================================================================
+
+# Iterate over the list of export definitions.
+# Each item must contain 'path', 'client', and 'options'.
+{% for export in (exports | default([])) %}
+# -----------------------------------------------------------------------------
+# Export Entry: {{ loop.index }}
+# Path:     {{ export.path | default('') }}
+# Client:   {{ export.client | default('*') }}
+# Options:  {{ export.options | default([]) | join(', ') }}
+# -----------------------------------------------------------------------------
+# The format is: <path> <client>(<options>)
+# If the path is not defined, default to root '/'.
+# If the client is not defined, default to wildcard '*' (all clients).
+# If options are missing, default to an empty list (no specific options).
+{{ export.path | default('/') }} {{ export.client | default('*') }} ({{ export.options | default([]) | join(', ') }})
+
+{% endfor %}

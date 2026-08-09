@@ -1,0 +1,149 @@
+{
+  "sgw.interface.name": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface name for S1U (user plane) and default S11 control plane."
+  },
+  "sgw.interface.address": {
+    "type": "string",
+    "default": "10.0.0.1",
+    "description": "IP address assigned to the S1U (and S11 if no separate S11 interface) interface."
+  },
+  "sgw.interface.netmask": {
+    "type": "string",
+    "default": "255.255.255.0",
+    "description": "Network mask for the S1U/S11 interface."
+  },
+  "sgw.s1c.name": {
+    "type": "string",
+    "default": "",
+    "description": "Optional separate interface name for S1-C (control plane). If omitted, S1C shares S1U/S11 interface."
+  },
+  "sgw.s1c.address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for S1-C interface. Required only if s1c.name is specified."
+  },
+  "sgw.s11.address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address for SGW S11 interface to MME. Defaults to sgw.interface.address if omitted."
+  },
+  "sgw.gtpu.addr": {
+    "type": "string",
+    "default": "10.0.0.1",
+    "description": "SGW's own IP address used in GTP-U headers for S1-U packets."
+  },
+  "sgw.fqdn": {
+    "type": "string",
+    "default": "sgw.epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "Fully qualified domain name of this SGW for MME DNS lookup."
+  },
+  "sgw.pgw_selection": {
+    "type": "string",
+    "default": "static",
+    "description": "Method to discover PGW: 'static' (explicit IP) or 'dns' (FQDN lookup)."
+  },
+  "sgw.pgw.addr": {
+    "type": "string",
+    "default": "10.0.0.20",
+    "description": "Static IP address of the PGW (used if pgw_selection='static')."
+  },
+  "sgw.pgw.fqdn": {
+    "type": "string",
+    "default": "pgw.epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "PGW FQDN for DNS resolution (used if pgw_selection='dns')."
+  },
+  "sgw.max_bearers_per_ue": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of active EPS bearers allowed per UE (1\u201311)."
+  },
+  "sgw.gtpu_timeouts.keepalive": {
+    "type": "number",
+    "default": 30,
+    "description": "GTP-U keepalive interval (seconds) between endpoint probes."
+  },
+  "sgw.gtpu_timeouts.no_data_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout (seconds) after which an inactive GTP-U tunnel is deleted."
+  },
+  "sgw.log.level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'trace', 'debug', 'info', 'warning', 'error', or 'fatal'."
+  },
+  "sgw.log.file": {
+    "type": "string",
+    "default": "/var/log/nextepc/sgw.log",
+    "description": "Optional log file path. If omitted, logs go to stdout."
+  },
+  "sgw.mme_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of MMEs known to this SGW (for load balancing and redundancy). Each entry should have at least 'ip'.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "description": "MME IP address."
+      },
+      "fqdn": {
+        "type": "string",
+        "default": "",
+        "description": "Optional MME FQDN (used when IP is unavailable or for DNS fallback)."
+      }
+    }
+  },
+  "sgw.apns": {
+    "type": "list",
+    "default": [],
+    "description": "List of APN configurations. Each entry defines APN name, SMF address, QoS, and optional AMBR.",
+    "items": {
+      "apn": {
+        "type": "string",
+        "description": "APN name (e.g., 'internet', 'ims')."
+      },
+      "smf.addr": {
+        "type": "string",
+        "description": "IP address of the SMF (Session Management Function) / PGW-C endpoint handling this APN."
+      },
+      "smf.fqdn": {
+        "type": "string",
+        "default": "",
+        "description": "Optional SMF FQDN (if DNS resolution preferred)."
+      },
+      "qos.qci": {
+        "type": "number",
+        "description": "QoS Class Identifier (1\u20139, 65\u201375). Common values: 1 (VoIP), 5 (IMS signaling), 9 (default data)."
+      },
+      "qos.arp.priority_level": {
+        "type": "number",
+        "description": "Allocation and Retention Priority level (1\u201315); lower = higher priority."
+      },
+      "qos.arp.pre_emption_vulnerability": {
+        "type": "bool",
+        "description": "Whether this bearer can be preempted by higher-priority bearers."
+      },
+      "qos.arp.pre_emption_capability": {
+        "type": "bool",
+        "description": "Whether this bearer can preempt lower-priority bearers."
+      },
+      "ambr.uplink": {
+        "type": "number",
+        "default": 100000,
+        "description": "Aggregate Maximum Bit Rate (AMBR) uplink in kbps. 0 = unlimited."
+      },
+      "ambr.downlink": {
+        "type": "number",
+        "default": 100000,
+        "description": "AMBR downlink in kbps. 0 = unlimited."
+      }
+    }
+  },
+  "sgw.nat.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NAT on SGW S1-U (rarely needed; typically handled by outer network)."
+  }
+}

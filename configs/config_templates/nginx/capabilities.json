@@ -1,0 +1,41 @@
+{
+  "provides": [
+    {
+      "capability": "web_server",
+      "backend": "nginx",
+      "port_field": "server_blocks",
+      "default_port": 80,
+      "provisionable": {
+        "server_blocks": "server_blocks",
+        "upstreams": "upstreams"
+      }
+    },
+    {
+      "capability": "reverse_proxy",
+      "backend": "nginx",
+      "port_field": "server_blocks",
+      "default_port": 80,
+      "provisionable": {
+        "server_blocks": "server_blocks"
+      }
+    }
+  ],
+  "requires": [],
+  "peer_injection": [
+    {
+      "capability": "app_runtime",
+      "field": "upstreams",
+      "kind": "upstream_servers",
+      "items_style": "bare_map",
+      "backend": "php-fpm"
+    },
+    {
+      "capability": "cache",
+      "field": "upstreams",
+      "kind": "upstream_servers",
+      "items_style": "bare_map",
+      "backend": "redis"
+    }
+  ],
+  "confidence": "high"
+}

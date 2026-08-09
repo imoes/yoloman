@@ -1,0 +1,93 @@
+# =============================================================================
+# bittwist Configuration Template
+# =============================================================================
+# bittwist is a user-space packet generator that reads pcap files and
+# injects raw Ethernet frames onto a network interface. It is primarily used
+# for network testing, load generation, and protocol validation.
+#
+# This template generates a simple key-value configuration file for bittwist.
+# All variables are sourced from Ansible variables with safe defaults derived
+# from the schema.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Network interface to transmit packets on.
+# Default: 'eth0'
+# ------------------------------------------------------------------------------
+interface: {{ interface | default('eth0') }}
+
+# ------------------------------------------------------------------------------
+# List of paths to pcap capture files.
+# These files contain the packet data to be retransmitted.
+# Default: [] (empty list)
+# ------------------------------------------------------------------------------
+pcap_files:
+{% for f in (pcap_files | default([])) %}  - {{ f }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Packet length mode:
+#   0 = actual on-wire length
+#  -1 = captured length
+#   [14..9014] = fixed length (integer)
+# Note: Requires jumbogram=true for lengths > 1514.
+# Default: 0
+# ------------------------------------------------------------------------------
+packet_length: {{ packet_length | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Number of times to loop over pcap files.
+#   0 = loop indefinitely until stopped (Ctrl+C)
+# >0 = specific number of iterations
+# Default: 0
+# ------------------------------------------------------------------------------
+loop: {{ loop | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Maximum number of packets to send.
+#   0 = send all packets from pcap file(s)
+# >0 = stop after this many packets
+# Default: 0
+# ------------------------------------------------------------------------------
+count: {{ count | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Packets per second (range: 1..1000000).
+# Overrides rate_mbps and gap_seconds if > 0.
+#   0 = disabled (use default or other rate controls)
+# Default: 0
+# ------------------------------------------------------------------------------
+pps: {{ pps | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Rate limit in Mbps (range: 0..10000).
+# Overrides gap_seconds if > 0.
+#   0 = no limit
+# Recommended for high-throughput: start low (e.g., 10 Mbps) if encoding is complex.
+# Default: 0.0
+# ------------------------------------------------------------------------------
+rate_mbps: {{ rate_mbps | default(0.0) }}
+
+# ------------------------------------------------------------------------------
+# Inter-packet gap in seconds (range: 1..86400).
+# Overrides captured timestamps if > 0.
+#   0 = use original timestamps from pcap
+# Default: 0
+# ------------------------------------------------------------------------------
+gap_seconds: {{ gap_seconds | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Enable jumbo frames (MTU up to 9000 bytes).
+# Required for packet_length > 1514.
+# Default: false
+# ------------------------------------------------------------------------------
+jumbogram: {{ jumbogram | default(false) }}
+
+# ------------------------------------------------------------------------------
+# Verbosity level:
+#   0 = quiet
+#   1 = print timestamps
+#   2 = timestamps + hex dump
+# Default: 0
+# ------------------------------------------------------------------------------
+verbosity: {{ verbosity | default(0) }}

@@ -1,0 +1,104 @@
+{
+  "bin_dir": {
+    "type": "string",
+    "default": "/usr/lib/postgresql/17/bin",
+    "description": "Absolute path to the PostgreSQL binary directory containing pg_ctl, psql, etc."
+  },
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Host name or IP address of the PostgreSQL server to connect to."
+  },
+  "port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port number the PostgreSQL server listens on."
+  },
+  "database": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database to connect to for checking system catalogs."
+  },
+  "username": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database user name used for authentication."
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "trust",
+    "description": "Authentication method to use: trust, password, scram-sha-256, etc. (ensure pg_hba.conf allows it)."
+  },
+  "password_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to .pgpass file for non-interactive password auth. Leave empty to use default locations or prompts."
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum seconds to wait for a connection before timing out."
+  },
+  "check_names": {
+    "type": "list",
+    "default": [],
+    "description": "List of specific system catalog checks to run. Omit or leave empty to run all standard checks.",
+    "items": {
+      "type": "string",
+      "description": "A single check name (e.g., 'catalog', 'index', 'sequence')."
+    }
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, output detailed diagnostic information (e.g., queries used)."
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, simulate the check process without reporting results (mainly for debugging)."
+  },
+  "skip_types": {
+    "type": "list",
+    "default": [],
+    "description": "List of object types (e.g., 'toast', 'partition') to skip during checks.",
+    "items": {
+      "type": "string",
+      "description": "An object type name (e.g., 'toast', 'trigger')."
+    }
+  },
+  "max_errors": {
+    "type": "number",
+    "default": 100,
+    "description": "Stop reporting errors after this many are found. Prevents log flooding."
+  },
+  "tolerant": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, always exit with code 0 regardless of issues found (useful for CI pipelines)."
+  },
+  "check_options": {
+    "type": "list",
+    "default": [],
+    "description": "Advanced per-check tuning options (if supported by your pg_catcheck version).",
+    "items": {
+      "check_name": {
+        "type": "string",
+        "description": "Name of the check to configure (e.g., 'index', 'sequence')."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of what this check validates."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether this check should be active."
+      }
+    }
+  },
+  "legacy_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, relax validation rules to support older (pre-v12) catalog structures."
+  }
+}

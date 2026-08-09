@@ -1,0 +1,58 @@
+# ============================================================================
+# grep Global Configuration Template
+# ============================================================================
+# This template generates a configuration file for GNU grep.
+# It supports global defaults for command-line options and file matching rules.
+#
+# Schema fields used:
+#   - grep_options: List of options (name, optional value)
+#   - exclude_patterns: List of glob patterns for --exclude
+#   - exclude_dir_patterns: List of glob patterns for --exclude-dir
+#   - include_patterns: List of glob patterns for --include
+#   - exclude_from_file: Path to a file containing exclusion patterns
+# ============================================================================
+
+{% for item in config_items | default([]) %}
+    {% if item.type == 'option' %}
+        # {{ item.description | default('Command-line option') }}
+        {% if item.name.startswith('-') %}
+{{ item.name }}{% if item.value is defined and item.value != '' %} {{ item.value }}{% endif %}
+        {% else %}
+            # {{ item.name }} is not a command-line option; skipping.
+        {% endif %}
+    {% elif item.type == 'exclude' %}
+        # Skip files matching pattern (recursive search)
+        # Equivalent to: --exclude=<pattern>
+        --exclude={{ item.pattern | default([]) | join(',') }}
+    {% elif item.type == 'exclude_dir' %}
+        # Skip directories matching pattern (recursive search)
+        # Equivalent to: --exclude-dir=<pattern>
+        --exclude-dir={{ item.pattern | default([]) | join(',') }}
+    {% elif item.type == 'include' %}
+        # Search only files matching pattern
+        # Equivalent to: --include=<pattern>
+        --include={{ item.pattern | default([]) | join(',') }}
+    {% elif item.type == 'exclude_from' %}
+        # Skip files matching patterns listed in FILE
+        # Equivalent to: --exclude-from=<file>
+        --exclude-from={{ item.file | default('') }}
+    {% endif %}
+{% endfor %}
+
+# ============================================================================
+# Global grep options
+# ============================================================================
+{% if config_items | default([]) | length > 0 %}
+# Note: The above block handles individual items from `config_items`.
+# If `grep_options` are provided separately as a schema field (not via config_items),
+# they are typically passed at runtime or via wrapper scripts.
+# However, if this file is meant to store persistent defaults,
+# one might use:
+# GREP_OPTIONS='{{ grep_options | default([]) | map(attribute="name") | join(" ") }}'
+# But per standard practice, this file focuses on the `config_items` list structure.
+{% endif %}
+
+{% if exclude_from_file | default('') %}
+# Global exclusion file path (can be used as a default for --exclude-from)
+# GREP_EXCLUDE_FROM='{{ exclude_from_file }}'
+{% endif %}

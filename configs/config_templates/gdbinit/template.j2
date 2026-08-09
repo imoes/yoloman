@@ -1,0 +1,68 @@
+{# GDB initialization script template #}
+{# This file is sourced automatically by GDB during startup, unless suppressed by -nx, -n, or -nh. #}
+{# Each directive below is executed in order during GDB initialization. #}
+
+{# enable_auto_load_local_gdbinit: Whether to enable loading of .gdbinit files from the current working directory (security-sensitive). #}
+{% if enable_auto_load_local_gdbinit | default(False) | bool %}
+set auto-load local-gdbinit on
+{% else %}
+set auto-load local-gdbinit off
+{% endif %}
+
+{# safe_paths: Colon-separated list of safe directories for auto-loading GDB init files. #}
+set auto-load safe-path {{ safe_paths | default(['/usr', '/home', '/opt']) | join(':') }}
+
+{# history_size: Maximum number of commands to store in the command history (0 = unlimited). #}
+set history size {{ history_size | default(1000) }}
+
+{# history_save: Whether to save command history to the history file on exit. #}
+set history save {{ history_save | default(True) | lower }}
+
+{# history_filename: Path to the file where GDB stores command history. #}
+set history filename {{ history_filename | default('~/.gdb_history') }}
+
+{# print_pretty: Whether to pretty-print C/C++ structures (with indentation). #}
+set print pretty {{ print_pretty | default(True) | lower }}
+
+{# print_object: Whether to print dynamic (runtime) type of C++ objects. #}
+set print object {{ print_object | default(True) | lower }}
+
+{# print_demangle: Whether to demangle C++ symbol names in output. #}
+set print demangle {{ print_demangle | default(True) | lower }}
+
+{# backtrace_past_main: Whether to include frames before main() in backtraces. #}
+set backtrace past-main {{ backtrace_past_main | default(False) | lower }}
+
+{# confirm off: Disables interactive confirmation prompts for potentially dangerous commands. #}
+set confirm off
+
+{# pagination off: Disables GDB’s built-in pager; output is not split into pages. #}
+set pagination off
+
+{# debug_libthread_db: Enable verbose logging for libthread_db (thread debugging) operations. #}
+{% if debug_libthread_db | default(False) | bool %}
+set debug libthread_db 1
+{% else %}
+set debug libthread_db 0
+{% endif %}
+
+{# debug_solib: Enable verbose logging for shared library (solib) loading. #}
+{% if debug_solib | default(False) | bool %}
+set debug solib 1
+{% else %}
+set debug solib 0
+{% endif %}
+
+{# aliases: List of user-defined GDB command aliases. #}
+{% for alias in aliases | default([{'name': 'bt-all', 'description': "Print full backtrace with all threads (requires 'thread apply' support).", 'body': 'thread apply all bt'}]) %}
+# {{ alias.description | default('GDB alias') }}
+define {{ alias.name }}
+  {{ alias.body | default('') | replace('\n', ' ') | trim }}
+end
+{% endfor %}
+
+{# vars: List of GDB convenience variables to initialize (e.g., $my_flag = 1). #}
+{% for var in vars | default([]) %}
+# {{ var.description | default('GDB convenience variable') }}
+set ${{ var.name }} = {{ var.value }}
+{% endfor %}

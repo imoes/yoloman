@@ -1,0 +1,20 @@
+{
+  "update_motd_scripts": [
+    {
+      "filename": "00-header",
+      "content": "#!/bin/sh\necho\necho \"Welcome to $(hostname)\"",
+      "executable": true
+    },
+    {
+      "filename": "10-sysinfo",
+      "content": "#!/bin/sh\necho\ndf -h / | awk 'NR==2 {print \"Disk: \" $5 \" used on /\"}'\necho \"Uptime: $(uptime -p 2>/dev/null || uptime)\"",
+      "executable": true
+    },
+    {
+      "filename": "50-news",
+      "content": "#!/bin/sh\nout=\"/run/motd-news-cache\"\nscript=\"w3m -dump https://ubuntu.com/blog/rss.xml 2>/dev/null\"\nif [ -f \"$out\" ]; then\n  lastrun=$(stat -c %Y \"$out\" 2>/dev/null || echo 0)\n  expiration=$((lastrun + 86400))\n  if [ \"$(date +%s)\" -ge \"$expiration\" ]; then\n    $script > \"$out\" &\n  fi\nelse\n  $script > \"$out\" &\nfi\nif [ -s \"$out\" ]; then\n  echo\n  head -5 \"$out\"\nfi",
+      "executable": true
+    }
+  ],
+  "symlink_motd": true
+}

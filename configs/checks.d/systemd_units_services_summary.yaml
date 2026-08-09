@@ -1,0 +1,25 @@
+name: systemd_units_services_summary
+fqcn: checkmk.systemd_units_services_summary
+collection: checkmk
+short_description: Systemd Service Summary
+description: >-
+  Aggregate health of ALL systemd *service* units on the host — not a duplicate of
+  the per-unit checks, but the fleet-wide summary. It reports Total / Disabled /
+  Failed counts and is CRIT whenever any service unit is in the `failed` state
+  (WARN while units are activating/reloading). It emits `failed_services` (plus
+  `systemd_services_total` and `systemd_services_disabled`) as metrics, so a
+  warn/crit THRESHOLD here grades the NUMBER OF FAILED SERVICES (e.g. warn ≥ 1,
+  crit ≥ 3). Parameters: `disabled_critical` treats disabled units as critical;
+  `ignored` is a list of unit-name patterns to skip.
+options:
+  disabled_critical:
+    type: bool
+    default: 'False'
+    description: disabled_critical (from the check's parameters).
+  ignored:
+    type: list
+    description: ignored (from the check's parameters).
+writes: false
+runtime: starlark
+source: translated
+kind: check

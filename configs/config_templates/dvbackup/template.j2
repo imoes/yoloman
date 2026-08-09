@@ -1,0 +1,87 @@
+# ==============================================================================
+# dvbackup Configuration Template
+# ==============================================================================
+# This template generates command-line flags for the `dvbackup` utility.
+# Each variable below controls a specific behavior of the backup/encoding process.
+# Defaults are applied if variables are undefined to ensure idempotent rendering.
+# ==============================================================================
+
+{# --------------------------------------------------------------------------
+   ntsc_mode: Enable NTSC mode instead of the default PAL mode.
+   Default: false
+   -------------------------------------------------------------------------- #}
+{%- if (ntsc_mode | default(false) | bool) %}
+--ntsc-mode
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   decode: Decode DV stream instead of encoding.
+   Default: false
+   -------------------------------------------------------------------------- #}
+{%- if (decode | default(false) | bool) %}
+--decode
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   verify: Verify DV stream integrity (CRC check).
+   Default: false
+   -------------------------------------------------------------------------- #}
+{%- if (verify | default(false) | bool) %}
+--verify
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   verbose: Enable verbose output during execution.
+   Default: false
+   -------------------------------------------------------------------------- #}
+{%- if (verbose | default(false) | bool) %}
+--verbose
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   recover: Recover corrupted data from DV stream.
+   Default: false
+   -------------------------------------------------------------------------- #}
+{%- if (recover | default(false) | bool) %}
+--recover
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   enable_audio: Enable audio data channel (uncompressed audio area used for user data).
+   Default: false
+   -------------------------------------------------------------------------- #}
+{%- if (enable_audio | default(false) | bool) %}
+--enable-audio
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   set_backup_title: Set backup title metadata in DV stream.
+   Default: '' (empty string)
+   -------------------------------------------------------------------------- #}
+{%- if (set_backup_title | default('') | string | trim) %}
+--set-backup-title={{ set_backup_title | default('') | string }}
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   set_picture: Path to PPM file to embed as preview picture.
+   Default: '' (empty string)
+   -------------------------------------------------------------------------- #}
+{%- if (set_picture | default('') | string | trim) %}
+--set-picture={{ set_picture | default('') | string }}
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   prefix: Number of leading null frames to prefix backup stream.
+   Default: 0
+   -------------------------------------------------------------------------- #}
+{%- if prefix is defined %}
+--prefix={{ prefix | default(0) | int }}
+{%- endif %}
+
+{# --------------------------------------------------------------------------
+   test_count: Run test mode with specified number of frames.
+   Default: 0
+   -------------------------------------------------------------------------- #}
+{%- if test_count is defined %}
+--test={{ test_count | default(0) | int }}
+{%- endif %}

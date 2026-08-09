@@ -1,0 +1,67 @@
+# ===========================================================================
+# cdw - CD/DVD Burning Configuration
+# ===========================================================================
+# This template configures the cdw utility for creating and burning ISO images.
+# Each directive is documented with its schema description and safe default.
+
+# Device path for the CD burner (e.g., /dev/sr0, /dev/cdrom)
+# Default: /dev/sr0
+device = {{ device | default('/dev/sr0') }}
+
+# Write speed (0 = automatic detection; otherwise specify as multiplier of 1x = 176 KB/s, e.g., 4000 for ~4x)
+# Default: 0
+speed = {{ speed | default(0) }}
+
+# CD writer buffer size in MB (larger buffers reduce underflow risk)
+# Default: 16
+buffer_size = {{ buffer_size | default(16) }}
+
+# Overwrite files in the ISO tree if they already exist
+# Default: false
+force_overwrite = {{ force_overwrite | default(False) | lower }}
+
+# Volume label for the ISO9660 filesystem (max 32 characters)
+# Default: CDROM
+volume_label = {{ volume_label | default('CDROM') }}
+
+# Include Joliet extensions for long filenames and Unicode support
+# Default: true
+use_joliet = {{ use_joliet | default(True) | lower }}
+
+# Include Rock Ridge extensions for Unix file attributes and symlinks
+# Default: true
+use_rock_ridge = {{ use_rock_ridge | default(True) | lower }}
+
+# Enable multisession writing (allows adding more sessions later)
+# Default: false
+multisession = {{ multisession | default(False) | lower }}
+
+# List of files or directories to include in the CD image (paths may be absolute or relative)
+# Default: ['/path/to/data']
+{% for item in sources | default(['/path/to/data']) %}source = {{ item }}
+{% endfor %}
+
+# Path to write the ISO image before burning (leave empty to burn directly)
+# Default: ''
+{% if iso_output | default('') != '' %}output_iso = {{ iso_output | default('') }}
+{% endif %}
+
+# Burn mode: 'disk-at-once' (DAO) for final sessions, 'track-at-once' (TAO) for incremental burns
+# Default: disk-at-once
+mode = {{ mode | default('disk-at-once') }}
+
+# Pre-gap length in frames (1 frame = 1/75 second); relevant for audio CDs only
+# Default: 0
+pre_gap = {{ pre_gap | default(0) }}
+
+# Set to true to burn an audio CD (WAV/PCM sources only); false = data CD
+# Default: false
+audio_mode = {{ audio_mode | default(False) | lower }}
+
+# Eject the CD tray automatically after a successful burn
+# Default: true
+eject = {{ eject | default(True) | lower }}
+
+# Verbosity of the burn log: quiet, normal, verbose, or debug
+# Default: normal
+log_level = {{ log_level | default('normal') }}

@@ -1,0 +1,67 @@
+# /etc/mdadm/mdadm.conf - Configuration for mdadm incremental assembly
+#
+# This file defines RAID arrays and devices to be auto-assembled at boot.
+# It is processed by mdadm --incremental to detect and assemble arrays on
+# newly attached or detected devices, and by initramfs scripts at boot.
+#
+# FORMAT:
+#   ARRAY <device> metadata=<ver> UUID=<uuid> [spares=<n>]
+#   DEVICE <path1> <path2> ...
+#   <option> <value>
+#   DEVICE <path>   (inside a rule block)
+#
+# SELF-DOCUMENTING: Every directive is preceded by its schema description.
+
+# Arrays: List of RAID arrays to assemble automatically at boot.
+# Each entry defines a unique array by UUID.
+# Format: ARRAY <device> metadata=<ver> UUID=<uuid> [spares=<n>]
+{% for array in arrays | default([]) %}
+# Arrays entry: {{ loop.index }}. {{ array.name | default('Unnamed Array') }}
+# Description: List of RAID arrays to assemble automatically at boot. Each entry defines a unique array by UUID.
+# Fields: name (label), device (e.g. /dev/md0 or auto), metadata (e.g. 1.2, default), uuid (unique ID), spares (count, optional)
+ARRAY {{ array.device | default('auto') }} metadata={{ array.metadata | default('default') }} UUID={{ array.uuid | default('') }}{% if array.spares is defined %} spares={{ array.spares }}{% endif %}
+
+{% endfor %}
+
+# Scan Devices: Optional list of device paths or patterns to scan for array components.
+# Reduces boot time by limiting device scan to known paths.
+# Example: /dev/sd*, /dev/disk/by-id/*
+{% if scan_devices is defined and scan_devices is not none and (scan_devices | length) > 0 %}
+# Scan Devices: List of device paths or patterns (e.g., /dev/sd*, /dev/disk/by-id/*) to scan for array components. Reduces boot time by limiting device scan
+DEVICE {{ scan_devices | default([]) | join(' ') }}
+
+{% endif %}
+
+# Global Options: Key-value global options for mdadm behavior.
+# Supported keys: homehost, bootdir, mailcmd, program.
+{% if options is defined and options is not none and (options | length) > 0 %}
+# Global Options: Key-value global options for mdadm behavior. Supported keys: homehost, bootdir, mailcmd, program.
+{% for key, value in options | default({}) | dict2items %}
+# Option Key: {{ key }}
+# Description: {{ key }}
+{% if key == 'homehost' %}
+# Homehost: Hostname for home host (for array naming)
+{% elif key == 'bootdir' %}
+# Bootdir: Boot directory for initramfs modules
+{% elif key == 'mailcmd' %}
+# Mailcmd: Command to send alert emails
+{% elif key == 'program' %}
+# Program: Program to run on events (e.g., /usr/local/bin/mdadm-event.sh)
+{% else %}
+# Unknown Option: {{ key }}
+{% endif %}
+{{ key }} {{ value | string }}
+
+{% endfor %}
+{% endif %}
+
+# Device Rules: Advanced device naming rules (udev-like).
+# Used only when custom device selection is needed (e.g., for unusual device naming).
+{% for rule in rules | default([]) %}
+# Rule: {{ loop.index }}. {{ rule.description | default('custom device naming rule') }}
+# Description: Device naming rules (advanced). Usually omitted; used only when custom udev-like device selection is needed (e.g., for unusual device naming
+{% if rule.device is defined and rule.device %}
+DEVICE {{ rule.device }}
+{% endif %}
+
+{% endfor %}

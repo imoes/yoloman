@@ -1,0 +1,264 @@
+# =============================================================================
+# Main NGINX configuration for nginx-extras — includes advanced modules
+# =============================================================================
+# This template configures the main nginx.conf file. It manages global settings,
+# worker processes, connection handling (events), and the HTTP block including
+# MIME types, logging, performance tuning, and server definitions.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# User and group under which worker processes run for security isolation.
+# Field: nginx_user
+# Field: nginx_group
+# -----------------------------------------------------------------------------
+user {{ nginx_user | default('www-data') }} {{ nginx_group | default('www-data') }};
+
+# -----------------------------------------------------------------------------
+# Number of worker processes.
+# Set to 'auto' for automatic CPU core detection.
+# Safe default is 1; advanced users may override via string.
+# Field: nginx_worker_processes
+# -----------------------------------------------------------------------------
+worker_processes {{ nginx_worker_processes | default(1) }};
+
+# -----------------------------------------------------------------------------
+# Path to the PID file storing the main NGINX process ID.
+# Field: nginx_pid_file
+# -----------------------------------------------------------------------------
+pid {{ nginx_pid_file | default('/run/nginx.pid') }};
+
+# -----------------------------------------------------------------------------
+# Global error log level and path.
+# Levels: debug, info, notice, warn, error, crit, alert, emerg.
+# Field: nginx_error_log_path
+# Field: nginx_error_log_level
+# -----------------------------------------------------------------------------
+error_log {{ nginx_error_log_path | default('/var/log/nginx/error.log') }} {{ nginx_error_log_level | default('warn') }};
+
+# -----------------------------------------------------------------------------
+# Event block — core handling of connections
+# Controls how NGINX handles connections (epoll/kqueue/etc.)
+# -----------------------------------------------------------------------------
+events {
+    # Maximum number of simultaneous connections each worker can handle.
+    # Higher values increase capacity but require more file descriptors.
+    # Field: nginx_events_worker_connections
+    worker_connections {{ nginx_events_worker_connections | default(768) }};
+    
+    # Event notification mechanism (e.g., epoll for Linux, kqueue for BSD).
+    # Field: nginx_events_use
+    use {{ nginx_events_use | default('epoll') }};
+}
+
+# -----------------------------------------------------------------------------
+# HTTP block — all HTTP-related settings
+# -----------------------------------------------------------------------------
+http {
+    # -----------------------------------------------------------------------------
+    # MIME types and file extensions mapping.
+    # Path to the file containing MIME type definitions.
+    # Field: nginx_mimetypes_file
+    # -----------------------------------------------------------------------------
+    include {{ nginx_mimetypes_file | default('/etc/nginx/mime.types') }};
+    
+    # -----------------------------------------------------------------------------
+    # Default MIME type for responses when type cannot be determined.
+    # Field: nginx_default_type
+    # -----------------------------------------------------------------------------
+    default_type {{ nginx_default_type | default('application/octet-stream') }};
+    
+    # -----------------------------------------------------------------------------
+    # Logging format definitions
+    # Custom log format for access logging
+    # -----------------------------------------------------------------------------
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
+    
+    # -----------------------------------------------------------------------------
+    # Path to the main access log file.
+    # Field: nginx_access_log_path
+    # -----------------------------------------------------------------------------
+    access_log {{ nginx_access_log_path | default('/var/log/nginx/access.log') }} main;
+    
+    # -----------------------------------------------------------------------------
+    # Enable/disable sendfile(2) for high-performance static file delivery.
+    # Field: nginx_sendfile
+    # -----------------------------------------------------------------------------
+    sendfile {{ nginx_sendfile | default(true) | string | lower }};
+    
+    # -----------------------------------------------------------------------------
+    # Enable TCP_NOPUSH (or TCP_CORK) to send full TCP packets for improved network efficiency.
+    # Field: nginx_tcp_nopush
+    # -----------------------------------------------------------------------------
+    tcp_nopush {{ nginx_tcp_nopush | default(true) | string | lower }};
+    
+    # -----------------------------------------------------------------------------
+    # Timeout (in seconds) for keep-alive connections with clients.
+    # Field: nginx_keepalive_timeout
+    # -----------------------------------------------------------------------------
+    keepalive_timeout {{ nginx_keepalive_timeout | default(65) }};
+    
+    # -----------------------------------------------------------------------------
+    # Gzip compression settings
+    # -----------------------------------------------------------------------------
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    
+    # Compression level (1–9). Higher = better compression but more CPU.
+    # Field: nginx_gzip_compression_level
+    gzip_comp_level {{ nginx_gzip_compression_level | default(3) }};
+    
+    # Minimum response size (bytes) required to enable gzip compression.
+    # Field: nginx_gzip_min_length
+    gzip_min_length {{ nginx_gzip_min_length | default(256) }};
+    
+    # MIME types to compress with gzip. Applies only to responses with matching Content-Type headers.
+    # Field: nginx_gzip_types
+    gzip_types {{ nginx_gzip_types | default(['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml', 'application/xml']) | join(', ') }};
+    
+    # -----------------------------------------------------------------------------
+    # Buffer sizes for client request bodies
+    # -----------------------------------------------------------------------------
+    
+    # Maximum allowed size of client request body (e.g., '10m' for 10 MB).
+    # Field: nginx_client_max_body_size
+    client_max_body_size {{ nginx_client_max_body_size | default('1m') }};
+    
+    # Buffer size for client request bodies before spilling to disk.
+    # Field: nginx_client_body_buffer_size
+    client_body_buffer_size {{ nginx_client_body_buffer_size | default('16k') }};
+    
+    # -----------------------------------------------------------------------------
+    # Open file cache for improved static file serving
+    # -----------------------------------------------------------------------------
+    
+    # Maximum number of open files in the cache.
+    # Field: nginx_open_file_cache_max
+    # Time after which cached entries become inactive if not accessed.
+    # Field: nginx_open_file_cache_inactive
+    open_file_cache max={{ nginx_open_file_cache_max | default(10000) }} inactive={{ nginx_open_file_cache_inactive | default('60s') }};
+    
+    # Interval for validating cached file metadata.
+    # Field: nginx_open_file_cache_valid
+    open_file_cache_valid {{ nginx_open_file_cache_valid | default('30s') }};
+    
+    # Minimum number of accesses before a file is cached.
+    # Field: nginx_open_file_cache_min
+    open_file_cache_min {{ nginx_open_file_cache_min | default(2) }};
+    
+    # -----------------------------------------------------------------------------
+    # Server block defaults — included per-site configs
+    # Directory containing additional site-specific configuration files (*.conf).
+    # Field: nginx_conf_d_path
+    # -----------------------------------------------------------------------------
+    include {{ nginx_conf_d_path | default('/etc/nginx/conf.d') }}/*.conf;
+    
+    # -----------------------------------------------------------------------------
+    # Optional custom server blocks defined inline
+    # List of custom server blocks to include inline (use for monitoring endpoints,
+    # fallback servers, or module-specific configs).
+    # Field: nginx_custom_servers
+    # -----------------------------------------------------------------------------
+    {% for server in nginx_custom_servers | default([]) %}
+    
+    # =============================================================================
+    # Server Block: {{ server.description | default('Custom Server') }}
+    # =============================================================================
+    
+    # Listen directive
+    # Field: nginx_custom_servers (server.listen)
+    listen {{ server.listen | default(80) }};
+    
+    # Server name(s)
+    # Field: nginx_custom_servers (server.server_name)
+    server_name {{ server.server_name | default('_') | join(' ') }};
+    
+    # -----------------------------------------------------------------------------
+    # SSL Configuration (if enabled for this server)
+    # -----------------------------------------------------------------------------
+    {% if server.ssl | default(false) %}
+    # SSL configuration for this server
+    ssl_certificate {{ server.ssl_certificate | default('/etc/ssl/certs/server.crt') }};
+    ssl_certificate_key {{ server.ssl_certificate_key | default('/etc/ssl/private/server.key') }};
+    ssl_protocols {{ server.ssl_protocols | default(['TLSv1.2', 'TLSv1.3']) | join(' ') }};
+    ssl_ciphers {{ server.ssl_ciphers | default('HIGH:!aNULL:!MD5') }};
+    ssl_prefer_server_ciphers on;
+    {% endif %}
+    
+    # -----------------------------------------------------------------------------
+    # Root Directory and Index
+    # -----------------------------------------------------------------------------
+    {% if server.root | default(false) %}
+    # Static root directory
+    # Field: nginx_custom_servers (server.root)
+    root {{ server.root }};
+    
+    # Index files
+    # Field: nginx_custom_servers (server.index)
+    index {{ server.index | default(['index.html', 'index.htm']) | join(' ') }};
+    {% endif %}
+    
+    # -----------------------------------------------------------------------------
+    # Location Blocks
+    # List of location configurations for this server.
+    # Field: nginx_custom_servers (server.locations)
+    # -----------------------------------------------------------------------------
+    {% for location in server.locations | default([]) %}
+    
+    # Location: {{ location.path | default('/') }}
+    # Description: {{ location.description | default('') }}
+    location {{ location.path | default('/') }} {
+        
+        # Root override for this location
+        {% if location.root | default(false) %}
+        # Field: nginx_custom_servers (location.root)
+        root {{ location.root }};
+        {% endif %}
+        
+        # Try files directive
+        {% if location.try_files | default(false) %}
+        # Field: nginx_custom_servers (location.try_files)
+        try_files {{ location.try_files | join(' ') }};
+        {% endif %}
+        
+        # -----------------------------------------------------------------------------
+        # Reverse Proxy Configuration
+        # -----------------------------------------------------------------------------
+        {% if location.proxy_pass | default(false) %}
+        # Reverse proxy configuration
+        # Field: nginx_custom_servers (location.proxy_pass)
+        proxy_pass {{ location.proxy_pass }};
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        {% endif %}
+        
+        # -----------------------------------------------------------------------------
+        # HTTP Basic Auth
+        # -----------------------------------------------------------------------------
+        {% if location.auth_basic | default(false) %}
+        # HTTP Basic Auth
+        # Field: nginx_custom_servers (location.auth_basic)
+        # Field: nginx_custom_servers (location.auth_basic_user_file)
+        auth_basic "{{ location.auth_basic | default('Restricted') }}";
+        auth_basic_user_file {{ location.auth_basic_user_file | default('/etc/nginx/.htpasswd') }};
+        {% endif %}
+        
+        # -----------------------------------------------------------------------------
+        # Custom Inline Directives
+        # Field: nginx_custom_servers (location.extra_config)
+        # -----------------------------------------------------------------------------
+        {% if location.extra_config | default([]) %}
+        # Custom inline directives (e.g., for nginx-extras modules)
+        {% for directive in location.extra_config %}
+        {{ directive.name | default('') }} {{ directive.value | default('') }};
+        {% endfor %}
+        {% endif %}
+    }
+    {% endfor %}
+    }
+    {% endfor %}
+}

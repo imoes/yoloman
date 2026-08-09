@@ -1,0 +1,170 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the daemon binds to (e.g., '0.0.0.0' for all interfaces, or '127.0.0.1' for local only)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port number for incoming HTTP connections."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds before closing idle connections."
+  },
+  "root_dir": {
+    "type": "string",
+    "default": "/var/lib/alevtd/pages",
+    "description": "Base directory containing teletext page files (e.g., .txt, .html)."
+  },
+  "use_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for text-based responses."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs: debug, info, warn, or error."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (empty string logs to stdout)."
+  },
+  "vhosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual hosts (each with optional SSL, name, and root).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Identifier for this virtual host (required)."
+      },
+      "server_name": {
+        "type": "string",
+        "default": "",
+        "description": "Domain name for this vhost (e.g., 'teletext.example.com')."
+      },
+      "root_dir": {
+        "type": "string",
+        "default": "",
+        "description": "Override root directory for this vhost."
+      },
+      "ssl": {
+        "type": "object",
+        "default": {
+          "enabled": false
+        },
+        "fields": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable HTTPS for this vhost."
+          },
+          "cert_path": {
+            "type": "string",
+            "default": "",
+            "description": "Path to SSL certificate file (PEM format)."
+          },
+          "key_path": {
+            "type": "string",
+            "default": "",
+            "description": "Path to SSL private key file."
+          }
+        }
+      }
+    }
+  },
+  "mime_overrides": {
+    "type": "object",
+    "default": {},
+    "description": "Dictionary mapping MIME types (e.g., 'text/plain') to comma-separated extensions."
+  },
+  "directory_listing": {
+    "type": "bool",
+    "default": false,
+    "description": "Show file list when a directory is requested (dangerous in production)."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of IP-based access rules (action: 'allow' or 'deny', source: CIDR or IP).",
+    "items": {
+      "action": {
+        "type": "string",
+        "default": "allow",
+        "description": "Whether to allow or deny the source."
+      },
+      "source": {
+        "type": "string",
+        "default": "0.0.0.0/0",
+        "description": "IP address or CIDR range (e.g., '192.168.1.0/24')."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTP caching of static teletext pages."
+      },
+      "max_size_mb": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum cache size in megabytes."
+      },
+      "ttl_sec": {
+        "type": "number",
+        "default": 300,
+        "description": "Time-to-live for cached items (seconds)."
+      }
+    }
+  },
+  "rate_limit": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable per-IP rate limiting."
+      },
+      "rps": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum requests per second per IP."
+      },
+      "burst": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum burst size (peak requests before throttling)."
+      }
+    }
+  },
+  "index_page": {
+    "type": "string",
+    "default": "index.txt",
+    "description": "Default page served when a directory is requested."
+  },
+  "extra_headers": {
+    "type": "object",
+    "default": {},
+    "description": "Custom HTTP headers to add to all responses (e.g., {'X-Frame-Options': 'DENY'})."
+  }
+}

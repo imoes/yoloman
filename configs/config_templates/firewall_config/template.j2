@@ -1,0 +1,111 @@
+# ==============================================================================
+# firewalld Configuration Template
+# ==============================================================================
+# This template generates a firewalld configuration file (typically /etc/firewalld/firewalld.conf).
+# It is self-documenting: every directive is preceded by a comment explaining its purpose,
+# derived from the schema description, with the correct default value applied if the variable
+# is undefined.
+#
+# Variables map directly to schema fields. If a variable is not provided by Ansible, the
+# schema default is used.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global Firewall Status
+# --------------------------------------------------------------------------
+
+# Whether the firewall should be active after boot.
+# Valid values: true, false.
+# Default: True
+firewall_enabled={{ firewall_enabled | default(true) | lower }}
+
+# Zone to apply by default to new network connections.
+# This zone acts as the fallback for interfaces not explicitly assigned.
+# Default: 'public'
+default_zone={{ default_zone | default('public') | string }}
+
+# Log level for denied packets.
+# Options: off, unicast, broadcast, multicast, all.
+# Controls how much information is logged when packets are rejected.
+# Default: 'off'
+log_denied={{ log_denied | default('off') | string }}
+
+# Enable support for firewalld's rich language for advanced rule expressions.
+# When enabled, you can use complex rules beyond simple services/ports.
+# Valid values: true, false.
+# Default: True
+rich_language_enabled={{ rich_language_enabled | default(true) | lower }}
+
+# Automatically update the default zone when interfaces are added or removed.
+# If enabled, the default zone changes dynamically based on interface availability.
+# Valid values: true, false.
+# Default: False
+automatic_default_zone_updates={{ automatic_default_zone_updates | default(false) | lower }}
+
+# --------------------------------------------------------------------------
+# Default Zone Settings
+# --------------------------------------------------------------------------
+
+# List of services to allow in the default zone.
+# Services are predefined sets of ports/protocols.
+# Rendered as a space-separated list.
+# Default: ['ssh', 'dhcpv6-client']
+services={{ services | default(['ssh', 'dhcpv6-client']) | join(' ') }}
+
+# List of ports to allow in the default zone.
+# Format: port/protocol (e.g., '8080/tcp', '53/udp').
+# Rendered as a space-separated list.
+# Default: [] (empty list)
+ports={{ ports | default([]) | join(' ') }}
+
+# Enable IP masquerading (NAT) for the default zone.
+# Allows internal hosts to access external networks using the firewall's IP.
+# Valid values: true, false.
+# Default: False
+masquerade_enabled={{ masquerade_enabled | default(false) | lower }}
+
+# Inherit ICMP blocks from the default zone configuration.
+# If true, ICMP types blocked in the global configuration are also blocked in this zone.
+# Valid values: true, false.
+# Default: True
+icmp_block_inheritance={{ icmp_block_inheritance | default(true) | lower }}
+
+# List of ICMP types to block in the default zone.
+# Examples: echo-request, router-solicitation, neighbor-solicitation.
+# Rendered as a space-separated list.
+# Default: [] (empty list)
+icmp_blocks={{ icmp_blocks | default([]) | join(' ') }}
+
+# --------------------------------------------------------------------------
+# Custom Zone Definitions
+# --------------------------------------------------------------------------
+
+# Custom zone definitions (beyond the default zone).
+# Each entry defines a named zone with its own services, ports, and settings.
+# Format per line: zone_config=NAME;services=SVC1,SVC2;ports=P1/P2,P3/P4;masquerade=BOOL;icmp_blocks=TYPE1,TYPE2;icmp_block_inheritance=BOOL
+# If the zones list is empty or undefined, no custom zones are written.
+{% set _zones_default = [] %}
+{% for zone in zones | default(_zones_default) %}
+zone_config={{ zone.name }};services={{ zone.services | default([]) | join(',') }};ports={{ zone.ports | default([]) | join(',') }};masquerade={{ zone.masquerade | default(false) | lower }};icmp_blocks={{ zone.icmp_blocks | default([]) | join(',') }};icmp_block_inheritance={{ zone.icmp_block_inheritance | default(true) | lower }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# GUI and Debug Settings
+# --------------------------------------------------------------------------
+
+# Enable the firewall GUI configuration daemon (required for firewall-config tool).
+# The daemon runs to support interactive GUI management tools.
+# Valid values: true, false.
+# Default: True
+gui_enabled={{ gui_enabled | default(true) | lower }}
+
+# Path to the GUI log file.
+# Only relevant if gui_enabled is true.
+# Default: '/var/log/firewall-config.log'
+gui_log_path={{ gui_log_path | default('/var/log/firewall-config.log') | string }}
+
+# Enable verbose debug logging for troubleshooting.
+# Useful for diagnosing firewalld issues but may increase log volume.
+# Valid values: true, false.
+# Default: False
+debug_mode={{ debug_mode | default(false) | lower }}

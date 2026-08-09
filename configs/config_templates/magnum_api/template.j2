@@ -1,0 +1,104 @@
+# Magnum API configuration file.
+# This template generates a valid magnum-api.conf file.
+# Every variable is guarded with a | default() to ensure safe rendering
+# even when the Ansible role does not supply a value.
+
+[DEFAULT]
+# Hostname or unique identifier for this Magnum API node.
+host = {{ host | default('localhost') }}
+
+# Path to the log file (use '-' to log to stdout).
+log_file = {{ log_file | default('/var/log/magnum/magnum-api.log') }}
+
+# Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
+
+# Message queue backend for RPC communication (e.g., 'rabbit', 'kombu+sqlalchemy').
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# Hostname or IP address of the RabbitMQ server.
+rabbit_host = {{ rabbit_host | default('localhost') }}
+
+# Port number of the RabbitMQ server.
+rabbit_port = {{ rabbit_port | default(5672) }}
+
+# Username for RabbitMQ authentication.
+rabbit_user = {{ rabbit_user | default('guest') }}
+
+# Password for RabbitMQ authentication (required if using RabbitMQ).
+rabbit_password = {{ rabbit_password | default('') }}
+
+# RabbitMQ virtual host to use.
+rabbit_virtual_host = {{ rabbit_virtual_host | default('/') }}
+
+# Public identity endpoint URL for end-user authentication (e.g., for Horizon).
+auth_uri = {{ auth_uri | default('https://identity.example.com:5000/') }}
+
+# Internal (admin) identity endpoint URL for service-to-service auth.
+auth_url = {{ auth_url | default('https://identity.example.com:35357/') }}
+
+[keystone_authtoken]
+# Keystone authentication method (usually 'password' for service accounts).
+auth_type = {{ keystone_authtoken_auth_type | default('password') }}
+
+# Domain name for the service project.
+project_domain_name = {{ keystone_authtoken_project_domain_name | default('Default') }}
+
+# Service project name in Keystone (e.g., 'service').
+project_name = {{ keystone_authtoken_project_name | default('service') }}
+
+# Domain name for the service user.
+user_domain_name = {{ keystone_authtoken_user_domain_name | default('Default') }}
+
+# Username for the Magnum service account in Keystone.
+username = {{ keystone_authtoken_username | default('magnum') }}
+
+# Password for the Magnum service account (required).
+password = {{ keystone_authtoken_password | default('') }}
+
+# Keystone admin endpoint URL for service auth (must include API version, e.g., /v3).
+auth_url = {{ keystone_authtoken_auth_url | default('https://identity.example.com:35357/v3') }}
+
+[database]
+# SQLAlchemy database connection URI (e.g., 'sqlite:///magnum.db' or 'postgresql+psycopg2://user:pass@host/db').
+connection = {{ database_connection | default('mysql+pymysql://magnum:magnum@localhost/magnum') }}
+
+[cluster]
+# Default cooldown period (in seconds) between cluster operations (e.g., scaling).
+default_cooldown = {{ cluster_default_cooldown | default(60) }}
+
+[api]
+# Network interface for Magnum API to bind to (e.g., '0.0.0.0' for all interfaces).
+host = {{ api_host | default('0.0.0.0') }}
+
+# Port number for the Magnum API service.
+port = {{ api_port | default(9511) }}
+
+# Enable TLS (HTTPS) for the Magnum API endpoint.
+{% if api_enable_tls | default(false) %}
+# Path to the TLS certificate file (only used if api_enable_tls is true).
+ssl_cert_file = {{ api_ssl_cert_file | default('/etc/ssl/magnum/magnum.crt') }}
+
+# Path to the TLS private key file (only used if api_enable_tls is true).
+ssl_key_file = {{ api_ssl_cert_file | default('/etc/ssl/magnum/magnum.key') }}
+{% endif %}
+
+[trust]
+# OpenStack region name where Magnum operates (used for trust delegation).
+region_name = {{ trust_region_name | default('RegionOne') }}
+
+[docker]
+# List of Docker registry hostnames (with optional ports) to treat as insecure (HTTP only).
+insecure_registries = {{ docker_insecure_registries | default([]) | join(', ') }}
+
+# Optional URL of a Docker registry mirror (e.g., 'https://mirror.example.com').
+{% if docker_registry_mirror | default('') %}
+registry_mirror = {{ docker_registry_mirror | default('') }}
+{% endif %}
+
+[conductor]
+# Number of worker processes for the conductor service (parallel processing of cluster operations).
+workers = {{ conductor_workers | default(1) }}
+
+# Size of the thread pool handling incoming RPC messages in the conductor.
+rpc_thread_pool_size = {{ conductor_rpc_thread_pool_size | default(10) }}

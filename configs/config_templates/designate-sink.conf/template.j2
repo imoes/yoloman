@@ -1,0 +1,80 @@
+[service:worker]
+# Maximum number of worker processes for the sink service
+limit = {{ worker.limit }}
+
+# Number of worker processes to spawn
+workers = {{ worker.workers }}
+
+# Timeout for worker processes (seconds)
+task_timeout = {{ worker.task_timeout }}
+
+[service:rpc]
+# Hostname or IP of the RPC backend (e.g., RabbitMQ, Qpid)
+transport_url = {{ rpc.transport_url }}
+
+# Enable secure RPC communication
+rpc_use_ssl = {{ rpc.use_ssl | lower }}
+
+[service:oslo_messaging_notifications]
+# Driver used for notifications (e.g., messaging, messagingv2, log)
+driver = {{ notifications.driver }}
+
+# Topic to which notifications are published
+topic = {{ notifications.topic }}
+
+[service:pools_target]
+# Default target configuration — overridden per pool in [pool:TARGET_NAME] sections below
+target_type = {{ pools_target.target_type }}
+
+[service:central]
+# Endpoint URL for the Designate central service
+endpoint = {{ central.endpoint }}
+
+# Authentication token to use when connecting to central
+auth_url = {{ central.auth_url }}
+project_name = {{ central.project_name }}
+username = {{ central.username }}
+password = {{ central.password }}
+user_domain_name = {{ central.user_domain_name }}
+project_domain_name = {{ central.project_domain_name }}
+region_name = {{ central.region_name }}
+
+{% for pool in pools %}
+[pool:{{ pool.name }}]
+# Pool {{ pool.name }} configuration
+pool_name = {{ pool.name }}
+description = {{ pool.description | d('') }}
+
+# List of targets for this pool
+{% for target in pool.targets %}
+[target:{{ target.name }}]
+type = {{ target.type }}
+{% for key, value in target.options.items() %}# {{ key }} = {{ value }}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}
+
+# List of nameservers for this pool
+{% for nameserver in pool.nameservers %}
+[nameserver:{{ nameserver.host }}]
+host = {{ nameserver.host }}
+port = {{ nameserver.port }}
+{% endfor %}
+
+# List of record types this pool serves
+record_types = {{ pool.record_types | join(', ') }}
+
+{% if pool.attributes %}
+# Custom attributes for this pool
+{% for attr_name, attr_value in pool.attributes.items() %}{{ attr_name }} = {{ attr_value }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+
+[service:catalog]
+# Enable Keystone service catalog lookup for endpoints
+use_service_catalog = {{ catalog.use_service_catalog | lower }}
+
+# Service type for Designate central
+service_type = {{ catalog.service_type }}

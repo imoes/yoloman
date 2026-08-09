@@ -1,0 +1,32 @@
+# fuse-zip service configuration
+# This template generates a systemd unit file to mount a ZIP archive using the fuse-zip FUSE filesystem.
+
+[Unit]
+Description=Mount ZIP archive via fuse-zip
+After=local-fs.target
+
+[Service]
+Type=simple
+
+# Construct the ExecStart line.
+# fuse-zip syntax: /usr/bin/fuse-zip [options] <zip_file> <mount_point>
+# Options are passed via the -o flag, comma-separated.
+ExecStart=/usr/bin/fuse-zip -o allow_other{{ (mount_options | default([])) | join(",") | replace(" ", "") }} {{ zip_file | default('', true) | quote }} {{ mount_point | default('', true) | quote }}
+
+# Unmount the archive on service stop.
+# The '-' prefix tells systemd to ignore exit codes if the mount is already gone.
+ExecStopPost=-/usr/bin/fusermount -u {{ mount_point | default('', true) | quote }}
+
+# Restart the service on unexpected failures to ensure availability.
+Restart=on-failure
+
+# Run the FUSE process as a specific user and group for security isolation.
+# The 'user' field specifies the system user identity.
+User={{ user | default('root') }}
+Group={{ group | default('fuse') }}
+
+# Ensure required FUSE kernel module is loaded before starting.
+ExecStartPre=/sbin/modprobe fuse
+
+[Install]
+WantedBy=multi-user.target

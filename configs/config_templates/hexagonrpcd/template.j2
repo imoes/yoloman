@@ -1,0 +1,40 @@
+# =============================================================================
+# hexagonrpcd configuration template
+# =============================================================================
+# This file configures the Qualcomm FastRPC daemon (hexagonrpcd) which handles
+# remote procedure calls to Hexagon DSPs.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# DSP name to attach to
+# -----------------------------------------------------------------------------
+# Description: DSP name to attach to; empty string (default) serves all DSPs.
+# If left empty, the daemon will automatically manage connections to all
+# available Hexagon DSPs.
+dsp = {{ (dsp | default('', true)) | trim }}
+
+# -----------------------------------------------------------------------------
+# FastRPC device node path
+# -----------------------------------------------------------------------------
+# Description: FastRPC device node path (e.g., /dev/fastrpc); required.
+# This specifies the character device node used for communication with the
+# Hexagon processor. This field is mandatory for the service to function.
+device = {{ device | default('', true) | trim }}
+
+# -----------------------------------------------------------------------------
+# Optional client program
+# -----------------------------------------------------------------------------
+# Description: Optional client program to execute with shared file descriptor.
+# If provided, the specified executable will be launched with the FastRPC
+# file descriptor pre-opened, allowing immediate communication.
+{% if program is defined and program %}
+program = {{ program | default('', true) | trim }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Root directory for served files
+# -----------------------------------------------------------------------------
+# Description: Root directory where served files are located.
+# This path serves as the base directory for loading DSP firmware images,
+# context descriptors, and other resources required for RPC operations.
+root_dir = {{ root_dir | default('/usr/share/qcom/') | trim }}

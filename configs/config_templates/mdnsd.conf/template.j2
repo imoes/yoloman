@@ -1,0 +1,45 @@
+# mDNS daemon configuration file
+# This configuration controls the behavior of the mDNS (Multicast DNS) responder,
+# allowing the host to advertise and discover services on the local network
+# using the standard multicast DNS protocol (RFC 6762).
+
+[General]
+# Enable or disable the mDNS responder functionality.
+Enabled={{ enabled | default(True) }}
+# Custom mDNS hostname to advertise. Leave empty to use the system hostname.
+Hostname={{ (hostname | default('')) | string | trim }}
+# Domain suffix for mDNS names (must be 'local' for standard mDNS).
+Domain={{ domain | default('local') }}
+# Network interface to use (e.g., 'eth0'). Leave empty to use all interfaces.
+Interface={{ (interface | default('')) | string | trim }}
+# UDP port for mDNS traffic. Must be 5353 for standard compliance.
+Port={{ port | default(5353) | int }}
+# Enable aggressive NSEC record caching for negative responses.
+NsecCache={{ nsec_cache | default(False) | lower }}
+
+# Logging configuration
+[Logging]
+# Logging verbosity: 0=none, 1=error, 2=warn, 3=info, 4=debug.
+Level={{ log_level | default(2) | int }}
+# Path to log file. Leave empty to log to stdout/stderr.
+File={{ (log_file | default('')) | string | trim }}
+
+# Service advertising configuration
+# Each service entry defines a DNS-SD (DNS Service Discovery) record.
+[Services]
+{% for svc in services | default([]) %}
+# {{ svc.description | default('Service advertisement') }}
+{{ svc.type | default('_service') }}._{{ svc.proto | default('tcp') }}={{ svc.name | default('') }}
+{% endfor %}
+
+# HTTP service example:
+# _http._tcp=My Web Server
+
+# Additional per-service metadata (e.g., TXT records) can be added in [ServiceMetadata]
+[ServiceMetadata]
+{% for svc in services | default([]) %}
+{% if svc.metadata is defined and svc.metadata %}
+# Metadata for {{ svc.type | default('_service') }}/{{ svc.name | default('unnamed') }}
+{{ svc.type | default('_service') }}._{{ svc.proto | default('tcp') }}.txt={{ svc.metadata | tojson }}
+{% endif %}
+{% endfor %}

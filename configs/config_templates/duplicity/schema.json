@@ -1,0 +1,746 @@
+{
+  "actions": {
+    "type": "list",
+    "default": [],
+    "description": "Backup actions (e.g., 'backup', 'full', 'incremental', 'restore', 'verify', 'cleanup', 'list-current-files', etc.)"
+  },
+  "source_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Source directory to back up (required for backup/restore)"
+  },
+  "target_url": {
+    "type": "string",
+    "default": "",
+    "description": "Target URL (backend://path)"
+  },
+  "include_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell-glob include patterns"
+  },
+  "exclude_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell-glob exclude patterns"
+  },
+  "filelist_include": {
+    "type": "string",
+    "default": "",
+    "description": "Path to include filelist"
+  },
+  "filelist_exclude": {
+    "type": "string",
+    "default": "",
+    "description": "Path to exclude filelist"
+  },
+  "files_from": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file containing explicit files to back up (one per line)"
+  },
+  "null_separator": {
+    "type": "bool",
+    "default": false,
+    "description": "Use null separators in file lists"
+  },
+  "encryption_key": {
+    "type": "string",
+    "default": "",
+    "description": "GPG public key ID to encrypt to"
+  },
+  "sign_key": {
+    "type": "string",
+    "default": "",
+    "description": "GPG signing key ID"
+  },
+  "gpg_binary": {
+    "type": "string",
+    "default": "gpg",
+    "description": "Path to GPG binary"
+  },
+  "gpg_options": {
+    "type": "string",
+    "default": "",
+    "description": "Extra GPG options (quoted)"
+  },
+  "archive_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Custom archive directory"
+  },
+  "name": {
+    "type": "string",
+    "default": "",
+    "description": "Symbolic name for this backup (affects archive dir)"
+  },
+  "tempdir": {
+    "type": "string",
+    "default": "",
+    "description": "Override default temp directory"
+  },
+  "concurrency": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of concurrent backend operations"
+  },
+  "volsize": {
+    "type": "number",
+    "default": 200,
+    "description": "Volume size in MB"
+  },
+  "full_if_older_than": {
+    "type": "string",
+    "default": "",
+    "description": "Force full backup if last full is older than this interval (e.g., 1M)"
+  },
+  "exclude_older_than": {
+    "type": "string",
+    "default": "",
+    "description": "Exclude files older than this interval"
+  },
+  "no_compression": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable GZip compression"
+  },
+  "no_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable encryption"
+  },
+  "no_check_remote": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip remote manifest validation"
+  },
+  "time": {
+    "type": "string",
+    "default": "",
+    "description": "Time for restore/list/verify (e.g., 3D, now, ISO8601)"
+  },
+  "path_to_restore": {
+    "type": "string",
+    "default": "",
+    "description": "Restore a specific path only"
+  },
+  "compare_data": {
+    "type": "bool",
+    "default": false,
+    "description": "Compare restored files to current files in verify action"
+  },
+  "filter_globbing": {
+    "type": "bool",
+    "default": true,
+    "description": "Use shell globbing (default)"
+  },
+  "filter_literal": {
+    "type": "bool",
+    "default": false,
+    "description": "Use literal matching"
+  },
+  "filter_regexp": {
+    "type": "bool",
+    "default": false,
+    "description": "Use regular expressions"
+  },
+  "filter_strictcase": {
+    "type": "bool",
+    "default": false,
+    "description": "Case-sensitive pattern matching"
+  },
+  "filter_ignorecase": {
+    "type": "bool",
+    "default": false,
+    "description": "Case-insensitive pattern matching"
+  },
+  "copy_links": {
+    "type": "bool",
+    "default": false,
+    "description": "Resolve symlinks"
+  },
+  "exclude_device_files": {
+    "type": "bool",
+    "default": false,
+    "description": "Exclude device files"
+  },
+  "exclude_other_filesystems": {
+    "type": "bool",
+    "default": false,
+    "description": "Exclude non-root filesystems"
+  },
+  "exclude_if_present": {
+    "type": "string",
+    "default": "",
+    "description": "Exclude directories containing this file"
+  },
+  "file_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Global filename prefix (e.g., for S3 lifecycle rules)"
+  },
+  "file_prefix_manifest": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix for manifest files"
+  },
+  "file_prefix_archive": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix for archive files"
+  },
+  "file_prefix_signature": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix for signature files"
+  },
+  "par2_volumes": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of Par2 recovery volumes"
+  },
+  "par2_redundancy": {
+    "type": "number",
+    "default": 10,
+    "description": "Par2 redundancy percentage"
+  },
+  "par2_options": {
+    "type": "string",
+    "default": "",
+    "description": "Extra Par2 options (quoted)"
+  },
+  "skip_if_no_change": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip backup if no files changed"
+  },
+  "ftp_passive": {
+    "type": "bool",
+    "default": false,
+    "description": "Use FTP passive mode"
+  },
+  "ftp_regular": {
+    "type": "bool",
+    "default": false,
+    "description": "Use FTP active (PORT) mode"
+  },
+  "use_scp": {
+    "type": "bool",
+    "default": false,
+    "description": "Use SCP instead of SFTP for SSH"
+  },
+  "ssh_options": {
+    "type": "string",
+    "default": "",
+    "description": "Extra SSH options (quoted)"
+  },
+  "scp_command": {
+    "type": "string",
+    "default": "",
+    "description": "SCP command for pexpect backend"
+  },
+  "sftp_command": {
+    "type": "string",
+    "default": "",
+    "description": "SFTP command for pexpect backend"
+  },
+  "verbosity": {
+    "type": "string",
+    "default": "notice",
+    "description": "Log verbosity (e/w/n/i/d or error/warning/notice/info/debug)",
+    "enum": [
+      "error",
+      "warning",
+      "notice",
+      "info",
+      "debug",
+      "e",
+      "w",
+      "n",
+      "i",
+      "d"
+    ]
+  },
+  "no_print_statistics": {
+    "type": "bool",
+    "default": false,
+    "description": "Suppress end-of-run statistics"
+  },
+  "jsonstat": {
+    "type": "bool",
+    "default": false,
+    "description": "Output JSON statistics"
+  },
+  "log_fd": {
+    "type": "number",
+    "default": 0,
+    "description": "Write structured logs to file descriptor (e.g., 2 for stderr)"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "File for structured logs"
+  },
+  "log_timestamp": {
+    "type": "bool",
+    "default": false,
+    "description": "Prefix logs with timestamp"
+  },
+  "no_restore_ownership": {
+    "type": "bool",
+    "default": false,
+    "description": "Preserve current ownership on restore"
+  },
+  "numeric_owner": {
+    "type": "bool",
+    "default": false,
+    "description": "Use numeric uid/gid on restore"
+  },
+  "use_agent": {
+    "type": "bool",
+    "default": false,
+    "description": "Use gpg-agent for passphrase entry"
+  },
+  "backend_retry_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before retrying backend operations"
+  },
+  "num_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of backend retries"
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Socket timeout in seconds"
+  },
+  "allow_source_mismatch": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow same backend used for multiple sources"
+  },
+  "force": {
+    "type": "bool",
+    "default": false,
+    "description": "Proceed even if data loss is possible"
+  },
+  "dry_run": {
+    "type": "bool",
+    "default": false,
+    "description": "Dry run: simulate actions"
+  },
+  "max_blocksize": {
+    "type": "number",
+    "default": 0,
+    "description": "Max blocksize in bytes (must be multiple of 512)"
+  },
+  "s3_endpoint_url": {
+    "type": "string",
+    "default": "",
+    "description": "S3-compatible endpoint (e.g., for GCS interoperability)"
+  },
+  "s3_region_name": {
+    "type": "string",
+    "default": "",
+    "description": "S3 region name"
+  },
+  "s3_multipart_chunk_size": {
+    "type": "number",
+    "default": 20,
+    "description": "S3 multipart chunk size in MB"
+  },
+  "s3_multipart_max_procs": {
+    "type": "number",
+    "default": 4,
+    "description": "Max concurrent S3 multipart uploads"
+  },
+  "s3_use_glacier": {
+    "type": "bool",
+    "default": false,
+    "description": "Store in S3 Glacier Flexible Retrieval"
+  },
+  "s3_use_glacier_ir": {
+    "type": "bool",
+    "default": false,
+    "description": "Store in S3 Glacier Instant Retrieval"
+  },
+  "s3_use_deep_archive": {
+    "type": "bool",
+    "default": false,
+    "description": "Store in S3 Glacier Deep Archive"
+  },
+  "s3_use_ia": {
+    "type": "bool",
+    "default": false,
+    "description": "Store in S3 Standard-Infrequent Access"
+  },
+  "s3_use_onezone_ia": {
+    "type": "bool",
+    "default": false,
+    "description": "Store in S3 One Zone-Infrequent Access"
+  },
+  "s3_use_rrs": {
+    "type": "bool",
+    "default": false,
+    "description": "Store in S3 Reduced Redundancy Storage"
+  },
+  "s3_use_server_side_kms_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable S3 SSE-KMS"
+  },
+  "s3_kms_key_id": {
+    "type": "string",
+    "default": "",
+    "description": "KMS key ID for S3 SSE"
+  },
+  "s3_kms_grant": {
+    "type": "string",
+    "default": "",
+    "description": "KMS grant for S3 SSE"
+  },
+  "s3_unencrypted_connection": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable SSL to S3 (not recommended)"
+  },
+  "azure_blob_tier": {
+    "type": "string",
+    "default": "Hot",
+    "description": "Azure blob tier (Hot|Cool|Archive)",
+    "enum": [
+      "Hot",
+      "Cool",
+      "Archive"
+    ]
+  },
+  "azure_max_block_size": {
+    "type": "number",
+    "default": 4194304,
+    "description": "Azure block size in bytes"
+  },
+  "azure_max_single_put_size": {
+    "type": "number",
+    "default": 67108864,
+    "description": "Azure max single-put size in bytes"
+  },
+  "azure_max_connections": {
+    "type": "number",
+    "default": 2,
+    "description": "Max connections for Azure blob upload (>64MB)"
+  },
+  "b2_hide_files": {
+    "type": "bool",
+    "default": false,
+    "description": "Hide files in B2 (instead of delete)"
+  },
+  "cf_backend": {
+    "type": "string",
+    "default": "pyrax",
+    "description": "CloudFiles backend (pyrax|cloudfiles)",
+    "enum": [
+      "pyrax",
+      "cloudfiles"
+    ]
+  },
+  "rsync_options": {
+    "type": "string",
+    "default": "",
+    "description": "Extra rsync backend options (quoted)"
+  },
+  "swift_storage_policy": {
+    "type": "string",
+    "default": "",
+    "description": "OpenStack Swift storage policy"
+  },
+  "metadata_sync_mode": {
+    "type": "string",
+    "default": "partial",
+    "description": "Metadata sync mode (partial|full)",
+    "enum": [
+      "partial",
+      "full"
+    ]
+  },
+  "time_separator": {
+    "type": "string",
+    "default": ":",
+    "description": "Time separator in filenames (e.g., '_')"
+  },
+  "progress": {
+    "type": "bool",
+    "default": false,
+    "description": "Show upload progress and ETA"
+  },
+  "progress_rate": {
+    "type": "number",
+    "default": 3,
+    "description": "Progress update interval in seconds"
+  },
+  "hidden_encrypt_key": {
+    "type": "string",
+    "default": "",
+    "description": "Hide key ID using GPG --hidden-recipient"
+  },
+  "encrypt_secret_keyring": {
+    "type": "string",
+    "default": "",
+    "description": "Secret keyring path for --encrypt-key"
+  },
+  "rename": {
+    "type": "list",
+    "default": [],
+    "description": "Rename paths in backup (list of objects)"
+  },
+  "rename_items": {
+    "type": "list",
+    "default": [],
+    "description": "Rename paths in backup (list of objects)"
+  },
+  "no_files_changed": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip in-memory change collection (saves memory)"
+  },
+  "copy_blocksize": {
+    "type": "number",
+    "default": 128,
+    "description": "Blocksize in KB for copying"
+  },
+  "ignore_errors": {
+    "type": "bool",
+    "default": false,
+    "description": "Try to ignore certain errors (emergency restore only)"
+  },
+  "config_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Override config directory (~/.config/duplicity)"
+  },
+  "gdrive_folder_id": {
+    "type": "string",
+    "default": "",
+    "description": "Google Drive folder ID (query param for Shared/My Drive)"
+  },
+  "idr_fakeroot": {
+    "type": "string",
+    "default": "",
+    "description": "fakeroot directory for idrived backend"
+  },
+  "gio": {
+    "type": "bool",
+    "default": false,
+    "description": "Use GIO backend"
+  },
+  "webdav_headers": {
+    "type": "string",
+    "default": "",
+    "description": "WebDAV headers as CSV (key,value,key2,value2)"
+  },
+  "ssl_cacert_file": {
+    "type": "string",
+    "default": "",
+    "description": "CA cert file for WebDAV/FTP SSL"
+  },
+  "ssl_cacert_path": {
+    "type": "string",
+    "default": "",
+    "description": "CA cert directory for SSL"
+  },
+  "ssl_no_check_certificate": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable SSL certificate verification"
+  },
+  "ssh_askpass": {
+    "type": "bool",
+    "default": false,
+    "description": "Prompt for SSH password (if needed)"
+  },
+  "imap_full_address": {
+    "type": "string",
+    "default": "",
+    "description": "IMAP full email address"
+  },
+  "imap_mailbox": {
+    "type": "string",
+    "default": "INBOX",
+    "description": "IMAP mailbox name"
+  },
+  "mf_purge": {
+    "type": "bool",
+    "default": false,
+    "description": "MediaFire: purge on delete"
+  },
+  "mp_segment_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Swift segment size in MB"
+  },
+  "rclone_options": {
+    "type": "list",
+    "default": [],
+    "description": "Rclone options as environment variables (e.g., ['STATS=5s'] \u2192 export RCLONE_STATS=5s) \u2014 items: string"
+  },
+  "azure_connection_string": {
+    "type": "string",
+    "default": "",
+    "description": "Azure connection string (set via env var)"
+  },
+  "cloudfiles_username": {
+    "type": "string",
+    "default": "",
+    "description": "CloudFiles username (env var)"
+  },
+  "cloudfiles_apikey": {
+    "type": "string",
+    "default": "",
+    "description": "CloudFiles API key (env var)"
+  },
+  "cloudfiles_authurl": {
+    "type": "string",
+    "default": "",
+    "description": "CloudFiles auth URL (env var)"
+  },
+  "swift_username": {
+    "type": "string",
+    "default": "",
+    "description": "Swift username (env var)"
+  },
+  "swift_password": {
+    "type": "string",
+    "default": "",
+    "description": "Swift password (env var)"
+  },
+  "swift_authurl": {
+    "type": "string",
+    "default": "",
+    "description": "Swift auth URL (env var)"
+  },
+  "swift_tenantname": {
+    "type": "string",
+    "default": "",
+    "description": "Swift tenant name (env var)"
+  },
+  "swift_tenantid": {
+    "type": "string",
+    "default": "",
+    "description": "Swift tenant ID (env var)"
+  },
+  "swift_projectname": {
+    "type": "string",
+    "default": "",
+    "description": "Swift project name (env var)"
+  },
+  "swift_projectid": {
+    "type": "string",
+    "default": "",
+    "description": "Swift project ID (env var)"
+  },
+  "swift_userid": {
+    "type": "string",
+    "default": "",
+    "description": "Swift user ID (env var)"
+  },
+  "swift_regionname": {
+    "type": "string",
+    "default": "",
+    "description": "Swift region name (env var)"
+  },
+  "pca_username": {
+    "type": "string",
+    "default": "",
+    "description": "PCA username (env var)"
+  },
+  "pca_password": {
+    "type": "string",
+    "default": "",
+    "description": "PCA password (env var)"
+  },
+  "pca_authurl": {
+    "type": "string",
+    "default": "",
+    "description": "PCA auth URL (env var)"
+  },
+  "pca_userid": {
+    "type": "string",
+    "default": "",
+    "description": "PCA user ID (env var)"
+  },
+  "pca_tenantid": {
+    "type": "string",
+    "default": "",
+    "description": "PCA tenant ID (env var)"
+  },
+  "pca_regionname": {
+    "type": "string",
+    "default": "",
+    "description": "PCA region name (env var)"
+  },
+  "pca_tenantname": {
+    "type": "string",
+    "default": "",
+    "description": "PCA tenant name (env var)"
+  },
+  "dpbx_access_token": {
+    "type": "string",
+    "default": "",
+    "description": "Dropbox access token (env var)"
+  },
+  "box_config_path": {
+    "type": "string",
+    "default": "",
+    "description": "Box config file path (env var)"
+  },
+  "onedrive_client_id": {
+    "type": "string",
+    "default": "",
+    "description": "OneDrive client ID (env var)"
+  },
+  "onedrive_root": {
+    "type": "string",
+    "default": "",
+    "description": "OneDrive root (SharePoint site id; env var)"
+  },
+  "onedrive_token_path": {
+    "type": "string",
+    "default": "",
+    "description": "OneDrive token path (env var)"
+  },
+  "xorriso_path": {
+    "type": "string",
+    "default": "",
+    "description": "xorriso binary path (env var)"
+  },
+  "xorriso_write_speed": {
+    "type": "string",
+    "default": "max",
+    "description": "xorriso write speed (min|max; env var)",
+    "enum": [
+      "min",
+      "max"
+    ]
+  },
+  "xorriso_assert_volid": {
+    "type": "string",
+    "default": "",
+    "description": "xorriso required volume ID (env var)"
+  },
+  "xorriso_args": {
+    "type": "string",
+    "default": "",
+    "description": "xorriso extra args (env var)"
+  },
+  "passphrases": {
+    "type": "list",
+    "default": [],
+    "description": "Passphrases (referenced env var names); items: {name: string, value: string}"
+  },
+  "passphrases_items": {
+    "type": "list",
+    "default": [],
+    "description": "Passphrases (referenced env var names)"
+  }
+}

@@ -1,0 +1,308 @@
+# ==============================================================================
+# Docker Daemon Configuration Template
+# ==============================================================================
+# This file is sourced by:
+#   - /etc/init.d/docker (sysvinit)
+#   - /etc/init/docker (upstart)
+#   - systemd's docker.service (if DropInFiles are not used)
+#
+# NOTE: Using this file is discouraged on modern systems. The recommended
+# approach is /etc/docker/daemon.json or systemd drop-in files (e.g.
+# /etc/systemd/system/docker.service.d/override.conf).
+#
+# However, this template provides a self-documenting INI-style configuration
+# compatible with older init systems or specific legacy requirements.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Global Options / General Settings
+# ------------------------------------------------------------------------------
+
+# Path to the Docker root directory.
+# Default: /var/lib/docker
+# Description: The root directory for Docker. Docker stores its data here,
+#              including images, containers, volumes, and networks.
+# Type: string
+# DockerRootDir = {{ (docker_d | default({})).docker_root_dir | default('/var/lib/docker') }}
+
+# Use of `--graph` is deprecated in favor of `--data-root`.
+# If your version of Docker still supports it, you can use this.
+# DockerRootDir = {{ (docker_d | default({})).graph | default('') }}
+
+# Whether to restrict the host to only IPv4 or IPv6 addresses.
+# Default: "" (empty, meaning allow both)
+# Options: ipv4, ipv6, none
+# Description: Controls which IP addresses the Docker daemon listens on.
+#              If empty, it listens on all available addresses.
+# Type: string
+# Host = {{ (docker_d | default({})).host | default('') }}
+
+# Debug mode enables verbose logging from the Docker daemon.
+# Default: false
+# Description: When enabled, the daemon outputs detailed logs for debugging
+#              purposes. Useful for troubleshooting startup issues or runtime
+#              errors.
+# Type: boolean
+# Debug = {{ (docker_d | default({})).debug | default(false) | ternary('true', 'false') }}
+
+# Daemon log level.
+# Default: "info"
+# Options: debug, info, warn, error, fatal
+# Description: Sets the minimum log level for the Docker daemon.
+#              Logs below this level are suppressed.
+# Type: string
+# LogLevel = {{ (docker_d | default({})).log_level | default('info') }}
+
+# Log format for the Docker daemon.
+# Default: "text"
+# Options: text, json
+# Description: Specifies the format of the log entries.
+#              'text' is human-readable, 'json' is machine-parseable.
+# Type: string
+# LogLevel = {{ (docker_d | default({})).log_format | default('text') }}
+
+# ------------------------------------------------------------------------------
+# Security Options
+# ------------------------------------------------------------------------------
+
+# Enable user namespace remapping for containers.
+# Default: false
+# Description: Maps UIDs/GIDs inside containers to a sub-UID/GID range
+#              on the host, enhancing security by preventing root inside
+#              a container from having root privileges on the host.
+# Type: boolean
+# UsernsRemap = {{ (docker_d | default({})).userns_remapping | default(false) | ternary('true', 'false') }}
+
+# Restrict privileged mode.
+# Default: false
+# Description: If true, no containers can be started with the --privileged flag.
+#              This is a strong security measure against container escapes.
+# Type: boolean
+# NoNewPrivileges = {{ (docker_d | default({})).no_new_privileges | default(false) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Storage Drivers
+# ------------------------------------------------------------------------------
+
+# Storage driver to use for container and image storage.
+# Default: "auto" (Docker selects the best available driver)
+# Options: overlay2, aufs, devicemapper, vfs
+# Description: The storage driver determines how images and containers
+#              are stored on disk. 'overlay2' is recommended for most
+#              modern Linux kernels.
+# Type: string
+# StorageDriver = {{ (docker_d | default({})).storage_driver | default('auto') }}
+
+# Storage options for the storage driver.
+# Default: {} (empty)
+# Description: Driver-specific options. For example, for devicemapper:
+#              storage-opt=dm.basesize=50G
+# Type: list of strings
+# StorageOpt = {{ (docker_d | default({})).storage_opt | default([]) | join('\nStorageOpt = ') }}
+{% for opt in (docker_d | default({})).storage_opt | default([]) %}StorageOpt = {{ opt }}
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Network Options
+# ------------------------------------------------------------------------------
+
+# Docker daemon listen address.
+# Default: "" (empty, listens on /var/run/docker.sock)
+# Description: Specify the IP address or Unix socket for the Docker daemon
+#              to listen on. Example: "tcp://127.0.0.1:2375" or
+#              "unix:///var/run/docker.sock".
+# Type: string
+# Host = {{ (docker_d | default({})).host | default('') }}
+
+# DNS servers to use inside containers.
+# Default: [] (empty, uses host's DNS)
+# Description: List of DNS servers to inject into containers.
+#              Example: 8.8.8.8, 8.8.4.4
+# Type: list of strings
+DNS = {{ (docker_d | default({})).dns | default([]) | join(', ') }}
+
+# DNS search domains to use inside containers.
+# Default: [] (empty, uses host's search domains)
+# Description: List of DNS search domains to inject into containers.
+#              Example: example.com, internal.example.com
+# Type: list of strings
+DNSSearch = {{ (docker_d | default({})).dns_search | default([]) | join(', ') }}
+
+# Default bridge network settings.
+# Default: 172.17.0.1/16
+# Description: IP address and CIDR for the default bridge network (docker0).
+#              Only set if you need to customize the default network range.
+# Type: string
+Bip = {{ (docker_d | default({})).bip | default('') }}
+
+# Default MTU for the bridge network.
+# Default: 0 (auto-detected)
+# Description: Maximum Transmission Unit for the bridge network.
+#              Set explicitly if your network infrastructure requires a specific MTU.
+# Type: integer
+Mtu = {{ (docker_d | default({})).mtu | default(0) }}
+
+# Enable IPv4 forwarding on the host.
+# Default: false
+# Description: If true, enables IPv4 packet forwarding on the host.
+#              Docker usually handles this, but explicit setting can be useful.
+# Type: boolean
+# Iptables = {{ (docker_d | default({})).iptables | default(true) | ternary('true', 'false') }}
+
+# Disable IPv6 NAT.
+# Default: false
+# Description: If true, disables IPv6 NAT for containers.
+#              Useful in certain network configurations.
+# Type: boolean
+# IPv6 = {{ (docker_d | default({})).ipv6 | default(false) | ternary('true', 'false') }}
+
+# Fixed CIDR for the default bridge network.
+# Default: "" (empty)
+# Description: Restricts the pool of IP addresses assigned to containers.
+#              Example: 172.17.0.0/16
+# Type: string
+# FixedCidr = {{ (docker_d | default({})).fixed_cidr | default('') }}
+
+# ------------------------------------------------------------------------------
+# Logging Options
+# ------------------------------------------------------------------------------
+
+# Default logging driver for containers.
+# Default: "json-file"
+# Options: json-file, syslog, journald, none
+# Description: The logging driver determines where container logs are sent.
+#              'json-file' writes to JSON files, 'syslog' sends to syslog.
+# Type: string
+# LogDriver = {{ (docker_d | default({})).log_driver | default('json-file') }}
+
+# Logging options for the default logging driver.
+# Default: {} (empty)
+# Description: Driver-specific logging options. For example:
+#              log-opt max-size=10m, log-opt max-file=3
+# Type: map
+{% for key, value in (docker_d | default({})).log_opt | default({}) | dict2items %}LogOpt = {{ key }}={{ value }}
+{% endfor %}
+
+# Maximum log file size for json-file logger.
+# Default: "" (no limit)
+# Description: Maximum size of a single log file.
+#              Example: 10m, 1g
+# Type: string
+# LogOpt MaxSize = {{ (docker_d | default({})).log_opt_max_size | default('') }}
+
+# Maximum number of log files to keep for json-file logger.
+# Default: "" (no limit)
+# Description: Maximum number of log files to retain.
+#              Example: 5
+# Type: integer
+# LogOpt MaxFile = {{ (docker_d | default({})).log_opt_max_file | default('') }}
+
+# ------------------------------------------------------------------------------
+# Feature Flags / Experimental
+# ------------------------------------------------------------------------------
+
+# Enable experimental features.
+# Default: false
+# Description: Turns on experimental Docker features.
+#              These may be unstable or change in future versions.
+# Type: boolean
+# Experimental = {{ (docker_d | default({})).experimental | default(false) | ternary('true', 'false') }}
+
+# Enable live restore.
+# Default: false
+# Description: If true, containers continue running when the Docker daemon
+#              is restarted or crashes.
+# Type: boolean
+# LiveRestore = {{ (docker_d | default({})).live_restore | default(false) | ternary('true', 'false') }}
+
+# Enable containerd snapshotter.
+# Default: false
+# Description: Use containerd's snapshotter instead of Docker's internal one.
+#              Requires containerd to be running.
+# Type: boolean
+# ContainerdSnapshotter = {{ (docker_d | default({})).containerd_snapshotter | default(false) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Registry Mirrors and Insecure Registries
+# ------------------------------------------------------------------------------
+
+# Registry mirrors to use for pulling images.
+# Default: [] (empty)
+# Description: List of mirror URLs for Docker Hub or other registries.
+#              Useful for performance and redundancy.
+#              Example: https://mirror.gcr.io
+# Type: list of strings
+RegistryMirror = {{ (docker_d | default({})).registry_mirrors | default([]) | join('\nRegistryMirror = ') }}
+{% for mirror in (docker_d | default({})).registry_mirrors | default([]) %}RegistryMirror = {{ mirror }}
+{% endfor %}
+
+# Insecure registries to allow HTTP communication.
+# Default: [] (empty)
+# Description: List of registries that should be accessed over HTTP.
+#              WARNING: This is insecure and should only be used for
+#              internal registries without TLS.
+#              Example: 192.168.0.100:5000
+# Type: list of strings
+InsecureRegistry = {{ (docker_d | default({})).insecure_registries | default([]) | join('\nInsecureRegistry = ') }}
+{% for reg in (docker_d | default({})).insecure_registries | default([]) %}InsecureRegistry = {{ reg }}
+{% endfor %}
+
+# Default cgroup driver.
+# Default: "cgroupfs" (or "systemd" if detected)
+# Description: The cgroup driver to use for managing cgroups.
+#              'systemd' is recommended when using systemd.
+# Type: string
+# CgroupDriver = {{ (docker_d | default({})).cgroup_driver | default('systemd') }}
+
+# Default ulimits for containers.
+# Default: [] (empty)
+# Description: List of default ulimit settings for containers.
+#              Format: name=soft:hard
+#              Example: nofile=1024:65536
+# Type: list of strings
+# Ulimit = {{ (docker_d | default({})).ulimits | default([]) | join('\nUlimit = ') }}
+{% for ulimit in (docker_d | default({})).ulimits | default([]) %}Ulimit = {{ ulimit }}
+{% endfor %}
+
+# Default security options for containers.
+# Default: [] (empty)
+# Description: List of default security options for containers.
+#              Format: seccomp=profile:name
+#              Example: apparmor=profile:default
+# Type: list of strings
+# SecurityOpt = {{ (docker_d | default({})).security_opt | default([]) | join('\nSecurityOpt = ') }}
+{% for sec in (docker_d | default({})).security_opt | default([]) %}SecurityOpt = {{ sec }}
+{% endfor %}
+
+# Default system-wide OOM score adjustment for containers.
+# Default: "" (empty)
+# Description: OOM score adjustment for Docker processes.
+#              Helps prevent Docker from being killed by the OOM killer.
+# Type: integer
+# OomScoreAdjust = {{ (docker_d | default({})).oom_score_adjust | default('') }}
+
+# Enable userland proxy for container traffic.
+# Default: true
+# Description: If true, use a userland proxy for container port mapping.
+#              Disabling it may improve performance but requires specific
+#              kernel support.
+# Type: boolean
+# UserlandProxy = {{ (docker_d | default({})).userland_proxy | default(true) | ternary('true', 'false') }}
+
+# ------------------------------------------------------------------------------
+# Swarming / Cluster Mode
+# ------------------------------------------------------------------------------
+
+# Enable Docker swarm mode.
+# Default: false
+# Description: If true, enables swarm mode for clustering and orchestration.
+#              Requires additional configuration for manager/worker nodes.
+# Type: boolean
+# Swarm = {{ (docker_d | default({})).swarm | default(false) | ternary('true', 'false') }}
+
+# Swarm listen address.
+# Default: "0.0.0.0:2377"
+# Description: Address for the swarm manager to listen on.
+#              Only used when swarm mode is enabled.
+# Type: string
+# SwarmListenAddr = {{ (docker_d | default({})).swarm_listen_addr | default('0.0.0.0:2377') }}

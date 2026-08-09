@@ -1,0 +1,41 @@
+# /etc/fstrim.conf — Configuration for the periodic fstrim service (util-linux)
+# Controls whether fstrim runs on boot or via cron, and which filesystems to trim.
+#
+# This template is self-documenting: every directive is preceded by its schema description.
+
+# Whether to run fstrim once during system boot (before user login).
+# Values: yes | no
+{% if run_on_boot | default(false) | bool %}
+RUN_ON_BOOT=yes
+{% else %}
+RUN_ON_BOOT=no
+{% endif %}
+
+# Whether to enable periodic TRIM via cron (typically weekly on systemd-based systems).
+# Values: yes | no
+{% if run_via_cron | default(true) | bool %}
+RUN_VIA_CRON=yes
+{% else %}
+RUN_VIA_CRON=no
+{% endif %}
+
+# List of explicit filesystem mount points to trim (e.g., ['/','/home','/var']).
+# If empty, fstrim auto-detects SSD-backed ext4/btrfs/xfs mount points that support discard/trim.
+# Multiple paths are space-separated on a single line.
+# Note: If this list is empty, the MOUNT_POINTS directive is omitted, allowing fstrim to use its default discovery logic.
+{% if mount_points | default([]) | length > 0 %}
+MOUNT_POINTS="{% for m in mount_points | default([]) %}{{ m }}{% if not loop.last %} {% endif %}{% endfor %}"
+{% endif %}
+
+# Additional mount points (for documentation/comments only).
+# Not used by fstrim binary but useful for operator notes to document intent.
+{% if extra_mounts | default([]) | length > 0 %}
+# Operator notes on additional mount points to consider:
+{% for mount in extra_mounts | default([]) %}
+# - {{ mount }}
+{% endfor %}
+{% endif %}
+
+# Disable trimming on specific filesystems (space-separated list).
+# Note: fstrim ignores filesystems not supporting TRIM; this is rarely needed.
+# DISABLED_FS=""

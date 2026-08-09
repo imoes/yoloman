@@ -1,0 +1,64 @@
+{
+  "sections": {
+    "type": "list",
+    "default": [
+      {
+        "name": "START",
+        "entries": [
+          {
+            "name": "recover",
+            "args": "cmd=\"ctl_cyrusdb -r\""
+          }
+        ],
+        "description": "Processes to run before any SERVICES are spawned."
+      },
+      {
+        "name": "SERVICES",
+        "entries": [
+          {
+            "name": "imap",
+            "args": "cmd=\"imapd\" listen=\"imap\" prefork=1"
+          },
+          {
+            "name": "imaps",
+            "args": "cmd=\"imapd -s\" listen=\"imaps\" prefork=0"
+          },
+          {
+            "name": "lmtpunix",
+            "args": "cmd=\"lmtpd\" listen=\"/var/imap/socket/lmtp\""
+          },
+          {
+            "name": "lmtp",
+            "args": "cmd=\"lmtpd\" listen=\"localhost:lmtp\""
+          }
+        ],
+        "description": "Processes spawned to handle client connections."
+      },
+      {
+        "name": "EVENTS",
+        "entries": [
+          {
+            "name": "checkpoint",
+            "args": "cmd=\"ctl_cyrusdb -c\" period=30"
+          }
+        ],
+        "description": "Processes run at specific intervals."
+      },
+      {
+        "name": "DAEMON",
+        "entries": [
+          {
+            "name": "idled",
+            "args": "cmd=\"idled\""
+          }
+        ],
+        "description": "Long running daemons managed by master."
+      }
+    ],
+    "description": "List of configuration sections (START, SERVICES, EVENTS, DAEMON)."
+  },
+  "entry_fields": {
+    "type": "object",
+    "description": "Fields for entries within a section. Note: The template flattens name and args, so schema validation is structural based on the example defaults provided."
+  }
+}

@@ -1,0 +1,114 @@
+# ==============================================================================
+# cstream Configuration Template
+# ==============================================================================
+# This template generates command-line arguments for cstream, a tool for
+# controlling the rate at which data is read from or written to files/sockets.
+# It is designed to be self-documenting: every directive is preceded by a comment
+# explaining its purpose, default value, and behavior.
+# ==============================================================================
+
+# Block size (bytes) used for read/write operations.
+# Default: 8192
+-b {{ block_size | default(8192) }}
+
+# Buffer size (bytes) before writing.
+# If null or not specified, defaults to block_size.
+# Must be >= block_size.
+-B {{ buffer_size | default(block_size | default(8192)) }}
+
+# Concurrent operation mode.
+# 0 = disabled (single stream)
+# 1 = read buffers (asynchronous reads)
+# 2 = write buffers (asynchronous writes)
+# 3 = both (asynchronous read and write)
+# Default: 0
+-c {{ concurrent_mode | default(0) }}
+
+# Input file specification.
+# Empty string or missing: uses stdin.
+# 'filename': reads from local file.
+# 'hostname:port': establishes a TCP connection to the host:port for reading.
+# ':port': listens on the local port for incoming connections.
+# Default: '' (stdin)
+{% if input_file | default('') | trim != '' %}-i {{ input_file | default('') }}{% endif %}
+
+# Output file specification.
+# Empty string or missing: uses stdout.
+# '-': discards output (null device).
+# 'filename': writes to local file.
+# 'hostname:port': establishes a TCP connection to the host:port for writing.
+# ':port': listens on the local port for incoming connections.
+# Default: '' (stdout)
+{% if output_file | default('') | trim != '' %}-o {{ output_file | default('') }}{% endif %}
+
+# Input file type flags.
+# 'f': Input is a FIFO (named pipe).
+# 'F': fsync after every write to input (rarely needed).
+# 'a': Input is an audio device.
+# 't': Copy file descriptor 3 (for debugging/advanced use).
+# 'N': Disable TCP_NODELAY (disable Nagle's algorithm).
+# Default: ''
+{% if input_type_flags | default('') | trim != '' %}-I {{ input_type_flags | default('') }}{% endif %}
+
+# Output file type flags.
+# 'f': Output is a FIFO.
+# 'F': fsync after every write to output.
+# 'a': Output is an audio device.
+# 't': Copy file descriptor 3.
+# 'N': Disable TCP_NODELAY.
+# 'D': Use O_DIRECT for output (bypass page cache, requires aligned I/O).
+# 'S': Use O_SYNC for output (synchronous writes).
+# Default: ''
+{% if output_type_flags | default('') | trim != '' %}-O {{ output_type_flags | default('') }}{% endif %}
+
+# Include line count in statistics output.
+# If true, cstream will count and report the number of lines processed.
+# Default: false
+{% if line_count | default(false) %}-l{% endif %}
+
+# Data limit with optional suffix.
+# Limits the total amount of data transferred.
+# Suffixes: k (1024), m (1024^2), g (1024^3).
+# Empty string or missing: no limit.
+# Default: ''
+{% if data_limit | default('') | trim != '' %}-n {{ data_limit | default('') }}{% endif %}
+
+# Path to write the process ID (PID).
+# In concurrent mode (> 0), this file contains the parent PID.
+# Empty string or missing: no PID file is created.
+# Default: ''
+{% if pid_file | default('') | trim != '' %}-p {{ pid_file | default('') }}{% endif %}
+
+# Throughput limit in bytes per second.
+# Positive value: limits the long-term average throughput.
+# Negative value: sets an upper bound for each individual call.
+# Empty string or missing: no throughput limit.
+# Default: '' (None)
+{% if throughput_limit is defined and throughput_limit is not none %}-t {{ throughput_limit }}{% endif %}
+
+# Report interval in seconds.
+# Sets how often throughput statistics are reported to stderr.
+# 0: disables reporting.
+# Default: 0
+{% if report_interval | default(0) > 0 %}-T {{ report_interval | default(0) }}{% endif %}
+
+# Verbose level for statistics output.
+# 0: no verbose output.
+# 1: summary only.
+# 2: per-pair rate statistics.
+# 3: separate read and write rates.
+# 4: per-IO statistics (very verbose).
+# Default: 0
+{% if verbose_level | default(0) > 0 %}-v {{ verbose_level | default(0) }}{% endif %}
+
+# Signal handling: SIGHUP double-tap safety.
+# By default, cstream ignores single SIGHUP and waits 5 seconds for a second SIGHUP
+# before exiting. This prevents accidental kills.
+# Setting disable_sighup_doubletap to true disables this safety mechanism
+# (cstream will exit immediately on the first SIGHUP).
+# Default: false (safety enabled)
+{% if disable_sighup_doubletap | default(false) %}# SIGHUP double-tap safety disabled.
+# cstream will exit on first SIGHUP.
+{% else %}# SIGHUP double-tap safety enabled (default).
+# Send SIGHUP twice within 5 seconds to exit.
+{% endif %}

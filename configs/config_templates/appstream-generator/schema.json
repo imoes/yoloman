@@ -1,0 +1,605 @@
+{
+  "distro_name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the distribution (e.g., 'Debian', 'Ubuntu')"
+  },
+  "suites": {
+    "type": "list",
+    "default": [],
+    "description": "List of distribution suites (releases) to process; each suite corresponds to a distinct repository configuration (e.g., 'bullseye', 'focal', 'jammy') with optional sections, components, and architectures. Required for each suite to locate packages and metadata. Values must match real distro naming; see Debian/Ubuntu release codenames or Fedora release names for examples."
+  },
+  "suites[].name": {
+    "type": "string",
+    "default": "",
+    "description": "Suite name (e.g., 'bullseye', 'focal')"
+  },
+  "suites[].section": {
+    "type": "string",
+    "default": "main",
+    "description": "APT section for package filtering (e.g., 'main', 'contrib', 'non-free')"
+  },
+  "suites[].component": {
+    "type": "string",
+    "default": "main",
+    "description": "Component to process (e.g., 'main', 'contrib', 'non-free')"
+  },
+  "suites[].origin": {
+    "type": "string",
+    "default": "",
+    "description": "Origin label for the suite"
+  },
+  "suites[].label": {
+    "type": "string",
+    "default": "",
+    "description": "Label for the suite"
+  },
+  "suites[].architectures": {
+    "type": "list",
+    "default": [],
+    "description": "List of architectures to process (e.g., ['amd64', 'arm64'])"
+  },
+  "suites[].components": {
+    "type": "list",
+    "default": [],
+    "description": "List of components to include in this suite"
+  },
+  "suites[].indices": {
+    "type": "list",
+    "default": [],
+    "description": "APT indices to use (e.g., ['Packages', 'Sources'])"
+  },
+  "suites[].source_index": {
+    "type": "string",
+    "default": "",
+    "description": "Primary source index file name (e.g., 'Sources')"
+  },
+  "suites[].source_indices": {
+    "type": "list",
+    "default": [],
+    "description": "List of source index file names"
+  },
+  "suites[].components_include": {
+    "type": "list",
+    "default": [],
+    "description": "Additional component names to include"
+  },
+  "suites[].components_exclude": {
+    "type": "list",
+    "default": [],
+    "description": "Component names to exclude"
+  },
+  "suites[].package_include": {
+    "type": "list",
+    "default": [],
+    "description": "Packages to include exclusively"
+  },
+  "suites[].package_exclude": {
+    "type": "list",
+    "default": [],
+    "description": "Packages to exclude"
+  },
+  "suites[].sources": {
+    "type": "list",
+    "default": [],
+    "description": "Override source URIs for this suite"
+  },
+  "suites[].source_sources": {
+    "type": "list",
+    "default": [],
+    "description": "Override source URIs for source packages"
+  },
+  "suites[].apt_architectures": {
+    "type": "list",
+    "default": [],
+    "description": "APT architectures list (overrides defaults)"
+  },
+  "suites[].apt_architectures_include": {
+    "type": "list",
+    "default": [],
+    "description": "Architectures to include"
+  },
+  "suites[].apt_architectures_exclude": {
+    "type": "list",
+    "default": [],
+    "description": "Architectures to exclude"
+  },
+  "suites[].apt_architectures_only": {
+    "type": "list",
+    "default": [],
+    "description": "Only these architectures (exclusive list)"
+  },
+  "suites[].apt_caches": {
+    "type": "list",
+    "default": [],
+    "description": "Custom APT cache locations"
+  },
+  "suites[].apt_keys": {
+    "type": "list",
+    "default": [],
+    "description": "Paths to APT trusted key files"
+  },
+  "suites[].apt_sources_list": {
+    "type": "string",
+    "default": "",
+    "description": "Path to /etc/apt/sources.list file"
+  },
+  "suites[].apt_sources_list_available": {
+    "type": "string",
+    "default": "",
+    "description": "Path to /etc/apt/sources.list.d/ (overrides default)"
+  },
+  "suites[].apt_trusted": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to trust APT repositories by default"
+  },
+  "suites[].apt_secure": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable APT SecureApt checks"
+  },
+  "suites[].apt_method": {
+    "type": "string",
+    "default": "http",
+    "description": "Default APT download method (http, https, ftp, file)"
+  },
+  "suites[].apt_user": {
+    "type": "string",
+    "default": "",
+    "description": "Username for authenticated APT access"
+  },
+  "suites[].apt_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for authenticated APT access (insecure for production; prefer keyring)"
+  },
+  "suites[].apt_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "Generic APT proxy URL"
+  },
+  "suites[].apt_https_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "HTTPS-specific APT proxy"
+  },
+  "suites[].apt_http_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP-specific APT proxy"
+  },
+  "suites[].apt_ftp_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "FTP-specific APT proxy"
+  },
+  "suites[].apt_file_proxy": {
+    "type": "string",
+    "default": "",
+    "description": "File-based APT proxy"
+  },
+  "suites[].apt_dirty_ignore": {
+    "type": "bool",
+    "default": false,
+    "description": "Ignore stale APT caches"
+  },
+  "suites[].apt_allow_insecure": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow insecure (non-HTTPS) repositories"
+  },
+  "suites[].apt_allow_weak": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow weak cryptographic hashes"
+  },
+  "suites[].apt_allow_releaseinfo_change": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow release info changes (e.g., codename changes)"
+  },
+  "suites[].apt_update": {
+    "type": "bool",
+    "default": true,
+    "description": "Run apt-get update before processing"
+  },
+  "suites[].apt_upgrade": {
+    "type": "bool",
+    "default": false,
+    "description": "Run apt-get upgrade before processing"
+  },
+  "suites[].apt_dist_upgrade": {
+    "type": "bool",
+    "default": false,
+    "description": "Run apt-get dist-upgrade before processing"
+  },
+  "suites[].apt_full_upgrade": {
+    "type": "bool",
+    "default": false,
+    "description": "Run apt-get full-upgrade before processing"
+  },
+  "suites[].apt_sources_d": {
+    "type": "string",
+    "default": "/etc/apt/sources.list.d/",
+    "description": "Directory containing additional sources.list.d entries"
+  },
+  "suites[].apt_trusted_gpg_d": {
+    "type": "string",
+    "default": "/etc/apt/trusted.gpg.d/",
+    "description": "Directory for trusted GPG key files"
+  },
+  "suites[].apt_keys_dir": {
+    "type": "string",
+    "default": "/etc/apt/trusted.gpg.d/",
+    "description": "Directory where keys are stored during runtime"
+  },
+  "suites[].apt_keys_dir_mode": {
+    "type": "string",
+    "default": "0755",
+    "description": "File mode (octal string) for apt_keys_dir"
+  },
+  "suites[].apt_keys_dir_owner": {
+    "type": "string",
+    "default": "root",
+    "description": "Owner name for apt_keys_dir"
+  },
+  "suites[].apt_keys_dir_group": {
+    "type": "string",
+    "default": "root",
+    "description": "Group for apt_keys_dir"
+  },
+  "suites[].apt_keys_dir_perm": {
+    "type": "string",
+    "default": "0755",
+    "description": "File permissions for apt_keys_dir (octal string)"
+  },
+  "suites[].apt_keys_dir_owner_uid": {
+    "type": "number",
+    "default": 0,
+    "description": "Owner UID for apt_keys_dir"
+  },
+  "suites[].apt_keys_dir_group_gid": {
+    "type": "number",
+    "default": 0,
+    "description": "Group GID for apt_keys_dir"
+  },
+  "suites[].apt_keys_dir_selinux": {
+    "type": "string",
+    "default": "",
+    "description": "SELinux context for apt_keys_dir"
+  },
+  "output_dir": {
+    "type": "string",
+    "default": "/var/cache/appstream",
+    "description": "Base output directory for generated AppStream files"
+  },
+  "export_dir": {
+    "type": "string",
+    "default": "/srv/appstream",
+    "description": "Directory to export final AppStream files and reports"
+  },
+  "cache_dir": {
+    "type": "string",
+    "default": "/var/cache/appstream",
+    "description": "Directory to store runtime cache (screenshots, scaled images)"
+  },
+  "temp_dir": {
+    "type": "string",
+    "default": "/tmp/appstream",
+    "description": "Temporary directory for transient processing"
+  },
+  "report_dir": {
+    "type": "string",
+    "default": "/var/log/appstream",
+    "description": "Directory for generated reports (HTML, JSON)"
+  },
+  "media_base_url": {
+    "type": "string",
+    "default": "",
+    "description": "Public base URL where media files (screenshots, icons) are hosted"
+  },
+  "media_path": {
+    "type": "string",
+    "default": "media",
+    "description": "Relative path under media_base_url where media files are stored"
+  },
+  "media_cleanup": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to remove obsolete media files during cleanup"
+  },
+  "font_rendering": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to render desktop icons with fonts embedded"
+  },
+  "font_size": {
+    "type": "number",
+    "default": 14,
+    "description": "Font size (pixels) used in icon rendering"
+  },
+  "font_family": {
+    "type": "string",
+    "default": "sans-serif",
+    "description": "Font family name for icon rendering (e.g., 'sans-serif', 'serif')"
+  },
+  "font_color": {
+    "type": "string",
+    "default": "#000000",
+    "description": "Font color in hex RGB format"
+  },
+  "font_background": {
+    "type": "string",
+    "default": "#ffffff",
+    "description": "Background color in hex RGB format"
+  },
+  "font_format": {
+    "type": "string",
+    "default": "png",
+    "description": "Image format for font-rendered icons"
+  },
+  "font_dpi": {
+    "type": "number",
+    "default": 96,
+    "description": "Dots per inch for font rendering"
+  },
+  "font_antialias": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable font antialiasing"
+  },
+  "image_scaling": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to scale icons and media to required sizes"
+  },
+  "image_sizes": {
+    "type": "list",
+    "default": [
+      128,
+      256,
+      512
+    ],
+    "description": "List of target image sizes (pixels) to generate"
+  },
+  "image_format": {
+    "type": "string",
+    "default": "png",
+    "description": "Image format for scaled icons and screenshots"
+  },
+  "image_quality": {
+    "type": "number",
+    "default": 90,
+    "description": "JPEG/WEBP compression quality (0\u2013100)"
+  },
+  "screenshot_cleanup": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to remove stale screenshots from cache"
+  },
+  "screenshot_size": {
+    "type": "number",
+    "default": 640,
+    "description": "Default screenshot width/height (pixels)"
+  },
+  "screenshot_max_width": {
+    "type": "number",
+    "default": 1280,
+    "description": "Maximum screenshot width (pixels)"
+  },
+  "screenshot_max_height": {
+    "type": "number",
+    "default": 800,
+    "description": "Maximum screenshot height (pixels)"
+  },
+  "component_include": {
+    "type": "list",
+    "default": [],
+    "description": "Component types to include (e.g., 'desktop', 'font')"
+  },
+  "component_exclude": {
+    "type": "list",
+    "default": [],
+    "description": "Component types to exclude"
+  },
+  "package_include": {
+    "type": "list",
+    "default": [],
+    "description": "Package names to include (exact match)"
+  },
+  "package_exclude": {
+    "type": "list",
+    "default": [],
+    "description": "Package names to exclude (exact match)"
+  },
+  "format": {
+    "type": "string",
+    "default": "yaml",
+    "description": "Output format for metadata ('yaml' or 'xml')",
+    "enum": [
+      "yaml",
+      "xml"
+    ]
+  },
+  "version": {
+    "type": "string",
+    "default": "1.0",
+    "description": "AppStream metadata version"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging"
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug output"
+  },
+  "cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of processed media and metadata"
+  },
+  "cache_expire_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain cache before cleanup"
+  },
+  "threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker threads (0 = auto-detect)"
+  },
+  "metadata": {
+    "type": "object",
+    "default": null,
+    "description": "Global metadata hints (override per-distro defaults); used only if provided"
+  },
+  "metadata.website": {
+    "type": "string",
+    "default": "",
+    "description": "Website URL for the distribution"
+  },
+  "metadata.contact": {
+    "type": "string",
+    "default": "",
+    "description": "Contact email or URL"
+  },
+  "metadata.faq": {
+    "type": "string",
+    "default": "",
+    "description": "FAQ URL"
+  },
+  "metadata.donation": {
+    "type": "string",
+    "default": "",
+    "description": "Donation page URL"
+  },
+  "metadata.translation": {
+    "type": "string",
+    "default": "",
+    "description": "Translation project URL (e.g., Launchpad, Weblate)"
+  },
+  "metadata.translations": {
+    "type": "list",
+    "default": [],
+    "description": "List of translation entries; each must include 'lang' and 'url'"
+  },
+  "metadata.translations[].lang": {
+    "type": "string",
+    "default": "",
+    "description": "Language tag (e.g., 'pt', 'pt_BR')"
+  },
+  "metadata.translations[].url": {
+    "type": "string",
+    "default": "",
+    "description": "Translation project URL for this language"
+  },
+  "build_info": {
+    "type": "object",
+    "default": null,
+    "description": "Build-time metadata; usually auto-populated; only override if needed"
+  },
+  "build_info.timestamp": {
+    "type": "string",
+    "default": "",
+    "description": "ISO 8601 timestamp of build (e.g., '2025-06-25T12:00:00Z')"
+  },
+  "build_info.generator_version": {
+    "type": "string",
+    "default": "",
+    "description": "Version of appstream-generator used"
+  },
+  "hints": {
+    "type": "object",
+    "default": null,
+    "description": "Paths and hints for finding system metadata (desktop, metainfo, icons, fonts, MIME)"
+  },
+  "hints.desktop_file_dir": {
+    "type": "string",
+    "default": "/usr/share/applications",
+    "description": "Directory containing .desktop files"
+  },
+  "hints.metainfo_dir": {
+    "type": "string",
+    "default": "/usr/share/metainfo",
+    "description": "Directory containing .metainfo.xml files"
+  },
+  "hints.icon_theme_dir": {
+    "type": "string",
+    "default": "/usr/share/icons",
+    "description": "Top-level directory for icon themes"
+  },
+  "hints.font_dir": {
+    "type": "string",
+    "default": "/usr/share/fonts",
+    "description": "Top-level directory for font files"
+  },
+  "hints.mime_info_file": {
+    "type": "string",
+    "default": "/usr/share/mime/packages/freedesktop.org.xml",
+    "description": "MIME information file path"
+  },
+  "hints.appdata_merge": {
+    "type": "bool",
+    "default": true,
+    "description": "Merge .desktop metadata into AppData"
+  },
+  "hints.desktop_merge": {
+    "type": "bool",
+    "default": true,
+    "description": "Merge .desktop metadata into AppStream components"
+  },
+  "hints.icon_symlink": {
+    "type": "bool",
+    "default": true,
+    "description": "Create symlinks for icon cache"
+  },
+  "hints.icon_cleanup": {
+    "type": "bool",
+    "default": true,
+    "description": "Clean up stale icon symlinks"
+  },
+  "hints.font_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Update font caches"
+  },
+  "hints.mime_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Update MIME database"
+  },
+  "hints.icon_theme_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip icon theme processing"
+  },
+  "hints.metainfo_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip metainfo file processing"
+  },
+  "hints.desktop_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip .desktop file processing"
+  },
+  "hints.font_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip font processing"
+  },
+  "hints.mime_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip MIME processing"
+  },
+  "hints.icon_skip": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip icon processing"
+  }
+}

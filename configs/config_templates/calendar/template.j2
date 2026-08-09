@@ -1,0 +1,29 @@
+#!/bin/sh
+# /etc/cron.daily/calendar: BSD mainutils calendar daily maintenance script
+# Written by Austin Donnelly <and1000@debian.org>
+#
+# This script performs the daily maintenance for the `calendar` utility.
+# It sources the configuration from /etc/default/<default_calendar_config_file>
+# and, if enabled, runs the calendar binary to update its database.
+# The sendmail binary is checked but not actually used by this specific script logic,
+# though its presence is verified as a sanity check for mail-capable environments.
+
+# Source the configuration file. The variable default_calendar_config_file
+# specifies the name of the config file under /etc/default/.
+# Defaults to 'calendar' if not set.
+. /etc/default/{{ default_calendar_config_file | default('calendar') }}
+
+# Only proceed if daily maintenance is explicitly enabled via RUN_DAILY.
+# Defaults to 'true' if not set in the sourced config.
+[ x$RUN_DAILY = xtrue ] || exit 0
+
+# Verify that the sendmail executable exists and is executable.
+# This is a pre-check, even though this specific script snippet
+# does not invoke sendmail directly. It ensures the environment is valid.
+# Defaults to '/usr/sbin/sendmail'.
+[ -x {{ sendmail_path | default('/usr/sbin/sendmail') }} ] || exit 0
+
+# Run the calendar binary to update the calendar database.
+# Defaults to '/usr/bin/calendar'.
+# The -a flag typically indicates an update or specific action mode depending on the version.
+{{ calendar_binary | default('/usr/bin/calendar') }} -a

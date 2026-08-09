@@ -1,0 +1,51 @@
+# Smartd configuration file for monitoring SMART attributes on storage devices.
+# This file is managed by Ansible. Do not edit manually.
+# See man smartd.conf for full details on directives.
+
+# =============================================================================
+# Global Scan Directive
+# =============================================================================
+# DEVICESCAN tells smartd to automatically scan for all ATA and SCSI devices.
+# Directives following DEVICESCAN are applied to ALL discovered devices.
+# Most production environments should comment this out and list devices explicitly
+# below to avoid unintended monitoring of removable or virtual drives.
+#
+# Schema: devicescan_directives
+# Default: [] (empty list, effectively just the keyword DEVICESCAN)
+#
+# NOTE: The template ensures these directives are joined by spaces.
+DEVICESCAN {{ devicescan_directives | default([]) | join(' ') | trim }}
+
+# =============================================================================
+# Global Defaults
+# =============================================================================
+# The DEFAULT block sets directives that apply to all subsequent device lines
+# until the next DEFAULT block is encountered. This is useful for setting
+# common options like email notification addresses or logging levels globally.
+#
+# Schema: default_directives
+# Default: [] (empty list)
+DEFAULT {{ default_directives | default([]) | join(' ') | trim }}
+
+# =============================================================================
+# Device-Specific Monitoring
+# =============================================================================
+# List individual devices to monitor. Each entry specifies the device path
+# (e.g., /dev/sda, /dev/nvme0n1) and a list of directives specific to that device.
+# If no specific directives are listed for a device, it will inherit from the
+# last DEFAULT block or DEVICESCAN directives.
+#
+# Schema: devices
+# Default: [] (empty list)
+# Structure of each item:
+#   - name: str (e.g., "/dev/sda")
+#   - directives: list of str (e.g., ["-a", "-m admin@example.com"])
+
+{% for device in devices | default([]) %}
+# --- Device: {{ device.name | default('unknown_device') }} ---
+# Directives for this specific device.
+# If the device name is empty, this line will be malformed, so we guard it.
+{% if device.name | default('') %}
+{{ device.name }} {{ device.directives | default([]) | join(' ') | trim }}
+{% endif %}
+{% endfor %}

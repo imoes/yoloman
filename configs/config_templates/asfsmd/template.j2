@@ -1,0 +1,95 @@
+# asfsmd configuration file
+# This template generates command-line arguments for the asfsmd tool.
+# Each variable is mapped to its corresponding CLI flag.
+# If a variable is not provided, the default from the schema is used.
+
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+# Default: WARNING
+{% set _loglevel = loglevel | default('WARNING') %}
+--loglevel {{ _loglevel | upper }}
+
+# Suppress standard output, only errors are printed.
+# Default: False
+{% set _quiet = quiet | default(false) | lower %}
+{% if _quiet == 'true' %}--quiet{% endif %}
+
+# Enable verbose output messages.
+# Default: False
+{% set _verbose = verbose | default(false) | lower %}
+{% if _verbose == 'true' %}--verbose{% endif %}
+
+# Print debug messages.
+# Default: False
+{% set _debug = debug | default(false) | lower %}
+{% if _debug == 'true' %}--debug{% endif %}
+
+# Interpret INPUT as a file containing product names.
+# Default: False
+{% set _file_list = file_list | default(false) | lower %}
+{% if _file_list == 'true' %}--file-list{% endif %}
+
+# Interpret INPUT as URLs pointing to products on ASF server.
+# Default: False
+{% set _urls = urls | default(false) | lower %}
+{% if _urls == 'true' %}--urls{% endif %}
+
+# Output directory path for downloaded XML files.
+# Default: '.'
+{% set _outdir = outdir | default('.') %}
+-o {{ _outdir | trim }}
+
+# ASF authentication username (overrides .netrc).
+# Default: '' (empty)
+{% set _username = username | default('') %}
+{% if _username %}-u {{ _username | trim }}{% endif %}
+
+# ASF authentication password (overrides .netrc).
+# Default: '' (empty)
+{% set _password = password | default('') %}
+{% if _password %}-p {{ _password | trim }}{% endif %}
+
+# HTTPIO block size in MB.
+# Default: 16
+{% set _block_size = block_size | default(16) %}
+--block-size {{ _block_size | int }}
+
+# Select beam mode: s1, s2, s3, s4, s5, s6, iw1, iw2, iw3, ew1, ew2, ew3, ew4, ew5, wv1, wv2.
+# Default: '' (empty)
+{% set _beam = beam | default('') %}
+{% if _beam %}-b {{ _beam | trim }}{% endif %}
+
+# Select polarization: vv, vh, hv, hh.
+# Default: '' (empty)
+{% set _pol = pol | default('') %}
+{% if _pol %}--pol {{ _pol | trim }}{% endif %}
+
+# Download calibration files.
+# Default: False
+{% set _cal = cal | default(false) | lower %}
+{% if _cal == 'true' %}--cal{% endif %}
+
+# Download noise calibration files.
+# Default: False
+{% set _noise = noise | default(false) | lower %}
+{% if _noise == 'true' %}--noise{% endif %}
+
+# Download RFI files.
+# Default: False
+{% set _rfi = rfi | default(false) | lower %}
+{% if _rfi == 'true' %}--rfi{% endif %}
+
+# Download measurement files.
+# Default: False
+{% set _data = data | default(false) | lower %}
+{% if _data == 'true' %}--data{% endif %}
+
+# Disable progress bar.
+# Default: False
+{% set _noprogress = noprogress | default(false) | lower %}
+{% if _noprogress == 'true' %}--noprogress{% endif %}
+
+# List of Sentinel-1 product names or URLs depending on flags.
+# Default: [] (empty list)
+{% set _products = products | default([]) %}
+{% for product in _products %}
+{{ product | trim }}{% endfor %}

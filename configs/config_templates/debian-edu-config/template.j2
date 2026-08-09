@@ -1,0 +1,47 @@
+# =============================================================================
+# debian-edu-config: Network Block Status Check Cron Job
+# =============================================================================
+# This template generates a crontab entry that periodically checks whether
+# network blocking (e.g., via iptables/nftables rules) should be enabled or
+# disabled on a Debian Edu system.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Network Block Status Check
+# -----------------------------------------------------------------------------
+# Description: Interval in minutes for running debian-edu-update-netblock to
+#              check network blocking status.
+# Value:       {{ cron_interval_minutes | default(5) }}
+# -----------------------------------------------------------------------------
+# Note: If you need to change the interval, modify the cron expression below.
+#       The format is standard crontab: minute hour day-of-month month day-of-week
+#       This entry runs every {{ cron_interval_minutes | default(5) }} minutes.
+*/{{ cron_interval_minutes | default(5) }} * * * *	root	if [ -x {{ update_netblock_path | default('/usr/sbin/debian-edu-update-netblock') }} ]; then {{ update_netblock_path | default('/usr/sbin/debian-edu-update-netblock') }} auto > /dev/null; fi
+
+# -----------------------------------------------------------------------------
+# Development Cron Jobs (Commented Out)
+# -----------------------------------------------------------------------------
+# The next two entries could be useful during development.
+# They are commented out by default to avoid unintended side effects in production.
+# To enable them, uncomment the lines and adjust the interval as needed.
+# -----------------------------------------------------------------------------
+
+# Description: Interval in minutes for development cron jobs (timestamp touch and
+#              cf-agent runs).
+# Value:       {{ development_cron_interval_minutes | default(30) }}
+# -----------------------------------------------------------------------------
+# Timestamp File for cf-Agent Upgrade Detection
+# Description: Path to the timestamp file used for cf-agent upgrade detection.
+# Value:       {{ timestamp_file | default('/tmp/d-e-c') }}
+# -----------------------------------------------------------------------------
+# Run cf-agent in case of debian-edu-config package upgrade
+# Description: Full path to the cf-agent executable.
+# Value:       {{ cf_agent_path | default('/usr/sbin/cf-agent') }}
+# -----------------------------------------------------------------------------
+# Package List File for Upgrade Detection
+# Description: Path to the package list file used for upgrade detection.
+# Value:       {{ package_list_file | default('/var/lib/dpkg/info/debian-edu-config.list') }}
+# -----------------------------------------------------------------------------
+#*/{{ development_cron_interval_minutes | default(30) }} * * * *	root	 /usr/bin/touch {{ timestamp_file | default('/tmp/d-e-c') }}
+#*/20 * * * *	root	if test {{ package_list_file | default('/var/lib/dpkg/info/debian-edu-config.list') }} -nt {{ timestamp_file | default('/tmp/d-e-c') }}; then {{ cf_agent_path | default('/usr/sbin/cf-agent') }} -D installation; fi
+#

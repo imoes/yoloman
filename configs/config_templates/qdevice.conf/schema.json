@@ -1,0 +1,123 @@
+{
+  "algorithm": {
+    "type": "string",
+    "default": "ffsplit",
+    "description": "Quorum algorithm: 'ffsplit' (fixed first split) or 'lms' (linearizable multi-state). Most clusters use 'ffsplit'."
+  },
+  "tls": {
+    "type": "object",
+    "default": {
+      "enabled": true
+    },
+    "description": "TLS security settings. Enable or disable TLS and configure trust.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable TLS encryption for qdevice communication."
+      }
+    }
+  },
+  "models": {
+    "type": "object",
+    "default": {},
+    "description": "Model-specific parameters. Common keys: 'net', 'knet'. Structure depends on the model used.",
+    "items": {}
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "file": "/var/log/corosync/qdevice.log"
+    },
+    "description": "Logging configuration. Controls verbosity and target of qdevice logs.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable qdevice logging to file."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/corosync/qdevice.log",
+        "description": "Path to the log file."
+      }
+    }
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of nodes (cluster members) that are allowed to use this qdevice. Usually auto-populated, but can be explicitly set.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "nodeid": {
+          "type": "number",
+          "description": "Corosync node ID (integer)."
+        },
+        "ip": {
+          "type": "string",
+          "description": "IP address of the node (optional, auto-detected if omitted)."
+        }
+      }
+    }
+  },
+  "heuristics_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Interval in seconds between execution of heuristics commands to determine node health."
+  },
+  "heuristics": {
+    "type": "list",
+    "default": [],
+    "description": "List of shell commands executed as quorum heuristics. Commands must return 0 for 'up', non-zero for 'down'. Example: ['ping -c1 -W1 192.168.1.1', 'test -e /var/run/storage-ready'].",
+    "items": {
+      "type": "string"
+    }
+  },
+  "tie_breaker": {
+    "type": "string",
+    "default": "lowest",
+    "description": "Strategy for breaking ties during quorum decisions: 'lowest' (use lowest node ID), 'highest', or 'nodeid:ID' (specific node)."
+  },
+  "ip": {
+    "type": "string",
+    "default": "",
+    "description": "IP address of the qdevice host. If omitted, auto-detected. Only set if you want to override automatic resolution."
+  },
+  "port": {
+    "type": "number",
+    "default": 5403,
+    "description": "UDP port for qdevice communication. Standard port is 5403."
+  },
+  "timeout_connect": {
+    "type": "number",
+    "default": 3000,
+    "description": "Connection timeout in milliseconds before retry."
+  },
+  "timeout_exec": {
+    "type": "number",
+    "default": 3000,
+    "description": "Timeout in milliseconds for qdevice operation (e.g., vote request)."
+  },
+  "reconnect_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Seconds to wait before attempting to reconnect after a failure."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/corosync/qdevice/net/tls.crt",
+    "description": "Path to TLS certificate used for client authentication (if TLS enabled)."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/corosync/qdevice/net/tls.key",
+    "description": "Path to TLS private key (if TLS enabled)."
+  },
+  "tls_ca": {
+    "type": "string",
+    "default": "/etc/corosync/qdevice/net/ca.crt",
+    "description": "Path to TLS CA certificate for trust verification (if TLS enabled)."
+  }
+}

@@ -1,0 +1,131 @@
+# OpenStack Designate Central Service Configuration
+# This template configures designate-central, the primary component responsible for DNS zone
+# management, API requests, and coordination with worker components (BIND9/PDNS drivers)
+# and the message queue (RabbitMQ).
+#
+# Structure follows standard OpenStack INI-style configuration with sections:
+# [DEFAULT] - Global settings
+# [service:central] - Central daemon specific behavior
+# [storage:sqlalchemy] - Database backend configuration
+# [keystone_authtoken] - Identity service authentication
+# [service:rpc] - Message queue / RPC backend
+# [endpoint:*] - Optional extended RPC endpoints
+
+[DEFAULT]
+# Logging verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+log_level = {{ log_level | default('INFO') }}
+
+# Base directory for storing state, PID files, and other runtime data
+base_dir = {{ base_dir | default('/var/lib/designate') }}
+
+# Path to the PID file for the central daemon
+pid_file = {{ pid_file | default('/var/run/designate/designate-central.pid') }}
+
+# Network address the central daemon binds to for RPC (e.g., management IP)
+host = {{ host | default('0.0.0.0') }}
+
+# Port number for the central daemon's RPC server
+rpc_port = {{ rpc_port | default(9001) }}
+
+# Number of worker processes for the central daemon
+workers = {{ workers | default(2) }}
+
+# Maximum number of concurrent tasks that can be queued (e.g., zone imports)
+max_tasks = {{ max_tasks | default(10000) }}
+
+# Whether the central daemon service is enabled
+enabled = {{ enabled | default(true) }}
+
+[service:central]
+# Enable RPC communication for service state reporting
+enable_rpc = {{ enable_rpc | default(true) }}
+
+# Enable DNS zone management functionality in the central daemon
+central_enabled = {{ central_enabled | default(true) }}
+
+# Maximum number of DNS records allowed per zone (to prevent abuse)
+max_records_per_zone = {{ max_records_per_zone | default(500) }}
+
+# Maximum number of DNS zones a single tenant can own
+max_zones_per_tenant = {{ max_zones_per_tenant | default(10) }}
+
+# Default TTL (Time To Live) for DNS records (in seconds)
+default_ttl = {{ default_ttl | default(3600) }}
+
+# Default refresh interval for SOA records (in seconds)
+default_refresh = {{ default_refresh | default(3600) }}
+
+# Default retry interval for SOA records (in seconds)
+default_retry = {{ default_retry | default(900) }}
+
+# Default expire time for SOA records (in seconds)
+default_expire = {{ default_expire | default(1209600) }}
+
+# Default minimum TTL for SOA records (in seconds)
+default_minimum = {{ default_minimum | default(86400) }}
+
+# Enable incremental zone transfers (IXFR) for zone updates
+ixfr_enabled = {{ ixfr_enabled | default(true) }}
+
+# Enable full zone transfers (AXFR) for zone updates
+axfr_enabled = {{ axfr_enabled | default(true) }}
+
+[storage:sqlalchemy]
+# Database connection string (SQLAlchemy format)
+# Connects to the backend database (MySQL/MariaDB, PostgreSQL, etc.)
+# Format: dialect+driver://user:password@host:port/database
+connection = {{ (database | default({})).connection | default('mysql+pymysql://designate:designate@localhost/designate?charset=utf8mb4') }}
+
+# Number of database connections in the connection pool
+pool_size = {{ (database | default({})).pool_size | default(10) }}
+
+# Maximum number of connections beyond pool_size allowed
+pool_max_overflow = {{ (database | default({})).pool_max_overflow | default(20) }}
+
+# Time (in seconds) after which database connections are recycled
+connection_recycle_time = {{ (database | default({})).connection_recycle_time | default(600) }}
+
+[keystone_authtoken]
+# Keystone authentication endpoint URL
+auth_url = {{ (keystone | default({})).auth_url | default('http://controller:5000/v3') }}
+
+# Keystone project domain name for the service account
+project_domain_name = {{ (keystone | default({})).project_domain_name | default('Default') }}
+
+# Project name for the Designate service account
+project_name = {{ (keystone | default({})).project_name | default('service') }}
+
+# Keystone user domain name for the service account
+user_domain_name = {{ (keystone | default({})).user_domain_name | default('Default') }}
+
+# Username for the Designate service account in Keystone
+username = {{ (keystone | default({})).username | default('designate') }}
+
+# Password for the Designate service account in Keystone
+password = {{ (keystone | default({})).password | default('designate_password') }}
+
+# Keystone API version (e.g., '3')
+auth_version = {{ (keystone | default({})).auth_version | default('3') }}
+
+# Path to CA certificate bundle for SSL verification (empty = system default)
+cafile = {{ (keystone | default({})).cafile | default('') }}
+
+# Region name for Keystone (leave empty if not used)
+region_name = {{ (keystone | default({})).region_name | default('') }}
+
+[service:rpc]
+# Message broker URL for RPC communication
+# Format: transport://user:password@host:port/vhost
+transport_url = {{ rpc_transport_url | default('rabbit://openstack:openstack@controller:5672/') }}
+
+# Timeout (in seconds) for waiting on RPC responses
+rpc_response_timeout = {{ rpc_response_timeout | default(60) }}
+
+# Number of RPC worker threads (typically equals central workers)
+rpc_workers = {{ rpc_workers | default(2) }}
+
+{% for endpoint in (endpoints | default([])) %}
+# RPC endpoint: {{ endpoint.name | default('unknown') }}
+[endpoint:{{ endpoint.name | default('unknown') }}]
+enabled = {{ endpoint.enabled | default(true) }}
+{% endfor %}

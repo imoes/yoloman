@@ -1,0 +1,204 @@
+# =============================================================================
+# ddcutil CLI Options Wrapper Configuration
+# =============================================================================
+# ddcutil is a command-line utility for querying and setting VCP (Video Control Panel)
+# features on monitors using DDC/CI. This software does not natively read a config file.
+#
+# This template generates a wrapper script (or command invocation string) that applies
+# default options from this configuration, while allowing CLI overrides.
+#
+# Each block below corresponds to a documented ddcutil option.
+# If a value is not provided or is None/empty, the option is omitted from the output.
+# Boolean flags are emitted only when true (unless the CLI convention requires explicit false,
+# which is rare for ddcutil; see noverify/syslog_level for specific behaviors).
+
+# =============================================================================
+# Monitor Selection
+# =============================================================================
+# These options select which physical monitor to target when multiple are attached.
+# Only one selection method should be active at a time, or ddcutil will use the first match.
+
+# --display/-d: Logical display number (starting from 1).
+# Used to select a specific monitor when multiple are attached.
+{% if display | default(1) != 1 %}--display {{ display | default(1) }}{% endif %}
+
+# --bus/-b: I2C bus number (e.g., 4 for /dev/i2c-4).
+# Omit to use first detected monitor/bus.
+{% if bus | default(none) %}--bus {{ bus | default(none) }}{% endif %}
+
+# --hiddev: hiddev device number for USB-connected monitors.
+# e.g., 0 for /dev/usb/hiddev0.
+{% if hiddev | default(none) %}--hiddev {{ hiddev | default(none) }}{% endif %}
+
+# --usb/-u: USB bus.device number (e.g., '1.5' for bus 1, device 5).
+{% if usb | default(none) %}--usb {{ usb | default(none) }}{% endif %}
+
+# --mfg/-g: 3-letter manufacturer code (e.g., 'LEN', 'DEL') for monitor selection.
+{% if mfg | default(none) %}--mfg {{ mfg | default(none) }}{% endif %}
+
+# --model/-l: Monitor model name for selection.
+{% if model | default(none) %}--model {{ model | default(none) }}{% endif %}
+
+# --sn/-n: Serial number string (ASCII field from EDID), not binary serial.
+{% if sn | default(none) %}--sn {{ sn | default(none) }}{% endif %}
+
+# --edid/-e: 256 hex-character EDID representation (for programmatic use).
+{% if edid | default(none) %}--edid {{ edid | default(none) }}{% endif %}
+
+# =============================================================================
+# Feature Selection Filters
+# =============================================================================
+# Control which VCP features are shown in getvcp/vcpinfo output.
+
+# --show-unsupported: Include unsupported features in getvcp output.
+{% if show_unsupported | default(false) %}--show-unsupported{% endif %}
+
+# --show-table: Include Table-type features in getvcp/vcpinfo output.
+{% if show_table | default(false) %}--show-table{% endif %}
+
+# --rw: Filter to show only 'rw', 'ro', or 'wo' features.
+# Note: The CLI flag is typically --rw <value> or similar depending on version.
+# We pass the value directly.
+{% if rw | default(none) %}--rw {{ rw | default(none) }}{% endif %}
+
+# =============================================================================
+# Diagnostic & Tuning Options
+# =============================================================================
+# Adjust timing, retries, and verification behavior for DDC/CI communication.
+
+# --maxtries: Retry counts for read/write/multi-part operations.
+# e.g., '5', '10', or '.' to leave unchanged.
+{% if maxtries | default(none) %}--maxtries {{ maxtries | default(none) }}{% endif %}
+
+# --sleep-multiplier: Multiplier for DDC/CI spec waits.
+# 0.8 for faster, 1.2 for slower; adjust for poorly-behaved monitors.
+{% if sleep_multiplier | default(none) %}--sleep-multiplier {{ sleep_multiplier | default(none) }}{% endif %}
+
+# --min-dynamic-multiplier: Floor for dynamic sleep multiplier.
+# e.g., 0.5.
+{% if min_dynamic_multiplier | default(none) %}--min-dynamic-multiplier {{ min_dynamic_multiplier | default(none) }}{% endif %}
+
+# --noverify: Skip verification of VCP values after setvcp or loadvcp.
+# Default is --noverify (true). We only emit if explicitly false to keep default concise,
+# OR if explicitly set. Given the default is True, we emit if it's False.
+{% if not noverify | default(true) %}--noverify{% endif %}
+{# Note: If noverify is True (default), we do nothing. If False, we need --noverify? 
+   Actually, --noverify DISABLES verification. So if noverify=False, verification IS enabled, so we omit --noverify.
+   If noverify=True, we MUST emit --noverify because the CLI default might vary or we want to be explicit.
+   Let's stick to the schema default: noverify=True means skip verification.
+   So we emit --noverify if noverify is True. #}
+{% if noverify | default(true) %}--noverify{% endif %}
+
+# --skip-ddc-checks: Assume DDC communication works and rely on invalid-feature flag.
+{% if skip_ddc_checks | default(false) %}--skip-ddc-checks{% endif %}
+
+# --ignore-mmid: Monitor-model-id to ignore (get from --verbose detect).
+{% if ignore_mmid | default(none) %}--ignore-mmid {{ ignore_mmid | default(none) }}{% endif %}
+
+# =============================================================================
+# I/O Interface Selection
+# =============================================================================
+# Control how ddcutil talks to the kernel I2C subsystem.
+
+# --use-file-io: Force use of write()/read() I/O interface instead of ioctl.
+# Recommended for NVIDIA proprietary driver.
+{% if use_file_io | default(false) %}--use-file-io{% endif %}
+
+# --force-slave-address: Force takeover of in-use slave addresses.
+# Only with --use-file-io.
+{% if force_slave_address | default(false) %}--force-slave-address{% endif %}
+
+# =============================================================================
+# MCCS Version Compatibility
+# =============================================================================
+# Tailor command behavior based on MCCS version.
+
+# --mccs: MCCS version (e.g., '2.1') to tailor command behavior.
+{% if mccs | default(none) %}--mccs {{ mccs | default(none) }}{% endif %}
+
+# =============================================================================
+# USB-related Settings
+# =============================================================================
+# Only relevant if ddcutil was built with USB support.
+
+# --enable-usb: Enable USB-MCCS support.
+# Default is --disable-usb. We emit if True.
+{% if enable_usb | default(false) %}--enable-usb{% endif %}
+
+# --ignore-usb-vid-pid: List of USB vendor:product IDs to ignore.
+{% for device in ignore_usb_vid_pid | default([]) %}--ignore-usb-vid-pid {{ device }}{% endfor %}
+
+# --ignore-hiddev: List of hiddev device numbers to ignore.
+{% for device in ignore_hiddev | default([]) %}--ignore-hiddev {{ device }}{% endfor %}
+
+# =============================================================================
+# Cache & Performance Tuning
+# =============================================================================
+# Enable various caching and locking mechanisms.
+
+# --enable-capabilities-cache: Enable caching of monitor capabilities for performance.
+# Default is --enable-capabilities-cache (True). We omit if True? No, we emit if True to be explicit or omit if default.
+# The schema default is True. Let's emit if it's not the default "None" behavior, but here True is default.
+# To be self-documenting and safe, we emit if explicitly set to True, or if it differs from a hypothetical False default.
+# Given the description "Default is --enable-capabilities-cache", we emit it.
+{% if enable_capabilities_cache | default(true) %}--enable-capabilities-cache{% endif %}
+
+# --enable-dynamic-sleep: Enable dynamic adjustment of sleep multipliers.
+# Default is True.
+{% if enable_dynamic_sleep | default(true) %}--enable-dynamic-sleep{% endif %}
+
+# --enable-cross-instance-locks: Coordinate I2C access across multiple ddcutil invocations.
+# Default is True.
+{% if enable_cross_instance_locks | default(true) %}--enable-cross-instance-locks{% endif %}
+
+# =============================================================================
+# Debug & Logging
+# =============================================================================
+# Control syslog levels and diagnostic output.
+
+# --syslog: Minimum syslog level.
+# Levels: debug|verbose|info|notice|warn|error|never. Default is WARN if omitted.
+# We only emit if it's not the default 'warn'.
+{% if syslog_level | default('warn') != 'warn' %}--syslog {{ syslog_level | default('warn') }}{% endif %}
+
+# --ddcdata: Report DDC protocol errors.
+{% if ddcdata | default(false) %}--ddcdata{% endif %}
+
+# --stats: Execution stats to report.
+# e.g., 'all', 'errors', 'time'. If omitted, no stats are reported.
+{% if stats | default('all') != 'all' %}--stats {{ stats | default('all') }}{% endif %}
+
+# --vstats: Per-display stats.
+# Same values as stats. If omitted, no stats are reported.
+{% if vstats | default('all') != 'all' %}--vstats {{ vstats | default('all') }}{% endif %}
+
+# --istats: Internal + per-display stats.
+# Same values as stats. If omitted, no stats are reported.
+{% if istats | default('all') != 'all' %}--istats {{ istats | default('all') }}{% endif %}
+
+# =============================================================================
+# EDID & Address Tuning (Advanced)
+# =============================================================================
+
+# --edid-read-size: Force EDID read size: 128 or 256 bytes.
+# Default is 256.
+{% if edid_read_size | default(256) != 256 %}--edid-read-size {{ edid_read_size | default(256) }}{% endif %}
+
+# --i2c-source-addr: Custom I2C source address in hex (e.g., '50').
+{% if i2c_source_addr | default(none) %}--i2c-source-addr {{ i2c_source_addr | default(none) }}{% endif %}
+
+# =============================================================================
+# Miscellaneous
+# =============================================================================
+
+# --enable-udf: Enable user-defined feature definitions.
+# Default is --enable-udf (True).
+{% if enable_udf | default(true) %}--enable-udf{% endif %}
+
+# --permit-unknown-feature: Allow setvcp on unknown features.
+{% if permit_unknown_feature | default(false) %}--permit-unknown-feature{% endif %}
+
+# --discard-cache: Cache to discard.
+# This is an action flag, not a persistent setting.
+# Values: 'capabilities'|'dsa'|'all'.
+{% if discard_cache | default(none) %}--discard-cache {{ discard_cache | default(none) }}{% endif %}

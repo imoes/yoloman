@@ -1,0 +1,71 @@
+# Global VPN service settings
+[global]
+# Enable or disable the VPN service
+Enabled={{ global.Enabled | lower }}
+
+# Network timeout for VPN operations (in seconds)
+Timeout={{ global.Timeout }}
+
+# Maximum number of concurrent VPN connections
+MaxConnections={{ global.MaxConnections }}
+
+# List of allowed authentication methods (comma-separated)
+# e.g., "pap,chap,mschap,mschap-v2,gtm,otp" (empty = allow all supported)
+AuthMethods={{ global.AuthMethods | join(', ') if global.AuthMethods else 'pap, chap, mschap, mschap-v2' }}
+
+# Default DNS servers to push to VPN clients (empty = use system DNS or none)
+# Use comma-separated IPv4/IPv6 addresses
+DNS={{ global.DNS | join(', ') if global.DNS else '' }}
+
+# Default NTP servers to push to VPN clients (empty = none)
+NTP={{ global.NTP | join(', ') if global.NTP else '' }}
+
+# Default IPv4 routing prefix for client subnet (e.g., 10.0.0.0/24)
+IPv4RoutePrefix={{ global.IPv4RoutePrefix }}
+
+# Default IPv6 routing prefix for client subnet (e.g., 2001:db8:1::/64)
+IPv6RoutePrefix={{ global.IPv6RoutePrefix }}
+
+# Log level: 0=error, 1=warn, 2=info, 3=debug
+LogLevel={{ global.LogLevel }}
+
+# Directory for persistent VPN configuration data
+DataPath={{ global.DataPath }}
+
+# Directory for plugin modules
+PluginPath={{ global.PluginPath }}
+
+# Enable strict certificate validation (e.g., for EAP-TLS)
+VerifyCertificate={{ global.VerifyCertificate | lower }}
+
+# Optional certificate verification CA path
+CAPath={{ global.CAPath }}
+
+# Optional certificate verification CA file
+CAFile={{ global.CAFile }}
+
+# Enable or disable IPv6 support
+IPv6={{ global.IPv6 | lower }}
+
+# Enable or disable L2TP over IPsec (requires ipsec plugin)
+L2TPOverIPSec={{ global.L2TPOverIPSec | lower }}
+
+# Enable or disable SSTP (requires sstp plugin)
+SSTP={{ global.SSTP | lower }}
+
+# Enable or disable OpenVPN support
+OpenVPN={{ global.OpenVPN | lower }}
+
+# Default OpenVPN configuration directory (for client configs if auto-loaded)
+OpenVPNConfigDir={{ global.OpenVPNConfigDir }}
+
+# Enable or disable IKEv2 support
+IKEv2={{ global.IKEv2 | lower }}
+
+# Enable or disable EAP-SIM/AKA support (requires SIM card or soft-SIM)
+EAPSIM={{ global.EAPSIM | lower }}
+
+{% for plugin in plugins %}# Configuration for {{ plugin.name }} plugin
+[{{ plugin.name | upper }}]
+{{ plugin.config_lines | join('\n') | indent(1, true) }}
+{% endfor %}

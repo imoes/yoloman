@@ -1,0 +1,156 @@
+# =============================================================================
+# dnsviz Configuration Template
+# =============================================================================
+# This template generates a shell command invocation for `dnsviz`.
+# dnsviz is a suite of tools for analyzing DNS infrastructure.
+#
+# One configuration file corresponds to ONE `dnsviz` invocation.
+# The `command` field determines the subcommand (probe, grok, graph, print, query, help).
+#
+# Variables:
+#   command            : The subcommand to run (probe, grok, graph, print, query, help).
+#   target_domains     : List of domain names to analyze.
+#   start_from_root    : If true, start authoritative analysis from root (probe only).
+#   query_authoritative: If true, query authoritative servers directly (probe only).
+#   resolvers          : List of resolver IP addresses to use (probe only).
+#   threads            : Number of parallel threads for probe (probe only).
+#   explicit_delegations: List of delegation specs 'domain:nameserver[=ip,...]' (probe only).
+#   output_file        : Path to write output; empty means stdout (probe/grok).
+#   probe_input_file   : Path to input JSON file for grok (grok only).
+#   output_level       : Minimum output level: info, warning, error (grok only).
+#   trust_anchor_file  : Path to DNSSEC trust anchor key file (grok only).
+#   help_command       : Command name to get help for (help only).
+#   extra_args         : List of additional arguments for other commands.
+# =============================================================================
+
+{% set cmd = command | default('probe') %}
+{% set domains = target_domains | default([]) %}
+{% set out_file = output_file | default('') %}
+{% set resolvers_list = resolvers | default([]) %}
+{% set delegations = explicit_delegations | default([]) %}
+{% set extra = extra_args | default([]) %}
+
+# ---------------------------------------------------------
+# Command: {{ cmd }}
+# ---------------------------------------------------------
+
+{% if cmd == "probe" %}
+# =============================================================================
+# SUBCOMMAND: probe
+# =============================================================================
+# Issues diagnostic DNS queries against target domains.
+# Usage: dnsviz probe [OPTIONS] DOMAIN [DOMAIN...]
+#
+# Options:
+#   -a .               Start authoritative analysis from root servers.
+#   -A                 Query authoritative servers directly.
+#   -s RESOLVERS       Comma-separated list of resolver IP addresses.
+#   -t THREADS         Number of parallel threads (default: 1).
+#   -x DELEGATION      Explicit delegation info (format: domain:ns[=ip,...]).
+#   -o OUTPUT_FILE     Write output to file (default: stdout).
+
+# Start from root servers (authoritative mode)
+{% if start_from_root | default(false) %}-a . {% endif %}
+
+# Query authoritative servers directly
+{% if query_authoritative | default(false) %}-A {% endif %}
+
+# Use specific resolvers
+{% if resolvers_list | length > 0 %}-s {{ resolvers_list | join(',') }} {% endif %}
+
+# Set number of parallel threads
+{% if threads | default(1) | int > 1 %}-t {{ threads | default(1) }} {% endif %}
+
+# Explicit delegation specifications
+{% for decl in delegations %}-x {{ decl }} {% endfor %}
+
+# Output file path (empty implies stdout)
+{% if out_file | length > 0 %}-o {{ out_file }} {% endif %}
+
+# Target domains (required for probe)
+{% for domain in domains %}{{ domain }} {% endfor %}
+
+{% elif cmd == "grok" %}
+# =============================================================================
+# SUBCOMMAND: grok
+# =============================================================================
+# Assesses serialized probe output (JSON) to generate human-readable reports.
+# Usage: dnsviz grok [OPTIONS] [DOMAIN ...]
+#
+# Options:
+#   -r INPUT_FILE      Read probe output from file instead of stdin.
+#   -o OUTPUT_FILE     Write output to file (default: stdout).
+#   -l LEVEL           Minimum output level: info, warning, error (default: info).
+#   -t TRUST_FILE      Path to DNSSEC trust anchor keys.
+
+# Read probe output from file (if provided, otherwise reads stdin)
+{% if probe_input_file | default('') | length > 0 %}-r {{ probe_input_file }} {% endif %}
+
+# Output file path (empty implies stdout)
+{% if out_file | length > 0 %}-o {{ out_file }} {% endif %}
+
+# Minimum output verbosity level (info, warning, or error)
+{% if output_level | default('info') != '' %}-l {{ output_level | default('info') }} {% endif %}
+
+# DNSSEC trust anchor key file path
+{% if trust_anchor_file | default('') | length > 0 %}-t {{ trust_anchor_file }} {% endif %}
+
+# Target domains
+{% for domain in domains %}{{ domain }} {% endfor %}
+
+{% elif cmd == "help" %}
+# =============================================================================
+# SUBCOMMAND: help
+# =============================================================================
+# Displays help information for a specific dnsviz subcommand.
+# Usage: dnsviz help [COMMAND]
+
+help
+{% if help_command | default('') | length > 0 %}{{ help_command }}{% else %}<command_name>{% endif %}
+
+{% elif cmd == "graph" %}
+# =============================================================================
+# SUBCOMMAND: graph
+# =============================================================================
+# Generates a graph visualization of DNS data.
+# Usage: dnsviz graph [OPTIONS] [DOMAIN ...]
+
+graph
+{% for arg in extra %}{{ arg }} {% endfor %}
+{% for domain in domains %}{{ domain }} {% endfor %}
+
+{% elif cmd == "print" %}
+# =============================================================================
+# SUBCOMMAND: print
+# =============================================================================
+# Prints DNS data in plain text format.
+# Usage: dnsviz print [OPTIONS] [DOMAIN ...]
+
+print
+{% for arg in extra %}{{ arg }} {% endfor %}
+{% for domain in domains %}{{ domain }} {% endfor %}
+
+{% elif cmd == "query" %}
+# =============================================================================
+# SUBCOMMAND: query
+# =============================================================================
+# Performs a simple DNS query.
+# Usage: dnsviz query [OPTIONS] [DOMAIN ...]
+
+query
+{% for arg in extra %}{{ arg }} {% endfor %}
+{% for domain in domains %}{{ domain }} {% endfor %}
+
+{% else %}
+# =============================================================================
+# UNKNOWN COMMAND: {{ cmd }}
+# =============================================================================
+# The provided command is not a recognized dnsviz subcommand.
+# Expected: probe, grok, graph, print, query, help.
+# Generating placeholder based on extra_args if provided.
+
+{{ cmd }}
+{% for arg in extra %}{{ arg }} {% endfor %}
+{% for domain in domains %}{{ domain }} {% endfor %}
+
+{% endif %}

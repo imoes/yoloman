@@ -1,0 +1,154 @@
+#!/bin/sh
+# /etc/init.d/opensmtpd
+#
+# Ansible-generated SysV init script for OpenSMTPD
+# Provides:          opensmtpd mail-transport-agent
+# Description:       OpenSMTPD Mail Transport Agent daemon management
+
+### BEGIN INIT INFO
+# Provides:          opensmtpd mail-transport-agent
+# Required-Start:    $local_fs $remote_fs $syslog $network
+# Required-Stop:     $local_fs $remote_fs $syslog $network
+# Should-Start:      {{ opensmtpd_should_start | default(['postgresql', 'mysql', 'dovecot']) | join(' ') }}
+# Default-Start:     {{ opensmtpd_runlevels | default('2 3 4 5') }}
+# Default-Stop:      {{ opensmtpd_stop_runlevels | default('0 1 6') }}
+# Short-Description: opensmtpd Mail Transport Agent
+# Description:       OpenSMTPD
+### END INIT INFO
+
+# Do not "set -e"; /lib/lsb/init-functions included below may fail if "set -e"
+# is in effect and echoing status messages to the console fails.
+set -u
+
+# Path to the default configuration overrides file
+# Default: /etc/default/opensmtpd
+DEFAULT={{ opensmtpd_default_file | default('/etc/default/opensmtpd') }}
+
+# Path to the OpenSMTPD daemon binary
+# Default: /usr/sbin/smtpd
+DAEMON={{ opensmtpd_daemon_path | default('/usr/sbin/smtpd') }}
+
+# Path to the main OpenSMTPD configuration file
+# Default: /etc/smtpd.conf
+CONFIG={{ opensmtpd_config_path | default('/etc/smtpd.conf') }}
+
+# Path to the PID file for the daemon
+# Default: /run/smtpd.pid
+PIDFILE={{ opensmtpd_pidfile_path | default('/run/smtpd.pid') }}
+
+# Path to the OpenSMTPD control utility
+# Default: /usr/sbin/smtpctl
+CONTROL={{ opensmtpd_control_path | default('/usr/sbin/smtpctl') }}
+
+# Human-readable description of the service
+# Default: opensmtpd
+DESC={{ opensmtpd_description | default('opensmtpd') }}
+
+# Load default overrides if they exist
+test -f "${DEFAULT}" && . "${DEFAULT}"
+
+# Exit gracefully if the daemon binary is missing or not executable
+test -x "${DAEMON}" || exit 0
+
+# Load LSB functions for logging and status reporting
+. /lib/lsb/init-functions
+
+# Function to start the OpenSMTPD daemon
+smtpd_start()
+{
+  # Attempt to start the daemon with the specified config file
+  if start-stop-daemon \
+      --start \
+      --pidfile "${PIDFILE}" \
+      --exec "${DAEMON}" \
+      -- -f "${CONFIG}"; then
+    log_progress_msg "opensmtpd"
+    return 0
+  else
+    log_progress_msg "opensmtpd"
+    return 1
+  fi
+}
+
+# Function to stop the OpenSMTPD daemon
+smtpd_stop()
+{
+  # Attempt to stop the daemon by reading its PID file
+  if start-stop-daemon --stop --pidfile "${PIDFILE}" -- -f "${CONFIG}"; then
+    log_progress_msg "opensmtpd"
+    return 0
+  else
+    log_progress_msg "opensmtpd"
+    return 1
+  fi
+}
+
+# Function to validate the OpenSMTPD configuration file
+smtpd_config_check()
+{
+  # ${DAEMON} -n checks the config file's validity without running
+  if "${DAEMON}" -f "${CONFIG}" -n >/dev/null 2>&; then
+    return 0
+  else
+    log_end_msg 1
+    "${DAEMON}" -f "${CONFIG}" -n
+    return 1
+  fi
+}
+
+case "$1" in
+start)
+  log_daemon_msg "Starting MTA"
+  # Although smtpd checks the config automatically on startup,
+  # check it manually ourselves so that error messages are
+  # printed after our "failed!" instead of between it and
+  # "Starting MTA"
+  if smtpd_config_check; then
+    smtpd_start
+    log_end_msg $?
+  fi
+  ;;
+stop)
+  log_daemon_msg "Stopping MTA"
+  smtpd_stop
+  log_end_msg $?
+  ;;
+restart)
+  log_daemon_msg "Stopping MTA for restart"
+  # If the check fails, the log_end_msg in smtpd_config_check
+  # will output "failed!" for us.
+  if smtpd_config_check; then
+    smtpd_stop
+    log_end_msg $?
+    log_daemon_msg "Restarting MTA"
+    smtpd_start
+    log_end_msg $?
+  fi
+  ;;
+force-reload)
+  log_daemon_msg "Stopping MTA for reload"
+  smtpd_stop
+  log_end_msg $?
+  log_daemon_msg "Restarting MTA"
+  smtpd_start
+  log_end_msg $?
+  ;;
+check)
+  log_daemon_msg "Checking MTA configuration"
+  if smtpd_config_check; then
+    log_progress_msg "success"
+    log_end_msg $?
+  fi
+  ;;
+status)
+  status_of_proc "${DAEMON}" "MTA ${DESC}"
+  ;;
+*)
+  echo "Usage: $0 {start|stop|restart|force-reload|status|check}"
+  exit 1
+  ;;
+esac
+
+exit 0
+
+# vim:set sw=2:

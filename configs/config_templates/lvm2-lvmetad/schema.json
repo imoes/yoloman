@@ -1,0 +1,96 @@
+{
+  "use_lvmetad": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the LVM metadata cache daemon. Required for improved performance and concurrency in large LVM setups. Note: Modern LVM versions (\u22652.02.170) ignore this and rely on automatic detection, but explicitly setting it ensures consistent behavior."
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/run/lvmetad.pid",
+    "description": "Path to the PID file for lvmetad process."
+  },
+  "socket": {
+    "type": "string",
+    "default": "/run/lvmetad.socket",
+    "description": "Unix domain socket path used by LVM tools (e.g., `pvscan`, `vgscan`) to communicate with lvmetad."
+  },
+  "max_pending_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of pending connections accepted by lvmetad's socket before rejecting new clients."
+  },
+  "max_cache_size_kb": {
+    "type": "number",
+    "default": 10240,
+    "description": "Maximum size (in KB) of the in-memory metadata cache. Larger values improve performance for systems with many VGs/LVs but consume more RAM."
+  },
+  "cache_metadata": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, lvmetad caches VG and LV metadata. Enable unless storage devices change very frequently (e.g., dynamic SAN reconfiguration without LVM notifications)."
+  },
+  "cache_devices": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, lvmetad caches device state (e.g., presence, size, partitions). Enables faster `vgscan`/`pvscan` operations and is safe in most environments."
+  },
+  "polling_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Interval (in seconds) between scans of devices for changes when `cache_devices=true`. Set to 0 to disable polling (e.g., if using udev to notify LVM on device changes)."
+  },
+  "validate_metadata": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, lvmetad validates cached metadata against on-disk contents before use (for consistency). Disable only for debugging or very high-frequency metadata updates."
+  },
+  "log_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enables verbose logging (more detailed messages). Typically set only during troubleshooting."
+  },
+  "log_overwrite": {
+    "type": "bool",
+    "default": false,
+    "description": "If true and logging to a file, overwrite the log file on startup (instead of appending)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Log verbosity level: 0=none, 1=error, 2=important, 3=info, 4=debug. Level 3 (info) is recommended for production."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (empty string = use syslog instead)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use when `log_file` is empty (e.g., 'local0', 'daemon')."
+  },
+  "activation_min_initial_size_percent": {
+    "type": "number",
+    "default": 0,
+    "description": "Minimum free space (% of VG) required for auto-activation of LVs. lvmetad itself does not enforce this, but it respects the value in `lvm.conf`."
+  },
+  "auto_activation_volume_list": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Regex pattern or VG/LV name to include in auto-activation. LVs matching any pattern will be automatically activated on device arrival. Use empty list to disable auto-activation."
+    },
+    "description": "List of patterns (regex or exact names) for volumes that should be auto-activated. Use `\"*\"` for all, or specific names/regexes to restrict."
+  },
+  "monitoring": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DMEVENTD monitoring for thin and snapshot devices. lvmetad does not manage DMEVENTD itself, but this setting affects whether LVM tools expect monitoring to be active."
+  },
+  "nice": {
+    "type": "number",
+    "default": -18,
+    "description": "Process priority (nice value) for lvmetad when started. More negative = higher priority. Common values: -18 (high priority), 0 (default)."
+  }
+}

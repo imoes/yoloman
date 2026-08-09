@@ -1,0 +1,165 @@
+{
+  "health_manager": {
+    "type": "object",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address the health manager listens on."
+      },
+      "port": {
+        "type": "number",
+        "default": 5555,
+        "description": "Port the health manager listens on."
+      },
+      "name": {
+        "type": "string",
+        "default": "health-manager",
+        "description": "Name of this health manager instance."
+      },
+      "health_check_interval": {
+        "type": "number",
+        "default": 10,
+        "description": "Interval (in seconds) between health checks to amphorae."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Timeout (in seconds) for health check operations."
+      },
+      "successful_connections_before_active": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of successful checks required before marking amphora active."
+      },
+      "failed_connections_before_inactive": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of failed checks before marking amphora inactive."
+      },
+      "workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes to spawn."
+      },
+      "update_frequency": {
+        "type": "number",
+        "default": 500,
+        "description": "Maximum number of health updates to buffer before forcing a flush to the database."
+      },
+      "max_retries": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum number of retries for failed health update batches."
+      },
+      "retry_interval": {
+        "type": "number",
+        "default": 1,
+        "description": "Seconds to wait before retrying a failed health update."
+      },
+      "stats_driver": {
+        "type": "string",
+        "default": "statsd",
+        "description": "Driver to use for emitting health statistics."
+      },
+      "amphorae": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Unique identifier for the amphora."
+            },
+            "host": {
+              "type": "string",
+              "description": "Management IP of the amphora."
+            },
+            "port": {
+              "type": "number",
+              "default": 8443,
+              "description": "Management port of the amphora."
+            },
+            "healthcheck_ip": {
+              "type": "string",
+              "description": "IP used for health check traffic (e.g., VRRP VIP)."
+            },
+            "healthcheck_port": {
+              "type": "number",
+              "default": 80,
+              "description": "Port used for health check traffic."
+            },
+            "status": {
+              "type": "string",
+              "default": "PENDING_CREATE",
+              "enum": [
+                "PENDING_CREATE",
+                "ACTIVE",
+                "ERROR",
+                "DELETED"
+              ],
+              "description": "Current provisioning status of the amphora."
+            }
+          },
+          "required": [
+            "id",
+            "host",
+            "healthcheck_ip"
+          ]
+        },
+        "description": "List of amphorae managed by this health manager instance."
+      },
+      "drivers": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Name of the health manager driver."
+            },
+            "enabled": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether this driver is enabled."
+            },
+            "options": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "description": "Driver-specific configuration key-value pairs."
+            }
+          },
+          "required": [
+            "name"
+          ]
+        },
+        "description": "List of health manager driver configurations."
+      }
+    },
+    "required": [
+      "host",
+      "port",
+      "name"
+    ]
+  },
+  "health_hooks": {
+    "type": "object",
+    "properties": {
+      "on_failed": {
+        "type": "string",
+        "default": "",
+        "description": "Shell command executed when an amphora's health status becomes unhealthy."
+      },
+      "on_succeeded": {
+        "type": "string",
+        "default": "",
+        "description": "Shell command executed when an amphora's health status becomes healthy."
+      }
+    },
+    "description": "External command hooks for health status transitions."
+  }
+}

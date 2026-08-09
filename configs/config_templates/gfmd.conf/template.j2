@@ -1,0 +1,99 @@
+# Global GFarm metadata server configuration
+# This file configures gfmd (GFarm metadata daemon)
+
+[general]
+# Hostname or IP address this gfmd instance will bind to for client connections
+bind_address = {{ values.general.bind_address }}
+
+# Port on which gfmd listens for client connections
+port = {{ values.general.port }}
+
+# Path to the GFarm metadata database directory
+metadata_dir = {{ values.general.metadata_dir }}
+
+# Number of worker threads for handling client requests
+num_worker_threads = {{ values.general.num_worker_threads }}
+
+# Logging level: debug, info, warning, error
+log_level = {{ values.general.log_level }}
+
+# Path to the log file
+log_file = {{ values.general.log_file }}
+
+# Enable or disable MD replication (for high availability)
+enable_md_replication = {{ values.general.enable_md_replication | lower }}
+
+{% if values.general.md_replication_peers %}
+# List of peer gfmd hosts for MD replication
+[md_replication]
+peer_hosts = {{ values.general.md_replication_peers | join(', ') }}
+
+# Replication protocol port
+replication_port = {{ values.general.replication_port }}
+
+# Timeout for replication communication (seconds)
+replication_timeout = {{ values.general.replication_timeout }}
+
+# Maximum number of concurrent replication connections
+replication_max_connections = {{ values.general.replication_max_connections }}
+{% endif %}
+
+[security]
+# Authentication method: gssapi, password, sslcert, none
+auth_method = {{ values.security.auth_method }}
+
+# Path to the Kerberos keytab file (if auth_method = gssapi)
+keytab_file = {{ values.security.keytab_file }}
+
+# Kerberos service name (e.g., gfmd/host.example.com)
+krb_service_name = {{ values.security.krb_service_name }}
+
+# Path to the SSL certificate file (if auth_method = sslcert)
+ssl_cert_file = {{ values.security.ssl_cert_file }}
+
+# Path to the SSL private key file (if auth_method = sslcert)
+ssl_key_file = {{ values.security.ssl_key_file }}
+
+# Enable or disable client certificate verification (if auth_method = sslcert)
+ssl_verify_client = {{ values.security.ssl_verify_client | lower }}
+
+{% if values.security.trusted_ca_certs %}
+# List of trusted CA certificates for client verification
+trusted_ca_certs = {{ values.security.trusted_ca_certs | join(', ') }}
+{% endif %}
+
+[limits]
+# Maximum size of a single metadata operation (bytes)
+max_metadata_size = {{ values.limits.max_metadata_size }}
+
+# Maximum number of open file descriptors
+max_open_files = {{ values.limits.max_open_files }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ values.limits.max_connections }}
+
+# Time limit for client inactivity before disconnect (seconds)
+client_idle_timeout = {{ values.limits.client_idle_timeout }}
+
+[quota]
+# Enable or disable per-directory quota enforcement
+enable_quota = {{ values.quota.enable_quota | lower }}
+
+# Path to the quota database file
+quota_db_path = {{ values.quota.quota_db_path }}
+
+[storage]
+# Default metadata journal rotation size (bytes)
+journal_size_limit = {{ values.storage.journal_size_limit }}
+
+# Default metadata journal rotation count
+journal_rotation_count = {{ values.storage.journal_rotation_count }}
+
+# Enable or disable synchronous journal writes
+journal_sync_writes = {{ values.storage.journal_sync_writes | lower }}
+
+# Path to the journal directory
+journal_dir = {{ values.storage.journal_dir }}
+
+# Enable or disable metadata compression
+compress_metadata = {{ values.storage.compress_metadata | lower }}

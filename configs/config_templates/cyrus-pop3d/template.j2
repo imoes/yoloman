@@ -1,0 +1,32 @@
+# PAM configuration file for Cyrus POP3 service.
+#
+# This file is sourced by Cyrus SASL for authentication and account
+# management when using PAM as the backend. It allows overriding
+# the standard Debian/Ubuntu PAM stack names for auth and account
+# checks, enabling custom PAM hierarchies or remote authentication
+# sources.
+#
+# IMPORTANT: If Cyrus is used in a setup where users do not have
+# local system accounts, ensure you use something like `pam_permit`
+# or a dedicated auth module for account checking to avoid
+# authentication failures due to missing local users.
+#
+# Note: SASL (and therefore Cyrus) accesses PAM modules through
+# saslauthd. SASL can only handle plaintext passwords if PAM is
+# used; other methods (e.g., OTP, Kerberos) may require different
+# configurations.
+
+# PAM include directive for authentication.
+# Specifies the PAM configuration file fragment to use for
+# authenticating users against the Cyrus POP3 service.
+# Default: 'common-auth' (standard Debian/Ubuntu auth stack).
+# Example: 'common-auth' or '/etc/pam.d/custom-auth'
+@include {{ common_auth_include | default('common-auth') }}
+
+# PAM include directive for account management.
+# Specifies the PAM configuration file fragment to use for
+# checking account status (expiration, access controls) for
+# users on the Cyrus POP3 service.
+# Default: 'common-account' (standard Debian/Ubuntu account stack).
+# Example: 'common-account' or '/etc/pam.d/custom-account'
+@include {{ common_account_include | default('common-account') }}

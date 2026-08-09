@@ -1,0 +1,34 @@
+{# GoldenEye HTTP DoS test tool configuration #}
+# This file configures the goldeneye service parameters.
+# GoldenEye is primarily a command-line tool; this template provides
+# sane defaults for repeated invocations via wrapper scripts or test frameworks.
+#
+# Variables are sourced from the Ansible inventory/role defaults.
+# See the schema for descriptions and default values.
+
+# Number of concurrent HTTP workers.
+# Determines how many parallel worker processes GoldenEye will spawn
+# to generate load. Higher values increase load but consume more resources.
+# Default: 10
+WORKERS={{ workers | default(10) }}
+
+# Number of concurrent sockets per worker.
+# Limits the number of open connections each worker can maintain simultaneously.
+# Adjust based on system file descriptor limits and target server capacity.
+# Default: 500
+SOCKETS={{ sockets | default(500) }}
+
+# HTTP method to use for requests.
+# Supported methods are 'get', 'post', or 'random' (picks randomly between get/post).
+# Default: 'get'
+METHOD={{ method | default('get') }}
+
+# Path to a file containing one user-agent string per line.
+# Used to rotate HTTP User-Agent headers to mimic diverse clients.
+# Default: '/usr/share/goldeneye/useragents/useragents.txt'
+USERAGENTS_FILE={{ useragents_file | default('/usr/share/goldeneye/useragents/useragents.txt') }}
+
+# Enable verbose/debug mode.
+# When true, enables detailed logging/output for troubleshooting.
+# Default: False
+DEBUG={{ debug | default(false) | lower }}

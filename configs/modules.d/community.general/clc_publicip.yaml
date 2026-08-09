@@ -1,0 +1,47 @@
+name: clc_publicip
+fqcn: community.general.clc_publicip
+collection: community.general
+short_description: Add and Delete public ips on servers in CenturyLink Cloud
+description: An Ansible module to add or delete public ip addresses on an existing server or servers in
+  CenturyLink Cloud.
+options:
+  ports:
+    type: list
+    description: A list of ports to expose. This is required when state is 'present'
+  protocol:
+    type: str
+    default: TCP
+    choices:
+    - TCP
+    - UDP
+    - ICMP
+    description: The protocol that the public IP will listen for.
+  server_ids:
+    type: list
+    required: true
+    description: A list of servers to create public ips on.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Determine whether to create or delete public IPs. If present module will not create a
+      second public ip if one already exists.
+  wait:
+    type: bool
+    default: true
+    description: Whether to wait for the tasks to finish before returning.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Note - You must set the CLC_V2_API_USERNAME And CLC_V2_API_PASSWD Environment variables\
+  \ before running these examples\n\n- name: Add Public IP to Server\n  hosts: localhost\n  gather_facts:\
+  \ false\n  connection: local\n  tasks:\n    - name: Create Public IP For Servers\n      community.general.clc_publicip:\n\
+  \        protocol: TCP\n        ports:\n          - 80\n        server_ids:\n          - UC1TEST-SVR01\n\
+  \          - UC1TEST-SVR02\n        state: present\n      register: clc\n\n    - name: Debug\n     \
+  \ ansible.builtin.debug:\n        var: clc\n\n- name: Delete Public IP from Server\n  hosts: localhost\n\
+  \  gather_facts: false\n  connection: local\n  tasks:\n    - name: Create Public IP For Servers\n  \
+  \    community.general.clc_publicip:\n        server_ids:\n          - UC1TEST-SVR01\n          - UC1TEST-SVR02\n\
+  \        state: absent\n      register: clc\n\n    - name: Debug\n      ansible.builtin.debug:\n   \
+  \     var: clc\n"

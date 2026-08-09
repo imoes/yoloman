@@ -1,0 +1,165 @@
+{# ============================================================================== #}
+{# avahi-dnsconfd script: Manages /etc/resolv.conf based on mDNS/DNS-SD discovery #}
+{# ============================================================================== #}
+
+{# This file is part of avahi. #}
+{# avahi is free software; you can redistribute it and/or modify it #}
+{# under the terms of of the GNU Lesser General Public License as #}
+{# published by the Free Software Foundation; either version 2 of the #}
+{# License, or (at your option) any later version. #}
+{# #}
+{# avahi is distributed in the hope that it will be useful, but WITHOUT #}
+{# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY #}
+{# or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public #}
+{# License for more details. #}
+{# #}
+{# You should have received a copy of the Lesser General Public #}
+{# License along with avahi; if not, write to the Free Software #}
+{# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 #}
+{# USA. #}
+
+#!/bin/sh
+
+set -e
+
+{# AVAILABILITY_METHOD: Method to determine how to modify resolv.conf. #}
+{# Values: 'netconfig', 'modify_resolvconf', 'resolvconf', or 'fallback'. #}
+{# Default: 'auto' — Auto-detects by checking for available tools on the system. #}
+{% set method = AVAILABILITY_METHOD | default('auto') %}
+
+{% if method == 'auto' %}
+    {# Auto-detection: Try SUSE netconfig first (11.1+) #}
+    if [ -x /sbin/netconfig ]; then
+        # SUSE method on 11.1+
+        if [ -n "$AVAHI_INTERFACE_DNS_SERVERS" ]; then
+            /sbin/netconfig modify -s avahi -i "$AVAHI_INTERFACE" <<-EOF
+	INTERFACE='$AVAHI_INTERFACE'
+	DNSSERVERS='$AVAHI_INTERFACE_DNS_SERVERS'
+	EOF
+        else
+            /sbin/netconfig remove -s avahi -i "$AVAHI_INTERFACE"
+        fi
+    {# Try SUSE modify_resolvconf next (<= 11.0) #}
+    elif [ -x /sbin/modify_resolvconf ] ; then
+        # method for SUSE <= 11.0
+        if [ -n "$AVAHI_DNS_SERVERS" ]; then
+            /sbin/modify_resolvconf modify -s avahi -t - -p avahi-dnsconfd -n "$AVAHI_DNS_SERVERS" <<-EOF
+	if you don't like avahi to update your Nameservers
+	disable the avahi-dnsconfd init script
+	EOF
+        else
+            /sbin/modify_resolvconf restore -s avahi
+        fi
+    {# Try Debian's resolvconf tool #}
+    elif [ -x /sbin/resolvconf ] ; then
+        # We have Debian's resolvconf tool
+        if [ "x$AVAHI_INTERFACE_DNS_SERVERS" = "x" ] ; then
+            /sbin/resolvconf -d "$AVAHI_INTERFACE.avahi"
+        else
+            for n in $AVAHI_INTERFACE_DNS_SERVERS ; do
+                echo "nameserver $n"
+            done | /sbin/resolvconf -a "$AVAHI_INTERFACE.avahi"
+        fi
+    {# Fallback: Manual backup and replace of resolv.conf #}
+    else
+        # No resolvconf tool available
+        if [ "x$AVAHI_DNS_SERVERS" = "x" ] ; then
+            test -f /etc/resolv.conf.avahi && mv /etc/resolv.conf.avahi /etc/resolv.conf
+        else
+            test -f /etc/resolv.conf.avahi || mv /etc/resolv.conf /etc/resolv.conf.avahi
+
+            for n in $AVAHI_DNS_SERVERS ; do
+                echo "nameserver $n"
+            done > /etc/resolv.conf
+        fi
+    fi
+
+{% elif method == 'netconfig' %}
+    # Force SUSE netconfig method (11.1+)
+    if [ -n "$AVAHI_INTERFACE_DNS_SERVERS" ]; then
+        /sbin/netconfig modify -s avahi -i "$AVAHI_INTERFACE" <<-EOF
+INTERFACE='$AVAHI_INTERFACE'
+DNSSERVERS='$AVAHI_INTERFACE_DNS_SERVERS'
+EOF
+    else
+        /sbin/netconfig remove -s avahi -i "$AVAHI_INTERFACE"
+    fi
+
+{% elif method == 'modify_resolvconf' %}
+    # Force SUSE modify_resolvconf method (<= 11.0)
+    if [ -n "$AVAHI_DNS_SERVERS" ]; then
+        /sbin/modify_resolvconf modify -s avahi -t - -p avahi-dnsconfd -n "$AVAHI_DNS_SERVERS" <<-EOF
+	if you don't like avahi to update your Nameservers
+	disable the avahi-dnsconfd init script
+	EOF
+    else
+        /sbin/modify_resolvconf restore -s avahi
+    fi
+
+{% elif method == 'resolvconf' %}
+    # Force Debian resolvconf tool method
+    if [ "x$AVAHI_INTERFACE_DNS_SERVERS" = "x" ] ; then
+        /sbin/resolvconf -d "$AVAHI_INTERFACE.avahi"
+    else
+        for n in $AVAHI_INTERFACE_DNS_SERVERS ; do
+            echo "nameserver $n"
+        done | /sbin/resolvconf -a "$AVAHI_INTERFACE.avahi"
+    fi
+
+{% elif method == 'fallback' %}
+    # Force manual fallback method (no helper tools)
+    if [ "x$AVAHI_DNS_SERVERS" = "x" ] ; then
+        test -f /etc/resolv.conf.avahi && mv /etc/resolv.conf.avahi /etc/resolv.conf
+    else
+        test -f /etc/resolv.conf.avahi || mv /etc/resolv.conf /etc/resolv.conf.avahi
+
+        for n in $AVAHI_DNS_SERVERS ; do
+            echo "nameserver $n"
+        done > /etc/resolv.conf
+    fi
+
+{% else %}
+    {# Invalid method provided; default to auto-detection to avoid hard failure. #}
+    if [ -x /sbin/netconfig ]; then
+        # SUSE method on 11.1+
+        if [ -n "$AVAHI_INTERFACE_DNS_SERVERS" ]; then
+            /sbin/netconfig modify -s avahi -i "$AVAHI_INTERFACE" <<-EOF
+	INTERFACE='$AVAHI_INTERFACE'
+	DNSSERVERS='$AVAHI_INTERFACE_DNS_SERVERS'
+	EOF
+        else
+            /sbin/netconfig remove -s avahi -i "$AVAHI_INTERFACE"
+        fi
+    elif [ -x /sbin/modify_resolvconf ] ; then
+        # method for SUSE <= 11.0
+        if [ -n "$AVAHI_DNS_SERVERS" ]; then
+            /sbin/modify_resolvconf modify -s avahi -t - -p avahi-dnsconfd -n "$AVAHI_DNS_SERVERS" <<-EOF
+	if you don't like avahi to update your Nameservers
+	disable the avahi-dnsconfd init script
+	EOF
+        else
+            /sbin/modify_resolvconf restore -s avahi
+        fi
+    elif [ -x /sbin/resolvconf ] ; then
+        # We have Debian's resolvconf tool
+        if [ "x$AVAHI_INTERFACE_DNS_SERVERS" = "x" ] ; then
+            /sbin/resolvconf -d "$AVAHI_INTERFACE.avahi"
+        else
+            for n in $AVAHI_INTERFACE_DNS_SERVERS ; do
+                echo "nameserver $n"
+            done | /sbin/resolvconf -a "$AVAHI_INTERFACE.avahi"
+        fi
+    else
+        # No resolvconf tool available
+        if [ "x$AVAHI_DNS_SERVERS" = "x" ] ; then
+            test -f /etc/resolv.conf.avahi && mv /etc/resolv.conf.avahi /etc/resolv.conf
+        else
+            test -f /etc/resolv.conf.avahi || mv /etc/resolv.conf /etc/resolv.conf.avahi
+
+            for n in $AVAHI_DNS_SERVERS ; do
+                echo "nameserver $n"
+            done > /etc/resolv.conf
+        fi
+    fi
+
+{% endif %}

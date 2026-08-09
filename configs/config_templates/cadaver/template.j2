@@ -1,0 +1,58 @@
+# ==============================================================================
+# cadaver (WebDAV client) configuration template (.cadaverrc)
+# ==============================================================================
+# This Jinja2 template generates a `.cadaverrc` file used by the `cadaver` CLI
+# to configure default connection parameters and run-time startup commands.
+#
+# Self-documenting: every directive is preceded by a comment derived from the
+# schema description so that readers can understand the config without
+# external documentation.
+# ==============================================================================
+
+{% if proxy_host | default('') %}# ==============================================================================
+# Proxy Configuration
+# ==============================================================================
+# Hostname of the WebDAV proxy server (optional).
+# If provided, cadaver will route WebDAV requests through this proxy.
+# Syntax: proxy <host>[:<port>]
+#
+# Source fields:
+#   - proxy_host: {{ proxy_host | default('') }}
+#   - proxy_port: {{ proxy_port | default(80) }}
+{% if proxy_host | default('') %}proxy {{ proxy_host | default('') }}{% if proxy_port | default(80) != 80 %}:{{ proxy_port | default(80) }}{% endif %}
+{% endif %}{% endif %}
+
+{% if tolerant | default(False) %}# ==============================================================================
+# Tolerant Mode
+# ==============================================================================
+# Enable tolerant mode (allow cd/open into non-WebDAV collections).
+# When enabled, cadaver is less strict about server compliance, which helps
+# when connecting to servers that do not fully adhere to RFC 4918.
+#
+# Source field:
+#   - tolerant: {{ tolerant | default(False) }}
+set tolerant on
+{% endif %}
+
+# ==============================================================================
+# Default Remote Path
+# ==============================================================================
+# Default remote path to change to after opening a connection.
+# This is equivalent to running 'cd <path>' immediately after 'open'.
+#
+# Source field:
+#   - default_remote_path: {{ default_remote_path | default('/') }}
+{% if default_remote_path | default('/') %}cd {{ default_remote_path | default('/') }}
+{% endif %}
+
+# ==============================================================================
+# Startup Commands
+# ==============================================================================
+# List of cadaver commands to run at startup after opening a session.
+# Each item in the list is emitted as a separate line and executed in order.
+# Use this to automate common tasks such as uploading files or setting aliases.
+#
+# Source field:
+#   - startup_commands: {{ startup_commands | default([]) }}
+{% for cmd in startup_commands | default([]) %}{{ cmd }}
+{% endfor %}

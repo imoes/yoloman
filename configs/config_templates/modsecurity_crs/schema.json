@@ -1,0 +1,101 @@
+{
+  "exclusion_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of exclusion rules to apply before the CRS. Each rule defines how and which CRS rules should be suppressed.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "id": {
+          "type": "number",
+          "default": null,
+          "description": "Optional unique rule ID. If omitted, auto-generated as 1000 + index."
+        },
+        "condition": {
+          "type": "string",
+          "default": "uri",
+          "description": "Type of exclusion condition: `uri`, `header`, `variable`, `rule_by_id`, or `action`.",
+          "allowed": [
+            "uri",
+            "header",
+            "variable",
+            "rule_by_id",
+            "action"
+          ]
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description of the rule's purpose."
+        },
+        "uri_pattern": {
+          "type": "string",
+          "default": "",
+          "description": "Regex pattern for REQUEST_URI to match (used when `condition=uri`)."
+        },
+        "header_name": {
+          "type": "string",
+          "default": "",
+          "description": "HTTP header name to inspect (used when `condition=header`)."
+        },
+        "header_value_pattern": {
+          "type": "string",
+          "default": "",
+          "description": "Regex to match against header value (used when `condition=header`)."
+        },
+        "variable_name": {
+          "type": "string",
+          "default": "",
+          "description": "ModSecurity variable (e.g., ARGS, ARGS_GET) to match (used when `condition=variable`)."
+        },
+        "match_pattern": {
+          "type": "string",
+          "default": "",
+          "description": "Regex pattern for the variable (used when `condition=variable`)."
+        },
+        "uri_regex": {
+          "type": "string",
+          "default": ".*",
+          "description": "Regex for REQUEST_URI to match, for `rule_by_id` exclusions (used when `condition=rule_by_id`)."
+        },
+        "filename_pattern": {
+          "type": "string",
+          "default": ".*",
+          "description": "Regex for REQUEST_FILENAME to match, for tag-based exclusions (used when `condition=action`)."
+        },
+        "target_rule_ids": {
+          "type": "list",
+          "default": [],
+          "description": "List of CRS rule IDs to exclude from matching when condition matches (used for `ruleRemoveTargetById`).",
+          "items": {
+            "type": "number"
+          }
+        },
+        "remove_ids": {
+          "type": "list",
+          "default": [],
+          "description": "List of specific rule IDs to disable entirely on match (used for `ruleRemoveById`).",
+          "items": {
+            "type": "number"
+          }
+        },
+        "remove_tags": {
+          "type": "list",
+          "default": [],
+          "description": "List of rule tags (e.g., `attack-sqli`, `attack-xss`) to disable entirely on match (used for `ruleRemoveByTag`).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "target_args": {
+          "type": "list",
+          "default": [],
+          "description": "List of argument names to exclude from specific rules (e.g., `ARGS:password`) \u2014 passed via `ctl:ruleRemoveTargetById=...;ARGS:foo` syntax.",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "bundle_dir": "/var/lib/containers/storage/bundle",
+  "rootfs": "/var/lib/containers/storage/rootfs",
+  "seccomp": true,
+  "apparmor": true,
+  "selinux": true,
+  "capabilities": true,
+  "seccomp_profile": "/etc/crun/seccomp.json",
+  "apparmor_profile": "crun-default",
+  "selinux_label": "system_u:system_r:container_t:s0:c0,c1",
+  "cap_drop": [
+    "CAP_SYS_ADMIN",
+    "CAP_NET_RAW"
+  ],
+  "cap_add": [],
+  "default_uid": 1000,
+  "default_gid": 1000,
+  "crio_compatibility": true,
+  "podman_compatibility": true,
+  "log_level": "info",
+  "log_path": "",
+  "log_size": 10,
+  "log_files": 3,
+  "systemd_cgroup": false,
+  "cgroup_manager": "cgroupfs",
+  "annotations": [
+    {
+      "key": "io.podman.debug",
+      "value": "true"
+    },
+    {
+      "key": "io.containers.trace",
+      "value": "false"
+    }
+  ],
+  "prestart_hooks": [
+    {
+      "description": "Setup container network namespace",
+      "path": "/usr/local/bin/net-setup.sh",
+      "args": [
+        "--namespace",
+        "container-{{.ID}}"
+      ]
+    }
+  ],
+  "poststop_hooks": [
+    {
+      "description": "Clean up container logs",
+      "path": "/usr/local/bin/log-cleanup.sh"
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+name: file
+fqcn: builtin.file
+collection: builtin
+short_description: 'Set the state of a path: ensure a directory exists, ensure a path
+  is absent (file or directory, removed recursively), touch an empty file into existence,
+  or assert attributes (owner/group/mode) on an '
+description: 'Set the state of a path: ensure a directory exists, ensure a path is
+  absent (file or directory, removed recursively), touch an empty file into existence,
+  or assert attributes (owner/group/mode) on an existing file/directory. Idempotent
+  — running it twice with the same parameters produces changed=false the second time.
+  Supports check_mode: pass dry_run=true to preview whether anything would change
+  without touching the filesystem.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.file. Same path/state/owner/group/mode parameter names;
+  supports state=file|directory|absent|touch|link (state=link requires ''src'', the
+  link target; Ansible additionally supports state=hard for hardlinks, not yet implemented
+  here).
+
+  - Chef: the `directory` resource (state=directory), `file` resource with action
+  :delete (state=absent) or action :create_if_missing / :touch (state=touch), and
+  a `file` resource''s owner/group/mode properties for attribute assertions.
+
+  - Puppet: the `file` type — `ensure => directory`, `ensure => absent`, `ensure =>
+  present` (touch-like), with `owner`/`group`/`mode` parameters.
+
+  - Salt: the `file.directory` state (state=directory), `file.absent` (state=absent),
+  `file.touch` (state=touch), or `file.managed`''s user/group/mode for attribute-only
+  changes.
+
+  - Terraform: not a natural fit — Terraform manages infrastructure resources, not
+  arbitrary remote-file attributes; the closest analogue is a provisioner (`remote-exec`/`local-exec`)
+  invoking mkdir/rm/touch/chown/chmod, which loses Terraform''s own state tracking
+  for that action.'
+options:
+  group:
+    type: string
+    description: Optional desired group (group name or numeric gid). Leave unset to
+      not manage group.
+  mode:
+    type: string
+    description: Optional desired permission mode as an octal string, e.g. "0644"
+      or "755". Leave unset to not manage mode. Ignored when state=link — symlink
+      permission bits are not meaningfully manageable on Linux.
+  owner:
+    type: string
+    description: Optional desired owner (username or numeric uid). Leave unset to
+      not manage ownership.
+  path:
+    type: string
+    description: Path to manage, e.g. "/opt/app/data" or "/etc/myapp/config.d".
+    required: true
+  src:
+    type: string
+    description: The symlink target. Required when state=link, e.g. "/data1/var_lib_docker"
+      for path "/var/lib/docker".
+  state:
+    type: string
+    choices:
+    - file
+    - directory
+    - absent
+    - touch
+    - link
+    description: Desired state. Default "file" (assert attributes on an existing file,
+      error if missing).
+native: true
+writes: true
+runtime: native
+source: agent-registry

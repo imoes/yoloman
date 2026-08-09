@@ -1,0 +1,32 @@
+# DMitry scan configuration (generated via Jinja2)
+# Run a security scan with specified modules against a target host.
+# All module flags may be combined; -o must come last.
+
+# Target host to scan (required)
+HOST={{ host | default('example.com') }}
+
+# Output file path. If omitted, output goes to stdout. If -o specified without argument, defaults to HOST.txt.
+{% if output_file is defined %}
+OUTPUT_FILE={{ output_file }}
+{% else %}
+# OUTPUT_FILE omitted — output to stdout by default
+{% endif %}
+
+# Module selection flags — each corresponds to a dmitry(1) option
+{% if whois|default(false) %}FLAG_WHOIS{% endif %}
+{% if whois_inet|default(false) %}FLAG_WHOIS_INET{% endif %}
+{% if netcraft|default(false) %}FLAG_NETCRAFT{% endif %}
+{% if subdomain|default(false) %}FLAG_SUBDOMAIN{% endif %}
+{% if email|default(false) %}FLAG_EMAIL{% endif %}
+{% if portscan|default(false) %}FLAG_PORTSCAN{% endif %}
+{% if portscan_filtered|default(false) %}FLAG_PORTSCAN_FILTERED{% endif %}
+{% if portscan_banner|default(false) %}FLAG_PORTSCAN_BANNER{% endif %}
+
+# Portscan timeout (seconds). Must be a positive integer.
+PORTSCAN_TTL={{ portscan_ttl | default(2) }}
+
+# Subdomain max length (default: 40)
+SUBDOMAIN_MAXLEN={{ subdomain_maxlen | default(40) }}
+
+# Email max length (default: 50)
+EMAIL_MAXLEN={{ email_maxlen | default(50) }}

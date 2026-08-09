@@ -1,0 +1,82 @@
+{# buildtorrent configuration template #}
+{# This template generates command-line arguments for the buildtorrent utility to create .torrent files. #}
+
+{# Announce URL for the torrent; omit for trackerless torrents (BEP-5). #}
+{% if announce | default('') %}# Announce URL
+-a {{ announce | default('') }}
+{% endif %}
+
+{# Path to filelist file (or '-' for stdin) containing files to include in the torrent, formatted as 'filesystem_path|torrent_path'. #}
+{% if filelist | default('') %}# Use filelist mode
+-f {{ filelist | default('') }}
+{% endif %}
+
+{# Name of the torrent (required for filelist mode, or to override the default name from input path). #}
+{% if name | default('') %}# Torrent name
+-n {{ name | default('') }}
+{% endif %}
+
+{# Additional announce tiers (BEP-12), formatted as 'tier1_item1,tier1_item2|tier2_item1,tier2_item2|...'. #}
+{% if announcelist | default('') %}# Additional announce tiers
+-A {{ announcelist | default('') }}
+{% endif %}
+
+{# DHT nodes list (BEP-5), formatted as 'host1|port1,host2|port2,...'. #}
+{% if nodes | default('') %}# DHT nodes list
+-N {{ nodes | default('') }}
+{% endif %}
+
+{# WebSeed URLs (BEP-19), comma-separated. #}
+{% if webseeds | default('') %}# WebSeeds list
+-w {{ webseeds | default('') }}
+{% endif %}
+
+{# Piece length in bytes (overrides default 262144). Must be 0 if piecesize is non-zero. #}
+{% if piecelength | default(0) != 0 %}# Piece length in bytes
+-l {{ piecelength | default(0) }}
+{% endif %}
+
+{# Exponent for piece length (2^size), e.g., 18 for 262144 bytes. Overrides piecelength. #}
+{% if piecesize | default(0) != 0 %}# Piece size exponent (2^size)
+-L {{ piecesize | default(0) }}
+{% endif %}
+
+{# User comment to embed in the .torrent file. #}
+{% if comment | default('') %}# Optional comment
+-c {{ comment | default('') }}
+{% endif %}
+
+{# Whether the torrent is private (0 or 1, BEP-27). #}
+{% if private is defined %}# Private flag (0 or 1)
+-p {{ private | default(false) | int }}
+{% endif %}
+
+{# Unix timestamp to use as creation date; 0 means omit default timestamp (use current time). #}
+{% if timestamp is defined %}# Override creation date (Unix timestamp)
+-d {{ timestamp | default(0) }}
+{% endif %}
+
+{# If true, omit the creation date field entirely (D option). #}
+{% if nodate is defined and nodate %}# Omit creation date
+-D
+{% endif %}
+
+{# Value to use for the 'created by' field in the torrent. #}
+{% if creator | default('') %}# Override 'created by' field
+-b {{ creator | default('') }}
+{% endif %}
+
+{# If true, omit the 'created by' field entirely (B option). #}
+{% if nocreatedby is defined and nocreatedby %}# Omit 'created by' field
+-B
+{% endif %}
+
+{# If true, add MD5 sum per file (m option). #}
+{% if md5sum is defined and md5sum %}# Add MD5 sums per file
+-m
+{% endif %}
+
+{# Filename sorting method when building from directory: 'Unsorted', 'Alpha', or 'Version'. #}
+{% if sortorder | default('Unsorted') %}# Filename sort order: Unsorted, Alpha, or Version
+-s {{ sortorder | default('Unsorted') }}
+{% endif %}

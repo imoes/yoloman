@@ -1,0 +1,151 @@
+# ipgrab Configuration Template
+#
+# This file configures ipgrab, a lightweight packet capture utility.
+# It supports interface selection, BPF filtering, various output modes,
+# daemonization, and log rotation.
+#
+# All variables must be provided via Ansible inventory or group_vars.
+# Defaults are applied inline using the Jinja2 `default` filter to ensure
+# the template renders correctly even if a variable is omitted.
+
+# ==============================================================================
+# Interface Configuration
+# ==============================================================================
+
+# Network interface to capture packets from.
+# Use 'any' to capture on all available interfaces.
+# Default: eth0
+interface: {{ (interface | default('eth0')) | string }}
+
+# ==============================================================================
+# Filtering
+# ==============================================================================
+
+# Berkeley Packet Filter (BPF) expression to selectively capture packets.
+# Leave empty to capture all traffic on the selected interface(s).
+# Example: 'tcp port 80' or 'ip host 192.168.1.1'
+# Default: '' (empty string, captures everything)
+filter: "{{ (filter | default('')) | string }}"
+
+# ==============================================================================
+# Capture Limits
+# ==============================================================================
+
+# Maximum number of packets to capture.
+# Set to 0 to continue capturing indefinitely until interrupted (e.g., by SIGTERM).
+# Default: 0
+max_packets: {{ (max_packets | default(0)) | int }}
+
+# ==============================================================================
+# Output Configuration
+# ==============================================================================
+
+# Format of the output.
+# 'text' = human-readable decoded headers (default).
+# 'hex' = raw hexadecimal dump of packets.
+# 'combined' = both text headers and hex dump.
+# Default: text
+output_mode: {{ (output_mode | default('text')) | string }}
+
+# Include full packet payload (as hex) in output even in text mode.
+# If false, only headers are shown in text mode.
+# Default: false
+verbose_data: {{ (verbose_data | default(False)) | lower }}
+
+# Limit the number of bytes captured per packet.
+# Set to 0 to capture the full packet length (no truncation).
+# Useful for reducing disk I/O if only headers are needed.
+# Default: 0
+snaplen: {{ (snaplen | default(0)) | int }}
+
+# Format of packet timestamps in the output.
+# 'full' = ISO 8601 format (e.g., 2023-10-27T10:00:00Z).
+# 'compact' = Unix epoch seconds (e.g., 1698403200).
+# 'relative' = milliseconds since the first captured packet.
+# Default: full
+timestamp_format: {{ (timestamp_format | default('full')) | string }}
+
+# Include Ethernet (Layer 2) headers in the decoded output.
+# Set to false to skip MAC addresses and frame types, showing only L3+ data.
+# Default: true
+include_link_layer: {{ (include_link_layer | default(True)) | lower }}
+
+# Path to the file where captured output will be written.
+# If empty, ipgrab writes to standard output (stdout/console).
+# Default: '' (stdout)
+output_file: "{{ (output_file | default('')) | string }}"
+
+# ==============================================================================
+# Log Rotation (when output_file is set)
+# ==============================================================================
+
+# Maximum size in Megabytes of the output file before rotation occurs.
+# Set to 0 to disable automatic log rotation.
+# Default: 0 (disabled)
+rotate_size_mb: {{ (rotate_size_mb | default(0)) | int }}
+
+# Number of rotated backup files to retain when rotate_size_mb is enabled.
+# Old files are deleted once this count is exceeded.
+# Default: 3
+rotate_count: {{ (rotate_count | default(3)) | int }}
+
+# ==============================================================================
+# Interface List (Multi-interface mode)
+# ==============================================================================
+
+# Additional interfaces to capture on, in addition to the main 'interface'.
+# Each item in the list generates a separate 'extra_interface' directive.
+# Default: [] (empty list, no extra interfaces)
+{% for iface in (extra_interfaces | default([])) %}
+extra_interface: {{ iface | string }}
+{% endfor %}
+
+# ==============================================================================
+# Performance & Buffering
+# ==============================================================================
+
+# Enable internal packet buffering to reduce CPU usage on high-throughput links.
+# If enabled, packets are collected in memory and flushed periodically or when the buffer is full.
+# Default: false
+{% if (use_buffering | default(False)) %}
+# Buffering is enabled
+buffer_packets: true
+# Maximum number of packets to hold in the buffer before flushing.
+# Default: 10000
+buffer_size: {{ (buffer_size | default(10000)) | int }}
+# Maximum time in milliseconds to wait before flushing the buffer, even if not full.
+# Default: 100
+buffer_timeout_ms: {{ (buffer_timeout_ms | default(100)) | int }}
+{% else %}
+# Buffering is disabled
+buffer_packets: false
+{% endif %}
+
+# ==============================================================================
+# Priority Filtering
+# ==============================================================================
+
+# If supported by the system/PCAP library, filter packets based on their priority.
+# Useful for QoS or network emulation scenarios (e.g., netem, tc).
+# Default: false
+{% if (use_priority_filter | default(False)) %}
+# Priority filtering is enabled
+# Minimum packet priority to capture (0 = highest priority).
+# Packets with priority < min_priority are ignored.
+# Default: 0
+min_priority: {{ (min_priority | default(0)) | int }}
+{% endif %}
+
+# ==============================================================================
+# Daemonization
+# ==============================================================================
+
+# Run ipgrab in the background as a daemon service.
+# When true, ipgrab detaches from the terminal and runs silently.
+# Default: false
+daemonize: {{ (daemonize | default(False)) | lower }}
+
+# Path to the PID file created when daemonizing.
+# Only relevant if daemonize is true.
+# Default: /var/run/ipgrab.pid
+pid_file: "{{ (pid_file | default('/var/run/ipgrab.pid')) | string }}"

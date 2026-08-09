@@ -1,0 +1,67 @@
+{
+  "local_db": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "pgq_local",
+    "user": "pgqadmin",
+    "password": "secret_local"
+  },
+  "upstream_db": {
+    "host": "upstream-db.prod.internal",
+    "port": 5432,
+    "name": "pgq_upstream",
+    "user": "pgqreader",
+    "password": "secret_upstream"
+  },
+  "node_name": "eu-west-1a",
+  "worker_count": 8,
+  "batch_size": 200,
+  "poll_delay_ms": 50,
+  "max_idle_seconds": 60,
+  "queue_name": "orders",
+  "log_level": "INFO",
+  "log_file": "/var/log/pgq-node/eu-west-1a.log",
+  "log_max_size_mb": 200,
+  "log_max_files": 7,
+  "health_check": {
+    "enabled": true,
+    "port": 8080,
+    "path": "/healthz"
+  },
+  "lag_monitoring": {
+    "enabled": true,
+    "interval_seconds": 15,
+    "warn_threshold_seconds": 120,
+    "crit_threshold_seconds": 600
+  },
+  "pause_on_upstream_failure": true,
+  "event_timeout_seconds": 45,
+  "init_sql": {
+    "file": "/etc/pgq-node/init-eu-west-1a.sql"
+  },
+  "event_filters": [
+    {
+      "description": "Allow only order-related events",
+      "type": "type_equals",
+      "pattern": "order.created",
+      "action": "allow"
+    },
+    {
+      "description": "Discard debug events",
+      "type": "type_equals",
+      "pattern": "debug.log",
+      "action": "discard"
+    }
+  ],
+  "retry_policy": {
+    "enabled": true,
+    "max_attempts": 5,
+    "delay_seconds": 10,
+    "backoff_multiplier": 2.0
+  },
+  "metrics": {
+    "enabled": true,
+    "port": 9090,
+    "path": "/metrics"
+  }
+}

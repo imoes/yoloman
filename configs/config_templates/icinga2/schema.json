@@ -1,0 +1,123 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "3",
+    "description": "Logging verbosity level: 1=emergency, 2=alert, 3=critical, 4=error, 5=warning, 6=notice, 7=informational, 8=debug"
+  },
+  "enable_api": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the Icinga 2 API endpoint."
+  },
+  "api_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the API listens on (e.g., 127.0.0.1 for localhost only, 0.0.0.0 for all interfaces)."
+  },
+  "api_bind_port": {
+    "type": "number",
+    "default": 5665,
+    "description": "Port number for the Icinga 2 API endpoint."
+  },
+  "enable_notifications": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable notification processing (e.g., for alerting)."
+  },
+  "command_endpoint": {
+    "type": "string",
+    "default": "director-global",
+    "description": "Default endpoint where remote commands (e.g., from Icinga Director) are sent."
+  },
+  "event_buffer_max_age": {
+    "type": "number",
+    "default": 172800,
+    "description": "Maximum age (in seconds) of buffered events before they are purged."
+  },
+  "event_buffer_max_items": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of buffered events before overflow occurs."
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of distributed monitoring zones. Each zone can define a parent zone and endpoints.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "master",
+          "description": "Name of the zone."
+        },
+        "parent_zone": {
+          "type": "string",
+          "default": "",
+          "description": "Optional name of the parent zone (for hierarchical zones)."
+        },
+        "endpoints": {
+          "type": "list",
+          "default": [],
+          "description": "List of endpoint names assigned to this zone.",
+          "items": {
+            "type": "string",
+            "description": "Endpoint name."
+          }
+        }
+      }
+    }
+  },
+  "endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "List of endpoint definitions (hostname + port) used in distributed monitoring.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "master",
+          "description": "Unique name of the endpoint."
+        },
+        "host": {
+          "type": "string",
+          "default": "127.0.0.1",
+          "description": "Hostname or IP address of this endpoint."
+        },
+        "port": {
+          "type": "number",
+          "default": 5665,
+          "description": "Port number for the Icinga 2 API on this endpoint."
+        }
+      }
+    }
+  },
+  "macros": {
+    "type": "list",
+    "default": [],
+    "description": "Custom global macros (variables) prefixed with 'vars.'.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Macro name (e.g., 'environment', 'region')."
+        },
+        "value": {
+          "type": "string|number|bool",
+          "description": "Macro value."
+        }
+      }
+    }
+  },
+  "features": {
+    "type": "object",
+    "default": {},
+    "description": "Map of feature names to boolean (or string 'enabled'/'disabled') values. Common: 'IDO', 'Graphite', 'InfluxDB', 'Syslog'.",
+    "items": {
+      "type": "bool|string",
+      "description": "Enable or disable a feature."
+    }
+  }
+}

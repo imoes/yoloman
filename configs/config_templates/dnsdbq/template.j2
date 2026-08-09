@@ -1,0 +1,50 @@
+# =============================================================================
+# dnsdbq configuration file
+# =============================================================================
+#
+# This file is read entirely and only once on startup by dnsdbq tools.
+# The first readable file found in the following precedence wins:
+#   1. ~/.isc-dnsdb-query.conf
+#   2. ~/.dnsdb-query.conf
+#   3. /etc/isc-dnsdb-query.conf
+#   4. /etc/dnsdb-query.conf
+#
+# Self-documenting template: every directive is preceded by its schema
+# description to aid manual editing and troubleshooting without external docs.
+# =============================================================================
+
+# --- System Selection ---
+#
+# Passive DNS system to query; e.g., 'dnsdb' or 'circl'.
+# Specifies which backend API provider to use for DNS data retrieval.
+DNSDBQ_SYSTEM={{ (var | default({})).system | default('dnsdb') }}
+
+# --- Farsight DNSDB Configuration ---
+#
+# API key for Farsight DNSDB. Required for dnsdb system.
+# This key authenticates requests to the Farsight DNSDB API service.
+# Keep this value secure and do not commit it to version control if it contains secrets.
+DNSDB_API_KEY={{ (var | default({})).api_key | default('') }}
+
+# --- API Server URL ---
+#
+# Base URL of the Passive DNS API server, optionally with URI prefix.
+# Defines the root endpoint for the chosen system's API.
+DNSDB_SERVER={{ (var | default({})).server_url | default('https://api.dnsdb.info') }}
+
+# --- CIRCL Passive DNS Configuration ---
+#
+# Authentication credentials for CIRCL passive DNS (format: user:pass).
+# Only required if DNSDBQ_SYSTEM is set to 'circl'.
+# Format is strictly "username:password".
+{% if (var | default({})).circl_auth | default('') %}
+CIRCL_AUTH={{ (var | default({})).circl_auth | default('') }}
+{% endif %}
+
+# --- CIRCL Server URL ---
+#
+# URL of the CIRCL passive DNS server.
+# Only required if DNSDBQ_SYSTEM is set to 'circl' and differs from the default.
+{% if (var | default({})).circl_server | default('') %}
+CIRCL_SERVER={{ (var | default({})).circl_server | default('') }}
+{% endif %}

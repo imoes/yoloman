@@ -1,0 +1,53 @@
+{# ============================================================================ #}
+{# danmaq Configuration File                                                    #}
+{#                                                                              #}
+{# This template generates a portable configuration for the danmaq Qt5 client,  #}
+{# which connects to danmaku (real-time comment) streaming servers.             #}
+{#                                                                              #}
+{# All variables are defaulted inline to ensure safe rendering even if          #}
+{# undefined in the Ansible context.                                            #}
+{# ============================================================================ #}
+
+[General]
+
+{# -------------------------------------------------------------------------- #}
+{# Server URL to connect to                                                   #}
+{# Type: string                                                               #}
+{# Default: '' (empty string, client may use built-in defaults)               #}
+{# -------------------------------------------------------------------------- #}
+ServerURL={{ (server_url | default('')) | string }}
+
+{# -------------------------------------------------------------------------- #}
+{# Server port number                                                         #}
+{# Type: integer                                                              #}
+{# Default: 8888                                                              #}
+{# -------------------------------------------------------------------------- #}
+ServerPort={{ server_port | default(8888) }}
+
+{# -------------------------------------------------------------------------- #}
+{# Username for danmaku service (optional)                                    #}
+{# Type: string                                                               #}
+{# Default: '' (empty string, anonymous connection)                           #}
+{# -------------------------------------------------------------------------- #}
+Username={{ (username | default('')) | string }}
+
+{# -------------------------------------------------------------------------- #}
+{# Whether to use TLS/SSL for connection                                      #}
+{# Type: boolean                                                              #}
+{# Default: false                                                             #}
+{# -------------------------------------------------------------------------- #}
+UseSSL={{ use_ssl | default(false) | ternary('true', 'false') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Automatically connect on startup                                           #}
+{# Type: boolean                                                              #}
+{# Default: true                                                              #}
+{# -------------------------------------------------------------------------- #}
+AutoConnect={{ auto_connect | default(true) | ternary('true', 'false') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Subscribed danmaku rooms                                                   #}
+{# Type: list of strings (room IDs)                                           #}
+{# Default: [] (empty list, no subscriptions)                                 #}
+{# -------------------------------------------------------------------------- #}
+SubscriptionRooms={{ subscription_rooms | default([]) | join(',') }}

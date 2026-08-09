@@ -1,0 +1,44 @@
+{
+  "provides": [
+    {
+      "capability": "mail_smtp",
+      "backend": "postfix",
+      "port_field": "port.smtp",
+      "default_port": 25,
+      "fields": {
+        "host": null,
+        "port": "port.smtp",
+        "user": null,
+        "password": null
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "mail_imap",
+      "backends": [
+        "dovecot"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": null,
+        "port": null,
+        "user": null,
+        "password": null
+      },
+      "peer_injection": [
+        {
+          "capability": "mail_imap",
+          "kind": "auth_backend",
+          "target_field": "dovecot_auth",
+          "socket_fields": {
+            "userdb": "dovecot_userdb_path",
+            "client": "dovecot_client_path"
+          }
+        }
+      ]
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

@@ -1,0 +1,220 @@
+# mimedefang.conf — Main configuration file for MIMEDefang mail filter
+# This file controls MIMEDefang's behavior: how it processes mail, what actions it takes, and how it integrates with MTA (e.g., Sendmail or Postfix).
+# The format is INI-style: key = value (case-insensitive keys, no quotes required)
+# Comments start with # or ;
+
+# General settings
+# Path to the PID file for the main MIMEDefang process.
+mpd_pid_file = {{ pid_file | default('/var/run/mimedefang/mimedefang.pid') }}
+
+# Directory where the main socket and child sockets will be created.
+mpd_socket_dir = {{ socket_dir | default('/var/run/mimedefang') }}
+
+# Unix user to run MIMEDefang processes as (must be non-root for security).
+mpd_user = {{ user | default('mailnull') }}
+
+# Unix group to run MIMEDefang processes as.
+mpd_group = {{ group | default('mailnull') }}
+
+# Directory for temporary files during message processing.
+mpd_temp_dir = {{ temp_dir | default('/var/spool/mimedefang') }}
+
+# Maximum number of child processes to handle incoming mail.
+mpd_max_children = {{ max_children | default(10) }}
+
+# Minimum number of child processes to keep running.
+mpd_min_children = {{ min_children | default(2) }}
+
+# Minimum number of idle (spare) child processes to maintain.
+mpd_min_spare_children = {{ min_spare_children | default(1) }}
+
+# Maximum number of idle (spare) child processes before killing extras.
+mpd_max_spare_children = {{ max_spare_children | default(5) }}
+
+# Number of requests each child process handles before being recycled.
+mpd_max_requests_per_child = {{ max_requests_per_child | default(100) }}
+
+# File permissions (octal) for the main Unix socket.
+mpd_socket_perms = {{ socket_perms | default('0660') }}
+
+# Owner (username) for the main Unix socket (optional; usually root).
+mpd_socket_owner = {{ socket_owner | default('root') }}
+
+# Group for the main Unix socket (must be accessible by MTA).
+mpd_socket_group = {{ socket_group | default('mailnull') }}
+
+# Timeout settings (seconds)
+# Overall timeout (in seconds) for a single mail transaction.
+mpd_timeout = {{ timeout | default(300) }}
+
+# Timeout (in seconds) for connecting to external services (e.g., clamd, spamd).
+mpd_connect_timeout = {{ connect_timeout | default(60) }}
+
+# Idle timeout (in seconds) before a child process exits.
+mpd_idle_timeout = {{ idle_timeout | default(600) }}
+
+# Timeout (in seconds) for the entire mail transaction per message.
+mpd_transaction_timeout = {{ transaction_timeout | default(300) }}
+
+# Logging
+# Syslog facility to use for logging (e.g., LOCAL0, MAIL).
+mpd_syslog_facility = {{ syslog_facility | default('MAIL') }}
+
+# Minimum syslog level to log (e.g., debug, info, notice, warning, err).
+mpd_syslog_level = {{ syslog_level | default('info') }}
+
+# Enable logging to a file (in addition to syslog).
+mpd_log_to_file = {{ log_to_file | default(False) }}
+
+# Path to the file where logs will be written if log_to_file is true.
+mpd_log_file = {{ log_file | default('/var/log/mimedefang/mimedefang.log') }}
+
+# Include PID in each log line.
+mpd_log_pid = {{ log_pid | default(True) }}
+
+# Include ISO timestamps in each log line.
+mpd_log_timestamps = {{ log_timestamps | default(True) }}
+
+# Enable verbose logging (includes message headers in logs).
+mpd_log_level_verbose = {{ log_level_verbose | default(False) }}
+
+# Filtering behavior
+# Default action if no filters reject the message (accept, quarantine, delete, discard, rewrite).
+mpd_action = {{ action | default('accept') }}
+
+# Action to take when message is quarantined (quarantine, delete, rewrite_headers).
+mpd_quarantine_action = {{ quarantine_action | default('quarantine') }}
+
+# Directory to store quarantined messages.
+mpd_quarantine_dir = {{ quarantine_dir | default('/var/spool/mimedefang/quarantine') }}
+
+# Prefix for quarantined filenames (e.g., 'msg-2023-08-01-123456').
+mpd_quarantine_prefix = {{ quarantine_prefix | default('msg') }}
+
+# Compress quarantined messages with gzip for space savings.
+mpd_quarantine_compress = {{ quarantine_compress | default(True) }}
+
+# Owner (username) for quarantined files.
+mpd_quarantine_owner = {{ quarantine_owner | default('mailnull') }}
+
+# Group for quarantined files.
+mpd_quarantine_group = {{ quarantine_group | default('mailnull') }}
+
+# File permissions (octal) for quarantined files (typically restrictive).
+mpd_quarantine_perms = {{ quarantine_perms | default('0600') }}
+
+# Replace illegal or dangerous headers (e.g., null bytes, excessive length) with safe placeholders.
+mpd_replace_bad_headers = {{ replace_bad_headers | default(True) }}
+
+# Strip all attachments (dangerous for most sites; usually disabled).
+mpd_strip_attachments = {{ strip_attachments | default(False) }}
+
+# Remove dangerous file extensions (e.g., .exe, .bat) from attachments.
+mpd_strip_extensions = {{ strip_extensions | default(True) }}
+
+# List of file extensions to automatically strip or quarantine.
+mpd_strip_extensions_list = {{ strip_extensions_list | default(['exe', 'bat', 'com', 'pif', 'scr', 'js', 'vbs', 'wsf', 'hta', 'cmd', 'cpl', 'msi', 'msp', 'lnk']) | join('; ') }}
+
+# Action for messages that contain viruses (quarantine, delete, accept_with_warning).
+mpd_virus_action = {{ virus_action | default('quarantine') }}
+
+# Action for messages flagged as spam (accept, quarantine, reject).
+mpd_spam_action = {{ spam_action | default('accept') }}
+
+# SpamAssassin score at which to add 'X-Spam-Status' header.
+mpd_spam_tag_level = {{ spam_tag_level | default(2.0) }}
+
+# Score at which to add 'X-Spam-Flag' header and mark subject.
+mpd_spam_tag2_level = {{ spam_tag2_level | default(4.0) }}
+
+# Score at which to discard or quarantine (based on spam_action).
+mpd_spam_kill_level = {{ spam_kill_level | default(10.0) }}
+
+# AV/AS integration
+# Path or TCP address:port for ClamAV daemon (e.g., unix:/var/run/clamav/clamd.sock or 127.0.0.1:3310).
+mpd_clamd_socket = {{ clamd_socket | default('unix:/var/run/clamav/clamd.ctl') }}
+
+# Path to the freshclam PID file (used to verify ClamAV is updated).
+mpd_freshclam_pidfile = {{ freshclam_pidfile | default('/var/run/clamav/freshclam.pid') }}
+
+# Path or TCP address:port for SpamAssassin daemon (e.g., unix:/var/run/spamd.sock or 127.0.0.1:783).
+mpd_spamd_socket = {{ spamd_socket | default('unix:/var/run/spamd/spamd.sock') }}
+
+# Host for remote SpamAssassin (only used if spamd_socket is not a Unix socket).
+mpd_spamd_host = {{ spamd_host | default('127.0.0.1') }}
+
+# Port for remote SpamAssassin (only used if spamd_socket is not a Unix socket).
+mpd_spamd_port = {{ spamd_port | default(783) }}
+
+# User to switch to when running SpamAssassin locally (if used directly).
+mpd_spamd_user = {{ spamd_user | default('spamd') }}
+
+# Timeout (in seconds) for SpamAssassin checks.
+mpd_spamd_timeout = {{ spamd_timeout | default(30) }}
+
+# Perl filter paths (semicolon-separated list)
+# List of Perl filter scripts to run (semicolon-separated string in INI).
+mpd_filter = {{ filter | default(['/etc/mimedefang/filter']) | join('; ') }}
+
+# Additional options
+# Disable MTA integration (useful for testing; not for production).
+mpd_disable_milter = {{ disable_milter | default(False) }}
+
+# Socket path for MTA to communicate with MIMEDefang (Sendmail/Postfix milter interface).
+mpd_milter_socket = {{ milter_socket | default('unix:/var/run/mimedefang/mimedefang.sock') }}
+
+# Owner of the Milter socket (MTA must be able to access it).
+mpd_milter_socket_owner = {{ milter_socket_owner | default('mailnull') }}
+
+# Group of the Milter socket (MTA must be in this group or have permissions).
+mpd_milter_socket_group = {{ milter_socket_group | default('mailnull') }}
+
+# Permissions (octal) for the Milter socket.
+mpd_milter_socket_perms = {{ milter_socket_perms | default('0660') }}
+
+# Timeout (in seconds) for MTA milter communication.
+mpd_milter_timeout = {{ milter_timeout | default(300) }}
+
+# Enable IPv6 support (for network sockets and DNS).
+mpd_use_ipv6 = {{ use_ipv6 | default(True) }}
+
+# Timeout (in seconds) for DNS lookups.
+mpd_dns_timeout = {{ dns_timeout | default(10) }}
+
+# Number of times to retry DNS lookups before failing.
+mpd_dns_retries = {{ dns_retries | default(3) }}
+
+# Rate limiting
+# Enable per-IP rate limiting.
+mpd_rate_limit = {{ rate_limit | default(False) }}
+
+# Rate limit by client IP, sender, or recipient.
+mpd_rate_limit_by = {{ rate_limit_by | default('client_ip') }}
+
+# Log rate-limited connections.
+mpd_rate_limit_log = {{ rate_limit_log | default(True) }}
+
+# Log file path for rate limiting entries (if rate_limit_log is true).
+mpd_rate_limit_log_file = {{ rate_limit_log_file | default('/var/log/mimedefang/ratelimit.log') }}
+
+# Database (optional; for persistent state)
+# Base directory for database files (if persistent state is enabled).
+mpd_db_path = {{ db_path | default('/var/lib/mimedefang') }}
+
+# Database backend (sqlite, mysql, postgresql).
+mpd_db_type = {{ db_type | default('sqlite') }}
+
+# Database username (for mysql/postgresql only).
+mpd_db_user = {{ db_user | default('mimedefang') }}
+
+# Database password (for mysql/postgresql only).
+mpd_db_pass = {{ db_pass | default('') }}
+
+# Database name (for mysql/postgresql only).
+mpd_db_name = {{ db_name | default('mimedefang') }}
+
+# Database host (for mysql/postgresql only).
+mpd_db_host = {{ db_host | default('localhost') }}
+
+# Database port (for mysql/postgresql only).
+mpd_db_port = {{ db_port | default(3306) }}

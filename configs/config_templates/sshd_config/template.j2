@@ -1,0 +1,99 @@
+# Listen on specified address and port
+Port {{ port }}
+
+# Bind to specified address (empty or '0.0.0.0' for all interfaces)
+ListenAddress {{ listen_address }}
+
+# Protocol version (typically 2 for modern SSH)
+Protocol {{ protocol_version }}
+
+# Enable/disable password authentication
+PasswordAuthentication {{ password_auth_enabled }}
+
+# Enable/disable public key authentication
+PubkeyAuthentication {{ pubkey_auth_enabled }}
+
+#AuthorizedKeysFile .ssh/authorized_keys
+AuthorizedKeysFile {{ authorized_keys_file }}
+
+# Authentication timeout in seconds
+LoginGraceTime {{ login_grace_time }}
+
+# Permit root login (yes/no/without-password/forceroot)
+PermitRootLogin {{ permit_root_login }}
+
+# Maximum authentication attempts before disconnect
+MaxAuthTries {{ max_auth_tries }}
+
+# Maximum sessions per connection
+MaxSessions {{ max_sessions }}
+
+# Allow/deny specific users (space-separated list)
+AllowUsers {{ allow_users | join(' ') }}
+
+# Allow/deny specific groups (space-separated list)
+AllowGroups {{ allow_groups | join(' ') }}
+
+# Disable legacy insecure algorithms
+HostKeyAlgorithms {{ host_key_algorithms | join(',') }}
+
+# Key exchange algorithms
+KexAlgorithms {{ kex_algorithms | join(',') }}
+
+# Ciphers (cipher,cipher,...)
+Ciphers {{ ciphers | join(',') }}
+
+# MACs (message authentication code algorithms)
+MACs {{ macs | join(',') }}
+
+# Logging verbosity (0=quiet, 3=verbose)
+LogLevel {{ log_level }}
+
+# Logging facility
+SyslogFacility {{ syslog_facility }}
+
+# Enable/disable X11 forwarding
+X11Forwarding {{ x11_forwarding_enabled }}
+
+# X11 display offset
+X11DisplayOffset {{ x11_display_offset }}
+
+# Enable/disable TCP forwarding
+AllowTcpForwarding {{ tcp_forwarding_enabled }}
+
+# Enable/disable agent forwarding
+AllowAgentForwarding {{ agent_forwarding_enabled }}
+
+# Subsystem definition for SFTP
+# Use internal-sftp for chrooted SFTP
+{% for sftp_subsystem in sftp_subsystems %}
+Subsystem {{ sftp_subsystem.name }} {{ sftp_subsystem.executable }}
+{% endfor %}
+
+# Per-subsystem or per-user settings via Match blocks
+{% for match in match_blocks %}
+# Match block: {{ match.reason }}
+Match {{ match.criteria }}
+{% for directive in match.directives %}
+  {{ directive.key }} {{ directive.value }}
+{% endfor %}
+{% endfor %}
+
+# Keep-alive settings
+ClientAliveInterval {{ client_alive_interval }}
+ClientAliveCountMax {{ client_alive_count_max }}
+
+# TCP keep-alive
+TCPKeepAlive {{ tcp_keep_alive }}
+
+# Banner to display before authentication
+Banner {{ banner }}
+
+# Disable insecure legacy features
+StrictModes {{ strict_modes }}
+
+# Ignore rhosts
+IgnoreRhosts {{ ignore_rhosts }}
+
+# Use PAM for authentication
+UsePAM {{ use_pam }}

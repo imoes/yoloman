@@ -1,0 +1,144 @@
+{
+  "worker_processes": "auto",
+  "pid_file": "/run/nginx.pid",
+  "error_log": {
+    "path": "/var/log/nginx/error.log",
+    "level": "warn"
+  },
+  "events": {
+    "worker_connections": 1024,
+    "use": "epoll",
+    "multi_accept": true
+  },
+  "include_paths": {
+    "mime_types": "/etc/nginx/mime.types",
+    "conf.d": "/etc/nginx/conf.d",
+    "sites": "/etc/nginx/sites-enabled"
+  },
+  "default_type": "application/octet-stream",
+  "access_log": {
+    "path": "/var/log/nginx/access.log"
+  },
+  "log_formats": [
+    {
+      "name": "json",
+      "format": "{\"time\":\"$time_iso8601\",\"remote_addr\":\"$remote_addr\",\"remote_user\":\"$remote_user\",\"request\":\"$request\",\"status\":$status,\"body_bytes_sent\":$body_bytes_sent,\"request_time\":$request_time,\"http_referer\":\"$http_referer\",\"http_user_agent\":\"$http_user_agent\"}"
+    }
+  ],
+  "sendfile": true,
+  "tcp_nopush": true,
+  "tcp_nodelay": true,
+  "keepalive_timeout": 65,
+  "client_max_body_size": "10m",
+  "gzip": {
+    "enabled": true,
+    "types": [
+      "text/plain",
+      "text/css",
+      "application/json",
+      "application/javascript",
+      "image/svg+xml"
+    ],
+    "comp_level": 5,
+    "min_length": 256
+  },
+  "server_tokens": false,
+  "upstreams": [
+    {
+      "name": "php_fpm",
+      "servers": [
+        {
+          "address": "127.0.0.1",
+          "port": 9000
+        }
+      ]
+    },
+    {
+      "name": "api_backend",
+      "balance_method": "least_conn",
+      "servers": [
+        {
+          "address": "10.0.0.10",
+          "port": 8080,
+          "weight": 3
+        },
+        {
+          "address": "10.0.0.11",
+          "port": 8080,
+          "weight": 2
+        }
+      ],
+      "keepalive": 16
+    }
+  ],
+  "servers": [
+    {
+      "listen": [
+        "80",
+        "[::]:80"
+      ],
+      "server_name": [
+        "example.com",
+        "www.example.com"
+      ],
+      "root": "/var/www/example.com/public",
+      "index": [
+        "index.html",
+        "index.php"
+      ],
+      "location_blocks": [
+        {
+          "path": "/",
+          "try_files": [
+            "$uri",
+            "$uri/",
+            "=404"
+          ]
+        },
+        {
+          "path": "/api",
+          "proxy_pass": "http://api_backend"
+        },
+        {
+          "path": "~ \\.php$",
+          "fastcgi_pass": "unix:/run/php/php-fpm.sock",
+          "add_header": [
+            {
+              "name": "X-Processed-By",
+              "value": "Nginx+PHP-FPM"
+            }
+          ]
+        }
+      ],
+      "access_log": "/var/log/nginx/example.com.access.log"
+    },
+    {
+      "listen": [
+        "443 ssl",
+        "[::]:443 ssl"
+      ],
+      "server_name": [
+        "secure.example.com"
+      ],
+      "root": "/var/www/secure.example.com",
+      "ssl": {
+        "enabled": true,
+        "cert_path": "/etc/ssl/certs/secure.example.com.crt",
+        "key_path": "/etc/ssl/private/secure.example.com.key",
+        "protocols": [
+          "TLSv1.2",
+          "TLSv1.3"
+        ],
+        "ciphers": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256"
+      },
+      "location_blocks": [
+        {
+          "path": "/admin",
+          "auth_basic": "Admin Area",
+          "auth_basic_user_file": "/etc/nginx/.htpasswd"
+        }
+      ],
+      "access_log": "/var/log/nginx/secure.example.com.access.log"
+    }
+  ]
+}

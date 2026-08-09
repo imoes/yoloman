@@ -1,0 +1,115 @@
+# Droopy simple HTTP file uploader configuration
+# This file is a Jinja2 template; variables are resolved at Ansible render time.
+# Every directive below has a corresponding schema field. Defaults are inlined to
+# prevent render errors if a variable is undefined.
+
+# IP address or hostname to bind the server to (e.g., '127.0.0.1' or '0.0.0.0' for all interfaces).
+# Default: '0.0.0.0' (listen on all interfaces)
+bind = {{ bind | default('0.0.0.0') }}
+
+# TCP port number for the web server to listen on.
+# Default: 8080
+port = {{ port | default(8080) }}
+
+# Absolute path to the directory where uploaded files will be stored.
+# Ensure the Droopy process user has write permissions to this path.
+# Default: '/var/lib/droopy/uploads'
+upload_dir = {{ upload_dir | default('/var/lib/droopy/uploads') }}
+
+# Maximum file size allowed for uploads, in bytes (e.g., 104857600 = 100 MiB).
+# Files larger than this will be rejected by the server.
+# Default: 104857600
+max_file_size = {{ max_file_size | default(104857600) }}
+
+# Enable HTTP Basic Authentication to restrict uploads to authorized users.
+# When enabled, auth_file and auth_realm must also be configured.
+# Default: False
+auth_enabled = {{ auth_enabled | default(False) | lower }}
+
+# --- Authentication Configuration ---
+# The following block is only rendered when auth_enabled is True.
+{% if auth_enabled | default(False) %}
+# Authentication method: 'basic' (HTTP Basic Auth)
+auth_method = 'basic'
+
+# Path to the htpasswd file containing user credentials (used only when auth is enabled).
+# Create this file using `htpasswd` utility from apache2-utils or similar.
+# Default: '/etc/droopy/htpasswd'
+auth_file = {{ auth_file | default('/etc/droopy/htpasswd') }}
+
+# Authentication realm string displayed in the login prompt.
+# This string appears in the browser's password dialog.
+# Default: 'Droopy Upload'
+auth_realm = {{ auth_realm | default('Droopy Upload') }}
+{% endif %}
+
+# --- File Upload Policies ---
+
+# Allow uploading files with names that already exist (overwriting them).
+# If False, existing files are skipped or renamed (depending on Droopy version).
+# Default: False
+allow_overwrite = {{ allow_overwrite | default(False) | lower }}
+
+# Maximum number of simultaneous upload sessions allowed.
+# Limits concurrent connections to prevent resource exhaustion.
+# Default: 5
+max_concurrent_uploads = {{ max_concurrent_uploads | default(5) }}
+
+# Optional: Custom HTML snippet to display above the upload form on the main page.
+# Useful for instructions, disclaimers, or branding.
+# If empty or not set, no custom message is displayed.
+{% if custom_message | default('') | trim %}
+# Note: Custom message is embedded directly. Ensure no syntax errors in HTML.
+custom_message = {{ custom_message | default('') | tojson }}
+{% endif %}
+
+# --- SSL/TLS Configuration ---
+# Enable HTTPS using the provided SSL certificate and key.
+# Requires valid ssl_cert and ssl_key paths.
+# Default: False
+ssl_enabled = {{ ssl_enabled | default(False) | lower }}
+
+# The following block is only rendered when ssl_enabled is True.
+{% if ssl_enabled | default(False) %}
+# Path to the SSL certificate file (PEM format).
+# Must contain the public certificate, optionally followed by intermediate CAs.
+# Default: '/etc/ssl/droopy.crt'
+ssl_cert = {{ ssl_cert | default('/etc/ssl/droopy.crt') }}
+
+# Path to the SSL private key file (PEM format).
+# Must match the public certificate provided in ssl_cert.
+# Default: '/etc/ssl/droopy.key'
+ssl_key = {{ ssl_key | default('/etc/ssl/droopy.key') }}
+{% endif %}
+
+# --- File Type Restrictions ---
+
+# Optional: List of allowed MIME types for uploaded files.
+# Empty list (default) means all MIME types are allowed.
+# Examples: ['image/jpeg', 'application/pdf', 'text/plain']
+{% if allowed_mime_types | default([]) | length > 0 %}
+allowed_mime_types = [
+{% for mime in allowed_mime_types | default([]) %}    {{ mime | tojson }},
+{% endfor %}]
+{% endif %}
+
+# Optional: List of allowed file extensions for uploads.
+# Empty list (default) means all extensions are allowed.
+# Examples: ['.jpg', '.pdf', '.doc']
+{% if allowed_extensions | default([]) | length > 0 %}
+allowed_extensions = [
+{% for ext in allowed_extensions | default([]) %}    {{ ext | tojson }},
+{% endfor %}]
+{% endif %}
+
+# --- Logging ---
+
+# Verbosity level for server logs.
+# Allowed values: 'debug', 'info', 'warning', 'error', 'critical'
+# Default: 'info'
+log_level = '{{ log_level | default('info') }}'
+
+# Path to the log file.
+# Use '-' to log to standard output (useful for systemd/journald).
+# Default: '-'
+log_file = {{ log_file | default('-') }}

@@ -1,0 +1,40 @@
+{
+  "maxconn": 2048,
+  "interfaces": [
+    "eth0",
+    "eth1"
+  ],
+  "pidfile": "/var/run/ipband/ipband.pid",
+  "loglevel": 4,
+  "logfile": "/var/log/ipband/ipband.log",
+  "logsyslog": true,
+  "statsfile": "/var/lib/ipband/stats",
+  "statsinterval": 30,
+  "daemonize": true,
+  "user": "ipband",
+  "grp": "ipband",
+  "bandwidth": {
+    "upload_limit": 10240,
+    "download_limit": 51200,
+    "rules": [
+      {
+        "name": "local_high_priority",
+        "enabled": true,
+        "description": "Local subnet gets higher bandwidth",
+        "upload_limit": 0,
+        "download_limit": 0,
+        "match_type": "src_ip",
+        "match_value": "10.0.0.0/24"
+      },
+      {
+        "name": "block_torrent",
+        "enabled": true,
+        "description": "Block BitTorrent port",
+        "upload_limit": 0,
+        "download_limit": 0,
+        "match_type": "port",
+        "match_value": "6881"
+      }
+    ]
+  }
+}

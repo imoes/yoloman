@@ -1,0 +1,43 @@
+# ============================================================================
+# gpsman service configuration template
+# ============================================================================
+# This file defines command-line flags for the gpsman application.
+# Each section corresponds to a specific configuration aspect.
+# Variables use Jinja2 syntax with safe defaults based on schema definitions.
+# ============================================================================
+
+# Device path for the GPS receiver
+# Path to the GPS device (e.g., /dev/ttyUSB0, /dev/ttyACM0); must be readable/writable by the user.
+# Defaults to /dev/ttyUSB0 if not specified.
+-dev {{ device_path | default('/dev/ttyUSB0') }}
+
+# Protocol for receiver communication
+# Protocol name to use for receiver communication (e.g., 'garmin', 'lowrance', 'magellan');
+# consult 'show protocols' command output for available options.
+# Only emitted if a protocol is explicitly defined.
+{% if protocol is defined and protocol | length > 0 %}
+-prot {{ protocol }}
+{% endif %}
+
+# Receiver brand override
+# Receiver manufacturer override: 'garmin', 'lowrance', or 'magellan';
+# only supported for Garmin at present.
+# Cannot be used with -prefs, -readput, or after -prot.
+# Only emitted if a brand is explicitly defined.
+{% if receiver_brand is defined and receiver_brand | length > 0 %}
+-rec {{ receiver_brand }}
+{% endif %}
+
+# Alternative preferences file
+# Path to an alternative preferences file to read instead of the default user preferences file.
+# Only emitted if a custom path is explicitly defined.
+{% if prefs_file is defined and prefs_file | length > 0 %}
+-prefs {{ prefs_file }}
+{% endif %}
+
+# Low-level communication logging
+# If true, create a logfile of low-level communication in the GPSMan user directory.
+# Only emitted if logging is explicitly enabled.
+{% if log_communication | default(False) %}
+-log
+{% endif %}

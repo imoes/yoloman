@@ -1,0 +1,26 @@
+# /etc/gfarm2fs.conf: gfarm2fs mount configuration
+#
+# This file configures the gfarm2fs FUSE filesystem.
+# It is divided into two sections:
+# 1. gfarm2fs-specific options
+# 2. FUSE-specific options
+#
+# Each option can be accompanied by a descriptive comment.
+# Options without values are treated as boolean flags.
+# Options with values use the format -o key=value.
+
+{% for opt in gfarm2fs_options | default([]) -%}
+# {{ opt.description | default('gfarm2fs mount option: ' + opt.key) }}
+{% if opt.value is defined -%}
+-o {{ opt.key }}={{ opt.value }}
+{% else -%}
+-o {{ opt.key }}
+{% endif %}
+{% endfor %}
+
+# FUSE-specific options (see `gfarm2fs -h`)
+# These options are passed directly to the FUSE library.
+{% for fuse_opt in fuse_options | default([]) -%}
+# {{ fuse_opt.description | default('FUSE mount option: ' + fuse_opt.key) }}
+-o {{ fuse_opt.key }}{{ '' if fuse_opt.value is not defined or fuse_opt.value == '' else '=' ~ fuse_opt.value }}
+{% endfor %}

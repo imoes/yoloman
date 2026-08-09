@@ -1,0 +1,142 @@
+# =============================================================================
+# mactelnet_server Configuration Template
+# =============================================================================
+# This template generates the configuration file for the mactelnet_server daemon.
+# It controls network binding, connection limits, authentication, MAC-based
+# access control, logging, and an optional web management interface.
+#
+# Self-documenting: every directive is preceded by a comment explaining its
+# purpose and default value. All variable references include a default value
+# to ensure safe rendering even if the variable is undefined in the Ansible
+# inventory context.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Network Listening
+# -----------------------------------------------------------------------------
+
+# IPv4 address the Telnet daemon listens on.
+# Use '0.0.0.0' to listen on all interfaces.
+# Default: 0.0.0.0
+listen {{ listen_addr | default('0.0.0.0') }} {{ listen_port | default(23) }}
+
+# -----------------------------------------------------------------------------
+# Connection Limits
+# -----------------------------------------------------------------------------
+
+# Maximum number of simultaneous client connections allowed.
+# Prevents resource exhaustion by limiting concurrency.
+# Default: 10
+max_connections {{ max_connections | default(10) }}
+
+# Idle connection timeout in seconds.
+# After this period of inactivity, the session is terminated.
+# Default: 300
+timeout {{ timeout_seconds | default(300) }}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Enable verbose debug logging.
+# Set to 'true' only for troubleshooting; reduces performance.
+# Default: False
+debug {{ debug | default(False) | lower }}
+
+# Minimum log level: none, info, warn, error, debug.
+# Controls the verbosity of log output.
+# Default: 'info'
+loglevel {{ loglevel | default('info') }}
+
+# Path to the log file.
+# Leave blank (or empty string) to log to system syslog instead.
+# Default: ''
+{% if logfile | default('') %}
+logfile {{ logfile | default('') }}
+{% else %}
+logfile syslog
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Authentication Settings
+# -----------------------------------------------------------------------------
+
+# Require authentication before allowing Telnet access.
+# If enabled, users must provide credentials from the auth_db.
+# Default: False
+auth_required {{ auth_required | default(False) | lower }}
+
+# Path to the user database file.
+# Used when authentication is required (auth_required=true).
+# Contains usernames and hashed passwords.
+# Default: '/etc/mactelnet/users.db'
+{% if auth_required | default(False) %}
+auth_db {{ auth_db | default('/etc/mactelnet/users.db') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# MAC Address Access Control
+# -----------------------------------------------------------------------------
+
+# List of allowed MAC addresses and their associated usernames and descriptions.
+# Format per line: allow <MAC_ADDRESS> <username> <description>
+# MAC addresses are automatically uppercased.
+# Default: []
+{% set _allowed_macs = allowed_macs | default([]) %}
+{% if _allowed_macs | length > 0 %}
+# Allowed MAC addresses
+{% for entry in _allowed_macs %}
+allow {{ entry.mac | upper }} {{ entry.username }} {{ entry.description }}
+{% endfor %}
+{% endif %}
+
+# List of MAC addresses to explicitly deny.
+# Format per line: deny <MAC_ADDRESS> <reason>
+# Denied entries take precedence over allowed entries if logic permits,
+# or simply block access entirely.
+# Default: []
+{% set _denied_macs = denied_macs | default([]) %}
+{% if _denied_macs | length > 0 %}
+# Explicitly denied MAC addresses
+{% for entry in _denied_macs %}
+deny {{ entry.mac | upper }} {{ entry.reason }}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Session Configuration
+# -----------------------------------------------------------------------------
+
+# Optional TTY device to bind the session to (e.g., /dev/ttys000).
+# Leave blank for auto-selection by the system.
+# Default: ''
+{% if tty_device | default('') %}
+tty {{ tty_device | default('') }}
+{% endif %}
+
+# Path to a file whose contents will be displayed as the login banner.
+# Useful for legal warnings or system status messages.
+# Default: ''
+{% if banner_file | default('') %}
+banner {{ banner_file | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Web Management Interface (Optional)
+# -----------------------------------------------------------------------------
+
+# Enable the optional web-based management interface.
+# Requires the mactelnet-web plugin to be installed.
+# Default: False
+{% if enable_web_interface | default(False) %}
+# Web interface listening address and port
+web_listen {{ web_addr | default('127.0.0.1') }} {{ web_port | default(8080) }}
+
+# SSL/TLS Configuration for the Web Interface
+# Enable HTTPS for security. Recommended for production.
+# Default: True
+{% if web_ssl | default(True) %}
+web_ssl_cert {{ web_ssl_cert | default('/etc/mactelnet/web.crt') }}
+web_ssl_key {{ web_ssl_key | default('/etc/mactelnet/web.key') }}
+{% endif %}
+{% endif %}

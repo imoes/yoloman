@@ -1,0 +1,96 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          clamsmtp
+# Short-Description: Start virus-scanning SMTP proxy clamsmtp
+# Description:	     virus-scanning SMTP proxy
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+### END INIT INFO
+#
+# clamsmtp init.d script for Debian
+#
+# This script is Public Domain.
+#
+# See also: clamsmtpd.conf(5), clamsmtpd(8)
+#
+###########################################################################
+
+DESC="virus filtering SMTP proxy"
+NAME=clamsmtpd                                  # Daemon's Name
+DAEMON=/usr/sbin/${NAME}                        # Binary
+CONFFILE=/etc/${NAME}.conf                      # Configuration File
+SCRIPTNAME=/etc/init.d/clamsmtp
+
+test -f ${DAEMON} || exit 0
+
+# Pull in configuration options set in $CONFFILE.
+if [ -r ${CONFFILE} ] ; then
+eval `sed -e '
+# Delete comments
+/^#.*/d
+
+# Delete blank lines
+/^[[:space:]]*$/d
+
+# Replace first ": " with "=" and surround with quotes
+s/^\([a-zA-Z]*\):[[:space:]]*\(.*\)$/\1="\2";/
+' < ${CONFFILE}`
+fi
+
+# Now, use the variables that we care about
+PIDFILE=${PidFile:="/var/run/${NAME}/${NAME}.pid"}      # PID File
+RUNDIR=`dirname ${PIDFILE}` 
+
+# Get lsb functions
+. /lib/lsb/init-functions
+
+# Start the daemon
+d_start() {
+	if [ ! -d $RUNDIR ]; then
+                mkdir -p $RUNDIR
+                chown clamsmtp:clamsmtp $RUNDIR
+        fi
+
+        start-stop-daemon --start \
+            --pidfile ${PIDFILE} --quiet --oknodo \
+            --exec ${DAEMON}
+}
+
+# Stop the daemon
+d_stop() {
+        start-stop-daemon --stop --quiet --oknodo --pidfile ${PIDFILE} \
+                --exec ${DAEMON}
+}
+###########################################################################
+# Main Body
+
+case ${1} in
+    start)
+        log_begin_msg "Starting ${DESC}: ${NAME}"
+	d_start
+	log_end_msg $?
+        ;;
+    stop)
+        log_begin_msg "Stopping ${DESC}: ${NAME}"
+	d_stop
+	log_end_msg $?
+        ;;
+    restart|force-reload)
+	log_begin_msg "Restarting ${DESC}: ${NAME}"
+        d_stop
+	sleep 1
+        d_start
+	log_end_msg $?
+        ;;
+    status)
+	status_of_proc "$DAEMON" clamsmtp
+	;;
+    *)
+        log_success_msg "Usage: ${SCRIPTNAME} {start|stop|restart|force-reload}" >&2
+	exit 1
+        ;;
+esac
+
+exit 0

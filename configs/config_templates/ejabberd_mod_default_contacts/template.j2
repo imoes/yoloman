@@ -1,0 +1,31 @@
+# Module: ejabberd_mod_default_contacts
+# Adds one or more predefined contacts to every newly registered user's roster.
+#
+# Schema Reference:
+#   roster_contacts (list): List of contacts to automatically add to new users' rosters upon registration.
+#                           Each contact has a JID and optional name and groups.
+#
+# Template Structure:
+#   This block configures the `ejabberd_mod_default_contacts` module within the `modules` section.
+#   The `roster_contacts` variable (from schema) is iterated to generate a YAML list of contact entries.
+modules:
+  ejabberd_mod_default_contacts:
+    # List of contacts to add to new users' rosters.
+    # Defaults to an empty list if `roster_contacts` is not provided in the role variables.
+    contacts:
+      {% for contact in (roster_contacts | default([])) %}
+      # Contact JID (Jabber ID), e.g. admin@example.com
+      - jid: {{ contact.jid | default('') }}
+        {% if contact.name is defined %}
+        # Optional display name for the contact
+        name: {{ contact.name }}
+        {% endif %}
+        {% if contact.groups is defined %}
+        # Optional list of roster groups for this contact
+        groups:
+          {% for group in contact.groups %}
+          # Group name
+          - {{ group }}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}

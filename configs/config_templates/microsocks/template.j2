@@ -1,0 +1,51 @@
+# --------------------------------------------------------------------------
+# microsocks Configuration Template
+# Self-documented: every directive is preceded by its schema description.
+# Variables use Jinja2 `default()` filters to ensure safe rendering even
+# when an upstream role omits optional fields.
+# --------------------------------------------------------------------------
+
+# IP address the server will listen on. Use 0.0.0.0 to listen on all interfaces.
+bind_addr {{ bind_addr | default('0.0.0.0') }}
+
+# TCP port for SOCKS5 connections.
+port {{ port | default(1080) }}
+
+# Number of worker threads. Set to 0 to auto-detect based on CPU count.
+threads {{ threads | default(0) }}
+
+# Verbosity of logging: 0 (quiet) to 4 (debug). Higher values log more.
+loglevel {{ loglevel | default(1) }}
+
+# Path to file where the process ID (PID) will be written. Leave empty ('') to disable.
+{% if pidfile | default('') != '' %}
+pidfile {{ pidfile | default('/run/microsocks/microsocks.pid') }}
+{% endif %}
+
+# Enable UDP relay support (requires microsocks built with -DENABLE_UDP).
+{% if udp_enabled | default(False) %}
+udp
+{% endif %}
+
+# Authentication mode: none (no auth), userpass (username:password), or combined.
+authmode {{ authmode | default('none') }}
+
+# List of allowed user credentials. Only used when authmode includes userpass.
+# Format per line: user <username>:<password>
+{% for user_entry in users | default([]) %}
+user {{ user_entry.username | default('') }}:{{ user_entry.password | default('') }}
+{% endfor %}
+
+# List of destination access rules per user. If empty, all destinations allowed.
+# Format per line: rule <username>: <host1> <host2> ...
+{% for rule in user_rules | default([]) %}
+rule {{ rule.user | default('') }}: {{ rule.destinations | default([]) | join(' ') }}
+{% endfor %}
+
+# Directory to chroot into after startup. Leave empty ('') to disable chrooting.
+{% if chroot | default('') != '' %}
+chroot {{ chroot | default('') }}
+{% endif %}
+
+# System user to drop privileges to after binding privileged ports.
+user {{ user_after_bind | default('nobody') }}

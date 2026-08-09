@@ -1,0 +1,117 @@
+# Bare-metal restore — PHASE 2 (chroot context, against the mounted target root /mnt/target).
+#
+# Ansible-task playbook, executed by the agent's runbook runner with chroot=/mnt/target: every module's
+# commands run inside the restored system and every path resolves under it, so no agent/module staging
+# into the target is needed (ChrootCaps handles it). The runner mounts the target tree + bind mounts
+# (/dev,/proc,/sys) before this phase (grub needs /sys); it unmounts after.
+#
+# Order matters (see services/imaging for the rationale): bootloader → initramfs → identity → ssh keys →
+# network. Firmware is resolved by Bossman from the layout (ESP present ⇒ uefi, else bios).
+- name: restore-target-phase
+  hosts: all
+  vars:
+    firmware: bios            # bios | uefi
+    target_disk: ""           # /dev/sda — only used for firmware=bios grub-install
+    efi_directory: /boot/efi
+    target_hostname: ""       # the new FQDN
+    network: {}               # {method, address?, gateway?, dns?, name?}  method=dhcp|static
+    proxy: {}                 # {http, https, no_proxy} — HTTP(S) proxy baked into the restored root; {} = none
+  tasks:
+    - name: Install the bootloader for the image's firmware
+      yoloman.bootloader:
+        firmware: "{{ firmware }}"
+        disk: "{{ target_disk }}"
+        efi_directory: "{{ efi_directory }}"
+
+    - name: Neutralise the source's swap/resume and rebuild the initramfs
+      yoloman.initramfs: {}
+
+    - name: Reset the machine identity (machine-id, SSH host keys incl. regeneration, hostname, hosts, cloud-init)
+      yoloman.machine_identity:
+        hostname: "{{ target_hostname }}"
+
+    - name: Write the target's final network config (applied on the target's own first boot)
+      yoloman.network_interface:
+        state: present
+        apply: false
+        method: "{{ network.method }}"
+        name: "{{ network.name | default('') }}"
+        address: "{{ network.address | default('') }}"
+        gateway: "{{ network.gateway | default('') }}"
+        dns: "{{ network.dns | default([]) }}"
+      when: network.method is defined
+
+    # ── Proxy: bake the HTTP(S) proxy into the restored root so the target reaches package mirrors + the
+    # internet from its destination segment. Written to /etc/environment (all tools) and every package
+    # manager (apt/dnf/yum/zypper). no_proxy keeps local/corp traffic direct. All guarded on a proxy being
+    # configured; the manager-specific files are inert on a distro that lacks that manager. ────────────────
+    - name: Proxy — /etc/environment (http/https/no_proxy for every tool)
+      ansible.builtin.blockinfile:
+        path: /etc/environment
+        create: true
+        marker: "# {mark} BOSSMAN PROXY"
+        block: |
+          http_proxy={{ proxy.http }}
+          https_proxy={{ proxy.https | default(proxy.http) }}
+          HTTP_PROXY={{ proxy.http }}
+          HTTPS_PROXY={{ proxy.https | default(proxy.http) }}
+          no_proxy={{ proxy.no_proxy | default('') }}
+          NO_PROXY={{ proxy.no_proxy | default('') }}
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — ensure apt.conf.d exists
+      ansible.builtin.file:
+        path: /etc/apt/apt.conf.d
+        state: directory
+        mode: "0755"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — apt (Acquire proxies; no_proxy honoured via /etc/environment)
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/95bossman-proxy
+        mode: "0644"
+        content: |
+          Acquire::http::Proxy "{{ proxy.http }}";
+          Acquire::https::Proxy "{{ proxy.https | default(proxy.http) }}";
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — ensure /etc/dnf exists
+      ansible.builtin.file:
+        path: /etc/dnf
+        state: directory
+        mode: "0755"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — dnf ([main] proxy; no_proxy via /etc/environment)
+      ansible.builtin.lineinfile:
+        path: /etc/dnf/dnf.conf
+        create: true
+        regexp: "^proxy="
+        line: "proxy={{ proxy.http }}"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — yum ([main] proxy; no_proxy via /etc/environment)
+      ansible.builtin.lineinfile:
+        path: /etc/yum.conf
+        create: true
+        regexp: "^proxy="
+        line: "proxy={{ proxy.http }}"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — ensure /etc/sysconfig exists (SUSE/zypper)
+      ansible.builtin.file:
+        path: /etc/sysconfig
+        state: directory
+        mode: "0755"
+      when: proxy.http | default('') != ''
+
+    - name: Proxy — zypper (/etc/sysconfig/proxy incl. NO_PROXY)
+      ansible.builtin.copy:
+        dest: /etc/sysconfig/proxy
+        mode: "0644"
+        content: |
+          PROXY_ENABLED="yes"
+          HTTP_PROXY="{{ proxy.http }}"
+          HTTPS_PROXY="{{ proxy.https | default(proxy.http) }}"
+          NO_PROXY="{{ proxy.no_proxy | default('') }}"
+      when: proxy.http | default('') != ''

@@ -1,0 +1,49 @@
+# ==============================================================================
+# Kamailio SIP Server Startup Configuration
+# ==============================================================================
+# This file configures the Kamailio service startup parameters.
+# It is intended to be used by the init script or systemd service unit.
+#
+# IMPORTANT: Ensure the 'run_kamailio' option is set to 'yes' only after
+# the main SIP configuration file (cfgfile) is correctly set up and validated.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Enable kamailio startup. Accepts 'yes' or 'no' (lowercase).
+# ------------------------------------------------------------------------------
+RUN_KAMAILIO={{ run_kamailio | default('no') }}
+
+# ------------------------------------------------------------------------------
+# System user to run Kamailio as.
+# ------------------------------------------------------------------------------
+USER={{ user | default('kamailio') }}
+
+# ------------------------------------------------------------------------------
+# System group to run Kamailio as.
+# ------------------------------------------------------------------------------
+GROUP={{ group | default('kamailio') }}
+
+# ------------------------------------------------------------------------------
+# Amount of shared memory (in MB) allocated for Kamailio.
+# This memory is used for shared structures between processes.
+# ------------------------------------------------------------------------------
+SHM_MEMORY={{ shm_memory | default(64) }}
+
+# ------------------------------------------------------------------------------
+# Amount of private memory (in MB) allocated for Kamailio.
+# This memory is used for per-process allocations (e.g., scripting engine).
+# ------------------------------------------------------------------------------
+PKG_MEMORY={{ pkg_memory | default(8) }}
+
+# ------------------------------------------------------------------------------
+# Path to main Kamailio configuration file.
+# This file contains the SIP routing logic, module configurations, etc.
+# ------------------------------------------------------------------------------
+CFGFILE={{ cfgfile | default('/etc/kamailio/kamailio.cfg') }}
+
+# ------------------------------------------------------------------------------
+# Enable core file generation on crash. Accepts 'yes' or 'no' (lowercase).
+# Useful for debugging segmentation faults or unexpected terminations.
+# Note: On some systems, a writable directory for core dumps must also be configured.
+# ------------------------------------------------------------------------------
+DUMP_CORE={{ dump_core | default('no') }}

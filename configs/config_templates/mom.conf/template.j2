@@ -1,0 +1,77 @@
+# Main configuration file for MOM (Message-Oriented Middleware)
+# This file controls core MOM daemon behavior including networking,
+# logging, security, and worker settings.
+
+# Network address and port the MOM service will bind to
+host: {{ host }}
+
+# Port on which the MOM daemon listens for client connections
+port: {{ port }}
+
+# Enable TLS for encrypted client connections
+tls_enabled: {{ tls_enabled }}
+
+# Path to TLS certificate file
+tls_cert_file: {{ tls_cert_file }}
+
+# Path to TLS private key file
+tls_key_file: {{ tls_key_file }}
+
+# Log level: DEBUG, INFO, WARN, ERROR, CRITICAL
+log_level: {{ log_level }}
+
+# Directory for log files
+log_dir: {{ log_dir }}
+
+# Maximum size (in bytes) of a single log file before rotation
+log_max_size: {{ log_max_size }}
+
+# Number of rotated log files to retain
+log_backup_count: {{ log_backup_count }}
+
+# Number of worker threads to handle incoming messages
+worker_count: {{ worker_count }}
+
+# Maximum number of messages held in the in-memory queue before backpressure
+max_queue_size: {{ max_queue_size }}
+
+# Message TTL (in seconds) — messages older than this are discarded
+message_ttl: {{ message_ttl }}
+
+# List of allowed client CIDR subnets (empty list = allow all)
+allowed_networks:
+{% for subnet in allowed_networks %}
+  - {{ subnet }}
+{% endfor %}
+
+# Authentication provider configuration
+auth_provider: {{ auth_provider }}
+
+# LDAP server URL for auth (if auth_provider = 'ldap')
+ldap_url: {{ ldap_url }}
+
+# Base DN for LDAP user searches
+ldap_base_dn: {{ ldap_base_dn }}
+
+# Enable message persistence to disk
+persistence_enabled: {{ persistence_enabled }}
+
+# Directory for persistent message storage
+persistence_dir: {{ persistence_dir }}
+
+# List of queues with custom settings
+queues:
+{% for queue in queues %}
+  # Queue: {{ queue.name }}
+  - name: {{ queue.name }}
+    max_size: {{ queue.max_size }}
+    ttl: {{ queue.ttl | default(message_ttl) }}
+    dead_letter_queue: {{ queue.dead_letter_queue | default('dlq_' + queue.name) }}
+{% endfor %}
+
+# Optional cluster replication peers (for high availability)
+replication_peers:
+{% for peer in replication_peers %}
+  - host: {{ peer.host }}
+    port: {{ peer.port }}
+{% endfor %}

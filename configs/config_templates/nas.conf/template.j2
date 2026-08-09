@@ -1,0 +1,42 @@
+[general]
+# Global NAS settings
+enabled = {{ general.enabled }}
+logger_level = {{ general.logger_level }}
+worker_threads = {{ general.worker_threads }}
+max_open_files = {{ general.max_open_files }}
+
+# Listen address and port
+listen_address = {{ general.listen_address }}
+listen_port = {{ general.listen_port }}
+
+{% if general.tls.enabled %}
+[tls]
+# TLS configuration (enabled)
+enabled = true
+cert_file = {{ general.tls.cert_file }}
+key_file = {{ general.tls.key_file }}
+{% else %}
+[tls]
+# TLS configuration (disabled)
+enabled = false
+{% endif %}
+
+[storage]
+# Storage backend settings
+default_path = {{ storage.default_path }}
+{% for item in storage.backends %}
+[storage.{{ item.name }}]
+# Backend: {{ item.description }}
+type = {{ item.type }}
+path = {{ item.path }}
+{% if item.max_size is defined %}max_size = {{ item.max_size }}{% endif %}
+{% if item.readonly is defined %}readonly = {{ item.readonly }}{% endif %}
+{% endfor %}
+
+[auth]
+# Authentication configuration
+method = {{ auth.method }}
+{% if auth.method == 'ldap' %}
+ldap_url = {{ auth.ldap_url }}
+ldap_base_dn = {{ auth.ldap_base_dn }}
+{% endif %}

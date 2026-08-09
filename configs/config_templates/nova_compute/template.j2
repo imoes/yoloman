@@ -1,0 +1,273 @@
+[DEFAULT]
+# Root directory for Nova's state files (locks, migrations, etc.)
+state_path = /var/lib/nova
+
+# Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+log_level = INFO
+
+# Backend driver for the metadata API
+metadata_driver = nova.network.os_vif
+
+# Authentication (keystone v3)
+# Enable use of keystone for auth
+auth_strategy = keystone
+
+# API endpoint for keystone service
+# Uses keystone_host and keystone_auth_port from schema
+auth_url = http://{{ (keystone_host | default('controller')) }}:{{ (keystone_auth_port | default(5000)) }}/v3
+
+# Project domain name for service user
+project_domain_name = Default
+
+# User domain name for service user
+user_domain_name = Default
+
+# Project name for service user (e.g., 'service')
+project_name = service
+
+# Username for service user
+username = nova
+
+# Password for service user
+# Uses nova_service_password from schema
+password = {{ (nova_service_password | default('')) }}
+
+# Message queue configuration
+# Message bus transport URL (e.g., rabbitmq://user:pass@host:port/)
+# Uses nova_rabbit_user, nova_rabbit_password, nova_rabbit_host, nova_rabbit_port
+transport_url = rabbit://{{ (nova_rabbit_user | default('openstack')) }}:{{ (nova_rabbit_password | default('')) }}@{{ (nova_rabbit_host | default('controller')) }}:{{ (nova_rabbit_port | default(5672)) }}/
+
+# Database connection
+# SQLAlchemy connection URL for compute node DB
+# Note: compute nodes typically connect to the same DB as nova-conductor
+# Uses nova_db_user, nova_db_password, nova_db_host, nova_db_name
+database_connection = mysql+pymysql://{{ (nova_db_user | default('nova')) }}:{{ (nova_db_password | default('')) }}@{{ (nova_db_host | default('controller')) }}/{{ (nova_db_name | default('nova')) }}
+
+[api]
+# API interface bind address
+# Uses nova_api_bind_host
+bind_host = {{ (nova_api_bind_host | default('0.0.0.0')) }}
+
+# API port to listen on
+# Uses nova_api_port
+port = {{ (nova_api_port | default(8775)) }}
+
+[api_database]
+# Separate database connection for API DB (optional; compute nodes may share main DB)
+# If separate: connection = mysql+pymysql://user:pass@host/db
+# Falls back to nova_db_connection if nova_api_db_connection is empty
+{% if (nova_api_db_connection | default('', boolean=True)) %}
+connection = {{ nova_api_db_connection }}
+{% else %}
+connection = mysql+pymysql://{{ (nova_db_user | default('nova')) }}:{{ (nova_db_password | default('')) }}@{{ (nova_db_host | default('controller')) }}/{{ (nova_db_name | default('nova')) }}
+{% endif %}
+
+[cinder]
+# Enable cinder (block storage) integration
+# Enable cinder API usage
+enable = true
+
+[glance]
+# Glance image service API endpoints
+# Uses glance_host and glance_api_port
+api_servers = http://{{ (glance_host | default('controller')) }}:{{ (glance_api_port | default(9292)) }}
+
+[guestfs]
+# Enable injection of guestfs kernel/initrd for non-kvm guests
+inject_password = true
+inject_key = true
+inject_hostname = true
+
+[libvirt]
+# Hypervisor type: kvm, qemu, lxc, etc.
+# Uses libvirt_hypervisor_type
+hypervisor_type = {{ (libvirt_hypervisor_type | default('kvm')) }}
+
+# CPUs to reserve for system use (not for instances)
+# Uses libvirt_cpu_allocation_ratio
+cpu_allocation_ratio = {{ (libvirt_cpu_allocation_ratio | default(16.0)) }}
+
+# Memory (RAM) overcommit ratio
+# Uses libvirt_ram_allocation_ratio
+ram_allocation_ratio = {{ (libvirt_ram_allocation_ratio | default(1.5)) }}
+
+# Disk overcommit ratio for ephemeral storage
+# Uses libvirt_disk_allocation_ratio
+disk_allocation_ratio = {{ (libvirt_disk_allocation_ratio | default(1.0)) }}
+
+# Enable live migration
+# Uses libvirt_live_migration_enabled
+live_migration_enabled = {{ (libvirt_live_migration_enabled | default(True)) }}
+
+# Live migration URI scheme (e.g., qemu+ssh://host/system)
+# NOTE: nova_compute_host is not in schema. Using placeholder 'localhost' or relying on external host var.
+# Assuming nova_compute_host might be an external var not managed here, or defaulting to localhost for safety in template generation.
+# However, per instructions, we must use schema fields. Since it's missing, we might need to assume it's available or use a safe default.
+# Let's assume the user provides nova_compute_host or we use a placeholder.
+# To be safe and strictly follow "use schema fields", if it's not in schema, we can't default it from schema.
+# But the template refers to it. I will use a Jinja default for the variable itself if not passed by Ansible.
+live_migration_uri = qemu+ssh://{{ (nova_compute_host | default('localhost')) }}.system
+
+# Migration bandwidth limit (MB/s); 0 = unlimited
+# Uses libvirt_live_migration_bandwidth
+live_migration_bandwidth = {{ (libvirt_live_migration_bandwidth | default(0)) }}
+
+# Enable secure live migration (TLS)
+# Uses libvirt_live_migration_tunnelled
+live_migration_tunnelled = {{ (libvirt_live_migration_tunnelled | default(False)) }}
+
+# Enable secure live migration (TLS) with certificate verification
+live_migration_ca_file = /etc/pki/libvirt/private/ca-cert.pem
+live_migration_client_cert = /etc/pki/libvirt/private/client-cert.pem
+live_migration_key_file = /etc/pki/libvirt/private/client-key.pem
+
+# Inject SSH host key into instances (if using cloud-init)
+inject_ssh_key = true
+
+# Path to guest agent socket
+guest_agent_path = /var/lib/qemu-ga/qga.sock
+
+# Use vhost-user for DPDK-based vhost interfaces (optional)
+# vhostuser_ovs_socket_path = /var/run/openvswitch
+# vhostuser_dpdk_socket_path = /var/run/dpdk
+
+[migration]
+# Target compute node SSH user for live migration
+# Uses migration_ssh_username
+ssh_username = {{ (migration_ssh_username | default('nova')) }}
+
+# Public key path for SSH auth (if using key-based auth)
+ssh_pubkey = /root/.ssh/id_rsa.pub
+
+[network]
+# Network driver: neutron or nova-network (deprecated)
+# Use Neutron for networking
+network_api_class = nova.network.neutronv2.api.API
+
+# Enable flat network with Neutron
+# (Neutron handles most networking; this is mostly legacy)
+
+[neutron]
+# Neutron API endpoint(s)
+# Uses neutron_host and neutron_port
+url = http://{{ (neutron_host | default('controller')) }}:{{ (neutron_port | default(9696)) }}
+
+# Project domain name
+project_domain_name = Default
+
+# User domain name
+user_domain_name = Default
+
+# Project name
+project_name = service
+
+# Username
+username = neutron
+
+# Password for service user
+# Uses neutron_service_password
+password = {{ (neutron_service_password | default('')) }}
+
+# Auth URL
+# Uses keystone_host and keystone_auth_port
+auth_url = http://{{ (keystone_host | default('controller')) }}:{{ (keystone_auth_port | default(5000)) }}/v3
+
+# Enable service metadata proxy
+service_metadata_proxy = true
+
+# Shared secret for metadata proxy
+# Uses metadata_proxy_shared_secret
+metadata_proxy_shared_secret = {{ (metadata_proxy_shared_secret | default('')) }}
+
+[os_vif]
+# VIF (Virtual Interface) plugin for Open vSwitch (OVS)
+ovs_vif_driver = nova.virt.libvirt.vif.NovaOVSLibvirtVIFDriver
+
+# Enable SR-IOV support (if hardware supports it)
+# Uses sriov_nic_driver
+sriov_nic_driver = {{ (sriov_nic_driver | default('')) }}
+
+[rdp]
+# Enable RDP console proxy (for Windows VMs)
+enabled = false
+
+[vnc]
+# Enable VNC console access
+enabled = true
+
+# VNC server bind host (usually the compute node’s IP or localhost)
+# Uses vnc_server_listen
+server_listen = {{ (vnc_server_listen | default('127.0.0.1')) }}
+
+# VNC proxy host (for remote console access via nova console)
+# Uses vnc_server_proxy_client_address
+server_proxy_client_address = {{ (vnc_server_proxy_client_address | default('127.0.0.1')) }}
+
+# VNC keymap for keyboard layout
+# Uses vnc_keymap
+keymap = {{ (vnc_keymap | default('en-us')) }}
+
+# Enable VNC TLS (optional)
+# Uses nova_console_host and nova_novnc_port
+novncproxy_base_url = http://{{ (nova_console_host | default('controller')) }}:{{ (nova_novnc_port | default(6080)) }}/vnc_auto.html
+
+# Console token TTL (seconds)
+# Uses vnc_token_ttl
+token_ttl = {{ (vnc_token_ttl | default(600)) }}
+
+[spice]
+# Enable Spice console access (alternative to VNC)
+enabled = false
+
+[serial_console]
+# Enable serial console access
+# Uses serial_console_enabled
+enabled = {{ (serial_console_enabled | default(False)) }}
+
+# Serial proxy host and port
+# Uses serial_proxy_host and serial_proxy_port
+proxy_host = {{ (serial_proxy_host | default('0.0.0.0')) }}
+proxy_port = {{ (serial_proxy_port | default(6083)) }}
+
+[workarounds]
+# Disable certain problematic features on older hypervisors
+# e.g., disable NUMA topology for QEMU < 2.6
+
+[_scheduler]
+# Default scheduler filters
+# Uses scheduler_default_filters
+scheduler_default_filters = {{ (scheduler_default_filters | default(['AvailabilityZoneFilter', 'RamFilter', 'ComputeFilter', 'ComputeCapabilitiesFilter', 'ImagePropertiesFilter', 'ServerGroupAntiAffinityFilter', 'ServerGroupAffinityFilter']) | join(', ')) }}
+
+# Scheduler weights (e.g.,RamFilter, CpuFilter)
+# Uses scheduler_weight_classes
+scheduler_weight_classes = {{ (scheduler_weight_classes | default(['nova.scheduler.weights.ram.RamWeigher', 'nova.scheduler.weights.cpu.CpuWeigher']) | join(', ')) }}
+
+[filter_scheduler]
+# Allow scheduler to accept instance types with custom properties
+allow_tenant_isolation = true
+
+# Resource tracking interval (seconds)
+# Uses scheduler_resource_tracking_interval
+resource_tracking_interval = {{ (scheduler_resource_tracking_interval | default(60)) }}
+
+# Host aggregate and availability zone configuration
+# Host aggregates for grouping hosts (e.g., by zone or hardware)
+# Sample: [aggregates]
+# aggregates = zone1,zone2
+
+# Placement API for resource tracking and scheduling
+[placement]
+# Placement API endpoint
+# Uses placement_os_region_name
+os_region_name = {{ (placement_os_region_name | default('RegionOne')) }}
+
+auth_url = http://{{ (keystone_host | default('controller')) }}:{{ (keystone_auth_port | default(5000)) }}/v3
+auth_type = password
+project_domain_name = Default
+user_domain_name = Default
+project_name = service
+username = placement
+
+# Password for service user
+# Uses placement_service_password
+password = {{ (placement_service_password | default('')) }}

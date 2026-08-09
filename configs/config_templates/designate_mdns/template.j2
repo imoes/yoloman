@@ -1,0 +1,68 @@
+[DEFAULT]
+# Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR).
+log_level = {{ log_level | default('INFO') }}
+
+# Directory where log files are written.
+log_dir = {{ log_dir | default('/var/log/designate') }}
+
+# IP address the mDNS service listens on. Default is typically 0.0.0.0 to bind to all interfaces unless specified otherwise.
+bind_host = {{ bind_host | default('0.0.0.0') }}
+
+# UDP port the mDNS service listens on. Default is 5354 (mDNS uses 5353, but designate-mdns default is often 5354 or configurable).
+bind_port = {{ bind_port | default(5354) }}
+
+# Number of worker processes to spawn for handling requests.
+workers = {{ workers | default(1) }}
+
+# Maximum allowed size (in bytes) of an incoming request body.
+max_request_body_size = {{ max_request_body_size | default(65535) }}
+
+# RPC transport backend (only 'rabbit' is supported in current releases).
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# Hostname or IP of the RabbitMQ message broker.
+rabbit_host = {{ rabbit_host | default('127.0.0.1') }}
+
+# Port of the RabbitMQ message broker.
+rabbit_port = {{ rabbit_port | default(5672) }}
+
+# Username for RabbitMQ authentication.
+rabbit_user = {{ rabbit_user | default('guest') }}
+
+# Password for RabbitMQ authentication (use secrets management in production).
+rabbit_password = {{ rabbit_password | default('guest') }}
+
+# Virtual host in RabbitMQ for designate messages.
+rabbit_virtual_host = {{ rabbit_virtual_host | default('/') }}
+
+# Keystone authentication endpoint
+auth_strategy = keystone
+
+[storage]
+# Backend driver for storage (only 'sql' is used for mDNS).
+driver = {{ storage_driver | default('sql') }}
+
+# Database connection URL (e.g., MySQL or PostgreSQL).
+# This field requires a full connection string provided by the user or a database provider.
+# It is not automatically constructed from individual host/port/user/password fields
+# because the schema provides a single `sql_connection` string.
+connection = {{ sql_connection | default('mysql+pymysql://designate:designate@127.0.0.1/designate?charset=utf8mb4') }}
+
+[service:mdns]
+# Whether the mDNS service should be active.
+enabled = {{ mdns_enabled | default(true) }}
+
+# Comma-separated list of zone IDs to allow as allowed zones (empty = all).
+allowed_zones = {{ allowed_zones | default('') }}
+
+# Comma-separated list of zone IDs to explicitly deny (overrides allowed_zones).
+denied_zones = {{ denied_zones | default('') }}
+
+# Maximum number of DNS resource records to return per query (per RFC limits).
+max_responses = {{ max_responses | default(255) }}
+
+# Time-to-live (in seconds) for negative (error) DNS responses.
+negative_ttl = {{ negative_ttl | default(300) }}
+
+# Enable EDNS (Extension Mechanisms for DNS) support.
+edns = {{ edns_enabled | default(true) }}

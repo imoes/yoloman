@@ -1,0 +1,212 @@
+# Dovecot SQL Passdb/Userdb Configuration
+#
+# This template generates the SQL authentication configuration for Dovecot.
+# It connects to a SQL database (MySQL/MariaDB or PostgreSQL) to authenticate
+# users and retrieve mailbox information.
+#
+# Self-Documenting: Every directive below is preceded by a comment explaining
+# its purpose and expected values, derived from the schema definitions.
+
+# ==============================================================================
+# Section: Driver & Connection
+# ==============================================================================
+
+# Database driver type.
+# Defines which SQL engine driver Dovecot should use.
+# Allowed values: mysql, pgsql, sqlite.
+# Schema default: 'mysql'
+driver = {{ sql_driver | default('mysql') }}
+
+# Database connection string.
+# A space-separated string of key=value pairs used to connect to the database.
+# Must include at least: host, user, password, dbname.
+# The template defaults to a local MySQL socket connection with 'dovecot' credentials.
+# Note: If 'requires' capabilities are used, this string is often constructed
+# dynamically from db_host, db_user, db_password, and db_name.
+connect = {{ sql_connect | default('host=localhost user=dovecot password=secret dbname=dovecot') }}
+
+# ==============================================================================
+# Section: Authentication & User Queries
+# ==============================================================================
+
+# SQL query to retrieve the user's password hash.
+# Used by the passdb to authenticate users.
+# The query MUST return a single column containing the password hash.
+# Placeholders: '%u' is replaced with the login username.
+# Schema default: "SELECT username, password FROM users WHERE username = '%u' AND active = 'Y'"
+password_query = {{ password_query | default("SELECT username, password FROM users WHERE username = '%u' AND active = 'Y'") }}
+
+# SQL query to retrieve user's mailbox information (userdb).
+# Used to determine the user's home directory, UID, GID, and mail location.
+# The query MUST return columns: home, uid, gid.
+# Placeholders: '%u' is replaced with the login username.
+# Schema default: "SELECT home, uid, gid FROM users WHERE username = '%u' AND active = 'Y'"
+user_query = {{ user_query | default("SELECT home, uid, gid FROM users WHERE username = '%u' AND active = 'Y'") }}
+
+# Optional query for explicit password verification.
+# If set, this query is run to verify the password (e.g., for legacy auth systems
+# or specific hashing algorithms). If empty, password_query is used directly.
+# Schema default: ''
+password_verify = {{ password_verify | default('') }}
+
+# Optional SQL query to list mailboxes for a user.
+# Required for shared mailboxes or ACL (Access Control List) support.
+# Returns a list of mailbox names for the authenticated user.
+# Placeholders: '%u' is replaced with the login username.
+# Schema default: "SELECT mailbox FROM mailboxes WHERE username = '%u'"
+mailboxes_query = {{ mailboxes_query | default("SELECT mailbox FROM mailboxes WHERE username = '%u'") }}
+
+# Optional query to list all users (user enumeration).
+# Used for userlist features or catch-all domain validation.
+# Returns a list of usernames.
+# Placeholders: '%u' is not applicable here, but the query should return usernames.
+# Schema default: "SELECT username FROM users WHERE active = 'Y'"
+iterate_query = {{ iterate_query | default("SELECT username FROM users WHERE active = 'Y'") }}
+
+# ==============================================================================
+# Section: Debugging
+# ==============================================================================
+
+# Enable SQL query debug logging.
+# Logs all SQL queries executed by Dovecot to the debug log.
+# Use ONLY for troubleshooting; disable in production to avoid performance hits and log clutter.
+# Schema default: False
+debug = {% if enable_debug | default(False) | bool %}yes{% else %}no{% endif %}
+
+# ==============================================================================
+# Section: TLS/SSL for Database Connection
+# ==============================================================================
+
+# TLS mode for the database connection.
+# Controls SSL/TLS encryption for the connection to the SQL server.
+# Values: 'yes', 'no', 'try'.
+# Leave empty or omit to disable TLS.
+# Schema default: ''
+{% if sql_tls | default('') | trim %}
+ssl = {{ sql_tls | default('') }}
+{% endif %}
+
+# Path to CA certificate for DB TLS verification.
+# Required if 'ssl' is 'yes' or 'try' and server certificate verification is needed.
+# Schema default: ''
+{% if sql_tls_ca_file | default('') | trim %}
+ssl_ca = {{ sql_tls_ca_file | default('') }}
+{% endif %}
+
+# Path to client certificate for DB TLS (if client cert auth is required).
+# Used for mutual TLS authentication with the database server.
+# Schema default: ''
+{% if sql_tls_cert | default('') | trim %}
+ssl_cert = {{ sql_tls_cert | default('') }}
+{% endif %}
+
+# Path to client private key for DB TLS (if client cert auth is required).
+# Paired with sql_tls_cert for mutual TLS authentication.
+# Schema default: ''
+{% if sql_tls_key | default('') | trim %}
+ssl_key = {{ sql_tls_key | default('') }}
+{% endif %}
+
+# ==============================================================================
+# Section: Password Hashing & Field Mapping
+# ==============================================================================
+
+# Default password hashing scheme.
+# Defines how passwords are hashed/stored if not specified in the query result.
+# Common values: SHA512-CRYPT, BLF-CRYPT, MD5-CRYPT, PLAIN, CRYPT.
+# Schema default: 'SHA512-CRYPT'
+{% if default_pass_scheme | default('SHA512-CRYPT') | trim %}
+default_pass_scheme = {{ default_pass_scheme | default('SHA512-CRYPT') }}
+{% endif %}
+
+# Name of the column containing the password hash.
+# Used to map the SQL result column to Dovecot's internal password field.
+# Usually 'password'.
+# Schema default: 'password'
+{% if password_field | default('password') | trim %}
+password_field = {{ password_field | default('password') }}
+{% endif %}
+
+# Prefix for password query result fields.
+# Used to map SQL columns like 'password_hash' to Dovecot fields.
+# Usually 'password_'.
+# Schema default: 'password_'
+password_prefix = {{ password_prefix | default('password_') }}
+
+# Number of hash iterations for PBKDF2/Argon2/etc.
+# Set to 0 or omit to use the hash algorithm's default.
+# Schema default: 0
+{% if password_hash_iterations | default(0) | int > 0 %}
+password_hash_iterations = {{ password_hash_iterations | default(0) }}
+{% endif %}
+
+# ==============================================================================
+# Section: User Database Mapping
+# ==============================================================================
+
+# Prefix for userdb output fields.
+# Maps SQL columns (e.g., 'mail', 'uid', 'gid') to Dovecot userdb fields
+# (e.g., 'userdb_mail', 'userdb_uid', 'userdb_gid').
+# Schema default: 'userdb_'
+userdb_prefix = {{ userdb_prefix | default('userdb_') }}
+
+# Prefix for userdb iteration results.
+# Used for userlist iteration features.
+# Schema default: 'userdb_%{sql:SELECT ...}'
+userdb_iterate = {{ userdb_iterate | default('userdb_%{sql:SELECT ...}') }}
+
+# ==============================================================================
+# Section: Domain & Username Handling
+# ==============================================================================
+
+# SQL query to map login username to internal username.
+# Useful for alias handling or normalizing usernames (e.g., stripping domains).
+# Schema default: ''
+{% if username_map | default('') | trim %}
+username_map = {{ username_map | default('') }}
+{% endif %}
+
+# Default domain to append if the login username doesn’t contain '@'.
+# If a user logs in as 'john' and this is set to 'example.com',
+# Dovecot authenticates as 'john@example.com'.
+# Schema default: ''
+{% if default_domain | default('') | trim %}
+default_domain = {{ default_domain | default('') }}
+{% endif %}
+
+# ==============================================================================
+# Section: Performance & Connection Pooling
+# ==============================================================================
+
+# Number of preconnected database connections.
+# Pre-establishes connections to the database for faster authentication.
+# Set to 0 to disable.
+# Schema default: 0
+{% if sql_preconnects | default(0) | int > 0 %}
+preconnects = {{ sql_preconnects | default(0) }}
+{% endif %}
+
+# Maximum number of simultaneous SQL connections.
+# Limits the concurrency of SQL queries to protect the database.
+# Schema default: 10
+max_connections = {{ sql_max_connections | default(10) }}
+
+# Query timeout in seconds.
+# Timeouts the SQL query if it takes longer than this duration.
+# Set to 0 or omit to disable timeout.
+# Schema default: 30
+{% if sql_query_timeout | default(30) | int > 0 %}
+query_timeout = {{ sql_query_timeout | default(30) }}
+{% endif %}
+
+# Enable caching of SQL query results.
+# Improves performance by caching authentication and userdb results.
+# Schema default: True
+result_cache_enabled = {% if enable_result_cache | default(True) | bool %}yes{% else %}no{% endif %}
+
+# Time-to-live (in seconds) for cached query results.
+# Determines how long results are kept in cache before being refreshed.
+# Schema default: 3600
+{% if enable_result_cache | default(True) | bool %}
+result_cache_ttl = {{ result_cache_ttl | default(3600) }}
+{% endif %}

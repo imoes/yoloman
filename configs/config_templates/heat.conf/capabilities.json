@@ -1,0 +1,57 @@
+{
+  "provides": [
+    {
+      "capability": "web_server",
+      "backend": "nginx",
+      "port_field": "api.bind_port",
+      "default_port": 8004,
+      "provisionable": {
+        "workers": "api.workers"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "database",
+      "backends": [
+        "mysql",
+        "mariadb"
+      ],
+      "backend_field": "database.connection",
+      "fields": {
+        "host": "database.connection",
+        "user": "database.connection",
+        "password": "database.connection",
+        "name": "database.connection"
+      }
+    },
+    {
+      "capability": "message_queue",
+      "backends": [
+        "rabbitmq"
+      ],
+      "backend_field": "rabbit.host",
+      "fields": {
+        "host": "rabbit.host",
+        "port": "rabbit.port",
+        "user": "rabbit.user",
+        "password": "rabbit.password",
+        "vhost": "rabbit.virtual_host"
+      }
+    },
+    {
+      "capability": "directory",
+      "backends": [
+        "freeipa",
+        "openldap"
+      ],
+      "backend_field": "keystone.auth_url",
+      "fields": {
+        "host": "keystone.auth_url",
+        "port": "keystone.auth_url"
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

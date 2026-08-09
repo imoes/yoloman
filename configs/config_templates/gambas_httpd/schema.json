@@ -1,0 +1,125 @@
+{
+  "htdocs_dir": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Root directory from which files are served."
+  },
+  "bind_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network address the server binds to (e.g., 127.0.0.1 or ::)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port the server listens on."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "max_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Maximum number of worker threads for handling requests."
+  },
+  "index_files": {
+    "type": "list",
+    "default": [
+      "index.html",
+      "index.htm",
+      "index.gambas"
+    ],
+    "description": "List of filenames to serve when a directory is requested."
+  },
+  "enable_dirlist": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, show file listing when no index file is present."
+  },
+  "enable_gzip": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, enable GZIP compression for text-based responses."
+  },
+  "custom_mime_types": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom MIME type mappings (file extension \u2192 MIME type).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "ext": {
+          "type": "string",
+          "description": "File extension (e.g., .svg, .webp)",
+          "required": true
+        },
+        "mime": {
+          "type": "string",
+          "description": "MIME type to associate with the extension (e.g., image/svg+xml, image/webp)",
+          "required": true
+        }
+      }
+    }
+  },
+  "access_log": {
+    "type": "string",
+    "default": "/var/log/gambas_httpd/access.log",
+    "description": "Path to the access log file. Leave empty to disable access logging."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/gambas_httpd/error.log",
+    "description": "Path to the error log file. Leave empty to disable error logging."
+  },
+  "vhosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual host definitions.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Logical name for the virtual host (used for logging and configuration clarity).",
+          "required": true
+        },
+        "server_name": {
+          "type": "string",
+          "description": "Domain name(s) this virtual host responds to (e.g., example.com, *.example.org). Optional."
+        },
+        "document_root": {
+          "type": "string",
+          "description": "Root directory for this virtual host. Overrides global htdocs_dir if set."
+        },
+        "index_files": {
+          "type": "list",
+          "description": "List of index files for this virtual host. Overrides global index_files if set.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enable_dirlist": {
+          "type": "bool",
+          "description": "Override global directory listing setting for this host. If omitted, inherits global setting."
+        }
+      }
+    }
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable TLS/SSL for HTTPS support."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/gambas_httpd.crt",
+    "description": "Path to the TLS certificate file (PEM format). Required if ssl_enabled is true."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/gambas_httpd.key",
+    "description": "Path to the TLS private key file (PEM format). Required if ssl_enabled is true."
+  }
+}

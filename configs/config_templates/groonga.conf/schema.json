@@ -1,0 +1,142 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Mode of operation; 'daemon' runs as a background service."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server listens on. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 10041,
+    "description": "Port number for the HTTP server."
+  },
+  "db_path": {
+    "type": "string",
+    "default": "/var/lib/groonga/db",
+    "description": "Path to the main database directory."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (in seconds) to wait for a client request before timing out."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Logging verbosity level. Higher levels reduce log volume."
+  },
+  "query_log": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to log all incoming queries for debugging and auditing."
+  },
+  "access_log": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to log access information (requests, responses, timing)."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/groonga",
+    "description": "Directory where query and access logs are stored."
+  },
+  "search_max_n_records": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of matching records returned per search result."
+  },
+  "use_thread_pool": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to use a thread pool for parallel request handling."
+  },
+  "n_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads when thread pool is enabled."
+  },
+  "ssl_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for secure connections."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/groonga/ssl/server.crt",
+    "description": "Path to the SSL certificate file (PEM format)."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/groonga/ssl/server.key",
+    "description": "Path to the SSL private key file (PEM format)."
+  },
+  "vhosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual host configurations. Each entry defines an independent virtual host.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Logical name for the virtual host (e.g., 'main', 'backup')."
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Host address to bind for this virtual host (e.g., 'localhost'). If omitted, inherits global 'host'."
+        },
+        "port": {
+          "type": "number",
+          "default": null,
+          "description": "Port for this virtual host. If omitted, inherits global 'port'."
+        },
+        "db_path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the database directory for this virtual host. If omitted, inherits global 'db_path'."
+        },
+        "ssl_enabled": {
+          "type": "boolean",
+          "default": null,
+          "description": "Override global SSL setting for this virtual host. Null to inherit."
+        },
+        "ssl_cert_path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the SSL certificate file specific to this virtual host."
+        },
+        "ssl_key_path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the SSL private key file specific to this virtual host."
+        }
+      }
+    }
+  },
+  "plugins": {
+    "type": "list",
+    "default": [],
+    "description": "List of Groonga plugins to load at startup. Each item specifies a plugin name.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the plugin to load (e.g., 'log', 'status', 'mmap')."
+        }
+      }
+    }
+  }
+}

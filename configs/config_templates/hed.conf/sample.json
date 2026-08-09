@@ -1,0 +1,55 @@
+{
+  "paths": {
+    "vardir": "/var/lib/arc",
+    "logdir": "/var/log/arc",
+    "pidfile": "/run/arc/hed.pid"
+  },
+  "limits": {
+    "worker_threads": 4,
+    "max_connections": 512,
+    "max_queue_size": 2048,
+    "connection_timeout": 60
+  },
+  "options": {
+    "verbose": false,
+    "metrics_enabled": true,
+    "allowed_hosts": [
+      "localhost",
+      "127.0.0.1",
+      "arc-hed.example.org"
+    ]
+  },
+  "endpoints": [
+    {
+      "name": "core-service",
+      "host": "localhost",
+      "port": 8080,
+      "path": "/arc/hed",
+      "interval": 30,
+      "timeout": 10
+    },
+    {
+      "name": "batch-system",
+      "host": "batch.example.org",
+      "port": 443,
+      "path": "/jobs/health",
+      "interval": 60,
+      "timeout": 15,
+      "method": "GET",
+      "expected_status": 200,
+      "insecure": false
+    },
+    {
+      "name": "cache-backend",
+      "host": "10.0.0.5",
+      "port": 6379,
+      "path": "/ping",
+      "interval": 15,
+      "timeout": 3,
+      "method": "GET",
+      "expected_status": 200,
+      "username": "healthcheck",
+      "password": "secret123"
+    }
+  ]
+}

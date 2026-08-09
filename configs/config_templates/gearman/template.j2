@@ -1,0 +1,93 @@
+{# ============================================================================ #}
+{# gearman command-line configuration template                                  #}
+{# This template generates command-line arguments for the `gearman` utility.     #}
+{# It supports two modes: Client (submitting jobs) and Worker (processing jobs). #}
+{# Only enabled modes generate output. All variables use defaults from schema.  #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# CLIENT MODE CONFIGURATION                                                  #}
+{# Controls behavior when `gearman` acts as a client submitting tasks to a     #}
+{# Gearman job server.                                                        #}
+{# -------------------------------------------------------------------------- #}
+{%- if enable_client | default(False) %}
+{# -f: Register/submit functions. Takes a comma-separated list of function    #}
+{#    names. If empty, no specific functions are targeted via this flag.      #}
+-f {{ functions | default([]) | join(',') }}
+{# -h: Job server hostname or IP address. The client connects to this host.   #}
+{#    If omitted, `gearman` may use a default or environment variable.        #}
+{%- if job_server_host | default('') %}
+-h {{ job_server_host | default('') }}
+{%- endif %}
+{# -p: Job server port number. Used in conjunction with `-h`.                 #}
+{#    Empty value omits the flag, relying on the server's default port (4730).#}
+{%- if job_server_port | default('') %}
+-p {{ job_server_port | default('') }}
+{%- endif %}
+{# -t: Timeout in milliseconds for job submission/retrieval.                  #}
+{#    Value of `0` typically means no timeout (wait indefinitely).            #}
+{%- if timeout | default(0) %}
+-t {{ timeout | default(0) }}
+{%- endif %}
+{# -i: PID file path. Stores the process ID of the client in this file.       #}
+{#    Useful for managing client lifecycle or preventing duplicate runs.      #}
+{%- if pidfile | default('') %}
+-i {{ pidfile | default('') }}
+{%- endif %}
+{# -n: One job per line. Reads input line-by-line, submitting one job per     #}
+{#    line.                                                                   #}
+{%- if one_job_per_line | default(False) %}
+-n
+{%- endif %}
+{# -N: One job per line, stripping trailing newline from input lines before   #}
+{#    submission.                                                             #}
+{%- if one_job_per_line_no_newline | default(False) %}
+-N
+{%- endif %}
+{# -b: Background job. Submits the job and exits immediately without waiting  #}
+{#    for completion.                                                         #}
+{%- if background_job | default(False) %}
+-b
+{%- endif %}
+{# -I: High priority. Submits the job with high priority (priority 0).        #}
+{#    Gearman priorities: 0=high, 1=normal, 2=low.                          #}
+{%- if high_priority | default(False) %}
+-I
+{%- endif %}
+{# -L: Low priority. Submits the job with low priority (priority 2).          #}
+{%- if low_priority | default(False) %}
+-L
+{%- endif %}
+{# -P: Prefix output. Prepends the function name to each output line.         #}
+{#    Useful for identifying which function produced which result.            #}
+{%- if prefix_output | default(False) %}
+-P
+{%- endif %}
+{# -s: Send without stdin. Sends the job data without reading from standard   #}
+{#    input. Useful when job payload is provided via other means or empty.    #}
+{%- if send_without_stdin | default(False) %}
+-s
+{%- endif %}
+{# -u: Unique key. Assigns a unique identifier to the job for deduplication.  #}
+{#    Prevents duplicate jobs if the same key is submitted again.             #}
+{%- if unique_key | default('') %}
+-u {{ unique_key | default('') }}
+{%- endif %}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# WORKER MODE CONFIGURATION                                                  #}
+{# Controls behavior when `gearman` acts as a worker listening for and        #}
+{# executing jobs.                                                            #}
+{# -------------------------------------------------------------------------- #}
+{%- if enable_worker | default(False) %}
+{# -w: Enable worker mode. This is the primary switch to tell `gearman` to    #}
+{#    listen for jobs instead of submitting them.                             #}
+-w
+{# -c: Maximum number of jobs to execute before the worker exits.             #}
+{#    Value of `0` means the worker runs indefinitely (no limit).             #}
+{#    Useful for running workers as one-off batch processors or in K8s pods.  #}
+{%- if worker_max_jobs | default(0) %}
+-c {{ worker_max_jobs | default(0) }}
+{%- endif %}
+{%- endif %}

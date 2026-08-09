@@ -1,0 +1,58 @@
+# =============================================================================
+# Dovecot Flatcurve Plugin Configuration Template
+# =============================================================================
+# This template configures the `fts-flatcurve` plugin for Dovecot.
+# Flatcurve provides a fast, disk-based full-text search index for IMAP mailboxes.
+#
+# Self-documenting: every directive is preceded by a comment describing its
+# purpose, derived from the Ansible role schema. All variables use safe defaults
+# to prevent rendering errors if a variable is undefined.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Mail Plugins Registration
+# -----------------------------------------------------------------------------
+# Ensures the flatcurve plugin is loaded by appending it to the existing
+# mail_plugins list. Uses `default` to handle cases where `mail_plugins` is
+# not defined elsewhere.
+plugin {
+  mail_plugins = {{ mail_plugins | default('') | trim }}{% if mail_plugins | default('') | trim %} {% endif %}flatcurve
+}
+
+# -----------------------------------------------------------------------------
+# Flatcurve Plugin Settings
+# -----------------------------------------------------------------------------
+flatcurve {
+
+  # ---------------------------------------------------------------------------
+  # index_dir: Directory where Flatcurve stores index files.
+  # Must be writable by the dovecot user.
+  # Default: /var/lib/dovecot/flatcurve
+  # ---------------------------------------------------------------------------
+  index_dir = {{ index_dir | default('/var/lib/dovecot/flatcurve') }}
+
+  # ---------------------------------------------------------------------------
+  # compression: Whether to compress index files.
+  # Reduces disk space but increases CPU usage during indexing.
+  # Default: False
+  # ---------------------------------------------------------------------------
+  compression = {{ compression | default(False) | string | lower }}
+
+  # ---------------------------------------------------------------------------
+  # skip_patterns: Mailbox name patterns to exclude from Flatcurve indexing.
+  # Case-insensitive partial matches.
+  # Default: ['Drafts', 'Sent', 'Trash']
+  # ---------------------------------------------------------------------------
+  # Note: Flatcurve expects skip_patterns as a space-separated list.
+  skip_patterns = {{ skip_patterns | default(['Drafts', 'Sent', 'Trash']) | join(' ') }}
+
+  # ---------------------------------------------------------------------------
+  # removed: Variables removed because they are not documented for the
+  # fts-flatcurve plugin. This block is intentionally empty of these keys
+  # to maintain configuration hygiene.
+  # Default: ['max_connections', 'compression', 'strict_mode',
+  #           'skip_patterns', 'mail_fsync']
+  # ---------------------------------------------------------------------------
+  # (No directives emitted for removed variables)
+
+}

@@ -1,0 +1,20 @@
+# /etc/br2684/br2684ctl.conf — br2684ctl configuration (RFC2684 ATM PVC setup)
+# This file contains one line per ATM PVC interface definition.
+# Syntax per line: br2684ctl -c <interface_number> -a <pvc> [options]
+# Options:
+#   -e <encapsulation> : Encapsulation mode (0=LLC, 1=VC-mux). Default: 0.
+#   -p <payload>       : Payload mode (0=Routed, 1=Bridged). Default: 1 (Bridged).
+#   -s <send_buffer>   : Send buffer size in bytes. Default: 8192.
+#   -b                 : Run the br2684ctl daemon process in the background.
+
+# List of ATM PVC interfaces to configure; each item defines one nasX interface bound to a PVC.
+# One per line in the config file. Order matters.
+{% for iface in (interfaces | default([])) -%}
+# Interface {{ (iface | default({})).number | default(0) }}: ATM PVC {{ (iface | default({})).pvc | default('') }}
+# Encapsulation: {{ (iface | default({})).encapsulation | default(0) }} (0=LLC, 1=VC-mux)
+# Payload mode: {{ (iface | default({})).payload | default(1) }} (0=Routed, 1=Bridged)
+# Send buffer: {{ (iface | default({})).send_buffer | default(8192) }} bytes
+# Background: {{ 'enabled' if (iface | default({})).background | default(false) else 'disabled' }}
+-c {{ (iface | default({})).number | default(0) }} -a {{ (iface | default({})).pvc | default('') }}{% if (iface | default({})).encapsulation | default(0) != 0 %} -e {{ (iface | default({})).encapsulation | default(0) }}{% endif %}{% if (iface | default({})).payload | default(1) != 1 %} -p {{ (iface | default({})).payload | default(1) }}{% endif %}{% if (iface | default({})).send_buffer | default(8192) != 8192 %} -s {{ (iface | default({})).send_buffer | default(8192) }}{% endif %}{% if (iface | default({})).background | default(false) %} -b{% endif %}
+
+{% endfor %}

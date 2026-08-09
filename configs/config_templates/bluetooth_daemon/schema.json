@@ -1,0 +1,198 @@
+{
+  "enable_service": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the Bluetooth daemon at system startup."
+  },
+  "device_name": {
+    "type": "string",
+    "default": "Linux Bluetooth",
+    "description": "Human-readable name of the Bluetooth adapter, shown during device discovery."
+  },
+  "short_name": {
+    "type": "string",
+    "default": "BT-Host",
+    "description": "Short name (\u2264 8 chars) used in BLE advertising and GATT discovery."
+  },
+  "discoverable_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds until the adapter stops being discoverable (0 = always discoverable). Set to 30\u201360 for desktops/laptops."
+  },
+  "pairing_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds to wait for a pairing operation to complete before timing out."
+  },
+  "page_timeout": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum time (in 0.625ms units) to wait for a page response during inquiry. Higher values improve reliability for distant devices."
+  },
+  "inquiry_scan_interval": {
+    "type": "number",
+    "default": 256,
+    "description": "Interval (in 0.625ms units) between inquiry scans. Lower = more responsive, higher power use."
+  },
+  "inquiry_scan_window": {
+    "type": "number",
+    "default": 256,
+    "description": "Duration (in 0.625ms units) of each inquiry scan. Usually equal to scan interval."
+  },
+  "page_scan_interval": {
+    "type": "number",
+    "default": 256,
+    "description": "Interval (in 0.625ms units) between page scans for connecting to known devices."
+  },
+  "page_scan_window": {
+    "type": "number",
+    "default": 256,
+    "description": "Duration (in 0.625ms units) of each page scan. Typically equals scan interval."
+  },
+  "device_class": {
+    "type": "string",
+    "default": "0x000104",
+    "description": "Bluetooth device class (major/minor/service) indicating device type and capabilities."
+  },
+  "supported_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of Bluetooth service classes to advertise (e.g., 'SerialPort', 'Handsfree', 'Headset'). Leave empty for none.",
+    "items": {
+      "type": "string",
+      "description": "A supported service class name."
+    }
+  },
+  "auto_enable": {
+    "type": "list",
+    "default": [
+      "Network",
+      "Input"
+    ],
+    "description": "Bluetooth profiles/services to auto-enable when the adapter starts.",
+    "items": {
+      "type": "string",
+      "description": "Service name (e.g., 'Network', 'Input', 'Audio')"
+    }
+  },
+  "le_supported": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Bluetooth Low Energy (BLE) support on this adapter."
+  },
+  "le_advertising_interval_min": {
+    "type": "number",
+    "default": 800,
+    "description": "Minimum LE advertising interval (in 0.625ms units). Lower = faster discovery, higher power."
+  },
+  "le_advertising_interval_max": {
+    "type": "number",
+    "default": 800,
+    "description": "Maximum LE advertising interval (in 0.625ms units). Usually equal to min for constant advertising."
+  },
+  "max_connected": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of simultaneous active connections (e.g., headsets, keyboards)."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging to help diagnose issues."
+  },
+  "adapter_data_paths": {
+    "type": "list",
+    "default": [],
+    "description": "List of per-adapter storage paths for pairing data (used in multi-adapter systems).",
+    "items": {
+      "adapter": {
+        "type": "string",
+        "description": "Bluetooth adapter identifier (e.g., 'hci0', 'hci1')."
+      },
+      "path": {
+        "type": "string",
+        "description": "Absolute or relative path for this adapter\u2019s pairing/trust data.",
+        "default": "/var/lib/bluetooth/hci0"
+      }
+    }
+  },
+  "legacy_pairing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable legacy (non-secure) pairing for compatibility with older devices."
+  },
+  "mitm_protection": {
+    "type": "bool",
+    "default": false,
+    "description": "Require Man-in-the-Middle (MITM) protection (e.g., passkey entry) for pairing. Enable for security-critical devices."
+  },
+  "secure_simple_pairing": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce Secure Simple Pairing (SSP). Recommended for all modern devices."
+  },
+  "justworks_repairing": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow 'Just Works' (no user interaction) pairing. Disable for security-sensitive environments."
+  },
+  "gatt_primary_service": {
+    "type": "bool",
+    "default": true,
+    "description": "Expose BLE GATT server functionality system-wide (required for smart devices)."
+  },
+  "experimental": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable experimental/unsafe features. Only use if required by hardware or specifications."
+  },
+  "offload": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hardware offloading for BLE connections. Improves performance and battery life if supported."
+  },
+  "hfp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Hands-Free Profile (HFP) for hands-free headsets and car kits."
+  },
+  "a2dp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Advanced Audio Distribution Profile (A2DP) for high-quality stereo audio streaming."
+  },
+  "avdtp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable AVDTP \u2014 required for A2DP streaming."
+  },
+  "codecs": {
+    "type": "list",
+    "default": [],
+    "description": "List of audio codecs to enable, in format '<codec>:<enabled>' (e.g., 'aptX:1 ldac:1').",
+    "items": {
+      "type": "string",
+      "description": "Codec string: '<name>:<1|0>' where 1 = enabled."
+    }
+  },
+  "sink_latency": {
+    "type": "number",
+    "default": 0,
+    "description": "Target audio latency (in ms) for A2DP sinks. 0 = automatic tuning. Range: 0\u20131000."
+  },
+  "media": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable remote media control (play/pause/next/prev via headset buttons)."
+  },
+  "media_backend": {
+    "type": "string",
+    "default": "bluez",
+    "description": "Backend for media control (e.g., 'bluez', 'mpris'). 'bluez' integrates with BlueZ; 'mpris' uses system media controls."
+  },
+  "a2dp_endpoints": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum concurrent A2DP sources or sinks (e.g., multiple speakers/headsets)."
+  }
+}

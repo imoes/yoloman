@@ -1,0 +1,280 @@
+# PostgreSQL 17 Configuration Template
+# This file configures the main server behavior, networking, logging, replication, and security.
+# All variables are sourced from the Ansible inventory/role defaults.
+# Self-documenting: every directive is preceded by its schema description as a comment.
+
+# IP addresses or hostnames PostgreSQL will listen on for client connections.
+# Use '*' for all. Default: 'localhost'
+listen_addresses = '{{ listen_addresses | default("localhost") }}'
+
+# TCP port number to accept connections on. Default: 5432
+port = {{ port | default(5432) }}
+
+# Maximum number of concurrent connections allowed. Default: 100
+max_connections = {{ max_connections | default(100) }}
+
+# Amount of shared memory used for caching data.
+# Typically 25% of total RAM on a dedicated server. Default: '256MB'
+shared_buffers = '{{ shared_buffers | default("256MB") }}'
+
+# Memory per operation (e.g., sort, hash).
+# Larger values speed complex queries but consume memory per connection. Default: '64MB'
+work_mem = '{{ work_mem | default("64MB") }}'
+
+# Maximum memory for maintenance operations (e.g., VACUUM, CREATE INDEX).
+# Default: '128MB'
+maintenance_work_mem = '{{ maintenance_work_mem | default("128MB") }}'
+
+# Estimated total memory available for disk caching (including OS cache).
+# Helps planner choose index scans. Default: '1GB'
+effective_cache_size = '{{ effective_cache_size | default("1GB") }}'
+
+# Shared memory for WAL (write-ahead log) data before being written to disk.
+# Default: '16MB'
+wal_buffers = '{{ wal_buffers | default("16MB") }}'
+
+# Time allowed to spread checkpoint writes (0.0 = immediate, 1.0 = only at end).
+# 0.9 is typical. Default: 0.9
+checkpoint_completion_target = {{ checkpoint_completion_target | default(0.9) }}
+
+# Maximum WAL size before forced checkpoint. Default: '2GB'
+max_wal_size = '{{ max_wal_size | default("2GB") }}'
+
+# Minimum WAL size to retain for reuse. Default: '1GB'
+min_wal_size = '{{ min_wal_size | default("1GB") }}'
+
+# Enable collection of log output into files (required for log rotation and centralized logs).
+# Default: True
+logging_collector = {{ logging_collector | default(True) | lower }}
+
+# Directory for log files (relative to data_directory or absolute).
+# Default: 'log'
+log_directory = '{{ log_directory | default("log") }}'
+
+# Filename pattern for log files using strftime codes.
+# Default: 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_filename = '{{ log_filename | default("postgresql-%Y-%m-%d_%H%M%S.log") }}'
+
+# Minimum message level logged (e.g., DEBUG5, INFO, WARNING, ERROR).
+# Default: 'WARNING'
+log_min_messages = '{{ log_min_messages | default("WARNING") }}'
+
+# Log statements taking longer than this many milliseconds (set to -1 to disable).
+# Default: 1000
+log_min_duration_statement = {{ log_min_duration_statement | default(1000) }}
+
+# Which SQL statements to log: 'none', 'ddl', 'mod', 'all'.
+# Default: 'ddl'
+log_statement = '{{ log_statement | default("ddl") }}'
+
+# Log lock waits exceeding deadlock_timeout.
+# Default: True
+log_lock_waits = {{ log_lock_waits | default(True) | lower }}
+
+# Timezone for log timestamps. Default: 'UTC'
+log_timezone = '{{ log_timezone | default("UTC") }}'
+
+# Server-side default timezone for timestamps without explicit TZ.
+# Default: 'UTC'
+timezone = '{{ timezone | default("UTC") }}'
+
+# Default locale for collation, formatting, and number representation.
+# Default: 'en_US.UTF-8'
+locale = '{{ locale | default("en_US.UTF-8") }}'
+
+# Locale for system messages and error strings.
+# Default: 'en_US.UTF-8'
+lc_messages = '{{ lc_messages | default("en_US.UTF-8") }}'
+
+# Database server character encoding. Must match client encoding expectations.
+# Default: 'UTF8'
+server_encoding = '{{ server_encoding | default("UTF8") }}'
+
+# Directory containing cluster data files.
+# Default: '/var/lib/postgresql/17/main'
+data_directory = '{{ data_directory | default("/var/lib/postgresql/17/main") }}'
+
+# Path to the HBA (host-based authentication) configuration file.
+# Default: '/etc/postgresql/17/main/pg_hba.conf'
+hba_file = '{{ hba_file | default("/etc/postgresql/17/main/pg_hba.conf") }}'
+
+# Path to the user name mapping configuration file.
+# Default: '/etc/postgresql/17/main/pg_ident.conf'
+ident_file = '{{ ident_file | default("/etc/postgresql/17/main/pg_ident.conf") }}'
+
+# Max parallel workers per parallel query (requires max_worker_processes ≥ this).
+# Default: 2
+max_parallel_workers_per_gather = {{ max_parallel_workers_per_gather | default(2) }}
+
+# Max parallel workers for maintenance (e.g., CREATE INDEX, VACUUM).
+# Default: 2
+max_parallel_maintenance_workers = {{ max_parallel_maintenance_workers | default(2) }}
+
+# Total background worker processes (required for parallel queries, logical replication, extensions).
+# Default: 8
+max_worker_processes = {{ max_worker_processes | default(8) }}
+
+# Commit behavior: 'on', 'remote_apply', 'remote_write', 'off'.
+# 'on' ensures durability. Default: 'on'
+synchronous_commit = '{{ synchronous_commit | default("on") }}'
+
+# Connection info for primary server when this instance is a standby (e.g., 'host=primary port=5432 user=repl password=secret').
+# Default: '' (empty means not a standby)
+{% if replication_primary_host | default("") | length > 0 %}
+primary_conninfo = '{{ replication_primary_host | default("") }}'
+{% endif %}
+
+# List of standby hosts allowed to connect for streaming replication.
+# Each item includes host and auth_method.
+{% set _standby_hosts = replication_standby_hosts | default([]) %}
+{% if _standby_hosts is iterable %}
+{% for standby in _standby_hosts %}
+# Standby host rule: host={{ standby.host }}, auth={{ standby.auth_method }}
+{% endfor %}
+{% endif %}
+
+# List of pg_hba.conf rules (not the full file).
+# Each rule specifies access control for clients.
+{% set _hba_rules = hba_rules | default([]) %}
+{% if _hba_rules is iterable %}
+{% for rule in _hba_rules %}
+# HBA Rule: type={{ rule.type }}, db={{ rule.database }}, user={{ rule.user }}, addr={{ rule.address }}, method={{ rule.method }}
+{% endfor %}
+{% endif %}
+
+# Compress WAL during archiving or replication: 'on', 'off', or 'pglz'.
+# Default: 'on'
+wal_compression = '{{ wal_compression | default("on") }}'
+
+# List of standby names for synchronous replication (e.g., 'FIRST 1 (standby1, standby2)').
+# Default: '' (empty means asynchronous)
+{% if synchronous_standby_names | default("") | length > 0 %}
+synchronous_standby_names = '{{ synchronous_standby_names | default("") }}'
+{% endif %}
+
+# WAL level: 'minimal', 'replica', 'logical'.
+# 'replica' enables hot standby; 'logical' enables logical decoding. Default: 'replica'
+wal_level = '{{ wal_level | default("replica") }}'
+
+# Max WAL sender processes (for streaming replication).
+# Requires wal_level ≥ replica. Default: 3
+max_wal_senders = {{ max_wal_senders | default(3) }}
+
+# Timeout (ms) for WAL sender disconnecting inactive standbys.
+# Default: 60000
+wal_sender_timeout = {{ wal_sender_timeout | default(60000) }}
+
+# List of shared libraries to load at server startup (e.g., ['pg_stat_statements', 'auto_explain']).
+# Default: ['pg_stat_statements']
+{% set _preload_libs = shared_preload_libraries | default(['pg_stat_statements']) %}
+{% if _preload_libs is iterable %}
+shared_preload_libraries = '{{ _preload_libs | join("', '") }}'
+{% else %}
+shared_preload_libraries = ''
+{% endif %}
+
+# Enable archiving of WAL segments (required for point-in-time recovery).
+# Default: False
+archive_mode = {{ archive_mode | default(False) | lower }}
+
+# Shell command to copy WAL files to archive location.
+# Use %p (source) and %f (filename). Default: 'cp %p /var/lib/postgresql/archive/%f'
+archive_command = '{{ archive_command | default("cp %p /var/lib/postgresql/archive/%f") }}'
+
+# Force WAL switch every N seconds to ensure archival of in-progress segments (0 disables).
+# Default: 300
+archive_timeout = {{ archive_timeout | default(300) }}
+
+# Action on recovery target: 'pause', 'promote' (standby only).
+# Default: 'pause'
+{% if recovery_target_action | default("pause") | length > 0 %}
+recovery_target_action = '{{ recovery_target_action | default("pause") }}'
+{% endif %}
+
+# Recover to a specific WAL LSN.
+# Default: '' (empty)
+{% if recovery_target_lsn | default("") | length > 0 %}
+recovery_target_lsn = '{{ recovery_target_lsn | default("") }}'
+{% endif %}
+
+# Recover to a specific timestamp (ISO 8601 format).
+# Default: '' (empty)
+{% if recovery_target_time | default("") | length > 0 %}
+recovery_target_time = '{{ recovery_target_time | default("") }}'
+{% endif %}
+
+# Recover to a specific transaction ID.
+# Default: '' (empty)
+{% if recovery_target_xid | default("") | length > 0 %}
+recovery_target_xid = '{{ recovery_target_xid | default("") }}'
+{% endif %}
+
+# Recover to a named restore point.
+# Default: '' (empty)
+{% if recovery_target_name | default("") | length > 0 %}
+recovery_target_name = '{{ recovery_target_name | default("") }}'
+{% endif %}
+
+# Enable logical decoding (required for logical replication slots and publications).
+# Default: False
+logical_decoding = {{ logical_decoding | default(False) | lower }}
+
+# List of logical replication publications to define at startup.
+# Default: []
+{% set _pubs = logical_replication_publications | default([]) %}
+{% if _pubs is iterable %}
+{% for pub in _pubs %}
+# Publication: name={{ pub.name }}
+{% endfor %}
+{% endif %}
+
+# List of logical replication subscriptions to create at startup.
+# Default: []
+{% set _subs = logical_replication_subscriptions | default([]) %}
+{% if _subs is iterable %}
+{% for sub in _subs %}
+# Subscription: name={{ sub.name }}, provider={{ sub.provider }}
+{% endfor %}
+{% endif %}
+
+# Default statistics target for columns (1–10000).
+# Higher = more precise plans but longer ANALYZE. Default: 100
+default_statistics_target = {{ default_statistics_target | default(100) }}
+
+# Planner's estimate of relative cost of random disk access.
+# Lower = favor index scans more aggressively. Default: 1.1
+random_page_cost = {{ random_page_cost | default(1.1) }}
+
+# Enable JIT compilation for queries (improves complex queries on large datasets).
+# Default: True
+jit = {{ jit | default(True) | lower }}
+
+# Seconds of idle before TCP starts sending keepalives.
+# Default: 7200
+tcp_keepalives_idle = {{ tcp_keepalives_idle | default(7200) }}
+
+# Seconds between TCP keepalive probes.
+# Default: 75
+tcp_keepalives_interval = {{ tcp_keepalives_interval | default(75) }}
+
+# Number of TCP keepalive probes before connection is dropped.
+# Default: 9
+tcp_keepalives_count = {{ tcp_keepalives_count | default(9) }}
+
+# SSL mode: 'off', 'allow', 'prefer', 'require'.
+# Requires ssl_cert_file and ssl_key_file. Default: 'off'
+ssl = '{{ ssl | default("off") }}'
+
+# Path to SSL certificate (relative to data_directory or absolute).
+# Default: 'server.crt'
+ssl_cert_file = '{{ ssl_cert_file | default("server.crt") }}'
+
+# Path to SSL private key (relative to data_directory or absolute).
+# Default: 'server.key'
+ssl_key_file = '{{ ssl_key_file | default("server.key") }}'
+
+# Optional: Path to SSL CA certificate for verifying client certs (relative or absolute).
+# Default: '' (empty means not specified)
+{% if ssl_ca_file | default("") | length > 0 %}
+ssl_ca_file = '{{ ssl_ca_file | default("") }}'
+{% endif %}

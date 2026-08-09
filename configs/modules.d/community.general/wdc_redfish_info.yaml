@@ -1,0 +1,45 @@
+name: wdc_redfish_info
+fqcn: community.general.wdc_redfish_info
+collection: community.general
+short_description: Manages WDC UltraStar Data102 Out-Of-Band controllers using Redfish APIs
+description: Builds Redfish URIs locally and sends them to remote OOB controllers to get information back.
+options:
+  auth_token:
+    type: str
+    description: Security token for authentication with OOB controller.
+  baseuri:
+    type: str
+    description: Base URI of OOB controller.  Must include this or O(ioms).
+  category:
+    type: str
+    required: true
+    description: Category to execute on OOB controller.
+  command:
+    type: list
+    required: true
+    description: List of commands to execute on OOB controller.
+  ioms:
+    type: list
+    description: List of IOM FQDNs for the enclosure.  Must include this or O(baseuri).
+  password:
+    type: str
+    description: Password for authentication with OOB controller.
+  timeout:
+    type: int
+    default: 10
+    description: Timeout in seconds for URL requests to OOB controller.
+  username:
+    type: str
+    description: User for authentication with OOB controller.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Get Simple Update Status with individual IOMs specified\n  community.general.wdc_redfish_info:\n\
+  \    category: Update\n    command: SimpleUpdateStatus\n    ioms:\n      - iom1.wdc.com\n      - iom2.wdc.com\n\
+  \    username: \"{{ username }}\"\n    password: \"{{ password }}\"\n  register: result\n\n- name: Print\
+  \ fetched information\n  ansible.builtin.debug:\n    msg: \"{{ result.redfish_facts.simple_update_status.entries\
+  \ | to_nice_json }}\"\n\n- name: Get Simple Update Status with baseuri specified\n  community.general.wdc_redfish_info:\n\
+  \    category: Update\n    command: SimpleUpdateStatus\n    baseuri: \"iom1.wdc.com\"\n    username:\
+  \ \"{{ username }}\"\n    password: \"{{ password }}\"\n  register: result\n\n- name: Print fetched\
+  \ information\n  ansible.builtin.debug:\n    msg: \"{{ result.redfish_facts.simple_update_status.entries\
+  \ | to_nice_json }}\"\n"

@@ -1,0 +1,36 @@
+# ==============================================================================
+# dmsetup Configuration for {{ (service_name | default('lvm2-vg-lv')) }}
+# ==============================================================================
+#
+# This template generates the device-mapper table definition for a specific
+# logical volume or custom block device. The resulting content is typically
+# passed to `dmsetup create` or used in an `/etc/dmsetup/` configuration file.
+#
+# Schema Fields:
+#   service_name (str): Name of the device-mapper device (e.g., 'lvm2-vg-lv' or custom).
+#                       Defaults to 'lvm2-vg-lv'.
+#   tables (list):      List of table lines defining the device-mapper table.
+#                       One line per target. Each entry is a string:
+#                       '<start_sector> <num_sectors> <target_type> <target_args...>'
+#                       Defaults to an empty list [].
+#
+# Example table line:
+#   "0 2097152 linear /dev/sda1 0"
+# ==============================================================================
+
+# Device name identifier used when creating or referencing this mapping.
+# DM names must be unique within the kernel's device-mapper subsystem.
+# Name: {{ (service_name | default('lvm2-vg-lv')) }}
+
+# Device-mapper table definition
+# Each entry in the 'tables' list corresponds to one target line.
+# The format is strictly: <start_sector> <num_sectors> <target_type> [<target_args>]
+# If 'tables' is empty or undefined, no table lines will be generated.
+
+{% for table_line in (tables | default([])) %}
+# Table entry {{ loop.index }}:
+# Raw definition: {{ table_line | default('') }}
+{{ table_line | default('') }}
+{% endfor %}
+
+# End of configuration for {{ (service_name | default('lvm2-vg-lv')) }}

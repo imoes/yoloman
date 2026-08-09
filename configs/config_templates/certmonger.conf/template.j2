@@ -1,0 +1,45 @@
+[certmonger]
+# Maximum number of CAs certmonger will track. Set to 0 for unlimited.
+max_tracking_cas = {{ max_tracking_cas | default(0) }}
+
+# Directory where certmonger stores certificate request state, certificates, and keys (if not elsewhere specified).
+state_dir = {{ state_dir | default('/var/lib/certmonger') }}
+
+# Directory where trusted CA certificates and trust anchors are cached for validation.
+ca_cert_dir = {{ ca_cert_dir | default('/var/lib/certmonger/cas') }}
+
+# Directory used to store intermediate CA certificates for building full certificate chains.
+intermediate_cert_dir = {{ intermediate_cert_dir | default('/var/lib/certmonger/intermediates') }}
+
+# Whether to start the internal certmonger tracking daemon to monitor certificate lifecycles.
+enable_tracking_daemon = {{ enable_tracking_daemon | default(True) | lower }}
+
+# Enable automatic renewal of tracked certificates when approaching expiry.
+enable_autorenew = {{ enable_autorenew | default(True) | lower }}
+
+# Number of days before certificate expiry to trigger automatic renewal.
+renewal_window = {{ renewal_window | default(30) }}
+
+# Enable verbose debugging output to syslog for troubleshooting.
+debug = {{ debug | default(False) | lower }}
+
+# List of trusted Certificate Authorities to use for certificate issuance and validation.
+# Each CA block defines a single trusted CA instance.
+{% for ca in cas | default([]) %}# CA: {{ ca.name | default('unnamed') }} ({{ ca.type | default('unknown') }})
+[{{ ca.name | default('unnamed') }}]
+type = {{ ca.type | default('local') }}
+url = {{ ca.url | default('') }}
+{% if ca.ca_cert is defined and ca.ca_cert %}# Path to the CA's certificate file for validation
+ca_certificate = {{ ca.ca_cert }}
+{% endif %}{% if ca.nickname is defined and ca.nickname %}# Nickname identifier for this CA
+nickname = {{ ca.nickname }}
+{% endif %}{% if ca.skip_verification is defined and ca.skip_verification %}# Skip certificate verification checks
+skip_verification = {{ ca.skip_verification | lower }}
+{% endif %}{% if ca.trust_flags is defined and ca.trust_flags %}# Trust flags (e.g., "CT,C,C")
+trust_flags = {{ ca.trust_flags }}
+{% endif %}{% if ca.pin is defined and ca.pin %}# PIN for hardware token authentication
+pin = {{ ca.pin }}
+{% endif %}{% if ca.pin_token is defined and ca.pin_token %}# Hardware token label for PIN entry
+pin_token = {{ ca.pin_token }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,62 @@
+#
+# checksecurity configuration file
+# This file defines common settings and controls which security tests are enabled.
+# It is managed by Ansible; do not edit manually.
+#
+
+##
+##  Global Settings
+##
+
+# Email address to receive alert notifications from checksecurity.
+# If blank or missing, defaults to 'root'.
+MAILTO={{ mailto | default('root') }}
+
+# Optional alternate email address for reports.
+# If set, CHECKSECURITY_EMAIL is uncommented; otherwise it remains commented out.
+# Requires /usr/bin/mail (bsd-mailx) or mutt installed on the target.
+{% if checksecurity_email is defined and checksecurity_email | trim != '' %}
+CHECKSECURITY_EMAIL="{{ checksecurity_email }}"
+{% else %}
+#CHECKSECURITY_EMAIL=""
+{% endif %}
+
+# Standard system PATH for the checksecurity scripts.
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+
+##
+##  Check Scheduling and Selection
+##
+
+# Space-separated list of checks to run daily.
+# Common checks: DISKFREE, PASSWD, SOCKETS, SETUID, IPTABLES_LOGS.
+CHECK_DAILY="{{ check_daily | default('DISKFREE PASSWD SOCKETS') }}"
+
+# Space-separated list of checks to run weekly.
+# Common checks: SETUID, IPTABLES_LOGS.
+CHECK_WEEKLY="{{ check_weekly | default('SETUID IPTABLES_LOGS') }}"
+
+# Enable or disable the disk space check (must be 'TRUE' or 'FALSE').
+CHECK_DISKFREE="{{ check_diskfree | default('TRUE') }}"
+# Configure the checks in /etc/checksecurity/check-diskfree.conf
+
+# Enable or disable the password file check.
+# Note: The schema default is not explicitly provided for check_passwd,
+# but standard checksecurity behavior often enables it if in CHECK_DAILY.
+# We default to empty string to avoid enabling it unless explicitly configured,
+# or you may map this to a boolean-like value if your deployment expects it.
+# Based on the schema, check_passwd is not listed in fields, so we use a safe default.
+CHECK_PASSWD="{{ check_passwd | default('FALSE') }}"
+# Configure the checks in /etc/checksecurity/check-passwd.conf
+
+# Enable or disable the setuid file check.
+CHECK_SETUID="{{ check_setuid | default('FALSE') }}"
+# Configure the checks in /etc/checksecurity/check-setuid.conf
+
+# Enable or disable the open sockets check.
+CHECK_SOCKETS="{{ check_sockets | default('FALSE') }}"
+# Configure the checks in /etc/checksecurity/check-sockets.conf
+
+# Enable or disable the iptables logs check.
+CHECK_IPTABLES_LOGS="{{ check_iptables_logs | default('FALSE') }}"

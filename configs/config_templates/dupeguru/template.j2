@@ -1,0 +1,34 @@
+{# dupeGuru configuration file - generated using Jinja2 #}
+{% if scan_mode == 'standard' %}
+# Standard mode: match by filename and/or content
+{% elif scan_mode == 'music' %}
+# Music mode: match by audio tags
+{% elif scan_mode == 'picture' %}
+# Picture mode: match by visual similarity
+{% endif %}
+[match_engine]
+{% if scan_mode in ['standard', 'music'] %}
+match_algorithm = {% if scan_mode == 'music' %}'name'{% else %}{{ match_algorithm | default('fuzzy') | lower | quote }}{% endif %}
+match_threshold = {{ match_threshold | default(80) }}
+{% endif %}
+{% if scan_mode == 'picture' %}
+picture_match_algorithm = 'visual'
+visual_similarity_threshold = {{ picture_threshold | default(60) }}
+{% endif %}
+
+[scanning]
+{% if scan_mode == 'standard' %}
+scan_type = {% if scan_by == 'content' %}'content'{% else %}'name'{% endif %}
+{% else %}
+scan_type = '{{ scan_mode }}'
+{% endif %}
+{% if scan_mode == 'standard' and scan_by == 'content' %}
+content_hash_algorithm = 'md5'
+{% endif %}
+file_filters = [{{ file_extensions | map('quote') | join(', ') | default('') }}]
+
+[behavior]
+reference_directories = [{{ reference_directories | map('quote') | join(', ') | default('') }}]
+exclude_directories = [{{ exclude_directories | map('quote') | join(', ') | default('') }}]
+move_to_trash = {{ move_to_trash | default(true) | lower }}
+export_format = '{{ export_format | default('html') }}'

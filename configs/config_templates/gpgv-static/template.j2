@@ -1,0 +1,35 @@
+# gpgv-static invocation for secure chroot signature verification
+#
+# This template generates a single-line shell command to invoke `gpgv-static`
+# for verifying GNU Privacy Guard (GnuPG) signatures. It is designed to be
+# used within Ansible roles to configure secure, static verification of
+# package or file signatures without relying on the full GnuPG suite.
+#
+# Parameters:
+#   - comment:    A one-line comment describing the purpose (rendered as a `#` line).
+#   - bin_path:   Absolute path to the `gpgv-static` binary.
+#   - homedir:    GnuPG home directory containing trustdb, keyrings, and config.
+#   - trusted_keys: List of keyring paths. Each path is passed via `--keyring`.
+#   - options:    Additional CLI arguments for `gpgv-static`.
+#   - signed_files: List of signed files to verify. These are the required positional arguments.
+
+# Comment line describing the purpose of this configuration block.
+# The value comes from the `comment` schema field, defaulting to a descriptive string.
+# {{ comment | default('# gpgv-static invocation for secure chroot signature verification') }}
+
+# Command invocation line:
+# 1. The binary path (defaults to /usr/bin/gpgv-static).
+# 2. The GnuPG home directory (defaults to /usr/share/gnupg).
+# 3. If `trusted_keys` is not empty, append `--keyring` followed by a comma-separated list of keyrings.
+# 4. If `options` is not empty, append the space-separated options.
+# 5. Append the `signed_files` list, space-separated, as the final positional arguments.
+
+{{ bin_path | default('/usr/bin/gpgv-static') }} \
+  --homedir {{ homedir | default('/usr/share/gnupg') }} \
+  {%- if trusted_keys | default([]) | length > 0 %} \
+  --keyring {{ trusted_keys | default([]) | join(',') }} \
+  {%- endif %} \
+  {%- if options | default([]) | length > 0 %} \
+  {{ options | default([]) | join(' ') }} \
+  {%- endif %} \
+  {{ signed_files | default([]) | join(' ') }}

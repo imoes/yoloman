@@ -1,0 +1,151 @@
+# LDAP server configuration (LDIF format) - generated via template
+# This file defines the configuration for a 389 Directory Server instance
+# Do NOT edit directly; use the dsconfig CLI or LDAP operations instead.
+version: 1
+
+dn: cn=config
+changetype: add
+objectClass: top
+objectClass: nsslapdConfig
+# Global server settings
+nsslapd-port: {{ port }}
+{% if ssl_port %}
+nsslapd-secureport: {{ ssl_port }}
+{% else %}
+nsslapd-secureport: 0
+{% endif %}
+nsslapd-maxdescriptors: {{ max_descriptors }}
+nsslapd-sizelimit: {{ size_limit }}
+nsslapd-timelimit: {{ time_limit }}
+{% if enable_access_log %}
+nsslapd-accesslog: {{ access_log_path }}
+{% endif %}
+{% if enable_audit_log %}
+nsslapd-auditlog: {{ audit_log_path }}
+{% endif %}
+{% if enable_error_log %}
+nsslapd-errorlog: {{ error_log_path }}
+{% endif %}
+nsslapd-loglevel: {{ log_level }}
+nsslapd-basuffix: {{ base_suffix }}
+nsslapd-rootpw: {{ root_password }}
+
+# Backend database configuration
+dn: cn=ldbm database,cn=plugins,cn=config
+objectClass: top
+objectClass: nsSlapdPlugin
+objectClass: nsBackendConfig
+nsslapd-backend: userRoot
+{% for backend in backends %}
+
+# Backend: {{ backend.name }}
+dn: cn={{ backend.name }},cn=ldbm database,cn=plugins,cn=config
+objectClass: top
+objectClass: nsBackendConfig
+objectClass: extensibleObject
+nsslapd-suffix: {{ backend.suffix }}
+nsslapd-directory: {{ backend.directory }}
+nsslapd-dncache-size: {{ backend.cache_size }}
+{% if backend.encryption %}
+nsslapd-encryption: on
+{% endif %}
+{% if backend.encryption_cipher %}
+nsslapd-encryption-cipher: {{ backend.encryption_cipher }}
+{% endif %}
+{% if backend.encryption_pbkdf2 %}
+nsslapd-pbkdf2-hash-function: {{ backend.encryption_pbkdf2 }}
+{% endif %}
+{% endfor %}
+
+# Replication configuration (if enabled)
+{% if replication_enabled %}
+dn: cn=replication,cn=config
+objectClass: top
+objectClass: nsDS5ReplicationAgreement
+nsslapd-replica: {{ replication_host }}
+replicaPort: {{ replication_port }}
+replicaBindMethod: simple
+replicaBindDN: {{ replication_bind_dn }}
+replicaCredentials: {{ replication_credentials }}
+{% for replica in replication_agreements %}
+
+# Replication agreement: {{ replica.name }}
+dn: cn={{ replica.name }},cn=replica,cn={{ replica.suffix | replace('dc=', ',dc=') | replace('ou=', ',ou=') | replace('=', '=') | replace(',', ',') }},cn=mapping tree,cn=config
+objectClass: top
+objectClass: nsDS5ReplicationAgreement
+{% if replica.schedule %}
+nsDS5ReplicaSchedule: {{ replica.schedule | join(' ') }}
+{% endif %}
+nsDS5ReplicaHost: {{ replica.host }}
+nsDS5ReplicaPort: {{ replica.port }}
+nsDS5ReplicaBindDN: {{ replica.bind_dn }}
+nsDS5ReplicaBindMethod: {{ replica.bind_method }}
+{% if replica.bind_method == 'simple' %}
+nsDS5ReplicaCredentials: {{ replica.credentials }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Security settings
+dn: cn=encryption,cn=config
+objectClass: top
+objectClass: nsEncryptionConfig
+{% if encryption_enabled %}
+nsslapd-ssl-verify-client: {{ ssl_verify_client }}
+nsslapd-ssl-client-auth: {{ ssl_client_auth }}
+{% endif %}
+
+# Password policy
+dn: cn=Password Policy,cn=config
+objectClass: top
+objectClass: nsPasswordPolicy
+objectClass: LDAPsubentry
+objectClass: extensibleObject
+passwordStorageScheme: {SSHA512}
+passwordInHistory: {{ password_history_count }}
+passwordCheckSyntax: {{ password_check_syntax }}
+passwordMinLen: {{ password_min_length }}
+passwordMaxFailure: {{ password_max_failure }}
+passwordLockout: {{ password_lockout_enabled }}
+passwordLockoutDuration: {{ password_lockout_duration }}
+passwordUnlock: {{ password_unlock_enabled }}
+
+# Custom schema extensions
+{% for schema in schemas %}
+# Schema: {{ schema.name }}
+dn: cn={{ schema.name }},cn=schema,cn=config
+{% if schema.file %}
+objectClass: top
+objectClass: ldapSchemaExtension
+ldapSchemaExtension: {{ schema.file }}
+{% endif %}
+{% endfor %}
+
+# Custom plugins
+dn: cn=plugins,cn=config
+objectClass: top
+objectClass: nsContainer
+
+{% for plugin in enabled_plugins %}
+# Plugin: {{ plugin.name }}
+dn: cn={{ plugin.name }},cn=plugins,cn=config
+objectClass: top
+objectClass: nsSlapdPlugin
+{% if plugin.path %}
+nsslapd-pluginPath: {{ plugin.path }}
+{% endif %}
+nsslapd-pluginInitfunc: {{ plugin.initfunc }}
+nsslapd-pluginType: {{ plugin.type }}
+{% if plugin.enabled is defined %}
+nsslapd-pluginEnabled: {{ plugin.enabled | lower }}
+{% else %}
+nsslapd-pluginEnabled: on
+{% endif %}
+{% for arg in plugin.args %}
+{% if arg.key %}
+{{ arg.key }}: {{ arg.value }}
+{% else %}
+{{ arg.value }}
+{% endif %}
+{% endfor %}
+{% endfor %}

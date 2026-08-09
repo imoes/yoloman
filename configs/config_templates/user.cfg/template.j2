@@ -1,0 +1,162 @@
+# Configuration file for user-specific settings
+# Self-documenting Jinja2 template enriched for Ansible.
+# Every variable reference includes a default value derived from the schema
+# to ensure safe rendering even when the variable is undefined.
+
+# ============================================================
+# General service settings
+# ============================================================
+
+[general]
+
+# Enable or disable debug mode: detailed internal logging and diagnostics for troubleshooting.
+debug_mode = {{ debug_mode | default(False) | ternary('enabled', 'disabled') }}
+
+# Logging verbosity level: debug, info, warning, error, critical.
+log_level = {{ log_level | default('info') }}
+
+# Directory to store runtime data (temp files, sockets, etc.).
+runtime_dir = {{ runtime_dir | default('/var/lib/service/runtime') }}
+
+# Directory to store persistent configuration files.
+config_dir = {{ config_dir | default('/etc/service') }}
+
+# Full path to the process ID file.
+pid_file = {{ pid_file | default('/run/service.pid') }}
+
+# Short name used to identify this service in logs and process listings.
+service_name = {{ service_name | default('service') }}
+
+# ============================================================
+# Network interface binding and connection limits
+# ============================================================
+
+# IP address or hostname the service binds to.
+bind_address = {{ bind_address | default('0.0.0.0') }}
+
+# TCP port for incoming client connections.
+port = {{ port | default(8080) }}
+
+# Maximum number of simultaneous client connections.
+max_connections = {{ max_connections | default(1000) }}
+
+# Maximum seconds to keep a client connection alive without activity.
+connection_timeout = {{ connection_timeout | default(30) }}
+
+# Maximum seconds to wait for a response from a backend server.
+backend_timeout = {{ backend_timeout | default(30) }}
+
+# Number of times to retry a failed backend request.
+retry_attempts = {{ retry_attempts | default(3) }}
+
+# Milliseconds to wait between retry attempts.
+retry_delay = {{ retry_delay | default(200) }}
+
+# ============================================================
+# Worker process settings
+# ============================================================
+
+# Number of worker processes to spawn for handling requests.
+worker_count = {{ worker_count | default(4) }}
+
+# When true, workers reload configuration without dropping active connections.
+worker_graceful_reload = {{ worker_graceful_reload | default(True) }}
+
+# Seconds of inactivity after which a worker process is restarted.
+worker_idle_timeout = {{ worker_idle_timeout | default(600) }}
+
+# Maximum megabytes of memory a worker may use before automatic restart.
+worker_memory_limit = {{ worker_memory_limit | default(512) }}
+
+# ============================================================
+# Feature toggles
+# ============================================================
+
+# Enable HTTPS listener (requires SSL/TLS configuration).
+enable_https = {{ enable_https | default(False) }}
+
+# Enable gzip/deflate compression for text responses.
+enable_compression = {{ enable_compression | default(True) }}
+
+# Log successful requests to access log.
+enable_access_log = {{ enable_access_log | default(True) }}
+
+# Log error conditions (5xx responses, crashes, etc.).
+enable_error_log = {{ enable_error_log | default(True) }}
+
+# ============================================================
+# SSL/TLS configuration
+# ============================================================
+
+# Enable SSL/TLS encryption for HTTPS connections.
+ssl_enabled = {{ ssl_enabled | default(True) }}
+
+# Path to the SSL certificate file (PEM format).
+ssl_cert_file = {{ ssl_cert_file | default('/etc/service/ssl/server.crt') }}
+
+# Path to the SSL private key file (PEM format).
+ssl_key_file = {{ ssl_key_file | default('/etc/service/ssl/server.key') }}
+
+# Optional path to the CA bundle for client certificate verification.
+ssl_ca_file = {{ ssl_ca_file | default('') }}
+
+# List of acceptable SSL/TLS protocols (e.g., TLSv1.2, TLSv1.3).
+ssl_protocols = {{ ssl_protocols | default(['TLSv1.2', 'TLSv1.3']) | join(', ') }}
+
+# Use server's cipher preference instead of client's.
+ssl_prefer_server_ciphers = {{ ssl_prefer_server_ciphers | default(True) }}
+
+# Number of SSL sessions to cache.
+ssl_session_cache_size = {{ ssl_session_cache_size | default(20000) }}
+
+# Seconds an SSL session remains valid in cache.
+ssl_session_timeout = {{ ssl_session_timeout | default(3600) }}
+
+# ============================================================
+# Backend servers
+# List of backend servers to forward client requests to.
+# If the list is empty or undefined, this section is omitted.
+# ============================================================
+{% if backends | default([]) | length > 0 %}
+{% for backend in backends %}
+[backend:{{ backend.name | default('unnamed') }}]
+# IP address or hostname of the backend server.
+address = {{ backend.address | default('127.0.0.1') }}
+# TCP port of the backend server.
+port = {{ backend.port | default(8080) }}
+# Weight for load balancing (higher weight receives more traffic).
+weight = {{ backend.weight | default(1) }}
+# Health check configuration.
+{% if backend.health_check | default(False) %}
+health_check = enabled
+health_check_interval = {{ backend.health_check_interval | default(30) }}
+health_check_uri = {{ backend.health_check_uri | default('/health') }}
+healthy_threshold = {{ backend.healthy_threshold | default(3) }}
+unhealthy_threshold = {{ backend.unhealthy_threshold | default(3) }}
+{% else %}
+health_check = disabled
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# ============================================================
+# Security settings
+# ============================================================
+
+# Enable per-client request rate limiting.
+rate_limit_enabled = {{ rate_limit_enabled | default(False) }}
+
+# Maximum requests per second per client before throttling.
+rate_limit_requests_per_second = {{ rate_limit_requests_per_second | default(10) }}
+
+# Maximum burst size (requests allowed in short bursts).
+rate_limit_burst = {{ rate_limit_burst | default(20) }}
+
+# Maximum allowed request body size in kilobytes.
+request_body_limit = {{ request_body_limit | default(10240) }}
+
+# Enable origin validation (CORS): Validate the Origin header against allowed origins.
+origin_validation_enabled = {{ origin_validation_enabled | default(False) }}
+
+# List of allowed origins for CORS requests (e.g., https://example.com).
+allowed_origins = {{ allowed_origins | default([]) | join(', ') }}

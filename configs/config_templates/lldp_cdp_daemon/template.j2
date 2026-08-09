@@ -1,0 +1,132 @@
+# =============================================================================
+# lldp_cdp_daemon configuration
+# =============================================================================
+# This file configures the LLDP/CDP daemon for interface advertising and
+# network discovery. LLDP is an open standard; CDP is Cisco-proprietary.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# lldp_enabled: default=True
+# Whether to send LLDP packets globally (can be overridden per interface).
+# -----------------------------------------------------------------------------
+enable_lldp: {{ lldp_enabled | default(true) }}
+
+# -----------------------------------------------------------------------------
+# cdp_enabled: default=False
+# Whether to send CDP packets globally (can be overridden per interface).
+# Note: CDP is Cisco-proprietary.
+# -----------------------------------------------------------------------------
+enable_cdp: {{ cdp_enabled | default(false) }}
+
+# -----------------------------------------------------------------------------
+# update_interval: default=30
+# Interval (seconds) between LLDP/CDP TLV updates.
+# -----------------------------------------------------------------------------
+update_interval: {{ update_interval | default(30) }}
+
+# -----------------------------------------------------------------------------
+# ttl: default=120
+# Time-to-live (seconds) for TLVs received by peers.
+# Must be at least 2× update_interval.
+# -----------------------------------------------------------------------------
+ttl: {{ ttl | default(120) }}
+
+# -----------------------------------------------------------------------------
+# max_queue_len: default=10
+# Maximum number of packets to queue per interface (for burst handling).
+# -----------------------------------------------------------------------------
+max_queue_len: {{ max_queue_len | default(10) }}
+
+# -----------------------------------------------------------------------------
+# port_desc_template: default='%i (LLDP/CDP)'
+# Template for port description TLV.
+# Supports %h (hostname) and %i (interface name).
+# -----------------------------------------------------------------------------
+port_desc_template: "{{ port_desc_template | default('%i (LLDP/CDP)') }}"
+
+# -----------------------------------------------------------------------------
+# hostname: default=''
+# Override system hostname for LLDP system name TLV.
+# Leave empty to use system hostname.
+# -----------------------------------------------------------------------------
+hostname: "{{ hostname | default('') }}"
+
+# -----------------------------------------------------------------------------
+# interfaces: default=[]
+# List of interfaces to configure for LLDP/CDP transmission.
+# -----------------------------------------------------------------------------
+# Interface-specific configuration
+{% for iface in interfaces | default([]) %}
+interface {{ iface.name | default('') }}:
+  # -----------------------------------------------------------------------------
+  # iface.lldp_enabled: default(global lldp_enabled)
+  # Enable LLDP on this interface.
+  # -----------------------------------------------------------------------------
+  enable_lldp: {{ (iface | default({})).lldp_enabled | default(lldp_enabled | default(true)) }}
+
+  # -----------------------------------------------------------------------------
+  # iface.cdp_enabled: default(global cdp_enabled)
+  # Enable CDP on this interface.
+  # -----------------------------------------------------------------------------
+  enable_cdp: {{ (iface | default({})).cdp_enabled | default(cdp_enabled | default(false)) }}
+
+  # -----------------------------------------------------------------------------
+  # iface.chassis_id: default='auto'
+  # LLDP chassis ID (MAC address, string, or 'auto').
+  # -----------------------------------------------------------------------------
+  chassis_id: {{ (iface | default({})).chassis_id | default('auto') | tojson }}
+
+  # -----------------------------------------------------------------------------
+  # iface.port_id: default='auto'
+  # LLDP port ID (string or 'auto').
+  # -----------------------------------------------------------------------------
+  port_id: {{ (iface | default({})).port_id | default('auto') | tojson }}
+
+  # -----------------------------------------------------------------------------
+  # iface.sys_name: default='auto'
+  # LLDP system name (string or 'auto').
+  # -----------------------------------------------------------------------------
+  sys_name: {{ (iface | default({})).sys_name | default('auto') | tojson }}
+
+  # -----------------------------------------------------------------------------
+  # iface.sys_desc: default='auto'
+  # LLDP system description (string or 'auto').
+  # -----------------------------------------------------------------------------
+  sys_desc: {{ (iface | default({})).sys_desc | default('auto') | tojson }}
+
+  # -----------------------------------------------------------------------------
+  # iface.ttl: default=0
+  # TTL override for this interface (if 0, use global ttl).
+  # -----------------------------------------------------------------------------
+  ttl: {{ (iface | default({})).ttl | default(0) }}
+
+  # -----------------------------------------------------------------------------
+  # iface.adv_mgmt_addr: default=true
+  # Enable TLV advertisement for management address.
+  # -----------------------------------------------------------------------------
+  adv_mgmt_addr: {{ (iface | default({})).adv_mgmt_addr | default(true) }}
+
+  # -----------------------------------------------------------------------------
+  # iface.extra_tlvs: default omitted
+  # Optional: extra TLVs as key=value pairs.
+  # -----------------------------------------------------------------------------
+  {% if (iface | default({})).extra_tlvs is defined and (iface | default({})).extra_tlvs %}
+  extra_tlvs:
+  {% for item in (iface | default({})).extra_tlvs | dict2items %}
+    {{ item.key }}: {{ item.value | tojson }}
+  {% endfor %}
+  {% endif %}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# log_level: default='info'
+# Logging verbosity: 'debug', 'info', 'notice', 'warning', 'error', 'crit',
+# 'alert', or 'emerg'.
+# -----------------------------------------------------------------------------
+log_level: {{ log_level | default('info') }}
+
+# -----------------------------------------------------------------------------
+# log_facility: default='daemon'
+# Syslog facility to use (e.g., 'daemon', 'local0'–'local7').
+# -----------------------------------------------------------------------------
+log_facility: {{ log_facility | default('daemon') }}

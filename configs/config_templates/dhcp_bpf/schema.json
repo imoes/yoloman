@@ -1,0 +1,175 @@
+{
+  "config": {
+    "type": "object",
+    "properties": {
+      "bpf_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable BPF (BSD Packet Filter) for raw packet capture. Required for kernel-level DHCP packet handling on BSD/Linux."
+      },
+      "default_lease_time": {
+        "type": "number",
+        "default": 86400,
+        "description": "Default lease duration (in seconds). Clients receive this value unless overridden."
+      },
+      "max_lease_time": {
+        "type": "number",
+        "default": 604800,
+        "description": "Maximum lease duration (in seconds). Clients cannot request longer leases."
+      },
+      "subnets": {
+        "type": "list",
+        "items": {
+          "type": "object",
+          "properties": {
+            "network": {
+              "type": "string",
+              "default": "",
+              "description": "IPv4 network address (e.g., 192.168.1.0)"
+            },
+            "prefix": {
+              "type": "number",
+              "default": 24,
+              "description": "CIDR prefix length (e.g., 24 \u2192 255.255.255.0)"
+            },
+            "interface": {
+              "type": "string",
+              "default": "eth0",
+              "description": "Network interface bound to this subnet (e.g., eth0, br0)"
+            },
+            "range_start": {
+              "type": "string",
+              "default": "",
+              "description": "First address in dynamic pool (e.g., 192.168.1.100)"
+            },
+            "range_end": {
+              "type": "string",
+              "default": "",
+              "description": "Last address in dynamic pool (e.g., 192.168.1.200)"
+            },
+            "gateway": {
+              "type": "string",
+              "default": "",
+              "description": "Default router/gateway for clients in this subnet"
+            },
+            "dns_servers": {
+              "type": "list",
+              "default": [
+                "8.8.8.8",
+                "8.8.4.4"
+              ],
+              "items": {
+                "type": "string"
+              },
+              "description": "DNS server addresses for clients"
+            },
+            "domain_name": {
+              "type": "string",
+              "default": "local",
+              "description": "Domain name to append to unqualified hostnames"
+            },
+            "ntp_servers": {
+              "type": "list",
+              "default": [],
+              "items": {
+                "type": "string"
+              },
+              "description": "NTP server addresses for time synchronization"
+            },
+            "broadcast_address": {
+              "type": "string",
+              "default": "",
+              "description": "Broadcast address (defaults to calculated value)"
+            },
+            "static_routes": {
+              "type": "list",
+              "default": [],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "destination": {
+                    "type": "string"
+                  },
+                  "netmask": {
+                    "type": "string"
+                  },
+                  "next_hop": {
+                    "type": "string"
+                  }
+                }
+              },
+              "description": "RFC 3442 classless static routes for clients"
+            },
+            "hosts": {
+              "type": "list",
+              "default": [],
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "mac": {
+                    "type": "string",
+                    "pattern": "^[0-9A-Fa-f:]{17}$"
+                  },
+                  "address": {
+                    "type": "string"
+                  },
+                  "hostname": {
+                    "type": "string",
+                    "default": ""
+                  }
+                }
+              },
+              "description": "Static DHCP reservations (MAC \u2192 IP)"
+            }
+          },
+          "required": [
+            "network",
+            "prefix",
+            "interface"
+          ]
+        },
+        "description": "List of IPv4 subnets to serve. Each defines network, CIDR prefix, and interface."
+      },
+      "shared_networks": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "subnets": {
+              "type": "list",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "network": {
+                    "type": "string"
+                  },
+                  "prefix": {
+                    "type": "number"
+                  }
+                }
+              }
+            },
+            "interfaces": {
+              "type": "list",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "required": [
+            "name",
+            "subnets"
+          ]
+        },
+        "description": "Shared networks (for multi-interface deployments where subnets share broadcast domain)"
+      }
+    }
+  }
+}

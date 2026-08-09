@@ -1,0 +1,25 @@
+{# cardpeek configuration template #}
+{# This template generates a command-line configuration string for cardpeek. #}
+{# cardpeek is a tool for reading smart cards via PC/SC. It is a CLI/GUI utility, #}
+{# not a persistent daemon, so it has no listening ports or network connections. #}
+
+{# --reader: Name or path of the specific smart card reader to connect to. #}
+{# If empty, cardpeek will attempt to use the first available reader or prompt the user. #}
+{% if reader is defined and reader | length > 0 -%}
+--reader={{ reader }}
+{% endif %}
+
+{# --exec: List of Lua commands to execute on startup. #}
+{# Equivalent to passing -e/--exec multiple times. #}
+{# Each item in the list becomes a separate --exec argument. #}
+{% if commands is defined and commands | length > 0 %}
+{% for cmd in commands %}
+--exec={{ cmd }}
+{% endfor %}
+{% endif %}
+
+{# --version: Print version info and list of detected readers instead of launching the GUI. #}
+{# Useful for scripting or debugging available hardware. #}
+{% if show_version | default(false) %}
+--version
+{% endif %}

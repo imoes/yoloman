@@ -1,0 +1,144 @@
+# ==============================================================================
+# Placement API Configuration Template
+# ==============================================================================
+# This template generates the placement-api.conf file for the OpenStack Placement
+# service. It supports standard INI-style configuration with sections for
+# general defaults, core placement settings, database connectivity, locking,
+# policy enforcement, and optional Keystone authtoken middleware.
+#
+# Self-documentation principle:
+# - Every configuration directive is preceded by a comment explaining its
+#   purpose and referencing the schema field.
+# - All Jinja2 variable references use the `default()` filter with values
+#   taken directly from the provided schema to prevent rendering errors when
+#   variables are undefined.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# [DEFAULT] Section: General Configuration
+# ------------------------------------------------------------------------------
+[DEFAULT]
+
+# Enable verbose debug logging for troubleshooting.
+# Schema field: debug (bool, default: False)
+debug = {{ debug | default(False) }}
+
+# Logging verbosity level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+# Schema field: log_level (string, default: 'INFO')
+log_level = {{ log_level | default('INFO') }}
+
+# Path to log file; '-' for stdout/stderr; 'syslog' for syslog.
+# Schema field: log_file (string, default: '-')
+log_file = {{ log_file | default('-') }}
+
+# ------------------------------------------------------------------------------
+# [placement] Section: Core Placement Service Configuration
+# ------------------------------------------------------------------------------
+[placement]
+
+# Keystone authentication service endpoint (must include /v3).
+# Schema field: keystone_auth_url (string, default: 'http://127.0.0.1:5000/v3')
+auth_url = {{ keystone_auth_url | default('http://127.0.0.1:5000/v3') }}
+
+# Keystone project domain name for the placement service user.
+# Schema field: project_domain_name (string, default: 'Default')
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# Keystone project (tenant) name where the placement service user resides.
+# Schema field: project_name (string, default: 'service')
+project_name = {{ project_name | default('service') }}
+
+# Keystone user domain name for the placement service user.
+# Schema field: user_domain_name (string, default: 'Default')
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Username of the Keystone service account for placement.
+# Schema field: service_username (string, default: 'placement')
+username = {{ service_username | default('placement') }}
+
+# Password for the placement service user. *Required if using Keystone auth.*
+# Schema field: service_password (string, default: '')
+password = {{ service_password | default('') }}
+
+# Public/internal endpoint URL where this placement API instance is reachable
+# by other OpenStack services.
+# Schema field: api_endpoint (string, default: 'http://127.0.0.1:8778')
+api_endpoint = {{ api_endpoint | default('http://127.0.0.1:8778') }}
+
+# Enable database storage for inventory data (required for most deployments).
+# Schema field: use_database (bool, default: True)
+use_database = {{ use_database | default(True) }}
+
+# ------------------------------------------------------------------------------
+# [database] Section: Database Connectivity
+# ------------------------------------------------------------------------------
+# This section is only rendered if use_database is enabled.
+{% if use_database | default(True) %}
+[database]
+
+# Database connection string. Uses SQLAlchemy URI format.
+# Example: 'mysql+pymysql://placement:placement@127.0.0.1/placement?charset=utf8'
+# Schema field: database_connection (string, default: 'mysql+pymysql://placement:placement@127.0.0.1/placement?charset=utf8')
+connection = {{ database_connection | default('mysql+pymysql://placement:placement@127.0.0.1/placement?charset=utf8') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [oslo_concurrency] Section: Locking Configuration
+# ------------------------------------------------------------------------------
+[oslo_concurrency]
+
+# Directory for file-based locking (multi-process deployments).
+# Schema field: lock_path (string, default: '/var/lib/placement/lock')
+lock_path = {{ lock_path | default('/var/lib/placement/lock') }}
+
+# ------------------------------------------------------------------------------
+# [oslo_policy] Section: Policy File Configuration
+# ------------------------------------------------------------------------------
+[oslo_policy]
+
+# Path to the policy definition JSON file.
+# Schema field: policy_file (string, default: '/etc/placement/policy.json')
+policy_file = {{ policy_file | default('/etc/placement/policy.json') }}
+
+# ------------------------------------------------------------------------------
+# [keystone_authtoken] Section: Keystone Auth Token Middleware
+# ------------------------------------------------------------------------------
+# This section is rendered only if use_keystone_authtoken is enabled.
+# It is used when placement is behind a proxy or with token-based middleware.
+{% if use_keystone_authtoken | default(False) %}
+[keystone_authtoken]
+
+# Keystone authentication service endpoint (must include /v3).
+# Mirrors [placement] auth_url for middleware independence.
+# Schema field: keystone_auth_url (string, default: 'http://127.0.0.1:5000/v3')
+auth_url = {{ keystone_auth_url | default('http://127.0.0.1:5000/v3') }}
+
+# Keystone project domain name for the placement service user.
+# Mirrors [placement] project_domain_name.
+# Schema field: project_domain_name (string, default: 'Default')
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# Keystone project (tenant) name where the placement service user resides.
+# Mirrors [placement] project_name.
+# Schema field: project_name (string, default: 'service')
+project_name = {{ project_name | default('service') }}
+
+# Keystone user domain name for the placement service user.
+# Mirrors [placement] user_domain_name.
+# Schema field: user_domain_name (string, default: 'Default')
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Username of the Keystone service account for placement.
+# Mirrors [placement] username.
+# Schema field: service_username (string, default: 'placement')
+username = {{ service_username | default('placement') }}
+
+# Password for the placement service user.
+# Mirrors [placement] password.
+# Schema field: service_password (string, default: '')
+password = {{ service_password | default('') }}
+
+# Public Keystone endpoint used for WWW-Authenticate header (required by middleware).
+# Schema field: www_authenticate_uri (string, default: 'http://127.0.0.1:5000/')
+www_authenticate_uri = {{ www_authenticate_uri | default('http://127.0.0.1:5000/') }}
+{% endif %}

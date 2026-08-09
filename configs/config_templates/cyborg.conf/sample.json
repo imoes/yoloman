@@ -1,0 +1,59 @@
+{
+  "log_file": "/var/log/cyborg/cyborg.log",
+  "log_dir": "/var/log/cyborg",
+  "use_syslog": false,
+  "verbose": false,
+  "debug": false,
+  "auth_strategy": "keystone",
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8775,
+    "workers": 2,
+    "enable_cors": true,
+    "cors_allowed_origins": [
+      "https://horizon.example.com"
+    ]
+  },
+  "database": {
+    "connection": "mysql+pymysql://cyborg:cyborgpass@db.example.com/cyborg"
+  },
+  "notifications": {
+    "driver": "messagingv2",
+    "topics": [
+      "cyborg"
+    ]
+  },
+  "resource_provider": {
+    "allocation_ratio": 16.0,
+    "inventories": [
+      {
+        "resource_class": "CUSTOM_ACCELERATOR_FPGA",
+        "amount": 4
+      },
+      {
+        "resource_class": "CUSTOM_ACCELERATOR_GPU",
+        "amount": 2
+      }
+    ]
+  },
+  "accelerators": {
+    "backends": [
+      {
+        "name": "fpga_intel",
+        "driver": "cyborg.accelerator.drivers.fpga.intel.fpga_intel.FPGAIntelDriver",
+        "options": {
+          "pci_bus": "0000:06:00.0",
+          "device_id": "0b30"
+        }
+      },
+      {
+        "name": "gpu_nvidia",
+        "driver": "cyborg.accelerator.drivers.gpu.nvidia.GPUNvidiaDriver",
+        "options": {
+          "pci_filter": "0000:81:00.0",
+          "vendor_id": "10de"
+        }
+      }
+    ]
+  }
+}

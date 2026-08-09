@@ -1,0 +1,67 @@
+#!/bin/sh
+# INIT script to start the ACPI fakekey daemon that turns ACPI events into
+# input events via the kernel uinput module.
+#
+# Self-documented by Ansible Jinja2 enrichment.
+# Variable: exec_path (Full path to the acpi_fakekey daemon executable)
+
+### BEGIN INIT INFO
+# Provides:          acpi-fakekey
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      
+# Short-Description: Start acpi_fakekey daemon
+### END INIT INFO
+
+test -f /lib/lsb/init-functions || exit 1
+. /lib/lsb/init-functions
+
+# Full path to the acpi_fakekey daemon executable
+{% set exec_path = (exec_path | default('/usr/sbin/acpi_fakekeyd')) | string %}
+
+case "$1" in
+  start)
+    log_action_begin_msg "Starting acpi_fakekey daemon"
+    if [ ! -d /sys/devices/virtual/misc/uinput ]; then
+	 if ! modprobe -q uinput; then
+		if ! find /lib/modules/`uname -r` -name "uinput\.*" 2>/dev/null|grep -q uinput; then
+			log_action_end_msg 1 "No suitable uinput module for running kernel found"
+		else
+			log_action_end_msg 1 "Modprobe uinput failed. Please use 'dmesg' to find out why"
+		fi
+	fi
+    fi
+
+    if start-stop-daemon --start --quiet --oknodo --exec {{ exec_path }}
+    then
+	log_action_end_msg 0
+    else
+	log_action_end_msg 1 "Could not start {{ exec_path }}"
+    fi
+    ;;
+  stop)
+    log_action_begin_msg "Stopping acpi_fakekey daemon"
+    if start-stop-daemon --stop --quiet --exec {{ exec_path }}
+    then
+	log_action_end_msg 0
+    else
+	log_action_end_msg 1 "Could not stop {{ exec_path }}"
+    fi
+    ;;
+  status)
+    status_of_proc {{ exec_path }} "acpi_fakekey daemon" && exit 0 || exit $?
+    ;;
+  restart|force-reload)
+    log_action_begin_msg "Restarting acpi_fakekey daemon"
+    start-stop-daemon --stop --quiet --exec {{ exec_path }}
+    if start-stop-daemon --start --quiet --exec {{ exec_path }}
+    then
+	log_action_end_msg 0
+    else
+	log_action_end_msg 1 "Could not restart {{ exec_path }}"
+    fi
+    ;;
+  *)
+  ;;
+esac

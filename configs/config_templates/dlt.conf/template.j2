@@ -1,0 +1,82 @@
+# =============================================================================
+# DLT Daemon Configuration Template
+# =============================================================================
+# This file configures the DLT (Debug and Logging Trace) daemon.
+# It is structured into INI-style sections: [general], [ipc], [storage],
+# [mgmt], [filters], and [receivers].
+#
+# Each setting is accompanied by a comment derived from the schema description.
+# All variables use the `default()` filter to ensure safe rendering even if
+# the variable is undefined in the Ansible inventory.
+# =============================================================================
+
+[general]
+# Enable the dlt-daemon service
+enabled = {{ (general | default({})).enabled | default(true) }}
+# Verbosity level: 0 (none) to 7 (debug); higher means more verbose logging
+level = {{ (general | default({})).level | default(4) }}
+# Absolute path to the directory where log files are stored
+path = "{{ (general | default({})).path | default('/var/log/dlt') }}"
+# Maximum size (in bytes) per log file before rotation (10 MB default)
+max_size = {{ (general | default({})).max_size | default(10485760) }}
+# Number of rotated log files to retain
+max_files = {{ (general | default({})).max_files | default(5) }}
+# Enable automatic log file rotation when size limit is reached
+rotate = {{ (general | default({})).rotate | default(true) }}
+# Force immediate disk write for each log message (use with caution — may impact performance)
+flush = {{ (general | default({})).flush | default(false) }}
+# Maximum log entries per second; set to 0 to disable rate limiting
+rate_limit = {{ (general | default({})).rate_limit | default(0) }}
+# Override auto-detected hostname in log messages (empty = use system hostname)
+hostname = "{{ (general | default({})).hostname | default('') }}"
+
+[ipc]
+# Absolute path to the directory for IPC Unix sockets
+socket_path = "{{ (ipc | default({})).socket_path | default('/var/run/dlt') }}"
+# Enable shared memory transport for efficient inter-process communication
+shm_enabled = {{ (ipc | default({})).shm_enabled | default(true) }}
+# Maximum size (in bytes) of the shared memory segment (2 MB default)
+shm_max_size = {{ (ipc | default({})).shm_max_size | default(2097152) }}
+
+[storage]
+# Enable persistent storage of logs (e.g., to local filesystem)
+enabled = {{ (storage | default({})).enabled | default(true) }}
+# Absolute path to the directory for persistent storage
+path = "{{ (storage | default({})).path | default('/var/lib/dlt') }}"
+# Compress stored log files (uses gzip compression)
+compress = {{ (storage | default({})).compress | default(true) }}
+# Maximum total size (in bytes) of stored logs; 0 = unlimited (100 MB default)
+max_size = {{ (storage | default({})).max_size | default(104857600) }}
+# Stop storing logs when free disk space falls below this value (50 MB default)
+min_free_space = {{ (storage | default({})).min_free_space | default(52428800) }}
+
+[mgmt]
+# Enable the HTTP management interface (not recommended for untrusted networks)
+enabled = {{ (mgmt | default({})).enabled | default(false) }}
+# TCP port for the HTTP management interface
+port = {{ (mgmt | default({})).port | default(31322) }}
+# Enable TLS encryption for the management interface
+tls_enabled = {{ (mgmt | default({})).tls_enabled | default(false) }}
+# Path to the TLS certificate file (PEM format)
+cert_file = "{{ (mgmt | default({})).cert_file | default('/etc/dlt/cert.pem') }}"
+# Path to the TLS private key file (PEM format)
+key_file = "{{ (mgmt | default({})).key_file | default('/etc/dlt/key.pem') }}"
+
+[filters]
+# List of filters to control which messages are logged (by ECU, Application ID, and Context ID)
+{% for filter in (filters | default([])) %}
+# Filter for ECU={{ (filter | default({})).ecu }}, APID={{ (filter | default({})).apid }}, CTID={{ (filter | default({})).ctid }}
+{{ loop.index }}.ecu = "{{ (filter | default({})).ecu | default('') }}"
+{{ loop.index }}.apid = "{{ (filter | default({})).apid | default('') }}"
+{{ loop.index }}.ctid = "{{ (filter | default({})).ctid | default('') }}"
+{% endfor %}
+
+[receivers]
+# List of remote DLT receivers (daemons) to forward logs to
+{% for receiver in (receivers | default([])) %}
+# Receiver at host={{ (receiver | default({})).host }}, port={{ (receiver | default({})).port }}, type={{ (receiver | default({})).type }}
+[receiver.{{ loop.index }}]
+host = "{{ (receiver | default({})).host | default('') }}"
+port = {{ (receiver | default({})).port | default(0) }}
+type = "{{ (receiver | default({})).type | default('udp') }}"
+{% endfor %}

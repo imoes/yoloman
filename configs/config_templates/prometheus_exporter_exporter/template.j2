@@ -1,0 +1,42 @@
+# /etc/default/prometheus-exporter-exporter — Environment variables for prometheus-exporter-exporter service
+# Controls the exporter-exporter reverse proxy behavior
+
+# IP address the exporter-exporter reverse proxy listens on.
+# Defaults to 0.0.0.0 (all interfaces) if not specified.
+EXPORTER_EXPORTER_LISTEN_ADDRESS={{ listen_address | default('0.0.0.0') }}:{{ listen_port | default(9100) }}
+
+# List of upstream Prometheus exporter endpoints to proxy (format: host:port).
+# This field expects a list of strings like ['127.0.0.1:9100', 'localhost:9101'].
+# Empty list results in no targets being configured.
+EXPORTER_EXPORTER_TARGETS={{ targets | default([]) | join(',') }}
+
+# Verbosity of logs. Leave empty to use default.
+# Supported values typically include: debug, info, warn, error.
+{% if log_level is defined and log_level | trim | length > 0 %}
+EXPORTER_EXPORTER_LOG_LEVEL={{ log_level | trim }}
+{% endif %}
+
+# Timeout in seconds for connecting to upstream exporters.
+# Defaults to 10 seconds if not specified.
+{% if upstream_timeout_seconds is defined and upstream_timeout_seconds | int != 0 %}
+EXPORTER_EXPORTER_UPSTREAM_TIMEOUT={{ upstream_timeout_seconds | int }}s
+{% endif %}
+
+# Path used to fetch metrics from upstream exporters (usually /metrics).
+# Defaults to '/metrics' if not specified.
+{% if metrics_path is defined and metrics_path | trim | length > 0 %}
+EXPORTER_EXPORTER_METRICS_PATH={{ metrics_path | trim }}
+{% endif %}
+
+# Whether to verify TLS certificates of HTTPS exporters.
+# If set to false, TLS verification is skipped (insecure).
+{% if verify_tls is defined and verify_tls is false %}
+EXPORTER_EXPORTER_INSECURE_SKIP_VERIFY=true
+{% endif %}
+
+# HTTP basic auth credentials to use when fetching metrics from upstream exporters.
+# Expected format: a dictionary/map with 'username' and 'password' keys.
+# Example: upstream_basic_auth: { username: 'admin', password: 'secret' }
+{% if upstream_basic_auth is defined and upstream_basic_auth is mapping %}
+EXPORTER_EXPORTER_UPSTREAM_BASIC_AUTH={{ upstream_basic_auth.username | default('') }}:{{ upstream_basic_auth.password | default('') }}
+{% endif %}

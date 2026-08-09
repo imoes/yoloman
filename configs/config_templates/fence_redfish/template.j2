@@ -1,0 +1,150 @@
+# ==============================================================================
+# fence_redfish — Redfish Fence Agent Configuration
+# ==============================================================================
+# This template generates the configuration file for the fence_redfish agent,
+# used by Red Hat Cluster Suite (pcs/corosync) to perform out-of-band power
+# management (fencing) of cluster nodes via Redfish/BMC interfaces.
+#
+# Structure:
+#   [defaults] : Global connection parameters applied to all hosts unless overridden.
+#   [hostname] : Per-host overrides for specific BMCs.
+#
+# SECURITY NOTE: Passwords are stored in plaintext in this config file.
+# In production, ensure this file has strict permissions (600) and consider
+# using external secret management if supported by your cluster stack.
+
+[defaults]
+# --------------------------------------------------------------------------
+# Base URL for the Redfish service (e.g., https://bmc.example.com)
+# Specifies the IP or hostname of the BMC/iDRAC/ILO plus the standard port.
+# --------------------------------------------------------------------------
+baseurl = {{ (defaults | default({})).baseurl | default('') }}
+
+# --------------------------------------------------------------------------
+# Username for Redfish authentication
+# The service account used to log in to the BMC.
+# --------------------------------------------------------------------------
+login = {{ (defaults | default({})).login | default('') }}
+
+# --------------------------------------------------------------------------
+# Password for Redfish authentication
+# The password associated with the `login` user.
+# --------------------------------------------------------------------------
+password = {{ (defaults | default({})).password | default('') }}
+
+# --------------------------------------------------------------------------
+# SSH identity file (optional)
+# Path to a private key file if the agent falls back to SSH tunneling
+# or if Redfish requires SSH-based authentication methods.
+# --------------------------------------------------------------------------
+identity_file = {{ (defaults | default({})).identity_file | default('') }}
+
+# --------------------------------------------------------------------------
+# Login timeout (seconds)
+# Maximum time to wait for the initial authentication handshake.
+# --------------------------------------------------------------------------
+login_timeout = {{ (defaults | default({})).login_timeout | default(5) }}
+
+# --------------------------------------------------------------------------
+# Retries (integer)
+# Number of times to retry the operation upon failure before giving up.
+# --------------------------------------------------------------------------
+retries = {{ (defaults | default({})).retries | default(2) }}
+
+# --------------------------------------------------------------------------
+# Retry wait (seconds)
+# Delay between consecutive retry attempts.
+# --------------------------------------------------------------------------
+retry_wait = {{ (defaults | default({})).retry_wait | default(1) }}
+
+# --------------------------------------------------------------------------
+# SSL verification (on/off)
+# Whether to verify the SSL/TLS certificate of the BMC.
+# Set to 'on' to disable verification (INSECURE, use for self-signed certs).
+# Set to 'off' to enforce strict certificate validation (SECURE).
+# --------------------------------------------------------------------------
+ssl_verify = {{ 'on' if ((defaults | default({})).ssl_verify is defined and not ((defaults | default({})).ssl_verify)) else 'off' }}
+
+# --------------------------------------------------------------------------
+# Use token (on/off)
+# If 'on', indicates that a pre-obtained session token should be used
+# instead of basic username/password authentication.
+# --------------------------------------------------------------------------
+use_token = {{ 'on' if ((defaults | default({})).use_token is defined and ((defaults | default({})).use_token)) else 'off' }}
+
+# --------------------------------------------------------------------------
+# Per-Host Overrides
+# --------------------------------------------------------------------------
+# Each block below defines settings for a specific cluster node's BMC.
+# Fields not specified here inherit from [defaults].
+# --------------------------------------------------------------------------
+
+{% for host in (hosts | default([])) %}
+[{{ (host | default({})).name | default('unknown') }}]
+# --------------------------------------------------------------------------
+# Redfish Base URL for {{ (host | default({})).name | default('unknown') }}
+# Overrides the global baseurl for this specific host's BMC.
+# --------------------------------------------------------------------------
+baseurl = {{ (host | default({})).baseurl | default((defaults | default({})).baseurl) }}
+
+# --------------------------------------------------------------------------
+# Redfish Login Username
+# Overrides the global login if different from the default account.
+# --------------------------------------------------------------------------
+login = {{ (host | default({})).login | default((defaults | default({})).login) }}
+
+# --------------------------------------------------------------------------
+# Redfish Login Password
+# Overrides the global password if different from the default account.
+# --------------------------------------------------------------------------
+password = {{ (host | default({})).password | default((defaults | default({})).password) }}
+
+# --------------------------------------------------------------------------
+# SSH Identity File (Optional Override)
+# Only emitted if explicitly defined for this host.
+# --------------------------------------------------------------------------
+{% if (host | default({})).identity_file is defined %}
+identity_file = {{ (host | default({})).identity_file }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Login Timeout (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).login_timeout is defined %}
+login_timeout = {{ (host | default({})).login_timeout }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Retries (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).retries is defined %}
+retries = {{ (host | default({})).retries }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Retry Wait (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).retry_wait is defined %}
+retry_wait = {{ (host | default({})).retry_wait }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# SSL Verification (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).ssl_verify is defined %}
+ssl_verify = {{ 'on' if ((host | default({})).ssl_verify == false) else 'off' }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Use Token (Optional Override)
+# Only emitted if explicitly defined and differs from default.
+# --------------------------------------------------------------------------
+{% if (host | default({})).use_token is defined %}
+use_token = {{ 'on' if (host | default({})).use_token else 'off' }}
+{% endif %}
+
+{% endfor %}

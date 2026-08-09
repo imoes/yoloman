@@ -1,0 +1,45 @@
+- name: install-snmp.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/cups/snmp.conf"
+    _service: ""
+    _packages:
+      - cups
+      - libsnmp-base
+    snmp_contact: "root@localhost"
+    snmp_enabled: false
+    snmp_retries: 3
+    snmp_timeout: 5
+    snmp_location: "Server Room"
+    snmp_printers: "none"
+    snmp_community: "public"
+    snmpv3_enabled: false
+    snmp_trap_destinations: []
+  tasks:
+    - name: Install Snmp Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: snmp.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        snmp_contact: "{{ snmp_contact }}"
+        snmp_enabled: "{{ snmp_enabled }}"
+        snmp_retries: "{{ snmp_retries }}"
+        snmp_timeout: "{{ snmp_timeout }}"
+        snmp_location: "{{ snmp_location }}"
+        snmp_printers: "{{ snmp_printers }}"
+        snmp_community: "{{ snmp_community }}"
+        snmpv3_enabled: "{{ snmpv3_enabled }}"
+        snmp_trap_destinations: "{{ snmp_trap_destinations }}"
+
+    - name: Enable and restart Snmp Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

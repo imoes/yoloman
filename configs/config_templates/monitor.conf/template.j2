@@ -1,0 +1,31 @@
+[config]
+# Enable or disable the ARC monitor subsystem globally.
+monitoring = {{ monitoring_enabled | default(True) | string | lower }}
+
+# Absolute path to the log file where monitor events are written.
+log_file = {{ log_file | default('/var/log/arc/arc-monitor.log') }}
+
+# Maximum number of monitoring state entries to retain in cache.
+max_cache_entries = {{ max_cache_entries | default(1000) }}
+
+# Interval in seconds between periodic updates of the monitoring data.
+update_interval = {{ update_interval | default(60) }}
+
+# List of services to monitor. Each service defines its own monitoring behavior.
+# Iterating over the list of service objects provided in 'monitoring_services'.
+{% for service in monitoring_services | default([]) %}# Service: {{ service.name | default('unknown') }} — {{ service.description | default('No description available') }}
+{% if service.enabled | default(True) %}[{{ service.name | default('unknown') | replace(' ', '_') | replace('-', '_') }}_monitor]
+enabled = true
+endpoint = {{ service.endpoint | default('') }}
+interval = {{ service.interval | default(update_interval | default(60)) }}
+{% else %}[{{ service.name | default('unknown') | replace(' ', '_') | replace('-', '_') }}_monitor]
+enabled = false
+{% endif %}
+{% endfor %}
+
+# Retry configuration for failed monitoring attempts
+[retry]
+# Maximum number of retry attempts after a failed monitoring request.
+max_retries = {{ retry_max_retries | default(3) }}
+# Delay in seconds between retry attempts.
+retry_delay = {{ retry_delay | default(10) }}

@@ -1,0 +1,120 @@
+# ==============================================================================
+# mairix configuration file
+# ==============================================================================
+# This template generates the mairix.conf configuration file.
+# mairix is a fast mail indexer that allows searching through local mail folders.
+# It indexes maildir or mbox formats and creates a searchable database.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# mail_base: Top-level directory where your mail folders reside (e.g., `~/Mail` for Maildir, `/var/mail` for MBox).
+# -----------------------------------------------------------------------------
+base={{ mail_base | default('~') }}
+
+# -----------------------------------------------------------------------------
+# db_path: Path to the index database file, relative to `mail_base` or absolute.
+# -----------------------------------------------------------------------------
+db={{ db_path | default('.mairix') }}
+
+# -----------------------------------------------------------------------------
+# mail_folders: List of mail folders to index (relative to `mail_base`). Supports wildcards (e.g., `Inbox*`, `Sent*`).
+# -----------------------------------------------------------------------------
+# Join the list of mail folders into a comma-separated string using the 'join' filter.
+folder={{ (mail_folders | default(['.'])) | join(',') }}
+
+# -----------------------------------------------------------------------------
+# extra_folders: Additional folders to index (e.g., secondary inboxes or backups). Optional.
+# -----------------------------------------------------------------------------
+{% set extra_folders_list = extra_folders | default([]) %}
+{% if extra_folders_list | length > 0 %}
+# -----------------------------------------------------------------------------
+# Extra folders to index (from extra_folders)
+# -----------------------------------------------------------------------------
+folder={{ extra_folders_list | join(',') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# sendmail_path: Path to an MTA-compatible sendmail binary used when composing/replying to messages.
+# -----------------------------------------------------------------------------
+{% set sendmail_path_val = sendmail_path | default('/usr/sbin/sendmail') %}
+{% if sendmail_path_val %}
+sendmail={{ sendmail_path_val }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# result_limit: Maximum number of matching messages to display in search results. Use `0` for unlimited.
+# -----------------------------------------------------------------------------
+resultlimit={{ result_limit | default(100) }}
+
+# -----------------------------------------------------------------------------
+# include_message_ids: Include message IDs in search output (helpful for integration with mail clients).
+# -----------------------------------------------------------------------------
+{% if include_message_ids | default(true) %}
+msgid=1
+{% else %}
+msgid=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# case_insensitive_search: Enable case-insensitive search (recommended for most users).
+# -----------------------------------------------------------------------------
+{% if case_insensitive_search | default(true) %}
+casefold=1
+{% else %}
+casefold=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# search_headers: Search in message headers (From, To, Subject, etc.).
+# -----------------------------------------------------------------------------
+{% if search_headers | default(true) %}
+search_headers=1
+{% else %}
+search_headers=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# search_bodies: Search in message body content (text/plain and text/html parts).
+# -----------------------------------------------------------------------------
+{% if search_bodies | default(true) %}
+search_bodies=1
+{% else %}
+search_bodies=0
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# custom_folders: Map of custom folder names to patterns (e.g., `{'Archive': 'Archives/*'}`).
+# Uses dict2items to safely iterate mappings without Python .items() calls.
+# -----------------------------------------------------------------------------
+{% for item in (custom_folders | default({})) | dict2items %}
+# Custom folder mapping: {{ item.key }} -> {{ item.value }}
+mxfolder.{{ item.key }}={{ item.value }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# ignore_pattern: Comma-separated list of file/folder patterns to ignore (e.g., for Maildir: `.*, tmp, cache`).
+# -----------------------------------------------------------------------------
+{% set ignore_pattern_val = ignore_pattern | default('.*, tmp') %}
+{% if ignore_pattern_val %}
+# Ignore patterns (comma-separated)
+ignore={{ ignore_pattern_val }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# folder_prefix: Prefix to strip from folder names in search results (e.g., `Mail/` → shows `Inbox` instead of `Mail/Inbox`).
+# -----------------------------------------------------------------------------
+{% set folder_prefix_val = folder_prefix | default('') %}
+{% if folder_prefix_val %}
+# Strip this prefix from displayed folder names
+folderprefix={{ folder_prefix_val }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# external_indexer: Path to an external script that handles indexing (e.g., for non-standard formats).
+# Must accept a folder path as its only argument.
+# -----------------------------------------------------------------------------
+{% set external_indexer_val = external_indexer | default('') %}
+{% if external_indexer_val %}
+# Use external indexer script (must accept folder path as argument)
+indexer={{ external_indexer_val }}
+{% endif %}

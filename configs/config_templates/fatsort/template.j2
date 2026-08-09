@@ -1,0 +1,24 @@
+{#
+    fatsort configuration file - generated with Jinja2
+    Self-documenting: every variable reference carries its default value and description.
+    fatsort is a disk defragmentation/sorting utility for FAT filesystems; it operates on a block device.
+#}
+
+# Command-line options for fatsort(1)
+# Each line below corresponds to one option (and its arguments, if any)
+# from the 'options' schema field. The 'options' field is a list of lists,
+# where each sub-list is a single command invocation tokenized into separate words.
+# For example, if options = [['-n'], ['-d', 'MyDisk']], the output will be:
+#   -n
+#   -d MyDisk
+#
+# If 'options' is undefined or empty, no option lines are emitted.
+
+{% for opt in options | default([]) %}{{ opt | join(' ') }}{% if not loop.last %}
+{% endif %}{% endfor %}
+
+# Target device to sort.
+# Schema field: device
+# Default: /dev/sda
+# Example: /dev/sdb1
+DEVICE={{ (device | default('/dev/sda')) }}

@@ -1,0 +1,200 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the BGP Dynamic Routing Agent service."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/neutron",
+    "description": "Directory where BGP agent logs are written."
+  },
+  "log_file": {
+    "type": "string",
+    "default": null,
+    "description": "Optional log filename. If omitted, logs go to stdout."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging for detailed diagnostics."
+  },
+  "state_path": {
+    "type": "string",
+    "default": "/var/lib/neutron",
+    "description": "Directory for runtime files such as PID and lock files."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://guest:guest@localhost:5672//",
+    "description": "Message broker transport URL (e.g., RabbitMQ or other RPC backend)."
+  },
+  "keystone_authtoken": {
+    "type": "object",
+    "default": {
+      "auth_url": "http://controller:5000/v3",
+      "project_domain_name": "Default",
+      "project_name": "service",
+      "user_domain_name": "Default",
+      "username": "neutron",
+      "password": "NEUTRON_PASSWORD",
+      "auth_type": "password"
+    },
+    "description": "Keystone authentication credentials for the BGP agent service user.",
+    "items": {
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:5000/v3",
+        "description": "Keystone identity API endpoint."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name of the project (tenant)."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service",
+        "description": "Project name for the service user."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name of the user."
+      },
+      "username": {
+        "type": "string",
+        "default": "neutron",
+        "description": "Service username."
+      },
+      "password": {
+        "type": "string",
+        "default": null,
+        "description": "Password for the service user (must be provided in production)."
+      },
+      "auth_type": {
+        "type": "string",
+        "default": "password",
+        "description": "Authentication type (usually 'password' for service users)."
+      }
+    }
+  },
+  "bgp": {
+    "type": "object",
+    "default": {
+      "speaker_driver": "vyatta",
+      "local_as": 64512,
+      "bgp_router_id": "192.168.1.1",
+      "retry_max": 10,
+      "retry_interval": 10
+    },
+    "description": "Core BGP agent configuration (global defaults).",
+    "items": {
+      "speaker_driver": {
+        "type": "string",
+        "default": "vyatta",
+        "description": "Driver for BGP speaker implementation (e.g., 'vyatta', 'ncs', 'base')."
+      },
+      "local_as": {
+        "type": "number",
+        "default": 64512,
+        "description": "Local BGP Autonomous System (AS) number (1\u20134294967295)."
+      },
+      "bgp_router_id": {
+        "type": "string",
+        "default": "192.168.1.1",
+        "description": "BGP router ID (typically an IP address in the same subnet)."
+      },
+      "retry_max": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum retry attempts for speaker configuration."
+      },
+      "retry_interval": {
+        "type": "number",
+        "default": 10,
+        "description": "Interval (seconds) between retry attempts."
+      }
+    }
+  },
+  "bgp_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP peer configurations. Each peer defines an external BGP session.",
+    "items": {
+      "type": "object",
+      "items": {
+        "remote_as": {
+          "type": "number",
+          "default": null,
+          "description": "Remote peer\u2019s AS number."
+        },
+        "address": {
+          "type": "string",
+          "default": null,
+          "description": "IP address of the BGP peer."
+        },
+        "name": {
+          "type": "string",
+          "default": null,
+          "description": "Optional friendly name for the peer (used for identification)."
+        },
+        "auth_key": {
+          "type": "string",
+          "default": null,
+          "description": "Optional MD5/SHA1 authentication key for BGP session."
+        },
+        "hold_time": {
+          "type": "number",
+          "default": 90,
+          "description": "Hold time in seconds (default: 90)."
+        },
+        "connect_retry": {
+          "type": "number",
+          "default": 10,
+          "description": "Connect retry interval in seconds (default: 10)."
+        },
+        "password": {
+          "type": "string",
+          "default": null,
+          "description": "Password for authentication (alternative to auth_key, depending on driver)."
+        }
+      }
+    }
+  },
+  "bgp_speakers": {
+    "type": "list",
+    "default": [],
+    "description": "List of BGP speaker configurations. Each speaker groups peers and advertised resources.",
+    "items": {
+      "type": "object",
+      "items": {
+        "local_as": {
+          "type": "number",
+          "default": null,
+          "description": "Per-speaker AS (overrides global local_as if set)."
+        },
+        "bgp_router_id": {
+          "type": "string",
+          "default": null,
+          "description": "Per-speaker router ID (overrides global bgp_router_id if set)."
+        },
+        "peers": {
+          "type": "list",
+          "default": [],
+          "description": "List of peer names to assign to this speaker."
+        },
+        "advertise_networks": {
+          "type": "list",
+          "default": [],
+          "description": "List of networks (CIDR notation) to advertise to peers."
+        },
+        "advertise_default_gateway": {
+          "type": "bool",
+          "default": false,
+          "description": "Whether to advertise the default route (0.0.0.0/0)."
+        }
+      }
+    }
+  }
+}

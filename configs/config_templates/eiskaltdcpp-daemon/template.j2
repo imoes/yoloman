@@ -1,0 +1,54 @@
+{# ============================================================================= #}
+{# EiskaltDC++ Daemon Configuration Template                                      #}
+{# This template generates the command-line arguments for the eiskaltdcpp-daemon.  #}
+{# All variables use schema defaults to ensure safe rendering even if variables   #}
+{# are undefined in the Ansible play.                                              #}
+{# ============================================================================= #}
+
+{# Run as daemon: Always enabled for this service #}
+--daemon
+
+{# Enable verbose mode (default: false) #}
+{% if verbose | default(false) | bool %}
+--verbose
+{% endif %}
+
+{# Enable debug mode (default: false) #}
+{% if debug | default(false) | bool %}
+--debug
+{% endif %}
+
+{# Use syslog in daemon mode (default: false) #}
+{% if use_syslog | default(false) | bool %}
+--syslog
+{% endif %}
+
+{# Path to daemon log file (default: @config_dir@/Logs/daemon.log) #}
+--log={{ log_file | default('@config_dir@/Logs/daemon.log') }}
+
+{# Port for XMLRPC/JSONRPC (default: 3121) #}
+--port={{ port | default(3121) }}
+
+{# IP address for XMLRPC/JSONRPC (default: 127.0.0.1) #}
+--ip={{ ip | default('127.0.0.1') }}
+
+{# Path to PID file (optional; empty string means omitted) #}
+{% if pidfile | default('') != '' %}
+--pidfile={{ pidfile | default('') }}
+{% endif %}
+
+{# Configuration directory (default: ~/.config/eiskaltdc++/) #}
+--confdir={{ config_dir | default('~/.config/eiskaltdc++/') }}
+
+{# Local data directory (cache, temp files); empty means use config_dir (default: '') #}
+{% if local_dir | default('') != '' %}
+--localdir={{ local_dir | default('') }}
+{% endif %}
+
+{# Path to XML-RPC log file (default: /tmp/eiskaltdcpp-daemon.xmlrpc.log) #}
+{% if xmlrpc_log | default('/tmp/eiskaltdcpp-daemon.xmlrpc.log') != '' %}
+--rpclog={{ xmlrpc_log | default('/tmp/eiskaltdcpp-daemon.xmlrpc.log') }}
+{% endif %}
+
+{# XML-RPC URI path (default: /eiskaltdcpp) #}
+--uripath={{ uripath | default('/eiskaltdcpp') }}

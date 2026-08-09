@@ -1,0 +1,46 @@
+#!/command/with-contenv
+# Exec s6-log: start logging for the supervised service.
+# - 't': use tags (source identification).
+# - Path: /var/log/supervision/<service_name>/current (symlink to current log file).
+# - '2>&1': redirect stderr to stdout (s6-log handles stderr internally, but this ensures no lost output).
+exec s6-log t /var/log/supervision/{{ service_name | default('myservice') | replace('/', '_') }}/current 2>&1
+
+{% if rotate_enabled | default(True) | bool %}
+# Rotate logs: keep up to 32 files, max 1MB (1048576 bytes) each, compress old files with gzip.
+# This prevents logs from filling up the disk.
+F 32 1048576 gzip
+{% endif %}
+
+{% if sync_enabled | default(False) | bool %}
+# Sync enabled: write each log line synchronously to disk.
+# Slower, but ensures no data loss on crash/power failure.
+S
+{% endif %}
+
+# Timestamp format: ISO8601 with microseconds and local timezone (e.g., 2024-06-15T10:22:33.123456+02:00).
+# If disabled, uses Unix epoch seconds (less human-readable).
+{% if use_iso8601 | default(True) | bool %}
+T iso8601
+{% else %}
+T unix
+{% endif %}
+
+{% if tag_enabled | default(True) | bool %}
+# Tag enabled: prepend each log line with a tag derived from the service name.
+# Useful for filtering logs by source.
+# Note: slashes in service names are replaced with underscores to avoid path issues in tags.
+P {{ service_name | default('myservice') | replace('/', '_') }}
+{% endif %}
+
+{% if dedup_enabled | default(False) | bool %}
+# Dedup enabled: drop duplicate consecutive lines.
+# Useful to suppress repeated warnings or errors.
+D
+{% endif %}
+
+{% for pattern in filter_patterns | default([]) %}
+# Filter: keep/drop lines matching regex '{{ pattern.regex }}' (mode: {{ pattern.mode }}).
+# 'k' or 'K': keep only lines matching.
+# 'd' or 'D': drop lines matching.
+{{ pattern.mode[0].upper() }} {{ pattern.regex }}
+{% endfor %}

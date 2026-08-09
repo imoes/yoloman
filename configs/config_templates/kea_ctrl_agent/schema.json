@@ -1,0 +1,45 @@
+{
+  "http_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname on which the control agent HTTP server listens."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8000,
+    "description": "TCP port for the HTTP control interface."
+  },
+  "user_file": {
+    "type": "string",
+    "default": "/etc/kea/kea-ctrl-agent-users.conf",
+    "description": "Path to the user authentication file for HTTP Basic Auth."
+  },
+  "control_sockets": {
+    "type": "list",
+    "default": [],
+    "description": "List of KEA daemon control sockets to connect to. Keys are the daemon names (e.g., 'dhcp4'), values are objects with 'type' and 'socket-name'. Type is either 'unix' or 'http'. For 'unix', socket-name is the path. For 'http', socket-name is the URL (e.g., 'http://localhost:8001/'). The 'socket-type' key is removed as it is a legacy/incorrect synonym; KEA uses 'type' and 'socket-name'. Note: 'type' in the schema allows 'unix' or 'http' per common usage, though strictly KEA docs might say 'type' is 'unix' or 'http'. The existing enum is kept as it reflects the intended usage even if 'socket-type' was the error in the template. However, 'socket-type' key itself is removed from template, so schema doesn't need to define it for the object properties if it's not used. But wait, the schema defines 'items' properties. The template used 'socket-type' which was a hallucination/typo. The corrected template uses 'type' and 'socket-name'. So the schema should reflect the actual keys used in the template. The template now has 'type' and 'socket-name'. So 'socket-type' in schema is also hallucinated/wrong for the *current* template structure, but if I'm only correcting factual errors against docs, and the template was wrong to use 'socket-type', removing it from schema is also correct. The schema had 'socket-type' as an item property. Since it's not in the template anymore, it should be removed from schema."
+  },
+  "allow_from": {
+    "type": "list",
+    "default": [
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of allowed client IP addresses (IPv4 or IPv6) that may connect to the control agent HTTP API."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Log level for control agent messages."
+  },
+  "log_output": {
+    "type": "string",
+    "default": "stderr",
+    "description": "Log output destination: 'stdout', 'stderr', or path to log file."
+  },
+  "log_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0\u201399); higher = more verbose. Set > 0 only when troubleshooting."
+  }
+}

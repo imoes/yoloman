@@ -1,0 +1,163 @@
+name: xenserver_guest
+fqcn: community.general.xenserver_guest
+collection: community.general
+short_description: Manages virtual machines running on Citrix Hypervisor/XenServer host or pool
+description: 'This module can be used to create new virtual machines from templates or other virtual machines,
+  modify various virtual machine components like network and disk, rename a virtual machine and remove
+  a virtual machine with associated components.
+
+  '
+options:
+  cdrom:
+    type: dict
+    description: A CD-ROM configuration for the VM. All parameters are case sensitive.
+  custom_params:
+    type: list
+    description: Define a list of custom VM params to set on VM. Useful for advanced users familiar with
+      managing VM params through xe CLI. A custom value object takes two fields O(custom_params[].key)
+      and O(custom_params[].value) (see example below).
+  disks:
+    type: list
+    aliases:
+    - disk
+    description: A list of disks to add to VM. All parameters are case sensitive. Removing or detaching
+      existing disks of VM is not supported. New disks are required to have either a O(disks[].size) or
+      one of O(ignore:disks[].size_[tb,gb,mb,kb,b]) parameters specified. VM needs to be shut down to
+      reconfigure disk size.
+  folder:
+    type: str
+    description: 'Destination folder for VM. This parameter is case sensitive. Example:   folder: /folder1/folder2'
+  force:
+    type: bool
+    default: false
+    description: Ignore warnings and complete the actions. This parameter is useful for removing VM in
+      running state or reconfiguring VM params that require VM to be shut down.
+  hardware:
+    type: dict
+    description: Manage VM's hardware parameters. VM needs to be shut down to reconfigure these parameters.
+  home_server:
+    type: str
+    description: Name of a XenServer host that will be a Home Server for the VM. This parameter is case
+      sensitive.
+  hostname:
+    type: str
+    default: localhost
+    aliases:
+    - host
+    - pool
+    description: The hostname or IP address of the XenServer host or XenServer pool master. If the value
+      is not specified in the task, the value of environment variable E(XENSERVER_HOST) will be used instead.
+  is_template:
+    type: bool
+    default: false
+    description: Convert VM to template.
+  linked_clone:
+    type: bool
+    default: false
+    description: Whether to create a Linked Clone from the template, existing VM or snapshot. If no, will
+      create a full copy. This is equivalent to C(Use storage-level fast disk clone) option in XenCenter.
+  name:
+    type: str
+    aliases:
+    - name_label
+    description: Name of the VM to work with. VMs running on XenServer do not necessarily have unique
+      names. The module will fail if multiple VMs with same name are found. In case of multiple VMs with
+      same name, use O(uuid) to uniquely specify VM to manage. This parameter is case sensitive.
+  name_desc:
+    type: str
+    description: VM description.
+  networks:
+    type: list
+    aliases:
+    - network
+    description: A list of networks (in the order of the NICs). All parameters are case sensitive. Name
+      is required for new NICs. Other parameters are optional in all cases.
+  password:
+    type: str
+    aliases:
+    - pass
+    - pwd
+    description: The password to use for connecting to XenServer. If the value is not specified in the
+      task, the value of environment variable E(XENSERVER_PASSWORD) will be used instead.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - poweredon
+    description: Specify the state VM should be in. If O(state) is set to V(present) and VM exists, ensure
+      the VM configuration conforms to given parameters. If O(state) is set to V(present) and VM does
+      not exist, then VM is deployed with given parameters. If O(state) is set to V(absent) and VM exists,
+      then VM is removed with its associated components. If O(state) is set to V(poweredon) and VM does
+      not exist, then VM is deployed with given parameters and powered on automatically.
+  state_change_timeout:
+    type: int
+    default: 0
+    description: By default, module will wait indefinitely for VM to acquire an IP address if O(wait_for_ip_address=true).
+      If this parameter is set to positive value, the module will instead wait specified number of seconds
+      for the state change. In case of timeout, module will generate an error message.
+  template:
+    type: str
+    aliases:
+    - template_src
+    description: Name of a template, an existing VM (must be shut down) or a snapshot that should be used
+      to create VM. Templates/VMs/snapshots on XenServer do not necessarily have unique names. The module
+      will fail if multiple templates with same name are found. In case of multiple templates/VMs/snapshots
+      with same name, use O(template_uuid) to uniquely specify source template. If VM already exists,
+      this setting will be ignored. This parameter is case sensitive.
+  template_uuid:
+    type: str
+    description: UUID of a template, an existing VM or a snapshot that should be used to create VM. It
+      is required if template name is not unique.
+  username:
+    type: str
+    default: root
+    aliases:
+    - admin
+    - user
+    description: The username to use for connecting to XenServer. If the value is not specified in the
+      task, the value of environment variable E(XENSERVER_USER) will be used instead.
+  uuid:
+    type: str
+    description: UUID of the VM to manage if known. This is XenServer's unique identifier. It is required
+      if name is not unique. Please note that a supplied UUID will be ignored on VM creation, as XenServer
+      creates the UUID internally.
+  validate_certs:
+    type: bool
+    default: true
+    description: Allows connection when SSL certificates are not valid. Set to V(false) when certificates
+      are not trusted. If the value is not specified in the task, the value of environment variable E(XENSERVER_VALIDATE_CERTS)
+      will be used instead.
+  wait_for_ip_address:
+    type: bool
+    default: false
+    description: Wait until XenServer detects an IP address for the VM. If O(state) is set to V(absent),
+      this parameter is ignored. This requires XenServer Tools to be preinstalled on the VM to work properly.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a VM from a template\n  community.general.xenserver_guest:\n    hostname:\
+  \ \"{{ xenserver_hostname }}\"\n    username: \"{{ xenserver_username }}\"\n    password: \"{{ xenserver_password\
+  \ }}\"\n    folder: /testvms\n    name: testvm_2\n    state: poweredon\n    template: CentOS 7\n   \
+  \ disks:\n    - size_gb: 10\n      sr: my_sr\n    hardware:\n      num_cpus: 6\n      num_cpu_cores_per_socket:\
+  \ 3\n      memory_mb: 512\n    cdrom:\n      type: iso\n      iso_name: guest-tools.iso\n    networks:\n\
+  \    - name: VM Network\n      mac: aa:bb:dd:aa:00:14\n    wait_for_ip_address: true\n  delegate_to:\
+  \ localhost\n  register: deploy\n\n- name: Create a VM template\n  community.general.xenserver_guest:\n\
+  \    hostname: \"{{ xenserver_hostname }}\"\n    username: \"{{ xenserver_username }}\"\n    password:\
+  \ \"{{ xenserver_password }}\"\n    folder: /testvms\n    name: testvm_6\n    is_template: true\n  \
+  \  disk:\n    - size_gb: 10\n      sr: my_sr\n    hardware:\n      memory_mb: 512\n      num_cpus: 1\n\
+  \  delegate_to: localhost\n  register: deploy\n\n- name: Rename a VM (requires the VM's UUID)\n  community.general.xenserver_guest:\n\
+  \    hostname: \"{{ xenserver_hostname }}\"\n    username: \"{{ xenserver_username }}\"\n    password:\
+  \ \"{{ xenserver_password }}\"\n    uuid: 421e4592-c069-924d-ce20-7e7533fab926\n    name: new_name\n\
+  \    state: present\n  delegate_to: localhost\n\n- name: Remove a VM by UUID\n  community.general.xenserver_guest:\n\
+  \    hostname: \"{{ xenserver_hostname }}\"\n    username: \"{{ xenserver_username }}\"\n    password:\
+  \ \"{{ xenserver_password }}\"\n    uuid: 421e4592-c069-924d-ce20-7e7533fab926\n    state: absent\n\
+  \  delegate_to: localhost\n\n- name: Modify custom params (boot order)\n  community.general.xenserver_guest:\n\
+  \    hostname: \"{{ xenserver_hostname }}\"\n    username: \"{{ xenserver_username }}\"\n    password:\
+  \ \"{{ xenserver_password }}\"\n    name: testvm_8\n    state: present\n    custom_params:\n    - key:\
+  \ HVM_boot_params\n      value: { \"order\": \"ndc\" }\n  delegate_to: localhost\n\n- name: Customize\
+  \ network parameters\n  community.general.xenserver_guest:\n    hostname: \"{{ xenserver_hostname }}\"\
+  \n    username: \"{{ xenserver_username }}\"\n    password: \"{{ xenserver_password }}\"\n    name:\
+  \ testvm_10\n    networks:\n    - name: VM Network\n      ip: 192.168.1.100/24\n      gateway: 192.168.1.1\n\
+  \    - type: dhcp\n  delegate_to: localhost\n"

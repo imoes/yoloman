@@ -1,0 +1,47 @@
+# Condure configuration template
+# Self-documented: every directive is preceded by its schema description.
+# Variables default to schema values if not provided by Ansible.
+
+# List of endpoints for Condure to listen on (HTTP and/or WebSocket). Each entry defines an address, port, and optional TLS.
+listen:
+{% for listener in (listeners | default([])) %}  - address: {{ listener.address | default('0.0.0.0') }}
+    port: {{ listener.port | default(8080) }}
+{% if listener.tls is defined and listener.tls %}    tls:
+      cert_file: {{ listener.tls.cert_file | default('') }}
+      key_file: {{ listener.tls.key_file | default('') }}
+{% endif %}{% endfor %}
+
+# List of trusted proxy IP addresses or CIDRs. Enables X-Forwarded-* header parsing only from these sources.
+forwarded:
+  trusted_proxies:
+{% for proxy in (trusted_proxies | default(['127.0.0.1', '::1'])) %}    - {{ proxy }}
+{% endfor %}
+
+# HTTP/2 protocol settings. Enable only if downstream supports it.
+http2:
+  enabled: {{ (http2 | default({})).enabled | default(true) }}
+{% if (http2 | default({})).max_concurrent_streams is defined %}  max_concurrent_streams: {{ (http2 | default({})).max_concurrent_streams }}
+{% endif %}
+{% if (http2 | default({})).initial_connection_window_size is defined %}  initial_connection_window_size: {{ (http2 | default({})).initial_connection_window_size }}
+{% endif %}
+{% if (http2 | default({})).initial_stream_window_size is defined %}  initial_stream_window_size: {{ (http2 | default({})).initial_stream_window_size }}
+{% endif %}
+
+# WebSocket session and framing behavior.
+websocket:
+  ping_interval: {{ (websocket | default({})).ping_interval | default(30) }}
+  idle_timeout: {{ (websocket | default({})).idle_timeout | default(600) }}
+  max_frame_size: {{ (websocket | default({})).max_frame_size | default(65536) }}
+
+# Logging configuration.
+log:
+  level: {{ (log | default({})).level | default('info') }}
+  format: {{ (log | default({})).format | default('json') }}
+{% if (log | default({})).output is defined %}  output: {{ (log | default({})).output }}
+{% endif %}
+
+# Rate-limiting behavior for incoming traffic.
+rate_limit:
+  requests_per_second: {{ (rate_limit | default({})).requests_per_second | default(100) }}
+  burst_size: {{ (rate_limit | default({})).burst_size | default(200) }}
+  connections_per_ip: {{ (rate_limit | default({})).connections_per_ip | default(50) }}

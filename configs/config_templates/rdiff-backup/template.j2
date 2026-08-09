@@ -1,0 +1,108 @@
+# ==============================================================================
+# rdiff-backup Server Configuration
+# ==============================================================================
+# This file configures the rdiff-backup server daemon.
+# Note: Standard rdiff-backup does not use a 'key=value' config file for all
+# its options. This template generates a configuration compatible with a
+# wrapper or wrapper-service that manages the rdiff-backup invocation,
+# mapping schema fields to the most relevant rdiff-backup CLI arguments
+# or standard daemon configuration directives where applicable.
+#
+# For a pure rdiff-backup server, options are typically passed via CLI
+# arguments or an '@options' file (one option per line, e.g., '--restrict-path /var/backup').
+# This template assumes a wrapper context that interprets these directives.
+# ==============================================================================
+
+# Unix user account under which the rdiff-backup server runs for security isolation.
+user = {{ server_user | default('rdiff-backup') }}
+
+# Unix group for the rdiff-backup server process.
+group = {{ server_group | default('rdiff-backup') }}
+
+# Absolute filesystem path where backup data (including metadata and revision history) are stored.
+# The directory must exist and be owned by the configured user/group.
+restrict_path = {{ root_path | default('/var/backup/rdiff') }}
+
+# Enable TLS encryption for client-server communication (recommended over untrusted networks).
+# If enabled, SSL certificate and key paths must be valid.
+ssl = {{ enable_ssl | default(false) | lower }}
+
+# Path to the server’s TLS certificate (PEM format). Required if SSL enabled.
+ssl_cert = {{ ssl_cert_path | default('/etc/ssl/rdiff-backup.crt') }}
+
+# Path to the server’s TLS private key (PEM format, unencrypted). Required if SSL enabled.
+ssl_key = {{ ssl_key_path | default('/etc/ssl/rdiff-backup.key') }}
+
+# Path to CA certificate for verifying client certificates (optional).
+ssl_ca_cert = {{ ssl_ca_cert_path | default('') }}
+
+# IP address the server binds to. Use 127.0.0.1 to restrict to localhost only.
+bind_address = {{ server_bind_address | default('0.0.0.0') }}
+
+# TCP port on which the rdiff-backup server listens for client connections.
+port = {{ server_port | default(873) }}
+
+# Maximum number of concurrent client connections allowed.
+max_connections = {{ max_connections | default(5) }}
+
+# List of IP addresses (CIDR or dotted quad) permitted to connect. Empty list allows all.
+# If empty, all IPs are allowed (not recommended for public-facing setups).
+allowed_hosts = {{ allowed_hosts | default([]) | join(', ') }}
+
+# Compression level for data stream (0=none, 1=fast/low, 3=good/balanced, 6=slower/high, 9=max).
+# Use 0 for CPU-limited environments.
+compression = {{ compression | default(1) }}
+
+# Verbosity of server logs. Accepts: debug, info, warning, error, critical.
+log_level = {{ log_level | default('info') }}
+
+# Path to server log file. Leave empty or omit to log only to stderr (systemd journal).
+log_file = {{ log_file | default('/var/log/rdiff-backup/server.log') }}
+
+# Number of days to retain backup revisions before automatic pruning. Set to 0 to disable (not recommended).
+retention_days = {{ retention_days | default(30) }}
+
+# Enable extra integrity checks (e.g., full hashes on every metadata write). Slower but safer.
+paranoia_mode = {{ paranoia_mode | default(false) | lower }}
+
+# Preserve extended attributes (e.g., SELinux, Capabilities) on files and directories.
+preserve_xattrs = {{ preserve_xattrs | default(true) | lower }}
+
+# Preserve POSIX Access Control Lists (ACLs) if supported by the filesystem.
+preserve_acls = {{ preserve_acls | default(true) | lower }}
+
+# List of path patterns to exclude from backups. Supports wildcards (*), globstars (**), regex, and rdiff-backup-specific syntax.
+# Example: '**/.cache', '**/tmp', '**/Thumbs.db'
+exclude_patterns = {{ exclude_patterns | default(['**/.cache', '**/tmp', '**/Thumbs.db']) | join(' ') }}
+
+# List of paths explicitly included (used to override broad excludes). Mostly relevant with wildcard excludes.
+include_patterns = {{ include_patterns | default([]) | join(' ') }}
+
+# Enable Windows path and filename compatibility (e.g., case-insensitive matching, escape illegal chars).
+windows_compatibility = {{ windows_compatibility | default(false) | lower }}
+
+# Allow clients to initiate restores (revert files to older versions). Requires client trust.
+allow_client_restore = {{ allow_client_restore | default(false) | lower }}
+
+# Map remote usernames to local system accounts during backup/restore. Useful when backing up from heterogeneous systems (e.g., Windows AD).
+# Format: space-separated remote_user=local_user pairs.
+user_mapping = {{ user_mapping | default([]) | join(' ') }}
+
+# Map remote group names to local system groups.
+# Format: space-separated remote_group=local_group pairs.
+group_mapping = {{ group_mapping | default([]) | join(' ') }}
+
+# Path to Unix domain socket for local management (e.g., '/run/rdiff-backup.sock'). Optional.
+unix_socket = {{ unix_socket | default('') }}
+
+# Require clients to authenticate using username/password (recommended for non-local backups).
+require_auth = {{ require_auth | default(true) | lower }}
+
+# Authentication realm string displayed to clients during auth negotiation.
+auth_realm = {{ auth_realm | default('rdiff-backup-backups') }}
+
+# List of local Unix groups whose members are allowed to authenticate (only if auth required).
+trusted_groups = {{ trusted_groups | default(['backup', 'wheel']) | join(' ') }}
+
+# Log client IP addresses in the server log. May be needed for forensics but consider privacy regulations.
+log_client_ips = {{ log_client_ips | default(false) | lower }}

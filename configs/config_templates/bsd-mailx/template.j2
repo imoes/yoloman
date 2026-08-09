@@ -1,0 +1,43 @@
+# ==============================================================================
+# bsd-mailx Configuration Template
+# ==============================================================================
+# This template configures the global options for bsd-mailx.
+# It maps directly to the schema fields provided by the role.
+# ==============================================================================
+
+# set command options
+# Controls global display and interaction behaviors for bsd-mailx.
+# - mailx_ask: Whether to prompt for the To: address when sending mail.
+# - mailx_askcc: Whether to prompt for the Cc: address when sending mail.
+# - mailx_append: Whether to append messages to the mail spool file.
+# - mailx_dot: Whether to print a period after each message header.
+# - mailx_save: Whether to automatically save incoming messages.
+# - mailx_crt: Whether to display the current message.
+# Format: set option1 option2 ...
+{% set _opts = [] %}
+{% if (mailx_ask | default(true)) is boolean and (mailx_ask | default(true)) %}
+{% set _opts = _opts + ['ask'] %}
+{% endif %}
+{% if (mailx_askcc | default(true)) is boolean and (mailx_askcc | default(true)) %}
+{% set _opts = _opts + ['askcc'] %}
+{% endif %}
+{% if (mailx_append | default(true)) is boolean and (mailx_append | default(true)) %}
+{% set _opts = _opts + ['append'] %}
+{% endif %}
+{% if (mailx_dot | default(true)) is boolean and (mailx_dot | default(true)) %}
+{% set _opts = _opts + ['dot'] %}
+{% endif %}
+{% if (mailx_save | default(true)) is boolean and (mailx_save | default(true)) %}
+{% set _opts = _opts + ['save'] %}
+{% endif %}
+{% if (mailx_crt | default(true)) is boolean and (mailx_crt | default(true)) %}
+{% set _opts = _opts + ['crt'] %}
+{% endif %}
+{% if _opts | length > 0 %}
+set {{ _opts | join(' ') }}
+{% endif %}
+
+# ignore headers
+# List of headers to ignore when displaying messages.
+# Useful for hiding routing information or internal metadata.
+ignore {{ (mailx_ignore_headers | default(['Received', 'Message-Id', 'Resent-Message-Id', 'Status', 'Mail-From', 'Return-Path', 'Via', 'Delivered-To'])) | join(' ') }}

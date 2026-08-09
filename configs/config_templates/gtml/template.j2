@@ -1,0 +1,18 @@
+{# GTML Configuration File Template #}
+{# This template generates a list of GTML directives. #}
+{# Each directive is a single line: either a definition (-D) or a file inclusion (-F). #}
+{# The 'directives' variable is expected to be a list of dictionaries. #}
+
+{# Iterate over the list of GTML directives defined in the schema. #}
+{# If 'directives' is not defined or empty, the loop will simply not execute. #}
+{% for item in (directives | default([], true)) %}
+    {# Check if the item is a 'define' directive. #}
+    {# A define directive specifies a macro name and optionally its definition. #}
+    {% if item.type == 'define' %}
+        -D{{ item.macro }}{% if item.definition is defined %}={{ item.definition }}{% endif %}
+    {# Check if the item is a 'file' directive. #}
+    {# A file directive specifies a path to a GTML specification file. #}
+    {% elif item.type == 'file' %}
+        -F{{ item.path }}
+    {% endif %}
+{% endfor %}

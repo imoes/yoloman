@@ -1,0 +1,116 @@
+# ==============================================================================
+# Linux Ethernet Bridge Utilities Configuration Template
+# ==============================================================================
+# This file is sourced by init scripts and utilities like `brctl` to set environment
+# variables that control the behavior of the Linux bridge subsystem.
+#
+# All variables are defined with safe defaults derived from the schema. If a
+# variable is not provided by the caller, the default value is used.
+#
+# Schema Reference:
+#   debug, stp_timeout, stp_auto, forward_delay, hello_time, max_age,
+#   bridge_priority, stp_enabled, bridge_prefix, kernel_module_options, bridges
+# ==============================================================================
+
+# Enable verbose debug output for brctl commands
+# Default: False (0)
+# Description: If enabled, brctl commands will produce verbose debug logs.
+{% if debug | default(false) | bool %}
+BRCTL_DEBUG=1
+{% else %}
+BRCTL_DEBUG=0
+{% endif %}
+
+# Maximum time to wait for Spanning Tree Protocol (STP) convergence
+# Default: 30
+# Description: Maximum seconds to wait for STP convergence on bridge ports.
+# Recommended range: 4–30.
+STP_TIMEOUT={{ stp_timeout | default(30) }}
+
+# Enable automatic STP for newly created bridges
+# Default: False (0)
+# Description: If true, STP is enabled by default for all new bridges.
+{% if stp_auto | default(false) | bool %}
+STP_AUTO=1
+{% else %}
+STP_AUTO=0
+{% endif %}
+
+# STP Forward Delay
+# Default: 15
+# Description: Time spent in listening and learning states (in seconds).
+# Range: 4–30.
+FORWARD_DELAY={{ forward_delay | default(15) }}
+
+# STP Hello Time
+# Default: 2
+# Description: Interval between BPDU packets (in seconds).
+# Range: 1–10.
+HELLO_TIME={{ hello_time | default(2) }}
+
+# STP Max Age
+# Default: 20
+# Description: How long BPDU information is considered valid (in seconds).
+# Range: 6–40.
+MAX_AGE={{ max_age | default(20) }}
+
+# Bridge Priority
+# Default: 32768
+# Description: Bridge priority for STP root election.
+# Lower values make the bridge more likely to be elected as the root bridge.
+# Range: 0–65535.
+BRIDGE_PRIORITY={{ bridge_priority | default(32768) }}
+
+# Global STP Enable/Disable
+# Default: False (0)
+# Description: Enable or disable STP globally. Requires kernel bridge module support.
+{% if stp_enabled | default(false) | bool %}
+STP=1
+{% else %}
+STP=0
+{% endif %}
+
+# Default Bridge Interface Name Prefix
+# Default: 'br'
+# Description: Prefix used by tools to automatically name bridge interfaces
+# (e.g., 'br' results in br0, br1, etc.).
+BRIDGE_PREFIX={{ bridge_prefix | default('br') }}
+
+# Custom Kernel Module Options
+# Default: [] (empty)
+# Description: Additional options passed to the bridge kernel module.
+# Example: ['max_hash=4096']
+{% if kernel_module_options | default([]) | length > 0 %}
+BRIDGE_KERNEL_OPTS="{{ kernel_module_options | default([]) | join(' ') }}"
+{% endif %}
+
+# ==============================================================================
+# Bridge Interface Definitions
+# ==============================================================================
+# Configure additional bridge interfaces to create at boot.
+# Each bridge in the 'bridges' list can define:
+#   - name: The interface name (required)
+#   - create: Whether to add it to BRIDGE_INTERFACES (default: true)
+#   - stp: Whether to enable STP on this specific bridge (default: false)
+#
+# Variables generated:
+#   BRIDGE_INTERFACES: Accumulates names of bridges to create.
+#   BRIDGE_STP_<NAME>: Enables STP on a specific bridge.
+
+{% if bridges | default([]) | length > 0 %}
+# --- Bridge Configurations ---
+{% for br in bridges %}
+# Bridge: {{ br.name }}
+# STP Status: {{ 'enabled' if br.stp | default(false) | bool else 'disabled' }}
+
+# Add bridge to the list of interfaces to create at boot
+{% if br.create | default(true) | bool %}
+BRIDGE_INTERFACES="${BRIDGE_INTERFACES} {{ br.name }}"
+{% endif %}
+
+# Enable STP on this specific bridge
+{% if br.stp | default(false) | bool %}
+BRIDGE_STP_{{ br.name | upper | replace('-', '_') }}=1
+{% endif %}
+{% endfor %}
+{% endif %}

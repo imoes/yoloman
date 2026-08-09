@@ -1,0 +1,189 @@
+{
+  "device_type": {
+    "type": "string",
+    "default": "transparent_clock",
+    "description": "PTP device type; for ptp4l-e2e, always 'transparent_clock' or 'boundary_clock'."
+  },
+  "interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Primary network interface to use for PTP communication (must support hardware timestamping)."
+  },
+  "slave_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, this node will only act as a slave (never become master)."
+  },
+  "clock_class": {
+    "type": "number",
+    "default": 128,
+    "description": "Clock class (0\u2013125). Lower = higher quality. Use 6 (GPS) or 7 (atomic) for grandmaster; 128 = uncertain."
+  },
+  "clock_accuracy": {
+    "type": "string",
+    "default": "0x2A",
+    "description": "Clock accuracy code (e.g., 0x2A=100ns, 0x2B=250ns, 0x2C=1us). See IEEE 802.1AS-2011 Table 10-3."
+  },
+  "offset_log_max": {
+    "type": "number",
+    "default": -1,
+    "description": "Log2 of max offset to log in seconds. -1 = auto. Typical: -3 (125ms), -6 (1.56\u00b5s)."
+  },
+  "timebase": {
+    "type": "string",
+    "default": "phc",
+    "description": "Timebase for offset/delay calculations: 'phc' (PTP Hardware Clock) or 'system' (system clock)."
+  },
+  "hwts": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable hardware timestamping for precise PTP timing. Required for sub-100 ns accuracy."
+  },
+  "swts": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable software timestamping (fallback if hardware timestamping unavailable)."
+  },
+  "domain_number": {
+    "type": "number",
+    "default": 0,
+    "description": "PTP domain number (0\u2013127). All nodes in the same domain must use the same value."
+  },
+  "priority1": {
+    "type": "number",
+    "default": 248,
+    "description": "Priority1 (0\u2013254) \u2014 used in BMC election. Lower = higher preference for master."
+  },
+  "priority2": {
+    "type": "number",
+    "default": 248,
+    "description": "Priority2 (0\u2013254) \u2014 tie-breaker when Priority1 is equal (e.g., same MAC)."
+  },
+  "slave_only_clocks": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of slave-only clocks directly connected behind this transparent clock (used in priority chain)."
+  },
+  "announce_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Log2 of Announce interval in seconds. e.g., 1 \u2192 2s, 0 \u2192 1s, -1 \u2192 500ms."
+  },
+  "sync_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 of Sync interval in seconds. e.g., 0 \u2192 1s, -1 \u2192 500ms, -2 \u2192 250ms, -4 \u2192 62.5ms."
+  },
+  "delay_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 of Delay_Req interval in seconds. Typically same as sync_interval."
+  },
+  "signal_interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Log2 of Signaling interval in seconds. e.g., 1 \u2192 2s."
+  },
+  "mgmt_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Log2 of Management interval in seconds. Set to 0 (1s) for active management, -1 (500ms) for frequent updates."
+  },
+  "announcements_before_master": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of Announce messages received before becoming master candidate."
+  },
+  "announcements_before_reset": {
+    "type": "number",
+    "default": 4,
+    "description": "Missed Announces before resetting master state."
+  },
+  "ptp_dst_mac": {
+    "type": "string",
+    "default": "01:1B:19:00:00:00",
+    "description": "Destination MAC for PTP packets (default = PTP multicast). Use '00:00:00:00:00:00' to disable QoS."
+  },
+  "bmc": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Best Master Clock algorithm. Disable only if using static configuration."
+  },
+  "logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable logging to syslog (recommended for production)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 7,
+    "description": "Log level (0=emergency, 7=debug). 3=warning, 4=notice, 6=info, 7=debug."
+  },
+  "clock_description_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to optional file containing clock description string (e.g., model, serial)."
+  },
+  "uds_address": {
+    "type": "string",
+    "default": "/var/run/ptp4l.socket",
+    "description": "Unix Domain Socket path for ptp4l control interface."
+  },
+  "uds_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port for UDS (0 = auto-assign). Usually left as 0."
+  },
+  "uds_mode": {
+    "type": "string",
+    "default": "rw",
+    "description": "Permissions mode for UDS socket: 'rw' (read/write), 'r' (read-only), 'w' (write-only)."
+  },
+  "initial_delay_ns": {
+    "type": "number",
+    "default": 1000000,
+    "description": "Initial guess of path delay in nanoseconds (used before auto-delay estimation)."
+  },
+  "delay_thresh_ns": {
+    "type": "number",
+    "default": 50000000,
+    "description": "Maximum acceptable estimated delay (ns) before flagging path anomaly."
+  },
+  "auto_delay": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic estimation of path delay via Delay_Req/Resp exchange."
+  },
+  "allow_fallback_to_p2p": {
+    "type": "bool",
+    "default": false,
+    "description": "Fallback to Peer-to-Peer delay mechanism if E2E fails (not recommended for strict E2E configs)."
+  },
+  "additional_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional interfaces to monitor for PTP traffic (e.g., for redundant paths or multi-homing).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Interface name (e.g., eth1)."
+      },
+      "priority": {
+        "type": "number",
+        "default": 0,
+        "description": "Interface priority for BMC election (higher = more preferred)."
+      },
+      "master_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, interface allowed to become master only (not slave)."
+      },
+      "slave_only": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, interface allowed to be slave only (not master)."
+      }
+    }
+  }
+}

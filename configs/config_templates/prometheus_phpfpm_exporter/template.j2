@@ -1,0 +1,73 @@
+# =============================================================================
+# Prometheus PHP-FPM Exporter - Systemd Environment Configuration
+# =============================================================================
+# This template generates a systemd [Service] environment block for the
+# Prometheus PHP-FPM Exporter. It is self-documenting: every variable is
+# annotated with its schema description and safe default.
+#
+# The exporter scrapes PHP-FPM pools (pm_status_path, ping) and exposes
+# metrics in Prometheus format. It supports both explicit pool definitions
+# and optional auto-discovery via pool name patterns.
+# =============================================================================
+
+[Service]
+
+# web_listen_address: The address and port on which the exporter exposes metrics
+# (e.g., ':9253' or '127.0.0.1:9253').
+# Default: ':9253'
+Environment="PHPFPM_EXPORTER_WEB_LISTEN_ADDRESS={{ web_listen_address | default(':9253') }}"
+
+# metrics_path: Path under which metrics are exposed (commonly '/metrics').
+# Default: '/metrics'
+Environment="PHPFPM_EXPORTER_METRICS_PATH={{ metrics_path | default('/metrics') }}"
+
+# fpm_status_path: The default path to PHP-FPM status endpoint on each pool
+# (e.g., '/status' if accessible at pool-url/status).
+# Default: '/status'
+Environment="PHPFPM_EXPORTER_FPM_STATUS_PATH={{ fpm_status_path | default('/status') }}"
+
+# scrape_timeout: Global scrape timeout for the exporter when connecting to
+# PHP-FPM pools (e.g., '5s').
+# Default: '5s'
+Environment="PHPFPM_EXPORTER_SCRAPE_TIMEOUT={{ scrape_timeout | default('5s') }}"
+
+# fpm_ping_path: Optional custom path to PHP-FPM ping endpoint (e.g., '/ping')
+# for liveness checks. Leave empty to use default '/ping'.
+# Default: ''
+Environment="PHPFPM_EXPORTER_FPM_PING_PATH={{ fpm_ping_path | default('') }}"
+
+# fpm_pool_pattern: Regex pattern to auto-discover PHP-FPM pools via process
+# name matching. Leave empty to disable auto-discovery.
+# Default: ''
+Environment="PHPFPM_EXPORTER_FPM_POOL_PATTERN={{ fpm_pool_pattern | default('') }}"
+
+# fpm_scrape_interval: Global scrape interval override (e.g., '30s').
+# Leave empty to use the exporter default.
+# Default: ''
+Environment="PHPFPM_EXPORTER_FPM_SCRAPE_INTERVAL={{ fpm_scrape_interval | default('') }}"
+
+# log_level: Verbosity of exporter logs: 'debug', 'info', 'warn', or 'error'.
+# Default: 'info'
+Environment="PHPFPM_EXPORTER_LOG_LEVEL={{ log_level | default('info') }}"
+
+# fpm_scrape_timeout: Per-pool scrape timeout override (e.g., '2s').
+# Leave empty to fall back to 'scrape_timeout'.
+# Default: ''
+Environment="PHPFPM_EXPORTER_FPM_SCRAPE_TIMEOUT={{ fpm_scrape_timeout | default('') }}"
+
+# Explicitly configured PHP-FPM pools to scrape.
+# Each pool must include at least a 'name' and a 'url'.
+# The exporter will iterate this list and set per-pool environment variables.
+{% for pool in (pools | default([])) %}
+# Prometheus scrape configuration for PHP-FPM pool '{{ pool.name }}'.
+# Pool index (1-based) is used to create unique variable names.
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_NAME={{ pool.name }}"
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_URL={{ pool.url }}"
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_USER={{ pool.user | default('') }}"
+Environment="PHPFPM_EXPORTER_POOL_{{ loop.index }}_PASS={{ pool.password | default('') }}"
+{% endfor %}
+
+# Environment variables for additional FPM pools (legacy support).
+# Use the `pools` list above instead of `fpm_pools`.
+# Default: '' (empty string if list is empty)
+Environment="PHPFPM_EXPORTER_FPM_POOLS={{ fpm_pools | default([]) | join(',') }}"

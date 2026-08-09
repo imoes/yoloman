@@ -1,0 +1,59 @@
+# /etc/networkd-dispatcher/config — Main configuration for networkd-dispatcher
+# This file is managed by Ansible. Do not edit manually.
+
+# Whether to run the networkd-dispatcher service at all. Set to false to disable.
+RUN_DISPATCHER={{ run_dispatcher | default(true) | string | lower }}
+
+# Colon-separated list of directories to search for state scripts. First match wins for script execution.
+SCRIPT_DIRS="{{ script_dirs | default(['/etc/networkd-dispatcher', '/usr/lib/networkd-dispatcher']) | join(':') }}"
+
+# Minimum log level. Logs below this level are suppressed.
+# Valid values: DEBUG, INFO, WARNING, ERROR
+LOG_LEVEL={{ log_level | default('INFO') | upper }}
+
+# Enable logging to systemd journal. Recommended for production.
+LOG_TO_JOURNAL={{ log_to_journal | default(true) | string | lower }}
+
+# Enable logging to a file. Requires a valid `log_dir`.
+LOG_TO_FILE={{ log_to_file | default(false) | string | lower }}
+
+# Directory where log files are written if `log_to_file` is enabled.
+LOG_DIR="{{ log_dir | default('/var/log/networkd-dispatcher') }}"
+
+# Enable logging to standard output. Useful for debugging or containerized deployments.
+LOG_TO_STDOUT={{ log_to_stdout | default(false) | string | lower }}
+
+# Maximum time (in seconds) a script may run before being forcefully terminated.
+SCRIPT_TIMEOUT={{ script_timeout | default(15) }}
+
+# If true, the dispatcher exits with a non-zero code if any script fails.
+# If false, script failures are logged but ignored.
+FAIL_ON_SCRIPT_ERROR={{ fail_on_script_error | default(false) | string | lower }}
+
+# If non-empty, only events for listed interfaces are processed.
+# Supports wildcards via regex in `excluded_interfaces_regex`.
+MONITORED_INTERFACES="{{ monitored_interfaces | default([]) | join(' ') }}"
+
+# Space-separated list of regex patterns. Any interface matching a pattern is skipped.
+EXCLUDED_INTERFACES_REGEX="{{ excluded_interfaces_regex | default([]) | join(' ') }}"
+
+# If true, allow scripts to run as root.
+# ⚠️ Security warning: Only enable if scripts are trusted and need elevated privileges.
+ALLOW_ROOT_SCRIPTS={{ allow_root_scripts | default(false) | string | lower }}
+
+# Directory for runtime state (locks, PID, temp files).
+# Should be on tmpfs for ephemeral systems.
+RUNTIME_DIR="{{ runtime_dir | default('/run/networkd-dispatcher') }}"
+
+# Additional environment variables exposed to all scripts (KEY=VALUE lines).
+{% for env_var in extra_env_vars | default([]) %}EXTRA_ENV_{{ loop.index }}="{{ env_var }}"
+{% endfor %}
+
+# Optional: Enable or disable specific event types.
+# Keys are lowercase event names (e.g., up, down, dhcp, dns).
+# Values are booleans: true enables the event, false disables it.
+{% for event_type, enabled in (event_filter | default({})) | dict2items %}
+{%   if enabled | default(false) %}ENABLE_{{ event_type | upper }}=true
+{%   else %}DISABLE_{{ event_type | upper }}=true
+{%   endif %}
+{% endfor %}

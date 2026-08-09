@@ -1,0 +1,104 @@
+{
+  "lldp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to send LLDP packets globally (can be overridden per interface)."
+  },
+  "cdp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to send CDP packets globally (can be overridden per interface). Note: CDP is Cisco-proprietary."
+  },
+  "update_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between LLDP/CDP TLV updates."
+  },
+  "ttl": {
+    "type": "number",
+    "default": 120,
+    "description": "Time-to-live (seconds) for TLVs received by peers. Must be at least 2\u00d7 update_interval."
+  },
+  "max_queue_len": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of packets to queue per interface (for burst handling)."
+  },
+  "port_desc_template": {
+    "type": "string",
+    "default": "%i (LLDP/CDP)",
+    "description": "Template for port description TLV. Supports %h (hostname) and %i (interface name)."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Override system hostname for LLDP system name TLV. Leave empty to use system hostname."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "List of interfaces to configure for LLDP/CDP transmission.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Interface name (e.g., eth0, eno1). Required."
+      },
+      "lldp_enabled": {
+        "type": "bool",
+        "default": null,
+        "description": "Enable LLDP on this interface (if omitted, uses global setting)."
+      },
+      "cdp_enabled": {
+        "type": "bool",
+        "default": null,
+        "description": "Enable CDP on this interface (if omitted, uses global setting)."
+      },
+      "chassis_id": {
+        "type": "string",
+        "default": "auto",
+        "description": "Chassis ID TLV value. Use 'auto' to auto-detect MAC, or set explicitly (e.g., '00:11:22:33:44:55')."
+      },
+      "port_id": {
+        "type": "string",
+        "default": "auto",
+        "description": "Port ID TLV value. Use 'auto' to auto-detect interface name, or set explicitly."
+      },
+      "sys_name": {
+        "type": "string",
+        "default": "auto",
+        "description": "System name TLV value. Use 'auto' to use configured hostname, or set explicitly."
+      },
+      "sys_desc": {
+        "type": "string",
+        "default": "auto",
+        "description": "System description TLV value. Use 'auto' to auto-generate OS info, or set explicitly."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 0,
+        "description": "Interface-specific TTL (0 = use global TTL)."
+      },
+      "adv_mgmt_addr": {
+        "type": "bool",
+        "default": true,
+        "description": "Advertise management address TLV for this interface."
+      },
+      "extra_tlvs": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value map of custom TLVs (e.g., { 'organization-specific': '00:50:c2:01:02:03' })."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'notice', 'warning', 'error', 'crit', 'alert', or 'emerg'."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use (e.g., 'daemon', 'local0'\u2013'local7')."
+  }
+}

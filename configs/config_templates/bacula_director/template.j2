@@ -1,0 +1,205 @@
+{# Bacula Director Configuration (bacula-dir.conf) #}
+{# General Director settings #}
+Director {
+  Name = {{ director_name }}
+  DIRport = {{ director_port }}
+  QueryFile = "{{ query_file_path }}"
+  WorkingDirectory = "{{ working_directory }}"
+  PidDirectory = "{{ pid_directory }}"
+  Maximum Concurrent Jobs = {{ max_concurrent_jobs }}
+  Messages = Daemon
+  DirAddress = {{ director_address }}
+  {{ dir_tls_enable | ternary('TLS Enable = yes', 'TLS Enable = no') }}
+}
+
+{# Catalog configuration #}
+Catalog {
+  Name = {{ catalog_name }}
+  dbname = {{ catalog_dbname }}
+  dbuser = {{ catalog_dbuser }}
+  dbpassword = "{{ catalog_dbpassword }}"
+  dbaddress = {{ catalog_dbaddress }}
+  dbport = {{ catalog_dbport }}
+  dbsocket = {{ catalog_dbsocket | default('', true) | ternary(catalog_dbsocket, 'none') }}
+}
+
+{# FileSet definitions #}
+{% for files in filesets %}
+{# FileSet: {{ files.name }} - {{ files.description }} #}
+FileSet {
+  Name = "{{ files.name }}"
+  Enable VSS = {{ files.enable_vss | ternary('yes', 'no') }}
+  {{ files.include | ternary('', '') }}
+{% for inc in files.includes %}
+  Include {
+    Options {
+      signature = {{ inc.options.signature }}
+      {{ inc.options.compression | ternary('compression = ' + inc.options.compression, '') }}
+      {{ inc.options.hardlinks | ternary('hardlinks', '') }}
+    }
+{% if inc.paths is defined %}
+{% for p in inc.paths %}
+    File = {{ p }}
+{% endfor %}
+{% endif %}
+{% if inc.files is defined %}
+{% for f in inc.files %}
+    File = {{ f }}
+{% endfor %}
+{% endif %}
+  }
+{% endfor %}
+{% if files.excludes | length > 0 %}
+{% for exc in files.excludes %}
+  Exclude {
+    File = {{ exc.path }}
+  }
+{% endfor %}
+{% endif %}
+}
+{% endfor %}
+
+{# Client (File Daemon) definitions #}
+{% for client in clients %}
+{# Client: {{ client.name }} - {{ client.description | default('Managed backup client') }} #}
+Client {
+  Name = "{{ client.name }}"
+  FDport = {{ client.fd_port }}
+  FDAddress = {{ client.fd_address }}
+  {{ client.tls_enable | ternary('TLS Enable = yes', 'TLS Enable = no') }}
+  {{ client.tls_ca_certificate_file | default('') | ternary('TLS CA Certificate File = "' + client.tls_ca_certificate_file + '"', '') }}
+  {{ client.tls_cert_file | default('') | ternary('TLS Certificate File = "' + client.tls_cert_file + '"', '') }}
+  {{ client.tls_key_file | default('') | ternary('TLS Key File = "' + client.tls_key_file + '"', '') }}
+  {{ client.tls_ca_certificate_dir | default('') | ternary('TLS CA Certificate Directory = "' + client.tls_ca_certificate_dir + '"', '') }}
+}
+{% endfor %}
+
+{# Storage (Scheduler) definitions #}
+{% for storage in storages %}
+{# Storage: {{ storage.name }} - {{ storage.description | default('Storage device') }} #}
+Storage {
+  Name = "{{ storage.name }}"
+  Address = {{ storage.address }}
+  SDport = {{ storage.sd_port }}
+  Device = "{{ storage.device_name }}"
+  Media Type = "{{ storage.media_type }}"
+  {% if storage.max_jbs | default(0) > 0 %}
+  Maximum Jobs = {{ storage.max_jbs }}
+  {% endif %}
+  {% if storage.max_volumes | default(0) > 0 %}
+  Maximum Volumes = {{ storage.max_volumes }}
+  {% endif %}
+  {% if storage.maximum_concurrent_jobs | default(0) > 0 %}
+  Maximum Concurrent Jobs = {{ storage.maximum_concurrent_jobs }}
+  {% endif %}
+  {% if storage.tls_enable | default(false) %}
+  TLS Enable = yes
+  {% endif %}
+  {% if storage.tls_ca_certificate_file | default('') %}
+  TLS CA Certificate File = "{{ storage.tls_ca_certificate_file }}"
+  {% endif %}
+  {% if storage.tls_cert_file | default('') %}
+  TLS Certificate File = "{{ storage.tls_cert_file }}"
+  {% endif %}
+  {% if storage.tls_key_file | default('') %}
+  TLS Key File = "{{ storage.tls_key_file }}"
+  {% endif %}
+}
+{% endfor %}
+
+{# Device (Physical storage) definitions #}
+{% for device in devices %}
+{# Device: {{ device.name }} - {{ device.description | default('Physical storage device') }} #}
+Device {
+  Name = "{{ device.name }}"
+  Device Type = {{ device.device_type }}
+  Media Type = "{{ device.media_type }}"
+  Archive Device = "{{ device.archive_device }}"
+  LabelMedia = {{ device.label_media }}
+  Random Access = {{ device.random_access }}
+  AutomaticMount = {{ device.automatic_mount }}
+  RemovableMedia = {{ device.removable_media }}
+  AlwaysOpen = {{ device.always_open }}
+  {% if device.maximum_concurrent_jobs | default(0) > 0 %}
+  Maximum Concurrent Jobs = {{ device.maximum_concurrent_jobs }}
+  {% endif %}
+  {% if device.maximum_volume_size | default('') %}
+  Maximum Volume Size = {{ device.maximum_volume_size }}
+  {% endif %}
+  {% if device.media_type == 'File' and device.maximum_file_size | default('') %}
+  Maximum File Size = {{ device.maximum_file_size }}
+  {% endif %}
+}
+{% endfor %}
+
+{# Scheduler definitions #}
+{% for schedule in schedules %}
+{# Schedule: {{ schedule.name }} - {{ schedule.description | default('Backup schedule') }} #}
+Schedule {
+  Name = "{{ schedule.name }}"
+  Run = {{ schedule.run_type }} {{ schedule.level }} {{ schedule.day }} at {{ schedule.time }}
+}
+{% endfor %}
+
+{# Job definitions #}
+{% for job in jobs %}
+{# Job: {{ job.name }} - {{ job.description | default('Backup job') }} #}
+Job {
+  Name = "{{ job.name }}"
+  JobDefs = "{{ job.jobdefs }}"
+  Level = {{ job.level }}
+  Client = {{ job.client }}
+  FileSet = "{{ job.fileset }}"
+  Schedule = "{{ job.schedule }}"
+  Storage = "{{ job.storage }}"
+  Messages = Standard
+  Pool = {{ job.pool }}
+  Priority = {{ job.priority }}
+  {{ job.write_bootstrap | default('') | ternary('Write Bootstrap = "' + job.write_bootstrap + '"', '') }}
+}
+{% endfor %}
+
+{# JobDefs (templates for jobs) #}
+{% for jobdef in jobdefs %}
+{# JobDefs: {{ jobdef.name }} - {{ jobdef.description | default('Job template') }} #}
+JobDefs {
+  Name = "{{ jobdef.name }}"
+  Type = {{ jobdef.type }}
+  Level = {{ jobdef.level }}
+  Client = {{ jobdef.client }}
+  FileSet = "{{ jobdef.fileset }}"
+  Schedule = "{{ jobdef.schedule }}"
+  Storage = "{{ jobdef.storage }}"
+  Messages = Standard
+  Pool = {{ jobdef.pool }}
+  Priority = {{ jobdef.priority }}
+  Full Backup Pool = {{ jobdef.full_backup_pool }}
+  Incremental Backup Pool = {{ jobdef.incremental_backup_pool }}
+  Differential Backup Pool = {{ jobdef.differential_backup_pool }}
+  Accurate = {{ jobdef.accurate }}
+}
+{% endfor %}
+
+{# Pool definitions #}
+{% for pool in pools %}
+{# Pool: {{ pool.name }} - {{ pool.description | default('Storage pool') }} #}
+Pool {
+  Name = "{{ pool.name }}"
+  Pool Type = {{ pool.pool_type }}
+  Recycle = {{ pool.recycle }}
+  AutoPrune = {{ pool.auto_prune }}
+  Volume Retention = {{ pool.volume_retention }}
+  Maximum Volume Bytes = {{ pool.maximum_volume_bytes }}
+  Maximum Volumes = {{ pool.maximum_volumes }}
+  LabelFormat = "{{ pool.label_format }}"
+}
+{% endfor %}
+
+{# Messages configuration #}
+Messages {
+  Name = Daemon
+  mailcommand = "/usr/lib/bacula/bsmtp -h {{ messages_smtp_host }} -f \"{{ messages_from_addr }}\" {{ messages_to_addrs | join(', ') }}"
+  syslog = yes
+  alert command = "/usr/lib/bacula/alert.sh {{ director_name }}"
+  standard = {{ messages_standard }}
+}

@@ -1,0 +1,92 @@
+# IMAPFilter configuration file
+# This template generates a Lua-based configuration for IMAPFilter.
+# It defines IMAP server connections, global polling/logging options,
+# and per-account filtering rules.
+
+# -----------------------------------------------------------------------------
+# Server Definitions
+# List of IMAP servers to connect to. Each server defines credentials and
+# connection details. Each server must have a unique `name` key used by
+# accounts to reference it.
+# -----------------------------------------------------------------------------
+servers = {
+{%- for server in servers | default([], true) %}
+  # Server: {{ server.name | default('unnamed') }}
+  # Connection and command timeout in seconds.
+  # Poll interval in seconds when running in daemon mode.
+  {{ server.name | default('unnamed') }} = {
+    # Server hostname or IP address.
+    server = {{ server.host | default('localhost') | quote }},
+    # IMAP port number.
+    port   = {{ server.port | default(993) }},
+{% if (server.ssl | default(true)) %}    # Enable SSL/TLS connection.
+    ssl    = "auto",{% else %}    # Disable SSL/TLS connection.
+    ssl    = false,{% endif %}
+    # IMAP username for authentication.
+    user   = {{ server.username | default('') | quote }},
+    # IMAP password for authentication.
+    password = {{ server.password | default('') | quote }}{%- if server.auth_type is defined and server.auth_type %},
+    # Authentication mechanism type (e.g., "PLAIN", "LOGIN").
+    auth_type = {{ server.auth_type | default('') | quote }}{% endif %}
+  }{%- if not loop.last %},{%- endif %}
+{%- endfor %}
+}
+
+# -----------------------------------------------------------------------------
+# Global Options
+# -----------------------------------------------------------------------------
+options {
+  # Path to the log file for IMAPFilter. Supports tilde (~) expansion for home directory.
+  logfile   = {{ logfile | default('~/.imapfilter/log') | quote }},
+  # Connection and command timeout in seconds.
+  timeout   = {{ timeout | default(600) }},
+  # Poll interval in seconds when running in daemon mode.
+  poll      = {{ poll | default(300) }},
+{% if subscribe | default(true) %}  # Automatically subscribe to newly created mailboxes.
+  subscribe = true,{% else %}  # Do not automatically subscribe to newly created mailboxes.
+  subscribe = false,{% endif %}
+{% if create_folders | default(false) %}  # Automatically create mailboxes that do not exist (required only for some servers).
+  create    = true{% else %}  # Do not automatically create non-existent mailboxes.
+  create    = false{% endif %}
+}
+
+# -----------------------------------------------------------------------------
+# Account Rules
+# List of accounts with their filtering rules. Each account references one
+# server name and defines rules to apply to messages.
+# -----------------------------------------------------------------------------
+{%- for account in accounts | default([], true) %}
+# Account: {{ account.name | default('account_' ~ loop.index) }}
+# References server: {{ account.server_name | default('') }}
+account_{{ account.server_name | default('server') }}_rules = function()
+{%- for rule in account.rules | default([], true) %}
+  -- {{ rule.description | default('Filter rule') }}
+{% if rule.condition is defined %}  if {{ rule.condition }} then
+{%- else %}  if false then
+{%- endif %}{%- if rule.move_to is defined %}    # Move message to specified server/folder.
+    move_to_servers({{ rule.move_to | quote }}, {{ account.server_name | default('') | quote }})
+{%- endif %}{%- if rule.delete is defined and rule.delete %}    # Delete message.
+    delete_messages()
+{%- endif %}{%- if rule.mark_seen is defined and rule.mark_seen %}    # Mark message as seen.
+    mark_seen()
+{%- endif %}{%- if rule.mark_flagged is defined and rule.mark_flagged %}    # Mark message as flagged.
+    mark_flagged()
+{%- endif %}{%- if rule.forward_to is defined and rule.forward_to %}    # Forward message to recipients.
+    forward_messages({% for addr in rule.forward_to | default([], true) | list %}{{ addr | quote }}{% if not loop.last %}, {% endif %}{% endfor %})
+{%- endif %}{%- if rule.copy_to is defined %}    # Copy message to specified server/folder.
+    copy_messages({{ rule.copy_to | quote }}, {{ account.server_name | default('') | quote }})
+{%- endif %}{%- if rule.set_flags is defined and rule.set_flags %}    # Set specific flags on message.
+    set_flags({% for flag in rule.set_flags | default([], true) %}{{ flag | quote }}{% if not loop.last %}, {% endif %}{% endfor %})
+{%- endif %}  end
+{%- endfor %}
+end
+
+{%- endfor %}
+
+# -----------------------------------------------------------------------------
+# Execution
+# Execute rules for each defined account.
+# -----------------------------------------------------------------------------
+{%- for account in accounts | default([], true) %}
+account_{{ account.server_name | default('server') }}_rules()
+{%- endfor %}

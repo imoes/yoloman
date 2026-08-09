@@ -1,0 +1,94 @@
+# =============================================================================
+# Cntlm Authentication Proxy Configuration
+# =============================================================================
+# Cntlm is an NTLM/Negotiate authenticating HTTP proxy. It acts as a
+# local forward proxy that authenticates with an upstream proxy using
+# Windows domain credentials (NTLM/Kerberos), allowing local clients to
+# connect through the corporate proxy without per-client configuration.
+#
+# This file is managed by Ansible. Do not edit manually.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Username
+# ------------------------------------------------------------------------------
+# Your domain username for authenticating with the upstream proxy.
+# This is the account used to perform NTLM/Kerberos negotiation against
+# the parent proxy.
+Username    {{ username | default('') }}
+
+# ------------------------------------------------------------------------------
+# Domain
+# ------------------------------------------------------------------------------
+# Your Windows domain name (required for NTLM authentication).
+# Specify the Active Directory domain or Workgroup name.
+Domain      {{ domain | default('') }}
+
+# ------------------------------------------------------------------------------
+# Password
+# ------------------------------------------------------------------------------
+# Your domain password. For security, consider using a hash (e.g., 'PassNTLMv2')
+# instead of plain text. Cntlm can generate these hashes for you.
+# If left empty, Cntlm may prompt for a password or use the provided hash.
+Password    {{ password | default('') }}
+
+# ------------------------------------------------------------------------------
+# Proxy
+# ------------------------------------------------------------------------------
+# List of upstream proxy hosts to connect to.
+# Format: 'hostname:port' or 'hostname'. At least one is required for standard
+# proxy mode, though standalone mode is supported if NoPass or specific options
+# are configured (though typically you need a parent proxy).
+# Multiple proxies can be specified, comma-separated.
+Proxy       {{ proxy_hosts | default([]) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# Listen
+# ------------------------------------------------------------------------------
+# Local IP address and port for the Cntlm proxy listener.
+# Format: 'address:port'. By default, this binds to localhost to prevent
+# unauthorized external access. Use '0.0.0.0' only if you intend to expose
+# the proxy externally (and ensure firewall rules are in place).
+# listen_addr defaults to 127.0.0.1 unless gateway mode is enabled.
+# listen_port defaults to 3128.
+# Note: Gateway mode (Gateway Yes) effectively ignores the specific listen_addr
+# and listens on all interfaces, but we still construct the Listen directive.
+Listen      {{ listen_addr | default('127.0.0.1') }}:{{ listen_port | default(3128) }}
+
+# ------------------------------------------------------------------------------
+# Auth
+# ------------------------------------------------------------------------------
+# Authentication method to use with the upstream proxy.
+# 'NTLMv2' is the recommended standard for modern Windows environments.
+# Other options might include 'SSPI' or 'Kerberos' depending on setup,
+# but Cntlm primarily uses NTLMv2.
+Auth        NTLMv2
+
+# ------------------------------------------------------------------------------
+# Tunnel
+# ------------------------------------------------------------------------------
+# List of tunnel definitions for TCP forwarding (SSH-like functionality).
+# Format: 'host:port' or 'ip:host:port'.
+# These allow Cntlm to forward arbitrary TCP traffic, not just HTTP.
+# If empty, no tunnels are configured.
+Tunnel      {{ tunnel_hosts | default([]) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# NoProxy
+# ------------------------------------------------------------------------------
+# List of hosts or patterns that should bypass the parent proxy.
+# Requests to these destinations will be sent directly by the client
+# (or locally if Cntlm is configured to handle them), avoiding the
+# upstream authentication chain.
+# Common entries include 'localhost', '127.0.0.1', and internal domains.
+NoProxy     {{ no_proxy | default(['localhost', '127.0.0.1']) | join(', ') }}
+
+# ------------------------------------------------------------------------------
+# Gateway
+# ------------------------------------------------------------------------------
+# Enable gateway mode (Yes/No).
+# When enabled, Cntlm listens on all network interfaces (0.0.0.0) instead
+# of just the loopback address. This allows other machines on the network
+# to use this Cntlm instance as a proxy.
+# Use with caution; ensure proper firewall rules restrict access.
+Gateway     {{ gateway | default(False) | lower }}

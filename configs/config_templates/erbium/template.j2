@@ -1,0 +1,90 @@
+# Configuration file for erbium — network services for small/home networks.
+# See erbium.conf(5), erbium(8).
+# Paths may be absolute or relative to the working directory.
+
+# -----------------------------------------------------------------------------
+# [main] — Global settings
+# -----------------------------------------------------------------------------
+
+# Enable verbose logging for debugging.
+# Type: boolean
+# Default: false
+verbose_logging = {{ (verbose_logging | default(false)) | string | lower }}
+
+# -----------------------------------------------------------------------------
+# [dhcp] — DHCP Server Service
+# -----------------------------------------------------------------------------
+
+# Enable DHCP service.
+# Type: boolean
+# Default: true
+{% set _dhcp = dhcp | default({}) %}
+dhcp.enabled = {{ (_dhcp.enabled | default(true)) | string | lower }}
+
+# DHCP interface(s) to serve on.
+# Type: list of strings
+# Default: ['eth0']
+{% set _dhcp_ifaces = _dhcp.interfaces | default(['eth0']) %}
+dhcp.interfaces = {{ _dhcp_ifaces | join(', ') }}
+
+# DHCP subnet to announce (CIDR notation).
+# Type: string
+# Default: '192.168.1.0/24'
+dhcp.subnet = {{ _dhcp.subnet | default('192.168.1.0/24') }}
+
+# DHCP gateway to announce.
+# Type: string
+# Default: '192.168.1.1'
+dhcp.gateway = {{ _dhcp.gateway | default('192.168.1.1') }}
+
+# DHCP DNS servers to announce.
+# Type: list of strings
+# Default: ['1.1.1.1', '8.8.8.8']
+{% set _dhcp_dns = _dhcp.dns_servers | default(['1.1.1.1', '8.8.8.8']) %}
+dhcp.dns_servers = {{ _dhcp_dns | join(', ') }}
+
+# DHCP range for dynamic allocation (start-end).
+# This defines the pool of IP addresses available for lease.
+# Type: object with 'start' and 'end' keys (IP addresses)
+# Default: [{'start': '192.168.1.100', 'end': '192.168.1.200'}]
+{% set _dhcp_range_list = _dhcp.range | default([{'start': '192.168.1.100', 'end': '192.168.1.200'}]) %}
+{% set _first_range = _dhcp_range_list | first | default({'start': '192.168.1.100', 'end': '192.168.1.200'}) %}
+dhcp.range = {{ (_first_range.start | default('192.168.1.100')) }}-{{ (_first_range.end | default('192.168.1.200')) }}
+
+# DHCP lease time (seconds).
+# Type: integer
+# Default: 86400
+dhcp.lease_time = {{ _dhcp.lease_time | default(86400) }}
+
+# -----------------------------------------------------------------------------
+# [dns] — DNS Resolver Service (Limited Support)
+# -----------------------------------------------------------------------------
+
+# Enable DNS service (limited support).
+# Type: boolean
+# Default: false
+{% set _dns = dns | default({}) %}
+dns.enabled = {{ (_dns.enabled | default(false)) | string | lower }}
+
+# DNS upstream resolver(s) (IP or domain).
+# These servers are queried when local resolution fails.
+# Type: list of strings
+# Default: ['9.9.9.9', '149.112.112.112']
+{% set _dns_upstreams = _dns.upstreams | default(['9.9.9.9', '149.112.112.112']) %}
+dns.upstreams = {{ _dns_upstreams | join(', ') }}
+
+# DNS listening address (IPv4 or IPv6).
+# Type: string
+# Default: '0.0.0.0'
+dns.listen_address = {{ _dns.listen_address | default('0.0.0.0') }}
+
+# DNS listening port.
+# Type: integer
+# Default: 53
+dns.listen_port = {{ _dns.listen_port | default(53) }}
+
+# DNS caching (boolean).
+# Enable/disable local DNS response caching.
+# Type: boolean
+# Default: true
+dns.cache_enabled = {{ (_dns.cache_enabled | default(true)) | string | lower }}

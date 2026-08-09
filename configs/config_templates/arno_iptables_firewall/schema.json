@@ -1,0 +1,151 @@
+{
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output to syslog when the firewall starts/stops."
+  },
+  "log_drops": {
+    "type": "bool",
+    "default": true,
+    "description": "Log dropped packets to syslog with REASON and packet details."
+  },
+  "log_refused": {
+    "type": "bool",
+    "default": true,
+    "description": "Log refused connection attempts to syslog."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to use for firewall logs (e.g., daemon, local0)."
+  },
+  "nat_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NAT/masquerading for outbound traffic to the Internet."
+  },
+  "internal_hosts": {
+    "type": "list",
+    "default": [
+      "10.0.0.0/8",
+      "172.16.0.0/12",
+      "192.168.0.0/16"
+    ],
+    "description": "List of internal (private) IP subnets or host addresses to protect.",
+    "items": {
+      "type": "string",
+      "description": "CIDR block or single IP address representing a protected internal subnet/host."
+    }
+  },
+  "external_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Name of the external (WAN) network interface (e.g., eth0, ppp0)."
+  },
+  "dmz_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a demilitarized zone (DMZ) for semi-trusted services."
+  },
+  "dmz_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of DMZ subnets or hosts (only used if DMZ is enabled).",
+    "items": {
+      "type": "string",
+      "description": "CIDR block or IP address of a host in the DMZ."
+    }
+  },
+  "dmz_interface": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Name of the interface connected to the DMZ network (required if DMZ enabled)."
+  },
+  "adsl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable ADSL/PPPoE-specific optimizations (e.g., MSS clamping)."
+  },
+  "pppoe_interface": {
+    "type": "string",
+    "default": "ppp0",
+    "description": "Name of the PPPoE interface (e.g., ppp0) when ADSL is enabled."
+  },
+  "syn_flood_protect": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable TCP SYN flood protection (rate-limit new TCP connections)."
+  },
+  "icmp_ping_rate_limit": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum ICMP echo requests (ping) per second allowed from external sources."
+  },
+  "inbound_services": {
+    "type": "list",
+    "default": [
+      "ssh",
+      "http",
+      "https"
+    ],
+    "description": "List of services (ports or named services like 'ssh', 'http') to allow inbound.",
+    "items": {
+      "type": "string",
+      "description": "Port number (e.g., 22) or well-known service name (e.g., ssh, http)."
+    }
+  },
+  "allow_inbound_ssh": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow inbound SSH connections from the Internet (not recommended unless needed)."
+  },
+  "ssh_only_from_internal": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow SSH only from internal (protected) networks, even if 'allow_inbound_ssh' is false."
+  },
+  "forward_dmz": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow traffic forwarding between internal network and DMZ."
+  },
+  "forward_internal": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow forwarding between multiple internal interfaces (multi-homed only)."
+  },
+  "log_forward": {
+    "type": "bool",
+    "default": false,
+    "description": "Log forwarded packets to syslog for auditing."
+  },
+  "custom_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional raw iptables rules (must be valid iptables -A syntax).",
+    "items": {
+      "type": "string",
+      "description": "One full iptables append rule (e.g., '-A INPUT -p tcp --dport 8080 -j ACCEPT')."
+    }
+  },
+  "ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IPv6 firewall rules (requires ip6tables)."
+  },
+  "stateful": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable stateful packet inspection (track established connections)."
+  },
+  "randomize_outbound_ports": {
+    "type": "bool",
+    "default": false,
+    "description": "Randomize source port ranges for outbound NAT connections (improves security)."
+  },
+  "allow_dns_inbound": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow DNS responses from your own DNS servers (e.g., if running BIND locally)."
+  }
+}

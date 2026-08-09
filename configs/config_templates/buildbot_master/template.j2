@@ -1,0 +1,110 @@
+# -*- python -*-
+# Buildbot Master configuration file
+# This file is executed by twistd(1) to start the Buildbot master.
+
+from buildbot.master import BuildMaster
+
+cfg = BuildMaster('{{ master_basedir }}')
+cfg.botmaster.maxRetries = {{ botmaster_maxRetries }}
+
+cfg.slavePortnum = {{ slave_port }}
+{% if db_url %}
+# Database connection string
+cfg.db_url = '{{ db_url }}'
+{% else %}
+# Database connection (legacy style — deprecated)
+cfg.db_port = {{ db_port }}
+cfg.db_user = '{{ db_user }}'
+cfg.db_pass = '{{ db_pass }}'
+cfg.db_host = '{{ db_host }}'
+cfg.db_name = '{{ db_name }}'
+{% endif %}
+
+# Multi-master support: only enable if used
+cfg.multiMaster = {{ 'True' if multi_master else 'False' }}
+
+# Protocol configuration
+cfg.protocols = {
+{% for proto in protocols %}    '{{ proto.protocol }}': {{ proto.options | tojson | indent(4) }}{% if not loop.last %},{% endif %}
+{% endfor %} }
+
+# Logging configuration
+cfg.logEncoding = '{{ log_encoding }}'
+{% if log_level %}
+# Global log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+cfg.logLevel = '{{ log_level }}'
+{% endif %}
+
+# Auth configuration
+cfg.auth = {{ auth_class }}({{ auth_config | tojson | indent(4) }})
+
+# User storage
+cfg.userRoot = '{{ user_root }}'
+{% if user_storage %}
+# User storage backend
+cfg.userStorage = {{ user_storage_class }}({{ user_storage_config | tojson | indent(4) }})
+{% endif %}
+
+# Force build permissions
+cfg.forceBuilds = {{ force_builds }}
+
+cfg.buildHorizon = {{ build_horizon }}
+cfg.eventHorizon = {{ event_horizon }}
+
+cfg.cleanup = {
+{% for k, v in cleanup.items() %}    '{{ k }}': {{ v }}{% if not loop.last %},{% endif %}
+{% endfor %} }
+
+# Status targets (e.g., web UI, mail, etc.)
+cfg.status = [
+{% for status_target in status_targets %}    {{ status_target.class }}({{ status_target.config | tojson | indent(4) }}){% if not loop.last %},{% endif %}
+{% endfor %} ]
+
+# Build factories and builders configuration
+{% for builder in builders %}
+# Builder: {{ builder.name }}
+from buildbot.plugins import steps, reporters, util
+{% for factory in builder.factories %}
+# Factory for {{ builder.name }}
+{{ builder.name }}_factory = {{ factory.class }}({% for arg in factory.args %}{{ arg }}{% if not loop.last %}, {% endif %}{% endfor %})
+{% endfor %}
+{{ builder.name }}_factory = {{ builder.factories[0].class }}({% for arg in builder.factories[0].args %}{{ arg }}{% if not loop.last %}, {% endif %}{% endfor %})
+
+cfg.builders.append({
+    'name': '{{ builder.name }}',
+    'slavenames': {{ builder.slavenames | tojson }},
+    'factory': {{ builder.name }}_factory,
+    'builddir': '{{ builder.builddir }}',
+    'factory_args': {{ builder.factory_args | tojson }},
+    'env': {{ builder.env | tojson }},
+    'locks': {{ builder.locks | tojson }},
+    'properties': {{ builder.properties | tojson }},
+{% if builder.category %}    'category': '{{ builder.category }}',
+{% endif %}
+{% if builder.tags %}    'tags': {{ builder.tags | tojson }},
+{% endif %}    'nextWorker': util.NextWorker()
+})
+{% endfor %}
+
+# Scheduler definitions
+{% for scheduler in schedulers %}
+# Scheduler: {{ scheduler.name }}
+from buildbot.plugins import schedulers, util
+{% if scheduler.class.startswith('schedulers.') %}
+{{ scheduler.name }} = {{ scheduler.class[11:] }}({% for arg in scheduler.args %}{{ arg }}{% if not loop.last %}, {% endif %}{% endfor %})
+{% else %}
+{{ scheduler.name }} = {{ scheduler.class }}({% for arg in scheduler.args %}{{ arg }}{% if not loop.last %}, {% endif %}{% endfor %})
+{% endif %}
+cfg.schedulers.append({{ scheduler.name }})
+{% endfor %}
+
+# Change sources
+{% for source in change_sources %}
+# Change source: {{ source.name }}
+from buildbot.plugins import changes
+{{ source.name }} = {{ source.class }}({% for arg in source.args %}{{ arg }}{% if not loop.last %}, {% endif %}{% endfor %})
+cfg.change_sources.append({{ source.name }})
+{% endfor %}
+
+# Force build user
+cfg.forceBuild = '{{ force_build_user }}'

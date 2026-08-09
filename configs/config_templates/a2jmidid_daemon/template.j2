@@ -1,0 +1,50 @@
+# Enable/disable the daemon
+ENABLED={{ enabled }}
+
+# Control real-time scheduling (true/false)
+REALTIME={{ realtime }}
+
+# Real-time priority (1-99, only if REALTIME=true)
+PRIORITY={{ priority }}
+
+# Maximum number of ports per client (0 = unlimited)
+MAX_PORTS={{ max_ports }}
+
+# Delay in milliseconds before closing idle ports
+PORT_IDLE_TIMEOUT={{ port_idle_timeout }}
+
+# JACK buffer size (frames per period) — leave empty to inherit from JACK
+JACK_BUFFER_SIZE={{ jack_buffer_size | default('', true) }}
+
+# JACK sample rate (Hz) — leave empty to inherit from JACK
+JACK_SAMPLE_RATE={{ jack_sample_rate | default('', true) }}
+
+# List of ALSA MIDI ports to expose (format: 'client:port')
+# If empty, *all* ALSA MIDI ports are exposed
+{% for port in ports %}# {{ port | default('', true) }}
+{% endfor %}
+{% if ports %}PORTS="{% for p in ports %}{{ p | default('') }}{% if not loop.last %} {% endif %}{% endfor %}"{% else %}PORTS=""{% endif %}
+
+# List of ALSA MIDI ports to *exclude* (format: 'client:port')
+{% for port in exclude_ports %}# {{ port | default('', true) }}
+{% endfor %}
+{% if exclude_ports %}EXCLUDE_PORTS="{% for p in exclude_ports %}{{ p | default('') }}{% if not loop.last %} {% endif %}{% endfor %}"{% else %}EXCLUDE_PORTS=""{% endif %}
+
+# MIDI timing source: 'alsa' (default) or 'jack'
+TIMING_SOURCE={{ timing_source }}
+
+# Enable JACK transport sync (true/false)
+TRANSPORT_SYNC={{ transport_sync }}
+
+# JACK transport sync mode: 'none', 'slave', 'master'
+# Only applicable if TRANSPORT_SYNC=true
+TRANSPORT_MODE={{ transport_mode }}
+
+# Delay (ms) to wait for JACK to start before exiting (0 = wait indefinitely)
+STARTUP_TIMEOUT={{ startup_timeout }}
+
+# Log level: 0=none, 1=error, 2=warning, 3=info, 4=debug
+LOG_LEVEL={{ log_level }}
+
+# Log file path (empty = stderr)
+LOG_FILE={{ log_file | default('', true) }}

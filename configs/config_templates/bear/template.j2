@@ -1,0 +1,94 @@
+# Bear (Compilation Database Extraction Tool) Configuration
+# This file defines how bear intercepts and emits compilation commands.
+# It is typically referenced via --config or environment variables.
+#
+# Schema Reference:
+#   output_directory: Path to output dir for the compilation database.
+#   append: Whether to append to an existing db.
+#   force_method: Interception method: 'preload' or 'wrapper'.
+#   filter_rules: List of include/exclude regex rules for commands.
+#   compiler_aliases: Map of compiler names to absolute paths.
+#   extra_flags: Additional flags to preserve in output.
+#   emit_command_field: Emit 'command' string vs 'arguments' array.
+
+# output_directory: Absolute or relative path to output directory for compiled commands.
+# Defaults to '.' (current directory).
+output_directory {{ output_directory | default('.') }}
+
+# append: If true, append new entries to existing compilation database; otherwise overwrite.
+# Defaults to False.
+{% if append | default(False) %}
+# Append to existing compilation database instead of overwriting
+append yes
+{% else %}
+# Overwrite existing compilation database
+append no
+{% endif %}
+
+# force_method: Force interception method: either 'preload' (dynamic linker injection) or 'wrapper' (compiler wrapper).
+# If empty, auto-detect.
+{% if force_method | default('') == 'preload' %}
+# Force dynamic linker injection method
+intercept_method preload
+{% elif force_method | default('') == 'wrapper' %}
+# Force compiler wrapper method
+intercept_method wrapper
+{% else %}
+# Auto-detect interception method (default behavior)
+# intercept_method auto
+{% endif %}
+
+# filter_rules: List of include/exclude rules for filtering intercepted commands.
+# Each rule has a type ('include' or 'exclude'), optional pattern (regex),
+# and optional arguments list (exact command-line tokens).
+# Defaults to empty list [].
+{% for rule in (filter_rules | default([])) %}
+# Rule definition: type={{ rule.type | default('') | string }}
+{% if rule.type | default('') == 'include' %}
+# Include rule: match commands fitting the criteria below
+include
+{% elif rule.type | default('') == 'exclude' %}
+# Exclude rule: ignore commands fitting the criteria below
+exclude
+{% endif %}
+
+# Optional regex pattern to match against the intercepted command (file or program name)
+{% if rule.pattern | default('') %}
+# Pattern: {{ rule.pattern | default('') }}
+{{ rule.pattern | default('') }}
+{% endif %}
+
+# Optional exact command-line tokens to match against.
+# Matches only if all tokens are present in the command.
+{% if rule.arguments | default([]) | length > 0 %}
+# Arguments to match: {{ rule.arguments | default([]) | join(' ') }}
+{{ rule.arguments | default([]) | join(' ') }}
+{% endif %}
+{% endfor %}
+
+# compiler_aliases: Map from compiler alias name (e.g. 'gcc') to absolute path (e.g. '/usr/bin/gcc-13').
+# Defaults to None (no aliases).
+{% if compiler_aliases is defined and compiler_aliases is not none %}
+# Compiler alias mappings
+{% for name, path in compiler_aliases | dict2items %}
+# Alias compiler '{{ name.value }}' to '{{ path.value }}'
+alias {{ name.key }} {{ path.value }}
+{% endfor %}
+{% endif %}
+
+# extra_flags: Additional flags to preserve and emit in the 'arguments' array.
+# Defaults to empty list [].
+{% if extra_flags | default([]) | length > 0 %}
+# Extra flags to preserve in emitted arguments
+{{ extra_flags | default([]) | join(' ') }}
+{% endif %}
+
+# emit_command_field: If true, emit 'command' (single space-separated string) instead of 'arguments' array in JSON entries.
+# Defaults to False.
+{% if emit_command_field | default(False) %}
+# Emit 'command' string field instead of 'arguments' array
+emit_command yes
+{% else %}
+# Emit 'arguments' array field (default)
+emit_command no
+{% endif %}

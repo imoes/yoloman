@@ -1,0 +1,233 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging for detailed diagnostics."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/glance",
+    "description": "Directory where log files are stored."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "default_store": {
+    "type": "string",
+    "default": "file",
+    "description": "Default backend store for image data (e.g., file, swift, s3)."
+  },
+  "filesystem_store_datadir": {
+    "type": "string",
+    "default": "/var/lib/glance/images",
+    "description": "Local filesystem path for storing images (used only when default_store is 'file')."
+  },
+  "max_image_size": {
+    "type": "number",
+    "default": null,
+    "description": "Maximum allowed image size in bytes. Set to null to disable size cap."
+  },
+  "enabled_import_methods": {
+    "type": "list",
+    "default": [
+      "web-download",
+      "copy-image"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "web-download",
+        "copy-image",
+        "glance-direct"
+      ]
+    },
+    "description": "List of supported image import methods. 'web-download' pulls images from HTTP(S) URLs."
+  },
+  "keystone": {
+    "type": "object",
+    "default": {
+      "auth_type": "password",
+      "auth_url": "http://controller:5000/v3",
+      "project_domain_name": "Default",
+      "user_domain_name": "Default",
+      "project_name": "service",
+      "username": "glance",
+      "password": "CHANGEME",
+      "insecure": false
+    },
+    "description": "Keystone authentication endpoint and credentials for glance to access the identity service.",
+    "items": {
+      "auth_type": {
+        "type": "string",
+        "default": "password"
+      },
+      "auth_url": {
+        "type": "string",
+        "default": "http://controller:5000/v3"
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default"
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default"
+      },
+      "project_name": {
+        "type": "string",
+        "default": "service"
+      },
+      "username": {
+        "type": "string",
+        "default": "glance"
+      },
+      "password": {
+        "type": "string",
+        "default": "CHANGEME"
+      },
+      "insecure": {
+        "type": "bool",
+        "default": false
+      }
+    }
+  },
+  "paste_deploy": {
+    "type": "object",
+    "default": {
+      "flavor": "keystone"
+    },
+    "description": "Pipeline configuration for glance API authentication and filtering.",
+    "items": {
+      "flavor": {
+        "type": "string",
+        "default": "keystone"
+      }
+    }
+  },
+  "glance_stores": {
+    "type": "list",
+    "default": [
+      {
+        "name": "file",
+        "options": {
+          "filesystem_store_datadir": "/var/lib/glance/images"
+        }
+      }
+    ],
+    "description": "List of enabled glance backends (e.g., file, swift, s3). Each defines store type and associated options.",
+    "items": {
+      "name": {
+        "type": "string",
+        "enum": [
+          "file",
+          "swift",
+          "s3"
+        ]
+      },
+      "options": {
+        "type": "object",
+        "items": {
+          "filesystem_store_datadir": {
+            "type": "string",
+            "required_if": {
+              "name": "file"
+            }
+          },
+          "swift_store_auth_address": {
+            "type": "string",
+            "required_if": {
+              "name": "swift"
+            }
+          },
+          "swift_store_user": {
+            "type": "string",
+            "required_if": {
+              "name": "swift"
+            }
+          },
+          "swift_store_key": {
+            "type": "string",
+            "required_if": {
+              "name": "swift"
+            }
+          },
+          "swift_store_container": {
+            "type": "string",
+            "required_if": {
+              "name": "swift"
+            }
+          },
+          "s3_store_auth_address": {
+            "type": "string",
+            "required_if": {
+              "name": "s3"
+            }
+          },
+          "s3_store_user": {
+            "type": "string",
+            "required_if": {
+              "name": "s3"
+            }
+          },
+          "s3_store_key": {
+            "type": "string",
+            "required_if": {
+              "name": "s3"
+            }
+          },
+          "s3_store_bucket": {
+            "type": "string",
+            "required_if": {
+              "name": "s3"
+            }
+          }
+        }
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "connection": "mysql+pymysql://glance:CHANGEME@controller/glance",
+      "max_pool_size": 10,
+      "max_overflow": 20,
+      "pool_timeout": 30
+    },
+    "description": "Database backend connection string and connection pool settings.",
+    "items": {
+      "connection": {
+        "type": "string",
+        "default": "mysql+pymysql://glance:CHANGEME@controller/glance"
+      },
+      "max_pool_size": {
+        "type": "number",
+        "default": 10
+      },
+      "max_overflow": {
+        "type": "number",
+        "default": 20
+      },
+      "pool_timeout": {
+        "type": "number",
+        "default": 30
+      }
+    }
+  },
+  "lock_path": {
+    "type": "string",
+    "default": "/var/lib/glance/lock",
+    "description": "Directory used for inter-process locking."
+  },
+  "enable_cors": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Cross-Origin Resource Sharing (CORS) headers for API requests (required for Horizon)."
+  },
+  "policy_file": {
+    "type": "string",
+    "default": "/etc/glance/policy.json",
+    "description": "Path to the policy definition file."
+  }
+}

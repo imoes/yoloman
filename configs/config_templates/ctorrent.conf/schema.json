@@ -1,0 +1,185 @@
+{
+  "global": {
+    "type": "object",
+    "description": "Global daemon settings",
+    "properties": {
+      "completed_directory": {
+        "type": "string",
+        "default": "/var/lib/ctorrent/completed",
+        "description": "Directory where completed downloads are moved"
+      },
+      "download_directory": {
+        "type": "string",
+        "default": "/var/lib/ctorrent/incomplete",
+        "description": "Directory where active downloads are stored"
+      },
+      "max_downloads": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of simultaneous downloads (0 = unlimited)"
+      },
+      "max_upload_rate": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum total upload bandwidth in KB/s (0 = unlimited)"
+      },
+      "max_download_rate": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum total download bandwidth in KB/s (0 = unlimited)"
+      },
+      "max_peers_per_torrent": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum number of peers per torrent"
+      },
+      "enable_upnp": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable UPnP port mapping for automatic router configuration"
+      },
+      "enable_natpmp": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable NAT-PMP port mapping for automatic router configuration"
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 6881,
+        "description": "TCP/UDP port for incoming BitTorrent connections"
+      }
+    }
+  },
+  "http": {
+    "type": "object",
+    "description": "HTTP web interface settings",
+    "properties": {
+      "enable_http": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable unencrypted HTTP web UI"
+      },
+      "http_host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "Hostname or IP to bind HTTP server (e.g., '0.0.0.0' for all interfaces)"
+      },
+      "http_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port for HTTP web interface"
+      },
+      "http_username": {
+        "type": "string",
+        "default": "",
+        "description": "Username for HTTP authentication (leave empty to disable auth)"
+      },
+      "http_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for HTTP authentication"
+      },
+      "enable_https": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTPS for web UI (requires certificate and key)"
+      },
+      "tls_cert": {
+        "type": "string",
+        "default": "/etc/ctorrent/tls/cert.pem",
+        "description": "Path to TLS certificate file (required for HTTPS)"
+      },
+      "tls_key": {
+        "type": "string",
+        "default": "/etc/ctorrent/tls/key.pem",
+        "description": "Path to TLS private key file (required for HTTPS)"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "description": "Logging configuration",
+    "properties": {
+      "enable_logging": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable logging of events and diagnostics"
+      },
+      "log_level": {
+        "type": "number",
+        "default": 2,
+        "description": "Verbosity: 0=quiet, 1=error, 2=warn (default), 3=info, 4=debug"
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/ctorrent/ctorrent.log",
+        "description": "Path to log file"
+      },
+      "log_max_size_mb": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum size (MB) per log file before rotation (0 = disable)"
+      },
+      "log_backup_count": {
+        "type": "number",
+        "default": 3,
+        "description": "Number of old log files to retain"
+      }
+    }
+  },
+  "tracker": {
+    "type": "object",
+    "description": "Tracker and discovery settings",
+    "properties": {
+      "urls": {
+        "type": "list",
+        "default": [
+          "udp://tracker.openbittorrent.com:80",
+          "udp://tracker.coppersurfer.tk:6969",
+          "udp://tracker.leechers-paradise.org:6969"
+        ],
+        "description": "Default public trackers to announce to (if torrent lacks trackers)",
+        "items": {
+          "type": "string",
+          "description": "Tracker URL (udp:// or http:// format)"
+        }
+      },
+      "enable_dht": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable DHT for peer discovery without trackers"
+      },
+      "enable_pex": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable Peer Exchange (PEX) with connected peers"
+      }
+    }
+  },
+  "bandwidth": {
+    "type": "object",
+    "description": "Bandwidth and seeding controls",
+    "properties": {
+      "per_torrent_upload_limit": {
+        "type": "number",
+        "default": 0,
+        "description": "Per-torrent upload limit in KB/s (0 = use global max)"
+      },
+      "per_torrent_download_limit": {
+        "type": "number",
+        "default": 0,
+        "description": "Per-torrent download limit in KB/s (0 = unlimited)"
+      },
+      "seed_ratio": {
+        "type": "number",
+        "default": 1.0,
+        "description": "Upload ratio target (e.g., 1.0 = upload same volume as downloaded); 0 disables seeding"
+      },
+      "seed_time": {
+        "type": "number",
+        "default": 0,
+        "description": "Seed time target in minutes (0 = disabled)"
+      }
+    }
+  }
+}

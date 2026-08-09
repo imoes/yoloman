@@ -1,0 +1,140 @@
+# =============================================================================
+# pg_catcheck configuration file
+# =============================================================================
+# This configuration drives the pg_catcheck utility, which validates the
+# consistency of PostgreSQL system catalogs. It connects to a running
+# PostgreSQL instance, runs a series of integrity checks, and reports
+# findings.
+#
+# All variables use their schema defaults if not provided by the Ansible run.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# [bin_dir] Absolute path to the PostgreSQL binary directory containing pg_ctl,
+# psql, and other utilities required to execute catalog checks.
+# ------------------------------------------------------------------------------
+bin_dir = '{{ (bin_dir | default("/usr/lib/postgresql/17/bin")) }}'
+
+# ------------------------------------------------------------------------------
+# [host] Host name or IP address of the PostgreSQL server to connect to.
+# If connecting to a local Unix socket, this may be omitted or set to localhost
+# depending on the backend driver, but pg_catcheck typically expects a TCP host
+# or a socket path in a dedicated field (not present in this schema).
+# ------------------------------------------------------------------------------
+host = '{{ (host | default("localhost")) }}'
+
+# ------------------------------------------------------------------------------
+# [port] Port number the PostgreSQL server listens on.
+# Default is 5432. Used in conjunction with `host` for TCP connections.
+# ------------------------------------------------------------------------------
+port = {{ port | default(5432) }}
+
+# ------------------------------------------------------------------------------
+# [database] Database to connect to for checking system catalogs.
+# Typically 'postgres' or 'template1'. The superuser or a role with
+# pg_catalog read access is required.
+# ------------------------------------------------------------------------------
+database = '{{ (database | default("postgres")) }}'
+
+# ------------------------------------------------------------------------------
+# [username] Database user name used for authentication.
+# Defaults to 'postgres'. Ensure this user is allowed to connect via
+# `auth_method`.
+# ------------------------------------------------------------------------------
+username = '{{ (username | default("postgres")) }}'
+
+# ------------------------------------------------------------------------------
+# [auth_method] Authentication method to use: trust, password, scram-sha-256, etc.
+# Note: This setting informs the client library how to behave. Ensure
+# `pg_hba.conf` on the server actually allows this method for the user/host.
+# ------------------------------------------------------------------------------
+auth_method = '{{ (auth_method | default("trust")) }}'
+
+# ------------------------------------------------------------------------------
+# [password_file] Path to .pgpass file for non-interactive password auth.
+# Leave empty to use default locations (e.g., ~/.pgpass) or prompts.
+# Format: hostname:port:database:username:password
+# ------------------------------------------------------------------------------
+password_file = '{{ (password_file | default("")) }}'
+
+# ------------------------------------------------------------------------------
+# [connect_timeout] Maximum seconds to wait for a connection before timing out.
+# Prevents hanging if the database is unreachable.
+# ------------------------------------------------------------------------------
+connect_timeout = {{ connect_timeout | default(5) }}
+
+# ------------------------------------------------------------------------------
+# [check_names] List of specific system catalog checks to run.
+# Omit or leave empty to run all standard checks.
+# Valid values include: catalog, index, sequence, toast, trigger, view,
+# dependency, inheritance, partition.
+# ------------------------------------------------------------------------------
+{% if check_names is defined and check_names is iterable and (check_names | length) > 0 %}
+# Specific checks enabled: {{ check_names | join(", ") }}
+check_names = '{{ check_names | join(", ") }}'
+{% else %}
+# No specific checks restricted; running all standard checks.
+check_names = ''
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [verbose] If true, output detailed diagnostic information (e.g., queries used).
+# Useful for debugging failed checks or understanding output.
+# ------------------------------------------------------------------------------
+verbose = {{ verbose | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# [dry_run] If true, simulate the check process without reporting results.
+# Primarily for debugging configuration and connectivity without side effects.
+# ------------------------------------------------------------------------------
+{% if dry_run is defined and dry_run %}
+# Dry run enabled: checks will be simulated, not reported.
+dry_run = true
+{% else %}
+dry_run = false
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [skip_types] List of object types (e.g., 'toast', 'partition') to skip during
+# checks. Helps focus on critical structures or ignore known issues in
+# specific object categories.
+# ------------------------------------------------------------------------------
+{% if skip_types is defined and skip_types is iterable and (skip_types | length) > 0 %}
+skip_types = '{{ skip_types | join(", ") }}'
+{% else %}
+skip_types = ''
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [max_errors] Stop reporting errors after this many are found.
+# Prevents log flooding on systems with many catalog inconsistencies.
+# ------------------------------------------------------------------------------
+max_errors = {{ max_errors | default(100) }}
+
+# ------------------------------------------------------------------------------
+# [tolerant] If true, always exit with code 0 regardless of issues found.
+# Useful for CI pipelines where you want to collect data without failing
+# the build step immediately.
+# ------------------------------------------------------------------------------
+tolerant = {{ tolerant | default(False) | lower }}
+
+# ------------------------------------------------------------------------------
+# [check_options] Advanced per-check tuning options (if supported by your
+# pg_catcheck version). Pass as comma-separated key=value pairs.
+# ------------------------------------------------------------------------------
+{% if check_options is defined and check_options is iterable and (check_options | length) > 0 %}
+check_options = '{{ check_options | join(", ") }}'
+{% else %}
+check_options = ''
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# [legacy_mode] If true, relax validation rules to support older (pre-v12)
+# catalog structures. Enable only if running against PostgreSQL versions
+# prior to 12.
+# ------------------------------------------------------------------------------
+{% if legacy_mode is defined and legacy_mode %}
+legacy_mode = true
+{% else %}
+legacy_mode = false
+{% endif %}

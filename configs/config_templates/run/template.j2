@@ -1,0 +1,32 @@
+#!/bin/sh
+# Run script for dqcache service — launches the dqcache binary with specified options
+
+# Set environment variables from configuration
+export DQCACHE_RUNDIR="{{ run_dir }}"
+export DQCACHE_BIND="{{ bind }}"
+export DQCACHE_PORT="{{ port }}"
+export DQCACHE_USER="{{ user }}"
+export DQCACHE_LOG_LEVEL="{{ log_level }}"
+export DQCACHE_CACHE_MAX_SIZE="{{ cache_max_size }}"
+export DQCACHE_WORKER_COUNT="{{ worker_count }}"
+
+# Ensure runtime directory exists
+mkdir -p "${DQCACHE_RUNDIR}"
+
+# Execute dqcache with configured options
+daemon -u "${DQCACHE_USER}" -- \
+  dqcache \
+  -bind "${DQCACHE_BIND}" \
+  -port "${DQCACHE_PORT}" \
+  -log-level "${DQCACHE_LOG_LEVEL}" \
+  -cache-max-size "${DQCACHE_CACHE_MAX_SIZE}" \
+  -workers "${DQCACHE_WORKER_COUNT}" \
+  -run-dir "${DQCACHE_RUNDIR}" \
+{% for flag, value in extra_flags.items() %}
+  {% if value is boolean %}
+  {% if value %}-{{ flag }}{% endif %}
+  {% else %}
+  -{{ flag }} "{{ value }}" \
+  {% endif %}
+{% endfor %}
+  -config "{{ config_path }}"

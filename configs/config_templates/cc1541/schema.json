@@ -1,0 +1,209 @@
+{
+  "diskname": {
+    "type": "string",
+    "default": "cc1541",
+    "description": "Disk name (default: 'cc1541')"
+  },
+  "diskid": {
+    "type": "string",
+    "default": "00 2a",
+    "description": "Disk ID in hex (default: '00 2a')"
+  },
+  "speed_dos": {
+    "type": "bool",
+    "default": false,
+    "description": "Use SPEED DOS BAM on tracks 35-40"
+  },
+  "dolphin_dos": {
+    "type": "bool",
+    "default": false,
+    "description": "Use DOLPHIN DOS BAM on tracks 35-40"
+  },
+  "shadow_dir": {
+    "type": "number",
+    "default": 0,
+    "description": "Track number for shadow directory (0 = disabled)"
+  },
+  "g64_output": {
+    "type": "string",
+    "default": "",
+    "description": "Filename for G64 output (empty = none)"
+  },
+  "hidden_bam": {
+    "type": "string",
+    "default": "",
+    "description": "Hidden BAM message (up to 85 chars for D64, 20 for SPEED DOS)"
+  },
+  "no_modification_without_valid_cbm": {
+    "type": "bool",
+    "default": false,
+    "description": "Only modify image if it is valid CBM DOS format"
+  },
+  "hash_max_length": {
+    "type": "number",
+    "default": 16,
+    "description": "Hash computation maximum filename length, this must match loader option FILENAME_MAXLENGTH in Krill\u2019s loader. Default is 16."
+  },
+  "ignore_hash_collisions": {
+    "type": "bool",
+    "default": false,
+    "description": "Ignore filename hash collisions, without this switch a collision results in an error."
+  },
+  "sector_interleave": {
+    "type": "number",
+    "default": 10,
+    "description": "Default sector interleave (D64/D71 only, not for D81)"
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output"
+  },
+  "quiet": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable quiet output"
+  },
+  "unicode_mapping": {
+    "type": "number",
+    "default": 0,
+    "description": "PETSCII-to-Unicode mapping (0=ASCII, 1=upper, 2=lower)"
+  },
+  "restore_level": {
+    "type": "number",
+    "default": -1,
+    "description": "Restore level for deleted/formatted files (-1 = disabled, 0-5 = levels)"
+  },
+  "files": {
+    "type": "list",
+    "default": [],
+    "description": "List of file entries to write to disk image; each entry corresponds to a group of -w/-f/-T/-P/etc. options in cc1541 order of precedence. Required for practical use."
+  },
+  "files.items": {
+    "type": "object",
+    "default": null,
+    "description": "Single file entry configuration."
+  },
+  "files.items.items": {
+    "type": "object",
+    "default": null,
+    "description": "Flattened schema for file entry fields."
+  },
+  "files.items.items.localname": {
+    "type": "string",
+    "default": "",
+    "description": "Local filesystem path to write (for -w/-W)"
+  },
+  "files.items.items.filename": {
+    "type": "string",
+    "default": "",
+    "description": "Filename on disk image; prefix with '#' for PETSCII codes (e.g. '#a0,8,1')"
+  },
+  "files.items.items.filetype": {
+    "type": "string",
+    "default": "PRG",
+    "description": "Filetype: PRG, SEQ, USR, REL, DEL, or decimal number 0-255",
+    "enum": [
+      "PRG",
+      "SEQ",
+      "USR",
+      "REL",
+      "DEL"
+    ]
+  },
+  "files.items.items.write_protect": {
+    "type": "bool",
+    "default": false,
+    "description": "Set write protect flag for this file"
+  },
+  "files.items.items.open_flag": {
+    "type": "bool",
+    "default": false,
+    "description": "Set open flag for this file"
+  },
+  "files.items.items.numblocks": {
+    "type": "number",
+    "default": 0,
+    "description": "File size in blocks (not for Transwarp files)"
+  },
+  "files.items.items.loop_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Add directory entry only (track and sector = 0)"
+  },
+  "files.items.items.force_new": {
+    "type": "bool",
+    "default": false,
+    "description": "Force creation of new directory entry (even if exists)"
+  },
+  "files.items.items.no_overwrite": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not overwrite if file with same name exists"
+  },
+  "files.items.items.cluster_optimized": {
+    "type": "bool",
+    "default": false,
+    "description": "Cluster-optimize (D71 only)"
+  },
+  "files.items.items.sector_interleave": {
+    "type": "number",
+    "default": 0,
+    "description": "File-specific sector interleave; defaults to global -S if 0"
+  },
+  "files.items.items.empty_track_start": {
+    "type": "bool",
+    "default": false,
+    "description": "Start next file on an empty track"
+  },
+  "files.items.items.single_track": {
+    "type": "bool",
+    "default": false,
+    "description": "Try to fit file on a single track"
+  },
+  "files.items.items.min_track": {
+    "type": "number",
+    "default": 0,
+    "description": "Restrict blocks to track or higher"
+  },
+  "files.items.items.start_sector": {
+    "type": "number",
+    "default": 0,
+    "description": "Set beginning sector (not for D81/Transwarp)"
+  },
+  "files.items.items.first_sector_new_track": {
+    "type": "number",
+    "default": 0,
+    "description": "First sector on new track for next file; negative = aligned + interleave - |value|"
+  },
+  "files.items.items.use_dir_track": {
+    "type": "bool",
+    "default": false,
+    "description": "Use directory track to store files"
+  },
+  "files.items.items.free_dir_blocks": {
+    "type": "number",
+    "default": 2,
+    "description": "Directory blocks to leave free when using -t"
+  },
+  "files.items.items.no_split": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not split files over directory track hole"
+  },
+  "files.items.items.transwarp_format": {
+    "type": "bool",
+    "default": false,
+    "description": "Write in Transwarp format (implies -W localname)"
+  },
+  "files.items.items.transwarp_allocation": {
+    "type": "number",
+    "default": 1,
+    "description": "Transwarp allocation strategy: 0 = command order, 1 = save space"
+  },
+  "files.items.items.transwarp_key": {
+    "type": "string",
+    "default": "",
+    "description": "Encryption key for Transwarp (up to 29 chars)"
+  }
+}

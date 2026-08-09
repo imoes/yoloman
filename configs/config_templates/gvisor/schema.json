@@ -1,0 +1,170 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "error",
+    "description": "Verbosity of logs emitted by the sandbox. Options: none, info, error, debug."
+  },
+  "crash_reporter": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, crash dumps are sent to Google (requires internet access)."
+  },
+  "root_dir": {
+    "type": "string",
+    "default": "/run/gvisor",
+    "description": "Base directory for sandbox state (logs, sockets, metadata). Must be writable by containerd."
+  },
+  "grpc_threads": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of gRPC handler threads. 0 = automatically set to number of CPUs."
+  },
+  "nested": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable running Docker or other containerized workloads inside the sandboxed containers (e.g., DinD)."
+  },
+  "pty": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PTY (pseudo-terminal) support for interactive shells and terminal-based apps."
+  },
+  "debug_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable advanced debugging features (e.g., netstack logging, verbose trace). Use only for diagnostics."
+  },
+  "network_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable network namespace virtualization. If false, the sandbox shares the host network namespace."
+  },
+  "allowed_interfaces": {
+    "type": "list",
+    "default": [],
+    "description": "Whitelist of network interfaces allowed in the sandbox. Empty list means all interfaces allowed.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "allowed_protocols": {
+    "type": "list",
+    "default": [
+      "tcp",
+      "udp",
+      "icmp"
+    ],
+    "description": "Whitelist of IP protocols allowed for sandbox communication.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "mounts": {
+    "type": "list",
+    "default": [],
+    "description": "Static host-to-sandbox bind mounts. Each entry defines source, destination, and options.",
+    "items": {
+      "src": {
+        "type": "string",
+        "description": "Host path to mount."
+      },
+      "dst": {
+        "type": "string",
+        "description": "Mount point inside sandbox (absolute path)."
+      },
+      "options": {
+        "type": "list",
+        "description": "Mount options (e.g., ['ro', 'bind']).",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "log_to_journald": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, sandbox logs are sent to systemd-journald (or syslog if journald unavailable)."
+  },
+  "kernel_args": {
+    "type": "list",
+    "default": [],
+    "description": "Kernel command-line arguments passed to the gVisor virtual kernel (e.g., for debugging).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "seccomp_filters": {
+    "type": "bool",
+    "default": true,
+    "description": "If false, disable seccomp filters (not recommended). Enable only for compatibility with legacy workloads."
+  },
+  "seccomp_profile": {
+    "type": "string",
+    "default": "",
+    "description": "Path to custom seccomp profile JSON file. Empty string uses default gVisor profile."
+  },
+  "fd_passing_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow external file descriptors to be passed into the sandbox. Highly discouraged in production."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 0,
+    "description": "Per-sandbox limit on open file descriptors. 0 means use system limit (ulimit)."
+  },
+  "cpu_pinning_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Pin gVisor threads to specific host CPU cores to reduce latency jitter."
+  },
+  "pinned_cores": {
+    "type": "list",
+    "default": [],
+    "description": "List of host CPU core indices to pin sandbox threads to (e.g., [0, 1]). Requires cpu_pinning_enabled=true.",
+    "items": {
+      "type": "number"
+    }
+  },
+  "memory_limit_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable memory cgroup enforcement for the sandbox."
+  },
+  "memory_limit_bytes": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum memory usage (in bytes) per sandbox. 0 = no limit."
+  },
+  "cpu_quota_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable CPU quota (time-based limit) via cgroups."
+  },
+  "cpu_quota_us": {
+    "type": "number",
+    "default": 0,
+    "description": "CPU time (in microseconds) allowed per period."
+  },
+  "cpu_period_us": {
+    "type": "number",
+    "default": 100000,
+    "description": "CPU period (in microseconds) \u2014 standard value is 100ms (100000)."
+  },
+  "swap_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow sandbox to use swap space if memory limit is set and exceeded."
+  },
+  "overlay_dir": {
+    "type": "string",
+    "default": "/var/lib/gvisor/overlay",
+    "description": "Directory for overlay filesystem layers (ephemeral writeable storage)."
+  },
+  "overlay_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable overlay filesystem for container rootfs \u2014 allows containers to write without modifying base image."
+  }
+}

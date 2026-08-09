@@ -1,0 +1,120 @@
+[DEFAULT]
+# The logical name of this Heat API service instance.
+name = {{ name | default('heat') }}
+
+# Logging configuration
+# Verbosity level of log output. Choose from DEBUG, INFO, WARNING, ERROR, CRITICAL, or TRACE.
+log_level = {{ log_level | default('INFO') }}
+# Directory where heat-api log files are written (used only if use_syslog is false).
+log_dir = {{ log_dir | default('/var/log/heat') }}
+# Filename for the primary heat-api log file (if use_syslog is false).
+log_file = {{ log_file | default('heat-api.log') }}
+# Enable logging to syslog instead of local files.
+use_syslog = {{ use_syslog | default(False) | lower }}
+# Syslog facility to use when logging to syslog.
+syslog_log_facility = {{ syslog_log_facility | default('LOG_USER') }}
+
+# Bind address and port for the heat-api service
+# The IP address the Heat API server will bind to. Use 0.0.0.0 for all interfaces or a specific IP for security.
+bind_host = {{ bind_host | default('0.0.0.0') }}
+# The TCP port on which the Heat API server listens for requests.
+bind_port = {{ bind_port | default(8004) }}
+
+# Path to the PasteDeploy configuration file for the WSGI pipeline.
+paste_config = {{ paste_config | default('/etc/heat/api-paste.ini') }}
+
+[database]
+# Database connection string (SQLAlchemy URL) — e.g., 'mysql+pymysql://heat:pass@db.example.com/heat'.
+connection = {{ connection | default('sqlite:///var/lib/heat/heat.sqlite') }}
+
+[keystone_authtoken]
+# Protocol (http or https) to use when connecting to Keystone for authentication.
+auth_protocol = {{ auth_protocol | default('https') }}
+# Hostname or IP address of the Keystone admin service.
+auth_host = {{ auth_host | default('keystone.example.com') }}
+# Port of the Keystone admin service (used for token validation, policy enforcement).
+auth_port = {{ auth_port | default(35357) }}
+# Public Keystone endpoint for user authentication (v3 endpoint recommended).
+auth_uri = {{ auth_uri | default('https://keystone.example.com:5000/v3') }}
+# Domain name containing the service project.
+project_domain_name = {{ project_domain_name | default('Default') }}
+# Domain name containing the Heat service user.
+user_domain_name = {{ user_domain_name | default('Default') }}
+# Project (tenant) name where the Heat service account resides.
+project_name = {{ project_name | default('service') }}
+# Username of the service account Heat uses to authenticate with Keystone.
+username = {{ username | default('heat') }}
+# Password for the Heat service user in Keystone.
+password = {{ password | default('heat_password') }}
+# Keystone endpoint interface type: internal (recommended), public, or admin.
+interface = {{ interface | default('internal') }}
+# Path to CA certificate bundle for SSL/TLS verification of Keystone (leave empty to skip verification — insecure).
+cafile = {{ cafile | default('/etc/ssl/certs/ca-certificates.crt') }}
+# Disable SSL/TLS certificate verification (only for dev/testing — never in production).
+insecure = {{ insecure | default(False) | lower }}
+
+[trustee]
+# Authentication type used for trustee operations (e.g., password).
+auth_type = {{ auth_type | default('password') }}
+
+[clients_keystone]
+# Endpoint type for internal client calls to Keystone (internal, public, or admin).
+endpoint_type = {{ endpoint_type | default('internal') }}
+
+[ec2authtoken]
+# EC2-compatible auth endpoint for legacy EC2-style requests (optional).
+auth_uri_ec2 = {{ auth_uri_ec2 | default('https://keystone.example.com:5000/v2.0/ec2tokens') }}
+
+[oslo_messaging_notifications]
+# Notification driver(s). Use 'messagingv2' for oslo.messaging (default).
+driver = {{ driver | default('messagingv2') }}
+# RabbitMQ topic for sending notifications.
+topic = {{ topic | default('notifications') }}
+
+[oslo_messaging_rabbit]
+# Hostname or IP of the RabbitMQ server used for message transport.
+rabbit_host = {{ rabbit_host | default('rabbitmq.example.com') }}
+# Port of the RabbitMQ server (standard AMQP port).
+rabbit_port = {{ rabbit_port | default(5672) }}
+# Username for authenticating with RabbitMQ.
+rabbit_userid = {{ rabbit_userid | default('openstack') }}
+# Password for the RabbitMQ user.
+rabbit_password = {{ rabbit_password | default('rabbit_password') }}
+# RabbitMQ virtual host to use for Heat messages.
+rabbit_virtual_host = {{ rabbit_virtual_host | default('/') }}
+# Enable SSL/TLS for RabbitMQ connections (recommended for production).
+rabbit_use_ssl = {{ rabbit_use_ssl | default(False) | lower }}
+# Seconds of heartbeat silence before RabbitMQ connection is considered dead.
+heartbeat_timeout_threshold = {{ heartbeat_timeout_threshold | default(60) }}
+# Rate (in seconds) at which heat-api sends heartbeats to RabbitMQ.
+heartbeat_rate = {{ heartbeat_rate | default(2) }}
+
+[oslo_policy]
+# Path to the JSON policy rules file for RBAC enforcement.
+policy_file = {{ policy_file | default('/etc/heat/policy.json') }}
+# Fallback rule name used when a rule is not found.
+policy_default_rule = {{ policy_default_rule | default('default') }}
+
+[oslo_concurrency]
+# Directory for file-based locking to ensure thread/process safety.
+lock_path = {{ lock_path | default('/var/lib/heat/tmp') }}
+
+[oslo_versionedobjects]
+# RPC transport URL for Oslo RPC (if using separate RPC transport)
+# Note: This section may be empty if not using custom RPC configuration
+{% if rpc_transport is defined %}
+rpc_transport = {{ rpc_transport | default('rabbit') }}
+{% endif %}
+{% if rpc_backend is defined %}
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+{% endif %}
+
+[cache]
+# Cache backend implementation (e.g., dogpile.cache.memory, dogpile.cache.redis).
+backend = {{ backend | default('dogpile.cache.memory') }}
+# Cache backend URL — required for non-memory backends (e.g., Redis URL).
+url = {{ url | default('') }}
+# Default TTL (in seconds) for cache entries.
+expiration_time = {{ expiration_time | default(600) }}
+# Enable response caching (e.g., for API metadata).
+enabled = {{ enabled | default(False) | lower }}

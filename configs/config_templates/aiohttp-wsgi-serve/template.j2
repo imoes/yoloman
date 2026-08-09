@@ -1,0 +1,84 @@
+# aiohttp-wsgi-serve: Command-line arguments for the WSGI server.
+# This template generates the invocation arguments based on the role's variable schema.
+# Self-documenting: every option is preceded by its schema description.
+
+{# hosts: List of host addresses to bind. If empty, defaults to '0.0.0.0' and '::'. #}
+{% set hosts_list = hosts | default([]) %}
+{% if hosts_list | length > 0 %}
+{% for h in hosts_list %}
+--host {{ h }}
+{% endfor %}
+{% else %}
+--host 0.0.0.0
+--host ::
+{% endif %}
+
+{# port: Port to bind. Cannot be used with unix_socket. #}
+{% set p = port | default(8080) %}
+{% set unix_sock = unix_socket | default('') %}
+{% if unix_sock | length > 0 %}
+{# unix_socket takes precedence; omit port if unix_socket is set #}
+{% else %}
+--port {{ p }}
+{% endif %}
+
+{# unix_socket: Path to a Unix socket to bind. Mutually exclusive with host/port. #}
+{% if unix_sock | length > 0 %}
+--unix-socket {{ unix_sock }}
+{% endif %}
+
+{# unix_socket_perms: Filesystem permissions (octal) for the Unix socket. Defaults to 384 (0o600). #}
+{% if unix_sock | length > 0 %}
+--unix-socket-perms {{ unix_socket_perms | default(384) }}
+{% endif %}
+
+{# backlog: Socket connection backlog. Maximum number of queued connections. #}
+--backlog {{ backlog | default(1024) }}
+
+{# static_routes: List of static route mappings (path → directory). Each entry must have 'path' (starts with '/', no trailing '/') and 'directory'. #}
+{% for route in static_routes | default([]) %}
+--static {{ route.path }}={{ route.directory }}
+{% endfor %}
+
+{# static_cors: CORS header value for static files. '*' for all origins, or a specific origin string. Empty means no CORS header. #}
+{% set cors_val = static_cors | default('') %}
+{% if cors_val | length > 0 %}
+--static-cors {{ cors_val }}
+{% endif %}
+
+{# script_name: URL prefix for the WSGI app. Must start with '/', no trailing '/' if non-empty. #}
+{% set sn = script_name | default('') %}
+{% if sn | length > 0 %}
+--script-name {{ sn }}
+{% endif %}
+
+{# url_scheme: URL scheme hint ('http' or 'https'). Empty means auto-detected. #}
+{% set us = url_scheme | default('') %}
+{% if us | length > 0 %}
+--url-scheme {{ us }}
+{% endif %}
+
+{# threads: Number of threads for WSGI app processing. #}
+--threads {{ threads | default(4) }}
+
+{# inbuf_overflow: Bytes threshold before spilling request body to temp file. Defaults to 524288 (512 KiB). #}
+--inbuf-overflow {{ inbuf_overflow | default(524288) }}
+
+{# max_request_body_size: Maximum allowed request body size in bytes. Larger requests get HTTP 413. Defaults to 1 GiB. #}
+--max-request-body-size {{ max_request_body_size | default(1073741824) }}
+
+{# shutdown_timeout: Timeout (seconds) for closing client connections on shutdown. #}
+--shutdown-timeout {{ shutdown_timeout | default(60.0) }}
+
+{# verbose: Number of -v flags (increase verbosity). #}
+{% if verbose | default(0) > 0 %}
+{% for _ in range(0, verbose | default(0)) %}-v{% endfor %}
+{% endif %}
+
+{# quiet: Number of -q flags (decrease verbosity). #}
+{% if quiet | default(0) > 0 %}
+{% for _ in range(0, quiet | default(0)) %}-q{% endfor %}
+{% endif %}
+
+{# app_module: WSGI module:application (e.g., 'wsgiapp:main'). Required. #}
+{{ app_module | default('') }}

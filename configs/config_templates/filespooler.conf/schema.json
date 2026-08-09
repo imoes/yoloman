@@ -1,0 +1,182 @@
+{
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/spool/filespooler",
+    "description": "Base directory where files are staged for processing."
+  },
+  "max_file_age": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum time (in seconds) to retain a queued file before automatic deletion."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to process queued files."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging for debugging and monitoring."
+  },
+  "max_file_size": {
+    "type": "number",
+    "default": 104857600,
+    "description": "Maximum size (in bytes) allowed for a single file in the spool."
+  },
+  "max_file_count": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of files allowed in the spool directory before rejection."
+  },
+  "listener": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "tls_enabled": false,
+      "cert_file": "/etc/filespooler/tls/server.crt",
+      "key_file": "/etc/filespooler/tls/server.key"
+    },
+    "description": "Network listener settings for receiving incoming file uploads.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind the listener to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port to listen on."
+      },
+      "tls_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable TLS encryption for incoming connections."
+      },
+      "cert_file": {
+        "type": "string",
+        "default": "/etc/filespooler/tls/server.crt",
+        "description": "Path to the TLS certificate file (used only if TLS is enabled)."
+      },
+      "key_file": {
+        "type": "string",
+        "default": "/etc/filespooler/tls/server.key",
+        "description": "Path to the TLS private key file."
+      }
+    }
+  },
+  "backends": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "description": "Primary local file storage backend",
+        "enabled": true,
+        "type": "local",
+        "local": {
+          "storage_dir": "/var/spool/filespooler/storage"
+        }
+      }
+    ],
+    "description": "List of file destination backends. Each backend handles final storage or forwarding of processed files.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique identifier for this backend (used in log messages)."
+      },
+      "description": {
+        "type": "string",
+        "default": "Default backend",
+        "description": "Human-readable description shown in admin UI."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this backend is active."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "local",
+          "s3",
+          "ftp"
+        ],
+        "default": "local",
+        "description": "Backend technology type."
+      },
+      "local": {
+        "type": "object",
+        "items": {
+          "storage_dir": {
+            "type": "string",
+            "default": "/var/spool/filespooler/storage",
+            "description": "Directory to store files locally."
+          }
+        }
+      },
+      "s3": {
+        "type": "object",
+        "items": {
+          "region": {
+            "type": "string",
+            "default": "us-east-1",
+            "description": "AWS region (or S3-compatible region)."
+          },
+          "endpoint": {
+            "type": "string",
+            "default": "s3.amazonaws.com",
+            "description": "S3 endpoint URL (for AWS or custom S3-compatible service)."
+          },
+          "bucket": {
+            "type": "string",
+            "default": "filespooler-backup",
+            "description": "S3 bucket name."
+          },
+          "access_key": {
+            "type": "string",
+            "default": "",
+            "description": "AWS access key ID (required for authentication)."
+          },
+          "secret_key": {
+            "type": "string",
+            "default": "",
+            "description": "AWS secret access key (required for authentication)."
+          }
+        }
+      },
+      "ftp": {
+        "type": "object",
+        "items": {
+          "host": {
+            "type": "string",
+            "default": "ftp.example.com",
+            "description": "FTP server hostname or IP."
+          },
+          "port": {
+            "type": "number",
+            "default": 21,
+            "description": "FTP server port (typically 21 for FTP, 990 for FTPS)."
+          },
+          "username": {
+            "type": "string",
+            "default": "filespooler",
+            "description": "FTP username."
+          },
+          "use_tls": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable FTP over TLS (FTPS)."
+          },
+          "password": {
+            "type": "string",
+            "default": "",
+            "description": "FTP password (stored in config; in production, consider using env vars or secret stores)."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+# Redis Sentinel configuration file
+# Sentinel instance-specific settings
+port {{ sentinel_port }}
+bind {{ sentinel_bind }}
+# Sentinel working directory (must be writable by redis user)
+dir {{ sentinel_dir }}
+# Unique ID and name for this Sentinel instance
+sentinel myid {{ sentinel_myid }}
+sentinel monitor {{ master_name }} {{ master_ip }} {{ master_port }} {{ quorum }}
+{% if sentinel_down_after_milliseconds is defined %}
+# Time (ms) to consider the master down if no reply
+sentinel down-after-milliseconds {{ master_name }} {{ sentinel_down_after_milliseconds }}
+{% endif %}
+{% if sentinel_parallel_syncs is defined %}
+# Number of replicas that can be reconfigured in parallel after a failover
+sentinel parallel-syncs {{ master_name }} {{ sentinel_parallel_syncs }}
+{% endif %}
+{% if sentinel_failover_timeout is defined %}
+# Failover timeout (ms)
+sentinel failover-timeout {{ master_name }} {{ sentinel_failover_timeout }}
+{% endif %}
+{% if sentinel_notification_script is defined %}
+# Optional: script called on state changes (e.g., +sdown, +odown, +switchmaster)
+sentinel notification-script {{ master_name }} {{ sentinel_notification_script }}
+{% endif %}
+{% if sentinel_client_reconfig_script is defined %}
+# Optional: script called after failover to reconfigure clients
+sentinel client-reconfig-script {{ master_name }} {{ sentinel_client_reconfig_script }}
+{% endif %}
+{% for replica in sentinel_replicas %}
+# Replica configuration override (optional; rarely needed manually)
+{% if replica.port is defined %}sentinel known-replica {{ master_name }} {{ replica.ip }} {{ replica.port }}{% endif %}
+{% if replica.name is defined %}sentinel known-replica {{ master_name }} {{ replica.ip }} {{ replica.port }} {{ replica.name }}{% endif %}
+{% endfor %}
+{% for sentinel_node in sentinel_known_sentinels %}
+# Known Sentinel node
+{% if sentinel_node.port is defined %}sentinel known-sentinel {{ master_name }} {{ sentinel_node.ip }} {{ sentinel_node.port }}{% endif %}
+{% if sentinel_node.current_epoch is defined %}sentinel known-sentinel {{ master_name }} {{ sentinel_node.ip }} {{ sentinel_node.port }} {{ sentinel_node.current_epoch }}{% endif %}
+{% endfor %}
+# Logging
+loglevel {{ sentinel_loglevel }}
+logfile {{ sentinel_logfile }}

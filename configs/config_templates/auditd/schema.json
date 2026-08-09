@@ -1,0 +1,71 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/audit/audit.log",
+    "description": "Full path to the primary audit log file."
+  },
+  "log_group": {
+    "type": "string",
+    "default": "adm",
+    "description": "Name of the log file group (affects permissions)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "ENRICHED",
+    "description": "Format of audit logs \u2014 'ENRICHED', 'raw', or 'inc'. Note: real default is 'ENRICHED' (not 'raw' as in generic schema).',\n      ",
+    "enum": [
+      "ENRICHED",
+      "raw",
+      "inc"
+    ]
+  },
+  "freq": {
+    "type": "number",
+    "default": 50,
+    "description": "Number of records to buffer before flushing (used only in 'incremental' mode)."
+  },
+  "max_log_file": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of audit log files to retain after rotation."
+  },
+  "priority_boost": {
+    "type": "number",
+    "default": 4,
+    "description": "Priority to boost syslog messages (0 = no boost, higher = higher priority)."
+  },
+  "space_left": {
+    "type": "number",
+    "default": 75,
+    "description": "Disk space (in MB) remaining before space_left_action is triggered."
+  },
+  "space_left_action": {
+    "type": "string",
+    "default": "SYSLOG",
+    "description": "Action to take when free disk space drops below space_left \u2014 'SYSLOG', 'email', 'suspend', 'single', 'halt', 'none'.",
+    "enum": [
+      "SYSLOG",
+      "SUSPEND"
+    ]
+  },
+  "local_logging": {
+    "type": "bool",
+    "default": true,
+    "description": "Keep local copies of logs even when remote logging is enabled. (Implied by write_logs = yes in this default config.)"
+  },
+  "remote_log": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable sending audit logs to a remote server via auditd protocol. (Implied by transport = TCP but remote disabled in default.)"
+  },
+  "remote_address": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP of the remote audit server (required if remote_log = true)."
+  },
+  "remote_port": {
+    "type": "number",
+    "default": 60,
+    "description": "Port for remote audit logging (default 60)."
+  }
+}

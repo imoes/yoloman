@@ -1,0 +1,60 @@
+# ============================================================================
+# bcrelay Configuration Template
+# ============================================================================
+# This file configures the bcrelay daemon, a utility for relaying UDP broadcast
+# and multicast packets to specific destinations.
+# ============================================================================
+
+# UDP port to listen on for incoming broadcast/multicast packets.
+# bcrelay binds to this port to capture traffic.
+listen_port: {{ listen_port | default(49500) }}
+
+# Time-to-live (TTL) for relayed multicast packets (0–255).
+# Controls how many network hops the multicast packets can traverse.
+multicast_ttl: {{ multicast_ttl | default(64) }}
+
+# Whether to enable IPv6 support for listening and relaying.
+# If enabled, bcrelay will listen on IPv6 addresses.
+{% if enable_ipv6 | default(False) | bool %}enable_ipv6{% else %}# enable_ipv6{% endif %}
+
+# Maximum size in bytes of packets to accept and relay.
+# Larger packets are dropped to prevent buffer overflow or excessive resource usage.
+max_packet_size: {{ max_packet_size | default(65535) }}
+
+# Number of worker threads to process incoming packets (1–32).
+# Higher values may improve throughput on high-load systems.
+worker_threads: {{ worker_threads | default(2) }}
+
+# List of network interfaces to bind to.
+# Use 'any' to listen on all available interfaces.
+# Each interface listed here generates an 'interface:' directive.
+{% for iface in interfaces | default(['any']) %}interface: {{ iface }}
+{% endfor %}
+
+# List of relay destinations (IP addresses or hostnames).
+# Optional per-destination port can be specified.
+# Each destination generates a 'relay:' directive.
+{% for dest in destinations | default([]) %}relay: {{ dest.address }}{% if dest.port is defined %}:{{ dest.port }}{% endif %}
+{% endfor %}
+
+# Maximum packets per second to relay per source IP.
+# Set to 0 to disable rate limiting entirely.
+rate_limit_pps: {{ rate_limit_pps | default(1000) }}
+
+# Verbosity of logging output.
+# Common levels: debug, info, warn, error.
+log_level: {{ log_level | default('info') }}
+
+# Path to write the daemon's PID file.
+# Used for process management and monitoring.
+pidfile: {{ pidfile | default('/var/run/bcrelay/bcrelay.pid') }}
+
+# Whether to drop root privileges after opening the listening port.
+# Recommended for security; bcrelay binds as root, then switches user.
+{% if drop_privileges | default(True) | bool %}# Dropping privileges is enabled
+user: {{ privilege_user | default('nobody') }}
+group: {{ privilege_group | default('nogroup') }}
+{% else %}# Dropping privileges is disabled; running as root
+# user: {{ privilege_user | default('nobody') }}
+# group: {{ privilege_group | default('nogroup') }}
+{% endif %}

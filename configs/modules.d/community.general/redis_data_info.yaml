@@ -1,0 +1,46 @@
+name: redis_data_info
+fqcn: community.general.redis_data_info
+collection: community.general
+short_description: Get value of key in Redis database
+description: Get value of keys in Redis database.
+options:
+  ca_certs:
+    type: str
+    description: Path to root certificates file. If not set and O(tls) is set to V(true), certifi ca-certificates
+      will be used.
+  key:
+    type: str
+    required: true
+    description: Database key.
+  login_host:
+    type: str
+    default: localhost
+    description: Specify the target host running the database.
+  login_password:
+    type: str
+    description: Specify the password to authenticate with. Usually not used when target is localhost.
+  login_port:
+    type: int
+    default: 6379
+    description: Specify the port to connect to.
+  login_user:
+    type: str
+    description: Specify the user to authenticate with. Requires L(redis,https://pypi.org/project/redis)
+      >= 3.4.0.
+  tls:
+    type: bool
+    default: true
+    description: Specify whether or not to use TLS for the connection.
+  validate_certs:
+    type: bool
+    default: true
+    description: Specify whether or not to validate TLS certificates. This should only be turned off for
+      personally controlled sites or with C(localhost) as target.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Get key foo=bar from loalhost with no username\n  community.general.redis_data_info:\n\
+  \    login_host: localhost\n    login_password: supersecret\n    key: foo\n\n- name: Get key foo=bar\
+  \ on redishost with custom ca-cert file\n  community.general.redis_data_info:\n    login_host: redishost\n\
+  \    login_password: supersecret\n    login_user: somuser\n    validate_certs: true\n    ssl_ca_certs:\
+  \ /path/to/ca/certs\n    key: foo\n"

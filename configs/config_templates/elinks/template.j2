@@ -1,0 +1,83 @@
+{# ELinks configuration template - canonical, production-sane #}
+# System-wide configuration file (typically /etc/elinks/elinks.conf)
+# Loaded before per-user config (~/.config/elinks/elinks.conf)
+
+# Always load config also for slave instances (slower but robust)
+# set always_load_config = {{ always_load_config | default(False) | bool | int }}
+set always_load_config = {{ always_load_config | default(False) | bool | int }}
+
+# Anonymous mode: restricts local file browsing, downloads, and config modification
+# set anonymous = {{ anonymous | default(False) | bool | int }}
+set anonymous = {{ anonymous | default(False) | bool | int }}
+
+# Automatically submit the first form on page load
+# set auto_submit = {{ auto_submit | default(False) | bool | int }}
+set auto_submit = {{ auto_submit | default(False) | bool | int }}
+
+# Use specific local IPv4 address for outgoing connections
+# set connection.bind_address = "{{ bind_address | default('') }}"
+set connection.bind_address = "{{ bind_address | default('') }}"
+
+# Use specific local IPv6 address for outgoing connections
+# set connection.bind_address_ipv6 = "{{ bind_address_ipv6 | default('') }}"
+set connection.bind_address_ipv6 = "{{ bind_address_ipv6 | default('') }}"
+
+# Use a specific local port for outgoing connections (0 = auto-assign)
+# set connection.local_port = {{ local_port | default(0) | int }}
+set connection.local_port = {{ local_port | default(0) | int }}
+
+# Restrict ELinks to local addresses only (no remote connections)
+# set connection.localhost = {{ localhost | default(False) | bool | int }}
+set connection.localhost = {{ localhost | default(False) | bool | int }}
+
+# Disable libevent backend
+# set event.libevent = {{ use_libevent | default(True) | bool | int }}
+set event.libevent = {{ use_libevent | default(True) | bool | int }}
+
+# Color mode (0=none, 1=monochrome, 2=color)
+# set document.colors.use_document_colors = {{ document_colors_use_document_colors | default(2) | int }}
+set document.colors.use_document_colors = {{ document_colors_use_document_colors | default(2) | int }}
+
+# Default MIME type for unknown documents
+# set mime.default_type = "{{ default_mime_type | default('text/html') }}"
+set mime.default_type = "{{ default_mime_type | default('text/html') }}"
+
+# Proxy settings
+{% for proxy in proxies | default([]) %}
+# set protocol.{{ proxy.type }}.proxy = "{{ proxy.url | default('') }}"
+set protocol.{{ proxy.type }}.proxy = "{{ proxy.url | default('') }}"
+{% endfor %}
+
+# No-proxy host patterns (comma-separated glob patterns)
+# set protocol.http.no_proxy = "{{ no_proxy | default('') }}"
+set protocol.http.no_proxy = "{{ no_proxy | default('') }}"
+
+# Cookie settings
+# set protocol.https.cookie.accept = {{ cookie_accept | default(True) | bool | int }}
+set protocol.https.cookie.accept = {{ cookie_accept | default(True) | bool | int }}
+
+# SSL/TLS settings
+# set protocol.https.ssl.check_cert = {{ ssl_check_cert | default(True) | bool | int }}
+set protocol.https.ssl.check_cert = {{ ssl_check_cert | default(True) | bool | int }}
+
+# Search engine configuration (list of engines)
+{% for engine in search_engines | default([]) %}
+# set ui.browser.search.{{ engine.name }}.url = "{{ engine.url | default('') }}"
+set ui.browser.search.{{ engine.name | default('default') }}.url = "{{ engine.url | default('') }}"
+{% endfor %}
+
+# Default search engine name
+# set ui.browser.search.default = "{{ default_search_engine | default('DuckDuckGo') }}"
+set ui.browser.search.default = "{{ default_search_engine | default('DuckDuckGo') }}"
+
+# Timeout in seconds for network operations
+# set connection.timeout = {{ connection_timeout | default(60) | int }}
+set connection.timeout = {{ connection_timeout | default(60) | int }}
+
+# Enable JavaScript execution (if compiled with QuickJS support)
+# set scripting.ecmascript.enable = {{ enable_ecmascript | default(True) | bool | int }}
+set scripting.ecmascript.enable = {{ enable_ecmascript | default(True) | bool | int }}
+
+# Verbose logging level (0=errors only, 1=warnings+errors, 2=all)
+# set connection.verbose = {{ verbose_level | default(1) | int }}
+set connection.verbose = {{ verbose_level | default(1) | int }}

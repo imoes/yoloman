@@ -1,0 +1,114 @@
+# ==============================================================================
+# Cyrus CalDAV/CardDAV Service Configuration
+# ==============================================================================
+# This file configures the Cyrus IMAP server's CalDAV and CardDAV components.
+# It manages HTTP serving, database storage, and SASL authentication integration.
+#
+# NOTE: Dotted schema keys (e.g., httpd.port) are accessed via parent object
+# defaults to prevent rendering errors when the parent object is undefined:
+#   {{ (httpd | default({})).port | default(8080) }}
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Service Activation
+# -----------------------------------------------------------------------------
+# Defines the CalDAV daemon process and its network binding.
+SERVICE {
+    # cmd: Command to execute for the CalDAV daemon
+    # listen: Network interface and port for the daemon listener
+    # proto: Protocol to use (tcp)
+    caldav    cmd="caldavd -d" listen="127.0.0.1:8080" proto="tcp"
+}
+
+# -----------------------------------------------------------------------------
+# HTTP Server Configuration
+# -----------------------------------------------------------------------------
+# Configures the internal HTTP server for serving CalDAV/CardDAV WebDAV endpoints.
+HTTPD {
+    # listen: IP address and port to bind the HTTP listener to
+    # Uses (httpd | default({})).listen | default('0.0.0.0') to handle missing httpd dict
+    listen = "{{ ((httpd | default({})).listen | default('0.0.0.0')) }}:{{ ((httpd | default({})).port | default(8080)) }}"
+
+    # servername: Public hostname used in redirects and headers
+    servername = "{{ ((httpd | default({})).servername | default('cyrus.example.com')) }}"
+
+    # ssl: Enable SSL/TLS for the HTTP endpoint (true/false)
+    ssl = {{ ((httpd | default({})).ssl | default(False)) | lower }}
+
+    # cert_file: Path to SSL certificate file (PEM format)
+    cert_file = "{{ ((httpd | default({})).cert_file | default('/etc/ssl/certs/cyrus.crt')) }}"
+
+    # key_file: Path to SSL private key file (PEM format)
+    key_file = "{{ ((httpd | default({})).key_file | default('/etc/ssl/private/cyrus.key')) }}"
+
+    # ca_file: Path to CA bundle for client cert verification (leave empty to disable)
+    ca_file = "{{ ((httpd | default({})).ca_file | default('')) }}"
+
+    # Authentication backend: use cyrus-sasl with plaintext if SSL/TLS not enforced
+    sasl_mech_list = "PLAIN LOGIN"
+
+    # Directory for CalDAV/CardDAV data (per user calendars/addrbooks)
+    # dav_dbdir maps to dav.dbdir
+    dav_dbdir = "{{ ((dav | default({})).dbdir | default('/var/lib/cyrus/dav')) }}"
+
+    # dav_migratedb maps to dav.migrate
+    # Enable migration from legacy DAV storage (run once, then disable)
+    dav_migratedb = {{ ((dav | default({})).migrate | default(False)) | lower }}
+
+    # Timeouts
+    # timeout: Request timeout in seconds
+    timeout = {{ ((dav | default({})).timeout | default(300)) }}
+
+    # maxreqsize: Maximum HTTP request size (in bytes)
+    maxreqsize = {{ ((dav | default({})).maxreqsize | default(10485760)) }}
+
+    # Logging level: 0=error, 1=warn, 2=info, 3=debug
+    # debug: Debug verbosity
+    debug = {{ ((dav | default({})).debug | default(1)) }}
+}
+
+# -----------------------------------------------------------------------------
+# CalDAV/CardDAV Specific Behavior
+# -----------------------------------------------------------------------------
+DAV {
+    # enabled: Enable CalDAV/CardDAV services (true/false)
+    enabled = {{ ((dav | default({})).enabled | default(True)) | lower }}
+
+    # default_timezone: Default timezone for calendars when none specified
+    default_timezone = "{{ ((dav | default({})).default_timezone | default('UTC')) }}"
+
+    # user_namespace: Expose user-specific calendars/addrbooks under their IMAP mailboxes
+    user_namespace = {{ ((dav | default({})).user_namespace | default(True)) | lower }}
+
+    # shared_enabled: Allow calendar/addrbook sharing and ACLs
+    shared_enabled = {{ ((dav | default({})).shared_enabled | default(False)) | lower }}
+
+    # alarms_enabled: Enable alarm (VEVENT VTODO) handling
+    alarms_enabled = {{ ((dav | default({})).alarms_enabled | default(True)) | lower }}
+
+    # max_user_data_size: Maximum total calendar/addrbook data per user (in bytes)
+    max_user_data_size = {{ ((dav | default({})).max_user_data_size | default(52428800)) }}
+
+    # vcard_version: VCard version to use when exporting CardDAV records
+    vcard_version = "{{ ((dav | default({})).vcard_version | default('3.0')) }}"
+
+    # implicit_scheduling: Enable CalDAV implicit scheduling (automatic RSVP replies)
+    implicit_scheduling = {{ ((dav | default({})).implicit_scheduling | default(False)) | lower }}
+}
+
+# -----------------------------------------------------------------------------
+# SASL Configuration
+# -----------------------------------------------------------------------------
+# Configures SASL authentication used by Cyrus services.
+# Ensure the 'cyrus' user has access to necessary keytabs and sockets.
+SASL {
+    # pwcheck_method: Method used to check passwords
+    pwcheck_method = "saslauthd"
+
+    # saslauthd_path: Path to saslauthd socket for password verification
+    saslauthd_path = "{{ ((sasl | default({})).saslauthd_path | default('/var/run/saslauthd/mux')) }}"
+
+    # mech_list: List of SASL mechanisms to allow (order matters for security)
+    # Joins the list with spaces as required by this config format
+    mech_list = "{{ ((sasl | default({})).mech_list | default(['PLAIN', 'LOGIN'])) | join(' ') }}"
+}

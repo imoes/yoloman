@@ -1,0 +1,67 @@
+# ============================================================
+# debusine-server Nginx Configuration Template
+# This file configures Nginx as a reverse proxy for the Debusine
+# Django/Daphne application. It handles static files, HTTP
+# connections, and WebSocket upgrades.
+# ============================================================
+
+# --- HTTP/HTTPS Block ---
+# This block captures all incoming requests and routes them
+# based on the URI.
+
+# Location: Root path (/)
+# Handles general HTTP traffic and forwards it to the Daphne
+# ASGI server via a Unix socket. Sets headers for proper
+# forwarding and configures request body limits and compression.
+location / {
+    # Forward the original Host header to the upstream
+    proxy_set_header Host $http_host;
+
+    # Forward the scheme (http/https) to the upstream
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Proxy pass directive: connects to the Daphne server
+    # listening on the configured Unix socket.
+    # Variable: socket_path
+    proxy_pass http://unix:{{ socket_path | default('/var/lib/debusine/server/daphne.sock') }};
+
+    # Maximum allowed size of the client request body.
+    # Prevents large uploads from overwhelming the application.
+    # Variable: client_max_body_size
+    client_max_body_size {{ client_max_body_size | default('100M') }};
+
+    # Enable gzip compression for specified content types
+    gzip on;
+    gzip_vary on;
+    gzip_types text/plain text/markdown application/json;
+}
+
+# Location: WebSocket path (/api/ws)
+# Handles WebSocket connections for real-time features.
+# Upgrades the HTTP connection to a WebSocket protocol.
+location /api/ws {
+    # Forward the original Host header
+    proxy_set_header Host $http_host;
+
+    # Proxy pass to the same Daphne socket
+    # Variable: socket_path
+    proxy_pass http://unix:{{ socket_path | default('/var/lib/debusine/server/daphne.sock') }};
+
+    # Required for WebSocket upgrade
+    proxy_http_version 1.1;
+
+    # Pass the Upgrade header from the client
+    proxy_set_header Upgrade $http_upgrade;
+
+    # Set Connection header to "upgrade" to establish the WebSocket
+    proxy_set_header Connection "upgrade";
+}
+
+# Location: Static Assets path (/static/)
+# Serves static files (CSS, JS, Images) directly from the filesystem
+# using Nginx's alias directive, bypassing the application server.
+location /static/ {
+    # Filesystem path to serve static assets from.
+    # Variable: static_root
+    alias {{ static_root | default('/var/lib/debusine/server/static/') }};
+}

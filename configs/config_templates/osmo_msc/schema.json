@@ -1,0 +1,393 @@
+{
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/osmo-msc/osmo-msc.log",
+    "description": "Path to the log file for OsmoMSC."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging level (dso, lld, info, notice, warning, error, critical, alert, emergency)."
+  },
+  "log_color": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable colored log output in terminals."
+  },
+  "log_timestamp": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefix log entries with timestamps."
+  },
+  "ctrl_bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the control interface."
+  },
+  "ctrl_port": {
+    "type": "number",
+    "default": 4237,
+    "description": "TCP port for the control interface."
+  },
+  "vty_bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for the VTY (local CLI) interface."
+  },
+  "vty_port": {
+    "type": "number",
+    "default": 4234,
+    "description": "TCP port for the VTY (local CLI) interface."
+  },
+  "a_interface_bind_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the A-interface (BSSAP over IP)."
+  },
+  "a_interface_ccm_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for CCM (Circuit Configuration Management) on A-interface."
+  },
+  "bscs": {
+    "type": "list",
+    "default": [],
+    "description": "List of BSCs (BSS) connected via A-interface.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "BSC name identifier (e.g., 'bsc-01')."
+      },
+      "id": {
+        "type": "number",
+        "default": 1,
+        "description": "BSC identifier (0-255)."
+      },
+      "ip": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "BSC IP address for A-IP."
+      },
+      "rtp_ip": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP used for RTP media negotiation (optional)."
+      },
+      "dscp": {
+        "type": "number",
+        "default": 46,
+        "description": "DSCP value for BSC signaling QoS."
+      },
+      "lac": {
+        "type": "number",
+        "default": 1,
+        "description": "Location Area Code (LAC) used by this BSC."
+      },
+      "ci": {
+        "type": "number",
+        "default": 1,
+        "description": "Cell Identity (CI) base for this BSC (if static)."
+      },
+      "rsl_ccm_id": {
+        "type": "number",
+        "default": 1,
+        "description": "RSL CCM ID for BSC."
+      },
+      "mgw_name": {
+        "type": "string",
+        "default": "default",
+        "description": "Name of the MGW this BSC uses."
+      },
+      "sccp_address": {
+        "type": "string",
+        "default": "",
+        "description": "SCCP address (e.g., 'PC=12345') for SCCP routing; leave empty for default."
+      }
+    }
+  },
+  "iu_cs_mgw_rtcp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable RTCP for media monitoring on Iu-CS (UMTS)."
+  },
+  "rncs": {
+    "type": "list",
+    "default": [],
+    "description": "List of RNCs (UTRAN) connected via Iu-CS interface.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "RNC name identifier (e.g., 'rnc-01')."
+      },
+      "id": {
+        "type": "number",
+        "default": 1,
+        "description": "RNC identifier (0-255)."
+      },
+      "ip": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "RNC IP address for Iu-CS."
+      },
+      "rtp_ip": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP used for RTP media negotiation (optional)."
+      },
+      "dscp": {
+        "type": "number",
+        "default": 46,
+        "description": "DSCP value for RNC signaling QoS."
+      },
+      "lac": {
+        "type": "number",
+        "default": 1,
+        "description": "Location Area Code (LAC)."
+      },
+      "rac": {
+        "type": "number",
+        "default": 0,
+        "description": "Routing Area Code (RAC) for UMTS."
+      },
+      "sac": {
+        "type": "number",
+        "default": 0,
+        "description": "Service Area Code (SAC) for UMTS."
+      },
+      "mgw_name": {
+        "type": "string",
+        "default": "default",
+        "description": "Name of the MGW this RNC uses."
+      },
+      "sccp_address": {
+        "type": "string",
+        "default": "",
+        "description": "SCCP address for SCCP routing; leave empty for default."
+      }
+    }
+  },
+  "msc_name": {
+    "type": "string",
+    "default": "osmo-msc",
+    "description": "Name of this MSC instance (used for identification)."
+  },
+  "msc_uuid": {
+    "type": "string",
+    "default": "",
+    "description": "UUID of this MSC (if managed by external system); auto-generated if empty."
+  },
+  "cs7_instance": {
+    "type": "number",
+    "default": 1,
+    "description": "SS7 instance number for this MSC."
+  },
+  "hlr_bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address to bind HLR (HLR over GSv interface)."
+  },
+  "hlr_port": {
+    "type": "number",
+    "default": 4230,
+    "description": "TCP port for HLR interface (GSv protocol)."
+  },
+  "auth_policy_auth_optional": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, authentication is optional (e.g., for open networks)."
+  },
+  "auth_policy_order": {
+    "type": "string",
+    "default": "hlr,sim",
+    "description": "Order of auth checks (e.g., 'hlr,sim' or 'sim,hlr')."
+  },
+  "smpps": {
+    "type": "list",
+    "default": [],
+    "description": "List of SMPP sessions for SMS delivery.",
+    "items": {
+      "system_id": {
+        "type": "string",
+        "default": "",
+        "description": "SMPP system_id."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "SMPP password."
+      },
+      "bind_tx": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable TX binding (SMS submit)."
+      },
+      "bind_rx": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable RX binding (SMS deliver)."
+      },
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "SMPP server IP."
+      },
+      "port": {
+        "type": "number",
+        "default": 2775,
+        "description": "SMPP server port."
+      }
+    }
+  },
+  "smsc_default_smsc_id": {
+    "type": "string",
+    "default": "osmo-smsc",
+    "description": "Default SMS-C ID for outgoing SMS."
+  },
+  "smsc_default_source_addr": {
+    "type": "string",
+    "default": "12345",
+    "description": "Default source address (e.g., short code) for outgoing SMS."
+  },
+  "cs7_point_code": {
+    "type": "string",
+    "default": "1.2.3",
+    "description": "Point Code (PC) of this MSC in SS7 (dotted format for 14-bit)."
+  },
+  "cs7_routing_context": {
+    "type": "number",
+    "default": 100,
+    "description": "Routing Context (RC) for SCCP connectionless."
+  },
+  "cs7_dpc": {
+    "type": "string",
+    "default": "1.2.2",
+    "description": "Destination Point Code (e.g., HLR PC)."
+  },
+  "cs7_opc": {
+    "type": "string",
+    "default": "1.2.3",
+    "description": "Originating Point Code (same as point-code)."
+  },
+  "cs7_type": {
+    "type": "string",
+    "default": "itu",
+    "description": "SS7 protocol variant: 'itu' (default), 'ansi', or 'japan'."
+  },
+  "cs7_ssn": {
+    "type": "number",
+    "default": 8,
+    "description": "SSN (Subsystem Number) for ISUP (e.g., 8)."
+  },
+  "default_lac": {
+    "type": "number",
+    "default": 1,
+    "description": "Default LAC for routing when no LAC is provided."
+  },
+  "imsi_prefixes": {
+    "type": "list",
+    "default": [],
+    "description": "IMSI prefix-based routing rules (e.g., for multi-tenant or roaming).",
+    "items": {
+      "match": {
+        "type": "string",
+        "default": "",
+        "description": "IMSI prefix to match (e.g., '20210' or '26201')."
+      },
+      "routing_area": {
+        "type": "string",
+        "default": "",
+        "description": "Destination routing area (e.g., 'home', 'roaming', 'partner-x')."
+      }
+    }
+  },
+  "smpp_rate_limit": {
+    "type": "number",
+    "default": 100,
+    "description": "Max SMS per second per SMPP session."
+  },
+  "ss7_congestion": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SS7 congestion control (e.g., backpressure on signaling)."
+  },
+  "mgw_default_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the default media gateway."
+  },
+  "mgw_local_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP for MGW endpoint (for media streaming)."
+  },
+  "mgw_port_base": {
+    "type": "number",
+    "default": 20000,
+    "description": "Starting port for media (RTP) allocation."
+  },
+  "mgw_remote_ip": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Remote IP (e.g., BSC/RNC) for media negotiation; leave 0.0.0.0 for dynamic."
+  },
+  "mgw_sdp_offer": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, MGW offers SDP in early media."
+  },
+  "mgw_rtcp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable RTCP for media quality monitoring."
+  },
+  "codecs": {
+    "type": "list",
+    "default": [
+      {
+        "name": "GSM-FR",
+        "payload_type": 3
+      },
+      {
+        "name": "AMR-FR",
+        "payload_type": 96
+      },
+      {
+        "name": "AMR-HR",
+        "payload_type": 97
+      },
+      {
+        "name": "GSM-HR",
+        "payload_type": 98
+      },
+      {
+        "name": "EFR",
+        "payload_type": 99
+      }
+    ],
+    "description": "List of supported audio codecs for voice calls.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Codec name (e.g., 'GSM-FR', 'AMR-FR')."
+      },
+      "payload_type": {
+        "type": "number",
+        "default": 0,
+        "description": "RTP payload type number (0-127)."
+      }
+    }
+  },
+  "cli_username": {
+    "type": "string",
+    "default": "osmocom",
+    "description": "Username for VTY/CLI login."
+  },
+  "cli_password": {
+    "type": "string",
+    "default": "osmocom",
+    "description": "Password for VTY/CLI login (insecure in plaintext \u2014 use only on localhost)."
+  }
+}

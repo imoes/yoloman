@@ -1,0 +1,66 @@
+# ==============================================================================
+# ident2 Configuration Template
+# ==============================================================================
+# This template configures the ident2 daemon. It supports defining upstream
+# services to expose, server networking/TLS settings, and logging behavior.
+# ==============================================================================
+
+# --- Services Section ---
+# List of upstream services to expose via ident2.
+# Each entry must define: name, host, and port.
+# Defaults to an empty list if 'services' is not provided or is None.
+services:
+{% for svc in (services | default([])) %}
+  - name: {{ svc.name | default('unnamed') }}
+    host: {{ svc.host | default('127.0.0.1') }}
+    port: {{ svc.port | default(80) }}
+{% endfor %}
+
+# --- Server Section ---
+# Global server settings for the ident2 daemon.
+server:
+  # Network interface address for the ident2 server to bind to.
+  # Default: 0.0.0.0 (listen on all interfaces)
+  bind_address: {{ (server | default({})).bind_address | default('0.0.0.0') }}
+  
+  # Port number for the ident2 HTTP management/proxy server.
+  # Default: 8000
+  bind_port: {{ (server | default({})).bind_port | default(8000) }}
+  
+  # Connection idle timeout in seconds.
+  # Default: 30
+  timeout: {{ (server | default({})).timeout | default(30) }}
+  
+  # Maximum number of simultaneous client connections allowed.
+  # Default: 1000
+  max_connections: {{ (server | default({})).max_connections | default(1000) }}
+  
+  # Enable TLS encryption for the ident2 server.
+  # If true, cert_file and key_file must be set.
+  # Default: false
+  tls_enabled: {{ (server | default({})).tls_enabled | default(false) }}
+
+{% if (server | default({})).tls_enabled | default(false) %}
+  # Path to TLS certificate file (only used if TLS is enabled).
+  # Default: /etc/ident2/tls/server.crt
+  cert_file: {{ (server | default({})).cert_file | default('/etc/ident2/tls/server.crt') }}
+  
+  # Path to TLS private key file (only used if TLS is enabled).
+  # Default: /etc/ident2/tls/server.key
+  key_file: {{ (server | default({})).key_file | default('/etc/ident2/tls/server.key') }}
+{% endif %}
+
+# --- Log Section ---
+# Logging configuration for the ident2 daemon.
+log:
+  # Minimum log level: debug, info, warn, or error.
+  # Default: info
+  level: {{ (log | default({})).level | default('info') }}
+  
+  # Path to log file. Set to empty string to log to stdout.
+  # Default: /var/log/ident2/ident2.log
+  file: {{ (log | default({})).file | default('/var/log/ident2/ident2.log') }}
+  
+  # Enable daily rotation of log files.
+  # Default: true
+  rotate_daily: {{ (log | default({})).rotate_daily | default(true) }}

@@ -1,0 +1,85 @@
+# ============================================================================
+# Ceph Monitor (ceph-mon) Configuration Template
+# ============================================================================
+# This template generates the ceph.conf file for a Ceph Monitor daemon.
+# It is self-documenting: every directive is preceded by a comment
+# describing its purpose, derived from the schema definition.
+# Variables are safely defaulted to their schema-defined values.
+
+[global]
+
+# Unique 128-bit UUID identifying this Ceph cluster. Must be generated once per cluster.
+fsid = {{ (cluster | default({})).fsid | default('') }}
+
+# List of monitor names/IPs that form the initial quorum members during cluster bootstrap.
+mon_initial_members = {{ (cluster | default({})).mon_initial_members | default([]) | join(', ') }}
+
+# List of monitor addresses for client and OSD connectivity. Should include all monitors.
+mon_host = {{ (cluster | default({})).mon_host | default([]) | join(', ') }}
+
+# CIDR subnet for the public (client-facing) network (e.g., '192.168.1.0/24').
+public_network = {{ (network | default({})).public_cidr | default('0.0.0.0/0') }}
+
+# CIDR subnet for the cluster (replication/internal) network (e.g., '10.0.0.0/24').
+cluster_network = {{ (network | default({})).cluster_cidr | default('0.0.0.0/0') }}
+
+# Authentication required for cluster daemons (e.g., cephx, none).
+auth_cluster_required = {{ (security | default({})).auth_cluster_required | default('cephx') }}
+
+# Authentication required for services (e.g., cephx, none).
+auth_service_required = {{ (security | default({})).auth_service_required | default('cephx') }}
+
+# Authentication required for clients (e.g., cephx, none).
+auth_client_required = {{ (security | default({})).auth_client_required | default('cephx') }}
+
+# Logging and debugging
+
+# Path to log file (supports $cluster and $name variables).
+log_file = {{ (logging | default({})).log_file | default('/var/log/ceph/$cluster-$name.log') }}
+
+# Whether to emit logs to stderr in addition to the log file.
+log_to_stderr = {{ (logging | default({})).log_to_stderr | default(true) }}
+
+# Whether to emit error-level logs to stderr even if log_to_stderr is false.
+err_to_stderr = {{ (logging | default({})).err_to_stderr | default(true) }}
+
+# Log level for stderr/stdout output (e.g., debug, info, warn, error).
+log_std_level = {{ (logging | default({})).log_std_level | default('info') }}
+
+# Monitor-specific settings
+
+# Maximum allowed clock drift between monitors (in seconds) before warnings.
+mon_clock_drift_allowed = {{ (mon | default({})).clock_drift_allowed | default(0.05) }}
+
+# Time (seconds) to back off from issuing clock drift warnings after one has been raised.
+mon_clock_drift_warn_backoff = {{ (mon | default({})).clock_drift_warn_backoff | default(3.0) }}
+
+# Duration (seconds) of a leader lease in the monitor quorum.
+mon_lease = {{ (mon | default({})).lease | default(15) }}
+
+# Interval (seconds) at which the leader renews its lease.
+mon_lease_renew_interval = {{ (mon | default({})).lease_renew_interval | default(7) }}
+
+# Timeout (seconds) for lease acknowledgment before triggering quorum re-election.
+mon_lease_ack_timeout = {{ (mon | default({})).lease_ack_timeout | default(30) }}
+
+# Monitor quorum settings
+
+# Target quorum size (must be odd, e.g., 1, 3, 5). Adjusted automatically for cluster size if omitted.
+mon_quorum_size = {{ (mon | default({})).quorum_size | default(3) }}
+
+# Maximum time (seconds) allowed between monitor communication before declaring quorum lost.
+mon_quorum_timeout = {{ (mon | default({})).quorum_timeout | default(5) }}
+
+# Whether to allow pool deletion via CLI. Enable with caution.
+mon_allow_pool_delete = {{ (mon | default({})).allow_pool_delete | default(false) }}
+
+# Additional per-service (e.g., mon, osd, mds, mgr) override sections.
+# Keys are service section names like 'mon.a', 'mgr.x', etc.
+{% for service in (services | default({})) | dict2items %}
+[{{ service.key }}]
+# Configuration for {{ service.key }} service
+{% for key, value in service.value | dict2items %}
+{{ key.key }} = {{ value.value }}
+{% endfor %}
+{% endfor %}

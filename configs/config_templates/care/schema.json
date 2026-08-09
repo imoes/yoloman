@@ -1,0 +1,66 @@
+{
+  "output_path": {
+    "type": "string",
+    "default": "/tmp/care-{{ now(fmt='%y%m%d%H%M%S') }}.bin",
+    "description": "Path where the archive will be written. Format determined by file suffix (e.g., .bin, .tar.gz, .raw). Required. Defaults to care-<DATE>.bin or care-<DATE>.raw."
+  },
+  "concealed_paths": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional paths to conceal (beyond $HOME and /tmp). Use only if needed."
+  },
+  "revealed_paths": {
+    "type": "list",
+    "default": [],
+    "description": "List of paths to reveal explicitly if nested in concealed paths (e.g., $PWD or specific config dirs). $PWD is revealed by default unless -d."
+  },
+  "volatile_paths": {
+    "type": "list",
+    "default": [
+      "/dev",
+      "/proc",
+      "/sys",
+      "/run/shm",
+      "/tmp/.X11-unix",
+      "/tmp/.ICE-unix",
+      "/var/run/dbus/system_bus_socket",
+      "$XAUTHORITY",
+      "$ICEAUTHORITY",
+      "/var/tmp/kdecache-$LOGNAME"
+    ],
+    "description": "Paths to exclude from archiving; reuse actual paths at re-execution. Includes standard volatile paths like pseudo-filesystems, sockets, and auth files."
+  },
+  "volatile_env": {
+    "type": "list",
+    "default": [
+      "DISPLAY",
+      "http_proxy",
+      "https_proxy",
+      "ftp_proxy",
+      "all_proxy",
+      "HTTP_PROXY",
+      "HTTPS_PROXY",
+      "FTP_PROXY",
+      "ALL_PROXY",
+      "DBUS_SESSION_BUS_ADDRESS",
+      "SESSION_MANAGER",
+      "XDG_SESSION_COOKIE"
+    ],
+    "description": "Environment variables to exclude from archiving; reuse actual values at re-execution."
+  },
+  "max_archivable_size_mb": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum file size (MB) to archive; larger files are truncated to 0 bytes. Negative = no limit. Default 1GB unless -d."
+  },
+  "verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0=quiet, higher=more verbose). Negative = quiet except fatal errors."
+  },
+  "ignore_default_config": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable all default concealed/revealed/volatile paths and env vars (equivalent to -d/--ignore-default-config)."
+  }
+}

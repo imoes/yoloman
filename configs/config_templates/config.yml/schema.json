@@ -1,0 +1,306 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level: debug, info, warning, error, or critical"
+  },
+  "log_environment": {
+    "type": "string",
+    "default": "production",
+    "description": "Environment tag added to log entries (e.g., production, staging, dev)"
+  },
+  "log_file": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable file logging (if true, logs written to /var/log/registry/registry.log)"
+  },
+  "storage_driver": {
+    "type": "string",
+    "default": "filesystem",
+    "description": "Storage backend driver. Supported: filesystem, s3, gcs, azure, swift, inmemory (dev only)"
+  },
+  "storage_filesystem_rootdirectory": {
+    "type": "string",
+    "default": "/var/lib/registry",
+    "description": "Path on local filesystem where image data is stored (for 'filesystem' driver)"
+  },
+  "s3_region": {
+    "type": "string",
+    "default": "us-east-1",
+    "description": "AWS region of S3 bucket (e.g., us-east-1, eu-west-1)"
+  },
+  "s3_bucket": {
+    "type": "string",
+    "default": "",
+    "description": "S3 bucket name for registry storage"
+  },
+  "s3_encrypt": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable server-side encryption (SSE-S3 or SSE-KMS)"
+  },
+  "s3_keyid": {
+    "type": "string",
+    "default": "",
+    "description": "KMS key ID for encryption (optional, used only if s3_encrypt=true and SSE-KMS)"
+  },
+  "s3_secure": {
+    "type": "bool",
+    "default": true,
+    "description": "Use HTTPS for S3 communication"
+  },
+  "s3_v4auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Use AWS Signature Version 4 for authentication"
+  },
+  "gcs_bucket": {
+    "type": "string",
+    "default": "",
+    "description": "GCS bucket name for registry storage"
+  },
+  "gcs_keyid": {
+    "type": "string",
+    "default": "",
+    "description": "KMS key ID for GCS encryption (optional)"
+  },
+  "gcs_private_key": {
+    "type": "string",
+    "default": "",
+    "description": "Base64-encoded private key JSON (for service account auth)"
+  },
+  "gcs_user_project": {
+    "type": "string",
+    "default": "",
+    "description": "GCP project ID to bill for access (if bucket is requester-pays)"
+  },
+  "azure_container": {
+    "type": "string",
+    "default": "",
+    "description": "Azure Blob container name"
+  },
+  "azure_accountname": {
+    "type": "string",
+    "default": "",
+    "description": "Azure Storage account name"
+  },
+  "azure_accountkey": {
+    "type": "string",
+    "default": "",
+    "description": "Base64-encoded account access key"
+  },
+  "azure_realm": {
+    "type": "string",
+    "default": "blob.core.windows.net",
+    "description": "Azure storage realm (usually unchanged)"
+  },
+  "storage_delete_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable deletion of layers and manifests (required for garbage collection)"
+  },
+  "storage_cache_blobdescriptor": {
+    "type": "bool",
+    "default": true,
+    "description": "Cache manifest/blob descriptor metadata in memory (improves performance)"
+  },
+  "storage_redirect": {
+    "type": "bool",
+    "default": false,
+    "description": "Redirect client requests directly to backend storage (e.g., S3 presigned URLs)"
+  },
+  "http_addr": {
+    "type": "string",
+    "default": "0.0.0.0:5000",
+    "description": "HTTP listener address (host:port) for registry API"
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/HTTPS on the registry API"
+  },
+  "tls_addr": {
+    "type": "string",
+    "default": "0.0.0.0:5001",
+    "description": "HTTPS listener address (host:port)"
+  },
+  "tls_keystore": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate chain (PEM format)"
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key (PEM format)"
+  },
+  "tls_client_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle for mutual TLS (mTLS) client auth"
+  },
+  "debug_addr": {
+    "type": "string",
+    "default": "localhost:5001",
+    "description": "Address for debug endpoints (health, metrics, pprof)"
+  },
+  "debug_prometheus_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Prometheus metrics at /metrics"
+  },
+  "debug_pprof_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable pprof debugging endpoints (dangerous in production)"
+  },
+  "debug_pprof_addr": {
+    "type": "string",
+    "default": "localhost:6060",
+    "description": "pprof listener address"
+  },
+  "debug_trace_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable distributed tracing (Jaeger/Zipkin)"
+  },
+  "debug_trace_sampler": {
+    "type": "bool",
+    "default": false,
+    "description": "If true: always sample traces; if false: use probabilistic sampling"
+  },
+  "debug_trace_sampler_param": {
+    "type": "number",
+    "default": 0.1,
+    "description": "Sampling rate (0.0\u20131.0) when probabilistic sampling is used"
+  },
+  "auth_type": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method: 'none', 'htpasswd', or 'token'"
+  },
+  "auth_token_realm": {
+    "type": "string",
+    "default": "",
+    "description": "URL of token service (e.g., https://auth.example.com/auth)"
+  },
+  "auth_token_service": {
+    "type": "string",
+    "default": "registry.docker.io",
+    "description": "Token service name (must match issuer expectation)"
+  },
+  "auth_token_issuer": {
+    "type": "string",
+    "default": "registry-token-issuer",
+    "description": "JWT issuer name"
+  },
+  "auth_token_rootcertbundle": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA bundle for validating token signatures"
+  },
+  "auth_htpasswd_realm": {
+    "type": "string",
+    "default": "Registry Realm",
+    "description": "Basic auth realm (shown in browser login dialog)"
+  },
+  "auth_htpasswd_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to HTPASSWD file (e.g., /etc/registry/htpasswd)"
+  },
+  "proxy_remoteurl": {
+    "type": "string",
+    "default": "",
+    "description": "Upstream registry URL (for pull-through caching, e.g., https://registry-1.docker.io)"
+  },
+  "proxy_username": {
+    "type": "string",
+    "default": "",
+    "description": "Username for authenticated proxy upstream (optional)"
+  },
+  "proxy_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for authenticated proxy upstream (optional)"
+  },
+  "notifications_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable webhook notifications on image pushes/pulls"
+  },
+  "notifications_endpoints": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique endpoint identifier"
+      },
+      "url": {
+        "type": "string",
+        "description": "Webhook URL (POST will be sent with JSON payload)"
+      },
+      "headers": {
+        "type": "object",
+        "description": "HTTP headers to include with each request"
+      },
+      "timeout": {
+        "type": "string",
+        "default": "3s",
+        "description": "Request timeout (e.g., '5s')"
+      },
+      "threshold": {
+        "type": "number",
+        "description": "Number of failed requests before marking endpoint unhealthy"
+      },
+      "backoff": {
+        "type": "object",
+        "description": "Backoff/retry configuration",
+        "items": {
+          "duration": {
+            "type": "string",
+            "default": "1s",
+            "description": "Initial delay before retry"
+          },
+          "interval": {
+            "type": "string",
+            "default": "2s",
+            "description": "Delay between retries"
+          },
+          "maxinterval": {
+            "type": "string",
+            "default": "30s",
+            "description": "Maximum retry interval"
+          },
+          "maxretry": {
+            "type": "number",
+            "default": 5,
+            "description": "Maximum number of retries"
+          }
+        }
+      },
+      "disabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Disable this endpoint without deleting it"
+      }
+    },
+    "description": "List of webhook endpoints to notify on registry events"
+  },
+  "health_storagedriver_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable health endpoint that checks storage driver connectivity"
+  },
+  "health_storagedriver_interval": {
+    "type": "string",
+    "default": "10s",
+    "description": "Interval between storage health checks"
+  },
+  "health_storagedriver_threshold": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of failed checks before marking unhealthy"
+  }
+}

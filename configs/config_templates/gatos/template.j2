@@ -1,0 +1,55 @@
+# GATOS (Graphics Adapter TV Output Software) configuration file.
+# Install as /usr/local/lib/gatos.conf.
+# This template is self-documenting: every directive is preceded by
+# a comment explaining its purpose, valid values, and schema default.
+
+# videoram: Total size of video memory in kilobytes.
+# Default: 8192
+# This setting specifies the full amount of physical video RAM available
+# on your graphics card. Adjust if you have more or less than the
+# assumed 8MB.
+videoram	{{ videoram | default(8192) }}		# Total size of video memory in kilobytes.
+
+# buffermem: Size of reserved video memory in kilobytes.
+# Default: 864
+# This setting specifies the amount of video RAM reserved for GATOS
+# internal buffers. See XF86Config.sample for more details.
+buffermem	{{ buffermem | default(864) }}		# Size of reserved video memory in kilobytes.
+
+# format: TV signal format code.
+# Default: 0 (Commented out/Unset)
+# Set this to the code corresponding to your region's TV standard.
+# Leave as 0 (commented out) to use automatic detection or default.
+#
+# Mapping:
+#   1 = NTSC-M      (US and many others)
+#   2 = NTSC-Japan  (Japan)
+#   3 = PAL-B       (Many European countries)
+#   3 = PAL-D       (China)
+#   3 = PAL-G       (Many European countries)
+#   3 = PAL-H       (Belgium)
+#   3 = PAL-I       (Great Britain and others)
+#   4 = PAL-M       (Brazil - NTSC-like PAL format)
+#   5 = PAL-N       (Paraguay, Uruguay)
+#   6 = SECAM       (East Europe, France, Middle East)
+#   7 = PAL-Ncomb   (Argentina)
+#
+{% if (format | default(0)) != 0 %}format		{{ format | default(0) }}	# Change to the format used in your area!
+{% else %}#format		?	# Change to the format used in your area!
+{% endif %}
+
+# i2c_mode: I2C interface mode.
+# Default: 0 (Commented out/Unset)
+# Uncomment and set if automatic I2C mode detection fails.
+# Valid values: 1–5.
+#
+# Mapping:
+#   1 = Register type A: DAC_CNTL+GEN_TEST_CNTL Registers
+#   2 = Register type B: GP_IO Register
+#   3 = Rage PRO interface (I2C_CNTL_0, I2C_CNTL_1 registers)
+#   4 = Register type LG: GP_IO Register
+#   5 = MPP/ImpacTV interface
+#
+{% if (i2c_mode | default(0)) != 0 %}i2c_mode	{{ i2c_mode | default(0) }}
+{% else %}#i2c_mode	?
+{% endif %}

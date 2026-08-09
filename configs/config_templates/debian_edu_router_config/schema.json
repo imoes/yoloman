@@ -1,0 +1,268 @@
+{
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "eth0",
+      "eth1",
+      "br0"
+    ],
+    "description": "List of network interfaces to configure and manage (e.g., primary LAN, WAN, bridge)."
+  },
+  "wan_if": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Interface connected to the external/upstream network (WAN)."
+  },
+  "lan_if": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Interface used for the primary internal (LAN) network."
+  },
+  "bridge_if": {
+    "type": "string",
+    "default": "br0",
+    "description": "Optional bridge interface for guest or DMZ networks."
+  },
+  "lan_ip": {
+    "type": "string",
+    "default": "10.0.0.1/24",
+    "description": "IPv4 address of the router on the LAN, in CIDR notation."
+  },
+  "secondary_lan_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "Additional IPv4 subnets (CIDR) served on separate VLANs or interfaces."
+  },
+  "dhcp_start": {
+    "type": "string",
+    "default": "10.0.0.100",
+    "description": "First IP address in the DHCP lease pool for the LAN."
+  },
+  "dhcp_end": {
+    "type": "string",
+    "default": "10.0.0.200",
+    "description": "Last IP address in the DHCP lease pool for the LAN."
+  },
+  "dhcp_dns_servers": {
+    "type": "list",
+    "default": [
+      "10.0.0.1"
+    ],
+    "description": "List of DNS servers to advertise via DHCP (typically includes router and upstream)."
+  },
+  "ntp_server": {
+    "type": "string",
+    "default": "pool.ntp.org",
+    "description": "NTP server used by the router and advertised to clients."
+  },
+  "router_hostname": {
+    "type": "string",
+    "default": "edu-router",
+    "description": "Hostname assigned to the router (used in DHCP hostname option and local DNS)."
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable IPv6 addressing and routing on the LAN."
+  },
+  "ipv6_ula_prefix": {
+    "type": "string",
+    "default": "fd42:abcd:1234::/48",
+    "description": "IPv6 Unique Local Address (ULA) prefix for internal use (non-routable)."
+  },
+  "allow_ssh_lan": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow SSH access from LAN clients."
+  },
+  "allow_icmp_lan": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow ICMP echo requests (ping) from LAN."
+  },
+  "icmp_rate_limit": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum ICMP packets per second allowed from a single source (0 = unlimited)."
+  },
+  "web_proxy_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the local web proxy (Squid) for caching and filtering."
+  },
+  "web_proxy_port": {
+    "type": "number",
+    "default": 3128,
+    "description": "TCP port on which the web proxy listens."
+  },
+  "web_proxy_cache_dir": {
+    "type": "string",
+    "default": "/var/spool/squid3",
+    "description": "Directory for Squid cache files."
+  },
+  "web_proxy_cache_size": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum cache size (in MB)."
+  },
+  "web_proxy_cache_mem": {
+    "type": "number",
+    "default": 256,
+    "description": "Memory allocated to cache (in MB)."
+  },
+  "content_filter_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable content filtering (via SquidGuard or similar)."
+  },
+  "content_filter_log_dir": {
+    "type": "string",
+    "default": "/var/log/squidguard",
+    "description": "Directory to store content filter logs."
+  },
+  "bandwidth_shaping_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable traffic shaping/QoS using tc."
+  },
+  "bandwidth_up_kbit": {
+    "type": "number",
+    "default": 10000,
+    "description": "Upload bandwidth limit (in kbit/s) for shaping rules."
+  },
+  "bandwidth_down_kbit": {
+    "type": "number",
+    "default": 100000,
+    "description": "Download bandwidth limit (in kbit/s)."
+  },
+  "bandwidth_shape_classes": {
+    "type": "string",
+    "default": "lan:1:10000 guest:2:5000",
+    "description": "Space-separated class definitions for bandwidth classes (format: classid:bandwidth_kbit)."
+  },
+  "rsyslog_remote_server": {
+    "type": "string",
+    "default": "",
+    "description": "Remote rsyslog server for centralized logging (e.g., logserver.example.com:514)."
+  },
+  "fail2ban_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the fail2ban intrusion prevention daemon."
+  },
+  "fail2ban_max_retry": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of failed attempts before banning an IP."
+  },
+  "fail2ban_ban_time": {
+    "type": "number",
+    "default": 600,
+    "description": "Duration (in seconds) of the ban."
+  },
+  "fail2ban_find_time": {
+    "type": "number",
+    "default": 600,
+    "description": "Window (in seconds) in which to count failures."
+  },
+  "ldap_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable LDAP integration (for user/group auth in captive portal, proxy, or ACLs)."
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://ldap.edu.local",
+    "description": "LDAP server URI."
+  },
+  "ldap_base_dn": {
+    "type": "string",
+    "default": "dc=edu,dc=local",
+    "description": "Base DN for LDAP searches."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "cn=admin,dc=edu,dc=local",
+    "description": "Bind DN for authenticating to LDAP (optional; leave blank for anonymous bind)."
+  },
+  "ldap_bind_pwd": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the LDAP bind user."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(objectClass=person)",
+    "description": "LDAP filter for user lookups."
+  },
+  "ldap_group_filter": {
+    "type": "string",
+    "default": "(objectClass=groupOfNames)",
+    "description": "LDAP filter for group lookups."
+  },
+  "captive_portal_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable a captive portal (e.g., for guest access)."
+  },
+  "captive_portal_if": {
+    "type": "string",
+    "default": "br0",
+    "description": "Interface on which the captive portal is enforced."
+  },
+  "captive_portal_redirect_url": {
+    "type": "string",
+    "default": "http:// captive.edu.local/login",
+    "description": "URL to redirect users to for authentication."
+  },
+  "guest_vlan": {
+    "type": "number",
+    "default": 0,
+    "description": "VLAN ID for guest network (0 = disabled)."
+  },
+  "guest_isolated": {
+    "type": "bool",
+    "default": true,
+    "description": "Block inter-client communication on guest VLAN."
+  },
+  "mac_whitelist_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Only allow clients with MAC addresses listed in the whitelist file."
+  },
+  "mac_whitelist_file": {
+    "type": "string",
+    "default": "/etc/debian-edu-router/mac-whitelist.txt",
+    "description": "Path to file containing allowed MAC addresses (one per line)."
+  },
+  "snmp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SNMPv2c read-only access (public community)."
+  },
+  "snmp_community": {
+    "type": "string",
+    "default": "public",
+    "description": "SNMP read community (not recommended for production use without TLS/ACLs)."
+  },
+  "snmp_location": {
+    "type": "string",
+    "default": "School Server Room A",
+    "description": "Physical location of the router for SNMP discovery."
+  },
+  "wol_relay_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Wake-on-LAN relay to forward WoL packets from WAN to LAN."
+  },
+  "wol_relay_if": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Interface for LAN-side WoL relay."
+  },
+  "wol_relay_multicast_group": {
+    "type": "string",
+    "default": "255.255.255.255",
+    "description": "Multicast group (or broadcast) to which WoL packets are relayed."
+  }
+}

@@ -1,0 +1,14 @@
+# hashalot configuration — generates hashed passphrases with configurable hash type, salt, and output mode
+# This file is not read by hashalot directly; rather, it documents the parameters used to construct hashalot command invocations
+# For each entry, a command line like: hashalot {{ hash_type }} -s '{{ salt }}'{{ ' -x' if hex_output else '' }}{{ ' -n ' ~ output_bytes if output_bytes != None else '' }}{{ ' -q' if quiet else '' }}
+# will be generated. Only the first line of stdin is hashed (no trailing newline).
+{% for entry in entries %}
+# hashalot entry: {{ entry.name }}
+{{ entry.name }} {
+    hash_type: {{ entry.hash_type }}
+    salt: {{ entry.salt | default('') | d('') }}
+    hex_output: {{ entry.hex_output | default(false) | string }}
+{% if entry.output_bytes is defined and entry.output_bytes is not none %}    output_bytes: {{ entry.output_bytes }}
+{% endif %}{% if entry.quiet is defined and entry.quiet %}    quiet: true
+{% endif %}}
+{% endfor %}

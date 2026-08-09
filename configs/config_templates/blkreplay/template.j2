@@ -1,0 +1,88 @@
+{# blkreplay configuration template #}
+{# This file configures blkreplay, a tool for replaying block I/O traces. #}
+{# Every directive below has a corresponding variable. Defaults are set inline #}
+{# using the schema definition to ensure safe rendering even if a variable is undefined. #}
+
+{# replay_start: Start offset for replay in seconds; 0 means from the beginning #}
+replay_start = {{ replay_start | default(0) }}
+
+{# replay_end: End offset for replay in seconds; 0 means unlimited #}
+replay_end = {{ replay_end | default(0) }}
+
+{# replay_duration: Alternative way to specify end offset as delta (seconds) #}
+replay_duration = {{ replay_duration | default(0) }}
+
+{# replay_out: Start offset used for output (seconds) #}
+replay_out = {{ replay_out | default(0) }}
+
+{# start_grace: Grace period before replay starts, in seconds (for pipe warming) #}
+start_grace = {{ start_grace | default(0) }}
+
+{# with_conflicts: Allow conflicting writes (may cause damaged I/O) #}
+with_conflicts = {{ with_conflicts | default(False) | lower }}
+
+{# with_drop: Drop conflicting writes #}
+with_drop = {{ with_drop | default(False) | lower }}
+
+{# with_partial: Enforce partial ordering by pushing back conflicts (default) #}
+with_partial = {{ with_partial | default(True) | lower }}
+
+{# with_ordering: Enforce total ordering in case of conflicts #}
+with_ordering = {{ with_ordering | default(False) | lower }}
+
+{# strong: Conflict handling mode, integer 0–2 (default=1) #}
+strong = {{ strong | default(1) }}
+
+{# threads: Number of parallel threads (I/O workers) #}
+threads = {{ threads | default(1024) }}
+
+{# fill_random: Percentage of data blocks filled with random bytes #}
+fill_random = {{ fill_random | default(0) }}
+
+{# no_overhead: Disable verification (default) #}
+no_overhead = {{ no_overhead | default(True) | lower }}
+
+{# with_verify: Verify reads #}
+with_verify = {{ with_verify | default(False) | lower }}
+
+{# with_final_verify: Run an additional verification pass at the end #}
+with_final_verify = {{ with_final_verify | default(False) | lower }}
+
+{# with_paranoia: Re-read after each write (very high overhead) #}
+with_paranoia = {{ with_paranoia | default(False) | lower }}
+
+{# verbose: Verbosity level (controls INFO output) #}
+verbose = {{ verbose | default(0) }}
+
+{# o_direct: Use O_DIRECT flag (default) #}
+o_direct = {{ o_direct | default(True) | lower }}
+
+{# o_sync: Use O_SYNC flag for synchronous writes #}
+o_sync = {{ o_sync | default(False) | lower }}
+
+{# dry_run: Skip actual I/O, measure internal overhead only #}
+dry_run = {{ dry_run | default(False) | lower }}
+
+{# fake_io: Skip lseek() and tags (even less overhead) #}
+fake_io = {{ fake_io | default(False) | lower }}
+
+{# simulate_io: Simulated I/O delay in 'sec.nsec' timespec format #}
+simulate_io = "{{ simulate_io | default('0.0') }}"
+
+{# ahead_limit: Limit pipe fill-ahead in 'sec.nsec' format (realtime) #}
+ahead_limit = "{{ ahead_limit | default('0.0') }}"
+
+{# fan_out: Kernel hackers option: fan-out factor (default=4) #}
+fan_out = {{ fan_out | default(4) }}
+
+{# no_dispatcher: Disable dispatcher (kernel hackers option) #}
+no_dispatcher = {{ no_dispatcher | default(False) | lower }}
+
+{# bottleneck: Maximum number of requests on the dispatch queue (0=unlimited) #}
+bottleneck = {{ bottleneck | default(0) }}
+
+{# speedup: Global speedup/slowdown factor (e.g., 2.0 = 2× faster) #}
+speedup = {{ speedup | default(1.0) }}
+
+{# mmap_mode: Use mmap() instead of read()/write() (not yet implemented) #}
+mmap_mode = {{ mmap_mode | default(False) | lower }}

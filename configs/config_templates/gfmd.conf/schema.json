@@ -1,0 +1,165 @@
+{
+  "general": {
+    "bind_address": {
+      "type": "string",
+      "default": "0.0.0.0",
+      "description": "Network interface IP or hostname gfmd binds to for client connections. Use 0.0.0.0 for all interfaces."
+    },
+    "port": {
+      "type": "number",
+      "default": 1500,
+      "description": "TCP port gfmd listens on for client connections (standard: 1500)."
+    },
+    "metadata_dir": {
+      "type": "string",
+      "default": "/var/lib/gfarm2/meta",
+      "description": "Absolute path to the directory storing GFarm metadata database files."
+    },
+    "num_worker_threads": {
+      "type": "number",
+      "default": 8,
+      "description": "Number of worker threads to handle client requests. Increase under high concurrency."
+    },
+    "log_level": {
+      "type": "string",
+      "default": "info",
+      "description": "Logging verbosity level: debug, info, warning, error."
+    },
+    "log_file": {
+      "type": "string",
+      "default": "/var/log/gfarm2/gfmd.log",
+      "description": "Path to the gfmd log file."
+    },
+    "enable_md_replication": {
+      "type": "bool",
+      "default": false,
+      "description": "Enable MD (metadata) replication with peer gfmd instances for HA."
+    },
+    "md_replication_peers": {
+      "type": "list",
+      "default": [],
+      "description": "List of hostnames/IPs of peer gfmd daemons for replication.",
+      "items": {
+        "type": "string",
+        "description": "Hostname or IP of a peer gfmd server."
+      }
+    },
+    "replication_port": {
+      "type": "number",
+      "default": 1501,
+      "description": "Port used for inter-daemon metadata replication traffic."
+    },
+    "replication_timeout": {
+      "type": "number",
+      "default": 30,
+      "description": "Timeout in seconds for replication operations before failing."
+    },
+    "replication_max_connections": {
+      "type": "number",
+      "default": 64,
+      "description": "Maximum number of simultaneous replication connections allowed."
+    }
+  },
+  "security": {
+    "auth_method": {
+      "type": "string",
+      "default": "gssapi",
+      "description": "Authentication method for client connections: gssapi, password, sslcert, or none."
+    },
+    "keytab_file": {
+      "type": "string",
+      "default": "/etc/gfarm2/keytab",
+      "description": "Path to the Kerberos keytab file (required if auth_method = gssapi)."
+    },
+    "krb_service_name": {
+      "type": "string",
+      "default": "gfmd",
+      "description": "Kerberos service principal name (e.g., gfmd or gfmd/hostname)."
+    },
+    "ssl_cert_file": {
+      "type": "string",
+      "default": "/etc/gfarm2/ssl/cert.pem",
+      "description": "Path to the SSL/TLS certificate file (required if auth_method = sslcert)."
+    },
+    "ssl_key_file": {
+      "type": "string",
+      "default": "/etc/gfarm2/ssl/key.pem",
+      "description": "Path to the SSL/TLS private key file (required if auth_method = sslcert)."
+    },
+    "ssl_verify_client": {
+      "type": "bool",
+      "default": true,
+      "description": "Require and verify client SSL certificates (only applicable with sslcert auth)."
+    },
+    "trusted_ca_certs": {
+      "type": "list",
+      "default": [],
+      "description": "Additional trusted CA certificates (paths) for validating client certs.",
+      "items": {
+        "type": "string",
+        "description": "Absolute path to a trusted CA certificate file (PEM format)."
+      }
+    }
+  },
+  "limits": {
+    "max_metadata_size": {
+      "type": "number",
+      "default": 10485760,
+      "description": "Maximum size (in bytes) allowed for a single metadata operation."
+    },
+    "max_open_files": {
+      "type": "number",
+      "default": 65536,
+      "description": "Maximum number of open file descriptors gfmd may use."
+    },
+    "max_connections": {
+      "type": "number",
+      "default": 1024,
+      "description": "Maximum number of concurrent client connections."
+    },
+    "client_idle_timeout": {
+      "type": "number",
+      "default": 3600,
+      "description": "Client connection idle timeout in seconds (0 disables timeout)."
+    }
+  },
+  "quota": {
+    "enable_quota": {
+      "type": "bool",
+      "default": false,
+      "description": "Enable per-directory quota enforcement (requires quota DB support)."
+    },
+    "quota_db_path": {
+      "type": "string",
+      "default": "/var/lib/gfarm2/quota.db",
+      "description": "Path to the SQLite database file for quota tracking."
+    }
+  },
+  "storage": {
+    "journal_size_limit": {
+      "type": "number",
+      "default": 1073741824,
+      "description": "Maximum size (in bytes) of a single journal file before rotation."
+    },
+    "journal_rotation_count": {
+      "type": "number",
+      "default": 10,
+      "description": "Number of old journal files to retain after rotation."
+    },
+    "journal_sync_writes": {
+      "type": "bool",
+      "default": true,
+      "description": "Force synchronous writes to journal (ensures durability, may reduce performance)."
+    },
+    "journal_dir": {
+      "type": "string",
+      "default": "/var/lib/gfarm2/journal",
+      "description": "Directory where metadata journal files are stored."
+    },
+    "compress_metadata": {
+      "type": "bool",
+      "default": true,
+      "description": "Compress metadata before writing to disk (saves space, minor CPU overhead)."
+    }
+  }
+}

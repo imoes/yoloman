@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ========================================================================
+  INDI (Internet Instrumentation Protocol) Configuration
+  ========================================================================
+  This file configures the INDI drivers, devices, and properties.
+  It is managed by Ansible. Do not edit manually.
+
+  Structure:
+  <drivers>
+    <driver name="..." enabled="..." library="...">
+      <device name="..." uid="..." model="..." port="..." baud_rate="..." connection_type="...">
+        <property name="..." type="..." ... />
+      </device>
+    </driver>
+  </drivers>
+  ========================================================================
+-->
+<drivers>
+{# ----------------------------------------------------------------------- #}
+{# List of INDI drivers to configure (e.g., telescope, camera, filter wheel) #}
+{# ----------------------------------------------------------------------- #}
+{% for driver in (drivers | default([])) %}
+  <!--
+    Driver: {{ driver.name | default('unknown') }}
+    Description: INDI driver for {{ driver.name | default('this component') }}
+    Enabled: {{ driver.enabled | default('true') }}
+  -->
+  <driver
+    name="{{ driver.name | default('') }}"
+    enabled="{{ driver.enabled | default('true') }}"
+    {% if driver.library is defined %}
+    library="{{ driver.library | default('') }}"
+    {% endif %}
+  >
+    {% for device in (driver.devices | default([])) %}
+      <!--
+        Device: {{ device.name | default('unknown') }}
+        UID: {{ device.uid | default('') }}
+        Model: {{ device.model | default('') }}
+      -->
+      <device
+        name="{{ device.name | default('') }}"
+        uid="{{ device.uid | default('') }}"
+        {% if device.model is defined %}
+        model="{{ device.model | default('') }}"
+        {% endif %}
+        {% if device.port is defined %}
+        port="{{ device.port | default('') }}"
+        {% endif %}
+        {% if device.baud_rate is defined %}
+        baud_rate="{{ device.baud_rate | default('') }}"
+        {% endif %}
+        {% if device.connection_type is defined %}
+        connection_type="{{ device.connection_type | default('') }}"
+        {% endif %}
+      >
+        {% for prop in (device.properties | default([])) %}
+          <!--
+            Property: {{ prop.name | default('unknown') }}
+            Type: {{ prop.type | default('') }}
+          -->
+          <property
+            name="{{ prop.name | default('') }}"
+            type="{{ prop.type | default('') }}"
+          />
+        {% endfor %}
+      </device>
+    {% endfor %}
+  </driver>
+{% endfor %}
+
+{% if sample_values is defined %}
+  <!--
+    Sample Values: This section contains example data for testing or demonstration purposes.
+    Values: {{ sample_values | tojson }}
+  -->
+  <sample_values>
+    {{ sample_values | tojson | indent(4) }}
+  </sample_values>
+{% endif %}
+</drivers>

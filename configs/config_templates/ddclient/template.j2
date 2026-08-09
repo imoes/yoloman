@@ -1,0 +1,35 @@
+#!/bin/sh
+# dhclient-exit-hooks.d/ddclient
+# Description: Exit hook script for dhclient to trigger ddclient updates when the IP address changes.
+# This script is sourced by dhclient after obtaining or renewing a lease. It checks if ddclient
+# is configured to run via dhclient hooks and, if so, invokes ddclient to update the DNS records.
+#
+# Configuration variable:
+#   run_dhclient (boolean/string): Set to 'true' to enable this hook; 'false' to disable.
+
+# Run inside subshell so we can use exit to bail without affecting the caller.
+(
+  # Check if ddclient executable exists and is executable.
+  [ -x /usr/bin/ddclient ] || exit 0
+
+  # Check if ddclient default configuration file exists.
+  [ -f /etc/default/ddclient ] || exit 0
+
+  # Source the ddclient default configuration file.
+  . /etc/default/ddclient
+
+  # Only proceed if the hook is enabled via the run_dhclient variable.
+  # Defaults to 'false' if not set or empty.
+  [ "$run_dhclient" = "{{ run_dhclient | default('false') }}" ] || exit 0
+
+  case $reason in
+    BOUND|RENEW|REBIND)
+      # Log the event and trigger ddclient update for new/updated IP addresses.
+      /usr/bin/logger -t dhclient "$reason, updating IP address with ddclient"
+      /usr/bin/ddclient -daemon=0 -syslog > /dev/null 2>&1
+      ;;
+    *)
+      # Ignore other dhclient events (e.g., PREINIT, BAREBOOT).
+      ;;
+  esac
+)

@@ -1,0 +1,49 @@
+#!/lib/init/init-d-script
+### BEGIN INIT INFO
+# Provides:          blockdomains
+# Required-Start:    mountkernfs $local_fs
+# X-Start-Before:    $network
+# Required-Stop:     mountkernfs $local_fs
+# Default-Start:     S
+# Default-Stop:      0 6
+# Short-Description: Block selected HTTP and HTTPS connections
+# Description:       Firewall agent that blocks outbound connections
+#                    for selected domains
+### END INIT INFO
+
+# Operational mode: 'block' to deny matching traffic, 'monitor' to log only without blocking.
+# Note: The original script did not use this variable in the daemon arguments.
+# If 'monitor' mode requires specific arguments (e.g., --monitor), they should be added here.
+MODE={{ mode | default('block') }}
+
+# Absolute path to the directory containing domain blocking rules (one rule per line).
+RULES_FILE={{ rules_file | default('/etc/blockdomains/blocked/*.acl') }}
+
+# Path to the log file. Leave empty to log to stderr instead.
+LOG_FILE={{ log_file | default('/var/log/blockdomains.log') }}
+
+DAEMON=/usr/sbin/blockdomains
+
+# Construct arguments for the daemon.
+# 'ls' is used to expand the wildcard path to individual rule files.
+# If the directory is empty or missing, 2>/dev/null suppresses errors,
+# resulting in an empty string for DAEMON_ARGS.
+DAEMON_ARGS="$(ls {{ rules_file | default('/etc/blockdomains/blocked/*.acl') }} 2>/dev/null)"
+
+# Start arguments:
+# -b: background mode
+# -O: specify output log file
+START_ARGS="-b -O {{ log_file | default('/var/log/blockdomains.log') }}"
+
+PIDFILE=none
+
+do_start_prepare() {
+    # Insert an iptables rule to queue OUTPUT TCP packets to nfqueue 99.
+    # This allows blockdomains to inspect and block connections based on domain rules.
+    iptables -I OUTPUT -p tcp -j NFQUEUE --queue-num 99
+}
+
+do_stop_prepare() {
+    # Remove the iptables rule on stop.
+    iptables -D OUTPUT -p tcp -j NFQUEUE --queue-num 99
+}

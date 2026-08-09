@@ -1,0 +1,169 @@
+# ============================================================================
+# milter-greylist configuration template
+# ============================================================================
+# This file configures milter-greylist, a Postfix milter that implements
+# greylisting for anti-spam purposes. It communicates with the MTA (usually
+# Postfix) via a Unix domain socket.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Global Settings
+# ----------------------------------------------------------------------------
+
+# Global timeout (seconds) for operations like socket I/O and DNS.
+set timeout {{ timeout | default(10) }}
+
+# System user account under which the milter process runs (must have permission
+# to access sockets and logs).
+set user {{ user | default('mailnull') }}
+
+# System group for the milter process.
+set group {{ group | default('mail') }}
+
+# Path to the PID file for the milter-greylist process.
+set pidfile {{ pidfile | default('/var/run/milter-greylist/milter-greylist.pid') }}
+
+# ----------------------------------------------------------------------------
+# Socket Configuration
+# ----------------------------------------------------------------------------
+
+# Unix domain socket path used to communicate with the MTA (e.g., Postfix).
+set socket {{ socket | default('/var/spool/postfix/milter-greylist/milter-greylist.sock') }}
+
+# Optional socket permissions (octal, e.g., 0660).
+# These override the default permissions derived from the umask.
+{% if socket_mode | default('0660') != '0660' or socket_mode is defined %}
+set socketmode {{ socket_mode | default('0660') }}
+{% endif %}
+
+# Optional socket owner override.
+# Typically set to the MTA user (e.g., postfix) so it can connect.
+{% if socket_owner | default('postfix') != 'postfix' or socket_owner is defined %}
+set socketowner {{ socket_owner | default('postfix') }}
+{% endif %}
+
+# Optional socket group override.
+# Typically set to the MTA group (e.g., postfix) so group members can connect.
+{% if socket_group | default('postfix') != 'postfix' or socket_group is defined %}
+set socketgroup {{ socket_group | default('postfix') }}
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Rate Limiting
+# ----------------------------------------------------------------------------
+
+# Maximum number of connections per IP per minute before triggering rate-limiting.
+set ratelimit {{ ratelimit | default(10) }}
+
+# ----------------------------------------------------------------------------
+# Greylisting Behavior
+# ----------------------------------------------------------------------------
+
+# Initial delay (seconds) before accepting a message from a new sender IP.
+# This is the core "greylist" delay.
+set delay {{ delay | default(5) }}
+
+# Time (seconds) after which a greylisted sender is re-allowed if it retries.
+# If the sender retries after this period, the message is accepted.
+set greylist {{ greylist | default(60) }}
+
+# Time (seconds, default 7 days) after successful delivery to automatically
+# whitelist the sender IP. Subsequent messages from this IP are accepted immediately.
+set autowhitelist {{ autowhitelist | default(604800) }}
+
+# Time (seconds, default 1 day) after repeated greylist failures to automatically
+# blacklist the IP. This prevents spamming by permanent non-retryers.
+set autoblacklist {{ autoblacklist | default(86400) }}
+
+# Time (seconds, default 30 days) to remember successful deliveries (i.e., TTL
+# of greylist entries). After this time, the IP is removed from the auto-
+# whitelist and greylisting applies again.
+set greylistttl {{ greylistttl | default(2592000) }}
+
+# ----------------------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------------------
+
+# Logging verbosity: 0 (quiet) to 9 (very verbose); 4 is typical for production.
+set loglevel {{ loglevel | default(4) }}
+
+# Optional path to a dedicated log file (if empty, uses syslog).
+{% if logfile | default('') != '' or logfile is defined %}
+set logfile {{ logfile | default('') }}
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# DNS Settings
+# ----------------------------------------------------------------------------
+
+# Timeout (seconds) for DNS lookups (e.g., MX, SPF).
+{% if dns_timeout | default(5) != 5 or dns_timeout is defined %}
+set dnstimeout {{ dns_timeout | default(5) }}
+{% endif %}
+
+# Number of DNS query retries before giving up.
+{% if dns_retries | default(3) != 3 or dns_retries is defined %}
+set dnsretries {{ dns_retries | default(3) }}
+{% endif %}
+
+# Enable or disable IPv6 support in DNS resolution and socket binding.
+{% if ipv6 | default(True) == True %}
+set ipv6 true
+{% else %}
+set ipv6 false
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Chroot
+# ----------------------------------------------------------------------------
+
+# Optional chroot directory for sandboxing (must contain required binaries and libs).
+{% if chroot | default('') != '' or chroot is defined %}
+set chroot {{ chroot | default('') }}
+{% endif %}
+
+# ----------------------------------------------------------------------------
+# Whitelist: Static Entries Bypassing Greylisting
+# ----------------------------------------------------------------------------
+# Entries in this list are always accepted without greylisting.
+# Supports IP addresses, networks, email addresses, regex, and macros.
+{% for entry in whitelist | default([]) %}
+# Whitelist {{ entry.comment | default('entry') }}
+{% if entry.ip is defined and entry.ip %}whitelist {{ entry.ip }}{% endif %}
+{% if entry.network is defined and entry.network %}whitelist {{ entry.network }}{% endif %}
+{% if entry.email is defined and entry.email %}whitelistemail {{ entry.email }}{% endif %}
+{% if entry.regex is defined and entry.regex %}whitelistregex {{ entry.regex }}{% endif %}
+{% if entry.macro is defined and entry.macro %}whitelistmacro {{ entry.macro }}{% endif %}
+{% endfor %}
+
+# ----------------------------------------------------------------------------
+# Blacklist: Static Entries Always Rejected
+# ----------------------------------------------------------------------------
+# Entries in this list are always rejected immediately.
+# Supports IP addresses, networks, email addresses, regex, and macros.
+{% for entry in blacklist | default([]) %}
+# Blacklist {{ entry.comment | default('entry') }}
+{% if entry.ip is defined and entry.ip %}blacklist {{ entry.ip }}{% endif %}
+{% if entry.network is defined and entry.network %}blacklist {{ entry.network }}{% endif %}
+{% if entry.email is defined and entry.email %}blacklistemail {{ entry.email }}{% endif %}
+{% if entry.regex is defined and entry.regex %}blacklistregex {{ entry.regex }}{% endif %}
+{% if entry.macro is defined and entry.macro %}blacklistmacro {{ entry.macro }}{% endif %}
+{% endfor %}
+
+# ----------------------------------------------------------------------------
+# ACLs: Fine-Grained Control
+# ----------------------------------------------------------------------------
+# Named ACLs allow conditional greylisting behavior based on source properties.
+{% for acl in acls | default([]) %}
+# ACL {{ acl.name | default('unnamed') }}
+{% if acl.ip is defined and acl.ip %}acl {{ acl.name }} ip {{ acl.ip }}{% endif %}
+{% if acl.network is defined and acl.network %}acl {{ acl.name }} network {{ acl.network }}{% endif %}
+{% if acl.email is defined and acl.email %}acl {{ acl.name }} email {{ acl.email }}{% endif %}
+{% if acl.regex is defined and acl.regex %}acl {{ acl.name }} regex {{ acl.regex }}{% endif %}
+{% endfor %}
+
+# Optional default ACL behavior (deny/permit).
+# 'permit' allows greylisting (default behavior), 'deny' always rejects.
+{% if default_acl | default('permit') != 'permit' or default_acl is defined %}
+set default_acl {{ default_acl | default('permit') }}
+{% endif %}

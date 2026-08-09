@@ -1,0 +1,124 @@
+# ==============================================================================
+# IPMI LAN Fencing Agent Configuration (fence_ipmilan)
+# ==============================================================================
+# This template configures the `fence_ipmilan` agent used by cluster
+# managers (Pacemaker/Corosync) to remotely power-cycle or fence nodes
+# via the IPMI (Intelligent Platform Management Interface) protocol.
+#
+# SECURITY NOTE: Sensitive credentials (login, passwd) are stored here.
+# Ensure this file's permissions are restricted to the fence agent user.
+# ==============================================================================
+
+[default]
+
+# ------------------------------------------------------------------------------
+# Communication Method
+# ------------------------------------------------------------------------------
+# Specifies the IPMI interface to use. 'lan' indicates IPMI over IP network
+# using the RMCP (Remote Management Control Protocol) standard.
+interface = lan
+
+# ------------------------------------------------------------------------------
+# Target Node Address
+# ------------------------------------------------------------------------------
+# IP address or hostname of the remote IPMI management interface.
+# This is the BMC (Baseboard Management Controller) address.
+# Default: Empty (required by agent; must be provided via CLI or role vars)
+ipaddr = {{ (ipaddr | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# Authentication Username
+# ------------------------------------------------------------------------------
+# Username for IPMI authentication.
+# Must have 'operator' or 'admin' privileges on the BMC.
+# Default: Empty (required; must be provided via CLI or role vars)
+login = {{ (login | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# Authentication Password
+# ------------------------------------------------------------------------------
+# Password for the specified IPMI user.
+# Default: Empty (required; must be provided via CLI or role vars)
+passwd = {{ (passwd | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# IPMI Cipher Suite ID
+# ------------------------------------------------------------------------------
+# Defines the security cipher suite for the IPMI session.
+# - 0: Raw (no encryption/auth)
+# - 1: MD5
+# - 2: DES
+# - 3: AES-128
+# - 4: AES-192
+# - 5: AES-256
+# - 6: AES-256 (Recommended for modern hardware, often aliased as 5 or 6 depending on implementation)
+# Default: 6
+cipher = {{ cipher | default(6) | int }}
+
+# ------------------------------------------------------------------------------
+# Authentication Level
+# ------------------------------------------------------------------------------
+# Sets the authentication type required by the BMC.
+# - 'admin': Administrator privileges (full access)
+# - 'user': User-level privileges (limited access)
+# Use 'user' only if the BMC restricts admin access for fencing operations.
+# Default: 'admin'
+auth = {{ (auth | default('admin')) | string }}
+
+# ------------------------------------------------------------------------------
+# Security Level / Password Algorithm
+# ------------------------------------------------------------------------------
+# Forces the password algorithm for older IPMI 1.5 devices or strict security
+# policies. Typically 'none' or 'admin'.
+# Most modern IPMI 2.0 devices ignore this and negotiate automatically.
+# Default: Empty (automatic negotiation)
+seclevel = {{ (seclevel | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# Command Timeout
+# ------------------------------------------------------------------------------
+# Maximum time (in seconds) to wait for an IPMI command to complete.
+# Increase this value if network latency to the BMC is high or the BMC is slow.
+# Default: 60 seconds
+timeout = {{ timeout | default(60) | int }}
+
+# ------------------------------------------------------------------------------
+# Retry Count
+# ------------------------------------------------------------------------------
+# Number of times to retry the fencing command before marking it as failed.
+# Useful for transient network errors or BMC busy states.
+# Default: 3 retries
+retry = {{ retry | default(3) | int }}
+
+# ------------------------------------------------------------------------------
+# Session Key File (Optional)
+# ------------------------------------------------------------------------------
+# Path to a persistent session key file.
+# Some older IPMI implementations require this for stateful sessions.
+# Most modern clusters omit this and rely on stateless RMCP sessions.
+# If enabled, the filename is generated using the hostname.
+# Uncomment and set if your specific hardware requires it:
+# session_key_file = /var/run/fence_ipmilan_{{ (hostname | default('')) | string }}.key
+
+# ------------------------------------------------------------------------------
+# Domain SID for Active Directory (Optional)
+# ------------------------------------------------------------------------------
+# Specifies the Domain SID for Active Directory integration.
+# Used in advanced environments where IPMI users are mapped via AD.
+# Omit in standard standalone cluster setups.
+# sid = {{ (sid | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# IPv6 Support (Optional)
+# ------------------------------------------------------------------------------
+# Set to 'yes' if the target BMC is reachable only via IPv6.
+# Leave empty for IPv4 (default behavior).
+# ipv6 = {{ (ipv6 | default('')) | string }}
+
+# ------------------------------------------------------------------------------
+# IPMI RMCP Port (Optional)
+# ------------------------------------------------------------------------------
+# UDP port used for IPMI communication (RMCP).
+# The standard port is 623. Only change if your hardware uses a non-standard port.
+# Default: 623
+port = {{ port | default(623) | int }}

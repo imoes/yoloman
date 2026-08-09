@@ -1,0 +1,163 @@
+{
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (additional debug output to syslog)"
+  },
+  "user": {
+    "type": "string",
+    "default": "mailfromd",
+    "description": "System user to drop privileges to after startup"
+  },
+  "group": {
+    "type": "string",
+    "default": "mailfromd",
+    "description": "System group to drop privileges to after startup"
+  },
+  "pidfile": {
+    "type": "string",
+    "default": "/var/run/mailfromd.pid",
+    "description": "Path to the PID file"
+  },
+  "chroot": {
+    "type": "string",
+    "default": "/var/chroot/mailfromd",
+    "description": "Chroot directory (empty string disables chroot)"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of simultaneous client connections"
+  },
+  "max_recipients": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of recipients per message"
+  },
+  "command_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout for SMTP commands (in seconds)"
+  },
+  "data_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Timeout for data transfer (in seconds)"
+  },
+  "connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout for connection establishment (in seconds)"
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "address": "127.0.0.1",
+        "port": 25
+      }
+    ],
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address to bind to (e.g., '0.0.0.0' for all interfaces)"
+      },
+      "port": {
+        "type": "number",
+        "default": 25,
+        "description": "Port to listen on (e.g., 25 for SMTP, 587 for submission)"
+      }
+    },
+    "description": "List of network interfaces and ports to bind to"
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for inbound connections"
+  },
+  "tls_certificate": {
+    "type": "string",
+    "default": "/etc/mailfromd/cert.pem",
+    "description": "Path to TLS certificate file"
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/mailfromd/key.pem",
+    "description": "Path to TLS private key file"
+  },
+  "tls_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle for client verification (optional)"
+  },
+  "dnsbls": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "domain": {
+        "type": "string",
+        "default": "",
+        "description": "DNSBL domain to query (e.g., 'zen.spamhaus.org')"
+      },
+      "action": {
+        "type": "string",
+        "default": "reject",
+        "description": "Action on match (e.g., 'reject', 'discard', 'warn')"
+      },
+      "ttl": {
+        "type": "number",
+        "default": null,
+        "description": "Cache TTL for DNSBL results (seconds; optional)"
+      }
+    },
+    "description": "List of DNS-based blackhole lists to query"
+  },
+  "whitelists": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "network": {
+        "type": "string",
+        "default": "",
+        "description": "IP address or CIDR network to whitelist"
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional descriptive note"
+      }
+    },
+    "description": "List of trusted hosts/networks (bypasses DNSBL and rate limiting)"
+  },
+  "blocked_action": {
+    "type": "string",
+    "default": "reject",
+    "description": "SMTP action for blocked connections (e.g., 'reject', 'discard')"
+  },
+  "rate_limiting": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable connection rate limiting per IP"
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum connections per minute per IP (used when rate_limiting=true)"
+  },
+  "log_format": {
+    "type": "string",
+    "default": "mail.fromd",
+    "description": "Syslog facility/facility.priority or \"-\" for stdout"
+  },
+  "spf_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Sender Policy Framework validation"
+  },
+  "dkim_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DKIM verification"
+  }
+}

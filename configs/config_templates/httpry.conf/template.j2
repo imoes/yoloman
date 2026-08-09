@@ -1,0 +1,106 @@
+# Absolute path to the main log file where HTTP traffic is recorded.
+# Default: /var/log/httpry/httpry.log
+log_file: {{ (log_file | default('/var/log/httpry/httpry.log')) | string }}
+
+# Network interface to capture traffic on. Leave empty or 'any' to capture on all interfaces.
+# Default: any
+interface: {{ (interface | default('any')) | string }}
+
+# IP address to bind the HTTP proxy to. Leave empty or '0.0.0.0' to bind to all addresses.
+# Default: (empty string)
+bind_address: {{ (bind_address | default('')) | string }}
+
+# TCP port the httpry proxy listens on. Use 0 for automatic port selection.
+# Default: 7777
+port: {{ (port | default(7777)) | int }}
+
+# If true, enables verbose logging of internal operations and debugging.
+# Default: False
+verbose: {{ (verbose | default(False)) | bool | ternary('true', 'false') }}
+
+# If true, logs raw packet data (low-level network details) for deep inspection.
+# Default: False
+packet_logging: {{ (packet_logging | default(False)) | bool | ternary('true', 'false') }}
+
+# If true, enables HTTP request/response header and content logging.
+# Default: True
+logging: {{ (logging | default(True)) | bool | ternary('true', 'false') }}
+
+# Maximum number of concurrent connections the server accepts.
+# Default: 1000
+max_connections: {{ (max_connections | default(1000)) | int }}
+
+# Number of seconds to wait before timing out an idle connection.
+# Default: 30
+connection_timeout: {{ (connection_timeout | default(30)) | int }}
+
+# If true, attempts SSL/TLS decryption using provided certificate/key files.
+# Requires both ssl_key and ssl_cert to be set.
+# Default: False
+ssl_decryption: {{ (ssl_decryption | default(False)) | bool | ternary('true', 'false') }}
+
+# Path to the private key file for SSL/TLS decryption.
+# Only required if ssl_decryption is enabled.
+# Default: /etc/httpry/ssl/private.key
+ssl_key: {{ (ssl_key | default('/etc/httpry/ssl/private.key')) | string }}
+
+# Path to the SSL certificate file for decryption.
+# Only required if ssl_decryption is enabled.
+# Default: /etc/httpry/ssl/certificate.crt
+ssl_cert: {{ (ssl_cert | default('/etc/httpry/ssl/certificate.crt')) | string }}
+
+# List of hosts or CIDR subnets to exclude from logging.
+# Each item in the list generates an 'exclude_host' directive.
+# Default: []
+{% for host in (exclude_hosts | default([])) %}exclude_host: {{ host | string }}
+{% endfor %}
+
+# If non-empty, only log traffic to/from these hosts or subnets.
+# If empty, all traffic is logged (subject to exclude_hosts).
+# Default: []
+{% if (include_hosts | default([])) | length > 0 %}
+{% for host in include_hosts %}include_host: {{ host | string }}
+{% endfor %}
+{% else %}
+# No specific hosts to include (default: log all traffic)
+{% endif %}
+
+# Output format for logs: 'standard' (human-readable), 'json' (machine-readable), or 'extended' (detailed headers).
+# Default: standard
+log_format: {{ (log_format | default('standard')) | string }}
+
+# If true, performs reverse DNS lookups to convert IPs to hostnames in logs.
+# Default: False
+reverse_dns: {{ (reverse_dns | default(False)) | bool | ternary('true', 'false') }}
+
+# Directory to store session state files for continuity across restarts.
+# Default: /var/lib/httpry/sessions
+session_dir: {{ (session_dir | default('/var/lib/httpry/sessions')) | string }}
+
+# Maximum size (in MB) of each session file before rotation. Use 0 for unlimited.
+# Default: 10
+max_session_file_size: {{ (max_session_file_size | default(10)) | int }}
+
+# Number of rotated session files to keep. Use 0 to retain all.
+# Default: 5
+max_session_files: {{ (max_session_files | default(5)) | int }}
+
+# If true, automatically remove sessions older than session_ttl.
+# Default: True
+session_expiration: {{ (session_expiration | default(True)) | bool | ternary('true', 'false') }}
+
+# Time-to-live (in seconds) for inactive sessions before expiration.
+# Default: 86400
+session_ttl: {{ (session_ttl | default(86400)) | int }}
+
+# System user to drop privileges to after starting (for security).
+# Default: httpry
+daemon_user: {{ (daemon_user | default('httpry')) | string }}
+
+# System group to drop privileges to after starting.
+# Default: httpry
+daemon_group: {{ (daemon_group | default('httpry')) | string }}
+
+# Path to the PID file used for process management.
+# Default: /var/run/httpry/httpry.pid
+pid_file: {{ (pid_file | default('/var/run/httpry/httpry.pid')) | string }}

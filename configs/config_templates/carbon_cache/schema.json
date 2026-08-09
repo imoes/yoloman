@@ -1,0 +1,117 @@
+{
+  "config": {
+    "type": "object",
+    "description": "Carbon cache configuration settings",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this carbon-cache instance (uncomment/comment the section)"
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 2003,
+        "description": "Port to listen on for plaintext line-protocol metrics"
+      },
+      "pickle_port": {
+        "type": "number",
+        "default": 2004,
+        "description": "Port to listen on for pickle (binary batched) protocol metrics"
+      },
+      "destinations": {
+        "type": "list",
+        "default": [],
+        "description": "List of downstream carbon-cache destinations to forward metrics to (for aggregation or clustering). Format: [{'address': 'host:port'}, ...]",
+        "items": {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "string",
+              "description": "Hostname and port (e.g., '10.0.0.2:2004')"
+            }
+          },
+          "required": [
+            "address"
+          ]
+        }
+      },
+      "max_queue_size": {
+        "type": "number",
+        "default": 10000,
+        "description": "Maximum number of metrics queued in memory per destination before dropping"
+      },
+      "batch_size": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of metrics sent in a single batch to each destination"
+      },
+      "use_pickle": {
+        "type": "bool",
+        "default": true,
+        "description": "Use pickle protocol instead of line-protocol for outbound connections"
+      },
+      "worker_processes": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for handling cache writes"
+      },
+      "data_dir": {
+        "type": "string",
+        "default": "/var/lib/graphite/whisper",
+        "description": "Root directory where Whisper database files are stored"
+      },
+      "log_dir": {
+        "type": "string",
+        "default": "/var/log/graphite",
+        "description": "Directory for log files (carbon-cache.log, carbon-cache.err)"
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "description": "Logging verbosity level (debug, info, warning, error, critical)",
+        "enum": [
+          "debug",
+          "info",
+          "warning",
+          "error",
+          "critical"
+        ]
+      },
+      "log_cache_metrics": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable internal metrics about cache performance (e.g., queue size, hit ratio) in statsd format"
+      },
+      "cache_query": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable serving metrics from cache (instead of only disk) before flush"
+      },
+      "max_update_interval": {
+        "type": "number",
+        "default": 500,
+        "description": "Maximum metrics per second to accept (throttle incoming load)"
+      },
+      "flush_interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds between background flushes of cached metrics to disk"
+      },
+      "max_cache_size": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of metrics to buffer per Whisper file in memory"
+      },
+      "create_directories": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically create directories for new metric paths"
+      },
+      "stale_sla": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds of inactivity after which a Whisper file is considered stale and new writes are rejected"
+      }
+    }
+  }
+}

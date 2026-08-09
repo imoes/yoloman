@@ -1,0 +1,38 @@
+# dnstwist configuration
+# One domain to scan
+{% for line in domain.split('
+') | select('trim') | list %}DOMAIN={{ line | default('example.com') }}{% endfor %}
+
+# Fuzzing options
+{% if fuzzers | default([]) | length > 0 %}FUZZERS={{ fuzzers | join(',') }}{% endif %}
+{% if dictionary_file | default('') %}DICTIONARY={{ dictionary_file }}{% endif %}
+{% if tld_file | default('') %}TLD_FILE={{ tld_file }}{% endif %}
+
+# Output control
+{% if registered_only | default(false) %}REGISTERED_ONLY=true{% endif %}
+{% if unregistered_only | default(false) %}UNREGISTERED_ONLY=true{% endif %}
+{% if format | default('cli') %}OUTPUT_FORMAT={{ format }}{% endif %}
+{% if output_file | default('') %}OUTPUT_FILE={{ output_file }}{% endif %}
+
+# DNS resolution
+{% if nameservers | default([]) | length > 0 %}NAMESERVERS={{ nameservers | join(',') }}{% endif %}
+{% if threads | default(1) > 0 %}THREADS={{ threads }}{% endif %}
+
+# Web features
+{% if banners | default(false) %}BANNERS=true{% endif %}
+{% if phash | default(false) %}PHASH=true{% endif %}
+{% if phash_url | default('') %}PHASH_URL={{ phash_url }}{% endif %}
+{% if screenshots_dir | default('') %}SCREENSHOTS_DIR={{ screenshots_dir }}{% endif %}
+{% if lsh | default('') %}LSH={{ lsh }}{% endif %}
+{% if lsh_url | default('') %}LSH_URL={{ lsh_url }}{% endif %}
+
+# Identity
+{% if user_agent | default('') %}USER_AGENT={{ user_agent }}{% endif %}
+
+# Passive features
+{% if geoip | default(false) %}GEOIP=true{% endif %}
+{% if whois | default(false) %}WHOIS=true{% endif %}
+{% if mxcheck | default(false) %}MXCHECK=true{% endif %}
+
+# Utility flags
+{% if all_records | default(false) %}ALL_RECORDS=true{% endif %}

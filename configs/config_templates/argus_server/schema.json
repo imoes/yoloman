@@ -1,0 +1,221 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4/IPv6) the Argus server binds to. Use `0.0.0.0` to listen on all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port number for theArgus API and management interface."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging: `debug`, `info`, `warn`, or `error`."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/argus",
+    "description": "Absolute path to the directory where audit logs are written."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable TLS encryption for client connections."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/argus/ssl/cert.pem",
+    "description": "Path to the SSL certificate file (PEM format). Required if `ssl_enabled` is true."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/argus/ssl/key.pem",
+    "description": "Path to the SSL private key file (PEM format). Required if `ssl_enabled` is true."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of simultaneous client connections the server accepts."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity before a client connection is closed."
+  },
+  "db": {
+    "type": "object",
+    "default": {
+      "type": "sqlite",
+      "path": "/var/lib/argus/argus.db"
+    },
+    "description": "Database configuration for storing audit records.",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "sqlite",
+          "postgresql"
+        ],
+        "default": "sqlite",
+        "description": "Database backend type."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/argus/argus.db",
+        "description": "File path for SQLite database (used only if `type` = `sqlite`)."
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "PostgreSQL server hostname (used only if `type` = `postgresql`)."
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "PostgreSQL server port (used only if `type` = `postgresql`)."
+      },
+      "name": {
+        "type": "string",
+        "default": "argus",
+        "description": "Database name (used only if `type` = `postgresql`)."
+      },
+      "user": {
+        "type": "string",
+        "default": "argus",
+        "description": "Database user (used only if `type` = `postgresql`)."
+      },
+      "ssl_mode": {
+        "type": "string",
+        "enum": [
+          "disable",
+          "allow",
+          "prefer",
+          "require"
+        ],
+        "default": null,
+        "description": "PostgreSQL SSL mode (optional, used only if `type` = `postgresql`)."
+      }
+    }
+  },
+  "audit_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of audit rules to define which transactions to capture and log.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique rule name (e.g., `tcp-http`, `icmp-echo`)."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether this rule is active."
+      },
+      "description": {
+        "type": "string",
+        "description": "Human-readable description of the rule\u2019s purpose."
+      },
+      "protocol": {
+        "type": "string",
+        "enum": [
+          "tcp",
+          "udp",
+          "icmp"
+        ],
+        "description": "Network protocol this rule applies to."
+      },
+      "ports": {
+        "type": "list",
+        "items": {
+          "type": "number"
+        },
+        "default": [],
+        "description": "List of TCP/UDP ports to monitor (e.g., `[80, 443]`). Required for `tcp` and `udp`."
+      },
+      "filters": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "Optional capture filters (e.g., `src host 10.0.0.1`, `dst port 80`)."
+      },
+      "log_to": {
+        "type": "string",
+        "enum": [
+          "file",
+          "database",
+          "both"
+        ],
+        "default": "database",
+        "description": "Where to store matched transaction records."
+      }
+    }
+  },
+  "alerts.email_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to send audit alerts via email."
+  },
+  "alerts.smtp_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname for sending alerts (used only if `email_enabled` is true)."
+  },
+  "alerts.smtp_port": {
+    "type": "number",
+    "default": 587,
+    "description": "SMTP server port (typically 587 for TLS, 465 for SSL)."
+  },
+  "alerts.from_addr": {
+    "type": "string",
+    "default": "argus-alerts@example.com",
+    "description": "Sender email address for alerts."
+  },
+  "alerts.to_addrs": {
+    "type": "list",
+    "items": {
+      "type": "string"
+    },
+    "default": [],
+    "description": "List of recipient email addresses for alerts."
+  },
+  "alerts.webhook_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to send audit alerts to HTTP(S) webhooks."
+  },
+  "alerts.webhooks": {
+    "type": "list",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique webhook identifier."
+      },
+      "url": {
+        "type": "string",
+        "description": "Target webhook URL (HTTP or HTTPS)."
+      },
+      "method": {
+        "type": "string",
+        "enum": [
+          "POST",
+          "PUT"
+        ],
+        "default": "POST",
+        "description": "HTTP method to use when sending payload."
+      },
+      "headers": {
+        "type": "object",
+        "items": {
+          "type": "string"
+        },
+        "default": {},
+        "description": "Optional HTTP headers (e.g., `{\"Authorization\": \"Bearer XXX\"}`)."
+      }
+    },
+    "default": [],
+    "description": "List of webhook destinations for alerts (used only if `webhook_enabled` is true)."
+  }
+}

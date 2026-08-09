@@ -1,0 +1,53 @@
+# gping configuration file
+# This file configures `gping`, a command-line tool that graphs ping times (or command execution times).
+# The configuration uses a simple INI-like format.
+
+[config]
+
+# Watch interval in seconds (allowing fractional values, e.g., 0.2 for ping, 0.5 for cmd)
+# Defines how often the graph updates.
+watch_interval = {{ watch_interval | default(0.2) }}
+
+# Number of seconds to display in the graph
+# Controls the horizontal window of the time-series view.
+buffer = {{ buffer | default(30) }}
+
+# Resolve ping targets to IPv4 addresses only
+# If true, `gping` will only resolve hosts to A records.
+ipv4_only = {{ ipv4_only | default(false) }}
+
+# Resolve ping targets to IPv6 addresses only
+# If true, `gping` will only resolve hosts to AAAA records.
+ipv6_only = {{ ipv6_only | default(false) }}
+
+# Network interface to use when pinging
+# Useful for binding pings to a specific source IP or interface.
+interface = {{ interface | default('') }}
+
+# Use dot characters instead of braille characters for the graph
+# If true, uses simple ASCII dots for visualization instead of Unicode Braille patterns.
+simple_graphics = {{ simple_graphics | default(false) }}
+
+# Vertical margin (top and bottom) around the graph
+# Adds padding to the Y-axis of the graph to prevent clipping of high/low points.
+vertical_margin = {{ vertical_margin | default(1) }}
+
+# Horizontal margin (left and right) around the graph
+# Adds padding to the X-axis. Usually 0 is preferred for full-screen width.
+horizontal_margin = {{ horizontal_margin | default(0) }}
+
+# Graph execution time for commands instead of pinging hosts
+# If true, the `hosts` list is treated as shell commands to execute.
+command_mode = {{ command_mode | default(false) }}
+
+# List of colors (hex #RRGGBB or names like 'red', 'blue') assigned per host/command in order
+# Colors are applied sequentially to the entries in `hosts`.
+{% if (colors | default([])) | length > 0 %}
+colors = {{ colors | default([]) | join(',') }}
+{% endif %}
+
+# List of hosts to ping or commands to execute (if command_mode is true)
+# Space-separated list of targets.
+{% if (hosts | default([])) | length > 0 %}
+hosts = {{ hosts | default([]) | join(' ') }}
+{% endif %}

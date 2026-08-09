@@ -1,0 +1,183 @@
+{
+  "system": {
+    "type": "object",
+    "default": {},
+    "description": "System-wide runtime settings for cedar_backup3",
+    "properties": {
+      "log_dir": {
+        "type": "string",
+        "default": "/var/log/cedar-backup3",
+        "description": "Directory to store log files"
+      },
+      "state_dir": {
+        "type": "string",
+        "default": "/var/lib/cedar-backup3",
+        "description": "Directory to store state, history, and metadata"
+      },
+      "debug": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable verbose debugging output"
+      }
+    }
+  },
+  "backup_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of backup sets \u2014 each defines what to backup and where",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Unique identifier for this backup set"
+      },
+      "sources": {
+        "type": "list",
+        "default": [],
+        "description": "List of directories/files to include in backup",
+        "items": {
+          "type": "string",
+          "description": "Absolute path to backup"
+        }
+      },
+      "destination": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "cdvd",
+              "s3"
+            ],
+            "default": "cdvd",
+            "description": "Destination type: CD/DVD optical media or Amazon S3"
+          },
+          "device": {
+            "type": "string",
+            "default": "/dev/sr0",
+            "description": "Block device for CD/DVD writer (e.g., /dev/sr0)",
+            "when": "destination.type == 'cdvd'"
+          },
+          "fs_type": {
+            "type": "string",
+            "enum": [
+              "UDF",
+              "ISO9660"
+            ],
+            "default": "UDF",
+            "description": "File system format for optical media",
+            "when": "destination.type == 'cdvd'"
+          },
+          "label": {
+            "type": "string",
+            "default": "cedar-backup3-{{ now()[:10] }}",
+            "description": "Volume label for optical media (must be unique)",
+            "when": "destination.type == 'cdvd'"
+          },
+          "speed": {
+            "type": "string",
+            "default": "4x",
+            "description": "Burn speed (e.g., '4x', '8x', 'auto')",
+            "when": "destination.type == 'cdvd'"
+          },
+          "bucket": {
+            "type": "string",
+            "default": "my-backups",
+            "description": "S3 bucket name",
+            "when": "destination.type == 's3'"
+          },
+          "storage_class": {
+            "type": "string",
+            "enum": [
+              "STANDARD",
+              "REDUCED_REDUNDANCY",
+              "STANDARD_IA",
+              "GLACIER"
+            ],
+            "default": "STANDARD",
+            "description": "AWS S3 storage class",
+            "when": "destination.type == 's3'"
+          },
+          "region": {
+            "type": "string",
+            "default": "us-east-1",
+            "description": "AWS region where the bucket resides",
+            "when": "destination.type == 's3'"
+          }
+        }
+      },
+      "schedule": {
+        "type": "object",
+        "required": [
+          "when"
+        ],
+        "properties": {
+          "when": {
+            "type": "string",
+            "default": "0 2 * * *",
+            "description": "Cron-style schedule (minute hour day month weekday)"
+          },
+          "timeout_minutes": {
+            "type": "number",
+            "default": 360,
+            "description": "Maximum backup duration before aborting (in minutes)"
+          }
+        }
+      },
+      "compression": {
+        "type": "object",
+        "default": {
+          "enabled": true,
+          "algorithm": "gzip"
+        },
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable data compression before writing"
+          },
+          "algorithm": {
+            "type": "string",
+            "enum": [
+              "gzip",
+              "bzip2",
+              "none"
+            ],
+            "default": "gzip",
+            "description": "Compression algorithm"
+          }
+        }
+      }
+    }
+  },
+  "global_options": {
+    "type": "object",
+    "default": {},
+    "description": "Global behavioral overrides",
+    "properties": {
+      "pre_backup_cmd": {
+        "type": "string",
+        "default": "sync",
+        "description": "Shell command to run before each backup (e.g., 'sync', 'fsfreeze -f /')"
+      },
+      "post_backup_cmd": {
+        "type": "string",
+        "default": "",
+        "description": "Shell command to run after successful backup (e.g., 'eject /dev/sr0')"
+      },
+      "skip_media_verify": {
+        "type": "boolean",
+        "default": false,
+        "description": "Skip post-burn media verification for speed (not recommended)"
+      },
+      "strict_sources": {
+        "type": "boolean",
+        "default": false,
+        "description": "Fail the backup if any source path does not exist"
+      }
+    }
+  }
+}

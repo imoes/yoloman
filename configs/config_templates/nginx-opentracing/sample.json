@@ -1,0 +1,84 @@
+{
+  "upstreams": [
+    {
+      "name": "api_backend",
+      "description": "Primary API microservice cluster",
+      "servers": [
+        {
+          "address": "10.0.0.10",
+          "port": 8080,
+          "weight": 3
+        },
+        {
+          "address": "10.0.0.11",
+          "port": 8080,
+          "weight": 3
+        },
+        {
+          "address": "10.0.0.12",
+          "port": 8080,
+          "weight": 2
+        },
+        {
+          "address": "10.0.0.20",
+          "port": 8080,
+          "weight": 1,
+          "backup": true
+        }
+      ]
+    },
+    {
+      "name": "static_cdn",
+      "description": "Static assets cache (S3 proxy)",
+      "servers": [
+        {
+          "address": "cdn.example.com",
+          "port": 443,
+          "weight": 5
+        }
+      ]
+    }
+  ],
+  "servers": [
+    {
+      "name": "api.example.com",
+      "listen": {
+        "port": 443,
+        "ssl": true
+      },
+      "ssl_cert": "api.example.com.crt",
+      "ssl_key": "api.example.com.key",
+      "tracing_enabled": true,
+      "locations": [
+        {
+          "path": "/",
+          "description": "Proxy all API requests to backend",
+          "upstream": "api_backend"
+        },
+        {
+          "path": "/health",
+          "description": "Health check endpoint (no tracing overhead)",
+          "tracing_enabled": false
+        }
+      ]
+    },
+    {
+      "name": "static.example.com",
+      "listen": {
+        "port": 80,
+        "ssl": false
+      },
+      "tracing_enabled": false,
+      "locations": [
+        {
+          "path": "/",
+          "root": "/var/www/static",
+          "index": [
+            "index.html",
+            "index.htm"
+          ]
+        }
+      ]
+    }
+  ]
+}

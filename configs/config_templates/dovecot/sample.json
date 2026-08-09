@@ -1,0 +1,98 @@
+{
+  "dovecot": {
+    "base_dir": "/var/run/dovecot",
+    "protocols": [
+      "imap",
+      "pop3",
+      "lmtp"
+    ],
+    "ssl_mode": "required",
+    "ssl_cert_path": "/etc/ssl/certs/dovecot.crt",
+    "ssl_key_path": "/etc/ssl/private/dovecot.key",
+    "ssl_min_protocol": "TLSv1.2",
+    "ssl_prefer_server_ciphers": true,
+    "log_path": "/var/log/dovecot.log",
+    "info_log_path": "/var/log/dovecot-info.log",
+    "mail_location": "maildir:~/Maildir",
+    "namespace": {
+      "type": "private",
+      "separator": "/",
+      "prefix": "",
+      "inbox": true
+    },
+    "auth_mechanisms": [
+      "plain",
+      "login",
+      "cram-md5"
+    ],
+    "passdb": {
+      "driver": "sql",
+      "args": "driver=mysql\nconnect = host=/var/run/mysqld/mysqld.sock dbname=mail user=mail password=secret\npassword_query = SELECT email as user, password FROM users WHERE email='%u' AND active=1\n"
+    },
+    "userdb": {
+      "driver": "sql",
+      "args": "driver=mysql\nconnect = host=/var/run/mysqld/mysqld.sock dbname=mail user=mail password=secret\nuser_query = SELECT maildir, 5000 AS uid, 5000 AS gid FROM users WHERE email='%u'\n"
+    },
+    "mail_max_userip_connections": 20,
+    "login_trusted_networks": [
+      "127.0.0.0/8",
+      "::1/128"
+    ],
+    "global_mail_plugins": [
+      "acl",
+      "quota"
+    ],
+    "lda_plugins": [
+      "sieve"
+    ],
+    "quota": {
+      "enable": true,
+      "quota_rule": "storage=5G",
+      "quota_grace": 10,
+      "quota_max_mailbox": "10G"
+    },
+    "mail_fsync": "optimal",
+    "post_auth_script": "/usr/local/bin/log-auth-event.sh",
+    "gssapi": {
+      "enable": false
+    },
+    "services": [
+      {
+        "name": "imap-login",
+        "listen": "",
+        "chroot": "login",
+        "user": "dovecot",
+        "process_limit": 2,
+        "min_spare": 1,
+        "max_spare": 3
+      },
+      {
+        "name": "pop3-login",
+        "listen": "",
+        "chroot": "login",
+        "user": "dovecot",
+        "process_limit": 1,
+        "min_spare": 0,
+        "max_spare": 1
+      },
+      {
+        "name": "imap",
+        "user": "vmail",
+        "group": "vmail",
+        "process_limit": 10
+      },
+      {
+        "name": "pop3",
+        "user": "vmail",
+        "group": "vmail",
+        "process_limit": 5
+      },
+      {
+        "name": "lmtp",
+        "user": "vmail",
+        "group": "vmail",
+        "chroot": ""
+      }
+    ]
+  }
+}

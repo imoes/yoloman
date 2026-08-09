@@ -1,0 +1,26 @@
+# afuse configuration
+# afuse is a FUSE-based automounter that mounts directories on-demand when accessed.
+# This template generates mount definitions. Each mount entry corresponds to an element
+# in the 'mounts' list defined in the playbook/role variables.
+
+{% for mount in (mounts | default([])) %}
+# --- Mount configuration for: {{ mount.mount_point | default('undefined') }} ---
+# mount_point: The local path where the FUSE filesystem will be exposed.
+{{ mount.mount_point | default('') }}
+
+{% if mount.mount_template is defined and mount.mount_template != '' %}
+# mount_template: A command template used to mount the device/directory.
+# afuse substitutes this template when the mount point is first accessed.
+-o mount_template={{ mount.mount_template }}{% endif %}
+
+{% if mount.unmount_template is defined and mount.unmount_template != '' %}
+# unmount_template: A command template used to unmount the device/directory.
+# Used when the mount becomes idle or is explicitly unmounted.
+-o unmount_template={{ mount.unmount_template }}{% endif %}
+
+{% if mount.fuse_options is defined and mount.fuse_options | length > 0 %}
+# fuse_options: A list of additional FUSE options passed to the mount command.
+# Each option in the list is appended as a separate -o flag.
+{% for opt in mount.fuse_options %}-o {{ opt }}{% endfor %}{% endif %}
+
+{% endfor %}

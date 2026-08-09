@@ -1,0 +1,136 @@
+{
+  "server": {
+    "type": "object",
+    "description": "Main server configuration block",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the server binds to"
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port for the server to listen on"
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "description": "Verbosity of server logs (e.g., debug, info, warn, error)"
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/mbtserver/mbtserver.log",
+        "description": "Path to the log file"
+      },
+      "max_workers": {
+        "type": "number",
+        "default": 4,
+        "description": "Maximum number of worker threads/processes"
+      },
+      "worker_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds before a worker is considered stale and restarted"
+      },
+      "data_dir": {
+        "type": "string",
+        "default": "/var/lib/mbtserver",
+        "description": "Directory for persistent data (e.g., caches, state)"
+      },
+      "temp_dir": {
+        "type": "string",
+        "default": "/tmp/mbtserver",
+        "description": "Directory for temporary files"
+      },
+      "tls": {
+        "type": "object",
+        "description": "TLS/SSL settings for secure connections",
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false,
+            "description": "Enable TLS for incoming connections"
+          },
+          "cert_file": {
+            "type": "string",
+            "default": "/etc/mbtserver/tls/cert.pem",
+            "description": "Path to TLS certificate file (required if TLS enabled)"
+          },
+          "key_file": {
+            "type": "string",
+            "default": "/etc/mbtserver/tls/key.pem",
+            "description": "Path to TLS private key file (required if TLS enabled)"
+          }
+        }
+      },
+      "backends": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend services to proxy to",
+        "items": {
+          "type": "object",
+          "description": "A single backend service definition",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Unique name for this backend (e.g., 'api-1', 'cache-1')"
+            },
+            "url": {
+              "type": "string",
+              "default": "",
+              "description": "Backend service URL (e.g., http://localhost:3000)"
+            },
+            "weight": {
+              "type": "number",
+              "default": 100,
+              "description": "Load balancing weight (higher = more traffic)"
+            },
+            "health_check": {
+              "type": "object",
+              "description": "Health check configuration for this backend",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Enable periodic health checks for this backend"
+                },
+                "interval": {
+                  "type": "number",
+                  "default": 10,
+                  "description": "Seconds between health checks"
+                },
+                "timeout": {
+                  "type": "number",
+                  "default": 5,
+                  "description": "Seconds to wait for health check response before marking unhealthy"
+                }
+              }
+            }
+          }
+        }
+      },
+      "enable_caching": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable response caching for performance"
+      },
+      "enable_rate_limiting": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable per-client request rate limiting"
+      },
+      "rate_limit_requests": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum requests allowed in the rate limit window"
+      },
+      "rate_limit_window_seconds": {
+        "type": "number",
+        "default": 60,
+        "description": "Time window (in seconds) for rate limiting"
+      }
+    }
+  }
+}

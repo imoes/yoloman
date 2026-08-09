@@ -1,0 +1,140 @@
+{
+  "log_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging (equivalent to LogLevel=4)"
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=quiet, 1=minimal, 2=normal, 3=verbose, 4=debug"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/opensm.log",
+    "description": "Path to log file. Use '-' to log to stdout (for systemd journal)"
+  },
+  "auto_restart": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically restart opensm if it crashes (useful for high-availability)"
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of restart attempts before giving up"
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before attempting a restart"
+  },
+  "primary_port_guid": {
+    "type": "string",
+    "default": "0",
+    "description": "Port GUID to use for SM operations (0 = auto-select first IB port)"
+  },
+  "priority": {
+    "type": "number",
+    "default": 1,
+    "description": "SM priority (1\u201315). Lower values have higher priority in master election"
+  },
+  "default_priority": {
+    "type": "number",
+    "default": 15,
+    "description": "Priority assigned to backup SMs in a high-availability pair"
+  },
+  "sm_mode": {
+    "type": "string",
+    "default": "master",
+    "description": "Mode of operation: 'master' (primary SM), 'backup' (standby), or 'standalone' (no peer)",
+    "enum": [
+      "master",
+      "standalone"
+    ]
+  },
+  "split_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable split-mode for fabrics with physically separate subnets on dual-ported cards"
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of threads to handle MADs \u2014 higher improves throughput on large fabrics"
+  },
+  "max_mads": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of outstanding MAD requests (higher = more concurrent operations)"
+  },
+  "mad_timeout": {
+    "type": "number",
+    "default": 2000,
+    "description": "Timeout (ms) for MAD responses before considering a request failed"
+  },
+  "qos": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable QoS support (required if QoS policies are configured in fabric)"
+  },
+  "sl2vl": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SL to VL mapping (required for SL-to-VL reassignment)"
+  },
+  "gid_table": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GID table management (required for IPv6 over InfiniBand)"
+  },
+  "pkey_table": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PKey table management (required for partition key support)"
+  },
+  "cmgd": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Cluster Management Daemon (CMGD) integration"
+  },
+  "excluded_ports": {
+    "type": "list",
+    "default": [],
+    "description": "List of port GUIDs or numbers to exclude from SM management"
+  },
+  "included_ports": {
+    "type": "list",
+    "default": [],
+    "description": "List of ports to include when IncludePortsOnly is true"
+  },
+  "include_ports_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, only ports listed in IncludedPort will be managed"
+  },
+  "database_file": {
+    "type": "string",
+    "default": "/var/lib/opensm/opensm.db",
+    "description": "Path to persistent state database for SM failover/restart"
+  },
+  "database_persist": {
+    "type": "bool",
+    "default": true,
+    "description": "Persist SM state (LIDs, PKeys, GIDs) across restarts"
+  },
+  "database_sync_interval": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds between database syncs"
+  },
+  "ports": {
+    "type": "string",
+    "default": "ALL",
+    "description": "List of port GUIDs (in hex) or special value 'ALL'/'NONE' to control which ports opensm starts on",
+    "enum": [
+      "ALL",
+      "NONE"
+    ]
+  }
+}

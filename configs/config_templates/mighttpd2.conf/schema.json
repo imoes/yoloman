@@ -1,0 +1,153 @@
+{
+  "bind_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server listens on. Use '0.0.0.0' for all interfaces or '127.0.0.1' for localhost-only."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port the server listens on."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads. Set to the number of CPU cores for optimal performance."
+  },
+  "enable_access_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable access logging."
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "/var/log/mighttpd2/access.log",
+    "description": "Path to the access log file."
+  },
+  "enable_error_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable error logging."
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/mighttpd2/error.log",
+    "description": "Path to the error log file."
+  },
+  "document_root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Root directory from which static files are served."
+  },
+  "directory_index": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, shows a directory listing when no index file is present."
+  },
+  "mime_types": {
+    "type": "list",
+    "default": [],
+    "description": "Custom MIME type mappings for file extensions. Each entry maps a file extension to a MIME type.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "ext": {
+          "type": "string",
+          "default": "",
+          "description": "File extension (e.g., '.pdf', '.webp')."
+        },
+        "type": {
+          "type": "string",
+          "default": "",
+          "description": "MIME type (e.g., 'application/pdf', 'image/webp')."
+        }
+      }
+    }
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Connection idle timeout in seconds before closing."
+  },
+  "max_body_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum allowed HTTP request body size in bytes (e.g., 10 MiB = 10485760)."
+  },
+  "ssl": {
+    "type": "object",
+    "default": null,
+    "description": "TLS/SSL configuration to enable HTTPS. If null or omitted, only HTTP is served.",
+    "fields": {
+      "cert_path": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the SSL certificate file."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the SSL private key file."
+      },
+      "ciphers": {
+        "type": "string",
+        "default": "ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256",
+        "description": "Allowed cipher suites (optional)."
+      }
+    }
+  },
+  "auth_realms": {
+    "type": "list",
+    "default": [],
+    "description": "List of basic authentication realms. Each realm protects a path with a set of username:password_hash pairs.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Realm name (e.g., 'Restricted Area'), shown in auth prompt."
+        },
+        "users": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "object",
+            "fields": {
+              "username": {
+                "type": "string",
+                "default": "",
+                "description": "Username."
+              },
+              "password_hash": {
+                "type": "string",
+                "default": "",
+                "description": "Password hash (e.g., SHA-256, crypt)."
+              }
+            }
+          }
+        },
+        "path": {
+          "type": "string",
+          "default": "/",
+          "description": "URL path prefix protected by this realm."
+        }
+      }
+    }
+  },
+  "enable_gzip": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip compression for text-based responses."
+  },
+  "gzip_level": {
+    "type": "number",
+    "default": 6,
+    "description": "Gzip compression level (1=fastest/least, 9=slowest/most)."
+  },
+  "server_token": {
+    "type": "string",
+    "default": "mighttpd2",
+    "description": "Value for the Server HTTP response header. Set to empty string to hide server identity."
+  }
+}

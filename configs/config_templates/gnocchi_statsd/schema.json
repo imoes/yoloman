@@ -1,0 +1,75 @@
+{
+  "statsd_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the StatsD daemon should listen on (e.g., '0.0.0.0' for all interfaces)"
+  },
+  "statsd_udp_port": {
+    "type": "number",
+    "default": 8125,
+    "description": "UDP port to listen on for StatsD metrics (standard StatsD port)"
+  },
+  "statsd_tcp_port": {
+    "type": "number",
+    "default": 8125,
+    "description": "TCP port to listen on for StatsD metrics; set to 0 to disable TCP support"
+  },
+  "statsd_metric_prefix": {
+    "type": "string",
+    "default": "gnocchi.",
+    "description": "Prefix to prepend to all incoming StatsD metric names before storing them in Gnocchi (e.g., to namespace metrics)"
+  },
+  "statsd_udp_buffer_size": {
+    "type": "number",
+    "default": 65535,
+    "description": "Maximum size (in bytes) of the UDP receive buffer; adjust for high-volume deployments"
+  },
+  "statsd_max_metrics_per_message": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of metrics to process per incoming message/packet (prevents oversized buffers)"
+  },
+  "statsd_flush_interval": {
+    "type": "number",
+    "default": 2,
+    "description": "Interval (in seconds) at which buffered metrics are flushed to Gnocchi; lower values reduce latency but increase overhead"
+  },
+  "statsd_create_metrics": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically create new metrics in Gnocchi when they are first received"
+  },
+  "statsd_metrics": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit metric definitions to map StatsD metric names to Gnocchi metric types and units; if empty, dynamic mapping is used",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "StatsD metric name (e.g., 'myapp.requests.total')"
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "gauge",
+            "counter",
+            "rate",
+            "histogram"
+          ],
+          "description": "Gnocchi metric type the StatsD metric should be stored as"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit for the metric (e.g., 'requests/s', 'ms', 'bytes')"
+        }
+      }
+    }
+  },
+  "statsd_log_level": {
+    "type": "string",
+    "default": "warning",
+    "description": "Logging verbosity for the StatsD daemon; 'debug' is recommended only for troubleshooting"
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the IPP service listens on (e.g., 127.0.0.1 for localhost only, or 0.0.0.0 for all interfaces)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 631,
+    "description": "Port number to listen on for IPP traffic."
+  },
+  "network_access": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to accept IPP connections from remote clients (not just localhost)."
+  },
+  "admin_access": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to allow remote administrative operations via IPP."
+  },
+  "browsing_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to broadcast and discover printers via IPP (enables Browsing On/Off)."
+  },
+  "max_job_time": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum time (in seconds) a job may remain queued before being automatically canceled."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 500,
+    "description": "Maximum number of jobs (active + completed) to retain in the job history."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of error logs; recommended for production: 'warn' or 'error'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the error log file. If empty, defaults to /var/log/cups/ipp_error_log."
+  },
+  "access_log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the access log file. If empty, defaults to /var/log/cups/ipp_access_log."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS (IPP over TLS) for encrypted communication."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      {
+        "action": "allow",
+        "source": "127.0.0.0/8",
+        "description": "Allow access from localhost"
+      },
+      {
+        "action": "allow",
+        "source": "192.168.0.0/16",
+        "description": "Allow access from private network (LAN)"
+      }
+    ],
+    "description": "Ordered list of allow/deny rules for network access control.",
+    "items": {
+      "action": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "default": "allow",
+        "description": "Whether to allow or deny access for this rule."
+      },
+      "source": {
+        "type": "string",
+        "default": "*",
+        "description": "Source IP address, CIDR subnet (e.g., 192.168.1.0/24), or '*' for all."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable note explaining this rule."
+      }
+    }
+  },
+  "dns_sd_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS-SD service announcements for printer discovery on the local network."
+  },
+  "dns_sd_service_name": {
+    "type": "string",
+    "default": "",
+    "description": "Optional custom DNS-SD service name (e.g., 'MyIPPDevice'). If empty, defaults to hostname."
+  },
+  "default_printer_options": {
+    "type": "list",
+    "default": [
+      {
+        "name": "MediaType",
+        "value": "Plain",
+        "description": "Default media type for new jobs"
+      },
+      {
+        "name": " sides",
+        "value": "one-sided",
+        "description": "Default duplex mode"
+      }
+    ],
+    "description": "Default IPP attributes applied to print jobs unless overridden by client.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "IPP attribute name (e.g., MediaType, sides)."
+      },
+      "value": {
+        "type": "string",
+        "default": "",
+        "description": "Value to assign (must be valid for the attribute)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Brief explanation of the option."
+      }
+    }
+  },
+  "max_request_size_kb": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum HTTP request body size (in kilobytes) to prevent denial-of-service via large payloads."
+  }
+}

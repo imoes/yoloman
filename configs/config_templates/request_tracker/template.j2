@@ -1,0 +1,139 @@
+# ==========================================================
+# Request Tracker (RT) - Apache Configuration Template
+# ==========================================================
+# This template generates an Apache VirtualHost or Include
+# fragment for the Request Tracker web application.
+# It handles Perl environment setup, FastCGI routing,
+# SSL redirection, authentication backends (htaccess/ldap),
+# CORS, and optional custom directives.
+
+# ------------------------------------------------------------------
+# Perl Library Environment
+# ------------------------------------------------------------------
+# Set the Perl library path(s) required by RT.
+# Colon-separated list of directories.
+# Default: '/usr/local/lib/request-tracker5/lib:/usr/share/request-tracker5/lib'
+SetEnv PERL5LIB "{{ perl5lib | default('/usr/local/lib/request-tracker5/lib:/usr/share/request-tracker5/lib') }}"
+
+# Set the path to the RT library directory.
+# Default: '/usr/share/request-tracker5/lib/RT'
+SetEnv RT_LIB "{{ rt_lib | default('/usr/share/request-tracker5/lib/RT') }}"
+
+# ------------------------------------------------------------------
+# Additional Environment Variables
+# ------------------------------------------------------------------
+# Inject any additional key-value environment variables defined
+# in the schema's environment_vars field.
+# Default: {} (empty dict)
+{% if environment_vars is defined and environment_vars | default({}) %}
+{% for item in environment_vars | default({}) | dict2items %}
+SetEnv {{ item.key }} "{{ item.value }}"
+{% endfor %}
+{% endif %}
+
+# ------------------------------------------------------------------
+# FastCGI Script Alias
+# ------------------------------------------------------------------
+# Define the script alias pointing to the RT FastCGI server binary.
+# The path is derived from rt_home + /bin/fastcgi_server.
+# Default rt_home: '/usr/share/request-tracker5'
+# Default web_path: 'rt'
+# Resulting URL: http://<host>/{{ web_path | default('rt') }}/
+ScriptAlias /{{ web_path | default('rt') }}/ "{{ rt_home | default('/usr/share/request-tracker5') }}/bin/fastcgi_server"
+
+# ------------------------------------------------------------------
+# Request Tracker Location Block
+# ------------------------------------------------------------------
+# Configure options, authentication, and headers for the RT web UI.
+<Location "/{{ web_path | default('rt') }}/">
+
+    # ------------------------------------------------------------------
+    # SSL Redirection
+    # ------------------------------------------------------------------
+    # If use_ssl is enabled, redirect HTTP requests to HTTPS.
+    # The redirect target is built from ssl_redirect_host (with fallback
+    # to 'https://' + server_name) and the configured web_path.
+    # Default use_ssl: True
+    # Default ssl_redirect_host: 'https://'
+    # Default server_name: 'localhost'
+    {% if use_ssl | default(true) %}
+    Redirect permanent / {{ ssl_redirect_host | default('https://') }}{{ server_name | default('localhost') }}{{ web_path | default('rt') }}/
+    {% endif %}
+
+    # ------------------------------------------------------------------
+    # FastCGI Options
+    # ------------------------------------------------------------------
+    # Enable CGI execution and associate .fcgi files with the FastCGI handler.
+    Options +ExecCGI
+    AddHandler fastcgi-script .fcgi
+
+    # ------------------------------------------------------------------
+    # Authentication Configuration
+    # ------------------------------------------------------------------
+    # Select authentication backend based on auth_type.
+    # Options: 'htaccess', 'ldap', or 'none'.
+    # Default auth_type: 'htaccess'
+    {% if auth_type | default('htaccess') == 'ldap' %}
+        # --- LDAP Authentication ---
+        # Use LDAP for user authentication and lookup.
+        # Requires ldap_url, ldap_bind_dn, and ldap_bind_password.
+        # Default ldap_url: 'ldap://ldap.example.com/DC=example,DC=com?uid?sub?(objectClass=person)'
+        # Default ldap_bind_dn: 'cn=readonly,dc=example,dc=com'
+        # Default ldap_bind_password: ''
+        AuthType Basic
+        AuthName "{{ auth_realm | default('Request Tracker') }}"
+        AuthBasicProvider ldap
+        AuthLDAPURL "{{ ldap_url | default('ldap://ldap.example.com/DC=example,DC=com?uid?sub?(objectClass=person)') }}"
+        AuthLDAPBindDN "{{ ldap_bind_dn | default('cn=readonly,dc=example,dc=com') }}"
+        AuthLDAPBindPassword "{{ ldap_bind_password | default('') }}"
+        Require valid-user
+
+    {% elif auth_type | default('htaccess') == 'htaccess' %}
+        # --- Htpasswd Authentication ---
+        # Use Apache's htpasswd file for basic authentication.
+        # Requires htpasswd_file to be pre-populated.
+        # Default htpasswd_file: '/etc/request-tracker5/htpasswd'
+        AuthType Basic
+        AuthName "{{ auth_realm | default('Request Tracker') }}"
+        AuthUserFile "{{ htpasswd_file | default('/etc/request-tracker5/htpasswd') }}"
+        Require valid-user
+
+    {% else %}
+        # --- No Authentication ---
+        # WARNING: Not recommended for production environments.
+        Require all granted
+    {% endif %}
+
+    # ------------------------------------------------------------------
+    # CORS Configuration
+    # ------------------------------------------------------------------
+    # Enable Cross-Origin Resource Sharing headers if cors_enabled is true.
+    # Default cors_enabled: False
+    # Default cors_origin: '*'
+    {% if cors_enabled | default(false) %}
+    Header set Access-Control-Allow-Origin "{{ cors_origin | default('*') }}"
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization"
+    {% endif %}
+
+</Location>
+
+# ------------------------------------------------------------------
+# FastCGI Global Configuration (Optional)
+# ------------------------------------------------------------------
+# Configure FastCGI process limits.
+# Default fastcgi_max_processes: 10
+{% if fastcgi_max_processes | default(10) > 0 %}
+FastCgiConfig -maxClassProcesses 1 -maxProcesses {{ fastcgi_max_processes | default(10) }}
+{% endif %}
+
+# ------------------------------------------------------------------
+# Extra Custom Directives
+# ------------------------------------------------------------------
+# Inject a list of additional Apache directives provided by the user.
+# This allows for power-user customization (e.g., custom headers,
+# rewrite rules, logging).
+# Default extra_directives: []
+{% if extra_directives is defined and extra_directives | default([]) %}
+{{ extra_directives | default([]) | join('\n') }}
+{% endif %}

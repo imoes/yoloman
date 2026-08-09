@@ -1,0 +1,81 @@
+name: hwc_vpc_eip
+fqcn: community.general.hwc_vpc_eip
+collection: community.general
+short_description: Creates a resource of Vpc/EIP in Huawei Cloud
+description: elastic ip management.
+options:
+  dedicated_bandwidth:
+    type: dict
+    description: Specifies the dedicated bandwidth object.
+  domain:
+    type: str
+    required: true
+    description: The name of the Domain to scope to (Identity v3). Currently only domain names are supported,
+      and not domain IDs.
+  enterprise_project_id:
+    type: str
+    description: Specifies the enterprise project ID.
+  id:
+    type: str
+    description: The ID of resource to be managed.
+  identity_endpoint:
+    type: str
+    required: true
+    description: The Identity authentication URL.
+  ip_version:
+    type: int
+    description: The value can be 4 (IPv4 address) or 6 (IPv6 address). If this parameter is left blank,
+      an IPv4 address will be assigned.
+  ipv4_address:
+    type: str
+    description: Specifies the obtained IPv4 EIP. The system automatically assigns an EIP if you do not
+      specify it.
+  password:
+    type: str
+    required: true
+    description: The password to login with.
+  port_id:
+    type: str
+    description: Specifies the port ID. This parameter is returned only when a private IP address is bound
+      with the EIP.
+  project:
+    type: str
+    required: true
+    description: The name of the Tenant (Identity v2) or Project (Identity v3). Currently only project
+      names are supported, and not project IDs.
+  region:
+    type: str
+    description: The region to which the project belongs.
+  shared_bandwidth_id:
+    type: str
+    description: Specifies the ID of shared bandwidth.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the given object should exist in Huawei Cloud.
+  timeouts:
+    type: dict
+    default: {}
+    description: The timeouts for each operations.
+  type:
+    type: str
+    required: true
+    description: Specifies the EIP type.
+  user:
+    type: str
+    required: true
+    description: The user name to login with. Currently only user names are supported, and not user IDs.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# create an eip and bind it to a port\n- name: Create vpc\n  hwc_network_vpc:\n    cidr:\
+  \ \"192.168.100.0/24\"\n    name: \"ansible_network_vpc_test\"\n  register: vpc\n- name: Create subnet\n\
+  \  hwc_vpc_subnet:\n    gateway_ip: \"192.168.100.32\"\n    name: \"ansible_network_subnet_test\"\n\
+  \    dhcp_enable: true\n    vpc_id: \"{{ vpc.id }}\"\n    cidr: \"192.168.100.0/26\"\n  register: subnet\n\
+  - name: Create a port\n  hwc_vpc_port:\n    subnet_id: \"{{ subnet.id }}\"\n    ip_address: \"192.168.100.33\"\
+  \n  register: port\n- name: Create an eip and bind it to a port\n  community.general.hwc_vpc_eip:\n\
+  \    type: \"5_bgp\"\n    dedicated_bandwidth:\n      charge_mode: \"traffic\"\n      name: \"ansible_test_dedicated_bandwidth\"\
+  \n      size: 1\n    port_id: \"{{ port.id }}\"\n"

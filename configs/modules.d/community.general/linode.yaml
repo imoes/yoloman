@@ -1,0 +1,152 @@
+name: linode
+fqcn: community.general.linode
+collection: community.general
+short_description: Manage instances on the Linode Public Cloud
+description: Manage Linode Public Cloud instances and optionally wait for it to be 'running'.
+options:
+  additional_disks:
+    type: list
+    description: List of dictionaries for creating additional disks that are added to the Linode configuration
+      settings. Dictionary takes Size, Label, Type. Size is in MB.
+  alert_bwin_enabled:
+    type: bool
+    description: Set status of bandwidth in alerts.
+  alert_bwin_threshold:
+    type: int
+    description: Set threshold in MB of bandwidth in alerts.
+  alert_bwout_enabled:
+    type: bool
+    description: Set status of bandwidth out alerts.
+  alert_bwout_threshold:
+    type: int
+    description: Set threshold in MB of bandwidth out alerts.
+  alert_bwquota_enabled:
+    type: bool
+    description: Set status of bandwidth quota alerts as percentage of network transfer quota.
+  alert_bwquota_threshold:
+    type: int
+    description: Set threshold in MB of bandwidth quota alerts.
+  alert_cpu_enabled:
+    type: bool
+    description: Set status of receiving CPU usage alerts.
+  alert_cpu_threshold:
+    type: int
+    description: Set percentage threshold for receiving CPU usage alerts. Each CPU core adds 100% to total.
+  alert_diskio_enabled:
+    type: bool
+    description: Set status of receiving disk IO alerts.
+  alert_diskio_threshold:
+    type: int
+    description: Set threshold for average IO ops/sec over 2 hour period.
+  api_key:
+    type: str
+    required: true
+    description: Linode API key. E(LINODE_API_KEY) environment variable can be used instead.
+  backupweeklyday:
+    type: int
+    description: Day of the week to take backups.
+  backupwindow:
+    type: int
+    description: The time window in which backups will be taken.
+  datacenter:
+    type: int
+    description: datacenter to create an instance in (Linode Datacenter)
+  displaygroup:
+    type: str
+    default: ''
+    description: Add the instance to a Display Group in Linode Manager.
+  distribution:
+    type: int
+    description: distribution to use for the instance (Linode Distribution)
+  kernel_id:
+    type: int
+    description: kernel to use for the instance (Linode Kernel)
+  linode_id:
+    type: int
+    aliases:
+    - lid
+    description: Unique ID of a linode server. This value is read-only in the sense that if you specify
+      it on creation of a Linode it will not be used. The Linode API generates these IDs and we can those
+      generated value here to reference a Linode more specifically. This is useful for idempotence.
+  name:
+    type: str
+    required: true
+    description: Name to give the instance (alphanumeric, dashes, underscore). To keep sanity on the Linode
+      Web Console, name is prepended with C(LinodeID-).
+  password:
+    type: str
+    description: root password to apply to a new server (auto generated if missing)
+  payment_term:
+    type: int
+    default: 1
+    choices:
+    - 1
+    - 12
+    - 24
+    description: payment term to use for the instance (payment term in months)
+  plan:
+    type: int
+    description: plan to use for the instance (Linode plan)
+  private_ip:
+    type: bool
+    description: Add private IPv4 address when Linode is created. Default is V(false).
+  ssh_pub_key:
+    type: str
+    description: SSH public key applied to root user
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - active
+    - deleted
+    - present
+    - restarted
+    - started
+    - stopped
+    description: Indicate desired state of the resource
+  swap:
+    type: int
+    default: 512
+    description: swap size in MB
+  wait:
+    type: bool
+    default: true
+    description: wait for the instance to be in state V(running) before returning
+  wait_timeout:
+    type: int
+    default: 300
+    description: how long before wait gives up, in seconds
+  watchdog:
+    type: bool
+    default: true
+    description: Set status of Lassie watchdog.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n\n- name: Create a new Linode\n  community.general.linode:\n    name: linode-test1\n    plan:\
+  \ 1\n    datacenter: 7\n    distribution: 129\n    state: present\n  register: linode_creation\n\n-\
+  \ name: Create a server with a private IP Address\n  community.general.linode:\n     module: linode\n\
+  \     api_key: 'longStringFromLinodeApi'\n     name: linode-test1\n     plan: 1\n     datacenter: 2\n\
+  \     distribution: 99\n     password: 'superSecureRootPassword'\n     private_ip: true\n     ssh_pub_key:\
+  \ 'ssh-rsa qwerty'\n     swap: 768\n     wait: true\n     wait_timeout: 600\n     state: present\n \
+  \ delegate_to: localhost\n  register: linode_creation\n\n- name: Fully configure new server\n  community.general.linode:\n\
+  \     api_key: 'longStringFromLinodeApi'\n     name: linode-test1\n     plan: 4\n     datacenter: 2\n\
+  \     distribution: 99\n     kernel_id: 138\n     password: 'superSecureRootPassword'\n     private_ip:\
+  \ true\n     ssh_pub_key: 'ssh-rsa qwerty'\n     swap: 768\n     wait: true\n     wait_timeout: 600\n\
+  \     state: present\n     alert_bwquota_enabled: true\n     alert_bwquota_threshold: 80\n     alert_bwin_enabled:\
+  \ true\n     alert_bwin_threshold: 10\n     alert_cpu_enabled: true\n     alert_cpu_threshold: 210\n\
+  \     alert_bwout_enabled: true\n     alert_bwout_threshold: 10\n     alert_diskio_enabled: true\n \
+  \    alert_diskio_threshold: 10000\n     backupweeklyday: 1\n     backupwindow: 2\n     displaygroup:\
+  \ 'test'\n     additional_disks:\n      - {Label: 'disk1', Size: 2500, Type: 'raw'}\n      - {Label:\
+  \ 'newdisk', Size: 2000}\n     watchdog: true\n  delegate_to: localhost\n  register: linode_creation\n\
+  \n- name: Ensure a running server (create if missing)\n  community.general.linode:\n     api_key: 'longStringFromLinodeApi'\n\
+  \     name: linode-test1\n     plan: 1\n     datacenter: 2\n     distribution: 99\n     password: 'superSecureRootPassword'\n\
+  \     ssh_pub_key: 'ssh-rsa qwerty'\n     swap: 768\n     wait: true\n     wait_timeout: 600\n     state:\
+  \ present\n  delegate_to: localhost\n  register: linode_creation\n\n- name: Delete a server\n  community.general.linode:\n\
+  \     api_key: 'longStringFromLinodeApi'\n     name: linode-test1\n     linode_id: \"{{ linode_creation.instance.id\
+  \ }}\"\n     state: absent\n  delegate_to: localhost\n\n- name: Stop a server\n  community.general.linode:\n\
+  \     api_key: 'longStringFromLinodeApi'\n     name: linode-test1\n     linode_id: \"{{ linode_creation.instance.id\
+  \ }}\"\n     state: stopped\n  delegate_to: localhost\n\n- name: Reboot a server\n  community.general.linode:\n\
+  \     api_key: 'longStringFromLinodeApi'\n     name: linode-test1\n     linode_id: \"{{ linode_creation.instance.id\
+  \ }}\"\n     state: restarted\n  delegate_to: localhost\n"

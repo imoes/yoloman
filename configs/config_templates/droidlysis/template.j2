@@ -1,0 +1,204 @@
+# =============================================================================
+# Droidlysis Configuration Template
+# =============================================================================
+# This file configures pattern matching rules for the Droidlysis static analysis tool.
+# It is designed for Android application security testing, detecting common system calls,
+# exploit attempts, and anti-analysis techniques.
+#
+# Each section corresponds to a specific detection rule. Variables are sourced from
+# Ansible variables mapped to this role. All variables have safe defaults based on the
+# schema definition to ensure the configuration remains valid even if variables are
+# not explicitly passed.
+# =============================================================================
+
+# --- Section: ch*** (chmod/chown/chgrp/chcon/chattr detection) ---
+# Regex pattern to detect chmod/chown/chgrp/chcon/chattr system calls.
+# These are often used by root exploits to change file permissions.
+[***]
+# ch_pattern: Regex pattern to detect chmod/chown/chgrp/chcon/chattr system calls
+pattern={{ ch_pattern | default('chmod|chown|chgrp|chcon|chattr') }}
+
+# --- Section: exec (Process Execution Detection) ---
+# Regex pattern to detect process execution attempts via common shell commands.
+[exec]
+# exec_pattern: Regex pattern to detect process execution attempts
+pattern={{ exec_pattern | default('\\w*(?<!dalvik.)system|exec[a-z][a-z]|fork') }}
+# exec_description: Human-readable description for the exec detection
+description={{ exec_description | default('Tries to execute a process') }}
+
+# --- Section: shell (Shell Execution Detection) ---
+# Regex pattern to detect shell execution, typically looking for sh binaries.
+[shell]
+# shell_pattern: Regex pattern to detect shell execution
+pattern={{ shell_pattern | default('/system/bin/sh') }}
+
+# --- Section: mounts (Mount Operations Detection) ---
+# Regex pattern to detect mount operations or listing current mounts.
+# Often used in exploits to access sensitive partitions.
+[mounts]
+# mounts_pattern: Regex pattern to detect mount operations
+pattern={{ mounts_pattern | default('/proc/mounts|mount') }}
+# mounts_description: Human-readable description for the mounts detection
+description={{ mounts_description | default('Mounting or list mounts - used in several exploits') }}
+
+# --- Section: geteuid (Effective User ID Detection) ---
+# Regex pattern to detect calls to geteuid, often used to check for root privileges.
+[geteuid]
+# geteuid_pattern: Regex pattern to detect geteuid calls
+pattern={{ geteuid_pattern | default('geteuid') }}
+
+# --- Section: adb (ADB Usage Detection) ---
+# Regex pattern to detect Android Debug Bridge (ADB) usage.
+[adb]
+# adb_pattern: Regex pattern to detect ADB usage
+pattern={{ adb_pattern | default('sbin/adb') }}
+
+# --- Section: anti-frida (Anti-Analysis Detection) ---
+# Regex pattern to detect Frida framework usage, commonly used for dynamic analysis.
+[anti-frida]
+# anti_frida_pattern: Regex pattern to detect Frida anti-analysis
+pattern={{ anti_frida_pattern | default('gum-js-loop|frida-helper|frida-server|frida-agent|re.frida.server|linjector|gdbus|frida-gadget|pool-frida|frida-main-loop|frida_agent_main|pool-spawner|DetectFrida') }}
+# anti_frida_description: Human-readable description for Frida detection
+description={{ anti_frida_description | default('Anti runtime analysis - Detect frida framework') }}
+
+# --- Section: pm_install (Package Manager Install Detection) ---
+# Regex pattern to detect package installation via the Android 'pm' command.
+[pm_install]
+# pm_install_pattern: Regex pattern to detect package installation via pm
+pattern={{ pm_install_pattern | default('pm install') }}
+
+# --- Section: pm_list (Package Manager List Detection) ---
+# Regex pattern to detect package listing via the Android 'pm' command.
+[pm_list]
+# pm_list_pattern: Regex pattern to detect package listing via pm
+pattern={{ pm_list_pattern | default('pm list') }}
+
+# --- Section: am_broadcast (Broadcast Intent Detection) ---
+# Regex pattern to detect broadcast intents via the Android 'am' command.
+[am_broadcast]
+# am_broadcast_pattern: Regex pattern to detect broadcast intents via am
+pattern={{ am_broadcast_pattern | default('am broadcast') }}
+
+# --- Section: am_start (Activity Start Detection) ---
+# Regex pattern to detect activity start via the Android 'am' command.
+[am_start]
+# am_start_pattern: Regex pattern to detect activity start via am
+pattern={{ am_start_pattern | default('am start') }}
+
+# --- Section: kill (Process Termination Detection) ---
+# Regex pattern to detect process termination signals.
+[kill]
+# kill_pattern: Regex pattern to detect process termination
+pattern={{ kill_pattern | default('kill') }}
+
+# --- Section: ptrace (Ptrace Usage Detection) ---
+# Regex pattern to detect ptrace usage, often used for debugging or injection.
+[ptrace]
+# ptrace_pattern: Regex pattern to detect ptrace usage
+pattern={{ ptrace_pattern | default('ptrace') }}
+
+# --- Section: proc_version (Device Info Detection) ---
+# Regex pattern to detect access to /proc/version to identify the device/kernel.
+[proc_version]
+# proc_version_pattern: Regex pattern to detect /proc/version access
+pattern={{ proc_version_pattern | default('/proc/version') }}
+# proc_version_description: Human-readable description for /proc/version detection
+description={{ proc_version_description | default('Gets description of device') }}
+
+# --- Section: possible_exploit (Generic Exploit Keywords) ---
+# Regex pattern to detect common exploit keywords in strings.
+[possible_exploit]
+# possible_exploit_pattern: Regex pattern to detect common exploit keywords
+pattern={{ possible_exploit_pattern | default('root exploit|rootshell|spray|privileges escalated|/proc/kallsyms|0wned') }}
+
+# --- Section: ragecage (CVE-2010-EASY Detection) ---
+# Regex pattern to detect the Rage Against The Cage exploit.
+[ragecage]
+# ragecage_pattern: Regex pattern to detect Rage Against The Cage exploit
+pattern={{ ragecage_pattern | default('CVE-2010-EASY') }}
+# ragecage_description: Human-readable description for Rage Against The Cage detection
+description={{ ragecage_description | default('Exploit CVE-2010-EASY rage against the cage spotted') }}
+
+# --- Section: exploid (CVE-2009-1185 Detection) ---
+# Regex pattern to detect the Exploid/Shakalaca exploit.
+[exploid]
+# exploid_pattern: Regex pattern to detect Exploid/Shakalaca exploit
+pattern={{ exploid_pattern | default('exploid|shakalaca') }}
+# exploid_description: Human-readable description for Exploid/Shakalaca detection
+description={{ exploid_description | default('Exploit CVE-2009-1185 spotted') }}
+
+# --- Section: zerg (CVE-2011-3874 Detection) ---
+# Regex pattern to detect the Zerg Rush exploit.
+[zerg]
+# zerg_pattern: Regex pattern to detect Zerg Rush exploit
+pattern={{ zerg_pattern | default('Zerg rush|zerglings|speedlings') }}
+# zerg_description: Human-readable description for Zerg Rush detection
+description={{ zerg_description | default('Exploit CVE-2011-3874 (zergRush) spotted') }}
+
+# --- Section: levitator (CVE-2011-1350 Detection) ---
+# Regex pattern to detect the Levitator exploit.
+[levitator]
+# levitator_pattern: Regex pattern to detect Levitator exploit
+pattern={{ levitator_pattern | default('clobbering kmem with poisoned pointers') }}
+# levitator_description: Human-readable description for Levitator detection
+description={{ levitator_description | default('Exploit CVE-2011-1350 (levitator) spotted') }}
+
+# --- Section: mempodroid (CVE-2012-0025 Detection) ---
+# Regex pattern to detect the Mempodroid exploit.
+[mempodroid]
+# mempodroid_pattern: Regex pattern to detect Mempodroid exploit
+pattern={{ mempodroid_pattern | default('Mempodipper|Calculating su padding|Opening parent mem') }}
+# mempodroid_description: Human-readable description for Mempodroid detection
+description={{ mempodroid_description | default('Exploit CVE-2012-0025 (mempodroid) spotted') }}
+
+# --- Section: towelroot (Towelroot Detection) ---
+# Regex pattern to detect the Towelroot exploit.
+[towelroot]
+# towelroot_pattern: Regex pattern to detect Towelroot exploit
+pattern={{ towelroot_pattern | default('towelroot|rootTheShit') }}
+
+# --- Section: supersu (SuperSU Detection) ---
+# Regex pattern to detect SuperSU binaries, indicating a rooted device.
+[supersu]
+# supersu_pattern: Regex pattern to detect SuperSU binaries
+pattern={{ supersu_pattern | default('/system/xbin/daemonsu|/system/xbin/sugote') }}
+
+# --- Section: dalvikvm (Dalvik VM Detection) ---
+# Regex pattern to detect dalvikvm usage, potentially loading DEX files.
+[dalvikvm]
+# dalvikvm_pattern: Regex pattern to detect dalvikvm usage
+pattern={{ dalvikvm_pattern | default('dalvikvm') }}
+# dalvikvm_description: Human-readable description for dalvikvm detection
+description={{ dalvikvm_description | default('Possible way to loads Zips containing DEXs') }}
+
+# --- Section: dexclassloader (DexClassLoader Detection) ---
+# Regex pattern to detect DexClassLoader usage via native libraries.
+[dexclassloader]
+# dexclassloader_pattern: Regex pattern to detect DexClassLoader usage
+pattern={{ dexclassloader_pattern | default('DexClassLoader') }}
+# dexclassloader_description: Human-readable description for DexClassLoader detection
+description={{ dexclassloader_description | default('Using DexClassLoader through a native library') }}
+
+# --- Section: loadclass (loadClass Detection) ---
+# Regex pattern to detect loadClass usage via native libraries.
+[loadclass]
+# loadclass_pattern: Regex pattern to detect loadClass usage
+pattern={{ loadclass_pattern | default('loadClass') }}
+# loadclass_description: Human-readable description for loadClass detection
+description={{ loadclass_description | default('Using loadClass through native library') }}
+
+# --- Section: url_in_exec (URL in Executable Detection) ---
+# Regex pattern to detect URLs found in executable contexts.
+[url_in_exec]
+# url_in_exec_pattern: Regex pattern to detect URLs in executable context
+pattern={{ url_in_exec_pattern | default('http://[^ "\\t]*') }}
+# url_in_exec_description: Human-readable description for URL in exec detection
+description={{ url_in_exec_description | default('URL in executable') }}
+
+# --- Section: mtk_su (CVE-2020-0069 Detection) ---
+# Regex pattern to detect the MTK-SU exploit for MediaTek devices.
+[mtk_su]
+# mtk_su_description: Human-readable description for MTK-SU detection
+description={{ mtk_su_description | default('MTK-SU CVE-2020-0069 root on MediaTek') }}
+# mtk_su_pattern: Regex pattern to detect MTK-SU exploit
+pattern={{ mtk_su_pattern | default('Temporary root by diplomatic@XDA|amazing-temp-root-mediatek-armv8') }}

@@ -1,0 +1,259 @@
+# ==============================================================================
+# fence_virtd Configuration Template
+# ==============================================================================
+# This template generates the configuration file for fence_virtd, the fence
+# agent daemon used in Pacemaker/Corosync high-availability clusters.
+# It handles multicast-based fencing communication with libvirt hypervisors.
+#
+# Self-documenting: every setting is commented with its schema description
+# and rendered with safe defaults via Jinja2 filters.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Global multicast settings
+# --------------------------------------------------------------------------
+multicast:
+  # Multicast IP address to listen on (default: 225.0.0.12, must be in range 224.0.0.0–239.255.255.255).
+  address: {{ (multicast | default({})).address | default('225.0.0.12') }}
+  
+  # Multicast UDP port (default: 1229).
+  port: {{ (multicast | default({})).port | default(1229) }}
+  
+  # Network interface to listen on. Empty means all interfaces (default), but setting is strongly recommended for gateway hosts.
+  interface: {{ (multicast | default({})).interface | default('') }}
+
+# --------------------------------------------------------------------------
+# Listener configuration
+# --------------------------------------------------------------------------
+# List of listener types (only one active at a time). Supported: 'multicast', 'serial', 'tcp', 'vsock'.
+# This template supports only 'multicast'.
+listeners:
+  - type: {{ (listeners | default([{'type': 'multicast'}]) | first).type | default('multicast') }}
+
+{% for lb in (listener_blocks | default([{'name': 'multicast'}])) %}
+# Listener-specific configuration block: {{ lb.name | default('multicast') }}
+{% if lb.key_file is defined %}
+  # Path to the shared key file (default: /etc/cluster/fence_xvm.key).
+  key_file: {{ lb.key_file }}
+{% else %}
+  # Path to the shared key file (default: /etc/cluster/fence_xvm.key).
+  key_file: {{ lb.key_file | default('/etc/cluster/fence_xvm.key') }}
+{% endif %}
+{% if lb.hash is defined %}
+  # Weakest hashing algorithm allowed for client requests (default: sha256; could be sha1, sha512, or none).
+  hash: {{ lb.hash }}
+{% else %}
+  # Weakest hashing algorithm allowed for client requests (default: sha256; could be sha1, sha512, or none).
+  hash: {{ lb.hash | default('sha256') }}
+{% endif %}
+{% if lb.auth is defined %}
+  # Hashing algorithm for challenge-response authentication (default: sha256; could be sha1, sha512, or none).
+  auth: {{ lb.auth }}
+{% else %}
+  # Hashing algorithm for challenge-response authentication (default: sha256; could be sha1, sha512, or none).
+  auth: {{ lb.auth | default('sha256') }}
+{% endif %}
+{% if lb.family is defined %}
+  # IP family: 'ipv4' or 'ipv6' (default: ipv4).
+  family: {{ lb.family }}
+{% else %}
+  # IP family: 'ipv4' or 'ipv6' (default: ipv4).
+  family: {{ lb.family | default('ipv4') }}
+{% endif %}
+{% if lb.interface is defined %}
+  # Interface to bind to for multicast listener.
+  interface: {{ lb.interface }}
+{% else %}
+  # Interface to bind to for multicast listener.
+  interface: {{ lb.interface | default('') }}
+{% endif %}
+{% if lb.address is defined %}
+  # Multicast address to listen on.
+  address: {{ lb.address }}
+{% else %}
+  # Multicast address to listen on.
+  address: {{ lb.address | default('225.0.0.12') }}
+{% endif %}
+{% if lb.port is defined %}
+  # Port to listen on.
+  port: {{ lb.port }}
+{% else %}
+  # Port to listen on.
+  port: {{ lb.port | default(1229) }}
+{% endif %}
+{% if lb.name_mode is defined %}
+  # Naming mode for VMs in cpg backend: 'name' (default, for compat) or 'uuid' (recommended for multi-host clusters).
+  name_mode: {{ lb.name_mode }}
+{% else %}
+  # Naming mode for VMs in cpg backend: 'name' (default, for compat) or 'uuid' (recommended for multi-host clusters).
+  name_mode: {{ lb.name_mode | default('name') }}
+{% endif %}
+{% if lb.timeout is defined %}
+  # Operation timeout in seconds.
+  timeout: {{ lb.timeout }}
+{% else %}
+  # Operation timeout in seconds.
+  timeout: {{ lb.timeout | default(30) }}
+{% endif %}
+{% if lb.retry is defined %}
+  # Number of retries on failure.
+  retry: {{ lb.retry }}
+{% else %}
+  # Number of retries on failure.
+  retry: {{ lb.retry | default(3) }}
+{% endif %}
+{% if lb.retry_sleep is defined %}
+  # Seconds to wait between retries.
+  retry_sleep: {{ lb.retry_sleep }}
+{% else %}
+  # Seconds to wait between retries.
+  retry_sleep: {{ lb.retry_sleep | default(5) }}
+{% endif %}
+{% if lb.namespace is defined %}
+  # Optional libvirt namespace (used only with libvirt backend).
+  namespace: {{ lb.namespace }}
+{% else %}
+  # Optional libvirt namespace (used only with libvirt backend).
+  namespace: {{ lb.namespace | default('') }}
+{% endif %}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Listener blocks list (structured)
+# --------------------------------------------------------------------------
+# Listener-specific configuration blocks — e.g., listeners/multicast {}, listeners/serial {}, etc.
+listener_blocks:
+{% for lb in (listener_blocks | default([{'name': 'multicast'}])) | default([]) %}
+  - name: {{ lb.name | default('multicast') }}
+    # Interface to bind to for multicast listener.
+    interface: {{ lb.interface | default('') }}
+    
+    # Multicast address to listen on.
+    address: {{ lb.address | default('225.0.0.12') }}
+    
+    # Port to listen on.
+    port: {{ lb.port | default(1229) }}
+    
+    # Path to key file.
+    key_file: {{ lb.key_file | default('/etc/cluster/fence_xvm.key') }}
+    
+    # Minimum acceptable hash algorithm.
+    hash: {{ lb.hash | default('sha256') }}
+    
+    # Authentication hash algorithm.
+    auth: {{ lb.auth | default('sha256') }}
+    
+    # IP family.
+    family: {{ lb.family | default('ipv4') }}
+    
+    # Naming mode for VMs in cpg backend: 'name' (default, for compat) or 'uuid' (recommended for multi-host clusters).
+    name_mode: {{ lb.name_mode | default('name') }}
+    
+    # Operation timeout in seconds.
+    timeout: {{ lb.timeout | default(30) }}
+    
+    # Number of retries on failure.
+    retry: {{ lb.retry | default(3) }}
+    
+    # Seconds to wait between retries.
+    retry_sleep: {{ lb.retry_sleep | default(5) }}
+    
+    # Optional libvirt namespace (used only with libvirt backend).
+    namespace: {{ lb.namespace | default('') }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Backend configuration
+# --------------------------------------------------------------------------
+# Backend plugins for fence_virtd (renamed from 'drivers' to match manpage 'backends' section).
+backends:
+{% for backend in (backends | default([{'name': 'libvirt'}])) %}
+  - name: {{ backend.name | default('libvirt') }}
+{% if backend.uri is defined %}
+    # Libvirt URI (required for libvirt backend).
+    uri: {{ backend.uri }}
+{% else %}
+    # Libvirt URI (required for libvirt backend).
+    uri: {{ backend.uri | default('qemu:///system') }}
+{% endif %}
+{% if backend.name_mode is defined %}
+    # Naming mode for VMs in cpg backend: 'name' (default, for compat) or 'uuid' (recommended for multi-host clusters).
+    name_mode: {{ backend.name_mode }}
+{% else %}
+    # Naming mode for VMs in cpg backend: 'name' (default, for compat) or 'uuid' (recommended for multi-host clusters).
+    name_mode: {{ backend.name_mode | default('name') }}
+{% endif %}
+{% if backend.timeout is defined %}
+    # Operation timeout in seconds.
+    timeout: {{ backend.timeout }}
+{% else %}
+    # Operation timeout in seconds.
+    timeout: {{ backend.timeout | default(30) }}
+{% endif %}
+{% if backend.retry is defined %}
+    # Number of retries on failure.
+    retry: {{ backend.retry }}
+{% else %}
+    # Number of retries on failure.
+    retry: {{ backend.retry | default(3) }}
+{% endif %}
+{% if backend.retry_sleep is defined %}
+    # Seconds to wait between retries.
+    retry_sleep: {{ backend.retry_sleep }}
+{% else %}
+    # Seconds to wait between retries.
+    retry_sleep: {{ backend.retry_sleep | default(5) }}
+{% endif %}
+{% if backend.namespace is defined %}
+    # Optional libvirt namespace (used only with libvirt backend).
+    namespace: {{ backend.namespace }}
+{% else %}
+    # Optional libvirt namespace (used only with libvirt backend).
+    namespace: {{ backend.namespace | default('') }}
+{% endif %}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Authentication settings
+# --------------------------------------------------------------------------
+# Authentication settings — maps to key_file in multicast listener block. The template places key_file at top-level 'auth' for convenience.
+auth:
+  # Path to shared key file (required for secure communication with multicast listener).
+  key_file: {{ ((auth | default({})).key_file) | default('/etc/cluster/fence_xvm.key') }}
+
+# --------------------------------------------------------------------------
+# Logging configuration
+# --------------------------------------------------------------------------
+# Logging configuration — matches manpage but note: fence_virtd does not have a direct 'logging' section in the config file; logging is configured via system facilities.
+logging:
+  # Log level: 'debug', 'info', 'warning', 'error'.
+  level: {{ ((logging | default({})).level) | default('info') }}
+  
+  # Log file path (use 'syslog' to log to syslog).
+  file: {{ ((logging | default({})).file) | default('/var/log/fence_virtd.log') }}
+
+# --------------------------------------------------------------------------
+# Groups block (optional)
+# --------------------------------------------------------------------------
+# Static maps of VMs (per manpage 'groups' section). Any member may fence any other in the group.
+{% if groups is defined and groups | length > 0 %}
+groups:
+{% for group in groups %}
+  # Group name (optional, for readability).
+  - name: {{ group.name | default('') }}
+{% if group.ip is defined and group.ip | length > 0 %}
+    # Allowed IPs for fencing requests (e.g., for multicast). Each is an IP address string.
+    ip:
+{% for ip in group.ip %}
+      - {{ ip }}
+{% endfor %}
+{% endif %}
+{% if group.uuid is defined and group.uuid | length > 0 %}
+    # VM identifiers (UUIDs or names) in this group.
+    uuid:
+{% for uuid in group.uuid %}
+      - {{ uuid }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}

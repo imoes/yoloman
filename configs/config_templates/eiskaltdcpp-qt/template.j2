@@ -1,0 +1,144 @@
+# ==============================================================================
+# EiskaltDC++ Qt Configuration Template
+# ==============================================================================
+# This Jinja2 template generates the EiskaltDC++ Qt client configuration file.
+# It is designed to be dropped into an Ansible role's templates directory.
+#
+# Generated file location (typically): ~/.config/eiskaltdc++/EiskaltDC++_Qt.conf
+#
+# All variables must be defined in the Ansible playbook/role vars.
+# Every variable uses | default() to prevent render errors if unset.
+# ==============================================================================
+
+# ==============================================================================
+# [General]
+# Core application behavior, unit display, and system tray integration.
+# ==============================================================================
+
+# app_unit_base: Base for unit display.
+# 1024 for binary (KiB/MiB/GiB), 1000 for decimal (KB/MB/GB).
+# Default: 1024
+app_unit_base = {{ app_unit_base | default(1024) }}
+
+# chat_timestamp: Format string for timestamps in chat windows.
+# Default: 'hh:mm:ss'
+chat_timestamp = "{{ chat_timestamp | default('hh:mm:ss') }}"
+
+# tray_icon: Show the application icon in the system tray.
+# Default: True
+tray_icon = {{ tray_icon | default(true) | bool | lower }}
+
+# minimize_to_tray: Minimize the window to the tray instead of the taskbar.
+# Default: True
+minimize_to_tray = {{ minimize_to_tray | default(true) | bool | lower }}
+
+# show_hidden_message_window: Display a notification or window when a hidden
+# private message arrives.
+# Default: False
+show_hidden_message_window = {{ show_hidden_message_window | default(false) | bool | lower }}
+
+# show_unread_messages_alert: Flash or animate the tray icon on unread messages.
+# Default: True
+show_unread_messages_alert = {{ show_unread_messages_alert | default(true) | bool | lower }}
+
+# ==============================================================================
+# [Chat]
+# Visual and interactive settings for chat windows.
+# ==============================================================================
+
+# chat_background_color: HTML hex color code for the chat background.
+# Default: '#ffffff'
+chat_background_color = "{{ chat_background_color | default('#ffffff') }}"
+
+# chat_font_family: Font family name for chat text.
+# Default: 'DejaVu Sans'
+chat_font_family = "{{ chat_font_family | default('DejaVu Sans') }}"
+
+# chat_font_size: Font size in points for chat text.
+# Default: 10
+chat_font_size = {{ chat_font_size | default(10) }}
+
+# chat_auto_scroll: Automatically scroll to the bottom of the chat window
+# as new messages arrive.
+# Default: True
+chat_auto_scroll = {{ chat_auto_scroll | default(true) | bool | lower }}
+
+# chat_dbl_click_action: Action performed when double-clicking a nickname.
+# 0: Insert nick
+# 1: Get file list
+# 2: Open private message window
+# Default: 2
+chat_dbl_click_action = {{ chat_dbl_click_action | default(2) }}
+
+# chat_mdl_click_action: Action performed when middle-clicking a nickname.
+# 0: Insert nick
+# 1: Get file list
+# 2: Open private message window
+# Default: 2
+chat_mdl_click_action = {{ chat_mdl_click_action | default(2) }}
+
+# chat_enable_spell_check: Enable spell checking in chat input fields.
+# Requires aspell support compiled into the client.
+# Default: False
+chat_enable_spell_check = {{ chat_enable_spell_check | default(false) | bool | lower }}
+
+# ==============================================================================
+# [HubFrame]
+# Settings for the hub list/window behavior.
+# ==============================================================================
+
+# hubframe_unreaden_draw_line: Draw a visual separator line for unread messages
+# in the hub frame.
+# 0: Off
+# 1: On
+# Default: 1
+hubframe_unreaden_draw_line = {{ hubframe_unreaden_draw_line | default(1) }}
+
+# hubframe_redirect_pm_to_main_chat: Redirect incoming private messages to the
+# main chat window instead of opening a separate window.
+# 0: Off
+# 1: On
+# Default: 0
+hubframe_redirect_pm_to_main_chat = {{ hubframe_redirect_pm_to_main_chat | default(0) }}
+
+# ==============================================================================
+# [Shortcuts]
+# Keyboard shortcut mappings.
+# Expects a list or dictionary of shortcut_name -> key_combination.
+# If 'shortcuts' is a dictionary, iterates key-value pairs.
+# If 'shortcuts' is a list of dicts, iterates items.
+# Default: Empty list
+# ==============================================================================
+
+# Handle shortcuts as a mapping (dictionary)
+{% if shortcuts is defined and shortcuts is mapping %}
+    {% for shortcut_name, shortcut_value in shortcuts | dict2items %}
+{{ shortcut_name.key }} = "{{ shortcut_value.value }}"
+    {% endfor %}
+{% elif shortcuts is defined and shortcuts is iterable %}
+    # Attempt to render if it's a list of objects
+    {% for item in shortcuts %}
+        {% if item is mapping %}
+            {% for k, v in item | dict2items %}
+{{ k.key }} = "{{ v.value }}"
+            {% endfor %}
+        {% else %}
+            # Fallback for simple string pairs if structure differs
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+# ==============================================================================
+# [Search]
+# Default behaviors for the search widget.
+# ==============================================================================
+
+# search_auto_search_on_type: Automatically start searching as the user types
+# in the search box.
+# Default: False
+search_auto_search_on_type = {{ search_auto_search_on_type | default(false) | bool | lower }}
+
+# search_min_search_interval: Minimum time in seconds between search requests
+# to avoid flooding.
+# Default: 5
+search_min_search_interval = {{ search_min_search_interval | default(5) }}

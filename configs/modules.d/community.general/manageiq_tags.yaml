@@ -1,0 +1,64 @@
+name: manageiq_tags
+fqcn: community.general.manageiq_tags
+collection: community.general
+short_description: Management of resource tags in ManageIQ
+description: The manageiq_tags module supports adding, updating and deleting tags in ManageIQ.
+options:
+  manageiq_connection:
+    type: dict
+    description: ManageIQ connection configuration information.
+  resource_id:
+    type: int
+    description: The ID of the resource at which tags will be controlled. Must be specified if O(resource_name)
+      is not set. Both options are mutually exclusive.
+  resource_name:
+    type: str
+    description: The name of the resource at which tags will be controlled. Must be specified if O(resource_id)
+      is not set. Both options are mutually exclusive.
+  resource_type:
+    type: str
+    required: true
+    choices:
+    - provider
+    - host
+    - vm
+    - blueprint
+    - category
+    - cluster
+    - data store
+    - group
+    - resource pool
+    - service
+    - service template
+    - template
+    - tenant
+    - user
+    description: The relevant resource type in manageiq.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: V(absent) - tags should not exist. V(present) - tags should exist.
+  tags:
+    type: list
+    description: V(tags) - list of dictionaries, each includes C(name) and C(category) keys. Required
+      if O(state) is V(present) or V(absent).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create new tags for a provider in ManageIQ.\n  community.general.manageiq_tags:\n\
+  \    resource_name: 'EngLab'\n    resource_type: 'provider'\n    tags:\n    - category: environment\n\
+  \      name: prod\n    - category: owner\n      name: prod_ops\n    manageiq_connection:\n      url:\
+  \ 'http://127.0.0.1:3000'\n      username: 'admin'\n      password: 'smartvm'\n      validate_certs:\
+  \ false  # only do this when connecting to localhost!\n\n- name: Create new tags for a provider in ManageIQ.\n\
+  \  community.general.manageiq_tags:\n    resource_id: 23000000790497\n    resource_type: 'provider'\n\
+  \    tags:\n    - category: environment\n      name: prod\n    - category: owner\n      name: prod_ops\n\
+  \    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n      username: 'admin'\n      password:\
+  \ 'smartvm'\n      validate_certs: false  # only do this when connecting to localhost!\n\n- name: Remove\
+  \ tags for a provider in ManageIQ.\n  community.general.manageiq_tags:\n    state: absent\n    resource_name:\
+  \ 'EngLab'\n    resource_type: 'provider'\n    tags:\n    - category: environment\n      name: prod\n\
+  \    - category: owner\n      name: prod_ops\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ connecting to localhost!\n"

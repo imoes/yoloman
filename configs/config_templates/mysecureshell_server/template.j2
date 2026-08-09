@@ -1,0 +1,83 @@
+# MySecureShell configuration file
+# This file controls the behavior of the MySecureShell SFTP server
+
+# Path to the chroot jail directory (root directory for all users)
+Path {{ chroot_path }}
+
+# Enable or disable ACL support
+{{ '# ' if not enable_acl else '' }}UseACL yes
+
+# Default umask for uploaded files
+Umask {{ umask | default('022') }}
+
+# Maximum number of concurrent sessions
+MaxSessions {{ max_sessions | default('10') }}
+
+# Log level: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL
+LogLevel {{ log_level | default('INFO') }}
+
+# Path to log file (empty = syslog)
+{{ '# ' if log_path == '' else '' }}Log {{ log_path }}
+
+# Listen address (IP or hostname); use 0.0.0.0 for all interfaces
+Listen {{ listen_address | default('0.0.0.0') }}
+
+# Port to listen on
+Port {{ port | default('2222') }}
+
+# Enable or disable PAM authentication (required for system user auth)
+{{ '# ' if not use_pam else '' }}PAM yes
+
+# Enable or disable TLS/SSL for SFTP (requires certificate files)
+{{ '# ' if not use_tls else '' }}SSL yes
+
+{% if use_tls %}
+# TLS certificate and private key paths
+SSLCertFile {{ tls_cert_file }}
+SSLKeyFile {{ tls_key_file }}
+{% endif %}
+
+# Virtual users configuration block (if not using system users)
+{% if virtual_users %}
+<VirtualUsers>
+{% for user in virtual_users %}
+  <User {{ user.name }}>
+    # Password hash (e.g., SHA-512, bcrypt); empty = disabled login
+    Password {{ user.password_hash | default('') }}
+    # Chroot subdirectory (relative to global chroot_path)
+    ChrootPath {{ user.chroot_path | default('') }}
+    # Optional: custom shell (usually /bin/false or /usr/sbin/nologin)
+    Shell {{ user.shell | default('/bin/false') }}
+    # Permissions: R=READ, W=WRITE, M=MODIFY, D=DELETE, L=LIST, A=ALL
+    Permissions {{ user.permissions | default('RL') }}
+    # Max upload size (in KB) for this user (0 = unlimited)
+    MaxUploadSize {{ user.max_upload_size | default(0) }}
+    # IP whitelist (comma-separated CIDRs or IPs); empty = no restriction
+    {{ '# ' if not user.ip_whitelist else '' }}IP {{ user.ip_whitelist | default('') | join(', ') }}
+  </User>
+{% endfor %}
+</VirtualUsers>
+{% endif %}
+
+# Directory ACL rules (optional; applies to chroot_path or virtual user chroot subdirs)
+{% if directory_acls %}
+<DirectoryACL>
+{% for acl in directory_acls %}
+  # {{ acl.description | default('Directory ACL rule') }}
+  <Directory {{ acl.path }}>
+    # User or group name to apply rule to
+    {{ acl.user | default('') | replace(' ', '\ ') | replace('#', '\#') }}
+    # Permissions string: R, W, M, D, L
+    Permissions {{ acl.permissions }}
+    # Optional: inherit from parent directory
+    {{ '# ' if not acl.inherit else '' }}Inherit yes
+  </Directory>
+{% endfor %}
+</DirectoryACL>
+{% endif %}
+
+# Idle timeout (seconds)
+IdleTimeout {{ idle_timeout | default('900') }}
+
+# Disable or enable directory listing compression (experimental)
+{{ '# ' if not enable_compression else '' }}Compression yes

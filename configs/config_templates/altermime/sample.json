@@ -1,0 +1,76 @@
+{
+  "enabled": true,
+  "max_body_size": 10485760,
+  "log_level": 3,
+  "log_file": "/var/log/altermime.log",
+  "filter_timeout": 30,
+  "replacement_rules": [
+    {
+      "name": "HTML disclaimer",
+      "type": "text/html",
+      "pattern": "text/html",
+      "text": "This message was processed by AlterMIME.\n\nDisclaimer: Opinions expressed are those of the author and not the organization.",
+      "headers": [
+        {
+          "name": "X-Altermime-Processed",
+          "value": "Yes"
+        }
+      ]
+    },
+    {
+      "name": "Block JS",
+      "enabled": false,
+      "type": "application/javascript",
+      "pattern": "re:^application/javascript",
+      "text": "// Script blocked by policy"
+    }
+  ],
+  "quarantine": {
+    "enabled": true,
+    "base_dir": "/var/spool/altermime/quarantine",
+    "retention_days": 7,
+    "file_mode": "0640",
+    "group": "mail",
+    "user": "altermime"
+  },
+  "external_filters": [
+    {
+      "name": "clamav",
+      "command": "/usr/bin/clamscan --stdout --no-summary -",
+      "input_types": [
+        "application/octet-stream",
+        "application/x-dosexec",
+        "application/x-msdownload"
+      ],
+      "action": "quarantine"
+    },
+    {
+      "name": "mimedefang",
+      "enabled": true,
+      "command": "/usr/bin/perl /usr/local/bin/mimedefang-filter.pl",
+      "input_types": [
+        "*"
+      ],
+      "action": "pass"
+    }
+  ],
+  "mime_overrides": [
+    {
+      "enabled": true,
+      "description": "Force JavaScript to plain text",
+      "source_type": "application/javascript",
+      "target_type": "text/plain"
+    },
+    {
+      "enabled": true,
+      "description": "Treat VBS as text",
+      "source_type": "text/x-vbscript",
+      "target_type": "text/plain"
+    }
+  ],
+  "security": {
+    "user": "altermime",
+    "group": "altermime",
+    "chroot": ""
+  }
+}

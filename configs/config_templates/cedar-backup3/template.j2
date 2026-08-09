@@ -1,0 +1,45 @@
+# /etc/cron.d/cedar-backup3
+#
+# This file configures the cron jobs for Cedar Backup 3.
+# It supports three deployment modes:
+#   1. Single Machine: All tasks run on one node.
+#   2. Client Machine: Only collect and purge tasks run here.
+#   3. Master Machine: Only collect, stage, store, and purge tasks run here.
+#
+# Uncomment the appropriate section below for your deployment mode.
+#
+
+# Single machine (pool of one)
+# Run the 'all' task to perform full backup lifecycle on a single node.
+# Cron schedule: {{ cron_schedule_single | default('30 00 * * *') }}
+#{{ cron_schedule_single | default('30 00 * * *') }} root  /usr/bin/cback3 all
+
+# Client machine tasks
+# These tasks run on client nodes to gather data and clean up old backups.
+
+# Collect task: Gathers backup data from the client.
+# Cron schedule: {{ cron_schedule_client_collect | default('30 00 * * *') }}
+#{{ cron_schedule_client_collect | default('30 00 * * *') }} root  /usr/bin/cback3 collect
+
+# Purge task: Removes expired backup sets.
+# Cron schedule: {{ cron_schedule_client_purge | default('30 06 * * *') }}
+#{{ cron_schedule_client_purge | default('30 06 * * *') }} root  /usr/bin/cback3 purge
+
+# Master machine tasks
+# These tasks run on the central master server to manage storage and archival.
+
+# Collect task: Receives backup data from clients.
+# Cron schedule: {{ cron_schedule_master_collect | default('30 00 * * *') }}
+#{{ cron_schedule_master_collect | default('30 00 * * *') }} root  /usr/bin/cback3 collect
+
+# Stage task: Prepares data for long-term storage (e.g., compression/indexing).
+# Cron schedule: {{ cron_schedule_master_stage | default('30 02 * * *') }}
+#{{ cron_schedule_master_stage | default('30 02 * * *') }} root  /usr/bin/cback3 stage
+
+# Store task: Archives data to final storage backend.
+# Cron schedule: {{ cron_schedule_master_store | default('30 04 * * *') }}
+#{{ cron_schedule_master_store | default('30 04 * * *') }} root  /usr/bin/cback3 store
+
+# Purge task: Removes expired master-side backup sets.
+# Cron schedule: {{ cron_schedule_master_purge | default('30 06 * * *') }}
+#{{ cron_schedule_master_purge | default('30 06 * * *') }} root  /usr/bin/cback3 purge

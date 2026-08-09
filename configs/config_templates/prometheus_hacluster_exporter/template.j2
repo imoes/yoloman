@@ -1,0 +1,63 @@
+# Environment variables for prometheus-hacluster-exporter
+# This file is sourced by the systemd service at runtime.
+# Generated from Ansible role variables; do not edit manually.
+
+# Listen address (IP or hostname) where the exporter binds.
+# Default: '0.0.0.0' (all interfaces).
+# Schema: listen_address (string) = "IP address the exporter binds to (e.g., '0.0.0.0' for all interfaces)."
+LISTEN_ADDRESS="{{ listen_address | default('0.0.0.0') }}"
+
+# TCP port the exporter listens on for Prometheus scrapes.
+# Default: 9941.
+# Schema: listen_port (integer) = "TCP port the exporter listens on for Prometheus scrapes."
+LISTEN_PORT={{ listen_port | default(9941) }}
+
+# Path to the local Pacemaker cluster communication socket.
+# Default: '/var/run/pacemaker/pacemakerd.sock'.
+# Schema: pcmk_socket (string) = "Path to the local Pacemaker cluster communication socket."
+PCMK_SOCKET="{{ pcmk_socket | default('/var/run/pacemaker/pacemakerd.sock') }}"
+
+# Enable or disable collection of node health metrics (e.g., node status, uptime).
+# Default: True.
+# Schema: enable_node_health (boolean) = "Set to false to disable collection of node health metrics (e.g., node status, uptime)."
+ENABLE_NODE_HEALTH={{ enable_node_health | default(True) | lower }}
+
+# Enable or disable collection of resource agent metrics (e.g., running status, fail counts).
+# Default: True.
+# Schema: enable_resource_metrics (boolean) = "Set to false to disable collection of resource agent metrics (e.g., running status, fail counts)."
+ENABLE_RESOURCE_METRICS={{ enable_resource_metrics | default(True) | lower }}
+
+# Enable or disable collection of high-level cluster topology metrics (nodes, resources, quorum).
+# Default: True.
+# Schema: enable_cluster_topology (boolean) = "Set to false to disable collection of high-level cluster topology metrics (nodes, resources, quorum)."
+ENABLE_CLUSTER_TOPOLOGY={{ enable_cluster_topology | default(True) | lower }}
+
+# Comma-separated key=value pairs (e.g., 'env=prod,region=us-east-1') to attach to all metrics.
+# Default: '' (empty string).
+# Schema: extra_labels (string) = "Comma-separated key=value pairs (e.g., 'env=prod,region=us-east-1') to attach to all metrics for easier filtering."
+EXTRA_LABELS="{{ extra_labels | default('') }}"
+
+# Maximum time (seconds) to wait for responses from Pacemaker REST API or socket calls.
+# Default: 5.
+# Schema: pcmk_timeout (integer) = "Maximum time (seconds) to wait for responses from Pacemaker REST API or socket calls."
+PCMK_TIMEOUT={{ pcmk_timeout | default(5) }}
+
+# Maximum number of simultaneous requests allowed to Pacemaker when fetching data.
+# Default: 20.
+# Schema: max_concurrent_requests (integer) = "Maximum number of simultaneous requests allowed to Pacemaker when fetching data."
+MAX_CONCURRENT_REQUESTS={{ max_concurrent_requests | default(20) }}
+
+# Enable verbose logging for troubleshooting.
+# Default: False.
+# Schema: debug (boolean) = "Enable verbose logging for troubleshooting (not recommended in production)."
+DEBUG={{ debug | default(False) | lower }}
+
+# List of Pacemaker resource names to skip when generating metrics.
+# Default: [] (empty list).
+# Schema: excluded_resources (list) = "List of Pacemaker resource names to skip when generating metrics."
+#
+# Each excluded resource is commented out in the file for documentation purposes.
+# The EXCLUDE_RESOURCES variable contains them as a comma-separated list.
+{% for resource in excluded_resources | default([]) %}# Excluded resource: {{ resource }}
+{% endfor %}
+EXCLUDE_RESOURCES="{% for resource in excluded_resources | default([]) %}{{ resource }}{% if not loop.last %},{% endif %}{% endfor %}"

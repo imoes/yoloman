@@ -1,0 +1,77 @@
+{
+  "debug_level": 3,
+  "log_stderror": "yes",
+  "mem_dump_shared": "no",
+  "max_fwd": 70,
+  "stats_interval": 60,
+  "auth_enabled": true,
+  "listeners": [
+    {
+      "protocol": "tcp",
+      "address": "0.0.0.0",
+      "port": 5060,
+      "tags": [
+        "public"
+      ]
+    },
+    {
+      "protocol": "tcp",
+      "address": "127.0.0.1",
+      "port": 5060,
+      "tags": [
+        "internal"
+      ]
+    },
+    {
+      "protocol": "tls",
+      "address": "0.0.0.0",
+      "port": 5061
+    }
+  ],
+  "aliases": [
+    "sip.example.com",
+    "kamailio.local"
+  ],
+  "db_url": "mysql://kamailio:kamailiorw@10.0.0.5/kamailio",
+  "modules": [
+    {
+      "name": "sl",
+      "param": "reply_to_next",
+      "value": 0
+    },
+    {
+      "name": "tm",
+      "param": "auto_2618",
+      "value": 1
+    },
+    {
+      "name": "auth_db",
+      "param": "calculate_md5",
+      "value": 1
+    },
+    {
+      "name": "tls",
+      "param": "tls_method",
+      "value": "TLSv1_2"
+    },
+    {
+      "name": "tls",
+      "param": "tls_port",
+      "value": 5061
+    }
+  ],
+  "upstreams": [
+    {
+      "name": "pstn-gw-us",
+      "prefix": "1",
+      "backups": [
+        "pstn-gw-eu"
+      ]
+    },
+    {
+      "name": "pstn-gw-eu",
+      "prefix": "44",
+      "backups": []
+    }
+  ]
+}

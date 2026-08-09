@@ -1,0 +1,56 @@
+# ============================================================================
+# Color Bandwidth Meter (cbm) configuration template
+# ============================================================================
+# This file configures cbm, a lightweight tool for monitoring network bandwidth
+# usage with a colorful terminal display. It supports per-interface monitoring,
+# configurable update intervals, and output unit selection.
+#
+# This template is self-documenting: every directive is preceded by a comment
+# explaining its purpose, expected values, and source from the Ansible role
+# schema.
+# ============================================================================
+
+# ============================================================================
+# Network Interface to Monitor
+# ============================================================================
+# The specific network interface name (e.g., eth0, ens33) to monitor.
+# If left empty, cbm will monitor all available network interfaces.
+interface: {{ (interface | default('')) | string | trim }}
+
+# ============================================================================
+# Update Delay (in milliseconds)
+# ============================================================================
+# The interval, in milliseconds, between successive bandwidth calculations
+# and display refreshes. Must be a positive integer. A value of 500 (0.5s)
+# is a reasonable default for responsive monitoring.
+update_delay_ms: {{ (update_delay_ms | default(500)) | int }}
+
+# ============================================================================
+# Display Units
+# ============================================================================
+# The unit of measurement for displaying bandwidth rates and totals.
+# Accepts 'bytes' (default) for human-readable byte counts (e.g., 1.5 MB/s)
+# or 'bits' for bit rates (e.g., 12 Mbps).
+units: {{ (units | default('bytes')) | string | trim | lower }}
+
+# ============================================================================
+# Explicitly Included Interfaces
+# ============================================================================
+# A list of interface names to explicitly include in the monitoring output.
+# This setting is ONLY used when `interface` is empty (i.e., monitoring mode).
+# If `interface` is set to a specific name, this list is ignored.
+#
+# Format: YAML list under the `include_interfaces` key.
+# Example:
+#   include_interfaces:
+#     - eth0
+#     - wlan0
+#
+# If no interfaces are specified and `interface` is empty, cbm may default
+# to monitoring all detected interfaces.
+{% set _iface_list = include_interfaces | default([]) %}
+{% if _iface_list is iterable and (_iface_list | length) > 0 %}
+include_interfaces:
+{% for iface in _iface_list %}  - {{ iface | string | trim }}
+{% endfor %}
+{% endif %}

@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<!-- MUC service configuration for jabber-muc -->
+<config>
+  <!-- Service identification -->
+  <service>
+    <name>{{ service_name }}</name>
+    <jid>{{ service_jid }}</jid>
+  </service>
+
+  <!-- Network and listening settings -->
+  <listen>
+    <port>{{ listen_port }}</port>
+    <interface>{{ listen_interface }}</interface>
+  </listen>
+
+  <!-- Database backend settings -->
+  <database>
+    <type>{{ db_type }}</type>
+    {% if db_type == 'sqlite' %}
+    <path>{{ db_path }}</path>
+    {% elif db_type == 'postgresql' %}
+    <host>{{ db_host }}</host>
+    <port>{{ db_port }}</port>
+    <name>{{ db_name }}</name>
+    <user>{{ db_user }}</user>
+    <password>{{ db_password }}</password>
+    {% endif %}
+  </database>
+
+  <!-- Security and SSL/TLS -->
+  <tls>
+    <enabled>{{ tls_enabled }}</enabled>
+    <cert_file>{{ tls_cert_file }}</cert_file>
+    <key_file>{{ tls_key_file }}</key_file>
+  </tls>
+
+  <!-- Logging configuration -->
+  <logging>
+    <level>{{ log_level }}</level>
+    <file>{{ log_file }}</file>
+  </logging>
+
+  <!-- MUC-specific settings -->
+  <muc>
+    <room_default_name>{{ room_default_name }}</room_default_name>
+    <room_default_history>{{ room_default_history }}</room_default_history>
+    <max_rooms_per_user>{{ max_rooms_per_user }}</max_rooms_per_user>
+    <max_history_messages>{{ max_history_messages }}</max_history_messages>
+    <allow_private_messages>{{ allow_private_messages }}</allow_private_messages>
+    <allow_visitor_nick_change>{{ allow_visitor_nick_change }}</allow_visitor_nick_change>
+    <allow_user_invitation>{{ allow_user_invitation }}</allow_user_invitation>
+    <allow_subscription>{{ allow_subscription }}</allow_subscription>
+    <max_occupants>{{ max_occupants }}</max_occupants>
+    <rooms>
+      {% for room in rooms %}
+      <room>
+        <jid>{{ room.jid }}</jid>
+        <name>{{ room.name }}</name>
+        <public>{{ room.public }}</public>
+        <members_only>{{ room.members_only }}</members_only>
+        < moderated>{{ room.moderated }}</moderated>
+        <max_occupants>{{ room.max_occupants }}</max_occupants>
+        <description>{{ room.description }}</description>
+        <owners>
+          {{ room.owners | join(', ') }}
+        </owners>
+      </room>
+      {% endfor %}
+    </rooms>
+  </muc>
+</config>

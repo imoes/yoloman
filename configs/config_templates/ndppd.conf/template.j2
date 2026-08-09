@@ -1,0 +1,76 @@
+# ndppd.conf: Neighbor Discovery Proxy configuration
+# This file configures ndppd (Neighbor Discovery Proxy Daemon), which performs IPv6 Neighbor
+# Discovery (NDP) proxying. It allows routers to learn about IPv6 neighbors on one interface
+# based on ND messages received on another interface.
+
+# Global section: applies to all proxying unless overridden per-interface.
+proxy {{ proxy_iface | default('eth0') }} {
+    # Global proxy behavior rules: controls which RA flags and behaviors are proxied.
+    # Valid values: 'router', 'host', 'static'.
+    # Only rules present in the 'rules' list will be emitted as directives.
+    {%- if 'router' in (rules | default(['router'])) %}
+    router
+    {%- endif %}
+    {%- if 'host' in (rules | default(['router'])) %}
+    host
+    {%- endif %}
+    {%- if 'static' in (rules | default(['router'])) %}
+    static
+    {%- endif %}
+
+    # Global neighbor cache timeout in seconds.
+    # If a neighbor entry is not refreshed within this time, it is removed from the cache.
+    timeout {{ timeout | default(300) }}
+}
+
+# Per-interface proxy rules: allows fine-grained control over specific network interfaces.
+{% for iface in interfaces | default([]) %}
+proxy {{ iface.name | default('unknown') }} {
+    # Per-interface description (metadata only, not parsed by ndppd if commented).
+    {# {{ iface.description | default('Proxy rules for interface') }} #}
+
+    # Per-interface proxy behavior rules.
+    # Overrides global 'rules' if present; otherwise falls back to global behavior.
+    {%- if 'router' in (iface.rules | default([])) %}
+    router
+    {%- endif %}
+    {%- if 'host' in (iface.rules | default([])) %}
+    host
+    {%- endif %}
+    {%- if 'static' in (iface.rules | default([])) %}
+    static
+    {%- endif %}
+    {%- if 'autonomous' in (iface.rules | default([])) %}
+    autonomous
+    {%- endif %}
+    {%- if 'managed' in (iface.rules | default([])) %}
+    managed
+    {%- endif %}
+    {%- if 'other' in (iface.rules | default([])) %}
+    other
+    {%- endif %}
+
+    # Per-interface neighbor cache timeout in seconds.
+    # Defaults to 3600 if not specified for this interface.
+    timeout {{ iface.timeout | default(3600) }}
+
+    # Router Advertisement priority for this interface.
+    # Used to influence neighbor selection when multiple routers are available.
+    {%- if 'router_priority' in iface and iface.router_priority is not none %}
+    router_priority {{ iface.router_priority }}
+    {%- endif %}
+
+    # Router Advertisement lifetime for this interface.
+    # Specifies how long router advertisements are considered valid.
+    {%- if 'router_lifetime' in iface and iface.router_lifetime is not none %}
+    router_lifetime {{ iface.router_lifetime }}
+    {%- endif %}
+}
+{% endfor %}
+
+# Static neighbor entries: manually defined IPv6-to-MAC mappings.
+# These entries bypass dynamic discovery and are always present in the proxy table.
+{% for entry in static_entries | default([]) %}
+# Static entry: {{ entry.description | default('IPv6 neighbor') }}
+static {{ entry.mac | default('00:00:00:00:00:00') }} {{ entry.ip | default('::') }} {{ entry.iface | default('eth0') }}
+{% endfor %}

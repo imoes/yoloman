@@ -1,0 +1,106 @@
+# ==============================================================================
+# Munin Node Configuration Template
+# ==============================================================================
+# This file configures the munin-node daemon, which collects system metrics
+# and exposes them to a munin master via the Munin protocol.
+#
+# Structure:
+#   - Access Control: allowed_hosts
+#   - Network: port, timeout, max_connections
+#   - Identity: node_hostname
+#   - Process: user, group
+#   - Filesystem Paths: dirdir, logdir, rundir, htmldir
+#   - Logging: log_level
+#   - Features: strict_host_verification
+#   - Plugin Management: plugin_conf_includes
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Access Control: List of allowed host IPs or CIDR ranges (regex patterns,
+# escaped with ^ and $) that may connect to this node.
+# ------------------------------------------------------------------------------
+{% for host in (allowed_hosts | default(['127.0.0.1', '::1'])) %}allow ^{{ host }}$
+{% endfor %}
+
+# ------------------------------------------------------------------------------
+# Network: TCP port on which the munin-node daemon listens for incoming
+# connections. Default is 4949, the standard Munin node port.
+# ------------------------------------------------------------------------------
+port {{ port | default(4949) }}
+
+# ------------------------------------------------------------------------------
+# Identity: Explicit hostname to report to the munin master.
+# If empty, the FQDN is auto-detected and used.
+# ------------------------------------------------------------------------------
+{% if (node_hostname | default('')) | length > 0 %}host_name {{ node_hostname | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Process: System user account under which the munin-node daemon runs.
+# For security, consider using a non-root user (e.g., 'munin').
+# ------------------------------------------------------------------------------
+user {{ user | default('root') }}
+
+# ------------------------------------------------------------------------------
+# Process: System group under which the munin-node daemon runs.
+# Typically matches the user group (e.g., 'munin').
+# ------------------------------------------------------------------------------
+group {{ group | default('root') }}
+
+# ------------------------------------------------------------------------------
+# Filesystem Paths: Directory containing plugin configuration snippets
+# (one per file) and runtime directory for plugin data.
+# ------------------------------------------------------------------------------
+dirdir {{ dirdir | default('/etc/munin/plugin-conf.d') }}
+
+# ------------------------------------------------------------------------------
+# Filesystem Paths: Directory where munin-node logs are stored.
+# ------------------------------------------------------------------------------
+logdir {{ logdir | default('/var/log/munin') }}
+
+# ------------------------------------------------------------------------------
+# Filesystem Paths: Directory for runtime files like PID and socket files.
+# ------------------------------------------------------------------------------
+rundir {{ rundir | default('/var/run/munin') }}
+
+# ------------------------------------------------------------------------------
+# Filesystem Paths: Directory for HTML output (used when serving munin stats
+# directly via webserver).
+# ------------------------------------------------------------------------------
+htmldir {{ htmldir | default('/var/www/munin') }}
+
+# ------------------------------------------------------------------------------
+# Logging: Verbosity of logging: 0 = minimal, 1 = normal (recommended),
+# higher = verbose (for debugging).
+# ------------------------------------------------------------------------------
+log_level {{ log_level | default(1) }}
+
+# ------------------------------------------------------------------------------
+# Network: Maximum number of simultaneous client connections allowed.
+# ------------------------------------------------------------------------------
+max_connections {{ max_connections | default(30) }}
+
+# ------------------------------------------------------------------------------
+# Network: Connection timeout in seconds before closing idle connections.
+# ------------------------------------------------------------------------------
+timeout {{ timeout | default(3600) }}
+
+# ------------------------------------------------------------------------------
+# Features: Whether to strictly match client IP against allowed_hosts (true)
+# or allow relaxed matching (false, legacy behavior).
+# Note: Munin node config uses 1 for true and 0 for false.
+# ------------------------------------------------------------------------------
+strict_host_verification {{ strict_host_verification | default(False) | ternary(1, 0) }}
+
+# ------------------------------------------------------------------------------
+# Plugin Management: List of directories to scan for plugin configuration
+# fragments (includedir statements).
+# ------------------------------------------------------------------------------
+{% for conf in (plugin_conf_includes | default(['/etc/munin/plugin-conf.d'])) %}includedir {{ conf }}
+{% endfor %}
+
+# ==============================================================================
+# Per-plugin configuration (example format for documentation only)
+# [plugin_name]
+# env.variable_name value
+# ==============================================================================

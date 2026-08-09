@@ -1,0 +1,108 @@
+{
+  "syslog_facility": {
+    "type": "string",
+    "default": "daemon",
+    "description": "Syslog facility to log to (e.g., 'user', 'daemon').",
+    "enum": [
+      "user",
+      "daemon"
+    ]
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0 (quiet) to 4 (debug)."
+  },
+  "read_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds between temperature sensor reads."
+  },
+  "min_fan_speed": {
+    "type": "number",
+    "default": 20,
+    "description": "Minimum allowed fan speed as a percentage (0\u2013100). Prevents fans from stopping entirely."
+  },
+  "max_fan_speed": {
+    "type": "number",
+    "default": 6200,
+    "description": "Maximum allowed fan speed as a percentage (0\u2013100)."
+  },
+  "passive_cooling": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, reduce CPU frequency instead of increasing fan speed when hot."
+  },
+  "force_fan_control": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, override SMC auto-fan-control and force manual control."
+  },
+  "sensors": {
+    "type": "list",
+    "default": [],
+    "description": "List of sensor-to-fan mappings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Sensor name (as reported by SMC, e.g., 'TC0D', 'TB0T')."
+      },
+      "fan": {
+        "type": "string",
+        "default": "",
+        "description": "Fan identifier (e.g., 'F0Ac', 'F1Ac') to associate with this sensor."
+      },
+      "threshold": {
+        "type": "string",
+        "default": "",
+        "description": "Optional temperature threshold (\u00b0C) \u2014 leave blank to use zone-based thresholds."
+      }
+    }
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of temperature zones with thresholds and associated fans.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Zone name (e.g., 'low', 'high', 'critical')."
+      },
+      "thresholds": {
+        "type": "list",
+        "default": [],
+        "description": "Temperature thresholds (\u00b0C) in ascending order; each triggers fan speed change.",
+        "items": {
+          "type": "number"
+        }
+      },
+      "fans": {
+        "type": "list",
+        "default": [],
+        "description": "Fan identifiers corresponding to each threshold.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "overrides": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of explicit fan speed overrides (disables automatic control for those fans).",
+    "items": {
+      "fan": {
+        "type": "string",
+        "default": "",
+        "description": "Fan identifier (e.g., 'F0Ac')."
+      },
+      "speed": {
+        "type": "number",
+        "default": 50,
+        "description": "Fan speed as percentage (0\u2013100) for this override."
+      }
+    }
+  }
+}

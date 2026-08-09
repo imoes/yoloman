@@ -1,0 +1,84 @@
+{
+  "rtr_listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the RTR server binds to (e.g., '0.0.0.0' for all interfaces, '127.0.0.1' for localhost only)."
+  },
+  "rtr_listen_port": {
+    "type": "number",
+    "default": 3323,
+    "description": "TCP port the RTR server listens on (standard: 3323)."
+  },
+  "enable_rtr": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable the RTR server. Set to false to run validation-only mode."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum concurrent RTR client connections allowed."
+  },
+  "poll_interval": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time in seconds between successive RPKI validation runs (e.g., 3600 = every hour)."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries for fetching a repository before marking it unreachable."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout in seconds for HTTP(S) requests to RPKI repositories."
+  },
+  "local_cache_dir": {
+    "type": "string",
+    "default": "/var/lib/fort-validator/cache",
+    "description": "Absolute path to the directory where validated RPKI data is cached."
+  },
+  "ca_cert_bundle": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a CA certificate bundle for validating TLS connections to repositories. Leave empty to use system defaults."
+  },
+  "repositories": {
+    "type": "list",
+    "default": [],
+    "description": "List of RPKI repositories to validate. Each entry includes a URI and optional settings.",
+    "items": {
+      "uri": {
+        "type": "string",
+        "default": "",
+        "description": "Repository URI (e.g., 'https://rpki.afrinic.net/rpki/repository/', 'http://rpki.ripe.net/ta/')."
+      },
+      "headers": {
+        "type": "object",
+        "default": {},
+        "description": "Optional HTTP headers to send with requests to this repository (e.g., for authentication)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to fetch and validate this repository."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level to record. Choices: debug, info, warn, error, critical."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "text",
+    "description": "Format of log output: human-readable 'text' or machine-processable 'json'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/fort-validator/validator.log",
+    "description": "Path to the log file. Use '-' to log to standard error."
+  }
+}

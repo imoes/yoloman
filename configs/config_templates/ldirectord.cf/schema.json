@@ -1,0 +1,240 @@
+{
+  "check_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Seconds to wait before a health check is considered failed."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 3,
+    "description": "Seconds between consecutive health checks."
+  },
+  "autoreload": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically reload configuration on change (true/false)."
+  },
+  "quiesce": {
+    "type": "bool",
+    "default": false,
+    "description": "Remove failed real servers from load balancing (true/false)."
+  },
+  "heartbeat_group": {
+    "type": "list",
+    "default": [],
+    "description": "Define HA groups for heartbeat failover coordination.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional comment for this group."
+        },
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the HA group (e.g., ' heartbeat-1')."
+        },
+        "members": {
+          "type": "list",
+          "default": [],
+          "description": "List of heartbeat devices/nodes (e.g., 'eth0', 'eth1').",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "virtual": {
+    "type": "list",
+    "default": [],
+    "description": "Define virtual services (IP:port) and their real servers.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional comment for this virtual service."
+        },
+        "ip": {
+          "type": "string",
+          "default": "",
+          "description": "Virtual IP address (e.g., '192.168.1.10')."
+        },
+        "port": {
+          "type": "number",
+          "default": 80,
+          "description": "Virtual port to listen on."
+        },
+        "protocol": {
+          "type": "string",
+          "default": "TCP",
+          "description": "Protocol: TCP, UDP, or SCTP.",
+          "enum": [
+            "TCP",
+            "UDP",
+            "SCTP"
+          ]
+        },
+        "scheduler": {
+          "type": "string",
+          "default": "wrr",
+          "description": "Load balancing scheduler: wrr, wlc, dh, etc.",
+          "enum": [
+            "wrr",
+            "wlc",
+            "dh",
+            "sh",
+            "lblc",
+            "lblcr",
+            "nq",
+            "fifo"
+          ]
+        },
+        "heartbeat_group": {
+          "type": "string",
+          "default": "",
+          "description": "Name of HA group for failover (if using heartbeat)."
+        },
+        "gateway": {
+          "type": "string",
+          "default": "",
+          "description": "Direct routing gateway IP (for DR mode)."
+        },
+        "weight": {
+          "type": "number",
+          "default": 1,
+          "description": "Default weight for real servers in this service."
+        },
+        "fwmark": {
+          "type": "number",
+          "default": 0,
+          "description": "Netfilter firewall mark for the virtual service."
+        },
+        "send": {
+          "type": "string",
+          "default": "",
+          "description": "Raw string to send for TCP/UDP checks (escape quotes)."
+        },
+        "recv": {
+          "type": "string",
+          "default": "",
+          "description": "Expected string in response (for TCP/UDP checks)."
+        },
+        "request": {
+          "type": "string",
+          "default": "",
+          "description": "HTTP request line (e.g., 'GET / HTTP/1.0')."
+        },
+        "response": {
+          "type": "string",
+          "default": "",
+          "description": "Expected HTTP response status line (e.g., 'HTTP/1.0 200 OK')."
+        },
+        "expect": {
+          "type": "string",
+          "default": "",
+          "description": "String pattern expected in response (regex compatible)."
+        },
+        "baseline": {
+          "type": "bool",
+          "default": false,
+          "description": "Treat missing response as baseline failure (true/false)."
+        },
+        "checktype": {
+          "type": "string",
+          "default": "connect",
+          "description": "Health check method: connect, http, or mysql.",
+          "enum": [
+            "connect",
+            "http",
+            "mysql"
+          ]
+        },
+        "checktimeout": {
+          "type": "number",
+          "default": 5,
+          "description": "Override global check timeout for this service."
+        },
+        "checkinterval": {
+          "type": "number",
+          "default": 2,
+          "description": "Override global check interval for this service."
+        },
+        "quiesce": {
+          "type": "bool",
+          "default": null,
+          "description": "Override global quiesce setting for this service (true/false/null=inherit)."
+        },
+        "persistence": {
+          "type": "number",
+          "default": 0,
+          "description": "Persistence timeout in seconds (0=disabled)."
+        },
+        "pertimout": {
+          "type": "number",
+          "default": 3600,
+          "description": "Persistence timeout in seconds (alias for 'persistence')."
+        },
+        "backup": {
+          "type": "string",
+          "default": "",
+          "description": "Backup virtual IP for this service."
+        },
+        "fallback": {
+          "type": "string",
+          "default": "",
+          "description": "Fallback IP if all real servers fail."
+        },
+        "real_server": {
+          "type": "list",
+          "default": [],
+          "description": "List of real servers for this virtual service.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "comment": {
+                "type": "string",
+                "default": "",
+                "description": "Optional comment for this real server."
+              },
+              "ip": {
+                "type": "string",
+                "default": "",
+                "description": "Real server IP address."
+              },
+              "port": {
+                "type": "number",
+                "default": 80,
+                "description": "Real server port (0 for no port-specific check)."
+              },
+              "weight": {
+                "type": "number",
+                "default": 1,
+                "description": "Weight of this real server relative to others."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "email_alert": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable e-mail alerting on service failure (true/false)."
+  },
+  "email_alert_admin": {
+    "type": "bool",
+    "default": false,
+    "description": "Send alerts to admin (true/false)."
+  },
+  "email_alert_from": {
+    "type": "string",
+    "default": "ldirectord@localhost",
+    "description": "E-mail 'From:' address for alerts."
+  }
+}

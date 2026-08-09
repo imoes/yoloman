@@ -1,0 +1,124 @@
+# /etc/systemd/journald.conf — Configuration file for the systemd-journald logging service.
+# This template is self-documenting. Each directive is preceded by its schema description.
+# All variables use the `| default(...)` filter to prevent undefined-variable errors.
+
+# Journal storage mode: auto, persistent, volatile, or none.
+# * 'auto': use /var/log/journal if it exists, else /run/log/journal (volatile).
+# * 'persistent': use /var/log/journal (requires directory to exist or be created).
+# * 'volatile': use /run/log/journal (ramdisk, cleared on reboot).
+# * 'none': disable storage (logs still forwarded to stdout/syslog/console if configured).
+# Defaults to 'auto'.
+Storage={{ storage_mode | default('auto') }}
+
+# Maximum disk space used by all journal files (e.g., '10%', '2G', '500M').
+# Defaults to 10% of filesystem size, capped at 4G.
+# If exceeded, oldest entries are removed. Set to 0 for unlimited.
+SystemMaxUse={{ system_max_use | default('10%') }}
+
+# Maximum size per system journal file before rotation.
+# Defaults to '100M'.
+SystemMaxFileSize={{ system_max_file_size | default('100M') }}
+
+# Maximum number of journal files per stream before rotation. Defaults to 100.
+# Reduces disk footprint for high-frequency logs.
+SystemMaxFiles={{ system_max_files | default(100) }}
+
+# Maximum age of individual journal files before rotation (duration, e.g., '7d', '1month').
+# Set to 0 to turn off this feature. Defaults to 1 month.
+MaxFileSec={{ max_file_sec | default('1month') }}
+
+# How long journal entries are retained. Set to '0' to rely on disk usage limits.
+# Controls whether journal files containing entries older than the specified time span are deleted.
+MaxRetentionSec={{ max_retention_sec | default('0') }}
+
+# How often to sync journal metadata to disk (duration, e.g., '30s', '10m').
+# Defaults to 5 minutes.
+SyncIntervalSec={{ sync_interval_sec | default('5m') }}
+
+# Rate-limiting: max number of messages per unit time before dropping.
+# Defaults to 30s interval and 10000 burst.
+RateLimitIntervalSec={{ rate_limit_interval_sec | default('30s') }}
+RateLimitBurst={{ rate_limit_burst | default(10000) }}
+
+# Enable forwarding to remote syslog (e.g., rsyslog) over the network.
+# Defaults to False.
+ForwardToSyslog={{ remote_forward_enabled | default(false) | lower }}
+
+# Forward journal entries to kernel ring buffer (dmesg).
+# Defaults to False.
+ForwardToKMsg={{ forward_to_kmsg | default(false) | lower }}
+
+# Forward journal entries to system consoles (not recommended — use with caution).
+# Defaults to False.
+ForwardToConsole={{ forward_to_console | default(false) | lower }}
+
+# Minimum log level forwarded to consoles — 'debug', 'info', 'notice', 'warning', 'err', 'crit', 'alert', 'emerg'.
+# Defaults to 'info'.
+MaxLevelConsole={{ console_level | default('info') }}
+
+# Maximum file descriptors for journal clients (increase for many services).
+# Defaults to 4096.
+MaxFileDescriptors={{ max_file_descriptors | default(4096) }}
+
+# List of additional fields to include in journal entries.
+# Each item defines a field name and value to append to all entries.
+# Example: [{'name': 'CUSTOM_HOST', 'value': 'prod-web-01'}]
+# Defaults to [].
+{% for field in extra_fields | default([]) %}
+# Custom field: {{ field.name }}={{ field.value }}
+{{ field.name | upper }}={{ field.value }}
+{% endfor %}
+
+# Enable journal compression.
+# Can take a boolean value or a threshold in bytes (e.g., 512, 1K, 1M).
+# If enabled (default), data objects larger than 512 bytes are compressed.
+{% set compress_val = compress | default('lz4') %}
+{% if compress_val is boolean %}
+Compress={{ compress_val | lower }}
+{% else %}
+Compress={{ compress_val }}
+{% endif %}
+
+# How to split journals: 'uid' (per user), 'none' (single journal).
+# Defaults to 'uid'.
+SplitMode={{ split_mode | default('uid') }}
+
+# Use wall-clock (real-time) timestamps instead of monotonic clock.
+# Defaults to 'no' (monotonic).
+UseWallClock={{ use_wall_clock | default(false) | lower }}
+
+# Directory for runtime journal state (e.g., sockets, headers).
+# Defaults to '/run/systemd/journal'.
+RuntimeStateDirectory={{ runtime_state_dir | default('/run/systemd/journal') }}
+
+# Size of in-memory journal buffer (e.g., '16M').
+# Defaults to 16M. (Mapped to BufferMax=).
+BufferMax={{ buffer_size | default('16M') }}
+
+# Maximum concurrent journal clients.
+# Defaults to 4096.
+MaxClients={{ max_clients | default(4096) }}
+
+# Maximum remote connections (syslog/journald forwarding).
+# Defaults to 128.
+MaxConnections={{ max_connections | default(128) }}
+
+# Enable journal hints (for `journalctl` optimizations).
+# Defaults to True.
+Hints={{ hints | default(true) | lower }}
+
+# Directory for drop-in config fragments.
+# Defaults to '/etc/systemd/journald.conf.d'.
+DropInDirectory={{ drop_in_dir | default('/etc/systemd/journald.conf.d') }}
+
+# Read kernel messages from /dev/kmsg.
+# Defaults to yes in the default namespace.
+ReadKMsg={{ read_kmsg | default(true) | lower }}
+
+# Enable kernel auditing.
+# Defaults to on.
+Audit={{ audit | default(true) | lower }}
+
+# Maximum line length to permit when converting stream logs into record logs.
+# Defaults to 48K.
+LineMax={{ line_max | default('48K') }}

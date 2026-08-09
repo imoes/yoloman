@@ -1,0 +1,62 @@
+# =============================================================
+# dict_server configuration template
+# Self-documenting: every directive is preceded by its schema
+# description as a comment. Variables use defaults from the
+# schema to ensure safe rendering even when values are omitted.
+# =============================================================
+
+# Bind address and port for the dict_server listener.
+# Format: IP:port (e.g., '127.0.0.1:2628').
+# Default: '0.0.0.0:2628'
+bind {{ bind | default('0.0.0.0:2628') }}
+
+# Maximum number of simultaneous client connections allowed.
+# Default: 256
+maxconn {{ maxconn | default(256) }}
+
+# Logging verbosity level.
+# Options typically include: debug, info, warn, error.
+# Default: 'info'
+loglevel {{ loglevel | default('info') }}
+
+# Directory containing dictionary data files (DICT format).
+# Each dictionary consists of .index and .dict file pairs.
+# Default: '/usr/share/dictd'
+dictdir {{ dictdir | default('/usr/share/dictd') }}
+
+# Spooldir for spooling client requests (optional, currently unused in active directives).
+# #spooldir {{ spooldir | default('/var/spool/dictd') }}
+
+# Timeout in seconds before disconnecting an idle client.
+# Default: 300
+clienttimeout {{ clienttimeout | default(300) }}
+
+# Enable client compression support (RFC 2229).
+# #compression {{ compression | default('gzip') }}
+
+# Default database(s) to query if the client does not specify one.
+# Can be a comma-separated list or 'all' to query all loaded databases.
+# Default: 'wordnet'
+defaultdb {{ defaultdb | default('wordnet') }}
+
+# List of databases to enable, defined by name and optional human-readable title.
+# Each entry corresponds to .index/.dict filenames in dictdir.
+{% for db in databases | default([]) %}database {{ db.name }}{% if db.title is defined and db.title %} # {{ db.title }}{% endif %}
+{% endfor %}
+
+# Access control rules applied in order: allow or deny patterns.
+# Supports wildcards and CIDR notation. Order matters (first match wins).
+# Default: empty list (no restrictions)
+{% for rule in access_rules | default([]) %}{% if rule.action == 'allow' %}allow {{ rule.pattern }}{% else %}deny {{ rule.pattern }}{% endif %}
+{% endfor %}
+
+# Rate-limiting configuration per client to prevent abuse.
+# Syntax: ratelimit <max_queries> <window_seconds>
+# Only emitted if rate_limit.enabled is true.
+# Default: enabled=False, max_queries=10, window=60
+{% if (rate_limit | default({'enabled': False})).enabled %}ratelimit {{ (rate_limit | default({'max_queries': 10})).max_queries }} {{ (rate_limit | default({'window': 60})).window }}{% endif %}
+
+# Custom Message of the Day (MOTD) displayed upon client connection.
+# Single-line text. Leave empty for no MOTD.
+# Default: '' (empty)
+{% if motd | default('') %}motd {{ motd | default('') }}{% endif %}

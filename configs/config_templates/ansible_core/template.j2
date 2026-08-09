@@ -1,0 +1,64 @@
+[defaults]
+# Path to the default inventory file (static or dynamic).
+inventory = {{ defaults_inventory | default('/etc/ansible/hosts') }}
+
+# Fact gathering mode: 'smart' (only if needed), 'explicit' (manual only), or 'implicit' (always).
+gathering = {{ defaults_gathering | default('smart') }}
+
+# Default SSH connection timeout in seconds.
+timeout = {{ defaults_timeout | default(10) }}
+
+# Default remote username for connecting to hosts. Leave empty to use the current local user.
+remote_user = {{ defaults_remote_user | default('') }}
+
+# Default connection plugin. Options include 'smart', 'ssh', 'paramiko', 'local'.
+connection = {{ defaults_connection | default('smart') }}
+
+# Enable SSH command pipelining to reduce connection overhead. Requires passwordless sudo if used with privilege escalation.
+pipelining = {{ defaults_pipelining | default(False) | ternary('True', 'False') }}
+
+# Fact caching method. Common options: 'jsonfile', 'memory', 'redis', 'yaml'.
+fact_caching = {{ defaults_fact_caching | default('jsonfile') }}
+
+# Connection string or path for fact caching (e.g., file path for jsonfile, Redis URL).
+fact_caching_connection = {{ defaults_fact_caching_connection | default('/tmp/ansible_facts') }}
+
+# Path to a file where ansible run logs (playbook events) are written. Requires write permissions.
+log_path = {{ defaults_log_path | default('') }}
+
+# List of callback plugins to enable (e.g., 'timer', 'profile_tasks', 'yaml').
+callback_whitelist = {{ defaults_callback_whitelist | default(['timer', 'profile_tasks']) | join(', ') }}
+
+[privilege_escalation]
+# Default method to escalate privileges: 'sudo', 'su', 'pbrun', 'pfexec', 'doas', 'dzdo', 'ksu', 'runas', 'machinectl'.
+become_method = {{ privilege_escalation_become_method | default('sudo') }}
+
+# Default user to become after privilege escalation.
+become_user = {{ privilege_escalation_become_user | default('root') }}
+
+# Prompt for privilege escalation password if needed.
+become_ask_pass = {{ privilege_escalation_become_ask_pass | default(True) | ternary('True', 'False') }}
+
+[ssh_connection]
+# Directory and filename template for SSH control sockets used in connection reuse.
+control_path = {{ ssh_connection_control_path | default('%(directory)s/ansible-ssh-%h-%p-%r') }}
+
+# SSH keepalive interval (seconds) — helps avoid stale connections
+ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o UserKnownHostsFile=/dev/null
+
+# Number of retries if SSH connection fails (0 = infinite or until success).
+retries = {{ ssh_connection_retries | default(0) }}
+
+[inventory]
+# List of inventory plugins to enable and use for parsing inventory sources.
+enable_plugins = {{ inventory_enable_plugins | default(['host_list', 'script', 'yaml', 'ini']) | join(', ') }}
+
+# If true, SSH will check and verify host keys (recommended for security).
+host_key_checking = {{ inventory_host_key_checking | default(False) | ternary('True', 'False') }}
+
+# Timeout in seconds for dynamic inventory scripts before they are killed.
+inventory_timeout = {{ inventory_timeout | default(30) }}
+
+[galaxy]
+# List of Galaxy servers for role and collection downloads.
+galaxy_server_list = {{ galaxy_server_list | default(['https://galaxy.ansible.com']) | join(', ') }}

@@ -1,0 +1,44 @@
+{# ============================================================================== #}
+{# apksigcopier configuration template #}
+{# This file configures the `apksigcopier` utility via environment variables and #}
+{# command-line defaults. It is intended to be dropped into a location where #}
+{# the user's shell profile or a systemd drop-in source it. #}
+{# ============================================================================== #}
+
+{# -- Environment Variable Overrides -- #}
+{# Each entry in the env_vars list becomes a KEY=VALUE assignment. #}
+{# Valid values for enabling features are '1', 'yes', or 'true' (case-insensitive). #}
+{% if env_vars is defined and env_vars | length > 0 %}
+# Environment variable overrides provided by Ansible
+{% for kv in env_vars %}{{ kv.key }}={{ kv.value }}
+{% endfor %}
+{% endif %}
+
+{# -- V1 Signature Mode Override -- #}
+{# Controls whether apksigcopier forces V1 (JarSigner) signature verification. #}
+{# Accepts 'yes', 'no', or 'auto'. Also exposed as the APKSIGCOPIER_V1_ONLY env var. #}
+{% if v1_only is defined %}
+# V1-only signature mode override
+# Valid values: yes, no, auto
+APKSIGCOPIER_V1_ONLY={{ v1_only | default('no') | lower }}
+{% endif %}
+
+{# -- Compare Command Defaults -- #}
+{# Sets default flags for the `apksigcopier compare` subcommand when invoked #}
+{# without explicit arguments. #}
+{% if compare_defaults is defined and compare_defaults | length > 0 %}
+# Default options for 'apksigcopier compare'
+{% if compare_defaults.unsigned is defined %}
+# Whether to consider unsigned APKs as valid/compliant
+DEFAULT_COMPARE_UNSIGNED={{ compare_defaults.unsigned | default('no') | lower }}
+{% endif %}
+{% if compare_defaults.min_sdk_version is defined %}
+# Minimum Android SDK version allowed for signature comparison
+DEFAULT_COMPARE_MIN_SDK_VERSION={{ compare_defaults.min_sdk_version | default(1) }}
+{% endif %}
+{% if compare_defaults.verify_cmd is defined %}
+# Custom command used for signature verification during compare
+# Wrap in quotes if the command contains spaces
+DEFAULT_COMPARE_VERIFY_CMD="{{ compare_defaults.verify_cmd | default('') }}"
+{% endif %}
+{% endif %}

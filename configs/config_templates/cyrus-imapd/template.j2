@@ -1,0 +1,30 @@
+# PAM configuration file for Cyrus IMAP service.
+#
+# This file defines which PAM stacks Cyrus IMAP uses for authentication
+# and account management. It relies on the system's PAM configuration
+# (typically located in /etc/pam.d/).
+#
+# IMPORTANT SECURITY NOTES:
+# 1. If Cyrus is used in a setup where users do NOT have local OS accounts
+#    (e.g., they exist only in a remote directory like LDAP/AD), you MUST
+#    ensure a PAM module that permits access (like pam_permit) is included
+#    in the account stack, otherwise login will fail due to missing user info.
+# 2. SASL (Simple Authentication and Security Layer) accesses PAM modules
+#    via the saslauthd daemon.
+# 3. If PAM is used for SASL, it can handle plaintext passwords securely
+#    if the transport is encrypted, but be aware of local PAM audit trails.
+
+# --- Authentication Stack ---
+# The common PAM authentication stack to include for Cyrus IMAP.
+# This file is typically /etc/pam.d/common-auth or similar, depending on
+# the OS distribution. It handles password verification against local
+# shadow files, LDAP, Kerberos, etc.
+# Default: common-auth
+@include {{ common_auth | default('common-auth') }}
+
+# --- Account Management Stack ---
+# The common PAM account management stack to include for Cyrus IMAP.
+# This file is typically /etc/pam.d/common-account. It checks if the
+# user account is valid, not expired, and allowed to log in at this time.
+# Default: common-account
+@include {{ common_account | default('common-account') }}

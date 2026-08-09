@@ -1,0 +1,110 @@
+# Cumin configuration file
+# Global settings for the Cumin automation framework
+[DEFAULT]
+
+# debug: Enable verbose debug logging for troubleshooting.
+# Default: False
+debug = {{ debug | default(False) | ternary('true', 'false') }}
+
+# log_level: Minimum severity level for log messages (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+# Default: INFO
+log_level = {{ log_level | default('INFO') }}
+
+# log_file: Absolute path to the main log file. Leave empty to log only to stdout/stderr.
+# Default: '' (empty)
+log_file = {{ log_file | default('') }}
+
+# backend: Storage backend: either 'sqlite' (file-based) or 'postgresql' (server-based).
+# Default: sqlite
+backend = {{ backend | default('sqlite') }}
+
+# database: SQLite file path (if backend=sqlite) or PostgreSQL connection URI (if backend=postgresql).
+# Default: /var/lib/cumin/cumin.db
+database = {{ database | default('/var/lib/cumin/cumin.db') }}
+
+# api_host: Network interface (IP or hostname) the REST API listens on.
+# Default: 127.0.0.1
+api_host = {{ api_host | default('127.0.0.1') }}
+
+# api_port: Port number for the Cumin REST API endpoint.
+# Default: 6382
+api_port = {{ api_port | default(6382) }}
+
+# tls_cert: Path to TLS certificate for HTTPS. Leave blank to use HTTP only.
+# Default: '' (empty)
+tls_cert = {{ tls_cert | default('') }}
+
+# tls_key: Path to TLS private key matching the certificate above.
+# Default: '' (empty)
+tls_key = {{ tls_key | default('') }}
+
+# max_requests: Maximum concurrent API requests. 0 means unlimited.
+# Default: 0
+max_requests = {{ max_requests | default(0) }}
+
+# command_timeout: Seconds to wait before aborting a remote command.
+# Default: 300
+command_timeout = {{ command_timeout | default(300) }}
+
+# discovery_timeout: Seconds to wait before aborting target discovery (e.g., DNS resolution).
+# Default: 30
+discovery_timeout = {{ discovery_timeout | default(30) }}
+
+# allow_shell: If true, allows arbitrary shell commands in targets. Not recommended in multi-tenant or untrusted environments.
+# Default: False
+allow_shell = {{ allow_shell | default(False) | ternary('true', 'false') }}
+
+# auth_backend: Authentication provider: 'local' (file-based users) or 'ldap' (LDAP/Active Directory).
+# Default: local
+auth_backend = {{ auth_backend | default('local') }}
+
+# auth_config: Path to auth backend config (e.g., /etc/cumin/ldap.conf or /etc/cumin/local_users.yaml).
+# Default: '' (empty)
+auth_config = {{ auth_config | default('') }}
+
+# ssh_user: Default remote user for SSH connections to targets.
+# Default: root
+ssh_user = {{ ssh_user | default('root') }}
+
+# ssh_key: Path to SSH private key used for authentication (if not using agent/password).
+# Default: '' (empty)
+ssh_key = {{ ssh_key | default('') }}
+
+# ssh_workers: Number of parallel SSH workers. Increase for large target sets.
+# Default: 4
+ssh_workers = {{ ssh_workers | default(4) }}
+
+# ssh_reuse: Enable SSH connection reuse to reduce latency and overhead.
+# Default: True
+ssh_reuse = {{ ssh_reuse | default(True) | ternary('true', 'false') }}
+
+# target_groups: Security groups defining allowed target sets and descriptions.
+# Default: []
+{% for group in target_groups | default([]) %}
+# Group: {{ group.name | default('unnamed') }}
+# Description: {{ group.description | default('') }}
+targets_{{ group.name | default('unnamed') }} = {{ group.targets | default([]) | join(', ') }}
+{% endfor %}
+
+# command_rules: Permission rules mapping groups to allowed command patterns.
+# Default: []
+{% for rule in command_rules | default([]) %}
+# Rule for group: {{ rule.group | default('unnamed') }}
+command_{{ rule.group | default('unnamed') }}_allowed = {{ rule.commands | default([]) | join(', ') }}
+{% endfor %}
+
+# audit_enabled: Enable detailed audit logging of user actions.
+# Default: True
+audit_enabled = {{ audit_enabled | default(True) | ternary('true', 'false') }}
+
+# audit_log: File path for audit logs (requires write permissions).
+# Default: /var/log/cumin/audit.log
+audit_log = {{ audit_log | default('/var/log/cumin/audit.log') }}
+
+# async_timeout: Max time (seconds) an async job may remain pending before timeout.
+# Default: 300
+async_timeout = {{ async_timeout | default(300) }}
+
+# max_async_jobs: Maximum number of pending async jobs queued at once.
+# Default: 100
+max_async_jobs = {{ max_async_jobs | default(100) }}

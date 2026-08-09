@@ -1,0 +1,84 @@
+name: memset_zone_record
+fqcn: community.general.memset_zone_record
+collection: community.general
+short_description: Create and delete records in Memset DNS zones
+description: Manage DNS records in a Memset account.
+options:
+  address:
+    type: str
+    required: true
+    aliases:
+    - ip
+    - data
+    description: The address for this record (can be IP or text string depending on record type).
+  api_key:
+    type: str
+    required: true
+    description: The API key obtained from the Memset control panel.
+  priority:
+    type: int
+    default: 0
+    description: C(SRV) and C(TXT) record priority, in the range 0 > 999 (inclusive).
+  record:
+    type: str
+    default: ''
+    description: The subdomain to create.
+  relative:
+    type: bool
+    default: false
+    description: If set then the current domain is added onto the address field for C(CNAME), C(MX), C(NS)
+      and C(SRV)record types.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Indicates desired state of resource.
+  ttl:
+    type: int
+    default: 0
+    choices:
+    - 0
+    - 300
+    - 600
+    - 900
+    - 1800
+    - 3600
+    - 7200
+    - 10800
+    - 21600
+    - 43200
+    - 86400
+    description: The record's TTL in seconds (will inherit zone's TTL if not explicitly set). This must
+      be a valid int from U(https://www.memset.com/apidocs/methods_dns.html#dns.zone_record_create).
+  type:
+    type: str
+    required: true
+    choices:
+    - A
+    - AAAA
+    - CNAME
+    - MX
+    - NS
+    - SRV
+    - TXT
+    description: The type of DNS record to create.
+  zone:
+    type: str
+    required: true
+    description: The name of the zone to which to add the record to.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Create DNS record for www.domain.com\n- name: Create DNS record\n  community.general.memset_zone_record:\n\
+  \    api_key: dcf089a2896940da9ffefb307ef49ccd\n    state: present\n    zone: domain.com\n    type:\
+  \ A\n    record: www\n    address: 1.2.3.4\n    ttl: 300\n    relative: false\n  delegate_to: localhost\n\
+  \n# create an SPF record for domain.com\n- name: Create SPF record for domain.com\n  community.general.memset_zone_record:\n\
+  \    api_key: dcf089a2896940da9ffefb307ef49ccd\n    state: present\n    zone: domain.com\n    type:\
+  \ TXT\n    address: \"v=spf1 +a +mx +ip4:a1.2.3.4 ?all\"\n  delegate_to: localhost\n\n# create multiple\
+  \ DNS records\n- name: Create multiple DNS records\n  community.general.memset_zone_record:\n    api_key:\
+  \ dcf089a2896940da9ffefb307ef49ccd\n    zone: \"{{ item.zone }}\"\n    type: \"{{ item.type }}\"\n \
+  \   record: \"{{ item.record }}\"\n    address: \"{{ item.address }}\"\n  delegate_to: localhost\n \
+  \ with_items:\n    - { 'zone': 'domain1.com', 'type': 'A', 'record': 'www', 'address': '1.2.3.4' }\n\
+  \    - { 'zone': 'domain2.com', 'type': 'A', 'record': 'mail', 'address': '4.3.2.1' }\n"

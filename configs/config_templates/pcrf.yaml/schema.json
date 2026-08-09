@@ -1,0 +1,269 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level (e.g., debug, info, warning, error)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nextepc/pcrf.log",
+    "description": "Path to the PCRF log file."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP of the MongoDB server."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 27017,
+    "description": "Port of the MongoDB server."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "nextepc",
+    "description": "MongoDB database name for NextEPC."
+  },
+  "s5s8_gtpc_local_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address for S5/S8 GTP-C interface binding."
+  },
+  "s5s8_gtpc_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of S-GW or P-GW peers for S5/S8 GTP-C.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of the peer."
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Optional hostname for the peer (used for logging)."
+      }
+    }
+  },
+  "s6a_local_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address for S6a SCTP interface binding."
+  },
+  "s6a_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of MME peers for S6a interface.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of the MME peer."
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Optional hostname for the peer (used for logging)."
+      },
+      "sgsa": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable S11-S6a-SgS interface (SGSN/MME co-location support)."
+      }
+    }
+  },
+  "gx_local_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address for Gx (Diameter) interface binding."
+  },
+  "gx_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of P-GW peers for Gx interface.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of the P-GW peer."
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Optional hostname for the peer."
+      }
+    }
+  },
+  "gy_local_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Local IP address for Gy (Diameter) interface binding."
+  },
+  "gy_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of OCS (Online Charging Server) peers for Gy interface.",
+    "items": {
+      "ip": {
+        "type": "string",
+        "default": "",
+        "description": "IP address of the OCS peer."
+      },
+      "hostname": {
+        "type": "string",
+        "default": "",
+        "description": "Optional hostname for the peer."
+      }
+    }
+  },
+  "charging_offline_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable offline charging (CDR generation to file)."
+  },
+  "charging_offline_file_path": {
+    "type": "string",
+    "default": "/var/log/nextepc/pcrf_cdr",
+    "description": "Path prefix for offline charging record files."
+  },
+  "charging_online_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable online charging (real-time credit control with OCS via Gy)."
+  },
+  "charging_online_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of OCS servers for online charging (Gy).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Host IP or hostname of the OCS server."
+      },
+      "port": {
+        "type": "number",
+        "default": 3868,
+        "description": "Diameter port (typically 3868)."
+      },
+      "realm": {
+        "type": "string",
+        "default": "",
+        "description": "Diameter realm of the OCS (e.g., 'example.com')."
+      }
+    }
+  },
+  "session_max_sessions_per_ue": {
+    "type": "number",
+    "default": 16,
+    "description": "Maximum number of EPS bearers/sessions allowed per UE."
+  },
+  "session_max_rate_uplink_kbps": {
+    "type": "number",
+    "default": 100000,
+    "description": "Default maximum UE aggregate uplink bitrate in kbps (if not overridden by subscription)."
+  },
+  "session_max_rate_downlink_kbps": {
+    "type": "number",
+    "default": 100000,
+    "description": "Default maximum UE aggregate downlink bitrate in kbps."
+  },
+  "bearer_qos_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable QoS enforcement per default bearer (uses ARP in bearer creation)."
+  },
+  "bearer_qos_default_priority_level": {
+    "type": "number",
+    "default": 15,
+    "description": "Default ARP priority level for bearer establishment (1\u201315, lower = higher priority)."
+  },
+  "bearer_qos_preemption_capability": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether this bearer can preempt lower-priority bearers."
+  },
+  "bearer_qos_preemption_vulnerability": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether this bearer can be preempted by higher-priority bearers."
+  },
+  "default_charging_rules_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of preconfigured default charging rules (used when OCS is offline or absent).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name of the rule."
+      },
+      "rating_group": {
+        "type": "number",
+        "default": 0,
+        "description": "Rating group ID for offline charging (must match OCS config if online)."
+      },
+      "service_id": {
+        "type": "number",
+        "default": 0,
+        "description": "Service identifier (e.g., for service-specific charging)."
+      },
+      "qos_qci": {
+        "type": "number",
+        "default": 9,
+        "description": "QCI value for the default bearer (1\u20139)."
+      },
+      "arp_priority_level": {
+        "type": "number",
+        "default": 15,
+        "description": "Allocation and Retention Priority (ARP) priority level."
+      },
+      "arp_preemption_capability": {
+        "type": "bool",
+        "default": false,
+        "description": "Can this bearer preempt others?"
+      },
+      "arp_preemption_vulnerability": {
+        "type": "bool",
+        "default": true,
+        "description": "Can this bearer be preempted?"
+      }
+    }
+  },
+  "realtime_billing_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable real-time billing (enforce online charging where available)."
+  },
+  "debug_enable_s6a_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose S6a (MME) protocol logging (debugging)."
+  },
+  "debug_enable_gx_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose Gx (PGW) protocol logging (debugging)."
+  },
+  "debug_enable_charging_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed CDR/Gy message logging (debugging)."
+  },
+  "realm": {
+    "type": "string",
+    "default": "epc.mnc001.mcc001.3gppnetwork.org",
+    "description": "Diameter realm used in PCRF identity (must match PLMN)."
+  },
+  "mcc": {
+    "type": "string",
+    "default": "001",
+    "description": "Mobile Country Code (3 digits)."
+  },
+  "mnc": {
+    "type": "string",
+    "default": "001",
+    "description": "Mobile Network Code (2 or 3 digits)."
+  }
+}

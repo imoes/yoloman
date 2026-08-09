@@ -1,0 +1,53 @@
+{
+  "global_options": {
+    "type": "string",
+    "default": "auto_https off",
+    "description": "Global Caddy options (e.g., `auto_https off`, `metrics`, `admin { ... }`). One directive per line."
+  },
+  "sites": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual hosts (sites) to serve.",
+    "items": {
+      "address": {
+        "type": "string",
+        "default": "example.com",
+        "description": "Site address \u2014 domain, IP, or `:port`. May include scheme (`http://`, `https://`) or port-only (`:443`)."
+      },
+      "options": {
+        "type": "string",
+        "default": "",
+        "description": "Site-level options (e.g., `root * /var/www`, `file_server`, `try_files {path} {path}/ /index.html`). One per line."
+      },
+      "routes": {
+        "type": "list",
+        "default": [],
+        "description": "List of route blocks. Each has an optional matcher and one or more handlers (directives).",
+        "items": {
+          "matcher": {
+            "type": "string",
+            "default": "",
+            "description": "Route matcher (e.g., `path /api/*`, `method GET`, `host api.example.com`). Empty means default route."
+          },
+          "handlers": {
+            "type": "list",
+            "default": [],
+            "description": "Handler directives to execute for this route (e.g., `rewrite * /index.html`, `reverse_proxy localhost:3000`).",
+            "items": {
+              "type": "string",
+              "description": "A single Caddy handler/directive line."
+            }
+          }
+        }
+      },
+      "site_directives": {
+        "type": "list",
+        "default": [],
+        "description": "Top-level directives for the site block (outside route blocks). E.g., `encode gzip zstd`, `log { ... }`.",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

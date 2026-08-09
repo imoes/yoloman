@@ -1,0 +1,119 @@
+{# ==============================================================================
+  # gVisor `runsc` sandboxed container runtime configuration
+  # ==============================================================================
+  # This Jinja2 template generates the TOML/JSON-style configuration file for
+  # gVisor's `runsc` sandbox. It is self-documenting: every directive is preceded
+  # by a comment derived from the schema description.
+  #
+  # All variables default to safe, documented values from the schema.
+  # ============================================================================== #}
+
+{# ==============================================================================
+  # Sandbox Identity and Logging
+  # ============================================================================== #}
+
+{# Verbosity of logs emitted by the sandbox. Options: none, info, error, debug. #}
+"LogVerbosity": "{{ log_level | default('error') }}",
+
+{# If true, crash dumps are sent to Google (requires internet access). #}
+"CrashReporter": {{ crash_reporter | default(false) }},
+
+{# Base directory for sandbox state (logs, sockets, metadata). Must be writable by containerd. #}
+"RootDir": "{{ root_dir | default('/run/gvisor') }}",
+
+{# If true, sandbox logs are sent to systemd-journald (or syslog if journald unavailable). #}
+"LogToJournald": {{ log_to_journald | default(true) }},
+
+{# ==============================================================================
+  # System Resources and Limits
+  # ============================================================================== #}
+
+{# Number of gRPC handler threads. 0 = automatically set to number of CPUs. #}
+"GRPCThreads": {{ grpc_threads | default(0) }},
+
+{# Per-sandbox limit on open file descriptors. 0 means use system limit (ulimit). #}
+"MaxOpenFiles": {{ max_open_files | default(0) }},
+
+{# Maximum memory usage (in bytes) per sandbox. 0 = no limit. #}
+"MemoryLimitBytes": {{ memory_limit_bytes | default(0) }},
+
+{# If false, disable seccomp filters (not recommended). Enable only for compatibility with legacy workloads. #}
+"SeccompFilters": {{ seccomp_filters | default(true) }},
+
+{# Path to custom seccomp profile JSON file. Empty string uses default gVisor profile. #}
+"SeccompProfile": "{{ seccomp_profile | default('') }}",
+
+{# ==============================================================================
+  # CPU and Cgroups
+  # ============================================================================== #}
+
+{# Enable CPU quota (time-based limit) via cgroups. #}
+"CPUQuotaEnabled": {{ cpu_quota_enabled | default(false) }},
+
+{# CPU time (in microseconds) allowed per period. #}
+"CPUQuotaUs": {{ cpu_quota_us | default(0) }},
+
+{# CPU period (in microseconds) — standard value is 100ms (100000). #}
+"CPUPeriodUs": {{ cpu_period_us | default(100000) }},
+
+{# Pin gVisor threads to specific host CPU cores to reduce latency jitter. #}
+"CPUPinningEnabled": {{ cpu_pinning_enabled | default(false) }},
+
+{# List of host CPU core indices to pin sandbox threads to (e.g., [0, 1]). Requires cpu_pinning_enabled=true. #}
+"CPUPinnedCores": {{ pinned_cores | default([]) | tojson }},
+
+{# Allow sandbox to use swap space if memory limit is set and exceeded. #}
+"SwapEnabled": {{ swap_enabled | default(false) }},
+
+{# Enable memory cgroup enforcement for the sandbox. #}
+"MemoryLimitEnabled": {{ memory_limit_enabled | default(false) }},
+
+{# ==============================================================================
+  # Network Configuration
+  # ============================================================================== #}
+
+{# Enable network namespace virtualization. If false, the sandbox shares the host network namespace. #}
+"NetworkEnabled": {{ network_enabled | default(true) }},
+
+{# Whitelist of network interfaces allowed in the sandbox. Empty list means all interfaces allowed. #}
+"AllowedInterfaces": {{ allowed_interfaces | default([]) | tojson }},
+
+{# Whitelist of IP protocols allowed for sandbox communication. #}
+"AllowedProtocols": {{ allowed_protocols | default(['tcp', 'udp', 'icmp']) | tojson }},
+
+{# Kernel command-line arguments passed to the gVisor virtual kernel (e.g., for debugging). #}
+"KernelArgs": {{ kernel_args | default([]) | tojson }},
+
+{# ==============================================================================
+  # Filesystem and Overlay
+  # ============================================================================== #}
+
+{# Directory for overlay filesystem layers (ephemeral writeable storage). #}
+"OverlayDir": "{{ overlay_dir | default('/var/lib/gvisor/overlay') }}",
+
+{# Enable overlay filesystem for container rootfs — allows containers to write without modifying base image. #}
+"OverlayEnabled": {{ overlay_enabled | default(true) }},
+
+{# ==============================================================================
+  # Advanced and Debugging
+  # ============================================================================== #}
+
+{# Enable advanced debugging features (e.g., netstack logging, verbose trace). Use only for diagnostics. #}
+"DebugEnabled": {{ debug_enabled | default(false) }},
+
+{# Enable running Docker or other containerized workloads inside the sandboxed containers (e.g., DinD). #}
+"Nested": {{ nested | default(false) }},
+
+{# Enable PTY (pseudo-terminal) support for interactive shells and terminal-based apps. #}
+"Pty": {{ pty | default(true) }},
+
+{# Allow external file descriptors to be passed into the sandbox. Highly discouraged in production. #}
+"FDPassingEnabled": {{ fd_passing_enabled | default(false) }},
+
+{# ==============================================================================
+  # Mounts
+  # ============================================================================== #}
+{# Static host-to-sandbox bind mounts. Each entry defines source, destination, and options. #}
+"Mounts": {{ mounts | default([]) | tojson }}
+
+{# End of gVisor runsc configuration #}

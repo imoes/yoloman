@@ -1,0 +1,76 @@
+# Pyzor collaborative spam filter configuration file
+# This file configures the Pyzor client, which participates in collaborative
+# spam detection by querying a network of servers for message fingerprints (hashes).
+
+# ---------------------------------------------------------------
+# Path to the Pyzor command-line client binary.
+# Schema default: /usr/bin/pyzor
+# ---------------------------------------------------------------
+pyzor_path: {{ pyzor_path | default('/usr/bin/pyzor') }}
+
+# ---------------------------------------------------------------
+# List of Pyzor collaborative servers to query for message fingerprints.
+# Schema default: [{'host': 'pyzor.org', 'port': 24441}]
+# Each server entry requires 'host' and 'port'. An optional 'timeout'
+# can be specified to override the global response_timeout for that
+# specific server.
+# ---------------------------------------------------------------
+servers:
+{% for server in (servers | default([{'host': 'pyzor.org', 'port': 24441}])) %}  - host: {{ server.host | default('pyzor.org') }}
+    port: {{ server.port | default(24441) }}
+{% if server.timeout is defined %}    timeout: {{ server.timeout | default(omit) }}
+{% endif %}{% endfor %}
+
+# ---------------------------------------------------------------
+# Path to the local Pyzor database file.
+# Schema default: /var/lib/pyzor/.pyzor
+# Stores learned hits, metadata, and local state.
+# Ensure the user running the Pyzor service has read/write permissions
+# on this path and its parent directory.
+# ---------------------------------------------------------------
+database_path: {{ database_path | default('/var/lib/pyzor/.pyzor') }}
+
+# ---------------------------------------------------------------
+# Enable verbose debug output to stderr.
+# Schema default: False
+# Use only for troubleshooting. When true, Pyzor will output
+# detailed diagnostic information.
+# ---------------------------------------------------------------
+debug: {{ debug | default(False) | lower }}
+
+# ---------------------------------------------------------------
+# Minimum number of collaborative hits required before a message
+# is flagged as spam.
+# Schema default: 1
+# Lower values increase sensitivity to potential spam, while higher
+# values reduce false positives but may let spam through.
+# ---------------------------------------------------------------
+min_hits: {{ min_hits | default(1) }}
+
+# ---------------------------------------------------------------
+# Global timeout in seconds for server communication.
+# Schema default: 5
+# If a Pyzor server does not respond within this time, the query
+# is considered failed. Increase this value if network latency
+# causes frequent timeouts.
+# ---------------------------------------------------------------
+response_timeout: {{ response_timeout | default(5) }}
+
+# ---------------------------------------------------------------
+# Enable DNS-based server discovery.
+# Schema default: True
+# When enabled, Pyzor queries pyzor.org's TXT records to discover
+# available servers. Disable this for private, air-gapped, or
+# custom deployments where DNS discovery is not desired or possible.
+# ---------------------------------------------------------------
+auto_discover: {{ auto_discover | default(True) | lower }}
+
+# ---------------------------------------------------------------
+# Optional path to a file containing a custom list of trusted
+# Pyzor servers (one per line, format: host:port).
+# Schema default: '' (empty string)
+# If set, this file overrides auto_discovery. The file must be
+# readable by the Pyzor service user. Leave empty to use
+# auto_discovery or the hardcoded servers list.
+# ---------------------------------------------------------------
+trusted_servers_file: {{ trusted_servers_file | default('') }}

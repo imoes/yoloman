@@ -1,0 +1,119 @@
+{# ============================================================================= #}
+{# dvdisaster configuration file                                                    #}
+{# Generated from dvdisaster(1) man page                                            #}
+{# This file contains all configurable options for dvdisaster, an error correction   #}
+{# tool for optical media (CD/DVD). It uses a simple key = value format.             #}
+{# ============================================================================= #}
+
+{# Device path to read from (e.g. /dev/sr0). #}
+device = {{ device | default('/dev/cdrom') }}
+
+{# Prefix for .iso/.ecc files. #}
+prefix = {{ prefix | default('medium') }}
+
+{# Name of ISO image file. #}
+image = {{ image | default('medium.iso') }}
+
+{# Name of error correction (parity) file. #}
+eccfile = {{ eccfile | default('medium.ecc') }}
+
+{# Target for RS03: 'image' or 'ecc'. Specifies whether RS03 should create error correction files or augmented images (default: image). #}
+ecc_target = {{ ecc_target | default('image') }}
+
+{# List of error correction methods (e.g. ['RS02','RS03']) for --assume mode search. Possible values are RS02 and RS03. #}
+{% set _methods = methods | default([]) %}
+{% if _methods is iterable and not _methods is mapping %}
+assume = {{ _methods | join(',') }}
+{% else %}
+assume = {{ _methods | join(',') }}
+{% endif %}
+
+{# Sectors to jump forward after a read error. #}
+jump = {{ jump | default(16) }}
+
+{# Error correction redundancy. Allowed values depend on the method: RS01/RS03 support numeric roots, percentages, MiB, 'normal', 'high'. RS02 supports percentages. #}
+redundancy = {{ redundancy | default('') }}
+
+{# Error correction method. Possible values are RS01 and RS02. #}
+method = {{ method | default('RS01') }}
+
+{# Diagnostic verbosity level in percent. #}
+verbose = {{ verbose | default(0) }}
+
+{# Number of threads for RS03 encoding. #}
+threads = {{ threads | default(1) }}
+
+{# Enable adaptive reading for damaged media. #}
+adaptive-read = {{ adaptive_read | default(False) | lower }}
+
+{# Automatically append .iso/.ecc suffixes. #}
+auto-suffix = {{ auto_suffix | default(False) | lower }}
+
+{# Image cache size in MiB during creation. #}
+cache-size = {{ cache_size | default(32) }}
+
+{# Assume Disc-at-Once (DAO) mode; do not trim end. #}
+dao = {{ dao | default(False) | lower }}
+
+{# Subdirectory for incomplete raw sectors. #}
+defective-dump = {{ defective_dump | default('') }}
+
+{# Driver for optical drive access: 'sg' or 'cdrom'. Selects between the sg (SG_IO) driver (default setting) and the older cdrom (CDROM_SEND_READ_SUB) driver. #}
+driver = {{ driver | default('sg') }}
+
+{# Eject medium after successful operation. #}
+eject = {{ eject | default(False) | lower }}
+
+{# Encoding algorithm: '', '32bit', '64bit', 'SSE2', or 'AltiVec'. Affects the speed of generating RS03 error correction data. SSE2/AltiVec autodetection is available in newer versions. #}
+encoding-algorithm = {{ encoding_algorithm | default('') }}
+
+{# I/O strategy for RS03: '', 'readwrite', or 'mmap'. Controls how dvdisaster performs its disk I/O while creating error correction data with RS03. #}
+encoding-io-strategy = {{ encoding_io_strategy | default('') }}
+
+{# Byte value to fill unreadable sectors; -1 to leave unchanged. #}
+fill-unreadable = {{ fill_unreadable | default(-1) }}
+
+{# Continue after fatal error sense. #}
+ignore-fatal-sense = {{ ignore_fatal_sense | default(False) | lower }}
+
+{# Ignore ISO size from filesystem and query drive instead. #}
+ignore-iso-size = {{ ignore_iso_size | default(False) | lower }}
+
+{# Internal read retries: -1 uses drive default. #}
+internal-rereads = {{ internal_rereads | default(-1) }}
+
+{# Print information about inserted medium. #}
+medium-info = {{ medium_info | default(False) | lower }}
+
+{# Suppress progress indicator. #}
+no-progress = {{ no_progress | default(False) | lower }}
+
+{# Use legacy sector marking compatible with dvdisaster 0.70. #}
+old-ds-marker = {{ old_ds_marker | default(False) | lower }}
+
+{# Sectors to prefetch during encoding (≈ MiB RAM). #}
+prefetch-sectors = {{ prefetch_sectors | default(32) }}
+
+{# Raw CD reading mode (e.g. 20, 21). #}
+raw-mode = {{ raw_mode | default(20) }}
+
+{# Retry range for defective sectors: 'n-m'. #}
+read-attempts = {{ read_attempts | default('') }}
+
+{# Maximum full-medium read passes. #}
+read-medium = {{ read_medium | default(1) }}
+
+{# Read in raw mode when possible (CD only). #}
+read-raw = {{ read_raw | default(False) | lower }}
+
+{# Enable regression-test mode (modify outputs). #}
+regtest = {{ regtest | default(False) | lower }}
+
+{# Path to configuration file. #}
+resource-file = {{ resource_file | default('$HOME/.dvdisaster') }}
+
+{# Threshold percent change for speed warning. #}
+speed-warning = {{ speed_warning | default(0) }}
+
+{# Seconds to wait for drive spin-up. #}
+spinup-delay = {{ spinup_delay | default(0) }}

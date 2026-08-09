@@ -1,0 +1,133 @@
+{# ============================================================================== #}
+{# fyi(1) — Desktop Notification Generator Template                               #}
+{#                                                                              #}
+{# This template generates the CLI command-line for the `fyi` utility.           #}
+{# fyi(1) has NO persistent configuration file; it relies entirely on CLI       #}
+{# arguments. This Jinja2 template assembles those arguments based on variables #}
+{# provided by Ansible.                                                         #}
+{#                                                                              #}
+{# Self-Documentation:                                                          #}
+{# - Every variable used corresponds to a field in the schema.                  #}
+{# - Default values are explicitly set using Jinja2 `default()` filter.         #}
+{# - Comments explain the purpose of each generated flag.                       #}
+{# ============================================================================== #}
+
+{# -------------------------------------------------------------------------- #}
+{# Basic Notification Options                                                 #}
+{# -------------------------------------------------------------------------- #}
+
+{# print_id: Print daemon-assigned notification ID on stdout (format: id=ID) #}
+{# Default: False                                                             #}
+{%- if (print_id | default(False) | bool) %}
+# Print daemon-assigned notification ID on stdout (format: id=ID)
+--print-id
+{%- endif %}
+
+{# print_reason: Print notification closure reason on stdout                 #}
+{# Default: False                                                             #}
+{%- if (print_reason | default(False) | bool) %}
+# Print notification closure reason on stdout (format: reason=EXPIRED|DISMISSED|FORCE-CLOSED|UNKNOWN)
+--print-reason
+{%- endif %}
+
+{# print_token: Print activation token on stdout (format: xdgtoken=TOKEN)    #}
+{# Default: False                                                             #}
+{%- if (print_token | default(False) | bool) %}
+# Print activation token on stdout (format: xdgtoken=TOKEN)
+--print-token
+{%- endif %}
+
+{# app_name: Application name; displayed as text or used for icon lookup     #}
+{# Default: 'fyi'                                                             #}
+{# Note: The default is 'fyi'. We always emit this flag if the user explicitly #}
+{# passes a value, or we can rely on the CLI default. However, to make the    #}
+{# generated command explicit and reproducible, we emit it if provided.       #}
+{%- if app_name is defined and app_name is not none and app_name != '' %}
+# Application name; displayed as text or used for icon lookup
+--app-name="{{ app_name | default('fyi') }}"
+{%- endif %}
+
+{# icon: Icon name (symbolic, e.g. 'firefox') or absolute filename           #}
+{# Default: '' (empty)                                                        #}
+{%- if icon is defined and icon is not none and icon != '' %}
+# Icon name (symbolic, e.g. 'firefox') or absolute filename
+--icon="{{ icon | default('') }}"
+{%- endif %}
+
+{# urgency: Urgency level: 'low', 'normal', or 'critical'                    #}
+{# Default: 'normal'                                                          #}
+{# We emit the flag if the value differs from the standard default or is      #}
+{# explicitly set. To ensure robustness, we use the default filter for the    #}
+{# value itself.                                                              #}
+{%- if urgency is defined and urgency is not none %}
+# Urgency level: 'low', 'normal', or 'critical'
+--urgency="{{ urgency | default('normal') }}"
+{%- endif %}
+
+{# category: Notification category (e.g. 'im.message', 'device.added')       #}
+{# Default: '' (empty)                                                        #}
+{%- if category is defined and category is not none and category != '' %}
+# Notification category (e.g. 'im.message')
+--category="{{ category | default('') }}"
+{%- endif %}
+
+{# expire_time: Auto-close after N milliseconds (0 = no timeout)             #}
+{# Default: 0                                                                 #}
+{%- if expire_time is defined and expire_time is not none %}
+# Auto-close after N milliseconds (0 = no timeout)
+--expire-time={{ expire_time | default(0) }}
+{%- endif %}
+
+{# transient: By-pass the server's persistence capability                    #}
+{# Default: False                                                             #}
+{%- if (transient | default(False) | bool) %}
+# By-pass the server's persistence capability
+--transient
+{%- endif %}
+
+{# replaces_id: Replace existing notification with this ID (if non-zero)     #}
+{# Default: 0                                                                 #}
+{%- if replaces_id is defined and replaces_id is not none and replaces_id != 0 %}
+# Replace existing notification with this ID (if non-zero)
+--replaces={{ replaces_id | default(0) }}
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+# Actions and Hints                                                          #
+{# -------------------------------------------------------------------------- #}
+
+{# actions: List of action definitions; implies --wait when present          #}
+{# Default: []                                                                #}
+{# Format: NAME:LABEL                                                         #}
+{%- for action in (actions | default([])) %}
+# Define an action: NAME:LABEL (implies --wait)
+--action="{{ action.name }}:{{ action.label }}"
+{%- endfor %}
+
+{# hints: Custom hints; interpretation is daemon-specific                    #}
+{# Default: []                                                                #}
+{# Format: TYPE:NAME:VALUE                                                    #}
+{%- for hint in (hints | default([])) %}
+# Custom hint: TYPE:NAME:VALUE (TYPE: boolean | byte | int | double | string)
+--hint="{{ hint.type }}:{{ hint.name }}:{{ hint.value }}"
+{%- endfor %}
+
+{# -------------------------------------------------------------------------- #}
+# Image Data Options                                                           #
+{# -------------------------------------------------------------------------- #}
+
+{# image_data_file: Path to raw RGBA image file (requires --image-size)       #}
+{# Default: '' (empty)                                                        #}
+{%- if image_data_file is defined and image_data_file is not none and image_data_file != '' %}
+# Path to raw RGBA image file (requires --image-size)
+--image-data="{{ image_data_file | default('') }}"
+{%- endif %}
+
+{# image_width: Image width in pixels (required for --image-data)             #}
+{# image_height: Image height in pixels (required for --image-data)           #}
+{# Default: 0                                                                 #}
+{# We check if both are defined and non-zero to emit the combined flag.       #}
+{%- if (image_width | default(0)) > 0 and (image_height | default(0)) > 0 %}
+# Image dimensions (required for --image-data)
+--image-size={{ image_width | default(0) }}x{{ image_height | default(0) }}
+{%- endif %}

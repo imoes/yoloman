@@ -1,0 +1,81 @@
+[global]
+# Work with Kerberos and other components using standard settings
+realm = {%- if default_realm %}{{ default_realm }}{%- else %}example.com{%- endif %}
+
+# Specify preferred domain controller (optional)
+{%- if kerberos_server %}
+server = {{ kerberos_server }}
+{% endif %}
+
+# Kerberos authentication settings
+{%- if use_fully_qualified_names is not defined or use_fully_qualified_names %}
+use_fully_qualified_names = True
+{% else %}
+use_fully_qualified_names = False
+{% endif %}
+
+# Logging configuration
+log_level = {{ log_level }}
+
+# DNS discovery settings
+{%- if automatic_imap is defined %}
+automatic_imap = {{ automatic_imap }}
+{% endif %}
+{%- if automatic_ldap is defined %}
+automatic_ldap = {{ automatic_ldap }}
+{% endif %}
+{%- if automatic_dns is defined %}
+automatic_dns = {{ automatic_dns }}
+{% endif %}
+
+# Join options (per domain or global defaults)
+[{{ default_realm or 'DEFAULT' }}]
+# Automatically provision computer object in specified OU
+{%- if computer_ou %}
+computer-ou = {{ computer_ou }}
+{% endif %}
+
+# Use specified OS name for computer account
+os_name = {{ os_name }}
+os_version = {{ os_version }}
+
+# Disable site-aware DNS SRV lookups
+{%- if disable_dns_sites is defined %}
+disable_dns_sites = {{ disable_dns_sites }}
+{% endif %}
+
+# Authentication backends to prefer
+{%- if preferred_ad_site %}
+preferred_ad_site = {{ preferred_ad_site }}
+{% endif %}
+
+# DNS domain discovery
+{%- if discover %}
+discover = {{ discover | join(', ') }}
+{% else %}
+discover = disabled
+{% endif %}
+
+# Kerberos realm mapping (for non-AD domains)
+{%- for mapping in kerberos_realm_mappings %}
+[{{ mapping.name }}]
+# Map Kerberos realm to DNS domain
+kerberos-realm = {{ mapping.kerberos_realm }}
+dns-domain = {{ mapping.dns_domain }}
+{% endfor %}
+
+# Per-domain overrides (e.g., for multi-domain forests)
+{%- for domain in domains %}
+[{{ domain.name }}]
+# Override settings for specific domain
+server-software = {{ domain.server_software }}
+{%- if domain.member_of %}
+member-of = {{ domain.member_of }}
+{% endif %}
+{%- if domain.kerberos_server %}
+server = {{ domain.kerberos_server }}
+{% endif %}
+{%- if domain.preferred_ad_site %}
+preferred_ad_site = {{ domain.preferred_ad_site }}
+{% endif %}
+{% endfor %}

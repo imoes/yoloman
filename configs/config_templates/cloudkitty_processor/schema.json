@@ -1,0 +1,183 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging. Set false in production to avoid excessive log volume."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/cloudkitty",
+    "description": "Directory where CloudKitty writes log files. Leave empty to log to stdout only."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://cloudkitty:RABBIT_PASS@controller:5672/",
+    "description": "AMQP transport URL for oslo.messaging. Format: rabbit://user:pass@host:port/vhost"
+  },
+  "db_connection": {
+    "type": "string",
+    "default": "mysql+pymysql://cloudkitty:DB_PASS@controller/cloudkitty",
+    "description": "SQLAlchemy connection string for the CloudKitty relational database."
+  },
+  "db_max_pool_size": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of persistent database connections kept in the pool."
+  },
+  "db_max_overflow": {
+    "type": "number",
+    "default": 20,
+    "description": "How many connections above max_pool_size are allowed before callers block."
+  },
+  "keystone_public_url": {
+    "type": "string",
+    "default": "http://controller:5000",
+    "description": "Public Keystone endpoint returned in WWW-Authenticate headers for client token validation."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "http://controller:5000",
+    "description": "Internal Keystone endpoint used by CloudKitty for service-to-service authentication."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name that contains the CloudKitty service project."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Domain name that contains the CloudKitty service user."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "OpenStack project that owns the CloudKitty service user (usually 'service')."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "cloudkitty",
+    "description": "OpenStack service user name for CloudKitty."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the CloudKitty service user. Use a strong random value."
+  },
+  "memcached_servers": {
+    "type": "list",
+    "default": [
+      "controller:11211"
+    ],
+    "description": "Memcached servers used by Keystone middleware for token caching.",
+    "items": {
+      "server": {
+        "type": "string",
+        "description": "Memcached server address in host:port format"
+      }
+    }
+  },
+  "oslo_lock_path": {
+    "type": "string",
+    "default": "/var/lock/cloudkitty",
+    "description": "Directory used by oslo.concurrency for file-based inter-process locking."
+  },
+  "collector": {
+    "type": "string",
+    "default": "gnocchi",
+    "description": "Telemetry data source backend. Supported values: gnocchi, monasca, prometheus."
+  },
+  "collect_scope_key": {
+    "type": "string",
+    "default": "project_id",
+    "description": "OpenStack resource attribute that identifies a billing scope. Typically project_id or domain_id."
+  },
+  "metrics_conf": {
+    "type": "string",
+    "default": "/etc/cloudkitty/metrics.yml",
+    "description": "Absolute path to the YAML file that defines which metrics to collect and their rating parameters."
+  },
+  "collect_period": {
+    "type": "number",
+    "default": 3600,
+    "description": "Telemetry collection granularity in seconds. Must match the Gnocchi archive policy granularity or Prometheus scrape interval."
+  },
+  "collect_window": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of consecutive periods fetched per processing run. Increase temporarily to catch up after processor downtime."
+  },
+  "fetcher_scope_attribute": {
+    "type": "string",
+    "default": "rating",
+    "description": "Keystone role that a project must have assigned to be included in rating. Set to empty string to rate all projects unconditionally."
+  },
+  "storage_backend": {
+    "type": "string",
+    "default": "influxdb",
+    "description": "Backend where rated data is persisted. Supported: influxdb, v2_gnocchi, elasticsearch, opensearch."
+  },
+  "storage_version": {
+    "type": "number",
+    "default": 2,
+    "description": "Storage API version. Use 2 for all current backends; v1 is legacy."
+  },
+  "influxdb_host": {
+    "type": "string",
+    "default": "controller",
+    "description": "Hostname or IP of the InfluxDB server. Only used when storage_backend = influxdb."
+  },
+  "influxdb_port": {
+    "type": "number",
+    "default": 8086,
+    "description": "InfluxDB HTTP API port. Only used when storage_backend = influxdb."
+  },
+  "influxdb_database": {
+    "type": "string",
+    "default": "cloudkitty",
+    "description": "InfluxDB database name where rated data is stored. Only used when storage_backend = influxdb."
+  },
+  "influxdb_username": {
+    "type": "string",
+    "default": "cloudkitty",
+    "description": "InfluxDB user with write access to the rated-data database. Only used when storage_backend = influxdb."
+  },
+  "influxdb_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the InfluxDB user. Only used when storage_backend = influxdb."
+  },
+  "gnocchi_endpoint": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit Gnocchi API URL. Leave empty to auto-discover from the Keystone service catalog. Only used when collector = gnocchi."
+  },
+  "gnocchi_granularity": {
+    "type": "number",
+    "default": 3600,
+    "description": "Gnocchi archive policy granularity in seconds. Must equal collect_period. Only used when collector = gnocchi."
+  },
+  "orchestrator_max_workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of parallel worker threads in the rating orchestrator. Scale with available CPUs and number of tenants."
+  },
+  "tenant_fetcher_backend": {
+    "type": "string",
+    "default": "keystone",
+    "description": "Backend used to discover billable projects. Currently only keystone is supported."
+  },
+  "rating_pipeline": {
+    "type": "list",
+    "default": [
+      "hashmap"
+    ],
+    "description": "Ordered list of rating modules applied to collected telemetry data. Each module is applied in sequence.",
+    "items": {
+      "module": {
+        "type": "string",
+        "description": "Rating module name, e.g. hashmap, noop, pyscripts"
+      }
+    }
+  }
+}

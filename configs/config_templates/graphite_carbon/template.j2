@@ -1,0 +1,68 @@
+# Carbon daemon configuration file
+# This file controls the behavior of the Carbon cache daemon(s)
+#
+# This configuration is self-documenting. Every setting corresponds to a schema field.
+# Variables use defaults derived from the schema to ensure safe, idempotent rendering.
+
+[common]
+# Enable verbose debug logging for troubleshooting. (default: False)
+DEBUG_MODE = {{ debug | default(false) | lower }}
+
+# Minimum logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL. (default: INFO)
+LOG_LEVEL = {{ log_level | default('INFO') | upper }}
+
+# Directory to store PID files for running Carbon instances. (default: /var/run/carbon)
+PID_DIR = {{ pid_dir | default('/var/run/carbon') }}
+
+# Directory where Carbon log files are written. (default: /var/log/carbon)
+LOG_DIR = {{ log_dir | default('/var/log/carbon') }}
+
+# Maximum number of metrics to hold in memory per cache instance. (default: 10000)
+MAX_CACHE_SIZE = {{ max_cache_size | default(10000) }}
+
+# How often (in seconds) the cache is flushed to disk. (default: 60)
+FLUSH_INTERVAL = {{ flush_interval | default(60) }}
+
+# Number of parallel threads used to write data to disk. (default: 2)
+FLUSH_COUNT = {{ flush_count | default(2) }}
+
+# Enable listening for metrics via UDP protocol in addition to TCP. (default: False)
+ENABLE_UDP_LISTENER = {{ enable_udp_listener | default(false) | lower }}
+
+# Network interface IP to bind all Carbon receiver daemons to. (default: 0.0.0.0)
+BIND_ADDRESS = {{ bind_address | default('0.0.0.0') }}
+
+# List of Carbon cache instances to run. Each instance runs independently on its own ports.
+# Schema default: [{'name': 'cache', 'enabled': True, 'port': 2003, 'pickle_port': 2004, 'storage_dir': '/var/lib/graphite/whisper', 'retention': ['60:43200', '300:525600', '3600:43800', '21600:21900']}]
+{% for instance in instances | default([{'name': 'cache', 'enabled': True, 'port': 2003, 'pickle_port': 2004, 'storage_dir': '/var/lib/graphite/whisper', 'retention': ['60:43200', '300:525600', '3600:43800', '21600:21900']}]) %}
+# Instance: {{ instance.name }}
+[{{ instance.name }}]
+# Enable this instance. (default: True)
+ENABLED = {{ (instance | default({})).enabled | default(true) | lower }}
+
+# Receiver type: cache, relay, aggregator.
+# Only 'cache' is used here — relay/aggregator require separate daemons.
+TYPE = cache
+
+# Port to listen on for metrics data (Line Protocol). (default: 2003)
+LINE_RECEIVER_PORT = {{ (instance | default({})).port | default(2003) }}
+
+# Port for pickle protocol. (default: 2004)
+PICKLE_RECEIVER_PORT = {{ (instance | default({})).pickle_port | default(2004) }}
+
+# Max number of connections per receiver. (default: 1000)
+MAX_RECEIVER_CONNECTIONS = {{ (instance | default({})).max_connections | default(1000) }}
+
+# Storage directory for whisper files. (default: /var/lib/graphite/whisper)
+LOCAL_DATA_DIR = {{ (instance | default({})).storage_dir | default('/var/lib/graphite/whisper') }}
+
+# Whisper retention policies for new metrics. (default: 60:43200,300:525600,3600:43800,21600:21900)
+RETENTION_POLICIES = {{ ((instance | default({})).retention | default(['60:43200', '300:525600', '3600:43800', '21600:21900'])) | join(',') }}
+
+# Enable aggregation (only relevant if TYPE=aggregator).
+ENABLE_AGGREGATION = {{ (instance | default({})).aggregation | default(false) | lower }}
+
+# Aggregation intervals (e.g., 10s, 60s, 3600s).
+AGGREGATION_INTERVALS = {{ ((instance | default({})).aggregation_intervals | default([])) | join(',') }}
+
+{% endfor %}

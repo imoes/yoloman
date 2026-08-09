@@ -1,0 +1,78 @@
+# =============================================================================
+# /etc/default/boinc-client — Systemd/Init Script Configuration for BOINC Client
+#
+# This file is sourced by the /etc/init.d/boinc-client init script (or systemd
+# drop-in) to configure the BOINC core client's runtime environment.
+#
+# SELF-DOCUMENTING: Every variable below includes its source description.
+# Defaults are enforced inline to prevent undefined variable failures.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# enable: Set to '1' to enable the init script, '0' to disable.
+# -----------------------------------------------------------------------------
+ENABLED="{{ enabled | default('1') }}"
+
+# -----------------------------------------------------------------------------
+# schedule: Set to '1' to enable advanced scheduling of BOINC processes;
+#           '0' for upstream default priority settings.
+# -----------------------------------------------------------------------------
+SCHEDULE="{{ schedule | default('1') }}"
+
+# -----------------------------------------------------------------------------
+# boinc_user: User account under which the BOINC core client runs.
+#             This ensures the client drops privileges appropriately.
+# -----------------------------------------------------------------------------
+BOINC_USER="{{ boinc_user | default('boinc') }}"
+
+# -----------------------------------------------------------------------------
+# boinc_dir: Data directory for the BOINC core client.
+#            This is where BOINC stores results, configuration, and cache.
+#            Note: Specific client config is usually in /etc/boinc-client/config.properties
+# -----------------------------------------------------------------------------
+BOINC_DIR="{{ boinc_dir | default('/var/lib/boinc-client') }}"
+
+# -----------------------------------------------------------------------------
+# boinc_client: Path to the BOINC client binary used by the init script.
+#               If you do not want to use the client program provided by the
+#               boinc-client package, you can specify here an alternative client.
+# -----------------------------------------------------------------------------
+BOINC_CLIENT="{{ boinc_client | default('/usr/bin/boinc') }}"
+
+# -----------------------------------------------------------------------------
+# boinc_opts: Additional command-line options passed to the BOINC core client.
+#             Examples: --allow_remote_gui_rpc, --max_mem 500, etc.
+#             Type 'boinc --help' or 'man boinc' for a full summary.
+# -----------------------------------------------------------------------------
+BOINC_OPTS="{{ boinc_opts | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Scheduling options
+# -----------------------------------------------------------------------------
+
+# Set SCHEDULE="0" if preferring to run with upstream default priority settings.
+# When SCHEDULE="1", the following nice/ionice levels are applied.
+
+# -----------------------------------------------------------------------------
+# boinc_nice_client: Nice level for the BOINC core client process.
+#                    Higher values = lower priority. Default 10 is mild.
+# -----------------------------------------------------------------------------
+BOINC_NICE_CLIENT={{ boinc_nice_client | default(10) }}
+
+# -----------------------------------------------------------------------------
+# boinc_nice_app_default: Nice level for default (non-GPU) scientific applications.
+#                         Default 19 ensures scientific apps yield heavily to
+#                         system activity.
+# -----------------------------------------------------------------------------
+BOINC_NICE_APP_DEFAULT={{ boinc_nice_app_default | default(19) }}
+
+# BOINC_NICE_APP_GPU=5        # not yet used
+
+# -----------------------------------------------------------------------------
+# boinc_ionice_client: ionice class for the BOINC core client (3 = idle).
+#                      Class 3 means I/O is only done when no one else needs it.
+# -----------------------------------------------------------------------------
+BOINC_IONICE_CLIENT={{ boinc_ionice_client | default(3) }}        # idle
+
+# BOINC_IONICE_APP_DEFAULT=3  # idle, not yet used
+# BOINC_IONICE_APP_GPU=2      # best effort, not yet used

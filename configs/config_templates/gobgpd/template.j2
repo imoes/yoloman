@@ -1,0 +1,204 @@
+{{# Global configuration options #}}
+[global]
+  [global.config]
+    as = {{ global.config.as }}
+    router-id = "{{ global.config.router_id }}"
+
+{{# Global graceful restart settings (optional) #}}
+{% if global.graceful_restart is defined and global.graceful_restart.enabled %}
+  [global.graceful_restart]
+    enabled = true
+{% if global.graceful_restart.restart_time is defined %}
+    restart-time = {{ global.graceful_restart.restart_time }}
+{% endif %}
+{% if global.graceful_restart.stale_routes_time is defined %}
+    stale-routes-time = {{ global.graceful_restart.stale_routes_time }}
+{% endif %}
+{% endif %}
+
+{{# Global logging level #}}
+[logging]
+  [logging.config]
+    level = "{{ logging.config.level }}"
+
+{{# Global administrative state #}}
+[admin-state]
+  enabled = {{ admin_state.enabled | lower }}
+
+{{# Define peers (one or more) #}}
+{% for peer in peers %}
+
+{{# BGP peer configuration #}}
+[[peers]]
+  [peers.config]
+    neighbor-address = "{{ peer.config.neighbor_address }}"
+    peer-as = {{ peer.config.peer_as }}
+{% if peer.config.auth_password is defined %}
+    auth-password = "{{ peer.config.auth_password }}"
+{% endif %}
+{% if peer.config.local_as is defined %}
+    local-as = {{ peer.config.local_as }}
+{% endif %}
+{% if peer.config.description is defined %}
+    description = "{{ peer.config.description }}"
+{% endif %}
+    peer-type = "{{ peer.config.peer_type | default('EXTERNAL') | upper }}"
+
+  [peers.timers.config]
+    connect-retry = {{ peer.timers.config.connect_retry | default(120) }}
+    hold-time = {{ peer.timers.config.hold_time | default(90) }}
+    keepalive-interval = {{ peer.timers.config.keepalive_interval | default(30) }}
+{% if peer.timers.config.idle_hold_time_after_restart is defined %}
+    idle-hold-time-after-restart = {{ peer.timers.config.idle_hold_time_after_restart }}
+{% endif %}
+
+  [peers.transport.config]
+    remote-port = {{ peer.transport.config.remote_port | default(179) }}
+{% if peer.transport.config.local_address is defined %}
+    local-address = "{{ peer.transport.config.local_address }}"
+{% endif %}
+{% if peer.transport.config.tcp_mss is defined %}
+    tcp-mss = {{ peer.transport.config.tcp_mss }}
+{% endif %}
+
+  [peers.af-safis]
+{% if peer.af_safis is defined %}
+{% for afi, safi, enabled in peer.af_safis %}
+    [[peers.af-safis.afi-safis]]
+      [peers.af-safis.afi-safis.config]
+        afi = "{{ afi }}"
+        safi = "{{ safi }}"
+        enabled = {{ enabled | lower }}
+{% endfor %}
+{% else %}
+    # Default: IPv4 unicast enabled
+    [[peers.af-safis.afi-safis]]
+      [peers.af-safis.afi-safis.config]
+        afi = "IPV4"
+        safi = "UNICAST"
+        enabled = true
+{% endif %}
+
+  [peers.route-server.config]
+    route-server-client = {{ peer.route_server.client | default(false) | lower }}
+{% endfor %}
+
+{{# Define route policies (optional, for import/export policies) #}}
+{% if policies is defined %}
+
+{{# Define policies #}}
+[policies]
+{% for policy in policies %}
+  [[policies.definition]]
+    [policies.definition.config]
+      name = "{{ policy.definition.config.name }}"
+      default-action = "{{ policy.definition.config.default_action | default('ACCEPT') | upper }}"
+
+{% for stmt in policy.definition.statements %}
+    [[policies.definition.statements]]
+      [policies.definition.statements.config]
+        name = "{{ stmt.config.name | default('statement-' + loop.index|string) }}"
+        type = "{{ stmt.config.type | default('ACCEPT') | upper }}"
+
+{% if stmt.conditions is defined %}
+{% for cond_type, cond in stmt.conditions %}
+        [[policies.definition.statements.conditions]]
+          [policies.definition.statements.conditions.config]
+            type = "{{ cond_type | upper }}"
+{% if cond_type == 'MATCH_NEIGHBOR' %}
+            neighbor-address = "{{ cond | join(', ') }}"
+{% elif cond_type == 'MATCH_PREFIX' %}
+{% if cond.ipv4_prefixes is defined %}
+            ipv4-prefix = [{{ cond.ipv4_prefixes | map('quote') | join(', ') }}]
+{% endif %}
+{% if cond.ipv6_prefixes is defined %}
+            ipv6-prefix = [{{ cond.ipv6_prefixes | map('quote') | join(', ') }}]
+{% endif %}
+{% elif cond_type == 'MATCH_AS_PATH' %}
+            as-path = [{{ cond | map('quote') | join(', ') }}]
+{% endif %}
+{% endfor %}
+{% endif %}
+
+{% if stmt.actions is defined %}
+{% for act_type, act in stmt.actions %}
+        [[policies.definition.statements.actions]]
+          [policies.definition.statements.actions.config]
+            type = "{{ act_type | upper }}"
+{% if act_type == 'SET_AS_PATH' %}
+            as-path-prepend-as = {{ act.asn }}
+            as-path-prepend-repeat = {{ act.repeat | default(1) }}
+{% elif act_type == 'SET_COMMUNITY' %}
+            community = [{{ act.communities | map('quote') | join(', ') }}]
+{% elif act_type == 'SET_NEXT_HOP' %}
+            next-hop = "{{ act.next_hop }}"
+{% endif %}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+{% endif %}
+
+{{# Define neighbor groups (optional, for DRY) #}}
+{% if neighbor_groups is defined %}
+
+[[neighbor-groups]]
+{% for group in neighbor_groups %}
+  [neighbor-groups.config]
+    neighbor-group-name = "{{ group.config.neighbor_group_name }}"
+{% if group.config.peer_as is defined %}
+    peer-as = {{ group.config.peer_as }}
+{% endif %}
+{% if group.config.auth_password is defined %}
+    auth-password = "{{ group.config.auth_password }}"
+{% endif %}
+{% if group.config.local_as is defined %}
+    local-as = {{ group.config.local_as }}
+{% endif %}
+  [neighbor-groups.timers.config]
+    connect-retry = {{ group.timers.config.connect_retry | default(120) }}
+    hold-time = {{ group.timers.config.hold_time | default(90) }}
+    keepalive-interval = {{ group.timers.config.keepalive_interval | default(30) }}
+{% endfor %}
+{% endif %}
+
+{{# Define policy assignments (optional) #}}
+{% if policy_assignments is defined %}
+
+[policy-assignments]
+{% for assign in policy_assignments %}
+  [[policy-assignments.policy-assignment]]
+    [policy-assignments.policy-assignment.config]
+      name = "{{ assign.config.name }}"
+      from-type = "{{ assign.config.from_type | default('PEER') | upper }}"
+      policy-name = "{{ assign.config.policy_name }}"
+      default-action = "{{ assign.config.default_action | default('ACCEPT') | upper }}"
+{% endfor %}
+{% endif %}
+
+{{# Global RPKI configuration (optional) #}}
+{% if rpki is defined %}
+
+[rpki]
+  [rpki.config]
+    enabled = {{ rpki.config.enabled | lower }}
+{% if rpki.config.server_list is defined %}
+    server-list = [{{ rpki.config.server_list | map('quote') | join(', ') }}]
+{% endif %}
+{% if rpki.config.cache_timeout is defined %}
+    cache-timeout = {{ rpki.config.cache_timeout }}
+{% endif %}
+{% endif %}
+
+{{# Global Route Server Client configuration (deprecated in newer versions, but kept for compatibility) #}}
+{% if route_servers is defined %}
+
+# Legacy route-servers block (use [[peers]] + route-server-client instead)
+[route-servers]
+{% for srv in route_servers %}
+  [[route-servers.route-server]]
+    [route-servers.route-server.config]
+      neighbor-address = "{{ srv.config.neighbor_address }}"
+      route-server-client = true
+{% endfor %}
+{% endif %}

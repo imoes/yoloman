@@ -1,0 +1,94 @@
+{
+  "enable_dhcp_source": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable fetching NTP servers via DHCP option 120 (requires dhcpcd with --request-option 120 support)."
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface to use for DHCP request (empty = all interfaces)."
+  },
+  "allow_local_client": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow NTP queries from localhost (127.0.0.1)."
+  },
+  "allow_lan_clients": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow NTP queries from LAN subnets (must specify at least one subnet in lan_subnets)."
+  },
+  "lan_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of IPv4/IPv6 subnets (CIDR notation) allowed to query this NTP server.",
+    "items": {
+      "type": "string",
+      "description": "A subnet in CIDR notation, e.g., '192.168.1.0/24' or 'fd00::/64'."
+    }
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/chrony",
+    "description": "Directory where chronyd writes log files."
+  },
+  "max_log_lines": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of log lines to keep per file before rotation."
+  },
+  "drift_file": {
+    "type": "string",
+    "default": "/var/lib/chrony/chrony.drift",
+    "description": "Path to the file storing the system clock drift."
+  },
+  "makestep_threshold": {
+    "type": "number",
+    "default": 1.0,
+    "description": "Step the clock if offset exceeds this value (in seconds), before max_steps have elapsed."
+  },
+  "max_steps": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of steps allowed before switching to slew-only mode."
+  },
+  "keyfile_path": {
+    "type": "string",
+    "default": "/etc/chrony/chrony.keys",
+    "description": "Path to the file containing NTP authentication keys."
+  },
+  "enable_hwtimestamp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable hardware timestamping support on all network interfaces (requires hardware support)."
+  },
+  "static_servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "time.cloudflare.com",
+        "options": [
+          "iburst",
+          "prefer"
+        ]
+      }
+    ],
+    "description": "Static NTP servers used as fallback (e.g., when DHCP is unavailable).",
+    "items": {
+      "host": {
+        "type": "string",
+        "description": "Hostname or IP address of the NTP server."
+      },
+      "options": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "description": "Chrony server options (e.g., 'iburst', 'prefer', 'noselect')."
+        },
+        "description": "Optional flags for this server."
+      }
+    }
+  }
+}

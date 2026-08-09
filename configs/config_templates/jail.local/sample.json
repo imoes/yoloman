@@ -1,0 +1,50 @@
+{
+  "defaults": {
+    "ignore_ip": [
+      "127.0.0.0/8",
+      "::1"
+    ],
+    "ban_time": 600,
+    "find_time": 600,
+    "max_retry": 5,
+    "backend": "auto",
+    "log_target": "SYSLOG",
+    "protocol": "tcp",
+    "action": "%(action_mw)s"
+  },
+  "jails": {
+    "sshd": {
+      "enabled": true,
+      "filter": "sshd",
+      "action": "%(action_mw)s",
+      "logpath": [
+        "/var/log/auth.log",
+        "/var/log/secure"
+      ],
+      "maxretry": 5,
+      "port": "ssh"
+    },
+    "sshd-ddos": {
+      "enabled": true,
+      "filter": "sshd-ddos",
+      "logpath": [
+        "/var/log/auth.log"
+      ],
+      "maxretry": 3,
+      "bantime": 3600
+    },
+    "pam-generic": {
+      "enabled": false
+    },
+    "nginx-http-auth": {
+      "enabled": true,
+      "filter": "nginx-http-auth",
+      "logpath": [
+        "/var/log/nginx/error.log"
+      ],
+      "maxretry": 3,
+      "bantime": 3600,
+      "findtime": 600
+    }
+  }
+}

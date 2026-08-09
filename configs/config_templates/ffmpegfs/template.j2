@@ -1,0 +1,245 @@
+{# ============================================================================= #}
+{# ffmpegfs Command-Line Configuration Template                                 #}
+{# Self-Documenting Ansible Jinja2 Template                                     #}
+{# This template generates the command-line arguments for ffmpegfs.             #}
+{# Every argument is documented with its schema description and safe defaults.  #}
+{# ============================================================================= #}
+
+{# --- Destination Format Options --- #}
+
+{# Destination format: AIFF, ALAC, BMP, FLAC, HLS, JPG, MOV, MP3, MP4, MKV, OGG, Opus, PNG, ProRes, TS, WAV, WebM #}
+--desttype={{ desttype | default('mp4') }}
+
+{# Audio codec to use. Valid values depend on desttype (e.g., AAC, MP3 for MP4) #}
+{% if audiocodec | default('') | length > 0 %}
+--audiocodec={{ audiocodec | default('') }}
+{% endif %}
+
+{# Video codec to use. Valid values depend on desttype (e.g., H264, H265 for MP4) #}
+{% if videocodec | default('') | length > 0 %}
+--videocodec={{ videocodec | default('') }}
+{% endif %}
+
+{# Auto copy option: OFF, MATCH, MATCHLIMIT, STRICT, STRICTLIMIT #}
+--autocopy={{ autocopy | default('OFF') }}
+
+{# Recode to same format: NO, YES #}
+--recodesame={{ recodesame | default('NO') }}
+
+{# Output profile (MP4 only): NONE, FF, EDGE, IE, CHROME, SAFARI, OPERA, MAXTHON #}
+{% if profile | default('NONE') != 'NONE' %}
+--profile={{ profile | default('NONE') }}
+{% endif %}
+
+{# Output level (MP4 only): PROXY, LT, STANDARD, HQ #}
+{% if level | default('HQ') != 'HQ' %}
+--level={{ level | default('HQ') }}
+{% endif %}
+
+{# List of file extensions to encode (supports wildcards) #}
+{% set _include_extensions = include_extensions | default([]) %}
+{% if _include_extensions is iterable and _include_extensions | length > 0 %}
+--include_extensions={{ _include_extensions | join(',') }}
+{% endif %}
+
+{# List of file extensions to exclude from output (supports wildcards) #}
+{% set _hide_extensions = hide_extensions | default([]) %}
+{% if _hide_extensions is iterable and _hide_extensions | length > 0 %}
+--hide_extensions={{ _hide_extensions | join(',') }}
+{% endif %}
+
+{# --- Audio Settings --- #}
+
+{# Audio bitrate (e.g., 128K, 256Kbps) #}
+--audiobitrate={{ audiobitrate | default('128K') }}
+
+{# Audio sample rate in Hz (e.g., 44100, 48KHz) #}
+--audiosamplerate={{ audiosamplerate | default('44100') }}
+
+{# Number of audio channels (e.g., 1, 2, 6). Set to 0 to keep the number of channels. #}
+--audiochannels={{ audiochannels | default(2) }}
+
+{# Audio sample format: 0, 8, 16, 32, 64, F16, F32, F64 #}
+--audiosamplefmt={{ audiosamplefmt | default('0') }}
+
+{# --- Video Settings --- #}
+
+{# Video bitrate (e.g., 2M, 1500Kbps) #}
+--videobitrate={{ videobitrate | default('2M') }}
+
+{# Target video height in pixels (0 = keep source) #}
+--videoheight={{ videoheight | default(0) }}
+
+{# Target video width in pixels (0 = keep source) #}
+--videowidth={{ videowidth | default(0) }}
+
+{# Enable deinterlacing #}
+{% if deinterlace | default(False) | bool %}
+--deinterlace
+{% endif %}
+
+{# --- HLS / Streaming Options --- #}
+
+{# HLS segment duration in seconds (float) #}
+{% if segment_duration | default('10.0') | length > 0 %}
+--segment_duration={{ segment_duration | default('10.0') }}
+{% endif %}
+
+{# HLS minimum seek time difference in seconds (float) #}
+{% if min_seek_time_diff | default('30') | length > 0 %}
+--min_seek_time_diff={{ min_seek_time_diff | default('30') }}
+{% endif %}
+
+{# --- Hardware Acceleration --- #}
+
+{# Hardware encoding API: NONE, VAAPI, OMX #}
+--hwaccel_enc={{ hwaccel_enc | default('NONE') }}
+
+{# List of codecs (and optionally profiles) to block for hardware decoding (e.g., ['H264', 'VP9:0']) #}
+{% set _hwaccel_dec_blocked = hwaccel_dec_blocked | default([]) %}
+{% if _hwaccel_dec_blocked is iterable and _hwaccel_dec_blocked | length > 0 %}
+--hwaccel_dec_blocked={{ _hwaccel_dec_blocked | join(':') }}
+{% endif %}
+
+{# Hardware encoding device path (e.g., /dev/dri/renderD128) #}
+{% if hwaccel_enc_device | default('') | length > 0 %}
+--hwaccel_enc_device={{ hwaccel_enc_device | default('') }}
+{% endif %}
+
+{# Hardware decoding API: NONE, VAAPI, MMAL #}
+--hwaccel_dec={{ hwaccel_dec | default('NONE') }}
+
+{# Hardware decoding device path #}
+{% if hwaccel_dec_device | default('') | length > 0 %}
+--hwaccel_dec_device={{ hwaccel_dec_device | default('') }}
+{% endif %}
+
+{# --- Content Processing --- #}
+
+{# Disable copying album art into output #}
+{% if noalbumarts | default(False) | bool %}
+--noalbumarts
+{% endif %}
+
+{# --- Virtual Script (PHP) Generation --- #}
+
+{# Enable virtual script (index.php) generation #}
+{% if enablescript | default(False) | bool %}
+--enablescript
+{% endif %}
+
+{# Name of virtual script #}
+{% if scriptfile | default('index.php') | length > 0 %}
+--scriptfile={{ scriptfile | default('index.php') }}
+{% endif %}
+
+{# Path to source script file #}
+{% if scriptsource | default('scripts/videotag.php') | length > 0 %}
+--scriptsource={{ scriptsource | default('scripts/videotag.php') }}
+{% endif %}
+
+{# --- Cache & Performance --- #}
+
+{# Cache entry expiry time (e.g., 1w, 7d) #}
+{% if expiry_time | default('1w') | length > 0 %}
+--expiry_time={{ expiry_time | default('1w') }}
+{% endif %}
+
+{# Time to continue transcoding after client disconnect before suspending #}
+{% if max_inactive_suspend | default('15s') | length > 0 %}
+--max_inactive_suspend={{ max_inactive_suspend | default('15s') }}
+{% endif %}
+
+{# Time to continue transcoding after client disconnect before aborting #}
+{% if max_inactive_abort | default('30s') | length > 0 %}
+--max_inactive_abort={{ max_inactive_abort | default('30s') }}
+{% endif %}
+
+{# Prebuffer duration to allow smooth playback (e.g., 5s). Set to 0 to disable. #}
+{% if prebuffer_time | default('0') | length > 0 %}
+--prebuffer_time={{ prebuffer_time | default('0') }}
+{% endif %}
+
+{# Prebuffer size in bytes (e.g., 100K). Set to 0 to disable. #}
+{% if prebuffer_size | default('100K') | length > 0 %}
+--prebuffer_size={{ prebuffer_size | default('100K') }}
+{% endif %}
+
+{# Maximum cache size (e.g., 10G). Empty/unlimited. #}
+{% if max_cache_size | default('') | length > 0 %}
+--max_cache_size={{ max_cache_size | default('') }}
+{% endif %}
+
+{# Minimum required disk space for cache (e.g., 1G). 0 = no minimum. #}
+{% if min_diskspace | default('0') | length > 0 %}
+--min_diskspace={{ min_diskspace | default('0') }}
+{% endif %}
+
+{# Cache directory path #}
+{% if cachepath | default('') | length > 0 %}
+--cachepath={{ cachepath | default('') }}
+{% endif %}
+
+{# Disable caching completely #}
+{% if disable_cache | default(False) | bool %}
+--disable_cache
+{% endif %}
+
+{# Cache maintenance interval (e.g., 1h) #}
+{% if cache_maintenance | default('1h') | length > 0 %}
+--cache_maintenance={{ cache_maintenance | default('1h') }}
+{% endif %}
+
+{# Prune cache on startup #}
+{% if prune_cache | default(False) | bool %}
+--prune_cache
+{% endif %}
+
+{# Clear cache on startup #}
+{% if clear_cache | default(False) | bool %}
+--clear_cache
+{% endif %}
+
+{# --- Transcoding Options --- #}
+
+{# Maximum transcoding threads (0 = unlimited). Default is 16 times number of CPU cores. #}
+--max_threads={{ max_threads | default(0) }}
+
+{# Abort on decoding errors. Default is to ignore errors. #}
+{% if decoding_errors | default(False) | bool %}
+--decoding_errors
+{% endif %}
+
+{# Minimum DVD chapter duration to transcode (seconds). Set to 0 to disable. #}
+{% if min_dvd_chapter_duration | default('1s') | length > 0 %}
+--min_dvd_chapter_duration={{ min_dvd_chapter_duration | default('1s') }}
+{% endif %}
+
+{# Enable Windows SMB workaround. Defaults to on. #}
+{% if win_smb_fix | default(True) | bool %}
+--win_smb_fix
+{% endif %}
+
+{# --- Logging --- #}
+
+{# Maximum log level: ERROR, WARNING, INFO, DEBUG, TRACE #}
+{% if log_maxlevel | default('INFO') | length > 0 %}
+--log_maxlevel={{ log_maxlevel | default('INFO') }}
+{% endif %}
+
+{# Output log to stderr #}
+{% if log_stderr | default(False) | bool %}
+--log_stderr
+{% endif %}
+
+{# Output log to syslog #}
+{% if log_syslog | default(False) | bool %}
+--log_syslog
+{% endif %}
+
+{# Path to log file. Empty by default. #}
+{% if logfile | default('') | length > 0 %}
+--logfile={{ logfile | default('') }}
+{% endif %}
+
+{# Note: FUSE-specific options like 'allow_other', 'ro', etc. are handled by the mount command, not ffmpegfs itself #}

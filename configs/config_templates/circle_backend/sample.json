@@ -1,0 +1,76 @@
+{
+  "server": {
+    "name": "circle-backend-prod",
+    "host": "0.0.0.0",
+    "port": 6697,
+    "tls": {
+      "enabled": true,
+      "cert_path": "/etc/circle/ssl/fullchain.pem",
+      "key_path": "/etc/circle/ssl/privkey.pem"
+    }
+  },
+  "connection": {
+    "max_connections": 2000,
+    "timeout": 60,
+    "idle_timeout": 600,
+    "read_buffer_size": 131072,
+    "write_buffer_size": 131072
+  },
+  "rate_limit": {
+    "messages": 10,
+    "burst": 20,
+    "per_ip": true
+  },
+  "auth": {
+    "enabled": true,
+    "backend": "file",
+    "backends": {
+      "file": {
+        "path": "/etc/circle/auth/users.db",
+        "algorithm": "argon2id"
+      }
+    }
+  },
+  "logging": {
+    "enabled": true,
+    "level": "info",
+    "format": "json",
+    "file": "/var/log/circle/backend.log",
+    "syslog": true
+  },
+  "upstreams": [
+    {
+      "name": "main_irc",
+      "host": "irc.libera.chat",
+      "port": 6697,
+      "ssl": true,
+      "cert_verify": true
+    },
+    {
+      "name": "backup_irc",
+      "host": "irc.oftc.net",
+      "port": 6697,
+      "ssl": true,
+      "cert_verify": false
+    }
+  ],
+  "auto_join": {
+    "enabled": true,
+    "channels": [
+      "#support",
+      "#community"
+    ],
+    "nickserv": {
+      "nick": "NickServ",
+      "password": "${NICKSERV_PASSWORD}"
+    }
+  },
+  "state": {
+    "db_path": "/var/lib/circle/backend.db",
+    "backup": {
+      "enabled": true,
+      "interval": 7200,
+      "dir": "/var/lib/circle/backups"
+    }
+  }
+}

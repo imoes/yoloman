@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Apache ActiveMQ Broker Configuration
+  ================================
+  This template generates the main ActiveMQ XML configuration (broker.xml).
+  It is self-documenting: every configurable directive is preceded by a comment
+  describing the source schema field, its default value, and its purpose.
+
+  Variables used:
+    - broker_name             (string, default 'localhost')
+    - data_directory          (string, default '/var/lib/activemq/data')
+    - enable_jmx              (bool,   default true)
+    - enable_statistics       (bool,   default false)
+    - enable_plug_ins         (bool,   default false)
+    - plug_ins                (list,   default [])
+    - jmx_port                (int,    default 1099)
+    - jmx_domain              (string, default 'org.apache.activemq')
+    - kahadb_directory        (string, default '/var/lib/activemq/kahadb')
+    - kahadb_journal_max_file_size_mb (int, default 32)
+    - kahadb_index_cache_size (int,    default 10000)
+    - memory_usage_percent_of_jvm (int, default 80)
+    - store_usage_limit_gb    (int,    default 10)
+    - temp_usage_limit_gb     (int,    default 5)
+    - transport_connectors    (list,   default [])
+    - network_connectors      (list,   default [])
+    - destination_policy_entries (list, default [])
+    - enable_auth             (bool,   default false)
+    - auth_rules              (list,   default [])
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+  <!-- Broker instance configuration -->
+  <!-- broker_name: Unique name for this broker instance; used in JMX and cluster identification (default: 'localhost') -->
+  <!-- data_directory: Root directory for all broker data (includes KahaDB, logs, etc.) (default: '/var/lib/activemq/data') -->
+  <!-- enable_jmx: Enable JMX management (default is true in ActiveMQ core) (default: true) -->
+  <!-- enable_statistics: Enable statistics collection (required for JMX metrics and web console) (default: false) -->
+  <!-- enable_plug_ins: Enable external plugins (e.g., spring-based plugins) — list must be provided (default: false) -->
+  <broker xmlns="http://activemq.apache.org/schema/core"
+          brokerName="{{ (broker_name | default('localhost')) | string }}"
+          dataDirectory="{{ (data_directory | default('/var/lib/activemq/data')) | string }}"
+          {%- if not (enable_jmx | default(true) | bool) %}
+          useJmx="false"
+          {%- endif %}
+          {%- if (enable_statistics | default(false) | bool) %}
+          statisticsEnabled="true"
+          {%- endif %}
+          {%- if (enable_plug_ins | default(false) | bool) and (plug_ins | default([])) %}
+          plugins="{% for plugin in (plug_ins | default([])) %}<ref bean="{{ plugin.ref }}"/>{% if not loop.last %},{% endif %}{% endfor %}"
+          {%- endif %}
+          >
+
+    <!-- Management: JMX domain, connector, and authentication -->
+    <!-- jmx_port: Port for JMX RMI connector server (local only by default) (default: 1099) -->
+    <!-- jmx_domain: JMX domain name used for MBean registration (default: 'org.apache.activemq') -->
+    {% if (enable_jmx | default(true) | bool) %}
+    <!-- Expose JMX on localhost:{{ (jmx_port | default(1099)) }} for local monitoring (e.g., JConsole, VisualVM) -->
+    <managementContext createConnector="true" connectorPort="{{ (jmx_port | default(1099)) }}" jmxDomainName="{{ (jmx_domain | default('org.apache.activemq')) | string }}"/>
+    {% else %}
+    <!-- JMX disabled (enable_jmx is false or undefined) -->
+    <managementContext createConnector="false"/>
+    {% endif %}
+
+    <!-- Persistence: use KahaDB (default) or alternative (e.g., JDBC) -->
+    <!-- KahaDB stores messages, journal, and index on disk for durability -->
+    <persistenceAdapter>
+      <!-- kahadb_directory: Directory where KahaDB journal, index, and data files are stored (default: '/var/lib/activemq/kahadb') -->
+      <!-- kahadb_journal_max_file_size_mb: Maximum size (MB) of each journal file before rotation (default: 32) -->
+      <!-- kahadb_index_cache_size: Number of index entries cached in memory (default: 10000) -->
+      <kahaDB directory="{{ (kahadb_directory | default('/var/lib/activemq/kahadb')) | string }}"
+              journalMaxFileLength="{{ (kahadb_journal_max_file_size_mb | default(32)) | int }}mb"
+              indexCacheSize="{{ (kahadb_index_cache_size | default(10000)) | int }}"/>
+    </persistenceAdapter>
+
+    <!-- System usage: limits memory, store, and temp usage -->
+    <!-- Prevents broker from exhausting host resources -->
+    <systemUsage>
+      <systemUsage>
+        <memoryUsage>
+          <!-- memory_usage_percent_of_jvm: Percentage of JVM heap to allocate to ActiveMQ memory usage (0–100) (default: 80) -->
+          <memoryUsage percentOfJvmHeap="{{ (memory_usage_percent_of_jvm | default(80)) | int }}" />
+        </memoryUsage>
+        <storeUsage>
+          <!-- store_usage_limit_gb: Maximum disk space (GB) for persistent message storage (default: 10) -->
+          <storeUsage limit="{{ (store_usage_limit_gb | default(10)) | int }}gb" />
+        </storeUsage>
+        <tempUsage>
+          <!-- temp_usage_limit_gb: Maximum disk space (GB) for temporary files (e.g., large messages, streaming) (default: 5) -->
+          <tempUsage limit="{{ (temp_usage_limit_gb | default(5)) | int }}gb" />
+        </tempUsage>
+      </systemUsage>
+    </systemUsage>
+
+    <!-- Transport connectors: define endpoints for clients to connect -->
+    <!-- Each connector exposes a protocol and port; clients choose based on protocol need -->
+    <transportConnectors>
+      {% for tc in (transport_connectors | default([])) %}
+      <!-- Transport connector: {{ tc.name }} via {{ tc.protocol }} on {{ tc.host }}:{{ tc.port }} -->
+      <transportConnector name="{{ tc.name }}" uri="{{ tc.protocol }}://{{ tc.host }}:{{ tc.port }}?{{ tc.wire_format_opts | join('&') }}"/>
+      {% endfor %}
+    </transportConnectors>
+
+    <!-- Network connectors: for bridging to other brokers (optional) -->
+    {% if (network_connectors | default([])) %}
+    <!-- Connect to upstream brokers via static or dynamic discovery -->
+    <networkConnectors>
+      {% for nc in (network_connectors | default([])) %}
+      <!-- Network connector: {{ nc.name }} → {{ nc.uri }} (dynamicOnly={{ nc.dynamic_only }}, prefetch={{ nc.prefetch }}, decrease_priority={{ nc.decrease_priority }}) -->
+      <networkConnector name="{{ nc.name }}"
+                        uri="{{ nc.uri }}"
+                        dynamicOnly="{{ nc.dynamic_only | default(false) }}"
+                        prefetchCount="{{ nc.prefetch | default(1000) }}"
+                        decreaseNetworkConsumerPriority="{{ nc.decrease_priority | default(false) }}"/>
+      {% endfor %}
+    </networkConnectors>
+    {% endif %}
+
+    <!-- Destination policy: queue/topic-specific behavior (e.g., dead-letter, quotas) -->
+    <destinationPolicy>
+      <policyMap>
+        <policyEntries>
+          {% for entry in (destination_policy_entries | default([])) %}
+          <!-- Destination policy entry: type={{ entry.type }}, queue={{ entry.queue }}, topic={{ entry.topic }} -->
+          <policyEntry {% if entry.queue %}queue="{{ entry.queue }}"{% endif %}
+                       {% if entry.topic %}topic="{{ entry.topic }}"{% endif %}
+                       {% if entry.gc_inactive_destinations | default(false) %}gcInactiveDestinations="true"{% endif %}
+                       {% if entry.inactive_timeout_before_gc | default(0) %}inactiveTimeBeforeGC="{{ entry.inactive_timeout_before_gc }}"{% endif %}
+                       {% if entry.memory_limit %}memoryLimit="{{ entry.memory_limit_mb }}mb"{% endif %}
+                       {% if entry.max_entries %}maxEntries="{{ entry.max_entries }}"{% endif %}
+                       {% if entry.use_cache | default(false) %}useCache="{{ entry.use_cache }}"{% endif %}
+                       {% if entry.expire_messages_period %}expireMessagesPeriod="{{ entry.expire_messages_period }}"{% endif %}
+                       {% if entry.max_producers_to_audit %}maxProducersToAudit="{{ entry.max_producers_to_audit }}"{% endif %}
+                       {% if entry.max_consumers_to_audit %}maxConsumersToAudit="{{ entry.max_consumers_to_audit }}"{% endif %}>
+            {% if entry.dead_letter_queue %}
+            <!-- Route expired/unroutable messages to {{ entry.dead_letter_queue }} -->
+            <deadLetterStrategy>
+              <individualDeadLetterStrategy queue="{{ entry.dead_letter_queue }}"/>
+            </deadLetterStrategy>
+            {% endif %}
+            {% if entry.dispatch_policy %}
+            <!-- Consumer dispatch policy for load balancing or fair ordering -->
+            <dispatchPolicy>
+              <{{ entry.dispatch_policy }}/>
+            </dispatchPolicy>
+            {% endif %}
+          </policyEntry>
+          {% endfor %}
+        </policyEntries>
+      </policyMap>
+    </destinationPolicy>
+
+    <!-- Authentication/authorization (optional) -->
+    {% if (enable_auth | default(false) | bool) %}
+    <!-- Authentication via simple login module and authorization via access control -->
+    <plugins>
+      <!-- Login configuration (e.g., users.properties) -->
+      <jaasAuthenticationPlugin configuration="activemq" />
+      <!-- Authorization rules -->
+      <authorizationPlugin>
+        <map>
+          <authorizationMap>
+            {% for rule in (auth_rules | default([])) %}
+            <!-- Auth rule: type={{ rule.type }}, queue={{ rule.queue }}, topic={{ rule.topic }}, group={{ rule.group }} -->
+            <authorizationEntry {% if rule.queue %}queue="{{ rule.queue }}"{% endif %}
+                                {% if rule.topic %}topic="{{ rule.topic }}"{% endif %}
+                                read="{{ rule.read | default([]) | join(', ') }}"
+                                write="{{ rule.write | default([]) | join(', ') }}"
+                                admin="{{ rule.admin | default([]) | join(', ') }}"/>
+            {% endfor %}
+          </authorizationMap>
+        </map>
+      </authorizationPlugin>
+    </plugins>
+    {% endif %}
+  </broker>
+</beans>

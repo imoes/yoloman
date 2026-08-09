@@ -1,0 +1,81 @@
+{
+  "api_url": {
+    "type": "string",
+    "default": "https://rhevm.example.com/ovirt-engine/api",
+    "description": "Base URL of the RHEV-M (oVirt Engine) API endpoint."
+  },
+  "username": {
+    "type": "string",
+    "default": "admin@internal",
+    "description": "Username (with domain, e.g., 'admin@internal' or 'user@domain') to authenticate against RHEV-M API."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the RHEV-M API user. Store securely (e.g., via file permissions or vault integration)."
+  },
+  "domain": {
+    "type": "string",
+    "default": "",
+    "description": "Authentication domain (e.g., 'internal' or 'example.com'). Leave blank to use the default domain."
+  },
+  "ssl_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL certificate verification. Set to false only for testing or with self-signed certs (not recommended in production)."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time in seconds to wait for API responses before timing out."
+  },
+  "default_action": {
+    "type": "string",
+    "default": "reboot",
+    "description": "Default fence action (e.g., 'on', 'off', 'reboot', 'status', 'list') if not specified in the command line.",
+    "enum": [
+      "on",
+      "off",
+      "reboot",
+      "status",
+      "list",
+      "list-status",
+      "monitor",
+      "metadata",
+      "manpage",
+      "validate-all"
+    ]
+  },
+  "retry": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of times to retry a failed fence action before giving up."
+  },
+  "retry_sleep": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait between retry attempts."
+  },
+  "nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of managed nodes (VMs or physical hosts) for which fence actions may be issued. Required for multi-node environments.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable identifier for the node (used for logging/debugging)."
+      },
+      "uuid": {
+        "type": "string",
+        "default": "",
+        "description": "UUID of the virtual machine or host in RHEV-M (required for precise targeting)."
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP address used for out-of-band management (e.g., IPMI), if different from the VM\u2019s network."
+      }
+    }
+  }
+}

@@ -1,0 +1,42 @@
+name: emc_vnx_sg_member
+fqcn: community.general.emc_vnx_sg_member
+collection: community.general
+short_description: Manage storage group member on EMC VNX
+description: This module manages the members of an existing storage group.
+options:
+  lunid:
+    type: int
+    required: true
+    description: Lun id to be added.
+  name:
+    type: str
+    required: true
+    description: Name of the Storage group to manage.
+  sp_address:
+    type: str
+    required: true
+    description: Address of the SP of target/secondary storage.
+  sp_password:
+    type: str
+    default: sysadmin
+    description: password for accessing SP.
+  sp_user:
+    type: str
+    default: sysadmin
+    description: Username for accessing SP.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicates the desired lunid state. V(present) ensures specified lunid is present in the
+      Storage Group. V(absent) ensures specified lunid is absent from Storage Group.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add lun to storage group\n  community.general.emc_vnx_sg_member:\n    name: sg01\n\
+  \    sp_address: sp1a.fqdn\n    sp_user: sysadmin\n    sp_password: sysadmin\n    lunid: 100\n    state:\
+  \ present\n\n- name: Remove lun from storage group\n  community.general.emc_vnx_sg_member:\n    name:\
+  \ sg01\n    sp_address: sp1a.fqdn\n    sp_user: sysadmin\n    sp_password: sysadmin\n    lunid: 100\n\
+  \    state: absent\n"

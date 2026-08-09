@@ -1,0 +1,233 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "irc.example.net",
+      "port": 6667,
+      "ssl": false,
+      "password": "",
+      "nickserv_password": ""
+    },
+    "description": "IRC server connection details: hostname, port, optional SSL, server password (if required), and NickServ password (if using services).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "irc.example.net",
+        "description": "IRC server hostname or IP address."
+      },
+      "port": {
+        "type": "number",
+        "default": 6667,
+        "description": "IRC server port (6667 for plaintext, 6697 or 7000 for SSL)."
+      },
+      "ssl": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable SSL/TLS encryption for the connection."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for server authentication (e.g., SASL or server-specific login). Leave blank if not required."
+      },
+      "nickserv_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for NickServ identification (used to recover/claim nickname)."
+      }
+    }
+  },
+  "bot": {
+    "type": "object",
+    "default": {
+      "nick": "Limnoria",
+      "user": "limnoria",
+      "name": "Limnoria IRC Bot",
+      "vhost": ""
+    },
+    "description": "Bot\u2019s identity on IRC: nickname, username, real name, and optional virtual hostname.",
+    "items": {
+      "nick": {
+        "type": "string",
+        "default": "Limnoria",
+        "description": "Primary nickname for the bot (must be available or fallback used)."
+      },
+      "user": {
+        "type": "string",
+        "default": "limnoria",
+        "description": "Username (IDENT) the bot sends to the server."
+      },
+      "name": {
+        "type": "string",
+        "default": "Limnoria IRC Bot",
+        "description": "Real name (GECOS) displayed in /WHOIS."
+      },
+      "vhost": {
+        "type": "string",
+        "default": "",
+        "description": "Optional virtual hostname to request from the server (e.g., for cloaking)."
+      }
+    }
+  },
+  "channels": {
+    "type": "list",
+    "default": [
+      {
+        "name": "#example",
+        "key": ""
+      }
+    ],
+    "description": "List of channels the bot will join on startup. Each entry must include a channel name; key is optional (for password-protected channels).",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "IRC channel name (e.g., #myroom or &internal)."
+        },
+        "key": {
+          "type": "string",
+          "default": "",
+          "description": "Channel key (password), if required. Leave blank if not needed."
+        }
+      }
+    }
+  },
+  "admin": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "users": [
+        "admin!~admin@localhost"
+      ]
+    },
+    "description": "Enable admin interface and define authorized users (in format nick!user@host or just nick).",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable the built-in admin plugin (allows remote control via private messages or channels)."
+      },
+      "users": {
+        "type": "list",
+        "default": [
+          "admin!~admin@localhost"
+        ],
+        "items": {
+          "type": "string",
+          "description": "Full hostmask or nick pattern of authorized admin(s). Use wildcards (e.g., *!~user@*) to allow broader access."
+        },
+        "description": "List of users allowed to use admin commands (e.g., reload, shutdown)."
+      }
+    }
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "path": "/var/log/limnoria",
+      "format": "json"
+    },
+    "description": "Enable and configure logging of bot activity and channel messages.",
+    "items": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable logging of messages and commands."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/limnoria",
+        "description": "Directory where logs are stored. Ensure the bot process has write permissions."
+      },
+      "format": {
+        "type": "string",
+        "default": "json",
+        "description": "Log format: 'json', 'text', or 'csv'. JSON is recommended for structured analysis."
+      }
+    }
+  },
+  "plugin": {
+    "type": "object",
+    "default": {
+      "enabled": [
+        "Admin",
+        "ChanLog",
+        "Channel",
+        "Config",
+        "Debug",
+        "Fun",
+        "Help",
+        "IRC",
+        "Misc",
+        "Network",
+        "Owner",
+        "Plugin",
+        "PluginManager",
+        "Utils",
+        "Version"
+      ],
+      "disabled": []
+    },
+    "description": "Select which built-in plugins to enable or disable at startup.",
+    "items": {
+      "enabled": {
+        "type": "list",
+        "default": [
+          "Admin",
+          "ChanLog",
+          "Channel",
+          "Config",
+          "Debug",
+          "Fun",
+          "Help",
+          "IRC",
+          "Misc",
+          "Network",
+          "Owner",
+          "Plugin",
+          "PluginManager",
+          "Utils",
+          "Version"
+        ],
+        "description": "List of plugin names to load. Omit to disable a plugin."
+      },
+      "disabled": {
+        "type": "list",
+        "default": [],
+        "description": "List of built-in plugins to explicitly disable (e.g., 'Admin' if you prefer CLI-only control)."
+      }
+    }
+  },
+  "prefix": {
+    "type": "string",
+    "default": "!",
+    "description": "Command prefix for bot commands in channels (e.g., !help, !uptime). Avoid special characters that may interfere with IRC formatting."
+  },
+  "timeout": {
+    "type": "object",
+    "default": {
+      "connect": 30,
+      "read": 300
+    },
+    "description": "Connection and read timeouts in seconds.",
+    "items": {
+      "connect": {
+        "type": "number",
+        "default": 30,
+        "description": "Maximum seconds to wait for connection to IRC server before retry/failure."
+      },
+      "read": {
+        "type": "number",
+        "default": 300,
+        "description": "Maximum seconds of inactivity before reconnecting (0 = no timeout)."
+      }
+    }
+  },
+  "nick_fallback": {
+    "type": "string",
+    "default": "Limnoria_",
+    "description": "Fallback nickname to use if the primary nick is already in use. Should differ slightly (e.g., appended underscore or digit)."
+  }
+}

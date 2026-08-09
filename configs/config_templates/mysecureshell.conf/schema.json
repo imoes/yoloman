@@ -1,0 +1,209 @@
+{
+  "debug_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (not recommended for production)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Logging verbosity: 0=error, 1=warn, 2=info, 3=debug."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file (empty string to log to syslog)."
+  },
+  "max_conn_per_ip": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent SSH connections allowed per IP address."
+  },
+  "max_conn_per_user": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of concurrent SSH connections allowed per user."
+  },
+  "ssh_port": {
+    "type": "number",
+    "default": 2222,
+    "description": "TCP port on which the SSH/SFTP service will listen."
+  },
+  "listen_addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the SSH/SFTP service (e.g., '127.0.0.1' or '::')."
+  },
+  "chroot_path": {
+    "type": "string",
+    "default": "/var/chroot/mysecureshell",
+    "description": "Path to the root directory for chrooted users (must be owned by root)."
+  },
+  "sftp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SFTP protocol support."
+  },
+  "scp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SCP protocol support for file transfers."
+  },
+  "password_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow authentication via username and password."
+  },
+  "pub_key_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow authentication via SSH public keys."
+  },
+  "login_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time in seconds allowed for client authentication before disconnect."
+  },
+  "max_auth_tries": {
+    "type": "number",
+    "default": 6,
+    "description": "Maximum number of authentication attempts before disconnecting the client."
+  },
+  "banner_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Display a legal banner to users upon connection."
+  },
+  "banner_path": {
+    "type": "string",
+    "default": "/etc/mysecureshell/banner.txt",
+    "description": "Path to the file containing the login banner."
+  },
+  "users": {
+    "type": "list",
+    "default": [],
+    "description": "List of SSH users with their configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Username."
+      },
+      "home": {
+        "type": "string",
+        "description": "User's home directory inside the chroot."
+      },
+      "shell": {
+        "type": "string",
+        "description": "User's login shell (often '/bin/false' for SFTP-only accounts)."
+      },
+      "groups": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of groups the user belongs to."
+      },
+      "password": {
+        "type": "string",
+        "description": "Password hash (e.g., {crypt}sha512$...). Required if password_auth is true."
+      },
+      "pub_key": {
+        "type": "string",
+        "description": "Base64-encoded SSH public key."
+      },
+      "upload_quota_mb": {
+        "type": "number",
+        "description": "Maximum upload size (MB) per session."
+      }
+    }
+  },
+  "groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of user groups with shared configurations.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Group name."
+      },
+      "upload_quota_mb": {
+        "type": "number",
+        "description": "Default upload quota (MB) for group members."
+      }
+    }
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0"
+    ],
+    "description": "List of allowed IP ranges (CIDR notation or single IPs) to connect to the SSH service."
+  },
+  "denied_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of denied IP ranges to block from connecting."
+  },
+  "directory_permissions": {
+    "type": "list",
+    "default": [],
+    "description": "Custom permissions for chrooted directories.",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Path relative to the chroot root."
+      },
+      "mode": {
+        "type": "string",
+        "description": "Octal permission mode (e.g., '755', '700')."
+      },
+      "owner": {
+        "type": "string",
+        "description": "Owner username."
+      },
+      "group": {
+        "type": "string",
+        "description": "Group name."
+      },
+      "read_only": {
+        "type": "bool",
+        "description": "If true, users may only read from this directory."
+      },
+      "max_files": {
+        "type": "number",
+        "description": "Maximum number of files allowed in this directory."
+      },
+      "max_size": {
+        "type": "number",
+        "description": "Maximum total size (in MB) of files in this directory."
+      }
+    }
+  },
+  "sftp_subsystem": {
+    "type": "object",
+    "default": {
+      "command": "internal-sftp"
+    },
+    "description": "SFTP subsystem definition.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "sftp",
+        "description": "Subsystem name."
+      },
+      "command": {
+        "type": "string",
+        "default": "internal-sftp",
+        "description": "Path or built-in command to invoke (e.g., '/usr/lib/openssh/sftp-server' or 'internal-sftp')."
+      },
+      "args": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
+        },
+        "description": "Arguments passed to the SFTP server command."
+      }
+    }
+  }
+}

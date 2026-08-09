@@ -1,0 +1,231 @@
+# ============================================================================
+# FAI (Fully Automatic Installation) Configuration Template
+# ============================================================================
+# This file configures the FAI server's behavior, network settings, and
+# client provisioning parameters (partitions, packages, boot loaders, etc.).
+#
+# Variable Resolution: All variables are sourced from Ansible variables.
+# Defaults are applied inline via the `default()` filter to prevent
+# rendering failures when variables are undefined.
+# ============================================================================
+
+# --- Server Directory Layout ---
+
+# Base directory for FAI files (templates, scripts, logs, etc.)
+# Schema: fai_config_dir (default='/srv/fai/config')
+FAI_CONFIGDIR={{ (fai_config_dir | default('/srv/fai/config')) }}
+
+# Directory where client root filesystems are built during install
+# Schema: fai_root_dir (default='/srv/fai/root')
+FAI_ROOTDIR={{ (fai_root_dir | default('/srv/fai/root')) }}
+
+# Directory where log files are stored on the FAI server
+# Schema: fai_log_dir (default='/var/log/fai')
+FAI_LOGDIR={{ (fai_log_dir | default('/var/log/fai')) }}
+
+# Directory containing installation media (isos, initrds, kernels)
+# Schema: fai_debootstrap_dir (default='/srv/fai/debootstrap')
+FAI_DEBOOTSTRAP_DIR={{ (fai_debootstrap_dir | default('/srv/fai/debootstrap')) }}
+
+# --- Network & Boot Settings ---
+
+# Default architecture for new clients (e.g., 'amd64', 'i386')
+# Schema: default_arch (default='amd64')
+DEFAULT_ARCH={{ (default_arch | default('amd64')) }}
+
+# Root directory for TFTP server (used for PXE boot files like pxelinux.0)
+# Schema: tftp_root (default='/srv/tftp')
+TFTP_ROOT={{ (tftp_root | default('/srv/tftp')) }}
+
+# TFTP server address (IP or hostname); if empty, defaults to server's primary address
+# Schema: tftp_server (default='')
+{% if (tftp_server | default('')) != '' %}
+TFTP_SERVER={{ (tftp_server | default('')) }}
+{% endif %}
+
+# --- DHCP Configuration ---
+
+# DHCP configuration method: 'none', 'isc-dhcpd', or 'dnsmasq'
+# Schema: dhcp_method (default='isc-dhcpd')
+DHCP_METHOD={{ (dhcp_method | default('isc-dhcpd')) }}
+
+# Path to DHCP config template for dynamic client configuration
+# Schema: dhcp_conf_path (default='/etc/dhcp/dhcpd.conf')
+{% if (dhcp_method | default('isc-dhcpd')) != 'none' %}
+DHCP_CONF={{ (dhcp_conf_path | default('/etc/dhcp/dhcpd.conf')) }}
+{% endif %}
+
+# --- Client Network Parameters ---
+
+# DNS domain for provisioned clients
+# Schema: dns_domain (default='local')
+DNS_DOMAIN={{ (dns_domain | default('local')) }}
+
+# Default nameserver(s) for clients
+# Schema: nameservers (default=['8.8.8.8', '1.1.1.1'])
+# Note: Joined as a space/comma-separated list as expected by FAI class scripts
+NAMESERVERS={{ (nameservers | default(['8.8.8.8', '1.1.1.1'])) | join(' ') }}
+
+# Default gateway for provisioned clients
+# Schema: gateway (default='')
+GATEWAY={{ (gateway | default('')) }}
+
+# Default NTP server for clients
+# Schema: ntp_server (default='0.pool.ntp.org')
+NTPSERVER={{ (ntp_server | default('0.pool.ntp.org')) }}
+
+# --- Storage & Filesystem Configuration ---
+
+# Enable/disable software RAID setup during installation
+# Schema: enable_raid (default=False)
+{% if (enable_raid | default(False)) | bool %}
+FAI_RAID=yes
+{% else %}
+FAI_RAID=no
+{% endif %}
+
+# Enable/disable LVM support during installation
+# Schema: enable_lvm (default=True)
+{% if (enable_lvm | default(True)) | bool %}
+FAI_LVM=yes
+{% else %}
+FAI_LVM=no
+{% endif %}
+
+# Kernel packages to install by default
+# Schema: kernel_packages (default=['linux-image-amd64'])
+{% for kernel_pkg in (kernel_packages | default(['linux-image-amd64'])) %}
+KERNEL_PKG={{ kernel_pkg }}
+{% endfor %}
+
+# Default initramfs-tools configuration options
+# Schema: initramfs_options (default=[])
+{% if (initramfs_options | default([])) | length > 0 %}
+INITRAMFS_OPTS={{ (initramfs_options | default([])) | join(' ') }}
+{% endif %}
+
+# Root filesystem type (e.g., ext4, xfs, btrfs)
+# Schema: root_fs_type (default='ext4')
+ROOT_FS_TYPE={{ (root_fs_type | default('ext4')) }}
+
+# Default swap size (in MB) or 'auto'
+# Schema: swap_size (default='auto')
+SWAP_SIZE={{ (swap_size | default('auto')) }}
+
+# Enable/disable filesystem encryption (LUKS)
+# Schema: enable_luks (default=False)
+{% if (enable_luks | default(False)) | bool %}
+FAI_LUKS=yes
+{% else %}
+FAI_LUKS=no
+{% endif %}
+
+# LUKS passphrase for full-disk encryption
+# Schema: luks_passphrase (default='')
+# WARNING: In production, inject this via Ansible Vault or a secrets manager,
+# but ensure it is present if LUKS is enabled.
+{% if (luks_passphrase | default('')) != '' %}
+LUKS_PASSPHRASE={{ (luks_passphrase | default('')) }}
+{% endif %}
+
+# Partitioning layout file (relative to FAI_CONFIGDIR/class/)
+# Schema: partition_layout (default='default')
+PARTITION_LAYOUT={{ (partition_layout | default('default')) }}
+
+# Enable/disable automatic partitioning using default layout
+# Schema: auto_partition (default=True)
+{% if (auto_partition | default(True)) | bool %}
+AUTO_PARTITION=yes
+{% else %}
+AUTO_PARTITION=no
+{% endif %}
+
+# --- Boot Loader ---
+
+# Enable/disable GRUB installation to MBR/GPT
+# Schema: install_grub (default=True)
+{% if (install_grub | default(True)) | bool %}
+INSTALL_GRUB=yes
+{% else %}
+INSTALL_GRUB=no
+{% endif %}
+
+# GRUB device path (e.g., /dev/sda); if empty, auto-detect
+# Schema: grub_device (default='')
+{% if (grub_device | default('')) != '' %}
+GRUB_DEVICE={{ (grub_device | default('')) }}
+{% endif %}
+
+# --- Package Management ---
+
+# List of packages to install via apt-get during base system setup
+# Schema: base_packages (default=['openssh-server', 'sudo', 'net-tools', 'isc-dhcp-client'])
+{% for pkg in (base_packages | default(['openssh-server', 'sudo', 'net-tools', 'isc-dhcp-client'])) %}
+BASE_PACKAGE={{ pkg }}
+{% endfor %}
+
+# Additional repositories to include for debootstrap
+# Schema: extra_repositories (default=[])
+{% for repo in (extra_repositories | default([])) %}
+REPOSITORY={{ repo }}
+{% endfor %}
+
+# --- System Localization ---
+
+# Default timezone for provisioned hosts
+# Schema: timezone (default='Etc/UTC')
+TIMEZONE={{ (timezone | default('Etc/UTC')) }}
+
+# Default locale for provisioned hosts
+# Schema: locale (default='en_US.UTF-8')
+LOCALE={{ (locale | default('en_US.UTF-8')) }}
+
+# --- Hostname & Identity ---
+
+# Hostname prefix for new clients (e.g., 'node' => node01, node02, ...)
+# Schema: hostname_prefix (default='node')
+HOSTNAME_PREFIX={{ (hostname_prefix | default('node')) }}
+
+# Domain suffix appended to short hostnames
+# Schema: domain_suffix (default='local')
+DOMAIN_SUFFIX={{ (domain_suffix | default('local')) }}
+
+# --- Security & Access ---
+
+# SSH authorized keys for root on provisioned clients
+# Schema: ssh_root_keys (default=[])
+# Note: Keys are base64-encoded as per FAI requirements for some scripts
+{% for key in (ssh_root_keys | default([])) %}
+SSH_ROOT_KEY={{ key | b64encode }}
+{% endfor %}
+
+# --- Logging & Monitoring ---
+
+# Log level: 'quiet', 'info', 'debug' (case-insensitive)
+# Schema: loglevel (default='info')
+LOGLEVEL={{ (loglevel | default('info')) }}
+
+# Maximum size of log files (in MB); 0 = unlimited
+# Schema: max_log_size (default=100)
+MAX_LOG_SIZE={{ (max_log_size | default(100)) }}
+
+# Enable/disable web-based status monitor (fai-status)
+# Schema: enable_status_monitor (default=False)
+{% if (enable_status_monitor | default(False)) | bool %}
+FAI_STATUS=yes
+{% else %}
+FAI_STATUS=no
+{% endif %}
+
+# Status monitor listens on this port
+# Schema: status_port (default=8080)
+STATUS_PORT={{ (status_port | default(8080)) }}
+
+# --- Environment & Customization ---
+
+# Custom environment variables passed to FAI scripts
+# Schema: extra_env_vars (default=[])
+# Expected format: List of dicts with 'name' and 'value' keys
+{% for env in (extra_env_vars | default([])) %}
+export {{ env.name }}='{{ env.value }}'
+{% endfor %}

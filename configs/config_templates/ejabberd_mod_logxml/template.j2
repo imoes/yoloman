@@ -1,0 +1,30 @@
+# ejabberd module: mod_logxml
+# ---------------------------------------------------------------------------
+# Purpose: Logs XMPP packets to XML files on disk.
+# Schema reference: ejabberd_mod_logxml
+# ---------------------------------------------------------------------------
+
+# Enable the XML packet logging module. When disabled, no XML logging occurs.
+{% if enabled | default(False) | bool %}
+modules:
+  mod_logxml:
+    # Directory where XML log files are stored. Must be writable by the ejabberd user.
+    log_dir: "{{ log_dir | default('/var/log/ejabberd') }}"
+    
+    # Filename pattern for log files. Supports strftime directives like %Y, %m, %d, etc. for daily or hourly rotation.
+    # Note: The default pattern produces a filename like 20231027-packets.xml.
+    log_file: "{{ log_file | default('%Y%m%d-packets.xml') }}"
+    
+    # Maximum size (in bytes) of a log file before it is rotated. Set to 0 to disable size-based rotation.
+    max_size: {{ max_size | default(10485760) }}
+    
+    # Number of old log files to retain after rotation.
+    keep: {{ keep | default(7) }}
+    
+    # If true, log complete XMPP stanzas (including IQ, message, and presence).
+    # If false, log only metadata (e.g., JIDs, timestamps).
+    full_stanza: {{ full_stanza | default(True) | lower }}
+    
+    # Direction of traffic to log: 'in' (incoming to server), 'out' (outgoing from server), or 'both'.
+    direction: "{{ direction | default('both') }}"
+{% endif %}

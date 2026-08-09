@@ -1,0 +1,61 @@
+# OmniDB configuration file — main settings for the web service
+[omnidb]
+host = {{ host }}
+port = {{ port }}
+
+# Path to SQLite database for OmniDB internal metadata (users, preferences, sessions)
+db_path = {{ db_path }}
+
+# Secret key used for session signing and cryptographic operations
+secret_key = {{ secret_key }}
+
+# Enable SSL/TLS for secure HTTPS connections (requires cert and key paths below)
+ssl_enabled = {{ ssl_enabled }}
+
+# Path to SSL certificate file (PEM format)
+ssl_cert = {{ ssl_cert }}
+
+# Path to SSL private key file (PEM format)
+ssl_key = {{ ssl_key }}
+
+# Number of worker processes (0 = auto, based on CPU cores)
+workers = {{ workers }}
+
+# Enable debug logging (verbose output for troubleshooting)
+debug = {{ debug }}
+
+# Time in seconds after which idle sessions expire
+session_timeout = {{ session_timeout }}
+
+# Enable authentication via local users table (disables external auth)
+enable_local_auth = {{ enable_local_auth }}
+
+# Maximum number of simultaneous connections per database
+max_connections_per_db = {{ max_connections_per_db }}
+
+# List of allowed origins for CORS (empty = allow all)
+allowed_origins = {% for origin in allowed_origins %}{{ origin }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# List of supported databases (each entry defines a default template for new connections)
+[db_templates]
+{% for db in db_templates %}[{{ db.name }}]
+title = {{ db.title }}
+type = {{ db.type }}
+host = {{ db.host }}
+port = {{ db.port }}
+db_name = {{ db.db_name }}
+user = {{ db.user }}
+{% if db.password is defined %}password = {{ db.password }}
+{% endif %}use_ssh_tunnel = {{ db.use_ssh_tunnel }}
+ssh_host = {{ db.ssh_host }}
+ssh_port = {{ db.ssh_port }}
+ssh_user = {{ db.ssh_user }}
+{% if db.ssh_key is defined %}ssh_key = {{ db.ssh_key }}
+{% endif %}{% if not loop.last %}
+
+{% endif %}{% endfor %}
+
+# Logging configuration
+[logging]
+level = {{ log_level }}
+path = {{ log_path }}

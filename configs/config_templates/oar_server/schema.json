@@ -1,0 +1,376 @@
+{
+  "db": {
+    "type": "object",
+    "default": {
+      "driver": "postgresql",
+      "host": "localhost",
+      "port": 5432,
+      "name": "oar",
+      "user": "oar",
+      "password": ""
+    },
+    "description": "Database connection configuration (PostgreSQL or MySQL)."
+  },
+  "db.driver": {
+    "type": "string",
+    "default": "postgresql",
+    "description": "Database driver: 'postgresql' or 'mysql'."
+  },
+  "db.host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Database server hostname or IP address."
+  },
+  "db.port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Database server port."
+  },
+  "db.name": {
+    "type": "string",
+    "default": "oar",
+    "description": "Name of the OAR database."
+  },
+  "db.user": {
+    "type": "string",
+    "default": "oar",
+    "description": "Database user with access to the OAR database."
+  },
+  "db.password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the database user."
+  },
+  "job_reservation": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "max_duration": 259200
+    },
+    "description": "Configure job reservation feature (advanced use)."
+  },
+  "job_reservation.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable users to reserve resources in advance."
+  },
+  "job_reservation.max_duration": {
+    "type": "number",
+    "default": 259200,
+    "description": "Maximum reservation duration in seconds (3 days)."
+  },
+  "monitoring": {
+    "type": "object",
+    "default": {
+      "resource_interval": 30,
+      "resource_timeout": 10,
+      "max_failures": 3
+    },
+    "description": "Resource monitoring and heartbeat settings."
+  },
+  "monitoring.resource_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between resource state checks."
+  },
+  "monitoring.resource_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (in seconds) for resource state query."
+  },
+  "monitoring.max_failures": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of failed checks before marking resource as DOWN."
+  },
+  "scheduler": {
+    "type": "object",
+    "default": {
+      "policy": "fifo",
+      "max_jobs_per_user": 100,
+      "max_walltime": 259200,
+      "preemption": {
+        "enabled": false
+      }
+    },
+    "description": "Core scheduler configuration."
+  },
+  "scheduler.policy": {
+    "type": "string",
+    "default": "fifo",
+    "description": "Scheduling policy: 'fifo', 'fairshare', or 'priority'."
+  },
+  "scheduler.max_jobs_per_user": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of active jobs per user."
+  },
+  "scheduler.max_walltime": {
+    "type": "number",
+    "default": 259200,
+    "description": "Maximum walltime (in seconds) allowed per job."
+  },
+  "scheduler.preemption.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable job preemption (requires fairshare policy)."
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "file": "/var/log/oar/server.log"
+    },
+    "description": "Logging configuration."
+  },
+  "logging.level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+  },
+  "logging.file": {
+    "type": "string",
+    "default": "/var/log/oar/server.log",
+    "description": "Path to server log file."
+  },
+  "api": {
+    "type": "object",
+    "default": {
+      "port": 6667,
+      "host": "0.0.0.0"
+    },
+    "description": "OAR API endpoint configuration."
+  },
+  "api.port": {
+    "type": "number",
+    "default": 6667,
+    "description": "API server port."
+  },
+  "api.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "API server listening interface (e.g., 'localhost' or '0.0.0.0')."
+  },
+  "webui": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "port": 8080,
+      "host": "127.0.0.1",
+      "admin_email": "admin@cluster.local",
+      "login_message": "Welcome to OAR"
+    },
+    "description": "Web user interface settings."
+  },
+  "webui.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the OAR web interface."
+  },
+  "webui.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Web UI listening port."
+  },
+  "webui.host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Web UI listening interface (set to '0.0.0.0' to expose externally)."
+  },
+  "webui.admin_email": {
+    "type": "string",
+    "default": "admin@cluster.local",
+    "description": "Email address for support inquiries in the UI."
+  },
+  "webui.login_message": {
+    "type": "string",
+    "default": "Welcome to OAR",
+    "description": "Message displayed on the login screen."
+  },
+  "worker_nodes": {
+    "type": "list",
+    "default": [],
+    "description": "List of hostnames or IP addresses of worker nodes managed by OAR."
+  },
+  "queues": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "resource_request": "core=1",
+        "max_walltime": 86400,
+        "default_walltime": 3600
+      }
+    ],
+    "description": "Job queue configurations."
+  },
+  "queues.items": {
+    "type": "object",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "default",
+        "description": "Queue name (e.g., 'batch', 'interactive')."
+      },
+      "resource_request": {
+        "type": "string",
+        "default": "core=1",
+        "description": "Default resource request format (e.g., 'core=2,mem=4G')."
+      },
+      "max_walltime": {
+        "type": "number",
+        "default": 86400,
+        "description": "Maximum allowed walltime for jobs in this queue (seconds)."
+      },
+      "default_walltime": {
+        "type": "number",
+        "default": 3600,
+        "description": "Default walltime for jobs in this queue (seconds)."
+      },
+      "priority": {
+        "type": "number",
+        "default": null,
+        "description": "Queue priority (higher value = higher priority); optional."
+      }
+    }
+  },
+  "shared_fs": {
+    "type": "object",
+    "default": {
+      "root": "/home",
+      "user": "root",
+      "group": "users",
+      "mode": "0755"
+    },
+    "description": "Shared filesystem configuration for job submission directories."
+  },
+  "shared_fs.root": {
+    "type": "string",
+    "default": "/home",
+    "description": "Root of the shared home directory (mounted on all nodes)."
+  },
+  "shared_fs.user": {
+    "type": "string",
+    "default": "root",
+    "description": "Owner of job working directories."
+  },
+  "shared_fs.group": {
+    "type": "string",
+    "default": "users",
+    "description": "Group ownership of job working directories."
+  },
+  "shared_fs.mode": {
+    "type": "string",
+    "default": "0755",
+    "description": "Directory permissions for job directories."
+  },
+  "mail": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "smtp_server": "localhost",
+      "smtp_port": 25,
+      "from_address": "oar@cluster.local"
+    },
+    "description": "Email notification settings for job events."
+  },
+  "mail.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email notifications (job end, error, etc.)."
+  },
+  "mail.smtp_server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "SMTP server hostname."
+  },
+  "mail.smtp_port": {
+    "type": "number",
+    "default": 25,
+    "description": "SMTP server port."
+  },
+  "mail.from_address": {
+    "type": "string",
+    "default": "oar@cluster.local",
+    "description": "Sender email address for notifications."
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "backend": "file",
+      "ldap": {
+        "uri": "ldap://ldap.example.com",
+        "base_dn": "ou=users,dc=example,dc=com",
+        "bind_dn": "",
+        "bind_password": "",
+        "user_filter": "(uid=%u)"
+      }
+    },
+    "description": "Authentication backend and LDAP settings."
+  },
+  "auth.backend": {
+    "type": "string",
+    "default": "file",
+    "description": "Auth backend: 'file' (local users), 'ldap' (LDAP directory), or 'pam'."
+  },
+  "auth.ldap": {
+    "type": "object",
+    "default": {
+      "uri": "ldap://ldap.example.com",
+      "base_dn": "ou=users,dc=example,dc=com",
+      "bind_dn": "",
+      "bind_password": "",
+      "user_filter": "(uid=%u)"
+    },
+    "description": "LDAP connection and search parameters (used if auth.backend = ldap)."
+  },
+  "auth.ldap.uri": {
+    "type": "string",
+    "default": "ldap://ldap.example.com",
+    "description": "LDAP server URI (support ldap://, ldaps://, or ldapi://)."
+  },
+  "auth.ldap.base_dn": {
+    "type": "string",
+    "default": "ou=users,dc=example,dc=com",
+    "description": "Base DN for user searches."
+  },
+  "auth.ldap.bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "DN for binding (if anonymous bind is disabled)."
+  },
+  "auth.ldap.bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for bind DN."
+  },
+  "auth.ldap.user_filter": {
+    "type": "string",
+    "default": "(uid=%u)",
+    "description": "Filter template to find users (replace username placeholder with '%u')."
+  },
+  "ssh": {
+    "type": "object",
+    "default": {
+      "port": 22,
+      "user": "root",
+      "key_path": "/root/.ssh/id_rsa"
+    },
+    "description": "SSH settings for launching jobs on remote workers."
+  },
+  "ssh.port": {
+    "type": "number",
+    "default": 22,
+    "description": "SSH port for remote job launching."
+  },
+  "ssh.user": {
+    "type": "string",
+    "default": "root",
+    "description": "User account used for SSH connections to worker nodes."
+  },
+  "ssh.key_path": {
+    "type": "string",
+    "default": "/root/.ssh/id_rsa",
+    "description": "Path to private SSH key for authentication."
+  }
+}

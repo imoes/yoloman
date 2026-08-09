@@ -1,0 +1,136 @@
+{
+  "sql_driver": {
+    "type": "string",
+    "default": "mysql",
+    "description": "Database driver type. Most common: 'mysql' or 'postgres'.",
+    "enum": [
+      "mysql",
+      "sqlite",
+      "cassandra"
+    ]
+  },
+  "sql_connect": {
+    "type": "string",
+    "default": "host=localhost user=dovecot password=secret dbname=dovecot",
+    "description": "Database connection string. Must include at least host, user, password, and dbname."
+  },
+  "password_query": {
+    "type": "string",
+    "default": "SELECT username, password FROM users WHERE username = '%u' AND active = 'Y'",
+    "description": "SQL query to retrieve the user's password hash. '%u' is replaced with the login username."
+  },
+  "user_query": {
+    "type": "string",
+    "default": "SELECT home, uid, gid FROM users WHERE username = '%u' AND active = 'Y'",
+    "description": "SQL query to retrieve user's home directory and UID/GID. Must return columns: home, uid, gid (or use userdb_* mapping)."
+  },
+  "password_verify": {
+    "type": "string",
+    "default": "",
+    "description": "Optional query for explicit password verification (e.g., for legacy auth). Leave blank to use password_query."
+  },
+  "mailboxes_query": {
+    "type": "string",
+    "default": "SELECT mailbox FROM mailboxes WHERE username = '%u'",
+    "description": "Optional SQL query to list mailboxes for a user. Required for shared mailboxes or ACL support."
+  },
+  "iterate_query": {
+    "type": "string",
+    "default": "SELECT username FROM users WHERE active = 'Y'",
+    "description": "Optional query to list all users. Used for user enumeration (e.g., userlist-ldap-like behavior)."
+  },
+  "enable_debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SQL query debug logging. Use only for troubleshooting."
+  },
+  "sql_tls": {
+    "type": "string",
+    "default": "",
+    "description": "TLS mode for DB connection: 'yes', 'no', 'try'. Leave blank to disable.",
+    "enum": [
+      "no",
+      "try"
+    ]
+  },
+  "sql_tls_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for DB TLS verification."
+  },
+  "sql_tls_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate for DB TLS (if client cert auth required)."
+  },
+  "sql_tls_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key for DB TLS."
+  },
+  "default_pass_scheme": {
+    "type": "string",
+    "default": "SHA512-CRYPT",
+    "description": "Default password hashing scheme (e.g., SHA512-CRYPT, BLF-CRYPT, PLAIN)."
+  },
+  "sql_preconnects": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of preconnected database connections. 0 disables preconnects."
+  },
+  "sql_max_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous SQL connections."
+  },
+  "sql_query_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Query timeout in seconds. Set to 0 or omit to disable timeout."
+  },
+  "username_map": {
+    "type": "string",
+    "default": "",
+    "description": "SQL query to map login username to internal username (e.g., for alias handling)."
+  },
+  "password_field": {
+    "type": "string",
+    "default": "password",
+    "description": "Name of the column containing the password hash. Usually 'password'."
+  },
+  "userdb_prefix": {
+    "type": "string",
+    "default": "userdb_",
+    "description": "Prefix for userdb output fields (e.g., 'mail', 'uid', 'gid' become 'userdb_mail', etc.)."
+  },
+  "userdb_iterate": {
+    "type": "string",
+    "default": "userdb_%{sql:SELECT ...}",
+    "description": "Prefix for userdb iteration results. Typically left as default."
+  },
+  "password_prefix": {
+    "type": "string",
+    "default": "password_",
+    "description": "Prefix for password query result fields. Usually 'password_'."
+  },
+  "default_domain": {
+    "type": "string",
+    "default": "",
+    "description": "Default domain to append if the login username doesn\u2019t contain '@'."
+  },
+  "password_hash_iterations": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of hash iterations for PBKDF2/argon2/etc. Set 0 to use default."
+  },
+  "enable_result_cache": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of SQL query results (improves performance)."
+  },
+  "result_cache_ttl": {
+    "type": "number",
+    "default": 3600,
+    "description": "Time-to-live (in seconds) for cached query results."
+  }
+}

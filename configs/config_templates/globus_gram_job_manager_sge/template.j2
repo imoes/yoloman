@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Globus GRAM Job Manager for Grid Engine configuration -->
+<!-- This file is managed by the globus-gram-job-manager-sge package -->
+<!-- Do not edit manually; use the Globus configuration tools instead -->
+<GridManagerConfig>
+  <!-- Service name identifier used by GRAM for this job manager instance -->
+  <ServiceName>{{ service_name | default('globus-gridftp') }}</ServiceName>
+
+  <!-- Human-readable description of this job manager service -->
+  <ServiceDescription>{{ service_description | default('Grid Engine Job Manager for Globus GRAM') }}</ServiceDescription>
+
+  <!-- Default Grid Engine queue to which jobs will be submitted -->
+  <Queue>{{ queue | default('all.q') }}</Queue>
+
+  <!-- Absolute path to the Grid Engine qsub command -->
+  <QsubPath>{{ qsub_path | default('/usr/bin/qsub') }}</QsubPath>
+
+  <!-- Absolute path to the Grid Engine qstat command -->
+  <QstatPath>{{ qstat_path | default('/usr/bin/qstat') }}</QstatPath>
+
+  <!-- Absolute path to the Grid Engine qdel command -->
+  <QdelPath>{{ qdel_path | default('/usr/bin/qdel') }}</QdelPath>
+
+  <!-- Absolute path to the Grid Engine qacct command for job accounting -->
+  <QacctPath>{{ qacct_path | default('/usr/bin/qacct') }}</QacctPath>
+
+  <!-- Maximum number of jobs that this manager will handle concurrently -->
+  <MaxJobs>{{ max_jobs | default(1000) }}</MaxJobs>
+
+  <!-- Directory used for temporary job staging and state files. Must be owned by the globus user -->
+  <WorkDir>{{ work_dir | default('/var/lib/globus/gridengine_jobs') }}</WorkDir>
+
+  <!-- Whether to send email notifications on job completion or failure (true/false) -->
+  <NotifyEnabled>{{ notify_enabled | default(False) | lower }}</NotifyEnabled>
+
+  <!-- Email address to receive job status notifications (only used if notify_enabled is true) -->
+  <NotifyEmail>{{ notify_email | default('') }}</NotifyEmail>
+
+  <!-- List of environment variables to inject into every Grid Engine job (list of mappings with name/value) -->
+  <Environment>
+{% for env in environment_vars | default([]) %}    <Env name="{{ env.name }}">{{ env.value }}</Env>
+{% endfor %}  </Environment>
+
+  <!-- Grid Engine accounting project name (e.g., for billing or quota). Leave empty to omit -->
+  <Project>{{ project | default('') }}</Project>
+
+  <!-- List of default Grid Engine resource limits to apply to jobs (e.g., h_vmem, h_rt) -->
+  <ResourceLimits>
+{% for limit in resource_limits | default([]) %}    <Limit name="{{ limit.name }}">{{ limit.value }}</Limit>
+{% endfor %}  </ResourceLimits>
+
+  <!-- System user with permissions to run Grid Engine admin commands (e.g., qmod, qconf) -->
+  <AdminUser>{{ admin_user | default('root') }}</AdminUser>
+
+  <!-- Whether to enable real-time cluster resource monitoring via qhost (true/false) -->
+  <MonitoringEnabled>{{ monitoring_enabled | default(False) | lower }}</MonitoringEnabled>
+
+  <!-- Absolute path to the Grid Engine qhost command (only used if monitoring_enabled is true) -->
+  <QhostPath>{{ qhost_path | default('/usr/bin/qhost') }}</QhostPath>
+</GridManagerConfig>

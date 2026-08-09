@@ -1,0 +1,102 @@
+# nginx_light: Minimal Nginx configuration template
+# This template generates a valid nginx.conf file based on provided schema.
+
+# worker_processes: Number of worker processes; 'auto' uses CPU count
+worker_processes {{ worker_processes | default('auto') }};
+
+# error_log: Path and level for error logs
+error_log /var/log/nginx/error.log warn;
+
+# pid: Path to the PID file
+pid /run/nginx.pid;
+
+# events block: Configures how worker connections are handled
+events {
+    # worker_connections: Max number of simultaneous connections per worker
+    worker_connections 1024;
+}
+
+# http block: Main HTTP configuration
+http {
+    # include: Include standard MIME types file
+    include /etc/nginx/mime.types;
+
+    # default_type: Fallback MIME type for unknown file types
+    default_type application/octet-stream;
+
+    # access_log: Path and format for access logs
+    access_log /var/log/nginx/access.log combined;
+
+    # sendfile: Enables efficient file transfer using sendfile(2)
+    sendfile on;
+
+    # keepalive_timeout: Time to keep connections open for keepalive
+    keepalive_timeout 65;
+
+    # client_max_body_size: Max allowed size of client request body
+    client_max_body_size 10m;
+
+    # gzip: Enable gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_min_length 256;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml;
+
+    # server_names_hash_bucket_size: Prevents hash collisions for server_names
+    server_names_hash_bucket_size 64;
+
+{% for server in servers | default([]) %}
+    # server: Virtual host configuration block
+    server {
+{% for listen_addr in server.listen | default(['80']) %}
+        # listen: IP:port to listen on (supports IPv6)
+        listen {{ listen_addr }};
+{% endfor %}
+
+{% if server.ssl | default(False) %}
+{% for listen_addr in server.listen | default(['80']) %}
+        listen [::]:{{ listen_addr }} ssl;
+{% endfor %}
+
+        # ssl_certificate: Path to SSL certificate file
+        ssl_certificate {{ server.ssl_certificate | default('/etc/ssl/certs/server.crt') }};
+
+        # ssl_certificate_key: Path to SSL private key file
+        ssl_certificate_key {{ server.ssl_certificate_key | default('/etc/ssl/private/server.key') }};
+{% endif %}
+
+        # server_name: Hostname(s) this server block responds to
+        server_name {{ server.name | default(['localhost']) | join(' ') }};
+
+        # root: Document root directory
+        root {{ server.root | default('/var/www/html') }};
+
+        # index: Index files
+        index {{ server.index | default(['index.html', 'index.htm']) | join(' ') }};
+
+        # location /: Default location block
+        location / {
+            try_files $uri $uri/ =404;
+        }
+
+{% for location in server.locations | default([]) %}
+        # location: Custom location block for {{ location.path }}
+        location {{ location.path }} {
+{% if location.alias is defined %}
+            alias {{ location.alias }};
+{% elif location.proxy_pass is defined %}
+            proxy_pass {{ location.proxy_pass }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+{% else %}
+            try_files $uri $uri/ =404;
+{% endif %}
+        }
+{% endfor %}
+    }
+{% endfor %}
+}

@@ -1,0 +1,38 @@
+{
+  "log_dir": "/var/log/masakari",
+  "log_file": "masakari-process-monitor.log",
+  "log_level": "INFO",
+  "transport_url": "rabbit://masakari:secrete@controller:5672/",
+  "enabled": true,
+  "check_interval": 15,
+  "failure_threshold": 2,
+  "recovery_method": "restart",
+  "host_name": "compute-01",
+  "enable_auto_recovery": true,
+  "monitored_processes": [
+    {
+      "name": "masakari-process-monitor",
+      "enabled": true,
+      "command_pattern": "masakari-process-monitor",
+      "pid_file": "",
+      "recovery_method": "restart",
+      "failure_threshold": 2
+    },
+    {
+      "name": "libvirtd",
+      "enabled": true,
+      "command_pattern": "libvirtd",
+      "pid_file": "/run/libvirtd.pid",
+      "recovery_method": "reboot_host",
+      "failure_threshold": 3
+    },
+    {
+      "name": "neutron-openvswitch-agent",
+      "enabled": true,
+      "command_pattern": "neutron-openvswitch-agent",
+      "pid_file": "",
+      "recovery_method": "restart",
+      "failure_threshold": 4
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+name: clc_loadbalancer
+fqcn: community.general.clc_loadbalancer
+collection: community.general
+short_description: Create, Delete shared loadbalancers in CenturyLink Cloud
+description: An Ansible module to Create, Delete shared loadbalancers in CenturyLink Cloud.
+options:
+  alias:
+    type: str
+    required: true
+    description: The alias of your CLC Account
+  description:
+    type: str
+    description: A description for the loadbalancer
+  location:
+    type: str
+    required: true
+    description: The location of the datacenter where the load balancer resides in
+  method:
+    type: str
+    choices:
+    - leastConnection
+    - roundRobin
+    description: -The balancing method for the load balancer pool
+  name:
+    type: str
+    required: true
+    description: The name of the loadbalancer
+  nodes:
+    type: list
+    default: []
+    description: A list of nodes that needs to be added to the load balancer pool
+  persistence:
+    type: str
+    choices:
+    - standard
+    - sticky
+    description: The persistence method for the load balancer
+  port:
+    type: str
+    choices:
+    - '80'
+    - '443'
+    description: Port to configure on the public-facing side of the load balancer pool
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    - port_absent
+    - nodes_present
+    - nodes_absent
+    description: Whether to create or delete the load balancer pool
+  status:
+    type: str
+    default: enabled
+    choices:
+    - enabled
+    - disabled
+    description: The status of the loadbalancer
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Note - You must set the CLC_V2_API_USERNAME And CLC_V2_API_PASSWD Environment variables\
+  \ before running these examples\n- name: Create Loadbalancer\n  hosts: localhost\n  connection: local\n\
+  \  tasks:\n    - name: Actually Create things\n      community.general.clc_loadbalancer:\n        name:\
+  \ test\n        description: test\n        alias: TEST\n        location: WA1\n        port: 443\n \
+  \       nodes:\n          - ipAddress: 10.11.22.123\n            privatePort: 80\n        state: present\n\
+  \n- name: Add node to an existing loadbalancer pool\n  hosts: localhost\n  connection: local\n  tasks:\n\
+  \    - name: Actually Create things\n      community.general.clc_loadbalancer:\n        name: test\n\
+  \        description: test\n        alias: TEST\n        location: WA1\n        port: 443\n        nodes:\n\
+  \          - ipAddress: 10.11.22.234\n            privatePort: 80\n        state: nodes_present\n\n\
+  - name: Remove node from an existing loadbalancer pool\n  hosts: localhost\n  connection: local\n  tasks:\n\
+  \    - name: Actually Create things\n      community.general.clc_loadbalancer:\n        name: test\n\
+  \        description: test\n        alias: TEST\n        location: WA1\n        port: 443\n        nodes:\n\
+  \          - ipAddress: 10.11.22.234\n            privatePort: 80\n        state: nodes_absent\n\n-\
+  \ name: Delete LoadbalancerPool\n  hosts: localhost\n  connection: local\n  tasks:\n    - name: Actually\
+  \ Delete things\n      community.general.clc_loadbalancer:\n        name: test\n        description:\
+  \ test\n        alias: TEST\n        location: WA1\n        port: 443\n        nodes:\n          - ipAddress:\
+  \ 10.11.22.123\n            privatePort: 80\n        state: port_absent\n\n- name: Delete Loadbalancer\n\
+  \  hosts: localhost\n  connection: local\n  tasks:\n    - name: Actually Delete things\n      community.general.clc_loadbalancer:\n\
+  \        name: test\n        description: test\n        alias: TEST\n        location: WA1\n       \
+  \ port: 443\n        nodes:\n          - ipAddress: 10.11.22.123\n            privatePort: 80\n    \
+  \    state: absent\n"

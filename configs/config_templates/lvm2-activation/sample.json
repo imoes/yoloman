@@ -1,0 +1,59 @@
+{
+  "monitoring": true,
+  "min_initial_size": 100,
+  "activation_retry": 60,
+  "use_polling": false,
+  "read_only": false,
+  "auto_activation_volume_list": [],
+  "raid": {
+    "min_home_pages": 1,
+    "sync_max": 1000
+  },
+  "mirror": {
+    "log_failures": true,
+    "auto_recovery": true,
+    "min_recovery_rate": 1
+  },
+  "thin_pool": {
+    "metadata_read_ahead": 0,
+    "check_timeout": 60,
+    "error_when_full": true
+  },
+  "scan": [
+    "\"a|/dev/disk/by-id/scsi-*|\"",
+    "\"r|.*|\""
+  ],
+  "preferred_names": [
+    "\"mpath.*\"",
+    "\"dm-.*\""
+  ],
+  "filtering": true,
+  "md_component_detection": true,
+  "aliases": [],
+  "backup": {
+    "backup": true,
+    "backup_dir": "/etc/lvm/backup",
+    "archives": 20,
+    "archive_prefix": "vgname"
+  },
+  "activation_hooks": [
+    {
+      "description": "Notify monitoring system after logical volume creation",
+      "event": "post_lvcreate",
+      "command": "/usr/local/bin/lvm-event-notifier.py lvcreate $VG_NAME $LV_NAME"
+    },
+    {
+      "description": "Run health check script on activation of RAID arrays",
+      "event": "post_lvactivate",
+      "command": "/usr/local/bin/check-raid-health.sh $DM_NAME"
+    }
+  ],
+  "log": {
+    "verbose": 1,
+    "prefix": "[LVM2]",
+    "syslog": true,
+    "file": "/var/log/lvm2.log",
+    "overwrite": false,
+    "level": 1
+  }
+}

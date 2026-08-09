@@ -1,0 +1,83 @@
+# fsverity configuration
+#
+# This configuration file controls the behavior of the fsverity utility,
+# which manages Filesystem verification for Merkle tree-based integrity
+# verification on Linux filesystems (e.g., f2fs, fscrypt).
+#
+# It supports three main operations:
+# 1. Digest generation (creating hashes for files)
+# 2. Signing (creating cryptographic signatures)
+# 3. Metadata dumping (inspecting Merkle trees or descriptors)
+#
+# All boolean flags default to False. All path/string fields default to empty.
+# Numeric fields default to 0 unless specified otherwise.
+
+# If the entire config dict is undefined, default to an empty dict so nested access works.
+{% set config = config | default({}) %}
+
+[digest]
+
+# Merkle tree block size in bytes.
+# Kernel v6.2+: must equal page and filesystem block size.
+# Kernel v6.3+: must be ≥ 1024 and ≤ page size.
+# Must be a power of 2.
+block_size = {{ (config.digest_block_size | default(4096)) }}
+
+# Hash algorithm used for the Merkle tree construction.
+# Supported values: 'sha256', 'sha512'.
+hash_algorithm = {{ (config.hash_algorithm | default('sha256')) }}
+
+# Salt for Merkle tree hashing, provided as a hex string.
+# Empty string means no salt.
+salt = {{ (config.salt | default('')) }}
+
+# If true, formats the digest for Linux kernel builtin signature verification.
+for_builtin_sig = {{ (config.for_builtin_sig | default(false) | lower) }}
+
+# If true, outputs only the hex digest, omitting the algorithm name and filename.
+compact = {{ (config.compact | default(false) | lower) }}
+
+# Path to write the computed Merkle tree.
+# Required only if a non-kernel consumer needs the raw tree data.
+out_merkle_tree_path = {{ (config.out_merkle_tree_path | default('')) }}
+
+# Path to write the computed fs-verity descriptor.
+out_descriptor_path = {{ (config.out_descriptor_path | default('')) }}
+
+[sign]
+
+# Path to the private key file (PEM format) used for signing.
+sign_key_path = {{ (config.sign_key_path | default('')) }}
+
+# Path to the certificate file (PEM format) for signing.
+# Required if the private key file does not already contain a certificate.
+sign_cert_path = {{ (config.sign_cert_path | default('')) }}
+
+# Path to the OpenSSL PKCS#11 engine shared library (e.g., libp11.so).
+# Used for hardware security module (HSM) or smart card integration.
+pkcs11_engine_path = {{ (config.pkcs11_engine_path | default('')) }}
+
+# Path to the PKCS#11 token-specific module library.
+pkcs11_module_path = {{ (config.pkcs11_module_path | default('')) }}
+
+# PKCS#11 URI key identifier.
+# Defaults to the token’s default key if this is omitted or empty.
+pkcs11_keyid = {{ (config.pkcs11_keyid | default('')) }}
+
+[enable]
+
+# Path to the built-in signature file (PKCS-7 DER format) for enabling verity.
+enable_signature_path = {{ (config.enable_signature_path | default('')) }}
+
+[dump_metadata]
+
+# Type of metadata to dump.
+# Supported values: 'merkle_tree', 'descriptor', 'signature'.
+dump_type = {{ (config.dump_type | default('descriptor')) }}
+
+# Byte offset into the metadata to begin dumping.
+dump_offset = {{ (config.dump_offset | default(0)) }}
+
+# Length in bytes to dump from the metadata starting at dump_offset.
+# Must be used in conjunction with dump_offset.
+dump_length = {{ (config.dump_length | default(0)) }}

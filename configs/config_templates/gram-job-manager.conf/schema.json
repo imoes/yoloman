@@ -1,0 +1,119 @@
+{
+  "host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP address to bind to. Leave empty to bind to all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 2119,
+    "description": "TCP port on which the GRAM Job Manager service listens."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 200,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "max_operations": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent job management operations (e.g., cancel, status)."
+  },
+  "gridftp_server": {
+    "type": "string",
+    "default": "",
+    "description": "Host:port of the GridFTP server used for data staging. Leave empty if not used."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Timeout in seconds for job submission and status queries."
+  },
+  "verbose_logging": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed debug logging for troubleshooting."
+  },
+  "job_spool_dir": {
+    "type": "string",
+    "default": "/var/lib/globus/gram_job_manager/spool",
+    "description": "Directory for spooling job metadata and temporary files."
+  },
+  "job_state_cache_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of job state records kept in memory for fast lookup."
+  },
+  "allowed_resource_managers": {
+    "type": "list",
+    "default": [],
+    "description": "List of names of resource managers permitted to accept jobs from this manager (e.g., PBS, SLURM).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "use_credential_renewal": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable automatic GSI proxy credential renewal via gssproxy."
+  },
+  "credential_renewal_config": {
+    "type": "string",
+    "default": "/etc/gssproxy/gssproxy.conf",
+    "description": "Path to the gssproxy configuration file (used only if credential renewal is enabled)."
+  },
+  "environment": {
+    "type": "list",
+    "default": [],
+    "description": "Environment variables to export to all job processes. Each entry specifies name=value.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Environment variable name"
+      },
+      "value": {
+        "type": "string",
+        "description": "Environment variable value"
+      }
+    }
+  },
+  "job_wrappers": {
+    "type": "list",
+    "default": [],
+    "description": "Scripts to invoke before (pre) or after (post) each job execution.",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "pre",
+          "post"
+        ],
+        "description": "When to run the wrapper script: before ('pre') or after ('post') job execution"
+      },
+      "script": {
+        "type": "string",
+        "description": "Path to the wrapper script"
+      }
+    }
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "proxy",
+    "description": "Authentication mechanism. Options: 'proxy' (GSI proxy), 'gridmap' (user mapping), or 'x509_proxy' (direct proxy path)."
+  },
+  "proxy_path": {
+    "type": "string",
+    "default": "/tmp/x509up_u0",
+    "description": "Path to the GSI proxy certificate file (used only when AuthMethod = 'x509_proxy')."
+  },
+  "enable_job_aggregation": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable batch submission of multiple jobs in one request."
+  },
+  "max_jobs_per_batch": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of jobs per aggregation batch (used only if job aggregation is enabled)."
+  }
+}

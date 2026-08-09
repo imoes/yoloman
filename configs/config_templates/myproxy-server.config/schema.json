@@ -1,0 +1,122 @@
+{
+  "identity_cert_path": {
+    "type": "string",
+    "default": "/etc/myproxy-server/servercert.pem",
+    "description": "Path to the server's X.509 certificate file."
+  },
+  "identity_key_path": {
+    "type": "string",
+    "default": "/etc/myproxy-server/serverkey.pem",
+    "description": "Path to the server's private key file."
+  },
+  "cacert_dir": {
+    "type": "string",
+    "default": "/etc/grid-security/certificates",
+    "description": "Directory containing CA certificates for validation."
+  },
+  "ca_cert_path": {
+    "type": "string",
+    "default": "/etc/grid-security/certificates/$(HASH).r0",
+    "description": "Path to the primary CA certificate (optional; often auto-resolved via cacert_dir)."
+  },
+  "ca_revocation_list_path": {
+    "type": "string",
+    "default": "/etc/grid-security/certificates/$(HASH).r0",
+    "description": "Path to the CA certificate revocation list (CRL); auto-resolved in most cases."
+  },
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server binds to (e.g., '127.0.0.1' or '::' for IPv6)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 7512,
+    "description": "TCP port number for incoming MyProxy connections."
+  },
+  "credential_lifetime_hours": {
+    "type": "number",
+    "default": 168,
+    "description": "Default credential lifetime in hours (max 168 = 7 days)."
+  },
+  "renewal_threshold_hours": {
+    "type": "number",
+    "default": 24,
+    "description": "Minimum remaining lifetime (in hours) before credential renewal is required."
+  },
+  "authorized_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed username patterns (Unix shell globs accepted)."
+  },
+  "authorized_groups": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed Unix group names or patterns."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'notice', 'warning', 'error', or 'critical'."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/myproxy-server.log",
+    "description": "Path to the log file (empty string disables file logging)."
+  },
+  "require_proxy_cert": {
+    "type": "bool",
+    "default": true,
+    "description": "Require clients to present a valid proxy certificate (not just end-entity cert)."
+  },
+  "enforce_renewal": {
+    "type": "bool",
+    "default": false,
+    "description": "Enforce credential renewal within the threshold (deny access if expired)."
+  },
+  "working_dir": {
+    "type": "string",
+    "default": "/var/lib/myproxy",
+    "description": "Directory for temporary files and credential storage."
+  },
+  "enable_gridftp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable optional GridFTP data channel support."
+  },
+  "gridftp_port": {
+    "type": "number",
+    "default": 50000,
+    "description": "Base port for GridFTP data connections (if enabled)."
+  },
+  "num_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads for handling concurrent requests."
+  },
+  "allowed_vos": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed Virtual Organizations (VOs). Each entry specifies a VO name and optionally its Distinguished Name (DN).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "VO name (e.g., 'lhcb', 'atlas')."
+      },
+      "dn": {
+        "type": "string",
+        "description": "Optional VO's CA Distinguished Name (e.g., '/O=Grid/OU=CERN/CN=CERN Grid CA')."
+      }
+    }
+  },
+  "max_credentials_per_user": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of credentials a single user may store at once."
+  },
+  "cleanup_interval_seconds": {
+    "type": "number",
+    "default": 3600,
+    "description": "Interval (in seconds) between credential cleanup runs."
+  }
+}

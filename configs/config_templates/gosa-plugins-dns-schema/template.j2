@@ -1,0 +1,131 @@
+# LDIF entry for the DNS schema extension in OpenLDAP
+# This file defines the object classes and attribute types required
+# by the GOsa+ DNS plugin to manage DNS zones within the LDAP directory.
+
+# The Distinguished Name for the schema entry.
+# Schema entries in OpenLDAP's cn=config are located under cn=schema,cn=config.
+dn: {{ dn | default('cn=dnszone,cn=schema,cn=config') }}
+
+# The object class required for any configuration entry in cn=config.
+objectClass: olcSchemaConfig
+
+# The common name for this schema entry, used for identification.
+cn: {{ cn | default('dnszone') }}
+
+# ---------------------------------------------------------
+# Attribute Types Definition
+# Each olcAttributeTypes line defines a unique attribute identifier
+# and its properties (syntax, matching rules, etc.) for LDAP usage.
+# ---------------------------------------------------------
+
+# Defines the 'dNSTTL' attribute: stores the Time-To-Live value for DNS records.
+# Syntax: Integer
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.0.0 NAME 'dNSTTL' DESC 'An integer denoting time to live' EQUALITY integerMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 )
+
+# Defines the 'dNSClass' attribute: stores the class of a DNS resource record.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.0.1 NAME 'dNSClass' DESC 'The class of a resource record' EQUALITY caseIgnoreIA5Match SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'zoneName' attribute: the name of the DNS zone (highest node).
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.0.2 NAME 'zoneName' DESC 'The name of a zone, i.e. the name of the highest node in the zone' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'relativeDomainName' attribute: starting labels of a domain name.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.0.3 NAME 'relativeDomainName' DESC 'The starting labels of a domain name' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'pTRRecord' attribute: domain name pointer (PTR), RFC 1035.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.12 NAME 'pTRRecord' DESC 'domain name pointer, RFC 1035' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'hInfoRecord' attribute: host information (HINFO), RFC 1035.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.13 NAME 'hInfoRecord' DESC 'host information, RFC 1035' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'mInfoRecord' attribute: mailbox/mail list information (MINFO), RFC 1035.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.14 NAME 'mInfoRecord' DESC 'mailbox or mail list information, RFC 1035' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'tXTRecord' attribute: text string (TXT), RFC 1035.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.16 NAME 'tXTRecord' DESC 'text string, RFC 1035' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'aFSDBRecord' attribute: AFS Data Base location (AFSDB), RFC 1183.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.18 NAME 'aFSDBRecord' DESC 'for AFS Data Base location, RFC 1183' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'SigRecord' attribute: Signature (SIG), RFC 2535.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.24 NAME 'SigRecord' DESC 'Signature, RFC 2535' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'KeyRecord' attribute: Key (KEY), RFC 2535.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.25 NAME 'KeyRecord' DESC 'Key, RFC 2535' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'aAAARecord' attribute: IPv6 address (AAAA), RFC 1886.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.28 NAME 'aAAARecord' DESC 'IPv6 address, RFC 1886' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'LocRecord' attribute: Location (LOC), RFC 1876.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.29 NAME 'LocRecord' DESC 'Location, RFC 1876' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'nXTRecord' attribute: Non-existent name (NXT), RFC 2535 (Obsolete but kept for compatibility).
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.30 NAME 'nXTRecord' DESC 'non-existant, RFC 2535' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'sRVRecord' attribute: Service location (SRV), RFC 2782.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.33 NAME 'sRVRecord' DESC 'service location, RFC 2782' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'nAPTRRecord' attribute: Naming Authority Pointer (NAPTR), RFC 2915.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.35 NAME 'nAPTRRecord' DESC 'Naming Authority Pointer, RFC 2915' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'kXRecord' attribute: Key Exchange Delegation (KX), RFC 2230.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.36 NAME 'kXRecord' DESC 'Key Exchange Delegation, RFC 2230' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'certRecord' attribute: Certificate (CERT), RFC 2538.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.37 NAME 'certRecord' DESC 'certificate, RFC 2538' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'a6Record' attribute: A6 Record Type, RFC 2874.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.38 NAME 'a6Record' DESC 'A6 Record Type, RFC 2874' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'dNameRecord' attribute: Non-Terminal DNS Name Redirection (DNAME), RFC 2672.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.39 NAME 'dNameRecord' DESC 'Non-Terminal DNS Name Redirection, RFC 2672' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'dSRecord' attribute: Delegation Signer (DS), RFC 3658.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.43 NAME 'dSRecord' DESC 'Delegation Signer, RFC 3658' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'sSHFPRecord' attribute: SSH Key Fingerprint (SSHFP).
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.44 NAME 'sSHFPRecord' DESC 'SSH Key Fingerprint, draft-ietf-secsh-dns-05.txt' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'rRSIGRecord' attribute: RRSIG (DNSSEC Signature), RFC 3755.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.46 NAME 'rRSIGRecord' DESC 'RRSIG, RFC 3755' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Defines the 'nSECRecord' attribute: NSEC (Next Secure), RFC 3755.
+# Syntax: Case-insensitive IA5 String
+olcAttributeTypes: ( 1.3.6.1.4.1.2428.20.1.47 NAME 'nSECRecord' DESC 'NSEC, RFC 3755' EQUALITY caseIgnoreIA5Match SUBSTR caseIgnoreIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# ---------------------------------------------------------
+# Object Class Definition
+# The 'dNSZone' object class allows LDAP entries to represent
+# a complete DNS zone with all the attributes defined above.
+# ---------------------------------------------------------
+
+# Defines the 'dNSZone' structural object class.
+# MUST have: zoneName, relativeDomainName
+# MAY have: dNSTTL, dNSClass, aRecord, mdRecord, mxRecord, nsRecord,
+#           soaRecord, cnameRecord, ptrRecord, hInfoRecord, minfoRecord,
+#           txtRecord, afsdbRecord, sigRecord, keyRecord, aaaaRecord,
+#           locRecord, nxtRecord, srvRecord, naptrRecord, kxRecord,
+#           certRecord, a6Record, dNameRecord, dsRecord, sshfpRecord,
+#           rrsigRecord, nsecRecord.
+olcObjectClasses: ( 1.3.6.1.4.1.2428.20.3 NAME 'dNSZone' SUP top STRUCTURAL MUST ( zoneName $ relativeDomainName ) MAY ( DNSTTL $ DNSClass $ ARecord $ MDRecord $ MXRecord $ NSRecord $ SOARecord $ CNAMERecord $ PTRRecord $ HINFORecord $ MINFORecord $ TXTRecord $ AFSDBRecord $ SIGRecord $ KEYRecord $ AAAARecord $ LOCRecord $ NXTRecord $ SRVRecord $ NAPTRRecord $ KXRecord $ CERTRecord $ A6Record $ DNAMERecord $ DSRecord $ SSHFPRecord $ RRSIGRecord $ NSECRecord ) )

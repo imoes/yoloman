@@ -1,0 +1,20 @@
+#
+# ArpON configuration file.
+#
+# See the arpon(8) man page for details.
+#
+
+#
+# List of static IP-to-MAC entries.
+# The order of entries determines which network interface they are associated with:
+# the first N entries (matching the length of the 'interfaces' list in the daemon
+# startup or defaults) are bound to the first interface (e.g. eth0), the next batch
+# to the second (e.g. eth1), and so on.
+#
+# Format: IP_ADDRESS MAC_ADDRESS
+#
+# Static entries matching the eth0 network interface:
+{% for entry in (arp_table_entries | default([{'ip': '192.168.1.1', 'mac': '58:ac:78:10:b9:77'}, {'ip': '192.168.1.3', 'mac': 'd4:be:d9:fe:8b:45'}, {'ip': '192.168.1.4', 'mac': '90:94:e4:bb:1c:10'}, {'ip': '10.0.1.1', 'mac': '58:ac:78:88:1a:bb'}, {'ip': '10.0.10.1', 'mac': '90:94:e4:7e:f4:59'}])) %}
+# {{ loop.index }} static entry (interface {{ 'eth0' if loop.index <= 3 else 'eth1' }}):
+# {{ entry.ip | default('0.0.0.0') }}	{{ entry.mac | default('00:00:00:00:00:00') }}
+{% endfor %}

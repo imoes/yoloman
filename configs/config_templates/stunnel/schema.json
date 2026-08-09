@@ -1,0 +1,148 @@
+{
+  "global": {
+    "type": "object",
+    "description": "Global stunnel configuration (applies to all services unless overridden)",
+    "items": {
+      "setuid": {
+        "type": "string",
+        "default": "nobody",
+        "description": "User to run stunnel as (recommended: 'nobody' for security)"
+      },
+      "setgid": {
+        "type": "string",
+        "default": "nogroup",
+        "description": "Group to run stunnel as (recommended: 'nogroup' for security)"
+      },
+      "pid": {
+        "type": "string",
+        "default": "/run/stunnel/stunnel.pid",
+        "description": "Path to PID file"
+      },
+      "foreground": {
+        "type": "bool",
+        "default": false,
+        "description": "Run in foreground (useful for containers; set to false for daemon mode)"
+      },
+      "debug": {
+        "type": "number",
+        "default": 0,
+        "description": "Debug level (0 = none, 5 = debug, 7 = trace)"
+      },
+      "cert": {
+        "type": "string",
+        "default": "/etc/stunnel/stunnel.pem",
+        "description": "Path to SSL certificate chain file (must include private key or be paired with 'key' below)"
+      },
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "Path to private key file (leave empty if key is embedded in 'cert')"
+      },
+      "options": {
+        "type": "list",
+        "default": [
+          "ALL",
+          "NO_SSLv2",
+          "NO_SSLv3",
+          "NO_COMPRESSION"
+        ],
+        "description": "OpenSSL options \u2014 disable weak protocols and features"
+      },
+      "cache": {
+        "type": "string",
+        "default": "builtin",
+        "description": "Session cache type: 'builtin', 'external', or 'none'"
+      },
+      "cacheSize": {
+        "type": "number",
+        "default": 1000,
+        "description": "Size of session cache (only relevant for 'builtin' cache)"
+      },
+      "timeoutConnect": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout (seconds) for connection establishment"
+      },
+      "timeoutIdle": {
+        "type": "number",
+        "default": 300,
+        "description": "Timeout (seconds) for idle connections"
+      },
+      "timeoutBusy": {
+        "type": "number",
+        "default": 300,
+        "description": "Timeout (seconds) for busy (data-transferring) connections"
+      }
+    }
+  },
+  "services": {
+    "type": "list",
+    "description": "List of services to proxy. Each service defines an accept port \u2192 connect endpoint mapping",
+    "items": {
+      "type": "object",
+      "description": "A single stunnel service definition",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Service name (must be unique; used as section header)"
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable description (shown as comment)"
+        },
+        "accept": {
+          "type": "string",
+          "default": "",
+          "description": "Host:port (or just port) on which stunnel listens for client connections"
+        },
+        "connect": {
+          "type": "string",
+          "default": "",
+          "description": "Host:port (or just port) of the backend server to forward to (can be 'localhost:PORT' or remote)"
+        },
+        "client": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, stunnel acts as a client toward the 'connect' server (required for outbound proxies or client-mode TLS)"
+        },
+        "sni": {
+          "type": "string",
+          "default": "",
+          "description": "SNI hostname to use when connecting to upstream server (for upstream TLS)"
+        },
+        "verify": {
+          "type": "number",
+          "default": 0,
+          "description": "Certificate verification level (0 = none, 1 = peer cert required, 2 = peer cert + chain, 3 = peer cert + chain + CRL)"
+        },
+        "cafile": {
+          "type": "string",
+          "default": "",
+          "description": "Path to CA certificate file for verification (only used if 'verify' > 0)"
+        },
+        "cadir": {
+          "type": "string",
+          "default": "",
+          "description": "Path to directory of CA certificates (alternative to 'cafile')"
+        },
+        "ciphers": {
+          "type": "string",
+          "default": "",
+          "description": "Cipher list specific to this service (overrides global 'options')"
+        },
+        "protocol": {
+          "type": "string",
+          "default": "",
+          "description": "Protocol to use (e.g., 'smtp', 'pop3') for protocol-specific handling"
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "If false, service section is commented out (disabled)"
+        }
+      }
+    }
+  }
+}

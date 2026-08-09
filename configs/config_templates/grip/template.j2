@@ -1,0 +1,70 @@
+{# grip(1) — Preview GitHub Markdown files locally #}
+{# This template generates a Python configuration file for the 'grip' tool. #}
+{# grip is a command-line utility to render GitHub-flavored Markdown pages. #}
+{# It serves a local web server to preview README files and other Markdown content. #}
+{# Configuration fields map directly to Python variables in the grip settings module. #}
+{# All variables use Jinja2 default filters to ensure the template never fails due to #}
+{# missing Ansible variables. The defaults match the grip(1) manpage defaults. #}
+
+{# -------------------------------------------------------------------------- #}
+{# Network Binding Configuration                                               #}
+{# -------------------------------------------------------------------------- #}
+
+{# Host to bind the local server to (e.g. '127.0.0.1', '0.0.0.0') #}
+HOST = '{{ host | default("localhost") }}'
+
+{# Port number for the local server (default from grip manpage: 6419) #}
+PORT = {{ port | default(6419) }}
+
+{# -------------------------------------------------------------------------- #}
+{# GitHub API Configuration                                                    #}
+{# -------------------------------------------------------------------------- #}
+
+{# Base URL of the GitHub API (e.g. GitHub Enterprise instance) #}
+API_URL = '{{ api_url | default("https://api.github.com") }}'
+
+{# GitHub username for API authentication (optional) #}
+{# Unset by default to allow anonymous API access (rate-limited). #}
+{% if (user | default('')) != '' %}
+USER = '{{ user | default("") }}'
+{% endif %}
+
+{# GitHub password or personal access token (optional) #}
+{# Use a Personal Access Token (PAT) instead of a password for security. #}
+{% if (password | default('')) != '' %}
+PASSWORD = '{{ password | default("") }}'
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Rendering Context and Layout                                                #}
+{# -------------------------------------------------------------------------- #}
+
+{# Repository context in 'owner/repo' format for user-content rendering #}
+{# Example: 'ansible/ansible'. Empty by default. #}
+{% if (context | default('')) != '' %}
+CONTEXT = '{{ context | default("") }}'
+{% endif %}
+
+{# Render as user-content (e.g. comments, issues) instead of full README #}
+USE_USER_CONTENT = {{ user_content | default(False) | ternary('True', 'False') }}
+
+{# Render wide layout (side navigation collapsed) #}
+USE_WIDE = {{ wide | default(False) | ternary('True', 'False') }}
+
+{# -------------------------------------------------------------------------- #}
+{# Behavior and Output Controls                                                #}
+{# -------------------------------------------------------------------------- #}
+
+{# Automatically refresh content on file change #}
+REFRESH = {{ refresh | default(True) | ternary('True', 'False') }}
+
+{# Manual page title (default is filename) #}
+{% if (title | default('')) != '' %}
+TITLE = '{{ title | default("") }}'
+{% endif %}
+
+{# When exporting, link to styles instead of inlining them #}
+NO_INLINE_STYLES = {{ no_inline | default(False) | ternary('True', 'False') }}
+
+{# Suppress terminal output from grip #}
+QUIET = {{ quiet | default(False) | ternary('True', 'False') }}

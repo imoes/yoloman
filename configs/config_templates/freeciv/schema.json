@@ -1,0 +1,290 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "bindaddr": "0.0.0.0",
+      "port": 5555
+    },
+    "description": "Network binding and port for the Freeciv server",
+    "properties": {
+      "bindaddr": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to listen on (e.g., 127.0.0.1 or 0.0.0.0)"
+      },
+      "port": {
+        "type": "number",
+        "default": 5555,
+        "description": "TCP port for client connections"
+      }
+    }
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "maxplayers": 10,
+      "max_ai_players": 8,
+      "idletimeout": 300,
+      "maxturn": 1000
+    },
+    "description": "Player and resource limits",
+    "properties": {
+      "maxplayers": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of human players allowed in a game"
+      },
+      "max_ai_players": {
+        "type": "number",
+        "default": 8,
+        "description": "Maximum number of AI players in a game"
+      },
+      "idletimeout": {
+        "type": "number",
+        "default": 300,
+        "description": "Seconds of inactivity before a player is dropped (0=disabled)"
+      },
+      "maxturn": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of turns per game (0=unlimited)"
+      }
+    }
+  },
+  "paths": {
+    "type": "object",
+    "default": {
+      "worldpath": "/var/lib/freeciv/world",
+      "savepath": ""
+    },
+    "description": "Filesystem paths for game data",
+    "properties": {
+      "worldpath": {
+        "type": "string",
+        "default": "/var/lib/freeciv/world",
+        "description": "Directory containing or for new world/map files"
+      },
+      "savepath": {
+        "type": "string",
+        "default": "",
+        "description": "Directory for savegames (if empty, uses worldpath)"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "logtofile": false,
+      "logfile": "/var/log/freeciv/server.log",
+      "loglevel": 2
+    },
+    "description": "Server logging configuration",
+    "properties": {
+      "logtofile": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable writing logs to a file (otherwise stdout)"
+      },
+      "logfile": {
+        "type": "string",
+        "default": "/var/log/freeciv/server.log",
+        "description": "Path to the log file (used only if logtofile is true)"
+      },
+      "loglevel": {
+        "type": "number",
+        "default": 2,
+        "description": "Verbosity level (0\u20136; 2=errors only, 4=info, 5=debug)"
+      }
+    }
+  },
+  "features": {
+    "type": "object",
+    "default": {
+      "remoteadmin": false,
+      "rcon_password": "",
+      "autosave": true,
+      "autosave_prefix": "save-",
+      "webstatus": false,
+      "webstatus_port": 8080,
+      "chatlog": false,
+      "chatlog_file": "/var/log/freeciv/chat.log"
+    },
+    "description": "Feature toggles and settings",
+    "properties": {
+      "remoteadmin": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable remote admin (RCON) to control the server over network"
+      },
+      "rcon_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for RCON access (empty disables RCON)"
+      },
+      "autosave": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable automatic saving of games at end of turns"
+      },
+      "autosave_prefix": {
+        "type": "string",
+        "default": "save-",
+        "description": "Prefix for autosave filenames"
+      },
+      "webstatus": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable built-in HTTP JSON status endpoint"
+      },
+      "webstatus_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port for the web status endpoint (0 to disable)"
+      },
+      "chatlog": {
+        "type": "bool",
+        "default": false,
+        "description": "Log chat messages to file"
+      },
+      "chatlog_file": {
+        "type": "string",
+        "default": "/var/log/freeciv/chat.log",
+        "description": "Path to the chat log file"
+      }
+    }
+  },
+  "rules": {
+    "type": "object",
+    "default": {
+      "mapgen": 0,
+      "worldsize": 2,
+      "climate": 3,
+      "terrain_noise": 1,
+      "startyear": 1940,
+      "startpos": 0,
+      "nuclear": true,
+      "walls": true,
+      "advdiplomacy": true,
+      "overrides": []
+    },
+    "description": "Game rules and map settings",
+    "properties": {
+      "mapgen": {
+        "type": "number",
+        "default": 0,
+        "description": "Map generation type (0=Earth, 1=Random, 2=Pangaea, 3=Isles)"
+      },
+      "worldsize": {
+        "type": "number",
+        "default": 2,
+        "description": "Map scale (0=small, 1=medium, 2=large, 3=very large)"
+      },
+      "climate": {
+        "type": "number",
+        "default": 3,
+        "description": "Climate preset (0=cold, 1=temp, 2=trop, 3=earth)"
+      },
+      "terrain_noise": {
+        "type": "number",
+        "default": 1,
+        "description": "Terrain variation (0=smooth, 1=normal, 2=rough)"
+      },
+      "startyear": {
+        "type": "number",
+        "default": 1940,
+        "description": "Starting year of the game"
+      },
+      "startpos": {
+        "type": "number",
+        "default": 0,
+        "description": "Starting positions: 0=auto, -1=one per player"
+      },
+      "nuclear": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow use of nuclear weapons"
+      },
+      "walls": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow city walls and fortifications"
+      },
+      "advdiplomacy": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable advanced diplomacy (secret treaties, etc.)"
+      },
+      "overrides": {
+        "type": "list",
+        "default": [],
+        "description": "List of ruleset parameter overrides",
+        "items": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "description": "Ruleset parameter name (e.g., 'researchcost', 'governmentturncost')"
+            },
+            "value": {
+              "type": "string",
+              "description": "Value as a string ( Freeciv ruleset values are typically quoted)"
+            }
+          },
+          "required": [
+            "key",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      }
+    }
+  },
+  "players": {
+    "type": "list",
+    "default": [],
+    "description": "Predefined player slots (human or AI) with defaults",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Player name (must be unique)"
+        },
+        "type": {
+          "type": "string",
+          "default": "human",
+          "description": "Player type: 'human', 'ai', or 'observer'"
+        },
+        "ai": {
+          "type": "bool",
+          "default": false,
+          "description": "If true, treats player as AI regardless of type"
+        },
+        "ai_type": {
+          "type": "string",
+          "default": "default",
+          "description": "AI personality (e.g., 'default', 'aggressive', 'economic')"
+        },
+        "email": {
+          "type": "string",
+          "default": "",
+          "description": "Player email (optional)"
+        },
+        "password": {
+          "type": "string",
+          "default": "",
+          "description": "Player password (empty = no password required)"
+        },
+        "team": {
+          "type": "string",
+          "default": "",
+          "description": "Team name (empty = no team)"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

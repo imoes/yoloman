@@ -1,0 +1,245 @@
+{#
+  ============================================================================
+  Dirb Configuration Template
+  ============================================================================
+  This template generates a command-line configuration for the `dirb` directory
+  brute-forcing tool. It maps Ansible variables to Dirb's command-line flags.
+
+  Self-documenting: every option includes its schema description as a comment.
+  All variables use |default() to prevent rendering errors when variables are unset.
+  ============================================================================
+#}
+
+{#
+  url_base: Base URL to scan (required)
+  Note: If empty, dirb will prompt or fail. Usually provided via ansible-vault or group_vars.
+#}
+{% set _url_base = url_base | default('', true) %}
+{% if _url_base %}
+# Base URL to scan (required)
+{{ _url_base }}
+{% endif %}
+
+{#
+  wordlists: List of wordlist files to use (absolute paths or relative to working dir)
+  Dirb accepts multiple wordlists as arguments.
+#}
+{% set _wordlists = wordlists | default([], true) %}
+{% if _wordlists | length > 0 %}
+# List of wordlist files to use (absolute paths or relative to working dir)
+{% for wl in _wordlists %}{{ wl }}
+{% endfor %}
+{% endif %}
+
+{#
+  user_agent: Custom HTTP User-Agent string
+  Flag: -a
+#}
+{% set _user_agent = user_agent | default('Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)', true) %}
+{% if _user_agent != 'Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1)' %}
+# Custom HTTP User-Agent string
+-a {{ _user_agent }}
+{% endif %}
+
+{#
+  no_squash_sequences: If true, disables squashing of /../ and /./ sequences in URLs
+  Flag: -b
+#}
+{% if no_squash_sequences | default(False, true) %}
+# If true, disables squashing of /../ and /./ sequences in URLs
+-b
+{% endif %}
+
+{#
+  cookie: HTTP Cookie header value to send
+  Flag: -c
+#}
+{% set _cookie = cookie | default('', true) %}
+{% if _cookie %}
+# HTTP Cookie header value to send
+-c {{ _cookie }}
+{% endif %}
+
+{#
+  certificate_file: Path to client certificate file (PEM format)
+  Flag: -E
+#}
+{% set _certificate_file = certificate_file | default('', true) %}
+{% if _certificate_file %}
+# Path to client certificate file (PEM format)
+-E {{ _certificate_file }}
+{% endif %}
+
+{#
+  fine_tune_404: Enables manual fine-tuning of 404 detection
+  Flag: -f
+#}
+{% if fine_tune_404 | default(False, true) %}
+# Enables manual fine-tuning of 404 detection
+-f
+{% endif %}
+
+{#
+  extra_headers: List of extra HTTP headers to add (e.g. 'X-Forwarded-For: 127.0.0.1')
+  Flag: -H
+#}
+{% set _extra_headers = extra_headers | default([], true) %}
+{% if _extra_headers | length > 0 %}
+# List of extra HTTP headers to add (e.g. 'X-Forwarded-For: 127.0.0.1')
+{% for h in _extra_headers %}-H {{ h }}
+{% endfor %}
+{% endif %}
+
+{#
+  case_insensitive: Perform case-insensitive matching
+  Flag: -i
+#}
+{% if case_insensitive | default(False, true) %}
+# Perform case-insensitive matching
+-i
+{% endif %}
+
+{#
+  print_location_header: Print the Location header when redirect occurs
+  Flag: -l
+#}
+{% if print_location_header | default(False, true) %}
+# Print the Location header when redirect occurs
+-l
+{% endif %}
+
+{#
+  ignore_codes: List of HTTP status codes to ignore (e.g. [301, 302])
+  Flag: -N
+#}
+{% set _ignore_codes = ignore_codes | default([], true) %}
+{% if _ignore_codes | length > 0 %}
+# List of HTTP status codes to ignore (e.g. [301, 302])
+{% for c in _ignore_codes %}-N {{ c }}
+{% endfor %}
+{% endif %}
+
+{#
+  output_file: File to save scan results to
+  Flag: -o
+#}
+{% set _output_file = output_file | default('', true) %}
+{% if _output_file %}
+# File to save scan results to
+-o {{ _output_file }}
+{% endif %}
+
+{#
+  proxy: Proxy server address (optionally with :port, default port 1080)
+  Flag: -p
+#}
+{% set _proxy = proxy | default('', true) %}
+{% if _proxy %}
+# Proxy server address (optionally with :port, default port 1080)
+-p {{ _proxy }}
+{% endif %}
+
+{#
+  proxy_auth: Proxy authentication as username:password
+  Flag: -P
+#}
+{% set _proxy_auth = proxy_auth | default('', true) %}
+{% if _proxy_auth %}
+# Proxy authentication as username:password
+-P {{ _proxy_auth }}
+{% endif %}
+
+{#
+  no_recursive: Disable recursive scanning
+  Flag: -r
+#}
+{% if no_recursive | default(False, true) %}
+# Disable recursive scanning
+-r
+{% endif %}
+
+{#
+  interactive_recursive: Enable interactive recursive mode
+  Flag: -R
+#}
+{% if interactive_recursive | default(False, true) %}
+# Enable interactive recursive mode
+-R
+{% endif %}
+
+{#
+  silent_mode: Suppress output of tested words
+  Flag: -S
+#}
+{% if silent_mode | default(False, true) %}
+# Suppress output of tested words
+-S
+{% endif %}
+
+{#
+  no_trailing_slash: Do not append trailing slash to URLs
+  Flag: -t
+#}
+{% if no_trailing_slash | default(False, true) %}
+# Do not append trailing slash to URLs
+-t
+{% endif %}
+
+{#
+  auth_credentials: HTTP Basic auth credentials as username:password
+  Flag: -u
+#}
+{% set _auth_credentials = auth_credentials | default('', true) %}
+{% if _auth_credentials %}
+# HTTP Basic auth credentials as username:password
+-u {{ _auth_credentials }}
+{% endif %}
+
+{#
+  verbose_not_exist: Show results for non-existent paths (not 404)
+  Flag: -v
+#}
+{% if verbose_not_exist | default(False, true) %}
+# Show results for non-existent paths (not 404)
+-v
+{% endif %}
+
+{#
+  no_stop_warning: Do not stop scanning on warning messages
+  Flag: -w
+#}
+{% if no_stop_warning | default(False, true) %}
+# Do not stop scanning on warning messages
+-w
+{% endif %}
+
+{#
+  extensions_file: Path to file containing file extensions to append
+  Flag: -x
+#}
+{% set _extensions_file = extensions_file | default('', true) %}
+{% if _extensions_file %}
+# Path to file containing file extensions to append
+-x {{ _extensions_file }}
+{% endif %}
+
+{#
+  extra_extensions: List of additional file extensions to append (e.g. ['.php', '.html'])
+  Flag: -X
+#}
+{% set _extra_extensions = extra_extensions | default([], true) %}
+{% if _extra_extensions | length > 0 %}
+# List of additional file extensions to append (e.g. ['.php', '.html'])
+{% for ext in _extra_extensions %}-X {{ ext }}
+{% endfor %}
+{% endif %}
+
+{#
+  delay_ms: Delay in milliseconds between requests
+  Flag: -z
+#}
+{% set _delay_ms = delay_ms | default(0, true) %}
+{% if _delay_ms > 0 %}
+# Delay in milliseconds between requests
+-z {{ _delay_ms }}
+{% endif %}

@@ -1,0 +1,18 @@
+# dmidecode runtime configuration for service integrations
+# (dmidecode itself is a command-line tool, not a service; this template
+# provides a sample config for wrapping dmidecode in a service, e.g.,
+# for scheduled DMI data collection or integration into monitoring systems.)
+
+[dmidecode]
+# Path to the memory device file (default: /dev/mem)
+# dmidecode requires root access to /dev/mem to read hardware DMI tables.
+# Ensure the user running dmidecode has appropriate permissions or use sudo.
+dev_mem = {{ dev_mem | default('/dev/mem') }}
+
+# DMI types to collect (keywords or numbers).
+# Specifies which DMI entry types (SMBIOS structures) dmidecode should decode.
+# Common types: bios (1), system (2), baseboard (3), chassis (4), processor (5),
+# memory (6), slots (7), cards (8).
+# Can be specified as integers (e.g., 1,2,3) or keywords (e.g., bios, system).
+# Default covers the most common hardware information categories.
+types = {{ (types | default(['bios', 'system', 'baseboard', 'chassis', 'processor'])) | join(', ') }}

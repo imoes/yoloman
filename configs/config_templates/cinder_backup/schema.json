@@ -1,0 +1,172 @@
+{
+  "enable_backup_service": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable the Cinder backup service."
+  },
+  "database_connection": {
+    "type": "string",
+    "default": "",
+    "description": "Database connection string (overrides automatic generation using other DB variables)."
+  },
+  "db_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for Cinder database user (used only if database_connection not provided)."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP of the database server (used only if database_connection not provided)."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "cinder",
+    "description": "Name of the Cinder database (used only if database_connection not provided)."
+  },
+  "redis_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP of Redis server (optional \u2014 used for caching). Leave empty to disable Redis."
+  },
+  "redis_port": {
+    "type": "number",
+    "default": 6379,
+    "description": "Redis port number."
+  },
+  "backup_driver": {
+    "type": "string",
+    "default": "cinder.backup.drivers.swift.SwiftBackupDriver",
+    "description": "Backup driver class (e.g., cinder.backup.drivers.swift.SwiftBackupDriver, cinder.backup.drivers.nfs.NfsBackupDriver)."
+  },
+  "backup_swift_url": {
+    "type": "string",
+    "default": "",
+    "description": "Swift service URL (required if using Swift backup driver)."
+  },
+  "backup_swift_container": {
+    "type": "string",
+    "default": "cinder_backups",
+    "description": "Swift container name to store backups."
+  },
+  "backup_object_size": {
+    "type": "number",
+    "default": 52428800,
+    "description": "Size (in bytes) of each backup object chunk. Larger values reduce metadata overhead; smaller values improve parallelism."
+  },
+  "backup_compression_algorithm": {
+    "type": "string",
+    "default": "none",
+    "description": "Compression algorithm for backups: 'none', 'gzip', or 'zstd'."
+  },
+  "backup_max_concurrent_operations": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent backup/restore operations."
+  },
+  "backup_tombstone_age": {
+    "type": "number",
+    "default": 0,
+    "description": "Age (in seconds) after which backup tombstones (soft-deleted backups) are purged. 0 disables automatic purging."
+  },
+  "api_bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname to bind the backup API service to."
+  },
+  "api_bind_port": {
+    "type": "number",
+    "default": 8778,
+    "description": "Port to listen on for backup API requests."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL for the backup API endpoint."
+  },
+  "ssl_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL certificate file (required if ssl_enabled=true)."
+  },
+  "ssl_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSL private key file (required if ssl_enabled=true)."
+  },
+  "ssl_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate bundle for client verification (optional)."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum requests per second per project. 0 disables rate limiting."
+  },
+  "keystone_auth_url": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone auth endpoint URL (e.g., http://keystone:5000/v3)."
+  },
+  "keystone_project_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone project domain name for the Cinder service user."
+  },
+  "keystone_project_name": {
+    "type": "string",
+    "default": "service",
+    "description": "Keystone service project name."
+  },
+  "keystone_user_domain_name": {
+    "type": "string",
+    "default": "Default",
+    "description": "Keystone user domain name for the Cinder service user."
+  },
+  "keystone_username": {
+    "type": "string",
+    "default": "cinder",
+    "description": "Keystone username for the Cinder service user."
+  },
+  "keystone_password": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone password for the Cinder service user."
+  },
+  "keystone_interface": {
+    "type": "string",
+    "default": "internal",
+    "description": "Keystone endpoint interface type: 'public', 'internal', or 'admin'."
+  },
+  "keystone_ssl_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "Verify Keystone TLS certificates. Disable only in test/dev environments."
+  },
+  "lock_path": {
+    "type": "string",
+    "default": "/var/lock/cinder",
+    "description": "Directory for file-based locking (required for multi-node deployments)."
+  },
+  "cors_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Cross-Origin Resource Sharing (CORS) headers in API responses."
+  },
+  "policy_file": {
+    "type": "string",
+    "default": "/etc/cinder/policy.json",
+    "description": "Path to the policy definition file."
+  },
+  "log_config": {
+    "type": "bool",
+    "default": false,
+    "description": "Log the entire configuration file on service startup for debugging."
+  },
+  "enable_versioned_objects": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable versioned objects for API and DB object compatibility across upgrades."
+  }
+}

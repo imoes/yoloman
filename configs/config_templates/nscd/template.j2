@@ -1,0 +1,131 @@
+#
+# nscd:	Name Service Cache Daemon configuration file
+#
+# This file configures the Name Service Cache Daemon (nscd), which caches
+# results from the Name Service Switch (NSS) for passwd, group, hosts, and
+# other database lookups. This significantly speeds up lookups on systems
+# using slow backends like NIS, LDAP, or when DNS resolution is sluggish.
+#
+# See `man nscd.conf` for a complete description of all directives.
+#
+
+# ---------------------------------------------------------------
+# General Settings
+# ---------------------------------------------------------------
+
+# System user account under which nscd runs. Use a non-root user for security.
+# nscd drops privileges to this user after binding to its socket.
+user {{ user | default('nobody') }}
+
+# Maximum number of simultaneous client connections allowed.
+# Increase under high load if you see "max connections" errors in logs.
+# This limits the number of open file descriptors nscd will hold.
+max_connections {{ max_connection | default(256) }}
+
+# Number of worker threads to handle requests.
+# Match to CPU core count under high concurrency. More threads help with
+# parallel cache lookups but consume more memory per thread stack.
+threads {{ threads | default(4) }}
+
+# After how many cache reloads (due to file changes) the cache should be
+# revalidated automatically. If the underlying files (e.g., /etc/passwd)
+# change, nscd can detect this and flush relevant caches.
+reload_count {{ reload_count | default(5) }}
+
+# Maximum length (bytes) of database identifier (e.g., filename) used
+# for cache invalidation. This limits the size of filenames nscd tracks
+# for automatic cache flushing.
+max_db_id_len {{ max_db_id_len | default(256) }}
+
+# Debug verbosity level (0 = silent, higher = more verbose).
+# Set to 1+ only for troubleshooting. Higher levels produce extensive
+# logs to stderr, useful for diagnosing NSS failures.
+debug_level {{ debug_level | default(0) }}
+
+# ---------------------------------------------------------------
+# Per-Service Cache Configuration
+# ---------------------------------------------------------------
+
+# Enable caching of user (passwd) information.
+# When true, nscd caches /etc/passwd and getpwnam/getpwent results.
+# Essential for systems with many users or slow LDAP/NIS backends.
+enable-cache passwd {{ enable_cache_passwd | default(True) | ternary('yes', 'no') }}
+    max-db-size 524288000    # Max DB size in bytes (500 MB)
+    max-n-db 100             # Max number of entries in the passwd DB
+    min-n-db 50              # Min number of entries to keep
+    max-db-age 1h            # Max age of cache entries before refresh
+
+# Enable caching of group information.
+# When true, nscd caches /etc/group and getgrnam/getgrent results.
+group {{ enable_cache_group | default(True) | ternary('yes', 'no') }}
+    max-db-size 524288000    # Max DB size in bytes (500 MB)
+    max-n-db 100             # Max number of entries in the group DB
+    min-n-db 50              # Min number of entries to keep
+    max-db-age 1h            # Max age of cache entries before refresh
+
+# Enable caching of host (DNS) lookups.
+# When true, nscd caches gethostbyname/gethostbyaddr results.
+# Crucial for reducing DNS query load. Be careful with short TTLs on
+# dynamic DNS records.
+hosts {{ enable_cache_hosts | default(True) | ternary('yes', 'no') }}
+    max-db-size 1048576000   # Max DB size in bytes (1 GB)
+    max-n-db 10000           # Max number of entries in the hosts DB
+    min-n-db 100             # Min number of entries to keep
+    max-db-age 1h            # Max age of cache entries before refresh
+
+# Positive cache TTL (seconds) for successful lookups.
+# Higher values reduce backend load but increase stale data risk.
+# Applies to all cache types unless overridden per-service.
+positive-time-to-live {{ positive_time_to_live | default(3600) }}
+
+# Negative cache TTL (seconds) for failed lookups.
+# Keep low to avoid missing newly created accounts or hosts.
+# A short TTL ensures that if a user is created, it's picked up quickly.
+negative-time-to-live {{ negative_time_to_live | default(60) }}
+
+# Shared memory file paths for each cache type.
+# nscd uses shared memory segments for performance.
+# Each entry in this list corresponds to a cache type in order:
+# passwd, group, hosts, services, netgroup, protocols, rpc, ethers.
+# These are typically auto-managed, but can be pinned to specific paths.
+pwm-files {{ pwm_files | default(['/var/run/nscd/passwd.db', '/var/run/nscd/group.db', '/var/run/nscd/hosts.db']) | join(' ') }}
+
+# ---------------------------------------------------------------
+# Service-Specific Overrides (Optional)
+# ---------------------------------------------------------------
+
+# Services database (nsswitch.conf services line).
+# Caching service lookups (e.g., rpc, portmapper).
+services no
+    max-db-size 10485760     # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# Netgroup database.
+netgroup no
+    max-db-size 10485760     # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# Protocols database.
+protocols no
+    max-db-size 1048576      # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# RPC database.
+rpc no
+    max-db-size 1048576      # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# Ethers database.
+ethers no
+    max-db-size 1048576      # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries

@@ -1,0 +1,112 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "production",
+    "description": "Operational mode; use 'production' for stable deployment, 'development' for debugging."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logging output. Choose from 'debug', 'info', 'warn', 'error'."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/molly-brown",
+    "description": "Directory where application logs are written."
+  },
+  "state_dir": {
+    "type": "string",
+    "default": "/var/lib/molly-brown",
+    "description": "Directory for persistent runtime state (e.g., counters, caches)."
+  },
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind the HTTP server to (e.g., '127.0.0.1' for localhost only)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for incoming HTTP connections."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes. Set to 0 to auto-scale based on CPU cores."
+  },
+  "max_requests_per_worker": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum requests handled per worker before restart (prevents memory leaks)."
+  },
+  "upstream_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for a response from an upstream service before timing out."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for incoming connections. Requires valid certificate and key."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/ssl/molly-brown/tls.crt",
+    "description": "File path to the TLS certificate (PEM format). Ignored if tls_enabled is false."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/ssl/molly-brown/tls.key",
+    "description": "File path to the TLS private key (PEM format). Ignored if tls_enabled is false."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [
+      {
+        "hostname": "localhost",
+        "port": 3000,
+        "weight": 1,
+        "enabled": true,
+        "health_check_path": "/health"
+      }
+    ],
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "DNS name or IP address of the upstream service."
+      },
+      "port": {
+        "type": "number",
+        "description": "Port number of the upstream service."
+      },
+      "weight": {
+        "type": "number",
+        "description": "Relative load-balancing weight (higher = more requests)."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether to include this upstream in the routing pool."
+      },
+      "health_check_path": {
+        "type": "string",
+        "description": "Path to probe for upstream health status."
+      }
+    },
+    "description": "List of backend services to proxy requests to. At least one upstream must be enabled."
+  },
+  "cache_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable in-memory caching of responses (useful for read-heavy workloads)."
+  },
+  "cache_max_entries": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of entries the cache can hold when enabled."
+  },
+  "cache_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live for cached entries in seconds (how long to reuse cached responses)."
+  }
+}

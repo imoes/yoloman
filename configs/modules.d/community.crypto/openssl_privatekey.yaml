@@ -1,0 +1,232 @@
+name: openssl_privatekey
+fqcn: community.crypto.openssl_privatekey
+collection: community.crypto
+short_description: Generate OpenSSL private keys
+description: Keys are generated in PEM format. One can generate L(RSA,https://en.wikipedia.org/wiki/RSA_%28cryptosystem%29),
+  L(DSA,https://en.wikipedia.org/wiki/Digital_Signature_Algorithm), L(ECC,https://en.wikipedia.org/wiki/Elliptic-curve_cryptography)
+  or L(EdDSA,https://en.wikipedia.org/wiki/EdDSA) private keys. Please note that the module regenerates
+  private keys if they do not match the module's options. In particular, if you provide another passphrase
+  (or specify none), change the keysize, etc., the private key will be regenerated. If you are concerned
+  that this could B(overwrite your private key), consider using the O(backup) option. The default mode
+  for the private key file will be V(0600) if O(mode) is not explicitly set. This module allows one to
+  (re)generate OpenSSL private keys.
+options:
+  attributes:
+    type: str
+    aliases:
+    - attr
+    description: The attributes the resulting filesystem object should have. To get supported flags look
+      at the man page for I(chattr) on the target system. This string should contain the attributes in
+      the same order as the one displayed by I(lsattr). The C(=) operator is assumed as default, otherwise
+      C(+) or C(-) operators need to be included in the string.
+  backup:
+    type: bool
+    default: false
+    description: Create a backup file including a timestamp so you can get the original private key back
+      if you overwrote it with a new one by accident.
+  cipher:
+    type: str
+    description: The cipher to encrypt the private key. Must be V(auto).
+  curve:
+    type: str
+    choices:
+    - secp224r1
+    - secp256k1
+    - secp256r1
+    - secp384r1
+    - secp521r1
+    - secp192r1
+    - brainpoolP256r1
+    - brainpoolP384r1
+    - brainpoolP512r1
+    - sect163k1
+    - sect163r2
+    - sect233k1
+    - sect233r1
+    - sect283k1
+    - sect283r1
+    - sect409k1
+    - sect409r1
+    - sect571k1
+    - sect571r1
+    description: Note that not all curves are supported by all versions of C(cryptography). For maximal
+      interoperability, V(secp384r1) or V(secp256r1) should be used. We use the curve names as defined
+      in the L(IANA registry for TLS,https://www.iana.org/assignments/tls-parameters/tls-parameters.xhtml#tls-parameters-8).
+      Please note that all curves except V(secp224r1), V(secp256k1), V(secp256r1), V(secp384r1), and V(secp521r1)
+      are discouraged for new private keys.
+  force:
+    type: bool
+    default: false
+    description: Should the key be regenerated even if it already exists.
+  format:
+    type: str
+    default: auto_ignore
+    choices:
+    - pkcs1
+    - pkcs8
+    - raw
+    - auto
+    - auto_ignore
+    description: Determines which format the private key is written in. By default, PKCS1 (traditional
+      OpenSSL format) is used for all keys which support it. Please note that not every key can be exported
+      in any format. The value V(auto) selects a format based on the key format. The value V(auto_ignore)
+      does the same, but for existing private key files, it will not force a regenerate when its format
+      is not the automatically selected one for generation. Note that if the format for an existing private
+      key mismatches, the key is B(regenerated) by default. To change this behavior, use the O(format_mismatch)
+      option.
+  format_mismatch:
+    type: str
+    default: regenerate
+    choices:
+    - regenerate
+    - convert
+    description: Determines behavior of the module if the format of a private key does not match the expected
+      format, but all other parameters are as expected. If set to V(regenerate) (default), generates a
+      new private key. If set to V(convert), the key will be converted to the new format instead. Only
+      supported by the C(cryptography) backend.
+  group:
+    type: str
+    description: Name of the group that should own the filesystem object, as would be fed to I(chown).
+      When left unspecified, it uses the current group of the current user unless you are root, in which
+      case it can preserve the previous ownership.
+  mode:
+    type: raw
+    description: The permissions the resulting filesystem object should have. For those used to I(/usr/bin/chmod)
+      remember that modes are actually octal numbers. You must give Ansible enough information to parse
+      them correctly. For consistent results, quote octal numbers (for example, V('644') or V('1777'))
+      so Ansible receives a string and can do its own conversion from string into number. Adding a leading
+      zero (for example, V(0755)) works sometimes, but can fail in loops and some other circumstances.
+      Giving Ansible a number without following either of these rules will end up with a decimal number
+      which will have unexpected results. As of Ansible 1.8, the mode may be specified as a symbolic mode
+      (for example, V(u+rwx) or V(u=rw,g=r,o=r)). If O(mode) is not specified and the destination filesystem
+      object B(does not) exist, the default C(umask) on the system will be used when setting the mode
+      for the newly created filesystem object. If O(mode) is not specified and the destination filesystem
+      object B(does) exist, the mode of the existing filesystem object will be used. Specifying O(mode)
+      is the best way to ensure filesystem objects are created with the correct permissions. See CVE-2020-1736
+      for further details.
+  owner:
+    type: str
+    description: Name of the user that should own the filesystem object, as would be fed to I(chown).
+      When left unspecified, it uses the current user unless you are root, in which case it can preserve
+      the previous ownership. Specifying a numeric username will be assumed to be a user ID and not a
+      username. Avoid numeric usernames to avoid this confusion.
+  passphrase:
+    type: str
+    description: The passphrase for the private key.
+  path:
+    type: path
+    required: true
+    description: Name of the file in which the generated TLS/SSL private key will be written. It will
+      have V(0600) mode if O(mode) is not explicitly set.
+  regenerate:
+    type: str
+    default: full_idempotence
+    choices:
+    - never
+    - fail
+    - partial_idempotence
+    - full_idempotence
+    - always
+    description: Allows to configure in which situations the module is allowed to regenerate private keys.
+      The module will always generate a new key if the destination file does not exist. By default, the
+      key will be regenerated when it does not match the module's options, except when the key cannot
+      be read or the passphrase does not match. Please note that this B(changed) for Ansible 2.10. For
+      Ansible 2.9, the behavior was as if V(full_idempotence) is specified. If set to V(never), the module
+      will fail if the key cannot be read or the passphrase is not matching, and will never regenerate
+      an existing key. If set to V(fail), the module will fail if the key does not correspond to the module's
+      options. If set to V(partial_idempotence), the key will be regenerated if it does not conform to
+      the module's options. The key is B(not) regenerated if it cannot be read (broken file), the key
+      is protected by an unknown passphrase, or when they key is not protected by a passphrase, but a
+      passphrase is specified. If set to V(full_idempotence), the key will be regenerated if it does not
+      conform to the module's options. This is also the case if the key cannot be read (broken file),
+      the key is protected by an unknown passphrase, or when they key is not protected by a passphrase,
+      but a passphrase is specified. Make sure you have a B(backup) when using this option! If set to
+      V(always), the module will always regenerate the key. This is equivalent to setting O(force) to
+      V(true). Note that if O(format_mismatch) is set to V(convert) and everything matches except the
+      format, the key will always be converted, except if O(regenerate) is set to V(always).
+  return_content:
+    type: bool
+    default: false
+    description: If set to V(true), will return the (current or generated) private key's content as RV(privatekey).
+      Note that especially if the private key is not encrypted, you have to make sure that the returned
+      value is treated appropriately and not accidentally written to logs etc.! Use with care! Use Ansible's
+      C(no_log) task option to avoid the output being shown. See also U(https://docs.ansible.com/ansible/latest/reference_appendices/faq.html#how-do-i-keep-secret-data-in-my-playbook).
+  select_crypto_backend:
+    type: str
+    default: auto
+    choices:
+    - auto
+    - cryptography
+    description: Determines which crypto backend to use. The default choice is V(auto), which tries to
+      use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/)
+      library.
+  selevel:
+    type: str
+    description: The level part of the SELinux filesystem object context. This is the MLS/MCS attribute,
+      sometimes known as the C(range). When set to V(_default), it will use the C(level) portion of the
+      policy if available.
+  serole:
+    type: str
+    description: The role part of the SELinux filesystem object context. When set to V(_default), it will
+      use the C(role) portion of the policy if available.
+  setype:
+    type: str
+    description: The type part of the SELinux filesystem object context. When set to V(_default), it will
+      use the C(type) portion of the policy if available.
+  seuser:
+    type: str
+    description: The user part of the SELinux filesystem object context. By default it uses the V(system)
+      policy, where applicable. When set to V(_default), it will use the C(user) portion of the policy
+      if available.
+  size:
+    type: int
+    default: 4096
+    description: Size (in bits) of the TLS/SSL key to generate.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Whether the private key should exist or not, taking action if the state is different
+      from what is stated.
+  type:
+    type: str
+    default: RSA
+    choices:
+    - DSA
+    - ECC
+    - Ed25519
+    - Ed448
+    - RSA
+    - X25519
+    - X448
+    description: The algorithm used to generate the TLS/SSL private key. Note that V(ECC), V(X25519),
+      V(X448), V(Ed25519), and V(Ed448) require the C(cryptography) backend. V(X25519) needs cryptography
+      2.5 or newer, while V(X448), V(Ed25519), and V(Ed448) require cryptography 2.6 or newer. For V(ECC),
+      the minimal cryptography version required depends on the O(curve) option.
+  unsafe_writes:
+    type: bool
+    default: false
+    description: Influence when to use atomic operation to prevent data corruption or inconsistent reads
+      from the target filesystem object. By default this module uses atomic operations to prevent data
+      corruption or inconsistent reads from the target filesystem objects, but sometimes systems are configured
+      or just broken in ways that prevent this. One example is docker mounted filesystem objects, which
+      cannot be updated atomically from inside the container and can only be written in an unsafe manner.
+      This option allows Ansible to fall back to unsafe methods of updating filesystem objects when atomic
+      operations fail (however, it doesn't force Ansible to perform unsafe writes). IMPORTANT! Unsafe
+      writes are subject to race conditions and can lead to data corruption.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Generate an OpenSSL private key with the default values (4096 bits, RSA)\n  community.crypto.openssl_privatekey:\n\
+  \    path: /etc/ssl/private/ansible.com.pem\n\n- name: Generate an OpenSSL private key with the default\
+  \ values (4096 bits, RSA) and a passphrase\n  community.crypto.openssl_privatekey:\n    path: /etc/ssl/private/ansible.com.pem\n\
+  \    passphrase: ansible\n    cipher: auto\n\n- name: Generate an OpenSSL private key with a different\
+  \ size (2048 bits)\n  community.crypto.openssl_privatekey:\n    path: /etc/ssl/private/ansible.com.pem\n\
+  \    size: 2048\n\n- name: Force regenerate an OpenSSL private key if it already exists\n  community.crypto.openssl_privatekey:\n\
+  \    path: /etc/ssl/private/ansible.com.pem\n    force: true\n\n- name: Generate an OpenSSL private\
+  \ key with a different algorithm (DSA)\n  community.crypto.openssl_privatekey:\n    path: /etc/ssl/private/ansible.com.pem\n\
+  \    type: DSA\n\n- name: Generate an OpenSSL private key with elliptic curve cryptography (ECC)\n \
+  \ community.crypto.openssl_privatekey:\n    path: /etc/ssl/private/ansible.com.pem\n    type: ECC\n\
+  \    curve: secp256r1\n"

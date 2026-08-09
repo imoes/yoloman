@@ -1,0 +1,37 @@
+name: slurp
+fqcn: builtin.slurp
+collection: builtin
+short_description: Read a file's entire contents from the managed host, returned base64-encoded
+  (so binary files are safe to transport as JSON)
+description: 'Read a file''s entire contents from the managed host, returned base64-encoded
+  (so binary files are safe to transport as JSON). Use this to inspect the current
+  content of a config file before deciding whether/how to change it (e.g. compare
+  against a desired template render), or to retrieve a small file''s content for display.
+  Not intended for very large files — there is no streaming, the whole file is loaded
+  into memory and encoded at once.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.slurp. Identical semantics: {content: base64, encoding:
+  "base64"}.
+
+  - Chef: `::File.read(path)` in a recipe, or a `data_bag_item` for pre-managed content.
+
+  - Puppet: the `file()` function (reads a local module file at compile time, not
+  a remote agent-side file — this tool is closer to an ad-hoc `puppet apply` fact
+  or a custom function reading the live agent filesystem).
+
+  - Salt: `cp.get_file_str` or the `file.read` execution module.
+
+  - Terraform: `data "local_file"` (its `content`/`content_base64` attribute), for
+  files local to the machine running Terraform.'
+options:
+  path:
+    type: string
+    description: File to read, e.g. "/etc/nginx/nginx.conf".
+    required: true
+native: true
+writes: false
+runtime: native
+source: agent-registry

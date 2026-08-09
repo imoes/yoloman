@@ -1,0 +1,48 @@
+name: aix_lvg
+fqcn: community.general.aix_lvg
+collection: community.general
+short_description: Manage LVM volume groups on AIX
+description: This module creates, removes or resize volume groups on AIX LVM.
+options:
+  force:
+    type: bool
+    default: false
+    description: Force volume group creation.
+  pp_size:
+    type: int
+    description: The size of the physical partition in megabytes.
+  pvs:
+    type: list
+    description: List of comma-separated devices to use as physical devices in this volume group. Required
+      when creating or extending (V(present) state) the volume group. If not informed reducing (V(absent)
+      state) the volume group will be removed.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    - varyoff
+    - varyon
+    description: Control if the volume group exists and volume group AIX state varyonvg V(varyon) or varyoffvg
+      V(varyoff).
+  vg:
+    type: str
+    required: true
+    description: The name of the volume group.
+  vg_type:
+    type: str
+    default: normal
+    choices:
+    - big
+    - normal
+    - scalable
+    description: The type of the volume group.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a volume group datavg\n  community.general.aix_lvg:\n    vg: datavg\n    pp_size:\
+  \ 128\n    vg_type: scalable\n    state: present\n\n- name: Removing a volume group datavg\n  community.general.aix_lvg:\n\
+  \    vg: datavg\n    state: absent\n\n- name: Extending rootvg\n  community.general.aix_lvg:\n    vg:\
+  \ rootvg\n    pvs: hdisk1\n    state: present\n\n- name: Reducing rootvg\n  community.general.aix_lvg:\n\
+  \    vg: rootvg\n    pvs: hdisk1\n    state: absent\n"

@@ -1,0 +1,27 @@
+# /etc/default/prometheus-process-exporter: runtime configuration for prometheus-process-exporter
+# Sets command-line arguments passed to the exporter binary at startup
+# Listen address for the metrics endpoint
+- web.listen-address={{ web.listen_address }}
+# Path to proc filesystem (usually /proc)
+- procfs-path={{ procfs.path }}
+# Path to sys filesystem (usually /sys); optional, defaults to /sys
+{% if sysfs.path %}- sysfs-path={{ sysfs.path }}{% endif %}
+# Comma-separated list of process patterns to include; others are excluded
+# Each pattern supports wildcards (*, ?) and regex if prefixed with 're:'
+{% if process.include_patterns %}- process.include-patterns={{ process.include_patterns | join(',') }}{% endif %}
+# Comma-separated list of process patterns to exclude (even if matched by include)
+{% if process.exclude_patterns %}- process.exclude-patterns={{ process.exclude_patterns | join(',') }}{% endif %}
+# Whether to collect per-thread metrics (default: true)
+{% if not metrics.collect_threads %}- no-collect-thread-metrics{% endif %}
+# Whether to collect metrics from zombie processes (default: false)
+{% if metrics.collect_zombies %}- collect-zombies{% endif %}
+# Whether to collect metrics from init process (default: true)
+{% if not metrics.collect_init %}- no-collect-init{% endif %}
+# HTTP server timeout for request handling (e.g., "30s")
+- web.timeout={{ web.timeout }}
+# Maximum number of concurrent requests (0 = unlimited)
+{% if web.max_requests > 0 %}- web.max-requests={{ web.max_requests }}{% endif %}
+# Enable TLS (requires cert and key paths)
+{% if tls.enabled %}- web.config.file={{ tls.config_file }}{% endif %}
+# Additional args — use only if needed and ensure they match CLI flags
+{% for arg in extra_args %}{{ arg }}{% endfor %}

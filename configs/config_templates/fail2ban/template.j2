@@ -1,0 +1,46 @@
+# ============================================================================
+# Fail2Ban Environment Configuration Template
+# ============================================================================
+# This template generates the environment configuration file for the Fail2Ban
+# service. It is self-documenting: every variable is annotated with its
+# schema description and a safe default value.
+#
+# Schema fields:
+# - fail2ban_opts: Command line options for Fail2Ban client.
+# - fail2ban_user: User to run fail2ban as. If empty or unset, runs as root.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Environment: Command line options for Fail2Ban client.
+# Default: '' (empty string)
+# ----------------------------------------------------------------------------
+# Refer to "fail2ban-client -h" for valid options.
+# If not provided, no extra options are passed to the client.
+# Note: Using trim to remove accidental leading/trailing whitespace.
+FAIL2BAN_OPTS="{{ (fail2ban_opts | default('')) | trim }}"
+
+# ----------------------------------------------------------------------------
+# Environment: User to run fail2ban as.
+# Default: 'fail2ban'
+# ----------------------------------------------------------------------------
+# If the variable is set to an empty string, or omitted, the service
+# will effectively run as root (the system default).
+#
+# Important: The user is NOT created automatically by this template.
+# You must ensure the user exists on the system, e.g.:
+#   useradd --system --no-create-home --home-dir / --groups adm fail2ban
+#
+# Log files are typically readable by group 'adm' by default. Adding the
+# fail2ban user to this group allows it to read the logs.
+#
+# Another manual step is required: allow write access for the fail2ban
+# user to fail2ban log files. The /etc/init.d/fail2ban script will change
+# ownership when starting. Logrotate must be configured separately
+# (see /etc/logrotate.d/fail2ban).
+#
+# The variable is commented out by default in the upstream config. We
+# keep it commented but populated so that uncommenting it is trivial.
+# We use a Jinja if-check to only emit the line if the variable is
+# explicitly defined (even if empty), or we can always emit it commented.
+# To be safe and self-documenting, we always emit it commented.
+FAIL2BAN_USER="{{ fail2ban_user | default('fail2ban') }}"

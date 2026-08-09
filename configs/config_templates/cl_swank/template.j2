@@ -1,0 +1,78 @@
+; ============================================================================
+; SLIME/SWANK Configuration Template
+; ============================================================================
+; This file configures the SWANK server (Lisp-side component of SLIME).
+; It is typically loaded by Emacs via `slime-setup` or `slime-connect`.
+;
+; All variables are parameterized with safe defaults derived from the schema.
+; Do not modify variable names; update values via Ansible inventory or vars.
+; ============================================================================
+
+;; --------------------------------------------------------------------------
+; contribs: List of SWANK contrib modules to load (e.g., "swank-asdf").
+; If empty, defaults to swank-asdf and swank-fancy-inspector.
+; --------------------------------------------------------------------------
+{% for contrib in (contribs | default(['swank-asdf', 'swank-fancy-inspector'])) %}
+(require "{{ contrib | string }}")
+{% endfor %}
+
+;; --------------------------------------------------------------------------
+; start_server: Whether to automatically start the SWANK server on Lisp startup.
+; --------------------------------------------------------------------------
+{% if start_server | default(true) | bool %}
+(when (not (member "swank" *features*))
+  (swank:start-server "{{ sock | default('') | string }}" :documentation t :coding-system "utf-8-unix"))
+{% else %}
+; start_server is disabled; SWANK server will not be started automatically.
+{% endif %}
+
+;; --------------------------------------------------------------------------
+; communication_style: SWANK communication style (:spawn, :fork, :pthread).
+; --------------------------------------------------------------------------
+(setq swank:*communication-style* {{ communication_style | default(':spawn') | string }})
+
+;; --------------------------------------------------------------------------
+; pid_file: Path to write the PID file. Use 'nil' to disable.
+; --------------------------------------------------------------------------
+(setq swank:*pid-file* {{ pid_file | default('nil') | string }})
+
+;; --------------------------------------------------------------------------
+; sock: Unix socket path to bind SWANK server to.
+; port: TCP port for TCP server when `sock` is empty (default 4005).
+; --------------------------------------------------------------------------
+{% if (sock | default('') | string | trim) != '' %}
+; Bound to Unix socket: {{ sock | default('') | string }}
+{% else %}
+; Not bound to Unix socket; falling back to TCP port {{ port | default(4005) }}
+(swank:create-server :port {{ port | default(4005) }} :dont-close t)
+{% endif %}
+
+;; --------------------------------------------------------------------------
+; log_output: Path to log SWANK output. Set to 'nil' to disable logging.
+; --------------------------------------------------------------------------
+(setq swank:*log-output* {{ log_output | default('nil') | string }})
+
+;; --------------------------------------------------------------------------
+; use_dedicated_output_stream: Use a dedicated output stream for slime-output-buffer.
+; use_quicklisp: Enable Quicklisp integration in SWANK.
+; --------------------------------------------------------------------------
+(setq swank:*use-dedicated-output-stream* {{ use_dedicated_output_stream | default(true) | ternary('t', 'nil') }})
+(setq swank:*use-quicklisp* {{ use_quicklisp | default(true) | ternary('t', 'nil') }})
+
+;; --------------------------------------------------------------------------
+; max_listener_threads: Maximum number of listener threads.
+; Set to null/None to use the default (usually 8).
+; --------------------------------------------------------------------------
+{% if max_listener_threads is defined and max_listener_threads is not none %}
+(setq swank:*max-listener-threads* {{ max_listener_threads }})
+{% else %}
+; Using default max listener threads (usually 8)
+(setq swank:*max-listener-threads* nil)
+{% endif %}
+
+;; --------------------------------------------------------------------------
+; extra_setup: Additional S-expression forms to evaluate at SWANK startup.
+; --------------------------------------------------------------------------
+{% for setup_form in (extra_setup | default([])) %}
+{{ setup_form }}
+{% endfor %}

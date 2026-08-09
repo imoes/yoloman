@@ -1,0 +1,24 @@
+fqcn: yoloman.network_checkpoint
+name: network_checkpoint
+collection: yoloman
+writes: true
+runtime: starlark
+short_description: Cockpit-style auto-rollback for network changes (create/confirm/rollback), provider-independent
+options:
+  state:
+    type: str
+    choices: [create, confirm, rollback]
+    description: create arms a timed auto-revert of the interface config; confirm cancels it; rollback restores immediately.
+  id:
+    type: str
+    description: Caller-supplied checkpoint id ([A-Za-z0-9._-]); ties create/confirm/rollback together.
+  name:
+    type: str
+    description: The interface whose managed config file is backed up (required for state=create).
+  timeout:
+    type: int
+    description: Seconds before the auto-revert fires unless confirmed (state=create). Default 90.
+  provider:
+    type: str
+    choices: [networkmanager, netplan, networkd, ifupdown]
+    description: Force a provider; default auto-detect.

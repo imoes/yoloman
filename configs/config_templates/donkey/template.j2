@@ -1,0 +1,35 @@
+# /etc/donkey/donkey.conf
+# Donkey S/KEY client configuration
+# This file configures the 'donkey' utility, an S/KEY one-time password client.
+# S/KEY generates a sequence of one-time passwords from a single seed and secret.
+# See `man donkey` for detailed usage and security considerations.
+
+# --- General Configuration ---
+
+# enabled: Enable donkey configuration mode (optional)
+# If set to 'true', donkey applies the settings below.
+# If 'false' or unset, donkey may use defaults or remain inactive depending on invocation.
+{% if enabled | default(false) %}enabled=true
+{% endif %}
+
+# hash_function: Hash function to use: 'MD4' or 'MD5' (default: MD4 for backward compatibility)
+# Specifies the cryptographic hash algorithm used for generating the one-time password sequences.
+# MD5 is generally preferred for security, but MD4 is required for compatibility with older servers.
+hash_function={{ hash_function | default('MD4') | upper }}
+
+# default_num_keys: Number of keys to generate in batch mode when -n is omitted (default: 1)
+# When generating keys in batch mode, this determines how many OTPs are generated at once.
+default_num_keys={{ default_num_keys | default(1) }}
+
+# --- Pre-initialized Users ---
+
+# users: List of pre-initialized S/KEY users for one-time password authentication
+# Each entry defines a user with their name, starting sequence, seed, and optional password hash.
+# Format per user:
+#   username sequence seed [password_hash]
+#   - username: The login name.
+#   - sequence: The starting counter value (e.g., 100, 99).
+#   - seed: The hexadecimal seed string used to generate the OTP sequence.
+#   - password_hash: (Optional) A pre-computed hash for faster verification or storage.
+{% for user in users | default([]) %}{{ user.name | default('') }} {{ '%04d'|format(user.sequence | default(99) | int) }} {{ user.seed | default('') }}{% if user.password_hash is defined and user.password_hash is not none %} {{ user.password_hash }}{% endif %}
+{% endfor %}

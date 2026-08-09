@@ -1,0 +1,46 @@
+# HACI Web Server Configuration Template
+# This template generates configuration directives for HACI (Home Automation Control Interface),
+# defining CGI script locations and web document roots. It is intended to be used with a web server
+# that supports CGI (such as Apache httpd) or a generic configuration aggregator.
+
+# --- CGI Script Aliases ---
+# Define the mapping between URL paths and the filesystem location of HACI CGI binaries.
+
+# Alias for the main HaCi CGI script.
+# Maps the URL path /haci/HaCi.cgi to the executable HaCi.cgi in the configured CGI directory.
+ScriptAlias /haci/HaCi.cgi 	{{ cgi_directory | default('/usr/share/haci/cgi-bin/') }}/HaCi.cgi
+
+# Alias for the HACI API CGI script.
+# Maps the URL path /haci/HaciAPI.cgi to the executable HaCiAPI.cgi in the configured CGI directory.
+ScriptAlias /haci/HaciAPI.cgi	{{ cgi_directory | default('/usr/share/haci/cgi-bin/') }}/HaCiAPI.cgi
+
+# Alias for the test CGI script.
+# Maps the URL path /haci/test.cgi to the executable test.cgi in the configured CGI directory.
+ScriptAlias /haci/test.cgi	{{ cgi_directory | default('/usr/share/haci/cgi-bin/') }}/test.cgi
+
+# --- Document Root Configuration ---
+# Define the location of static HTML/web assets and their access permissions.
+
+# Alias for the main HACI web interface.
+# Maps the URL path /haci/ to the root HTML directory.
+Alias /haci/ {{ html_document_root | default('/usr/share/haci/html/') }}
+
+# Directory block for the HACI web root.
+# Configures access controls and options for the static HTML files.
+<Directory "{{ html_document_root | default('/usr/share/haci/html/') }}">
+        # Enable directory listing if index.html is missing, and allow MultiViews content negotiation.
+        Options Indexes MultiViews
+
+        # Do not allow .htaccess files to override these settings.
+        AllowOverride None
+
+        # Grant access to all clients by default for this directory.
+        Require all granted
+</Directory>
+
+# Location block for CGI scripts.
+# Restricts access to CGI scripts to local connections only for security.
+<Location "/haci/*.cgi">
+        # Only allow requests originating from localhost.
+        Require local
+</Location>

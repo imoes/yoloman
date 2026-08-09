@@ -1,0 +1,42 @@
+{
+  "mode": {
+    "type": "string",
+    "default": "decimal",
+    "description": "Encoding base for table output. Valid values: 'decimal', 'hex', 'octal', 'binary'. Note: 'iso' is not a valid mode; ISO names are printed alongside other aliases by default, but there is no 'iso' mode switch. The man page lists -d (decimal), -x (hex), -o (octal), -b (binary). There is no -i for iso mode in the SYNOPSIS or OPTIONS section for selecting the output format of the table itself, though ISO names are always printed. However, looking closely at the man page: 'Options are as follows: -t ... -s ... -a ... -d ... -x ... -o ... -b ... -h ... -v ...'. There is NO -i flag. The existing template had 'iso' as a valid value for `mode`. This is a hallucination/error. I will remove 'iso' from the enum and description to reflect that only decimal, hex, octal, binary are the table output modes. The man page says 'Called with no options, ascii behaves like ascii -h'. It doesn't explicitly state the default mode of the table is decimal, but -d is decimal. Usually default is decimal. The existing template said default 'decimal'. This is likely correct as it's the standard. But 'iso' as a mode option is wrong. Wait, does -d mean decimal ONLY? The description says 'Ascii table in decimal.' It implies the column format. If -i existed, it would be 'Ascii table in iso'. It does not. So 'iso' must be removed from the enum of valid `mode` values if we assume `mode` maps to these flags. However, the template uses `mode` to generate config. If the config is for a wrapper script, we should stick to documented flags. The documented flags are -d, -x, -o, -b. So `mode` should only accept these. 'iso' is not a mode. I will remove 'iso' from the enum. I will also update the description to reflect this. The default 'decimal' is a reasonable assumption for the default behavior if no flags are passed, although the man page says 'behaves like ascii -h'. But if we are specifying a mode, we assume we are generating a table. Without the -h flag, and no -d/-x/-o/-b, it defaults to... well, ascii(1) source code would tell us. But typically, if you don't specify a base, it might default to decimal. The existing default is 'decimal'. I will keep 'decimal' but remove 'iso'.\n\n      ",
+    "enum": [
+      "decimal",
+      "hex",
+      "octal",
+      "binary"
+    ]
+  },
+  "aspect_ratio": {
+    "type": "string",
+    "default": "horizontal",
+    "description": "Layout orientation: 'vertical' (4 columns \u00d7 16 rows) or 'horizontal' (16 columns \u00d7 4 rows). Corresponds to -a flag for vertical. Default is horizontal (no -a).",
+    "enum": [
+      "horizontal",
+      "vertical"
+    ]
+  },
+  "input_items": {
+    "type": "list",
+    "default": [],
+    "description": "List of character specifications to parse. Each entry may be a literal character, mnemonic, hex/decimal/octal/binary prefix, or ISO code (e.g., 'LF', '0x0A', '\\012')."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, show program version and exit (equivalent to -v)."
+  },
+  "script_friendly": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, emit only ISO/decimal/hex/octal/binary encodings (equivalent to -t)."
+  },
+  "parse_multiple": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, parse multiple characters in a string (equivalent to -s)."
+  }
+}

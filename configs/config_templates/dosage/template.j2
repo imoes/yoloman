@@ -1,0 +1,92 @@
+# =============================================================================
+# dosage configuration file
+# =============================================================================
+# This configuration file controls the behavior of the 'dosage' comic downloader.
+# Each setting corresponds to a command-line flag as documented in the man page.
+# Uncomment and adjust values as needed. Defaults are provided for all fields.
+
+# -----------------------------------------------------------------------------
+# Path Settings
+# -----------------------------------------------------------------------------
+
+# Base path for comic directories (default: 'Comics')
+# corresponds to --basepath
+# This is the directory where comic subdirectories are created and stored.
+# If basepath is an absolute path, it overrides the relative 'Comics' default.
+BASEPATH = {{ basepath | default('Comics') }}
+
+# Base URL for comic directories (default: '')
+# corresponds to --baseurl
+# The base URL of the comics directory for HTML/RSS output generation.
+# Must match the --basepath setting. Leave empty if not using web output.
+BASEURL = {{ baseurl | default('') }}
+
+# -----------------------------------------------------------------------------
+# Fetching Options
+# -----------------------------------------------------------------------------
+
+# Number of comic strips to retrieve (default: '')
+# corresponds to --numstrips
+# If empty or unset, dosage relies on ALL or CONTINUE mode logic to determine
+# how many strips to fetch. Specify an integer to limit the count.
+NUMSTRIPS = {{ numstrips | default('') }}
+
+# Parallel fetch connections (default: 1)
+# corresponds --parallel
+# Number of parallel connections to use when downloading. Default 1 is sequential.
+# Increase for faster downloads on stable connections.
+PARALLEL = {{ parallel | default(1) }}
+
+# -----------------------------------------------------------------------------
+# Output Format
+# -----------------------------------------------------------------------------
+
+# Output format: html, json, rss, or None (default: 'html')
+# corresponds to --output
+# Determines the output handler format. 'html', 'json', or 'rss' generate
+# corresponding output files. Empty or unset means plain file download.
+OUTPUT = {{ output | default('html') }}
+
+# Enable/disable downscaling for html/rss handlers (default: False)
+# corresponds to --no-downscale
+# If True, disables downscaling for images in HTML/RSS output handlers.
+# If False (default), downscaling may be applied to optimize file sizes.
+NO_DOWNSCALE = {{ no_downscale | default(false) }}
+
+# -----------------------------------------------------------------------------
+# Comic Selection
+# -----------------------------------------------------------------------------
+
+# List of comic modules to process (default: [])
+# corresponds to --comics
+# List of comic module names or case-insensitive substrings to process by default.
+# Each entry is a string. Example: ['CalvinAndHobbes', 'Dilbert']
+# If empty, comics are selected via CLI arguments.
+COMICS = {{ comics | default([]) | join(', ') }}
+
+# -----------------------------------------------------------------------------
+# Operational Flags
+# -----------------------------------------------------------------------------
+
+# --all: retrieve all comic strips by default (default: False)
+# corresponds to --all
+# If True, dosage retrieves all available comic strips for the selected comics
+# instead of just the latest or single strip.
+ALL = {{ all | default(false) }}
+
+# --continue: stop when encountering already-downloaded strip (default: False)
+# corresponds to --continue
+# If True, dosage retrieves strips sequentially and stops when it encounters
+# a comic strip that is already downloaded.
+CONTINUE = {{ continue | default(false) }}
+
+# --adult: confirm age for adult content comics (default: False)
+# corresponds to --adult
+# If True, confirms user age consent to download adult-content comics.
+ADULT = {{ adult | default(false) }}
+
+# --allow-multiple: permit concurrent dosage runs (default: False)
+# corresponds to --allow-multiple
+# If True, allows multiple instances of dosage to run concurrently.
+# Recommended to be False to prevent resource contention or file conflicts.
+ALLOW_MULTIPLE = {{ allow_multiple | default(false) }}

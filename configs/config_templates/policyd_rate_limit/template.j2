@@ -1,0 +1,90 @@
+# Maximum number of messages allowed per time window
+max_messages = {{ max_messages }}
+
+# Time window in seconds for rate limiting
+window = {{ window }}
+
+# Enable debug logging
+# Set to 'yes' for verbose logging to syslog
+# Debug output includes per-session tracking details
+# Valid values: 'yes', 'no'
+debug = {{ debug | string | lower }}
+
+# Log level for syslog
+# Valid values: 'emerg', 'alert', 'crit', 'error', 'warning', 'notice', 'info', 'debug'
+log_level = {{ log_level }}
+
+# Path to the PID file
+pid_file = {{ pid_file }}
+
+# Listen address and port for the policy service
+# Typically bound to 127.0.0.1 to be used by Postfix via smtpd_policy_unix or smtpd_policy_inet
+listen_address = {{ listen_address }}
+listen_port = {{ listen_port }}
+
+# Backend storage type
+# Valid: 'memory', 'sqlite', 'redis'
+# 'memory' is fast but non-persistent across restarts
+# 'sqlite' is file-based and simple; 'redis' is for distributed setups
+storage_backend = {{ storage_backend }}
+
+# Path to SQLite database file (only used if storage_backend = 'sqlite')
+sqlite_database = {{ sqlite_database }}
+
+# Redis connection string (only used if storage_backend = 'redis')
+# Format: redis://[:password]@host:port/db
+redis_url = {{ redis_url }}
+
+# Rate limit scope
+# 'user' = limit per authenticated user
+# 'sender' = limit per envelope sender address
+# 'client' = limit per client IP
+scope = {{ scope }}
+
+# Ignore clients matching these CIDR networks
+# Space- or comma-separated list
+ignore_clients = {{ ignore_clients | join(', ') }}
+
+# Ignore users matching these patterns (regex, case-insensitive)
+# One pattern per line (use \n to escape, but in config it's newline-separated)
+# For templating: use a list, and Jinja2 will join with newlines
+{% for pattern in ignore_users %}ignore_users = {{ pattern }}
+{% endfor %}
+
+# Ignore domains matching these patterns (regex, case-insensitive)
+{% for pattern in ignore_domains %}ignore_domains = {{ pattern }}
+{% endfor %}
+
+# Per-sender overrides
+# Format: sender_pattern:rate_limit
+# e.g., noreply@example.com:500
+custom_limits =
+{% for item in custom_limits %}  {{ item.sender_pattern }}:{{ item.rate_limit }}
+{% endfor %}
+
+# Rate limit action on violation
+# 'warn' = log warning and allow, 'reject' = reject with 554 error
+action_on_limit = {{ action_on_limit }}
+
+# Message template for rejection (if action_on_limit = 'reject')
+# May contain placeholders: %s = sender, %u = user, %c = client IP, %n = count, %w = window
+reject_message = {{ reject_message | replace('\n', '\\n') | replace('\r', '') }}
+
+# Enable per-user burst (allow temporary spike up to burst_limit messages)
+# Only effective if burst_enabled = yes
+burst_enabled = {{ burst_enabled | string | lower }}
+burst_limit = {{ burst_limit }}
+
+# Optional: Time to wait before resetting per-session counters (seconds)
+session_reset_timeout = {{ session_reset_timeout }}
+
+# Optional: Maximum number of concurrent sessions to track
+# Use 0 for unlimited (not recommended in production)
+max_sessions = {{ max_sessions }}
+
+# Optional: Rate limit reset interval (seconds) for persistent backends
+# How often to flush counters (e.g., for SQLite) — affects persistence window
+reset_interval = {{ reset_interval }}
+
+# Optional: Sync interval for Redis backends (seconds)
+redis_sync_interval = {{ redis_sync_interval }}

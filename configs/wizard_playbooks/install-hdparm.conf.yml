@@ -1,0 +1,49 @@
+- name: install-hdparm.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/hdparm.conf
+    devices: []
+    _service: ""
+    _packages:
+      - hdparm
+    apm_level: 128
+    deep_sleep: 0
+    dma_enabled: "on"
+    write_cache: "on"
+    multi_sector_io: 16
+    standby_timeout: 60
+    read_ahead_sectors: 256
+    acoustic_management: 128
+    global_power_during_resume: false
+  tasks:
+    - name: Install Hdparm Conf
+      ansible.builtin.apt:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: hdparm.conf.j2
+        dest: "{{ _dest }}"
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        devices: "{{ devices }}"
+        apm_level: "{{ apm_level }}"
+        deep_sleep: "{{ deep_sleep }}"
+        dma_enabled: "{{ dma_enabled }}"
+        write_cache: "{{ write_cache }}"
+        multi_sector_io: "{{ multi_sector_io }}"
+        standby_timeout: "{{ standby_timeout }}"
+        read_ahead_sectors: "{{ read_ahead_sectors }}"
+        acoustic_management: "{{ acoustic_management }}"
+        global_power_during_resume: "{{ global_power_during_resume }}"
+
+    - name: Enable and restart Hdparm Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service != ""

@@ -1,0 +1,321 @@
+# =============================================================================
+# aircrack-ng Command-Line Configuration Template
+# =============================================================================
+# This template generates the command-line arguments for `aircrack-ng` (or
+# `aireplay-ng` / `airodump-ng` depending on the wrapper script).
+#
+# The structure mirrors the aircrack-ng CLI syntax. Each option is guarded by
+# a Jinja2 condition to ensure that only explicitly set (non-default) values
+# are emitted, keeping the generated command clean and idempotent.
+#
+# Variable Naming Convention:
+#   All variables are drawn from the `options` dictionary or top-level fields
+#   like `input_files`. Every reference uses `| default(...)` to prevent
+#   rendering errors if a role consumer forgets to set a field.
+# =============================================================================
+
+# --- Common Attack Options ---------------------------------------------------
+
+# Attack mode:
+#   'wep' (1) or 'wpa' (2). Determines whether the tool operates in WEP or
+#   WPA cracking mode.
+#   Default: wep
+{%- if (options | default({})).get('a_mode') is not none %}
+-a {{ (options | default({})).a_mode | default('wep') }}
+{%- endif %}
+
+# Target network ESSID (SSID):
+#   Required for cloaked SSIDs or WPA cracking. If empty, the tool may
+#   attempt to discover it or use the capture file's SSID.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('essid') is not none %}
+-e "{{ (options | default({})).essid | default('') }}"
+{%- endif %}
+
+# Target access point MAC address (BSSID):
+#   Restricts the attack to a specific Access Point identified by its MAC.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('bssid') is not none %}
+-b "{{ (options | default({})).bssid | default('') }}"
+{%- endif %}
+
+# Number of CPUs to use:
+#   Sets the parallelism for cracking. 0 means auto-detect (use all cores).
+#   Default: 0
+{%- if (options | default({})).get('nbcpu') is not none %}
+-p {{ (options | default({})).nbcpu | default(0) }}
+{%- endif %}
+
+# Quiet mode:
+#   Suppresses status output and progress updates. Useful for logging or
+#   non-interactive execution.
+#   Default: false
+{%- if (options | default({})).get('quiet') | default(false) %}
+-q
+{%- endif %}
+
+# Combine MACs:
+#   List of AP MAC addresses to merge into a virtual AP. Allows cracking
+#   networks that spread across multiple BSSIDs (less common).
+#   Default: [] (empty list)
+{%- if (options | default({})).get('combine_macs') is not none %}
+{%- set combine_list = (options | default({})).combine_macs | default([]) %}
+{%- if combine_list | length > 0 %}
+-C {{ combine_list | join(',') }}
+{%- endif %}
+{%- endif %}
+
+# Key output file:
+#   Path to the file where the recovered key will be written.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('key_output_file') is not none %}
+-l "{{ (options | default({})).key_output_file | default('') }}"
+{%- endif %}
+
+# --- Static WEP-Specific Options ---------------------------------------------
+
+# WEP Search Alphanumeric:
+#   Search only alphanumeric characters for the WEP key. Reduces search
+#   space if the key is known to be alphanumeric.
+#   Default: false
+{%- if (options | default({})).get('wep_search_alphanum') | default(false) %}
+-c
+{%- endif %}
+
+# WEP Search BCD:
+#   Search only Binary Coded Decimal characters (0-9). Further reduces search
+#   space for simple numeric keys.
+#   Default: false
+{%- if (options | default({})).get('wep_search_bcd') | default(false) %}
+-t
+{%- endif %}
+
+# WEP Search Fritz!Box:
+#   Search for numeric keys specifically formatted for Fritz!Box routers.
+#   Default: false
+{%- if (options | default({})).get('wep_search_fritz') | default(false) %}
+-h
+{%- endif %}
+
+# WEP Key Mask:
+#   Applies a mask to the WEP key search (e.g., 'A1:XX:CF'). XX represents
+#   unknown characters. This optimizes the crack by fixing known bytes.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('wep_mask') is not none %}
+-d "{{ (options | default({})).wep_mask | default('') }}"
+{%- endif %}
+
+# WEP MAC Filter:
+#   Filters IVs by a specific MAC address (e.g., 'ff:ff:ff:ff:ff:ff' for
+#   broadcast, or a specific client MAC).
+#   Default: '' (empty string)
+{%- if (options | default({})).get('wep_mac_filter') is not none %}
+-m "{{ (options | default({})).wep_mac_filter | default('') }}"
+{%- endif %}
+
+# WEP Key Length:
+#   Specifies the WEP key length in bits (64 or 128). 104-bit WEP is
+#   typically referred to as 128-bit in aircrack-ng context (64-bit IV + 40/104-bit key).
+#   Default: 128
+{%- if (options | default({})).get('wep_key_length') is not none %}
+-n {{ (options | default({})).wep_key_length | default(128) }}
+{%- endif %}
+
+# WEP Key Index:
+#   The WEP key index to crack (1–4). Index 0 means ignore/index-agnostic.
+#   Default: 0
+{%- if (options | default({})).get('wep_key_index') is not none %}
+-i {{ (options | default({})).wep_key_index | default(0) }}
+{%- endif %}
+
+# WEP Fudge Factor:
+#   Bruteforce fudge factor for the last few keybytes. Higher values increase
+#   accuracy but also cracking time.
+#   Default: 2
+{%- if (options | default({})).get('wep_fudge') is not none %}
+-f {{ (options | default({})).wep_fudge | default(2) }}
+{%- endif %}
+
+# WEP Disable KoreK Attacks:
+#   List of KoreK attack indices (1–17) to disable. Useful if specific attacks
+#   cause instability or false positives.
+#   Default: [] (empty list)
+{%- if (options | default({})).get('wep_disable_korek') is not none %}
+{%- set korek_list = (options | default({})).wep_disable_korek | default([]) %}
+{%- if korek_list | length > 0 %}
+{%- for k in korek_list %}
+-k {{ k }}
+{%- endfor %}
+{%- endif %}
+{%- endif %}
+
+# WEP Disable Last Keybytes Bruteforce:
+#   Disables the bruteforce of the last keybytes (equivalent to -x0).
+#   Default: false
+{%- if (options | default({})).get('wep_disable_bruteforce_last') | default(false) %}
+-x0
+{%- endif %}
+
+# WEP Enable Last Keybyte Bruteforce:
+#   Enables bruteforce of the last keybyte (equivalent to -x1).
+#   Default: false
+{%- if (options | default({})).get('wep_enable_bruteforce_last_byte') | default(false) %}
+-x1
+{%- endif %}
+
+# WEP Enable Last Two Keybytes Bruteforce:
+#   Enables bruteforce of the last two keybytes (equivalent to -x2).
+#   Default: false
+{%- if (options | default({})).get('wep_enable_bruteforce_last_two_bytes') | default(false) %}
+-x2
+{%- endif %}
+
+# WEP Disable Multithreaded Bruteforce:
+#   Disables multithreading for bruteforce (SMP only). Use if stability is
+#   an issue on multi-core systems.
+#   Default: false
+{%- if (options | default({})).get('wep_disable_bruteforce_multithread') | default(false) %}
+-X
+{%- endif %}
+
+# WEP Show ASCII Key:
+#   Displays the ASCII version of the cracked WEP key if it is printable.
+#   Default: false
+{%- if (options | default({})).get('wep_show_ascii_key') | default(false) %}
+-s
+{%- endif %}
+
+# WEP One-Shot PTW:
+#   Run only one PTW (Pascal, Tews, Weinmann) try instead of multiple rounds.
+#   Faster but potentially less reliable.
+#   Default: false
+{%- if (options | default({})).get('wep_one_shot_ptw') | default(false) %}
+-1
+{%- endif %}
+
+# WEP Visual Inspection:
+#   Enables visual inspection mode for KoreK attacks only.
+#   Default: false
+{%- if (options | default({})).get('wep_visual_inspection') | default(false) %}
+-V
+{%- endif %}
+
+# WEP Maximum IVs:
+#   Maximum number of Initialization Vectors (IVs) to use from the capture.
+#   0 means unlimited. Limits memory usage and time.
+#   Default: 0
+{%- if (options | default({})).get('wep_max_ivs') is not none %}
+-M {{ (options | default({})).wep_max_ivs | default(0) }}
+{%- endif %}
+
+# WEP PTW Debug:
+#   PTW debug level. 1 disables Klein's attack, 2 enables PTW debug output.
+#   Default: 0
+{%- if (options | default({})).get('wep_ptw_debug') is not none %}
+-P {{ (options | default({})).wep_ptw_debug | default(0) }}
+{%- endif %}
+
+# --- WEP/WPA Common Options --------------------------------------------------
+
+# Wordlist:
+#   List of dictionary files for cracking. Use 'h:' prefix for hex keys and
+#   ':' as separator if multiple files are provided.
+#   Default: [] (empty list)
+{%- if (options | default({})).get('wordlist') is not none %}
+{%- set wordlist_list = (options | default({})).wordlist | default([]) %}
+{%- if wordlist_list | length > 0 %}
+-w {{ wordlist_list | join(',') }}
+{%- endif %}
+{%- endif %}
+
+# New Session File:
+#   Save the current session state to this file (aircrack-ng -N). Allows
+#   resuming or sharing progress.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('new_session_file') is not none %}
+-N "{{ (options | default({})).new_session_file | default('') }}"
+{%- endif %}
+
+# Restore Session File:
+#   Restore a previously saved session state (aircrack-ng -R).
+#   Default: '' (empty string)
+{%- if (options | default({})).get('restore_session_file') is not none %}
+-R "{{ (options | default({})).restore_session_file | default('') }}"
+{%- endif %}
+
+# --- WPA-Specific Options ----------------------------------------------------
+
+# EWSA Output File:
+#   Output file for Elcomsoft Wireless Security Auditor project format.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('ewsa_output_file') is not none %}
+-E "{{ (options | default({})).ewsa_output_file | default('') }}"
+{%- endif %}
+
+# Hashcat HCCAPX Output File:
+#   Output HCCAPX file compatible with Hashcat v3.6+.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('hashcat_hccapx_output_file') is not none %}
+-j "{{ (options | default({})).hashcat_hccapx_output_file | default('') }}"
+{%- endif %}
+
+# Hashcat HCCAP Output File:
+#   Output HCCAP file compatible with older Hashcat versions.
+#   Default: '' (empty string)
+{%- if (options | default({})).get('hashcat_hccap_output_file') is not none %}
+-J "{{ (options | default({})).hashcat_hccap_output_file | default('') }}"
+{%- endif %}
+
+# WPA Speed Test:
+#   Enable WPA cracking speed test mode. Measures packets per second without
+#   actually cracking the key.
+#   Default: false
+{%- if (options | default({})).get('wpa_speed_test') | default(false) %}
+-S
+{%- endif %}
+
+# WPA Speed Test Duration:
+#   Duration (in seconds) of the WPA speed test.
+#   Default: 0
+{%- if (options | default({})).get('wpa_speed_test_duration') is not none %}
+-Z {{ (options | default({})).wpa_speed_test_duration | default(0) }}
+{%- endif %}
+
+# Airolib Database:
+#   Path to an airolib-ng database containing precomputed PMKs. Cannot be
+#   used simultaneously with -w (wordlist).
+#   Default: '' (empty string)
+{%- if (options | default({})).get('airolib_db') is not none %}
+-r "{{ (options | default({})).airolib_db | default('') }}"
+{%- endif %}
+
+# --- SIMD and CPU Optimization -----------------------------------------------
+
+# SIMD Selection:
+#   Force SIMD optimization level: generic, sse2, avx, avx2, avx512, neon,
+#   asimd, altivec, power8. Use 'generic' if auto-detection fails.
+#   Default: generic
+{%- if (options | default({})).get('simd') is not none %}
+--simd={{ (options | default({})).simd | default('generic') }}
+{%- endif %}
+
+# CPU Detection:
+#   Print CPU detection information and exit. Implies -u. Useful for
+#   debugging performance issues.
+#   Default: false
+{%- if (options | default({})).get('cpu_detect') | default(false) %}
+-u
+{%- endif %}
+
+# --- Input Files -------------------------------------------------------------
+
+# Input Files:
+#   Positional arguments: capture files (.cap, .pcap), IV files (.ivs),
+#   or hash files (.hccapx, .hccap). These must be the last arguments.
+#   Default: [] (empty list)
+{%- if input_files is defined %}
+{%- set files = input_files | default([]) %}
+{%- if files | length > 0 %}
+{{ files | join(' ') }}
+{%- endif %}
+{%- endif %}

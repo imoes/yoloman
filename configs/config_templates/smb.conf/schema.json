@@ -1,0 +1,135 @@
+{
+  "workgroup": {
+    "type": "string",
+    "default": "WORKGROUP",
+    "description": "The Windows workgroup or domain name this server belongs to."
+  },
+  "server_string": {
+    "type": "string",
+    "default": "Samba Server",
+    "description": "The descriptive string displayed when listing the server in network browsing."
+  },
+  "security_mode": {
+    "type": "string",
+    "default": "user",
+    "description": "Security model: 'user' for local SMB user accounts, 'domain' for domain controller, 'ads' for Active Directory.",
+    "enum": [
+      "user",
+      "domain",
+      "ads",
+      "server"
+    ]
+  },
+  "passdb_backend": {
+    "type": "string",
+    "default": "tdbsam",
+    "description": "Password database backend (e.g., tdbsam, ldapsam). Only used when security_mode is 'user' or 'domain'."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logging: 0 (minimal), 3 (normal), 5 (verbose), 10 (debug)."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "/var/log/samba/log.%m",
+    "description": "Path to log files. Use %m for per-machine log files."
+  },
+  "max_log_size_kb": {
+    "type": "number",
+    "default": 5000,
+    "description": "Maximum size (in KB) per log file before rotation."
+  },
+  "bind_interfaces_only": {
+    "type": "boolean",
+    "default": true,
+    "description": "If true, only bind to specified interfaces; otherwise bind to all interfaces."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "lo",
+      "eth0"
+    ],
+    "description": "List of network interfaces to bind to (e.g., ['eth0', 'br0']). Required if bind_interfaces_only is true."
+  },
+  "hosts_allow": {
+    "type": "list",
+    "default": [
+      "127.0.0.1"
+    ],
+    "description": "List of allowed hosts/networks (e.g., ['192.168.1.0/24', '10.0.0.0/8']). May include hostnames or CIDR."
+  },
+  "hosts_deny": {
+    "type": "list",
+    "default": [
+      "all"
+    ],
+    "description": "List of denied hosts/networks. Use ['all'] for default-deny, but ensure allow rules are set first."
+  },
+  "server_min_protocol": {
+    "type": "string",
+    "default": "SMB2",
+    "description": "Minimum supported SMB protocol version (e.g., 'NT1', 'SMB2', 'SMB3_11'). Leave empty to auto-select."
+  },
+  "server_max_protocol": {
+    "type": "string",
+    "default": "SMB3",
+    "description": "Maximum supported SMB protocol version. Leave empty to auto-select highest."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent SMB connections allowed."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 16384,
+    "description": "Maximum number of files a single smbd process may have open. Set to match system limits (ulimit -n)."
+  },
+  "socket_options": {
+    "type": "list",
+    "default": [
+      "SO_RCVBUF=65536",
+      "SO_SNDBUF=65536",
+      "TCP_NODELAY"
+    ],
+    "description": "TCP socket tuning options (e.g., buffer sizes, Nagle algorithm)."
+  },
+  "time_server": {
+    "type": "boolean",
+    "default": false,
+    "description": "If true, act as an NTP time server for connected Windows clients."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone string (e.g., 'America/New_York', 'Europe/London'). Defaults to system timezone if omitted."
+  },
+  "shares": {
+    "type": "list",
+    "default": [
+      {
+        "name": "homes",
+        "path": "/home",
+        "description": "Home directories",
+        "browsable": true,
+        "read_only": false,
+        "guest_ok": false,
+        "valid_users": [
+          "%S"
+        ],
+        "create_mask": "0640",
+        "directory_mask": "0750",
+        "force_user": "%U",
+        "force_group": "%U"
+      }
+    ],
+    "description": "List of SMB shares to define. Each item describes a share block in smb.conf."
+  },
+  "nmbd_options": {
+    "type": "string",
+    "default": "",
+    "description": "Extra command-line options for nmbd (used in start-stop-daemon -D $NMBDOPTIONS)."
+  }
+}

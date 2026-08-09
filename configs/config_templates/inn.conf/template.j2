@@ -1,0 +1,190 @@
+{#
+# inn.conf - INN (InterNetNews) Configuration Template
+#
+# This template generates the configuration for the INN news server daemon.
+# It handles global paths, hostname identification, resource limits,
+# logging controls, peer feed definitions, access control, auto-created groups,
+# and storage backend configuration.
+#
+# All variables from the Ansible role variables are expected to be present.
+# Defaults are applied using Jinja2 'default' filter to ensure idempotent rendering.
+#}
+
+# ==============================================================================
+# GLOBAL PATHS
+# ==============================================================================
+
+# Root path of the news spool directory.
+# This is the base directory where INN stores articles, groups, and lock files.
+# Default: /var/spool/news
+path.spool: {{ spool_path | default('/var/spool/news') }}
+
+# Path to the INN configuration directory.
+# INN looks for additional configuration files (like newsfeeds, acl, etc.) here.
+# Default: /etc/inn2
+path.etc: {{ etc_path | default('/etc/inn2') }}
+
+# Path to the INN binary executables.
+# Used for scripts and internal path resolution by the daemon.
+# Default: /usr/lib/news/bin
+path.bin: {{ bin_path | default('/usr/lib/news/bin') }}
+
+# Path to the lock files directory.
+# Used to prevent concurrent access to shared resources like the active file.
+# Default: /var/spool/news/locks
+path.lock: {{ lock_path | default('/var/spool/news/locks') }}
+
+# Path to the runtime PID files directory.
+# Used to store the process ID of the running innd/innd process.
+# Default: /var/run
+path.run: {{ run_path | default('/var/run') }}
+
+# Path to the INN log files directory.
+# Where innlog, innd, and other INN logging processes write their output.
+# Default: /var/log/news
+path.log: {{ log_path | default('/var/log/news') }}
+
+# ==============================================================================
+# HOST IDENTIFICATION
+# ==============================================================================
+
+# Fully qualified hostname of this INN server.
+# Used in Message-ID generation and identifying this server to peers.
+# Default: localhost
+host: {{ hostname | default('localhost') }}
+
+# Mail domain to append to short hostnames when generating Message-IDs.
+# If hostname is short, this domain is used to create a valid FQDN for headers.
+# Default: localhost
+mailhost: {{ mailhost | default('localhost') }}
+
+# ==============================================================================
+# RESOURCE LIMITS
+# ==============================================================================
+
+# Maximum size (in bytes) of an article body.
+# Articles exceeding this size are rejected. Set to 0 for unlimited.
+# Default: 1000000
+maxarticlebody: {{ max_article_body | default(1000000) }}
+
+# Maximum number of articles to hold in the spool.
+# When the limit is reached, older articles are dropped. Set to 0 for unlimited.
+# Default: 100000
+maxartcount: {{ max_article_count | default(100000) }}
+
+# Maximum number of newsgroups allowed.
+# Prevents creation of excessive groups if misconfigured.
+# Default: 50000
+maxgroupcount: {{ max_group_count | default(50000) }}
+
+# Maximum number of active threads the server will track.
+# Limits internal concurrency for article processing and transmission.
+# Default: 200000
+maxthreads: {{ max_threads | default(200000) }}
+
+# Maximum simultaneous INN connections allowed per client IP.
+# Helps mitigate abuse by individual hosts.
+# Default: 10
+maxconnectionsperip: {{ max_connections_per_ip | default(10) }}
+
+# Maximum number of simultaneous incoming (NNTP) connections.
+# Controls how many peers or readers can connect to accept feeds or read.
+# Default: 20
+maxincoming: {{ max_incoming | default(20) }}
+
+# Maximum number of simultaneous outgoing (peer) connections.
+# Limits how many peers this server connects to for distribution.
+# Default: 5
+maxoutgoing: {{ max_outgoing | default(5) }}
+
+# ==============================================================================
+# SECURITY AND ACCESS MODE
+# ==============================================================================
+
+# If true, only accept local (non-networked) connections.
+# No incoming feeds or remote NNTP connections are accepted.
+# Useful for testing or isolated setups.
+# Default: False
+localonly: {{ local_only | default(false) }}
+
+# ==============================================================================
+# LOGGING CONFIGURATION
+# ==============================================================================
+
+# If true, log all incoming connections and commands.
+# Useful for debugging peer feed issues.
+# Default: True
+logincoming: {{ log_incoming | default(true) }}
+
+# If true, log all outgoing connections and transfers.
+# Useful for verifying outbound feed success.
+# Default: True
+logoutgoing: {{ log_outgoing | default(true) }}
+
+# If true, log article storage operations.
+# Tracks when articles are accepted or rejected by the storage backend.
+# Default: True
+logstorage: {{ log_storage | default(true) }}
+
+# If true, log all errors and warnings to the error log.
+# Essential for troubleshooting.
+# Default: True
+logerrors: {{ log_errors | default(true) }}
+
+# ==============================================================================
+# PEER FEEDS
+# ==============================================================================
+
+# List of news servers to which this host will attempt to connect.
+# Each peer defines a feed name, host, and optional authentication user.
+{% for peer in (peers | default([])) %}
+# Peer: {{ peer.name | default('unnamed') }}
+news.peer.{{ peer.name | default('unnamed') }}: {{ peer.host | default('localhost') }}
+{% if peer.user is defined %}news.user.{{ peer.name | default('unnamed') }}: {{ peer.user }}
+{% endif %}{% endfor %}
+
+# ==============================================================================
+# ACCESS CONTROL
+# ==============================================================================
+
+# List of IP ranges allowed to connect as INN clients (in feed syntax: IP/bits).
+# Used to restrict who can read or post via NNTP.
+{% for allowed_ip in (allowed_ips | default([])) %}
+# Client IP Range: {{ allowed_ip }}
+access.ip.{{ loop.index }}: {{ allowed_ip }}
+{% endfor %}
+
+# ==============================================================================
+# AUTOMATIC NEWGROUPS
+# ==============================================================================
+
+# List of newsgroups to be created automatically at startup.
+# Format: groupname description moderated_flag default_policy
+# moderated_flag: 'y' for yes, 'n' for no.
+# default_policy: usually 'y' (accept) or 'n' (reject).
+{% for group in (auto_groups | default([])) %}
+# Auto-group: {{ group.name | default('unknown') }}
+newsgroup.{{ group.name | default('unknown') }}: {{ group.name | default('unknown') }} {{ group.description | default('Auto-created') }} {{ 'y' if group.moderated | default(false) else 'n' }} {{ group.default_policy | default('y') }}
+{% endfor %}
+
+# ==============================================================================
+# STORAGE BACKEND
+# ==============================================================================
+
+# Storage method (storage system backend).
+# Supported values: 'inn' (standard), 'storagefile', 'storagelockfile'.
+# Default: inn
+storage.method: {{ storage_method | default('inn') }}
+
+# Path for storage backend files.
+# Used by file-based storage methods to store article data.
+{% if storage_method | default('inn') == 'inn' %}
+# Standard INN storage path
+path.storage: {{ storage_path | default('/var/spool/news/ideas') }}
+{% elif storage_method | default('inn') == 'storagefile' %}
+# File-based storage path
+path.storage: {{ storage_path | default('/var/spool/news/ideas') }}
+{% elif storage_method | default('inn') == 'storagelockfile' %}
+# Lockfile-based storage path
+path.storage: {{ storage_path | default('/var/spool/news/ideas') }}
+{% endif %}

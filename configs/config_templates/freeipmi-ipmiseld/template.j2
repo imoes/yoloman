@@ -1,0 +1,148 @@
+# =============================================================================
+# IPMIseld configuration file
+# =============================================================================
+# This template manages the configuration for the IPMI SEL Daemon (ipmiseld).
+# For detailed field descriptions, refer to the manpage: ipmiseld.conf(5)
+# =============================================================================
+
+# --- IPMI Driver Configuration ---
+
+# IPMI driver type (e.g., KCS, SSIF, BT). Determines the low-level interface to the BMC.
+driver-type {{ driver_type | default('KCS') }}
+
+# Whether to disable auto-probing for IPMI devices.
+# ENABLE/DISABLE.
+disable-auto-probe {{ disable_auto_probe | default('DISABLE') }}
+
+# IPMI driver address. The specific I/O port or address for the driver.
+driver-address {{ driver_address | default('0xCA2') }}
+
+# Path to the IPMI device file. The character device node for IPMI communication.
+driver-device {{ driver_device | default('/dev/ipmi0') }}
+
+# Register spacing for the IPMI interface.
+register-spacing {{ register_spacing | default('1') }}
+
+# --- Remote LAN Connection Configuration ---
+
+# Target channel number for the remote connection.
+target-channel-number {{ target_channel_number | default('0') }}
+
+# Target slave address (BM/CPU). The I2C address of the BMC or CPU.
+target-slave-address {{ target_slave_address | default('0x20') }}
+
+# Remote hostname(s) for LAN connections. Used for connecting to a remote BMC.
+hostname {{ hostname | default('myhost') }}
+
+# Username for remote connection authentication.
+username {{ username | default('myusername') }}
+
+# Password for remote connection authentication.
+# Note: Storing plaintext passwords in config files is a security risk.
+password {{ password | default('mypassword') }}
+
+# Key for OEM authentication (K_g). Used for OEM-specific security mechanisms.
+k_g {{ k_g | default('mykey') }}
+
+# --- Timeout Configuration ---
+
+# Session timeout in milliseconds. Time before an idle session is terminated.
+session-timeout {{ session_timeout | default('20000') }}
+
+# Retransmission timeout in milliseconds. Time to wait before retransmitting a packet.
+retransmission-timeout {{ retransmission_timeout | default('1000') }}
+
+# --- Security & Authentication ---
+
+# Authentication type (NONE, MD5, SHA1, SHA256). Method for authenticating commands.
+authentication-type {{ authentication_type | default('MD5') }}
+
+# Cipher suite ID for remote connection. Defines the encryption algorithm set.
+cipher-suite-id {{ cipher_suite_id | default('3') }}
+
+# Privilege level (CALLBACK, USER, OPERATOR, ADMIN). Required privilege for operations.
+privilege-level {{ privilege_level | default('ADMIN') }}
+
+# Space-separated list of workaround flags. Bypasses specific known bugs or issues.
+workaround-flags {{ workaround_flags | default('') }}
+
+# --- Verbosity & Event Filtering ---
+
+# Verbosity level (0-3). Higher values produce more detailed log output.
+verbose-count {{ verbose_count | default('0') }}
+
+# Space-separated list of sensor types to include. Only these sensors will be monitored.
+sensor-types {{ sensor_types | default('') }}
+
+# Space-separated list of sensor types to exclude. These sensors are ignored.
+exclude-sensor-types {{ exclude_sensor_types | default('') }}
+
+# Whether to process only system events. ENABLE/DISABLE.
+system-event-only {{ system_event_only | default('DISABLE') }}
+
+# Whether to process only OEM events. ENABLE/DISABLE.
+oem-event-only {{ oem_event_only | default('DISABLE') }}
+
+# Path to event state configuration file. Defines state transitions and actions.
+event-state-config-file {{ event_state_config_file | default('/etc/ipmiseld/event.conf') }}
+
+# --- Event Data Formatting ---
+
+# Whether to interpret OEM data. ENABLE/DISABLE.
+interpret-oem-data {{ interpret_oem_data | default('DISABLE') }}
+
+# Whether to use entity sensor names. ENABLE/DISABLE.
+entity-sensor-names {{ entity_sensor_names | default('DISABLE') }}
+
+# Whether to use non-abbreviated unit names. ENABLE/DISABLE.
+non-abbreviated-units {{ non_abbreviated_units | default('DISABLE') }}
+
+# Event state filter (nominal, warning, critical). Filters events by severity.
+event-state-filter {{ event_state_filter | default('nominal') }}
+
+# Warning threshold percentage. Triggers warning events when sensor exceeds this.
+warning-threshold {{ warning_threshold | default('80') }}
+
+# Clear threshold (0 = use default behavior). Triggers clear events when below this.
+clear-threshold {{ clear_threshold | default('0') }}
+
+# Format string for system events. Uses printf-style specifiers (%s, %I, %E).
+system-event-format "{{ system_event_format | default('"SEL System Event: %s, %I, %E"') }}"
+
+# Format string for OEM timestamped events.
+oem-timestamped-event-format "{{ oem_timestamped_event_format | default('"SEL OEM Event: %I, %o"') }}"
+
+# Format string for OEM non-timestamped events.
+oem-non-timestamped-event-format "{{ oem_non_timestamped_event_format | default('"SEL OEM Event: %I, %o"') }}"
+
+# --- Polling & Caching ---
+
+# Poll interval in seconds. How often to poll sensors for changes.
+poll-interval {{ poll_interval | default('300') }}
+
+# Directory for SDR (Sensor Data Record) cache.
+cache-directory {{ cache_directory | default('/var/cache/ipmi') }}
+
+# Whether to ignore SDR repository. ENABLE/DISABLE.
+ignore-sdr {{ ignore_sdr | default('DISABLE') }}
+
+# Whether to re-download SDR repository. ENABLE/DISABLE.
+re-download-sdr {{ re_download_sdr | default('DISABLE') }}
+
+# --- Logging Configuration ---
+
+# Syslog facility. Where to send log messages (e.g., LOG_DAEMON, LOG_USER).
+log-facility {{ log_facility | default('LOG_DAEMON') }}
+
+# Syslog priority. The severity level of the log messages.
+log-priority {{ log_priority | default('LOG_ERR') }}
+
+# --- System Event Log (SEL) Management ---
+
+# Whether to clear System Event Log on startup. ENABLE/DISABLE.
+clear-sel {{ clear_sel | default('DISABLE') }}
+
+# --- Threading ---
+
+# Number of threads in the thread pool. Handles concurrent sensor polling and events.
+threadpool-count {{ threadpool_count | default('8') }}

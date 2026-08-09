@@ -1,0 +1,51 @@
+# pgfincore.conf — PostgreSQL Memory Management Assistant (pgfincore) configuration
+{# This file configures the pgfincore PostgreSQL extension, which allows inspecting and controlling the memory mapping of PostgreSQL tables. #}
+
+# Maximum number of pages to pin in memory per table (0 = no limit).
+# Set to a positive integer to pin up to N pages.
+# Schema default: 0
+pgfincore.pin_pages = {{ (pin_pages | default(0)) | int }}
+
+# If true, automatically pin a table’s pages in memory on first access
+# (after restart or cache flush).
+# Schema default: False
+pgfincore.pin_on_first_access = {{ (pin_on_first_access | default(False)) | ternary('on', 'off') }}
+
+# Specifies which tables to pin by schema.table pattern (supports wildcards like `*`).
+# Note: This configures the GUC `pgfincore.pin_tables`.
+# Schema default: [] (empty list)
+{% if (pin_tables | default([])) | length > 0 %}
+{% for table_pattern in (pin_tables | default([])) %}pgfincore.pin_tables = '{{ table_pattern | string }}'
+{% endfor %}
+{% else %}
+# pgfincore.pin_tables = ''
+{% endif %}
+
+# List of table patterns to *exclude* from automatic pinning, even if matched by pin_tables.
+# Schema default: [] (empty list)
+{% if (exclude_tables | default([])) | length > 0 %}
+{% for exclude_pattern in (exclude_tables | default([])) %}pgfincore.exclude_tables = '{{ exclude_pattern | string }}'
+{% endfor %}
+{% else %}
+# pgfincore.exclude_tables = ''
+{% endif %}
+
+# Minimum free memory (in MB) required before pinning; prevents OOM.
+# Schema default: 64
+pgfincore.min_free_memory_mb = {{ (min_free_memory_mb | default(64)) | int }}
+
+# Maximum number of pages to pin per table (0 = no limit).
+# Schema default: 0
+pgfincore.max_pages_per_table = {{ (max_pages_per_table | default(0)) | int }}
+
+# Log level for pgfincore operations: DEBUG5..LOG.
+# Schema default: LOG
+pgfincore.log_level = {{ (log_level | default('LOG')) | string }}
+
+# Enables automatic unpinning of tables on checkpoint.
+# Schema default: False
+pgfincore.unpin_on_checkpoint = {{ (unpin_on_checkpoint | default(False)) | ternary('on', 'off') }}
+
+# Specifies the shared library to load (do not modify).
+# Schema default: 'pgfincore'
+shared_preload_libraries = '{{ (shared_preload_libraries | default(['pgfincore'])) | join(", ") }}'

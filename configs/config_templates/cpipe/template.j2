@@ -1,0 +1,75 @@
+# =============================================================================
+# cpipe Configuration Template
+# =============================================================================
+# This template configures one or more `cpipe` instances. `cpipe` is a utility
+# that applies pipe operations (like compression or filtering) while providing
+# real-time statistics.
+#
+# Each instance is defined as a separate command pipeline within the
+# `cpipe_instances` list. The rendered output is a series of shell-ready
+# command lines (or script segments), one per instance.
+# =============================================================================
+
+{% for instance in cpipe_instances | default([]) %}
+# =============================================================================
+# cpipe Instance: Loop Index {{ loop.index }}
+# Configuration for a single cpipe invocation.
+# See: https://github.com/... (cpipe documentation)
+# =============================================================================
+
+# --- Flags ---
+
+{# prefix: Optional string prepended to each printed status line. Maps to -p flag. #}
+{# Must be a simple string without newlines or shell metacharacters. #}
+{% if instance.prefix | default('') | length > 0 %}
+# -p: Prefix to prepend to each status line
+-p {{ instance.prefix | default('') | quote }} \
+{% endif %}
+
+{# buffer_size: Buffer size in kilobytes. Maps to -b flag. #}
+{# Must be a positive integer >= 1. #}
+{% if instance.buffer_size | default(128) is number %}
+# -b: Buffer size in kilobytes
+-b {{ instance.buffer_size | default(128) }} \
+{% endif %}
+
+{# speed_limit: Throughput speed limit in KB/s. Maps to -s flag. #}
+{# 0.0 disables limiting. Must be a positive double or 0.0. #}
+{% if instance.speed_limit | default(0.0) | float != 0.0 %}
+# -s: Throughput speed limit in kilobytes per second
+-s {{ instance.speed_limit | default(0.0) | round(1) }} \
+{% endif %}
+
+{# show_read_times: Show read-times statistics. Maps to -vr flag. #}
+{% if instance.show_read_times | default(False) %}
+# -vr: Show read-times statistics
+-vr \
+{% endif %}
+
+{# show_write_times: Show write-times statistics. Maps to -vw flag. #}
+{% if instance.show_write_times | default(False) %}
+# -vw: Show write-times statistics
+-vw \
+{% endif %}
+
+{# show_throughput: Show throughput statistics. Maps to -vt flag. #}
+{% if instance.show_throughput | default(False) %}
+# -vt: Show throughput statistics
+-vt \
+{% endif %}
+
+{# non_greedy_read: Enable non-greedy read mode. Maps to -ngr flag. #}
+{# Use for interactive pipes to avoid deadlock. #}
+{% if instance.non_greedy_read | default(False) %}
+# -ngr: Enable non-greedy read mode (prevents deadlock with interactive programs)
+-ngr \
+{% endif %}
+
+# --- Command ---
+
+{# command: The shell command that feeds stdin to cpipe. #}
+{# Required per instance. Must be a single command line suitable for a shell. #}
+# Command to pipe through cpipe
+{{ instance.command | default('') }}
+
+{% endfor %}

@@ -1,0 +1,38 @@
+name: ilo_redfish_info
+fqcn: community.general.ilo_redfish_info
+collection: community.general
+short_description: Gathers server information through iLO using Redfish APIs
+description: Builds Redfish URIs locally and sends them to iLO to get information back. For use with HPE
+  iLO operations that require Redfish OEM extensions.
+options:
+  auth_token:
+    type: str
+    description: Security token for authenticating to iLO.
+  baseuri:
+    type: str
+    required: true
+    description: Base URI of iLO.
+  category:
+    type: list
+    required: true
+    description: List of categories to execute on iLO.
+  command:
+    type: list
+    required: true
+    description: List of commands to execute on iLO.
+  password:
+    type: str
+    description: Password for authenticating to iLO.
+  timeout:
+    type: int
+    default: 10
+    description: Timeout in seconds for HTTP requests to iLO.
+  username:
+    type: str
+    description: Username for authenticating to iLO.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n  - name: Get iLO Sessions\n    community.general.ilo_redfish_info:\n      category: Sessions\n\
+  \      command: GetiLOSessions\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\
+  \n      password: \"{{ password }}\"\n    register: result_sessions\n"

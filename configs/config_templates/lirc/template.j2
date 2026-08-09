@@ -1,0 +1,34 @@
+# ==============================================================================
+# LIRC irexec System-Wide Configuration
+# ==============================================================================
+# This file configures the irexec daemon, which listens for infrared remote
+# control key presses and executes user-defined commands.
+#
+# NOTE: System-wide irexec is intended for edge cases. For most deployments,
+# session-scoped irexec (running per-user) is preferred.
+#
+# To debug output from this service (since it runs without a terminal), use:
+#   journalctl -b0 /usr/bin/irexec
+# ==============================================================================
+
+{# irexec: Global irexec daemon configuration (system-wide).
+   Typically only used for edge cases — prefer session-scoped irexec in most deployments. #}
+{# As per the original template structure, global daemon options are not explicitly
+   rendered here. This section is reserved for future global irexec parameters
+   if the schema is extended. #}
+
+{# irexec_button_configs: List of button-action pairs for irexec.
+   Each item defines a `prog`, `button`, and `config` line in the irexec config block. #}
+{% for item in irexec_button_configs | default([{'button': 'KEY_RED', 'config': 'echo "KEY_RED"'}, {'button': 'KEY_BLUE', 'config': 'echo "KEY_BLUE"'}, {'button': 'KEY_1', 'config': 'echo "KEY_1"'}, {'button': 'KEY_2', 'config': 'echo "KEY_2"'}, {'button': 'KEY_3', 'config': 'echo "KEY_3"'}, {'button': 'KEY_OK', 'config': 'echo "KEY_OK"'}, {'button': 'KEY_LEFT', 'config': 'echo "KEY_LEFT"'}, {'button': 'KEY_RIGHT', 'config': 'echo "KEY_RIGHT"'}]) %}
+begin
+    # prog: The program to execute (always irexec in this standard config)
+    prog   = irexec
+
+    # button: The name of the remote button/key to trigger this action
+    button = {{ item.button }}
+
+    # config: The command to execute when the button is pressed
+    config = {{ item.config }}
+end
+
+{% endfor %}

@@ -1,0 +1,62 @@
+# ==============================================================================
+# Configuration file for glogg (1.1.4)
+# This file documents user-writable configuration settings for glogg,
+# stored in the user's configuration directory (~/.config/glogg/).
+# Settings are loaded on startup.
+# ==============================================================================
+
+# Window geometry: [left, top, width, height]. Must be 4 integers.
+# Empty means use defaults.
+window_geometry = {{ (window_geometry | default([])) | join(', ') }}
+
+# List of recently opened log file paths.
+# Note: glogg expects these as separate lines or a specific format depending on version.
+# Here we output each file path on a new line if the list is not empty.
+{% if recent_files | default([]) %}
+{% for f in recent_files | default([]) %}recent_files = {{ f }}
+{% endfor %}
+{% endif %}
+
+# Maximum number of entries in recent files list.
+max_recent_files = {{ max_recent_files | default(10) }}
+
+# If true, search is case-sensitive.
+search_case_sensitive = {{ search_case_sensitive | default(false) | lower }}
+
+# If true, treat search pattern as regular expression.
+search_regex = {{ search_regex | default(false) | lower }}
+
+# If true, wrap search from end to beginning.
+search_wrap = {{ search_wrap | default(true) | lower }}
+
+# If true, highlight all matching lines during search.
+search_highlight_all = {{ search_highlight_all | default(true) | lower }}
+
+# Qt font string for the log display. If empty, use system default.
+# Example: "Monospace,10,-1,5,50,0,0,0,0,0"
+font = {{ font | default('') }}
+
+# Color settings.
+# The 'colors' mapping contains specific color codes.
+# We handle the case where 'colors' is not defined by defaulting to an empty dict.
+{% set colors_map = (colors | default({})) %}
+# Hex color for search highlight background.
+colors.highlight = {{ colors_map.highlight | default('#ffff00') }}
+# Hex color for main background.
+colors.background = {{ colors_map.background | default('#ffffff') }}
+# Hex color for main text.
+colors.text = {{ colors_map.text | default('#000000') }}
+# Hex color for selected text background.
+colors.selection = {{ colors_map.selection | default('#0000ff') }}
+
+# If true, automatically reload the log file when it changes on disk.
+auto_reload = {{ auto_reload | default(false) | lower }}
+
+# If true, scroll to the latest lines when new content appears.
+auto_scroll = {{ auto_scroll | default(true) | lower }}
+
+# If true, apply syntax highlighting for known log formats.
+syntax_highlighting = {{ syntax_highlighting | default(true) | lower }}
+
+# Character encoding used to read log files. Supported: UTF-8, ISO-8859-1.
+file_encoding = {{ file_encoding | default('UTF-8') }}

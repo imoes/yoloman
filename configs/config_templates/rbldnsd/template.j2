@@ -1,0 +1,38 @@
+# /etc/default/rbldnsd
+#
+# This file configures the rbldnsd (RBL DNS Daemon) service instance(s).
+# The RBLDNSD variable is passed a multiline string of command-line arguments
+# defining the daemon's behavior, logging, user context, network binding,
+# and served zones.
+#
+# Each section below corresponds to a configuration parameter from the
+# Ansible role schema. Defaults are applied if variables are undefined.
+
+# The RBLDNSD variable assignment.
+# It uses a heredoc-style multiline string for readability.
+RBLDNSD="- \
+\
+# Log file: Path to the log file. Use '-' to log to stdout (useful with systemd).
+-f{{ log_file | default('/var/log/rbldnsd/rbldnsd.log') }} \
+\
+# PID file: Path where the daemon writes its PID file.
+-p{{ pid_file | default('/run/rbldnsd/rbldnsd.pid') }} \
+\
+# Service user: Unix username under which the daemon will run (for security).
+-u{{ service_user | default('nobody') }} \
+\
+# Service group: Unix group name for the daemon (optional; pairs with `service_user`).
+-g{{ service_group | default('nogroup') }} \
+\
+# Listen addresses and port: List of IP addresses (IPv4 or IPv6) to bind the DNS server to.
+{% for addr in listen_addresses | default(['0.0.0.0']) %}
+-b{{ addr }}:{{ listen_port | default(53) }}{% if not loop.last %} \
+{% endif %}
+{% endfor %}
+\
+# Zones: List of DNSBL zones to serve. Each entry defines a zone and its SOA/RR behavior.
+{% for zone in zones | default([]) %}
+{{ zone.domain | default('') }}:{{ zone.type | default('') }}:{{ zone.suffix | default('') }}{% if not loop.last %} \
+{% endif %}
+{% endfor %}
+"

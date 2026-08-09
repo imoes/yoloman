@@ -1,0 +1,118 @@
+{# ============================================================================ #}
+{# gphoto2 configuration template                                                 #}
+{# ============================================================================ #}
+{# This template generates a command-line configuration file for gphoto2.         #}
+{# Each section corresponds to a group of command-line options.                   #}
+{# Variables are sourced from Ansible variables with safe defaults as specified   #}
+{# in the schema. See gphoto2(1) manpage for option details.                      #}
+{# ============================================================================ #}
+
+{# --- Debugging Options -------------------------------------------------------- #}
+{# Enables debug output to stderr or logfile. See --debug in gphoto2(1).        #}
+{% if (debug | default({})).enabled | default(false) %}
+--debug
+{% endif %}
+
+{# Path to file where debug output is written. Overrides stderr default.        #}
+{% if (debug | default({})).logfile | default('') %}
+--debug-logfile {{ (debug | default({})).logfile | default('') }}
+{% endif %}
+
+{# Debug verbosity level: error, debug, data, or all.                           #}
+{% if (debug | default({})).loglevel | default('all') %}
+--debug-loglevel {{ (debug | default({})).loglevel | default('all') }}
+{% endif %}
+
+{# --- Hook Script ------------------------------------------------------------ #}
+{# Path to hook script executed at gphoto2 events (init/start/stop/download).   #}
+{% if hook_script | default('') %}
+--hook-script {{ hook_script | default('') }}
+{% endif %}
+
+{# --- General Operation Mode ------------------------------------------------- #}
+{# Enable quiet mode (--quiet). Supersedes verbose mode if both are set.        #}
+{% if quiet | default(false) %}
+--quiet
+{% endif %}
+
+{# Enable verbose mode (--verbose). Ignored if quiet is true.                   #}
+{% if verbose | default(true) %}
+--verbose
+{% endif %}
+
+{# --- Filename Pattern ------------------------------------------------------- #}
+{# Filename pattern for downloads/uploads (e.g., '%n.jpg').                     #}
+{% if filename_pattern | default('') %}
+--filename {{ filename_pattern | default('') }}
+{% endif %}
+
+{# Starting number for %n expansion in filename pattern.                        #}
+{% if filenumber_start is defined and filenumber_start is not none %}
+--filenumber {{ filenumber_start }}
+{% endif %}
+
+{# --- USB ID Overrides ------------------------------------------------------- #}
+{# List of USB ID override rules to remap detected devices.                     #}
+{% if usbid_rules | default([]) %}
+# USB ID overrides
+{% for rule in usbid_rules | default([]) %}
+--usbid {{ (rule.detected | default('')) }}={{ (rule.treated_as | default('')) }}
+{% endfor %}
+{% endif %}
+
+{# --- Camera Connection ------------------------------------------------------ #}
+{# Camera model name as listed by --list-cameras.                             #}
+{% if camera_model | default('') %}
+--camera "{{ camera_model | default('') }}"
+{% endif %}
+
+{# Port path (e.g., 'usb:001,002') for the camera connection.                 #}
+{% if port | default('') %}
+--port {{ port | default('') }}
+{% endif %}
+
+{# Serial transfer speed in baud (ignored for USB ports).                     #}
+{% if speed is defined and speed is not none %}
+--speed {{ speed }}
+{% endif %}
+
+{# --- Folder Navigation ------------------------------------------------------ #}
+{# Camera folder to operate on. Default is root folder '/'.                   #}
+{% if folder | default('/') %}
+--folder {{ folder | default('/') }}
+{% endif %}
+
+{# Whether to recurse into subfolders. If false, emits --no-recurse.          #}
+{% if not (recurse | default(true)) %}
+--no-recurse
+{% endif %}
+
+{# --- Capture Behavior ------------------------------------------------------- #}
+{# Emit --keep to retain captured images on camera after download.            #}
+{% if capture_keep | default(false) %}
+--keep
+{% elif capture_keep_raw | default(false) %}
+--keep-raw
+{% else %}
+--no-keep
+{% endif %}
+
+{# Number of frames to capture in time-lapse mode. None means infinite.       #}
+{% if capture_frames is defined and capture_frames is not none %}
+--frames {{ capture_frames }}
+{% endif %}
+
+{# Interval (seconds) between captures in time-lapse mode.                    #}
+{% if capture_interval is defined and capture_interval is not none %}
+--interval {{ capture_interval }}
+{% endif %}
+
+{# Reset interval timer on SIGUSR1.                                           #}
+{% if capture_reset_interval | default(false) %}
+--reset-interval
+{% endif %}
+
+{# Tethered capture wait specification (SECONDS, COUNT, etc.).                #}
+{% if capture_tethered is defined and capture_tethered is not none %}
+--capture-tethered {{ capture_tethered }}
+{% endif %}

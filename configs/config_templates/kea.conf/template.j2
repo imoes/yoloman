@@ -1,0 +1,105 @@
+{# Kea DHCPv4 Server Configuration #}
+{# This template generates a valid JSON configuration for the Kea DHCPv4 server. #}
+{# All variables are safely defaulted to match the schema definitions. #}
+{
+  "Dhcp4": {
+    {# Time in seconds after which a client may attempt to renew its lease. #}
+    "renew-timer": {{ dhcps4_renew_timer | default(3600) }},
+    {# Time in seconds after which a client may attempt to rebind its lease if renewal fails. #}
+    "rebind-timer": {{ dhcps4_rebind_timer | default(6300) }},
+    {# Maximum time in seconds a lease may be assigned. #}
+    "max-lease-time": {{ dhcps4_max_lease_time | default(7200) }},
+    {# Interval in seconds between writes of lease changes to disk (0 = write on every change). #}
+    "lease-changes-interval": {{ dhcps4_lease_changes_interval | default(0) }},
+
+    {# List of network interfaces to listen on for DHCP requests. #}
+    "interfaces-config": {
+      "interfaces": [
+        {%- for iface in (dhcps4_interfaces | default(['eth0'])) %}
+        "{{ iface }}"{{- '' if loop.last else ',' }}
+        {%- endfor %}
+      ]
+    },
+
+    {# Unix socket path for Kea DHCPv4 control agent communication. #}
+    "control-socket": {
+      "socket-type": "unix",
+      "socket-name": "{{ dhcps4_control_socket_name | default('/run/kea/dhcp4-ctrl.sock') }}"
+    },
+
+    {# Maximum number of incoming packets that may be queued when processing is delayed. #}
+    "dhcp-queue-control": {
+      "capacity": {{ dhcps4_queue_capacity | default(64) }},
+      {# Enable packet queuing (recommended for high-load servers). #}
+      "enable-queue": {{ dhcps4_enable_queue | default(true) | lower }}
+    },
+
+    {# Logging configuration for DHCPv4 server messages. #}
+    "loggers": [
+      {
+        "name": "kea-dhcp4",
+        "output_options": [
+          {
+            {# Path to log file for DHCPv4 server messages. #}
+            "output": "{{ dhcps4_log_output | default('/var/log/kea-dhcp4.log') }}"
+          }
+        ],
+        {# Minimum severity level to log (DEBUG, INFO, WARN, ERROR, FATAL). #}
+        "severity": "{{ dhcps4_log_severity | default('INFO') }}",
+        {# Debug level (0 = minimal, up to 99 for verbose debug). #}
+        "debuglevel": {{ dhcps4_log_debuglevel | default(0) }}
+      }
+    ],
+
+    {# List of DHCPv4 shared networks (each defines a subnet and related settings). #}
+    "shared-networks": [
+      {%- for net in (dhcps4_shared_networks | default([{'name': 'default', 'subnet': '192.168.1.0/24', 'pools': [{'start': '192.168.1.10', 'end': '192.168.1.200'}], 'option_data': [{'name': 'routers', 'data': '192.168.1.1'}, {'name': 'domain-name-servers', 'data': '192.168.1.1'}], 'reservations': [], 'client_class': ''}])) %}
+      {
+        {# Name of the shared network. #}
+        "name": "{{ net.name }}",
+        {# Subnet definition (e.g., 192.168.1.0/24). #}
+        "subnet": "{{ net.subnet }}",
+        {# Address pools available for assignment. #}
+        "pools": [
+          {%- for pool in (net.pools | default([{'start': '192.168.1.10', 'end': '192.168.1.200'}])) %}
+          {
+            "pool": "{{ pool.start }} - {{ pool.end }}"
+          }{{- '' if loop.last else ',' }}
+          {%- endfor %}
+        ],
+        {# DHCP options (e.g., router, DNS servers). #}
+        "option-data": [
+          {%- for opt in (net.option_data | default([{'name': 'routers', 'data': '192.168.1.1'}, {'name': 'domain-name-servers', 'data': '192.168.1.1'}])) %}
+          {
+            "name": "{{ opt.name }}",
+            "data": "{{ opt.data }}"
+          }{{- '' if loop.last else ',' }}
+          {%- endfor %}
+        ],
+        {# Static reservations for specific MAC addresses. #}
+        "reservations": [
+          {%- for res in (net.reservations | default([])) %}
+          {
+            "hw-address": "{{ res.hw_address }}",
+            "ip-address": "{{ res.ip_address }}",
+            "hostname": "{{ res.hostname }}"
+          }{{- '' if loop.last else ',' }}
+          {%- endfor %}
+        ],
+        {# Optional client class filter for this network. #}
+        "client-class": "{{ net.client_class | default('') }}"
+      }{{- '' if loop.last else ',' }}
+      {%- endfor %}
+    ],
+
+    {# Configuration for the hosts database (memfile backend). #}
+    "hosts-database": {
+      "type": "memfile",
+      {# Interval in seconds for automatic log-file compaction of the hosts database. #}
+      "lfc-interval": {{ dhcps4_hosts_lfc_interval | default(3600) }}
+    },
+
+    {# Directory for persistent data (leases, hosts, etc.). #}
+    "data-directory": "{{ dhcps4_data_directory | default('/var/lib/kea') }}"
+  }
+}

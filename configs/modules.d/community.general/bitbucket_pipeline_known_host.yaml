@@ -1,0 +1,58 @@
+name: bitbucket_pipeline_known_host
+fqcn: community.general.bitbucket_pipeline_known_host
+collection: community.general
+short_description: Manages Bitbucket pipeline known hosts
+description: Manages Bitbucket pipeline known hosts under the "SSH Keys" menu. The host fingerprint will
+  be retrieved automatically, but in case of an error, one can use O(key) field to specify it manually.
+options:
+  client_id:
+    type: str
+    description: The OAuth consumer key. If not set the environment variable E(BITBUCKET_CLIENT_ID) will
+      be used.
+  client_secret:
+    type: str
+    description: The OAuth consumer secret. If not set the environment variable E(BITBUCKET_CLIENT_SECRET)
+      will be used.
+  key:
+    type: str
+    description: The public key.
+  name:
+    type: str
+    required: true
+    description: The FQDN of the known host.
+  password:
+    type: str
+    description: The App password. If not set the environment variable E(BITBUCKET_PASSWORD) will be used.
+  repository:
+    type: str
+    required: true
+    description: The repository name.
+  state:
+    type: str
+    required: true
+    choices:
+    - absent
+    - present
+    description: Indicates desired state of the record.
+  user:
+    type: str
+    aliases:
+    - username
+    description: The username. If not set the environment variable E(BITBUCKET_USERNAME) will be used.
+      O(ignore:username) is an alias of O(user) since community.general 6.0.0. It was an alias of O(workspace)
+      before.
+  workspace:
+    type: str
+    required: true
+    description: The repository owner. B(Note:) O(ignore:username) used to be an alias of this option.
+      Since community.general 6.0.0 it is an alias of O(user).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create known hosts from the list\n  community.general.bitbucket_pipeline_known_host:\n\
+  \    repository: 'bitbucket-repo'\n    workspace: bitbucket_workspace\n    name: '{{ item }}'\n    state:\
+  \ present\n  with_items:\n    - bitbucket.org\n    - example.com\n\n- name: Remove known host\n  community.general.bitbucket_pipeline_known_host:\n\
+  \    repository: bitbucket-repo\n    workspace: bitbucket_workspace\n    name: bitbucket.org\n    state:\
+  \ absent\n\n- name: Specify public key file\n  community.general.bitbucket_pipeline_known_host:\n  \
+  \  repository: bitbucket-repo\n    workspace: bitbucket_workspace\n    name: bitbucket.org\n    key:\
+  \ '{{lookup(\"file\", \"bitbucket.pub\") }}'\n    state: absent\n"

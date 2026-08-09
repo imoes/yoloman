@@ -1,0 +1,260 @@
+{
+  "storage": {
+    "type": "object",
+    "default": {
+      "path": "/var/lib/reclass"
+    },
+    "description": "Base directory where reclass stores its cache and generated inventory data.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/var/lib/reclass",
+        "description": "Absolute path to the storage directory."
+      }
+    }
+  },
+  "name": {
+    "type": "string",
+    "default": "reclass",
+    "description": "Logical name for this reclass instance; used for logging and isolation."
+  },
+  "metadata": {
+    "type": "object",
+    "default": {},
+    "description": "Configuration for optional external metadata endpoint (e.g., for dynamic node class injection)."
+  },
+  "sources": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/etc/reclass/nodes"
+      },
+      {
+        "path": "/etc/reclass/classes"
+      }
+    ],
+    "description": "List of source directories containing node definitions (YAML files ending in .yml/.yaml) and class definitions.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to a source directory (e.g., nodes or classes)."
+      }
+    }
+  },
+  "interpolation": {
+    "type": "object",
+    "default": {
+      "enabled": true
+    },
+    "description": "Controls whether reclass performs variable interpolation (e.g., ${var} \u2192 value) in values.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable interpolation of values."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "path": "/var/cache/reclass",
+      "ttl": 3600
+    },
+    "description": "Optional caching layer to speed up repeated queries.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable caching."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/cache/reclass",
+        "description": "Directory to store cache files."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 3600,
+        "description": "Cache validity time in seconds (0 = never expire)."
+      }
+    }
+  },
+  "output": {
+    "type": "object",
+    "default": {
+      "format": "yaml",
+      "allowed_types": [
+        "yaml",
+        "json"
+      ]
+    },
+    "description": "Output formatting preferences for reclass\u2019s exported inventory.",
+    "items": {
+      "format": {
+        "type": "string",
+        "default": "yaml",
+        "description": "Default output format (yaml or json)."
+      },
+      "allowed_types": {
+        "type": "list",
+        "default": [
+          "yaml",
+          "json"
+        ],
+        "description": "List of allowed output formats (used by integrations like Salt or Ansible).",
+        "items": {
+          "type": "string",
+          "default": "",
+          "description": "Permitted output format."
+        }
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "WARNING",
+      "file": ""
+    },
+    "description": "Logging verbosity and destination.",
+    "items": {
+      "level": {
+        "type": "string",
+        "default": "WARNING",
+        "description": "Minimum log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+      },
+      "file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to log file (empty = stderr only)."
+      }
+    }
+  },
+  "max_inheritance_depth": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum class inheritance depth to prevent infinite loops (lower = safer)."
+  },
+  "node_name_transform": {
+    "type": "object",
+    "default": {
+      "type": "none"
+    },
+    "description": "Optional normalization for incoming node names (e.g., strip domain name).",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "none",
+        "description": "Transform type: 'none', 'lowercase', 'strip-domain'."
+      }
+    }
+  },
+  "external_data": {
+    "type": "object",
+    "default": {},
+    "description": "Key-value pairs for static external data (e.g., cloud provider metadata, secrets).",
+    "items": {
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "External data provider name."
+      },
+      "val": {
+        "type": "string",
+        "default": "",
+        "description": "JSON-encoded external data payload."
+      }
+    }
+  },
+  "default_node_class": {
+    "type": "string",
+    "default": "",
+    "description": "Default class name to apply to nodes without explicit classes (e.g., '_defaults')."
+  },
+  "merge_strategy": {
+    "type": "object",
+    "default": {
+      "dicts": "deep",
+      "lists": "append"
+    },
+    "description": "Strategy to combine dicts and lists during class merging.",
+    "items": {
+      "dicts": {
+        "type": "string",
+        "default": "deep",
+        "description": "Dict merging: 'deep' (recursive merge) or 'overwrite'."
+      },
+      "lists": {
+        "type": "string",
+        "default": "append",
+        "description": "List merging: 'append' (union) or 'overwrite'."
+      }
+    }
+  },
+  "diagnostics": {
+    "type": "object",
+    "default": {
+      "show_missing_nodes": false
+    },
+    "description": "Toggles diagnostic features (e.g., for troubleshooting node resolution).",
+    "items": {
+      "show_missing_nodes": {
+        "type": "bool",
+        "default": false,
+        "description": "Print warnings for nodes not found in the inventory."
+      }
+    }
+  },
+  "path_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Path prefix to prepend to all file-based paths (multi-tenant setups)."
+  },
+  "yaml": {
+    "type": "object",
+    "default": {
+      "width": 80
+    },
+    "description": "YAML rendering options.",
+    "items": {
+      "width": {
+        "type": "number",
+        "default": 80,
+        "description": "Line width for YAML output (0 = unlimited)."
+      }
+    }
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone used for timestamps (e.g., 'Europe/Berlin', 'America/New_York')."
+  },
+  "uri_encoding": {
+    "type": "string",
+    "default": "percent",
+    "description": "Encoding method for URIs in external references: 'percent' or 'none'."
+  },
+  "naming": {
+    "type": "object",
+    "default": {
+      "node_name_pattern": "^[a-zA-Z0-9._-]+$",
+      "class_name_pattern": "^[a-zA-Z0-9._-]+$"
+    },
+    "description": "Regex patterns to validate node and class names.",
+    "items": {
+      "node_name_pattern": {
+        "type": "string",
+        "default": "^[a-zA-Z0-9._-]+$",
+        "description": "Regex to validate node names."
+      },
+      "class_name_pattern": {
+        "type": "string",
+        "default": "^[a-zA-Z0-9._-]+$",
+        "description": "Regex to validate class names."
+      }
+    }
+  }
+}

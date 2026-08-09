@@ -1,0 +1,88 @@
+[Service]
+# Enable the Google Online Accounts plugin; sets the systemd service type to 'simple'
+Type=simple
+
+# Command executed by systemd to start the Google Online Accounts plugin
+ExecStart=/usr/lib/lomiri-online-accounts-plugin-google/lomiri-online-accounts-plugin-google
+
+# Restart policy: systemd restarts the service on-failure for resilience
+Restart=on-failure
+
+# Delay before restarting after failure (seconds)
+RestartSec=3
+
+# Run as the lomiri user (OS-level account)
+User=lomiri
+
+# Run as the lomiri group (OS-level group)
+Group=lomiri
+
+# Limit resource usage: prevent runaway processes (memory limit)
+MemoryLimit=256M
+
+# Limit number of open file descriptors
+LimitNOFILE=1024
+
+# Ensure secure environment: restrict access to sensitive capabilities
+NoNewPrivileges=yes
+
+# Use a separate /tmp directory for this service
+PrivateTmp=yes
+
+# Protect system directories by making them read-only
+ProtectSystem=strict
+
+# Protect user home directories by making them read-only
+ProtectHome=read-only
+
+# Allow access to necessary paths: general Lomiri online accounts directory
+ReadWritePaths=/var/lib/lomiri-online-accounts
+
+# Allow access to necessary paths: user-specific runtime directory
+# Uses user_runtime (default '0') to target /run/user/UID/lomiri
+ReadWritePaths=/run/user/{{ user_runtime | default('0') }}/lomiri
+
+# Allow access to necessary paths: cache directory for account data
+# Uses accounts_cache_path (default '/home/lomiri/.cache/lomiri-online-accounts')
+ReadWritePaths={{ accounts_cache_path | default('/home/lomiri/.cache/lomiri-online-accounts') }}
+
+# Allow access to necessary paths: persistent data directory for credentials
+# Uses accounts_data_path (default '/home/lomiri/.local/share/lomiri-online-accounts')
+ReadWritePaths={{ accounts_data_path | default('/home/lomiri/.local/share/lomiri-online-accounts') }}
+
+# Bind to required D-Bus service name
+BusName=org.gnome.OnlineAccounts
+
+# Wait for D-Bus and account manager to be ready
+WantedBy=accounts.service
+
+# Require the accounts.service to be running before starting this service
+Requires=accounts.service
+
+# Optional: override default provider name for multi-tenant setups
+# Uses provider_name (default '') to set a custom provider identifier
+{% if provider_name is defined and provider_name != '' %}
+ProviderName={{ provider_name | default('') }}
+{% endif %}
+
+# Optional: enable/disable debug logging
+# Uses debug (default False) to toggle verbose logging; emits 'true' or 'false'
+{% if debug | default(false) %}
+Debug=true
+{% else %}
+Debug=false
+{% endif %}
+
+# Optional: worker configuration for parallel token refresh
+# Uses workers (default []) which is a list of worker config objects
+{% if workers is defined and workers | length > 0 %}
+[Workers]
+{% for worker in workers %}
+# Worker {{ loop.index }}: handles refresh for provider {{ worker.provider | default('google') }}
+Worker{{ loop.index }}.Provider={{ worker.provider | default('google') }}
+Worker{{ loop.index }}.MinInterval={{ worker.min_interval | default(900) }}
+Worker{{ loop.index }}.MaxInterval={{ worker.max_interval | default(3600) }}
+Worker{{ loop.index }}.BatchSize={{ worker.batch_size | default(10) }}
+Worker{{ loop.index }}.Enabled={{ worker.enabled | default(true) }}
+{% endfor %}
+{% endif %}

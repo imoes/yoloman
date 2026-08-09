@@ -1,0 +1,37 @@
+# /etc/bd/bd.conf
+# bd(1) configuration: parent directory navigation helper for bash
+# This file is sourced by ~/.bashrc alias 'bd=". bd -si"'
+#
+# Self-documenting template: every directive is preceded by its schema
+# description so that no external documentation is needed to understand
+# the resulting environment variables.
+
+# Enable case-insensitive matching of directory names.
+# Equivalent to passing '-si' to bd.
+# Default: true
+{% if case_insensitive | default(true) %}
+export BD_CASE_INSENSITIVE="1"
+{% else %}
+unset BD_CASE_INSENSITIVE
+{% endif %}
+
+# Additional colon-separated paths where bd should start searching
+# upward for parent directories.
+# Default: [] (empty list — no extra paths)
+#
+# Note: The schema default is an empty list. If you need default search
+# paths, list them here; they will be joined with ':' into a single string.
+{% if search_paths | default([]) %}
+export BD_SEARCH_PATHS="{{ search_paths | default([]) | join(':') }}"
+{% else %}
+unset BD_SEARCH_PATHS
+{% endif %}
+
+# Enable verbose diagnostics to print matched paths to stderr.
+# Useful for debugging bd's parent-directory resolution logic.
+# Default: false
+{% if verbose | default(false) %}
+export BD_VERBOSE="1"
+{% else %}
+unset BD_VERBOSE
+{% endif %}

@@ -1,0 +1,49 @@
+# iSCSI Offloading Daemon (iscsiuio) configuration file
+# Controls runtime behavior for QLogic iSCSI offload adapters
+
+# Debug verbosity level: 0 = silent, 1 = minimal, 2–3 = detailed, 4+ = very verbose.
+# Default: 0
+DebugLevel {{ debug_level | default(0) }}
+
+# Absolute path to the main log file.
+# Default: '/var/log/iscsiuio.log'
+LogFilePath {{ log_file_path | default('/var/log/iscsiuio.log') }}
+
+# Number of rotated log files to keep.
+# Default: 5
+LogMaxFiles {{ log_max_files | default(5) }}
+
+# Maximum size (in MB) of each log file before rotation.
+# Set to 0 to disable size-based rotation.
+# Default: 10
+LogFileSize {{ log_file_size_mb | default(10) }}
+
+# List of network interfaces to use for iSCSI offload traffic.
+# Leave empty to auto-detect offload-capable interfaces.
+# If specified, formats as: Ifaces eth1, eth2
+{% if ifaces is defined and ifaces | length > 0 %}
+Ifaces {{ ifaces | join(', ') }}
+{% endif %}
+
+# Enable hardware TCP checksum offload for improved throughput.
+# Default: true
+TCPChecksumOffload {{ tcp_checksum_offload | default(true) | ternary('yes', 'no') }}
+
+# Enable TCP segmentation offload (TSO) to reduce CPU load.
+# Default: true
+TCPSegOffload {{ tcp_seg_offload | default(true) | ternary('yes', 'no') }}
+
+# Enable large receive offload (LRO) to coalesce incoming packets.
+# Default: true
+LRO {{ lro | default(true) | ternary('yes', 'no') }}
+
+# Additional kernel module parameters as 'key=value' strings.
+# These are passed to the kernel module at load time.
+{% if extra_modparams is defined and extra_modparams | length > 0 %}
+{% for param in extra_modparams %}
+# Module param: {{ param }}
+{{ param }}
+{% endfor %}
+{% else %}
+# No extra module parameters configured
+{% endif %}

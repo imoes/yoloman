@@ -1,0 +1,129 @@
+# =============================================================================
+# clinfo - OpenCL Information Tool Configuration
+# =============================================================================
+#
+# clinfo is a utility for querying OpenCL platforms and devices. It does not
+# read a persistent configuration file; instead, its behavior is controlled
+# entirely via command-line arguments.
+#
+# This Jinja2 template generates a script or command invocation that assembles
+# the appropriate flags based on the provided schema variables. It serves as
+# both documentation of available options and a mechanism to generate
+# reproducible clinfo executions within Ansible roles.
+#
+# Each variable below corresponds to a specific command-line flag of clinfo.
+# Refer to the 'man clinfo' page for detailed semantics of each option.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Global Mode Flags
+# These flags determine the output format and scope of information.
+# Only one primary output mode should typically be active, though some flags
+# are additive.
+# ------------------------------------------------------------------------------
+
+# --raw: Enable machine-readable raw output format.
+# Automatically enabled if the executable name contains 'raw'.
+# Default: False
+{% set mode_raw = mode_raw | default(False) %}
+# clinfo {% if mode_raw %}--raw {% endif %}
+
+# --json: Enable JSON output format (experimental).
+# Mutually exclusive with raw text mode in most implementations, but clinfo
+# may allow it. Use either --raw or --json, not both.
+# Default: False
+{% set mode_json = mode_json | default(False) %}
+{% if mode_json %}--json {% endif %}
+
+# --list: Show only platform and device names.
+# Skips detailed property dumps. Useful for quick inventory.
+# Default: False
+{% set mode_list = mode_list | default(False) %}
+{% if mode_list %}--list {% endif %}
+
+# ------------------------------------------------------------------------------
+# Device Selection & Filtering
+# These flags control which OpenCL devices are queried.
+# ------------------------------------------------------------------------------
+
+# --offline: Include offline devices in the output.
+# By default, clinfo may hide devices that are not currently active.
+# This flag forces their inclusion where the platform API supports it.
+# Default: False
+{% set show_offline = show_offline | default(False) %}
+{% if show_offline %}--offline {% endif %}
+
+# --null-platform: Treat the NULL platform as a normal platform.
+# Some OpenCL implementations expose a NULL platform for error handling or
+# generic queries. This flag makes it appear in the device list.
+# Default: False
+{% set handle_null_platform = handle_null_platform | default(False) %}
+{% if handle_null_platform %}--null-platform {% endif %}
+
+# --device <platform_index>:<device_index>: Restrict output to specific devices.
+# Accepts a list of index pairs. If empty, all visible devices are shown.
+# Example value: ['0:0', '1:2']
+{% set device_specs = device_specs | default([]) %}
+{% if device_specs is iterable and device_specs | length > 0 %}
+# Targeting specific devices:
+{% for device_spec in device_specs %}--device {{ device_spec }} {% endfor %}
+{% endif %}
+
+# --prop <substring>: Filter displayed properties by name.
+# Performs a case-insensitive substring match. Hyphens in property names
+# are normalized to underscores for matching.
+# Forces raw mode internally in some versions.
+# Example value: ['CL_DEVICE_NAME', 'cl_device_version']
+{% set property_names = property_names | default([]) %}
+{% if property_names is iterable and property_names | length > 0 %}
+# Filtering properties:
+{% for prop in property_names %}--prop {{ prop }} {% endfor %}
+{% endif %}
+
+# --all-props: Retrieve all properties, including experimental/unstandard ones.
+# Silently skips properties that are not supported by the driver/hardware.
+# Default: False
+{% set all_props = all_props | default(False) %}
+{% if all_props %}--all-props {% endif %}
+
+# --always-all-props: Like --all-props, but also reports errors for missing properties.
+# Useful for debugging driver compliance.
+# Default: False
+{% set always_all_props = always_all_props | default(False) %}
+{% if always_all_props %}--always-all-props {% endif %}
+
+# ------------------------------------------------------------------------------
+# Reference / Help
+# Standard flags for versioning and help.
+# ------------------------------------------------------------------------------
+# clinfo --version
+# clinfo --help
+
+# ------------------------------------------------------------------------------
+# Generated Command Assembly
+# Below is the fully assembled command line based on the resolved variables.
+# This block can be used in Ansible 'command' or 'shell' modules.
+# ------------------------------------------------------------------------------
+{% set flags = [] %}
+{% if mode_raw %}{% set _ = flags.append('--raw') %}{% endif %}
+{% if mode_json %}{% set _ = flags.append('--json') %}{% endif %}
+{% if mode_list %}{% set _ = flags.append('--list') %}{% endif %}
+{% if show_offline %}{% set _ = flags.append('--offline') %}{% endif %}
+{% if handle_null_platform %}{% set _ = flags.append('--null-platform') %}{% endif %}
+{% if all_props %}{% set _ = flags.append('--all-props') %}{% endif %}
+{% if always_all_props %}{% set _ = flags.append('--always-all-props') %}{% endif %}
+
+{% for device_spec in (device_specs | default([])) %}
+{% if loop.first %}{% set _ = flags.append('--device') %}{% endif %}
+{% if not loop.first %}{% set _ = flags.append('--device') %}{% endif %}
+{% set _ = flags.append(device_spec) %}
+{% endfor %}
+
+{% for prop in (property_names | default([])) %}
+{% if loop.first %}{% set _ = flags.append('--prop') %}{% endif %}
+{% if not loop.first %}{% set _ = flags.append('--prop') %}{% endif %}
+{% set _ = flags.append(prop) %}
+{% endfor %}
+
+# Full command:
+# clinfo {{ flags | join(' ') }}

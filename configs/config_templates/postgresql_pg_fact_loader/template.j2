@@ -1,0 +1,105 @@
+# PostgreSQL Asynchronous Fact Loader Daemon configuration
+# This file controls the behavior of pg_fact_loader, which runs background jobs to build and refresh fact tables in PostgreSQL.
+
+# Database connection settings
+
+# Hostname or IP address of the PostgreSQL server to connect to.
+# Default: 'localhost'
+host: {{ db_host | default('localhost') }}
+
+# Port number of the PostgreSQL server.
+# Default: 5432
+port: {{ db_port | default(5432) }}
+
+# Database user account for pg_fact_loader to authenticate as.
+# Default: 'postgres'
+user: {{ db_user | default('postgres') }}
+
+# Password for the database user. Prefer using .pgpass or IAM auth in production.
+# Default: '' (empty string)
+password: {{ db_password | default('') }}
+
+# Name of the PostgreSQL database to connect to.
+# Default: 'postgres'
+database: {{ db_name | default('postgres') }}
+
+# Logging configuration
+
+# Minimum severity level for log messages to emit.
+# Default: 'info'
+log_level: {{ log_level | default('info') }}
+
+# Path to the log file (standard output if empty).
+# Default: '/var/log/pg_fact_loader/pg_fact_loader.log'
+log_file: {{ log_file | default('/var/log/pg_fact_loader/pg_fact_loader.log') }}
+
+# Worker pool settings
+
+# Number of concurrent worker processes to spawn.
+# Default: 2
+worker_count: {{ worker_count | default(2) }}
+
+# Maximum number of tasks a worker may process before restarting (helps avoid memory leaks).
+# Default: 10
+max_tasks_per_worker: {{ max_tasks_per_worker | default(10) }}
+
+# Maximum seconds a single fact table build may run before being killed.
+# Default: 3600
+task_timeout_seconds: {{ task_timeout_seconds | default(3600) }}
+
+# Polling interval (seconds) between queue checks
+
+# Seconds between checks for new fact table build requests in the job queue.
+# Default: 5
+poll_interval_seconds: {{ poll_interval_seconds | default(5) }}
+
+# Retries and backoff settings
+
+# Maximum number of retry attempts after a failed task.
+# Default: 3
+max_retries: {{ max_retries | default(3) }}
+
+# Initial delay (seconds) before first retry.
+# Default: 1
+retry_delay_seconds: {{ retry_delay_seconds | default(1) }}
+
+# Maximum delay (seconds) between retries (capped exponential backoff).
+# Default: 60
+max_retry_delay_seconds: {{ max_retry_delay_seconds | default(60) }}
+
+# Fact table definitions (each entry defines a scheduled or on-demand fact table build)
+
+# List of fact tables to manage. Each entry defines the source query and refresh behavior.
+# Default: [] (empty list)
+fact_tables:
+{% for ft in (fact_tables | default([])) %}
+  - name: {{ ft.name | default('') }}
+    schema: {{ ft.schema | default('public') }}
+    table: {{ ft.table | default('') }}
+    # SQL query used to build the fact table (typically SELECT ... INTO or INSERT INTO ... SELECT)
+    query: |
+      {{ ft.query | default('') | indent(6) | trim }}
+    # Schedule for automatic refresh: cron format (optional; leave empty to disable scheduling)
+    # Default: '' (empty)
+    schedule: {{ ft.schedule | default('') | trim | quote }}
+    # Whether to truncate the table before loading (true = full refresh; false = append/update)
+    # Default: false
+    truncate_before_load: {{ ft.truncate_before_load | default(false) | ternary('true', 'false') }}
+    # Optional: tags for grouping/filtering in UI or CLI
+    tags:
+{% for tag in (ft.tags | default([])) %}
+      - {{ tag }}
+{% endfor %}
+{% endfor %}
+
+# Optional: health check endpoint (for monitoring systems)
+monitoring:
+  # Enable the built-in HTTP health/metrics endpoint.
+  # Default: true
+  enabled: {{ (monitoring | default({})).enabled | default(true) | ternary('true', 'false') }}
+  # Port to expose the monitoring endpoint on.
+  # Default: 9187
+  port: {{ (monitoring | default({})).port | default(9187) }}
+  # HTTP path for health checks (e.g., /health or /metrics).
+  # Default: '/health'
+  path: {{ (monitoring | default({})).path | default('/health') }}

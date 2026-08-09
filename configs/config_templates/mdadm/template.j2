@@ -1,0 +1,87 @@
+# /etc/mdadm/mdadm.conf - MD RAID configuration for mdadm daemon and tools
+#
+# This file controls the assembly of MD RAID arrays, the monitoring daemon
+# (mdadm --monitor), and event handling. It is consumed by:
+#   - mdadm --assemble (during boot or manual assembly)
+#   - mdadm --monitor (the monitoring daemon)
+#   - initramfs-tools / dracut (if included in the boot image)
+
+# ==============================================================================
+# DEVICE MAP
+# ==============================================================================
+
+# List of devices or patterns to scan for RAID superblocks.
+# mdadm will probe these paths to find component devices.
+# Default: scan all block devices visible under /dev/disk/by-id/
+# (which provides stable symlinks based on hardware attributes).
+# Schema: devices_pattern (str)
+DEVICE {{ devices_pattern | default('/dev/disk/by-id/*') }}
+
+# ==============================================================================
+# HOMEHOST
+# ==============================================================================
+
+# The hostname to assign to assembled arrays.
+# Setting this to 'any' makes the array portable across different hosts
+# without changing its metadata hostname field.
+# For clustered environments, consider setting a specific cluster hostname.
+# Schema: homehost (str)
+HOMEHOST="{{ homehost | default('any') }}"
+
+# ==============================================================================
+# MONITORING / ALERTING
+# ==============================================================================
+
+# Email address(es) to receive RAID event notifications (e.g., disk failure).
+# Multiple addresses can be specified, separated by commas.
+# Ensure your MTA (mail transfer agent) is configured to relay these emails.
+# Schema: mailaddr (str)
+MAILADDR="{{ mailaddr | default('root') }}"
+
+# External program to execute on RAID events.
+# This allows custom logic (e.g., ticketing system integration, custom logging).
+# The event type is passed as an argument.
+# Schema: program (str)
+PROGRAM="{{ program | default('/usr/sbin/mdadm') }}"
+
+# ==============================================================================
+# ARRAY DEFINITIONS
+# ==============================================================================
+
+# Manually defined arrays that mdadm should manage.
+# These entries override automatic assembly. Each entry defines an array by its
+# components, metadata version, UUID, and optional name.
+#
+# Schema fields for 'arrays':
+#   - name (str): Optional friendly name for the array (e.g., "dev/sda1").
+#     If omitted or empty, mdadm uses the UUID or devices.
+#   - level (str): RAID level (e.g., 'raid1', 'raid5', 'raid6', 'raid10').
+#     Note: mdadm.conf ARRAY lines do not explicitly store 'level'; it is
+#     inferred from the devices and metadata, but documenting it here is helpful.
+#   - metadata (str): Superblock metadata version (e.g., '1.2', '1.0', '0.90', 'default').
+#   - uuid (str): Unique Identifier of the array. Crucial for correct assembly.
+#   - devices (list[str]): List of device paths comprising the array (e.g., ['/dev/sda1', '/dev/sdb1']).
+
+{% for array in arrays | default([]) %}
+# --- Array Definition ---
+# Friendly Name : {{ array.name | default('unnamed') }}
+# RAID Level    : {{ array.level | default('unknown') }}
+# UUID          : {{ array.uuid | default('unset') }}
+# Metadata      : {{ array.metadata | default('1.2') }}
+# Devices       : {{ array.devices | join(', ') }}
+ARRAY {{ array.name | default('') }} metadata={{ array.metadata | default('1.2') }} UUID={{ array.uuid }} devices={{ array.devices | join(', ') }}
+{% endfor %}
+
+# ==============================================================================
+# SCAN MODE
+# ==============================================================================
+
+# Controls which devices are scanned by mdadm --detail --scan (used for
+# generating this config or by initramfs scripts).
+# Options:
+#   'all'  - Scan all devices (default, safe).
+#   'md'   - Only scan for MD superblocks.
+#   'part' - Only scan partitions.
+#   'none' - No scanning.
+# Schema: scan (str)
+SCAN="{{ scan | default('all') }}"

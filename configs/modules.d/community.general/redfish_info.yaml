@@ -1,0 +1,127 @@
+name: redfish_info
+fqcn: community.general.redfish_info
+collection: community.general
+short_description: Manages Out-Of-Band controllers using Redfish APIs
+description: Builds Redfish URIs locally and sends them to remote OOB controllers to get information back.
+  Information retrieved is placed in a location specified by the user.
+options:
+  auth_token:
+    type: str
+    description: Security token for authenticating to OOB controller.
+  baseuri:
+    type: str
+    required: true
+    description: Base URI of OOB controller.
+  category:
+    type: list
+    default:
+    - Systems
+    description: List of categories to execute on OOB controller.
+  command:
+    type: list
+    description: List of commands to execute on OOB controller.
+  manager:
+    type: str
+    description: Name of manager on OOB controller to target.
+  password:
+    type: str
+    description: Password for authenticating to OOB controller.
+  timeout:
+    type: int
+    description: Timeout in seconds for HTTP requests to OOB controller. The default value for this param
+      is C(10) but that is being deprecated and it will be replaced with C(60) in community.general 9.0.0.
+  update_handle:
+    type: str
+    description: Handle to check the status of an update in progress.
+  username:
+    type: str
+    description: Username for authenticating to OOB controller.
+writes: false
+runtime: starlark
+source: translated
+examples: "\n  - name: Get CPU inventory\n    community.general.redfish_info:\n      category: Systems\n\
+  \      command: GetCpuInventory\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\
+  \n      password: \"{{ password }}\"\n    register: result\n\n  - name: Print fetched information\n\
+  \    ansible.builtin.debug:\n      msg: \"{{ result.redfish_facts.cpu.entries | to_nice_json }}\"\n\n\
+  \  - name: Get CPU model\n    community.general.redfish_info:\n      category: Systems\n      command:\
+  \ GetCpuInventory\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password:\
+  \ \"{{ password }}\"\n    register: result\n\n  - name: Print fetched information\n    ansible.builtin.debug:\n\
+  \      msg: \"{{ result.redfish_facts.cpu.entries.0.Model }}\"\n\n  - name: Get memory inventory\n \
+  \   community.general.redfish_info:\n      category: Systems\n      command: GetMemoryInventory\n  \
+  \    baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\
+  \n    register: result\n\n  - name: Get fan inventory with a timeout of 20 seconds\n    community.general.redfish_info:\n\
+  \      category: Chassis\n      command: GetFanInventory\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n      timeout: 20\n    register: result\n\n\
+  \  - name: Get Virtual Media information\n    community.general.redfish_info:\n      category: Manager\n\
+  \      command: GetVirtualMedia\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\
+  \n      password: \"{{ password }}\"\n    register: result\n\n  - name: Print fetched information\n\
+  \    ansible.builtin.debug:\n      msg: \"{{ result.redfish_facts.virtual_media.entries | to_nice_json\
+  \ }}\"\n\n  - name: Get Virtual Media information from Systems\n    community.general.redfish_info:\n\
+  \      category: Systems\n      command: GetVirtualMedia\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n    register: result\n\n  - name: Print fetched\
+  \ information\n    ansible.builtin.debug:\n      msg: \"{{ result.redfish_facts.virtual_media.entries\
+  \ | to_nice_json }}\"\n\n  - name: Get Volume Inventory\n    community.general.redfish_info:\n     \
+  \ category: Systems\n      command: GetVolumeInventory\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n    register: result\n  - name: Print fetched\
+  \ information\n    ansible.builtin.debug:\n      msg: \"{{ result.redfish_facts.volume.entries | to_nice_json\
+  \ }}\"\n\n  - name: Get Session information\n    community.general.redfish_info:\n      category: Sessions\n\
+  \      command: GetSessions\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n\
+  \      password: \"{{ password }}\"\n    register: result\n\n  - name: Print fetched information\n \
+  \   ansible.builtin.debug:\n      msg: \"{{ result.redfish_facts.session.entries | to_nice_json }}\"\
+  \n\n  - name: Get default inventory information\n    community.general.redfish_info:\n      baseuri:\
+  \ \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n    register:\
+  \ result\n  - name: Print fetched information\n    ansible.builtin.debug:\n      msg: \"{{ result.redfish_facts\
+  \ | to_nice_json }}\"\n\n  - name: Get several inventories\n    community.general.redfish_info:\n  \
+  \    category: Systems\n      command: GetNicInventory,GetBiosAttributes\n      baseuri: \"{{ baseuri\
+  \ }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get default\
+  \ system inventory and user information\n    community.general.redfish_info:\n      category: Systems,Accounts\n\
+  \      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password\
+  \ }}\"\n\n  - name: Get default system, user and firmware information\n    community.general.redfish_info:\n\
+  \      category: [\"Systems\", \"Accounts\", \"Update\"]\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get Manager NIC inventory information\n\
+  \    community.general.redfish_info:\n      category: Manager\n      command: GetManagerNicInventory\n\
+  \      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password\
+  \ }}\"\n\n  - name: Get boot override information\n    community.general.redfish_info:\n      category:\
+  \ Systems\n      command: GetBootOverride\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username\
+  \ }}\"\n      password: \"{{ password }}\"\n\n  - name: Get chassis inventory\n    community.general.redfish_info:\n\
+  \      category: Chassis\n      command: GetChassisInventory\n      baseuri: \"{{ baseuri }}\"\n   \
+  \   username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get all information\
+  \ available in the Manager category\n    community.general.redfish_info:\n      category: Manager\n\
+  \      command: all\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password:\
+  \ \"{{ password }}\"\n\n  - name: Get firmware update capability information\n    community.general.redfish_info:\n\
+  \      category: Update\n      command: GetFirmwareUpdateCapabilities\n      baseuri: \"{{ baseuri }}\"\
+  \n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get firmware inventory\n\
+  \    community.general.redfish_info:\n      category: Update\n      command: GetFirmwareInventory\n\
+  \      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password\
+  \ }}\"\n\n  - name: Get service identification\n    community.general.redfish_info:\n      category:\
+  \ Manager\n      command: GetServiceIdentification\n      manager: \"{{ manager }}\"\n      baseuri:\
+  \ \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name:\
+  \ Get software inventory\n    community.general.redfish_info:\n      category: Update\n      command:\
+  \ GetSoftwareInventory\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n     \
+  \ password: \"{{ password }}\"\n\n  - name: Get the status of an update operation\n    community.general.redfish_info:\n\
+  \      category: Update\n      command: GetUpdateStatus\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n      update_handle: /redfish/v1/TaskService/TaskMonitors/735\n\
+  \n  - name: Get Manager Services\n    community.general.redfish_info:\n      category: Manager\n   \
+  \   command: GetNetworkProtocols\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\
+  \n      password: \"{{ password }}\"\n\n  - name: Get all information available in all categories\n\
+  \    community.general.redfish_info:\n      category: all\n      command: all\n      baseuri: \"{{ baseuri\
+  \ }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get system\
+  \ health report\n    community.general.redfish_info:\n      category: Systems\n      command: GetHealthReport\n\
+  \      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password\
+  \ }}\"\n\n  - name: Get chassis health report\n    community.general.redfish_info:\n      category:\
+  \ Chassis\n      command: GetHealthReport\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username\
+  \ }}\"\n      password: \"{{ password }}\"\n\n  - name: Get manager health report\n    community.general.redfish_info:\n\
+  \      category: Manager\n      command: GetHealthReport\n      baseuri: \"{{ baseuri }}\"\n      username:\
+  \ \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get manager Redfish Host Interface\
+  \ inventory\n    community.general.redfish_info:\n      category: Manager\n      command: GetHostInterfaces\n\
+  \      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password\
+  \ }}\"\n\n  - name: Get Manager Inventory\n    community.general.redfish_info:\n      category: Manager\n\
+  \      command: GetManagerInventory\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username\
+  \ }}\"\n      password: \"{{ password }}\"\n\n  - name: Get HPE Thermal Config\n    community.general.redfish_info:\n\
+  \      category: Chassis\n      command: GetHPEThermalConfig\n      baseuri: \"{{ baseuri }}\"\n   \
+  \   username: \"{{ username }}\"\n      password: \"{{ password }}\"\n\n  - name: Get HPE Fan Percent\
+  \ Minimum\n    community.general.redfish_info:\n      category: Chassis\n      command: GetHPEFanPercentMin\n\
+  \      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\n      password: \"{{ password\
+  \ }}\"\n\n  - name: Get BIOS registry\n    community.general.redfish_info:\n      category: Systems\n\
+  \      command: GetBiosRegistries\n      baseuri: \"{{ baseuri }}\"\n      username: \"{{ username }}\"\
+  \n      password: \"{{ password }}\"\n"

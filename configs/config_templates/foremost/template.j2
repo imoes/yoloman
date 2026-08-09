@@ -1,0 +1,85 @@
+#
+# Foremost configuration file
+# This template generates a foremost.conf file based on Ansible variables.
+# For detailed documentation on the config format, see the foremost man page or
+# the included sample foremost.conf.
+#
+#-------------------------------------------------------------------------
+
+# verbose: If true, log extra debugging information during recovery.
+# Valid values are 'y' (yes) or 'n' (no) in foremost.
+verbose {{ verbose | default(False) | ternary('y', 'n') }}
+
+# output_dir: Absolute path to the directory where recovered files will be written.
+# If the directory does not exist, foremost may fail or create it depending on privileges.
+output_dir {{ output_dir | default('/output') }}
+
+# log_file: Path to the log file where recovery activity (e.g., found files, errors) will be recorded.
+log_file {{ log_file | default('/var/log/foremost.log') }}
+
+# max_file_size: Maximum size (in bytes) of recovered files.
+# Set to 0 for unlimited size.
+max_file_size {{ max_file_size | default(0) }}
+
+# device_path: Block device or forensic image path (e.g., /dev/sdb, evidence.img) to scan.
+# Note: This is typically passed as a command-line argument, but can be configured here
+# if the specific foremost variant or wrapper script supports reading it from config.
+device_path {{ device_path | default('/dev/sda1') }}
+
+# block_size: Block size (in bytes) to read per I/O pass.
+# Smaller values reduce memory use and are safer on damaged media.
+block_size {{ block_size | default(512) }}
+
+# subdirs: If true, organize recovered files into subdirectories named by extension (e.g., /output/jpg/).
+# If false, all files go directly into the output directory.
+subdirs {{ subdirs | default(True) | ternary('y', 'n') }}
+
+# overwrite: If true, overwrite existing files in the output directory.
+# ⚠️ use with caution — can destroy forensic integrity.
+overwrite {{ overwrite | default(False) | ternary('y', 'n') }}
+
+# max_files: Maximum number of files to recover.
+# Set to 0 to recover all possible files.
+max_files {{ max_files | default(0) }}
+
+# start_offsets: List of hex offsets (as strings) to begin scanning for signatures.
+# Often left at ['0'] for full-device scanning.
+# Foremost typically scans sequentially, but this config may control specific start points
+# if supported by the implementation. Here we list them for completeness.
+{% for offset in start_offsets | default(['0']) %}
+start_offset {{ offset }}
+{% endfor %}
+
+# tz_offset: Timezone offset (in hours) to apply to timestamps in logs.
+tz_offset {{ tz_offset | default(0) }}
+
+#---------------------------------------------------------------------
+# FILE TYPES
+#---------------------------------------------------------------------
+# Each entry defines the file extension, case sensitivity of header/footer,
+# maximum file size, magic header bytes, and optional magic footer bytes.
+# Format: extension case_sensitive size header [footer]
+# Header/Footers are hex strings. '?' is a wildcard.
+#---------------------------------------------------------------------
+
+# file_types: List of file signatures to detect and recover.
+# Each entry defines the file extension, header offset, hex magic bytes, and optional description.
+{% for ft in file_types | default([
+    {'ext': 'jpg', 'offset': 0, 'magic': 'ffd8ff', 'desc': 'JPEG image'},
+    {'ext': 'png', 'offset': 0, 'magic': '89504e47', 'desc': 'PNG image'},
+    {'ext': 'gif', 'offset': 0, 'magic': '47494638', 'desc': 'GIF image'},
+    {'ext': 'bmp', 'offset': 0, 'magic': '424d', 'desc': 'Windows bitmap'},
+    {'ext': 'avi', 'offset': 0, 'magic': '4156494c', 'desc': 'AVI video'},
+    {'ext': 'mpg', 'offset': 0, 'magic': '000001b3', 'desc': 'MPEG video'},
+    {'ext': 'zip', 'offset': 0, 'magic': '504b0304', 'desc': 'ZIP archive'},
+    {'ext': 'pdf', 'offset': 0, 'magic': '25504446', 'desc': 'PDF document'},
+    {'ext': 'doc', 'offset': 0, 'magic': 'd0cf11e0', 'desc': 'MS Word 97-2003'}
+]) %}
+# {{ ft.desc | default('Unknown type') }}
+# ext: {{ ft.ext | default('') }}
+# magic header: {{ ft.magic | default('') }}
+# offset: {{ ft.offset | default(0) }}
+# case_sensitive: y (foremost standard)
+# max_size: {{ ft.get('max_size', 0) | default(0) }}
+{{ ft.ext | default('') }}	y	{{ ft.get('max_size', 0) | default(0) }}	\x{{ ft.magic | default('') }}
+{% endfor %}

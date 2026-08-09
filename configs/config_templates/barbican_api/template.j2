@@ -1,0 +1,120 @@
+# ============================================================
+# Barbican API Configuration Template
+# This file configures the Barbican Secret Manager API service,
+# which is part of the OpenStack cloud infrastructure.
+#
+# Self-documenting: Every variable has a default, every directive
+# is commented with its schema description.
+# ============================================================
+
+[DEFAULT]
+# The name of the OpenStack service (used in logs and service registration).
+service_name = {{ (barbican_service_name | default('barbican')) | string }}
+
+# Enable verbose debug logging for troubleshooting.
+debug = {{ debug | default(false) | bool | lower }}
+
+# System user account under which the Barbican API process runs.
+user = {{ (user | default('barbican')) | string }}
+
+# System group for the Barbican API process.
+group = {{ (group | default('barbican')) | string }}
+
+# Base directory for runtime data (e.g., encryption keys, temporary files).
+state_path = {{ (state_path | default('/var/lib/barbican')) | string }}
+
+[api]
+# IP address the Barbican API server binds to (e.g., 127.0.0.1 for localhost only).
+bind_host = {{ (api_bind_host | default('0.0.0.0')) | string }}
+
+# TCP port the Barbican API server listens on.
+bind_port = {{ (api_bind_port | default(9311)) | int }}
+
+# Enable the legacy v1 API endpoint (recommended to keep enabled for compatibility).
+enable_v1_api = {{ enable_v1_api | default(true) | bool | lower }}
+
+# List of domains allowed to make cross-origin requests to the API.
+# If no origins are specified, the directive is omitted from the output.
+{% for origin in (cors_allowed_origins | default([])) %}
+cors_allowed_origin = {{ origin | string }}
+{% endfor %}
+
+# Authentication strategy. Use 'keystone' for production; 'noauth' only for testing.
+auth_strategy = {{ (auth_strategy | default('keystone')) | string }}
+
+{% if (auth_strategy | default('keystone')) == 'keystone' %}
+# --- Keystone Authentication Settings ---
+
+# Public endpoint URL for the Keystone service (used in token introspection and self-service links).
+public_endpoint = {{ (keystone_public_endpoint | default('https://keystone.example.com:5000')) | string }}
+
+# Keystone domain name containing the Barbican service project.
+project_domain_name = {{ (keystone_project_domain_name | default('Default')) | string }}
+
+# Keystone project (tenant) name for the Barbican service user.
+project_name = {{ (keystone_project_name | default('service')) | string }}
+
+# Keystone domain name containing the Barbican service user.
+user_domain_name = {{ (keystone_user_domain_name | default('Default')) | string }}
+
+# Keystone username for the Barbican service.
+username = {{ (keystone_username | default('barbican')) | string }}
+
+# Password for the Barbican Keystone service user — *must* be set securely (e.g., via secret manager or env override).
+# Note: This field is required when auth_strategy is 'keystone'.
+password = {{ (keystone_password | default('')) | string }}
+{% endif %}
+
+[database]
+# SQLAlchemy database connection string (e.g., 'mysql+pymysql://barbican:pass@dbhost/barbican').
+# This is a single connection URL provided by the database peer injection or explicitly set.
+connection = {{ (db_connection_url | default('')) | string }}
+
+# Maximum number of idle database connections in the pool.
+max_pool_size = {{ (db_max_pool_size | default(10)) | int }}
+
+# Maximum number of additional connections allowed beyond pool size.
+max_overflow = {{ (db_max_overflow | default(20)) | int }}
+
+[secretstore]
+# Secret storage plugin to use. 'store_crypto' provides local encrypted storage.
+secretstore_plugin = {{ (secretstore_plugin | default('store_crypto')) | string }}
+
+[store_crypto]
+# Base64-encoded 256-bit AES key used to encrypt secrets at rest.
+# *Must* be at least 256 bits and kept secure (e.g., via key rotation).
+key_store_secret_key = {{ (store_crypto_key | default('')) | string }}
+
+# Key wrapping algorithm for storing secrets (e.g., 'AES_WRAP', 'RSA_PKCS1v15').
+key_wrap_algorithm = {{ (store_crypto_key_wrap | default('AES_WRAP')) | string }}
+
+[worker]
+# Number of Gunicorn worker processes (increase under high concurrency).
+workers = {{ (worker_processes | default(2)) | int }}
+
+# Number of threads per worker (set >1 for I/O-bound workloads).
+threads = {{ (worker_threads | default(1)) | int }}
+
+# Seconds to wait for requests before timing out (increase for slow key generation).
+timeout = {{ (worker_timeout | default(300)) | int }}
+
+# Path to access log file (use '-' to log to stdout).
+access_log = {{ (worker_access_log | default('-')) | string }}
+
+# Path to error log file.
+error_log = {{ (worker_error_log | default('/var/log/barbican/barbican-api.log')) | string }}
+
+# Date/time format for log entries.
+log_datefmt = {{ (worker_log_datefmt | default('%Y-%m-%d %H:%M:%S')) | string }}
+
+# Format string for log messages.
+log_format = {{ (worker_log_format | default('[%(asctime)s] [%(process)d] [%(levelname)s] %(message)s')) | string }}
+
+# Format string for access logs (Apache Common Log Format style).
+access_log_format = {{ (worker_access_log_format | default('%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s"')) | string }}
+
+# If true, private keys (e.g., for RSA) cannot be exported — recommended for security.
+disable_private_key_export = {{ disable_private_key_export | default(true) | bool | lower }}
+
+# Maximum size (bytes) of secret data allowed per secret (security hardening to limit memory usage).
+max_secret_data_size = {{ (max_secret_data_size | default(131072)) | int }}

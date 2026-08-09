@@ -1,0 +1,56 @@
+{# dhcpd-pools configuration file #}
+{# Every setting corresponds to a documented option in dhcpd-pools(1) #}
+
+{# Basic input files #}
+{# Path to the ISC dhcpd configuration file #}
+config: {{ config_path | default('/etc/dhcp/dhcpd.conf') }}
+
+{# Path to the ISC dhcpd lease file #}
+leases: {{ leases_path | default('/var/lib/dhcp/dhcpd.leases') }}
+
+{# Output formatting options #}
+{# Note: Mustache template support is not configurable via this config file; use CLI #}
+{# Output format: t (text), H (html), c (csv), x (xml), X (extended xml), j (json), J (extended json) #}
+format: {{ format | default('t') }}
+
+{# Output file (empty or absent means stdout) #}
+{% if output_path | default('') != '' %}output: {{ output_path | default('') }}{% endif %}
+
+{# Filtering and sorting #}
+{# Limit output by sections: first digit = headers (0-4), second digit = data (0-4), combined 00-77 #}
+{% if limit | default('77') != '77' %}limit: {{ limit | default('77') }}{% endif %}
+
+{# Sort keys: n (name), i (first ip), m (max), c (cur), p (percent), t (touch), T (t+c), e (t+c perc) #}
+{% if sort | default('') != '' %}sort: {{ sort | default('') }}{% endif %}
+
+{# Reverse sort order #}
+{% if reverse | default(False) %}reverse: yes{% endif %}
+
+{# Alarming thresholds #}
+{# Warning percentage threshold (default 80) #}
+{% if warning | default(80) != 80 %}warning: {{ warning | default(80) }}{% endif %}
+
+{# Critical percentage threshold (default 90) #}
+{% if critical | default(90) != 90 %}critical: {{ critical | default(90) }}{% endif %}
+
+{# Warning count threshold (free leases before alarm); default huge number (2^32) #}
+{% if warn_count | default(4294967296) != 4294967296 %}warn-count: {{ warn_count | default(4294967296) }}{% endif %}
+
+{# Critical count threshold (free leases before alarm); default huge number #}
+{% if crit_count | default(4294967296) != 4294967296 %}crit-count: {{ crit_count | default(4294967296) }}{% endif %}
+
+{# Suppress range alarms within shared networks #}
+{% if snet_alarms | default(False) %}snet-alarms: yes{% endif %}
+
+{# Minimum pool size to consider; ignore smaller pools (only in alarming mode) #}
+{% if minsize | default(0) != 0 %}minsize: {{ minsize | default(0) }}{% endif %}
+
+{# Print performance data in alarming mode #}
+{% if perfdata | default(False) %}perfdata: yes{% endif %}
+
+{# IPv mode control #}
+{# Force IPv4 or IPv6 parsing (not usually needed) #}
+{% if ip_version | default('') != '' %}ip-version: {{ ip_version | default('') }}{% endif %}
+
+{# Treat standalone subnets as shared networks #}
+{% if all_as_shared | default(False) %}all-as-shared: yes{% endif %}

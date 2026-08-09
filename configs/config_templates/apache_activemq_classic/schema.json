@@ -1,0 +1,459 @@
+{
+  "broker_id": {
+    "type": "string",
+    "default": "broker",
+    "description": "Unique identifier for the broker bean; used by Spring."
+  },
+  "broker_name": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Logical name of the broker (must be unique in a cluster)."
+  },
+  "use_shutdown_hooks": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to register a JVM shutdown hook to gracefully stop the broker."
+  },
+  "delete_all_messages_on_startup": {
+    "type": "bool",
+    "default": false,
+    "description": "Delete all persisted messages on broker start (dangerous in production)."
+  },
+  "use_jmx": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable JMX monitoring (required for ActiveMQ web console or external tools)."
+  },
+  "management_context": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "create_connector": false,
+      "connector_port": 1099,
+      "jmx_domain_name": "org.apache.activemq"
+    },
+    "description": "JMX management configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable management context (controls JMX exposure)."
+      },
+      "create_connector": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to create an RMI connector server (for remote JMX)."
+      },
+      "connector_port": {
+        "type": "number",
+        "default": 1099,
+        "description": "Port for the RMI registry (only used if createConnector=true)."
+      },
+      "jmx_domain_name": {
+        "type": "string",
+        "default": "org.apache.activemq",
+        "description": "MBean domain name used to register broker MBeans."
+      }
+    }
+  },
+  "persistence": {
+    "type": "object",
+    "default": {
+      "type": "kahaDB",
+      "kaha_directory": "/var/lib/activemq/data/kahadb",
+      "kaha_journal_max_file_length": "32mb",
+      "kaha_index_cache_size": 10000,
+      "kaha_index_wire_format": "V2",
+      "kaha_checkpoint_interval": 5000,
+      "kaha_checkpoint_lock_wait": 1,
+      "jdbc_data_source_id": "postgresDS",
+      "jdbc_create_tables_on_startup": true,
+      "jdbc_max_connections": 4,
+      "jdbc_lock_keep_period": 100
+    },
+    "description": "Persistence adapter configuration (KahaDB or JDBC).",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "kahaDB",
+        "description": "Persistence backend type: 'kahaDB' or 'jdbc'."
+      },
+      "kaha_directory": {
+        "type": "string",
+        "default": "/var/lib/activemq/data/kahadb",
+        "description": "Directory for KahaDB files (must exist and be writable)."
+      },
+      "kaha_journal_max_file_length": {
+        "type": "string",
+        "default": "32mb",
+        "description": "Max size per journal file (KahaDB). Accepts suffixes: kb, mb, gb."
+      },
+      "kaha_index_cache_size": {
+        "type": "number",
+        "default": 10000,
+        "description": "Number of index entries cached in memory (KahaDB)."
+      },
+      "kaha_index_wire_format": {
+        "type": "string",
+        "default": "V2",
+        "description": "KahaDB index wire format version (V1 or V2)."
+      },
+      "kaha_checkpoint_interval": {
+        "type": "number",
+        "default": 5000,
+        "description": "Time (ms) between KahaDB checkpoint operations."
+      },
+      "kaha_checkpoint_lock_wait": {
+        "type": "number",
+        "default": 1,
+        "description": "Wait time (ms) for the checkpoint lock before failing (KahaDB)."
+      },
+      "jdbc_data_source_id": {
+        "type": "string",
+        "default": "postgresDS",
+        "description": "Bean ID of the JDBC DataSource to use (must be defined in config file as <bean>."
+      },
+      "jdbc_create_tables_on_startup": {
+        "type": "bool",
+        "default": true,
+        "description": "Create database tables automatically if missing."
+      },
+      "jdbc_max_connections": {
+        "type": "number",
+        "default": 4,
+        "description": "Maximum JDBC connections in the pool."
+      },
+      "jdbc_lock_keep_period": {
+        "type": "number",
+        "default": 100,
+        "description": "Time (ms) between lock renewals in master/slave (JDBC)."
+      }
+    }
+  },
+  "network_connectors": {
+    "type": "list",
+    "default": [],
+    "description": "List of broker network bridges to other ActiveMQ instances.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Logical name for the connector."
+        },
+        "uri": {
+          "type": "string",
+          "default": "",
+          "description": "URI of the remote broker (e.g., static:tcp://remote:61616)."
+        },
+        "dynamic_only": {
+          "type": "bool",
+          "default": false,
+          "description": "Only forward subscriptions created after connection start."
+        },
+        "network_ttl": {
+          "type": "number",
+          "default": 1,
+          "description": "Number of nodes a message can traverse across the network."
+        },
+        "prefetch_size": {
+          "type": "number",
+          "default": 1000,
+          "description": "Message prefetch size for network consumers."
+        },
+        "conduit_publish": {
+          "type": "bool",
+          "default": true,
+          "description": "Consolidate subscriptions (reduce fan-out across network)."
+        },
+        "decrease_network_consumer_priority": {
+          "type": "bool",
+          "default": false,
+          "description": "Lower priority of network consumers to prefer local consumers."
+        }
+      }
+    }
+  },
+  "transport_connectors": {
+    "type": "list",
+    "default": [
+      {
+        "name": "openwire",
+        "uri": "tcp://0.0.0.0:61616?maximumConnections=1000&wireFormat.maxFrameSize=104857600",
+        "discovery_uri": "",
+        "enabled": true,
+        "update_uris_url": ""
+      }
+    ],
+    "description": "List of transport connectors exposing client-facing ports.",
+    "items": {
+      "type": "object",
+      "items": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Identifier for the transport (e.g., 'openwire', 'stomp')."
+        },
+        "uri": {
+          "type": "string",
+          "default": "",
+          "description": "Transport URI (e.g., tcp://0.0.0.0:61616). Supports options: wireFormat.*, transport.*, etc."
+        },
+        "discovery_uri": {
+          "type": "string",
+          "default": "",
+          "description": "Discovery agent URI for auto-discovery (e.g., multicast://default)."
+        },
+        "enabled": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable or disable this transport connector."
+        },
+        "update_uris_url": {
+          "type": "string",
+          "default": "",
+          "description": "URL to fetch updated transport URIs from (for dynamic discovery)."
+        }
+      }
+    }
+  },
+  "system_usage": {
+    "type": "object",
+    "default": {
+      "memory_limit": "1024mb",
+      "store_limit": "100gb",
+      "temp_limit": "50gb"
+    },
+    "description": "Global memory, store, and temporary space limits.",
+    "items": {
+      "memory_limit": {
+        "type": "string",
+        "default": "1024mb",
+        "description": "Max memory for message buffering (messages exceeding this cause producer flow control)."
+      },
+      "store_limit": {
+        "type": "string",
+        "default": "100gb",
+        "description": "Max disk space for persistent messages (storeUsage)."
+      },
+      "temp_limit": {
+        "type": "string",
+        "default": "50gb",
+        "description": "Max disk space for non-persistent messages (tempUsage)."
+      }
+    }
+  },
+  "destination_policies": {
+    "type": "list",
+    "default": [
+      {
+        "queue_pattern": ">",
+        "topic_pattern": "",
+        "memory_limit": "256mb",
+        "producer_flow_control": true,
+        "max_audit_messages": 10000,
+        "max_consumers_to_audit": 100,
+        "max_producers_to_audit": 100,
+        "delayed_dispatch_checking": false,
+        "dispatch_policy": "",
+        "dead_letter_strategy": "",
+        "pause_producer_support": false
+      }
+    ],
+    "description": "Per-destination policy rules (applied to matching patterns).",
+    "items": {
+      "type": "object",
+      "items": {
+        "queue_pattern": {
+          "type": "string",
+          "default": ">",
+          "description": "JMS destination pattern for queues (supports wildcards: >, *)."
+        },
+        "topic_pattern": {
+          "type": "string",
+          "default": "",
+          "description": "JMS destination pattern for topics."
+        },
+        "memory_limit": {
+          "type": "string",
+          "default": "256mb",
+          "description": "Memory limit for this destination (exceeded = producer flow control)."
+        },
+        "producer_flow_control": {
+          "type": "bool",
+          "default": true,
+          "description": "Enable producer flow control when memory limit is reached."
+        },
+        "max_audit_messages": {
+          "type": "number",
+          "default": 10000,
+          "description": "Max number of messages to track for deduplication/audit."
+        },
+        "max_consumers_to_audit": {
+          "type": "number",
+          "default": 100,
+          "description": "Max number of consumers tracked for audit."
+        },
+        "max_producers_to_audit": {
+          "type": "number",
+          "default": 100,
+          "description": "Max number of producers tracked for audit."
+        },
+        "delayed_dispatch_checking": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable delayed dispatch checking (for scheduled messages)."
+        },
+        "dispatch_policy": {
+          "type": "string",
+          "default": "",
+          "description": "Reference to a DispatchPolicy bean ID (e.g., 'round-robin')."
+        },
+        "dead_letter_strategy": {
+          "type": "string",
+          "default": "",
+          "description": "Reference to a DeadLetterStrategy bean ID (e.g., 'processExpired')."
+        },
+        "pause_producer_support": {
+          "type": "bool",
+          "default": false,
+          "description": "Enable pauseProducerSupport for slow consumer handling."
+        }
+      }
+    }
+  },
+  "authorization": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "users": [],
+      "authorization_entries": [],
+      "temp_authorization_entries": []
+    },
+    "description": "Authentication and authorization configuration (simple mode).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable built-in authentication/authorization plugins."
+      },
+      "users": {
+        "type": "list",
+        "default": [],
+        "description": "List of authenticated users (username/password/groups).",
+        "items": {
+          "type": "object",
+          "items": {
+            "username": {
+              "type": "string",
+              "default": "",
+              "description": "User login name."
+            },
+            "password": {
+              "type": "string",
+              "default": "",
+              "description": "User password (insecure; use JAAS for production)."
+            },
+            "groups": {
+              "type": "list",
+              "default": [],
+              "description": "Roles/groups assigned to the user.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "authorization_entries": {
+        "type": "list",
+        "default": [],
+        "description": "Permission rules for queues/topics.",
+        "items": {
+          "type": "object",
+          "items": {
+            "queue_pattern": {
+              "type": "string",
+              "default": "",
+              "description": "Pattern for queues (e.g., 'MY.QUEUE.>')"
+            },
+            "topic_pattern": {
+              "type": "string",
+              "default": "",
+              "description": "Pattern for topics (e.g., 'MY.TOPIC.>')"
+            },
+            "subject": {
+              "type": "string",
+              "default": "",
+              "description": "Optional subject filter (not typically used in simple auth)."
+            },
+            "read": {
+              "type": "list",
+              "default": [],
+              "description": "Groups allowed to consume from this destination.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "write": {
+              "type": "list",
+              "default": [],
+              "description": "Groups allowed to produce to this destination.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "admin": {
+              "type": "list",
+              "default": [],
+              "description": "Groups allowed to administrate (create/delete) this destination.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "temp_authorization_entries": {
+        "type": "list",
+        "default": [],
+        "description": "Authorization rules for temporary topics/queues.",
+        "items": {
+          "type": "object",
+          "items": {
+            "topic_pattern": {
+              "type": "string",
+              "default": "",
+              "description": "Pattern for temporary topics."
+            },
+            "read": {
+              "type": "list",
+              "default": [],
+              "description": "Groups with read access.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "write": {
+              "type": "list",
+              "default": [],
+              "description": "Groups with write access.",
+              "items": {
+                "type": "string"
+              }
+            },
+            "admin": {
+              "type": "list",
+              "default": [],
+              "description": "Groups with admin access.",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

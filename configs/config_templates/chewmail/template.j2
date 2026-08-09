@@ -1,0 +1,58 @@
+# chewmail.conf: Configuration for chewmail, a Perl-based mail archiver
+# This file controls how chewmail reads, filters, and archives messages
+# from various mailbox formats (mbox, Maildir, MH) into a date-structured output.
+
+{# output_box: The directory format string for archived output.
+   Supports Date::Format specifiers like %Y (year), %m (month).
+   Default is monthly buckets. #}
+output_box: "{{ output_box | default('%Y-%m') }}"
+
+{# days: Only archive messages older than this many days (integer).
+   Leave empty to disable age filter. #}
+{% if (days | default('')) != '' %}
+days: {{ days | int }}
+{% endif %}
+
+{# date: Only archive messages older than this date (e.g., '2024-01-01' or Perl Date::Parse format).
+   Leave empty to disable date filter. #}
+{% if (date | default('')) != '' %}
+date: "{{ date }}"
+{% endif %}
+
+{# only_read: If true, only archive messages marked as read/seen. #}
+{% if only_read | default(false) | bool %}
+only_read: true
+{% endif %}
+
+{# delete_immediately: If true, sync mailbox after every move — slower but improves crash recovery. #}
+{% if delete_immediately | default(false) | bool %}
+delete_immediately: true
+{% endif %}
+
+{# preserve_timestamp: If true, preserve atime/mtime of input mailbox files (applies to file-based formats only). #}
+{% if preserve_timestamp | default(false) | bool %}
+preserve_timestamp: true
+{% endif %}
+
+{# dry_run: If true, simulate archiving without modifying any mailbox. #}
+{% if dry_run | default(false) | bool %}
+dry_run: true
+{% endif %}
+
+{# verbose: If true, emit informational messages. Overrides quiet mode. #}
+{% if verbose | default(false) | bool %}
+verbose: true
+{% endif %}
+
+{# quiet: If true, suppress all output except errors. Ignored if verbose is true. #}
+{% if quiet | default(false) | bool %}
+quiet: true
+{% endif %}
+
+{# mailboxes: List of input mailbox paths/URLs to archive (supports mbox, Maildir, MH via Mail::Box). #}
+{% if mailboxes | default([]) | length > 0 %}
+mailboxes:
+{% for mb in mailboxes | default([]) %}
+  - "{{ mb }}"
+{% endfor %}
+{% endif %}

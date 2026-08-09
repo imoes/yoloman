@@ -1,0 +1,48 @@
+# corosync_notifyd main configuration file
+# Enables delivery of Corosync cluster events to external handlers
+
+service {
+  # Name of the service (must be 'corosync_notifyd')
+  name = corosync_notifyd
+
+  # Version of the service configuration format
+  version = 1
+}
+
+# Logging configuration
+logging {
+  # Log file path (empty = stderr only); syslog if omitted entirely
+  fileline = on
+  
+  # Enable line number and function name in log messages
+  logger {
+    # Log destination: 'file' or 'syslog'
+    target = {{ logging_target }}
+    
+    # Path to log file when target='file'
+    {% if logging_target == 'file' %}
+    filename = {{ log_file_path }}
+    {% endif %}
+    
+    # Log level: debug, info, notice, warning, error, crit, alert, emerg
+    debug = {{ log_level }}
+    
+    # Timestamp format: 'none', 'date', 'full', 'iso8601'
+    timestamp = {{ log_timestamp_format }}
+  }
+}
+
+# Event handlers: define how to respond to cluster events
+event_handler {
+  # Unique name for this handler block
+  name = {{ event_handler.name }}
+  
+  # Command to execute when the event occurs (shell-safe, absolute path preferred)
+  command = {{ event_handler.command }}
+  
+  # Timeout (seconds) for the handler to complete; 0 = wait indefinitely
+  timeout = {{ event_handler.timeout }}
+  
+  # Events this handler should respond to (comma-separated or list)
+  events = {{ event_handler.events | join(', ') }}
+}

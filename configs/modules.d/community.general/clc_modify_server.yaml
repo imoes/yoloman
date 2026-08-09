@@ -1,0 +1,61 @@
+name: clc_modify_server
+fqcn: community.general.clc_modify_server
+collection: community.general
+short_description: Modify servers in CenturyLink Cloud
+description: An Ansible module to modify servers in CenturyLink Cloud.
+options:
+  alert_policy_id:
+    type: str
+    description: The alert policy id to be associated to the server. This is mutually exclusive with 'alert_policy_name'
+  alert_policy_name:
+    type: str
+    description: The alert policy name to be associated to the server. This is mutually exclusive with
+      'alert_policy_id'
+  anti_affinity_policy_id:
+    type: str
+    description: The anti affinity policy id to be set for a hyper scale server. This is mutually exclusive
+      with 'anti_affinity_policy_name'
+  anti_affinity_policy_name:
+    type: str
+    description: The anti affinity policy name to be set for a hyper scale server. This is mutually exclusive
+      with 'anti_affinity_policy_id'
+  cpu:
+    type: str
+    description: How many CPUs to update on the server
+  memory:
+    type: str
+    description: Memory (in GB) to set to the server.
+  server_ids:
+    type: list
+    required: true
+    description: A list of server Ids to modify.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: The state to insure that the provided resources are in.
+  wait:
+    type: bool
+    default: true
+    description: Whether to wait for the provisioning tasks to finish before returning.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Note - You must set the CLC_V2_API_USERNAME And CLC_V2_API_PASSWD Environment variables\
+  \ before running these examples\n\n- name: Set the cpu count to 4 on a server\n  community.general.clc_modify_server:\n\
+  \    server_ids:\n        - UC1TESTSVR01\n        - UC1TESTSVR02\n    cpu: 4\n    state: present\n\n\
+  - name: Set the memory to 8GB on a server\n  community.general.clc_modify_server:\n    server_ids:\n\
+  \        - UC1TESTSVR01\n        - UC1TESTSVR02\n    memory: 8\n    state: present\n\n- name: Set the\
+  \ anti affinity policy on a server\n  community.general.clc_modify_server:\n    server_ids:\n      \
+  \  - UC1TESTSVR01\n        - UC1TESTSVR02\n    anti_affinity_policy_name: 'aa_policy'\n    state: present\n\
+  \n- name: Remove the anti affinity policy on a server\n  community.general.clc_modify_server:\n    server_ids:\n\
+  \        - UC1TESTSVR01\n        - UC1TESTSVR02\n    anti_affinity_policy_name: 'aa_policy'\n    state:\
+  \ absent\n\n- name: Add the alert policy on a server\n  community.general.clc_modify_server:\n    server_ids:\n\
+  \        - UC1TESTSVR01\n        - UC1TESTSVR02\n    alert_policy_name: 'alert_policy'\n    state: present\n\
+  \n- name: Remove the alert policy on a server\n  community.general.clc_modify_server:\n    server_ids:\n\
+  \        - UC1TESTSVR01\n        - UC1TESTSVR02\n    alert_policy_name: 'alert_policy'\n    state: absent\n\
+  \n- name: Ret the memory to 16GB and cpu to 8 core on a lust if servers\n  community.general.clc_modify_server:\n\
+  \    server_ids:\n        - UC1TESTSVR01\n        - UC1TESTSVR02\n    cpu: 8\n    memory: 16\n    state:\
+  \ present\n"

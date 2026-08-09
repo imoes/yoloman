@@ -1,0 +1,127 @@
+# ============================================================================
+# Carbon Configuration Template
+# ============================================================================
+# This template generates carbon.conf for Graphite-Carbon.
+# It documents every directive with its schema description as a comment.
+# All variables use inline defaults to ensure safe rendering even if undefined.
+# ============================================================================
+
+[storage]
+# Directory where Whisper database files are stored.
+# Used by Carbon processes to persist metric data.
+whisper_dir = {{ whisper_dir | default('/var/lib/graphite/whisper') }}
+
+# System user account under which Carbon processes run (for file permissions).
+# This user must have write access to whisper_dir and log_file.
+user = {{ whisper_user | default('carbon') }}
+
+# Verbosity of logging (debug, info, warning, error, critical).
+log_level = {{ log_level | default('info') }}
+
+# Path to the Carbon log file.
+log_file = {{ log_file | default('/var/log/carbon/carbon.log') }}
+
+# Whether to use syslog instead of file logging.
+# If true, log_file is ignored and messages go to syslog.
+use_systick = {{ use_systick | default(False) | lower }}
+
+# Maximum Whisper file creation rate per minute per process.
+# Limits the rate at which new metric files are created on disk.
+max_creates_per_minute = {{ max_creates_per_minute | default(100) }}
+
+# Maximum total metric update rate across all daemons.
+# Throttles incoming metric updates to prevent overload.
+max_updates_per_second = {{ max_updates_per_second | default(1000) }}
+
+# Maximum number of pending updates queued before dropping data.
+# Once this limit is reached, new updates are discarded.
+max_updates_queue_size = {{ max_updates_queue_size | default(10000) }}
+
+# Maximum buffer size (bytes) for incoming updates (pickle).
+# Controls the memory buffer for pickle protocol packets.
+max_updates_buffer_size = {{ max_updates_buffer_size | default(1048576) }}
+
+[relay]
+# Enable the relay daemon.
+# If false, the relay section is effectively ignored.
+ENABLE_RELAY = {{ (relay | default({})).enabled | default(False) | lower }}
+
+# Comma-separated list of destination carbon-cache instances.
+# Format: host:port:instance
+# Example: 10.0.0.1:2003:cache1,10.0.0.2:2003:cache2
+destinations = {% set _dests = (relay | default({})).destinations | default([]) %}{% if _dests | length > 0 %}{% for dest in _dests %}{{ dest.host }}:{{ dest.port }}:{{ dest.instance }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
+
+# Replication factor: how many destinations each metric is sent to.
+# 'all' sends to every destination. >0 sends to that many random destinations.
+# 'all' is the default for full replication.
+relay_method = {{ (relay | default({})).method | default('all') }}
+
+# Enable consistent hashing for relay destinations.
+# When true, metrics are routed based on hash_key to specific destinations.
+consistent_hashing = {{ (relay | default({})).consistent_hashing | default(False) | lower }}
+
+# Hash key used for consistent hashing (optional).
+# Carbon-relay uses 'metric' by default; override if needed.
+relay_hash_key = {{ (relay | default({})).hash_key | default('metric') }}
+
+[aggregator]
+# Enable the aggregator daemon.
+# If false, the aggregator section is effectively ignored.
+ENABLE_AGGREGATOR = {{ (aggregator | default({})).enabled | default(False) | lower }}
+
+# Aggregation rules file path.
+# Path to the configuration file containing aggregation rules.
+rules = {{ (aggregator | default({})).rules_file | default('/etc/carbon/aggregator-rules.conf') }}
+
+# Maximum number of metrics to aggregate concurrently.
+# Limits memory usage for the aggregation queue.
+max_queue_size = {{ (aggregator | default({})).max_queue_size | default(10000) }}
+
+[cache]
+# Enable the cache daemon.
+# Required for basic Carbon operation to buffer metrics before writing to disk.
+ENABLE_CACHE = {{ (cache | default({})).enabled | default(True) | lower }}
+
+# Port on which carbon-cache listens for incoming metrics (line or pickle).
+# Default port for line-protocol metric ingestion.
+LINE_RECEIVER_PORT = {{ (cache | default({})).line_receiver_port | default(2003) }}
+
+# Port for pickle protocol.
+# Port for high-throughput pickle metric ingestion.
+PICKLE_RECEIVER_PORT = {{ (cache | default({})).pickle_receiver_port | default(2004) }}
+
+# Maximum number of connections to accept.
+# Limits concurrent client connections to the cache daemon.
+MAX_CONNECTIONS = {{ (cache | default({})).max_connections | default(1000) }}
+
+# Maximum size of incoming pickle payload (bytes).
+# Protects against oversized pickle packets.
+PICKLE_RECEIVER_BUFFER_SIZE = {{ (cache | default({})).pickle_receiver_buffer_size | default(1048576) }}
+
+# Enable logging of pickle protocol packets.
+# Logs details of pickle protocol activity if true.
+ENABLE_LOGGING = {{ (cache | default({})).enable_logging | default(True) | lower }}
+
+# Maximum number of metrics to keep in memory before flushing to disk.
+# Throttles the write-back rate to disk.
+MAX_UPDATES_PER_SECOND = {{ (cache | default({})).max_updates_per_second | default(1000) }}
+
+# Maximum number of metrics to queue before dropping data.
+# Limits the cache queue size to prevent memory exhaustion.
+MAX_CREATES_PER_MINUTE = {{ (cache | default({})).max_creates_per_minute | default(100) }}
+
+# Size of the whisper update queue (in updates).
+# Limits pending updates before they are dropped.
+MAX_UPDATES_QUEUE_SIZE = {{ (cache | default({})).max_updates_queue_size | default(10000) }}
+
+# Size of the whisper create queue (in creates).
+# Limits pending metric file creations before they are dropped.
+MAX_CREATES_QUEUE_SIZE = {{ (cache | default({})).max_creates_queue_size | default(1000) }}
+
+# Enable UDP receiver (true/false).
+# If true, carbon-cache listens for metrics via UDP.
+ENABLE_UDP_LISTENER = {{ (cache | default({})).enable_udp_listener | default(False) | lower }}
+
+# UDP port to listen on.
+# Port for UDP metric ingestion.
+UDP_RECEIVER_PORT = {{ (cache | default({})).udp_receiver_port | default(2003) }}

@@ -1,0 +1,38 @@
+# =============================================================================
+# gpsbabel Batch Processing Command Generator
+# =============================================================================
+# This template generates a single line command for gpsbabel to convert
+# between various GPS data formats. It handles input/output specifications,
+# filter chains, and output options.
+#
+# Variables used:
+#   - in_format: Input file format identifier (e.g., 'gpx', 'csv')
+#   - in_file: Absolute path to the input file
+#   - filters: List of gpsbabel filter expressions (e.g., ['radius,1000'])
+#   - out_format: Output file format identifier
+#   - out_file: Absolute path to the output file
+#   - short_names: Boolean, if true, adds the '-s' flag for short waypoint names
+# =============================================================================
+
+gpsbabel \
+{% if in_format | default('') | string | length > 0 %}
+  -i {{ in_format | default('') }} \
+{% endif %}
+{% if in_file | default('') | string | length > 0 %}
+  -f {{ in_file | default('') }} \
+{% endif %}
+{% for filter in filters | default([]) %}
+  -x {{ filter }} \
+{% endfor %}
+{% if out_format | default('') | string | length > 0 %}
+  -o {{ out_format | default('') }} \
+{% endif %}
+{% if out_file | default('') | string | length > 0 %}
+  -F {{ out_file | default('') }} \
+{% endif %}
+{% if short_names | default(False) | bool %}
+  -s \
+{% endif %}
+{% if in_format | default('') | string | length == 0 and in_file | default('') | string | length == 0 and out_format | default('') | string | length == 0 and out_file | default('') | string | length == 0 and (filters | default([]) | length == 0) and (short_names | default(False) | bool == False) %}
+  # No arguments provided. Ensure at least one input and one output are specified.
+{% endif %}

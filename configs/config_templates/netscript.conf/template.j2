@@ -1,0 +1,58 @@
+{# Main network namespace configuration file for netscript #}
+
+{# Base directory where netscript stores runtime data, state, and generated scripts. #}
+BASE_DIR={{ base_dir | default('/var/lib/netscript') }}
+
+{# Directory where custom network scripts are stored and executed from. #}
+SCRIPT_DIR={{ script_dir | default('/etc/netscript/scripts') }}
+
+{# Enable verbose debug output to stderr when running netscript commands. #}
+DEBUG={{ debug | default(false) | lower }}
+
+{# Maximum number of concurrent script executions allowed at once. #}
+MAX_JOBS={{ max_jobs | default(4) }}
+
+{# Default timeout (in seconds) for script execution before it is killed. #}
+TIMEOUT={{ timeout | default(30) }}
+
+{# Whether to send log messages to the system logger (syslog). #}
+LOG_TO_SYSLOG={{ log_to_syslog | default(true) | lower }}
+
+{# Syslog facility to use for logging (e.g., local0 through local7). #}
+SYSLOG_FACILITY={{ syslog_facility | default('local0') }}
+
+{# List of network namespaces to configure and manage. #}
+{%- for ns in namespaces | default([]) %}
+
+{# --- Configuration for network namespace: {{ ns.name | default('unknown') }} --- #}
+
+{# Name of the network namespace. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_NAME={{ ns.name | default('') }}
+
+{# Name of the network interface associated with this namespace. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_IFACE={{ ns.iface | default('') }}
+
+{# IP address assigned to the namespace's interface. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_IP={{ ns.ip | default('') }}
+
+{# Netmask for the namespace's interface. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_NETMASK={{ ns.netmask | default('255.255.255.0') }}
+
+{# Default gateway for the namespace. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_GATEWAY={{ ns.gateway | default('') }}
+
+{# DNS servers for this namespace. If not specified, defaults to global DEFAULT_DNS. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_DNS={{ ns.dns | default([]) | join(', ') }}
+
+{# Whether this namespace is enabled. #}
+NS_{{ ns.name | upper | replace('-', '_') }}_ENABLED={{ ns.enabled | default(true) | lower }}
+{%- endfor %}
+
+{# Default DNS servers used when a namespace doesn’t specify its own DNS list. #}
+DEFAULT_DNS={{ default_dns | default(['8.8.8.8', '1.1.1.1']) | join(', ') }}
+
+{# Enable integration with systemd for service management (e.g., auto-restart of scripts). #}
+USE_SYSTEMD={{ use_systemd | default(true) | lower }}
+
+{# Whether to automatically remove all network namespaces and associated interfaces on service shutdown. #}
+CLEANUP_ON_SHUTDOWN={{ cleanup_on_shutdown | default(true) | lower }}

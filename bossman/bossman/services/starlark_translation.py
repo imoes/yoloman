@@ -1,0 +1,234 @@
+"""Pure helpers for the Block-G8 translation pipeline (no I/O): build the
+deterministic metadata YAML from a dumped module source (the G1-generator
+light — the LLM only ever translates *logic*, never invents argspecs),
+derive stub-run sample params from the argspec, and construct the
+translation/retry prompts. Kept in services/ so the logic is unit-tested
+like everything else; the MCP/LLM wiring lives in scripts/.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+from typing import Any
+
+import yaml
+
+# Starlark has no `is` operator, and it is the single most common Python-ism
+# weaker models leak even when told not to (confirmed by diagnosis on
+# qwen35b). `is`/`is not` against None/True/False is an unambiguous,
+# mechanical dialect difference — normalize it deterministically (a linter
+# auto-fix, not guesswork) so it never even reaches the validator. Other
+# `x is y` forms are rare and still surface as a validator error + retry
+# hint. Applied per-line and only outside string literals is overkill for
+# `is None`; a word-boundary match on the None/True/False forms is safe.
+_IS_NOT_RHS = re.compile(r"\bis\s+not\s+(None|True|False)\b")
+_IS_RHS = re.compile(r"\bis\s+(None|True|False)\b")
+
+
+def normalize_starlark(code: str) -> str:
+    """Rewrite the unambiguous `is`/`is not None|True|False` comparisons to
+    `==`/`!=` — the #1 Python-ism, mechanically fixable."""
+    code = _IS_NOT_RHS.sub(r"!= \1", code)
+    code = _IS_RHS.sub(r"== \1", code)
+    return code
+
+# Both endpoints expose a 256K context, so the source is never the budget
+# constraint — the module code (the payload) is returned as raw text, not
+# wrapped in a JSON-schema envelope (which would only force the model to
+# escape every newline/quote of the code into a string, error-prone and
+# token-wasteful for a single code blob — see docs/plan.md Block G8).
+
+# Original module sources can exceed the useful context budget —
+# community.general has multi-thousand-line modules. The doc/argspec
+# carries the behavioral contract; the source is supporting evidence, so
+# it gets truncated, not the argspec.
+SOURCE_CHAR_BUDGET = 40_000
+
+
+def extract_star_code(text: str) -> str:
+    """Pulls the Starlark module out of a raw completion: strips a
+    ```python/```starlark/``` fence if the model added one, otherwise
+    returns the text as-is. Idempotent and fence-optional."""
+    s = text.strip()
+    if "```" in s:
+        # Take the content of the first fenced block.
+        after = s.split("```", 1)[1]
+        # Drop an optional language tag on the fence's first line.
+        if "\n" in after:
+            first_line, rest = after.split("\n", 1)
+            if first_line.strip().lower() in ("python", "starlark", "star", "py", ""):
+                after = rest
+        s = after.split("```", 1)[0]
+    return normalize_starlark(s.strip()) + "\n"
+
+
+def build_metadata_yaml(record: dict[str, Any]) -> str:
+    """The module's catalog metadata (G1 schema), derived 1:1 from the
+    ansible-doc dump — deterministic, never LLM-authored."""
+    doc = record.get("doc") or {}
+    options = {}
+    for name, spec in sorted((doc.get("options") or {}).items()):
+        opt: dict[str, Any] = {"type": spec.get("type", "str")}
+        if spec.get("required"):
+            opt["required"] = True
+        if "default" in spec and spec["default"] is not None:
+            opt["default"] = spec["default"]
+        if spec.get("choices"):
+            opt["choices"] = spec["choices"]
+        if spec.get("aliases"):
+            opt["aliases"] = spec["aliases"]
+        desc = spec.get("description")
+        if isinstance(desc, list):
+            desc = " ".join(str(d) for d in desc)
+        if desc:
+            opt["description"] = str(desc)
+        options[name] = opt
+
+    description = doc.get("description")
+    if isinstance(description, list):
+        description = " ".join(str(d) for d in description)
+
+    name = record["name"]
+    meta = {
+        "name": name,
+        "fqcn": record["fqcn"],
+        "collection": record["collection"],
+        "short_description": record.get("short_description") or doc.get("short_description") or "",
+        "description": description or "",
+        "options": options,
+        "writes": not (name.endswith("_info") or name.endswith("_facts")),
+        "runtime": "starlark",
+        "source": "translated",
+    }
+    examples = record.get("examples")
+    if examples:
+        meta["examples"] = examples
+    return yaml.safe_dump(meta, sort_keys=False, allow_unicode=True, width=100)
+
+
+def sample_params(record: dict[str, Any]) -> dict[str, Any]:
+    """Plausible arguments for the validator's stub run: every required
+    option filled with a type-appropriate dummy (first choice wins)."""
+    params: dict[str, Any] = {}
+    for name, spec in ((record.get("doc") or {}).get("options") or {}).items():
+        if not spec.get("required"):
+            continue
+        if spec.get("choices"):
+            params[name] = spec["choices"][0]
+            continue
+        typ = spec.get("type", "str")
+        params[name] = {
+            "str": "example",
+            "path": "/tmp/example",
+            "int": 1,
+            "float": 1.0,
+            "bool": False,
+            "list": ["example"],
+            "dict": {},
+            "raw": "example",
+        }.get(typ, "example")
+    return params
+
+
+def build_translation_messages(contract: str, record: dict[str, Any]) -> list[dict[str, str]]:
+    """The initial prompt: the full authoring contract as system prompt
+    (static across all modules — prompt-cache friendly), the per-module
+    template as the user message."""
+    doc = record.get("doc") or {}
+    source = record.get("source_py") or ""
+    truncated = len(source) > SOURCE_CHAR_BUDGET
+    if truncated:
+        source = source[:SOURCE_CHAR_BUDGET]
+
+    system = (
+        "You translate Ansible modules into Starlark modules for the yolo-man agent.\n"
+        "Follow this contract EXACTLY:\n\n"
+        f"{contract}\n\n"
+        "Rules for your answer:\n"
+        "- Output ONLY the Starlark module code — no prose, no explanation, no JSON. "
+        "A single ```python fenced block is fine; nothing else.\n"
+        "- Reproduce the original module's behavior for its common cases: same option names, "
+        "same idempotency, same check_mode semantics. Prefer a faithful core over exotic corner cases; "
+        "if an option cannot be supported, fail() with a clear message when it is passed.\n"
+        "- Starlark is NOT Python. NEVER write `is` or `is not` (use `== None` / `!= None`) — this is "
+        "the #1 failure. No try/except/raise (call fail()), no imports, no classes, no f-strings, "
+        "no lambda, no while-True, no regex. Use `d.get(k)` not `d[k]` for optional keys.\n"
+        "- Interact with the system ONLY through ctx.* builtins. Never invent builtins.\n"
+        "- Keep it focused: typically 30-120 lines."
+    )
+    user = (
+        f"Translate this Ansible module to a Starlark module.\n\n"
+        f"FQCN: {record['fqcn']}\n"
+        f"Short description: {record.get('short_description', '')}\n\n"
+        f"Argspec (the params dict your main() receives, same option names):\n"
+        f"{json.dumps(doc.get('options') or {}, indent=1, sort_keys=True)[:8000]}\n\n"
+        f"Original Python implementation{' (truncated)' if truncated else ''}:\n"
+        f"```python\n{source}\n```"
+    )
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+# Maps a recognizable substring of a validator finding to a crisp,
+# actionable reminder — the feedback loop IS context (the awx-ng thesis:
+# a good enough prompt lets any model succeed). These target the exact
+# Python-isms weaker models reach for.
+# Imperative "Replace X → Y" reminders keyed by a substring of the validator's
+# error. qwen79b self-reported it obeys direct replacement instructions far more
+# than general prohibitions, so each hint is a concrete rewrite, not "avoid".
+_ERROR_HINTS: list[tuple[str, str]] = [
+    ("got is", "Replace `X is None` → `X == None` and `X is not None` → `X != None` (`is`/`is not` do not exist)."),
+    ("got try", "Replace every try/except with a guard: `v = int(x) if x.isdigit() else 0`; "
+                "`if not s: return {...}` then use s. Starlark has NO try/except/raise — delete them entirely."),
+    ("try", "Replace every try/except with a guard: `v = int(x) if x.isdigit() else 0`; "
+            "`if not s: return {...}` then use s. Starlark has NO try/except/raise — delete them entirely."),
+    ("got '**'", "Replace `a ** b` → repeated multiplication (`x*x` for squares) or a top-level `def _pow(b,e)` "
+                 "loop. There is NO `**` operator AND NO pow() builtin — do not use pow()."),
+    ("does not associate", "Replace the chained comparison `a <= b <= c` → `(a <= b) and (b <= c)`."),
+    ("missing required function", "The module MUST define `def main(ctx, params):` as its entry point — add it."),
+    ("got import", "Delete every `import`/`from ... import` line. There are no modules; use ctx.* builtins and str methods."),
+    ("got nonlocal", "Replace `nonlocal`/`global` with a mutable object: `acc = {\"n\": 0}`; `acc[\"n\"] += 1`. Never rebind an outer name."),
+    ("undefined: re", "There is no regex module. Use string methods (split, find, startswith, strip, replace)."),
+    ("undefined: os", "There is no os module. Touch the system only through ctx.* builtins."),
+    ("undefined: json", "There is no json module. Parse/emit strings with str methods."),
+    ("undefined: pow", "There is no pow() builtin. Replace `pow(b,e)` with repeated multiplication or a top-level `def _pow`."),
+    ("undefined: round", "There is no round() builtin. Use `int(x + 0.5)` or `int(x * 100 + 0.5) / 100.0` for rounding."),
+    ("f-string", "Replace f-strings with `\"%s\" % x` or `\"a\" + str(x)`."),
+    ("got def", "A def is misplaced. Define every helper at the module top level (no nested defs relying on Python scope)."),
+]
+
+
+def hints_for(validation: dict[str, Any]) -> list[str]:
+    """Targeted reminders for the failure classes present in a validation
+    result — deduplicated, in first-seen order."""
+    blob = " ".join((e.get("message") or "") for e in (validation.get("errors") or []))
+    out: list[str] = []
+    for needle, hint in _ERROR_HINTS:
+        if needle in blob and hint not in out:
+            out.append(hint)
+    return out
+
+
+def build_retry_messages(
+    messages: list[dict[str, str]], star_code: str, validation: dict[str, Any]
+) -> list[dict[str, str]]:
+    """Extends the conversation with the validator's structured findings
+    plus targeted hints for common Python-isms, so the model can repair
+    its own output."""
+    errors = json.dumps(validation.get("errors") or [], indent=1)
+    hints = hints_for(validation)
+    # qwen79b self-reported it fixes parser errors most reliably with imperative
+    # "REGENERATE + Replace X→Y + output only code" phrasing, and that soft
+    # wording ("try again", "return the module again") implies permission to fail.
+    rules_block = ("\nRULES (NON-NEGOTIABLE):\n- " + "\n- ".join(hints)) if hints else ""
+    return messages + [
+        {"role": "assistant", "content": star_code},
+        {
+            "role": "user",
+            "content": (
+                f"ERROR — the validator rejected this module:\n{errors}\n"
+                f"REGENERATE the FULL module, fixing every finding.{rules_block}\n"
+                "OUTPUT ONLY THE FIXED STARLARK CODE. NO EXPLANATION."
+            ),
+        },
+    ]

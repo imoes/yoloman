@@ -1,0 +1,56 @@
+{
+  "log_level": "INFO",
+  "bind_host": "0.0.0.0",
+  "bind_port": 9001,
+  "workers": 2,
+  "rate_limit": 10,
+  "max_ttl": 2147483647,
+  "default_ttl": 3600,
+  "storage_driver": "sqlalchemy",
+  "database_connection": "mysql+pymysql://designate:designate@10.0.0.5/designate?charset=utf8",
+  "connection_recycle_time": 300,
+  "pool_size": 20,
+  "pool_timeout": 30,
+  "transport_url": "rabbit://designate:secretrabbit@10.0.0.10:5672/",
+  "rpc_topic": "designate_worker",
+  "rpc_workers": 2,
+  "service_worker_enabled": true,
+  "status_period": 30,
+  "zone_types": [
+    "public",
+    "private"
+  ],
+  "exclude_tenants": [],
+  "max_records_per_zone": 10000,
+  "max_transfers_per_cycle": 20,
+  "background_maintenance": true,
+  "pools": [
+    {
+      "id": "default",
+      "name": "Primary BIND9 Pool",
+      "driver": "bind9",
+      "nameservers": [
+        "ns1.example.org.",
+        "ns2.example.org."
+      ],
+      "targets": [
+        {
+          "id": "primary_bind",
+          "type": "bind9",
+          "host": "10.0.0.20",
+          "port": 53,
+          "username": "",
+          "api_endpoint": ""
+        },
+        {
+          "id": "secondary_bind",
+          "type": "bind9",
+          "host": "10.0.0.21",
+          "port": 53,
+          "username": "",
+          "api_endpoint": ""
+        }
+      ]
+    }
+  ]
+}

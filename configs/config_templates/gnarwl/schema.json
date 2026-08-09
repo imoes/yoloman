@@ -1,0 +1,179 @@
+{
+  "comment": {
+    "type": "string",
+    "default": "gnarwl system-wide configuration",
+    "description": "A one-line comment to prefix the generated config file."
+  },
+  "server_uri": {
+    "type": "list",
+    "default": [],
+    "description": "Space-separated list of LDAP URIs (e.g., ['ldap://ldap.example.com', 'ldaps://ldap2.example.com'])."
+  },
+  "server": {
+    "type": "string",
+    "default": "localhost",
+    "description": "LDAP server hostname or IP address; used if server_uri is empty."
+  },
+  "port": {
+    "type": "number",
+    "default": 389,
+    "description": "LDAP server port; used if server_uri is empty."
+  },
+  "starttls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enforce StartTLS on connect."
+  },
+  "ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate file for LDAP server validation."
+  },
+  "login": {
+    "type": "string",
+    "default": "",
+    "description": "Distinguished name for LDAP bind; empty means anonymous."
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind; must be secured (0400 permissions on config file)."
+  },
+  "base": {
+    "type": "string",
+    "default": "",
+    "description": "Base DN for LDAP search; required."
+  },
+  "scope": {
+    "type": "string",
+    "default": "sub",
+    "description": "LDAP search scope: base|one|sub.",
+    "enum": [
+      "base",
+      "one",
+      "sub"
+    ]
+  },
+  "protocol": {
+    "type": "number",
+    "default": 3,
+    "description": "LDAP protocol version: 2 or 3."
+  },
+  "queryfilter": {
+    "type": "string",
+    "default": "(&(mail=$recipient)(vacationActive=TRUE))",
+    "description": "LDAP search filter for user lookup; macros $recipient, $sender, $subject available."
+  },
+  "result": {
+    "type": "string",
+    "default": "vacationMessage",
+    "description": "LDAP attribute to use as the auto-reply body."
+  },
+  "map_sender": {
+    "type": "string",
+    "default": "$sender",
+    "description": "Macro name for sender address."
+  },
+  "map_receiver": {
+    "type": "string",
+    "default": "$receiver",
+    "description": "Macro name for receiver address."
+  },
+  "map_subject": {
+    "type": "string",
+    "default": "$subject",
+    "description": "Macro name for subject line."
+  },
+  "map_fields": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional LDAP attribute \u2192 macro mappings for body substitution. Each item must contain attribute and name fields (see items below)."
+  },
+  "blockfiles": {
+    "type": "string",
+    "default": "/var/lib/gnarwl/block/",
+    "description": "Directory for storing blockfiles to prevent duplicate replies."
+  },
+  "umask": {
+    "type": "string",
+    "default": "0600",
+    "description": "File mode for newly created blockfiles."
+  },
+  "blockexpire": {
+    "type": "number",
+    "default": 48,
+    "description": "Block duration in hours before re-allowing auto-reply to same sender."
+  },
+  "maxreceivers": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of recipients per incoming message."
+  },
+  "maxheader": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of header lines before rejecting message."
+  },
+  "badheaders": {
+    "type": "string",
+    "default": "",
+    "description": "Path to db-file of header patterns to ignore (e.g., for mailing lists)."
+  },
+  "blacklist": {
+    "type": "string",
+    "default": "",
+    "description": "Path to db-file of email addresses excluded from auto-replies."
+  },
+  "forceheader": {
+    "type": "string",
+    "default": "",
+    "description": "Path to fixed header file (should end with empty line)."
+  },
+  "forcefooter": {
+    "type": "string",
+    "default": "",
+    "description": "Path to fixed footer file."
+  },
+  "mta": {
+    "type": "string",
+    "default": "/usr/sbin/sendmail",
+    "description": "Path to the MTA binary to use for sending mail."
+  },
+  "mta_args": {
+    "type": "list",
+    "default": [
+      "-oi",
+      "-t"
+    ],
+    "description": "Arguments passed to the MTA binary."
+  },
+  "charset": {
+    "type": "string",
+    "default": "",
+    "description": "Character set (e.g., 'utf-8', 'iso-8859-1') for body encoding conversion via iconv."
+  },
+  "recvheader": {
+    "type": "list",
+    "default": [
+      "To",
+      "Cc"
+    ],
+    "description": "Whitespace-separated list of header fields to scan for receiving addresses."
+  },
+  "loglevel": {
+    "type": "number",
+    "default": 2,
+    "description": "Syslog verbosity: 0=CRIT, 1=WARN, 2=INFO, 3=DEBUG."
+  },
+  "deref": {
+    "type": "string",
+    "default": "find",
+    "description": "LDAP alias dereferencing: never|search|find|always.",
+    "enum": [
+      "never",
+      "search",
+      "find",
+      "always"
+    ]
+  }
+}

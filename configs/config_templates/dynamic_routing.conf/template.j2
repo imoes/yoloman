@@ -1,0 +1,108 @@
+[DEFAULT]
+# Enable or disable the BGP Dynamic Routing Agent
+# enable: True/False
+{% if enabled | default(true) %}enabled = True{% else %}enabled = False{% endif %}
+
+# Logging configuration
+# log_dir: Directory for log files
+log_dir = {{ log_dir | default('/var/log/neutron') }}
+
+# log_file: Log filename (optional, None for stdout only)
+{% if log_file %}log_file = {{ log_file }}{% endif %}
+
+# Verbosity: DEBUG, INFO, WARNING, ERROR, CRITICAL
+# debug: Boolean (sets DEBUG if true)
+{% if debug | default(false) %}debug = True{% else %}debug = False{% endif %}
+
+# State path: directory for runtime files (e.g., pid, lock files)
+state_path = {{ state_path | default('/var/lib/neutron') }}
+
+# Transport URL for message queue
+# Example: rabbit://user:pass@host:5672//
+transport_url = {{ transport_url }}
+
+# Authentication section for keystone (if using keystone v3)
+[keystone_authtoken]
+# auth_url: Keystone auth endpoint
+auth_url = {{ keystone_authtoken.auth_url }}
+
+# project_domain_name: Domain of the project (e.g., 'Default')
+project_domain_name = {{ keystone_authtoken.project_domain_name }}
+
+# project_name: Project (tenant) name
+project_name = {{ keystone_authtoken.project_name }}
+
+# user_domain_name: Domain of the user
+user_domain_name = {{ keystone_authtoken.user_domain_name }}
+
+# username: Service user name
+username = {{ keystone_authtoken.username }}
+
+# password: Service user password
+password = {{ keystone_authtoken.password }}
+
+# API version: typically v3 for keystone
+auth_type = {{ keystone_authtoken.auth_type | default('password') }}
+
+# BGP-specific options
+[bgp]
+# Autonomous System (AS) number for this agent
+# Required: must be a valid AS number (1–4294967295)
+speaker_driver = {{ bgp.speaker_driver | default('vyatta') }}
+
+# BGP speaker AS number (local AS)
+local_as = {{ bgp.local_as }}
+
+# BGP router ID (usually an IP address)
+bgp_router_id = {{ bgp.bgp_router_id }}
+
+# Retry configuration for speaker updates
+retry_max = {{ bgp.retry_max | default(10) }}
+retry_interval = {{ bgp.retry_interval | default(10) }}
+
+# BGP peer configurations
+# Array of BGP peers to establish sessions with
+{% for peer in bgp_peers %}
+[bgp_peer_{{ loop.index }}]
+# BGP peer remote AS number
+remote_as = {{ peer.remote_as }}
+
+# BGP peer address (IP address)
+address = {{ peer.address }}
+
+# Peer name (optional, for identification)
+{% if peer.name %}name = {{ peer.name }}{% endif %}
+
+# Authentication key (optional, MD5 or SHA1)
+{% if peer.auth_key %}auth_key = {{ peer.auth_key }}{% endif %}
+
+# Hold time (seconds, default 90)
+{% if peer.hold_time %}hold_time = {{ peer.hold_time }}{% endif %}
+
+# Connect retry interval (seconds, default 10)
+{% if peer.connect_retry %}connect_retry = {{ peer.connect_retry }}{% endif %}
+
+# Password (if using password-based authentication)
+{% if peer.password %}password = {{ peer.password }}{% endif %}
+
+{% endfor %}
+
+# BGP speaker-to-neighbor mapping
+{% for speaker in bgp_speakers %}
+[bgp_speaker_{{ loop.index }}]
+# Speaker AS number (overrides global local_as if set)
+{% if speaker.local_as %}local_as = {{ speaker.local_as }}{% endif %}
+
+# Router ID (overrides global bgp_router_id if set)
+{% if speaker.bgp_router_id %}bgp_router_id = {{ speaker.bgp_router_id }}{% endif %}
+
+# Peers to associate with this speaker (comma-separated list of peer names)
+{% if speaker.peers %}peers = {{ speaker.peers | join(', ') }}{% endif %}
+
+# Networks to advertise (comma-separated list of CIDRs)
+{% if speaker.advertise_networks %}advertise_networks = {{ speaker.advertise_networks | join(', ') }}{% endif %}
+
+# Default route advertisement (True/False)
+{% if speaker.advertise_default_gateway %}advertise_default_gateway = {% if speaker.advertise_default_gateway %}True{% else %}False{% endif %}{% endif %}
+
+{% endfor %}

@@ -1,0 +1,210 @@
+# Ansible-managed configuration for systemd-journald (syslog2journal)
+# This template generates the `[Journal]` section of `journald.conf`.
+# All variables use the `| default(...)` filter to ensure safe rendering even if the
+# variable is undefined in the Ansible play/role.
+
+[Journal]
+
+# Directory where persistent journal files are stored.
+# Set to `volatile` or `auto` for runtime-only storage.
+# Default: /var/log/journal
+{% set journal_storage_dir = journal_storage_dir | default('/var/log/journal') %}
+{% if journal_storage_dir %}
+Storage={{ journal_storage_dir }}
+{% endif %}
+
+# Maximum disk space used by system journal files (e.g., '100M', '1G', '5%').
+# This limits the total size of all persistent journal files combined.
+# Default: 100M
+{% set journal_system_max_use = journal_system_max_use | default('100M') %}
+{% if journal_system_max_use %}
+SystemMaxUse={{ journal_system_max_use }}
+{% endif %}
+
+# Maximum size of individual journal files before rotation.
+# Once a file reaches this size, it is rotated.
+# Default: 10M
+{% set journal_system_max_file_size = journal_system_max_file_size | default('10M') %}
+{% if journal_system_max_file_size %}
+SystemMaxFile={{ journal_system_max_file_size }}
+{% endif %}
+
+# Space to keep free on the disk for other uses (e.g., '10%', '500M').
+# Prevents the journal from filling the disk completely.
+# Default: 10%
+{% set journal_system_keep_free = journal_system_keep_free | default('10%') %}
+{% if journal_system_keep_free %}
+SystemKeepFree={{ journal_system_keep_free }}
+{% endif %}
+
+# Time interval (in seconds) between syncs to disk.
+# Increase for better performance, decrease for durability.
+# Default: 2
+{% set journal_sync_interval_sec = journal_sync_interval_sec | default(2) %}
+{% if journal_sync_interval_sec is number %}
+SyncIntervalSec={{ journal_sync_interval_sec }}
+{% endif %}
+
+# Maximum time a journal file is kept before rotation.
+# Controls how long a single journal file is allowed to grow in time.
+# Default: 1month
+{% set journal_max_file_sec = journal_max_file_sec | default('1month') %}
+{% if journal_max_file_sec %}
+MaxFileSec={{ journal_max_file_sec }}
+{% endif %}
+
+# If true, legacy syslog messages are forwarded to the journald stream socket (`StreamSocket`).
+# Enables compatibility with applications that still use the traditional syslog socket.
+# Default: False
+{% set syslog_forward_to_socket = syslog_forward_to_socket | default(false) %}
+{% if syslog_forward_to_socket %}
+ForwardToSyslog=yes
+{% else %}
+ForwardToSyslog=no
+{% endif %}
+
+# Whether to forward received messages to the systemd journal.
+# Most systems should keep this enabled to ensure logs are captured.
+# Default: True
+{% set forward_to_journal = forward_to_journal | default(true) %}
+{% if forward_to_journal %}
+ForwardToJournal=yes
+{% else %}
+ForwardToJournal=no
+{% endif %}
+
+# If true, messages are forwarded to the kernel log buffer (`dmesg`).
+# Use with caution; this exposes logs to `dmesg`.
+# Default: False
+{% set forward_to_kmsg = forward_to_kmsg | default(false) %}
+{% if forward_to_kmsg %}
+ForwardToKMsg=yes
+{% else %}
+ForwardToKMsg=no
+{% endif %}
+
+# If true, output to the system console (use only if needed for debugging).
+# Can be noisy and impact performance; typically disabled in production.
+# Default: False
+{% set forward_to_console = forward_to_console | default(false) %}
+{% if forward_to_console %}
+ForwardToConsole=yes
+{% else %}
+ForwardToConsole=no
+{% endif %}
+
+# Directory for runtime-only journal files (volatile storage).
+# These files are deleted on reboot.
+# Default: /run/log/journal
+{% set journal_runtime_journal_dir = journal_runtime_journal_dir | default('/run/log/journal') %}
+{% if journal_runtime_journal_dir %}
+RuntimeDirectory={{ journal_runtime_journal_dir }}
+{% endif %}
+
+# Directory for persistent system journal files.
+# Matches the persistent storage location if `Storage=persistent` is used.
+# Default: /var/log/journal
+{% set journal_system_journal_dir = journal_system_journal_dir | default('/var/log/journal') %}
+{% if journal_system_journal_dir %}
+SystemDirectory={{ journal_system_journal_dir }}
+{% endif %}
+
+# Unix stream socket path for receiving legacy syslog messages.
+# Applications writing to this socket will have their messages parsed by journald.
+# Default: /run/systemd/journal/syslog
+{% set syslog_stream_socket = syslog_stream_socket | default('/run/systemd/journal/syslog') %}
+{% if syslog_stream_socket %}
+StreamSocket={{ syslog_stream_socket }}
+{% endif %}
+
+# List of extra fields to include in stream socket entries.
+# Useful for advanced parsing or metadata injection.
+# Default: [] (empty list)
+{% set stream_socket_extra_fields = stream_socket_extra_fields | default([]) %}
+{% for field in stream_socket_extra_fields %}
+StreamSocketExtraFields={{ field }}
+{% endfor %}
+
+# Time window (seconds) for rate limiting incoming log messages.
+# Prevents log flooding by dropping messages if the burst limit is exceeded.
+# Default: 30
+{% set rate_limit_interval_sec = rate_limit_interval_sec | default(30) %}
+{% if rate_limit_interval_sec is number %}
+RateLimitIntervalSec={{ rate_limit_interval_sec }}
+{% endif %}
+
+# Maximum number of messages allowed per rate-limit interval.
+# See `RateLimitIntervalSec`.
+# Default: 1000
+{% set rate_limit_burst = rate_limit_burst | default(1000) %}
+{% if rate_limit_burst is number %}
+RateLimitBurst={{ rate_limit_burst }}
+{% endif %}
+
+# If true, compress old journal files using XZ (requires xz-utils).
+# Saves disk space at the cost of some CPU during compression.
+# Default: True
+{% set compress = compress | default(true) %}
+{% if compress %}
+Compress=yes
+{% else %}
+Compress=no
+{% endif %}
+
+# Verbosity level for internal journald logging.
+# Options: debug, info, notice, warning, error, critical, alert, emergency.
+# Default: info
+{% set log_level = log_level | default('info') %}
+{% if log_level %}
+LogLevel={{ log_level }}
+{% endif %}
+
+# List of syslog facilities to accept from the stream socket.
+# Controls which facility codes are processed.
+# Default: kern, user, daemon, auth, syslog, lpr, news, uucp, cron, local0-7
+{% set log_facility = log_facility | default(['kern', 'user', 'daemon', 'auth', 'syslog', 'lpr', 'news', 'uucp', 'cron', 'local0', 'local1', 'local2', 'local3', 'local4', 'local5', 'local6', 'local7']) %}
+{% for facility in log_facility %}
+LogFacility={{ facility }}
+{% endfor %}
+
+# Maximum number of threads used for readahead optimization.
+# Improves performance when reading large journal files sequentially.
+# Default: 2
+{% set readahead_max_threads = readahead_max_threads | default(2) %}
+{% if readahead_max_threads is number %}
+ReadaheadMaxThreads={{ readahead_max_threads }}
+{% endif %}
+
+# If false, use plain-text journal format (not recommended for production).
+# Binary format is more efficient and secure.
+# Default: True
+{% set binary_journal = binary_journal | default(true) %}
+{% if binary_journal %}
+BinaryJournal=yes
+{% else %}
+BinaryJournal=no
+{% endif %}
+
+# Maximum number of journal entries retained in memory per journal.
+# Controls RAM usage for in-memory buffers.
+# Default: 10000
+{% set journal_max_entries = journal_max_entries | default(10000) %}
+{% if journal_max_entries is number %}
+MaxEntries={{ journal_max_entries }}
+{% endif %}
+
+# Maximum time (seconds) entries are held in memory before being flushed to disk.
+# Balances performance and data durability.
+# Default: 60
+{% set journal_max_entries_sec = journal_max_entries_sec | default(60) %}
+{% if journal_max_entries_sec is number %}
+MaxEntriesSec={{ journal_max_entries_sec }}
+{% endif %}
+
+# Maximum number of entries retained per user session.
+# Limits memory usage per UID.
+# Default: 10000
+{% set journal_user_max_entries = journal_user_max_entries | default(10000) %}
+{% if journal_user_max_entries is number %}
+UserMaxEntries={{ journal_user_max_entries }}
+{% endif %}

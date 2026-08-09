@@ -1,0 +1,122 @@
+{
+  "mgcp": {
+    "type": "object",
+    "description": "MGCP-specific configuration for media gateway operation",
+    "properties": {
+      "bind_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address to bind the MGCP control interface to (e.g., management or signaling network)"
+      },
+      "port": {
+        "type": "number",
+        "default": 2427,
+        "description": "UDP port for MGCP messages (RFC 3435 default is 2427)"
+      },
+      "reboot_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Time in seconds before the gateway reboots if no activity from MGCP controller"
+      },
+      "rtp_bridge": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable RTP media bridging between endpoints"
+      },
+      "endpoint_address": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address used in MGCP responses for endpoint identification"
+      },
+      "rtp_port_range": {
+        "type": "object",
+        "description": "Local RTP port range for media streams",
+        "properties": {
+          "start": {
+            "type": "number",
+            "default": 16384,
+            "description": "Lowest local UDP port for RTP"
+          },
+          "end": {
+            "type": "number",
+            "default": 32768,
+            "description": "Highest local UDP port for RTP"
+          }
+        }
+      },
+      "endpoints": {
+        "type": "list",
+        "default": [],
+        "description": "List of static MGCP endpoints (e.g., for each BTS or BSC connection)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Unique endpoint name (e.g., 'bcch-0', 'rtpbts-1')"
+            },
+            "code": {
+              "type": "number",
+              "description": "Endpoint code (integer in range 0\u201363)"
+            },
+            "rtp_bind": {
+              "type": "boolean",
+              "default": true,
+              "description": "Bind RTP port locally (true) or use remote SDP address"
+            },
+            "mode": {
+              "type": "string",
+              "default": "rx/tx",
+              "description": "RTP direction: rx (receive-only), tx (transmit-only), or rx/tx (bidirectional)"
+            },
+            "codec": {
+              "type": "string",
+              "default": "g711-64k",
+              "description": "Codec to use (e.g., g711-64k, g729, amr)"
+            },
+            "tone": {
+              "type": "boolean",
+              "default": false,
+              "description": "Enable tone generation (e.g., for DTMF or busy tones)"
+            }
+          }
+        }
+      },
+      "sdp_origin": {
+        "type": "string",
+        "default": null,
+        "description": "Override SDP origin line (e.g., '0 0 IN IP4 10.0.0.1'). Leave blank to use default."
+      },
+      "crcx_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout in seconds for Create Connection (CRCX) responses"
+      },
+      "tlcx_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout in seconds for Modify Connection (MDCX) responses"
+      },
+      "tfcx_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout in seconds for Modify Connection (MDCX) for connection removal"
+      },
+      "transcoding": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable media transcoding (requires osmo-mgw with transcoding support and codecs)"
+      },
+      "legacy_sdp": {
+        "type": "boolean",
+        "default": false,
+        "description": "Use legacy SDP format (RFC 2327 style) instead of RFC 3264"
+      },
+      "loopback_address": {
+        "type": "string",
+        "default": null,
+        "description": "Optional IP for loopback testing interface (e.g., 127.0.0.2)"
+      }
+    }
+  }
+}

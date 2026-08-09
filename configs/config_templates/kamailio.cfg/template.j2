@@ -1,0 +1,161 @@
+# ==============================================================================
+# Kamailio Main Configuration File
+# ==============================================================================
+# This template is auto-generated and SELF-DOCUMENTING.
+# All variables default to the schema-defined values if not provided by Ansible.
+# ==============================================================================
+
+# ----- Global Parameters ------------------------------------------------------
+
+# Debug log level: 0 (none) to 9 (all). Higher = more verbose.
+# Default: 2
+debug = {{ debug_level | default(2) }}
+
+# Log to standard error instead of syslog. Set to 'yes' for containerized deployments.
+# Default: 'no'
+log_stderror = {{ log_stderror | default('no') | lower }}
+
+# Log prefix format. Using raw block to avoid Jinja interpretation of {msg}.
+log_prefix = "{% raw %}{{msg}}{% endraw %}"
+
+# ----- Memory Options ---------------------------------------------------------
+
+# Dump shared memory stats on exit. Useful for debugging memory leaks.
+# Default: 'no'
+mem_dump_shared = {{ mem_dump_shared | default('no') | lower }}
+
+# ----- Network Listeners ------------------------------------------------------
+
+# Network interfaces and ports to listen on. Each entry includes protocol, address, and port.
+# Default: [{'protocol': 'tcp', 'address': '0.0.0.0', 'port': 5060}, {'protocol': 'udp', 'address': '0.0.0.0', 'port': 5060}]
+{% for listener in listeners | default([{'protocol': 'tcp', 'address': '0.0.0.0', 'port': 5060}, {'protocol': 'udp', 'address': '0.0.0.0', 'port': 5060}]) %}
+listen = {{ listener.protocol }}:{{ listener.address }}:{{ listener.port }}{% if listener.tags is defined and listener.tags %} # tags: {{ listener.tags | join(', ') }}{% endif %}
+{% endfor %}
+
+# ----- Aliases ----------------------------------------------------------------
+
+# Additional SIP hostnames/IPs this server accepts calls for (e.g., domain aliases).
+# Default: []
+{% for alias in aliases | default([]) %}
+alias = {{ alias }}
+{% endfor %}
+
+# ----- Database Connection ----------------------------------------------------
+
+# Database connection URL. Format: driver://user:pass@host/dbname. Supported: mysql, postgres, sqlite.
+# This field serves as the source for both general DB operations and SIP authentication.
+# Default: 'mysql://kamailio:kamailiorw@localhost/kamailio'
+db_url = "{{ db_url | default('mysql://kamailio:kamailiorw@localhost/kamailio') }}"
+
+# ----- Module Parameters ------------------------------------------------------
+
+# Module-specific parameters. Each object defines module name, parameter name, and value.
+# Default: [{'name': 'sl', 'param': 'reply_to_next', 'value': 0}, {'name': 'tm', 'param': 'auto_2618', 'value': 1}, {'name': 'rr', 'param': 'enable_double_rr', 'value': 1}, {'name': 'maxfwd', 'param': 'max_limit', 'value': 70}]
+{% for module in modules | default([{'name': 'sl', 'param': 'reply_to_next', 'value': 0}, {'name': 'tm', 'param': 'auto_2618', 'value': 1}, {'name': 'rr', 'param': 'enable_double_rr', 'value': 1}, {'name': 'maxfwd', 'param': 'max_limit', 'value': 70}]) %}
+modparam("{{ module.name }}", "{{ module.param }}", {{ module.value | string }})
+{% endfor %}
+
+# ----- Routing Blocks ---------------------------------------------------------
+
+route[REQUEST] {
+    # Maximum allowed value in the Max-Forwards header. Prevents infinite loops.
+    # Default: 70
+    if (!mf_process_maxfwd_header("{{ max_fwd | default(70) }}")) {
+        sl_send_reply("483", "Too Many Hops");
+        exit;
+    }
+
+    # Record routing for SIP dialog support
+    if (is_method("INVITE|REGISTER|SUBSCRIBE|MESSAGE")) {
+        record_route();
+    }
+
+    # Handle registration
+    if (is_method("REGISTER")) {
+        if (!save("location")) {
+            sl_reply_error();
+        }
+        exit;
+    }
+
+    # Handle incoming INVITE
+    if (is_method("INVITE")) {
+        if (!lookup("location")) {
+            sl_send_reply("404", "Not Found");
+            exit;
+        }
+        
+        # Route to outbound proxy or upstream if needed
+        {% for upstream in upstreams | default([{'name': 'gateway1', 'prefix': '123', 'backups': []}]) %}
+        if ($rU =~ "^{{ upstream.prefix }}") {
+            route(UPSTREAM_{{ upstream.name | upper | replace('-', '_') }});
+            exit;
+        }
+        {% endfor %}
+        
+        # Default routing — forward to default gateway
+        forward();
+        exit;
+    }
+
+    # Default: forward other methods
+    route(RELAY);
+}
+
+route[RELAY] {
+    if (!t_relay()) {
+        sl_reply_error();
+    }
+    exit;
+}
+
+{% for upstream in upstreams | default([{'name': 'gateway1', 'prefix': '123', 'backups': []}]) %}
+route[UPSTREAM_{{ upstream.name | upper | replace('-', '_') }}] {
+    t_on_failure("UPSTREAM_FAIL_{{ upstream.name | upper | replace('-', '_') }}");
+    t_relay_to_upstream();
+}
+{% endfor %}
+
+# ----- Failover Routes --------------------------------------------------------
+
+# Failover routes for upstream gateways
+{% for upstream in upstreams | default([{'name': 'gateway1', 'prefix': '123', 'backups': []}]) %}
+onreply_route[UPSTREAM_FAIL_{{ upstream.name | upper | replace('-', '_') }}] {
+    if (t_check_status("408|5[0-9][0-9]")) {
+        {% for backup in upstream.backups | default([]) %}
+        if (t_next_failure()) {
+            log("LOG: trying backup {{ backup }} for upstream {{ upstream.name }}\n");
+            t_relay_to("");
+        }
+        {% endfor %}
+    }
+}
+{% endfor %}
+
+# ----- Event Routes -----------------------------------------------------------
+
+# Event route for incoming replies (e.g., logging)
+event_route[tm:reply-received] {
+    if ($rs >= 300) {
+        xlog("L_WARN", "Received $rs reply for $rm $ru\n");
+    }
+}
+
+# ----- Statistics -------------------------------------------------------------
+
+# Interval (seconds) between statistics dumps to the statistics module.
+# Default: 60
+modparam("statistics", "stat_name", "kamailio_stats")
+modparam("statistics", "stat_interval", {{ stats_interval | default(60) }})
+
+# ----- Authentication ---------------------------------------------------------
+
+# Enable SIP authentication (Digest). Requires auth module and database.
+# Default: False
+{% if auth_enabled | default(False) | bool %}
+# Authentication is enabled. Uses the same DB connection string as defined in db_url.
+modparam("auth", "auth_db_url", "{{ db_url | default('mysql://kamailio:kamailiorw@localhost/kamailio') }}")
+modparam("auth", "calculate_ha1", 1)
+{% endif %}
+
+# End of configuration

@@ -1,0 +1,69 @@
+[DEFAULT]
+# Enable Ironic Neutron Agent service
+enabled = {{ enabled | default(True) }}
+
+# Logging configuration
+# Log directory and file path
+log_dir = /var/log/ironic
+log_file = /var/log/ironic/ironic-neutron-agent.log
+
+# Logging format (used by Python's logging module)
+logging_default_format_string = %(asctime)s.%(msecs)d %(levelname)s %(name)s [%(process)d] %(message)s
+logging_exception_format = %(asctime)s.%(msecs)d %(levelname)s %(name)s [%(process)d] %(message)s
+logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
+
+# Verbosity (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+# Controls logging verbosity
+verbose = {{ verbose | default(False) }}
+debug = {{ debug | default(False) }}
+
+# RPC backend configuration
+# Message queue transport URL for RPC (e.g., RabbitMQ or Qpid)
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Ironic API endpoint
+# URL of the Ironic API service
+api_endpoint = {{ api_endpoint | default('http://localhost:6385') }}
+
+# Authentication parameters for Ironic API
+# Auth URL, project name, username, password, and domain info
+auth_url = {{ auth_url | default('http://localhost:5000/v3') }}
+project_name = {{ project_name | default('ironic') }}
+username = {{ username | default('ironic') }}
+password = {{ password | default('') }}
+user_domain_name = {{ user_domain_name | default('Default') }}
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# TLS/SSL configuration
+# Enable or disable SSL verification for Ironic API
+auth_type = {{ auth_type | default('password') }}
+
+[neutron]
+# URL of the Neutron API endpoint
+url = {{ neutron_url | default('http://localhost:9696') }}
+
+# Neutron authentication credentials
+# Keystone auth URL for Neutron (if different from [DEFAULT])
+auth_url = {{ neutron_auth_url | default('http://localhost:5000/v3') }}
+username = {{ neutron_username | default('neutron') }}
+password = {{ neutron_password | default('') }}
+project_name = {{ neutron_project_name | default('services') }}
+user_domain_name = {{ neutron_user_domain_name | default('Default') }}
+project_domain_name = {{ neutron_project_domain_name | default('Default') }}
+auth_type = {{ neutron_auth_type | default('password') }}
+
+# Timeout (seconds) for Neutron API calls
+request_timeout = {{ neutron_request_timeout | default(30) }}
+
+[agent]
+# polling interval (seconds) for checking Ironic node status
+# Lower values = more responsive but higher CPU/network load
+polling_interval = {{ agent_polling_interval | default(10) }}
+
+# Physical network mapping for bare metal networks
+# List of mappings from logical network names to physical network names/interfaces (format: 'net:iface')
+physical_network_mappings = {{ physical_network_mappings | default([]) | join(', ') }}
+
+[oslo_concurrency]
+# Directory for lock files
+lock_path = /var/lock/ironic

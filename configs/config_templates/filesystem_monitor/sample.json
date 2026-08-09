@@ -1,0 +1,61 @@
+{
+  "daemon_user": "www-data",
+  "daemon_group": "www-data",
+  "pid_file": "/run/iwatch/iwatch.pid",
+  "log_file": "/var/log/iwatch.log",
+  "log_level": "warning",
+  "scan_interval": 0,
+  "use_inotify": true,
+  "max_files": 16384,
+  "xmlrpc_enabled": false,
+  "xmlrpc_port": 1900,
+  "xmlrpc_bind_address": "127.0.0.1",
+  "email_use_smtp": true,
+  "email_from": "iwatch@webserver.local",
+  "email_to": [
+    "ops@example.com",
+    "security@example.com"
+  ],
+  "smtp_server": "mail.example.com",
+  "smtp_port": 587,
+  "watches": [
+    {
+      "path": "/var/www/html",
+      "events": [
+        "create",
+        "delete",
+        "modify",
+        "move",
+        "chmod"
+      ],
+      "alert_email_enabled": true,
+      "alert_email_to": [
+        "webmaster@example.com"
+      ],
+      "use_regex": false,
+      "include_patterns": [],
+      "exclude_patterns": [
+        "*.tmp",
+        "cache/*"
+      ],
+      "on_event_script": "/usr/local/bin/webhook-updater.sh",
+      "max_depth": 3,
+      "ignore_self": true
+    },
+    {
+      "path": "/etc/nginx",
+      "events": [
+        "modify",
+        "delete"
+      ],
+      "alert_email_enabled": false,
+      "include_patterns": [
+        "*.conf",
+        "*.ssl"
+      ],
+      "exclude_patterns": [],
+      "max_depth": 0,
+      "ignore_self": false
+    }
+  ]
+}

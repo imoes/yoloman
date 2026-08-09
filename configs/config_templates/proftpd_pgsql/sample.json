@@ -1,0 +1,77 @@
+{
+  "module_load_pgsql": true,
+  "server_name": "Secure FTP Gateway",
+  "server_type": "standalone",
+  "server_ident": "off",
+  "daemon_user": "nobody",
+  "daemon_group": "nogroup",
+  "listen_port": 21,
+  "listen_addresses": [
+    {
+      "ip": "0.0.0.0",
+      "port": 21
+    },
+    {
+      "ip": "::",
+      "v6": true,
+      "comment": "IPv6 listener"
+    }
+  ],
+  "timeout_no_transfer": 300,
+  "timeout_idle": 900,
+  "timeout_session": 1800,
+  "max_clients": 25,
+  "max_clients_per_host": 3,
+  "max_login_attempts": 4,
+  "max_transfer_rate": 500000,
+  "log_level": "info",
+  "log_auth_format": "%h %l %u %t \"%r\" %s %b",
+  "chroot_home": true,
+  "allow_store_pwd": false,
+  "umask": "022",
+  "paths": [
+    {
+      "local": "/var/ftp",
+      "allow_read": true,
+      "comment": "Public FTP root"
+    },
+    {
+      "local": "/var/ftp/upload",
+      "allow_write": true,
+      "allow_read": true,
+      "comment": "Upload directory"
+    }
+  ],
+  "pgsql_connect_info": "localhost 5432 ftpdb proftpd secret123",
+  "virtual_hosts": [
+    {
+      "hostname": "ftp.company-a.com",
+      "enabled": true,
+      "comment": "Company A's FTP site",
+      "address": "192.168.1.10",
+      "chroot_dir": "/home/ftp/a",
+      "pgsql_connect_info": "localhost 5432 ftpdb_a proftpd_a pass_a",
+      "pgsql_auth_user": "SELECT passwd FROM users WHERE username='%U' AND domain='a'",
+      "paths": [
+        {
+          "local": "/home/ftp/a/incoming",
+          "allow_write": true,
+          "allow_read": false
+        },
+        {
+          "local": "/home/ftp/a/public",
+          "allow_read": true,
+          "allow_write": false
+        }
+      ]
+    },
+    {
+      "hostname": "ftp.company-b.com",
+      "comment": "Company B's isolated FTP",
+      "address": "10.0.0.5",
+      "pgsql_auth_user": "SELECT password FROM ftp_users WHERE login='%U' AND company='b'",
+      "pgsql_auth_group": "SELECT groupname FROM ftp_groups WHERE login='%U'"
+    }
+  ],
+  "include_conf.d": "/etc/proftpd/conf.d/*.conf"
+}

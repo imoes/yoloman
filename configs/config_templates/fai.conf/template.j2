@@ -1,0 +1,88 @@
+# FAI configuration file — defines global options and class definitions for Fully Automated Installation
+
+# Base directory for FAI configuration files
+FAI_CONFIGDIR = {{ fai_configdir }}
+
+# Base directory for FAI logs
+FAI_LOGDIR = {{ fai_logdir }}
+
+# Base directory for FAI software (scripts, packages list, etc.)
+FAI_SOFTWAREDIR = {{ fai_softwaredir }}
+
+# Default distribution target (e.g., 'stable', 'testing', 'unstable')
+FAI_DEBIAN_RELEASE = {{ fai_debian_release }}
+
+# Architecture to use by default for target systems (e.g., 'amd64', 'i386')
+FAI_ARCH = {{ fai_arch }}
+
+# Enable debug mode (0=normal, 1=verbose, 2=debug)
+FAI_DEBUG = {{ fai_debug }}
+
+# Enable verbose logging
+FAI_VERBOSE = {{ fai_verbose }}
+
+# Timeout (in seconds) for NFS mounts during install
+FAI_NFS_TIMEOUT = {{ fai_nfs_timeout }}
+
+# Default partitioning scheme (filename in $FAI_CONFIGDIR/disk_config/)
+DEFAULT_PARTITIONING = {{ default_partitioning }}
+
+# Default filesystem type (e.g., 'ext4', 'xfs')
+DEFAULT_FS_TYPE = {{ default_fs_type }}
+
+# Space-separated list of default packages to install on all clients
+DEFAULT_PACKAGES = {{ default_packages | join(' ') }}
+
+# Enable/disable package installation during first boot (on=true, off=false)
+FAI_INSTALL_PACKAGES = {{ fai_install_packages }}
+
+# Enable/disable creating users via FAI (on=true, off=false)
+FAI_CREATE_USERS = {{ fai_create_users }}
+
+# Enable/disable running custom hooks (on=true, off=false)
+FAI_RUN_HOOKS = {{ fai_run_hooks }}
+
+# Enable/disable IPMI support for remote power control
+FAI_IPMI = {{ fai_ipmi }}
+
+# Enable/disable PXE chainloading for booting non-PXE clients
+FAI_PXE_CHAINLOAD = {{ fai_pxe_chainload }}
+
+# Default boot menu timeout (in deciseconds); 0=show menu forever
+BOOTMENU_TIMEOUT = {{ bootmenu_timeout }}
+
+# DNS server(s) to configure on target (space-separated)
+NAMESERVER = {{ nameservers | join(' ') }}
+
+# Default NTP server
+NTPSERVER = {{ ntpserver }}
+
+# Default gateway
+DEFAULT_GATEWAY = {{ default_gateway }}
+
+# Default netmask
+DEFAULT_NETMASK = {{ default_netmask }}
+
+# Default hostname suffix (appended to short hostname)
+HOST_SUFFIX = {{ host_suffix }}
+
+# Enable/disable IPv6 by default
+FAI_IPV6 = {{ fai_ipv6 }}
+
+# List of class definitions: each maps a class name to its condition(s) and optional priority
+{% for cls in classes %}
+{% if cls.comment %}# {{ cls.comment }}
+{% endif %}{{ cls.name }} {{ cls.condition }}{% if cls.priority is defined %} (priority={{ cls.priority }}){% endif %}
+{% endfor %}
+
+# Class-specific package lists — applied only when class is selected
+{% for cls in classes %}{% if cls.packages %}
+{% if cls.packages_comment %}# {{ cls.packages_comment }}
+{% endif %}{% for pkg in cls.packages %}{{ cls.name }}_PACKAGES += {{ pkg }}
+{% endfor %}{% endif %}{% endfor %}
+
+# Class-specific hooks — commands executed when class is selected
+{% for cls in classes %}{% if cls.hooks %}
+{% if cls.hooks_comment %}# {{ cls.hooks_comment }}
+{% endif %}{% for hook in cls.hooks %}{{ cls.name }}_HOOKS += {{ hook }}
+{% endfor %}{% endif %}{% endfor %}

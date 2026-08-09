@@ -1,0 +1,49 @@
+{
+  "main": {
+    "user": "mail",
+    "group": "mail"
+  },
+  "imap": {
+    "host": "imap.company.com",
+    "port": 993,
+    "ssl": true,
+    "mailbox": "archive",
+    "username": "archive@company.com",
+    "password": "{{ vault('secrets/mail/archive_imap') }}",
+    "fetch_batch_size": 200
+  },
+  "delivery": {
+    "method": "smtp",
+    "smtp_servers": [
+      {
+        "host": "mx1.company.com",
+        "port": 587
+      },
+      {
+        "host": "mx2.company.com",
+        "port": 587
+      }
+    ]
+  },
+  "tls": {
+    "enable": true,
+    "ca_file": "/etc/ssl/certs/ca-certificates.crt",
+    "client_cert": "",
+    "client_key": ""
+  },
+  "logging": {
+    "level": "info",
+    "facility": "mail",
+    "log_file": "/var/log/pullimap/pullimap.log"
+  },
+  "limits": {
+    "max_concurrent_jobs": 5,
+    "max_message_size": 10485760,
+    "rate_limit_per_minute": 30
+  },
+  "headers": {
+    "add_received": true,
+    "add_date": true,
+    "replace_from": "archive@company.com"
+  }
+}

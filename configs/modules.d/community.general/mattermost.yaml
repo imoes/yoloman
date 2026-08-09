@@ -1,0 +1,56 @@
+name: mattermost
+fqcn: community.general.mattermost
+collection: community.general
+short_description: Send Mattermost notifications
+description: Sends notifications to U(http://your.mattermost.url) via the Incoming WebHook integration.
+options:
+  api_key:
+    type: str
+    required: true
+    description: Mattermost webhook api key. Log into your mattermost site, go to Menu -> Integration
+      -> Incoming Webhook -> Add Incoming Webhook. This will give you full URL. O(api_key) is the last
+      part. http://mattermost.example.com/hooks/C(API_KEY)
+  attachments:
+    type: list
+    description: Define a list of attachments. For more information, see U(https://developers.mattermost.com/integrate/admin-guide/admin-message-attachments/).
+      Required when O(text) is not set.
+  channel:
+    type: str
+    description: Channel to send the message to. If absent, the message goes to the channel selected for
+      the O(api_key).
+  icon_url:
+    type: str
+    default: https://docs.ansible.com/favicon.ico
+    description: URL for the message sender's icon.
+  text:
+    type: str
+    description: Text to send. Note that the module does not handle escaping characters. Required when
+      O(attachments) is not set.
+  url:
+    type: str
+    required: true
+    description: Mattermost url (i.e. http://mattermost.yourcompany.com).
+  username:
+    type: str
+    default: Ansible
+    description: This is the sender of the message (Username Override need to be enabled by mattermost
+      admin, see mattermost doc.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Send notification message via Mattermost\n  community.general.mattermost:\n    url:\
+  \ http://mattermost.example.com\n    api_key: my_api_key\n    text: '{{ inventory_hostname }} completed'\n\
+  \n- name: Send notification message via Mattermost all options\n  community.general.mattermost:\n  \
+  \  url: http://mattermost.example.com\n    api_key: my_api_key\n    text: '{{ inventory_hostname }}\
+  \ completed'\n    channel: notifications\n    username: 'Ansible on {{ inventory_hostname }}'\n    icon_url:\
+  \ http://www.example.com/some-image-file.png\n\n- name: Send attachments message via Mattermost\n  community.general.mattermost:\n\
+  \    url: http://mattermost.example.com\n    api_key: my_api_key\n    attachments:\n      - text: Display\
+  \ my system load on host A and B\n        color: '#ff00dd'\n        title: System load\n        fields:\n\
+  \          - title: System A\n            value: \"load average: 0,74, 0,66, 0,63\"\n            short:\
+  \ true\n          - title: System B\n            value: 'load average: 5,16, 4,64, 2,43'\n         \
+  \   short: true\n"

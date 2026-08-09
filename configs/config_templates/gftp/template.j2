@@ -1,0 +1,70 @@
+{# ============================================================================ #}
+{# gFTP User Configuration File (~/.gftp/gftprc)                               #}
+{#                                                                              #}
+{# This template generates a self-documenting gFTP configuration file.          #}
+{# gFTP is a graphical FTP client for X11. Most settings can be edited          #}
+{# interactively within the application, but this file allows for               #}
+{# automated provisioning of defaults, proxy settings, and bookmarks.           #}
+{# ============================================================================ #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Global Defaults                                                              #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Default protocol used when no protocol is specified in URL; must be one of #}
+{# ftp, ftps, ssh, local, bookmark                                              #}
+default_protocol = {{ default_protocol | default("ftp") }}
+
+{# Global default port override; 0 means use protocol default.                  #}
+{# Only emitted if explicitly set to a non-zero value to avoid overriding       #}
+{# the protocol's inherent default port.                                        #}
+{% if port is defined and port != 0 %}
+port = {{ port }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Proxy Configuration                                                          #}
+{# ---------------------------------------------------------------------------- #}
+
+{# Hostname of the proxy server to use for transfers.                           #}
+{# If empty, gFTP will connect directly to the remote server.                   #}
+{% if proxy_host is defined and proxy_host %}
+proxy_host = {{ proxy_host }}
+{% endif %}
+
+{# Port number of the proxy server; 0 means use default proxy port.             #}
+{# Only emitted if explicitly set to a non-zero value.                          #}
+{% if proxy_port is defined and proxy_port != 0 %}
+proxy_port = {{ proxy_port }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Display Preferences                                                          #}
+{# ---------------------------------------------------------------------------- #}
+
+{# If true, display remote timestamps in local timezone instead of remote       #}
+{# timezone. Useful for comparing file times across different time zones.       #}
+{% if show_local_time is defined and show_local_time %}
+show_local_time = {{ show_local_time | lower }}
+{% endif %}
+
+{# If true, show hidden files (those starting with .) in directory listings.    #}
+{# Hidden files are often important for configuration management.               #}
+{% if show_hidden_files is defined and show_hidden_files %}
+show_hidden_files = {{ show_hidden_files | lower }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Bookmarks                                                                    #}
+{# ---------------------------------------------------------------------------- #}
+
+{# List of pre-configured bookmark connections; each item defines a bookmark    #}
+{# entry. This allows quick access to frequently used remote sites.             #}
+{# Format: bookmark_<name> = <protocol>://<user>:<pass>@<host>:<port>/<dir>    #}
+{#                                                                              #}
+{# Note: The 'name' field is used as the bookmark identifier. If multiple       #}
+{# bookmarks share the same name, the last one rendered will win.               #}
+{% for b in bookmarks | default([]) %}
+{# Bookmark entry for {{ b.name | default("unnamed") | string }}              #}
+bookmark_{{ b.name | default("unnamed") | replace(' ', '_') | lower }} = {{ b.protocol | default("ftp") }}://{{ b.user | default("") }}{% if b.pass %}:{{ b.pass }}{% endif %}{% if b.user or b.pass %}@{% endif %}{{ b.host }}{% if b.port %}:{{ b.port }}{% endif %}{{ b.directory | default("/") }}
+{% endfor %}

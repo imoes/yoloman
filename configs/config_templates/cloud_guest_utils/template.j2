@@ -1,0 +1,80 @@
+# /etc/cloud/cloud.cfg.d/99-cloud-guest-utils.cfg
+# Cloud guest utilities — growpart / resize / default-user configuration
+
+# Ordered list of datasources cloud-init tries in sequence; first match wins.
+datasource_list:
+{% for ds in datasource_list %}
+  - {{ ds }}
+{% endfor %}
+
+# Partition auto-grow configuration (integrates with cloud-guest-utils growpart).
+growpart:
+  # Tool to use: auto selects best available (growpart > gpart); off disables growing.
+  mode: {{ growpart_mode }}
+  # Mount points or block device paths whose underlying partition will be expanded.
+  devices:
+{% for dev in growpart_devices %}
+    - {{ dev }}
+{% endfor %}
+  # When true, ignore the /etc/growroot-disabled guard file and grow anyway.
+  ignore_growroot_disabled: {{ growpart_ignore_disabled | lower }}
+
+# Resize the root filesystem after partition expansion; noblock runs in background.
+resize_rootfs: {{ resize_rootfs }}
+
+# Disable direct root SSH login; users should connect as the default cloud user.
+disable_root: {{ disable_root | lower }}
+
+# Keep the hostname from the image; false lets cloud-init set it from instance metadata.
+preserve_hostname: {{ preserve_hostname | lower }}
+
+# Rewrite /etc/hosts with the resolved instance hostname on every boot.
+manage_etc_hosts: {{ manage_etc_hosts | lower }}
+
+# Default cloud user account created on first boot via cloud-init users module.
+system_info:
+  default_user:
+    # Linux username for the injected cloud account.
+    name: {{ default_user.name }}
+    # Human-readable GECOS field.
+    gecos: {{ default_user.gecos }}
+    # Lock the password so only SSH key auth works initially.
+    lock_passwd: {{ default_user.lock_passwd | lower }}
+    # Login shell for the cloud user.
+    shell: {{ default_user.shell }}
+    # Supplementary groups the cloud user is added to at creation time.
+    groups:
+{% for g in default_user.groups %}
+      - {{ g }}
+{% endfor %}
+    # Sudoers rules granted to the cloud user.
+    sudo:
+{% for rule in default_user.sudo_rules %}
+      - "{{ rule }}"
+{% endfor %}
+
+{% if ntp_enabled %}
+# NTP — synchronise system clock on first boot via cloud-init ntp module.
+ntp:
+  enabled: true
+  servers:
+{% for srv in ntp_servers %}
+    - {{ srv }}
+{% endfor %}
+{% else %}
+# NTP management disabled; configure NTP outside cloud-init.
+ntp:
+  enabled: false
+{% endif %}
+
+# Modules executed during the cloud-init config stage.
+cloud_config_modules:
+{% for mod in cloud_config_modules %}
+  - {{ mod }}
+{% endfor %}
+
+# Modules executed during the cloud-init final stage.
+cloud_final_modules:
+{% for mod in cloud_final_modules %}
+  - {{ mod }}
+{% endfor %}

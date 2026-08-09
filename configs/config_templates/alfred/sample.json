@@ -1,0 +1,53 @@
+{
+  "mode": "daemon",
+  "bind_host": "0.0.0.0",
+  "bind_port": 8080,
+  "log_level": "info",
+  "log_file": "/var/log/alfred/alfred.log",
+  "worker_count": 4,
+  "max_connections": 2048,
+  "use_tls": true,
+  "tls_cert_file": "/etc/alfred/tls/fullchain.pem",
+  "tls_key_file": "/etc/alfred/tls/privkey.pem",
+  "endpoints": [
+    {
+      "name": "facts-prod",
+      "url": "https://facts.example.com/api/v2/facts",
+      "method": "POST",
+      "timeout": 10,
+      "retry_count": 5,
+      "backoff_ms": 500,
+      "headers": {
+        "User-Agent": "Alfred/1.0",
+        "X-Api-Key": "secret-key-here"
+      },
+      "auth": {
+        "type": "bearer",
+        "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      }
+    },
+    {
+      "name": "facts-staging",
+      "url": "https://staging.facts.internal/api/v2/facts",
+      "method": "GET",
+      "timeout": 3,
+      "retry_count": 2,
+      "backoff_ms": 100,
+      "headers": {},
+      "auth": {
+        "type": "basic",
+        "username": "alfred_ro",
+        "password": "supersecure"
+      }
+    }
+  ],
+  "cache_enabled": true,
+  "cache_type": "redis",
+  "cache_redis_host": "redis-cache.internal",
+  "cache_redis_port": 6379,
+  "cache_redis_db": 1,
+  "cache_ttl_seconds": 600,
+  "health_check_enabled": true,
+  "health_check_path": "/healthz",
+  "health_check_interval_seconds": 15
+}

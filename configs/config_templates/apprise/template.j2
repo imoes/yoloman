@@ -1,0 +1,125 @@
+# Apprise Configuration File
+#
+# This file configures the Apprise notification library.
+# It defines global behavior (logging, timeouts, retries) and registers
+# one or more notification services (URLs) to deliver alerts.
+#
+# For full documentation, see: https://github.com/caronc/apprise
+#
+# Variables are sourced from the Ansible role variables.
+# Every variable uses the `default()` filter to prevent render errors
+# if the variable is not defined in the playbook.
+
+# === Global Settings ===
+
+# Enable verbose debug logging to stdout.
+# Useful for troubleshooting delivery issues, but keep off in production.
+# Schema: debug (default=False) - Enable verbose debug logging to stdout.
+debug: {{ (debug | default(False)) | ternary('true', 'false') }}
+
+# Timeout in seconds for each notification request.
+# If a notification service does not respond within this time, it is considered failed.
+# Schema: timeout (default=15) - Timeout in seconds for each notification request.
+timeout: {{ timeout | default(15) }}
+
+# Number of times to retry sending a failed notification.
+# Retries help mitigate transient network failures.
+# Schema: retry_attempts (default=3) - Number of times to retry sending a failed notification.
+retry_attempts: {{ retry_attempts | default(3) }}
+
+# Delay (seconds) between retry attempts.
+# Applied exponentially or linearly depending on the implementation,
+# but this value sets the base delay.
+# Schema: retry_delay (default=2) - Delay (seconds) between retry attempts.
+retry_delay: {{ retry_delay | default(2) }}
+
+# Logging verbosity.
+# Recommended: `info` for production; `debug` only for troubleshooting.
+# Schema: log_level (default='info') - Logging verbosity. Recommended: `info` for production; `debug` only for troubleshooting.
+log_level: "{{ log_level | default('info') }}"
+
+# === Notification Services ===
+
+# Define notification services (URLs) to use for sending alerts.
+# Each entry can optionally include 'tags' for grouping.
+# Examples: 'mailto://user:pass@gmail.com', 'slack://webhook-token'
+# Schema: services (default=[]) - List of notification services (URLs) to use for sending alerts.
+urls:
+{%- if services | default([]) | length > 0 %}
+{%- for service in services | default([]) %}
+{%-   if service is mapping %}
+{%-     if service.url is defined %}
+  # {{ service.comment | default('Notification service') }}
+  - {{ service.url }}
+{%-       if service.tags is defined and service.tags %}
+    tags: [{{ service.tags | join(', ') }}]
+{%-       endif %}
+{%-     endif %}
+{%-   else %}
+  # Simple URL string
+  - {{ service }}
+{%-   endif %}
+{%- endfor %}
+{%- else %}
+  # No services defined. Add entries to the 'services' list in Ansible vars.
+  # Example:
+  #   - url: mailto://user:pass@gmail.com
+  #     tags: [email]
+{%- endif %}
+
+# === Tag Definitions ===
+
+# Named tag definitions for grouping services.
+# Allows targeting specific subsets of services (e.g., 'prod' vs 'dev').
+# Format: { 'prod': 'Production alerts', 'dev': 'Dev/test alerts' }
+# Schema: tags (default={}) - Named tag definitions for grouping services.
+{%- if tags | default({}) | length > 0 %}
+tags:
+{%-   for tag in tags | default({}) | dict2items %}
+  # {{ tag.value }}
+  {{ tag.key }}: {}
+{%-   endfor %}
+{%- endif %}
+
+# === Inline Service Definitions (Advanced) ===
+
+# Custom YAML-based service definitions.
+# Used for plugins or extended configurations that are not simple URLs.
+# Schema: inline_services (default=[]) - Advanced: Custom YAML-based service definitions.
+{%- if inline_services | default([]) | length > 0 %}
+# Inline service definitions (e.g., custom plugins or extended configs)
+{%-   for svc in inline_services | default([]) %}
+{%-     if svc is mapping and svc.name is defined %}
+  # {{ svc.comment | default('Inline service definition') }}
+  {{ svc.name }}:
+{%-       if svc.config is defined and svc.config %}
+{%-         for config_item in svc.config | dict2items %}
+    {{ config_item.key }}: {{ config_item.value }}
+{%-         endfor %}
+{%-       endif %}
+{%-     endif %}
+{%-   endfor %}
+{%- endif %}
+
+# === Webhook Defaults ===
+
+# Default HTTP settings for webhook-based services.
+# Applies to services that support HTTP POST/GET notifications.
+# Schema: webhook_defaults (default={}) - Default HTTP settings for webhook-based services.
+{%- set wd = webhook_defaults | default({}) %}
+{%- if wd | length > 0 %}
+webhook:
+  # Default webhook content type (application/json or application/x-www-form-urlencoded)
+  content_type: "{{ (wd.get('content_type', '') | default('')) | tojson }}"
+  # Default HTTP method for webhooks (GET or POST)
+  method: "{{ (wd.get('method', '') | default('')) | tojson }}"
+{%- endif %}
+
+# === SSL/TLS Settings ===
+
+# Disable SSL/TLS certificate verification.
+# ⚠️ INSECURE: Only use for testing or trusted internal networks.
+# Schema: disable_ssl_verification (default=False) - Disable SSL/TLS certificate verification.
+{%- if disable_ssl_verification | default(False) %}
+disable_ssl_verification: true
+{%- endif %}

@@ -1,0 +1,45 @@
+{
+  "protocol": "ftp",
+  "ftp_proxy": "proxy.example.com:3128",
+  "ftp_user": "anonymous",
+  "ftp_passive": true,
+  "locale": "en_US.UTF-8",
+  "file_charset": "UTF-8",
+  "net_timeout": 60,
+  "net_max_retries": 5,
+  "net_socket_buffer": 131072,
+  "ssl_verify_certificate": true,
+  "ssl_ca_file": "/etc/ssl/certs/ca-certificates.crt",
+  "mirror_parallel": 4,
+  "mirror_parallel_min_size": 2097152,
+  "xfer_log": "/var/log/lftp.log",
+  "xfer_log_syslog": false,
+  "xfer_log_time_format": "%Y-%m-%d %H:%M:%S",
+  "mirror_include_patterns": [],
+  "mirror_exclude_patterns": [
+    "*.tmp",
+    "*.log",
+    "*.bak",
+    "*.swp",
+    "*~",
+    ".git/*"
+  ],
+  "mirror_include_regex_patterns": [
+    "\\.(tar\\.gz|tgz)$"
+  ],
+  "mirror_exclude_regex_patterns": [
+    "\\.(log|tmp|swp|bak)$",
+    "^[.#].*",
+    "\\.git/.*"
+  ],
+  "aliases": [
+    {
+      "name": "mirror-website",
+      "command": "mirror -c -e -X '*.bak' -X '*.log' -X '*.tmp' /var/www/ /"
+    },
+    {
+      "name": "sync-backups",
+      "command": "mirror -R -e --parallel=2 /backup/ /remote/backup/"
+    }
+  ]
+}

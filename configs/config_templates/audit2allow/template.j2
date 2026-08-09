@@ -1,0 +1,25 @@
+# =============================================================
+# audit2allow - SELinux Policy Rules Output
+# =============================================================
+# This template generates a list of Type Enforcement (TE) rules
+# produced by the `audit2allow` utility. These rules are typically
+# used to create loadable SELinux policy modules.
+#
+# Schema Variable: audit_rules (list of strings)
+# Default: []
+# Description: List of generated SELinux policy rules (TE allow/dontaudit
+#              statements) produced by audit2allow. Each entry is a single rule string.
+# =============================================================
+
+{% set rules = audit_rules | default([], true) %}
+
+{% if rules | length > 0 %}
+# Generated SELinux policy rules by audit2allow
+# See audit2allow(1) for usage details
+# Output format is Type Enforcement (TE) rules for loadable modules
+{% for rule in rules %}
+{{ rule }}
+{% endfor %}
+{% else %}
+# No audit rules generated.
+{% endif %}

@@ -1,0 +1,85 @@
+# Citadel Groupware Server Configuration (Client Interface)
+# This file configures the citadel-client (e.g., ctdlclient) behavior.
+# The server must be reachable via the hostname/port specified below.
+
+# Hostname or IP address of the Citadel server to connect to.
+host: {{ (host | default('localhost')) }}
+
+# TCP port on which the Citadel server listens (standard: 504).
+port: {{ (port | default(504)) }}
+
+# Path to Citadel's data directory (contains user databases, cache, etc.).
+datadir: {{ (datadir | default('/var/lib/citadel')) }}
+
+# Path to Citadel's configuration directory (e.g., containing modules, startup scripts).
+configdir: {{ (configdir | default('/etc/citadel')) }}
+
+# Path to the client log file. Use '-' to log to stderr.
+logfile: {{ (logfile | default('/var/log/citadel/client.log')) }}
+
+# Enable verbose debug logging (includes protocol traces and internal state).
+# Values: true, false.
+verbose: {{ (verbose | default(False) | ternary('true', 'false')) }}
+
+# Enable encrypted communication with the Citadel server via TLS.
+ssl_enabled: {{ (ssl_enabled | default(False) | ternary('true', 'false')) }}
+
+# Path to CA certificate bundle for server certificate validation
+# (only if SSL enabled).
+ssl_ca_file: {{ (ssl_ca_file | default('/etc/ssl/certs/ca-certificates.crt')) }}
+
+# Path to client certificate for mutual TLS (leave blank to disable).
+ssl_client_cert: {{ (ssl_client_cert | default('')) }}
+
+# Path to client private key for mutual TLS (must accompany client_cert).
+ssl_client_key: {{ (ssl_client_key | default('')) }}
+
+# Default domain suffix to append to usernames that lack one
+# (e.g., 'user' becomes 'user@example.com').
+default_domain: {{ (default_domain | default('example.com')) }}
+
+# Permit login without credentials (typically only for public rooms or testing).
+allow_anonymous: {{ (allow_anonymous | default(False) | ternary('true', 'false')) }}
+
+# Ordered list of authentication backends to try (e.g., local, ldap, radius, pam).
+auth_backends:
+{% for backend in (auth_backends | default(['local', 'ldap'])) %}  - {{ (backend) }}
+{% endfor %}
+
+# Per-backend tuning parameters (e.g., LDAP bind DN, server URIs, timeouts).
+# If empty, no additional options are written.
+{% if (auth_backend_options | default([])) | length > 0 %}auth_backend_options:
+{% for opt in (auth_backend_options | default([])) %}{% if opt is mapping %}
+  {# Key: Name of the backend (e.g., 'ldap', 'pam') #}
+{% for key, val in (opt | dict2items) %}  {{ (key.key) }}: {{ (key.value) }}
+{% endfor %}
+{% elif opt is string %}  {{ (opt) }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Maximum seconds to wait for a TCP connection to complete.
+connect_timeout: {{ (connect_timeout | default(10)) }}
+
+# Maximum seconds to wait for a response from the server after sending a command.
+read_timeout: {{ (read_timeout | default(30)) }}
+
+# Number of times to retry failed operations due to transient errors (e.g., timeouts).
+max_retries: {{ (max_retries | default(3)) }}
+
+# Automatically reconnect if the server closes the connection unexpectedly.
+auto_reconnect: {{ (auto_reconnect | default(True) | ternary('true', 'false')) }}
+
+# Default character encoding for text content (e.g., UTF-8, ISO-889-1).
+default_charset: {{ (default_charset | default('UTF-8')) }}
+
+# Enable payload compression (if both client and server support it).
+compression_enabled: {{ (compression_enabled | default(True) | ternary('true', 'false')) }}
+
+# List of network ranges where clients may connect without authentication.
+{% for subnet in (trusted_subnets | default(['127.0.0.0/8', '::1/128'])) %}  - {{ (subnet) }}
+{% endfor %}
+
+# Hostnames whose TLS certificates are trusted even if unverifiable.
+{% for host in (trusted_hosts | default([])) %}  - {{ (host) }}
+{% endfor %}

@@ -1,0 +1,100 @@
+# ==============================================================================
+# ganeti-instance-debootstrap configuration defaults
+# ==============================================================================
+# This file is managed by Ansible. Do NOT edit manually.
+# It configures the `ganeti-instance-debootstrap` hook script used by Ganeti
+# to create Debian/Ubuntu-based VM instances.
+
+# ------------------------------------------------------------------------------
+# Proxy Settings
+# ------------------------------------------------------------------------------
+# PROXY: HTTP(S) proxy URL to use during debootstrap (e.g., http://proxy.example.com:3128/).
+# Leave empty to disable proxy usage. If unset, debootstrap may still use
+# system-wide proxy settings if exported in the ganeti-noded environment.
+# PROXY="{{ PROXY | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Mirror Settings
+# ------------------------------------------------------------------------------
+# MIRROR: Base URL of the package mirror to use for debootstrap.
+# Empty string means use the default (Debian stable or Ubuntu default).
+# Do not customize MIRROR if you want to install both Debian and Ubuntu
+# seamlessly, as they have different default mirror structures.
+# MIRROR="{{ MIRROR | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Architecture Settings
+# ------------------------------------------------------------------------------
+# ARCH: Target architecture for the instance (e.g., 'amd64', 'i386').
+# Empty string means use the host node's architecture.
+# ARCH="{{ ARCH | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Release Suite Settings
+# ------------------------------------------------------------------------------
+# SUITE: Debian/Ubuntu suite or release codename (e.g., 'stable', 'unstable', 'bullseye', 'jammy').
+# Empty string means use debootstrap's default (usually 'stable').
+# SUITE="{{ SUITE | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Extra Packages
+# ------------------------------------------------------------------------------
+# EXTRA_PKGS: Comma-separated list of extra packages to install during debootstrap.
+# Depending on the suite and architecture, different hypervisors may require specific packages.
+#
+# Examples:
+#   Xen (squeeze i386): "linux-image-xen-686,libc6-xen"
+#   KVM (squeeze amd64): "acpi-support-base,console-tools,udev,linux-image-amd64"
+#
+# EXTRA_PKGS="{{ EXTRA_PKGS | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Repository Components
+# ------------------------------------------------------------------------------
+# COMPONENTS: Comma-separated list of components to pass to debootstrap.
+# Empty string means use the default ('main').
+# Examples:
+#   Debian: "main,contrib,non-free"
+#   Ubuntu: "main,universe"
+# COMPONENTS="{{ COMPONENTS | default('') }}"
+
+# ------------------------------------------------------------------------------
+# Customization Hooks
+# ------------------------------------------------------------------------------
+# CUSTOMIZE_DIR: Directory containing hook scripts to run during instance customization.
+# Scripts are executed using `run-parts`.
+# Default path: /etc/ganeti/instance-debootstrap/hooks
+CUSTOMIZE_DIR="{{ CUSTOMIZE_DIR | default('/etc/ganeti/instance-debootstrap/hooks') }}"
+
+# ------------------------------------------------------------------------------
+# Cache Generation
+# ------------------------------------------------------------------------------
+# GENERATE_CACHE: Whether to generate cache files during debootstrap.
+# 'yes' creates new cache files; any other value disables generation (but existing caches are still used).
+GENERATE_CACHE="{{ GENERATE_CACHE | default('yes') }}"
+
+# ------------------------------------------------------------------------------
+# Cache Cleaning
+# ------------------------------------------------------------------------------
+# CLEAN_CACHE: Number of days after which to clean cache files.
+# Empty string disables cache cleaning. Default is 14 days.
+CLEAN_CACHE="{{ CLEAN_CACHE | default('14') }}"
+
+# ------------------------------------------------------------------------------
+# Partitioning Style
+# ------------------------------------------------------------------------------
+# PARTITION_STYLE: Partitioning style for the target device.
+# Allowed values:
+#   'none': Just format the device, but don't partition it.
+#   'msdos': Install an msdos partition table with a single partition.
+# Default is 'msdos' for Ganeti 2.0+, 'none' for Ganeti 1.2.
+# PARTITION_STYLE="{{ PARTITION_STYLE | default('msdos') }}"
+
+# ------------------------------------------------------------------------------
+# Partition Alignment
+# ------------------------------------------------------------------------------
+# PARTITION_ALIGNMENT: The alignment of the partitions in 512B sectors.
+# This defaults to 2048 (1 MiB) to give GRUB enough space for embedding and
+# to align with modern media (HDDs/SSDs). Increase if your media has larger
+# allocation blocks.
+PARTITION_ALIGNMENT="{{ PARTITION_ALIGNMENT | default('2048') }}"

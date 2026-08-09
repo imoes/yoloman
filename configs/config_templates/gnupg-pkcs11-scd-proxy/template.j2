@@ -1,0 +1,42 @@
+{# ============================================================================= #}
+{# gnupg-pkcs11-scd-proxy configuration file                                   #}
+{# This file configures the GnuPG PKCS#11 to SCDAEMON proxy daemon.            #}
+{# ============================================================================= #}
+
+{# socket: The Unix socket path used by the proxy to communicate with          #}
+{# gnupg-pkcs11-scd-proxy-server.                                              #}
+socket={{ socket | default('/run/gnupg/pkcs11-scd-proxy.sock') }}
+
+{# scd: Path to the underlying smart-card daemon executable (gpg-scd-wrapper). #}
+scd={{ scd | default('/usr/lib/gnupg/gpg-scd-wrapper') }}
+
+{# scd_config: Configuration file for the underlying scdaemon; required.       #}
+scd-config={{ scd_config | default('/etc/gnupg/scdaemon.conf') }}
+
+{# socket_group: Unix group to set on the proxy server socket for access       #}
+{# control. Leave empty to omit.                                               #}
+{% if socket_group | default('', true) %}
+socket-group={{ socket_group | default('', true) }}
+{% endif %}
+
+{# verbose: Enable verbose logging to stderr or log-file.                      #}
+{% if verbose | default(false) | bool %}
+verbose
+{% endif %}
+
+{# log_file: Path to write log output; leave empty to log to stderr only.      #}
+{% if log_file | default('', true) %}
+log-file={{ log_file | default('', true) }}
+{% endif %}
+
+{# multi_server: Run in multi-server mode (foreground) and open a listening    #}
+{# UNIX socket in addition to stdin/stdout.                                    #}
+{% if multi_server | default(false) | bool %}
+multi-server
+{% endif %}
+
+{# no_detach: Prevent daemon from detaching from the controlling terminal      #}
+{# (useful for debugging).                                                     #}
+{% if no_detach | default(false) | bool %}
+no-detach
+{% endif %}

@@ -1,0 +1,93 @@
+{
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/crm114",
+    "description": "Directory where CRM114 stores trained classifier data, dictionaries, and persistent state."
+  },
+  "mail_spool": {
+    "type": "string",
+    "default": "none",
+    "description": "Path to the mailbox (e.g., Maildir, MBox) used for training or batch classification. Set to 'none' to disable."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging to aid debugging. Set to true only for troubleshooting."
+  },
+  "max_memory": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum memory (in MB) CRM114 may use. 0 means no limit."
+  },
+  "preprocessors": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of preprocessor filter paths (e.g., to strip HTML, decode MIME, normalize whitespace).",
+    "items": {
+      "type": "string",
+      "description": "Absolute path to a preprocessor filter binary or script (e.g., /usr/lib/crm114/preproc/html_strip)"
+    }
+  },
+  "classifier_name": {
+    "type": "string",
+    "default": "dispm",
+    "description": "Name of the core classifier algorithm to use (e.g., dispm, svm, bcl)."
+  },
+  "training_method": {
+    "type": "string",
+    "default": "online",
+    "description": "Training mode \u2014 'online' for incremental updates, 'batch' for full retraining."
+  },
+  "min_word_freq": {
+    "type": "number",
+    "default": 2,
+    "description": "Minimum occurrence frequency for a token to be included in the model."
+  },
+  "max_features": {
+    "type": "number",
+    "default": 10000,
+    "description": "Upper limit on the number of tokens the model will consider."
+  },
+  "spam_threshold": {
+    "type": "number",
+    "default": 0.95,
+    "description": "Probability threshold above which an email is classified as spam (range 0.0\u20131.0)."
+  },
+  "discriminators": {
+    "type": "list",
+    "default": [
+      "word",
+      "bword"
+    ],
+    "description": "List of discriminator/filter names (e.g., 'word' = tokenization, 'bword' = bi-grams).",
+    "items": {
+      "type": "string",
+      "description": "Name of a discriminator module (e.g., word, bword, regexp, keyword, body)."
+    }
+  },
+  "extensions": {
+    "type": "list",
+    "default": [],
+    "description": "Optional CRM114 extension modules to enable (e.g., bayes, regexp).",
+    "items": {
+      "type": "string",
+      "description": "Name of an extension module to activate (e.g., bayes)."
+    }
+  },
+  "output_format": {
+    "type": "string",
+    "default": "mail",
+    "description": "Output format for classification results (e.g., mail, text, json).",
+    "enum": [
+      "mail",
+      "text",
+      "html",
+      "raw"
+    ]
+  },
+  "add_headers": {
+    "type": "bool",
+    "default": false,
+    "description": "When true, append X-CRM114-Status and related headers to classified messages."
+  }
+}

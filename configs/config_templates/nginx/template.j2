@@ -1,0 +1,81 @@
+# Nginx configuration template
+# This template generates a complete nginx.conf file.
+# It supports global settings, upstream definitions, and server blocks.
+
+# user: The user/group under which Nginx runs.
+# Note: This field was present in the original template but is not in the current schema.
+# Retained for backward compatibility with the original rendered output.
+# user www-data;
+user {{ user | default('www-data') }};
+
+# worker_processes: Number of worker processes
+# Defaults to 'auto' in many systems, but here defaults to 4 as per schema.
+worker_processes {{ worker_processes | default(4) }};
+
+# pid: Path to nginx PID file
+pid {{ pid | default('/run/nginx.pid') }};
+
+events {
+    # worker_connections: Maximum number of simultaneous connections per worker
+    worker_connections {{ worker_connections | default(1024) }};
+}
+
+http {
+    # Basic settings
+    sendfile on;
+    keepalive_timeout 65;
+    gzip on;
+
+    # Upstream definitions
+    # upstreams: List of upstream definitions (e.g., for proxying to app servers)
+    {% for upstream in upstreams | default([]) %}
+    # upstream {{ upstream.name | default('unnamed') }}: Upstream group
+    upstream {{ upstream.name | default('unnamed') }} {
+            {% for server in upstream.servers | default([]) %}
+        # server {{ server }}: Backend server address
+        server {{ server }};
+            {% endfor %}
+    }
+    {% endfor %}
+
+    # Server blocks
+    # server_blocks: List of server block definitions
+    {% for server_block in server_blocks | default([]) %}
+    # Server block for {{ server_block.server_name | default(['_']) | join(' ') }}
+    server {
+        # listen: Port and protocol to listen on
+        listen {{ server_block.listen | default('80') }};
+
+        # server_name: Hostnames this server block responds to
+        server_name {{ server_block.server_name | default(['_']) | join(' ') }};
+
+        # Logging
+        # access_log: Path to access log file
+        {% if server_block.access_log is defined %}
+        access_log {{ server_block.access_log }};
+        {% endif %}
+
+        # SSL Configuration
+        # ssl_certificate: Path to SSL certificate file
+        {% if server_block.ssl_certificate is defined %}
+        ssl_certificate {{ server_block.ssl_certificate }};
+        {% endif %}
+
+        # ssl_certificate_key: Path to SSL private key
+        {% if server_block.ssl_certificate_key is defined %}
+        ssl_certificate_key {{ server_block.ssl_certificate_key }};
+        {% endif %}
+
+        # Location block
+        location / {
+            {% if server_block.root is defined %}
+            # root: Document root directory
+            root {{ server_block.root }};
+            {% else %}
+            # proxy_pass: URL to proxy requests to (usually http://upstream_name)
+            proxy_pass {{ server_block.proxy_pass | default('http://127.0.0.1') }};
+            {% endif %}
+        }
+    }
+    {% endfor %}
+}

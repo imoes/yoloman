@@ -1,0 +1,58 @@
+name: pagerduty_change
+fqcn: community.general.pagerduty_change
+collection: community.general
+short_description: Track a code or infrastructure change as a PagerDuty change event
+description: This module will let you create a PagerDuty change event each time the module is run. This
+  is not an idempotent action and a new change event will be created each time it is run.
+options:
+  environment:
+    type: str
+    description: The environment name, typically V(production), V(staging), and so on.
+  integration_key:
+    type: str
+    required: true
+    description: The integration key that identifies the service the change was made to. This can be found
+      by adding an integration to a service in PagerDuty.
+  link_text:
+    type: str
+    description: Descriptive text for a URL where more information about the deployment can be obtained.
+  link_url:
+    type: str
+    description: A URL where more information about the deployment can be obtained.
+  repo:
+    type: str
+    description: The URL of the project repository.
+  revision:
+    type: str
+    description: An identifier of the revision being deployed, typically a number or SHA from a version
+      control system.
+  source:
+    type: str
+    default: Ansible
+    description: The source of the change event.
+  summary:
+    type: str
+    required: true
+    description: A short description of the change that occurred.
+  url:
+    type: str
+    default: https://events.pagerduty.com/v2/change/enqueue
+    description: URL to submit the change event to.
+  user:
+    type: str
+    description: The name of the user or process that triggered this deployment.
+  validate_certs:
+    type: bool
+    default: true
+    description: If V(false), SSL certificates for the target URL will not be validated. This should only
+      be used on personally controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Track the deployment as a PagerDuty change event\n  community.general.pagerduty_change:\n\
+  \    integration_key: abc123abc123abc123abc123abc123ab\n    summary: The application was deployed\n\n\
+  - name: Track the deployment as a PagerDuty change event with more details\n  community.general.pagerduty_change:\n\
+  \    integration_key: abc123abc123abc123abc123abc123ab\n    summary: The application was deployed\n\
+  \    source: Ansible Deploy\n    user: ansible\n    repo: github.com/ansible/ansible\n    revision:\
+  \ '4.2'\n    environment: production\n    link_url: https://github.com/ansible-collections/community.general/pull/1269\n\
+  \    link_text: View changes on GitHub\n"

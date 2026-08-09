@@ -1,0 +1,85 @@
+{
+  "interface": "eth1",
+  "log_level": "info",
+  "pid_file": "/run/dhcpy6d.pid",
+  "server_address": "fe80::1",
+  "assign_address": true,
+  "assign_dns": true,
+  "assign_ntp": true,
+  "assign_domains": true,
+  "dns_servers": [
+    "2001:4860:4860::8888",
+    "2001:4860:4860::8844"
+  ],
+  "domain_search": [
+    "internal.example.com",
+    "lab.example.com"
+  ],
+  "ntp_servers": [
+    "2001:67c:1560:8000::11",
+    "2001:67c:1560:8000::12"
+  ],
+  "lease_time": 3600,
+  "max_lease_time": 7200,
+  "client_classes": [
+    {
+      "name": "workstations",
+      "description": "Workstation class with standard settings",
+      "match": "starts-with(hardware-address, 00:11:22)",
+      "subnets": [
+        {
+          "network": "2001:db8:1::",
+          "prefix": 64,
+          "range_start": "2001:db8:1::100",
+          "range_end": "2001:db8:1::1ff",
+          "options": [],
+          "mtu": 1500
+        }
+      ],
+      "dns_servers": [
+        "2001:4860:4860::8888"
+      ],
+      "domain_search": [
+        "corp.example.com"
+      ],
+      "ntp_servers": [
+        "2001:67c:1560:8000::11"
+      ]
+    },
+    {
+      "name": "servers",
+      "description": "Server class with fixed addresses",
+      "match": "starts-with(hardware-address, 00:22:33)",
+      "subnets": [
+        {
+          "network": "2001:db8:2::",
+          "prefix": 64,
+          "range_start": "2001:db8:2::10",
+          "range_end": "2001:db8:2::1f",
+          "options": [
+            {
+              "key": "mtu",
+              "value": 9000
+            }
+          ],
+          "mtu": 9000,
+          "router": "2001:db8:2::1"
+        }
+      ]
+    }
+  ],
+  "static_assignments": [
+    {
+      "duid": "00:01:00:01:2a:1b:3c:4d:12:34:56:78:9a:bc",
+      "address": "2001:db8:1::10",
+      "hostname": "workstation1",
+      "class": "workstations"
+    },
+    {
+      "duid": "00:01:00:01:2a:1b:3c:4d:aa:bb:cc:dd:ee:ff",
+      "address": "2001:db8:2::10",
+      "hostname": "server1",
+      "class": "servers"
+    }
+  ]
+}

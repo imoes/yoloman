@@ -1,0 +1,79 @@
+# ============================================================================
+# ISATAP Daemon Configuration Template
+# ============================================================================
+# This configuration file manages the ISATAP (Intra-Site Automatic Tunnel
+# Addressing Protocol) daemon (isatapd). It configures tunnel interfaces,
+# routing behavior, and logging for automatic IPv6-over-IPv4 tunneling.
+# ============================================================================
+
+# ----------------------------------------------------------------------------
+# Tunnel Interface Name
+# Description: Name of the tunnel interface. Default is 'is0'.
+# ----------------------------------------------------------------------------
+tunnel_name: {{ tunnel_name | default('is0') }}
+
+# ----------------------------------------------------------------------------
+# Network Interface (Link Device)
+# Description: Tunnel link device. If specified, tunnel will be restricted
+# to that device. 'auto' guesses the outgoing IPv4 address.
+# ----------------------------------------------------------------------------
+interface: {{ interface | default('auto') }}
+
+# ----------------------------------------------------------------------------
+# MTU Settings
+# Description: Sets the MTU for the tunnel device, minimum is 1280.
+# 0 or 'auto' lets the kernel choose (usually 1480).
+# ----------------------------------------------------------------------------
+mtu: {{ mtu | default(0) }}
+
+# ----------------------------------------------------------------------------
+# TTL / Hoplimit
+# Description: Set the tunnel hoplimit. Default is 64.
+# 'auto' or 'inherit' makes the tunnel inherit the TTL from the linked device.
+# ----------------------------------------------------------------------------
+ttl: {{ ttl | default('64') }}
+
+# ----------------------------------------------------------------------------
+# Path MTU Discovery
+# Description: Disable (IPv4) Path MTU Discovery on this tunnel.
+# Requires --ttl to be set to inherit for full effect.
+# ----------------------------------------------------------------------------
+disable_pmtudisc: {{ disable_pmtudisc | default(false) | string | lower }}
+
+# ----------------------------------------------------------------------------
+# ISATAP Routers
+# Description: Set a potential router. Up to 10 potential routers can be
+# specified. Default is the unqualified domainname 'isatap'.
+# isatapd will resolve them to find the best path.
+# ----------------------------------------------------------------------------
+{% for router in routers | default(['isatap']) %}router: {{ router }}
+{% endfor %}
+
+# ----------------------------------------------------------------------------
+# Router Solicitation Interval
+# Description: Default interval to send router solicitations.
+# If 0 or 'auto', the interval will be 80% of the router's lifetime.
+# Can be used to force solicitation timing.
+# ----------------------------------------------------------------------------
+interval: {{ interval | default(0) }}
+
+# ----------------------------------------------------------------------------
+# DNS Check Interval
+# Description: Interval to perform DNS resolution of configured routers
+# and to recreate the PRL, if necessary. Set to 0 to disable.
+# ----------------------------------------------------------------------------
+dns_check_interval: {{ dns_check_interval | default(3600) }}
+
+# ----------------------------------------------------------------------------
+# Log File Path
+# Description: Log file path. Use '-' to log to stdout/stderr.
+# ----------------------------------------------------------------------------
+log_file: {{ log_file | default('-') }}
+
+# ----------------------------------------------------------------------------
+# Log Level
+# Description: Verbosity of logging (controlled by -v/-q).
+# isatapd logs to stderr when run in foreground and to syslog(3)
+# using facility LOG_DAEMON.
+# ----------------------------------------------------------------------------
+log_level: {{ log_level | default('INFO') }}

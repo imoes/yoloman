@@ -1,0 +1,196 @@
+# CUPS Filters configuration
+# This file controls filtering, conversion, and driver logic for CUPS.
+# It is read by cupsd and filters (e.g., pstoraster, pdftops, etc.) at runtime.
+
+{# ---------------------------------------------------------------------------
+   Font Embedding
+   --------------------------------------------------------------------------- #}
+# Enable or disable automatic font embedding in PDFs.
+# Embedded fonts help with portability when the target printer lacks the font.
+# Default: False
+{% if font_embedding | default(False) %}FontEmbedding yes{% else %}FontEmbedding no{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Font Directory
+   --------------------------------------------------------------------------- #}
+# Directory containing fonts available for embedding.
+# Set to empty to rely on system fonts only.
+# Default: '/usr/share/fonts'
+FontDir {{ font_dir | default('/usr/share/fonts') }}
+
+{# ---------------------------------------------------------------------------
+   Ghostscript Path
+   --------------------------------------------------------------------------- #}
+# Full path to the Ghostscript binary.
+# Used by pstoraster, pdftops, and other Ghostscript-based filters.
+# Default: '/usr/bin/gs'
+Ghostscript {{ ghostscript_path | default('/usr/bin/gs') }}
+
+{# ---------------------------------------------------------------------------
+   Ghostscript Options
+   --------------------------------------------------------------------------- #}
+# Additional options passed directly to Ghostscript.
+# Avoid unsafe overrides like -dNOPROMPT. The defaults provide safety and quality.
+# Default: '-q -dBATCH -dSAFER -dNOPAUSE -r600x600 -sDEVICE=ps2write -dTextAlphaBits=4 -dGraphicsAlphaBits=4'
+GhostscriptOptions {{ ghostscript_options | default('-q -dBATCH -dSAFER -dNOPAUSE -r600x600 -sDEVICE=ps2write -dTextAlphaBits=4 -dGraphicsAlphaBits=4') }}
+
+{# ---------------------------------------------------------------------------
+   Max Filter Processes
+   --------------------------------------------------------------------------- #}
+# Maximum number of concurrent filter worker processes.
+# Limits resource usage when multiple print jobs are processed.
+# Default: 10
+MaxFilterProcesses {{ max_filter_processes | default(10) }}
+
+{# ---------------------------------------------------------------------------
+   Default Raster Format
+   --------------------------------------------------------------------------- #}
+# Raster format to use for PDF-to-raster conversion (cups-filters >= 1.2.0).
+# Options include: auto, rgb, cmyk, gray, srgb, adobe-rgb.
+# Default: 'auto'
+DefaultRasterFormat {{ default_raster_format | default('auto') }}
+
+{# ---------------------------------------------------------------------------
+   IPP Everywhere
+   --------------------------------------------------------------------------- #}
+# Enable IPP Everywhere compliance.
+# Includes fallback defaults for media sizes and color profiles.
+# Default: True
+{% if ipp_everywhere | default(True) %}IPPEverywhere yes{% else %}IPPEverywhere no{% endif %}
+
+{# ---------------------------------------------------------------------------
+   PPD Path
+   --------------------------------------------------------------------------- #}
+# Directory where PPD files for legacy drivers are stored.
+# Used if not using CUPS' built-in driverless (AirPrint/IPP) logic.
+# Default: '/usr/share/cups/ppd'
+PPDPath {{ ppd_path | default('/usr/share/cups/ppd') }}
+
+{# ---------------------------------------------------------------------------
+   PDF Optimize
+   --------------------------------------------------------------------------- #}
+# Strip unused objects and optimize PDFs before printing.
+# Reduces file size and potentially speeds up rendering.
+# Default: True
+{% if pdf_optimize | default(True) %}PDFOptimize yes{% else %}PDFOptimize no{% endif %}
+
+{# ---------------------------------------------------------------------------
+   PDF Rendering Engine
+   --------------------------------------------------------------------------- #}
+# PDF rendering engine to use.
+# Choose one of: ghostscript, poppler, qpdf.
+# Default: 'ghostscript'
+PDFRenderingEngine {{ pdf_rendering_engine | default('ghostscript') }}
+
+{# ---------------------------------------------------------------------------
+   Raster Scaling
+   --------------------------------------------------------------------------- #}
+# Enable automatic scaling (e.g., fit-to-page, shrink-to-fit).
+# Ensures content fits within printable areas.
+# Default: True
+{% if raster_scaling | default(True) %}RasterScaling yes{% else %}RasterScaling no{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Raster DPI List
+   --------------------------------------------------------------------------- #}
+# List of DPI resolutions used during raster conversion fallback.
+# Used when specific resolution is not mandated by the job.
+# Default: [300, 600]
+{% for dpi in raster_dpi_list | default([300, 600]) %}RasterDPI {{ dpi }}
+{% endfor %}
+
+{# ---------------------------------------------------------------------------
+   HTTP Proxy
+   --------------------------------------------------------------------------- #}
+# HTTP proxy hostname/IP for network printer discovery.
+# Used for IPP over HTTPS discovery if a proxy is required.
+# If http_proxy_host is set, this directive combines host and port.
+# Default host: '', Default port: 8080
+{% if http_proxy_host | default('') %}HTTPProxy {{ http_proxy_host | default('') }}:{{ http_proxy_port | default('8080') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Log Level
+   --------------------------------------------------------------------------- #}
+# Verbosity of logs.
+# Options: error, warn, info, debug.
+# Default: 'warn'
+LogLevel {{ log_level | default('warn') }}
+
+{# ---------------------------------------------------------------------------
+   Log Path
+   --------------------------------------------------------------------------- #}
+# Path to the cups-filters log file.
+# Use an empty string '' for syslog-only logging.
+# Default: '/var/log/cups/cupsfilters.log'
+LogPath {{ log_path | default('/var/log/cups/cupsfilters.log') }}
+
+{# ---------------------------------------------------------------------------
+   DNS-SD Discovery
+   --------------------------------------------------------------------------- #}
+# Enable DNS-SD (Bonjour/mDNS) printer discovery.
+# Allows automatic detection of network printers.
+# Default: True
+{% if dnssd_discovery | default(True) %}DNSSDDiscovery yes{% else %}DNSSDDiscovery no{% endif %}
+
+{# ---------------------------------------------------------------------------
+   Extra MIME Types
+   --------------------------------------------------------------------------- #}
+# List of additional MIME types to support.
+# Useful for vendor-specific filters or legacy formats.
+# Example: 'image/pwg-raster', 'application/vnd.hp-PCLxl'
+# Default: []
+{% for mime in extra_mime_types | default([]) %}AddMIMEType {{ mime }}
+{% endfor %}
+
+{# ---------------------------------------------------------------------------
+   Filter Mappings
+   --------------------------------------------------------------------------- #}
+# Custom mapping from input types to filters.
+# Used for legacy driver support or non-standard application types.
+# Format: app_type filter priority
+# Default: []
+{% for mapping in filter_mappings | default([]) %}# Map {{ mapping.app_type }} to filter {{ mapping.filter }}
+{{ mapping.app_type }} {{ mapping.filter }} {{ mapping.priority }}
+{% endfor %}
+
+{# ---------------------------------------------------------------------------
+   Filter Timeout
+   --------------------------------------------------------------------------- #}
+# Maximum seconds to wait for a filter before failing the job.
+# Prevents stuck jobs from hanging the queue.
+# Default: 300
+FilterTimeout {{ filter_timeout | default(300) }}
+
+{# ---------------------------------------------------------------------------
+   Color Management
+   --------------------------------------------------------------------------- #}
+# Enable ICC-based color management for color-critical printing.
+# Ensures accurate color reproduction using ICC profiles.
+# Default: False
+{% if color_management | default(False) %}ColorManagement yes{% else %}ColorManagement no{% endif %}
+
+{# ---------------------------------------------------------------------------
+   ICC Profile Paths
+   --------------------------------------------------------------------------- #}
+# Directories to search for ICC profiles.
+# Multiple paths can be specified; each gets its own directive.
+# Default: ['/usr/share/color/icc']
+{% for path in icc_profile_paths | default(['/usr/share/color/icc']) %}ICCProfilePath {{ path }}
+{% endfor %}
+
+{# ---------------------------------------------------------------------------
+   Default RGB Profile
+   --------------------------------------------------------------------------- #}
+# Default ICC profile for RGB output.
+# Can be a known name (e.g., sRGB) or a full path.
+# Default: 'sRGB'
+DefaultRGBProfile {{ default_rgb_profile | default('sRGB') }}
+
+{# ---------------------------------------------------------------------------
+   Default CMYK Profile
+   --------------------------------------------------------------------------- #}
+# Default ICC profile for CMYK output.
+# Common names: Coated_FOGRA27, SWOP_Coated.
+# Default: 'Coated_FOGRA27'
+DefaultCMYKProfile {{ default_cmyk_profile | default('Coated_FOGRA27') }}

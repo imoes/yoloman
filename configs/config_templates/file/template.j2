@@ -1,0 +1,55 @@
+# /etc/file.conf — Configuration for the `file(1)` utility (libmagic).
+# This template generates a shell-compatible environment configuration file.
+# Each variable corresponds to a command-line option or environment setting
+# for libmagic's behavior.
+
+{# magic_files: List of magic files or directories to use. Colon-separated in actual usage. #}
+MAGIC="{{ magic_files | default(['/usr/share/misc/magic', '/usr/share/misc/magic.mgc']) | join(':') }}"
+
+{# follow_symlinks: Whether to follow symlinks. #}
+{# If true, sets POSIXLY_CORRECT=1 (-L flag behavior). #}
+{# If false, unsets POSIXLY_CORRECT (-h flag behavior). #}
+{% if follow_symlinks | default(False) | bool %}
+export POSIXLY_CORRECT=1
+{% else %}
+unset POSIXLY_CORRECT
+{% endif %}
+
+{# Buffer and parsing limits #}
+{# These parameters map to the -P option of the file command. #}
+
+{# max_bytes_to_read: Maximum bytes to read from a file. #}
+{# Maps to: -P bytes=N #}
+bytes="{{ max_bytes_to_read | default(1048576) }}"
+
+{# max_elf_notes: Maximum number of ELF notes processed. #}
+{# Maps to: -P elf_notes=N #}
+elf_notes="{{ max_elf_notes | default(256) }}"
+
+{# max_elf_phnum: Maximum number of ELF program headers processed. #}
+{# Maps to: -P elf_phnum=N #}
+elf_phnum="{{ max_elf_phnum | default(2048) }}"
+
+{# max_elf_shnum: Maximum number of ELF section headers processed. #}
+{# Maps to: -P elf_shnum=N #}
+elf_shnum="{{ max_elf_shnum | default(32768) }}"
+
+{# max_elf_shsize: Maximum size (in bytes) of ELF section headers processed. #}
+{# Maps to: -P elf_shsize=N #}
+elf_shsize="{{ max_elf_shsize | default(134217728) }}"
+
+{# max_encoding_bytes: Maximum bytes used to determine text encoding. #}
+{# Maps to: -P encoding=N #}
+encoding="{{ max_encoding_bytes | default(66560) }}"
+
+{# max_indirection: Recursion limit for indirect magic. #}
+{# Maps to: -P indir=N #}
+indir="{{ max_indirection | default(50) }}"
+
+{# max_name_use_count: Use count limit for name/use magic. #}
+{# Maps to: -P name=N #}
+name="{{ max_name_use_count | default(100) }}"
+
+{# max_regex_length: Maximum length for regex searches. #}
+{# Maps to: -P regex=N #}
+regex="{{ max_regex_length | default(8192) }}"

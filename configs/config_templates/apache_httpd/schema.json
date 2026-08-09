@@ -1,0 +1,251 @@
+{
+  "server_root": {
+    "type": "string",
+    "default": "/etc/apache2",
+    "description": "The top of the Apache HTTP Server directory tree."
+  },
+  "runtime_dir": {
+    "type": "string",
+    "default": "/run/apache2",
+    "description": "Directory used for runtime files (pids, locks, etc.)."
+  },
+  "listen_addresses": {
+    "type": "list",
+    "default": [
+      "80"
+    ],
+    "description": "List of addresses and ports the server should listen on.",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address or hostname to bind to (e.g., '0.0.0.0', '::'). If omitted, binds to all interfaces.",
+        "default": "*"
+      },
+      "port": {
+        "type": "number",
+        "description": "Port number to bind to (e.g., 80, 443). If omitted, defaults to 80 or inferred from address.",
+        "default": 80
+      }
+    }
+  },
+  "worker_user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "User account under which Apache worker processes run."
+  },
+  "worker_group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "Group under which Apache worker processes run."
+  },
+  "server_admin": {
+    "type": "string",
+    "default": "admin@localhost",
+    "description": "Email address shown in server-generated error pages."
+  },
+  "server_name": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname and port that the server uses for self-referential URLs."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Number of seconds before receives and sends time out."
+  },
+  "keepalive": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable persistent connections (HTTP Keep-Alive)."
+  },
+  "max_keepalive_requests": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of requests allowed per persistent connection."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of seconds to wait for the next request from the same client."
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/apache2/error.log",
+    "description": "Path to the global error log file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "warn",
+    "description": "Verbosity of error log (debug, info, notice, warn, error, crit, alert, emerg)."
+  },
+  "modules_to_load": {
+    "type": "list",
+    "default": [],
+    "description": "List of modules to load explicitly. If empty, default modules are included via IncludeOptional.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Module name (e.g., 'mpm_prefork', 'ssl', 'rewrite')."
+      },
+      "path": {
+        "type": "string",
+        "description": "Full path to the module shared object (.so file)."
+      }
+    }
+  },
+  "included_configs": {
+    "type": "list",
+    "default": [
+      {
+        "path": "/etc/apache2/mods-enabled/*.conf",
+        "enabled": true
+      },
+      {
+        "path": "/etc/apache2/conf-enabled/*.conf",
+        "enabled": true
+      },
+      {
+        "path": "/etc/apache2/sites-enabled/*.conf",
+        "enabled": true
+      }
+    ],
+    "description": "List of config snippet paths to include conditionally.",
+    "items": {
+      "path": {
+        "type": "string",
+        "description": "Glob pattern of config files to include (e.g., '/etc/apache2/mods-enabled/*.load')."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether to include this path. If false, skip inclusion.",
+        "default": true
+      }
+    }
+  },
+  "docroot": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Document root directory for the default virtual host."
+  },
+  "docroot_options": {
+    "type": "list",
+    "default": [
+      "Indexes",
+      "FollowSymLinks"
+    ],
+    "description": "Options for the document root directory (e.g., 'Indexes', 'FollowSymLinks', 'ExecCGI')."
+  },
+  "allow_override": {
+    "type": "string",
+    "default": "None",
+    "description": "Which directives are allowed in .htaccess files (e.g., 'All', 'Options', ' FileInfo')."
+  },
+  "directory_index": {
+    "type": "list",
+    "default": [
+      "index.html",
+      "index.cgi",
+      "index.pl",
+      "index.php"
+    ],
+    "description": "List of filenames to look for when a directory is requested."
+  },
+  "mime_types_config": {
+    "type": "string",
+    "default": "/etc/mime.types",
+    "description": "Path to the MIME types configuration file."
+  },
+  "mpm": {
+    "type": "string",
+    "default": "prefork",
+    "description": "Multi-Processing Module to use (prefork, worker, event).",
+    "enum": [
+      "prefork",
+      "event"
+    ]
+  },
+  "mpm_start_servers": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of child server processes created at startup."
+  },
+  "mpm_min_spare_servers": {
+    "type": "number",
+    "default": 5,
+    "description": "Minimum number of idle child server processes."
+  },
+  "mpm_max_spare_servers": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of idle child server processes."
+  },
+  "mpm_max_request_workers": {
+    "type": "number",
+    "default": 150,
+    "description": "Maximum number of simultaneous requests that can be served."
+  },
+  "mpm_max_connections_per_child": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of connections a child process will handle before terminating (0 = unlimited)."
+  },
+  "server_status_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Apache server-status page at /server-status."
+  },
+  "server_status_allowed_hosts": {
+    "type": "list",
+    "default": [
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of allowed hostnames/IPs to access /server-status.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "server_info_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Apache server-info page at /server-info."
+  },
+  "server_info_allowed_hosts": {
+    "type": "list",
+    "default": [
+      "localhost",
+      "127.0.0.1",
+      "::1"
+    ],
+    "description": "List of allowed hostnames/IPs to access /server-info.",
+    "items": {
+      "type": "string"
+    }
+  },
+  "default_vhost_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to generate a default virtual host configuration."
+  },
+  "default_vhost_port": {
+    "type": "number",
+    "default": 80,
+    "description": "Port for the default virtual host."
+  },
+  "vhost_error_log": {
+    "type": "string",
+    "default": "",
+    "description": "Error log file path for the default virtual host (defaults to global error_log_path if empty)."
+  },
+  "vhost_access_log": {
+    "type": "string",
+    "default": "",
+    "description": "Access log file path for the default virtual host (defaults to '/dev/null' if empty)."
+  },
+  "include_default_modules": {
+    "type": "bool",
+    "default": true,
+    "description": "Include default enabled modules via IncludeOptional (mods-enabled/*.load/.conf)."
+  }
+}

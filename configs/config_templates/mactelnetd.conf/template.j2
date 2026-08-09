@@ -1,0 +1,69 @@
+# =============================================================================
+# mactelnetd.conf - Configuration for the MacTelnet Daemon
+# This file configures the mactelnetd service, which provides a tunneling
+# protocol for Apple Remote Desktop (ARD) and other Mac-specific network services
+# over standard IP networks.
+# =============================================================================
+
+[main]
+# -----------------------------------------------------------------------------
+# Core daemon settings
+# Default: {}
+# -----------------------------------------------------------------------------
+
+# Base port for MacTelnet daemon
+# Default: 5050
+port = {{ (main | default({})).port | default(5050) }}
+
+# Maximum simultaneous client connections
+# Default: 100
+max_connections = {{ (main | default({})).max_connections | default(100) }}
+
+# Enable/disable verbose logging
+# Default: false
+verbose = {{ (main | default({})).verbose | default(false) | lower }}
+
+# Path to PID file
+# Default: /var/run/mactelnetd.pid
+pidfile = {{ (main | default({})).pidfile | default('/var/run/mactelnetd.pid') }}
+
+# Path to private key for TLS (optional)
+# If specified, the daemon will use TLS for encrypted communication.
+# Default: None
+{% if (main | default({})).tls_private_key is defined %}tls_private_key = {{ (main | default({})).tls_private_key }}
+{% endif %}
+
+# Path to TLS certificate (optional)
+# Must correspond to the private key if TLS is enabled.
+# Default: None
+{% if (main | default({})).tls_certificate is defined %}tls_certificate = {{ (main | default({})).tls_certificate }}
+{% endif %}
+
+# Access control: allowed MAC addresses (comma-separated)
+# Restricts connections to specific physical addresses.
+# Default: None
+{% if (main | default({})).allowed_macs is defined %}allowed_macs = {{ (main | default({})).allowed_macs | join(', ') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# User Authentication Configuration
+# List of authorized users (required for authentication)
+# Default: []
+# Format: user = name:password[:gid]
+# -----------------------------------------------------------------------------
+{% for user in users | default([]) %}
+# User entry: {{ user.name | default('unknown') }}
+# The password is stored here in cleartext for mactelnetd authentication.
+# Optional GID can be specified for filesystem permission mapping.
+user = {{ user.name | default('unknown') }}:{{ user.password | default('') }}{% if user.gid is defined %}:{{ user.gid }}{% endif %}
+{% endfor %}
+
+# Session timeout in seconds
+# Disconnects clients after this period of inactivity.
+# Default: 300
+session_timeout = {{ (main | default({})).session_timeout | default(300) }}
+
+# Root directory for file system access
+# Limits the accessible filesystem to this path for security.
+# Default: /
+root_dir = {{ (main | default({})).root_dir | default('/') }}

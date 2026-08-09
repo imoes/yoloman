@@ -1,0 +1,404 @@
+# ==============================================================================
+# Conntrackd Configuration Template
+# ==============================================================================
+# This template generates a valid conntrackd.conf file.
+#
+# Conntrackd synchronizes the Linux kernel connection tracking (conntrack) table
+# between high-availability nodes. It supports multiple synchronization modes:
+# FTFW (Full-Table-With-Web), ALARM, and NOTRACK.
+#
+# Self-Documenting: Every directive is preceded by a comment derived from the
+# schema definition. All variables use default() to ensure safe rendering even
+# if optional parameters are omitted by the Ansible play.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# General Daemon Settings
+# ------------------------------------------------------------------------------
+General {
+    # Number of buckets in the cache hashtable.
+    # Default: 32768
+    HashSize {{ hash_size | default(32768) }}
+
+    # Maximum number of conntracks to cache.
+    # Default: 131072
+    HashLimit {{ hash_limit | default(131072) }}
+
+    # Enable logging to a file. Use 'yes', 'no', or a specific filename path.
+    # Default: 'no'
+    {% if log_file | default('no') != 'no' %}
+    LogFile {{ log_file | default('no') }}
+    {% endif %}
+
+    # Enable syslog logging. Use 'yes', 'no', or a facility string (e.g., 'local0').
+    # Default: 'no'
+    {% if syslog | default('no') != 'no' %}
+    Syslog {{ syslog | default('no') }}
+    {% endif %}
+
+    # Lockfile path for the daemon.
+    # Default: '/var/lock/conntrack.lock'
+    LockFile {{ lockfile | default('/var/lock/conntrack.lock') }}
+
+    # Netlink event socket buffer size.
+    # Default: 2097152
+    NetlinkBufferSize {{ netlink_buffer_size | default(2097152) }}
+
+    # Netlink event socket buffer maximum growth size.
+    # Default: 8388608
+    NetlinkBufferSizeMaxGrowth {{ netlink_buffer_size_max_growth | default(8388608) }}
+
+    # Netlink overrun resync interval or 'yes'/'no'.
+    # Default: 'yes'
+    NetlinkOverrunResync {{ netlink_overrun_resync | default('yes') }}
+
+    # Enable reliable event reporting over Netlink.
+    # Default: 'no'
+    NetlinkEventsReliable {{ netlink_events_reliable | default('no') }}
+
+    # Maximum number of state-change events to handle before processing others.
+    # Default: 100
+    EventIterationLimit {{ event_iteration_limit | default(100) }}
+
+    # UNIX socket configuration for control interface.
+    # Default path: '/var/run/conntrackd.ctl'
+    UNIX {
+        Path {{ unix_socket_path | default('/var/run/conntrackd.ctl') }}
+    }
+
+    # Scheduler configuration for daemon threads.
+    Scheduler {
+        # Scheduler type: RR (Round Robin) or FIFO.
+        # Default: 'RR'
+        Type {{ scheduler_type | default('RR') }}
+
+        # Scheduler priority.
+        # Default: 99
+        Priority {{ scheduler_priority | default(99) }}
+    }
+
+    # Enable systemd runtime support.
+    # Default: 'no'
+    Systemd {{ systemd | default('no') }}
+}
+
+# ------------------------------------------------------------------------------
+# Synchronization Protocol Configuration
+# ------------------------------------------------------------------------------
+Sync {
+    # Synchronization mode: 'FTFW', 'ALARM', or 'NOTRACK'.
+    # This block structure changes based on the mode selected.
+    # Must be specified.
+    # Default: 'FTFW'
+    {% set mode = sync_mode | default('FTFW') %}
+
+    # --- FTFW Mode (Full Table With Web/Updates) ---
+    {% if mode == 'FTFW' %}
+    Mode FTFW {
+        # Size of the resend queue (FTFW mode).
+        # Default: 131072
+        ResendQueueSize {{ resend_queue_size | default(131072) }}
+
+        # Initial fixed timeout for committed entries (FTFW/ALARM/NOTRACK modes).
+        # Default: 180
+        CommitTimeout {{ commit_timeout | default(180) }}
+
+        # Time to schedule a flush of the table when going from primary to backup.
+        # Default: 60
+        PurgeTimeout {{ purge_timeout | default(60) }}
+
+        # Acknowledgement window size (FTFW mode).
+        # Default: 300
+        ACKWindowSize {{ ack_window_size | default(300) }}
+
+        # Disable external cache.
+        # Default: 'no'
+        DisableExternalCache {{ disable_external_cache | default('no') }}
+
+        # Request a complete conntrack table resync at startup.
+        # Default: 'no'
+        StartupResync {{ startup_resync | default('no') }}
+
+        # Multicast/Sync Network Configuration
+        # Applies if sync_interface is defined
+        {% if sync_interface | default('') %}
+        Multicast {
+            # Multicast IP address.
+            # Default: '225.0.0.50'
+            IPv4_address {{ sync_multicast_group | default('225.0.0.50') }}
+
+            # Port for sync communication.
+            # Default: 3780
+            Group {{ sync_port | default(3780) }}
+
+            # Local IP address to bind.
+            # Default: '' (empty)
+            IPv4_interface {{ sync_bind_address | default('') }}
+
+            # Network interface used for sync traffic.
+            # Default: '' (empty)
+            Interface {{ sync_interface | default('') }}
+
+            # SndSocketBuffer size.
+            # Default: 2097152
+            SndSocketBuffer {{ netlink_buffer_size | default(2097152) }}
+
+            # RcvSocketBuffer size.
+            # Default: 8388608
+            RcvSocketBuffer {{ netlink_buffer_size_max_growth | default(8388608) }}
+
+            # Enable/Disable message checksumming (Checksum).
+            # Default: 'yes'
+            Checksum {{ sync_heartbeat_enabled | default('yes') }}
+        }
+        {% endif %}
+    }
+
+    # --- NOTRACK Mode (No Tracking/Sync) ---
+    {% elif mode == 'NOTRACK' %}
+    Mode NOTRACK {
+        # Disable external cache.
+        # Default: 'no'
+        DisableExternalCache {{ disable_external_cache | default('no') }}
+
+        # Disable internal cache (NOTRACK mode).
+        # Default: 'no'
+        DisableInternalCache {{ disable_internal_cache | default('no') }}
+
+        # Initial fixed timeout for committed entries (FTFW/ALARM/NOTRACK modes).
+        # Default: 180
+        CommitTimeout {{ commit_timeout | default(180) }}
+
+        # Time to schedule a flush of the table when going from primary to backup.
+        # Default: 60
+        PurgeTimeout {{ purge_timeout | default(60) }}
+
+        # Request a complete conntrack table resync at startup.
+        # Default: 'no'
+        StartupResync {{ startup_resync | default('no') }}
+
+        # Network Configuration for NOTRACK (often used for unicast TCP/UDP sync)
+        {% if sync_interface | default('') %}
+        {% set proto = sync_protocol | default('tcp') | lower %}
+        {% if proto == 'tcp' %}
+        TCP {
+            # Local IP address to bind.
+            # Default: '' (empty)
+            IPv4_address {{ sync_bind_address | default('') }}
+
+            # Port for sync communication.
+            # Default: 3780
+            Port {{ sync_port | default(3780) }}
+
+            # Network interface used for sync traffic.
+            # Default: '' (empty)
+            Interface {{ sync_interface | default('') }}
+
+            # SndSocketBuffer size.
+            # Default: 2097152
+            SndSocketBuffer {{ netlink_buffer_size | default(2097152) }}
+
+            # RcvSocketBuffer size.
+            # Default: 8388608
+            RcvSocketBuffer {{ netlink_buffer_size_max_growth | default(8388608) }}
+
+            # Enable/Disable message checksumming (Checksum).
+            # Default: 'yes'
+            Checksum {{ sync_heartbeat_enabled | default('yes') }}
+
+            # List of peer nodes for unicast synchronization.
+            # Default: []
+            {% if sync_siblings | default([]) | length > 0 %}
+            {% for peer in sync_siblings | default([]) %}
+            # Peer node IP
+            IPv4_Destination_Address {{ peer.ip if peer is mapping else peer }}
+            {% endfor %}
+            {% endif %}
+        }
+        {% elif proto == 'udp' %}
+        UDP {
+            # Local IP address to bind.
+            # Default: '' (empty)
+            IPv4_address {{ sync_bind_address | default('') }}
+
+            # Port for sync communication.
+            # Default: 3780
+            Port {{ sync_port | default(3780) }}
+
+            # Network interface used for sync traffic.
+            # Default: '' (empty)
+            Interface {{ sync_interface | default('') }}
+
+            # SndSocketBuffer size.
+            # Default: 2097152
+            SndSocketBuffer {{ netlink_buffer_size | default(2097152) }}
+
+            # RcvSocketBuffer size.
+            # Default: 8388608
+            RcvSocketBuffer {{ netlink_buffer_size_max_growth | default(8388608) }}
+
+            # Enable/Disable message checksumming (Checksum).
+            # Default: 'yes'
+            Checksum {{ sync_heartbeat_enabled | default('yes') }}
+
+            # List of peer nodes for unicast synchronization.
+            # Default: []
+            {% if sync_siblings | default([]) | length > 0 %}
+            {% for peer in sync_siblings | default([]) %}
+            # Peer node IP
+            IPv4_Destination_Address {{ peer.ip if peer is mapping else peer }}
+            {% endfor %}
+            {% endif %}
+        }
+        {% else %}
+        # Fallback to Multicast if protocol is not tcp/udp
+        Multicast {
+            # Multicast IP address.
+            # Default: '225.0.0.50'
+            IPv4_address {{ sync_multicast_group | default('225.0.0.50') }}
+
+            # Port for sync communication.
+            # Default: 3780
+            Group {{ sync_port | default(3780) }}
+
+            # Local IP address to bind.
+            # Default: '' (empty)
+            IPv4_interface {{ sync_bind_address | default('') }}
+
+            # Network interface used for sync traffic.
+            # Default: '' (empty)
+            Interface {{ sync_interface | default('') }}
+
+            # SndSocketBuffer size.
+            # Default: 2097152
+            SndSocketBuffer {{ netlink_buffer_size | default(2097152) }}
+
+            # RcvSocketBuffer size.
+            # Default: 8388608
+            RcvSocketBuffer {{ netlink_buffer_size_max_growth | default(8388608) }}
+
+            # Enable/Disable message checksumming (Checksum).
+            # Default: 'yes'
+            Checksum {{ sync_heartbeat_enabled | default('yes') }}
+        }
+        {% endif %}
+        {% endif %}
+    }
+
+    # --- ALARM Mode ---
+    {% elif mode == 'ALARM' %}
+    Mode ALARM {
+        # Refresh time for ALARM mode.
+        # Default: 15
+        RefreshTime {{ refresh_time | default(15) }}
+
+        # Cache timeout for ALARM mode.
+        # Default: 180
+        CacheTimeout {{ cache_timeout | default(180) }}
+
+        # Initial fixed timeout for committed entries (FTFW/ALARM/NOTRACK modes).
+        # Default: 180
+        CommitTimeout {{ commit_timeout | default(180) }}
+
+        # Time to schedule a flush of the table when going from primary to backup.
+        # Default: 60
+        PurgeTimeout {{ purge_timeout | default(60) }}
+
+        # Network Configuration for ALARM Mode (Multicast)
+        {% if sync_interface | default('') %}
+        Multicast {
+            # Multicast IP address.
+            # Default: '225.0.0.50'
+            IPv4_address {{ sync_multicast_group | default('225.0.0.50') }}
+
+            # Port for sync communication.
+            # Default: 3780
+            Group {{ sync_port | default(3780) }}
+
+            # Local IP address to bind.
+            # Default: '' (empty)
+            IPv4_interface {{ sync_bind_address | default('') }}
+
+            # Network interface used for sync traffic.
+            # Default: '' (empty)
+            Interface {{ sync_interface | default('') }}
+
+            # SndSocketBuffer size.
+            # Default: 2097152
+            SndSocketBuffer {{ netlink_buffer_size | default(2097152) }}
+
+            # RcvSocketBuffer size.
+            # Default: 8388608
+            RcvSocketBuffer {{ netlink_buffer_size_max_growth | default(8388608) }}
+
+            # Enable/Disable message checksumming (Checksum).
+            # Default: 'yes'
+            Checksum {{ sync_heartbeat_enabled | default('yes') }}
+        }
+        {% endif %}
+    }
+    {% endif %}
+
+    # Options Section
+    # Applied regardless of mode
+    Options {
+        # Enable TCP window tracking.
+        # Default: 'no'
+        TCPWindowTracking {{ tcp_window_tracking | default('no') }}
+
+        # Enable expectation sync: 'on' or list of helpers.
+        # Default: 'no'
+        {% set exp_sync = expectation_sync | default('no') %}
+        {% if exp_sync == 'on' or exp_sync == true %}
+        ExpectationSync on
+        {% elif exp_sync is iterable and exp_sync is not string %}
+        ExpectationSync {
+            {% for helper in exp_sync %}
+            {{ helper }}
+            {% endfor %}
+        }
+        {% elif exp_sync != 'no' and exp_sync != false %}
+        ExpectationSync {{ exp_sync }}
+        {% endif %}
+    }
+}
+
+# ------------------------------------------------------------------------------
+# Filter Configuration
+# ------------------------------------------------------------------------------
+# Filter rules applied by the conntrackd daemon to control what events are synced.
+# Default: [] (Empty list means no filters or default behavior)
+{% if event_filters | default([]) | length > 0 %}
+Filter From Userspace {
+    {% for f in event_filters %}
+    {% if f is mapping %}
+        # Filter Name: {{ f.name | default('Unknown') }}
+        {% if f.name == 'Protocol' %}
+        Protocol Accept {
+            {% for protocol in f.value | default([]) %}
+            {{ protocol }}
+            {% endfor %}
+        }
+        {% elif f.name == 'Address' %}
+        Address Ignore {
+            {% for addr in f.value | default([]) %}
+            {% if addr is defined and addr %}
+            {% if ':' in addr %}
+            IPv6_address {{ addr }}
+            {% else %}
+            IPv4_address {{ addr }}
+            {% endif %}
+            {% endif %}
+            {% endfor %}
+        }
+        {% elif f.name == 'State' %}
+        State Accept {
+            {% for state in f.value | default([]) %}
+            {{ state }}
+            {% endfor %}
+        }
+        {% endif %}
+    {% endif %}
+    {% endfor %}
+}
+{% endif %}

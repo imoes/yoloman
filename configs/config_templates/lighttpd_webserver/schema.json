@@ -1,0 +1,204 @@
+{
+  "modules": {
+    "type": "list",
+    "default": [
+      "mod_access",
+      "mod_alias",
+      "mod_accesslog",
+      "mod_compress",
+      "mod_dirlisting",
+      "mod_staticfile"
+    ],
+    "description": "List of server modules to load; each enables specific functionality (e.g., compression, directory listing)"
+  },
+  "document_root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Base directory from which to serve files"
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the server binds to; use '127.0.0.1' for local-only access"
+  },
+  "port": {
+    "type": "number",
+    "default": 80,
+    "description": "TCP port for HTTP connections"
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/lighttpd.pid",
+    "description": "Path to the PID file for the main lighttpd process"
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/lighttpd/error.log",
+    "description": "Path to the error log file"
+  },
+  "access_log": {
+    "type": "string",
+    "default": "/var/log/lighttpd/access.log",
+    "description": "Path to the access log file"
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of simultaneous connections the server will accept"
+  },
+  "event_handler": {
+    "type": "string",
+    "default": "poll",
+    "description": "Event handler backend; choose based on OS support (e.g., 'poll', 'select', 'linux-sysepoll')",
+    "enum": [
+      "select",
+      "poll"
+    ]
+  },
+  "network_backend": {
+    "type": "string",
+    "default": "writev",
+    "description": "Network I/O backend (e.g., 'write', 'writev', 'sendfile'); 'sendfile' best for static files on Linux"
+  },
+  "mimetypes": {
+    "type": "object",
+    "default": {
+      ".html": "text/html",
+      ".txt": "text/plain",
+      ".css": "text/css",
+      ".js": "application/javascript",
+      ".json": "application/json",
+      ".png": "image/png",
+      ".jpg": "image/jpeg",
+      ".gif": "image/gif",
+      ".svg": "image/svg+xml",
+      ".ico": "image/x-icon"
+    },
+    "description": "Mapping of file extensions to MIME types"
+  },
+  "dir_listing": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable automatic directory listing when no index file exists"
+  },
+  "compress_cache_dir": {
+    "type": "string",
+    "default": "/var/cache/lighttpd/compress",
+    "description": "Directory to store compressed content caches"
+  },
+  "compress_filetypes": {
+    "type": "list",
+    "default": [
+      "text/plain",
+      "text/html",
+      "text/css",
+      "application/javascript",
+      "text/xml",
+      "application/xml"
+    ],
+    "description": "MIME types eligible for on-the-fly compression (gzip)"
+  },
+  "vhosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual hosts; each has a domain pattern and document root",
+    "items": {
+      "domain": {
+        "type": "string",
+        "description": "Domain pattern (case-insensitive regex) to match Host header"
+      },
+      "root": {
+        "type": "string",
+        "description": "Document root specific to this virtual host"
+      }
+    }
+  },
+  "log_request_header": {
+    "type": "bool",
+    "default": false,
+    "description": "Log full incoming request headers (debugging use only)"
+  },
+  "log_response_header": {
+    "type": "bool",
+    "default": false,
+    "description": "Log full outgoing response headers (debugging use only)"
+  },
+  "log_timeout_requests": {
+    "type": "bool",
+    "default": false,
+    "description": "Log requests that time out (helpful for diagnosing slow clients)"
+  },
+  "errorlog_use_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Send logs to syslog instead of files"
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS on a separate socket (requires `ssl.pemfile`)"
+  },
+  "ssl_bind": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind for HTTPS traffic"
+  },
+  "ssl_port": {
+    "type": "number",
+    "default": 443,
+    "description": "TCP port for HTTPS connections"
+  },
+  "ssl_pemfile": {
+    "type": "string",
+    "default": "/etc/lighttpd/ssl/server.pem",
+    "description": "Path to combined cert+key PEM file (must be readable by lighttpd user)"
+  },
+  "ssl_cipher_list": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384",
+    "description": "Allowed TLS cipher suites; leave empty to use defaults"
+  },
+  "fastcgi_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable FastCGI support for dynamic content (e.g., PHP via PHP-FPM)"
+  },
+  "fastcgi_socket": {
+    "type": "string",
+    "default": "/run/php/php-fpm.sock",
+    "description": "Unix socket path for PHP-FPM or other FastCGI backend"
+  },
+  "fastcgi_bin_path": {
+    "type": "string",
+    "default": "/usr/bin/php-cgi",
+    "description": "Path to FastCGI binary (fallback when socket is unavailable)"
+  },
+  "fastcgi_max_procs": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of FastCGI processes to spawn"
+  },
+  "static_exclude_extensions": {
+    "type": "list",
+    "default": [
+      ".php",
+      ".pl",
+      ".fcgi"
+    ],
+    "description": "Extensions that should bypass static-file handling (processed by other handlers)"
+  },
+  "index_files": {
+    "type": "list",
+    "default": [
+      "index.html",
+      "index.htm",
+      "index.php"
+    ],
+    "description": "List of filenames to look for as directory index (in order)"
+  },
+  "errorfile_prefix": {
+    "type": "string",
+    "default": "/usr/share/lighttpd/servers/",
+    "description": "Prefix path for custom error pages; lighttpd appends error code (e.g., 404.html)"
+  }
+}

@@ -1,0 +1,110 @@
+{
+  "pid_file": {
+    "type": "string",
+    "default": "/run/booth/booth.pid",
+    "description": "Absolute path where Booth writes its process ID file."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to a log file (leave empty to use syslog)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity level for logging (0=error, 1=warn, 2=info, 3=debug)."
+  },
+  "auth_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Timeout (seconds) for authentication handshake."
+  },
+  "ticket_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (seconds) to wait for responses when granting/releasing tickets."
+  },
+  "auth": {
+    "type": "object",
+    "default": null,
+    "description": "Authentication configuration (optional). Leave null to disable auth.",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "",
+        "description": "Auth method: 'file' (shared secret) or 'key' (public key)."
+      },
+      "file_path": {
+        "type": "string",
+        "default": "/etc/booth/booth-secret",
+        "description": "Path to the shared secret file (used with method='file')."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "/etc/booth/booth-key.pem",
+        "description": "Path to the PEM-formatted private key (used with method='key')."
+      }
+    }
+  },
+  "tickets": {
+    "type": "list",
+    "default": [],
+    "description": "List of cluster tickets to manage. Each ticket is a HA resource that can be held by one site at a time.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this ticket (used as identifier)."
+      },
+      "sites": {
+        "type": "list",
+        "default": [],
+        "description": "List of site addresses (IPs or hostnames) that may acquire this ticket.",
+        "items": {
+          "type": "string",
+          "description": "Site address (IP v4/v6 or hostname)."
+        }
+      },
+      "priority": {
+        "type": "number",
+        "default": 100,
+        "description": "Ticket priority (0\u2013255) \u2014 higher values win in\u4e89\u7528 (tie-breaker)."
+      },
+      "revoke_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds to wait before automatically re-granting a revoked ticket (after failover)."
+      }
+    }
+  },
+  "server": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "port": 9929,
+      "peers": []
+    },
+    "description": "Configuration for the Booth daemon itself.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to start the Booth daemon (must be true to participate in ticket management)."
+      },
+      "port": {
+        "type": "number",
+        "default": 9929,
+        "description": "UDP port used for peer communication and ticket negotiation."
+      },
+      "peers": {
+        "type": "list",
+        "default": [],
+        "description": "List of other Booth nodes (IPs or hostnames) forming the cluster.",
+        "items": {
+          "type": "string",
+          "description": "Peer node address (IP v4/v6 or hostname)."
+        }
+      }
+    }
+  }
+}

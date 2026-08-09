@@ -1,0 +1,90 @@
+# Qt Messaging Framework (QMF) Server Configuration
+# This is the main configuration file for the QMF message server.
+# It defines core server behavior, network endpoints, authentication, storage, and worker settings.
+
+[server]
+# Hostname or IP the server listens on. Use 0.0.0.0 to bind to all interfaces.
+host = {{ server.host }}
+
+# TCP port for client connections
+port = {{ server.port }}
+
+# Maximum number of concurrent client connections
+max_connections = {{ server.max_connections }}
+
+# Authentication mode: none, simple, scram-sha-256
+auth_mode = {{ server.auth_mode }}
+
+# Optional: path to a file containing trusted client certificates (for TLS mutual auth)
+# Leave empty to disable client certificate verification
+client_ca_file = {{ server.client_ca_file | default('') }}
+
+# Optional: path to server TLS certificate and key (for TLS support)
+tls_cert_file = {{ server.tls_cert_file | default('') }}
+tls_key_file = {{ server.tls_key_file | default('') }}
+
+# Whether to require TLS for all connections
+# Note: TLS is only active if cert/key are provided
+force_tls = {{ server.force_tls | lower }}
+
+[workers]
+# Number of worker threads for message processing
+thread_count = {{ workers.thread_count }}
+
+# Maximum queue depth per worker (messages pending processing)
+max_queue_depth = {{ workers.max_queue_depth }}
+
+# Timeout (in milliseconds) for a worker to process a message before it's retried
+process_timeout_ms = {{ workers.process_timeout_ms }}
+
+[storage]
+# Backend storage type: memory, file, or redis
+backend = {{ storage.backend }}
+
+# Local file path for file-based storage (ignored if backend != file)
+file_path = {{ storage.file_path | default('') }}
+
+# Redis connection string (ignored if backend != redis)
+redis_url = {{ storage.redis_url | default('') }}
+
+# Optional Redis password
+redis_password = {{ storage.redis_password | default('') }}
+
+# Maximum number of messages retained per queue (0 = unlimited)
+max_messages_per_queue = {{ storage.max_messages_per_queue }}
+
+# Enable message durability (fsync on write for file backend, replication for redis)
+durable = {{ storage.durable | lower }}
+
+[logging]
+# Log level: debug, info, warn, error
+level = {{ logging.level }}
+
+# Log output path; use '-' for stdout
+path = {{ logging.path }}
+
+# Enable structured JSON logging
+json_output = {{ logging.json_output | lower }}
+
+[queues]
+# Default queue configuration applied to newly created queues
+# These are *not* per-queue overrides — use the per-queues list below for that
+
+default_ttl_seconds = {{ queues.default_ttl_seconds }}
+default_max_size_bytes = {{ queues.default_max_size_bytes }}
+
+# Optional per-queue configuration overrides
+# Each object defines a named queue and its custom settings
+{% for q in queues.per_queues %}
+[queue:{{ q.name }}]
+# Custom settings for queue '{{ q.name }}'
+ttl_seconds = {{ q.ttl_seconds | default(queues.default_ttl_seconds) }}
+max_size_bytes = {{ q.max_size_bytes | default(queues.default_max_size_bytes) }}
+{% endfor %}
+
+[health]
+# Health check endpoint (HTTP, no auth)
+http_port = {{ health.http_port }}
+
+# Liveness probe interval (seconds)
+liveness_check_interval_seconds = {{ health.liveness_check_interval_seconds }}

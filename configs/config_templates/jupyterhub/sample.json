@@ -1,0 +1,83 @@
+{
+  "auth": {
+    "type": "github",
+    "admin_users": [
+      "alice",
+      "bob"
+    ],
+    "allowed_users": [
+      "charlie",
+      "diana"
+    ],
+    "oauth_callback_url": "https://jupyter.example.com/hub/oauth_callback",
+    "client_id": "Iv1.abcdef1234567890",
+    "client_secret": "supersecretkey"
+  },
+  "spawner": {
+    "class": "dockerspawner.DockerSpawner",
+    "image": "jupyter/scipy-notebook:2024-03-06",
+    "hub_ip_connect": "jupyterhub-proxy",
+    "notebook_dir": "/home/jovyan/work",
+    "default_url": "/lab",
+    "env_keep": [
+      "PATH",
+      "PYTHONPATH",
+      "JUPYTERHUB_SINGLEUSER_APP"
+    ],
+    "env": {
+      "GRANT_PERMISSIONS": "read-only"
+    },
+    "resources": {
+      "cpu_limit": 2.0,
+      "mem_limit": "4G",
+      "cpu_guarantee": 0.25,
+      "mem_guarantee": "512M"
+    },
+    "volumes": [
+      "/data/shared:/home/jovyan/shared:ro",
+      "/data/users/{username}:/home/jovyan/work"
+    ]
+  },
+  "service": {
+    "ip": "0.0.0.0",
+    "port": 8000,
+    "base_url": "/",
+    "proxy_port": 8001,
+    "cookie_secret_file": "/run/secrets/cookie_secret",
+    "db_url": "postgresql://jupyterhub:secret@db:5432/jupyterhub",
+    "log_level": "INFO",
+    "tls": {
+      "enabled": true,
+      "certfile": "/etc/ssl/jupyterhub.crt",
+      "keyfile": "/etc/ssl/jupyterhub.key"
+    },
+    "api_tokens": [
+      "deploy-bot-token:deploy-bot"
+    ]
+  },
+  "limits": {
+    "concurrent_spawn_limit": 25,
+    "spawn_timeout": 900,
+    "stop_timeout": 600
+  },
+  "services": [
+    {
+      "name": "dask-gateway",
+      "host": "dask-gateway",
+      "port": 8009,
+      "api_token": "dask-token-xyz",
+      "admin": false,
+      "oauth_no_confirm": true,
+      "oauth_scopes": [
+        "read:users",
+        "read:services"
+      ]
+    }
+  ],
+  "cull": {
+    "enabled": true,
+    "timeout": 3600,
+    "every": 600,
+    "max_age": 86400
+  }
+}

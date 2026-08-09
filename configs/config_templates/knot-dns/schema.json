@@ -1,0 +1,307 @@
+{
+  "worker_count": {
+    "type": "string",
+    "default": "auto",
+    "description": "Number of worker threads; 'auto' uses CPU count"
+  },
+  "max_pending": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of pending UDP queries before dropping"
+  },
+  "max_tcp_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum concurrent TCP connections per worker (0 = unlimited)"
+  },
+  "tcp_idle_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle timeout in seconds for TCP connections"
+  },
+  "edns_payload_size": {
+    "type": "number",
+    "default": 1232,
+    "description": "Maximum EDNS UDP payload size in bytes (0 = default)"
+  },
+  "dnssec_support": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNSSEC validation and signing (requires libkcng)"
+  },
+  "extended_errors": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Extended DNS Errors (RFC 8914) support"
+  },
+  "listen_addrs": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 53
+      },
+      {
+        "address": "::",
+        "port": 53
+      }
+    ],
+    "description": "List of addresses, ports, and protocols to listen on for standard DNS",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address (IPv4 or IPv6)"
+      },
+      "port": {
+        "type": "number",
+        "description": "UDP/TCP port (default: 53)",
+        "default": 53
+      },
+      "proto": {
+        "type": "string",
+        "enum": [
+          "udp",
+          "tcp",
+          "both"
+        ],
+        "description": "Protocol (default: both)",
+        "default": "both"
+      },
+      "interface": {
+        "type": "string",
+        "description": "Optional network interface name"
+      }
+    }
+  },
+  "doh_endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "DNS over HTTPS (DoH) endpoints \u2014 enable for encrypted DNS over HTTPS",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address to bind (e.g., '0.0.0.0' or '::')"
+      },
+      "port": {
+        "type": "number",
+        "description": "TCP port (typically 443)",
+        "default": 443
+      },
+      "tls_certificate_path": {
+        "type": "string",
+        "description": "Path to TLS certificate chain (PEM)"
+      },
+      "tls_key_path": {
+        "type": "string",
+        "description": "Path to private key (PEM)"
+      },
+      "http_host": {
+        "type": "string",
+        "description": "Optional HTTP Host header for virtual hosting"
+      }
+    }
+  },
+  "dot_endpoints": {
+    "type": "list",
+    "default": [],
+    "description": "DNS over TLS (DoT) endpoints \u2014 enable for encrypted DNS over TLS",
+    "items": {
+      "address": {
+        "type": "string",
+        "description": "IP address to bind (e.g., '0.0.0.0')"
+      },
+      "port": {
+        "type": "number",
+        "description": "TCP port (typically 853)",
+        "default": 853
+      },
+      "tls_certificate_path": {
+        "type": "string",
+        "description": "Path to TLS certificate chain (PEM)"
+      },
+      "tls_key_path": {
+        "type": "string",
+        "description": "Path to private key (PEM)"
+      }
+    }
+  },
+  "acls": {
+    "type": "list",
+    "default": [
+      {
+        "id": "local",
+        "addresses": [
+          "127.0.0.0/8",
+          "::1/128",
+          "10.0.0.0/8",
+          "172.16.0.0/12",
+          "192.168.0.0/16"
+        ],
+        "action": "deny",
+        "log": false
+      }
+    ],
+    "description": "Access control lists (ACLs) \u2014 define allowed/denied clients",
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Unique ACL identifier"
+      },
+      "addresses": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of allowed/denied IP prefixes"
+      },
+      "action": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "deny"
+        ],
+        "description": "Action applied to matching clients",
+        "default": "allow"
+      },
+      "log": {
+        "type": "bool",
+        "description": "Log denied queries",
+        "default": false
+      }
+    }
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of authoritative DNS zones to serve",
+    "items": {
+      "domain": {
+        "type": "string",
+        "description": "Zone domain name (e.g., 'example.com')"
+      },
+      "data_path": {
+        "type": "string",
+        "description": "Path to zone file (e.g., '/var/lib/knot/example.com.zone')"
+      },
+      "storage_backend": {
+        "type": "string",
+        "enum": [
+          "file",
+          "sqlite"
+        ],
+        "description": "Backend storage engine",
+        "default": "file"
+      },
+      "zonefile_format": {
+        "type": "string",
+        "enum": [
+          "ascii",
+          "binary"
+        ],
+        "description": "Zone file format",
+        "default": "ascii"
+      },
+      "signing": {
+        "type": "object",
+        "description": "DNSSEC signing parameters (optional)",
+        "properties": {
+          "algorithm": {
+            "type": "number",
+            "description": "DNSSEC algorithm number (e.g., 13 = ECDSAP256SHA256)",
+            "default": 13
+          },
+          "ksk_size": {
+            "type": "number",
+            "description": "KSK key size (bits) \u2014 ignored for ECDSA",
+            "default": 2048
+          },
+          "zsk_size": {
+            "type": "number",
+            "description": "ZSK key size (bits)",
+            "default": 1024
+          },
+          "ksk_lifetime": {
+            "type": "number",
+            "description": "KSK lifetime in days",
+            "default": 365
+          },
+          "zsk_lifetime": {
+            "type": "number",
+            "description": "ZSK lifetime in days",
+            "default": 90
+          },
+          "dnskey_ttl": {
+            "type": "number",
+            "description": "TTL for DNSKEY records",
+            "default": 3600
+          },
+          "soa_ttl": {
+            "type": "number",
+            "description": "TTL for SOA records",
+            "default": 86400
+          },
+          "nsec3_iterations": {
+            "type": "number",
+            "description": "NSEC3 hash iterations (0 = disable NSEC3)",
+            "default": 0
+          },
+          "nsec3_salt_length": {
+            "type": "number",
+            "description": "NSEC3 salt length in bytes",
+            "default": 0
+          },
+          "nsec3_opt_out": {
+            "type": "bool",
+            "description": "Enable NSEC3 Opt-Out",
+            "default": false
+          }
+        },
+        "required": [
+          "algorithm"
+        ]
+      }
+    }
+  },
+  "log_targets": {
+    "type": "list",
+    "default": [
+      {
+        "type": "file",
+        "path": "/var/log/knot/knot.log",
+        "levels": "info"
+      }
+    ],
+    "description": "Log destinations (file/syslog/console) and verbosity levels",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "file",
+          "syslog",
+          "console"
+        ],
+        "description": "Log destination type",
+        "default": "file"
+      },
+      "path": {
+        "type": "string",
+        "description": "Path to log file (required if type = file)"
+      },
+      "levels": {
+        "type": "string",
+        "description": "Comma-separated list of log levels: 'error', 'warning', 'notice', 'info', 'verbose', 'debug'",
+        "default": "notice"
+      }
+    }
+  },
+  "stats_socket_path": {
+    "type": "string",
+    "default": "/run/knot/knot.sock",
+    "description": "Unix socket path for statistics queries (used by `knotc`)"
+  },
+  "stats_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Seconds between automatic stats updates"
+  }
+}

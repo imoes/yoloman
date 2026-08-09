@@ -1,0 +1,139 @@
+{
+  "ui": {
+    "type": "object",
+    "description": "User interface behavior for PIN and dialog interaction",
+    "properties": {
+      "show_pin_entry": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to show a GUI PIN entry dialog when needed"
+      },
+      "pin_entry_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds before auto-closing the PIN entry dialog"
+      },
+      "pin_entry_echo": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to show characters as typed in the PIN field"
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "description": "Certificate and key storage settings",
+    "properties": {
+      "storage_dir": {
+        "type": "string",
+        "default": "~/.local/share/gcr",
+        "description": "Directory where certificates and keys are stored"
+      },
+      "enable_storage": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to persistently store certificates and keys"
+      },
+      "secure_erase": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to securely erase sensitive data on cleanup (e.g., keys)"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "description": "Diagnostic logging configuration",
+    "properties": {
+      "level": {
+        "type": "number",
+        "default": 1,
+        "description": "Log verbosity: 0=error, 1=warn, 2=info, 3=debug"
+      },
+      "log_file": {
+        "type": "string",
+        "default": "",
+        "description": "Path to file for logging output (empty = only stderr/journal)"
+      },
+      "log_to_journal": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to send logs to the systemd journal (if available)"
+      }
+    }
+  },
+  "trust": {
+    "type": "object",
+    "description": "Trust evaluation policy",
+    "properties": {
+      "auto_trust": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically trust newly imported CA certificates"
+      },
+      "default_ca_trust": {
+        "type": "string",
+        "default": "partial",
+        "description": "Trust level applied to new CA certs: 'none', 'partial', or 'full'",
+        "enum": [
+          "none",
+          "partial",
+          "full"
+        ]
+      }
+    }
+  },
+  "daemon": {
+    "type": "object",
+    "description": "GCR daemon (gcr-daemon) settings",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the GCR daemon for background operations"
+      },
+      "auto_start_services": {
+        "type": "list",
+        "default": [
+          "pkcs11",
+          "openssh"
+        ],
+        "description": "List of subsystems (e.g., PKCS#11, OpenSSH) to auto-start",
+        "items": {
+          "type": "string",
+          "description": "Service name to auto-start"
+        }
+      },
+      "max_concurrent": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of concurrent cryptographic operations"
+      }
+    }
+  },
+  "ssh": {
+    "type": "object",
+    "description": "SSH agent integration",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable forwarding of SSH keys to GCR"
+      },
+      "socket_path": {
+        "type": "string",
+        "default": "",
+        "description": "Unix socket path for SSH agent (if enabled; empty = auto-detect)"
+      },
+      "import_keys": {
+        "type": "list",
+        "default": [],
+        "description": "Specific SSH key fingerprints to import (empty = import all)",
+        "items": {
+          "type": "string",
+          "description": "SSH key fingerprint to import"
+        }
+      }
+    }
+  }
+}

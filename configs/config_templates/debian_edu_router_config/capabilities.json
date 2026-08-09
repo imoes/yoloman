@@ -1,0 +1,63 @@
+{
+  "provides": [
+    {
+      "capability": "dns_resolver",
+      "backend": "dnsmasq",
+      "port_field": null,
+      "default_port": 53,
+      "provisionable": {}
+    },
+    {
+      "capability": "ntp",
+      "backend": "openntpd",
+      "port_field": null,
+      "default_port": 123,
+      "provisionable": {
+        "server": "ntp_server"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "directory",
+      "backends": [
+        "openldap"
+      ],
+      "backend_field": "ldap_uri",
+      "fields": {
+        "host": "ldap_uri",
+        "port": null,
+        "base_dn": "ldap_base_dn",
+        "bind_dn": "ldap_bind_dn",
+        "bind_password": "ldap_bind_pwd"
+      }
+    },
+    {
+      "capability": "log_sink",
+      "backends": [
+        "rsyslog"
+      ],
+      "backend_field": "rsyslog_remote_server",
+      "fields": {
+        "host": "rsyslog_remote_server",
+        "port": null,
+        "protocol": null
+      }
+    },
+    {
+      "capability": "ntp",
+      "backends": [
+        "chrony",
+        "ntpd",
+        "systemd-timesyncd",
+        "openntpd"
+      ],
+      "backend_field": "ntp_server",
+      "fields": {
+        "host": "ntp_server"
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

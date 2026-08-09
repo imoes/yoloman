@@ -1,0 +1,117 @@
+{
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/masakari",
+    "description": "Directory where process monitor log files are stored."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "masakari-process-monitor.log",
+    "description": "Name of the log file (relative to log_dir)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of logging (DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:password@controller:5672/",
+    "description": "Message broker URL for RPC communication with OpenStack services."
+  },
+  "process_monitor_config_file": {
+    "type": "string",
+    "default": "/etc/masakari/process_monitor.conf",
+    "description": "Path to an optional external process monitor configuration file (for advanced setups)."
+  },
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the process monitor service globally."
+  },
+  "check_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of seconds between checks for monitored processes."
+  },
+  "failure_threshold": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of consecutive failed checks before triggering recovery."
+  },
+  "recovery_method": {
+    "type": "string",
+    "default": "restart",
+    "description": "Recovery action: 'restart' (restart process), 'reboot_host' (reboot the node), or 'failover_host' (trigger VM HA failover)."
+  },
+  "host_name": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit hostname for this node; leave blank to auto-detect. Required if DNS/hostname resolution is unreliable."
+  },
+  "enable_auto_recovery": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to automatically restart a failed process (only effective when recovery_method is 'restart')."
+  },
+  "monitored_processes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "masakari-process-monitor",
+        "enabled": true,
+        "command_pattern": "masakari-process-monitor",
+        "pid_file": "",
+        "recovery_method": "restart",
+        "failure_threshold": 3
+      },
+      {
+        "name": "libvirtd",
+        "enabled": true,
+        "command_pattern": "libvirtd",
+        "pid_file": "/run/libvirtd.pid",
+        "recovery_method": "reboot_host",
+        "failure_threshold": 3
+      },
+      {
+        "name": "qemu-kvm",
+        "enabled": true,
+        "command_pattern": "qemu-kvm",
+        "pid_file": "",
+        "recovery_method": "reboot_host",
+        "failure_threshold": 3
+      }
+    ],
+    "description": "List of processes to monitor. Each entry defines the name, whether it's monitored, the command pattern (regex), PID file (if any), and per-process recovery settings.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for the process section."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable monitoring for this process."
+      },
+      "command_pattern": {
+        "type": "string",
+        "description": "Regular expression or exact command name to match in process list (e.g., 'libvirtd', '^/usr/bin/qemu-system.*')."
+      },
+      "pid_file": {
+        "type": "string",
+        "default": "",
+        "description": "Optional path to a PID file; used to verify process health if reliable."
+      },
+      "recovery_method": {
+        "type": "string",
+        "default": "",
+        "description": "Override global recovery method for this process. If empty, inherits from [process_monitor]."
+      },
+      "failure_threshold": {
+        "type": "number",
+        "default": 0,
+        "description": "Override global failure threshold for this process. If 0, inherits from [process_monitor]."
+      }
+    }
+  }
+}

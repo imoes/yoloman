@@ -1,0 +1,79 @@
+# ==============================================================================
+# apgdiff Command Invocation Generator
+# ==============================================================================
+# This template generates the command-line arguments for `apgdiff`, a tool used to
+# generate SQL migration scripts by diffing two PostgreSQL dump files.
+#
+# apgdiff is a command-line utility, not a daemon. This template outputs the full
+# command line suitable for use in Ansible `command` or `shell` modules, or
+# wrapper scripts.
+#
+# All variables are provided with inline defaults to ensure safe rendering.
+# ==============================================================================
+
+# ==============================================================================
+# POSITIONAL ARGUMENTS: Dump Files (REQUIRED)
+# ==============================================================================
+
+# old_dump: Path to the old PostgreSQL dump file (source schema)
+# This is the first positional argument. If omitted, apgdiff cannot determine the baseline.
+{{ old_dump | default('(none)') }}
+
+# new_dump: Path to the new PostgreSQL dump file (target schema)
+# This is the second positional argument. If omitted, apgdiff cannot determine the target.
+{{ new_dump | default('(none)') }}
+
+# ==============================================================================
+# OPTIONAL FLAGS: Schema Diff Behavior
+# ==============================================================================
+
+# add_defaults: Adds DEFAULT clause for NOT NULL columns without explicit default
+# When true, outputs `DEFAULT ...` for columns that are NOT NULL but have no defined default value.
+{% if add_defaults | default(False) %} --add-defaults{% endif %}
+
+# add_transaction: Wraps diff output with START TRANSACTION and COMMIT
+# When true, the generated SQL is wrapped in a transaction block for atomic execution.
+{% if add_transaction | default(False) %} --add-transaction{% endif %}
+
+# ignore_function_whitespace: Ignores whitespace differences in function definitions
+# WARNING: Risky flag. Treats function definitions with different whitespace as identical.
+{% if ignore_function_whitespace | default(False) %} --ignore-function-whitespace{% endif %}
+
+# ignore_start_with: Ignores SEQUENCE START WITH changes
+# When true, changes to the `START WITH` value of sequences are ignored in the diff.
+{% if ignore_start_with | default(False) %} --ignore-start-with{% endif %}
+
+# ignore_schema_creation: Removes requirement for CREATE SCHEMA in input files
+# When true, assumes schemas exist and omits `CREATE SCHEMA` statements from the diff.
+{% if ignore_schema_creation | default(False) %} --ignore-schema-creation{% endif %}
+
+# output_ignored_statements: Outputs info about ignored DDL statements
+# When true, prints comments or notices about statements that were ignored due to other flags.
+{% if output_ignored_statements | default(False) %} --output-ignored-statements{% endif %}
+
+# ignore_slony_triggers: Ignores Slony replication triggers
+# When true, ignores specific Slony triggers (`_slony_logtrigger`, `_slony_denyaccess`) in the diff.
+{% if ignore_slony_triggers | default(False) %} --ignore-slony-triggers{% endif %}
+
+# ==============================================================================
+# CHARACTER SETS: Encoding Configuration
+# ==============================================================================
+
+# in_charset: Input charset for reading dump files (Java-compatible name)
+# Defines the encoding of the old dump file. Defaults to 'UTF-8'.
+# Examples: 'UTF-8', 'LATIN1', 'WIN1252'
+{% if in_charset | default('UTF-8') %} --in-charset {{ in_charset | default('UTF-8') }}{% endif %}
+
+# out_charset: Output charset for writing diff file (Java-compatible name)
+# Defines the encoding of the generated diff SQL. Defaults to 'UTF-8'.
+# Examples: 'UTF-8', 'LATIN1', 'WIN1252'
+{% if out_charset | default('UTF-8') %} --out-charset {{ out_charset | default('UTF-8') }}{% endif %}
+
+# ==============================================================================
+# DEBUG/VERIFICATION FLAGS
+# ==============================================================================
+
+# list_charsets: Lists all supported charsets and exits
+# When true, apgdiff prints the list of supported character encodings and does not produce a diff.
+# Useful for debugging or verifying available encodings.
+{% if list_charsets | default(False) %} --list-charsets{% endif %}

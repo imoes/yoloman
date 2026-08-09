@@ -1,0 +1,160 @@
+{# BusyBox configuration is typically handled via build-time configuration (e.g., .config) and /etc directories at runtime #}
+# BusyBox is a multi-call binary — applets are selected at build time via CONFIG_ options.
+# At runtime, BusyBox primarily relies on standard Linux directories and files:
+# - /etc/inittab for init (sysvinit)
+# - /etc/fstab for mount points
+# - /etc/network/interfaces for ifup/ifdown
+# - /etc/passwd, /etc/group, /etc/shadow (if not using internal passwd/group parsing)
+# - /etc/mdev.conf for mdev (hotplug device manager)
+# - /etc/hosts, /etc/hostname, /etc/resolv.conf for networking
+# - /etc/sysctl.conf for sysctl settings
+# - /etc/nsswitch.conf (optional, only if using glibc and full NSS)
+#
+# This template describes runtime configuration files BusyBox uses. It does NOT include
+# build-time options (handled by make menuconfig), as those are not runtime-configurable.
+# Each file below is optional and only needed if the corresponding BusyBox applet is enabled.
+
+{# inittab #}
+{%- if inittab is defined and inittab.entries | length > 0 %}
+# /etc/inittab — sysvinit process management
+# Format: <id>:<runlevels>:<action>:<process>
+{% for entry in inittab.entries %}{{ entry.id }}:{{ entry.runlevels | default('') }}:{{ entry.action }}:{{ entry.process }}
+{% endfor %}
+{%- else %}
+# /etc/inittab — sysvinit process management
+# (uncomment lines below or populate as needed)
+# ::sysinit:/bin/mount -t proc proc /proc
+# ::sysinit:/bin/mount -t sysfs sysfs /sys
+# ::sysinit:/bin/mkdir -p /dev /run /tmp
+# ::respawn:/sbin/getty 38400 tty1
+# ::ctrlaltdel:/sbin/reboot
+# ::shutdown:/bin/umount -a -r
+{% endif %}
+
+{# fstab #}
+{%- if fstab is defined and fstab.entries | length > 0 %}
+# /etc/fstab — mount points
+# Format: <file> <dir> <type> <options> <dump> <pass>
+{% for entry in fstab.entries %}{{ entry.file }}	{{ entry.dir }}	{{ entry.type }}	{{ entry.options | join(',') }}	{{ entry.dump | default(0) }}	{{ entry.pass | default(0) }}
+{% endfor %}
+{%- else %}
+# /etc/fstab — mount points
+# (uncomment lines below or populate as needed)
+# proc            /proc       proc    defaults          0       0
+# sysfs           /sys        sysfs   defaults          0       0
+# tmpfs           /tmp        tmpfs   size=64M          0       0
+# /dev/mmcblk0p1  /           ext4    defaults,noatime  0       1
+{% endif %}
+
+{# network/interfaces #}
+{%- if network.interfaces | length > 0 %}
+# /etc/network/interfaces — interface definitions
+{% for iface in network.interfaces %}auto {{ iface.name }}
+{% if iface.method == 'static' %}iface {{ iface.name }} inet static
+    address {{ iface.address }}
+    netmask {{ iface.netmask }}
+{% if iface.gateway is defined %}    gateway {{ iface.gateway }}
+{% endif %}{% elif iface.method == 'dhcp' %}iface {{ iface.name }} inet dhcp
+{% endif %}{% if iface.post_up is defined %}post-up {{ iface.post_up | join(' && ') }}
+{% endif %}{% if iface.post_down is defined %}post-down {{ iface.post_down | join(' && ') }}
+{% endif %}
+{% endfor %}
+{%- else %}
+# /etc/network/interfaces — interface definitions
+# (uncomment lines below or populate as needed)
+# auto lo
+# iface lo inet loopback
+{% endif %}
+
+{# mdev.conf #}
+{%- if mdev.conf is defined and mdev.conf.entries | length > 0 %}
+# /etc/mdev.conf — mdev hotplug rules
+# Format: [-][ENV=regex;]...DEVNAME UID:GID PERM [>|=PATH]|[!] [@|$|*PROG]
+{% for entry in mdev.conf.entries %}{{ entry.pattern }} {{ entry.uid }}:{{ entry.gid }} {{ entry.perm }}{% if entry.action is defined %} {{ entry.action }}{% endif %}
+{% endfor %}
+{%- else %}
+# /etc/mdev.conf — mdev hotplug rules
+# (uncomment line below if using mdev for /dev management)
+# $MODALIAS=.* 0:0 660 @modprobe "$MODALIAS"
+{% endif %}
+
+{# hostname #}
+{%- if hostname is defined %}
+# /etc/hostname — system hostname
+{{ hostname }}
+{%- else %}
+# /etc/hostname — system hostname
+# (uncomment and set as desired)
+# mydevice
+{% endif %}
+
+{# hosts #}
+{%- if hosts is defined and hosts.entries | length > 0 %}
+# /etc/hosts — static hostname-to-IP mapping
+{% for entry in hosts.entries %}{{ entry.ip }}	{{ entry.hostname }}{% if entry.aliases is defined %} {{ entry.aliases | join(' ') }}{% endif %}
+{% endfor %}
+{%- else %}
+# /etc/hosts — static hostname-to-IP mapping
+# (uncomment lines below or populate as needed)
+# 127.0.0.1	localhost
+# ::1		localhost
+{% endif %}
+
+{# resolv.conf #}
+{%- if resolv.conf is defined and resolv.conf.nameservers | length > 0 %}
+# /etc/resolv.conf — DNS configuration
+{% for ns in resolv.conf.nameservers %}nameserver {{ ns }}
+{% endfor %}
+{%- if resolv.conf.search | length > 0 %}search {{ resolv.conf.search | join(' ') }}
+{% endif %}
+{%- else %}
+# /etc/resolv.conf — DNS configuration
+# (uncomment lines below or populate as needed)
+# nameserver 8.8.8.8
+# nameserver 8.8.4.4
+{% endif %}
+
+{# sysctl.conf #}
+{%- if sysctl.conf is defined and sysctl.conf.settings | length > 0 %}
+# /etc/sysctl.conf — kernel parameters
+{% for key, value in sysctl.conf.settings.items() %}{{ key }} = {{ value }}
+{% endfor %}
+{%- else %}
+# /etc/sysctl.conf — kernel parameters
+# (uncomment lines below or populate as needed)
+# net.ipv4.ip_forward = 0
+# vm.swappiness = 60
+{% endif %}
+
+{# passwd/group/shadow #}
+# /etc/passwd, /etc/group, /etc/shadow — user accounts and groups
+# (managed via adduser/addgroup or manually; BusyBox supports internal parsing if CONFIG_USE_BB_PWD_GRP=y)
+# Example passwd entry: root:x:0:0:root:/root:/bin/sh
+# Example group entry: root:x:0:
+# Example shadow entry (if used): root:*:19000:0:99999:7:::
+
+{# nsswitch.conf #}
+{%- if nsswitch.conf is defined %}
+# /etc/nsswitch.conf — Name Service Switch (glibc only)
+# Required only if using glibc and full NSS (not needed with BusyBox internal pwd/group)
+{% for line in nsswitch.conf.lines %}{{ line }}
+{% endfor %}
+{%- else %}
+# /etc/nsswitch.conf — Name Service Switch (optional, glibc-only)
+# Omit if using internal BusyBox passwd/group parsing (default when CONFIG_USE_BB_PWD_GRP=y)
+# # name: source
+# passwd:     files
+# group:      files
+# shadow:     files
+# hosts:      files dns
+# networks:   files
+# protocols:  files
+# rpc:        files
+# services:   files
+# ethers:     files
+# netmasks:   files
+# netgroup:   files
+# bootparams: files
+# automount:  files
+# aliases:    files
+{% endif %}

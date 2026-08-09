@@ -1,0 +1,17 @@
+# LXD dnsmasq exclusion configuration
+# This file configures LXD's internal DNS resolver (dnsmasq) to avoid binding to specific
+# interfaces. This is necessary when another system-wide dnsmasq instance is managing the
+# network, preventing port conflicts and ensuring correct DNS resolution within the LXD network.
+
+# Bind dnsmasq to specific interfaces only, rather than listening on all interfaces (0.0.0.0).
+# This prevents conflicts with other DNS services on the host.
+bind-interfaces
+
+# Exclude the LXD-managed bridge interface from dnsmasq binding.
+# Typically, this is the first LXD bridge created (e.g., lxdbr0).
+# By excluding this interface, LXD avoids trying to handle DNS for the bridge that it manages
+# via its own internal mechanisms, preventing binding errors.
+# Variable: dns_bridge_interface
+# Default: lxdbr0
+# Description: Name of the LXD-managed bridge interface to exclude from dnsmasq binding.
+except-interface={{ dns_bridge_interface | default('lxdbr0') }}

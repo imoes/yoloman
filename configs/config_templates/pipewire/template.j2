@@ -1,0 +1,201 @@
+# Top-level settings
+{% if settings.log_level %}# Log level (0=error,1=warn,2=info,3=debug)
+context.properties.log-level = {{ settings.log_level }}
+{% endif %}
+{% if settings.default_timer_quantum %}# Default timer quantum (samples/frame for period sizing)
+context.properties.default-timer-quantum = {{ settings.default_timer_quantum }}
+{% endif %}
+{% if settings.max_periods %}# Max periods per node
+context.properties.max-periods = {{ settings.max_periods }}
+{% endif %}
+
+# Module paths
+context.modules.paths = [
+{% for path in paths.module_paths %}"{{ path }}"
+{% endfor %}]
+
+# Default module search path
+{% if paths.default_module_path %}# Default location for pipewire modules
+context.modules.default-module-path = "{{ paths.default_module_path }}"
+{% endif %}
+
+# Default audio device (used when no device specified)
+{% if default_device %}# Default audio device name
+context.properties.default-device = "{{ default_device }}"
+{% endif %}
+
+# Audio device properties
+{% if device_props %}# Device properties applied by default to new devices
+context.properties.device.properties = {
+{% for key, value in device_props.items() %}"{{ key }}" = "{{ value }}"
+{% endfor %}}
+{% endif %}
+
+# SPA plugin loader
+{% if spa_plugins %}# SPA (Simple Plugin API) plugin paths
+context.modules.spa-libs.paths = [
+{% for path in spa_plugins.paths %}"{{ path }}"
+{% endfor %}]
+
+# SPA plugin default properties
+context.modules.spa-props = {
+{% for key, value in spa_plugins.props.items() %}"{{ key }}" = "{{ value }}"
+{% endfor %}}
+{% endif %}
+
+# JACK session support
+{% if jack %}# JACK session (enabled/disabled)
+context.properties.jack.session-id = "{{ jack.session_id }}"
+context.properties.jack.start-daemon = {{ 'true' if jack.start_daemon else 'false' }}
+{% endif %}
+
+# Audio graph latency tuning
+{% if latency %}# Latency mode (low/normal/high)
+context.properties.latency-mode = "{{ latency.mode }}"
+context.properties.latency-nominal = {{ latency.nominal }}
+context.properties.latency-max = {{ latency.max }}
+{% endif %}
+
+# PulseAudio compatibility
+{% if pulse %}# PulseAudio bridge config
+context.modules.pulse-server = {
+  name = "{{ pulse.server_name }}"
+  path = "{{ pulse.server_path }}"
+  nfrags = {{ pulse.nfrags }}
+  frag-size = {{ pulse.frag_size }}
+}
+{% endif %}
+
+# ALSA device configuration
+{% for dev in alsa_devices %}# ALSA device: {{ dev.name }}
+context.modules.alsa-device-props = {
+  name = "{{ dev.name }}"
+  device.id = "{{ dev.device_id }}"
+  device.name = "{{ dev.device_name }}"
+  {% if dev.channels %}channels = {{ dev.channels }}{% endif %}
+  {% if dev.rate %}rate = {{ dev.rate }}{% endif %}
+  {% if dev.profile %}profile = "{{ dev.profile }}"{% endif %}
+}
+{% endfor %}
+
+# WirePlumber support (session manager)
+{% if wireplumber %}# Enable WirePlumber session management
+context.modules.wireplumber = {
+  name = "wireplumber"
+  path = "{{ wireplumber.path }}"
+  {% if wireplumber.dbus %}dbus = "{{ wireplumber.dbus }}"{% endif %}
+}
+{% endif %}
+
+# Audio policy (libpipewire-policy)
+{% if policy %}# Audio policy engine config
+context.modules.policy = {
+  name = "libpipewire-module-policy"
+  args = {
+    {% if policy.auto_connect %}auto-connect = {{ 'true' if policy.auto_connect else 'false' }}{% endif %}
+    {% if policy.auto_suspend %}auto-suspend = {{ 'true' if policy.auto_suspend else 'false' }}{% endif %}
+    {% if policy.default_route %}default-route = "{{ policy.default_route }}"{% endif %}
+  }
+}
+{% endif %}
+
+# Sample-based resampling (libpipewire-module-resample)
+{% for filter in resample_filters %}# Resampler: {{ filter.name }}
+context.modules.resample-props = {
+  name = "{{ filter.name }}"
+  filter.length = {{ filter.length }}
+  filter.taps = {{ filter.taps }}
+  {% if filter.quality %}quality = {{ filter.quality }}{% endif %}
+}
+{% endfor %}
+
+# Audio stream defaults
+{% if streams %}# Default properties for new audio streams
+context.modules.stream = {
+  name = "libpipewire-module-stream"
+  args = {
+    {% for key, value in streams.args.items() %}"{{ key }}" = "{{ value }}"
+    {% endfor %}
+  }
+}
+{% endif %}
+
+# Metadata service
+{% if metadata %}# Metadata service config
+context.modules.metadata = {
+  name = "libpipewire-module-metadata"
+  args = {
+    name = "pipewire-metadata"
+  }
+}
+{% endif %}
+
+# Loopback module (for capture/monitor)
+{% for loopback in loopbacks %}# Loopback: {{ loopback.name }}
+context.modules.loopback = {
+  name = "{{ loopback.name }}"
+  args = {
+    {% for key, value in loopback.args.items() %}"{{ key }}" = "{{ value }}"
+    {% endfor %}
+  }
+}
+{% endfor %}
+
+# Node factory defaults
+{% if node_factory %}# Node factory properties
+context.modules.node-factory = {
+  name = "libpipewire-module-node-factory"
+  args = {
+    {% for key, value in node_factory.args.items() %}"{{ key }}" = "{{ value }}"
+    {% endfor %}
+  }
+}
+{% endif %}
+
+# RTKit support (real-time priority)
+{% if rtkit %}# RTKit real-time scheduling
+context.modules.rtkit = {
+  name = "libpipewire-module-rtkit"
+  args = {
+    nice.value = {{ rtkit.nice_value }}
+    rt.prio = {{ rtkit.rt_prio }}
+    rt.timeouts = {{ 'true' if rtkit.rt_timeouts else 'false' }}
+  }
+}
+{% endif %}
+
+# Protocol support (libpipewire-module-protocol-native)
+{% if protocols %}# Native protocol support
+context.modules.protocols = {
+  name = "libpipewire-module-protocol-native"
+  args = {
+    {% for key, value in protocols.args.items() %}"{{ key }}" = "{{ value }}"
+    {% endfor %}
+  }
+}
+{% endif %}
+
+# Core configuration
+{% if core %}# Core server settings
+context.core = {
+  name = "{{ core.name }}"
+  {% if core.auth_key %}auth.key = "{{ core.auth_key }}"{% endif %}
+}
+{% endif %}
+
+# Logger config
+{% if logger %}# Logger settings
+context.logger = {
+  name = "{{ logger.name }}"
+  {% if logger.level %}level = {{ logger.level }}{% endif %}
+  {% if logger.flags %}flags = {{ logger.flags | join(', ') }}{% endif %}
+}
+{% endif %}
+
+# Client defaults
+{% if clients %}# Default client properties
+context.clients = {
+  {% for key, value in clients.items() %}"{{ key }}" = {{ 'true' if value else 'false' }}
+  {% endfor %}
+}
+{% endif %}

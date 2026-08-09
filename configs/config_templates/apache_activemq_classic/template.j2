@@ -1,0 +1,156 @@
+{# XML declaration and DOCTYPE #}
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                           http://www.springframework.org/schema/beans/spring-beans.xsd
+                           http://activemq.apache.org/schema/core
+                           http://activemq.apache.org/schema/core/activemq-core.xsd">
+
+{# Main broker definition with ID, name, and optional start/stop behavior #}
+    <broker id="{{ broker_id }}" xmlns="http://activemq.apache.org/schema/core"
+            brokerName="{{ broker_name }}"
+            {% if start_destination_policy %}startDestinationPolicy="{{ start_destination_policy }}"{% endif %}
+            {% if use_shutdown_hooks %}useShutdownHook="{{ 'true' if use_shutdown_hooks else 'false' }}"{% endif %}
+            {% if delete_all_messages_on_startup %}deleteAllMessagesOnStartup="{{ 'true' if delete_all_messages_on_startup else 'false' }}"{% endif %}
+            useJmx="{{ 'true' if use_jmx else 'false' }}">
+
+{# Management context — enables JMX via RMI or embedded MBeanServer #}
+    {% if management_context.enabled %}
+        <managementContext createConnector="{{ 'true' if management_context.create_connector else 'false' }}"
+                           connectorPort="{{ management_context.connector_port }}"
+                           {% if management_context.jmx_domain_name %}jmxDomainName="{{ management_context.jmx_domain_name }}"{% endif %}/>
+    {% else %}
+        <managementContext createConnector="false"/>
+    {% endif %}
+
+{# Persistence configuration: use JDBC or KahaDB (default) #}
+    <persistenceAdapter>
+        {% if persistence.type == 'kahaDB' %}
+{# KahaDB message store (default, file-based) #}
+            <kahaDB directory="{{ persistence.kaha_directory }}"
+                    journalMaxFileLength="{{ persistence.kaha_journal_max_file_length }}"
+                    indexCacheSize="{{ persistence.kaha_index_cache_size }}"
+                    {% if persistence.kaha_index_wire_format %}indexWireFormat="{{ persistence.kaha_index_wire_format }}"{% endif %}
+                    {% if persistence.kaha_checkpoint_interval %}checkpointInterval="{{ persistence.kaha_checkpoint_interval }}"{% endif %}
+                    {% if persistence.kaha_checkpoint_lock_wait %}checkpointLockWait="{{ persistence.kaha_checkpoint_lock_wait }}"{% endif %}/>
+        {% elif persistence.type == 'jdbc' %}
+{# JDBC message store #}
+            <jdbcPersistenceAdapter dataSource="#{{ persistence.jdbc_data_source_id }}"
+                                    {% if persistence.jdbc_create_tables_on_startup %}createTablesOnStartup="{{ 'true' if persistence.jdbc_create_tables_on_startup else 'false' }}"{% endif %}
+                                    {% if persistence.jdbc_max_connections %}maxConnections="{{ persistence.jdbc_max_connections }}"{% endif %}
+                                    {% if persistence.jdbc_lock_keep_period %}lockKeepPeriod="{{ persistence.jdbc_lock_keep_period }}"{% endif %}/>
+        {% else %}
+{# Fallback: KahaDB (safe default) #}
+            <kahaDB directory="{{ persistence.kaha_directory | default('/var/lib/activemq/data/kahadb') }}"/>
+        {% endif %}
+    </persistenceAdapter>
+
+{# Network connectors for cluster bridges (optional) #}
+    {% if network_connectors | length > 0 %}
+{# Bridge connections to other brokers #}
+        <networkConnectors>
+            {% for nc in network_connectors %}
+            <networkConnector name="{{ nc.name }}"
+                              uri="{{ nc.uri }}"
+                              {% if nc.dynamic_only %}dynamicOnly="{{ 'true' if nc.dynamic_only else 'false' }}"{% endif %}
+                              {% if nc.network_ttl %}networkTTL="{{ nc.network_ttl }}"{% endif %}
+                              {% if nc.prefetch_size %}prefetchSize="{{ nc.prefetch_size }}"{% endif %}
+                              {% if nc.conduit_publish %}conduitSubscriptions="{{ 'true' if nc.conduit_publish else 'false' }}"{% endif %}
+                              {% if nc.decrease_network_consumer_priority %}decreaseNetworkConsumerPriority="{{ 'true' if nc.decrease_network_consumer_priority else 'false' }}"{% endif %}/>
+            {% endfor %}
+        </networkConnectors>
+    {% endif %}
+
+{# Transport connectors — listen for client connections #}
+    <transportConnectors>
+        {% for tc in transport_connectors %}
+{# Transport listener with name, bind address, and optional discovery URI #}
+            <transportConnector name="{{ tc.name }}"
+                                uri="{{ tc.uri }}"
+                                {% if tc.discovery_uri %}discoveryUri="{{ tc.discovery_uri }}"{% endif %}
+                                {% if tc.enabled %}enabled="{{ 'true' if tc.enabled else 'false' }}"{% endif %}
+                                {% if tc.update_uris_url %}updateUri="{{ tc.update_uris_url }}"{% endif %}/>
+        {% endfor %}
+    </transportConnectors>
+
+{# System usage: memory, store, and temp limits #}
+    <systemUsage>
+{# Memory limit in bytes or human-readable (e.g., 100mb) #}
+        <memoryUsage>
+            <memoryUsage limit="{{ system_usage.memory_limit }}"/>
+        </memoryUsage>
+{# Store (persistent) limit #}
+        <storeUsage>
+            <storeUsage limit="{{ system_usage.store_limit }}" name="store"/>
+        </storeUsage>
+{# Temp (non-persistent) limit #}
+        <tempUsage>
+            <tempUsage limit="{{ system_usage.temp_limit }}" name="temp"/>
+        </tempUsage>
+    </systemUsage>
+
+{# Destination policies — per-queue/topic rules (e.g., dead-letter strategy, quotas) #}
+    <destinationPolicy>
+        <policyMap>
+            <policyEntries>
+                {% for policy in destination_policies %}
+{# Policy for specific destination pattern #}
+                    <policyEntry queue="{{ policy.queue_pattern }}" topic="{{ policy.topic_pattern }}"
+                                 {% if policy.memory_limit %}memoryLimit="{{ policy.memory_limit }}"{% endif %}
+                                 {% if policy.prefetch_size %}producerFlowControl="{{ 'true' if policy.producer_flow_control else 'false' }}"
+                                 {% if policy.producer_flow_control %}producerFlowControl="true"{% else %}producerFlowControl="false"{% endif %}{% endif %}
+                                 {% if policy.max_audit_messages %}maxAuditMessages="{{ policy.max_audit_messages }}"{% endif %}
+                                 {% if policy.max_consumers_to_audit %}maxConsumersToAudit="{{ policy.max_consumers_to_audit }}"{% endif %}
+                                 {% if policy.max_producers_to_audit %}maxProducersToAudit="{{ policy.max_producers_to_audit }}"{% endif %}
+                                 {% if policy.delayedDispatchChecking %}delayedDispatchChecking="{{ 'true' if policy.delayed_dispatch_checking else 'false' }}"{% endif %}
+                                 {% if policy.dispatchPolicy %}dispatchPolicy="{{ policy.dispatch_policy }}"{% endif %}
+                                 {% if policy.deadLetterStrategy %}deadLetterStrategy="{{ policy.dead_letter_strategy }}"{% endif %}
+                                 {% if policy.pauseProducerSupport %}pauseProducerSupport="{{ policy.pause_producer_support | default('false') }}"{% endif %}/>
+                {% endfor %}
+            </policyEntries>
+        </policyMap>
+    </destinationPolicy>
+
+{# Authentication/authorization via simple LDAP or properties-based #}
+    {% if authorization.enabled %}
+{# Enable access control using configured role mappings #}
+        <plugins>
+            <simpleAuthenticationPlugin>
+                <users>
+                    {% for user in authorization.users %}
+                    <authenticationUser username="{{ user.username }}" password="{{ user.password }}" groups="{{ user.groups | join(',') }}"/>
+                    {% endfor %}
+                </users>
+            </simpleAuthenticationPlugin>
+
+{# Authorization rules: permissions per destination pattern #}
+            <authorizationPlugin>
+                <map>
+                    <authorizationMap>
+                        <authorizationEntries>
+                            {% for entry in authorization.authorization_entries %}
+                            <authorizationEntry queue="{{ entry.queue_pattern }}"
+                                                topic="{{ entry.topic_pattern }}"
+                                                {% if entry.subject %}subject="{{ entry.subject }}"{% endif %}
+                                                read="{{ entry.read | join(',') }}"
+                                                write="{{ entry.write | join(',') }}"
+                                                admin="{{ entry.admin | join(',') }}"/>
+                            {% endfor %}
+                        </authorizationEntries>
+                        <tempAuthorizationEntries>
+                            {% for entry in authorization.temp_authorization_entries %}
+                            <authorizationEntry topic="{{ entry.topic_pattern }}"
+                                                read="{{ entry.read | join(',') }}"
+                                                write="{{ entry.write | join(',') }}"
+                                                admin="{{ entry.admin | join(',') }}"/>
+                            {% endfor %}
+                        </tempAuthorizationEntries>
+                    </authorizationMap>
+                </map>
+            </authorizationPlugin>
+        </plugins>
+    {% endif %}
+
+    </broker>
+</beans>

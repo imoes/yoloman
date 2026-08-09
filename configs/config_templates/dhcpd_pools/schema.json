@@ -1,0 +1,62 @@
+{
+  "lease_file": {
+    "type": "string",
+    "default": "/var/lib/dhcp/dhcpd.leases",
+    "description": "Absolute path to the ISC DHCP server lease database file."
+  },
+  "html_output_dir": {
+    "type": "string",
+    "default": "/var/www/dhcpd-pools/reports",
+    "description": "Directory where HTML reports are generated. Set to empty string '' to disable."
+  },
+  "csv_output_dir": {
+    "type": "string",
+    "default": "/var/lib/dhcpd-pools/csv",
+    "description": "Directory where CSV reports are generated. Set to empty string '' to disable."
+  },
+  "json_output_dir": {
+    "type": "string",
+    "default": "/var/lib/dhcpd-pools/json",
+    "description": "Directory where JSON reports are generated. Set to empty string '' to disable."
+  },
+  "report_date_format": {
+    "type": "string",
+    "default": "%Y-%m-%d %H:%M:%S",
+    "description": "Date/time format used in report headers and timestamps (Python strptime syntax)."
+  },
+  "recent_days": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of days into the past considered 'recent' for activity analysis."
+  },
+  "stale_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Minimum number of days since last activity before a lease is flagged as 'stale'."
+  },
+  "detailed_subnets": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to include per-subnet statistics (more accurate but heavier on large files)."
+  },
+  "exclude_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "List of subnet CIDR or dotted-quad ranges to exclude from analysis.\nitems:\n  type: string\n  description: A subnet in CIDR notation (e.g., 192.168.1.0/24) or dotted-quad (e.g., 192.168.1.0)."
+  },
+  "include_subnets": {
+    "type": "list",
+    "default": [],
+    "description": "If non-empty, only these subnets are analyzed (others ignored). Leave empty to include all.\nitems:\n  type: string\n  description: A subnet in CIDR or dotted-quad notation to include."
+  },
+  "thresholds": {
+    "type": "object",
+    "default": null,
+    "description": "Thresholds for warning and critical alerts across different metrics.\nitems:\n  pool_warn_pct:\n    type: number\n    default: 80\n    description: Pool usage % above which warning is triggered.\n  pool_crit_pct:\n    type: number\n    default: 90\n    description: Pool usage % above which critical alert is triggered.\n  stale_warn_count:\n    type: number\n    default: 10\n    description: Number of stale leases above which warning is triggered.\n  stale_crit_count:\n    type: number\n    default: 50\n    description: Number of stale leases above which critical alert is triggered."
+  },
+  "reports": {
+    "type": "object",
+    "default": null,
+    "description": "Toggle for optional sections included in reports.\nitems:\n  pool_stats:\n    type: bool\n    default: true\n    description: Include per-pool statistics (address usage, ranges, counts).\n  class_stats:\n    type: bool\n    default: true\n    description: Include per-class statistics (DHCP classes, vendor options, etc.).\n  host_reservations:\n    type: bool\n    default: true\n    description: Include static host reservations in reports.\n  mac_vendor_lookup:\n    type: bool\n    default: false\n    description: Look up MAC OUI to human-readable vendor (adds processing time).\n  time_series:\n    type: bool\n    default: false\n    description: Include trend/time-series analysis (requires multiple report runs and retention of reports)."
+  }
+}

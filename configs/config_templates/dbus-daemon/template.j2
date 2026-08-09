@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  {#
+    D-Bus Daemon Configuration Template
+    ===================================
+    Generates a valid D-Bus busconfig XML file.
+    Self-documenting: every directive has a comment derived from its schema.
+  #}
+
+  {# Bus type: 'system' or 'session'. Determines the bus scope and default policies. #}
+  <type>{{ (values | default({})).type | default('system') }}</type>
+
+  {#
+    Include extra configuration files from a directory.
+    The directory must contain .conf files that are parsed as additional bus configuration.
+  #}
+  {% set include_dir_val = (values | default({})).include_dir | default(None) %}
+  {% set include_dir_ignore_val = (values | default({})).include_dir_ignore_missing | default(False) | bool %}
+  {% if include_dir_val is not none %}
+  <includedir{% if include_dir_ignore_val %} ignore_missing="yes"{% endif %}>{{ include_dir_val }}</includedir>
+  {% endif %}
+
+  {#
+    The user account (username or UID) to run the daemon process as.
+    Typically 'messagebus' for system bus, or root for session bus.
+  #}
+  {% set run_as_user_val = (values | default({})).run_as_user | default(None) %}
+  {% if run_as_user_val is not none %}
+  <user>{{ run_as_user_val }}</user>
+  {% endif %}
+
+  {#
+    If true, fork into the background (daemonize).
+    Equivalent to the XML <fork/> tag.
+  #}
+  {% set fork_val = (values | default({})).fork | default(False) | bool %}
+  {% if fork_val %}
+  <fork/>
+  {% endif %}
+
+  {#
+    If true, retain the original umask after forking.
+    Equivalent to the XML <keep_umask/> tag.
+  #}
+  {% set keep_umask_val = (values | default({})).keep_umask | default(False) | bool %}
+  {% if keep_umask_val %}
+  <keep_umask/>
+  {% endif %}
+
+  {#
+    If true, log to syslog. Note: command-line options for logging override this setting.
+    Equivalent to the XML <syslog/> tag.
+  #}
+  {% set syslog_val = (values | default({})).syslog | default(False) | bool %}
+  {% if syslog_val %}
+  <syslog/>
+  {% endif %}
+
+  {#
+    Write the daemon's PID to the specified file.
+  #}
+  {% set pidfile_val = (values | default({})).pidfile | default(None) %}
+  {% if pidfile_val is not none %}
+  <pidfile>{{ pidfile_val }}</pidfile>
+  {% endif %}
+
+  {#
+    If true, allow anonymous connections (no authentication required).
+    Insecure unless explicitly designed for isolated environments.
+    Equivalent to the XML <allow_anonymous/> tag.
+  #}
+  {% set allow_anonymous_val = (values | default({})).allow_anonymous | default(False) | bool %}
+  {% if allow_anonymous_val %}
+  <allow_anonymous/>
+  {% endif %}
+
+  {#
+    List of D-Bus addresses to listen on.
+    Examples: 'unix:path=/var/run/dbus/system_bus_socket', 'tcp:host=localhost,port=0'.
+  #}
+  {% set listen_addresses_val = (values | default({})).listen_addresses | default(['unix:path=/var/run/dbus/system_bus_socket']) %}
+  {% for addr in listen_addresses_val %}
+  <listen>{{ addr }}</listen>
+  {% endfor %}
+
+  {#
+    Ordered list of authentication mechanisms supported by the bus.
+    Examples: 'EXTERNAL', 'DBUS_COOKIE_SHA1'.
+  #}
+  {% set auth_mechanisms_val = (values | default({})).auth_mechanisms | default(None) %}
+  {% if auth_mechanisms_val is not none %}
+  {% for mech in auth_mechanisms_val %}
+  <auth>{{ mech }}</auth>
+  {% endfor %}
+  {% endif %}
+
+  {#
+    List of directories to search for .service files (desktop entries).
+  #}
+  {% set service_dirs_val = (values | default({})).service_dirs | default(None) %}
+  {% if service_dirs_val is not none %}
+  {% for d in service_dirs_val %}
+  <servicedir>{{ d }}</servicedir>
+  {% endfor %}
+  {% endif %}
+
+  {#
+    If true, use standard session service directories (e.g., /usr/share/dbus-1/services).
+    Only valid for session bus type.
+  #}
+  {% set standard_session_servicedirs_val = (values | default({})).standard_session_servicedirs | default(False) | bool %}
+  {% if standard_session_servicedirs_val %}
+  <standard_session_servicedirs/>
+  {% endif %}
+
+  {#
+    If true, use standard system service directories (e.g., /usr/share/dbus-1/system-services).
+    Only valid for system bus type.
+  #}
+  {% set standard_system_servicedirs_val = (values | default({})).standard_system_servicedirs | default(False) | bool %}
+  {% if standard_system_servicedirs_val %}
+  <standard_system_servicedirs/>
+  {% endif %}
+
+  {#
+    SetUID helper program to launch system services securely.
+    Typically /usr/lib/dbus-1.0/dbus-daemon-launch-helper. System bus only.
+  #}
+  {% set servicehelper_val = (values | default({})).servicehelper | default(None) %}
+  {% if servicehelper_val is not none %}
+  <servicehelper>{{ servicehelper_val }}</servicehelper>
+  {% endif %}
+
+  {#
+    Resource limits for the daemon.
+    Mapped from a list of dicts {name, value} to XML <limit> tags.
+  #}
+  {% set limits_val = (values | default({})).limits | default([]) %}
+  {% if limits_val is mapping %}
+    {% for name, limit_item in limits_val | dict2items %}
+    <limit name="{{ limit_item.key }}">{{ limit_item.value }}</limit>
+    {% endfor %}
+  {% elif limits_val is iterable %}
+    {% for limit_item in limits_val %}
+    <limit name="{{ (limit_item | default({})).name | default('') }}">{{ (limit_item | default({})).value | default(0) }}</limit>
+    {% endfor %}
+  {% endif %}
+
+  {#
+    Policy rules governing access to bus names and interfaces.
+    Each policy block applies to specific contexts/users/groups.
+  #}
+  {% set policies_val = (values | default({})).policies | default([]) %}
+  {% for policy in policies_val %}
+  <policy
+    {%- set policy_context = (policy | default({})).context | default('default') %}
+    {%- if policy_context != 'default' %} context="{{ policy_context }}"{%- endif %}
+    {%- set policy_at_console = (policy | default({})).at_console %}
+    {%- if policy_at_console is not none %} at_console="{{ policy_at_console }}"{%- endif %}
+    {%- set policy_user = (policy | default({})).user %}
+    {%- if policy_user is not none %} user="{{ policy_user }}"{%- endif %}
+    {%- set policy_group = (policy | default({})).group %}
+    {%- if policy_group is not none %} group="{{ policy_group }}"{%- endif %}
+  >
+    {% set rules_val = (policy | default({})).rules | default([]) %}
+    {% for rule in rules_val %}
+    {%- set rule_type = (rule | default({})).type | default('allow') %}
+    {%- if rule_type == 'allow' %}
+    <allow
+    {%- else %}
+    <deny
+    {%- endif %}
+    {%- set attrs_val = (rule | default({})).attrs | default({}) %}
+    {%- for attr_name, attr_val in attrs_val | dict2items %}
+      {%- if attr_val.value is not none %} {{ attr_name.value }}="{{ attr_val.value }}"{% endif -%}
+    {%- endfor %}
+    />
+    {% endfor %}
+  </policy>
+  {% endfor %}
+
+  {#
+    SELinux configuration block.
+    Must be enabled via selinux_enabled to appear.
+  #}
+  {% set selinux_enabled_val = (values | default({})).selinux_enabled | default(False) | bool %}
+  {% if selinux_enabled_val %}
+  <selinux>
+    {% set selinux_assoc_val = (values | default({})).selinux_associations | default([]) %}
+    {% for assoc in selinux_assoc_val %}
+    <associate
+      own="{{ (assoc | default({})).name | default('') }}"
+      context="{{ (assoc | default({})).context | default('') }}"
+    />
+    {% endfor %}
+  </selinux>
+  {% endif %}
+
+  {#
+    AppArmor mediation mode: 'enabled', 'disabled', or 'required'.
+  #}
+  {% set apparmor_mode_val = (values | default({})).apparmor_mode | default('enabled') %}
+  {% if apparmor_mode_val is not none %}
+  <apparmor mode="{{ apparmor_mode_val }}"/>
+  {% endif %}
+</busconfig>

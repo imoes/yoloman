@@ -1,0 +1,25 @@
+# Configuration for DMA (Direct Mail Access) queue flushing cron job.
+# DMA is a lightweight Mail Transfer Agent (MTA) for Linux.
+# This template generates a crontab entry that periodically flushes the mail queue.
+
+# cron_interval_minutes: The interval in minutes for flushing the DMA mail transfer agent's queue.
+# Default: 5
+{% set cron_interval_minutes = cron_interval_minutes | default(5) %}
+
+# cron_user: The user under which the DMA flush command runs.
+# Default: root
+{% set cron_user = cron_user | default('root') %}
+
+# Crontab entry format:
+# .---------------- minute (0 - 59)
+# |  .------------- hour (0 - 23)
+# |  |  .---------- day of month (1 - 31)
+# |  |  |  .------- month (1 - 12)
+# |  |  |  |  .---- day of week (0 - 6) (Sunday to Saturday)
+# |  |  |  |  |
+# *  *  *  *  * command to be executed
+#
+# The command checks if the DMA binary exists and is executable, then flushes the queue.
+
+# Flush the DMA queue every {{ cron_interval_minutes }} minutes as {{ cron_user }}.
+*/{{ cron_interval_minutes }} * * * * {{ cron_user }} [ -x /usr/sbin/dma ] && /usr/sbin/dma -q

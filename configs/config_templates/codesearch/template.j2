@@ -1,0 +1,57 @@
+# =============================================================================
+# codesearch CLI Configuration
+# =============================================================================
+# This file serves as a reference for command-line options for the `codesearch`
+# tool (typically Debian's `codesearch-cli`). It is not directly executed by the
+# binary but maps to CLI flags or environment variables depending on the wrapper.
+#
+# Each setting below includes its schema description as a comment for self-documentation.
+# =============================================================================
+
+[cli]
+
+# Maximum number of search results to return
+# Default: 100
+max_results = {{ max_results | default(100) }}
+
+# Suppress non-error output (quiet mode)
+# If enabled, only errors will be printed to stderr.
+# Default: False
+quiet = {{ quiet | default(False) }}
+
+# Show line numbers in results
+# Adds line number prefixes to matching lines.
+# Default: False
+linenumber = {{ linenumber | default(False) }}
+
+# Disable ANSI color codes in output
+# Forces plain text output regardless of terminal capabilities.
+# Default: False
+nocolor = {{ nocolor | default(False) }}
+
+# Print only matching filenames, not line contents
+# Omits the actual code/content lines, showing only file paths.
+# Default: False
+print_filenames = {{ print_filenames | default(False) }}
+
+# Amalgamate results for the same file in different packages
+# Merges duplicate file entries that appear in multiple source packages.
+# Default: False
+dedupe = {{ dedupe | default(False) }}
+
+# Search mode: 'literal' (exact substring match) or 'regexp' (regular expression)
+# Controls how the search pattern is interpreted.
+# Default: 'literal'
+mode = {{ mode | default('literal') }}
+
+# Group results per source package
+# Organizes the output hierarchy by the originating software package.
+# Default: False
+per_package = {{ per_package | default(False) }}
+
+# List of path fragments to exclude from results
+# Paths containing any of these fragments are skipped.
+# Examples: 'vendor/', '.git/', 'test/'
+# Default: [] (empty list, no exclusions)
+{% for item in exclude | default([]) %}exclude = {{ item }}
+{% endfor %}

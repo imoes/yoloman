@@ -1,0 +1,30 @@
+name: awall
+fqcn: community.general.awall
+collection: community.general
+short_description: Manage awall policies
+description: This modules allows for enable/disable/activate of C(awall) policies. Alpine Wall (C(awall))
+  generates a firewall configuration from the enabled policy files and activates the configuration on
+  the system.
+options:
+  activate:
+    type: bool
+    default: false
+    description: Activate the new firewall rules. Can be run with other steps or on its own. Idempotency
+      is affected if O(activate=true), as the module will always report a changed state.
+  name:
+    type: list
+    description: One or more policy names.
+  state:
+    type: str
+    default: enabled
+    choices:
+    - disabled
+    - enabled
+    description: Whether the policies should be enabled or disabled.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Enable \"foo\" and \"bar\" policy\n  community.general.awall:\n    name: [ foo bar\
+  \ ]\n    state: enabled\n\n- name: Disable \"foo\" and \"bar\" policy and activate new rules\n  community.general.awall:\n\
+  \    name:\n    - foo\n    - bar\n    state: disabled\n    activate: false\n\n- name: Activate currently\
+  \ enabled firewall rules\n  community.general.awall:\n    activate: true\n"

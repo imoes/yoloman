@@ -1,0 +1,115 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the greylisting daemon."
+  },
+  "socket_path": {
+    "type": "string",
+    "default": "/var/run/greylistd/socket",
+    "description": "Unix socket path used for communication with Postfix."
+  },
+  "db_dir": {
+    "type": "string",
+    "default": "/var/lib/greylistd",
+    "description": "Directory where greylist state is persisted."
+  },
+  "db_type": {
+    "type": "string",
+    "default": "sqlite",
+    "description": "Database backend type: 'sqlite' for persistent storage, or 'memory' for volatile (non-persistent) operation."
+  },
+  "db_file": {
+    "type": "string",
+    "default": "/var/lib/greylistd/greylist.db",
+    "description": "Path to SQLite database file (used only if db_type = 'sqlite')."
+  },
+  "expires": {
+    "type": "number",
+    "default": 172800,
+    "description": "Time (in seconds) after which greylist entries expire (i.e., mail is no longer deferred)."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 300,
+    "description": "Minimum delay (in seconds) before a second attempt from a new sender is accepted."
+  },
+  "max_retry_delay": {
+    "type": "number",
+    "default": 86400,
+    "description": "Maximum delay (in seconds) before repeated greylisting attempts are relaxed."
+  },
+  "delay": {
+    "type": "number",
+    "default": 60,
+    "description": "Initial deferral delay (in seconds) applied to first-time senders."
+  },
+  "whitelist_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of CIDR network ranges to exempt from greylisting (e.g., internal mail servers).",
+    "items": {
+      "type": "string",
+      "description": "A single IPv4 or IPv6 CIDR network (e.g., '192.168.0.0/24', 'fd00::/48')."
+    }
+  },
+  "dnsbl_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "DNSBL zones whose hosts are automatically whitelisted (if supported by greylistd version).",
+    "items": {
+      "type": "string",
+      "description": "Domain name of a DNSBL zone (e.g., 'zen.spamhaus.org')."
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity of logging: debug, info, notice, warning, error, or critical."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to log file (use '-' to log to stderr/stdout)."
+  },
+  "rate_limit": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable rate limiting per source IP to prevent abuse (e.g., brute-force greylist bypass attempts)."
+  },
+  "rate_limit_max": {
+    "type": "number",
+    "default": 20,
+    "description": "Maximum number of connections per source IP per rate limit window (only when rate_limit = true)."
+  },
+  "rate_limit_window": {
+    "type": "number",
+    "default": 60,
+    "description": "Time window (in seconds) for rate limiting (only when rate_limit = true)."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Log greylisting events to syslog in addition to configured log file."
+  },
+  "experimental": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable experimental features (use only if instructed by docs or developers)."
+  },
+  "custom_headers": {
+    "type": "list",
+    "default": [],
+    "description": "Optional custom headers to include in greylisting rejection responses.",
+    "items": {
+      "key": {
+        "type": "string",
+        "description": "Header name (e.g., 'X-Greylist-Reason')."
+      },
+      "value": {
+        "type": "string",
+        "description": "Header value (may include variables like %s for sender)."
+      }
+    }
+  }
+}

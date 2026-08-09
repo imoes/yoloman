@@ -1,0 +1,38 @@
+name: reboot
+fqcn: builtin.reboot
+collection: builtin
+short_description: Reboot this host via `shutdown -r now`
+description: 'Reboot this host via `shutdown -r now`. **Architectural limitation,
+  stated plainly**: real Ansible''s reboot module runs from a separate control node
+  over SSH and can therefore poll the target until it reappears before reporting success;
+  this agent runs *on* the host being rebooted, so the process handling this very
+  call is terminated the moment the reboot happens — there is no possibility of waiting
+  for the host to come back up from inside itself. This module only issues the reboot
+  command and returns immediately; verifying the host actually came back up is the
+  caller''s responsibility (e.g. a separate later call, from a new connection, to
+  wait_for or ping). Like restarted/reloaded on the systemd module, this is inherently
+  an action rather than an idempotent state comparison, so it always reports changed=true
+  once issued. Supports check_mode via dry_run=true (does not actually reboot).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.reboot. Same msg parameter name; Ansible''s post-reboot
+  connectivity polling has no equivalent here, for the architectural reason above.
+
+  - Chef: the `reboot` resource.
+
+  - Puppet: the `reboot` type (puppetlabs-reboot module).
+
+  - Salt: the `system.reboot` execution module.
+
+  - Terraform: not applicable — Terraform does not manage live host power state.'
+options:
+  msg:
+    type: string
+    description: Broadcast message shown to logged-in users before rebooting. Default
+      "Reboot initiated by agentic-mcp".
+native: true
+writes: true
+runtime: native
+source: agent-registry

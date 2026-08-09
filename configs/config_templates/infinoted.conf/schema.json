@@ -1,0 +1,152 @@
+{
+  "server_identifier": {
+    "type": "string",
+    "default": "infinoted",
+    "description": "Unique identifier for this collaborative server instance, used in session negotiation."
+  },
+  "listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the server binds to. Use 0.0.0.0 for all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 16993,
+    "description": "TCP port the server listens on for client connections."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the SSL/TLS certificate file (PEM format). Required if SSL is enabled."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Absolute path to the SSL/TLS private key file (PEM format). Required if SSL is enabled."
+  },
+  "gnutls_priority": {
+    "type": "string",
+    "default": "NORMAL:%COMPAT",
+    "description": "GnuTLS priority string controlling cipher suites and protocol version. Adjust for security vs compatibility."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of concurrent client connections allowed."
+  },
+  "allow_anonymous": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow guests to connect without authentication."
+  },
+  "anonymous_role": {
+    "type": "string",
+    "default": "reader",
+    "description": "Default role assigned to anonymous users (e.g., 'reader' or 'writer')."
+  },
+  "share_path": {
+    "type": "string",
+    "default": "/var/lib/infinoted/shares",
+    "description": "Directory path where collaborative documents are stored and served from."
+  },
+  "auto_save": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic saving of shared documents on change."
+  },
+  "auto_save_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between auto-save checkpoints."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "-",
+    "description": "Path to log file. Use '-' to log to standard output (e.g., for systemd journal)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 4,
+    "description": "Verbosity level: 0=error, 1=warn, 2=notice, 3=info, 4=debug. Higher = more verbose."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS for secure connections. Requires ssl_cert and ssl_key."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/infinoted/infinoted.pid",
+    "description": "Path to PID file. Must be writable by the infinoted process."
+  },
+  "websocket_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable WebSockets support for real-time sync (required by some clients like Gobby)."
+  },
+  "websocket_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host for WebSocket interface (if enabled)."
+  },
+  "websocket_port": {
+    "type": "number",
+    "default": 16994,
+    "description": "Port for WebSocket interface (if enabled)."
+  },
+  "auth_backend": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication method: 'none' (no auth), 'simple' (user/password file), or 'ldap' (LDAP server)."
+  },
+  "simple_auth_users": {
+    "type": "list",
+    "default": [],
+    "description": "List of users for simple authentication. Only used when auth_backend = simple.",
+    "items": {
+      "username": {
+        "type": "string",
+        "description": "Username for login."
+      },
+      "password_hash": {
+        "type": "string",
+        "description": "SHA256 hash of the password (e.g., from 'echo -n 'pass' | sha256sum'). Avoid plain text."
+      }
+    }
+  },
+  "ldap_uri": {
+    "type": "string",
+    "default": "ldap://localhost:389",
+    "description": "LDAP server URI (e.g., ldap://host:port or ldaps:// for secure)."
+  },
+  "ldap_base": {
+    "type": "string",
+    "default": "ou=people,dc=example,dc=com",
+    "description": "Base DN for user searches in the LDAP directory."
+  },
+  "ldap_bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "DN to bind as when querying LDAP (optional; for anonymous bind leave empty)."
+  },
+  "ldap_bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for LDAP bind DN (optional)."
+  },
+  "ldap_user_filter": {
+    "type": "string",
+    "default": "(uid=%u)",
+    "description": "LDAP filter for user lookup; '%u' is replaced by the username."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum session duration in seconds. 0 = no timeout."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity before automatically disconnecting a client."
+  }
+}

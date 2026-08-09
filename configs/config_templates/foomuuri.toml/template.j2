@@ -1,0 +1,70 @@
+[global]
+# Unique instance identifier
+instance_id = "{{ instance_id }}"
+
+# Top-level logging verbosity (0=quiet, 5=debug)
+log_level = "{{ log_level }}"
+
+# Path to the main data directory
+working_dir = "{{ working_dir }}"
+
+# Path to PID file
+pid_file = "{{ pid_file }}"
+
+[server]
+# Hostname or IP to bind the primary listener
+bind_host = "{{ server.bind_host }}"
+
+# Primary TCP port to listen on
+bind_port = {{ server.bind_port }}
+
+# Maximum number of simultaneous connections
+max_connections = {{ server.max_connections }}
+
+# Enable TLS (true/false)
+tls_enabled = {{ server.tls_enabled | lower }}
+
+{% if server.tls_enabled %}
+# Path to TLS certificate chain
+server_cert = "{{ server.server_cert }}"
+
+# Path to TLS private key
+server_key = "{{ server.server_key }}"
+
+# Minimum TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')
+tls_min_version = "{{ server.tls_min_version }}"
+{% endif %}
+
+[worker]
+# Number of worker processes (0 = auto-detect based on CPU cores)
+process_count = {{ worker.process_count }}
+
+# Maximum jobs per worker before recycling
+max_jobs_per_worker = {{ worker.max_jobs_per_worker }}
+
+# Memory limit per worker in MB (0 = unlimited)
+memory_limit_mb = {{ worker.memory_limit_mb }}
+
+# Worker graceful shutdown timeout in seconds
+graceful_timeout = {{ worker.graceful_timeout }}
+
+[queue]
+# Backend queue type (e.g., 'memory', 'redis', 'postgres')
+type = "{{ queue.type }}"
+
+{% for backend in queue.backends %}
+# Backend configuration for {{ backend.name }}
+[queue.backends.{{ backend.name | replace('.', '_') }}]
+{% for key, value in backend.config.items() %}{{ key }} = "{{ value }}"
+{% endfor %}
+{% endfor %}
+
+[metrics]
+# Enable Prometheus-style metrics endpoint
+enabled = {{ metrics.enabled | lower }}
+
+# Port for metrics scraping
+port = {{ metrics.port }}
+
+# Path for metrics endpoint
+endpoint = "{{ metrics.endpoint }}"

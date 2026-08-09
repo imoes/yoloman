@@ -1,0 +1,87 @@
+{#
+  ==============================================================================
+  Podman / Containers Image Registry Configuration
+  ==============================================================================
+  This template generates `/etc/containers/registries.d/99-default.yaml`.
+  It configures how the `containers/image` library (used by Podman, Buildah, Skopeo)
+  resolves and pulls container images.
+
+  Structure:
+  1. unqualified-search-registries: The fallback list of registries to search when
+     pulling an image without a fully qualified name (e.g., `nginx` -> `docker.io/library/nginx`).
+  2. registries: Detailed per-registry overrides (mirrors, TLS settings, auth).
+
+  Self-Documentation Principle:
+  Every configuration directive is preceded by a comment explaining its purpose
+  and source variable. Defaults are explicitly handled via Jinja2 `default()` filters
+  to ensure idempotency and safety if variables are unset.
+  ==============================================================================
+#}
+
+{#
+  unqualified-search-registries
+  -----------------------------
+  Defines the priority order of registries to search when pulling images with
+  short names (e.g., 'nginx'). If empty, the default behavior usually reverts
+  to docker.io.
+
+  Source: {{ search_registries | default(['registry.fedoraproject.org', 'registry.access.redhat.com', 'docker.io']) | join(', ') }}
+#}
+{% set search_regs = search_registries | default(['registry.fedoraproject.org', 'registry.access.redhat.com', 'docker.io']) %}
+{% if search_regs | length > 0 %}
+unqualified-search-registries:
+{% for registry in search_regs %}
+  - "{{ registry }}"
+{% endfor %}
+{% else %}
+# No unqualified search registries configured.
+#unqualified-search-registries: []
+{% endif %}
+
+{#
+  registries
+  ----------
+  Per-registry configuration blocks. Each entry defines settings for a specific
+  registry, such as mirrors (for air-gapped or performance optimization) and
+  TLS verification status.
+
+  Source: {{ registries | default([]) | length }} registry blocks defined.
+#}
+registries:
+{% for reg in registries | default([]) %}
+{#
+  Registry Name/Domain
+  ---------------------
+  The registry hostname or repository path this configuration block applies to.
+#}
+  - "{{ reg.name | default('') }}":
+{% if reg.mirrors is defined and reg.mirrors is iterable %}
+{#
+  Mirrors
+  -------
+  Alternative registries to pull images from. Useful for mirrors or air-gapped environments.
+  Source: {{ reg.mirrors | default([]) | join(', ') }}
+#}
+    mirrors:
+{% for m in reg.mirrors %}
+      - "{{ m }}"
+{% endfor %}
+{% endif %}
+{% if reg.insecure is defined %}
+{#
+  Insecure
+  --------
+  If true, disables TLS certificate verification for this registry.
+  WARNING: Use only for private/trusted internal registries.
+  Source: {{ reg.insecure | default('false') }}
+#}
+    insecure: {{ reg.insecure | lower }}
+{% endif %}
+{% endfor %}
+
+# Optional: Per-registry authfile
+# -----------------------------------------------------------------------------
+# Path to the authentication JSON file containing credentials for authenticated
+# registries. If not specified, Podman may look for `~/.config/containers/auth.json`.
+# To enable this, uncomment and set the path below:
+# authfile: /etc/containers/auth.json

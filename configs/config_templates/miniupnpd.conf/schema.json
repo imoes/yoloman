@@ -1,0 +1,135 @@
+{
+  "ext_ifname": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Name of the external network interface (e.g., eth0, ppp0) connected to the internet."
+  },
+  "ip_addr": {
+    "type": "string",
+    "default": "",
+    "description": "IP address of the internal interface. If empty, auto-detected from the interface's primary address."
+  },
+  "enable_natpmp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NAT-PMP (NAT Port Mapping Protocol) support alongside UPnP-IGD."
+  },
+  "enable_upnp": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable UPnP-IGD (Internet Gateway Device) service."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Verbosity of logging: 0 (quiet) to 4 (debug). Higher levels increase disk and memory usage."
+  },
+  "ssdp_broadcast_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (in seconds) between SSDP broadcast announcements. Smaller values = faster discovery but more traffic."
+  },
+  "friendly_name": {
+    "type": "string",
+    "default": "MiniUPnP daemon",
+    "description": "Human-readable name of the device shown to UPnP clients (e.g., in network tools)."
+  },
+  "model_name": {
+    "type": "string",
+    "default": "MiniUPnPd",
+    "description": "Model name of the UPnP device (e.g., 'Home Router')."
+  },
+  "model_url": {
+    "type": "string",
+    "default": "https://github.com/miniupnp/miniupnp",
+    "description": "URL to product information or documentation."
+  },
+  "manufacturer": {
+    "type": "string",
+    "default": "MiniUPnP Project",
+    "description": "Name of the manufacturer (e.g., 'Home Network Vendor')."
+  },
+  "manufacturer_url": {
+    "type": "string",
+    "default": "https://miniupnp.tuxfamily.org/",
+    "description": "Manufacturer\u2019s website URL."
+  },
+  "serial_number": {
+    "type": "string",
+    "default": "12345678",
+    "description": "Device serial number \u2014 typically set once and never changed."
+  },
+  "port_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of static port mappings to expose services to the internet. Each entry maps an external port to an internal host and port.",
+    "items": {
+      "external_port": {
+        "type": "number",
+        "default": 80,
+        "description": "Public external port number."
+      },
+      "internal_ip": {
+        "type": "string",
+        "default": "192.168.1.10",
+        "description": "Internal (LAN) IP address of the target host."
+      },
+      "internal_port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port on the internal host to forward traffic to."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "TCP",
+        "description": "Protocol: 'TCP', 'UDP', or 'BOTH'."
+      },
+      "description": {
+        "type": "string",
+        "default": "Web server",
+        "description": "Short description (e.g., 'Web Server', 'Game Server')."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this mapping is active."
+      }
+    }
+  },
+  "port_ranges": {
+    "type": "list",
+    "default": [],
+    "description": "List of port ranges allowed for dynamic allocation (e.g., for P2P apps or gaming). Each range is allocated from start to end (inclusive).",
+    "items": {
+      "start": {
+        "type": "number",
+        "default": 1024,
+        "description": "Start of the port range (inclusive)."
+      },
+      "end": {
+        "type": "number",
+        "default": 65535,
+        "description": "End of the port range (inclusive)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "TCP",
+        "description": "Protocol: 'TCP', 'UDP', or 'BOTH'."
+      },
+      "description": {
+        "type": "string",
+        "default": "Dynamic applications",
+        "description": "Description of the purpose (e.g., 'P2P apps', 'Gaming')."
+      }
+    }
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed internal IP addresses or CIDR subnets permitted to request port mappings. If empty, all internal IPs are allowed.",
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR subnet (e.g., '192.168.1.0/24', '10.0.0.5')."
+    }
+  }
+}

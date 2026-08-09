@@ -1,0 +1,48 @@
+# =============================================================================
+# SELinux Configuration Template
+# =============================================================================
+# This Jinja2 template generates /etc/selinux/config, the primary configuration
+# file for SELinux on RHEL/CentOS/Fedora-based systems. It controls the SELinux
+# mode at boot and the policy type to be loaded.
+#
+# Schema Reference:
+#   selinux_mode:          Default mode for SELinux at boot ('enforcing', 'permissive', 'disabled').
+#   selinux_policy_type:   The SELinux policy type to apply ('targeted', 'mls', 'minimum').
+#   selinux_bootloader_enforce: Whether to enforce SELinux at boot via kernel command-line ('yes'/'no').
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# SELINUX=<mode>
+# Description: Sets the default mode for SELinux.
+#   - enforcing: SELinux security policy is enforced. Violations are blocked.
+#   - permissive: SELinux prints warnings but does not block policy violations.
+#                 Useful for debugging or migration.
+#   - disabled:   SELinux is turned off completely. The kernel module is not loaded.
+# -----------------------------------------------------------------------------
+SELINUX={{ selinux_mode | default('enforcing') }}
+
+# -----------------------------------------------------------------------------
+# SELINUXTYPE=<type>
+# Description: Specifies the type of SELinux policy to load.
+#   - targeted:   Protects targeted network daemons (default). The majority of
+#                 local processes are unconfined.
+#   - mls:        Multi-Level Security. Stricter policy required for high-security
+#                 environments. Requires MLS management tools.
+#   - minimum:    A modified targeted policy that restricts the number of the
+#                 network daemons and allows all users to run almost all local
+#                 commands.
+# -----------------------------------------------------------------------------
+SELINUXTYPE={{ selinux_policy_type | default('targeted') }}
+
+# -----------------------------------------------------------------------------
+# BOOTLOADER=<yes|no>
+# Description: Controls whether SELinux is enforced at boot time via the kernel
+# command line.
+#   - yes:        Appends `enforcing=1` to kernel boot parameters.
+#   - no:         Does not enforce via bootloader (default on many modern distros).
+#
+# Note: This setting is deprecated on many modern systems (systemd-based).
+# Prefer using `setenforce` or kernel parameters directly (`selinux=1 enforcing=1`)
+# via your bootloader configuration (GRUB) instead.
+# -----------------------------------------------------------------------------
+BOOTLOADER={{ selinux_bootloader_enforce | default('no') }}

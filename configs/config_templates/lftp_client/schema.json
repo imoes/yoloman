@@ -1,0 +1,156 @@
+{
+  "hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of FTP/HTTP/BitTorrent server aliases. Each alias creates a convenient command to jump to a pre-configured session.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Short alias name (e.g., 'backup', 'cdn') for use with 'lftp alias_name' in shell"
+      },
+      "url": {
+        "type": "string",
+        "default": "",
+        "description": "Full URL of the server (e.g., 'ftp.example.com', 'http://cdn.example.com', 'magnet:?xt=urn:btih:...')"
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "Optional username for authentication"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Optional password for authentication (\u26a0\ufe0f store in secure file permissions or use lftp's keyring if possible)"
+      },
+      "port": {
+        "type": "number",
+        "default": 0,
+        "description": "Optional port (0 means default for protocol)"
+      },
+      "remote_dir": {
+        "type": "string",
+        "default": ".",
+        "description": "Starting directory on the remote server (e.g., 'pub/data')"
+      }
+    }
+  },
+  "sessions": {
+    "type": "list",
+    "default": [],
+    "description": "List of named session configurations to be used at runtime (e.g., with 'lftp -e \"source session_name\"'). Each session can override global defaults.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique session name (e.g., 'high-speed', 'secure')"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Network timeout in seconds for this session"
+      },
+      "passive": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable FTP passive mode"
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow use of FTP over TLS/SSL"
+      },
+      "ssl_force": {
+        "type": "bool",
+        "default": false,
+        "description": "Force FTP over TLS/SSL (abort if server doesn't support it)"
+      },
+      "reconnect": {
+        "type": "number",
+        "default": 5,
+        "description": "Reconnection interval in seconds"
+      },
+      "parallel_max": {
+        "type": "number",
+        "default": 4,
+        "description": "Max parallel connections for mirroring"
+      },
+      "parallel_num": {
+        "type": "number",
+        "default": 2,
+        "description": "Number of parallel connections to use by default for mirroring"
+      }
+    }
+  },
+  "net_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Global network timeout (seconds). Shorter timeouts fail fast; longer ones help with unreliable networks."
+  },
+  "net_reconnect_interval": {
+    "type": "number",
+    "default": 5,
+    "description": "Time to wait before attempting to reconnect after a disconnection."
+  },
+  "ftp_passive_mode": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable FTP passive mode (required behind most firewalls/NAT)."
+  },
+  "ftp_ssl_allow": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow FTP/SSL connections. Disable only in isolated, trusted environments."
+  },
+  "ftp_ssl_force": {
+    "type": "bool",
+    "default": false,
+    "description": "Require FTP/SSL; abort if not supported (strict security)."
+  },
+  "ftp_ssl_data_protect": {
+    "type": "bool",
+    "default": false,
+    "description": "Encrypt data channel (in addition to control) when using FTP/SSL."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (seconds) for DNS lookups."
+  },
+  "http_use_proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Use HTTP proxy (requires proxy_host and proxy_port)."
+  },
+  "http_proxy_host": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP proxy hostname or IP (only used if http_use_proxy is true)."
+  },
+  "http_proxy_port": {
+    "type": "number",
+    "default": 0,
+    "description": "HTTP proxy port (e.g., 8080). 0 means no proxy."
+  },
+  "ftp_proxy_host": {
+    "type": "string",
+    "default": "",
+    "description": "FTP proxy hostname or IP."
+  },
+  "ftp_proxy_port": {
+    "type": "number",
+    "default": 0,
+    "description": "FTP proxy port."
+  },
+  "mirror_retry_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Time to wait before retrying failed mirror operations (seconds)."
+  },
+  "mirror_connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Timeout (seconds) for establishing each mirror connection."
+  }
+}

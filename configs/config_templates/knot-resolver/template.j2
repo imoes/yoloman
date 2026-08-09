@@ -1,0 +1,30 @@
+# /etc/default/kresd
+#
+# Self-documenting template for knot-resolver (kresd) daemon arguments.
+# This file configures DAEMON_ARGS for sysvinit systems.
+#
+# NOTE: If using systemd, prefer "systemctl edit kresd@.service" to override
+# ExecStart= in the [Service] section (see kresd.systemd(7)).
+# KRESD_ARGS is deprecated; merge local changes into DAEMON_ARGS directly.
+
+# IP addresses and ports to listen on for DNS queries.
+# These are passed as --addr=... arguments to the daemon.
+# Default: ['127.0.0.1#53', '[::1]#53']
+# Each address can include a port suffix (e.g., '127.0.0.1#53').
+# When multiple addresses are provided, each gets its own --addr= flag.
+{% set listen_addresses = listen_addresses | default(['127.0.0.1#53', '[::1]#53']) %}
+
+# Path to the main kresd configuration file.
+# Passed as --config=... argument.
+# Default: '/etc/knot-resolver/kresd.conf'
+{% set config_file_path = config_file_path | default('/etc/knot-resolver/kresd.conf') %}
+
+# Additional arguments appended to DAEMON_ARGS.
+# Examples: --verbose, --daemonize.
+# DO NOT set --config= or --addr= here; use the dedicated fields above.
+# Default: '' (empty)
+{% set daemon_extra_args = daemon_extra_args | default('') %}
+
+# Construct the final DAEMON_ARGS string.
+# Format: --config=<path> --addr=<addr1> --addr=<addr2> ... <extra_args> $KRESD_ARGS
+DAEMON_ARGS="--config={{ config_file_path }}{% if listen_addresses %}{% for addr in listen_addresses %} --addr={{ addr }}{% endfor %}{% endif %}{% if daemon_extra_args %} {{ daemon_extra_args }}{% endif %} $KRESD_ARGS"

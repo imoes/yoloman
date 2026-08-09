@@ -1,0 +1,181 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8080
+    },
+    "description": "Network binding for the REST API server",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Host address to bind the server to"
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port to listen on"
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "path": "/var/log/qad/qad.log"
+    },
+    "description": "Logging configuration",
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Minimum log level (DEBUG, INFO, WARN, ERROR)"
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/qad/qad.log",
+        "description": "File path for log output"
+      }
+    }
+  },
+  "execution": {
+    "type": "object",
+    "default": {
+      "max_workers": 4,
+      "timeout_seconds": 300,
+      "retry_count": 2
+    },
+    "description": "Test execution limits",
+    "properties": {
+      "max_workers": {
+        "type": "number",
+        "default": 4,
+        "description": "Maximum concurrent test runners"
+      },
+      "timeout_seconds": {
+        "type": "number",
+        "default": 300,
+        "description": "Default timeout for individual tests (in seconds)"
+      },
+      "retry_count": {
+        "type": "number",
+        "default": 2,
+        "description": "Maximum automatic retries per failed test"
+      }
+    }
+  },
+  "suites": {
+    "type": "list",
+    "default": [],
+    "description": "List of test suites to register with the daemon",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Human-readable identifier for the suite"
+        },
+        "path": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute or relative path to the suite definition file"
+        },
+        "tags": {
+          "type": "list",
+          "default": [],
+          "description": "Optional tags to categorize/filter the suite (comma-separated)"
+        }
+      },
+      "required": [
+        "name",
+        "path"
+      ]
+    }
+  },
+  "endpoints": {
+    "type": "object",
+    "default": {
+      "status": "/api/v1/status",
+      "run_test": "/api/v1/run",
+      "health": "/healthz"
+    },
+    "description": "HTTP endpoint paths for the REST API",
+    "properties": {
+      "status": {
+        "type": "string",
+        "default": "/api/v1/status",
+        "description": "Path to fetch daemon and test status"
+      },
+      "run_test": {
+        "type": "string",
+        "default": "/api/v1/run",
+        "description": "Path to trigger a new test run"
+      },
+      "health": {
+        "type": "string",
+        "default": "/healthz",
+        "description": "Path for container/orchestrator health checks"
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "type": "jwt",
+      "token_secret": "",
+      "token_expiry_hours": 24
+    },
+    "description": "Authentication for protected endpoints",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable authentication for REST API endpoints"
+      },
+      "type": {
+        "type": "string",
+        "default": "jwt",
+        "description": "Authentication mechanism (only 'jwt' currently supported)"
+      },
+      "token_secret": {
+        "type": "string",
+        "default": "",
+        "description": "Secret key used to sign JWT tokens (required if auth enabled)"
+      },
+      "token_expiry_hours": {
+        "type": "number",
+        "default": 24,
+        "description": "Lifetime of issued authentication tokens (in hours)"
+      }
+    }
+  },
+  "metrics": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "pushgateway_url": "",
+      "interval_seconds": 30
+    },
+    "description": "Push-based metrics (Prometheus) configuration",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable metrics export to Pushgateway"
+      },
+      "pushgateway_url": {
+        "type": "string",
+        "default": "",
+        "description": "URL of Prometheus Pushgateway (required if metrics enabled)"
+      },
+      "interval_seconds": {
+        "type": "number",
+        "default": 30,
+        "description": "How often to push metrics (in seconds)"
+      }
+    }
+  }
+}

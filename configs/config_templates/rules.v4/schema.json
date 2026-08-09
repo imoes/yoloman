@@ -1,0 +1,64 @@
+{
+  "ssh_port": {
+    "type": "number",
+    "default": 22,
+    "description": "Port number for SSH access. Recommended: 22 (or a non-standard port for security hardening)."
+  },
+  "http_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP (port 80) access to the server."
+  },
+  "https_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable HTTPS (port 443) access to the server."
+  },
+  "icmp_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow ICMP echo requests (ping). Useful for diagnostics; disable if not needed."
+  },
+  "log_dropped": {
+    "type": "bool",
+    "default": false,
+    "description": "Log dropped packets via kernel logging (syslog). Enable for debugging; may generate high log volume."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of custom services to allow. Each entry defines a service name, protocol, and port/icmp rule.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name for the service (e.g., 'Webmin', 'DNS')."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional description (shown in config comments only)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "enum": [
+          "tcp",
+          "udp",
+          "icmp"
+        ],
+        "description": "Network protocol. Use 'icmp' for ICMP rules (port field ignored)."
+      },
+      "port": {
+        "type": "number",
+        "default": 0,
+        "description": "TCP/UDP port number. Not used if protocol is 'icmp'."
+      },
+      "icmp_type": {
+        "type": "string",
+        "default": "echo-request",
+        "description": "ICMP type (e.g., 'echo-request', 'echo-reply', 'destination-unreachable'). Only used if protocol='icmp'."
+      }
+    }
+  }
+}

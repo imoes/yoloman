@@ -1,0 +1,99 @@
+{
+  "communication_listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the chunkserver listens on for incoming connections."
+  },
+  "communication_listen_port": {
+    "type": "number",
+    "default": 9422,
+    "description": "TCP port the chunkserver listens on for client and master communication."
+  },
+  "chunks_path": {
+    "type": "string",
+    "default": "/var/lib/mfs/chunks",
+    "description": "Directory where chunk data files are stored. Must be a dedicated mount point with sufficient space."
+  },
+  "workers": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle I/O. Increase if CPU utilization is low but I/O throughput is insufficient."
+  },
+  "max_open_files": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of open files allowed per worker. Should be \u2264 system ulimit."
+  },
+  "client_idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds of inactivity before closing idle client connections."
+  },
+  "replication_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time (in seconds) allowed for chunk replication to complete."
+  },
+  "checksum_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (in seconds) allowed for checksum verification of a chunk."
+  },
+  "checksum_read": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable integrity verification (checksum) when reading chunks."
+  },
+  "checksum_write": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable integrity verification (checksum) when writing chunks."
+  },
+  "masters": {
+    "type": "list",
+    "default": [
+      {
+        "host": "mfsmaster",
+        "port": 9419
+      }
+    ],
+    "description": "List of MooseFS Master servers the chunkserver registers with (host:port). At least one required.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "mfsmaster",
+        "description": "Hostname or IP address of a MooseFS Master."
+      },
+      "port": {
+        "type": "number",
+        "default": 9419,
+        "description": "Port of the MooseFS Master (default: 9419)."
+      }
+    }
+  },
+  "alternate_masters": {
+    "type": "list",
+    "default": [],
+    "description": "Comma-separated list of fallback master addresses for high availability (not used in template unless uncommented)."
+  },
+  "chunkserver_id": {
+    "type": "string",
+    "default": "",
+    "description": "Unique numeric or string ID for this chunkserver (auto-assigned if empty)."
+  },
+  "coremonitor_listen_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "Interface for the internal HTTP monitoring endpoint (e.g., for health checks)."
+  },
+  "coremonitor_listen_port": {
+    "type": "number",
+    "default": 9423,
+    "description": "Port for the internal HTTP monitoring endpoint."
+  },
+  "linux_log_level": {
+    "type": "number",
+    "default": 2,
+    "description": "Log verbosity: 0 (error), 1 (warn), 2 (info), 3 (debug)."
+  }
+}

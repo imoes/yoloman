@@ -1,0 +1,95 @@
+{
+  "listen_addrs": {
+    "type": "list",
+    "default": [
+      "127.0.0.1,53",
+      "::1,53"
+    ],
+    "description": "List of IP:port bindings for the DNS server to listen on (e.g., ['0.0.0.0,53', '192.0.2.1,53']).",
+    "items": {
+      "type": "list",
+      "description": "Each element is a list with exactly two items: IP address and port (both strings).",
+      "items": {
+        "type": "string",
+        "description": "A single component: IP address or port."
+      }
+    }
+  },
+  "max_udp_size": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum UDP packet size in bytes for DNS responses. RFC 8020 recommends \u2265 4096 for EDNS0."
+  },
+  "tcp_fallback": {
+    "type": "bool",
+    "default": true,
+    "description": "If enabled, accept TCP connections as fallback when UDP responses exceed the client-suggested size."
+  },
+  "workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker threads to spawn. Set to number of CPU cores for best performance."
+  },
+  "geo_sources": {
+    "type": "list",
+    "default": [
+      "/usr/share/geoip/GeoLite2-Country.mmdb"
+    ],
+    "description": "List of geographic database file paths (e.g., MaxMind MMDB files) used for geolocation lookups."
+  },
+  "zones": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS zones served by this server.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Zone name (e.g., 'example.com')."
+      },
+      "file": {
+        "type": "string",
+        "default": null,
+        "description": "Path to the zone data file (e.g., '/etc/gdnsd/zones/example.com'). Optional if geodata is used."
+      },
+      "options": {
+        "type": "list",
+        "default": [],
+        "description": "List of zone-level options, each as a key-value pair (e.g., ['soa_ttl: 86400', 'refresh: 10800']).",
+        "items": {
+          "type": "list",
+          "description": "Two-element list: [key, value] (both strings).",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "geodatas": {
+        "type": "list",
+        "default": [],
+        "description": "List of geolocation rules for this zone. Each list item is a set of IP/geolocation mappings.",
+        "items": {
+          "type": "list",
+          "description": "A set of IP-to-location rules for geographically-aware responses.",
+          "items": {
+            "ip": {
+              "type": "string",
+              "description": "IPv4 address (e.g., '192.0.2.0'). Either ip, net, or host must be present."
+            },
+            "net": {
+              "type": "string",
+              "description": "CIDR notation (e.g., '192.0.2.0/24')."
+            },
+            "host": {
+              "type": "string",
+              "description": "Wildcard hostname pattern (e.g., '*.cdn.example.com')."
+            },
+            "location": {
+              "type": "string",
+              "description": "Geographic location code (e.g., 'US', 'EU', 'ASIA' \u2014 must match entries in geo_sources)."
+            }
+          }
+        }
+      }
+    }
+  }
+}

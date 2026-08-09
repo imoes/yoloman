@@ -1,0 +1,75 @@
+# ==============================================================================
+# miniupnpd configuration file
+# Self-documenting template: every directive is preceded by its schema description.
+# Defaults are inlined so the rendered file is valid even if Ansible variables are missing.
+# ==============================================================================
+
+# Name of the external network interface (e.g., eth0, ppp0) connected to the internet.
+ext_ifname={{ ext_ifname | default('eth0') }}
+
+# IP address of the internal interface. If empty, auto-detected from the interface's primary address.
+# If set, miniupnpd binds specifically to this address on the internal side.
+ip_addr={{ ip_addr | default('') }}
+
+# Enable NAT-PMP (NAT Port Mapping Protocol) support alongside UPnP-IGD.
+# Useful for devices that support NAT-PMP but not UPnP.
+enable_natpmp={{ enable_natpmp | default(true) | lower }}
+
+# Enable UPnP-IGD (Internet Gateway Device) service.
+# Set to false to disable UPnP entirely (NAT-PMP may still work if enabled).
+enable_upnp={{ enable_upnp | default(true) | lower }}
+
+# Verbosity of logging: 0 (quiet) to 4 (debug).
+# Higher levels increase disk and memory usage and may expose sensitive network details.
+log_level={{ log_level | default(2) }}
+
+# Interval (in seconds) between SSDP broadcast announcements.
+# Smaller values = faster discovery but more network traffic.
+ssdp_broadcast_interval={{ ssdp_broadcast_interval | default(30) }}
+
+# Human-readable name of the device shown to UPnP clients (e.g., in network tools).
+friendly_name={{ friendly_name | default('MiniUPnP daemon') }}
+
+# Model name of the UPnP device (e.g., 'Home Router').
+model_name={{ model_name | default('MiniUPnPd') }}
+
+# URL to product information or documentation.
+model_url={{ model_url | default('https://github.com/miniupnp/miniupnp') }}
+
+# Name of the manufacturer (e.g., 'Home Network Vendor').
+manufacturer={{ manufacturer | default('MiniUPnP Project') }}
+
+# Manufacturer’s website URL.
+manufacturer_url={{ manufacturer_url | default('https://miniupnp.tuxfamily.org/') }}
+
+# Device serial number — typically set once and never changed.
+serial_number={{ serial_number | default('12345678') }}
+
+# Static port mappings to expose services to the internet.
+# Each entry maps an external port to an internal host and port.
+{% for mapping in port_mappings | default([]) %}
+# Port mapping: external port -> internal IP:internal port (protocol)
+external_port={{ mapping.external_port }}
+internal_ip={{ mapping.internal_ip }}
+internal_port={{ mapping.internal_port }}
+protocol={{ mapping.protocol | default('tcp') | upper }}
+description={{ mapping.description | default('') | replace('\n', ' ') | trim }}
+enabled={{ mapping.enabled | default(true) | lower }}
+{% endfor %}
+
+# List of port ranges allowed for dynamic allocation (e.g., for P2P apps or gaming).
+# Each range is allocated from start to end (inclusive).
+{% for range_def in port_ranges | default([]) %}
+# Port range: start–end (protocol)
+port_range_start={{ range_def.start }}
+port_range_end={{ range_def.end }}
+protocol={{ range_def.protocol | default('tcp') | upper }}
+description={{ range_def.description | default('') | replace('\n', ' ') | trim }}
+{% endfor %}
+
+# List of allowed internal IP addresses or CIDR subnets permitted to request port mappings.
+# If empty, all internal IPs are allowed.
+{% for allowed_ip in allowed_ips | default([]) %}
+# Allow UPnP from IP/CIDR
+allow_ip={{ allowed_ip }}
+{% endfor %}

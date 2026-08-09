@@ -1,0 +1,57 @@
+{# systemd service unit for blight #}
+[Unit]
+Description=Blight backlight management utility
+Documentation=man:blight(1)
+
+[Service]
+# Run as root to access backlight devices and manage udev rules
+Type=oneshot
+# Execute the blight setup command to configure backlight settings.
+ExecStart=/usr/bin/blight setup
+# Keep the service state as 'active (exited)' so systemd considers it done,
+# allowing other services to depend on it if needed.
+RemainAfterExit=yes
+
+# Restrict privileges for security
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+# Allow read/write access to the backlight sysfs directory.
+# If a specific device is configured, this path is adjusted dynamically in more complex roles.
+ReadWritePaths=/sys/class/backlight
+# Allow read/write access to udev rules directory for rule management.
+ReadWritePaths=/etc/udev/rules.d
+
+# Allow access to video group devices (for restore operation)
+SupplementaryGroups=video
+
+# [Install] Section
+[Install]
+# Enable this service to run at boot if restore_at_boot is true.
+# The actual enablement is handled by Ansible based on the variable below.
+{% if restore_at_boot | default(True) | bool %}
+WantedBy=multi-user.target
+{% else %}
+# restore_at_boot is disabled; service is not enabled for multi-user.target by default.
+# It can be started manually via: systemctl start blight-setup.service
+{% endif %}
+
+# [Runtime Configuration]
+# These settings are passed to the blight command.
+# Specific backlight device to target (e.g., intel_backlight, amdgpu_bl1).
+# Leave empty to use the system default.
+{% if device | default('') | trim %}
+# Target Device: {{ device | default('') | trim }}
+# Command would be: /usr/bin/blight setup --device {{ device | default('') | trim }}
+{% else %}
+# Target Device: (default)
+# Command uses the default backlight device detected by blight.
+{% endif %}
+
+# Enable gradual brightness change (smoothing) during setup if supported.
+{% if sweep_mode | default(False) | bool %}
+# Sweep Mode: Enabled
+# Command would include: --sweep
+{% else %}
+# Sweep Mode: Disabled
+{% endif %}

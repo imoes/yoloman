@@ -1,0 +1,42 @@
+# Global Mon configuration options
+[global]
+  interval = {{ interval }}
+  {# Email alert settings #}
+  email_from = {{ email_from }}
+  email_to = {{ email_to | join(', ') }}
+  {# SMTP server configuration #}
+  smtp_host = {{ smtp_host }}
+  smtp_port = {{ smtp_port }}
+  smtp_user = {{ smtp_user }}
+  smtp_pass = {{ smtp_pass }}
+  use_tls = {{ use_tls | lower }}
+
+{# Monitors section: list of services to monitor #}
+{% for monitor in monitors %}
+  [{% if monitor.comment %}# {{ monitor.comment }}
+  {% endif %}{{ monitor.name | replace(' ', '_') | lower }}]
+    type = {{ monitor.type }}
+    host = {{ monitor.host }}
+    port = {{ monitor.port }}
+    interval = {{ monitor.interval }}
+    timeout = {{ monitor.timeout }}
+    up_cmd = {{ monitor.up_cmd }}
+    down_cmd = {{ monitor.down_cmd }}
+    {# Optional alert config per monitor #}
+    {% if monitor.alert_on_down is defined and monitor.alert_on_down is true %}
+    alert_on_down = true
+    {% else %}
+    alert_on_down = false
+    {% endif %}
+{% endfor %}
+
+{# Recipients section for alert routing #}
+{% for recipient in recipients %}
+  [{{ recipient.name | replace(' ', '_') | lower }}]
+    type = {{ recipient.type }}
+    {% if recipient.type == 'email' %}
+    to = {{ recipient.to }}
+    {% elif recipient.type == 'exec' %}
+    exec = {{ recipient.exec }}
+    {% endif %}
+{% endfor %}

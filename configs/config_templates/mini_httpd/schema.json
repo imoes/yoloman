@@ -1,0 +1,175 @@
+{
+  "web_user": {
+    "type": "string",
+    "default": "www-data",
+    "description": "System user account under which the server runs (must exist on system)."
+  },
+  "web_group": {
+    "type": "string",
+    "default": "www-data",
+    "description": "System group for the server process (must exist on system)."
+  },
+  "port": {
+    "type": "number",
+    "default": 80,
+    "description": "TCP port to listen on (set to 0 to disable the listener; use 443 for HTTPS)."
+  },
+  "host": {
+    "type": "string",
+    "default": "",
+    "description": "IP address or hostname to bind to (empty = all local interfaces)."
+  },
+  "document_root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "Absolute path to the directory served as the website root."
+  },
+  "cgidir": {
+    "type": "string",
+    "default": "/usr/lib/cgi-bin",
+    "description": "Absolute path to the directory containing server-wide CGI scripts (empty = disable CGI)."
+  },
+  "userdir": {
+    "type": "string",
+    "default": "public_html",
+    "description": "Relative or absolute path for per-user CGI/home directories under user homes (empty = disable per-user CGI)."
+  },
+  "default_index": {
+    "type": "string",
+    "default": "index.html,index.htm",
+    "description": "Comma-separated list of filenames to use as directory index files."
+  },
+  "access_log_path": {
+    "type": "string",
+    "default": "/var/log/mini-httpd/access.log",
+    "description": "Path to access log file (empty = disable access logging)."
+  },
+  "error_log_path": {
+    "type": "string",
+    "default": "/var/log/mini-httpd/error.log",
+    "description": "Path to error log file (empty = disable error logging)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum concurrent connections (0 = use system default)."
+  },
+  "timeout_seconds": {
+    "type": "number",
+    "default": 60,
+    "description": "Request timeout in seconds (0 = no timeout)."
+  },
+  "enable_cgi": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable execution of CGI scripts (requires 'cgidir' to be set)."
+  },
+  "enable_directory_listing": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable automatic directory listing when no index file exists."
+  },
+  "enable_vhosts": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable virtual host support (requires 'virtual_hosts' list)."
+  },
+  "enable_ssl": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable HTTPS using TLS (requires 'ssl_cert_path' and 'ssl_key_path')."
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate file (required if SSL is enabled)."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key file (required if SSL is enabled)."
+  },
+  "ssl_protocols": {
+    "type": "list",
+    "default": [
+      "tlsv1_2",
+      "tlsv1_3"
+    ],
+    "description": "List of allowed TLS protocol versions.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "tlsv1",
+        "tlsv1_1",
+        "tlsv1_2",
+        "tlsv1_3"
+      ],
+      "description": "Supported TLS protocol version."
+    }
+  },
+  "mime_types": {
+    "type": "object",
+    "default": {},
+    "description": "Additional file extension \u2192 MIME type mappings (e.g., '.webp=image/webp)."
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual host definitions (only used if 'enable_vhosts' is true).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "default",
+          "description": "Virtual host name (identifier only)."
+        },
+        "root": {
+          "type": "string",
+          "default": "",
+          "description": "Document root for this host (required)."
+        },
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Host header to match (optional)."
+        },
+        "port": {
+          "type": "number",
+          "default": 80,
+          "description": "Port for this host (optional; overrides global port)."
+        },
+        "ssl": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable SSL for this host (overrides global ssl)."
+        },
+        "certfile": {
+          "type": "string",
+          "default": "",
+          "description": "Certificate path for this host (required if SSL)."
+        },
+        "keyfile": {
+          "type": "string",
+          "default": "",
+          "description": "Private key path for this host (required if SSL)."
+        }
+      }
+    }
+  },
+  "custom_headers": {
+    "type": "object",
+    "default": {},
+    "description": "HTTP response headers to add (e.g., 'X-Frame-Options=DENY')."
+  },
+  "redirects": {
+    "type": "object",
+    "default": {},
+    "description": "URL redirects (e.g., '/old-page=/new-page')."
+  },
+  "cgi_env": {
+    "type": "object",
+    "default": {},
+    "description": "Environment variables passed to CGI scripts (e.g., 'PATH=/usr/local/bin:/usr/bin')."
+  }
+}

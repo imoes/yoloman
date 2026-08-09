@@ -1,0 +1,50 @@
+# Enable the datetime indicator service.
+# When false, the indicator does not start or display any time information.
+enabled: {{ enabled | default(true) | lower }}
+
+# Timezone identifier to use for all date/time rendering.
+# Examples: 'Europe/London', 'America/Los_Angeles', 'UTC'.
+timezone: {{ timezone | default('UTC') }}
+
+# strftime format string for the date shown in the panel.
+# Example: '%A, %B %d' yields 'Monday, January 01'.
+format_date: '{{ format_date | default("%a, %b %d") }}'
+
+# strftime format string for the time shown in the panel.
+# Example: '%I:%M %p' yields '02:30 PM'.
+format_time: '{{ format_time | default("%H:%M") }}'
+
+# Whether to display seconds in the time field (e.g., HH:MM:SS).
+show_seconds: {{ show_seconds | default(false) | lower }}
+
+# Use 24-hour time format instead of 12-hour AM/PM.
+show_24h: {{ show_24h | default(true) | lower }}
+
+# Automatically set date/time formats based on the system locale.
+# When true, format_date and format_time may be overridden by locale detection.
+auto_locale: {{ auto_locale | default(true) | lower }}
+
+# Additional custom date/time formats for secondary clocks or special contexts.
+# Each entry must have 'type' (a label/identifier) and 'pattern' (strftime string).
+formats:
+{% for fmt in formats | default([], true) %}  - type: '{{ fmt.type }}'
+    pattern: '{{ fmt.pattern }}'
+{% endfor %}
+
+# Optional path to a custom ICS or vCard calendar file for holidays/events.
+# Leave empty to disable calendar integration.
+calendar_file: {{ calendar_file | default('') }}
+
+# Show notifications for upcoming calendar events.
+# Requires calendar_file to be set and valid.
+event_notifications: {{ event_notifications | default(false) | lower }}
+
+# Optional path to a TrueType font file for rendering locale-specific glyphs.
+# Useful for CJK, Arabic, or other non-Latin scripts. Leave empty for system default.
+font_path: {{ font_path | default('') }}
+
+# List of holidays to highlight in the calendar.
+# Accepts ISO dates ('YYYY-MM-DD') or recognized names ('Easter', 'Christmas').
+holidays:
+{% for holiday in holidays | default([], true) %}  - {{ holiday | quote }}
+{% endfor %}

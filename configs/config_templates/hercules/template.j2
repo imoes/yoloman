@@ -1,0 +1,63 @@
+# Hercules main configuration file (section 5 man page)
+# Generated from hercules(1) and official documentation
+
+# IP address for the TCP/IP console interface (see hercules.cnf(5), CONSOLE directive)
+# The CONSOLE directive opens a TCP listener on the specified IP and port.
+{% set _console_ip = console_ip | default('127.0.0.1') %}
+{% set _console_port = console_port | default(3270) %}
+CONSOLE {{ _console_ip }} {{ _console_port }}
+
+# Alternative configuration file path (see hercules(1), -f option; hercules.cnf(5), CONFIG directive)
+# If empty or unset, Hercules uses its default configuration location.
+{% set _config_file_path = config_file_path | default('') %}
+{% if _config_file_path != '' %}
+CONFIG {{ _config_file_path }}
+{% endif %}
+
+# Network devices configuration
+# List of network and I/O devices (see hercules.cnf(5), device directives: 3088, 3270, 3505, 1403, etc.)
+# Each device in the list is rendered with its specific directive syntax.
+{% set _network_devices = network_devices | default([]) %}
+{% for dev in _network_devices %}
+# Device {{ dev.devnum | default('0000') }}: {{ dev.description | default('') }}
+{% set _dev_type = dev.type | default('') %}
+{% if _dev_type == '3088' %}
+3088 {{ dev.devnum | default('0000') }} ETHERNET {{ dev.interface | default('eth0') }}
+{% elif _dev_type == '3270' %}
+3270 {{ dev.devnum | default('0001') }}
+{% elif _dev_type == '3505' %}
+3505 {{ dev.devnum | default('0002') }} DISK {{ dev.diskfile | default('') }}
+{% elif _dev_type == '1403' %}
+1403 {{ dev.devnum | default('0003') }} PRINTER {{ dev.printerfile | default('/dev/stdout') }}
+{% else %}
+# Unknown or unsupported device type: {{ _dev_type }}
+{% endif %}
+{% endfor %}
+
+# CPU configuration directives
+# List of CPU configurations (see hercules.cnf(5), CPU directive)
+# Generates one CPU directive per CPU entry.
+{% set _cpus = cpus | default([]) %}
+{% if _cpus | length > 0 %}
+{% for cpu in _cpus %}
+CPU {{ loop.index0 }} {{ cpu.type | default('390') }}
+{% endfor %}
+{% endif %}
+
+# Main storage size in kilobytes (see hercules.cnf(5), MAINSTOR directive)
+{% set _memory_size = memory_size | default(4096) %}
+MAINSTOR {{ _memory_size }}
+
+# Directory for log files (see hercules.cnf(5), LOGDIR directive)
+# If set, Hercules will write its log files to this directory.
+{% set _log_dir = log_dir | default('') %}
+{% if _log_dir != '' %}
+LOGDIR {{ _log_dir }}
+{% endif %}
+
+# Log file path (see hercules.cnf(5), LOGFILE directive)
+# Specific path for the log file if not using LOGDIR.
+{% set _log_file = log_file | default('') %}
+{% if _log_file != '' %}
+LOGFILE {{ _log_file }}
+{% endif %}

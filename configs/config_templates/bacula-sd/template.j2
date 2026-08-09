@@ -1,0 +1,108 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          bacula-sd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:    $remote_fs $syslog
+# Default-Start:    2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: Bacula Storage Daemon
+# Description:       bacula-sd is daemon that perform the storage and recovery
+#                    of the file attributes and data to the physical backup
+#                    media or volumes. In other words, the Storage daemon is
+#                    responsible for reading and writing your tapes (or other
+#                    storage media, e.g. files).
+### END INIT INFO
+#
+# bacula-fd     SysV init script for Bacula-FD.
+#
+#       Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#       Modified for Debian GNU/Linux by Ian Murdock <imurdock@gnu.ai.mit.edu>
+#       Customized for Bacula by Jose Luis Tallon <jltallon@adv-solutions.net>
+#
+
+set -e
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/bacula-sd
+NAME="bacula-sd"
+# Port on which the Bacula Storage Daemon listens
+PORT={{ port | default(9103) }}
+DESC="Bacula Storage daemon"
+BUSER="bacula"
+BGROUP="tape"
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+. /usr/share/bacula-common/common-functions.init
+if [ -r /etc/default/$NAME ]; then
+	. /etc/default/$NAME
+fi
+
+CONFIG="${CONFIG:-/etc/bacula/$NAME.conf}"
+STOPTIMEOUT="${STOPTIMEOUT:-180}"
+
+create_run_dir
+
+PIDFILE=/run/bacula/$NAME.$PORT.pid
+
+do_start()
+{
+	if $DAEMON -u $BUSER -g $BGROUP -t -c $CONFIG > /dev/null 2>&; then
+		start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--oknodo --exec $DAEMON -- -u $BUSER -g $BGROUP -c $CONFIG
+		return 0
+	else
+		log_progress_msg "- the configtest"
+		return 1
+	fi
+}
+
+do_stop()
+{
+        start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+        --retry TERM/$STOPTIMEOUT/KILL/5 --name `basename $DAEMON`
+}
+
+case "$1" in
+  start)
+	if [ "$ENABLED" = "no" ]; then
+                log_failure_msg "Not starting $DESC: disabled via /etc/default/$NAME"
+		exit 0
+	fi
+
+	log_daemon_msg "Starting $DESC..." "$NAME"
+	if do_start ; then
+                log_end_msg 0
+        else
+                log_end_msg 1
+        fi
+	;;
+  stop)
+	log_daemon_msg "Stopping $DESC..." "$NAME"
+        if do_stop ; then
+                log_end_msg 0
+        else
+                log_end_msg 1
+        fi
+	;;
+  restart|force-reload)
+	$0 stop
+        sleep 1
+	$0 start
+	;;
+  try-restart)
+	$0 status || exit 0
+	$0 restart
+	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload|try-restart|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,63 @@
+{# ============================================================= #}
+{# catfish(1) configuration template                               #}
+{#                                                               #}
+{# This file stores the persistent settings for the Catfish file #}
+{# finder application. Each key below maps directly to a catfish #}
+{# command-line option. Defaults are provided inline to ensure   #}
+{# the service is self-documenting and robust against missing    #}
+{# variables.                                                    #}
+{# ============================================================= #}
+
+[catfish]
+
+{# Default search path (command-line: --path=PATH)                #}
+{# Defines the root directory where Catfish begins its file      #}
+{# search.                                                       #}
+path = {{ path | default('/home') }}
+
+{# Default column to sort by: name|size|path|date|type           #}
+{# (command-line: --sort=SORT)                                   #}
+{# Specifies which column header Catfish uses to sort the file   #}
+{# list results upon opening.                                    #}
+sort_column = {{ sort_column | default('name') }}
+
+{# Use large icons (command-line: --large-icons)                  #}
+{# When true, the file list displays large thumbnails/icons      #}
+{# instead of small ones.                                        #}
+large_icons = {{ large_icons | default(false) | lower }}
+
+{# Include hidden files (command-line: --hidden)                  #}
+{# When true, files and directories starting with a dot (.) are  #}
+{# included in the search results.                               #}
+hidden = {{ hidden | default(false) | lower }}
+
+{# Perform fulltext search (command-line: --fulltext)             #}
+{# When true, Catfish searches the content of files for matches, #}
+{# rather than just filenames and metadata. This is slower but   #}
+{# more powerful.                                                #}
+fulltext = {{ fulltext | default(false) | lower }}
+
+{# Perform exact match (command-line: --exact)                    #}
+{# When true, the search query must exactly match the filename   #}
+{# (case-sensitive). When false, it performs fuzzy/substring     #}
+{# matching.                                                     #}
+exact = {{ exact | default(false) | lower }}
+
+{# Display time in ISO format (command-line: --iso-time)          #}
+{# When true, file modification times are displayed in ISO 8601  #}
+{# format (e.g., YYYY-MM-DD HH:MM:SS). When false, it uses the  #}
+{# system's locale default.                                      #}
+iso_time = {{ iso_time | default(false) | lower }}
+
+{# Use thumbnails (command-line: --thumbnails)                    #}
+{# When true, Catfish attempts to generate and display thumbnails#}
+{# for supported image/video files.                              #}
+thumbnails = {{ thumbnails | default(false) | lower }}
+
+{# Additional arguments: search path and query on startup        #}
+{# If 'start' is true, Catfish will immediately begin the search #}
+{# as soon as the application window is displayed, using the     #}
+{# 'path' and 'sort_column' defined above.                       #}
+{% if start | default(false) | bool %}
+start_search = true
+{% endif %}

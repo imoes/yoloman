@@ -1,0 +1,19 @@
+# Configuration for desktop-autoloader
+# This script runs once after system reboot to pre-load the filesystem cache
+# for a standardized desktop session if the current time is before the configured cutoff.
+
+# Time of day (in HH:MM format) used as cutoff for deciding whether to pre-load.
+# The script checks if the current system time is earlier than this value.
+# If the system time is before {{ boot_time | default('07:30') }}, pre-loading proceeds.
+# If the system time is {{ boot_time | default('07:30') }} or later, the script exits early.
+SHELL=/bin/bash
+
+# The @reboot cron directive ensures this command executes once at boot.
+# Logic:
+# 1. Compare current epoch time with the epoch time corresponding to {{ boot_time | default('07:30') }}.
+# 2. If current time < cutoff time:
+#    a. Sleep for a random interval between {{ min_sleep | default(61) }} seconds and
+#       {{ min_sleep | default(61) }} + {{ random_sleep_range | default(200) }} seconds.
+#       This spreads out load from multiple rebooting machines.
+#    b. Execute the actual desktop-autoloader command.
+@reboot desktop-autoloader [ $(date +\%s) -lt $(date -d {{ boot_time | default('07:30') }} +\%s) ] && sleep "$(( ( RANDOM \% {{ random_sleep_range | default(200) }} ) + {{ min_sleep | default(61) }} ))" && desktop-autoloader

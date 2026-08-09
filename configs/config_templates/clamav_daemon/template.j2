@@ -1,0 +1,93 @@
+# Scan logic: Enable logging to syslog
+LogSyslog yes
+
+# Scan logic: Enable debug logging (set to 'no' in production)
+Debug {{ debug_enabled | lower }}
+
+# Scan logic: Path to PID file
+PidFile {{ pid_file_path }}
+
+# Scan logic: Path to local socket for communication
+LocalSocket {{ socket_path }}
+
+# Scan logic: File descriptor mode (0 for world-readable, 660 recommended for security)
+LocalSocketGroup {{ socket_group }}
+LocalSocketMode {{ socket_mode }}
+
+# Scan logic: Maximum number of simultaneous client connections
+MaxConnectedClients {{ max_clients }}
+
+# Scan logic: User account under which clamd runs (typically 'clamav')
+User {{ daemon_user }}
+
+# Scan logic: Path to directory containing virus signature databases
+DatabaseDirectory {{ database_dir }}
+
+# Scan logic: Path to custom signature file(s) — space-separated
+ExtraSignature {{ extra_signatures | join(' ') }}
+
+# Scan logic: Enable automatic database updates via freshclam
+UpdateLogFile {{ update_log_path }}
+
+# Scan logic: Log file path
+LogFile {{ log_file_path }}
+
+# Scan logic: Maximum size of log file before rotation (in bytes)
+LogRotate {{ log_rotate | lower }}
+LogFileSize {{ log_file_size_mb }}M
+
+# Scan logic: Enable recursive directory scanning
+ScanRecursive {{ scan_recursive | lower }}
+
+# Scan logic: Enable compressed file scanning (gzip, bzip2, etc.)
+ScanPE {{ scan_pe | lower }}
+ScanOLE2 {{ scan_ole2 | lower }}
+ScanPDF {{ scan_pdf | lower }}
+ScanHTML {{ scan_html | lower }}
+ScanMail {{ scan_mail | lower }}
+ScanArchive {{ scan_archive | lower }}
+
+# Scan logic: Scan inside archives and compressed files
+ScanArchiveMaxDepth {{ archive_max_depth }}
+ScanArchiveMaxFiles {{ archive_max_files }}
+ScanArchiveMaxFileSize {{ archive_max_file_size_mb }}M
+
+# Scan logic: Time in seconds to wait for a scan operation to complete
+IdleTimeout {{ idle_timeout }}
+
+# Scan logic: Enable bytecode interpreter (required for some modern signatures)
+Bytecode {{ bytecode_enabled | lower }}
+BytecodeTimeout {{ bytecode_timeout }}
+
+# Scan logic: Block known malware but continue scanning (set 'no' to reject immediately)
+StreamMaxLength {{ stream_max_length_mb }}M
+StreamMinPort {{ stream_min_port }}
+StreamMaxPort {{ stream_max_port }}
+
+# Scan logic: Custom scanning behavior — enable heuristic scan modes
+HeuristicScanPrecedence {{ heuristic_precedence | lower }}
+
+# Scan logic: Quota for memory used during scan (in MB)
+MaxScanSize {{ max_scan_size_mb }}M
+
+# Scan logic: Maximum size of a single file to scan
+MaxFileSize {{ max_file_size_mb }}M
+
+# Scan logic: Maximum number of files to scan in a directory tree
+MaxRecursion {{ max_recursion }}
+MaxFiles {{ max_files }}
+
+# Scan logic: Disable detection of potentially unwanted applications
+PUA {{ pua_enabled | lower }}
+
+# Scan logic: Enable detection of specific PUA categories (comma-separated: All, Archive, Compression, Email, Exploit, Lang, Packed, PDF, Shellcode)
+PUAScan {{ pua_categories | join(',') }}
+
+# Scan logic: Path to exclude from scanning — repeated per path
+ExcludePath {{ exclude_paths | join('\nExcludePath ') }}
+
+# Scan logic: Path to include only (if enabled)
+# IncludePath {{ include_paths | join('\nIncludePath ') }}
+
+# Scan logic: Enable real-time file scanning (on-access scanning)
+OnAccess {{ on_access_enabled | lower }}

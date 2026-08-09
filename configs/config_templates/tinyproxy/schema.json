@@ -1,0 +1,99 @@
+{
+  "listen_ip": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address TinyProxy binds to. Use 0.0.0.0 to listen on all interfaces (not recommended for public exposure)."
+  },
+  "port": {
+    "type": "number",
+    "default": 8888,
+    "description": "TCP port for incoming proxy requests."
+  },
+  "hostname": {
+    "type": "string",
+    "default": "",
+    "description": "Optional hostname override. If empty, system hostname is used."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "Info",
+    "description": "Logging verbosity. 'Info' or 'Notice' recommended for production."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/tinyproxy/tinyproxy.log",
+    "description": "Path to log file. Use '/dev/stdout' to log to standard output (e.g., systemd)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum concurrent client connections. Increase for high-traffic deployments."
+  },
+  "min_spare_servers": {
+    "type": "number",
+    "default": 1,
+    "description": "Minimum idle child processes to keep ready for new requests."
+  },
+  "max_spare_servers": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum idle child processes before terminating some."
+  },
+  "start_servers": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of child processes to spawn at startup."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Connection and request timeout in seconds. 600 = 10 minutes."
+  },
+  "reverse_proxy": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable reverse proxy mode (not typical for general-purpose proxy servers)."
+  },
+  "transparent": {
+    "type": "bool",
+    "default": false,
+    "description": "Run in transparent mode \u2014 does not add Via header. Use only for local network transparency."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [
+      {
+        "type": "allow",
+        "source": "127.0.0.1"
+      },
+      {
+        "type": "deny",
+        "source": "all"
+      }
+    ],
+    "description": "List of IP access control rules. Order matters: first match wins."
+  },
+  "auth_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable basic HTTP authentication. If true, TinyProxy will require username/password in requests."
+  },
+  "upstream_proxies": {
+    "type": "list",
+    "default": [],
+    "description": "Chain proxy configuration. Useful if upstream network requires a proxy."
+  },
+  "no_proxy": {
+    "type": "list",
+    "default": [
+      "localhost",
+      "127.0.0.1"
+    ],
+    "description": "Domains or IPs to bypass the proxy and connect directly to."
+  },
+  "user_agent": {
+    "type": "string",
+    "default": "",
+    "description": "Custom User-Agent header. Empty uses TinyProxy default (e.g., 'TinyProxy/1.10.0'.)"
+  }
+}

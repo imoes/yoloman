@@ -1,0 +1,54 @@
+# Default settings for earlyoom. This file is sourced by /bin/sh from
+# /etc/init.d/earlyoom or by systemd from earlyoom.service.
+
+# Enable the earlyoom service. When disabled, earlyoom will not run at boot.
+# If this is false, systemd init scripts or the service file should handle the
+# disabling logic (e.g. by not starting the service), but this variable is
+# still rendered here for completeness.
+ENABLED="{{ enabled | default(true) }}"
+
+# Options to pass to earlyoom. Defaults to '-r 3600' which reports memory status every hour.
+# This variable is sourced by the init script and passed to the binary.
+EARLYOOM_ARGS="{{ cli_args | default('-r 3600') }}"
+
+# Examples:
+
+# Print memory report every minute instead of every hour
+# EARLYOOM_ARGS="-r 60"
+
+# Available minimum memory 5%
+# EARLYOOM_ARGS="-m 5"
+
+# Available minimum memory 15% and free minimum swap 5%
+# EARLYOOM_ARGS="-m 15 -s 5"
+
+# Avoid killing processes whose name matches this regexp
+# EARLYOOM_ARGS="--avoid '(^|/)(init|X|sshd|firefox)$'"
+
+# See more at `earlyoom -h'
+
+# Memory low threshold percentage. When free memory drops below this percentage of total RAM, earlyoom starts killing processes.
+# Passed to earlyoom via the -m flag.
+MEMORY_MIN_PERCENT="{{ memory_min_percent | default(10) }}"
+
+# Swap low threshold percentage. When free swap drops below this percentage of total swap, earlyoom becomes more aggressive (prefers killing memory hogs over CPU hogs).
+# Passed to earlyoom via the -s flag.
+SWAP_MIN_PERCENT="{{ swap_min_percent | default(5) }}"
+
+# Absolute minimum free memory threshold in kilobytes. If free memory falls below this, earlyoom acts regardless of percentage thresholds.
+# Passed to earlyoom via the -M flag.
+MEMORY_MIN_KB="{{ memory_min_kb | default(51200) }}"
+
+# If true, prefer killing processes that use more memory (larger RSS).
+# Passed to earlyoom via the --prefer-mem-usage flag.
+PREFER_MEM_USAGE="{{ prefer_mem_usage | default(true) }}"
+
+# If true, prefer killing processes with more negative OOM score adjustments (i.e., more protected).
+# Only effective when prefer_mem_usage is false.
+# Passed to earlyoom via the --prefer-oom-score-adj flag.
+PREFER_OOM_SCORE_ADJ="{{ prefer_oom_score_adj | default(false) }}"
+
+# List of command-line substrings. Processes whose full command line contains any of these strings will be skipped by earlyoom.
+# Passed to earlyoom via the --avoid flag as a regex pattern.
+# Note: The init script usually constructs the --avoid regex from this list.
+IGNORE_PATTERNS="{{ ignore_patterns | default(['/sbin/init', 'systemd', 'systemd-logind']) }}"

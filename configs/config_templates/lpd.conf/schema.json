@@ -1,0 +1,119 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging for LPD."
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous print jobs allowed system-wide."
+  },
+  "lpd_user": {
+    "type": "string",
+    "default": "lp",
+    "description": "User account under which the LPD daemon runs."
+  },
+  "spool_dir": {
+    "type": "string",
+    "default": "/var/spool/lpd",
+    "description": "Base directory for spooling print jobs (unless overridden per queue)."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind the LPD server to (empty string = bind to all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 515,
+    "description": "TCP port on which to listen for LPD connections."
+  },
+  "remote_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Allow print jobs from remote hosts via LPD protocol."
+  },
+  "log_access": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable access logging (successful/failed jobs, client IPs)."
+  },
+  "printcap": {
+    "type": "string",
+    "default": "/etc/printcap",
+    "description": "Path to the printcap database file defining queues and devices."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lpd.log",
+    "description": "File to write LPD logs (ignored if logging is disabled)."
+  },
+  "queues": {
+    "type": "list",
+    "default": [],
+    "description": "List of printer queue definitions.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique identifier for the queue (used in [queue] section headers)."
+      },
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description of the queue (optional)."
+      },
+      "spool_dir": {
+        "type": "string",
+        "default": "",
+        "description": "Per-queue spool directory (empty = use global spool_dir)."
+      },
+      "device": {
+        "type": "string",
+        "default": "",
+        "description": "Device or backend command for the printer (e.g., /dev/lp0, or 'lp -d HP_LaserJet')."
+      },
+      "filter": {
+        "type": "string",
+        "default": "",
+        "description": "Filter program to preprocess print jobs (optional, e.g., a PostScript filter)."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether this queue is active and accepts jobs."
+      },
+      "max_job_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum job size in bytes (0 = no limit)."
+      },
+      "allowed_users": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed usernames or groups (prefixed with '@'); empty = all users allowed.",
+        "items": {
+          "type": "string",
+          "default": "",
+          "description": "A username or group name (group names must be prefixed with '@')."
+        }
+      },
+      "denied_users": {
+        "type": "list",
+        "default": [],
+        "description": "List of denied usernames or groups; empty = none denied.",
+        "items": {
+          "type": "string",
+          "default": "",
+          "description": "A username or group name (group names must be prefixed with '@')."
+        }
+      },
+      "hold_job": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether new jobs are held by default (requires manual release)."
+      }
+    }
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "max_connections": 100,
+      "ssl_enabled": false,
+      "certificate_path": "/etc/harvid/ssl/cert.pem",
+      "key_path": "/etc/harvid/ssl/key.pem"
+    },
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Network interface to bind to (e.g., 0.0.0.0 for all, 127.0.0.1 for localhost only)."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port for the HTTP API and media streaming."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of simultaneous client connections allowed."
+      },
+      "ssl_enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable TLS/HTTPS. Requires valid certificate_path and key_path."
+      },
+      "certificate_path": {
+        "type": "string",
+        "default": "/etc/harvid/ssl/cert.pem",
+        "description": "Path to SSL certificate file (PEM format)."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "/etc/harvid/ssl/key.pem",
+        "description": "Path to SSL private key file (PEM format)."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "file": "/var/log/harvid/harvid.log",
+      "json": false
+    },
+    "properties": {
+      "level": {
+        "type": "string",
+        "default": "INFO",
+        "description": "Minimum log level: DEBUG, INFO, WARNING, ERROR, or CRITICAL."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/harvid/harvid.log",
+        "description": "Path to log file; leave blank or omit to log to stderr only."
+      },
+      "json": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable structured JSON logging (useful for log aggregation systems)."
+      }
+    }
+  },
+  "worker": {
+    "type": "object",
+    "default": {
+      "threads": 4
+    },
+    "properties": {
+      "threads": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of worker threads for media processing and transcoding."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "segments_path": "/var/cache/harvid/segments"
+    },
+    "properties": {
+      "segments_path": {
+        "type": "string",
+        "default": "/var/cache/harvid/segments",
+        "description": "Base directory to store cached HLS/DASH segments and manifests."
+      }
+    }
+  },
+  "playlist": {
+    "type": "object",
+    "default": {
+      "hls_enabled": true,
+      "hls_segment_duration": 4,
+      "hls_playlist_length": 6
+    },
+    "properties": {
+      "hls_enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable HLS playlist generation and streaming."
+      },
+      "hls_segment_duration": {
+        "type": "number",
+        "default": 4,
+        "description": "Target duration (in seconds) per HLS segment."
+      },
+      "hls_playlist_length": {
+        "type": "number",
+        "default": 6,
+        "description": "Number of recent segments to include in the HLS playlist window."
+      }
+    }
+  },
+  "sources": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "url": {
+        "type": "string",
+        "description": "Input source URL (e.g., rtsp://, file://, or http://) or device path (e.g., /dev/video0)."
+      },
+      "name": {
+        "type": "string",
+        "description": "Optional human-readable name for the source."
+      },
+      "type": {
+        "type": "string",
+        "description": "Optional type hint (e.g., 'camera', 'file', 'stream') for UI or processing."
+      }
+    },
+    "description": "List of input sources to ingest and stream."
+  }
+}

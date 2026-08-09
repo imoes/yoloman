@@ -1,0 +1,52 @@
+{#
+  Package: debian-archive-keyring
+  Description: Installs the Debian Archive Keyring package.
+  This package contains the GPG keys used to sign Debian package
+  repositories. It is a foundational trust anchor for the APT
+  package manager.
+  
+  NOTE: This package does not use a configuration file template in the
+  traditional sense. The keys are pre-packaged binary data. The
+  "template" below serves to document the intent and parameters
+  associated with managing this trust anchor, if any customization
+  is required via Ansible module parameters.
+#}
+
+{#
+  Variable: state
+  Default: present
+  Description: Desired state of the debian-archive-keyring package.
+  'present' ensures the package is installed. 'absent' removes it
+  (not recommended for standard Debian systems).
+#}
+- name: Ensure debian-archive-keyring package is installed
+  ansible.builtin.apt:
+    name: debian-archive-keyring
+    state: "{{ state | default('present') }}"
+    update_cache: "{{ update_cache | default(true) }}"
+
+{#
+  Variable: trusted_sources
+  Default: [] (empty list)
+  Description: A list of additional GPG keys or key IDs to trust.
+  While debian-archive-keyring is the standard, custom repositories
+  might require additional keys. This variable allows documenting
+  the expectation for such keys, though they are typically handled
+  by separate apt_key or apt_repository tasks.
+#}
+# The system relies on the keys provided by the debian-archive-keyring package.
+# If you need to add custom repository keys, use the apt_key module.
+# Example:
+# - name: Add custom repo key
+#   ansible.builtin.apt_key:
+#     url: "https://example.com/repo.key"
+#     state: present
+
+{#
+  Variable: keyring_path
+  Default: /usr/share/keyrings/debian-archive-keyring.gpg
+  Description: The path where the official Debian keyring is installed.
+  This is managed by the package itself and should generally not be
+  overwritten.
+#}
+# Official keyring location: {{ keyring_path | default('/usr/share/keyrings/debian-archive-keyring.gpg') }}

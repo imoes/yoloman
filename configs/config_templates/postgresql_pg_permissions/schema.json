@@ -1,0 +1,108 @@
+{
+  "audit_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable permission auditing. When disabled, no audits are performed, but the service remains running."
+  },
+  "log_directory": {
+    "type": "string",
+    "default": "/var/log/pg_permissions",
+    "description": "Absolute path to the directory where permission audit logs are stored. Ensure the service user has write permissions."
+  },
+  "max_log_file_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (in megabytes) per log file before it is rotated."
+  },
+  "retained_log_files": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated (compressed) log files to keep."
+  },
+  "conn_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL server host (IP or hostname)."
+  },
+  "conn_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL server port."
+  },
+  "conn_database": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database name to connect to. Should contain the system catalog (e.g., 'postgres')."
+  },
+  "conn_user": {
+    "type": "string",
+    "default": "pg_permissions_audit",
+    "description": "Database user for audit operations. Must have sufficient privileges to read pg_catalog tables (e.g., pg_authid, pg_class, pg_namespace, pg_default_acl)."
+  },
+  "conn_sslmode": {
+    "type": "string",
+    "default": "prefer",
+    "description": "SSL mode for the connection. Valid values: disable, allow, prefer, require, verify-ca, verify-full."
+  },
+  "include_schemas": {
+    "type": "list",
+    "default": [
+      "public"
+    ],
+    "description": "List of schema names to audit. Tables outside these schemas are ignored. Leave empty to audit all schemas.",
+    "items": {
+      "type": "string",
+      "description": "Schema name to include in permission audits."
+    }
+  },
+  "audit_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Per-table audit rules. Each rule defines whether to enable/disable auditing and the audit mode (e.g., SELECT, ALL) for a specific table.",
+    "items": {
+      "schema": {
+        "type": "string",
+        "default": "",
+        "description": "Schema name containing the table."
+      },
+      "table": {
+        "type": "string",
+        "default": "",
+        "description": "Table name to audit."
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "If false, this rule is commented out and disabled."
+      },
+      "audit_mode": {
+        "type": "string",
+        "default": "SELECT",
+        "description": "Permission type to audit. Common options: SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, CREATE, USAGE, ALL."
+      }
+    }
+  },
+  "email_notifications": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable email alerts for critical permission changes (e.g., GRANT TO PUBLIC, superuser grants)."
+  },
+  "email_recipients": {
+    "type": "list",
+    "default": [],
+    "description": "List of email addresses to notify when an alert is triggered.",
+    "items": {
+      "type": "string",
+      "description": "Valid email address for notifications."
+    }
+  },
+  "webhook_urls": {
+    "type": "list",
+    "default": [],
+    "description": "List of webhook URLs (e.g., Slack, Teams) to POST audit events to.",
+    "items": {
+      "type": "string",
+      "description": "HTTPS webhook endpoint URL."
+    }
+  }
+}

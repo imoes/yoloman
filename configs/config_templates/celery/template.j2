@@ -1,0 +1,110 @@
+# ============================================================================
+# Celery Configuration Template
+# ============================================================================
+# This file configures Celery workers and beat. It sets up connections to the
+# message broker (e.g., Redis/RabbitMQ) and the result backend, defines
+# serialization, time limits, worker concurrency, and periodic task schedules.
+#
+# Self-documenting: every setting below includes a comment derived from its
+# schema description. Variable references use `| default(...)` to ensure safe
+# rendering even if a variable is undefined in the Ansible play.
+# ============================================================================
+
+# [broker_url] URL of the message broker (e.g., Redis or RabbitMQ). Must be
+# reachable by workers and producers.
+CELERY_BROKER_URL = '{{ broker_url | default("redis://localhost:6379/0") }}'
+
+# [result_backend] Backend where task results are stored. Often a separate
+# Redis DB or database.
+CELERY_RESULT_BACKEND = '{{ result_backend | default("redis://localhost:6379/1") }}'
+
+# [task_serializer] Serialization method for outgoing task messages (e.g.,
+# 'json', 'pickle'). JSON is safer and interoperable. For security, 'json' is
+# recommended.
+CELERY_TASK_SERIALIZER = '{{ task_serializer | default("json") }}'
+
+# [result_serializer] Serialization method for task results (e.g., 'json',
+# 'pickle'). For security, 'json' is recommended.
+CELERY_RESULT_SERIALIZER = '{{ result_serializer | default("json") }}'
+
+# [accept_content] List of allowed content types for incoming task messages.
+# Prevents unsafe deserialization. Should only include serializers you trust
+# and use.
+CELERY_ACCEPT_CONTENT = [{{ accept_content | default(['json']) | join(", ") }}]
+
+# [task_time_limit] Hard time limit for a task (seconds). Exceeding this
+# kills the worker executing it.
+CELERY_TASK_TIME_LIMIT = {{ task_time_limit | default(300) }}
+
+# [task_soft_time_limit] Soft time limit (seconds). Triggers a warning
+# exception but allows graceful cleanup.
+CELERY_TASK_SOFT_TIME_LIMIT = {{ task_soft_time_limit | default(240) }}
+
+# [worker_max_tasks_per_child] Maximum tasks a worker process handles before
+# being replaced (helps prevent memory leaks).
+CELERY_WORKER_MAX_TASKS_PER_CHILD = {{ worker_max_tasks_per_child | default(10000) }}
+
+# [worker_concurrency] Number of concurrent worker processes. 0 = auto-detect
+# CPU count. Adjust for I/O-bound vs CPU-bound tasks.
+CELERY_WORKER_CONCURRENCY = {{ worker_concurrency | default(0) }}
+
+# [worker_prefetch_multiplier] Tasks prefetched per worker. Lower values
+# improve fairness; 0 = unlimited.
+CELERY_WORKER_PREFETCH_MULTIPLIER = {{ worker_prefetch_multiplier | default(1) }}
+
+# [task_default_queue] Default queue name for tasks without explicit routing.
+CELERY_TASK_DEFAULT_QUEUE = '{{ task_default_queue | default("celery") }}'
+
+# [task_routes] List of task routing rules. Each rule maps tasks to specific
+# queues/exchanges. Format: list of dicts with 'exchange', 'queue',
+# 'routing_key'.
+CELERY_TASK_ROUTES = [
+{% for route in task_routes | default([]) %}
+    {
+        'exchange': '{{ route.exchange | default("") }}',
+        'queue': '{{ route.queue | default("") }}',
+        'routing_key': '{{ route.routing_key | default("") }}'
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+
+# [task_result_expires] Time (seconds) after which task results are deleted
+# from the backend.
+CELERY_TASK_RESULT_EXPIRES = {{ task_result_expires | default(86400) }}
+
+# [timezone] Timezone for scheduled tasks and logs (e.g., 'UTC',
+# 'Europe/London').
+CELERY_TIMEZONE = '{{ timezone | default("UTC") }}'
+
+# [worker_send_events] Enable event streaming (e.g., for Flower or real-time
+# monitoring.
+CELERY_WORKER_SEND_EVENTS = {{ worker_send_events | default(true) }}
+
+# [worker_log_level] Minimum log level for worker logs (DEBUG, INFO, WARNING,
+# ERROR, CRITICAL).
+CELERY_WORKER_LOG_LEVEL = '{{ worker_log_level | default("INFO") }}'
+
+# [beat_schedule] List of periodic (beat) tasks. Each item defines schedule
+# and arguments. Format: dict mapping task name to schedule config dict.
+CELERY_BEAT_SCHEDULE = {
+{% for name, schedule in beat_schedule | default({}) | dict2items %}
+    '{{ name }}': {
+        'task': '{{ schedule.value.task | default("") }}',
+        'schedule': {{ schedule.value.schedule | default(null) | tojson }},
+        'args': {{ schedule.value.args | default([]) | tojson }},
+        'kwargs': {{ schedule.value.kwargs | default({}) | tojson }}
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+}
+
+# [task_eager_propagates] If true, task exceptions are raised immediately
+# (e.g., for sync tasks).
+CELERY_TASK_EAGER_PROPAGATES = {{ task_eager_propagates | default(false) }}
+
+# [task_acks_late] If true, tasks are acknowledged only after successful
+# completion (prevents message loss).
+CELERY_TASK_ACKS_LATE = {{ task_acks_late | default(true) }}
+
+# [task_reject_on_worker_lost] If true, tasks are requeued when a worker dies
+# before acknowledgment.
+CELERY_TASK_REJECT_ON_WORKER_LOST = {{ task_reject_on_worker_lost | default(true) }}

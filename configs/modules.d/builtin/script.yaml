@@ -1,0 +1,36 @@
+name: script
+fqcn: builtin.script
+collection: builtin
+short_description: Run a script file already present on this host (with optional arguments),
+  capturing rc/stdout/stderr
+description: 'Run a script file already present on this host (with optional arguments),
+  capturing rc/stdout/stderr. In real Ansible, script copies a file FROM the control
+  node TO the managed host before running it; this agent has no such separate control-node
+  filesystem, so this reduces to running an already-present executable — the same
+  operation the command module performs (use command directly for an equivalent call;
+  script exists for drop-in familiarity with real Ansible task syntax that names it
+  explicitly). Like command, **a non-zero exit code is not raised as a tool error**
+  — check data.rc yourself.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.script. Same intent (run a script with arguments); no
+  control-node-to-managed-host copy step here, since there is no separate control-node
+  filesystem.
+
+  - Chef/Puppet/Salt/Terraform: see command''s description — the underlying operation
+  (execute an already-present script) is identical.'
+options:
+  chdir:
+    type: string
+    description: Optional working directory to run the script in.
+  cmd:
+    type: string
+    description: Script path plus arguments, split on whitespace, e.g. "/opt/app/setup.sh
+      --force".
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

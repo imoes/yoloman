@@ -1,0 +1,217 @@
+{
+  "ovn_nb_connection": {
+    "type": "string",
+    "default": "tcp:127.0.0.1:6641",
+    "description": "OVN Northbound database connection string (protocol:address:port)"
+  },
+  "ovn_sb_connection": {
+    "type": "string",
+    "default": "tcp:127.0.0.1:6642",
+    "description": "OVN Southbound database connection string (protocol:address:port)"
+  },
+  "ovn_timeout": {
+    "type": "number",
+    "default": 180,
+    "description": "Maximum time in seconds to wait for OVSDB operations before timeout"
+  },
+  "enable_l3": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable L3 routing and NAT services in OVN"
+  },
+  "enable_qos": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable QoS policy support (bandwidth limiting, DSCP marking)"
+  },
+  "enable_metadata": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Neutron metadata service via OVN metadata proxy"
+  },
+  "metadata_network": {
+    "type": "string",
+    "default": "",
+    "description": "UUID of the dedicated metadata network; leave empty to auto-generate"
+  },
+  "metadata_proxy_user_namespace": {
+    "type": "string",
+    "default": "",
+    "description": "User namespace for metadata proxy containers (e.g., 'neutron' namespace in Kubernetes)"
+  },
+  "chassis_type": {
+    "type": "string",
+    "default": "geneve",
+    "description": "Tunnel type used for overlay networks (geneve, vxlan, or local for flat networks)"
+  },
+  "l3_scheduler_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for L3 scheduling (e.g., router placement)"
+  },
+  "metadata_workers": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of worker processes for metadata proxy"
+  },
+  "l3_ha": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable high availability for L3 routers via OVN NAT HA (requires distributed gateway)"
+  },
+  "max_l3_ha_router_versions": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of L3 HA router versions retained per gateway"
+  },
+  "enable_ipv6": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable native IPv6 support in OVN (DHCPv6, SLAAC, etc.)"
+  },
+  "enable_multicast": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OVN native multicast replication (improves efficiency for broadcast/multicast traffic)"
+  },
+  "enable_qos_burst": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable burst traffic shaping in QoS rules"
+  },
+  "enable_ovn_monitor": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable OVSDB monitor mode (auto-reconnect when DB is unavailable)"
+  },
+  "ovn_connection_inactivity_probe": {
+    "type": "number",
+    "default": 60,
+    "description": "Time in seconds to wait for OVSDB activity before probing connection health"
+  },
+  "ovn_nb_ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to private key for OVN NB SSL/TLS (optional)"
+  },
+  "ovn_nb_ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to certificate for OVN NB SSL/TLS (optional)"
+  },
+  "ovn_nb_ssl_cacert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for OVN NB SSL/TLS (optional)"
+  },
+  "ovn_sb_ssl_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to private key for OVN SB SSL/TLS (optional)"
+  },
+  "ovn_sb_ssl_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to certificate for OVN SB SSL/TLS (optional)"
+  },
+  "ovn_sb_ssl_cacert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for OVN SB SSL/TLS (optional)"
+  },
+  "bridge_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "List of physical network to OVS bridge mappings (for flat/VLAN networks)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "physical_network": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the physical network"
+        },
+        "bridge": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the OVS bridge to bind the physical network to"
+        }
+      }
+    }
+  },
+  "vni_ranges": {
+    "type": "list",
+    "default": [
+      "1000:10000"
+    ],
+    "description": "List of VNI ranges for tenant networks (e.g., '1:1000' for VXLAN/Geneve)",
+    "items": {
+      "type": "string",
+      "description": "VNI range in format 'min:max'"
+    }
+  },
+  "ovn_dns_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS server IP addresses for DHCPv4/v6 (if not using internal DNS)",
+    "items": {
+      "type": "string",
+      "description": "DNS server IP address"
+    }
+  },
+  "gateway_chassis": {
+    "type": "list",
+    "default": [],
+    "description": "List of gateway chassis with priorities (for L3 HA/distributed routing)",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Name of the chassis (e.g., hostname or chassis-id)"
+        },
+        "priority": {
+          "type": "number",
+          "default": 1,
+          "description": "Chassis priority (higher = preferred for gateway placement)"
+        }
+      }
+    }
+  },
+  "enable_chassis_as_gw": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic assignment of chassis as gateways for distributed L3"
+  },
+  "interconn_host": {
+    "type": "string",
+    "default": "",
+    "description": "Hostname or IP of remote OVN interconnection NB/SB (for multi-site setups)"
+  },
+  "interconn_nb_port": {
+    "type": "number",
+    "default": 6641,
+    "description": "Port for remote OVN NB interconnection"
+  },
+  "interconn_sb_port": {
+    "type": "number",
+    "default": 6642,
+    "description": "Port for remote OVN SB interconnection"
+  },
+  "nat_external_ip_pool": {
+    "type": "string",
+    "default": "",
+    "description": "CIDR pool used for floating IPs (e.g., '203.0.113.0/24'); omit for auto-allocation"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/neutron/ovn-agent.log",
+    "description": "Path to log file for OVN agent"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+  }
+}

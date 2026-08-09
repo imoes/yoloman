@@ -1,0 +1,64 @@
+{#
+  gsimplecal configuration file template
+  --------------------------------------
+  Self-documenting Jinja2 template for gsimplecal.
+  Each directive is preceded by a comment derived from the schema description.
+  All variables use `default()` to ensure safe rendering even if undefined.
+#}
+
+{# Whether the calendar should be shown (1/0). #}
+show_calendar = {{ show_calendar | default(true) }}
+
+{# Whether time zone clocks should be shown (1/0). #}
+show_timezones = {{ show_timezones | default(false) }}
+
+{# Whether today's date is marked in the calendar (1/0). #}
+mark_today = {{ mark_today | default(true) }}
+
+{# Whether week numbers are shown in the calendar (1/0). #}
+show_week_numbers = {{ show_week_numbers | default(false) }}
+
+{# Whether the calendar closes when losing focus (1/0). #}
+close_on_unfocus = {{ close_on_unfocus | default(false) }}
+
+{# Whether the calendar closes when mouse leaves the window (1/0). #}
+close_on_mouseleave = {{ close_on_mouseleave | default(false) }}
+
+{# Whether the window should be decorated by the window manager (1/0). #}
+mainwindow_decorated = {{ mainwindow_decorated | default(false) }}
+
+{# Whether the window stays on top (1/0). #}
+mainwindow_keep_above = {{ mainwindow_keep_above | default(true) }}
+
+{# Whether the window is sticky across desktops (1/0). #}
+mainwindow_sticky = {{ mainwindow_sticky | default(false) }}
+
+{# Whether the window is hidden from the taskbar (1/0). #}
+mainwindow_skip_taskbar = {{ mainwindow_skip_taskbar | default(true) }}
+
+{# Whether the window should be resizable (1/0). #}
+mainwindow_resizable = {{ mainwindow_resizable | default(true) }}
+
+{# Command to run on date double-click; shell-expanded with strftime tokens. #}
+external_viewer = {{ external_viewer | default('') }}
+
+{# Format string for clocks (strftime syntax). #}
+clock_format = {{ clock_format | default('%a %d %b %H:%M') }}
+
+{# Override LANG for locale-specific settings (e.g., first day of week). #}
+force_lang = {{ force_lang | default('') }}
+
+{# Initial window placement: 'mouse', 'center', or 'none'. Defaults to 'mouse'. #}
+mainwindow_position = {{ mainwindow_position | default('mouse') }}
+
+{# Horizontal pixel offset from computed position. #}
+mainwindow_xoffset = {{ mainwindow_xoffset | default(0) }}
+
+{# Vertical pixel offset from computed position. #}
+mainwindow_yoffset = {{ mainwindow_yoffset | default(0) }}
+
+{# List of timezone clock definitions. Each entry provides a label and optional timezone. If tz is omitted or empty, local time is shown. #}
+{% for clock in (clocks | default([])) %}
+clock_label = {{ clock.label | default('') }}
+clock_tz = {{ clock.tz | default('') }}
+{% endfor %}

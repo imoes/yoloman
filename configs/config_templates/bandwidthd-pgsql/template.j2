@@ -1,0 +1,130 @@
+#!/bin/sh
+#
+#		init.d script for BandwidthD
+#		Andreas Henriksson <andreas@fatal.se>
+#
+### BEGIN INIT INFO
+# Provides:          bandwidthd
+# Required-Start:    $syslog $remote_fs
+# Required-Stop:     $syslog $remote_fs
+# Should-Start:      $local_fs
+# Should-Stop:       $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: starts and stops the BandwidthD daemon.
+# Description:       Script to start and stop the BandwidthD daemon
+#                    which captures traffic and generates graphs over
+#                    bandwidthd usage.
+### END INIT INFO
+
+NAME=bandwidthd
+DESC=BandwidthD
+PATH=/usr/local/sbin:/usr/local/bin:/sbin/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/bandwidthd
+# Path to the PID file for bandwidthd
+PIDFILE={{ PIDFILE | default('/var/run/bandwidthd.pid') }}
+# Working directory for bandwidthd
+WORKDIR={{ WORKDIR | default('/var/lib/bandwidthd') }}
+CONFFILE=/etc/bandwidthd/bandwidthd.conf
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+checkconfig ()
+{
+	# abort if there's no configuration file at all.
+	if [ ! -f "$CONFFILE" ]; then
+		log_failure_msg "$DESC: No configuration file found, not starting."
+		exit 0
+	fi
+
+	# abort if we detect an unconfigured bandwidthd-pgsql config.
+	CONFERR=$(grep "pgsql_connect_string \"user = someuser dbname = mydb host = localhost\"" $CONFFILE | grep -c "^[^#]")
+	if [ "$CONFERR" != "0" ]; then
+
+		log_failure_msg "ATTENTION!"
+		log_failure_msg "You have to manually add the postgresql-user, database and tables."
+		log_failure_msg "You also have to edit /etc/bandwidthd/bandwidthd.conf to specify which database the sensor should log to. If you want to run the web-interface on this computer you also need to edit /var/lib/bandwidthd/htdocs/config.conf to specify the postgresql-connection settings there and create a symlink from your webroot to the htdocs directory."
+
+		exit 0
+	fi
+	
+	# abort if the config doesn't have a device set up.
+	CONFERR=$(grep -c1 "^[^#].*d*ev " $CONFFILE)
+	if [ "$CONFERR" = "0" ]; then
+		log_failure_msg "Skipping $DESC: No devices configured. Please edit $CONFFILE."
+		exit 0
+	fi
+}
+
+startd ()
+{
+	log_daemon_msg "Starting $DESC" "$NAME"
+	cd $WORKDIR && start-stop-daemon --start --quiet \
+		--pidfile $PIDFILE \
+		--chdir $WORKDIR \
+		--exec $DAEMON -- $DAEMON_OPTS
+	if [ $? = 0 ]; then
+		log_end_msg 0
+	else
+		log_end_msg 1
+	fi
+}
+
+stopd ()
+{
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	#start-stop-daemon --stop --quiet --signal TERM \
+	#	--pidfile $PIDFILE --exec $DAEMON
+	killproc -p $PIDFILE $DAEMON SIGTERM
+	if [ $? = 0 ]; then
+		log_end_msg 0
+	else
+		log_end_msg 1
+	fi
+}
+
+restartd ()
+{
+	stopd
+	sleep 1
+	startd
+}
+
+rotatelogs ()
+{
+	log_daemon_msg "Rotating logs for $DESC" "$NAME"
+	start-stop-daemon --stop --quiet --signal HUP \
+		--pidfile $PIDFILE --exec $DAEMON
+	if [ $? = 0 ]; then
+		log_end_msg 0
+	else
+		log_end_msg 1
+	fi
+}
+
+
+case "$1" in
+	start)
+		checkconfig
+		startd
+	;;
+	stop)
+		stopd
+	;;
+	rotate)
+		rotatelogs
+	;;
+	restart|force-reload)
+		checkconfig
+		restartd
+	;;
+	*)
+		N=/etc/init.d/$NAME
+		echo "Usage: $N {start|stop|restart|rotate|force-reload}" >&2
+		exit 1
+	;;
+esac
+
+exit 0

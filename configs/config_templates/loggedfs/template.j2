@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  loggedfs - Filesystem Logger Configuration
+
+  This template generates the XML configuration for loggedfs, a FUSE-based
+  virtual filesystem that logs all file operations (reads, writes, deletes, etc.)
+  within specified mount points and directory trees.
+
+  Variables expected from Ansible inventory/vars:
+    - mount_point (str): The path where the loggedfs virtual filesystem is mounted.
+    - rules (list[dict]): A list of monitoring rules. Each rule defines a path,
+      a mode of operation, whether it is recursive, and specific actions to log.
+
+  Self-Documentation Principle:
+  Every configuration directive is preceded by a comment derived from its
+  schema definition, ensuring the file is understandable without external docs.
+-->
+
+<!-- Root element for loggedfs configuration -->
+<loggedfs>
+  <!--
+    mount_point: Path where the loggedfs virtual filesystem will be mounted.
+    Default: '/mnt/logged'
+  -->
+  <mount_point>{{ (mount_point | default('/mnt/logged')) | string }}</mount_point>
+
+  <!--
+    rules: List of paths and operation modes to monitor.
+    Each rule can be recursive and define custom actions.
+    Filename's filters are regular expressions.
+    Default: [{'path': '/home', 'mode': 'all', 'recursive': True, 'description': 'Log all file operations in home directories', 'actions': [{'type': 'write'}]}]
+  -->
+  <rules>
+    {% for rule in (rules | default([{'path': '/home', 'mode': 'all', 'recursive': True, 'description': 'Log all file operations in home directories', 'actions': [{'type': 'write'}]}])) %}
+    <!--
+      Rule #{{ loop.index }}
+      Description: {{ rule.description | default('No description provided') }}
+      Path: {{ rule.path }}
+      Mode: {{ rule.mode }}
+      Recursive: {{ 'true' if rule.recursive is defined and rule.recursive else 'false' }}
+    -->
+    <rule
+      path="{{ rule.path | default('') }}"
+      mode="{{ rule.mode | default('all') }}"
+      {% if rule.recursive is defined and rule.recursive %}
+      recursive="true"
+      {% endif %}
+    >
+      {% if rule.actions is defined and rule.actions %}
+      <actions>
+        {% for action in rule.actions %}
+        <!--
+          Action #{{ loop.index }}
+          Type: {{ action.type | default('') }}
+          Target: {{ action.target | default('') }}
+        -->
+        <action
+          type="{{ action.type | default('') }}"
+          {% if action.target is defined %}
+          target="{{ action.target }}"
+          {% endif %}
+        />
+        {% endfor %}
+      </actions>
+      {% endif %}
+    </rule>
+    {% endfor %}
+  </rules>
+</loggedfs>

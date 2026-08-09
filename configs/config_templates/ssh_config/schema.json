@@ -1,0 +1,154 @@
+{
+  "connect_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Maximum time (in seconds) to wait for connection establishment before giving up."
+  },
+  "password_authentication": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to permit password authentication (yes/no)."
+  },
+  "gssapi_authentication": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable GSSAPI-based authentication (e.g., Kerberos)."
+  },
+  "kex_algorithms": {
+    "type": "list",
+    "default": [
+      "sntrup761x25519-sha512@openssh.com",
+      "curve25519-sha256",
+      "curve25519-sha256@libssh.org",
+      "ecdh-sha2-nistp256",
+      "ecdh-sha2-nistp384",
+      "ecdh-sha2-nistp521",
+      "diffie-hellman-group-exchange-sha256",
+      "diffie-hellman-group16-sha512",
+      "diffie-hellman-group18-sha512",
+      "diffie-hellman-group14-sha256"
+    ],
+    "description": "Ordered list of key exchange algorithms to attempt, in preference order. Note: 'curve25519-sha256@libssh.org' is deprecated in modern OpenSSH, 'sntrup761x25519-sha512@openssh.com' is newer. The default here reflects the documented OpenSSH default for newer versions, but the previous defaults were also valid depending on version. However, the man page explicitly lists the default starting with sntrup761x25519-sha512@openssh.com which is missing from the previous schema. I will update the default to match the man page's explicit 'The default is:' block for KexAlgorithms."
+  },
+  "ciphers": {
+    "type": "list",
+    "default": [
+      "chacha20-poly1305@openssh.com",
+      "aes128-ctr",
+      "aes192-ctr",
+      "aes256-ctr",
+      "aes128-gcm@openssh.com",
+      "aes256-gcm@openssh.com"
+    ],
+    "description": "Ordered list of symmetric encryption algorithms to use, in preference order."
+  },
+  "macs": {
+    "type": "list",
+    "default": [
+      "umac-64-etm@openssh.com",
+      "umac-128-etm@openssh.com",
+      "hmac-sha2-256-etm@openssh.com",
+      "hmac-sha2-512-etm@openssh.com",
+      "hmac-sha1-etm@openssh.com",
+      "umac-64@openssh.com",
+      "umac-128@openssh.com",
+      "hmac-sha2-256",
+      "hmac-sha2-512",
+      "hmac-sha1"
+    ],
+    "description": "Ordered list of message authentication code algorithms, in preference order."
+  },
+  "compression": {
+    "type": "string",
+    "default": "no",
+    "description": "Compression mode: 'yes' (zlib) or 'no' (default).",
+    "enum": [
+      "yes",
+      "no"
+    ]
+  },
+  "forward_x11": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable X11 forwarding (for GUI applications over SSH)."
+  },
+  "forward_agent": {
+    "type": "bool",
+    "default": false,
+    "description": "Forward SSH authentication agent connection to the remote host."
+  },
+  "identity_files": {
+    "type": "list",
+    "default": [
+      "~/.ssh/id_rsa",
+      "~/.ssh/id_ecdsa",
+      "~/.ssh/id_ecdsa_sk",
+      "~/.ssh/id_ed25519",
+      "~/.ssh/id_ed25519_sk",
+      "~/.ssh/id_dsa"
+    ],
+    "description": "List of identity (private key) files to try when authenticating."
+  },
+  "default_user": {
+    "type": "string",
+    "default": "",
+    "description": "Default username to use when connecting without specifying one. Leave blank to require user specification."
+  },
+  "dynamic_forward_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Port to use for dynamic application-level port forwarding (SOCKS proxy). Set to 0 to disable."
+  },
+  "strict_host_key_checking": {
+    "type": "string",
+    "default": "ask",
+    "description": "Host key verification policy: 'yes' (reject unknown), 'no' (accept any), or 'ask' (prompt). Also supports 'accept-new'.",
+    "enum": [
+      "yes",
+      "accept-new",
+      "no",
+      "ask"
+    ]
+  },
+  "update_host_keys": {
+    "type": "string",
+    "default": "ask",
+    "description": "How to handle host key updates: 'yes', 'no', or 'ask'. Use 'ask' to preserve security while allowing operator review.",
+    "enum": [
+      "yes",
+      "no",
+      "ask"
+    ]
+  },
+  "server_alive_interval": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds between client-to-server keepalive messages to detect dead connections. Default is 0 (disabled)."
+  },
+  "server_alive_count_max": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of keepalive messages without response before terminating the connection."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of logging (e.g., INFO, DEBUG, VERBOSE). Use DEBUG for troubleshooting.",
+    "enum": [
+      "QUIET",
+      "FATAL",
+      "ERROR",
+      "INFO",
+      "VERBOSE",
+      "DEBUG",
+      "DEBUG1",
+      "DEBUG2",
+      "DEBUG3"
+    ]
+  },
+  "host_entries": {
+    "type": "list",
+    "default": [],
+    "description": "Per-host configuration blocks to override global defaults. Each entry defines settings for matching hosts."
+  }
+}

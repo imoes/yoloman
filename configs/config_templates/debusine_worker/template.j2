@@ -1,0 +1,54 @@
+# ==========================================
+# Debusine Worker Configuration Template
+# ==========================================
+# This file configures the Debusine Worker service.
+# It connects to the central Debusine server to pull work items.
+# ==========================================
+
+# Listen address for the worker's HTTP server.
+# This defines the IP address the worker's internal HTTP API binds to.
+# Use 127.0.0.1 for localhost-only access, or 0.0.0.0 to expose it on all interfaces.
+# Defaults to 127.0.0.1 for security.
+listen: {{ (listen_address | default('127.0.0.1')) }}:{{ (listen_port | default(8765)) }}
+
+# Path to the Unix domain socket used for local health checks and control commands.
+# This socket allows local services (like systemd health checks) to communicate with the worker.
+control_socket: {{ (control_socket_path | default('/run/debusine/worker.sock')) }}
+
+# Maximum number of work items the worker can process in parallel.
+# This controls the concurrency level of the worker. Adjust based on CPU and memory resources.
+max_concurrent_work: {{ (max_concurrent_work | default(4)) }}
+
+# Maximum seconds allowed per work item before it is forcibly terminated.
+# This acts as a timeout to prevent hung tasks from blocking the worker indefinitely.
+work_timeout: {{ (work_timeout | default(600)) }}
+
+# HTTP(S) URL of the Debusine server to register with and pull work from.
+# The worker connects to this URL to receive configuration and task assignments.
+server_url: {{ (server_url | default('http://localhost:8000')) }}
+
+# Secret token used to authenticate the worker with the server.
+# This token must match the token configured on the Debusine server side.
+# Leave empty if no authentication is required (not recommended for production).
+registration_token: "{{ (registration_token | default('')) }}"
+
+# Optional: Set custom worker labels (key-value pairs shown in the server UI).
+# These labels help identify the worker in the central dashboard.
+# Example: "role": "compute", "env": "production"
+{% if labels is defined and labels is iterable and (labels | length) > 0 %}
+# Worker Labels
+{% for label in labels %}
+labels:
+  {{ label.name }}: "{{ label.value }}"
+{% endfor %}
+{% else %}
+# No labels defined.
+{% endif %}
+
+# Optional: Enable verbose debug logging for troubleshooting.
+# Set to true to enable detailed debug output, which may impact performance.
+debug: {{ (debug | default(False) | lower) }}
+
+# Optional: Log format (json or text).
+# 'text' is human-readable; 'json' is structured and machine-parsable (e.g., for log aggregation).
+log_format: "{{ (log_format | default('text')) }}"

@@ -1,0 +1,91 @@
+# =============================================================================
+# Approx Configuration Template
+# =============================================================================
+# Approx is an HTTP proxy cache for Debian package repositories. It stores
+# downloaded .deb files locally to speed up subsequent installations across
+# multiple hosts.
+#
+# This file is managed by Ansible. Do not edit manually.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Repository Mapping
+# -----------------------------------------------------------------------------
+# Define which Debian repositories Approx should cache.
+# Format: <label> <URL>
+# Example: debian http://ftp.debian.org/debian
+# See https://www.debian.org/mirror/list for mirror sites.
+# Uncomment and configure your desired repositories below.
+#debian		http://ftp.debian.org/debian
+#debian-security	http://security.debian.org/debian-security
+
+# -----------------------------------------------------------------------------
+# General Cache Settings
+# -----------------------------------------------------------------------------
+
+# $cache: Top-level directory where Approx stores cached Debian packages.
+# The directory must exist and be writable by the approx user.
+$cache		{{ approx_cache_root | default('/var/cache/approx') }}
+
+# $interval: Interval (in seconds) between cache refresh attempts.
+# Approx will periodically check for updated package lists based on this value.
+$interval	{{ approx_interval | default(60) }}
+
+# $max_rate: Maximum download rate limit.
+# Accepts values like '100k', '1m', or 'unlimited'.
+# Prevents Approx from saturating the network link.
+$max_rate	{{ approx_max_rate | default('unlimited') }}
+
+# $max_redirects: Maximum number of HTTP redirects to follow.
+# Limits the chain of redirects to prevent infinite loops or excessive hops.
+$max_redirects {{ approx_max_redirects | default(5) }}
+
+# -----------------------------------------------------------------------------
+# User and Group Permissions
+# -----------------------------------------------------------------------------
+
+# $user: User account under which the Approx daemon runs.
+# Ensure this user has read/write access to $cache.
+$user		{{ approx_user | default('approx') }}
+
+# $group: Group account under which the Approx daemon runs.
+# Useful for granting group-based access to cache files.
+$group		{{ approx_group | default('approx') }}
+
+# -----------------------------------------------------------------------------
+# Logging Settings
+# -----------------------------------------------------------------------------
+
+# $syslog: Syslog facility to use for logging messages.
+# Common values: daemon, local0, local1, etc.
+$syslog	{{ approx_syslog | default('daemon') }}
+
+# $verbose: Enable verbose logging output.
+# Useful for debugging connection issues or cache misses.
+$verbose	{{ approx_verbose | default(False) }}
+
+# $debug: Enable debug-level logging.
+# Produces extensive output; use only for troubleshooting.
+$debug		{{ approx_debug | default(False) }}
+
+# -----------------------------------------------------------------------------
+# Operational Behavior
+# -----------------------------------------------------------------------------
+
+# $pdiffs: Use pdiffs (patch diffs) when available.
+# If True, Approx uses .pdiff files to update package lists incrementally,
+# saving bandwidth and time compared to full downloads.
+$pdiffs	{{ approx_pdiffs | default(True) }}
+
+# $offline: If true, do not attempt network access.
+# Approx will serve only cached data and refuse to fetch new content.
+# Useful for air-gapped or maintenance modes.
+$offline	{{ approx_offline | default(False) }}
+
+# $max_wait: Maximum time (in seconds) to wait for a file lock.
+# Prevents Approx from hanging indefinitely if another instance holds a lock.
+$max_wait	{{ approx_max_wait | default(10) }}
+
+# $curl_path: Path to the curl binary.
+# Approx uses curl to perform HTTP downloads. Must be an absolute path.
+$curl_path	{{ approx_curl_path | default('/usr/bin/curl') }}

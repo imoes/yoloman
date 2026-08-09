@@ -1,0 +1,73 @@
+{#
+  ============================================================================
+  array-info — Hardware Array Inspection Configuration
+  ============================================================================
+  This template generates the configuration file for the `array-info` utility,
+  which queries RAID controller and storage array status.
+
+  Each setting below corresponds to a schema field. If a variable is not
+  provided by Ansible, the default from the schema is used.
+
+  Boolean flags control which categories of information are included in the
+  output. Use `show_all` to enable everything, or toggle individual flags
+  for targeted output.
+  ============================================================================
+#}
+
+{#
+  device: Path to array device (e.g., /dev/ida/c0d0 or /dev/cciss/c0d1)
+#}
+{# Default is an empty string '' #}
+{% set _device = (config | default({})).device | default('') %}
+{% if _device %}
+device = {{ _device | string }}
+{% endif %}
+
+{#
+  show_ctrl: Enable output of controller information
+#}
+{% set _show_ctrl = (config | default({})).show_ctrl | default(False) | bool %}
+{% if _show_ctrl %}
+show_ctrl = true
+{% endif %}
+
+{#
+  show_status: Enable output of logical drive status
+#}
+{% set _show_status = (config | default({})).show_status | default(False) | bool %}
+{% if _show_status %}
+show_status = true
+{% endif %}
+
+{#
+  show_logical: Enable output of logical drive information
+#}
+{% set _show_logical = (config | default({})).show_logical | default(False) | bool %}
+{% if _show_logical %}
+show_logical = true
+{% endif %}
+
+{#
+  show_physical: Enable output of physical device information
+#}
+{% set _show_physical = (config | default({})).show_physical | default(False) | bool %}
+{% if _show_physical %}
+show_physical = true
+{% endif %}
+
+{#
+  show_all: Show all information
+#}
+{% set _show_all = (config | default({})).show_all | default(False) | bool %}
+{% if _show_all %}
+show_all = true
+{% endif %}
+
+{#
+  logical_drive: Index of logical drive to query (0-based)
+#}
+{# Default is 0 (integer) #}
+{% set _logical_drive = (config | default({})).logical_drive | default(0) %}
+{% if 'logical_drive' in (config | default({})) %}
+logical_drive = {{ _logical_drive | int }}
+{% endif %}

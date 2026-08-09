@@ -1,0 +1,55 @@
+# Ganeti Cluster Cron Configuration
+# This file configures the periodic tasks managed by the Ganeti cluster suite.
+# It is intended to be dropped into /etc/cron.d/ganeti or similar.
+
+# Ensure standard system paths are available for all cron jobs
+PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin
+
+# ==============================================================================
+# Upgrade Continuation Job
+# ==============================================================================
+# On system reboot, if a Ganeti cluster upgrade was interrupted, automatically
+# resume it to ensure the cluster remains in a valid state.
+# Note: This job runs as root and checks for the existence of the gnt-cluster binary.
+@reboot root [ -x /usr/sbin/gnt-cluster ] && /usr/sbin/gnt-cluster upgrade --resume
+
+# ==============================================================================
+# Ganeti Watcher Jobs
+# ==============================================================================
+# The ganeti-watcher daemon monitors the cluster for failed instances and node health.
+# Two schedules are provided: "non-strict" (more frequent) and "strict" (less frequent).
+
+# Non-strict Watcher Schedule
+# Runs {{ watcher_nonstrict_cron | default('5-25/5,35-55/5') }} to restart failed instances.
+# This mode is less rigorous but provides faster recovery for transient failures.
+# It verifies that the ganeti-watcher binary exists before executing.
+{% set wns = watcher_nonstrict_cron | default('5-25/5,35-55/5') %}
+{{ wns }} * * * * root [ -x /usr/sbin/ganeti-watcher ] && /usr/sbin/ganeti-watcher --no-strict
+
+# Strict Watcher Schedule
+# Runs {{ watcher_strict_cron | default('*/30') }} to restart failed instances in strict mode.
+# This mode performs more thorough checks and is typically used every 30 minutes.
+# It verifies that the ganeti-watcher binary exists before executing.
+{% set wss = watcher_strict_cron | default('*/30') %}
+{{ wss }} * * * * root [ -x /usr/sbin/ganeti-watcher ] && /usr/sbin/ganeti-watcher
+
+# ==============================================================================
+# Job Archive Cleaner Jobs
+# ==============================================================================
+# The ganeti-cleaner script periodically purges old job execution logs/archives
+# to prevent disk space exhaustion and maintain cluster performance.
+# Two schedules are provided: one for the master node and one for worker nodes.
+
+# Master Node Cleaner
+# Runs at {{ cleaner_master_time | default('45 1') }} (default: 01:45 AM).
+# Cleans the job archive for the Ganeti master daemon (gnt-masterd).
+# Verifies that the gnt-masterd binary (or context) and ganeti-cleaner exist.
+{% set cm = cleaner_master_time | default('45 1') %}
+{{ cm }} * * * gnt-masterd [ -x /usr/sbin/ganeti-cleaner ] && /usr/sbin/ganeti-cleaner master
+
+# Node Worker Cleaner
+# Runs at {{ cleaner_node_time | default('45 2') }} (default: 02:45 AM).
+# Cleans the job archive for Ganeti worker nodes.
+# Runs as root and verifies that the ganeti-cleaner binary exists.
+{% set cn = cleaner_node_time | default('45 2') %}
+{{ cn }} * * * root [ -x /usr/sbin/ganeti-cleaner ] && /usr/sbin/ganeti-cleaner node

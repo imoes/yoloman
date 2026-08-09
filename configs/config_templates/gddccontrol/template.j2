@@ -1,0 +1,96 @@
+# =============================================================================
+# gddccontrol Configuration Template
+# =============================================================================
+# This template generates the main configuration file for gddccontrol,
+# a daemon for controlling display settings via DDC/CI over I2C.
+# The generated file follows the INI-like format expected by gddccontrol.
+# All variables are provided with sensible defaults to ensure safe rendering
+# even if upstream Ansible variables are missing.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Settings
+# -----------------------------------------------------------------------------
+
+# Enable verbose debug logging for troubleshooting.
+# Enable only when diagnosing issues.
+# Default: False
+debug = {{ debug | default(False) | lower }}
+
+# Path to the log file. Must be writable by the gddccontrol service user.
+# Default: /var/log/gddccontrol/gddccontrol.log
+log_file = {{ log_file | default('/var/log/gddccontrol/gddccontrol.log') }}
+
+# Number of worker threads used for background polling of monitor status.
+# Adjust based on system load.
+# Default: 2
+worker_threads = {{ worker_threads | default(2) }}
+
+# Interval (in seconds) between automatic checks of monitor status and
+# compliance with configured settings.
+# Default: 5
+poll_interval = {{ poll_interval | default(5) }}
+
+# Timeout (in seconds) for I2C communication attempts.
+# Increase if you see frequent timeouts.
+# Default: 2
+i2c_timeout = {{ i2c_timeout | default(2) }}
+
+# Maximum number of retries for failed I2C operations before marking a
+# monitor as unreachable.
+# Default: 3
+i2c_retry_limit = {{ i2c_retry_limit | default(3) }}
+
+# -----------------------------------------------------------------------------
+# Monitor Definitions
+# -----------------------------------------------------------------------------
+# List of monitor configurations. Each entry defines a physical or virtual
+# monitor with its I2C address and settings.
+# Default: [] (empty list)
+#
+# Expected structure for each item in `monitors`:
+#   - name: (str) Identifier for the monitor section
+#   - i2c_addr: (str) I2C address (e.g., '0x37')
+#   - enabled: (bool) Whether this monitor is active
+#   - default_brightness: (int) Initial brightness level (0–100)
+#   - default_contrast: (int) Default contrast level (0–100)
+#   - restore_on_start: (bool) Whether to restore settings on startup
+{% for monitor in monitors | default([]) %}
+
+[{{ monitor.name | default('monitor_' + loop.index0 | string) }}]
+# I2C bus address for this monitor
+i2c_addr = {{ monitor.i2c_addr | default('0x37') }}
+# Enabled status (on/off)
+enabled = {{ monitor.enabled | default(true) | lower }}
+# Initial brightness level (0–100)
+default_brightness = {{ monitor.default_brightness | default(50) }}
+# Default contrast level (0–100)
+default_contrast = {{ monitor.default_contrast | default(50) }}
+# Whether to restore settings on startup
+restore_on_start = {{ monitor.restore_on_start | default(true) | lower }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Security & API Access
+# -----------------------------------------------------------------------------
+
+# Global whitelist of allowed user actions (empty = unrestricted).
+# List of system usernames allowed to control monitor settings via the API.
+# Empty list = unrestricted (not recommended in production).
+# Default: []
+{% set allowed = allowed_users | default([]) %}
+{% if allowed | length > 0 %}
+allowed_users = {{ allowed | join(', ') }}
+{% else %}
+allowed_users =
+{% endif %}
+
+# TCP port for the HTTP-based control API.
+# Must be free and accessible.
+# Default: 8080
+api_port = {{ api_port | default(8080) }}
+
+# Network interface to bind the API to.
+# Use '127.0.0.1' for localhost-only, '0.0.0.0' for all interfaces.
+# Default: 127.0.0.1
+api_host = {{ api_host | default('127.0.0.1') }}

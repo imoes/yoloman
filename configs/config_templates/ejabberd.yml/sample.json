@@ -1,0 +1,147 @@
+{
+  "listeners": [
+    {
+      "port": 5222,
+      "module": "ejabberd_c2s",
+      "ip": "0.0.0.0",
+      "starttls": true,
+      "tls_cert": "\"/etc/ejabberd/server.pem\"",
+      "access": "c2s",
+      "shaper": "c2s_shaper",
+      "protocol_options": [
+        "no_sslv3",
+        "no_tlsv1",
+        "no_tlsv1_1",
+        "high_cert_verification"
+      ]
+    },
+    {
+      "port": 5269,
+      "module": "ejabberd_s2s_in",
+      "ip": "0.0.0.0",
+      "access": "s2s",
+      "shaper": "s2s_shaper",
+      "comment": "Incoming server-to-server"
+    },
+    {
+      "port": 5443,
+      "module": "ejabberd_http",
+      "ip": "0.0.0.0",
+      "access": "admin",
+      "comment": "Admin web API"
+    }
+  ],
+  "log_path": "/var/log/ejabberd",
+  "log_level": "info",
+  "auth_method": "sql",
+  "sql": {
+    "type": "postgresql",
+    "server": "localhost",
+    "database": "ejabberd",
+    "username": "ejabberd",
+    "password": "secret",
+    "port": 5432,
+    "pool_size": 15,
+    "timeout": 30
+  },
+  "hosts": [
+    "example.com",
+    "chat.example.com"
+  ],
+  "modules": {
+    "muc": {
+      "language": "en",
+      "max_user_sessions": 10,
+      "muc_room_default_public": true,
+      "muc_room_default_persistent": true,
+      "muc_room_default_anonymous": true,
+      "max_stanza_size": 65536,
+      "comment": "Multi-User Chat"
+    },
+    "admin": {
+      "access": "admin",
+      "comment": "Admin commands"
+    },
+    "roster": {},
+    "private": {}
+  },
+  "cron_tasks": [
+    {
+      "schedule": "0 3 * * *",
+      "command": "\"ejabberdctl backup /var/lib/ejabberd/backup\"",
+      "comment": "Daily backup at 3 AM"
+    },
+    {
+      "schedule": "0 0 * * 0",
+      "command": "\"ejabberdctl clean_archives 30\"",
+      "comment": "Clean archived messages older than 30 days",
+      "user": "ejabberd"
+    }
+  ],
+  "shapers": {
+    "c2s_shaper": {
+      "max_rate": 1024
+    },
+    "s2s_shaper": {
+      "max_rate": 4096
+    },
+    "admin": {
+      "max_rate": 512
+    }
+  },
+  "acls": {
+    "admin": [
+      "user:admin@example.com",
+      "ip:127.0.0.1",
+      "ip:10.0.0.0/8"
+    ],
+    "loopback": [
+      "ip:127.0.0.0/8"
+    ]
+  },
+  "access": {
+    "c2s": [
+      "deny",
+      "allow"
+    ],
+    "admin": [
+      "allow:admin"
+    ],
+    "s2s": [
+      "allow:s2s"
+    ]
+  },
+  "admins": [
+    {
+      "user": "admin",
+      "ip": "127.0.0.1"
+    },
+    {
+      "user": "admin",
+      "ip": "10.0.0.0/8"
+    }
+  ],
+  "tcp_ports": [
+    5222,
+    5269,
+    5443,
+    5280
+  ],
+  "inet6": false,
+  "listen_ipv4": [],
+  "listen_ipv6": [],
+  "s2s_use_starttls": true,
+  "s2s_ports": [
+    5269
+  ],
+  "s2s_certfile": "\"/etc/ejabberd/server.pem\"",
+  "s2s_timeout": 45,
+  "dump_path": "/var/lib/ejabberd/dump",
+  "backup_path": "/var/lib/ejabberd/backup",
+  "default_tls_options": [
+    "no_sslv3",
+    "no_tlsv1",
+    "no_tlsv1_1",
+    "high_cert_verification"
+  ]
+}

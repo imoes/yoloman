@@ -1,0 +1,127 @@
+# clangd-19 configuration file
+# This YAML-style configuration is read by clangd when `--enable-config` is active.
+# Every field from the schema is explicitly documented and safe to override via Ansible variables.
+
+# Path to look for compile_commands.json. If empty, clangd searches current directory and parent paths.
+# Corresponds to: --compile-commands-dir
+compile_commands_dir: {{ compile_commands_dir | default('') | string }}
+
+# Comma-separated list of glob patterns for whitelisting gcc-compatible drivers to extract system includes.
+# Corresponds to: --query-driver
+{% set query_driver_list = query_driver | default([]) %}
+{% if query_driver_list is iterable and (query_driver_list is mapping or query_driver_list is string) is false %}
+query_driver:
+{% for pattern in query_driver_list %}
+- {{ pattern | string }}
+{% endfor %}
+{% elif query_driver_list is string and query_driver_list | trim | length > 0 %}
+# Comma-separated list of glob patterns for whitelisting gcc-compatible drivers to extract system includes.
+# Corresponds to: --query-driver
+query_driver: [{{ query_driver_list | string }}]
+{% endif %}
+
+# Include index symbols not defined in visible scopes for code completion.
+# Corresponds to: --all-scopes-completion
+all_scopes_completion: {{ all_scopes_completion | default(false) | lower }}
+
+# Index project code in the background and persist index on disk.
+# Corresponds to: --background-index
+background_index: {{ background_index | default(true) | lower }}
+
+# Thread priority for background index: background, low, or normal.
+# Corresponds to: --background-index-priority
+background_index_priority: {{ background_index_priority | default('background') | string }}
+
+# Enable clang-tidy diagnostics.
+# Corresponds to: --clang-tidy
+clang_tidy: {{ clang_tidy | default(false) | lower }}
+
+# Granularity of code completion: detailed or bundled.
+# Corresponds to: --completion-style
+completion_style: {{ completion_style | default('detailed') | string }}
+
+# Enable experimental support for C++ modules.
+# Corresponds to: --experimental-modules-support
+experimental_modules_support: {{ experimental_modules_support | default(false) | lower }}
+
+# clang-format style to apply by default when .clang-format is missing.
+# Corresponds to: --fallback-style
+fallback_style: {{ fallback_style | default('') | string }}
+
+# Include placeholders for function parameters in completions.
+# Corresponds to: --function-arg-placeholders
+function_arg_placeholders: {{ function_arg_placeholders | default(true) | lower }}
+
+# Include directive insertion policy: iwyu or never.
+# Corresponds to: --header-insertion
+header_insertion: {{ header_insertion | default('iwyu') | string }}
+
+# Prepend circular dot/space to indicate include insertion in completions.
+# Corresponds to: --header-insertion-decorators
+header_insertion_decorators: {{ header_insertion_decorators | default(true) | lower }}
+
+# Add #import directives for Objective-C when header insertion is enabled.
+# Corresponds to: --import-insertions
+import_insertions: {{ import_insertions | default(false) | lower }}
+
+# Maximum number of references returned (0 = no limit).
+# Corresponds to: --limit-references
+limit_references: {{ limit_references | default(1000) | int }}
+
+# Maximum number of results returned (0 = no limit).
+# Corresponds to: --limit-results
+limit_results: {{ limit_results | default(100) | int }}
+
+# Path to project root (requires remote_index_address).
+# Corresponds to: --project-root
+project_root: {{ project_root | default('') | string }}
+
+# Address of the remote index server (e.g., http://localhost:1234).
+# Corresponds to: --remote-index-address
+remote_index_address: {{ remote_index_address | default('') | string }}
+
+# Maximum files affected by symbol renaming (0 = no limit).
+# Corresponds to: --rename-file-limit
+rename_file_limit: {{ rename_file_limit | default(50) | int }}
+
+# Enable reading user and project configuration from YAML files.
+# Corresponds to: --enable-config
+enable_config: {{ enable_config | default(false) | lower }}
+
+# Number of async workers (0 = auto-detect). Corresponds to -j flag.
+# Corresponds to: --threads
+threads: {{ threads | default(0) | int }}
+
+# Release memory periodically via malloc_trim.
+# Corresponds to: --malloc-trim
+malloc_trim: {{ malloc_trim | default(false) | lower }}
+
+# PCH storage location: memory or disk.
+# Corresponds to: --pch-storage
+pch_storage: {{ pch_storage | default('memory') | string }}
+
+# Log verbosity: error, info, or verbose.
+# Corresponds to: --log
+log: {{ log | default('info') | string }}
+
+# Override offset encoding: utf-8, utf-16, or utf-32 (empty = auto-negotiate).
+# Corresponds to: --offset-encoding
+offset_encoding: {{ offset_encoding | default('') | string }}
+
+# List of <client>=<server> path translation pairs.
+# Corresponds to: --path-mappings
+{% set path_mappings_list = path_mappings | default([]) %}
+{% if path_mappings_list is iterable and (path_mappings_list is mapping or path_mappings_list is string) is false %}
+path_mappings:
+{% for mapping in path_mappings_list %}
+- {{ mapping | string }}
+{% endfor %}
+{% elif path_mappings_list is string and path_mappings_list | trim | length > 0 %}
+# List of <client>=<server> path translation pairs.
+# Corresponds to: --path-mappings
+path_mappings: [{{ path_mappings_list | string }}]
+{% endif %}
+
+# Pretty-print JSON output (for --check mode or stdin).
+# Corresponds to: --pretty
+pretty: {{ pretty | default(false) | lower }}

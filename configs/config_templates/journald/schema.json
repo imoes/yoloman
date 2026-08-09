@@ -1,0 +1,157 @@
+{
+  "storage_mode": {
+    "type": "string",
+    "default": "auto",
+    "description": "Journal storage mode \u2014 'auto', 'persistent', 'volatile', or 'none'. Choose 'persistent' to keep logs across reboots.",
+    "enum": [
+      "auto",
+      "persistent",
+      "volatile",
+      "none"
+    ]
+  },
+  "system_max_use": {
+    "type": "string",
+    "default": "10%",
+    "description": "Maximum disk space used by all journal files (e.g., '10%', '2G', '500M'). Defaults to 10% of filesystem size, capped at 4G."
+  },
+  "system_max_file_size": {
+    "type": "string",
+    "default": "100M",
+    "description": "Maximum size per system journal file before rotation."
+  },
+  "system_max_files": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of journal files per stream before rotation. Defaults to 100."
+  },
+  "max_file_sec": {
+    "type": "string",
+    "default": "1month",
+    "description": "Maximum age of individual journal files before rotation (duration, e.g., '7d', '1month'). Defaults to 1 month."
+  },
+  "max_retention_sec": {
+    "type": "string",
+    "default": "0",
+    "description": "How long journal entries are retained. Set to '0' to rely on disk usage limits."
+  },
+  "sync_interval_sec": {
+    "type": "string",
+    "default": "5m",
+    "description": "How often to sync journal metadata to disk (duration, e.g., '30s', '10m'). Defaults to 5 minutes."
+  },
+  "rate_limit_interval_sec": {
+    "type": "string",
+    "default": "30s",
+    "description": "Time window for rate-limiting (e.g., '10s', '1m')."
+  },
+  "rate_limit_burst": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum log messages allowed in the rate-limit interval. Defaults to 10000."
+  },
+  "remote_forward_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable forwarding to remote syslog (e.g., rsyslog) over the network."
+  },
+  "forward_to_kmsg": {
+    "type": "bool",
+    "default": false,
+    "description": "Forward journal entries to kernel ring buffer (dmesg)."
+  },
+  "forward_to_console": {
+    "type": "bool",
+    "default": false,
+    "description": "Forward journal entries to system consoles (not recommended \u2014 use with caution)."
+  },
+  "console_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum log level forwarded to consoles \u2014 'debug', 'info', 'notice', 'warning', 'err', 'crit', 'alert', 'emerg'. Defaults to 'info'. (Mapped to MaxLevelConsole=).",
+    "enum": [
+      "emerg",
+      "alert",
+      "crit",
+      "err",
+      "warning",
+      "notice",
+      "info",
+      "debug"
+    ]
+  },
+  "max_file_descriptors": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum file descriptors for journal clients (increase for many services)."
+  },
+  "extra_fields": {
+    "type": "list",
+    "default": [],
+    "description": "Additional static fields to include in all journal entries (e.g., environment tags). Note: 'ExtraFields' is a systemd 247+ feature. This config uses the legacy syntax style but maps to the documented 'Additional fields' concept if supported, or is kept as a placeholder for future compatibility. However, the man page does not explicitly list 'ExtraFields=' in the options section provided. It lists 'Fields' in some contexts but standard journald.conf does not have a simple 'ExtraFields' directive in older versions. In systemd 247+, `ExtraFields=` was added. We keep it as it is a documented feature in recent versions."
+  },
+  "use_wall_clock": {
+    "type": "bool",
+    "default": false,
+    "description": "Use wall-clock (real-time) timestamps instead of monotonic clock. Defaults to 'no' (monotonic)."
+  },
+  "runtime_state_dir": {
+    "type": "string",
+    "default": "/run/systemd/journal",
+    "description": "Directory for runtime journal state (e.g., sockets, headers)."
+  },
+  "buffer_size": {
+    "type": "string",
+    "default": "16M",
+    "description": "Size of in-memory journal buffer (e.g., '16M'). Defaults to 16M. (Mapped to BufferMax=)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum concurrent journal clients."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 128,
+    "description": "Maximum remote connections (syslog/journald forwarding)."
+  },
+  "hints": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable journal hints (for `journalctl` optimizations)."
+  },
+  "drop_in_dir": {
+    "type": "string",
+    "default": "/etc/systemd/journald.conf.d",
+    "description": "Directory for drop-in config fragments."
+  },
+  "read_kmsg": {
+    "type": "bool",
+    "default": true,
+    "description": "Read kernel messages from /dev/kmsg. Defaults to yes in the default namespace."
+  },
+  "audit": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable kernel auditing. Defaults to on."
+  },
+  "line_max": {
+    "type": "string",
+    "default": "48K",
+    "description": "Maximum line length to permit when converting stream logs into record logs. Defaults to 48K."
+  },
+  "compress": {
+    "type": "string",
+    "default": "lz4",
+    "description": "Compression algorithm or threshold. Takes a boolean value or a size threshold (e.g., 512, 1K, 1M). If enabled (default), data objects larger than 512 bytes are compressed."
+  },
+  "split_mode": {
+    "type": "string",
+    "default": "uid",
+    "description": "How to split journals: 'uid' (per user), 'none' (single journal). Defaults to 'uid'.",
+    "enum": [
+      "uid",
+      "none"
+    ]
+  }
+}

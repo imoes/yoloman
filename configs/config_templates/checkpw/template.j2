@@ -1,0 +1,41 @@
+# checkpw service configuration
+# Overrides environment variables and process state for checkpw(8).
+# This file is processed by the checkpw daemon to configure the
+# execution environment for the authentication-backed program.
+#
+# Reference: checkpw(8), sections 'Process-state changes' & 'The password database'
+
+# MAILDIR: Override $MAILDIR; path to Maildir directory containing .password
+# (e.g., /home/user/Maildir). If empty, the default Maildir location is used.
+MAILDIR={{ maildir | default('') }}
+
+# USER: Override $USER; system username whose home directory will be used
+# for .password lookup. If empty, the current user is assumed.
+USER={{ user | default('') }}
+
+# HOME: Override $HOME; explicit home directory path (e.g., /home/username).
+# This overrides the home directory determined by the user lookup.
+HOME={{ home | default('') }}
+
+# SHELL: Override $SHELL; shell to assign before invoking prog (e.g., /bin/sh).
+SHELL={{ shell | default('') }}
+
+# GROUPS: List of supplementary group names or IDs to assume before running prog.
+# Each group is set as a separate GROUP environment variable in the checkpw context.
+{% for g in (groups | default([])) %}
+GROUP={{ g }}
+{% endfor %}
+
+# GID: Override GID; primary group ID to assume.
+# Default is 0 (root).
+GID={{ gid | default(0) }}
+
+# UID: Override UID; user ID to assume.
+# Default is 0 (root).
+UID={{ uid | default(0) }}
+
+# WORKING_DIR: Working directory to set before invoking prog.
+WORKING_DIR={{ working_dir | default('') }}
+
+# PROG: Program and arguments (single string) to execute upon successful password check.
+PROG={{ prog | default('') }}

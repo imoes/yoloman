@@ -1,0 +1,91 @@
+# ==============================================================================
+# Bolt Daemon Configuration Template
+# ==============================================================================
+# This file configures the `bolt` daemon, which manages Thunderbolt device
+# authorization (security policy) on Linux systems. It handles device
+# authentication via D-Bus and persistent state storage.
+# ==============================================================================
+
+# --- Global Policy ---
+
+# Default policy for newly connected devices:
+# 'authorize' to allow, 'deny' to block, or 'unauthorize' to remove from authorization list.
+# See 'acl_policy' schema field.
+acl_policy = {{ acl_policy | default('deny') }}
+
+# Directory where Bolt stores persistent device authorization state.
+# The bolt daemon user must have write permissions here.
+# See 'state_dir' schema field.
+state_dir = {{ state_dir | default('/var/lib/bolt') }}
+
+# Maximum number of devices to track; older entries are pruned if exceeded.
+# This limits the size of the authorization state database.
+# See 'max_devices' schema field.
+max_devices = {{ max_devices | default(100) }}
+
+# Verbosity of the daemon log output.
+# Options: 'none', 'error', 'warn', 'info', 'debug'.
+# See 'log_level' schema field.
+log_level = {{ log_level | default('warn') }}
+
+# Seconds to wait for a device response before marking it disconnected.
+# Helps prevent hanging on unresponsive Thunderbolt devices.
+# See 'device_timeout' schema field.
+device_timeout = {{ device_timeout | default(15) }}
+
+# --- Automatic Authorization Settings ---
+
+# When enabled, automatically authorize devices that are cryptographically trusted.
+# This typically requires secure boot and signed kernel modules to function securely.
+# See 'auto_auth_trusted' schema field.
+auto_auth_trusted = {{ auto_auth_trusted | default(False) | lower }}
+
+# PCI BDF identifiers (e.g., '00:1f.0') of internal devices that should always
+# be auto-authenticated. This overrides normal user authorization for specific
+# hardware IDs to ensure critical components (like internal TB docks) work seamlessly.
+# See 'auto_auth_pci_bdfs' schema field.
+{% set pci_bdfs = auto_auth_pci_bdfs | default([]) %}
+{% if pci_bdfs | length > 0 %}
+auto_auth_pci = {{ pci_bdfs | join(', ') }}
+{% else %}
+# No PCI BDFs configured for unconditional auto-authentication
+auto_auth_pci =
+{% endif %}
+
+# --- Authentication & Access Control ---
+
+# System groups whose members may authorize/deny Thunderbolt devices via D-Bus.
+# By default, members of 'wheel' (or 'sudo') have this privilege.
+# See 'auth_groups' schema field.
+{% for group in auth_groups | default(['wheel']) %}
+auth_group = {{ group }}
+{% endfor %}
+
+# Additional individual users allowed to manage device authorization.
+# These users are granted management rights regardless of group membership
+# (if they are not already in the auth_groups).
+# See 'auth_users' schema field.
+{% for user in auth_users | default([]) %}
+auth_user = {{ user }}
+{% endfor %}
+
+# --- Advanced / Platform Specific ---
+
+# Optional path to custom udev rules directory.
+# If provided, the daemon will use rules from this directory instead of
+# the bundled ones. Leave empty to use the default bundled rules.
+# See 'udev_dir' schema field.
+{% set udev_path = udev_dir | default('') %}
+{% if udev_path and udev_path | trim | length > 0 %}
+udev_dir = {{ udev_path | trim }}
+{% endif %}
+
+# Enable fallback to legacy Thunderbolt enumeration.
+# Use this only on older platforms missing ACPI support for Thunderbolt.
+# See 'enable_legacy_enumeration' schema field.
+{% if enable_legacy_enumeration | default(False) | bool %}
+enable_legacy_enumeration = true
+{% else %}
+# Legacy enumeration is disabled (recommended for modern systems)
+enable_legacy_enumeration = false
+{% endif %}

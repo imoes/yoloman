@@ -1,0 +1,387 @@
+{
+  "worker_processes": {
+    "type": "string",
+    "default": "auto",
+    "description": "Number of worker processes (e.g., 'auto' or a number like '4')."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "/var/log/nginx/error.log warn",
+    "description": "Path and log level for error logging (e.g., '/var/log/nginx/error.log warn')."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/nginx.pid",
+    "description": "Path where NGINX will write its PID file."
+  },
+  "worker_connections": {
+    "type": "number",
+    "default": 768,
+    "description": "Maximum number of simultaneous connections per worker process."
+  },
+  "sendfile": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable or disable sendfile() for optimized static file delivery."
+  },
+  "tcp_nodelay": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TCP_NODELAY for keepalive connections (lowers latency)."
+  },
+  "tcp_nopush": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TCP_CORK-like behavior to send headers + first chunk together."
+  },
+  "keepalive_timeout": {
+    "type": "number",
+    "default": 65,
+    "description": "Timeout (seconds) for keepalive connections."
+  },
+  "client_body_buffer_size": {
+    "type": "string",
+    "default": "16k",
+    "description": "Buffer size for client request body before writing to temp file."
+  },
+  "client_header_buffer_size": {
+    "type": "string",
+    "default": "1k",
+    "description": "Buffer size for client request headers."
+  },
+  "large_client_header_buffers": {
+    "type": "string",
+    "default": "4 8k",
+    "description": "Max number and size of buffers for large client headers."
+  },
+  "log_format_custom": {
+    "type": "string",
+    "default": "",
+    "description": "Custom log format string (if left empty, uses built-in combined format)."
+  },
+  "gzip_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable gzip compression for responses."
+  },
+  "gzip_vary": {
+    "type": "boolean",
+    "default": true,
+    "description": "Add 'Vary: Accept-Encoding' header for proxies/caches."
+  },
+  "gzip_proxied": {
+    "type": "string",
+    "default": "any",
+    "description": "Conditions for compressing proxied requests (e.g., 'any', 'no_cache', 'expired').",
+    "enum": [
+      "off",
+      "any",
+      "auth"
+    ]
+  },
+  "gzip_comp_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Compression level (1\u20139). Higher = better compression but more CPU."
+  },
+  "gzip_min_length": {
+    "type": "number",
+    "default": 1000,
+    "description": "Minimum response size (bytes) to compress."
+  },
+  "gzip_types": {
+    "type": "list",
+    "default": [
+      "text/plain",
+      "text/css",
+      "application/json",
+      "application/javascript",
+      "text/xml",
+      "application/xml"
+    ],
+    "description": "MIME types to compress with gzip."
+  },
+  "fastcgi_buffering": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable/disable buffering for FastCGI responses (e.g., PHP)."
+  },
+  "fastcgi_buffers": {
+    "type": "string",
+    "default": "8 16k",
+    "description": "Number and size of buffers for FastCGI response."
+  },
+  "fastcgi_buffer_size": {
+    "type": "string",
+    "default": "32k",
+    "description": "Size of the buffer used to read the first part of the FastCGI response."
+  },
+  "upstreams": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream (backend) groups for load balancing.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "required": true,
+          "description": "Unique name for the upstream group (e.g., 'backend_api')."
+        },
+        "hash": {
+          "type": "string",
+          "default": "",
+          "description": "Hash directive (e.g., '$remote_addr' for consistent hashing)."
+        },
+        "ip_hash": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable IP-based session persistence for this upstream."
+        },
+        "keepalive": {
+          "type": "number",
+          "default": 0,
+          "description": "Number of keepalive connections to backends (requires NGINX Plus or 1.15+)."
+        },
+        "servers": {
+          "type": "list",
+          "required": true,
+          "description": "List of backend servers.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "address": {
+                "type": "string",
+                "required": true,
+                "description": "IP or hostname of the backend."
+              },
+              "port": {
+                "type": "number",
+                "default": 80,
+                "description": "Port number of the backend service."
+              },
+              "weight": {
+                "type": "number",
+                "default": 1,
+                "description": "Load balancing weight (higher = more traffic)."
+              },
+              "backup": {
+                "type": "boolean",
+                "default": false,
+                "description": "Mark server as backup (only used when others fail)."
+              },
+              "max_fails": {
+                "type": "number",
+                "default": 1,
+                "description": "Number of failed attempts before marking server as unavailable."
+              },
+              "fail_timeout": {
+                "type": "string",
+                "default": "10s",
+                "description": "Time window for max_fails and how long to mark server down."
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of HTTP server blocks (vhosts).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "listen": {
+          "type": "list",
+          "required": true,
+          "default": [
+            {
+              "address": "*",
+              "port": 80
+            }
+          ],
+          "description": "List of addresses and ports to listen on.",
+          "items": {
+            "type": "object",
+            "fields": {
+              "address": {
+                "type": "string",
+                "default": "*",
+                "description": "IP or wildcard '*' to bind to."
+              },
+              "port": {
+                "type": "number",
+                "default": 80,
+                "description": "Port number."
+              },
+              "ssl": {
+                "type": "boolean",
+                "default": false,
+                "description": "Enable TLS for this listener."
+              },
+              "http2": {
+                "type": "boolean",
+                "default": false,
+                "description": "Enable HTTP/2 for this listener (requires SSL)."
+              }
+            }
+          }
+        },
+        "name": {
+          "type": "list",
+          "required": true,
+          "default": [
+            "localhost"
+          ],
+          "description": "Server name(s) (FQDNs or wildcards like '*.example.com')."
+        },
+        "root": {
+          "type": "string",
+          "default": "",
+          "description": "Document root directory (for static serving)."
+        },
+        "ssl_enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable SSL for this server (requires cert files)."
+        },
+        "ssl_certificate": {
+          "type": "string",
+          "default": "",
+          "description": "Path to SSL certificate file."
+        },
+        "ssl_certificate_key": {
+          "type": "string",
+          "default": "",
+          "description": "Path to SSL private key file."
+        },
+        "ssl_protocols": {
+          "type": "list",
+          "default": [
+            "TLSv1.2",
+            "TLSv1.3"
+          ],
+          "description": "SSL/TLS protocols to allow."
+        },
+        "ssl_ciphers": {
+          "type": "list",
+          "default": [],
+          "description": "Allowed cipher suites (leave empty to use default)."
+        },
+        "ssl_prefer_server_ciphers": {
+          "type": "boolean",
+          "default": false,
+          "description": "Prefer server cipher order over client\u2019s (security best practice)."
+        },
+        "access_log": {
+          "type": "string",
+          "default": "",
+          "description": "Per-server access log path (optional; defaults to global)."
+        },
+        "error_log": {
+          "type": "string",
+          "default": "",
+          "description": "Per-server error log path (optional)."
+        },
+        "locations": {
+          "type": "list",
+          "required": true,
+          "default": [],
+          "description": "List of location blocks (URL path handlers).",
+          "items": {
+            "type": "object",
+            "fields": {
+              "path": {
+                "type": "string",
+                "required": true,
+                "description": "URL path (e.g., '/' or '/api/v1/')"
+              },
+              "root": {
+                "type": "string",
+                "default": "",
+                "description": "Override document root for this location (for static files)."
+              },
+              "alias": {
+                "type": "string",
+                "default": "",
+                "description": "Alias path (alternative to root; maps path to filesystem directory)."
+              },
+              "index": {
+                "type": "list",
+                "default": [
+                  "index.html"
+                ],
+                "description": "Default index files for directory requests."
+              },
+              "try_files": {
+                "type": "list",
+                "default": [],
+                "description": "Fallback chain for request handling (e.g., ['$uri', '$uri/', '=404'])."
+              },
+              "proxy_pass": {
+                "type": "string",
+                "default": "",
+                "description": "Name of upstream group to proxy to (e.g., 'backend_api')."
+              },
+              "proxy_timeout": {
+                "type": "string",
+                "default": "30s",
+                "description": "Timeout for proxy connection/send/read (used if proxy_pass set)."
+              },
+              "fastcgi_pass": {
+                "type": "string",
+                "default": "",
+                "description": "Path to FastCGI socket (e.g., '/run/php/php8.1-fpm.sock')."
+              },
+              "auth_basic": {
+                "type": "string",
+                "default": "",
+                "description": "Authentication realm (if set, triggers Basic Auth)."
+              },
+              "auth_basic_user_file": {
+                "type": "string",
+                "default": "",
+                "description": "Path to htpasswd file for Basic Auth."
+              },
+              "return": {
+                "type": "object",
+                "default": {},
+                "description": "Return static response (for redirects or errors).",
+                "fields": {
+                  "code": {},
+                  "type": "number",
+                  "required": true,
+                  "description": "HTTP status code (e.g., 301, 404)."
+                },
+                "body": {
+                  "type": "string",
+                  "default": "",
+                  "description": "Optional response body or URL (for redirects)."
+                }
+              },
+              "add_header": {
+                "type": "list",
+                "default": [],
+                "description": "Additional response headers.",
+                "items": {
+                  "type": "string",
+                  "fields": {},
+                  "name": {},
+                  "required": true,
+                  "description": "Header name (e.g., 'X-Frame-Options')."
+                },
+                "value": {
+                  "type": "string",
+                  "required": true,
+                  "description": "Header value (e.g., 'SAMEORIGIN')."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

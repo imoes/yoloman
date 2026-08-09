@@ -1,0 +1,186 @@
+# ==============================================================================
+# iSCSI Target (ISTGT) Configuration File
+# ==============================================================================
+# This file configures the ISTGT (iSCSI Target) daemon. It defines global
+# behavior, storage units (LUNs), network portals for initiator connections,
+# and authentication policies.
+#
+# Structure:
+#   [Global]       - Daemon-wide settings (logging, sockets, timeouts)
+#   [StorageUnitN] - Backing storage for LUNs
+#   [PortalN]      - Network interfaces and discovery settings
+#   [AuthGroupN]   - CHAP authentication credentials
+#   [LogicalUnitN] - Mapping of LUNs to targets, portals, and auth groups
+#   [Connection]   - Session-level parameters
+# ==============================================================================
+
+[# Global settings]
+[Global]
+# Logging level: Debug, Info, Notice, Warn, Error, Alert, Crit, Emerg
+# Controls the verbosity of logs emitted by the daemon.
+LogLevel = {{ log_level | default('Info') }}
+
+# PID file location
+# Path to the file where ISTGT writes its process ID for management.
+PIDFile = {{ pid_file | default('/var/run/istgt.pid') }}
+
+# Control socket path
+# Path to the UNIX domain socket used for remote administration commands.
+ControlSocket = {{ control_socket | default('/var/run/istgt.control') }}
+
+# Allow remote management
+# When true, the daemon listens on the ControlSocket for admin requests.
+AllowRemote = {{ allow_remote | default(true) | lower }}
+
+# Max number of simultaneous connections
+# Hard limit on the total number of active iSCSI connections across all targets.
+MaxConnections = {{ max_connections | default(256) }}
+
+# Timeout for I/O operations (seconds)
+# Maximum time to wait for a storage I/O operation to complete.
+# Increase this value for slow disks or high-latency network storage.
+IOTimeout = {{ io_timeout | default(30) }}
+
+# Preallocate memory for data buffers
+# When true, allocates memory buffers at startup. Improves latency but
+# consumes more RAM immediately.
+PreallocateMemory = {{ preallocate_memory | default(false) | lower }}
+
+
+[# Storage devices]
+# Defines the backing storage for iSCSI Logical Units.
+[StorageUnit1]
+# LUN0 Definition
+# Format: LUN<N> = Type,Path=<path>,BlockSize=<size>,ReadOnly=<true/false>
+# Only file paths or block devices are supported.
+# Default list provides one LUN with path, block_size, and read_only settings.
+LUN0 = Disk,Path={{ (luns | default([{'path': '/var/lib/istgt/vdisk0', 'block_size': 512, 'read_only': False}]))[0].path }},BlockSize={{ (luns | default([{'path': '/var/lib/istgt/vdisk0', 'block_size': 512, 'read_only': False}]))[0].block_size }},ReadOnly={{ (luns | default([{'path': '/var/lib/istgt/vdisk0', 'block_size': 512, 'read_only': False}]))[0].read_only | lower }}
+
+# Additional LUNs (LUN1, LUN2, ...)
+# If the 'luns' list contains more than one entry, these blocks are generated.
+{% for lun in (luns | default([{'path': '/var/lib/istgt/vdisk0', 'block_size': 512, 'read_only': False}]))[1:] %}
+LUN{{ loop.index }} = Disk,Path={{ lun.path }},BlockSize={{ lun.block_size }},ReadOnly={{ lun.read_only | lower }}
+{% endfor %}
+
+# Backend storage type
+# Specifies the underlying storage mechanism. 'Disk' indicates file or block device.
+StorageType = Disk
+
+# Device serial number
+# Unique identifier for this storage unit. Must be unique per LUN to avoid
+# initiator confusion during multipath or failover scenarios.
+Serial = {{ serial | default('ISTGT0001') }}
+
+# Vendor ID
+# Human-readable vendor string. Limited to 8 characters.
+Vendor = {{ vendor | default('ISTGT') }}
+
+# Product ID
+# Human-readable product string. Limited to 16 characters.
+Product = {{ product | default('iSCSI Target') }}
+
+# Product Revision
+# Version string for the product. Limited to 4 characters.
+Revision = {{ revision | default('0001') }}
+
+
+[# Network portals]
+# Defines the network endpoints (IP:port) where the target accepts connections.
+[Portal1]
+# Discovery setting
+# 'Yes' makes this portal visible in SendTargets discovery responses.
+# 'No' hides it (manual configuration required on initiators).
+# Default portal entry includes discovery setting.
+Discovery = {{ (portals | default([{'discovery': 'Yes'}]))[0].discovery | lower }}
+
+# Additional Portals
+# If 'portals' list has more entries, subsequent sections are created.
+{% for portal in (portals | default([{'discovery': 'Yes'}]))[1:] %}
+[Portal{{ loop.index + 1 }}]
+Discovery = {{ portal.discovery | lower }}
+{% endfor %}
+
+# Allowed Initiators
+# Comma-separated list of Initiator IQNs permitted to connect.
+# Empty means allow all initiators. Use '*' for wildcard (allow all).
+AllowInitiator = {{ (allowed_initiators | default([])) | join(', ') }}
+
+
+[# Authentication (optional)]
+# Defines CHAP (Challenge Handshake Authentication Protocol) credentials.
+[AuthGroup1]
+# Authentication Type
+# 'CHAP' enables mutual authentication using user/secret pairs.
+AuthType = CHAP
+
+# CHAP Credentials
+# Format: User = <username> <secret>
+# If auth_users is defined, these lines are emitted.
+{% if auth_users is defined and auth_users is iterable and auth_users | length > 0 %}User = {{ (auth_users | default([]))[0].user }} {{ (auth_users | default([]))[0].secret }}
+{% for u in (auth_users | default([]))[1:] %}User = {{ u.user }} {{ u.secret }}
+{% endfor %}
+{% endif %}
+
+
+[# Logical Unit to Portal mapping]
+# Maps the logical storage (LUNs) to the network portals and auth groups.
+[LogicalUnit1]
+# Logical Unit Number
+# Identifier for this LUN within the target context.
+LUN = 1
+
+# Target Name
+# Unique IQN identifying the iSCSI target. Must match the target defined
+# on the initiator side.
+TargetName = {{ target_name | default('iqn.2005-05.com.example:storage.target1') }}
+
+# Mapping to Storage
+# References the [StorageUnitN] block that provides the backing storage.
+Mapping = StorageUnit1
+
+# Authentication Group
+# References the [AuthGroupN] block containing CHAP credentials.
+# Empty string disables auth group association if none are needed.
+AuthGroup = AuthGroup1
+
+# Queue Depth
+# Maximum number of I/O operations queued per connection.
+# Increase for high-throughput workloads.
+QueueDepth = {{ queue_depth | default(32) }}
+
+# Data Digest
+# Algorithm used to verify data payload integrity.
+# Options: CRC32C, None.
+DataDigest = {{ data_digest | default('CRC32C') }}
+
+# Header Digest
+# Algorithm used to verify iSCSI header integrity.
+# Options: CRC32C, None.
+HeaderDigest = {{ header_digest | default('None') }}
+
+# Default Block Size
+# Fallback block size if the storage device cannot auto-detect it.
+# Typically 512 bytes, or 4096 for Advanced Format drives.
+DefaultBlockSize = {{ default_block_size | default(512) }}
+
+
+[# Additional settings (optional, rarely changed)]
+# Session-level parameters affecting login and connection behavior.
+[Connection]
+# Login Timeout
+# Maximum time (seconds) to wait for the iSCSI login sequence to complete.
+LoginTimeout = {{ login_timeout | default(30) }}
+
+# Max Connections Per Session
+# Maximum number of TCP connections allowed within a single iSCSI session.
+MaxConnectionsPerSession = {{ max_connections_per_session | default(2) }}
+
+# Send Target Name in Login Response
+# If true, includes the TargetName in the login response. Required for
+# most standard initiators.
+SendTargetName = {{ send_target_name | default(true) | lower }}
+
+# Suppress Target Name in Discovery
+# If true, omits the TargetName from SendTargets discovery responses.
+# Use only for advanced/custom initiator scenarios.
+SuppressTargetName = {{ suppress_target_name | default(false) | lower }}

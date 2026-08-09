@@ -1,0 +1,114 @@
+{
+  "options": {
+    "type": "object",
+    "default": {
+      "use_syslog": true,
+      "interface": "eth0",
+      "tcp_timeout": 10
+    },
+    "description": "Global options for knockd behavior",
+    "properties": {
+      "use_syslog": {
+        "type": "bool",
+        "default": true,
+        "description": "Log to syslog instead of stdout"
+      },
+      "interface": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Network interface to monitor for knock sequences"
+      },
+      "tcp_timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Time in seconds to wait for the next packet in a sequence before resetting"
+      }
+    }
+  },
+  "sequences": {
+    "type": "object",
+    "default": {
+      "open": [
+        {
+          "port": 7000,
+          "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
+        },
+        {
+          "port": 8000,
+          "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
+        }
+      ],
+      "close": [
+        {
+          "port": 8000,
+          "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
+        },
+        {
+          "port": 7000,
+          "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
+        }
+      ]
+    },
+    "description": "Knock sequences for opening and closing services",
+    "properties": {
+      "open": {
+        "type": "list",
+        "default": [
+          {
+            "port": 7000,
+            "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
+          },
+          {
+            "port": 8000,
+            "command": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
+          }
+        ],
+        "description": "Ordered list of knock ports and commands to run when the sequence is matched",
+        "items": {
+          "type": "object",
+          "properties": {
+            "port": {
+              "type": "number",
+              "default": 7000,
+              "description": "Port to knock (TCP or UDP)"
+            },
+            "command": {
+              "type": "string",
+              "default": "/usr/bin/iptables -I INPUT -s %IP% -p tcp --dport 22 -j ACCEPT",
+              "description": "Command to execute on knock match. %IP% is replaced with the client's IP."
+            }
+          }
+        }
+      },
+      "close": {
+        "type": "list",
+        "default": [
+          {
+            "port": 8000,
+            "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 80 -j ACCEPT"
+          },
+          {
+            "port": 7000,
+            "command": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 22 -j ACCEPT"
+          }
+        ],
+        "description": "Ordered list of knock ports and commands to run to reverse the open actions",
+        "items": {
+          "type": "object",
+          "properties": {
+            "port": {
+              "type": "number",
+              "default": 8000,
+              "description": "Port to knock (must match the corresponding open sequence port if reversal is expected)"
+            },
+            "command": {
+              "type": "string",
+              "default": "/usr/bin/iptables -D INPUT -s %IP% -p tcp --dport 80 -j ACCEPT",
+              "description": "Command to execute to remove the effect of the corresponding open action. %IP% is replaced with the client's IP."
+            }
+          }
+        }
+      }
+    }
+  }
+}

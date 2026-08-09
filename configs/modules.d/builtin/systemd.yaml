@@ -1,0 +1,54 @@
+name: systemd
+fqcn: builtin.systemd
+collection: builtin
+short_description: Manage a systemd unit's running state (start/stop/restart/reload)
+  and its enabled-at-boot state
+description: 'Manage a systemd unit''s running state (start/stop/restart/reload) and
+  its enabled-at-boot state. Idempotent: queries `systemctl is-active`/`is-enabled`
+  first and only issues a mutating systemctl command when the current state differs
+  from the desired one — except state=restarted/reloaded, which Ansible (and this
+  module) always treat as changed, since a restart is inherently an action rather
+  than a state comparison. Supports check_mode via dry_run=true (queries current state
+  but issues no systemctl mutation).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.systemd / ansible.builtin.systemd_service (systemd-specific),
+  or the generic ansible.builtin.service module (dispatches to systemd on modern Linux).
+  Same name/state/enabled parameter names and state vocabulary.
+
+  - Chef: the `service` resource — `action :start`/`:stop`/`:restart`/`:reload` for
+  running state, `action :enable`/`:disable` for boot state.
+
+  - Puppet: the `service` type — `ensure => running`/`stopped`, `enable => true/false`.
+
+  - Salt: the `service.running`/`service.dead` states, with `enable: true/false`.
+
+  - Terraform: not applicable — Terraform does not manage live service state on a
+  running host; this is normally done via a provisioner or left to configuration management
+  entirely.'
+options:
+  enabled:
+    type: bool
+    default: false
+    description: Whether the unit should start at boot. Omit to leave the current
+      enabled state untouched.
+  name:
+    type: string
+    description: Unit name, e.g. "nginx" or "nginx.service" (the .service suffix is
+      added automatically if omitted).
+    required: true
+  state:
+    type: string
+    choices:
+    - started
+    - stopped
+    - restarted
+    - reloaded
+    description: Desired running state. Omit to only manage "enabled" without touching
+      running state.
+native: true
+writes: true
+runtime: native
+source: agent-registry

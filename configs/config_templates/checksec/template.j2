@@ -1,0 +1,89 @@
+# ==============================================================================
+# checksec Configuration Template
+# ==============================================================================
+# This file configures the `checksec` utility, which scans executables and
+# running processes for security hardening features (ASLR, PIE, RELRO, FORTIFY_SOURCE, etc.).
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# output_format: Output format: cli (human-readable), csv, xml, or json.
+# NOTE: This option must go before any other options currently.
+# ------------------------------------------------------------------------------
+output_format: {{ output_format | default('cli') }}
+
+# ------------------------------------------------------------------------------
+# scan_dir: Directory to recursively scan for executable security features.
+# If empty, no directory scan is performed.
+# ------------------------------------------------------------------------------
+{% if scan_dir | default('') != '' %}
+scan_dir: {{ scan_dir | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# scan_file: Single file path to scan for security features.
+# If empty, no file scan is performed.
+# ------------------------------------------------------------------------------
+{% if scan_file | default('') != '' %}
+scan_file: {{ scan_file | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# proc_pid: Process ID to inspect for security features.
+# Set to 0 if not scanning a specific single process.
+# ------------------------------------------------------------------------------
+{% if proc_pid | default(0) != 0 %}
+proc_pid: {{ proc_pid | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# proc_all: If true, scan all running processes.
+# ------------------------------------------------------------------------------
+{% if proc_all | default(false) %}
+proc_all: true
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# proc_libs: Process ID to inspect all libraries of.
+# Set to 0 if not inspecting libraries of a specific process.
+# ------------------------------------------------------------------------------
+{% if proc_libs | default(0) != 0 %}
+proc_libs: {{ proc_libs | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# kernel_config: Path to kernel config file (empty = use running kernel).
+# Used to check kernel security settings compatibility.
+# ------------------------------------------------------------------------------
+{% if kernel_config | default('') != '' %}
+kernel_config: {{ kernel_config | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# fortify_file: Path to file to check for fortifiability.
+# Used to suggest FORTIFY_SOURCE flags for a binary.
+# ------------------------------------------------------------------------------
+{% if fortify_file | default('') != '' %}
+fortify_file: {{ fortify_file | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# fortify_proc: Process ID to check for fortifiability.
+# Used to suggest FORTIFY_SOURCE flags for a running process.
+# ------------------------------------------------------------------------------
+{% if fortify_proc | default(0) != 0 %}
+fortify_proc: {{ fortify_proc | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# debug: Enable debug output.
+# ------------------------------------------------------------------------------
+{% if debug | default(false) %}
+debug: true
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# update: Check source for a signed update and update the application if available.
+# ------------------------------------------------------------------------------
+{% if update | default(false) %}
+update: true
+{% endif %}

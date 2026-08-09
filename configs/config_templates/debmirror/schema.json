@@ -1,0 +1,144 @@
+{
+  "mirror_host": {
+    "type": "string",
+    "default": "ftp.debian.org",
+    "description": "Hostname of the upstream Debian mirror (e.g. ftp.de.debian.org, a local CDN entry point, or a Debian mirror list host)"
+  },
+  "remote_path": {
+    "type": "string",
+    "default": "/debian",
+    "description": "Absolute path on the remote mirror host that forms the root of the Debian archive (almost always /debian)"
+  },
+  "local_path": {
+    "type": "string",
+    "default": "/var/spool/debmirror",
+    "description": "Absolute path to the local directory that will hold the mirrored files; must have sufficient free space"
+  },
+  "arch": {
+    "type": "list",
+    "default": [
+      "amd64"
+    ],
+    "description": "CPU architectures to mirror; use 'all' to include architecture-independent packages",
+    "items": {
+      "type": "string",
+      "description": "Architecture name as used by Debian, e.g. amd64, i386, arm64, armhf"
+    }
+  },
+  "dist": {
+    "type": "list",
+    "default": [
+      "bookworm",
+      "bookworm-updates",
+      "bookworm-security"
+    ],
+    "description": "Distribution suites to mirror; combine stable codenames with their -updates and -security companions",
+    "items": {
+      "type": "string",
+      "description": "Suite name such as bookworm, stable, bullseye-updates, or buster-security"
+    }
+  },
+  "section": {
+    "type": "list",
+    "default": [
+      "main",
+      "contrib",
+      "non-free",
+      "non-free-firmware"
+    ],
+    "description": "Repository sections to include; non-free-firmware is required for most modern hardware drivers",
+    "items": {
+      "type": "string",
+      "description": "Section name: main, contrib, non-free, or non-free-firmware"
+    }
+  },
+  "proto": {
+    "type": "string",
+    "default": "http",
+    "description": "Transfer protocol: http (recommended for public mirrors), ftp, hftp, or rsync (fastest for sustained sync)",
+    "enum": [
+      "http",
+      "ftp",
+      "rsync"
+    ]
+  },
+  "passive": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable passive FTP mode; leave on unless the mirror server explicitly requires active mode"
+  },
+  "nosource": {
+    "type": "bool",
+    "default": false,
+    "description": "Omit source packages from the mirror; saves roughly 30-40% disk space but makes the mirror non-buildable"
+  },
+  "cleanup": {
+    "type": "bool",
+    "default": true,
+    "description": "Remove local files that have been removed from the upstream mirror after each successful run"
+  },
+  "i18n": {
+    "type": "bool",
+    "default": true,
+    "description": "Mirror Translation files so apt can display package descriptions in non-English locales"
+  },
+  "ignore_missing_info": {
+    "type": "bool",
+    "default": false,
+    "description": "Suppress fatal errors when package-info entries are absent; useful for partial or unofficial mirrors"
+  },
+  "diff_mode": {
+    "type": "string",
+    "default": "use",
+    "description": "Diff handling strategy: use = download and apply upstream diffs (least bandwidth), mirror = store diffs, generate = create diffs locally, none = always download full index files",
+    "enum": [
+      "use",
+      "mirror",
+      "none"
+    ]
+  },
+  "timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Seconds before a stalled network connection is abandoned; increase on slow or high-latency uplinks"
+  },
+  "retries": {
+    "type": "number",
+    "default": 5,
+    "description": "How many times debmirror will retry a failed file download before marking the run as failed"
+  },
+  "max_batch": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of package files downloaded in a single run; 0 means unlimited (mirror everything outstanding)"
+  },
+  "keyring": {
+    "type": "string",
+    "default": "/usr/share/keyrings/debian-archive-keyring.gpg",
+    "description": "Path to the GPG keyring file used to verify the cryptographic signature on Release files"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/debmirror.log",
+    "description": "Absolute path to the log file; set to an empty string to send log output to stdout (suitable for systemd units)"
+  },
+  "rsync_bwlimit": {
+    "type": "number",
+    "default": 0,
+    "description": "Bandwidth cap in KB/s passed to rsync via --bwlimit; 0 disables the cap; ignored when proto is not rsync"
+  },
+  "exclude": {
+    "type": "list",
+    "default": [],
+    "description": "Perl-compatible regex patterns matched against file paths relative to the mirror root; matching files are not downloaded",
+    "items": {
+      "type": "string",
+      "description": "Perl regex pattern, e.g. ~$ to skip editor backup files or \\.bz2$ to skip bzip2-compressed index variants"
+    }
+  },
+  "postscript": {
+    "type": "string",
+    "default": "",
+    "description": "Shell command or absolute script path executed once after each successful mirror run; leave empty to disable (useful for triggering apt-ftparchive or sending alerts)"
+  }
+}

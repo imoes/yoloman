@@ -1,0 +1,48 @@
+#!/bin/sh
+#
+# File: /etc/cron.daily/ftpmirror
+# Description: Cron script to save a log of ftpmirror tasks.
+# Author: Dario Minnucci <debian@midworld.net>
+# 
+
+CONFIG_DIR={{ config_dir }}
+LOG_FILE={{ log_file }}
+
+#
+# Don't run if this package is removed but not purged
+#
+if [ ! -f {{ ftpmirror_bin }} ]; then
+    exit 0
+fi
+
+
+#
+# Logging section
+#
+if [ -x {{ savelog_bin }} ]; then
+    savelog -c 7 -m 644 -u root -g root $LOG_FILE >/dev/null
+fi
+
+exec >$LOG_FILE 2>&1
+
+
+#
+# Get package list from /etc/ftpmirror/list.daily
+#
+PACKAGES=`cat ${CONFIG_DIR}/list.daily | grep -v '#'`
+
+for i in $PACKAGES; do
+
+    TIMESTAMP=`date +"%Y-%m-%d %H:%M:%S"`
+
+    echo ""
+    echo "---------------------------------------------------------"
+    echo " $TIMESTAMP - Package to process: $i"
+    echo "---------------------------------------------------------"
+
+    # Process parsed package
+    {{ ftpmirror_bin }} $i
+
+done
+
+exit 0

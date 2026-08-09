@@ -1,0 +1,254 @@
+{
+  "cluster_name": {
+    "type": "string",
+    "default": "mycluster",
+    "description": "The name of the cluster. Must be identical on all nodes."
+  },
+  "transport": {
+    "type": "string",
+    "default": "udpu",
+    "description": "The transport protocol: 'udpu' (unicast) or 'udpm' (multicast).",
+    "enum": [
+      "knet",
+      "udpu",
+      "udp"
+    ]
+  },
+  "nodes": {
+    "type": "list",
+    "default": [
+      {
+        "ring0_addr": "192.168.1.10",
+        "nodeid": 1
+      },
+      {
+        "ring0_addr": "192.168.1.11",
+        "nodeid": 2
+      }
+    ],
+    "description": "List of cluster nodes (required for udpu transport). Each node must have a ring0_addr and unique nodeid.",
+    "items": {
+      "ring0_addr": {
+        "type": "string",
+        "default": "",
+        "description": "IP address or hostname for this node's ring0 interface."
+      },
+      "nodeid": {
+        "type": "number",
+        "default": 1,
+        "description": "Unique integer node ID (1\u2013254)."
+      }
+    }
+  },
+  "totem": {
+    "type": "object",
+    "default": {
+      "token": 10000,
+      "token_retransmits_before_loss_const": 20,
+      "join": 50,
+      "consensus": 120,
+      "ipv6": false,
+      "version": 2,
+      "max_messages": 20,
+      "rrp_mode": "disabled"
+    },
+    "description": "Tight timing and protocol settings for the ring communication.",
+    "items": {
+      "token": {
+        "type": "number",
+        "default": 10000,
+        "description": "Time (ms) to wait for token before declaring a fault."
+      },
+      "token_retransmits_before_loss_const": {
+        "type": "number",
+        "default": 20,
+        "description": "Number of token retransmits before declaring token loss."
+      },
+      "join": {
+        "type": "number",
+        "default": 50,
+        "description": "Time (ms) to wait for a join message before declaring a new ring."
+      },
+      "consensus": {
+        "type": "number",
+        "default": 120,
+        "description": "Time (ms) to wait for consensus to be established."
+      },
+      "ipv6": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv6 ring communication."
+      },
+      "version": {
+        "type": "number",
+        "default": 2,
+        "description": "Protocol version (currently only 2 is supported)."
+      },
+      "max_messages": {
+        "type": "number",
+        "default": 20,
+        "description": "Maximum pending messages before blocking."
+      },
+      "rrp_mode": {
+        "type": "string",
+        "default": "disabled",
+        "description": "Redundant Ring Protocol mode: disabled, active, passive."
+      }
+    }
+  },
+  "interface": {
+    "type": "object",
+    "default": {
+      "ringnumber": 0,
+      "bindnetaddr": "192.168.1.0",
+      "mcastaddr": null,
+      "mcastport": 5405,
+      "ttl": 1,
+      "linktype": "eth"
+    },
+    "description": "Network interface settings for the primary ring.",
+    "items": {
+      "ringnumber": {
+        "type": "number",
+        "default": 0,
+        "description": "Ring number (0 = primary ring)."
+      },
+      "bindnetaddr": {
+        "type": "string",
+        "default": "",
+        "description": "Network address to bind to (e.g., 192.168.1.0 for 192.168.1.0/24)."
+      },
+      "mcastaddr": {
+        "type": "string",
+        "default": null,
+        "description": "Multicast address for ring traffic (required for udpm)."
+      },
+      "mcastport": {
+        "type": "number",
+        "default": 5405,
+        "description": "UDP port for multicast traffic."
+      },
+      "ttl": {
+        "type": "number",
+        "default": 1,
+        "description": "Time-to-live for multicast packets (1\u2013255)."
+      },
+      "linktype": {
+        "type": "string",
+        "default": "eth",
+        "description": "Link type: eth (IPv4/IPv6), ib (InfiniBand)."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "to_logfile": true,
+      "logfile": "/var/log/cluster/corosync.log",
+      "log_level": "info",
+      "log_timestamp": "none",
+      "to_syslog": true,
+      "syslog_facility": "daemon"
+    },
+    "description": "Logging configuration for Corosync.",
+    "items": {
+      "to_logfile": {
+        "type": "bool",
+        "default": true,
+        "description": "Log to a file."
+      },
+      "logfile": {
+        "type": "string",
+        "default": "/var/log/cluster/corosync.log",
+        "description": "Path to the log file (requires write permission)."
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "description": "Verbosity level: all, trace, debug, info, notice, warning, error, fatal."
+      },
+      "log_timestamp": {
+        "type": "string",
+        "default": "none",
+        "description": "Timestamp format: none, standard, full."
+      },
+      "to_syslog": {
+        "type": "bool",
+        "default": true,
+        "description": "Log to syslog."
+      },
+      "syslog_facility": {
+        "type": "string",
+        "default": "daemon",
+        "description": "Syslog facility (e.g., daemon, local0)."
+      }
+    }
+  },
+  "quorum_device": {
+    "type": "object",
+    "default": null,
+    "description": "Quorum device configuration (for split-brain avoidance). Leave null to disable.",
+    "items": {
+      "provider": {
+        "type": "string",
+        "default": "fencer",
+        "description": "Provider: 'fencer' (internal) or 'net' (external)."
+      },
+      "expected_votes": {
+        "type": "number",
+        "default": 1,
+        "description": "Expected votes from the quorum device (net provider)."
+      },
+      "two_node": {
+        "type": "bool",
+        "default": false,
+        "description": "Set to true for 2-node clusters using quorum device."
+      }
+    }
+  },
+  "service": {
+    "type": "object",
+    "default": {
+      "name": "pacemaker",
+      "ver": 1
+    },
+    "description": "Service to run inside the cluster stack (typically Pacemaker).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "pacemaker",
+        "description": "Service name (e.g., pacemaker, lms)."
+      },
+      "ver": {
+        "type": "number",
+        "default": 1,
+        "description": "Service interface version (1 for most current Pacemaker)."
+      }
+    }
+  },
+  "enable_pacemaker": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Pacemaker as an integrated service. If true, aisexec user/group must be set."
+  },
+  "aisexec": {
+    "type": "object",
+    "default": {
+      "user": "root",
+      "group": "root"
+    },
+    "description": "User and group under which Corosync runs services like Pacemaker (when integrated).",
+    "items": {
+      "user": {
+        "type": "string",
+        "default": "root",
+        "description": "User account for service execution."
+      },
+      "group": {
+        "type": "string",
+        "default": "root",
+        "description": "Group for service execution."
+      }
+    }
+  }
+}

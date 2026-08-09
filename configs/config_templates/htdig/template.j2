@@ -1,0 +1,26 @@
+#!/bin/sh
+
+if ! `which lockfile-create >/dev/null 2>&1` || [ ! -x /usr/bin/rundig ]; then
+	exit 0
+fi
+
+if ! lockfile-create {{ lockfile_path }}; then
+    # Another htdig indexing cronjob is already running
+    exit 0
+fi
+
+lockfile-touch {{ lockfile_path }} &
+# Save the PID of the lockfile-touch process
+BADGER="$!"
+
+if [ -r {{ default_config_file }} ]; then
+	if [ -f /usr/bin/rundig ]; then
+		RUN=$(awk '/^run_rundig/ {print $3}' {{ default_config_file }})
+		if [ "$RUN" = "true" ]; then
+			/usr/bin/rundig -a -s
+		fi
+	fi
+fi
+
+kill "${BADGER}" >/dev/null 2>&1
+lockfile-remove {{ lockfile_path }}

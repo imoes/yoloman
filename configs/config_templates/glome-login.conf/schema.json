@@ -1,0 +1,84 @@
+{
+  "listen_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address (IPv4 or IPv6) on which glome-login will listen for incoming connections."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 2235,
+    "description": "TCP port number on which glome-login will accept connections."
+  },
+  "use_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable TLS encryption for all client connections."
+  },
+  "tls_cert_chain": {
+    "type": "string",
+    "default": "/etc/ssl/glome-login/fullchain.pem",
+    "description": "Path to the TLS certificate chain file (server cert + intermediate certs)."
+  },
+  "tls_private_key": {
+    "type": "string",
+    "default": "/etc/ssl/glome-login/privkey.pem",
+    "description": "Path to the TLS private key file."
+  },
+  "tls_ca_bundle": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to the trusted CA certificate bundle used for client certificate verification (if mutual TLS is enabled)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 1024,
+    "description": "Maximum number of concurrent client connections the server will accept."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 3600,
+    "description": "Idle session timeout in seconds; sessions expire after this period of inactivity."
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle login/authentication requests concurrently."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Leave empty to log to stderr only."
+  },
+  "auth_providers": {
+    "type": "list",
+    "default": [],
+    "description": "List of authentication backend providers to use. Each provider defines a backend (e.g., LDAP, OAuth, local file).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this auth provider (e.g., 'ldap-main', 'oauth-github')."
+      },
+      "type": {
+        "type": "string",
+        "default": "local",
+        "description": "Provider type: 'local', 'ldap', 'oauth2', 'saml', etc."
+      },
+      "endpoint": {
+        "type": "string",
+        "default": "",
+        "description": "URL or URI for the provider endpoint (e.g., 'ldap://ldap.example.com:389', 'https://oauth.example.com')."
+      },
+      "options": {
+        "type": "object",
+        "default": {},
+        "description": "Additional key-value configuration options specific to the provider (e.g., bind_dn, client_id, timeout_ms)."
+      }
+    }
+  }
+}

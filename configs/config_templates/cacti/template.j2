@@ -1,0 +1,38 @@
+# Cron job configuration for Cacti
+# This file defines the system cron entry that executes the Cacti poller
+# and specifies where the cron daemon's standard output/error is mailed.
+
+# Email recipient for cron job output.
+# By default, the cron daemon mails output to 'root'. You can override
+# this to a specific admin address to ensure alerts are seen.
+# See: man 5 crontab section for MAILTO variable.
+MAILTO={{ mailto | default('root') }}
+
+# Cron entry to run the Cacti poller every 5 minutes.
+# The command runs the poller as the 'www-data' user (common web server user),
+# captures stderr, pipes it through a timestamp utility (if available) or tee,
+# and appends it to the poller error log file.
+#
+# Schedule: */5 * * * * (every 5 minutes)
+# Command explanation:
+#   php /usr/share/cacti/site/poller.php : Executes the Cacti PHP poller script.
+#   2>&1 : Redirects stderr to stdout so errors are captured.
+#   >/dev/null : Discards the normal stdout (poller output) to keep logs clean.
+#   | if [ -f /usr/bin/ts ] ... : Tries to use GNU `ts` for timestamps on the log lines.
+#   >> {{ poller_log_file | default('/var/log/cacti/poller-error.log') }} : Appends the result to the specified log file.
+*/5 * * * * www-data php /usr/share/cacti/site/poller.php 2>&1 >/dev/null | if [ -f /usr/bin/ts ] ; then ts ; else tee ; fi >> {{ poller_log_file | default('/var/log/cacti/poller-error.log') }}
+
+# ---------------------------------------------------------------------------
+# REMINDER: CSRF Key Refresh
+# ---------------------------------------------------------------------------
+# The following commented-out cron job is provided as an example to help
+# refresh Cacti's CSRF (Cross-Site Request Forgery) key regularly.
+#
+# WARNING: Refreshing the CSRF key invalidates existing user sessions.
+# This should ONLY be scheduled during non-production hours (e.g., weekends
+# or late night) and MUST be manually enabled by uncommenting the line.
+#
+# Schedule: 2:30 AM every Saturday
+# User: www-data
+# Command: /usr/share/cacti/cli/refresh_csrf.php
+#30 2 * * sat www-data /usr/share/cacti/cli/refresh_csrf.php

@@ -1,0 +1,122 @@
+# Lightsquid configuration file
+# Main configuration for Lightsquid HTTP traffic log analyzer
+#
+# This template is self-documenting. Every directive is preceded by a comment
+# describing its purpose, derived from the schema. All variable references use
+# Jinja2's `default` filter to ensure safe rendering even if the variable is
+# undefined in the Ansible playbook.
+
+[global]
+
+# Directory containing raw Squid-style access logs to analyze.
+log_dir = {{ log_dir | default('/var/log/squid') }}
+
+# Directory where generated HTML reports and cached data will be stored.
+report_dir = {{ report_dir | default('/var/lib/lightsquid/report') }}
+
+# Public-facing base URL for the web report interface.
+base_url = {{ base_url | default('http://localhost/lightsquid') }}
+
+# PHP-compatible timezone string for time-based reports.
+timezone = {{ timezone | default('UTC') }}
+
+# Language code for report UI and titles; must match a locale file in 'lang/' directory.
+lang = {{ lang | default('en') }}
+
+# Enable detailed per-user breakdown in reports (e.g., hits, bytes, time ranges).
+user_detail = {{ user_detail | default(True) | lower }}
+
+# Enable detailed per-URL (path-level) breakdown (may increase report size).
+url_detail = {{ url_detail | default(False) | lower }}
+
+# Enable per-MIME-type/extension breakdown (e.g., text/html, image/png).
+ext_detail = {{ ext_detail | default(False) | lower }}
+
+# Enable per-user bandwidth summary (in MB) in reports.
+user_bandwidth = {{ user_bandwidth | default(True) | lower }}
+
+# Enable per-site (domain) bandwidth summary (in MB).
+site_bandwidth = {{ site_bandwidth | default(False) | lower }}
+
+# Enable time-based reports: daily, weekly, monthly averages and trends.
+time_report = {{ time_report | default(True) | lower }}
+
+# Maximum number of days of historical per-day report data to retain; 0 = keep all.
+max_days = {{ max_days | default(90) }}
+
+# Format of input log files: 'squid' (default), 'apache', 'combined', or 'custom'.
+log_format = {{ log_format | default('squid') }}
+
+# Custom log format string (only used when log_format=custom). Must match Squid/HTTP log tokens.
+custom_log_format = {{ custom_log_format | default('') }}
+
+# Explicit path to access log file(s); supports wildcards (e.g., '/var/log/squid/access.log*').
+# Leave empty for auto-discovery under log_dir.
+access_log_path = {{ access_log_path | default('') }}
+
+# If true, skip malformed log lines instead of stopping the parser.
+ignore_errors = {{ ignore_errors | default(True) | lower }}
+
+# Maximum seconds to wait for database lock (SQLite/MySQL).
+db_timeout = {{ db_timeout | default(30) }}
+
+# Log internal messages to syslog in addition to stderr.
+syslog = {{ syslog | default(False) | lower }}
+
+[database]
+
+# Database backend: 'sqlite' (lightweight) or 'mysql' (multi-user).
+type = {{ db_type | default('sqlite') }}
+
+# Path to SQLite database file (used only if db_type=sqlite).
+db_path = {{ db_path | default('/var/lib/lightsquid/lightsquid.db') }}
+
+# Database host (used only if db_type=mysql).
+host = {{ db_host | default('localhost') }}
+
+# Database port (used only if db_type=mysql).
+port = {{ db_port | default(3306) }}
+
+# Database name (used only if db_type=mysql).
+name = {{ db_name | default('lightsquid') }}
+
+# Database username (used only if db_type=mysql).
+user = {{ db_user | default('lightsquid') }}
+
+# Database password (used only if db_type=mysql). Leave empty for no password.
+password = {{ db_password | default('') }}
+
+[web]
+
+# Enable built-in simple HTTP server for report access (use only for local dev or testing).
+enable = {{ web_enable | default(False) | lower }}
+
+# IP address to bind the built-in web server to (0.0.0.0 for all interfaces).
+bind_ip = {{ web_bind_ip | default('127.0.0.1') }}
+
+# TCP port for the built-in web server.
+port = {{ web_port | default(8080) }}
+
+# Path to Lightsquid's web asset directory (HTML, CSS, images). Usually auto-detected.
+web_root = {{ web_root | default('/usr/share/lightsquid') }}
+
+# Enable HTTP basic authentication for the built-in web server.
+auth_enabled = {{ web_auth_enabled | default(False) | lower }}
+
+# Path to htpasswd file for basic auth credentials (only used if web_auth_enabled=true).
+htpasswd_file = {{ web_htpasswd_file | default('/etc/lightsquid/htpasswd') }}
+
+[plugins]
+
+# List of plugin names to enable (e.g., 'top_user', 'top_site').
+# Rendered as a comma-separated list.
+declare = {{ plugins | default([]) | join(', ') }}
+
+{% for plugin in plugins_config | default([]) %}
+# Plugin: {{ plugin.name }}
+# Per-plugin configuration object from plugins_config list.
+[plugin:{{ plugin.name }}]
+{% for key, value in plugin.options | default({}) | dict2items %}
+{{ key.key }} = {{ value.value }}
+{% endfor %}
+{% endfor %}

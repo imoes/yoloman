@@ -1,0 +1,20 @@
+# FUSE3 Configuration Template (/etc/fuse.conf)
+# This template configures the Linux FUSE (Filesystem in Userspace) subsystem.
+# It manages two main parameters: user access to the 'allow_other' mount option
+# and the maximum number of concurrent FUSE mounts.
+
+# user_allow_other - Whether to enable non-root users to use the 'allow_other' mount option.
+# When true, the line 'user_allow_other' is uncommented, allowing non-root users
+# to mount filesystems that are accessible by users other than the mount owner.
+# This is required when using 'allow_other' with a non-root user's mount point.
+{% if user_allow_other | default(False) | bool %}
+user_allow_other
+{% else %}
+#user_allow_other
+{% endif %}
+
+# mount_max - Maximum number of FUSE mounts allowed.
+# This option sets the hard limit for the number of FUSE filesystem instances
+# that can be mounted system-wide. It must be typed exactly as shown (with
+# single spaces before and after the equals sign).
+mount_max = {{ mount_max | default(1000) }}

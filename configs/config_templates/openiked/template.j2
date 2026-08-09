@@ -1,0 +1,115 @@
+#!/usr/bin/env /lib/init/init-d-script
+# Copyright (C) 2021 Ryan Kavanagh <rak@debian.org>
+### BEGIN INIT INFO
+# Provides:          openiked
+# Required-Start:    $local_fs $remote_fs $syslog $network
+# Required-Stop:     $local_fs $remote_fs $syslog $network
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
+# Short-Description: Internet Key Exchange (IKEv2) daemon
+# Description:       OpenIKED configuration generator
+### END INIT INFO
+
+NAME=openiked
+DAEMON=/usr/sbin/iked
+PIDFILE=/var/run/openiked.pid
+
+# =============================================================================
+# IKEv2 Global Authentication Settings
+# =============================================================================
+
+# Enable global Pre-Shared Key (PSK) authentication.
+# If true, PSK secrets must be provided either globally or per-peer.
+ikev2_psk_enabled: {{ ikev2_psk_enabled | default(false) | lower }}
+
+# Shared secret for PSK authentication. Required if PSK is enabled globally.
+# Ensure this secret is strong and stored securely.
+psk_secret: {{ psk_secret | default('') | string }}
+
+# Enable certificate-based authentication.
+# If true, certificates must be configured for local and CA validation.
+ikev2_cert_enabled: {{ ikev2_cert_enabled | default(false) | lower }}
+
+# Path to the local IKE certificate (PEM format).
+# Used when certificate authentication is enabled.
+local_cert_path: {{ local_cert_path | default('/etc/ssl/iked/local-cert.pem') | string }}
+
+# Path to the local private key associated with the local certificate.
+# Optional if the key is embedded in the certificate file.
+local_key_path: {{ local_key_path | default('/etc/ssl/iked/local-key.pem') | string }}
+
+# Path to the CA certificate used to verify peer certificates.
+# Used when certificate authentication is enabled to validate peers.
+ca_cert_path: {{ ca_cert_path | default('/etc/ssl/iked/ca-cert.pem') | string }}
+
+# =============================================================================
+# Dead Peer Detection (DPD) Settings
+# =============================================================================
+
+# Enable Dead Peer Detection (DPD) to detect failed peers.
+# DPD sends keepalive probes to ensure the peer is still alive.
+ikev2_dpd_enabled: {{ ikev2_dpd_enabled | default(true) | lower }}
+
+# Interval (in seconds) between DPD checks.
+dpd_delay: {{ dpd_delay | default(10) }}
+
+# Number of failed DPD probes before the peer is declared dead.
+dpd_maxfail: {{ dpd_maxfail | default(5) }}
+
+# =============================================================================
+# Logging and Debugging
+# =============================================================================
+
+# Logging verbosity level (e.g., info, debug, error).
+log_level: {{ log_level | default('info') | string }}
+
+# Enable verbose debugging output (use only when troubleshooting).
+ikev2_debug: {{ ikev2_debug | default(false) | lower }}
+
+# =============================================================================
+# Peer Configurations
+# =============================================================================
+
+{% for peer in (peers | default([])) %}
+peer {{ (peer | default({})).name | default('unnamed') }} {
+  # Remote address or hostname of the peer.
+  remote {{ (peer | default({})).remote_addr | default('') | string }}
+
+  # Local address or interface to use for this peer.
+  local {{ (peer | default({})).local_addr | default('') | string }}
+
+  # Authentication method for this peer.
+  {% if (peer | default({})).auth_method | default('psk') == 'psk' %}
+  # Peer uses Pre-Shared Key authentication.
+  psk-secret {{ (peer | default({})).psk_secret | default('') | string }}
+  {% elif (peer | default({})).auth_method | default('psk') == 'cert' %}
+  # Peer uses Certificate-based authentication.
+  # Use peer-specific cert paths if defined, otherwise fall back to global defaults.
+  certificate {{ ((peer | default({})).local_cert_path | default(local_cert_path | default('/etc/ssl/iked/local-cert.pem'))) | string }}
+  ca-certificate {{ ((peer | default({})).ca_cert_path | default(ca_cert_path | default('/etc/ssl/iked/ca-cert.pem'))) | string }}
+  {% else %}
+  # Fallback authentication (if auth_method is undefined or unknown).
+  {% endif %}
+
+  # Peer-specific DPD overrides.
+  # If the peer defines dpd_delay, use it; otherwise use global default.
+  {% set _dpd_delay = ((peer | default({})).dpd_delay | default(dpd_delay | default(10))) %}
+  dpd-delay {{ _dpd_delay }}
+
+  # If the peer defines dpd_maxfail, use it; otherwise use global default.
+  {% set _dpd_maxfail = ((peer | default({})).dpd_maxfail | default(dpd_maxfail | default(5))) %}
+  dpd-maxfail {{ _dpd_maxfail }}
+}
+{% endfor %}
+
+# =============================================================================
+# Service Management Functions
+# =============================================================================
+
+do_reload()
+{
+  log_daemon_msg "Reloading $DESC configuration files" "$NAME"
+  /usr/sbin/ikectl reload
+  log_end_msg $?
+}
+# vim:set sw=2:

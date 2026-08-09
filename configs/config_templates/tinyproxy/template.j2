@@ -1,0 +1,81 @@
+# =============================================================================
+# TinyProxy Configuration
+# =============================================================================
+# This file configures TinyProxy, a light-weight HTTP/HTTPS proxy daemon.
+# Directives are commented with their source schema descriptions and defaults.
+# =============================================================================
+
+# IP address TinyProxy binds to. Use 0.0.0.0 to listen on all interfaces (not recommended for public exposure).
+Bind {{ (listen_ip | default('127.0.0.1')) }}
+
+# TCP port for incoming proxy requests.
+Port {{ (port | default(8888)) }}
+
+# Optional hostname override. If empty, system hostname is used.
+{% if (hostname | default('')) != '' %}
+Hostname {{ (hostname | default('')) }}
+{% endif %}
+
+# Logging verbosity. 'Info' or 'Notice' recommended for production.
+Loglevel {{ (log_level | default('Info')) }}
+
+# Path to log file. Use '/dev/stdout' to log to standard output (e.g., systemd).
+Logfile {{ (log_file | default('/var/log/tinyproxy/tinyproxy.log')) }}
+
+# Maximum concurrent client connections. Increase for high-traffic deployments.
+MaxClients {{ (max_clients | default(100)) }}
+
+# Minimum idle child processes to keep ready for new requests.
+MinSpareServers {{ (min_spare_servers | default(1)) }}
+
+# Maximum idle child processes before terminating some.
+MaxSpareServers {{ (max_spare_servers | default(5)) }}
+
+# Number of child processes to spawn at startup.
+StartServers {{ (start_servers | default(3)) }}
+
+# Connection and request timeout in seconds. 600 = 10 minutes.
+Timeout {{ (timeout | default(600)) }}
+
+# Enable reverse proxy mode (not typical for general-purpose proxy servers).
+{% if (reverse_proxy | default(False)) %}
+ReverseOnly yes
+{% endif %}
+
+# Run in transparent mode — does not add Via header. Use only for local network transparency.
+{% if (transparent | default(False)) %}
+Transparent yes
+{% endif %}
+
+# List of IP access control rules. Order matters: first match wins.
+# Format: Allow <source> or Deny <source>
+{% for rule in (access_rules | default([{'type': 'allow', 'source': '127.0.0.1'}, {'type': 'deny', 'source': 'all'}])) %}
+{% if (rule.type | default('allow')) == 'allow' %}
+Allow {{ (rule.source | default('all')) }}
+{% elif (rule.type | default('allow')) == 'deny' %}
+Deny {{ (rule.source | default('all')) }}
+{% endif %}
+{% endfor %}
+
+# Enable basic HTTP authentication. If true, TinyProxy will require username/password in requests.
+# Note: Actual credentials must be managed via PAM or similar if enabled,
+# as TinyProxy does not store passwords in this config file directly.
+{% if (auth_enabled | default(False)) %}
+ProxyAuthentication yes
+{% endif %}
+
+# Chain proxy configuration. Useful if upstream network requires a proxy.
+# Format: Upstream http://user:pass@host:port /path
+{% for proxy in (upstream_proxies | default([])) %}
+Upstream {{ proxy }}
+{% endfor %}
+
+# Domains or IPs to bypass the proxy and connect directly to.
+{% for host_entry in (no_proxy | default(['localhost', '127.0.0.1'])) %}
+NoProxy {{ host_entry }}
+{% endfor %}
+
+# Custom User-Agent header. Empty uses TinyProxy default (e.g., 'TinyProxy/1.10.0').
+{% if (user_agent | default('')) != '' %}
+UserAgent {{ (user_agent | default('')) }}
+{% endif %}

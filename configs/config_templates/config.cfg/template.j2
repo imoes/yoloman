@@ -1,0 +1,128 @@
+[server]
+# Server IP address to bind to. Use '0.0.0.0' to listen on all interfaces.
+host = "{{ host | default('0.0.0.0') }}"
+
+# Main UDP port for client connections. Standard for Quake III Arena-compatible servers.
+port = {{ port | default(27910) }}
+
+# Maximum number of player slots (including spectators).
+maxclients = {{ maxclients | default(12) }}
+
+# Default map to load on server startup.
+map = "{{ map | default('q3dm0') }}"
+
+# Run as a dedicated server (no local console or graphics).
+dedicated = {{ dedicated | default(True) | lower }}
+
+[net]
+# Network interface or IP to bind to for game traffic. Use '0.0.0.0' for all interfaces.
+bind = "{{ bind | default('0.0.0.0') }}"
+
+# UDP port for client connections (must match main 'port' unless using a proxy or relay).
+net_port = {{ net_port | default(27910) }}
+
+# Maximum network bandwidth per client (in bytes/sec). Adjust for dialup or high-latency clients.
+maxrate = {{ maxrate | default(25000) }}
+
+[rcon]
+# Password for remote console (RCON). Leave blank to disable RCON. Use strong passwords.
+password = "{{ rcon_password | default('') }}"
+
+# IP address to bind RCON to. Use '0.0.0.0' for remote access (not recommended for security).
+address = "{{ rcon_address | default('127.0.0.1') }}"
+
+# Port for RCON connections.
+port = {{ rcon_port | default(27911) }}
+
+# Enable TCP-based RCON. Use only with TLS/proxy for production.
+enable_tcp = {{ rcon_tcp_enabled | default(False) | lower }}
+
+[game]
+# Game mode: 'dm' (Deathmatch), 'tdm' (Team Deathmatch), 'ctf' (Capture the Flag).
+game_type = "{{ game_type | default('dm') }}"
+
+# Match time limit in minutes. 0 means no time limit (frag-based only).
+timelimit = {{ timelimit | default(20) }}
+
+# Match frag limit. 0 disables frag-based ending (use timelimit or roundlimit).
+fraglimit = {{ fraglimit | default(0) }}
+
+# Match round limit. 0 disables round-based ending.
+roundlimit = {{ roundlimit | default(0) }}
+
+# Allow team members to damage each other.
+friendlyfire = {{ friendlyfire | default(False) | lower }}
+
+# Automatically balance teams based on player counts.
+teambalance = {{ teambalance | default(True) | lower }}
+
+# Minimum players required to start a match (0 = start anytime).
+minplayers = {{ minplayers | default(0) }}
+
+# Server name displayed in the server browser and console.
+hostname = "{{ hostname | default('mvdsv Server') }}"
+
+# Server website URL shown in server browser. Include http(s):// prefix.
+url = "{{ url | default('') }}"
+
+# Logging verbosity: 0=silent, 1=error, 2=warn, 3=info, 4=debug. Recommend 3 for production.
+loglevel = {{ loglevel | default(3) }}
+
+[sv]
+# Allow clients to download custom models/sounds/maps from this server.
+allow_download = {{ allow_download | default(True) | lower }}
+
+# Path (relative to base directory) where custom player models are stored.
+modelpath = "{{ modelpath | default('custom') }}"
+
+# Path (relative to base directory) for custom sounds.
+soundpath = "{{ soundpath | default('custom') }}"
+
+# Path (relative to base directory) where custom maps are stored.
+mappath = "{{ mappath | default('maps') }}"
+
+# Allow server pause in dedicated mode (only with -pause flag or RCON).
+pausable = {{ sv_pausable | default(False) | lower }}
+
+# Enable anti-lag compensation (unlag) for fair play.
+unlag = {{ sv_unlag | default(True) | lower }}
+
+# Maximum time window (in seconds) for unlag prediction. Lower for low-latency networks.
+unlag_lagtime = {{ sv_unlag_lagtime | default(0.1) }}
+
+[log]
+# Enable logging to a file (see logfile setting).
+file_logging = {{ log_file_enabled | default(True) | lower }}
+
+# Path to the server log file.
+logfile = "{{ log_filepath | default('/var/log/mvdsv/server.log') }}"
+
+# Maximum size (in bytes) before log rotation. 0 disables rotation.
+max_log_size = {{ log_max_size | default(10485760) }}
+
+# Number of rotated log files to retain.
+max_log_files = {{ log_max_files | default(5) }}
+
+# Output logs to console/stdout.
+console_logging = {{ log_console_enabled | default(True) | lower }}
+
+[plugins]
+# List of plugins to load on startup.
+{% for plugin in (plugins | default([])) %}
+# Load plugin: {{ plugin.name }}
+{{ plugin.name | replace('.', '_') }} = "{{ plugin.path }}"
+{% if plugin.options is defined and plugin.options %}
+# Plugin options: {{ plugin.options | tojson }}
+{{ plugin.name | replace('.', '_') }}_options = "{{ plugin.options | tojson }}"
+{% endif %}
+{% endfor %}
+
+[admin]
+# Enable built-in admin system for permissions and authentication.
+enabled = {{ admin_enabled | default(True) | lower }}
+
+# Path to admin user/permission configuration file.
+file = "{{ admin_file | default('/etc/mvdsv/admins.cfg') }}"
+
+# Automatically sync ban list and admin files with disk on changes.
+autosync = {{ admin_autosync | default(True) | lower }}

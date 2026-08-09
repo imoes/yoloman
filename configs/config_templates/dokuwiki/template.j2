@@ -1,0 +1,138 @@
+#!/bin/sh
+set -e
+
+# =============================================================================
+# DokuWiki Maintenance Script
+#
+# This script handles periodic maintenance tasks for DokuWiki installations.
+# It performs two main functions:
+# 1. Cleanup of old cached files, attic revisions, and stale lock files.
+# 2. Update of the local spam/wordblock blacklist from Wikimedia.
+#
+# Configuration is read from /etc/default/dokuwiki, with defaults applied here
+# if variables are not set.
+# =============================================================================
+
+# Function to cleanup a wiki data directory
+# (see <https://www.dokuwiki.org/tips:maintenance>)
+#
+# Args:
+#   $1 - Full path to the wiki data directory
+#   $2 - Maximum age in days for files before deletion
+#   $3 - Whether to remove old revision files ("true" or "false")
+cleanup() {
+	# $1 ... full path to data directory of wiki
+	# $2 ... number of days after which old files are to be removed
+	# $3 ... whether or not to remove old revision files
+	data_path="$1"
+	max_days="$2"
+	remove_attic="$3"
+
+	# Change to the data directory to operate on relative paths
+	cd "$data_path"
+
+	# -----------------------------------------------------------------------
+	# Purge old revision files from attic directories
+	# -----------------------------------------------------------------------
+	if [ "$remove_attic" = "true" ]
+	then
+		# Find files older than max_days in attic and media_attic and delete them
+		find attic media_attic -type f -mtime "+$max_days" -delete
+	fi
+
+	# -----------------------------------------------------------------------
+	# Remove stale lock files
+	# -----------------------------------------------------------------------
+	# Lock files older than 1 day are likely stale and can be removed safely
+	find locks -name '*.lock' -type f -mtime +1 -delete
+
+	# -----------------------------------------------------------------------
+	# Remove empty directories
+	# -----------------------------------------------------------------------
+	# Clean up empty directories in standard DokuWiki subdirectories
+	find attic cache index locks media media_attic media_meta \
+		meta pages tmp -mindepth 1 -type d -empty -delete
+
+	# -----------------------------------------------------------------------
+	# Purge old cache files
+	# -----------------------------------------------------------------------
+	# Remove cache files older than max_days
+	find cache -type f -mtime "+$max_days" -delete
+
+	# Return to previous working directory silently
+	cd - > /dev/null
+}
+
+# Function to update the spam blacklist
+# (see <https://www.dokuwiki.org/blacklist>)
+#
+# Downloads the current spam blacklist from Wikimedia and installs it as
+# the local wordblock configuration file.
+update_blacklist() {
+	# Create a temporary file for the downloaded blacklist
+	temp="$(tempfile -p doku -s blist)"
+	# Ensure the temporary file is cleaned up on exit, unless overridden
+	trap "rm -f -- '$temp'" EXIT
+
+	# Download the raw blacklist and strip the <pre> wrapper tags
+	wget -q -O - 'http://meta.wikimedia.org/wiki/Spam_blacklist?action=raw' | grep -vF '<pre>' > "$temp"
+
+	# Install the updated blacklist into the DokuWiki config directory
+	mv "$temp" "/etc/dokuwiki/wordblock.local.conf"
+
+	# Clear the exit trap since the temp file has been moved
+	trap - EXIT
+}
+
+# -----------------------------------------------------------------------
+# Get configuration from system defaults file
+# -----------------------------------------------------------------------
+. /etc/default/dokuwiki
+
+# -----------------------------------------------------------------------
+# Set variable default values
+# These defaults are applied if /etc/default/dokuwiki does not define them.
+# -----------------------------------------------------------------------
+
+# Whether to run the cleanup routine ("true" or "false")
+run_cleanup="${RUN_CLEANUP:-{{ run_cleanup_default | default('true') }}"
+
+# Maximum age in days for files before they are considered for deletion
+cleanup_maxdays="${CLEANUP_MAXDAYS:-{{ cleanup_maxdays_default | default(180) }}}"
+
+# Whether to remove old revision files from attic directories ("true" or "false")
+remove_attic="${REMOVE_REVISIONS:-{{ remove_attic_default | default('false') }}}"
+
+# Whether to update the spam/wordblock blacklist ("true" or "false")
+update_blacklist="${UPDATE_BLACKLIST:-{{ update_blacklist_default | default('false') }}}"
+
+# -----------------------------------------------------------------------
+# If configured, run the purge for files older than specified (~6 months by
+# default)
+# -----------------------------------------------------------------------
+if [ "$run_cleanup" = "true" ]
+then
+	# Change to the base DokuWiki directory
+	cd {{ wiki_basedir | default('/var/lib/dokuwiki') }}
+
+	# Iterate over all wiki data directories (supports multi-wiki farm setups)
+	for data_dir in data farm/*/data
+	do
+		# Skip non-existent directories (glob might not match in single-wiki setups)
+		if [ -d "$data_dir" ]
+		then
+			cleanup "$data_dir" "$cleanup_maxdays" "$remove_attic"
+		fi
+	done
+
+	# Return to previous working directory silently
+	cd - > /dev/null
+fi
+
+# -----------------------------------------------------------------------
+# If configured, update the spam blacklist
+# -----------------------------------------------------------------------
+if [ "$update_blacklist" = "true" ] && [ -x /usr/bin/wget ]
+then
+	update_blacklist
+fi

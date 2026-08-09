@@ -1,0 +1,239 @@
+{
+  "database_path": {
+    "type": "string",
+    "default": "/var/lib/fossil/fossil.db",
+    "description": "Absolute path to the main SQLite database file storing repositories, tickets, wiki pages, and metadata."
+  },
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "cgi_path": "/cgi-bin/fossil",
+      "ssl": false,
+      "ssl_cert": "/etc/fossil/ssl/cert.pem",
+      "ssl_key": "/etc/fossil/ssl/key.pem",
+      "max_connections": 100,
+      "keep_alive_timeout": 60,
+      "log_file": "/var/log/fossil/fossil.log",
+      "debug": false,
+      "url": "http://localhost:8080/",
+      "site_title": "Fossil SCM",
+      "custom_header": ""
+    },
+    "description": "HTTP server and site configuration.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address or hostname to bind the HTTP server to (e.g., '127.0.0.1' or '0.0.0.0')."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port number for the HTTP server."
+      },
+      "cgi_path": {
+        "type": "string",
+        "default": "/cgi-bin/fossil",
+        "description": "Path where Fossil expects to be invoked via CGI (e.g., '/cgi-bin/fossil')."
+      },
+      "ssl": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTPS support. Requires valid certificate/key paths."
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "/etc/fossil/ssl/cert.pem",
+        "description": "Path to the SSL certificate file (PEM format)."
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "/etc/fossil/ssl/key.pem",
+        "description": "Path to the SSL private key file (PEM format)."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of simultaneous HTTP connections (0 = unlimited)."
+      },
+      "keep_alive_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Seconds before closing idle keep-alive connections."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/fossil/fossil.log",
+        "description": "Path to log file (empty = log to stderr/stdout)."
+      },
+      "debug": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable verbose debugging output in logs."
+      },
+      "url": {
+        "type": "string",
+        "default": "http://localhost:8080/",
+        "description": "Base URL used for generating absolute links (e.g., in emails)."
+      },
+      "site_title": {
+        "type": "string",
+        "default": "Fossil SCM",
+        "description": "Title shown in the web interface header."
+      },
+      "custom_header": {
+        "type": "string",
+        "default": "",
+        "description": "Raw HTML to inject into every page\u2019s <head> section."
+      }
+    }
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "anonymous_user": "",
+      "self_register": false
+    },
+    "description": "Authentication and user access settings.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Require login for most operations. If false, anonymous read access is allowed (no login needed)."
+      },
+      "anonymous_user": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the special anonymous user account. Empty = fully anonymous, 'anonymous' = named anonymous."
+      },
+      "self_register": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow new users to register accounts themselves (requires authentication enabled)."
+      }
+    }
+  },
+  "features": {
+    "type": "object",
+    "default": {
+      "wiki": true,
+      "tickets": true,
+      "graph": true,
+      "json_api": true
+    },
+    "description": "Toggle built-in Fossil features.",
+    "items": {
+      "wiki": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the built-in wiki system for collaborative documentation."
+      },
+      "tickets": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the ticketing system for bug reports and task management."
+      },
+      "graph": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the timeline graph view showing branch and merge relationships."
+      },
+      "json_api": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the JSON-based remote API for programmatic access."
+      }
+    }
+  },
+  "repo_defaults": {
+    "type": "list",
+    "default": [
+      {
+        "name": "allow-wiki",
+        "value": "on",
+        "description": "Enable wiki editing for project administrators"
+      },
+      {
+        "name": "allow-trac",
+        "value": "off",
+        "description": "Disable TRAC-style URL mapping (unless needed)"
+      }
+    ],
+    "description": "List of global defaults for new repositories (format: repo-default: name value)."
+  },
+  "access_rules": {
+    "type": "list",
+    "default": [],
+    "description": "Explicit access control rules for specific users/projects (optional).",
+    "items": {
+      "user": {
+        "type": "string",
+        "description": "Fossil username (e.g., 'admin' or 'developer').",
+        "default": ""
+      },
+      "permission": {
+        "type": "string",
+        "enum": [
+          "read",
+          "write",
+          "admin",
+          "register"
+        ],
+        "description": "Access level (read=view only, write=commit+wiki+tickets, admin=full control).",
+        "default": "read"
+      },
+      "project": {
+        "type": "string",
+        "description": "Repository/project name (wildcard '*' = all projects).",
+        "default": "*"
+      }
+    }
+  },
+  "mail": {
+    "type": "object",
+    "default": {
+      "smtp_host": "",
+      "smtp_port": 587,
+      "smtp_starttls": true,
+      "smtp_user": "",
+      "smtp_pass": "",
+      "smtp_from": "noreply@localhost"
+    },
+    "description": "SMTP configuration for ticket/notification emails (optional; leave host blank to disable).",
+    "items": {
+      "smtp_host": {
+        "type": "string",
+        "default": "",
+        "description": "SMTP server hostname (empty = mail disabled)."
+      },
+      "smtp_port": {
+        "type": "number",
+        "default": 587,
+        "description": "SMTP port (587 for STARTTLS, 465 for implicit TLS)."
+      },
+      "smtp_starttls": {
+        "type": "bool",
+        "default": true,
+        "description": "Upgrade connection to TLS using STARTTLS."
+      },
+      "smtp_user": {
+        "type": "string",
+        "default": "",
+        "description": "SMTP username (if server requires auth)."
+      },
+      "smtp_pass": {
+        "type": "string",
+        "default": "",
+        "description": "SMTP password (store securely in production)."
+      },
+      "smtp_from": {
+        "type": "string",
+        "default": "noreply@localhost",
+        "description": "From: address for notification emails."
+      }
+    }
+  }
+}

@@ -1,0 +1,296 @@
+{#
+  Icinga 2 Global Configuration Template
+  =====================================
+  This template generates the main Icinga 2 configuration file (main.conf).
+  It configures global constants, features (API, Checker, Notification, Mainlog),
+  and basic monitoring objects (Hosts, Services, Users, TimePeriods).
+
+  All variables are sourced from the Ansible host/group vars, mapped directly
+  to the schema fields provided in the package definition.
+#}
+
+# ===========================================================================
+# Global Variables & Debug Configuration
+# ===========================================================================
+
+{#
+  debug_mode: Enable debug logging to file.
+  When true, sets the debug log level to 2 and specifies the log file path.
+#}
+{% if debug_mode | default(False) %}
+# Debug logging is ENABLED.
+# Set log level to 2 (Debug) and specify the log file path.
+const DebugLogLevel = 2
+const DebugFile = "{{ debug_log_file | default('/var/log/icinga2/debug.log') }}"
+{% else %}
+# Debug logging is DISABLED.
+# Set log level to 0 (None) to suppress debug output.
+const DebugLogLevel = 0
+{% endif %}
+
+# ===========================================================================
+# Feature Configuration
+# ===========================================================================
+
+{#
+  features: List of Icinga 2 features to enable.
+  Each feature has a name, enable flag, and optional config dict.
+  Iterates over the list to generate enable blocks for each feature.
+#}
+{% for feature in features | default([{'name': 'api', 'enabled': True, 'config': {}}, {'name': 'checker', 'enabled': True, 'config': {}}, {'name': 'notification', 'enabled': True, 'config': {}}, {'name': 'mainlog', 'enabled': True, 'config': {}}]) %}
+{# Comment: Feature name and its enable status #}
+// Feature: {{ feature.name }} (Enabled: {{ feature.enabled | default(False) }})
+{% if feature.enabled | default(False) %}
+// Enabling feature {{ feature.name }}
+Features/{{ feature.name }}!{{ feature.name }} {
+  {#
+    Feature-specific configuration.
+    If 'config' dict is provided, iterate and write key-value pairs.
+    Uses dict2items to safely iterate mappings without Python methods.
+  #}
+  {% if feature.config | default({}) %}
+  {# Indentation helper for nested config keys #}
+  {% for key, val in feature.config | default({}) | dict2items %}
+  {{ key }} = {{ val.value | tojson }}
+  {% endfor %}
+  {% endif %}
+}
+{% else %}
+// Feature {{ feature.name }} is explicitly DISABLED.
+{% endif %}
+{% endfor %}
+
+# ===========================================================================
+# API Configuration
+# ===========================================================================
+
+{% if api_enabled | default(True) %}
+// =======================================================================
+// Icinga 2 API Listener is ENABLED.
+// Required for distributed monitoring, Icinga Web 2, and CLI access.
+// =======================================================================
+
+// Load the API library
+library "api"
+
+// Global node and zone constants used by the API listener.
+const NodeName = "{{ api_node_name | default('icinga2-node') }}"
+const ZoneName = "{{ api_zone_name | default('master') }}"
+
+// Define endpoints (nodes in the cluster)
+endpoints = {
+  {{ api_node_name | default('icinga2-node') }} = {
+    {#
+      api_host: IP address or hostname the API listener binds to.
+      Default is localhost (127.0.0.1). Change to 0.0.0.0 for external access.
+    #}
+    host = "{{ api_host | default('127.0.0.1') }}"
+    {# api_port: Port the API listener listens on. Default is 5665. #}
+    port = {{ api_port | default(5665) }}
+  }
+}
+
+// Define zones (network segmentation for the cluster)
+zones = {
+  {{ api_zone_name | default('master') }} = {
+    // Endpoints belonging to this zone
+    endpoints = [ "{{ api_node_name | default('icinga2-node') }}" ]
+    
+    {#
+      api_parent_zone: Optional parent zone (for hierarchical zones).
+      Empty string means this is a master node with no parent.
+    #}
+    {% if api_parent_zone | default('') %}
+    parent = "{{ api_parent_zone | default('') }}"
+    {% endif %}
+  }
+}
+{% else %}
+// =======================================================================
+// Icinga 2 API is DISABLED.
+// The node will not accept incoming API connections or participate in
+// cluster synchronization via API.
+// =======================================================================
+{% endif %}
+
+# ===========================================================================
+# Notification Configuration
+# ===========================================================================
+
+{#
+  notifications_enabled: Enable notification logic (e.g., mail).
+  When true, defines apply rules for sending notifications via mail.
+#}
+{% if notifications_enabled | default(True) %}
+// =======================================================================
+// Notification Apply Rule: Mail Notification
+// This rule automatically applies to all services unless excluded.
+// =======================================================================
+
+apply Notification "mail-{{ hostname | default('icinga2') }}" to Service {
+  // Send notifications to the admin user group
+  user_groups = [ "icingaadmins" ]
+
+  // Interval between repeated notifications
+  intervals = {
+    notification = {{ notification_interval | default(300) }}
+  }
+
+  // Admin email address for notifications
+  vars.mail_address = "{{ admin_email | default('icinga-admin@localhost') }}"
+
+  // The command to execute for sending mail
+  command = "mail-notification"
+
+  {#
+    notification_period: Time period during which notifications are sent.
+    Defaults to '24x7'.
+  #}
+  {% if notification_period | default('24x7') %}
+  period = "{{ notification_period | default('24x7') }}"
+  {% endif %}
+
+  {#
+    notification_types: Notification types to send.
+    Default list: Warning, Critical, Recovery, Acknowledgement, FlappingStart, FlappingEnd.
+  #}
+  {% if notification_types | default(['Warning', 'Critical', 'Recovery', 'Acknowledgement', 'FlappingStart', 'FlappingEnd']) %}
+  types = [ {{ notification_types | default(['Warning', 'Critical', 'Recovery', 'Acknowledgement', 'FlappingStart', 'FlappingEnd']) | join(", ") | quote | safe }} ]
+  {% endif %}
+
+  // Assign this notification rule to the 'icingaadmin' user
+  users = [ "icingaadmin" ]
+}
+{% endif %}
+
+# ===========================================================================
+# Host & Service Definitions
+# ===========================================================================
+
+{% if hosts | default([]) %}
+// =======================================================================
+// Host Definitions
+// Monitored hosts are defined below.
+// =======================================================================
+
+{% for host in hosts | default([]) %}
+object Host "{{ host.name }}" {
+  // Display name: Falls back to 'name' if 'display_name' is not set.
+  display_name = "{{ host.display_name | default(host.name) }}"
+  
+  // IP address or hostname of the target
+  address = "{{ host.address }}"
+
+  {#
+    Custom Variables: If the host has a 'vars' dict, iterate and add them.
+    Uses dict2items to safely iterate mappings without Python methods.
+  #}
+  {% if host.vars | default({}) %}
+  vars {
+    {% for key, val in host.vars | default({}) | dict2items %}
+    {{ key }} = {{ val.value | tojson }}
+    {% endfor %}
+  }
+  {% endif %}
+}
+{% endfor %}
+
+// =======================================================================
+// Service Definitions
+// Services are defined per host. Note: In Icinga 2, it is often better
+// to use 'apply' rules, but static definitions are supported here.
+// =======================================================================
+
+{% for service in services | default([]) %}
+object Service "{{ service.host_name }}!{{ service.name }}" {
+  // Display name: Falls back to 'name' if 'display_name' is not set.
+  display_name = "{{ service.display_name | default(service.name) }}"
+  
+  // The check command to execute (e.g., 'ping', 'http')
+  check_command = "{{ service.check_command }}"
+  
+  // Reference the host this service belongs to
+  host_name = "{{ service.host_name }}"
+
+  {# Check Interval: How often to check (e.g., '10m') #}
+  {% if service.interval | default(None) is defined %}
+  check_interval = {{ service.interval | default('10m') }}
+  {% endif %}
+
+  {# Retry Interval: How long to wait before retrying after a failure #}
+  {% if service.retry_interval | default(None) is defined %}
+  retry_interval = {{ service.retry_interval | default('3m') }}
+  {% endif %}
+
+  {# Max Check Attempts: Number of retries before marking as HARD CRITICAL #}
+  {% if service.max_check_attempts | default(None) is defined %}
+  max_check_attempts = {{ service.max_check_attempts | default(5) }}
+  {% endif %}
+
+  {#
+    Service Variables: If the service has a 'vars' dict, iterate and add them.
+    Uses dict2items to safely iterate mappings without Python methods.
+  #}
+  {% if service.vars | default({}) %}
+  vars {
+    {% for key, val in service.vars | default({}) | dict2items %}
+    {{ key }} = {{ val.value | tojson }}
+    {% endfor %}
+  }
+  {% endif %}
+}
+{% endfor %}
+{% endif %}
+
+# ===========================================================================
+# Time Periods
+# ===========================================================================
+
+// Standard 24/7 time period
+object TimePeriod "24x7" {
+  display_name = "Always"
+  ranges = {
+    "monday" = "00:00-24:00"
+    "tuesday" = "00:00-24:00"
+    "wednesday" = "00:00-24:00"
+    "thursday" = "00:00-24:00"
+    "friday" = "00:00-24:00"
+    "saturday" = "00:00-24:00"
+    "sunday" = "00:00-24:00"
+  }
+}
+
+// Business hours time period (Mon-Fri, 09:00-17:00)
+object TimePeriod "workhours" {
+  display_name = "WorkHours"
+  ranges = {
+    "monday" = "09:00-17:00"
+    "tuesday" = "09:00-17:00"
+    "wednesday" = "09:00-17:00"
+    "thursday" = "09:00-17:00"
+    "friday" = "09:00-17:00"
+  }
+}
+
+# ===========================================================================
+# Users & User Groups
+# ===========================================================================
+
+// Admin user definition
+object User "icingaadmin" {
+  display_name = "Icinga Admin"
+  
+  // Admin email address (used in notifications)
+  email = "{{ admin_email | default('icinga-admin@localhost') }}"
+  
+  // Pager/SMSTP address (optional)
+  pager = "{{ admin_pager | default('') }}"
+  
+  // Assign to the admin group
+  groups = [ "icingaadmins" ]
+}
+
+// Admin user group definition
+object UserGroup "icingaadmins" {
+  display_name = "Icinga Admins"
+}

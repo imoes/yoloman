@@ -1,0 +1,195 @@
+# bmaptool configuration
+#
+# This template generates bmaptool command lines based on the 'commands' list.
+# bmaptool is a utility to copy and create block image maps (bmap).
+# It is typically used in build systems (Yocto, Buildroot) or deployment scripts
+# to write OS images to block devices efficiently using block maps.
+#
+# Schema reference:
+# - commands: default=[] desc="List of commands to generate. Each item configures one 'copy' or 'create' invocation. Only one command type per run is typical, but multiple"
+# - commands[].type: default='copy' desc="Command type: 'copy' or 'create'. Required for each command entry."
+# - commands[].image: default='' desc="Source image file path or URL. Use '-' to read from stdin for 'copy' commands."
+# - commands[].dest: default='' desc="Destination file or block device path (required for 'copy')."
+# - commands[].bmap: default='' desc="Explicit path or URL to the bmap file. If omitted, auto-discovery is attempted."
+# - commands[].bmap_sig: default='' desc="Path or URL to a detached OpenPGP signature file for the bmap."
+# - commands[].fingerprint: default='' desc="Expected GPG fingerprint of the signer (for signature verification)."
+# - commands[].keyring: default='' desc="Path to a custom GPG keyring file for signature verification."
+# - commands[].nobmap: default=False desc="Disable automatic bmap discovery and copy the entire image without bmap."
+# - commands[].no_sig_verify: default=False desc="Skip OpenPGP signature verification of the bmap file (not recommended)."
+# - commands[].no_verify: default=False desc="Skip SHA-256 checksum verification of data (not recommended)."
+# - commands[].psplash_pipe: default='' desc="Path to a FIFO to which machine-readable progress (psplash format) will be written."
+# - commands[].removable_device: default=False desc="Only proceed if destination is a removable block device (e.g., SD card or USB)."
+# - commands[].output: default='' desc="Output file path for the generated bmap (for 'create' command). If omitted, write to stdout."
+# - commands[].no_checksum: default=False desc="Generate bmap without SHA-256 checksums (not recommended)."
+
+{% for cmd in commands | default([]) %}
+    {#
+      Command entry iteration.
+      'cmd' is a dictionary representing a single bmaptool action.
+    #}
+
+    {# --- Copy Command --- #}
+    {# Check if the command type is 'copy'. Default to 'copy' if type is missing/empty. #}
+    {% if (cmd.type | default('copy')) == 'copy' %}
+    # ---------------------------------------------------------------------------
+    # bmaptool copy configuration
+    # Generates a command to copy an image to a destination block device/file
+    # using a block map for efficiency.
+    # ---------------------------------------------------------------------------
+
+    # Command invocation: bmaptool copy
+    bmaptool copy \
+    {#
+      Source image file path or URL.
+      Use '-' to read the image data from stdin.
+      Default: empty string.
+    #}
+    {% set cmd_image = cmd.image | default('') %}
+    --image {{ cmd_image }} \
+    {#
+      Destination file or block device path (e.g., /dev/sdb).
+      Required for 'copy' command.
+      Default: empty string.
+    #}
+    {% set cmd_dest = cmd.dest | default('') %}
+    {{ cmd_dest }} \
+    {#
+      Explicit path or URL to the bmap file (metadata map).
+      If omitted, auto-discovery is attempted based on the image path.
+      Default: empty string.
+    #}
+    {% if cmd.bmap | default('') %}
+    --bmap {{ cmd.bmap | default('') }} \
+    {% endif %}
+
+    {#
+      Path or URL to a detached OpenPGP signature file for the bmap file.
+      Used for verifying the integrity/authenticity of the bmap.
+      Default: empty string.
+    #}
+    {% if cmd.bmap_sig | default('') %}
+    --bmap-sig {{ cmd.bmap_sig | default('') }} \
+    {% endif %}
+
+    {#
+      Expected GPG fingerprint of the signer (for signature verification).
+      Ensures the signature comes from a trusted key.
+      Default: empty string.
+    #}
+    {% if cmd.fingerprint | default('') %}
+    --fingerprint {{ cmd.fingerprint | default('') }} \
+    {% endif %}
+
+    {#
+      Path to a custom GPG keyring file for signature verification.
+      If omitted, the default user keyring is used.
+      Default: empty string.
+    #}
+    {% if cmd.keyring | default('') %}
+    --keyring {{ cmd.keyring | default('') }} \
+    {% endif %}
+
+    {#
+      Disable automatic bmap discovery.
+      Copies the entire image without using a bmap (slower, full copy).
+      Default: false.
+    #}
+    {% if cmd.nobmap | default(false) | bool %}
+    --nobmap \
+    {% endif %}
+
+    {#
+      Skip OpenPGP signature verification of the bmap file.
+      Not recommended for production security.
+      Default: false.
+    #}
+    {% if cmd.no_sig_verify | default(false) | bool %}
+    --no-sig-verify \
+    {% endif %}
+
+    {#
+      Skip SHA-256 checksum verification of the data blocks.
+      Not recommended; may hide corruption.
+      Default: false.
+    #}
+    {% if cmd.no_verify | default(false) | bool %}
+    --no-verify \
+    {% endif %}
+
+    {#
+      Path to a FIFO (named pipe) for progress feedback.
+      Writes machine-readable progress in psplash format.
+      Default: empty string.
+    #}
+    {% if cmd.psplash_pipe | default('') %}
+    --psplash-pipe {{ cmd.psplash_pipe | default('') }} \
+    {% endif %}
+
+    {#
+      Only proceed if the destination is a removable block device
+      (e.g., SD card or USB drive) to prevent accidental writes to internal disks.
+      Default: false.
+    #}
+    {% if cmd.removable_device | default(false) | bool %}
+    --removable-device \
+    {% endif %}
+
+    {#
+      Trailing backslash logic: if this is not the last command in the list,
+      end with a backslash for command continuation if needed, or just newline.
+      Here we just ensure proper separation between commands.
+    #}
+    {% if not loop.last %}
+      ;
+    {% endif %}
+
+    {% elif (cmd.type | default('copy')) == 'create' %}
+    {# --- Create Command --- #}
+    {# Check if the command type is 'create'. #}
+    # ---------------------------------------------------------------------------
+    # bmaptool create configuration
+    # Generates a command to create a bmap file from an existing image.
+    # This bmap can later be used with 'bmaptool copy' to speed up writes.
+    # ---------------------------------------------------------------------------
+
+    # Command invocation: bmaptool create
+    bmaptool create \
+    {#
+      Source image file path.
+      The image from which the block map will be generated.
+      Default: empty string.
+    #}
+    {% set cmd_image = cmd.image | default('') %}
+    {{ cmd_image }} \
+    {#
+      Output file path for the generated bmap.
+      If omitted, the bmap is written to stdout.
+      Default: empty string.
+    #}
+    {% if cmd.output | default('') %}
+    --output {{ cmd.output | default('') }} \
+    {% endif %}
+
+    {#
+      Generate bmap without SHA-256 checksums.
+      Not recommended; checksums ensure data integrity during copy.
+      Default: false.
+    #}
+    {% if cmd.no_checksum | default(false) | bool %}
+    --no-checksum \
+    {% endif %}
+
+    {#
+      Trailing backslash logic for create command.
+    #}
+    {% if not loop.last %}
+      ;
+    {% endif %}
+
+    {% else %}
+    {# --- Fallback/Unknown Command Type --- #}
+    # WARNING: Unknown command type '{{ cmd.type | default('unknown') }}' encountered. Skipping.
+    {% endif %}
+{% endfor %}
+
+# End of bmaptool configuration

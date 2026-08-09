@@ -1,0 +1,17 @@
+# elfrc resource configuration file
+# This file defines resources to be embedded into ELF (Executable and Linkable Format) objects.
+# Each line consists of three tab-separated fields: <type>, <symbol_name>, and <resource_file_path>.
+# Supported types are 'binary' or 'text'.
+# This configuration is consumed by the elfrc utility to embed static content into binaries.
+
+# List of resource definitions to embed. Each item must include type, symbol, and path fields matching elfrc requirements.
+# Default is an empty list to ensure valid output when no resources are configured.
+{% for resource in (resources | default([])) %}
+# Type of the resource to embed (e.g., 'binary' or 'text')
+# Symbol name used to reference this resource within the ELF object
+# Absolute or relative path to the source file containing the resource data
+{{ resource.type }}	{{ resource.symbol }}	{{ resource.path }}
+{% endfor %}
+
+# If no resources are defined, the output file remains empty (as per default behavior)
+# Ensure that the 'resources' list in the Ansible variables is populated for this file to be useful.

@@ -1,0 +1,37 @@
+{
+  "config": {
+    "type": "object",
+    "description": "containerd configuration object. All top-level keys mirror the TOML structure of the real config file, with nested objects for sections like plugins, grpc, etc. Only replace site-specific values \u2014 preserve all sections, comments, and directive order exactly as in the shipped config file."
+  },
+  "plugins": {
+    "type": "object",
+    "description": "Top-level [plugins] section and its sub-sections (e.g., CRI, opt). Only the values that an admin would change are parametrized."
+  },
+  "plugins.cri": {
+    "type": "object",
+    "description": "CRI plugin config ([plugins.\"io.containerd.grpc.v1.cri\"]) \u2014 reused from provided schema, only extended with new keys needed for verbatim config."
+  },
+  "plugins.cri.cni": {
+    "type": "object",
+    "description": "CNI plugin config ([plugins.\"io.containerd.grpc.v1.cri\".cni])"
+  },
+  "plugins.cri.cni.bin_dir": {
+    "type": "string",
+    "default": "/usr/lib/cni",
+    "description": "Path to CNI binary plugins (reused from real config \u2014 /usr/lib/cni in Debian package default)."
+  },
+  "plugins.cri.cni.conf_dir": {
+    "type": "string",
+    "default": "/etc/cni/net.d",
+    "description": "Path to CNI configuration directory (reused from real config \u2014 /etc/cni/net.d in Debian package default)."
+  },
+  "plugins.opt": {
+    "type": "object",
+    "description": "Internal opt plugin config ([plugins.\"io.containerd.internal.v1.opt\"]) \u2014 new section not in prior schema but present in real config."
+  },
+  "plugins.opt.path": {
+    "type": "string",
+    "default": "/var/lib/containerd/opt",
+    "description": "Path for opt plugin storage (reused from real config \u2014 /var/lib/containerd/opt)."
+  }
+}

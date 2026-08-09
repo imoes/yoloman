@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "_comment": "Canonical capability/backend vocabulary for the Lego matcher. A template's capabilities.json (provides/requires) MAY ONLY use capability and backend tokens defined here. Anything outside this set must be emitted with \"confidence\": \"review\" so a human canonicalises it later — it must NEVER be invented silently, or the deterministic matcher wires incompatible components. 'capability' is the service class a consumer requires and a provider offers; 'backend' is the concrete implementation (postgresql vs mysql). Two things are compatible only when the capability matches AND the consumer's accepted backends intersect the provider's backend. 'connection_fields' are the canonical FIELD ROLES a wiring carries — the batch maps each to the real (often prefixed) schema field, e.g. role 'host' -> schema field 'db_host'. Grounded in configs/package_catalog.json categories, but split finer where the catalog is too coarse for correct wiring (redis/memcached are catalog-category 'database' but are 'cache' here, so a cache consumer is never wired to PostgreSQL).",
+  "capabilities": {
+    "database": {
+      "description": "A relational / document data store a client connects to over the network to read and write application data.",
+      "backends": ["postgresql", "mysql", "mariadb", "mongodb", "mssql", "oracle", "cockroachdb", "sqlite"],
+      "connection_fields": ["host", "port", "name", "user", "password", "socket"],
+      "notes": "sqlite is file-embedded and has no host/port — a 'sqlite' backend never participates in network wiring. mariadb and mysql are wire-compatible: a consumer accepting 'mysql' also accepts 'mariadb'."
+    },
+    "cache": {
+      "description": "An in-memory key/value cache or store used to offload a database or share ephemeral state.",
+      "backends": ["redis", "memcached", "valkey", "keydb"],
+      "connection_fields": ["host", "port", "password", "socket"],
+      "notes": "valkey and keydb are redis-protocol drop-ins: a consumer accepting 'redis' also accepts them."
+    },
+    "message_queue": {
+      "description": "A broker for asynchronous messages / events between services.",
+      "backends": ["rabbitmq", "kafka", "activemq", "nats", "mqtt", "redis"],
+      "connection_fields": ["host", "port", "user", "password", "vhost"],
+      "notes": "mqtt is the protocol; mosquitto is a common mqtt broker (backend 'mqtt'). redis appears here too (pub/sub) — a queue consumer accepting 'redis' means it uses redis as a broker, distinct from the 'cache' capability."
+    },
+    "web_server": {
+      "description": "An HTTP origin server that serves static files or hosts an application, sitting BEHIND a reverse proxy or directly exposed.",
+      "backends": ["apache", "nginx", "caddy", "lighttpd", "traefik"],
+      "connection_fields": ["host", "port"],
+      "notes": "Distinct from reverse_proxy: this is the thing being proxied TO."
+    },
+    "reverse_proxy": {
+      "description": "An HTTP(S) reverse proxy / load balancer that terminates client connections and forwards to upstream web_server or app_runtime backends.",
+      "backends": ["nginx", "haproxy", "traefik", "caddy", "apache"],
+      "connection_fields": ["upstream_host", "upstream_port"],
+      "notes": "Several servers can be both web_server and reverse_proxy (nginx, caddy, apache) — the template declares whichever role its config expresses."
+    },
+    "app_runtime": {
+      "description": "An application process a web server forwards dynamic requests to over FastCGI/uWSGI/HTTP.",
+      "backends": ["php-fpm", "uwsgi", "gunicorn", "passenger"],
+      "connection_fields": ["socket", "host", "port"],
+      "notes": "php-fpm typically provides a unix socket (role 'socket'); a web_server requires it as an upstream."
+    },
+    "dns_authoritative": {
+      "description": "An authoritative DNS server answering for zones it owns.",
+      "backends": ["bind9", "powerdns", "nsd", "knot"],
+      "connection_fields": ["host", "port"]
+    },
+    "dns_resolver": {
+      "description": "A recursive/forwarding DNS resolver clients point resolv.conf at.",
+      "backends": ["dnsmasq", "unbound", "systemd-resolved", "bind9"],
+      "connection_fields": ["host", "port"]
+    },
+    "mail_smtp": {
+      "description": "An SMTP server that accepts/relays outgoing mail — what an application uses to send email.",
+      "backends": ["postfix", "exim", "sendmail", "opensmtpd"],
+      "connection_fields": ["host", "port", "user", "password"]
+    },
+    "mail_imap": {
+      "description": "An IMAP/POP3 server that stores and serves user mailboxes.",
+      "backends": ["dovecot", "courier", "cyrus"],
+      "connection_fields": ["host", "port", "user", "password"]
+    },
+    "directory": {
+      "description": "An LDAP directory / identity source clients bind to for users and groups.",
+      "backends": ["openldap", "389-ds", "samba-ad", "freeipa"],
+      "connection_fields": ["host", "port", "base_dn", "bind_dn", "bind_password"]
+    },
+    "nfs": {
+      "description": "An NFS export server; clients mount an exported path. Wiring INJECTS the client address into the server's exports list (peer_injection).",
+      "backends": ["nfs"],
+      "connection_fields": ["host", "export_path", "mount_point"]
+    },
+    "smb": {
+      "description": "An SMB/CIFS file server; clients mount shares.",
+      "backends": ["samba"],
+      "connection_fields": ["host", "share", "user", "password"]
+    },
+    "ftp": {
+      "description": "An FTP/FTPS file transfer server.",
+      "backends": ["vsftpd", "proftpd", "pure-ftpd"],
+      "connection_fields": ["host", "port", "user", "password"]
+    },
+    "ntp": {
+      "description": "A time source clients synchronise their clock to.",
+      "backends": ["chrony", "ntpd", "systemd-timesyncd", "openntpd"],
+      "connection_fields": ["host"]
+    },
+    "container_runtime": {
+      "description": "A container engine that runs images (as an orchestration target or a Docker-API endpoint).",
+      "backends": ["docker", "podman", "containerd"],
+      "connection_fields": ["socket", "host", "port"]
+    },
+    "ssh": {
+      "description": "An SSH server clients connect to for shell/SFTP/tunnels.",
+      "backends": ["openssh"],
+      "connection_fields": ["host", "port"]
+    },
+    "log_sink": {
+      "description": "A syslog/log collector that other hosts forward their logs to.",
+      "backends": ["rsyslog", "syslog-ng", "journald", "graylog", "logstash"],
+      "connection_fields": ["host", "port", "protocol"]
+    },
+    "metrics_sink": {
+      "description": "A metrics store/collector that agents push to or that scrapes exporters.",
+      "backends": ["prometheus", "influxdb", "graphite", "telegraf"],
+      "connection_fields": ["host", "port"]
+    },
+    "search": {
+      "description": "A full-text search / analytics engine clients index into and query.",
+      "backends": ["elasticsearch", "opensearch", "solr"],
+      "connection_fields": ["host", "port", "user", "password"]
+    },
+    "object_storage": {
+      "description": "An S3-compatible object store.",
+      "backends": ["minio", "ceph-rgw", "s3"],
+      "connection_fields": ["endpoint", "access_key", "secret_key", "bucket"]
+    }
+  },
+  "backend_aliases": {
+    "_comment": "Wire-compatible substitutes: if a consumer accepts the key, it also accepts the values. The matcher expands these before intersecting.",
+    "mysql": ["mariadb"],
+    "mariadb": ["mysql"],
+    "redis": ["valkey", "keydb"]
+  }
+}

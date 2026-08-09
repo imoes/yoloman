@@ -1,0 +1,119 @@
+{
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Primary network interface to capture traffic from (e.g., eth0, ens33). Required if interface_alt not set."
+  },
+  "interface_alt": {
+    "type": "string",
+    "default": "",
+    "description": "Alternative primary network interface (alias for 'interface'), for clarity or compatibility."
+  },
+  "collector_ip": {
+    "type": "string",
+    "default": "",
+    "description": "IP address (IPv4 or IPv6) of the NetFlow/IPFIX collector to receive flow records."
+  },
+  "collector_port": {
+    "type": "number",
+    "default": 2055,
+    "description": "UDP port on the collector (standard: 2055 for IPFIX, 2055/9995 for NetFlow v9)."
+  },
+  "flow_version": {
+    "type": "string",
+    "default": "ipfix",
+    "description": "Flow record format: 'netflow5', 'netflow9', or 'ipfix'. IPFIX is modern and recommended."
+  },
+  "sampling_rate": {
+    "type": "number",
+    "default": 1,
+    "description": "Packet sampling rate (1 = all packets, 10 = every 10th packet). Higher values reduce CPU overhead."
+  },
+  "active_timeout": {
+    "type": "number",
+    "default": 1800,
+    "description": "Flow active timeout in seconds \u2014 when a flow is closed after sustained activity."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Flow idle timeout in seconds \u2014 when a flow is closed after no activity."
+  },
+  "max_flows_per_packet": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum flows to bundle per UDP packet (0 = no limit). Use to control packet size and latency."
+  },
+  "ipfix_tcp_flags": {
+    "type": "bool",
+    "default": true,
+    "description": "Include TCP flags in IPFIX records (e.g., SYN, FIN, RST). Recommended for analysis."
+  },
+  "ipfix_ipv6_ext": {
+    "type": "bool",
+    "default": true,
+    "description": "Include IPv6 extension headers in IPFIX records. Useful for IPv6 troubleshooting."
+  },
+  "ipfix_bgp_next_hop": {
+    "type": "bool",
+    "default": false,
+    "description": "Include BGP next-hop info in IPFIX. Only relevant in BGP route reflector setups."
+  },
+  "source_ip": {
+    "type": "string",
+    "default": "",
+    "description": "Source IP address used in flow records (e.g., loopback). Defaults to interface's primary IP."
+  },
+  "system_id": {
+    "type": "number",
+    "default": 0,
+    "description": "IPFIX system-id (unique across collectors). 0 = auto-assign using device IP."
+  },
+  "observation_domain_id": {
+    "type": "number",
+    "default": 0,
+    "description": "IPFIX observation domain ID \u2014 used for multi-domain flows. Set consistently if needed."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "notice",
+    "description": "Verbosity level for fprobe logs (debug \u2192 emerg). Choose 'warning' for production.",
+    "enum": [
+      "emerg",
+      "alert",
+      "crit",
+      "err",
+      "warning",
+      "notice",
+      "info",
+      "debug"
+    ]
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to write logs (e.g., /var/log/fprobe.log). Omit for syslog only."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/fprobe.pid",
+    "description": "Path to write process PID file for service management."
+  },
+  "extra_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional key=value or key value pairs (e.g., `buffer-size 65535`). Use sparingly.",
+    "items": {
+      "key": {
+        "type": "string",
+        "default": "",
+        "description": "Option name (e.g., 'buffer-size', 'template-interval')"
+      },
+      "value": {
+        "type": "string",
+        "default": "",
+        "description": "Option value (e.g., '65535', '30')"
+      }
+    }
+  }
+}

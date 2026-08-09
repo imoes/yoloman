@@ -1,0 +1,85 @@
+# ddupdate Configuration Template
+# This file configures the ddupdate dynamic DNS update client.
+# Variables are sourced from Ansible variables with sensible defaults.
+
+# =============================================================================
+# General Settings
+# =============================================================================
+
+# Enable verbose debug logging to stderr.
+# If true, outputs detailed diagnostic information.
+{% if debug | default(false) %}debug{% endif %}
+
+# Policy for handling multiple services.
+# 'first_ok': stop after the first successful update.
+# 'all': try all configured services.
+# 'any': try until one succeeds (similar to first_ok but distinct internal logic).
+policy {{ policy | default('first_ok') }}
+
+# Directory where plugin modules (.py or .so) are stored.
+plugin_dir {{ plugin_dir | default('/usr/lib/ddupdate') }}
+
+# Directory for runtime data (e.g., last IP cache, state files).
+data_dir {{ data_dir | default('/var/lib/ddupdate') }}
+
+# Network request timeout in seconds for API calls and DNS queries.
+network_timeout {{ network_timeout | default(30) }}
+
+# Enable IPv6 detection and updates if available.
+{% if enable_ipv6 | default(true) %}enable_ipv6{% endif %}
+
+# =============================================================================
+# Services Configuration
+# =============================================================================
+
+# List of named services to enable.
+# Each service requires a 'name' and a 'plugin'. Optional 'options' can be passed.
+# Example service entry:
+#   - name: myhost
+#     plugin: duckdns
+#     options:
+#       token: secret123
+{% for service in services | default([]) %}
+# Service: {{ service.name }} — plugin: {{ service.plugin }}
+service {{ service.name }} {{ service.plugin }}
+{% if service.options | default({}) %}
+# Options for service: {{ service.name }}
+{% for key, value in service.options | default({}) | dict2items %}{{ key }} {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# =============================================================================
+# Hosts Configuration
+# =============================================================================
+
+# List of hostname entries to update.
+# Format: host <hostname> <provider> <plugin> <address_type> <address_source>
+# Example: host example.com duckdns duckdns ipv4 env
+{% for host_entry in hosts | default([]) %}
+# Host: {{ host_entry.hostname }} — provider: {{ host_entry.provider }} — plugin: {{ host_entry.plugin }}
+host {{ host_entry.hostname }} {{ host_entry.provider }} {{ host_entry.plugin }} {{ host_entry.address_type }} {{ host_entry.address_source }}
+{% endfor %}
+
+# =============================================================================
+# Global Plugin Options
+# =============================================================================
+
+# Global plugin configuration (e.g., default credentials, API tokens).
+# These apply to all services unless overridden per-service.
+{% if global_options | default({}) %}
+{% for key, value in global_options | default({}) | dict2items %}
+# Global option: {{ key }}
+{{ key }} {{ value }}
+{% endfor %}
+{% endif %}
+
+# =============================================================================
+# Logging Configuration
+# =============================================================================
+
+# Path to log file. If empty, logs to stderr only.
+{% if log_file | default('') %}log_file {{ log_file | default('') }}{% endif %}
+
+# Minimum log level: 'debug', 'info', 'warning', 'error', or 'critical'.
+log_level {{ log_level | default('info') }}

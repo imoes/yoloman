@@ -1,0 +1,96 @@
+{# ============================================================================== #}
+{# agedu configuration (JSON)                                                        #}
+{# This file provides runtime options for the agedu disk usage analyzer and web server. #}
+{# Referenced variables should be defined in the Ansible role or inventory.             #}
+{# ============================================================================== #}
+
+{ # Top-level directory to scan for age/usage analysis #}
+"scan_root": {{ scan_root | default('.') | tojson }},
+
+{ # Path to the index data file #}
+"index_file": {{ index_file | default('agedu.dat') | tojson }},
+
+{ # Network address for the web server to bind to. Defaults to ANY to pick an arbitrary port, or a specific address like 127.0.0.1. #}
+"listen_address": {{ listen_address | default('ANY') | tojson }},
+
+{ # Port number for the web server; 0 selects an arbitrary unused port if listen_address is specified without port, or port in addr[:port]. #}
+"port": {{ port | default(0) }},
+
+{ # Authentication mode for the web server: 'magic', 'basic', 'none', or 'default'. Default attempts magic then falls back to basic with a generated password. #}
+"auth_mode": {{ auth_mode | default('default') | tojson }},
+
+{ # Whether to cross filesystem boundaries during scan (default: false) #}
+"cross_fs": {{ cross_fs | default(false) | lower }},
+
+{ # Whether to fake atime for directories based on contents (default: true) #}
+"dir_atime": {{ dir_atime | default(true) | lower }},
+
+{ # Use modification time instead of access time (default: false) #}
+"mtime": {{ mtime | default(false) | lower }},
+
+{ # Enable progress reporting during scan (default: true) #}
+"progress": {{ progress | default(true) | lower }},
+
+{ # List of filename wildcards to omit entirely from scan and not recurse into directories matching them #}
+"prune": [
+  {% for p in prune | default([]) %}
+  {{ p | tojson }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
+
+{ # List of full-pathname wildcards to omit entirely from scan and not recurse into directories matching them #}
+"prune_path": [
+  {% for p in prune_path | default([]) %}
+  {{ p | tojson }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
+
+{ # List of filename wildcards to omit from index but still recurse into matching directories #}
+"exclude": [
+  {% for e in exclude | default([]) %}
+  {{ e | tojson }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
+
+{ # List of full-pathname wildcards to omit from index but still recurse into matching directories #}
+"exclude_path": [
+  {% for e in exclude_path | default([]) %}
+  {{ e | tojson }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
+
+{ # List of filename wildcards to re-include after exclude/prune rules #}
+"include": [
+  {% for i in include | default([]) %}
+  {{ i | tojson }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
+
+{ # List of full-pathname wildcards to re-include after exclude/prune rules #}
+"include_path": [
+  {% for i in include_path | default([]) %}
+  {{ i | tojson }}{% if not loop.last %},{% endif %}
+  {% endfor %}
+],
+
+{ # Age range for HTML report colour mapping, e.g. '2y-3m' (oldest-newest) or '2y' (oldest only) #}
+"age_range": {{ age_range | default('') | tojson }},
+
+{ # Include individual files in reports (default: false) #}
+"files": {{ files | default(false) | lower }},
+
+{ # Maximum recursion depth for text or HTML reports; use 0 for root-only, 'max' for unlimited #}
+"depth": {{ depth | default(1) }},
+
+{ # Output directory for recursive HTML reports (required when depth>1 in HTML mode) #}
+"output_dir": {{ output_dir | default('') | tojson }},
+
+{ # Use numeric filenames (e.g., 73.html) for recursive HTML output (default: false) #}
+"numeric_names": {{ numeric_names | default(false) | lower }},
+
+{ # Shell command to run with the web server base URL appended (e.g., 'browse') #}
+"launch": {{ launch | default('') | tojson }},
+
+{ # Disable termination on EOF from standard input in web server mode (default: false) #}
+"no_eof": {{ no_eof | default(false) | lower }}
+}

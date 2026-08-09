@@ -1,0 +1,98 @@
+{# ============================================================================== #}
+{# gotd.conf: Main configuration for the gotd (Game of Trees) Git server           #}
+{#                                                                                #}
+{# This template is self-documenting. Every directive is preceded by a comment    #}
+{# describing the underlying configuration option, its source field, and its      #}
+{# intended use. Defaults are applied inline to ensure the service starts safely  #}
+{# even if upstream variables are missing.                                        #}
+{# ============================================================================== #}
+
+{# listen_addr: IP address the gotd server listens on (e.g., 0.0.0.0 for all interfaces, 127.0.0.1 for localhost only). #}
+{# listen_port: Port number for the gotd service (default 8443, as per IANA for 'git' over TLS). #}
+Listen {{ (listen_addr | default('0.0.0.0')) }}:{{ (listen_port | default(8443)) }}
+
+{# root_path: Root directory under which all Git repositories are stored (e.g., /var/got). #}
+Root {{ (root_path | default('/var/got')) }}
+
+{# max_connections: Maximum simultaneous client connections (set to 0 for unlimited). #}
+MaxConnections {{ (max_connections | default(0)) }}
+
+{# anonymous_read: Allow unauthenticated read access to repositories (recommended: false in production). #}
+{% if (anonymous_read | default(True)) | bool %}
+AnonymousRead yes
+{% else %}
+AnonymousRead no
+{% endif %}
+
+{# anonymous_write: Allow unauthenticated push/write access (almost always should be disabled for security). #}
+{% if (anonymous_write | default(False)) | bool %}
+AnonymousWrite yes
+{% else %}
+AnonymousWrite no
+{% endif %}
+
+{# tls.enabled: Enable TLS encryption for client connections (recommended for production). #}
+{# tls.cert_file: Path to the TLS certificate file (PEM format). #}
+{# tls.key_file: Path to the TLS private key file (PEM format, must be readable only by root). #}
+{% if ((tls | default({})).enabled | default(True)) | bool %}
+CertFile {{ (tls | default({})).cert_file | default('/etc/ssl/certs/gotd.crt') }}
+KeyFile {{ (tls | default({})).key_file | default('/etc/ssl/private/gotd.key') }}
+{% endif %}
+
+{# ssh_host_key: Path to the SSH host private key file (required if using git over SSH). #}
+{% if (ssh_host_key | default('')) != '' %}
+HostKey {{ (ssh_host_key | default('')) }}
+{% endif %}
+
+{# rate_limit.enabled: Enable bandwidth rate limiting for clients (to prevent abuse). #}
+{# rate_limit.bytes_per_sec: Rate limit in bytes per second (ignored unless rate_limit.enabled is true). #}
+{% if ((rate_limit | default({})).enabled | default(False)) | bool %}
+RateLimit {{ ((rate_limit | default({})).bytes_per_sec | default(1048576)) }}
+{% endif %}
+
+{# auth_backends: List of authentication backends to use (order matters — first match wins). #}
+{% for auth_backend in (auth_backends | default([])) %}
+  {% if auth_backend.type == 'file' %}
+    {# auth_backend.path: Path to the local authentication file (e.g., shadow or custom db). #}
+    AuthFile {{ auth_backend.path }}
+  {% elif auth_backend.type == 'ldap' %}
+    {# auth_backend.ldap.uri: LDAP server URI. #}
+    {# auth_backend.ldap.basedn: Base DN for user searches. #}
+    {# auth_backend.ldap.binddn: DN used to bind to the LDAP server. #}
+    {# auth_backend.ldap.bind_password: Password for the LDAP bind DN. #}
+    {# auth_backend.ldap.user_filter: Filter to identify users (e.g., (uid=%s)). #}
+    LDAPURI {{ auth_backend.ldap.uri | default('') }}
+    LDAPBaseDN {{ auth_backend.ldap.basedn | default('') }}
+    LDAPBindDN {{ auth_backend.ldap.binddn | default('') }}
+    LDAPBindPassword {{ auth_backend.ldap.bind_password | default('') }}
+    LDAPUserFilter {{ auth_backend.ldap.user_filter | default('') }}
+  {% elif auth_backend.type == 'http' %}
+    {# auth_backend.http.endpoint: URL endpoint for HTTP-based authentication. #}
+    AuthHTTP {{ auth_backend.http.endpoint | default('') }}
+  {% endif %}
+{% endfor %}
+
+{# acls: List of access control rules (applied in order; first match grants/denies). #}
+{% if (acls | default([])) | length > 0 %}
+  {% for acl in (acls | default([])) %}
+    {% if acl.type == 'user' %}
+      {# acl.user: Username allowed access. #}
+      {# acl.paths: List of repository paths accessible to this user. #}
+      AllowUser {{ acl.user }} {{ (acl.paths | default([])) | join(' ') }}
+    {% elif acl.type == 'group' %}
+      {# acl.group: Group name allowed access. #}
+      {# acl.paths: List of repository paths accessible to this group. #}
+      AllowGroup {{ acl.group }} {{ (acl.paths | default([])) | join(' ') }}
+    {% endif %}
+  {% endfor %}
+{% endif %}
+
+{# logging.level: Minimum log level: debug, info, notice, warn, error. #}
+{% if ((logging | default({})).level | default('notice')) != '' %}
+Log {{ ((logging | default({})).level | default('notice')) | lower }}
+{% endif %}
+
+{# chroot: Chroot directory to sandbox gotd (e.g., /chroot/gotd). Leave empty to disable chrooting. #}
+{% if (chroot | default('')) != '' %}
+Chroot {{ (chroot | default('')) }}
+{% endif %}

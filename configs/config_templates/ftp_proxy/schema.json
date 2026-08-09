@@ -1,0 +1,158 @@
+{
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the proxy listens on for incoming FTP control connections."
+  },
+  "port": {
+    "type": "number",
+    "default": 21,
+    "description": "Port number for the FTP control connection listener."
+  },
+  "passive_ports": {
+    "type": "object",
+    "default": {
+      "start": 40000,
+      "end": 40100
+    },
+    "description": "Port range for passive FTP data connections (min and max).",
+    "items": {
+      "start": {
+        "type": "number",
+        "default": 40000,
+        "description": "First port in the passive data range."
+      },
+      "end": {
+        "type": "number",
+        "default": 40100,
+        "description": "Last port in the passive data range."
+      }
+    }
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous FTP sessions allowed."
+  },
+  "syslog": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to log to the system logger (syslog) instead of a file."
+  },
+  "logfile": {
+    "type": "string",
+    "default": "/var/log/ftp-proxy/ftp-proxy.log",
+    "description": "Path to log file when syslog is disabled. Ignored if syslog=true."
+  },
+  "control_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Idle timeout (in seconds) for FTP control connections before disconnect."
+  },
+  "transfer_timeout": {
+    "type": "number",
+    "default": 600,
+    "description": "Timeout (in seconds) for FTP data transfers (no data = disconnect)."
+  },
+  "chroot_anonymous": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable chroot jail for anonymous (guest) users for security."
+  },
+  "chroot_local": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable chroot jail for local (authenticated) users for security."
+  },
+  "allowed_networks": {
+    "type": "list",
+    "default": [
+      "0.0.0.0/0"
+    ],
+    "description": "List of client IP subnets (in CIDR notation) allowed to connect. Order matters if combined with deny_networks."
+  },
+  "denied_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of client IP subnets (in CIDR notation) explicitly blocked. Evaluated after allowed networks."
+  },
+  "virtual_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual host mappings. Each entry maps a client-requested hostname to a backend target.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Hostname the proxy expects in the FTP HOST command or DNS reverse lookup."
+        },
+        "target": {
+          "type": "string",
+          "default": "",
+          "description": "Backend FTP server address (host:port or IP:port) to proxy to for this host."
+        }
+      }
+    }
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "cert_path": "/etc/ftp-proxy/ssl.crt",
+      "key_path": "/etc/ftp-proxy/ssl.key",
+      "min_version": "TLSv1.2"
+    },
+    "description": "SSL/TLS configuration for secure connections.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to enable SSL/TLS encryption on connections."
+      },
+      "cert_path": {
+        "type": "string",
+        "default": "/etc/ftp-proxy/ssl.crt",
+        "description": "Path to the SSL certificate file."
+      },
+      "key_path": {
+        "type": "string",
+        "default": "/etc/ftp-proxy/ssl.key",
+        "description": "Path to the SSL private key file."
+      },
+      "min_version": {
+        "type": "string",
+        "default": "TLSv1.2",
+        "description": "Minimum supported TLS version (e.g., TLSv1.2, TLSv1.3)."
+      }
+    }
+  },
+  "ftps": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "port": 990,
+      "explicit": true
+    },
+    "description": "FTPS (FTP over SSL) configuration.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to enable a dedicated FTPS port (implicit FTPS)."
+      },
+      "port": {
+        "type": "number",
+        "default": 990,
+        "description": "Port for implicit FTPS (SSL handshake begins immediately)."
+      },
+      "explicit": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable AUTH TLS on the standard FTP port (explicit FTPS)."
+      }
+    }
+  },
+  "ipv6": ": {  // Note: typo preserved for fidelity to input request; corrected in sample_values below if needed (but not here in schema key) \u2014 however, per instruction, we follow the input schema key exactly as implied: "
+}

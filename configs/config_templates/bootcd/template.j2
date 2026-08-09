@@ -1,0 +1,102 @@
+#!/bin/sh
+#
+### BEGIN INIT INFO
+# Provides:          bootcd
+# Required-Start:    mountall-bootclean $local_fs
+# Required-Stop:
+# X-Start-Before:    networking
+# Default-Start:     S
+# Default-Stop:
+# Short-Description: bootcd reads changes from floppy if running from bootcd
+# Description:       When running from bootcd this script tries to access
+#                    the floppy to read changes last time saved with
+#                    bootcdflopcp from a running bootcd.
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+# MNT: Mount point for the floppy disk.
+MNT={{ mnt | default('/mnt') }}
+
+# FLOPPY: Device file for the floppy disk.
+FLOPPY={{ floppy | default('/dev/fd0') }}
+
+# BOOT_ONLY_WITH_FLOPPY: If 'yes', script exits with error if floppy mount fails; otherwise continues.
+BOOT_ONLY_WITH_FLOPPY="{{ boot_only_with_floppy | default('no') }}"
+
+# FSTYPES: Comma-separated list of filesystem types to try when mounting the floppy.
+FSTYPES="{{ fstypes | default('ext3,ext2,reiserfs,iso9660,vfat,auto') }}"
+
+my_exit()
+{
+  echo "bootcd: $2"
+  if [ "$BOOT_ONLY_WITH_FLOPPY" = "yes" -a $1 != 0 ]; then
+    echo "The floppy could not be mounted."
+    echo "Manual interaction required."
+    # Start a single user shell on the console
+    /sbin/sulogin $CONSOLE
+  fi
+  exit 0
+}
+
+startscript()
+{
+  # bootcdwrite modifies this script. FLOPPY could be unset.
+  if [ ! "$FLOPPY" ]; then
+    my_exit 0 "No Floppy device specified !!"
+  fi
+
+  # Only run this script if we have booted from bootcd
+  if [ ! "$(grep "\<bootcd=" /proc/cmdline)" ]; then
+    my_exit 0 "not booted from bootcd"
+  fi
+
+  # Try only once, if /dev/fd0 is readable.
+  cat $FLOPPY >/dev/null
+  RET=$?
+  [ $RET -eq 0 ] || my_exit $RET "$FLOPPY not readable"
+
+  echo "Reading floppy"
+  fsck -a -t $FSTYPES $FLOPPY
+  mount -v -o ro -n -t $FSTYPES $FLOPPY $MNT
+  RET=$?
+  [ $RET -eq 0 ] || my_exit $RET "$FLOPPY not mountable"
+
+  [ -f $MNT/change.tgz ] && (cd /; tar xzf $MNT/change.tgz)
+
+  [ -f $MNT/remove ] && for i in `cat $MNT/remove`
+  do
+    rm -f /$i
+  done
+
+  [ -x $MNT/execute ] && $MNT/execute
+
+  umount $MNT
+
+  # If something has been changed in /etc/inittab
+  init q
+}
+
+case "$1" in
+  start)
+    startscript
+    ;;
+  restart)
+    ;;
+  status)
+    ;;
+  force-reload)
+    ;;
+  stop)
+    ;;
+  restart)
+    ;;
+  force-reload)
+    ;;
+  *)
+    echo "Usage: /etc/init.d/bootcdram start" >&2
+    exit 1
+    ;;
+esac
+
+exit 0

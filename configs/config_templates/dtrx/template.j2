@@ -1,0 +1,70 @@
+{# ============================================================================ #}
+{# dtrx(1) Configuration Template                                               #}
+{#                                                                               #}
+{# This template generates a single-line command string for the `dtrx` tool.     #}
+{# `dtrx` is a smarter version of `tar` that handles various archive formats.    #}
+{# Every boolean flag is emitted only if its corresponding variable is truthy.   #}
+{# String/Integer options use Jinja2 `default` filters to ensure safe rendering  #}
+{# even if the variable is undefined in the Ansible inventory.                   #}
+{#                                                                               #}
+{# Usage: Assign this output to a variable like `dtrx_command` and pass it to    #}
+{# the `command` or `shell` module.                                              #}
+{# ============================================================================ #}
+
+{% set _recursive = recursive | default(False) %}
+{% set _one_entry = one_entry | default('inside') %}
+{% set _overwrite = overwrite | default(False) %}
+{% set _flat = flat | default(False) %}
+{% set _noninteractive = noninteractive | default(False) %}
+{% set _list = list | default(False) %}
+{% set _metadata = metadata | default(False) %}
+{% set _quiet = quiet | default(0) %}
+{% set _verbose = verbose | default(0) %}
+
+{# -r: Enables recursive extraction of nested archives. #}
+{# Maps to the CLI flag `-r`. #}
+{# Default: False (disabled) #}
+{% if _recursive %}-r {% endif %}
+
+{# --one <mode>: Controls handling of archives containing only one entry. #}
+{# Valid modes: 'inside', 'rename', 'here'. #}
+{# Default: 'inside' #}
+{% if _one_entry %}--one {{ _one_entry }} {% endif %}
+
+{# -o: Allows overwriting existing output directories. #}
+{# Maps to the CLI flag `-o`. #}
+{# Default: False (disabled) #}
+{% if _overwrite %}-o {% endif %}
+
+{# -f: Extracts contents directly into the current directory (flat). #}
+{# Maps to the CLI flag `-f`. #}
+{# Default: False (disabled) #}
+{% if _flat %}-f {% endif %}
+
+{# -n: Suppresses interactive prompts. #}
+{# Maps to the CLI flag `-n`. #}
+{# Default: False (enabled by default in most Ansible contexts, but explicit flag here) #}
+{% if _noninteractive %}-n {% endif %}
+
+{# -l: Lists archive contents instead of extracting. #}
+{# Maps to the CLI flag `-l`. #}
+{# Default: False (disabled) #}
+{% if _list %}-l {% endif %}
+
+{# -m: Extracts metadata from .deb/.gem archives instead of contents. #}
+{# Maps to the CLI flag `-m`. #}
+{# Default: False (disabled) #}
+{% if _metadata %}-m {% endif %}
+
+{# -q: Suppresses warnings. #}
+{# Maps to repetition of `-q`. #}
+{# 0=normal, 1=suppress warnings, 2=silent. #}
+{# Default: 0 (normal) #}
+{%- for _i in range(_quiet) %} -q{%- endfor %}
+
+{# -v: Increases verbosity. #}
+{# Maps to repetition of `-v`. #}
+{# 1=show filenames, 2=debug info. #}
+{# Default: 0 (normal) #}
+{%- for _i in range(_verbose) %} -v{%- endfor %}
+{# End of dtrx flags. Append the target archive and destination here. #}

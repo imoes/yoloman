@@ -1,0 +1,121 @@
+# ==============================================================================
+# Cube2 Server Configuration Template
+# This template generates the server.cfg for Cube2 Engine dedicated servers.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and source variable.
+# ==============================================================================
+
+# Display name of the server visible to players in the browser.
+# Variable: server_name
+server_name "{{ server_name | default('Cube2 Server') }}"
+
+# Game mode (e.g., ctf, dm, dd, race, duel). Must match a supported mode.
+# Variable: game_mode
+game_mode "{{ game_mode | default('ctf') }}"
+
+# Maximum number of concurrent players allowed.
+# Variable: max_players
+maxplayers {{ max_players | default(16) }}
+
+# UDP port used for game traffic.
+# Variable: game_port
+port {{ game_port | default(28785) }}
+
+# HTTP port for admin interface (0 disables it).
+# Variable: admin_http_port
+{% if (admin_http_port | default(0)) > 0 %}
+admin_http_port {{ admin_http_port | default(0) }}
+{% endif %}
+
+# Password required to join the server. Leave empty for open access.
+# Variable: server_password
+{% if server_password | default('') %}
+password "{{ server_password | default('') }}"
+{% endif %}
+
+# Password to authenticate as admin in-game (e.g., via /admin command).
+# Variable: admin_password
+{% if admin_password | default('') %}
+adminpassword "{{ admin_password | default('') }}"
+{% endif %}
+
+# Ordered list of maps for rotation (minimum of one required).
+# The first map is loaded immediately; subsequent maps are added via addmap.
+# Variable: maps
+{% set _maps = maps | default(['arena']) %}
+{% if _maps | length > 0 %}
+map "{{ _maps[0] }}"
+{% endif %}
+{% if _maps | length > 1 %}
+{% for m in _maps[1:] %}
+addmap "{{ m }}"
+{% endfor %}
+{% endif %}
+
+# Run the server in dedicated mode (no local player, no GUI).
+# Variable: dedicated
+{% if dedicated | default(True) %}
+dedicated 1
+{% else %}
+dedicated 0
+{% endif %}
+
+# Time in minutes per map before rotating. Set to 0 for no limit.
+# Variable: time_limit
+timelimit {{ time_limit | default(20) }}
+
+# Score required to win/rotate (e.g., flag captures in CTF). Set to 0 for no limit.
+# Variable: score_limit
+scorelimit {{ score_limit | default(10) }}
+
+# Allow players to harm teammates.
+# Variable: friendly_fire
+{% if friendly_fire | default(False) %}
+friendlyfire 1
+{% else %}
+friendlyfire 0
+{% endif %}
+
+# Show player names in spectator list.
+# Variable: names_in_spectator
+{% if names_in_spectator | default(True) %}
+names_in_spectator 1
+{% else %}
+names_in_spectator 0
+{% endif %}
+
+# Packet rate limit (bytes/sec) per client to reduce bandwidth.
+# Variable: rate
+rate {{ rate | default(25000) }}
+
+# Minimum acceptable ping (ms); below this, clients may be warned.
+# Variable: min_ping
+minping {{ min_ping | default(0) }}
+
+# Maximum acceptable ping (ms); clients above this may be disconnected.
+# Variable: max_ping
+maxping {{ max_ping | default(400) }}
+
+# Path to write server log. Empty string disables logging.
+# Variable: log_file
+{% if log_file | default('/var/log/cube2-server/server.log') %}
+log "{{ log_file | default('/var/log/cube2-server/server.log') }}"
+{% endif %}
+
+# List of master servers for public server listing.
+# Leave empty or add a dummy entry to disable registration.
+# Variable: master_servers
+{% set _masters = master_servers | default(['master.cube2.org:28790']) %}
+{% if _masters | length > 0 %}
+{% for master in _masters %}
+addmaster "{{ master }}"
+{% endfor %}
+{% else %}
+addmaster ""
+{% endif %}
+
+# Additional server options not covered by this schema, passed as-is.
+# Variable: extra_options
+{% for opt in extra_options | default([]) %}
+{{ opt }}
+{% endfor %}

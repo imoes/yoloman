@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Copyright (c) 2018-2019, 2021-2022, Intel Corporation
+
+# ------------------------------------------------------------------
+#                     mptcpd Configuration File
+# ------------------------------------------------------------------
+
+[core]
+# -------------------------
+# Default logging mechanism
+# -------------------------
+#   stderr  - standard unbuffered I/O stream
+#   syslog  - POSIX based system logger
+#   journal - systemd Journal
+#   null    - disable logging
+log={{ log_target }}
+
+# ----------------
+# Plugin directory
+# ----------------
+plugin-dir={{ plugin_dir }}
+
+# -------------------
+# Path manager plugin
+# ---------------------
+# The plugin found with the most favorable (lowest) priority will be
+# used if one is not specified.
+path-manager={{ path_manager }}
+
+# --------------------------
+# Address announcement flags
+# --------------------------
+# A comma separated list containing one or more of the flags:
+#
+#   subflow
+#   signal    (do not use with the "fullmesh" flag)
+#   backup
+#   fullmesh  (do not use with the "signal" flag)
+#
+# Plugins that deal with the in-kernel path manager may use these
+# flags when advertising addresses.
+#
+# See the ip-mptcp(8) man page for details.
+#
+# addr-flags=subflow
+
+# --------------------------
+# Address notification flags
+# --------------------------
+# A comma separated list containing one or more of the flags:
+#
+#   existing
+#     Notify plugins of the addresses that exist at mptcpd start
+#
+#   skip_link_local
+#     Ignore (do not notify) [ipv6] link local address updates
+#
+#   skip_loopback
+#     Ignore (do not notify) host (loopback) address updates
+#
+#   check_route
+#     Notify address only if a default route is available from such
+#     address and the related device. If the route check fails, it
+#     will be re-done after a little timeout, to allow e.g. DHCP to
+#     configure the host properly. Complex policy routing
+#     configuration may confuse or circumvent this check.
+#
+# These flags determine whether mptpcd plugins will be notified when
+# related addresses are updated.
+#
+# notify-flags=existing,skip_link_local,skip_loopback,check_route
+
+# --------------------------
+# Plugins to load
+# --------------------------
+# A comma separated list containing one or more plugins to load.
+#
+# load-plugins=addr_adv,sspi

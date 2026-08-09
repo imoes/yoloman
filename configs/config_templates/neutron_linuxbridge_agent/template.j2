@@ -1,0 +1,50 @@
+[linux_bridge]
+# Comma-separated list of mappings of physical network names to physical interface names
+# (e.g., physnet1:eth1,physnet2:eth2).
+physical_interface_mappings = {{ physical_interface_mappings | default('') }}
+
+# Comma-separated list of VXLAN network identifier (VNI) ranges for tenant networks
+# (e.g., 1:1000,2000:3000).
+vni_ranges = {{ vni_ranges | default('') }}
+
+# Enable or disable VXLAN overlay networks.
+enable_vxlan = {{ enable_vxlan | default(true) | bool | ternary('True', 'False') }}
+
+# Time-to-live (TTL) for VXLAN packets.
+vxlan_ttl = {{ vxlan_ttl | default(1) }}
+
+# Enable or disable ARP responder for VXLAN to reply to ARP requests locally.
+arp_responder = {{ arp_responder | default(false) | bool | ternary('True', 'False') }}
+
+# Local IP address for VXLAN UDP endpoint. Must be reachable between compute hosts.
+vxlan_local_ip = {{ vxlan_local_ip | default('') }}
+
+[network_types]
+# Ordered list of network types supported for tenant networks (e.g., flat, vlan, vxlan).
+tenant_network_types = {{ tenant_network_types | default(['flat', 'vlan', 'vxlan']) | join(', ') }}
+
+[linux_bridge]
+# Comma-separated list of mappings of physical network names to Linux bridge names
+# (e.g., physnet1:br-eth1, physnet2:br-eth2).
+bridge_mappings = {{ bridge_mappings | default('') }}
+
+[securitygroup]
+# Enable or disable security groups for instances.
+enable_security_group = {{ enable_security_group | default(true) | bool | ternary('True', 'False') }}
+
+# Firewall driver implementation (e.g., neutron.agent.linux.iptables_firewall.IptablesFirewallDriver
+# or neutron.agent.linux.nftables_firewall.NFTablesFirewallDriver).
+firewall_driver = {{ firewall_driver | default('neutron.agent.linux.iptables_firewall.IptablesFirewallDriver') }}
+
+# Enable or disable DHCP options for security group rules.
+enable_dhcp_options = {{ enable_dhcp_options | default(true) | bool | ternary('True', 'False') }}
+
+[agent]
+# Minimum number of agent cycles to wait before reporting state to server.
+min_agent_rounds = {{ min_agent_rounds | default(3) }}
+
+# Seconds between agent state reports to the server (lower = more frequent).
+polling_interval = {{ polling_interval | default(2) }}
+
+# Seconds to wait before re-registering with the server after failure.
+registration_delay = {{ registration_delay | default(2) }}

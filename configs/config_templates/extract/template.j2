@@ -1,0 +1,66 @@
+{# ============================================================================ #}
+{# extract.conf - libextractor configuration template                           #}
+{# ============================================================================ #}
+{# This template configures the libextractor CLI tool. It defines which plugin   #}
+{# libraries to load, output formatting, verbosity, and keyword filtering.      #}
+{#                                                                              #}
+{# Variables are sourced from Ansible variables with safe defaults applied      #}
+{# to prevent rendering errors when values are omitted.                         #}
+{# ============================================================================ #}
+
+# -------------------------------------------------------------------------- #
+# Extractor libraries to use                                                 #
+# List of libextractor plugin names (e.g., 'jpeg', 'ogg', 'mp3') to use.    #
+# Plugins without .so extension are assumed. If empty, standard plugins are  #
+# used unless USE_ONLY_SPECIFIED_LIBRARIES is enabled.                       #
+# -------------------------------------------------------------------------- #
+EXTRACT_LIBRARIES={{ libraries | default([]) | join(' ') | trim | default('') }}
+
+# -------------------------------------------------------------------------- #
+# Use only specified libraries                                               #
+# If true, disables the default extractor set and uses only the plugins      #
+# listed in 'libraries'. Defaults to False.                                  #
+# -------------------------------------------------------------------------- #
+USE_ONLY_SPECIFIED_LIBRARIES={{ use_only_specified_libraries | default(false) | lower }}
+
+# -------------------------------------------------------------------------- #
+# Output format                                                              #
+# Output format. Valid values: 'default', 'bibtex', 'grep'.                  #
+# Defaults to 'default'.                                                     #
+# -------------------------------------------------------------------------- #
+OUTPUT_FORMAT={{ output_format | default('default') }}
+
+# -------------------------------------------------------------------------- #
+# Verbose level                                                              #
+# Verbosity level (0 = quiet, 1 = standard, 2+ = more verbose).              #
+# Defaults to 1.                                                             #
+# -------------------------------------------------------------------------- #
+VERBOSITY={{ verbosity | default(1) | int }}
+
+# -------------------------------------------------------------------------- #
+# Keywords to include                                                        #
+# List of keyword types to include in output. Use 'extract -L' to list all   #
+# known types. If empty, all types are included.                             #
+# -------------------------------------------------------------------------- #
+INCLUDE_KEYWORD_TYPES={{ include_keyword_types | default([]) | join(',') | trim | default('') }}
+
+# -------------------------------------------------------------------------- #
+# Keywords to exclude                                                        #
+# List of keyword types to exclude from output. Use 'extract -L' to list all #
+# known types.                                                               #
+# -------------------------------------------------------------------------- #
+EXCLUDE_KEYWORD_TYPES={{ exclude_keyword_types | default([]) | join(',') | trim | default('') }}
+
+# -------------------------------------------------------------------------- #
+# Run plugins in-process                                                       #
+# If true, run extractor plugins in the main process (for debugging).        #
+# Defaults to False.                                                         #
+# -------------------------------------------------------------------------- #
+IN_PROCESS={{ in_process | default(false) | lower }}
+
+# -------------------------------------------------------------------------- #
+# Load file into memory for extraction                                       #
+# If true, load files into memory before extraction (for debugging).         #
+# Defaults to False.                                                         #
+# -------------------------------------------------------------------------- #
+IN_MEMORY={{ in_memory | default(false) | lower }}

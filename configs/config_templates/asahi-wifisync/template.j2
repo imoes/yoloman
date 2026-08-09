@@ -1,0 +1,32 @@
+# asahi-wifisync configuration template
+# This file configures the asahi-wifisync service, which synchronizes WiFi networks
+# from Apple Silicon NVRAM to the iwd (iNet Wireless Daemon) configuration directory.
+
+# Device path for NVRAM access
+# Path to the NVRAM device (e.g., /dev/nvram). Must be readable by the asahi-wifisync process.
+DEVICE: {{ device | default("/dev/nvram") }}
+
+# Path to iwd configuration directory
+# Target directory for iwd network configuration files. Must be writable by asahi-wifisync.
+IWD_CONFIG_PATH: {{ iwd_config_path | default("/var/lib/iwd") }}
+
+# List of WiFi networks to sync
+# List of WiFi networks to sync from NVRAM. Each item contains SSID, optional passphrase, and optional priority.
+NETWORKS:
+{% for network in networks | default([]) %}
+# Network: {{ network.ssid | default('') }}
+#   SSID of the network. Required field.
+#   WPA/WPA2 passphrase. Empty string means open network or already provisioned.
+#   Connection priority (higher = more preferred). Default 0.
+  - SSID: "{{ network.ssid | default('') }}"
+    PASSPHRASE: "{{ network.passphrase | default('') }}"
+    PRIORITY: {{ network.priority | default(0) }}
+{% endfor %}
+
+# Logging verbosity
+# Logging verbosity. Valid values: debug, info, warn, error.
+LOG_LEVEL: {{ log_level | default("info") }}
+
+# Dry-run mode (no actual writes)
+# When true, parse NVRAM and print intended config without writing to disk.
+DRY_RUN: {{ dry_run | default(False) | bool | ternary("true", "false") }}

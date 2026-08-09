@@ -1,0 +1,173 @@
+# backup2l configuration file
+#
+# This file configures the backup2l incremental backup system.
+# It defines source directories, exclusion patterns, backup retention policies,
+# and the destination directory for archives.
+#
+# See /usr/share/doc/backup2l/README.Debian or the man page backup2l(8) for details.
+
+##################################################
+# Version
+
+# Define the backup2l version for which the configuration file is written.
+# This allows future versions to warn if syntax has changed.
+FOR_VERSION=1.7
+
+##################################################
+# Volume identification
+
+# Prefix for backup filenames (used as VOLNAME).
+# Example: 'myhost-backup' results in filenames like 'myhost-backup-YYYYMMDD.tar.gz'.
+# This helps distinguish backups from different hosts or purposes.
+VOLNAME="{{ (archive_prefix | default('all')) | string }}"
+
+##################################################
+# Source files
+
+# List of directories to include in every backup.
+# All paths MUST be absolute.
+# The last elements of the list may be options for find(1) (e.g., '-xdev' to skip
+# other filesystems like /proc or /dev).
+SRCLIST=({{ (include_dirs | default(['/etc', '/root', '/home', '/var/mail', '/usr/local'])) | join(' ') }})
+
+# Exclude conditions for files/directories.
+# Uses find(1) expression syntax.
+# Default behavior: excludes files matching '*.nobackup*' and '*.o'.
+# To exclude nothing, use: SKIPCOND=(-false)
+# To exclude multiple paths: SKIPCOND=(-path '/path1' -o -path '/path1/*' -o -path '/path2' -o -path '/path2/*')
+# Generate the find expression for exclusion patterns.
+{% set skipcond_parts = [] %}
+{% for pattern in (exclude_patterns | default(['*.nobackup*', '*.o'])) %}
+    {# Generate the find expression for exclusion patterns #}
+    {# Assuming typical usage: first pattern is -path, subsequent are -name, or adapt as needed #}
+    {# The original template used -path for the first and -name for the second. #}
+    {# We will stick to a generic -name for safety unless structure implies otherwise, #}
+    {# or try to replicate the original logic: first item -path, rest -name. #}
+    {% if loop.index == 1 %}
+        {% set _ = skipcond_parts.append('-path "' ~ pattern ~ '"') %}
+    {% else %}
+        {% set _ = skipcond_parts.append('-name "' ~ pattern ~ '"') %}
+    {% endif %}
+{% endfor %}
+SKIPCOND=({{ skipcond_parts | join(' -o ') }})
+
+# If you have no patterns to exclude, use:
+# SKIPCOND=(-false)
+
+##################################################
+# Destination
+
+# Mount point of backup device (optional).
+# If set, backup2l may attempt to mount/unmount this device.
+# #BACKUP_DEV="/disk2"
+
+# Destination directory for backups.
+# Must exist and must not be the top-level of BACKUP_DEV if BACKUP_DEV is set.
+BACKUP_DIR="{{ (backup_dir | default('/disk2/backup')) | string }}"
+
+##################################################
+# Backup parameters
+
+# Number of levels of differential backups (1..9).
+# Level 1 is differential from the last full backup.
+# Level 2 is differential from the last level 1, etc.
+MAX_LEVEL=3
+
+# Maximum number of differential backups per level (1..9).
+# Controls how many incremental steps are kept for each level.
+MAX_PER_LEVEL=8
+
+# Maximum number of full backups (1..8) to retain.
+# Older full backups are deleted during cleanup.
+MAX_FULL={{ (max_full_backups | default(2)) | int }}
+
+# Generations to keep per level.
+# Old backups are removed so that at least GENERATIONS * MAX_PER_LEVEL
+# recent versions are available for the respective level.
+GENERATIONS=1
+
+# If set to 1, a check file (checksums) is automatically generated.
+# Useful for verifying backup integrity.
+CREATE_CHECK_FILE=1
+
+##################################################
+# Pre-/Post-backup functions
+
+# User-defined bash function executed BEFORE a backup is made.
+# Use this to stop services (e.g., databases) to ensure consistent snapshots.
+PRE_BACKUP ()
+{
+    echo "  pre-backup: nothing to do"
+
+    # Example: Shut down mail/db servers if their files are included in SRCLIST.
+    # Example: Write dpkg selections to a log file.
+    # echo "  writing dpkg selections to /root/dpkg-selections.log..."
+    # dpkg --get-selections | diff - /root/dpkg-selections.log > /dev/null || dpkg --get-selections > /root/dpkg-selections.log
+}
+
+# User-defined bash function executed AFTER a backup is made.
+# Use this to restart services stopped in PRE_BACKUP.
+POST_BACKUP ()
+{
+    echo "  post-backup: nothing to do"
+
+    # Example: Restart services.
+}
+
+##################################################
+# Misc.
+
+# Create a backup when invoked without arguments?
+# 0 = manual invocation required.
+# 1 = automatic backup (e.g., via cron).
+AUTORUN=0
+
+# Size units for summary output.
+# Set to "B", "K", "M", or "G" to force unified units in the summary list.
+SIZE_UNITS=""   # "" = use original units
+
+# Time zone for meta data in backup archives.
+# "UTC" is recommended for new archives.
+# Note: Changing this value for existing archives might cause backup2l to
+# consider all files as new because timestamps are interpreted differently.
+TIME_ZONE="UTC" # Use "UTC" or leave empty for local time.
+
+# Remove this line after setup is finished.
+# backup2l warns if this file is still marked as unconfigured.
+UNCONFIGURED=1
+
+# Archive driver for new backups.
+# Default is DRIVER_TAR_GZ.
+# Built-in drivers: DRIVER_TAR, DRIVER_TAR_GZ, DRIVER_TAR_BZ2, DRIVER_AFIOZ, etc.
+#CREATE_DRIVER="DRIVER_TAR_GZ"
+
+##################################################
+# User-defined archive drivers (optional)
+
+# To use a custom driver, define it below and set CREATE_DRIVER to "DRIVER_<NAME>".
+# A driver is a bash function implementing: -test, -suffix, -create, -toc, -extract.
+
+# Example: PIGZ driver for multi-core compression.
+# NOTES: USE ONLY WITH MULTI CORE CPU. REQUIRES pigz INSTALLED.
+DRIVER_TAR_PIGZ ()
+{
+    case $1 in
+        -test)
+            require_tools tar pigz gzip
+            echo "ok"
+            ;;
+        -suffix)
+            echo "tar.gz"
+            ;;
+        -create)
+            # $2 = BID, $3 = archive file name, $4 = file list file
+            tar cf $3 --no-recursion --atime-preserve -I pigz -T $4 2>&1 | grep -v 'tar: Removing leading .* from .* names'
+            ;;
+        -toc)
+            tar tf $3 -I pigz | sed 's#^#/#'
+            ;;
+        -extract)
+            tar xf $3 --same-permission --same-owner -I pigz -T $4 2>&1
+            ;;
+    esac
+}

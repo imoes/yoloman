@@ -1,0 +1,553 @@
+{
+  "input_file": {
+    "type": "string",
+    "default": "",
+    "description": "Read input from this file. Default: stdin"
+  },
+  "output_file": {
+    "type": "string",
+    "default": "",
+    "description": "Write output to this file. If a directory, bar creates a file with the input file's name inside it. Default: stdout"
+  },
+  "size": {
+    "type": "number",
+    "default": 0,
+    "description": "Expect an input stream of this many bytes. Supports suffixes k, m, g, t, p, e, b (if block-size is set first)."
+  },
+  "completed": {
+    "type": "number",
+    "default": 0,
+    "description": "Instruct bar that this many bytes have already been copied (continuation of previous transfer)."
+  },
+  "buffer_size": {
+    "type": "number",
+    "default": 52488,
+    "description": "Allocate an I/O buffer of this many bytes. Default: 52488 (512 KiB). Same modifiers as size allowed."
+  },
+  "throttle": {
+    "type": "number",
+    "default": 0,
+    "description": "Restrict I/O throughput to this rate in bytes per second. Same modifiers as size allowed."
+  },
+  "interval": {
+    "type": "number",
+    "default": 1,
+    "description": "Update the display every this many seconds. Default: 1"
+  },
+  "display_wait": {
+    "type": "bool",
+    "default": false,
+    "description": "Wait for the first byte of data before displaying anything."
+  },
+  "kilobyte": {
+    "type": "number",
+    "default": 1024,
+    "description": "Use either 1000 or 1024 as the definition of a kilobyte for size/scale parsing."
+  },
+  "block_size": {
+    "type": "number",
+    "default": 512,
+    "description": "When parsing sizes in blocks (suffix b), assume a single block is this many bytes. Must be set before any block-based sizes."
+  },
+  "screen_width": {
+    "type": "number",
+    "default": 0,
+    "description": "Assume a fixed screen width of this many characters; overrides terminal detection. Use 0 to disable override."
+  },
+  "screen_width_minus_one": {
+    "type": "bool",
+    "default": false,
+    "description": "Use full terminal width minus one for screen width."
+  },
+  "screen_height": {
+    "type": "number",
+    "default": 23,
+    "description": "Assume a fixed screen height of this many characters; useful only with info-file."
+  },
+  "screen_height_minus_one": {
+    "type": "bool",
+    "default": false,
+    "description": "Use full terminal height minus one for screen height."
+  },
+  "title": {
+    "type": "string",
+    "default": "",
+    "description": "Set the title string. No title shown unless explicitly set."
+  },
+  "display_twiddle": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the twirling twiddle character in the display."
+  },
+  "display_title": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the title in the display."
+  },
+  "display_count": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the data count in the display."
+  },
+  "display_count_bits": {
+    "type": "bool",
+    "default": false,
+    "description": "Display the data count in bits instead of bytes."
+  },
+  "display_throughput": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the data throughput in the display."
+  },
+  "display_throughput_bits": {
+    "type": "bool",
+    "default": false,
+    "description": "Display throughput in bits/second instead of bytes/second."
+  },
+  "display_time": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the time (elapsed or ETA) in the display."
+  },
+  "display_elapsed_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Force bar to display elapsed time instead of ETA."
+  },
+  "display_percent": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off percent complete in the display."
+  },
+  "display_bar": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the progress bar in the display."
+  },
+  "display_summary": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the summary information displayed at completion."
+  },
+  "display_numeric": {
+    "type": "bool",
+    "default": false,
+    "description": "Display percent as integer per line instead of full display. Requires known total size."
+  },
+  "display_ansi": {
+    "type": "bool",
+    "default": true,
+    "description": "Turn on/off the use of ANSI color codes in the display."
+  },
+  "info_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to info file. Sections separated by '@@@' are shown as transfer progresses."
+  },
+  "twiddle_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Twiddle foreground color. Valid: normal, black, red, green, yellow, blue, magenta, cyan, white",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "twiddle_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Twiddle background color. Valid: same as above",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "twiddle_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the twiddle."
+  },
+  "title_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Title foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "title_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Title background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "title_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the title."
+  },
+  "count_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Data count foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "count_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Data count background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "count_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the data count."
+  },
+  "throughput_label_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Throughput label foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "throughput_label_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Throughput label background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "throughput_label_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the throughput label."
+  },
+  "throughput_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Throughput value foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "throughput_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Throughput value background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "throughput_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the throughput value."
+  },
+  "time_label_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Time label foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "time_label_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Time label background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "time_label_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the time label."
+  },
+  "time_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Time value foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "time_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Time value background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "time_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the time value."
+  },
+  "percent_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Percent foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "percent_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Percent background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "percent_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the percent."
+  },
+  "bar_brace_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Bar brace (brackets around bar) foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "bar_brace_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Bar brace background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "bar_brace_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the bar braces."
+  },
+  "bar_fg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Bar fill foreground color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "bar_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Bar fill background color.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  },
+  "bar_bold": {
+    "type": "bool",
+    "default": false,
+    "description": "Use bold font for the bar."
+  },
+  "bar_openbrace_char": {
+    "type": "string",
+    "default": "[",
+    "description": "Open brace character for the progress bar."
+  },
+  "bar_closebrace_char": {
+    "type": "string",
+    "default": "]",
+    "description": "Close brace character for the progress bar."
+  },
+  "bar_complete_char": {
+    "type": "string",
+    "default": "#",
+    "description": "Character used for the completed portion of the bar."
+  },
+  "bar_incomplete_char": {
+    "type": "string",
+    "default": "-",
+    "description": "Character used for the incomplete portion of the bar."
+  },
+  "space_bg": {
+    "type": "string",
+    "default": "normal",
+    "description": "Background color used for spacing between display objects.",
+    "enum": [
+      "normal",
+      "black",
+      "red",
+      "green",
+      "yellow",
+      "blue",
+      "magenta",
+      "cyan",
+      "white"
+    ]
+  }
+}

@@ -1,0 +1,53 @@
+- name: install-docker-daemon
+  hosts: all
+  become: true
+  vars:
+    dns:
+      - "8.8.8.8"
+      - "8.8.4.4"
+    hosts:
+      - "unix:///var/run/docker.sock"
+    log_opts:
+      max-file: "3"
+      max-size: "10m"
+    runtimes: {}
+    data_root: /var/lib/docker
+    dns_search: []
+    log_driver: json-file
+    live_restore: false
+    storage_driver: overlay2
+    default_runtime: runc
+    insecure_registries: []
+    features_containerd_snapshotter: false
+  tasks:
+    - name: Install Docker Engine
+      ansible.builtin.package:
+        name:
+          - docker-ce
+          - docker.io
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: docker-daemon.j2
+        dest: /etc/docker/daemon.json
+        mode: '0644'
+      vars:
+        dns: "{{ dns }}"
+        hosts: "{{ hosts }}"
+        log_opts: "{{ log_opts }}"
+        runtimes: "{{ runtimes }}"
+        data_root: "{{ data_root }}"
+        dns_search: "{{ dns_search }}"
+        log_driver: "{{ log_driver }}"
+        live_restore: "{{ live_restore }}"
+        storage_driver: "{{ storage_driver }}"
+        default_runtime: "{{ default_runtime }}"
+        insecure_registries: "{{ insecure_registries }}"
+        features_containerd_snapshotter: "{{ features_containerd_snapshotter }}"
+
+    - name: Enable and restart Docker Engine
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+        enabled: true

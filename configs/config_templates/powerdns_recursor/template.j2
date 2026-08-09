@@ -1,0 +1,129 @@
+# ==============================================================================
+# PowerDNS Recursor Configuration Template
+# ==============================================================================
+# This file configures the PowerDNS Recursor service. All variables are drawn
+# from the Ansible role's schema. Every directive is self-documented with its
+# schema description and default value.
+# ==============================================================================
+
+# [listen_addresses]
+# List of IP addresses on which the Recursor will listen for DNS queries.
+# Empty list means listen on all interfaces.
+# Default: ['127.0.0.1', '::1']
+listen-addresses={{ (listen_addresses | default(['127.0.0.1', '::1'])) | join(',') }}
+
+# [dns_port]
+# DNS port to listen on.
+# Default: 53
+dns-port={{ dns_port | default(53) }}
+
+# [max_udp_queries_per_connection]
+# Maximum number of concurrent UDP queries per connection (for TCP-only setups, typically set to 1).
+# Default: 100
+max-udp-queries-per-connection={{ max_udp_queries_per_connection | default(100) }}
+
+# [dnssec]
+# Enable DNSSEC validation of responses.
+# Default: True
+dnssec={{ 'on' if dnssec | default(true) else 'off' }}
+
+# [allow_recursion]
+# List of networks or hosts allowed to recurse; set to '0.0.0.0/0' to allow all (not recommended).
+# Default: ['127.0.0.0/8', '::1/128']
+allow-recursion={{ (allow_recursion | default(['127.0.0.0/8', '::1/128'])) | join(',') }}
+
+# [log_querylog]
+# Enable detailed query logging for troubleshooting.
+# Default: False
+log-querylog={{ 'yes' if log_querylog | default(false) else 'no' }}
+
+# [log_level]
+# Logging verbosity: 0 (none) to 6 (very verbose). Higher values increase log size significantly.
+# Default: 0
+loglevel={{ log_level | default(0) }}
+
+# [max_concurrent_queries]
+# Maximum number of simultaneous queries the recursor will handle.
+# Default: 10000
+max-concurrent-queries={{ max_concurrent_queries | default(10000) }}
+
+# [query_local_address_timeout]
+# Timeout (in ms) for determining local address used for outgoing queries.
+# Default: 10000
+query-local-address-timeout={{ query_local_address_timeout | default(10000) }}
+
+# [query_local_address]
+# Local source address to use for outgoing queries (e.g., '192.0.2.1'). Empty means use system default.
+# Default: ''
+query-local-address={{ query_local_address | default('') }}
+
+# [forward_zones]
+# List of zone names (e.g., 'example.com=10.0.0.1') to forward to specific upstream servers.
+# Format: 'zone=upstream1,upstream2'.
+# Default: []
+forward-zones={{ (forward_zones | default([])) | join(',') }}
+
+# [forward_timeout]
+# Timeout (in ms) for upstream server responses when forwarding.
+# Default: 2000
+forward-timeout={{ forward_timeout | default(2000) }}
+
+# [cache_max_ttl]
+# Maximum time-to-live (seconds) for cached entries. Set to 0 to disable caching.
+# Default: 86400
+cache-max-ttl={{ cache_max_ttl | default(86400) }}
+
+# [cache_min_ttl]
+# Minimum time-to-live (seconds) for cached entries. Use with caution—typically left at 0.
+# Default: 0
+cache-min-ttl={{ cache_min_ttl | default(0) }}
+
+# [threads]
+# Number of worker threads. Set to 0 to auto-detect based on CPU cores.
+# Default: 1
+threads={{ threads | default(1) }}
+
+# [api_enabled]
+# Enable the HTTP API server (requires api-key and api-listen).
+# Default: False
+api={{ 'yes' if api_enabled | default(false) else 'no' }}
+
+# [api_key]
+# Secret API key for HTTP API authentication. Required if API is enabled.
+# Default: ''
+api-key={{ api_key | default('') }}
+
+# [api_listen]
+# IP address on which to listen for API connections. Empty string disables API.
+# Default: '127.0.0.1'
+api-listen={{ api_listen | default('127.0.0.1') }}
+
+# [remote_pipe_timeout]
+# Timeout (ms) for remote control pipe operations.
+# Default: 10000
+remote-pipe-timeout={{ remote_pipe_timeout | default(10000) }}
+
+# [socket_dir]
+# Directory to create control and socket files (e.g., control socket, stats).
+# Default: '/run/pdns-recursor'
+socket-dir={{ socket_dir | default('/run/pdns-recursor') }}
+
+# [max_queries_per_ip_per_second]
+# Maximum queries allowed per IP per second before rate-limiting kicks in. Set to 0 to disable.
+# Default: 60
+max-queries-per-ip-per-second={{ max_queries_per_ip_per_second | default(60) }}
+
+# [ecs_ipv4_bits]
+# Number of bits of IPv4 client address to preserve in EDNS Client Subnet (0 = disable).
+# Default: 24
+ecs-ipv4-bits={{ ecs_ipv4_bits | default(24) }}
+
+# [ecs_ipv6_bits]
+# Number of bits of IPv6 client address to preserve in EDNS Client Subnet (0 = disable).
+# Default: 56
+ecs-ipv6-bits={{ ecs_ipv6_bits | default(56) }}
+
+# [ecs_preserve_case]
+# If true, preserve case of domain names in ECS queries (RFC 8915).
+# Default: True
+ecs-case={{ 'preserve' if ecs_preserve_case | default(true) else 'lowercase' }}

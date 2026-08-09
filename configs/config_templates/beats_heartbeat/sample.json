@@ -1,0 +1,99 @@
+{
+  "heartbeat_period": 30,
+  "processors": [
+    {
+      "type": "add_fields",
+      "fields": {
+        "environment": "production",
+        "team": "platform"
+      }
+    }
+  ],
+  "monitors": [
+    {
+      "name": "api-gateway",
+      "type": "http",
+      "interval": 60,
+      "enabled": true,
+      "urls": [
+        "https://api.example.com/health"
+      ],
+      "method": "GET",
+      "headers": {
+        "Authorization": "Bearer ${API_TOKEN}"
+      },
+      "timeout": 5,
+      "checks": {
+        "response": {
+          "contains": [
+            "OK"
+          ]
+        },
+        "status": {
+          "codes": [
+            200,
+            204
+          ]
+        }
+      },
+      "tls": {
+        "enabled": true,
+        "verification_mode": "full",
+        "certificate_authorities": [
+          "/etc/ssl/certs/api-ca.crt"
+        ]
+      },
+      "tags": [
+        "prod",
+        "api"
+      ],
+      "alert": {
+        "when": {
+          "fails": 3
+        }
+      }
+    },
+    {
+      "name": "db-primary",
+      "type": "tcp",
+      "interval": 30,
+      "enabled": true,
+      "hosts": [
+        "db1.example.com:5432"
+      ],
+      "timeout": 3
+    },
+    {
+      "name": "internal-dns",
+      "type": "dns",
+      "interval": 60,
+      "enabled": true,
+      "nameservers": [
+        "10.0.0.2"
+      ],
+      "query_name": "internal.example.com",
+      "query_type": "A",
+      "timeout": 5
+    }
+  ],
+  "elasticsearch_hosts": [
+    "https://es1.example.com:9200",
+    "https://es2.example.com:9200"
+  ],
+  "elasticsearch_username": "heartbeat_internal",
+  "elasticsearch_password": "super-secret-password",
+  "elasticsearch_ssl": {
+    "enabled": true,
+    "certificate_authorities": [
+      "/etc/ssl/certs/es-ca.crt"
+    ],
+    "verification_mode": "full"
+  },
+  "logging_level": "info",
+  "logging_to_files": true,
+  "logging_file_path": "/var/log/heartbeat",
+  "logging_rotate_bytes": 10485760,
+  "logging_keep_files": 7,
+  "metrics_enabled": false,
+  "metrics_period": 60
+}

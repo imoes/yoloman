@@ -1,0 +1,97 @@
+# ==============================================================================
+# fingerd.conf — Configuration for the finger daemon (RFC 1288)
+# This file is self-documented: every directive is preceded by its description.
+# ==============================================================================
+
+# ==============================================================================
+# Listening address and port
+# ==============================================================================
+
+# IP address the finger daemon listens on (e.g., '0.0.0.0' for all interfaces,
+# or '127.0.0.1' for localhost only).
+listen {{ (listen_address | default('0.0.0.0')) }}:{{ (listen_port | default(79)) }}
+
+# ==============================================================================
+# User information display
+# ==============================================================================
+
+# Whether to display user information (login name, full name, idle time, etc.)
+# when a user is queried.
+userinfo {{ (userinfo_enabled | default(True) | lower) }}
+
+# ==============================================================================
+# Hostname resolution
+# ==============================================================================
+
+# Whether to resolve and display hostnames for remote IP addresses.
+hostname {{ (hostname_enabled | default(False) | lower) }}
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+
+# Whether to log requests and errors to the system syslog.
+syslog {{ (syslog_enabled | default(False) | lower) }}
+
+# ==============================================================================
+# Connection limits
+# ==============================================================================
+
+# Maximum number of simultaneous connections the daemon will accept.
+max_connections {{ (max_connections | default(100)) }}
+
+# ==============================================================================
+# Welcome and banner messages
+# ==============================================================================
+
+# Path to the file containing the welcome message shown on client connect
+# (if it exists).
+welcome {{ (welcome_file | default('/etc/finger.welcome')) }}
+
+# Path to the file containing the banner shown before user information
+# (if it exists).
+banner {{ (banner_file | default('/etc/finger.banner')) }}
+
+# ==============================================================================
+# User info search directories
+# ==============================================================================
+
+# Ordered list of directories where the daemon looks for per-user information
+# files. One directory per line.
+{% for dir in (search_dirs | default(['/etc', '/var/run'])) %}searchdir {{ dir }}
+{% endfor %}
+
+# ==============================================================================
+# Access control: Allowed hosts
+# ==============================================================================
+
+# Whitelist of hosts permitted to query the finger daemon. Leave empty to
+# allow all. If non-empty, only listed hosts are allowed.
+{% if (allowed_hosts | default([])) | length > 0 %}# Allowed hosts (one per line)
+{% for host in (allowed_hosts | default([])) %}allow {{ host }}
+{% endfor %}{% else %}# No host restrictions — allow all hosts
+{% endif %}
+
+# ==============================================================================
+# Access control: Denied hosts
+# ==============================================================================
+
+# Blacklist of hosts blocked from querying the finger daemon. Empty by default.
+{% if (denied_hosts | default([])) | length > 0 %}# Denied hosts (one per line)
+{% for host in (denied_hosts | default([])) %}deny {{ host }}
+{% endfor %}{% endif %}
+
+# ==============================================================================
+# Long format listing
+# ==============================================================================
+
+# Whether to enable the `-l` long listing format (shows login shell, home
+# directory, etc.).
+longformat {{ (longformat_enabled | default(False) | lower) }}
+
+# ==============================================================================
+# Connection timeout
+# ==============================================================================
+
+# Idle timeout in seconds for client connections. Default per man page is 60.
+timeout {{ (timeout_seconds | default(60)) }}

@@ -1,0 +1,94 @@
+{
+  "booth_config": {
+    "type": "string",
+    "default": "/etc/booth/booth-site.conf",
+    "description": "Path to the booth site configuration file used for site-specific settings."
+  },
+  "booth_port": {
+    "type": "number",
+    "default": 9999,
+    "description": "UDP port on which booth listens for cluster communication (must match across all nodes)."
+  },
+  "booth_auth": {
+    "type": "string",
+    "default": "file",
+    "description": "Authentication method for booth messages. Use 'none' only in trusted environments."
+  },
+  "booth_authfile": {
+    "type": "string",
+    "default": "/etc/booth/authfile",
+    "description": "Path to the shared secret file used when auth=file. Must be identical on all nodes."
+  },
+  "booth_timeout": {
+    "type": "number",
+    "default": 5000,
+    "description": "Timeout in milliseconds for waiting for responses from remote booth sites."
+  },
+  "booth_retry": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries before a remote site is considered unreachable."
+  },
+  "sites": {
+    "type": "list",
+    "default": [],
+    "description": "List of booth sites (clusters) participating in the arbitration decision.",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Human-readable name for the site (used in logs)."
+      },
+      "addr": {
+        "type": "string",
+        "required": true,
+        "description": "IP address or resolvable hostname of the booth site."
+      },
+      "priority": {
+        "type": "number",
+        "required": false,
+        "default": 128,
+        "minimum": 0,
+        "maximum": 255,
+        "description": "Priority (0\u2013255); higher priority wins in split-brain resolution. Default: 128."
+      }
+    }
+  },
+  "arbitrators": {
+    "type": "list",
+    "default": [],
+    "description": "Optional list of arbitrator nodes (external passive observers for quorum).",
+    "items": {
+      "addr": {
+        "type": "string",
+        "required": true,
+        "description": "IP address or hostname of the arbitrator site."
+      }
+    }
+  },
+  "resource_name": {
+    "type": "string",
+    "default": "booth",
+    "description": "Name of the Pacemaker resource agent (must match an RA registered in OCF or LSF)."
+  },
+  "resource_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum time in seconds to wait for start/stop/monitor operations to complete."
+  },
+  "resource_start_delay": {
+    "type": "number",
+    "default": 5,
+    "description": "Delay (in seconds) after Pacemaker initiates the resource before it becomes active."
+  },
+  "resource_monitor_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (in seconds) between health checks (monitor operations) on the booth resource."
+  },
+  "quorum_loss_action": {
+    "type": "string",
+    "default": "stop",
+    "description": "Pacemaker action to take on the booth resource when cluster quorum is lost."
+  }
+}

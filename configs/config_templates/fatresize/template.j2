@@ -1,0 +1,64 @@
+# fatresize configuration template
+# This template generates a configuration for the fatresize utility, which resizes FAT16/FAT32 volumes
+# non-destructively. It supports querying information, resizing with specific targets, and controlling
+# output verbosity and progress indicators.
+#
+# Fields map directly to fatresize command-line options:
+#   device: The block device to operate on (e.g., /dev/sdb1).
+#   size:   Target size with unit suffix (e.g., 2G, 512M) or 'max'. Empty if not resizing.
+#   info:   If true, show volume information only (no resizing).
+#   progress: If true, show resize progress bar/percentages.
+#   quiet:  If true, suppress informational output (errors still shown).
+#   verbose: If true, enable verbose logging/output.
+
+# Device path (e.g., /dev/sdb1) to resize or query.
+# Required for any operation that modifies or queries a specific volume.
+{% set dev = device | default('') %}
+{% if dev %}
+# Device path: {{ dev }}
+device: {{ dev }}
+{% else %}
+# Device path is not set. This is an error condition if any operation other than generic help is intended.
+{% endif %}
+
+# Target size with unit suffix (e.g., 2G, 512M, max) or empty for info-only mode.
+# If omitted or empty, the device field is used for query/info mode only, or the previous size is inferred if supported.
+{% set sz = size | default('') %}
+{% if sz %}
+# Target size: {{ sz }}
+size: {{ sz }}
+{% else %}
+# Size is not set. If info mode is enabled, this is acceptable. Otherwise, resizing cannot proceed.
+{% endif %}
+
+# Show volume information only (no resizing).
+# If true, fatresize will report details about the filesystem and will not make changes.
+{% if info | default(false) %}
+# Info mode enabled: query only.
+info: true
+{% endif %}
+
+# Show resize progress.
+# If true, displays a progress bar or percentage during the resize operation.
+{% if progress | default(false) %}
+# Progress reporting enabled.
+progress: true
+{% endif %}
+
+# Suppress output messages (except errors).
+# If true, only error messages are printed to stderr; informational messages are hidden.
+{% if quiet | default(false) %}
+# Quiet mode enabled.
+quiet: true
+{% endif %}
+
+# Enable verbose output.
+# If true, provides detailed diagnostic output during the operation.
+# Note: Usually mutually exclusive with quiet mode in practice, but both are supported by fatresize.
+{% if verbose | default(false) %}
+# Verbose mode enabled.
+verbose: true
+{% endif %}
+
+# Note: device and size are required for resizing; info requires only device.
+# Command-line equivalent: fatresize [-s SIZE] [-i] [-p] [-q] [-v] DEVICE

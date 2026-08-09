@@ -1,0 +1,83 @@
+# ProFTPD TCP Wrappers (mod_wrap) Configuration
+# This section configures ProFTPD's integration with the system's TCP Wrappers
+# (libwrap) to control access based on client IP addresses or hostnames.
+# It loads mod_wrap and defines allow/deny rules, custom file paths, and logging.
+
+{# -------------------------------------------------------------------------- #}
+{# Module Loading                                                           #}
+{# -------------------------------------------------------------------------- #}
+
+# Load the mod_wrap module to enable TCP Wrappers support.
+# This directive must appear before any mod_wrap-specific configuration.
+LoadModule mod_wrap.c
+
+{# -------------------------------------------------------------------------- #}
+{# Global TCP Wrappers Switch                                               #}
+{# -------------------------------------------------------------------------- #}
+
+# TCP Wrappers: Enable or disable access control via /etc/hosts.allow and
+# /etc/hosts.deny.
+# - 'on': Enforce TCP Wrappers rules (default behavior if not specified).
+# - 'off': Disable TCP Wrappers checks entirely.
+# Schema field: tcp_wrappers_enabled (bool, default True)
+# Uses the variable `tcp_wrappers_enabled`. If undefined, defaults to True.
+TCPWrappers {{ tcp_wrappers_enabled | default(True) | lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# Custom Hosts Files (Optional)                                            #}
+{# -------------------------------------------------------------------------- #}
+
+# Optional: Specify custom paths for the TCP Wrappers allow file.
+# Default: /etc/hosts.allow
+# Schema field: hosts_allow_path (str, default '/etc/hosts.allow')
+# Only emitted if the variable is defined and not empty.
+{% if hosts_allow_path is defined %}
+WrapAllowFiles {{ hosts_allow_path | default('/etc/hosts.allow') }}
+{% endif %}
+
+# Optional: Specify custom paths for the TCP Wrappers deny file.
+# Default: /etc/hosts.deny
+# Schema field: hosts_deny_path (str, default '/etc/hosts.deny')
+# Only emitted if the variable is defined and not empty.
+{% if hosts_deny_path is defined %}
+WrapDenyFiles {{ hosts_deny_path | default('/etc/hosts.deny') }}
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Access Control Rules                                                     #}
+{# -------------------------------------------------------------------------- #}
+
+# List of IP/hostname-based access control rules.
+# Each rule applies to specific FTP commands (e.g., RETR, STOR, ALL) and
+# may Allow or Deny specific clients. Rules are evaluated in order.
+# Schema field: access_rules (list of dicts, default [])
+# Each dict expects keys: limits (list), allow (list), deny (list), comment (str).
+{% if access_rules | default([]) | length > 0 %}
+{% for rule in access_rules | default([]) %}
+# Rule: {{ rule.comment | default('Access rule') }}
+<Limit {{ rule.limits | default([]) | join(', ') }}>
+  {% if rule.allow is defined and rule.allow %}
+  Allow {{ rule.allow | join(', ') }}
+  {% endif %}
+  {% if rule.deny is defined and rule.deny %}
+  Deny {{ rule.deny | join(', ') }}
+  {% endif %}
+</Limit>
+{% endfor %}
+{% endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Logging                                                                  #}
+{# -------------------------------------------------------------------------- #}
+
+# Log verbosity for TCP Wrappers access decisions.
+# Levels: 'none', 'min', 'moderate', 'full'.
+# - 'none': Suppress logging.
+# - 'min': Log only denied connections.
+# - 'moderate': Log allowed and denied connections (default).
+# - 'full': Log detailed debugging information.
+# Schema field: wrap_log_level (str, default 'moderate')
+# Only emitted if the variable is defined.
+{% if wrap_log_level is defined %}
+WrapLog {{ wrap_log_level | default('moderate') }}
+{% endif %}

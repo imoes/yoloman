@@ -1,0 +1,105 @@
+# Account private key file path (used to identify the account to the CA)
+ACCOUNT_KEY_PATH="{{ account_key_path }}"
+
+# API endpoint for the ACME server (e.g., Let's Encrypt's staging or production URL)
+ACME_DIRECTORY="{{ acme_directory }}"
+
+# Default CA to use when not explicitly specified (e.g., 'letsencrypt' or 'zerossl')
+DEFAULT_CA="{{ default_ca }}"
+
+# Enable debug mode? Set to 1 for verbose logging
+DEBUG="{{ debug | int }}"
+
+# Enable DNS alias mode (for DNS-01 challenges via alias records)
+DNS_ALIAS="{{ dns_alias | int }}"
+
+# Path to custom CA bundle (overrides system default)
+{% if custom_ca_bundle %}CA_BUNDLE="{{ custom_ca_bundle }}"
+{% else %}# CA_BUNDLE=""
+{% endif %}
+
+# HTTP timeout (in seconds) for ACME requests
+HTTP_TIMEOUT="{{ http_timeout }}"
+
+# Maximum retries for failed HTTP requests
+RETRY_MAX="{{ retry_max }}"
+
+# Retries delay (in seconds) between failed requests
+RETRY_DELAY="{{ retry_delay }}"
+
+# Path to ACME config directory (contains domains, certificates, etc.)
+ACME_HOME="{{ acme_home }}"
+
+# Default key length for new account keys and certificates
+ACCOUNT_KEY_LENGTH="{{ account_key_length }}"
+
+# Default certificate key length (if not overridden per domain)
+CERT_KEY_LENGTH="{{ cert_key_length }}"
+
+# Enable EAB (External Account Binding) support for account portability
+USE_EAB="{{ use_eab | int }}"
+
+# External Account Binding credentials (required for some registrars like GoDaddy)
+{% if eab_kid and eab_hmac_key %}EAB_KID="{{ eab_kid }}"
+EAB_HMAC_KEY="{{ eab_hmac_key }}"
+{% else %}# EAB_KID=""
+# EAB_HMAC_KEY=""
+{% endif %}
+
+# List of custom DNS plugins (auto-loaded from $ACME_HOME/dnsapi/ if present)
+{% for plugin in dns_plugins %}# DNS plugin: {{ plugin.name }}
+{% if plugin.enabled %}_DNS{{ plugin.name | upper }}="1"
+{% endif %}{% endfor %}
+
+# List of preconfigured DNS credentials (if used manually or via alias)
+{% for cred in dns_credentials %}# DNS credential: {{ cred.provider }}
+{% if cred.provider %}_{{ cred.provider | upper }}_API_KEY="{{ cred.api_key }}"
+{% endif %}{% endfor %}
+
+# Enable OCSP stapling (for certificates that support it)
+OCSP="{{ ocsp | int }}"
+
+# Path to custom ACME client script (useful for multiple clones)
+ACME_SH_PATH="{{ acme_sh_path }}"
+
+# Enable automatic renewal? Set to 1 to enable (requires cron/systemd timer)
+AUTO_RENEW="{{ auto_renew | int }}"
+
+# Days before expiry to trigger automatic renewal
+AUTO_RENEW_DAYS="{{ auto_renew_days }}"
+
+# Default email for account registration (for expiration warnings, etc.)
+ACCOUNT_EMAIL="{{ account_email }}"
+
+# Disable certificate reinstall after renewal? Set to 1 to skip
+NO_REINSTALL="{{ no_reinstall | int }}"
+
+# Enable certificate chain validation (strict mode)
+STRICT_MODE="{{ strict_mode | int }}"
+
+# Log level: 0=error,1=warn,2=info,3=debug
+LOG_LEVEL="{{ log_level }}"
+
+# Log file path (empty to disable file logging)
+LOG_FILE="{{ log_file }}"
+
+# System-wide default key algorithm (e.g., rsa, ecdsa)
+DEFAULT_KEY_ALGO="{{ default_key_algo }}"
+
+# Default country code for certificate subject
+COUNTRY_CODE="{{ country_code }}"
+
+# Default state for certificate subject
+STATE="{{ state }}"
+
+# Default location for certificate subject
+LOCATION="{{ location }}"
+
+# Default organization for certificate subject
+ORGANIZATION="{{ organization }}"
+
+# Default organizational unit for certificate subject
+ORGANIZATION_UNIT="{{ organization_unit }}"
+
+# Enable JSON output (for integration with external tools)
+JSON_OUTPUT="{{ json_output | int }}"

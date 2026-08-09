@@ -1,0 +1,59 @@
+{# ============================================================================ #}
+{# Claws-Mail Attach-Warner Plugin Configuration                                 #}
+{# This file configures the "attach-warn" plugin for Claws-Mail.                  #}
+{# It enables automatic detection of potential missing attachments in composed     #}
+{# emails by scanning the message body for specific keywords and patterns.         #}
+{# ============================================================================ #}
+
+{# ----------------------------------------------------------------------------- #}
+{# Regular expression patterns to detect missing attachment intent.              #}
+{# The plugin scans the message body for these patterns. If found, it prompts     #}
+{# the user to verify if an attachment was intended but omitted.                  #}
+{# Each pattern is listed on its own line.                                       #}
+{# Schema default: ['attachment', 'attached', 'see attached']                    #}
+{# ----------------------------------------------------------------------------- #}
+{% for pattern in (patterns | default(['attachment', 'attached', 'see attached'])) %}
+# Pattern {{ loop.index }}
+{{ pattern | default('', true) | trim | replace('\r', '') | replace('\n', '') }}
+{% endfor %}
+
+{# ----------------------------------------------------------------------------- #}
+{# Warn on uppercase-only keywords.                                              #}
+{# If true, the plugin also triggers a warning when attachment keywords are        #}
+{# written entirely in uppercase (e.g., "ATTACHMENT" or "SEE ATTACHED").         #}
+{# This helps catch informal or shouted reminders that might indicate a missing   #}
+{# file.                                                                         #}
+{# Schema default: true                                                          #}
+{# ----------------------------------------------------------------------------- #}
+warn_uppercase: {{ warn_uppercase | default(true) }}
+
+{# ----------------------------------------------------------------------------- #}
+{# Case sensitivity setting.                                                     #}
+{# Controls whether pattern matching is case-sensitive.                          #}
+{# - true: Patterns match exactly as typed.                                      #}
+{# - false: Patterns match ignoring case (e.g., "Attachment" matches "attachment"). #}
+{# Schema default: false                                                         #}
+{# ----------------------------------------------------------------------------- #}
+case_sensitive: {{ case_sensitive | default(false) }}
+
+{# ----------------------------------------------------------------------------- #}
+{# Minimum body length for analysis.                                             #}
+{# The plugin only analyzes messages where the body length exceeds this value     #}
+{# (in characters). Short messages are skipped to avoid false positives on brief   #}
+{# notes or greetings.                                                           #}
+{# Schema default: 20                                                            #}
+{# ----------------------------------------------------------------------------- #}
+min_body_length: {{ min_body_length | default(20) }}
+
+{# ----------------------------------------------------------------------------- #}
+{# List of file extensions considered typical attachments.                         #}
+{# Used for heuristic validation. If the message body mentions keywords            #}
+{# associated with these extensions (or if the user is about to send a file with  #}
+{# these extensions), the plugin may provide additional context or warnings.       #}
+{# Schema default: ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',    #}
+{#                  '.jpg', '.jpeg', '.png', '.gif', '.zip']                     #}
+{# ----------------------------------------------------------------------------- #}
+{% for ext in (attachment_extensions | default(['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.jpg', '.jpeg', '.png', '.gif', '.zip'])) %}
+# Extension {{ loop.index }}
+attachment_extension: {{ ext | default('', true) | trim | replace('\r', '') | replace('\n', '') }}
+{% endfor %}

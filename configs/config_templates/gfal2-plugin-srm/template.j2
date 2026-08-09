@@ -1,0 +1,82 @@
+# =============================================================================
+# gfal2-plugin-srm Configuration Template
+# =============================================================================
+# This template generates the configuration file for the gfal2 SRM (Storage Resource Manager) plugin.
+# The SRM plugin handles file transfers to/from GridFTP/SRM storage endpoints.
+#
+# Variables are sourced from the Ansible role's variable scope. Each variable
+# has a default value specified inline to prevent rendering errors if the variable
+# is undefined.
+# =============================================================================
+
+[SRM PLUGIN]
+
+# -------------------------------------------------------------------------
+# OPERATION_TIMEOUT: Timeout for SRM operations in seconds
+# Description: Overrides CORE:NAMESPACE_TIMEOUT. If the operation exceeds
+#              this time, it will be aborted.
+# Default: 180
+# -------------------------------------------------------------------------
+#OPERATION_TIMEOUT={{ OPERATION_TIMEOUT | default(180) }}
+
+# -------------------------------------------------------------------------
+# CONN_TIMEOUT: Timeout for the HTTP connection in seconds
+# Description: Maximum time to wait for an HTTP connection to be established.
+# Default: 60
+# -------------------------------------------------------------------------
+CONN_TIMEOUT={{ CONN_TIMEOUT | default(60) }}
+
+# -------------------------------------------------------------------------
+# REQUEST_LIFETIME: Desired request lifetime in seconds
+# Description: The maximum duration a request is considered valid/life.
+# Default: 3600
+# -------------------------------------------------------------------------
+REQUEST_LIFETIME={{ REQUEST_LIFETIME | default(3600) }}
+
+# -------------------------------------------------------------------------
+# COPY_CHECKSUM_TYPE: Default checksum type for transfer check
+# Description: Specifies the algorithm used to verify data integrity during
+#              copies (e.g., ADLER32, MD5, SHA1).
+# Default: ADLER32
+# -------------------------------------------------------------------------
+COPY_CHECKSUM_TYPE={{ COPY_CHECKSUM_TYPE | default('ADLER32') }}
+
+# -------------------------------------------------------------------------
+# TURL_PROTOCOLS: Ordered list of TURL protocols for remote I/O
+# Description: Semicolon-separated list of protocols supported for remote
+#              Input/Output operations. The order determines priority.
+# Default: gsiftp;rfio;gsidcap;dcap;kdcap
+# -------------------------------------------------------------------------
+TURL_PROTOCOLS={{ TURL_PROTOCOLS | default('gsiftp;rfio;gsidcap;dcap;kdcap') }}
+
+# -------------------------------------------------------------------------
+# TURL_3RD_PARTY_PROTOCOLS: Ordered list of TURL protocols for third party transfer
+# Description: Semicolon-separated list of protocols supported for
+#              third-party copy operations (direct server-to-server transfer).
+# Default: gsiftp;https;root
+# -------------------------------------------------------------------------
+TURL_3RD_PARTY_PROTOCOLS={{ TURL_3RD_PARTY_PROTOCOLS | default('gsiftp;https;root') }}
+
+# -------------------------------------------------------------------------
+# KEEP_ALIVE: Enable or disable SRM session re-use
+# Description: If true, the plugin attempts to reuse existing SRM sessions
+#              instead of opening a new one for every request, improving performance.
+# Default: True
+# -------------------------------------------------------------------------
+KEEP_ALIVE={{ KEEP_ALIVE | default(True) }}
+
+# -------------------------------------------------------------------------
+# COPY_FAIL_NEARLINE: Enable or disable check for source file locality in SRM copy
+# Description: If true, the copy operation fails if the source file is located
+#              on NEARLINE storage (e.g., tape) and cannot be accessed immediately.
+# Default: False
+# -------------------------------------------------------------------------
+COPY_FAIL_NEARLINE={{ COPY_FAIL_NEARLINE | default(False) }}
+
+# -------------------------------------------------------------------------
+# XATTR_FAIL_NEARLINE: Enable or disable locality check for REPLICAS XATTR
+# Description: If true, obtaining TURLs via XATTRs will fail if the file
+#              is not in ONLINE state (i.e., strictly on disk/active storage).
+# Default: False
+# -------------------------------------------------------------------------
+XATTR_FAIL_NEARLINE={{ XATTR_FAIL_NEARLINE | default(False) }}

@@ -1,0 +1,74 @@
+{
+  "region_name": "RegionOne",
+  "transport_url": "rabbit://openstack:secret@controller:5672/",
+  "log_dir": "/var/log/cinder",
+  "log_file": "/var/log/cinder/volume.log",
+  "database": {
+    "connection": "mysql+pymysql://cinder:secretdb@controller/cinder"
+  },
+  "keystone_authtoken": {
+    "auth_url": "http://controller:5000/v3",
+    "project_domain_name": "Default",
+    "user_domain_name": "Default",
+    "project_name": "service",
+    "username": "cinder",
+    "password": "cinder_secret"
+  },
+  "volume": {
+    "driver": "cinder.volume.drivers.lvm.LVMVolumeDriver",
+    "volume_group": "cinder-volumes",
+    "is_thin_provisioning": true,
+    "max_lvm_volume_size_gb": 2048,
+    "lvm": {
+      "is_active": true,
+      "volume_scan_timeout": 120,
+      "backup_dir": "/var/lib/cinder/volumes-backups"
+    },
+    "iscsi": {
+      "is_active": true,
+      "iscsi_protocol": "v2",
+      "iscsi_helper": "tgtadm",
+      "iscsi_ip_address": "192.168.10.10",
+      "iscsi_port": 3260
+    },
+    "glusterfs": {
+      "is_active": false,
+      "volume_backend_name": "glusterfs_backend",
+      "volume_driver": "cinder.volume.drivers.glusterfs.GlusterfsDriver",
+      "shares": []
+    },
+    "nfs": {
+      "is_active": true,
+      "mount_options": [
+        "rw",
+        "hard",
+        "intr",
+        "proto=tcp"
+      ],
+      "shares": [
+        {
+          "host": "nfs-server1",
+          "path": "/exports/cinder1"
+        },
+        {
+          "host": "nfs-server2",
+          "path": "/exports/cinder2"
+        }
+      ]
+    },
+    "replication": {
+      "enabled": true,
+      "dr_driver": "cinder.volume.drivers.dell_emc.powermax.replication.PowerMaxReplicationDriver",
+      "dr_config": {
+        "powermax_srp": "SRP_1",
+        "powermax_service_level": "Diamond"
+      }
+    },
+    "backup": {
+      "enabled": true,
+      "driver": "cinder.backup.drivers.ceph",
+      "ceph_conf": "/etc/ceph/ceph.conf"
+    }
+  },
+  "nfs_mount_point_base": "/var/lib/cinder/mnt"
+}

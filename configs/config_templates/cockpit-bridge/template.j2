@@ -1,0 +1,31 @@
+# ============================================================================
+# cockpit-bridge Service Configuration Template
+# ============================================================================
+# This file generates a systemd unit override (or similar configuration) for
+# the cockpit-bridge service. All options are passed as command-line arguments
+# to the cockpit-bridge(1) binary.
+# ============================================================================
+
+# --- Custom Arguments ---
+# Each item in the 'args' list is rendered as a comment above the ExecStart line
+# to document the specific arguments being passed, ensuring self-documentation.
+# args: Optional additional command-line arguments passed to cockpit-bridge.
+{% for arg in (args | default([])) %}# {{ arg | default('') }}
+{% endfor %}
+
+# --- ExecStart Directive ---
+# Specifies the binary path and command-line flags for the cockpit-bridge service.
+# bin_path: Path to the cockpit-bridge binary.
+ExecStart={{ bin_path | default('/usr/lib/cockpit/cockpit-bridge') }}\
+{% if (interact | default('')) != '' %}\
+  --interact={{ interact | default('') }}\
+{% endif %}\
+{% if (packages | default(False)) %}\
+  --packages\
+{% endif %}\
+{% if (help | default(False)) %}\
+  --help\
+{% endif %}\
+{% if (version | default(False)) %}\
+  --version\
+{% endif %}

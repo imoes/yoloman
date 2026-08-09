@@ -1,0 +1,110 @@
+# Main NGINX configuration for stream GeoIP2-based TCP/UDP proxying
+# Load dynamic GeoIP2 module (must be compiled with --with-stream_geoip2_module)
+load_module modules/ngx_stream_geoip2_module.so;
+
+# Worker process configuration
+# Adjust worker processes to match available CPU cores. 'auto' detects CPU count.
+worker_processes {{ worker_processes | default('auto') }};
+
+# Global error logging
+# Log errors to this file (rotate externally if needed)
+error_log /var/log/nginx/error.log warn;
+
+# PID file location
+# Stores the master process ID for management
+pid /run/nginx.pid;
+
+# Events block: connection handling and tuning
+# Controls event model, worker connections, and connection efficiency
+events {
+    # Use epoll on Linux (most efficient for high concurrency)
+    worker_connections 1024;
+    use epoll;
+    multi_accept on;
+}
+
+# Stream context: handles TCP/UDP proxying (not HTTP)
+# Enables geoip2-based geographic routing for non-HTTP traffic
+stream {
+    # GeoIP2 database paths
+    # Define one or more countries/city DBs (e.g., Country and City Lite)
+    geoip2 /usr/share/GeoIP/GeoLite2-Country.mmdb {
+        auto_reload 5m;
+        $geoip2_data_country_code source=$remote_addr country iso_code;
+    }
+    geoip2 /usr/share/GeoIP/GeoLite2-City.mmdb {
+        auto_reload 5m;
+        $geoip2_data_city_name source=$remote_addr city names en;
+        $geoip2_data_continent_code source=$remote_addr continent code;
+    }
+
+    # Upstream definitions — define servers by logical group
+    # Each upstream is a group of backend TCP/UDP servers for load balancing
+    {% for upstream in (upstreams | default([])) %}
+    # Upstream: {{ upstream.name | default('unnamed') }} — {{ upstream.description | default('No description') }}
+    upstream {{ upstream.name | default('unnamed') }} {
+        # Use round-robin by default; add ip_hash or least_conn if needed
+        {% if upstream.balance == 'ip_hash' %}
+        ip_hash;
+        {% elif upstream.balance == 'least_conn' %}
+        least_conn;
+        {% endif %}
+        {% for server in (upstream.servers | default([])) %}
+        server {{ server.host | default('127.0.0.1') }}:{{ server.port | default(8080) }}{% if server.backup %} backup{% endif %};
+        {% endfor %}
+    }
+    {% endfor %}
+
+    # Server blocks: each defines a listening socket + routing logic
+    {% for server in (stream_servers | default([])) %}
+    # Listen: {{ server.listen_address | default('*') }}:{{ server.listen_port | default(0) }}
+    # Protocol: {{ server.protocol | upper | default('TCP') }}
+    server {
+        listen {{ server.listen_address | default('*') }}:{{ server.listen_port | default(0) }} {{ 'udp' if server.protocol == 'udp' else '' }};
+
+        # GeoIP2-based routing: redirect traffic by country/continent
+        {% if server.geoip_redirect %}
+        # Redirect traffic not from allowed countries to fallback upstream
+        {% if server.geoip_countries %}
+        {% for country in server.geoip_countries %}
+        {% if loop.first %}if ($geoip2_data_country_code !~* "^(%s)"{% else %} or ($geoip2_data_country_code !~* "^(%s)"{% endif %}{% if loop.last %}) {
+            return 302 http://{{ server.geoip_fallback_host | default('fallback.example.com') }};
+        }{% endif %}
+        {% endfor %}
+        # Note: Multiple if blocks may be consolidated using map for better performance
+        # Alternative: Use `map` in a separate block for complex logic
+        {% else %}
+        # No country restrictions — pass through
+        {% endif %}
+        {% endif %}
+
+        # Proxy to upstream (resolve upstream name defined above)
+        proxy_pass {{ server.upstream_name | default('default_upstream') }};
+
+        # Connection timeout tuning
+        proxy_timeout {{ server.timeout | default('3s') }};
+
+        # Log format: include upstream, client IP, and country code
+        access_log /var/log/nginx/{{ server.log_name | default(server.listen_port | default('unknown')) }}_stream.log;
+    }
+    {% endfor %}
+}
+
+# HTTP block: minimal — only for health check endpoint or status
+# Required to enable `stub_status` for stream module health monitoring
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Basic logging
+    access_log /var/log/nginx/access.log;
+
+    # Health status endpoint (required for stream_upstream_check_module if used)
+    # Enables `stub_status` for stream health checks
+    server {
+        listen 127.0.0.1:8080;
+        location /nginx-health {
+            stub_status;
+        }
+    }
+}

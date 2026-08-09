@@ -1,0 +1,195 @@
+{
+  "master_basedir": {
+    "type": "string",
+    "default": "/var/lib/buildbot/master",
+    "description": "Base directory for the Buildbot master instance."
+  },
+  "botmaster_maxRetries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retries per build step before failing."
+  },
+  "slave_port": {
+    "type": "number",
+    "default": 9989,
+    "description": "TCP port on which Buildbot listens for buildslave connections."
+  },
+  "db_url": {
+    "type": "string",
+    "default": "sqlite:///state.sqlite",
+    "description": "Database connection string (e.g., sqlite:///state.sqlite or postgresql+postgresql://user:pass@host/db). When provided, legacy db_* fields are ignored."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Legacy PostgreSQL port (ignored if db_url is set)."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "buildbot",
+    "description": "Legacy database username."
+  },
+  "db_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Legacy database password."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Legacy database host."
+  },
+  "db_name": {
+    "type": "string",
+    "default": "buildbot",
+    "description": "Legacy database name."
+  },
+  "multi_master": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable multi-master mode (experimental)."
+  },
+  "protocols": {
+    "type": "list",
+    "default": [
+      {
+        "protocol": "pb",
+        "port": "tcp:9989:interface=127.0.0.1"
+      }
+    ],
+    "description": "List of protocols for Buildbot master communication (e.g., pb, wamp). Each item specifies the protocol name and connection options."
+  },
+  "log_encoding": {
+    "type": "string",
+    "default": "utf-8",
+    "description": "Encoding used for log files."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Global logging level: DEBUG, INFO, WARNING, ERROR, or CRITICAL.",
+    "enum": [
+      "INFO",
+      "ERROR"
+    ]
+  },
+  "auth_class": {
+    "type": "string",
+    "default": "util.UserAuthHandler",
+    "description": "Authentication class (e.g., util.UserAuthHandler, auth.BasicAuth)."
+  },
+  "auth_config": {
+    "type": "object",
+    "default": null,
+    "description": "Authentication configuration (passed to auth_class constructor)."
+  },
+  "user_root": {
+    "type": "string",
+    "default": "/var/lib/buildbot/users",
+    "description": "Root directory for user-specific data (if used)."
+  },
+  "user_storage_class": {
+    "type": "string",
+    "default": "",
+    "description": "Class for user storage backend (e.g., 'util.MemoryUserDB'). Empty disables user storage."
+  },
+  "user_storage_config": {
+    "type": "object",
+    "default": null,
+    "description": "Configuration arguments passed to user_storage_class."
+  },
+  "force_builds": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to allow force builds via web UI and API."
+  },
+  "build_horizon": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum number of builds to retain in memory (0 = unlimited)."
+  },
+  "event_horizon": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of events to retain for event distribution (e.g., to web UI)."
+  },
+  "cleanup": {
+    "type": "object",
+    "default": null,
+    "description": "Log and data cleanup configuration."
+  },
+  "status_targets": {
+    "type": "list",
+    "default": [
+      {
+        "class": "www.HttpInfo",
+        "config": {
+          "port": "tcp:8010:interface=127.0.0.1",
+          "authz": "{\"allowRules\": [{\"default\": False}, {\"endpoint\": \"builders\", \"action\": \"*\", \"match\": [\".*\"], \"type\": \"any\"}], \"users\": {\"admin\": [\"admin\"]}}",
+          "plugins": {
+            "waterfall": true,
+            "console": true,
+            "buildslaves": true
+          }
+        }
+      }
+    ],
+    "description": "List of status targets (e.g., web UI, mail, IRC). Each defines a status service class and constructor arguments."
+  },
+  "builders": {
+    "type": "list",
+    "default": [
+      {
+        "name": "test-builder",
+        "slavenames": [
+          "slave1"
+        ],
+        "factory_class": "steps.BuildFactory",
+        "factory_args": {},
+        "builddir": "test-builder",
+        "env": {},
+        "locks": [],
+        "properties": {},
+        "category": "test",
+        "tags": [
+          "unit-tests"
+        ]
+      }
+    ],
+    "description": "List of builders defining CI/CD pipelines."
+  },
+  "schedulers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "sched-all",
+        "class": "schedulers.SingleBranchScheduler",
+        "args": [
+          "name='all-changes'",
+          "change_filter=util.ChangeFilter(branch='main')",
+          "treeStableTimer=60",
+          "builderNames=['test-builder']"
+        ]
+      }
+    ],
+    "description": "List of schedulers for triggering builds on new changes."
+  },
+  "change_sources": {
+    "type": "list",
+    "default": [
+      {
+        "name": "github",
+        "class": "changes.GitHubPullRequest",
+        "args": [
+          "token=\"github-token\", project=\"owner/repo\", pullrequesturl=\"https://api.github.com/repos/owner/repo/pulls\""
+        ]
+      }
+    ],
+    "description": "List of change sources (e.g., Git, GitHub, Mercurial)."
+  },
+  "force_build_user": {
+    "type": "string",
+    "default": "admin",
+    "description": "Username required to force builds via web UI (if auth is enabled)."
+  }
+}

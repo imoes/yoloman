@@ -1,0 +1,168 @@
+# Main Exim4 configuration template (split into DC_* macro blocks)
+# This file is processed by update-exim4conf and converted into /etc/exim4/exim4.conf
+# See /usr/share/doc/exim4-base/README.Debian.gz for details
+
+# --- Global settings ---
+# Set the system mail name (primary hostname used in mail headers)
+# This value is usually the fully qualified domain name of the host
+# and must match the hostname configured in DNS (PTR + A records)
+DC_eximconfig_configtype='{{ dc_eximconfig_configtype }}'
+
+# Internal hostname used for identification (defaults to DC_message_hostname if not set)
+# Set only if you want Exim to identify itself differently than the system hostname
+{% if dc_eximconfig_hname %}DC_message_hostname='{{ dc_eximconfig_hname }}'{% endif %}
+
+# Domain list: domains for which this host is the final destination (local domains)
+# These are the domains Exim will accept and deliver locally
+# Format: space- or comma-separated list of domain names or wildcards
+DC_local_domains='{{ dc_local_domains | join(" : ") | replace(" ", " : ") }}'
+
+# Hosts that may relay mail (authenticated or trusted networks)
+# Exim will accept and relay mail *from* these hosts for *any* destination
+# If empty, only authenticated users may relay
+{% if dc_relay_hosts %}DC_relay_hosts='{{ dc_relay_hosts | join(" : ") }}'{% else %}DC_relay_hosts=''{% endif %}
+
+{% if dc_relay_domains %}DC_relay_domains='{{ dc_relay_domains | join(" : ") }}'{% else %}DC_relay_domains=''{% endif %}
+
+# Trusted users who can bypass certain security checks (e.g., root, exim, mail)
+# Format: colon-separated list of usernames
+DC_trusted_users='{{ dc_trusted_users | join(":") }}'
+
+# Split config into multiple files under /etc/exim4/conf.d/ ?
+# Recommended for maintainability; set to 'false' for monolithic config
+DC_split_config='{{ dc_split_config | lower }}'
+
+# DNS lookup retry settings (optional; defaults may be fine)
+{% if dc_dns_lookup_retries is defined %}DC_dns_lookup_retries='{{ dc_dns_lookup_retries }}'{% endif %}
+
+# --- Network & listener configuration ---
+# Interfaces to listen on for incoming SMTP connections
+# '0.0.0.0' = all IPv4, '::' = all IPv6
+{% if dc_local_interfaces is defined %}DC_local_interfaces='{{ dc_local_interfaces }}'{% else %}DC_local_interfaces='127.0.0.1 ; ::1'{% endif %}
+
+# SMTP port to listen on (usually 25; 465 for implicit TLS, 587 for submission)
+# Separate multiple ports with commas
+{% if dc_other_hostnames is defined %}# Deprecated in newer Exim4; use dc_local_interfaces instead{% endif %}
+
+# --- Delivery & transport settings ---
+# Number of maximum simultaneous SMTP connections per peer
+{% if dc_max_smtp_connections is defined %}DC_max_smtp_connections='{{ dc_max_smtp_connections }}'{% endif %}
+
+# Timeout for SMTP connections (seconds)
+{% if dc_smtptimeout is defined %}DC_smtptimeout='{{ dc_smtptimeout }}'{% endif %}
+
+# --- TLS/SSL configuration ---
+# Enable opportunistic TLS (start TLS if supported by peer)
+DC_tls_enable='{{ dc_tls_enable | lower }}'
+
+# Path to server certificate (PEM format, includes chain if needed)
+{% if dc_tls_certificate is defined %}DC_tls_certificate='{{ dc_tls_certificate }}'{% endif %}
+
+# Path to private key (if not embedded in certificate)
+{% if dc_tls_privatekey is defined %}DC_tls_privatekey='{{ dc_tls_privatekey }}'{% endif %}
+
+# CA certificate chain file (for verifying client/server certs)
+{% if dc_tls_ca is defined %}DC_tls_ca='{{ dc_tls_ca }}'{% endif %}
+
+# --- Authentication & SASL ---
+# Enable SMTP authentication (SASL PLAIN, LOGIN, etc.)
+{% if dc_saslauthd_path is defined %}DC_saslauthd_path='{{ dc_saslauthd_path }}'{% endif %}
+DC_saslauthd='{{ dc_saslauthd | lower }}'
+
+# --- Logging ---
+# Log level (0=minimal, 3=verbose, 5=debug)
+{% if dc_log_selector is defined %}DC_log_selector='{{ dc_log_selector }}'{% endif %}
+
+# Log directory (usually /var/log/exim4/)
+{% if dc_log_file_path is defined %}DC_log_file_path='{{ dc_log_file_path }}'{% endif %}
+
+# --- Main ACLs and routers/transport blocks (if monolithic config) ---
+# When DC_split_config=false, these are embedded directly
+{% if not dc_split_config %}
+# --- ACL definitions ---
+# Pre-RCPT ACL: reject clearly bad senders before accepting RCPT TO
+# This block is usually defined in acl/30_exim4-config_check_rcpt
+begin acl
+
+# SMTP banner
+smtp_banner="${primary_hostname} ESMTP ${version_number} ; ${tod_full}"
+
+# --- Routers ---
+# Local delivery router: delivers mail for DC_local_domains to mailboxes
+# Typically in routers/01_exim4-config_primary
+begin routers
+
+delivery_to_maildir:
+  driver = appendfile
+  directory = $home/Maildir
+  maildir_format = true
+  directory_mode = 0700
+  mode_add_suffix = true
+  return_path_add
+  # Only for local users
+  condition = "${if eq{$domain}{${lookup{$local_part}lsearch{/etc/aliases}{$value}{$domain}}}}"
+
+# DNS lookup for remote delivery
+# Typically in routers/100_exim4-config_primary
+dnslookup:
+  driver = dnslookup
+  domains = ! +local_domains
+  transport = remote_smtp
+  # Retry config is in retry/standard
+  same_domain_routing
+  route_data = ${lookup dnsdb{mxhost=${domain}:a=0:retry=1}}
+  no_more
+
+# --- Transports ---
+# Remote SMTP transport: delivers to other hosts
+# Usually in transport/30_exim4-config_remote_smtp
+begin transports
+
+remote_smtp:
+  driver = smtp
+  # Maximum recipients per message (0 = unlimited, default 100)
+  # Set to a safe value (e.g., 500) for high-volume sites
+  max_rcpt = {{ remote_smtp_max_rcpt }}
+  # TLS policy: opportunistic or force-tls
+  hosts_try_auth = *
+  # Retry rules in retry/standard
+
+# Local delivery transport (e.g., to /var/mail/username)
+mail_spool:
+  driver = appendfile
+  file = /var/mail/${local_part}
+  mode = 0660
+  group = mail
+  create_directory
+
+# --- Retry rules ---
+# Define retry behavior for failed deliveries
+# Typically in retry/standard
+begin retry
+
+*                       *           F,2h,15m; G,16h,1h,1.5; F,4d,6h
+
+# --- Authenticators ---
+# SASL-based auth (if DC_saslauthd=true)
+# Typically in auth/30_exim4-config_examples
+begin authenticators
+
+{% if dc_saslauthd %}
+# Plain and Login via SASL
+plain:
+  driver = plaintext
+  public_name = PLAIN
+  server_set_id = $auth2
+  server_condition = ${if saslauthd{${sg{$auth2}{^}{${sg{$auth1}{^}{}}}}}{yes}{no}}
+  server_advertise_condition = ${if eq{$tls_in_resumed}{0}{1}{0}}
+
+login:
+  driver = plaintext
+  public_name = LOGIN
+  server_set_id = $auth1
+  server_condition = ${if saslauthd{${sg{$auth1}{^}{${sg{$auth2}{^}{}}}}}{yes}{no}}
+  server_advertise_condition = ${if eq{$tls_in_resumed}{0}{1}{0}}
+{% endif %}
+
+# --- End of monolithic config block ---
+{% endif %}

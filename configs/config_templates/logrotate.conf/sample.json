@@ -1,0 +1,88 @@
+{
+  "global_compress": true,
+  "global_dateext": true,
+  "global_dateformat": "-%Y%m%d",
+  "global_weekly": true,
+  "global_rotate": 4,
+  "global_create": "0640 root adm",
+  "global_missingok": true,
+  "global_notifempty": true,
+  "log_blocks": [
+    {
+      "paths": [
+        "/var/log/messages"
+      ],
+      "rotate": 4,
+      "frequency": "weekly",
+      "missingok": true,
+      "notifempty": true,
+      "create": "0640 root adm",
+      "sharedscripts": true,
+      "postrotate_cmd": "/usr/bin/killall -HUP rsyslogd 2>/dev/null || true",
+      "compress": true
+    },
+    {
+      "paths": [
+        "\"/var/log/httpd/access.log\"",
+        "/var/log/httpd/error.log"
+      ],
+      "rotate": 5,
+      "size_kb": 100,
+      "mail_to": "admin@example.com",
+      "missingok": true,
+      "notifempty": true,
+      "sharedscripts": true,
+      "postrotate_cmd": "/usr/bin/killall -HUP httpd 2>/dev/null || true"
+    },
+    {
+      "paths": [
+        "/var/log/news/*"
+      ],
+      "frequency": "monthly",
+      "rotate": 2,
+      "missingok": true,
+      "notifempty": true,
+      "compress": false,
+      "olddir": "/var/log/news/old",
+      "olddir_mode": "0755",
+      "olddir_owner": "news",
+      "olddir_group": "news",
+      "postrotate_cmd": "/bin/kill -HUP $(/bin/cat /var/run/inn.pid) 2>/dev/null || true"
+    },
+    {
+      "paths": [
+        "~/logs/*.log"
+      ],
+      "frequency": "weekly",
+      "rotate": 1,
+      "missingok": true,
+      "notifempty": true,
+      "compress": false
+    },
+    {
+      "paths": [
+        "/var/log/audit/audit.log"
+      ],
+      "frequency": "hourly",
+      "rotate": 12,
+      "size_mb": 100,
+      "missingok": true,
+      "notifempty": true,
+      "create": "0600 root root",
+      "compress": true,
+      "maxage_days": 7
+    },
+    {
+      "paths": [
+        "/var/log/secure_audit/*"
+      ],
+      "frequency": "monthly",
+      "rotate": 3,
+      "missingok": true,
+      "notifempty": true,
+      "create": "0640 root adm",
+      "shred": true,
+      "shredcycles": 3
+    }
+  ]
+}

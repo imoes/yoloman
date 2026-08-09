@@ -1,0 +1,60 @@
+[DEFAULT]
+# Log file path for the Aodh expirer service
+log_file = {{ log_file }}
+
+# Logging debug level (True/False)
+debug = {{ debug }}
+
+# Logging format string
+log_format = {{ log_format }}
+
+# Logging date format
+log_date_format = {{ log_date_format }}
+
+# Name of the service (should be 'aodh-expirer')
+name = aodh-expirer
+
+# RPC backend URL (e.g., rabbit://user:pass@host:5672/vhost)
+transport_url = {{ transport_url }}
+
+[database]
+# SQLAlchemy database connection string
+connection = {{ database.connection }}
+
+[service_credentials]
+# OpenStack auth URL (e.g., http://controller:5000/v3)
+auth_url = {{ service_credentials.auth_url }}
+
+# Project name for authentication
+project_name = {{ service_credentials.project_name }}
+
+# Username for service credentials
+username = {{ service_credentials.username }}
+
+# Password for service credentials
+password = {{ service_credentials.password }}
+
+# Authentication region (optional, leave empty if not used)
+region_name = {{ service_credentials.region_name | default('') }}
+
+# Interface type for service endpoint (public/internal/admin)
+interface = {{ service_credentials.interface }}
+
+# Project domain name
+project_domain_name = {{ service_credentials.project_domain_name }}
+
+# User domain name
+user_domain_name = {{ service_credentials.user_domain_name }}
+
+# API version for identity (e.g., 3)
+auth_type = {{ service_credentials.auth_type }}
+
+# Whether to verify SSL/TLS certificates
+verify = {{ service_credentials.verify }}
+
+{% for section, config in extra_sections | dict2items %}
+[{{ section }}]
+{% for key, value in config.items() %}# {{ key | replace('_', ' ') | capitalize }}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endfor %}

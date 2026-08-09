@@ -1,0 +1,158 @@
+#ircd.conf — IRCd-Hybrid main configuration file
+# Global server settings
+serverinfo {
+  name = "{{ serverinfo.name }}";
+  description = "{{ serverinfo.description }}";
+  network_name = "{{ serverinfo.network_name }}";
+  network_desc = "{{ serverinfo.network_desc }}";
+  max_users = {{ serverinfo.max_users }};
+  max_accept = {{ serverinfo.max_accept }};
+  kline_address = "{{ serverinfo.kline_address }}";
+  allow_auto_connect = {{ "yes" if serverinfo.allow_auto_connect else "no" }};
+  enable_dcc_send = {{ "yes" if serverinfo.enable_dcc_send else "no" }};
+};
+
+# Listen sockets — bind addresses and ports
+{% for listener in listeners %}
+# Listen on {{ listener.address }}:{{ listener.port }}{% if listener.tls.enabled %} (TLS enabled){% endif %}
+listen {
+  host = "{{ listener.address }}";
+  port = {{ listener.port }};
+  {% if listener.tls.enabled %}
+tls {
+  cert = "{{ listener.tls.cert }}";
+  key = "{{ listener.tls.key }}";
+  ca = "{{ listener.tls.ca | default('') }}";
+  dhparam = "{{ listener.tls.dhparam | default('') }}";
+  cipher_list = "{{ listener.tls.cipher_list | default('') }}";
+  verify_mode = {{ listener.tls.verify_mode | default(0) }};
+};
+  {% endif %}
+};
+{% endfor %}
+
+# Classes — define resource limits for client/server classes
+{% for class in classes %}
+# Class: {{ class.name }} — {{ class.description }}
+class {
+  name = "{{ class.name }}";
+  ping_time = {{ class.ping_time }};
+  connect_freq = {{ class.connect_freq }};
+  max_users = {{ class.max_users }};
+  sendq = {{ class.sendq }};
+  recvq = {{ class.recvq }};
+};
+{% endfor %}
+
+# Allowed clients — users allowed to connect
+{% for allowed in allowed_clients %}
+# Allowed client: {{ allowed.mask }} with class '{{ allowed.class }}'{% if allowed.password %} (password required){% endif %}
+allow {
+  host = "{{ allowed.mask }}";
+  class = "{{ allowed.class }}";
+  {% if allowed.password %}
+  password = "{{ allowed.password }}";
+  {% endif %}
+  {% if allowed.fingerprint %}
+  fingerprint = "{{ allowed.fingerprint }}";
+  {% endif %}
+  flags = {% for flag in allowed.flags %}"{{ flag }}"{% if not loop.last %}, {% endif %}{% endfor %};
+};
+{% endfor %}
+
+# Denied clients — users denied from connecting
+{% for deny in denied_clients %}
+# Deny: {{ deny.mask }} — {{ deny.reason }}
+deny {
+  host = "{{ deny.mask }}";
+  reason = "{{ deny.reason }}";
+};
+{% endfor %}
+
+# Oper blocks — IRC operators
+{% for oper in opers %}
+# Operator: {{ oper.name }} ({{ oper.password_type }})
+opers {{ oper.name }} {
+  password = "{{ oper.password }}";
+  type = "{{ oper.type }}";
+  {% if oper.flags %}
+  flags = {% for flag in oper.flags %}"{{ flag }}"{% if not loop.last %}, {% endif %}{% endfor %};
+  {% endif %}
+};
+{% endfor %}
+
+# Links — uplink/downstream servers
+{% for link in links %}
+# Link: {{ link.name }} -> {{ link.address }}:{{ link.port }}{% if link.tls.enabled %} (TLS){% endif %}
+link {{ link.name }} {
+  hostname = "{{ link.address }}";
+  port = {{ link.port }};
+  {% if link.tls.enabled %}
+tls {
+  cert = "{{ link.tls.cert }}";
+  key = "{{ link.tls.key }}";
+  ca = "{{ link.tls.ca | default('') }}";
+  verify = {{ link.tls.verify | default(0) }};
+};
+  {% endif %}
+  class = "{{ link.class }}";
+  send_password = "{{ link.send_password }}";
+  recv_password = "{{ link.recv_password }}";
+  {% if link.flags %}
+  flags = {% for flag in link.flags %}"{{ flag }}"{% if not loop.last %}, {% endif %}{% endfor %};
+  {% endif %}
+};
+{% endfor %}
+
+# Modules — load optional modules
+{% for module in modules %}
+# Load module: {{ module.name }}{% if module.path %} from {{ module.path }}{% endif %}
+loadmodule {{ module.name }}{% if module.path %} {{ module.path }}{% endif %};
+{% endfor %}
+
+# Logging configuration
+{% for log in logs %}
+# Log: {{ log.target }} to {{ log.target_path }}{% if log.level %} (level: {{ log.level }}){% endif %}
+log {
+  target = "{{ log.target }}";
+  {% if log.target != 'stdout' and log.target != 'stderr' %}
+  file = "{{ log.target_path }}";
+  {% endif %}
+  {% if log.level %}
+  maxsize = {{ log.maxsize }};
+  level = {{ log.level }};
+  {% endif %}
+};
+{% endfor %}
+
+# SSL/TLS defaults (global)
+ssl {
+  cert = "{{ ssl.cert }}";
+  key = "{{ ssl.key }}";
+  dhparam = "{{ ssl.dhparam }}";
+  ca = "{{ ssl.ca }}";
+  verify_mode = {{ ssl.verify_mode }};
+};
+
+# Server-specific settings
+server {
+  name = "{{ server.name }}";
+  description = "{{ server.description }}";
+  sid = "{{ server.sid }}";
+  {% if server.uplink %}
+  uplink = {
+    host = "{{ server.uplink.host }}";
+    port = {{ server.uplink.port }};
+    {% if server.uplink.tls.enabled %}
+    tls = {
+      cert = "{{ server.uplink.tls.cert }}";
+      key = "{{ server.uplink.tls.key }}";
+      ca = "{{ server.uplink.tls.ca | default('') }}";
+    };
+    {% endif %}
+  };
+  {% endif %}
+  max_users = {{ server.max_users }};
+};
+
+# End of configuration

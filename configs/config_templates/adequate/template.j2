@@ -1,0 +1,27 @@
+// Configuration file for 'adequate' package integration with dpkg.
+// 'adequate' is a tool that checks packages after installation for common issues.
+// This file is typically installed as /etc/apt/apt.conf.d/90adequate or similar.
+
+// Whether adequate should run on every install, reporting results via debconf.
+// Accepts "true" or "false". Defaults to false.
+Adequate::Enabled "{{ adequate_enabled | default('false') }}";
+
+DPkg::Pre-Install-Pkgs {
+    // Hook executed before package installation.
+    // Checks if adequate is installed and available, then runs it in pre-install mode
+    // under the specified user.
+    // adequate_user: The system user to run adequate as during dpkg hooks.
+    "adequate --help >/dev/null 2>&1 || exit 0; exec adequate --user {{ adequate_user | default('nobody') }} --apt-preinst";
+};
+
+DPkg::Post-Invoke {
+    // Hook executed after package installation.
+    // Checks if adequate is installed and available, then runs it in post-invoke mode
+    // to check pending changes, reporting via debconf.
+    // adequate_user: The system user to run adequate as during dpkg hooks.
+    "adequate --help >/dev/null 2>&1 || exit 0; exec adequate --debconf --user {{ adequate_user | default('nobody') }} --pending";
+};
+
+DPkg::Tools::Options::adequate::Version "{{ adequate_version | default('2') }}";
+// adequate_version: Version of DPkg::Tools::Options for adequate.
+// This tells dpkg which configuration schema/version of adequate options to expect.

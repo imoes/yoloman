@@ -1,0 +1,94 @@
+{
+  "enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the low memory monitor."
+  },
+  "interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Time in seconds between consecutive memory checks."
+  },
+  "min_free_mb": {
+    "type": "number",
+    "default": 256,
+    "description": "Minimum free memory in megabytes below which the monitor triggers an alert."
+  },
+  "min_free_percent": {
+    "type": "number",
+    "default": 5,
+    "description": "Minimum free memory percentage (0\u2013100) below which the monitor triggers an alert."
+  },
+  "actions": {
+    "type": "list",
+    "default": [],
+    "description": "List of actions to execute when low memory is detected. Each action defines the type and target.",
+    "items": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "log",
+          "notify",
+          "kill",
+          "reboot"
+        ],
+        "default": "log",
+        "description": "Action type: log (append message to log), notify (send system notification), kill (terminate process), or reboot (reboot system)."
+      },
+      "target": {
+        "type": "string",
+        "default": "",
+        "description": "Target of the action: for 'notify' (e.g., 'systemd', 'notify-send'), for 'kill' (e.g., 'lowest_oom_score' or 'highest_oom_score'), for 'reboot' (ignored), for 'log' (ignored)."
+      },
+      "args": {
+        "type": "string",
+        "default": "",
+        "description": "Additional colon-separated arguments (e.g., 'threshold=1000' for notify or 'max_retries=3' for reboot)."
+      }
+    }
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/low-memory-monitor.log",
+    "description": "Path to log file (use '-' to log to stdout)."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose logging for debugging."
+  },
+  "kill_threshold": {
+    "type": "number",
+    "default": -500,
+    "description": "Minimum OOM score adjustment below which processes are protected from being killed (range: -1000 to +1000; lower = more protected)."
+  },
+  "max_kills": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of processes to kill per low-memory event (0 = no limit)."
+  },
+  "pid_whitelist": {
+    "type": "list",
+    "default": [],
+    "description": "List of process IDs to never kill (e.g., [1] for init)."
+  },
+  "protected_patterns": {
+    "type": "list",
+    "default": [
+      "systemd",
+      "sshd",
+      "low-memory-monitor"
+    ],
+    "description": "List of regex patterns. Processes matching any pattern will never be killed."
+  },
+  "memory_pressure_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "Memory pressure rate (in kbps) above which aggressive actions (e.g., more aggressive kill policies) are triggered. 0 = disable memory pressure monitoring."
+  },
+  "disable_oom_killer": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable the kernel OOM killer (dangerous \u2014 may lead to system deadlock)."
+  }
+}

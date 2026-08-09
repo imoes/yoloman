@@ -1,0 +1,67 @@
+# =============================================================================
+# iodine DNS Tunneling Server Configuration
+# =============================================================================
+# NOTE: iodined (the server daemon) typically does not read a static configuration
+# file. It is configured via command-line arguments. This template generates the
+# appropriate CLI flags for the systemd ExecStart line or an init script wrapper.
+#
+# Variables expected:
+#   server_ip       - IP address the iodined server listens on (Default: 10.0.0.2)
+#   tunnel_network  - IP network assigned to clients (Default: 10.0.0.1/24)
+#   password        - Authentication password for clients (Default: '')
+#   capability_file - Path to the capability file for DNS resolution (Default: /var/lib/iodine/capfile)
+#   pid_file        - Path to the PID file (Default: /run/iodined.pid)
+#   log_file        - Path to the log file (Default: /var/log/iodine.log)
+# =============================================================================
+
+# ExecStart example generated for systemd:
+# iodined -p {{ pid_file | default('/run/iodined.pid') }} \
+#         -f {{ log_file | default('/var/log/iodine.log') }} \
+#         -c {{ capability_file | default('/var/lib/iodine/capfile') }} \
+#         -t {{ server_ip | default('10.0.0.2') }} \
+#         -s {{ tunnel_network | default('10.0.0.1/24') }} \
+#         {% if password | default('') | length > 0 -%}
+#         --password {{ password | default('') }} \
+#         {% endif -%}
+#         iodine.domain
+
+# -----------------------------------------------------------------------------
+# Parameter Breakdown
+# -----------------------------------------------------------------------------
+
+# PID File
+# Path to the PID file for the iodined daemon.
+# CLI Flag: -p <path>
+-p {{ pid_file | default('/run/iodined.pid') }}
+
+# Log File
+# Path to the log file for iodined.
+# CLI Flag: -f <path>
+-f {{ log_file | default('/var/log/iodine.log') }}
+
+# Capability File
+# Path to the capability file used for DNS resolution within the tunnel.
+# CLI Flag: -c <path>
+-c {{ capability_file | default('/var/lib/iodine/capfile') }}
+
+# Server IP
+# The IP address the iodined server listens on for tunnel traffic.
+# CLI Flag: -t <ip>
+-t {{ server_ip | default('10.0.0.2') }}
+
+# Tunnel Network
+# The IP network assigned to clients connecting via the tunnel.
+# CLI Flag: -s <network>
+-s {{ tunnel_network | default('10.0.0.1/24') }}
+
+# Password
+# Password required for client authentication.
+# Only included if a non-empty password is defined to avoid passing empty strings unnecessarily.
+{% if password | default('') | length > 0 %}
+# CLI Flag: --password <password>
+--password {{ password | default('') }}
+{% endif %}
+
+# Base Domain
+# The domain name associated with the tunnel.
+iodine.domain

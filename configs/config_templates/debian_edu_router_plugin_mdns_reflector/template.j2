@@ -1,0 +1,83 @@
+# ==============================================================================
+# debian_edu_router_plugin_mdns_reflector Configuration Template
+# ==============================================================================
+# This template generates an environment/configuration file for the mDNS Reflector
+# service (typically part of Avahi or a dedicated reflector daemon).
+#
+# It enables multi-subnet multicast DNS discovery by reflecting mDNS packets
+# between specified interfaces.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Service Enable/Disable Flag
+# Description: Enable or disable the mDNS reflector service entirely.
+# ------------------------------------------------------------------------------
+{% if enabled | default(true) %}
+MDNS_REFLECTOR_ENABLED=yes
+{% else %}
+MDNS_REFLECTOR_ENABLED=no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Interfaces Configuration
+# Description: List of network interfaces (by name) between which mDNS traffic
+#              should be reflected. Each interface must be a Layer 2 segment
+#              (e.g., VLAN, bridge).
+# Default: ['eth0', 'eth1']
+# ------------------------------------------------------------------------------
+# Renders as: MDNS_INTERFACES=eth0,eth1
+MDNS_INTERFACES={{ (interfaces | default(['eth0', 'eth1'])) | join(',') }}
+
+# ------------------------------------------------------------------------------
+# Time-To-Live (TTL)
+# Description: Time-to-live (TTL) for reflected mDNS packets. Controls how far
+#              (in hops) reflected packets propagate. Higher values mean wider
+#              reach but increase network load.
+# Default: 120
+# ------------------------------------------------------------------------------
+MDNS_TTL={{ ttl | default(120) }}
+
+# ------------------------------------------------------------------------------
+# Rate Limiting
+# Description: Maximum mDNS packets per second allowed per interface. This
+#              helps prevent network flooding during discovery storms or loops.
+# Default: 50
+# ------------------------------------------------------------------------------
+MDNS_RATE_LIMIT={{ rate_limit | default(50) }}
+
+# ------------------------------------------------------------------------------
+# Bidirectional Reflection
+# Description: If true, mDNS queries and responses are reflected in both
+#              directions. If false, only inbound responses are reflected,
+#              reducing overhead but limiting discovery scope.
+# Default: true
+# ------------------------------------------------------------------------------
+{% if bidirectional | default(true) %}
+MDNS_BIDIRECTIONAL=yes
+{% else %}
+MDNS_BIDIRECTIONAL=no
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Daemon User/Group Permissions
+# Description: Unix user and group to run the mDNS reflector daemon as.
+#              Leave empty to use the system default (typically nobody:nogroup).
+#              Note: run_user/run_group are OS-level accounts, not service credentials.
+# ------------------------------------------------------------------------------
+{% if run_user | default('') | trim != '' %}
+MDNS_USER={{ run_user | default('') }}
+{% endif %}
+
+{% if run_group | default('') | trim != '' %}
+MDNS_GROUP={{ run_group | default('') }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Extra Daemon Arguments
+# Description: Additional command-line arguments for the mDNS reflector daemon
+#              (e.g., '-v' for verbose logs, '--no-ipv6' to disable IPv6).
+# Default: '' (empty)
+# ------------------------------------------------------------------------------
+{% if extra_args | default('') | trim != '' %}
+MDNS_DAEMON_ARGS="{{ extra_args | default('') }}"
+{% endif %}

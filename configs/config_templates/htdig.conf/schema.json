@@ -1,0 +1,238 @@
+{
+  "config": {
+    "type": "object",
+    "properties": {
+      "db_dir": {
+        "type": "string",
+        "default": "/var/lib/htdig/db",
+        "description": "Directory for storing the main database files (documents, links, etc.)"
+      },
+      "common_dir": {
+        "type": "string",
+        "default": "/var/lib/htdig/common",
+        "description": "Directory for common files (e.g., parsed documents, images)"
+      },
+      "word_db_dir": {
+        "type": "string",
+        "default": "/var/lib/htdig/word.db",
+        "description": "Directory for the word database (inverted index)"
+      },
+      "result_dir": {
+        "type": "string",
+        "default": "/var/lib/htdig/results",
+        "description": "Directory for storing cached search results"
+      },
+      "server_url": {
+        "type": "string",
+        "default": "http://localhost/",
+        "description": "Base URL of the web server (must include trailing slash)"
+      },
+      "hostname": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Fully qualified hostname used for absolute URL generation"
+      },
+      "port": {
+        "type": "number",
+        "default": 80,
+        "description": "Port number of the HTTP server (80 for HTTP, 443 for HTTPS)"
+      },
+      "cgi_url": {
+        "type": "string",
+        "default": "/cgi-bin/htsearch",
+        "description": "Path (or full URL) to the htdig CGI search script"
+      },
+      "crawl_limit": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of documents to crawl; 0 = unlimited"
+      },
+      "crawl_depth": {
+        "type": "number",
+        "default": 5,
+        "description": "Maximum depth to follow links (0 = no limit)"
+      },
+      "crawl_url_limit": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of URLs to crawl; 0 = unlimited"
+      },
+      "crawl_delay": {
+        "type": "number",
+        "default": 1.0,
+        "description": "Seconds to wait between requests to same host (to avoid overloading servers)"
+      },
+      "max_document_size": {
+        "type": "number",
+        "default": 100000,
+        "description": "Maximum document size (KB) to parse; 0 = unlimited"
+      },
+      "number_of_workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of parallel fetcher processes"
+      },
+      "robot_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to respect robots.txt and meta tags"
+      },
+      "start_urls": {
+        "type": "list",
+        "default": [
+          "http://localhost/"
+        ],
+        "description": "List of starting URLs for the crawler",
+        "items": {
+          "type": "string",
+          "description": "A URL to begin crawling from"
+        }
+      },
+      "exclude_urls": {
+        "type": "list",
+        "default": [],
+        "description": "List of URL patterns (glob-style or regex) to exclude from crawling",
+        "items": {
+          "type": "string",
+          "description": "Pattern to exclude matching URLs"
+        }
+      },
+      "require_urls": {
+        "type": "list",
+        "default": [],
+        "description": "If non-empty, only URLs matching these patterns will be indexed",
+        "items": {
+          "type": "string",
+          "description": "Pattern to require for inclusion"
+        }
+      },
+      "cgi_extension_filter": {
+        "type": "list",
+        "default": [],
+        "description": "List of file extensions to include (others ignored); empty = all",
+        "items": {
+          "type": "string",
+          "description": "File extension (e.g., 'html', 'htm')"
+        }
+      },
+      "ignore_headers": {
+        "type": "list",
+        "default": [
+          "cookie"
+        ],
+        "description": "List of HTTP headers to skip during indexing",
+        "items": {
+          "type": "string",
+          "description": "Header name (case-insensitive)"
+        }
+      },
+      "results_per_page": {
+        "type": "number",
+        "default": 10,
+        "description": "Number of search results shown per page"
+      },
+      "max_matches": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of results to compute and cache (0 = unlimited)"
+      },
+      "minimum_score": {
+        "type": "number",
+        "default": 0,
+        "description": "Minimum relevance score (0\u2013100) for results to appear"
+      },
+      "results_sort": {
+        "type": "string",
+        "default": "score",
+        "description": "Sort order: 'score' (relevance) or 'date' (document last-modified)"
+      },
+      "stemming_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable stemming during indexing (e.g., 'running' \u2192 'run')"
+      },
+      "phrase_search_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable phrase matching (quoted queries)"
+      },
+      "fuzzy_search_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable fuzzy matching (e.g., 'cat' matches 'cats')"
+      },
+      "language": {
+        "type": "string",
+        "default": "en",
+        "description": "Language code (e.g., 'en', 'de') for stop-word and stemming rules"
+      },
+      "stop_words_file": {
+        "type": "string",
+        "default": "/etc/htdig/stopwords",
+        "description": "Path to a custom stop-words file (one word per line)"
+      },
+      "word_length_max": {
+        "type": "number",
+        "default": 64,
+        "description": "Maximum length (chars) of a word to index"
+      },
+      "word_length_min": {
+        "type": "number",
+        "default": 2,
+        "description": "Minimum length (chars) of a word to index"
+      },
+      "title_indexing": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to index text inside <title> tags"
+      },
+      "full_indexing": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to index full text content"
+      },
+      "attribute_indexing": {
+        "type": "bool",
+        "default": false,
+        "description": "Whether to index values of HTML attributes (e.g., alt, title)"
+      },
+      "index_attributes": {
+        "type": "list",
+        "default": [
+          "alt",
+          "title"
+        ],
+        "description": "List of HTML attributes to index if attribute_indexing is enabled",
+        "items": {
+          "type": "string",
+          "description": "Attribute name"
+        }
+      },
+      "proximity_scoring": {
+        "type": "bool",
+        "default": true,
+        "description": "Boost scores for documents with terms in close proximity"
+      },
+      "title_weight": {
+        "type": "number",
+        "default": 0.3,
+        "description": "Weight given to title matches (0.0 = ignore title, 1.0 = title only)"
+      },
+      "search_operator": {
+        "type": "string",
+        "default": "and",
+        "description": "Default logical operator for multi-word queries: 'and' or 'or'"
+      },
+      "truncation_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Automatically append wildcard to partial query terms (e.g., 'run' \u2192 'run*')"
+      },
+      "stemming_search_enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Apply stemming to query terms during search"
+      }
+    }
+  }
+}

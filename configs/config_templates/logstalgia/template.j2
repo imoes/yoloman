@@ -1,0 +1,118 @@
+# logstalgia.conf — web server access log visualiser defaults
+# Auto-generated from Ansible role variables; self-documenting via schema descriptions.
+
+# Display resolution as WIDTHxHEIGHT (viewport_width and viewport_height)
+# viewport_width: Display width in pixels (e.g. 1920, 1280, 1024)
+# viewport_height: Display height in pixels (e.g. 1080, 720, 768)
+viewport={{ (viewport_width | default(1280)) }}x{{ (viewport_height | default(720)) }}
+
+{% if (fullscreen | default(false)) %}
+# Start in fullscreen mode; suppresses the window title bar
+# fullscreen: Start in fullscreen mode; suppresses the window title bar
+fullscreen=true
+
+{% endif %}
+# Background fill colour as a 6-digit RGB hex value (no leading #)
+# background_color: Background fill colour as a 6-digit RGB hex string without a leading # (e.g. 000000 for black, 1a1a2e for dark navy)
+background={{ (background_color | default('000000')) }}
+
+# Point size of the on-screen font used for request and host labels
+# font_size: Point size of the font used to render URL and host labels on screen
+font-size={{ (font_size | default(14)) }}
+
+# Pixel gap between adjacent request balls sharing the same time slot
+# padding: Pixel spacing between adjacent request balls sharing the same time slot
+padding={{ (padding | default(5)) }}
+
+# Width in pixels of the left-hand label gutter
+# gutter_width: Width in pixels of the left-hand column used to display host and group labels
+gutter-width={{ (gutter_width | default(50)) }}
+
+# Paddle rendering mode: single (one paddle), pid (per server process), vhost (per virtual host)
+# paddle_mode: How paddles are partitioned: 'single' (one for all traffic), 'pid' (one per server worker process), 'vhost' (one per virtual host)
+paddle-mode={{ (paddle_mode | default('single')) }}
+
+# Vertical paddle position as a fraction of screen height (0.0 = top, 1.0 = bottom)
+# paddle_position: Vertical centre of the paddle area as a fraction of screen height (0.0 = top, 1.0 = bottom)
+paddle-position={{ (paddle_position | default(0.5)) }}
+
+{% if (hide_paddle | default(false)) %}
+# Hide the paddle entirely — useful for kiosk / display-only mode
+# hide_paddle: Hide the paddle bar — useful for purely decorative / kiosk installations
+hide-paddle=true
+
+{% endif %}
+{% if (hide_url_prefix | default(false)) %}
+# Strip protocol and hostname from URL labels, showing only the path component
+# hide_url_prefix: Omit the protocol and hostname from URL labels, showing only the path
+hide-url-prefix=true
+
+{% endif %}
+{% if (hide_response_code | default(false)) %}
+# Do not display the HTTP response-code badge on each request ball
+# hide_response_code: Do not render the HTTP response-code badge (200, 404, 500 …) on each ball
+hide-response-code=true
+
+{% endif %}
+{% if (hide_progress | default(false)) %}
+# Do not render the playback-progress bar at the bottom of the screen
+# hide_progress: Hide the playback-progress bar shown at the bottom of the screen
+hide-progress=true
+
+{% endif %}
+# Replay speed multiplier: 1.0 = real-time, 2.0 = double speed, 0.5 = half speed
+# speed: Log replay speed multiplier: 1.0 = real-time, values above 1.0 speed up playback
+speed={{ (speed | default(1.0)) }}
+
+{% if (sync | default(false)) %}
+# Lock replay speed to wall-clock time (overrides speed; useful for live log tailing)
+# sync: Synchronise replay to wall-clock time — overrides speed; recommended when tailing a live log
+sync=true
+
+{% endif %}
+{% if (disable_auto_skip | default(false)) %}
+# Prevent automatic time-jumping over long idle gaps in the log
+# disable_auto_skip: Disable automatic jumping over long idle gaps in the log; preserves natural timing
+disable-auto-skip=true
+
+{% endif %}
+{% if (start_position | default(None) is not none) %}
+# Begin playback this many seconds into the log file
+# start_position: Number of seconds into the log at which to begin playback; omit to start from the first entry
+start-position={{ start_position | default(None) }}
+
+{% endif %}
+{% if (stop_position | default(None) is not none) %}
+# Stop playback at this fraction of the total log length (0.0–1.0)
+# stop_position: Fraction of total log length (0.0–1.0) at which to stop playback; omit to play to the end
+stop-position={{ stop_position | default(None) }}
+
+{% endif %}
+# Access-log format to parse: combined | common | vhost_combined | squid | w3c
+# log_format: Access-log format logstalgia should parse: combined, common, vhost_combined, squid, or w3c
+log-format={{ (log_format | default('combined')) }}
+
+# Maximum number of in-flight request balls rendered simultaneously
+# max_connects: Maximum number of in-flight request balls displayed simultaneously; raise for busy sites
+max-connects={{ (max_connects | default(100)) }}
+
+# Truncate URL/host labels longer than this many characters (0 = no limit)
+# label_truncation: Truncate URL and host labels to this many characters; 0 disables truncation
+label-truncation={{ (label_truncation | default(0)) }}
+
+{% if (output_ppm_stream | default(false)) %}
+# Write raw uncompressed PPM frames to stdout for piping into ffmpeg or avconv
+# output_ppm_stream: Write raw PPM video frames to stdout so the stream can be piped into ffmpeg for recording
+output-ppm-stream=true
+
+# Target frame rate in fps for the PPM output stream
+# output_framerate: Frame rate in fps for the PPM output stream (only active when output_ppm_stream is true)
+output-framerate={{ (output_framerate | default(25)) }}
+
+{% endif %}
+{% for group in (groups | default([])) %}
+# Request group: balls whose URL matches the regex are labelled "{{ group.label }}" in colour {{ group.color }}
+# groups: Request-grouping rules: each entry colours and labels balls whose URL matches the given regex
+group={{ group.regex }}={{ group.label }},{{ group.color }}
+
+{% endfor %}

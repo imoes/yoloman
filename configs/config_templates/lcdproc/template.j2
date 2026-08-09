@@ -1,0 +1,87 @@
+#! /bin/sh
+#
+# LCDd	initscript for LCDd
+# by Jose Luis Tallon <jltallon@adv-solutions.net>
+#
+### BEGIN INIT INFO
+# Provides:          lcdproc
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
+# Short-Description: LCD daemon
+# Description:       Control LCD displays connected to the computer
+### END INIT INFO
+#
+#	Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#	Modified for Debian 
+	by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+	Modified for lcdproc by Jonathan Oxer <jon@debian.org>
+#
+
+# Path to system binaries
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Full path to the LCDd executable.
+DAEMON={{ daemon_path | default('/usr/sbin/LCDd') }}
+
+# Name of the daemon process (used in logging/status).
+NAME="{{ daemon_name | default('LCDd') }}"
+
+# Description for status messages (derived from daemon name).
+DESC="{{ daemon_name | default('LCDd') }}"
+
+# by default, LCDd runs with curses driver. This driver will display stuff
+# on terminal even if run in background. This spoils the installation fun.
+# So LCDd is configured to run in foreground and will be pushed
+# in background by stop-start-daemon
+# Command-line options passed to the LCDd binary via the init script. '-s 1' enables
+# single-process mode, '-f' forces foreground execution.
+DAEMON_OPTS={{ daemon_opts | default('-s 1 -f -c /etc/LCDd.conf') }}
+
+. /lib/lsb/init-functions
+
+test -x $DAEMON || exit 0
+
+start_lcdd () {
+	start-stop-daemon --start --quiet --background \
+		--exec $DAEMON -- $DAEMON_OPTS
+}
+
+stop_lcdd () {
+	start-stop-daemon --stop --oknodo --quiet --exec $DAEMON
+}
+
+set -e
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start_lcdd;
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	stop_lcdd;
+	echo "$NAME."
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	stop_lcdd
+	sleep 2
+	start_lcdd
+	echo "$NAME."
+	;;
+  status)
+	start-stop-daemon --status --exec $DAEMON
+	echo "$NAME."
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	# echo "Usage: $N {start|stop|restart|reload|force-reload}" >&2
+	echo "Usage: $N {start|stop|status|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

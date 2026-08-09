@@ -1,0 +1,30 @@
+# ==============================================================================
+# DDE Calendar Service Launcher
+# ==============================================================================
+# This template generates a Desktop Entry (.desktop) file used to launch the
+# Deepin Calendar service via D-Bus. It configures the execution command and
+# desktop integration properties.
+# ==============================================================================
+
+[Desktop Entry]
+
+# Executable command that invokes the D-Bus method to update the remind job.
+# Format: dbus-send --session --print-reply --dest=<DEST> <PATH> <INTERFACE>.<METHOD> <ARGS>
+Exec=/bin/bash -c "dbus-send --session --print-reply --dest={{ service_dbus_dest | default('com.deepin.dataserver.Calendar') }} /{{ service_dbus_path | default('com/deepin/dataserver/Calendar/AccountManager') }} {{ service_dbus_interface | default('deepin.dataserver.Calendar.AccountManager') }}.{{ service_dbus_method | default('updateRemindJob') }} boolean:true"
+
+# Display name of the service entry in the desktop environment.
+Name={{ name | default('dde-calendar-service') }}
+
+# Whether to hide this entry from menus and application lists.
+# Must be the string 'true' or 'false'.
+NoDisplay={{ no_display | default('true') }}
+
+# Whether to open a terminal window when launching this entry.
+# Must be the string 'true' or 'false'.
+Terminal={{ terminal | default('false') }}
+
+# Type of desktop entry.
+Type={{ type | default('Application') }}
+
+# Deepin-specific vendor identifier for custom extensions.
+X-Deepin-Vendor={{ vendor | default('user-custom') }}

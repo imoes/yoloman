@@ -1,0 +1,30 @@
+name: qm
+fqcn: builtin.qm
+collection: builtin
+short_description: Run any Proxmox VE `qm` subcommand on this node via the local CLI
+  — the full qm surface in one tool
+description: 'Run any Proxmox VE `qm` subcommand on this node via the local CLI —
+  the full qm surface in one tool. Set command to the subcommand and args to the rest
+  of the command line, e.g. command="snapshot" args=["100","pre-upgrade","--description","before
+  upgrade"], or command="migrate" args=["100","pve2","--online"], or command="start"
+  args=["100"]. Common subcommands: start, stop, shutdown, reboot, reset, suspend,
+  resume (power); snapshot, delsnapshot, rollback, listsnapshot (snapshots); migrate;
+  clone; resize; set; config; status; list. Read subcommands (status/list/config/listsnapshot/pending/showcmd/cloudinit)
+  run even in check_mode and report changed=false; every other subcommand is mutating
+  — write-gated, skipped under dry_run=true, reported changed=true. Returns {rc, stdout,
+  stderr}. Idempotency is the caller''s responsibility (this is a raw CLI passthrough).
+  List VMs/detect the hypervisor with the read-only virt_facts module; this is LOCAL
+  node control, distinct from the API-based community.general.proxmox_kvm.'
+options:
+  args:
+    type: list
+    description: Positional arguments and flags after the subcommand, e.g. ["100","pve2","--online"].
+  command:
+    type: string
+    description: The qm subcommand, e.g. "start", "snapshot", "migrate", "clone",
+      "resize", "set", "config", "status", "list".
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

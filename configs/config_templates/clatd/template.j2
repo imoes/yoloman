@@ -1,0 +1,91 @@
+# clatd(8) configuration file
+# This file configures clatd (Client-side Translator for IPv6 to IPv4).
+# It controls the TUN interface, routing, DNS64/PREF64 behavior, and IPv4 connectivity checks.
+# For per-interface configurations, use /etc/clatd/INTERFACE.conf.
+
+### Network device control
+# Tun interface name. Defaults to 'tun0' if left empty or unspecified.
+# Schema: tun_name (str, default='tun0')
+clat-dev={{ tun_name | default('tun0') }}
+
+# PLAT-facing network device (e.g., eth0). If empty, clatd attempts auto-detection.
+# Schema: plat_dev (str, default='')
+plat-dev={{ plat_dev | default('') }}
+
+### IPv4 connectivity check parameters
+# If enabled (1), clatd exits if an IPv4 default route already exists to prevent conflicts.
+# 0=disabled, 1=enabled.
+# Schema: v4_conncheck_enable (int, default=1)
+v4-conncheck-enable={{ v4_conncheck_enable | default(1) }}
+
+# Delay in seconds before performing the IPv4 connectivity check.
+# Schema: v4_conncheck_delay (int, default=10)
+v4-conncheck-delay={{ v4_conncheck_delay | default(10) }}
+
+### Kernel IPv6 forwarding settings
+# Enable kernel IPv6 forwarding required for CLAT operation.
+# 0=disabled, 1=enabled.
+# Schema: forwarding_enable (int, default=1)
+forwarding-enable={{ forwarding_enable | default(1) }}
+
+### Addressing configuration
+# IPv4 address to assign to the internal CLAT interface.
+# Must be within 192.0.0.0/24 per RFC 6877.
+# Schema: clat_ipv4 (str, default='192.0.0.1')
+clat-v4-addr={{ clat_ipv4 | default('192.0.0.1') }}
+
+# IPv4 address for the ER (External Router) internal-facing interface.
+# Used for downstream IPv4 clients.
+# Schema: er_ipv4_int (str, default='192.0.0.2')
+tayga-v4-addr={{ er_ipv4_int | default('192.0.0.2') }}
+
+# clat-v6-addr=shared
+# route-table=0xc1a7
+
+### PLAT prefix and DNS64 configuration
+# List of custom DNS server addresses (IPv4 or IPv6) to override system defaults.
+# If empty, the system resolver's DNS servers are used.
+# Schema: dns_servers (list, default=[])
+dns64-servers={{ dns_servers | default([]) | join(' ') }}
+
+# plat-prefix=
+# plat-fallback-prefix=
+
+### IPv4 default route parameters
+# v4-defaultroute-enable=1
+# v4-defaultroute-replace=0
+# v4-defaultroute-metric=2048
+
+# MTU for the IPv4 default route.
+# 0 means auto-detect (recommended).
+# Schema: mtu (int, default=0)
+v4-defaultroute-mtu={{ mtu | default(0) }}
+
+# v4-defaultroute-advmss=0
+
+### Script hooks
+# script-up=
+# script-down=
+
+### Logging configuration
+# quiet=0
+# debug={{ loglevel | default(0) }}
+# Note: loglevel is passed via CLI arguments to the service,
+# not directly configured in this specific config file section.
+# 0=error, 1=warn, 2=info, 3=debug, 4=trace.
+# Schema: loglevel (int, default=0)
+debug={{ loglevel | default(0) }}
+
+### Override implementation details
+# ctmark=
+# proxynd-enable=
+
+### Override conffile
+# tayga-conffile=
+
+### Override commands
+# cmd-ip=ip
+# cmd-networkctl=networkctl
+# cmd-nft=nft
+# cmd-tayga=tayga
+# cmd-ufw=ufw

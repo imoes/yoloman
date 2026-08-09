@@ -1,0 +1,102 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          greylist greylistd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Start/stop the greylistd(8) daemon.
+# Description:       Start/stop the greylistd(8) daemon.
+### END INIT INFO
+########################################################################
+### FILE:	/etc/init.d/greylist
+########################################################################
+
+# added due to request of linitian
+. /lib/lsb/init-functions
+
+# Path to the greylist utility used for reloading and stats.
+client=/usr/bin/greylist
+
+# Path to the greylistd daemon binary.
+daemon=/usr/sbin/greylistd
+
+# Runtime directory for PID and socket files.
+rundir=/var/run/greylistd
+
+# Data directory for greylistd persistent data (e.g., whitelist/blacklist DBs).
+datadir=/var/lib/greylistd
+
+# Path to the PID file created by the daemon.
+pidfile=$rundir/pid
+
+# Path to the Unix socket used for communication with the daemon.
+socket=$rundir/socket
+
+# User account under which greylistd drops privileges (must have access to Exim’s spool directory).
+user={{ user | default('Debian-exim') }}
+
+# Group for privilege drop (typically matches the user).
+group={{ group | default('Debian-exim') }}
+
+# See if the daemon is present
+test -x "$daemon" || exit 0
+
+# Make sure /var/run/greylistd exists (/var/run may be a tmpfs)
+test -d "$rundir" || {
+    mkdir -p "$rundir"
+    chown "$user:$group" "$rundir"
+}
+
+case "$1" in
+    start)
+	if [ -e "$socket" ]
+	then
+	    echo "$0:"
+	    echo "  Another instance of \`${daemon##*/}' seems to be running."
+	    echo "  If this is not the case, please remove \"$socket\"."
+	    exit 1
+	fi
+
+	echo -n "Starting greylisting daemon: "
+	start-stop-daemon --start --background \
+			  --chuid "$user" \
+			  --user "$user" \
+			  --pidfile "$pidfile" \
+			  --make-pidfile \
+			  --exec "$daemon" &&
+	    echo "${daemon##*/}."
+	;;
+
+
+    stop)
+	echo -n "Stopping greylisting daemon: "
+	start-stop-daemon --stop --user "$user" --pidfile "$pidfile" &&
+	    rm -f "$pidfile" &&
+	    echo "${daemon##*/}."
+	;;
+
+
+    reload|force-reload)
+	"$client" reload
+	;;
+
+    status)
+	"$client" stats
+	;;
+
+
+    restart)
+	$0 stop
+	sleep 1
+	$0 start
+	;;
+
+
+    *)
+	echo "Usage: $0 {start|stop|restart|reload|force-reload|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

@@ -1,0 +1,65 @@
+# Main configuration for RAUC service
+[system]
+# System identifier used for bundle verification and slot labeling
+system-identifier = {{ system_identifier }}
+
+# Device tree compatible string (optional, for slot detection on embedded devices)
+{% if device_compatible %}device-tree = {{ device_compatible }}{% endif %}
+
+# Path to the slot state file (persistent state tracking)
+statefile = {{ statefile }}
+
+[guile]
+# Enable/disable Guile scripting (not recommended for production unless required)
+{% if guile_enabled %}enabled = true{% else %}enabled = false{% endif %}
+
+[service]
+# Enable RAUC service mode for remote update management
+enabled = true
+
+# Database backend for service state (sqlite, file, or none)
+{% if db_backend == 'sqlite' %}database = sqlite:{{ db_path }}{% elif db_backend == 'file' %}database = file:{{ db_path }}{% else %}database = none{% endif %}
+
+# API endpoint host and port
+{% if api_host %}host = {{ api_host }}{% endif %}
+port = {{ api_port }}
+
+# TLS configuration (optional)
+{% if tls_enabled %}# Enable TLS for service communication
+cert = {{ tls_cert_path }}
+key = {{ tls_key_path }}
+ca = {{ tls_ca_path }}{% endif %}
+
+# List of allowed bundle signers (common names or SHA256 hashes)
+allowed-signers = {% for signer in allowed_signers %}{{ signer }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Maximum allowed bundle size in bytes (0 = unlimited)
+max-bundle-size = {{ max_bundle_size }}
+
+# Idle timeout (seconds) for client connections
+{% if idle_timeout %}idle-timeout = {{ idle_timeout }}{% endif %}
+
+[autoupdater]
+# Enable automatic update checking and installation
+enabled = {{ autoupdater_enabled | lower }}
+
+# Update check interval in seconds
+check-interval = {{ check_interval }}
+
+# Booted slot status check delay after update (seconds)
+{% if boot_check_delay %}boot_check_delay = {{ boot_check_delay }}{% endif %}
+
+# Recovery boot behavior (try-rollback, try-always, none)
+recovery-boot = {{ recovery_boot }}
+
+# List of update providers (HTTP(S) URLs)
+{% for provider in update_providers %}# Provider: {{ provider.description or 'default' }}
+{% if provider.url %}url = {{ provider.url }}{% endif %}
+{% if provider.tls_cert %}cert = {{ provider.tls_cert }}{% endif %}
+{% if provider.tls_key %}key = {{ provider.tls_key }}{% endif %}
+{% if provider.tls_ca %}ca = {{ provider.tls_ca }}{% endif %}
+{% if provider.ca_name %}ca-name = {{ provider.ca_name }}{% endif %}
+{% if provider.ignore_checksum %}ignore-checksum = true{% endif %}
+{% if provider.slot_name %}slot-name = {{ provider.slot_name }}{% endif %}
+
+{% endfor %}

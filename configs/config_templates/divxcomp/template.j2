@@ -1,0 +1,64 @@
+# =============================================================================
+# divxcomp configuration
+# =============================================================================
+# This configuration file is used by divxcomp to calculate target bitrates for
+# AVI video encoding. It does not store connection settings or credentials.
+# It is a standalone utility configuration with no network dependencies.
+#
+# Fields:
+#   max_size_mb       Target total file size in megabytes (e.g., 700 for CD-R)
+#   audio_bitrate_kbps Audio bitrate in kilobits per second (typical: 64, 96, 128, 160, 192, 256, 320)
+#   duration_minutes   Video duration in minutes (required for calculation)
+#   passes             Number of encoding passes: 1 (single-pass) or 2 (two-pass); 2 is recommended
+# =============================================================================
+
+{% set dur = duration_minutes | default(90) %}
+{% set maxs = max_size_mb | default(700) %}
+{% set audb = audio_bitrate_kbps | default(128) %}
+{% set pas = passes | default(2) %}
+
+{% if dur <= 0 %}
+# ERROR: duration_minutes must be > 0. Please provide a valid video duration.
+# Without a duration, bitrate calculations cannot be performed.
+{% else %}
+# =============================================================================
+# 1. Target total file size in megabytes
+#    desc: Target total file size in megabytes (e.g., 700 for CD-R)
+# =============================================================================
+max_size_mb = {{ maxs }}
+
+# =============================================================================
+# 2. Audio bitrate in kilobits per second
+#    desc: Audio bitrate in kilobits per second (typical: 64, 96, 128, 160, 192, 256, 320)
+# =============================================================================
+audio_bitrate_kbps = {{ audb }}
+
+# =============================================================================
+# 3. Computed derived values (for documentation and verification)
+# =============================================================================
+
+# Audio file size contribution (MB)
+# Formula: (audio_bitrate_kbps * duration_minutes * 60 seconds/minute * 1000 bits/kbps) / (8 bits/byte * 1024 bytes/KB * 1024 bytes/MB)
+# Simplified: (audb * dur * 60) / 8192
+# desc: Approximated audio size in MB derived from bitrate and duration
+audio_size_mb = {{ ((audb * dur * 60) / 8192) | round(2) }}
+
+# Video size budget (MB)
+# Formula: max_size_mb - audio_size_mb
+# desc: Video size budget (MB) available for video stream after reserving space for audio
+video_size_mb = {{ (maxs - ((audb * dur * 60) / 8192)) | round(2) }}
+
+# Resulting target video bitrate (kbps)
+# Formula: (video_size_mb * 1024 * 1024 * 8 bits/byte) / (duration_minutes * 60 seconds) / 1000 bits/kbps
+# Simplified: (video_size_mb * 8 * 1024) / dur
+# desc: Target video bitrate (kbps) derived from video size budget and duration
+target_video_bitrate_kbps = {{ ((maxs - ((audb * dur * 60) / 8192)) * 8 * 1024 / dur) | round(0) }}
+
+# =============================================================================
+# 4. Encoding passes
+#    desc: Number of encoding passes: 1 (single-pass) or 2 (two-pass); 2 is recommended
+#          Two-pass encoding yields better quality/size ratio but takes twice as long.
+# =============================================================================
+passes = {{ pas }}
+
+{% endif %}

@@ -1,0 +1,87 @@
+# ==============================================================================
+# Birdtray Service Unit Configuration
+#
+# This template generates a systemd service unit for Birdtray, a lightweight
+# system tray client for Mozilla Thunderbird. It handles session startup,
+# restart policies, and optional user-specific configuration overrides.
+#
+# Variables mapped from schema:
+# - user_config_path: Optional path to a custom Birdtray config file.
+#   If empty/undefined, Birdtray uses its default location (~/.config/birdtray.cfg).
+# - debug_dumpmork_file: Path to a Thunderbird Mork (.msf) file for diagnostic
+#   dumping via the --dumpmork flag. This is a one-shot debugging tool and should
+#   NOT be used for runtime configuration.
+# - autostart_enabled: Boolean flag to enable or disable session autostart via
+#   desktop environment tools (not systemd).
+# ==============================================================================
+
+[Unit]
+Description=Birdtray Thunderbird System Tray Client
+# Note: Original template did not specify After/Requires, so we leave it
+# generic. Add 'After=network.target' or similar if network access is needed.
+
+[Service]
+# --------------------------------------------------------------------------
+# Pre-start cleanup
+# --------------------------------------------------------------------------
+# Kill any existing running instance of birdtray to prevent duplicates.
+# The '-' prefix allows the command to fail silently if no process exists.
+ExecStartPre=-/usr/bin/pkill -x birdtray
+
+# --------------------------------------------------------------------------
+# Main executable
+# --------------------------------------------------------------------------
+# Start the birdtray binary.
+ExecStart=/usr/bin/birdtray
+
+# --------------------------------------------------------------------------
+# Restart policy
+# --------------------------------------------------------------------------
+# Restart the service if it exits unexpectedly.
+Restart=on-failure
+
+# Wait 5 seconds between restart attempts.
+RestartSec=5s
+
+# If the service file itself changes, restart the service.
+# Note: This directive is not standard systemd; it may require a custom
+# systemd version or a wrapper script to enforce "restart if changed" logic.
+# If standard systemd is required, remove this line.
+X-RestartIfChanged=true
+
+# --------------------------------------------------------------------------
+# Environment Overrides
+# --------------------------------------------------------------------------
+# Override the default config file path if specified in the schema.
+# This is useful for multi-user setups or custom configurations.
+{% if user_config_path is defined and user_config_path %}
+Environment="BIRDTRAY_USER_CONFIG={{ user_config_path }}"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Debugging (Diagnostic Only)
+# --------------------------------------------------------------------------
+# WARNING: The --dumpmork flag is a one-shot debugging option.
+# It is NOT a persistent runtime configuration. Do not add this to
+# ExecStart directly. To inspect a Mork index file, run manually:
+#   /usr/bin/birdtray --dumpmork <path_to_msf_file>
+#
+# If a debug dump file path is provided in the schema, we log a warning
+# here to remind operators that this is not for runtime use.
+{% if debug_dumpmork_file is defined and debug_dumpmork_file %}
+# DEBUG HINT: --dumpmork is a one-shot debugging option, not a persistent setting.
+# To inspect a Mork index file: /usr/bin/birdtray --dumpmork {{ debug_dumpmork_file }}
+{% endif %}
+
+[Install]
+# --------------------------------------------------------------------------
+# Autostart Configuration
+# --------------------------------------------------------------------------
+# If autostart is enabled, this service unit can be linked/symlinked to
+# ~/.config/systemd/user/default.target or managed by Desktop Environment
+# tools. Note: The schema specifies "session autostart via desktop environment
+# tools (not systemd)", so this target is provided for completeness if the
+# user chooses to use systemd-user sessions instead.
+{% if autostart_enabled | default(true) | bool %}
+WantedBy=default.target
+{% endif %}

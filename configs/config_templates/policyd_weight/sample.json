@@ -1,0 +1,55 @@
+{
+  "listen_addr": "127.0.0.1",
+  "listen_port": 12525,
+  "max_children": 8,
+  "log_level": 1,
+  "log_file": "/var/log/policyd-weight/policyd-weight.log",
+  "log_syslog": true,
+  "chroot": true,
+  "pid_file": "/run/policyd-weight/policyd-weight.pid",
+  "connection_timeout": 300,
+  "use_dns": true,
+  "dns_timeout": 5,
+  "rate_limit_interval": 60,
+  "max_connections_per_source": 10,
+  "check_spf": true,
+  "check_dnsbl": true,
+  "check_helo": true,
+  "check_sender": true,
+  "check_client_ip": true,
+  "use_greylist": true,
+  "greylist_delay": 300,
+  "greylist_expiry": 2592000,
+  "greylist_db_path": "/var/lib/policyd-weight/greylist.db",
+  "dnsbl_conf": "/etc/postfix-policyd-weight/dnsbl.conf",
+  "spf_conf": "/etc/postfix-policyd-weight/spf.conf",
+  "helo_conf": "/etc/postfix-policyd-weight/helo.conf",
+  "sender_conf": "/etc/postfix-policyd-weight/sender.conf",
+  "client_ip_conf": "/etc/postfix-policyd-weight/client_ip.conf",
+  "permitted_senders": [
+    "internal.example.com",
+    "10.0.0.0/8"
+  ],
+  "permitted_clients": [
+    "127.0.0.1",
+    "10.0.0.0/8"
+  ],
+  "weight_rules": [
+    {
+      "name": "dnsbl_hit",
+      "weight": 15,
+      "condition": "client IP found in DNSBL",
+      "description": "Add 15 points for blacklisted IPs"
+    },
+    {
+      "name": "helo_ip_mismatch",
+      "weight": 5,
+      "description": "Add 5 points when HELO hostname doesn\u2019t resolve to client IP"
+    },
+    {
+      "name": "valid_spf",
+      "weight": -10,
+      "description": "Subtract 10 points for valid SPF record"
+    }
+  ]
+}

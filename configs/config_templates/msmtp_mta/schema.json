@@ -1,0 +1,52 @@
+{
+  "default_account": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the default account to use if no --account flag is provided."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/msmtp.log",
+    "description": "Path to the log file. Set to 'off' to disable logging (not recommended for production)."
+  },
+  "syslog_facility": {
+    "type": "string",
+    "default": "",
+    "description": "Syslog facility to use for logging (e.g., 'mail', 'daemon'). Leave blank to use file logging only."
+  },
+  "tls_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable TLS globally. If enabled, TLS is used for all accounts unless overridden per-account."
+  },
+  "tls_starttls": {
+    "type": "boolean",
+    "default": true,
+    "description": "Use STARTTLS (for port 587 or 25) or implicit TLS (for port 465). Set false only for insecure test environments."
+  },
+  "tls_trust_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a CA certificate bundle file (PEM format) to verify the server certificate."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client certificate (PEM) for mutual TLS (optional)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to client private key (PEM) for mutual TLS (optional, must match cert)."
+  },
+  "tls_nocertcheck": {
+    "type": "boolean",
+    "default": false,
+    "description": "Skip server certificate verification (dangerous \u2014 only for internal testing)."
+  },
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "List of SMTP accounts (profiles). At least one account is required for real-world usage.\nitems.type=object\nitems.fields.name.type=string\nitems.fields.name.default=\"\"\nitems.fields.name.description=\"Unique account identifier (e.g., 'gmail', 'smtp2').\"\nitems.fields.host.type=string\nitems.fields.host.default=\"\"\nitems.fields.host.description=\"SMTP server hostname or IP address (e.g., 'smtp.gmail.com').\"\nitems.fields.port.type=number\nitems.fields.port.default=587\nitems.fields.port.description=\"SMTP server port (typically 25, 465 (implicit TLS), or 587 (STARTTLS)).\"\nitems.fields.from_addr.type=string\nitems.fields.from_addr.default=\"\"\nitems.fields.from_addr.description=\"Return address (envelope sender) used in emails sent via this account.\"\nitems.fields.auth_method.type=string\nitems.fields.auth_method.default=\"\"\nitems.fields.auth_method.enum=[\"\",\"login\",\"plain\",\"cram-md5\"]\nitems.fields.auth_method.description=\"Authentication method. Leave blank for unauthenticated relay (not recommended for public servers).\"\nitems.fields.user.type=string\nitems.fields.user.default=\"\"\nitems.fields.user.description=\"SMTP username for authentication (if auth_method is set).\"\nitems.fields.password.type=string\nitems.fields.password.default=\"\"\nitems.fields.password.description=\"SMTP password for authentication (store securely \u2014 consider using a credentials helper).\"\nitems.fields.tls.type=boolean\nitems.fields.tls.default=null\nitems.fields.tls.description=\"Override global TLS setting for this account (true/false). If omitted, uses global setting.\"\nitems.fields.tls_starttls.type=boolean\nitems.fields.tls_starttls.default=true\nitems.fields.tls_starttls.description=\"STARTTLS for this account (ignored if tls=false).\"\nitems.fields.tls_trust_file.type=string\nitems.fields.tls_trust_file.default=\"\"\nitems.fields.tls_trust_file.description=\"Per-account CA cert file (overrides global tls_trust_file).\"\nitems.fields.tls_cert_file.type=string\nitems.fields.tls_cert_file.default=\"\"\nitems.fields.tls_cert_file.description=\"Per-account client cert (overrides global).\"\nitems.fields.tls_key_file.type=string\nitems.fields.tls_key_file.default=\"\"\nitems.fields.tls_key_file.description=\"Per-account client key (overrides global).\"\nitems.fields.tls_nocertcheck.type=boolean\nitems.fields.tls_nocertcheck.default=false\nitems.fields.tls_nocertcheck.description=\"Disable cert verification for this account only (dangerous \u2014 avoid in production).\""
+  }
+}

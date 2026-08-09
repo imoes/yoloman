@@ -1,0 +1,97 @@
+{
+  "bind_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the metrics exporter should listen on (e.g., '127.0.0.1' or '0.0.0.0')"
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 9638,
+    "description": "Port number for the HTTP metrics endpoint"
+  },
+  "metrics_path": {
+    "type": "string",
+    "default": "/metrics",
+    "description": "Path where metrics are exposed (e.g., '/metrics' or '/ntpd/metrics')"
+  },
+  "scrape_interval": {
+    "type": "number",
+    "default": 15,
+    "description": "How often (in seconds) the exporter polls ntpd-rs for metrics"
+  },
+  "scrape_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (in seconds) to wait for a scrape response before timing out"
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTPS/TLS for the metrics endpoint (requires valid cert/key paths)"
+  },
+  "tls_cert_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS certificate file (PEM format) \u2014 only used if TLS is enabled"
+  },
+  "tls_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the TLS private key file (PEM format) \u2014 only used if TLS is enabled"
+  },
+  "labels": {
+    "type": "list",
+    "default": [],
+    "description": "Static key-value labels to attach to all exported metrics (e.g., for environment or cluster identification)",
+    "items": {
+      "name": {
+        "type": "string",
+        "required": true,
+        "description": "Label name (must be valid Prometheus label identifier)"
+      },
+      "value": {
+        "type": "string",
+        "required": true,
+        "description": "Label value"
+      }
+    }
+  },
+  "extra_filters": {
+    "type": "object",
+    "default": null,
+    "description": "Optional metric filtering rules to include/exclude metrics by name (regex patterns)",
+    "items": {
+      "whitelist": {
+        "type": "list",
+        "default": [],
+        "description": "List of regex patterns; only matching metrics are exported",
+        "items": {
+          "type": "string"
+        }
+      },
+      "blacklist": {
+        "type": "list",
+        "default": [],
+        "description": "List of regex patterns; matching metrics are excluded from export",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "server_read_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (in seconds) to wait for an HTTP request header/body"
+  },
+  "server_write_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (in seconds) to wait for an HTTP response write"
+  },
+  "server_max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous HTTP connections accepted"
+  }
+}

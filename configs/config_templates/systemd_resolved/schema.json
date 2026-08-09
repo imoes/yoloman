@@ -1,0 +1,107 @@
+{
+  "LLMNR": {
+    "type": "string",
+    "default": "yes",
+    "description": "Enable or disable Link-Local Multicast Name Resolution (LLMNR). Use 'yes' to allow local hostname resolution via broadcast/multicast."
+  },
+  "MulticastDNS": {
+    "type": "string",
+    "default": "yes",
+    "description": "Enable or disable mDNS. Accepts 'yes' (respond to local queries), 'resolve' (forward queries to mDNS), or 'no' (disable)."
+  },
+  "DNSOverTLS": {
+    "type": "string",
+    "default": "opportunistic",
+    "description": "DNS-over-TLS mode. 'opportunistic' prefers encryption but falls back to plain DNS; 'yes' enforces TLS; 'no' disables DoT."
+  },
+  "DNSSEC": {
+    "type": "string",
+    "default": "allow-downgrade",
+    "description": "DNSSEC validation mode. 'allow-downgrade' validates unless upstream doesn\u2019t support it; 'true' requires validation; 'no' disables it."
+  },
+  "DNSSecNegativeTrustAnchors": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains for which DNSSEC validation is explicitly disabled (e.g., internal zones without DNSSEC support).",
+    "items": {
+      "type": "string",
+      "description": "Domain name to add to the negative trust anchor list."
+    }
+  },
+  "DNS": {
+    "type": "list",
+    "default": [],
+    "description": "Upstream DNS servers to use (IP addresses or resolvable hostnames). Systemd will prefer these over DHCP-provided servers unless overridden.",
+    "items": {
+      "type": "string",
+      "description": "IP address (IPv4 or IPv6) or hostname of a DNS server."
+    }
+  },
+  "Domains": {
+    "type": "list",
+    "default": [],
+    "description": "Search domains appended to unqualified hostnames during DNS lookups.",
+    "items": {
+      "type": "string",
+      "description": "A domain name to include in DNS search paths."
+    }
+  },
+  "DNSStubListener": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, systemd-resolved provides a stub resolver at 127.0.0.53:53 for local services to query."
+  },
+  "DNSStubListenerExtra": {
+    "type": "list",
+    "default": [],
+    "description": "Additional IPs (e.g., IPv6 addresses or container IPs) where the DNS stub listener should bind. Useful in containerized environments.",
+    "items": {
+      "type": "string",
+      "description": "IP address (IPv4 or IPv6) to bind the DNS stub listener on, in addition to 127.0.0.53."
+    }
+  },
+  "ReadResolvConf": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, systemd-resolved reads and merges /etc/resolv.conf. Disable if you want systemd-resolved to fully manage DNS without legacy config interference."
+  },
+  "Cache": {
+    "type": "string",
+    "default": "yes",
+    "description": "DNS caching behavior. Set to 'yes' to enable (default size), or 'no' to disable caching."
+  },
+  "DNSMaxPacketSize": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum DNS packet size (including EDNS0). Increase to 65535 if you rely on large DNS responses (e.g., DNSSEC with many records)."
+  },
+  "FallbackDNS": {
+    "type": "list",
+    "default": [],
+    "description": "Fallback DNS servers used when no other DNS configuration is available (e.g., during early boot or without DHCP). Often used for private/reserved networks.",
+    "items": {
+      "type": "string",
+      "description": "IP address of a fallback DNS server."
+    }
+  },
+  "LLMNRPort": {
+    "type": "number",
+    "default": 5353,
+    "description": "UDP port used for LLMNR traffic. Only change if port 5353 is unavailable."
+  },
+  "MulticastDNSPort": {
+    "type": "number",
+    "default": 5353,
+    "description": "UDP port used for mDNS traffic. Only change if port 5353 is unavailable."
+  },
+  "LLMNRTimeoOut": {
+    "type": "number",
+    "default": 2500,
+    "description": "Time in milliseconds to wait for LLMNR responses before giving up. Higher values improve reliability on slow networks."
+  },
+  "MulticastDNSTimeoOut": {
+    "type": "number",
+    "default": 2500,
+    "description": "Time in milliseconds to wait for mDNS responses before giving up. Higher values improve reliability on slow networks."
+  }
+}

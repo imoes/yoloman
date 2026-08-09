@@ -1,0 +1,76 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides: {{ name | default('bucardo') }}
+# Required-Start: $local_fs $remote_fs $network $time
+# Required-Stop: $local_fs $remote_fs $network $time
+# Should-Start: $syslog postgresql
+# Should-Stop: $syslog postgresql
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
+# Short-Description: PostgreSQL replication system
+### END INIT INFO
+
+# Service name for identification
+NAME={{ name | default('bucardo') }}
+DESC="PostgreSQL replication system"
+
+# Full path to the bucardo daemon executable
+DAEMON={{ daemon_path | default('/usr/bin/bucardo') }}
+
+# Full path to the PID file
+PIDFILE={{ pidfile_path | default('/var/run/bucardo/bucardo.mcp.pid') }}
+
+# Ensure the daemon binary exists and is executable
+test -x "$DAEMON" || exit 0
+
+# Source LSB init functions for logging and status commands
+. /lib/lsb/init-functions
+
+# Change to the log directory where logs are typically written
+cd {{ log_dir | default('/var/log/bucardo') }}
+
+# Directory where the PID file will reside.
+# Computed from the PIDFILE path using shell built-ins
+# because Jinja2 cannot call .dirname() or arbitrary Python methods.
+PIDDIR=$(dirname "{{ pidfile_path | default('/var/run/bucardo/bucardo.mcp.pid') }}")
+
+case "$1" in
+start)
+	# Create the PID file directory if it does not exist, owned by the service user
+	if [ ! -d "${PIDDIR}" ]; then
+		mkdir -p "${PIDDIR}"
+		chown {{ run_user | default('bucardo') }}:{{ run_user | default('bucardo') }} "${PIDDIR}"
+	fi
+	log_daemon_msg "Starting $DESC" "$NAME"
+	# Start the daemon as the designated run user
+	su {{ run_user | default('bucardo') }} --command "$DAEMON start"
+	log_end_msg $?
+	;;
+force-reload|reload)
+	log_daemon_msg "Reloading $DESC configuration files" "$NAME"
+	# Reload configuration as the designated run user
+	su {{ run_user | default('bucardo') }} --command "$DAEMON reload_config"
+	log_end_msg $?
+	;;
+restart)
+	# Stop then start to restart the service
+	"$0" stop
+	"$0" start
+	;;
+stop)
+	log_daemon_msg "Stopping $DESC" "$NAME"
+	# Stop the daemon as the designated run user
+	su {{ run_user | default('bucardo') }} --command "$DAEMON stop"
+	log_end_msg $?
+	;;
+status)
+	# Check the status of the process using its PID file
+	status_of_proc -p "$PIDFILE" "$NAME"
+	;;
+*)
+	log_action_msg "Usage: $0 {start|force-reload|reload|restart|stop}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

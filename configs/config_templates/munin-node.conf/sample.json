@@ -1,0 +1,54 @@
+{
+  "main": {
+    "logfile": "/var/log/munin/munin-node.log",
+    "pid_file": "/var/run/munin/munin-node.pid",
+    "port": 4949,
+    "host_name": "webserver01.example.com",
+    "timeout": 30,
+    "allow": [
+      "127\\.0\\.0\\.1",
+      "^10\\.0\\.0\\."
+    ],
+    "deny": [
+      "^192\\.168\\.100\\."
+    ]
+  },
+  "plugins": [
+    {
+      "name": "df",
+      "env": {
+        "mount": "/,/var,/home"
+      }
+    },
+    {
+      "name": "memory",
+      "env": {}
+    },
+    {
+      "name": "nginx_request",
+      "env": {
+        "url": "http://localhost:8080/nginx-status",
+        "ports": "8080"
+      }
+    }
+  ],
+  "plugin_groups": [
+    {
+      "name": "processes",
+      "description": "Per-user process counts",
+      "env": {
+        "user": "root, www-data, postgres"
+      }
+    }
+  ],
+  "plugin_rules": [],
+  "tls": {
+    "enabled": true,
+    "key_file": "/etc/munin/ssl/node.key",
+    "cert_file": "/etc/munin/ssl/node.crt",
+    "ca_file": "/etc/ssl/certs/ca-munin-root.crt"
+  },
+  "user": "munin",
+  "group": "munin",
+  "plugins_dir": "/usr/share/munin/plugins"
+}

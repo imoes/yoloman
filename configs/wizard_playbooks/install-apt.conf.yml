@@ -1,0 +1,41 @@
+- name: install-apt.conf
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/apt/apt.conf.d/01-vendor-ubuntu"
+    _service: ""
+    _packages:
+      - appstream
+      - apt
+      - apt-config-icons
+      - apt-config-icons-hidpi
+      - apt-config-icons-large
+      - apt-config-icons-large-hidpi
+      - aptdaemon
+      - command-not-found
+      - debconf
+      - packagekit
+      - snapd
+      - ubuntu-pro-client
+      - update-notifier-common
+  tasks:
+    - name: Install Apt Conf
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: apt.conf.j2
+        dest: "{{ _dest }}"
+      vars:
+        appstream_release: "{{ appstream_release }}"
+        appstream_component: "{{ appstream_component }}"
+        appstream_native_architecture: "{{ appstream_native_architecture }}"
+
+    - name: Enable and restart Apt Conf
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true
+      when: _service | length > 0

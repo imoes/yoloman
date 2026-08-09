@@ -1,0 +1,93 @@
+# =============================================================================
+# PostgreSQL pgAudit Log Redirector Configuration
+# =============================================================================
+# This file configures how pgAudit logs are redirected to files.
+# It MUST be loaded via `shared_preload_libraries` in postgresql.conf.
+#
+# Directives below map directly to pgAudit configuration parameters.
+# =============================================================================
+
+# --- General Logging Settings ---
+
+# Absolute path to the directory where pgAudit log files will be written.
+# Must be writable by the PostgreSQL user.
+log_directory = '{{ log_directory | default("/var/log/postgresql/pgaudit") }}'
+
+# Base filename for audit logs.
+# Supports standard strftime-style placeholders for timestamps and user.
+# Examples: %Y (year), %m (month), %d (day), %H (hour), %M (minute), %S (second), %U (user name).
+log_filename = '{{ log_filename | default("pgaudit-%Y%m%d_%H%M%S_%U.log") }}'
+
+# Maximum age (in seconds) of a log file before rotation.
+# Set to 0 to disable time-based rotation.
+log_rotation_age = {{ log_rotation_age | default(86400) }}
+
+# Maximum size (in MB) of a log file before rotation.
+# Set to 0 to disable size-based rotation.
+log_rotation_size = {{ log_rotation_size | default(10240) }}
+
+# Maximum number of old (including compressed) log files to retain.
+# Older files are deleted on rotation.
+log_rotation_max_files = {{ log_rotation_max_files | default(7) }}
+
+# Whether to compress rotated log files using gzip to save disk space.
+log_compression = {{ log_compression | default(true) | ternary('true', 'false') }}
+
+# Minimum message level to include in the audit log.
+# Levels: LOG, ERROR, FATAL, etc. Lower levels include more detail.
+min_messages = '{{ min_messages | default("LOG") }}'
+
+# Enable verbose internal logging of the pgAudit redirector module for troubleshooting.
+debug_redirector = {{ debug_redirector | default(false) | ternary('true', 'false') }}
+
+# --- Audit Event Selection ---
+
+# List of event categories to capture.
+# Adjust based on compliance and security requirements.
+# Valid categories typically include: read, write, ddl, function, role, etc.
+audit_events = [{% for event in audit_events | default(['read', 'write', 'ddl', 'function', 'role']) | map('quote') %}'{{ event }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+
+# List of role names that should *not* be audited.
+# Useful for excluding superusers or service accounts from detailed auditing.
+# Empty list means all roles are audited.
+{% if exclude_roles | default(['rds_admin', 'cloud_admin']) %}
+audit_exclude_roles = [{% for role in exclude_roles | default(['rds_admin', 'cloud_admin']) | map('quote') %}'{{ role }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+{% else %}
+audit_exclude_roles = []
+{% endif %}
+
+# List of schema names that should *not* be audited.
+# Useful for excluding system schemas like pg_catalog or information_schema.
+# Empty list means all schemas are audited.
+{% if exclude_schemas | default(['pg_catalog', 'information_schema']) %}
+audit_exclude_schemas = [{% for schema in exclude_schemas | default(['pg_catalog', 'information_schema']) | map('quote') %}'{{ schema }}'{% if not loop.last %}, {% endif %}{% endfor %}]
+{% else %}
+audit_exclude_schemas = []
+{% endif %}
+
+# --- File Ownership and Permissions ---
+
+# Octal permission mode for new log files (e.g., 0640).
+# Note: The template variable `log_file_mode` is expected to be an integer (decimal).
+# The filter `%o` converts this decimal integer to its octal string representation for the config.
+# Must be readable by PostgreSQL user and group.
+log_file_mode = {{ '%o' | format(log_file_mode | default(420)) }}
+
+# Unix username that will own the log files.
+# Usually the PostgreSQL service account.
+log_file_owner = '{{ log_file_owner | default("postgres") }}'
+
+# Unix group that will own the log files.
+# Ensure this group has appropriate access to the log directory.
+log_file_group = '{{ log_file_group | default("postgres") }}'
+
+# --- Performance Tuning ---
+
+# Maximum number of background writer processes to handle concurrent log writes.
+# Increase for very high-traffic databases to reduce I/O contention.
+max_log_writers = {{ max_log_writers | default(2) }}
+
+# --- Control ---
+
+# Toggle to enable or disable pgAudit log redirection entirely.
+enabled = {{ enabled | default(true) | ternary('true', 'false') }}

@@ -1,0 +1,112 @@
+{
+  "base_url": {
+    "type": "string",
+    "default": "http://example.com/",
+    "description": "Base URL used to generate client-facing endpoints. Must end with a slash."
+  },
+  "listen": {
+    "type": "string",
+    "default": "",
+    "description": "Interface IP or hostname to bind to. Empty string binds to all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port to listen on for incoming HTTP requests."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous HTTP connections allowed."
+  },
+  "max_response_size": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum size (in bytes) of the HTTP response body. Larger responses will be rejected."
+  },
+  "ssl_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable SSL/TLS encryption for HTTPS support."
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/hippotat/ssl/server.crt",
+    "description": "Path to SSL certificate file (required when SSL is enabled)."
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/hippotat/ssl/server.key",
+    "description": "Path to SSL private key file (required when SSL is enabled)."
+  },
+  "client_subnets": {
+    "type": "list",
+    "default": [
+      "10.0.0.0/24"
+    ],
+    "description": "List of allowed client subnets (in CIDR notation). Only clients from these subnets may connect.",
+    "items": {
+      "type": "string",
+      "description": "Allowed client subnet in CIDR format (e.g., 10.0.0.0/24)"
+    }
+  },
+  "ip_pool": {
+    "type": "string",
+    "default": "10.100.0.0/24",
+    "description": "IP address range (CIDR or start-end format) to assign to connecting clients."
+  },
+  "dns_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of DNS servers to push to clients. If empty, system default DNS is used.",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 DNS server address"
+    }
+  },
+  "syslog_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Log to system syslog instead of file."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logging. Valid values: debug, info, warning, error."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/hippotat/server.log",
+    "description": "Path to log file (used only if syslog_enabled = false)."
+  },
+  "request_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Timeout (in seconds) for HTTP request processing before connection is dropped."
+  },
+  "workers": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of worker processes. Use 0 for single-process mode (no forking)."
+  },
+  "state_file": {
+    "type": "string",
+    "default": "/var/lib/hippotat/state.json",
+    "description": "Path to file storing persistent state (e.g., assigned client IPs)."
+  },
+  "debug_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable extremely verbose debugging output (for troubleshooting only)."
+  },
+  "mtu": {
+    "type": "number",
+    "default": 1420,
+    "description": "Maximum Tunnel MTU in bytes (set lower than underlying link MTU to avoid fragmentation)."
+  },
+  "client_config_template": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to Jinja2 template used to generate per-client configuration files."
+  }
+}

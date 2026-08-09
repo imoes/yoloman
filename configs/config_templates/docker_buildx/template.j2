@@ -1,0 +1,86 @@
+# Enable debug logging
+debug = {{ debug }}
+
+# Set the root directory for BuildKit state
+root = {{ root_dir }}
+
+# Set the cache directory for BuildKit
+[cache]
+  # Cache directory location
+  dir = {{ cache_dir }}
+  # Cache size limit in bytes (0 = unlimited)
+  size = {{ cache_size }}
+  # Enable or disable garbage collection
+  disabled = {{ cache_disabled }}
+
+# Configure builders and their platforms
+[ builders ]
+  # Multi-arch builder configuration
+  {% for builder in builders %}
+  # Builder: {{ builder.name }}
+  [ builders.{{ builder.name | replace('.', '_') }} ]
+    # BuildKit driver (e.g., "docker-container", "kubernetes", "remote")
+    driver = {{ builder.driver }}
+    # Builder-specific driver configuration
+    {% for key, value in builder.config.items() | sort %}
+    # {{ key | replace('_', ' ') | title }}
+    {{ key }} = {{ value }}
+    {% endfor %}
+    # List of platforms this builder supports
+    platforms = [ {{ builder.platforms | map('quote') | join(', ') }} ]
+  {% endfor %}
+
+# Configure network access
+[network]
+  # DNS servers for containers
+  {% if dns is not none %}
+  dns = [ {{ dns | map('quote') | join(', ') }} ]
+  {% endif %}
+  # Enable or disable external network access
+  external = {{ network_external }}
+
+# Configure registry mirrors
+{% if registry_mirrors is not none %}
+# Registry mirrors configuration
+{% for mirror in registry_mirrors %}
+# Mirror for registry {{ mirror.registry }}
+[registry."{{ mirror.registry }}"]
+  # Use HTTP instead of HTTPS for mirror
+  http = {{ mirror.http | default(false) }}
+  # Enable TLS verification
+  tls = {{ mirror.tls | default(true) }}
+  # List of mirror endpoints (fallback order)
+  mirrors = [ {{ mirror.endpoints | map('quote') | join(', ') }} ]
+{% endfor %}
+{% endif %}
+
+# Configure log output format
+[log]
+  # Log format ("text", "json")
+  format = {{ log_format }}
+
+# Configure garbage collection settings
+[gc]
+  # Enable garbage collection
+  enabled = {{ gc_enabled }}
+  # Minimum age for unused data (e.g., "24h0m0s")
+  minage = {{ gc_min_age }}
+  # Maximum space used by cache (e.g., "10GB")
+  maxsize = {{ gc_max_size }}
+  # Garbage collection policy
+  {% for policy in gc_policies %}
+  # Policy {{ loop.index }}
+  {% if policy.key is not none %}
+  {% for rule in policy.rules %}
+  {% if rule.key == "ref" %}
+  [gc.{{ loop.parent.loop.index }}.{{ rule.key }}]
+    value = {{ rule.value | quote }}
+    {% elif rule.key == "created" %}
+  [gc.{{ loop.parent.loop.index }}.{{ rule.key }}]
+    value = {{ rule.value }}
+  {% endif %}
+  {% endfor %}
+  {% else %}
+  {{ policy | to_json }}
+  {% endif %}
+  {% endfor %}

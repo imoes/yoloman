@@ -1,0 +1,171 @@
+{#
+  KNOT DNS Server Configuration
+  =============================
+  This template generates a valid `knot.conf` (YAML format) for the KNOT DNS authoritative server.
+  It is self-documenting: every configuration directive is preceded by a comment describing its purpose
+  and expected values, derived from the Ansible variable schema.
+
+  Best practices:
+  - All variables use Jinja2 `| default(...)` filters to ensure valid output even if a variable is undefined.
+  - Lists (servers, acls, zones, etc.) are iterated using `{% for ... %}` with safe access to nested keys.
+  - Literal YAML syntax (colons, dashes) is preserved; Jinja delimiters are strictly separated.
+#}
+
+# KNOT DNS server configuration file
+# Main configuration for KNOT DNS server
+# Reference: https://knot-dns.cz/documentation/
+
+config:
+  # Zonefiles directory: Directory where zone files are stored. Must be writable by knot user.
+  # Default: /var/lib/knot/zones
+  zonefile-dir: {{ zonefile_dir | default('/var/lib/knot/zones') }}
+
+  # Log file path: Optional path to KNOT log file. Leave empty to use system logging.
+  # Default: '' (empty)
+{% if log_file is defined and log_file %}
+  log-file: {{ log_file | default('') }}
+{% endif %}
+
+  # PID file: Path to the PID file for the KNOT daemon.
+  # Default: /run/knot/knot.pid
+  pid-file: {{ pid_file | default('/run/knot/knot.pid') }}
+
+  # Identity: Server identity string used in logs and responses.
+  # Should be a short hostname or identifier.
+  # Default: knot
+  identity: {{ identity | default('knot') }}
+
+  # Workers: Number of worker threads. 0 means auto-detect based on CPU cores.
+  # Minimum 1 if explicitly set.
+  # Default: 0
+  workers: {{ workers | default(0) }}
+
+  # Max Concurrent Queries: Maximum concurrent queries per worker thread.
+  # 0 means use KNOT's internal default.
+  # Default: 0
+  max-concurrent-queries: {{ max_concurrent_queries | default(0) }}
+
+  # Max Open Files: Maximum number of open files (ulimit).
+  # 0 means use system default limit.
+  # Default: 0
+  max-open-files: {{ max_open_files | default(0) }}
+
+  # Log Level: Verbosity of logging.
+  # Allowed values: critical, error, warning, notice, info, debug.
+  # Default: notice
+  log-level: {{ log_level | default('notice') }}
+
+# Server List: List of network endpoints (interfaces/ports/protocols) KNOT will listen on.
+# Each entry specifies an ID, listen address, port, and protocol.
+# Default: [{'id': 'default', 'listen': '0.0.0.0', 'port': 53, 'protocol': 'udp/tcp'}, {'id': 'default-ipv6', 'listen': '::', 'port': 53, 'protocol': 'udp/tcp'}]
+server:
+{% for server_entry in servers | default([{'id': 'default', 'listen': '0.0.0.0', 'port': 53, 'protocol': 'udp/tcp'}, {'id': 'default-ipv6', 'listen': '::', 'port': 53, 'protocol': 'udp/tcp'}]) %}
+  - id: {{ server_entry.id | default('unknown') }}
+    listen: {{ server_entry.listen | default('0.0.0.0') }}
+    # Port: The port to listen on.
+{% if server_entry.port is defined and server_entry.port %}
+    port: {{ server_entry.port }}
+{% endif %}
+    # Protocol: Comma-separated list of protocols (e.g., udp, tcp).
+{% if server_entry.protocol is defined and server_entry.protocol %}
+    protocol: {{ server_entry.protocol }}
+{% endif %}
+{% endfor %}
+
+# ACLs: Access control lists to govern which clients can query or transfer zones.
+# Each entry defines an ID, IP/CIDR ranges, allowed action, and logging flag.
+# Default: [{'id': 'localnet', 'address': '127.0.0.0/8, ::1/128, 192.168.0.0/16, 10.0.0.0/8', 'action': 'allow', 'log': 'false'}]
+acl:
+{% for acl_entry in acls | default([{'id': 'localnet', 'address': '127.0.0.0/8, ::1/128, 192.168.0.0/16, 10.0.0.0/8', 'action': 'allow', 'log': 'false'}]) %}
+  - id: {{ acl_entry.id | default('unnamed_acl') }}
+    # Address: Comma-separated list of IP addresses or CIDR networks.
+    address: {{ acl_entry.address | default('') }}
+    # Action: Either 'allow' or 'deny'.
+{% if acl_entry.action is defined and acl_entry.action %}
+    action: {{ acl_entry.action }}
+{% else %}
+    action: allow
+{% endif %}
+    # Log: Whether to log access events ('true' or 'false').
+{% if acl_entry.log is defined and acl_entry.log %}
+    log: {{ acl_entry.log }}
+{% endif %}
+{% endfor %}
+
+# Zone Definitions: List of zones managed by this KNOT instance.
+# Each zone specifies the domain name, file path, and operational options.
+# At least one zone is required.
+# Default: [{'domain': 'example.com', 'file': 'example.com.zone', 'notify': 'true', 'axfr': 'allow', 'dnssec': 'true', 'dnssec-signing': 'auto'}]
+zone:
+{% for zone in zones | default([{'domain': 'example.com', 'file': 'example.com.zone', 'notify': 'true', 'axfr': 'allow', 'dnssec': 'true', 'dnssec-signing': 'auto'}]) %}
+  - domain: {{ zone.domain | default('') }}
+    # File: Path to the zone file relative to zonefile-dir.
+    file: {{ zone.file | default('') }}
+    # Notify: Whether to notify slaves when the zone changes ('true' or 'false').
+{% if zone.notify is defined and zone.notify %}
+    notify: {{ zone.notify }}
+{% endif %}
+    # AXFR: Access control for zone transfers (e.g., 'allow' or an ACL ID).
+{% if zone.axfr is defined and zone.axfr %}
+    axfr: {{ zone.axfr }}
+{% endif %}
+    # Masters: List of master server addresses for secondary zones.
+{% if zone.masters is defined and zone.masters %}
+    masters: {{ zone.masters }}
+{% endif %}
+    # Journal: Path to the journal file.
+{% if zone.journal is defined and zone.journal %}
+    journal: {{ zone.journal }}
+{% endif %}
+    # DNSSEC: Enable DNSSEC validation/signing for this zone ('true' or 'false').
+{% if zone.dnssec is defined and zone.dnssec %}
+    dnssec: {{ zone.dnssec }}
+{% endif %}
+    # DNSSEC Signing: DNSSEC signing mode (e.g., 'auto', 'manual', 'off').
+{% if zone.dnssec_signing is defined and zone.dnssec_signing %}
+    dnssec-signing: {{ zone.dnssec_signing }}
+{% endif %}
+{% endfor %}
+
+# DNSSEC Key Policies: Configuration for automatic DNSSEC key management.
+# Required only for signed zones.
+{% if key_policies is defined and key_policies %}
+key-policy:
+{% for policy in key_policies | default([]) %}
+  - id: {{ policy.id | default('') }}
+    # Algorithm: DNSSEC algorithm name (e.g., rsasha1, ecdsap256).
+    algorithm: {{ policy.algorithm | default('') }}
+    # Size: Key size in bits.
+{% if policy.size is defined and policy.size %}
+    size: {{ policy.size }}
+{% endif %}
+    # TTL: Time-to-live for DNSKEY records.
+{% if policy.ttl is defined and policy.ttl %}
+    ttl: {{ policy.ttl }}
+{% endif %}
+    # Lifetime: How long the key is valid.
+{% if policy.lifetime is defined and policy.lifetime %}
+    lifetime: {{ policy.lifetime }}
+{% endif %}
+    # Replay Protection: Enable or disable replay protection ('on' or 'off').
+    replay-protection: {{ policy.replay_protection | default('off') }}
+{% endfor %}
+{% endif %}
+
+# Remotes: List of remote servers (e.g., for forwarding, master/secondary relations, or recursion).
+{% if remotes is defined and remotes %}
+remote:
+{% for remote in remotes | default([]) %}
+  - id: {{ remote.id | default('') }}
+    # Address: IP address or hostname of the remote server.
+    address: {{ remote.address | default('') }}
+    # Port: Port number of the remote server.
+{% if remote.port is defined and remote.port %}
+    port: {{ remote.port }}
+{% endif %}
+    # Protocol: Protocol to use (e.g., udp, tcp).
+{% if remote.protocol is defined and remote.protocol %}
+    protocol: {{ remote.protocol }}
+{% endif %}
+{% endfor %}
+{% endif %}

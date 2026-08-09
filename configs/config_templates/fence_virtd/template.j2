@@ -1,0 +1,95 @@
+# =============================================================================
+# fence_virtd Configuration Template
+# =============================================================================
+# This file configures fence_virtd, the virtualization fencing daemon for
+# high-availability clusters. It handles fencing requests from cluster nodes
+# via libvirt or Xen backends.
+#
+# Self-documenting: every setting is annotated with its schema description.
+# Variables use Jinja2 defaults to prevent rendering errors if undefined.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Listen on these network interfaces for fencing traffic.
+# Each entry may include an optional address (IP) and port.
+# Default: [{'name': 'eth0'}]
+# -----------------------------------------------------------------------------
+interface = [
+{% for iface in (listen_interfaces | default([{'name': 'eth0'}])) %}
+  "{{ iface.name }}"{% if iface.address is defined %} address = "{{ iface.address }}"{% endif %}{% if iface.port is defined %} port = {{ iface.port }}{% endif %}
+{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+
+# -----------------------------------------------------------------------------
+# Path to the shared secret key file used for authentication.
+# This file must be readable only by root to prevent unauthorized fencing.
+# Default: '/etc/cluster/fence_xvm.key'
+# -----------------------------------------------------------------------------
+key_file = "{{ key_file | default('/etc/cluster/fence_xvm.key') }}";
+
+# -----------------------------------------------------------------------------
+# Backend virtualization drivers to use for fencing.
+# Common values: 'libvirt', 'xen'.
+# Each backend entry can optionally specify a 'timeout'.
+# Default: [{'name': 'libvirt'}]
+# -----------------------------------------------------------------------------
+backend = [
+{% for mod in (backends | default([{'name': 'libvirt'}])) %}
+  "{{ mod.name }}"{% if mod.timeout is defined %} timeout = {{ mod.timeout }}{% endif %}
+{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+
+# -----------------------------------------------------------------------------
+# Logging verbosity level.
+# 0 = quiet, 7 = debug. Recommended: 4 (info).
+# Default: 4
+# -----------------------------------------------------------------------------
+log_level = {{ log_level | default(4) }};
+
+# -----------------------------------------------------------------------------
+# Syslog facility for logging messages.
+# Example: 'daemon', 'local0'.
+# Default: 'daemon'
+# -----------------------------------------------------------------------------
+log_facility = "{{ log_facility | default('daemon') }}";
+
+# -----------------------------------------------------------------------------
+# Enable IPv6 support for communication.
+# Default: False
+# -----------------------------------------------------------------------------
+ipv6 = {{ ipv6 | default(False) | lower }};
+
+# -----------------------------------------------------------------------------
+# Maximum number of simultaneous client connections allowed.
+# Default: 100
+# -----------------------------------------------------------------------------
+max_connections = {{ max_connections | default(100) }};
+
+# -----------------------------------------------------------------------------
+# TLS/SSL encryption settings for remote fence operations.
+# Only emitted if tls_enabled is True.
+# -----------------------------------------------------------------------------
+{% if tls_enabled | default(False) %}
+# TLS Server Certificate (PEM format)
+tls_cert = "{{ tls_cert | default('/etc/cluster/fence_virt.crt') }}";
+
+# TLS Server Private Key (PEM format)
+tls_key = "{{ tls_key | default('/etc/cluster/fence_virt.key') }}";
+
+# CA Certificate for verifying client certificates (PEM format)
+tls_ca_cert = "{{ tls_ca_cert | default('/etc/cluster/fence_virt_ca.crt') }}";
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Unix domain socket path for local fence agent communication.
+# Default: '/var/run/fence_virt.sock'
+# -----------------------------------------------------------------------------
+socket_path = "{{ socket_path | default('/var/run/fence_virt.sock') }}";
+
+# -----------------------------------------------------------------------------
+# Default operation timeout in seconds for fencing actions.
+# Default: 30
+# -----------------------------------------------------------------------------
+default_timeout = {{ default_timeout | default(30) }};

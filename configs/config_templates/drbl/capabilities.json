@@ -1,0 +1,61 @@
+{
+  "provides": [
+    {
+      "capability": "diskless_boot",
+      "backend": "drbl",
+      "provisionable": {
+        "clients": "drblroot",
+        "common_root": "drbl_common_root"
+      },
+      "fields": {
+        "port": null,
+        "host": null
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "nfs",
+      "backends": [
+        "nfs"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": "drbl_common_root",
+        "export_path": "ocsroot"
+      }
+    },
+    {
+      "capability": "dns_resolver",
+      "backends": [
+        "dnsmasq"
+      ],
+      "backend_field": "dnsmasq_cfg",
+      "fields": {
+        "host": null,
+        "port": null
+      }
+    },
+    {
+      "capability": "web_server",
+      "backends": [
+        "nginx",
+        "apache"
+      ],
+      "backend_field": "syslinux_binsrc_url",
+      "fields": {
+        "host": "url_prefix",
+        "port": null
+      }
+    }
+  ],
+  "peer_injection": [
+    {
+      "capability": "nfs",
+      "field": "drbl_common_root",
+      "kind": "mount_point",
+      "items_style": "bare_map"
+    }
+  ],
+  "confidence": "review"
+}

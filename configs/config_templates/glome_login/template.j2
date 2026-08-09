@@ -1,0 +1,36 @@
+# glome-login.conf — GLOME Login Daemon configuration
+# Enables debug logging for troubleshooting
+# List of trusted public keys (base64-encoded Ed25519 keys) allowing login access
+# Maximum number of concurrent login attempts per source IP
+# Session timeout in seconds
+# Listen address and port(s) for incoming connections
+# Hostnames to accept as valid (comma-separated list); empty = accept any
+# Toggle whether to enforce rate limiting per client IP
+# Optional fallback backend (e.g., 'none', 'ldap', 'sqlite')
+
+[daemon]
+# Enables debug logging for troubleshooting
+debug = {{ debug }}
+
+# List of trusted public keys (base64-encoded Ed25519 keys) allowing login access
+trusted_keys = {{ trusted_keys | join(', ') }}
+
+# Maximum number of concurrent login attempts per source IP
+max_concurrent_per_ip = {{ max_concurrent_per_ip }}
+
+# Session timeout in seconds
+session_timeout = {{ session_timeout }}
+
+# Listen address and port(s) for incoming connections
+{% for addr in listen_addrs %}
+listen_{{ loop.index }} = {{ addr.host }}:{{ addr.port }}
+{% endfor %}
+
+# Hostnames to accept as valid (comma-separated list); empty = accept any
+valid_hostnames = {{ valid_hostnames | join(', ') }}
+
+# Toggle whether to enforce rate limiting per client IP
+enforce_rate_limit = {{ enforce_rate_limit }}
+
+# Optional fallback backend (e.g., 'none', 'ldap', 'sqlite')
+fallback_backend = {{ fallback_backend }}

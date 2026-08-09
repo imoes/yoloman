@@ -1,0 +1,82 @@
+;
+; Cyborg Agent Configuration Template
+; =====================================
+; This file configures the OpenStack Cyborg Agent service.
+; It manages hardware accelerators (FPGAs, DPU, etc.) via RPC
+; and exposes an API for managing accelerator resources.
+;
+
+[DEFAULT]
+# Logging level for the Cyborg agent (e.g., DEBUG, INFO, WARNING, ERROR).
+log_level = {{ log_level | default('INFO') }}
+
+# RPC transport mechanism. Use 'rabbit' for RabbitMQ.
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# Hostname or IP address of the RabbitMQ server.
+rabbit_host = {{ rabbit_host | default('localhost') }}
+
+# Port number for the RabbitMQ server.
+rabbit_port = {{ rabbit_port | default(5672) }}
+
+# Username for RabbitMQ authentication.
+rabbit_user = {{ rabbit_user | default('guest') }}
+
+# Password for RabbitMQ authentication.
+rabbit_password = {{ rabbit_password | default('guest') }}
+
+# IP address on which the Cyborg agent API listens.
+bind_host = {{ bind_host | default('0.0.0.0') }}
+
+# Port on which the Cyborg agent API listens.
+bind_port = {{ bind_port | default(8776) }}
+
+# Path to the PasteDeploy configuration file for the Cyborg API.
+api_paste_config = {{ api_paste_config | default('/etc/cyborg/api-paste.ini') }}
+
+[accelerators]
+# List of supported hardware accelerators. Each entry maps an accelerator type to its driver.
+# Format: type = driver_name
+{% for acc in accelerators | default([]) %}{{ acc.type | default('unknown') }} = {{ acc.driver | default('none') }}
+{% endfor %}
+
+[api_database]
+# Database connection URL for the Cyborg API database (e.g., 'mysql+pymysql://user:pass@host/dbname').
+connection = {{ api_db_connection | default('sqlite:///var/lib/cyborg/cyborg_api.sqlite') }}
+
+[database]
+# Database connection URL for the main Cyborg database.
+connection = {{ db_connection | default('sqlite:///var/lib/cyborg/cyborg.sqlite') }}
+
+[keystone_authtoken]
+# Identity service (Keystone) auth URL.
+auth_url = {{ keystone_auth_url | default('http://controller:5000/v3') }}
+
+# Project domain name in Keystone.
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# User domain name in Keystone.
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Project (tenant) name for the Cyborg service user.
+project_name = {{ project_name | default('service') }}
+
+# Username of the Cyborg service account in Keystone.
+username = {{ service_username | default('cyborg') }}
+
+# Password for the Cyborg service account.
+password = {{ service_password | default('password') }}
+
+# Keystone endpoint interface type to use (public, internal, or admin).
+interface = {{ keystone_interface | default('internal') }}
+
+# If true, skip TLS certificate verification when connecting to Keystone.
+insecure = {{ keystone_insecure | default(false) | lower }}
+
+[oslo_concurrency]
+# Directory for lock files used by oslo.concurrency.
+lock_path = {{ lock_path | default('/var/lib/cyborg/locks') }}
+
+[oslo_messaging_notifications]
+# Notification driver(s), comma-separated. Commonly ' messagingv2'.
+driver = {{ notification_driver | default('messagingv2') }}

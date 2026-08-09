@@ -1,0 +1,46 @@
+name: profitbricks_datacenter
+fqcn: community.general.profitbricks_datacenter
+collection: community.general
+short_description: Create or destroy a ProfitBricks Virtual Datacenter
+description: This is a simple module that supports creating or removing vDCs. A vDC is required before
+  you can create servers. This module has a dependency on profitbricks >= 1.0.0
+options:
+  description:
+    type: str
+    description: The description of the virtual datacenter.
+  location:
+    type: str
+    default: us/las
+    choices:
+    - us/las
+    - de/fra
+    - de/fkb
+    description: The datacenter location.
+  name:
+    type: str
+    description: The name of the virtual datacenter.
+  state:
+    type: str
+    default: present
+    description: 'Create or terminate datacenters. The available choices are: V(present), V(absent).'
+  subscription_password:
+    type: str
+    description: THe ProfitBricks password. Overrides the PB_PASSWORD environment variable.
+  subscription_user:
+    type: str
+    description: The ProfitBricks username. Overrides the PB_SUBSCRIPTION_ID environment variable.
+  wait:
+    type: bool
+    default: true
+    description: wait for the datacenter to be created before returning
+  wait_timeout:
+    type: int
+    default: 600
+    description: how long before wait gives up, in seconds
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a datacenter\n  community.general.profitbricks_datacenter:\n    datacenter:\
+  \ Tardis One\n    wait_timeout: 500\n\n- name: Destroy a datacenter (remove all servers, volumes, and\
+  \ other objects in the datacenter)\n  community.general.profitbricks_datacenter:\n    datacenter: Tardis\
+  \ One\n    wait_timeout: 500\n    state: absent\n"

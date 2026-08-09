@@ -1,0 +1,53 @@
+# udisks2 configuration
+# Controls behavior of udisks2 daemon (block device automounter/manager)
+[udisks2]
+# Enable or disable automatic mounting of removable media
+automount = {{ automount }}
+
+# Enable or disable automatic mounting of internal drives (e.g., SATA HDDs/SSDs)
+automount_internal_drives = {{ automount_internal_drives }}
+
+# User whose home directory is used to determine mount points for auto-mounted devices
+user = {{ user }}
+
+# Default mount options (comma-separated) applied to auto-mounted volumes
+mount_options = {{ mount_options | join(', ') }}
+
+# Minimum UID/GID to use for auto-mounted filesystems (if user is not root)
+minimum_uid = {{ minimum_uid }}
+
+# Maximum UID/GID to use for auto-mounted filesystems (if user is not root)
+maximum_uid = {{ maximum_uid }}
+
+# Whether to ignore encrypted devices during auto-mounting
+ignore_encrypted = {{ ignore_encrypted }}
+
+# Time (in seconds) to wait before auto-unmounting a device after last use (0 = disable auto-unmount)
+auto_unmount_timeout = {{ auto_unmount_timeout }}
+
+# Enable or disable polling for removable media events
+polling_enabled = {{ polling_enabled }}
+
+# List of filesystem types to auto-mount (leave empty for default set)
+filesystems_to_mount = {% for fs in filesystems_to_mount %}{{ fs }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# List of filesystem types to *not* auto-mount
+filesystems_to_ignore = {% for fs in filesystems_to_ignore %}{{ fs }}{% if not loop.last %}, {% endif %}{% endfor %}
+
+# Whether to mount NTFS volumes as read-only by default (if no ntfs-3g support)
+ntfs_mount_readonly = {{ ntfs_mount_readonly }}
+
+# Enable or disable support for LVM2 volumes (requires lvm2 tools)
+enable_lvm2 = {{ enable_lvm2 }}
+
+# Enable or disable support for MD RAID arrays (requires mdadm)
+enable_mdraid = {{ enable_mdraid }}
+
+# Path to udisks2’s cache directory
+state_dir = {{ state_dir }}
+
+# Path to udisks2’s log directory
+log_dir = {{ log_dir }}
+
+# Logging level: 0=ERROR, 1=WARN, 2=INFO, 3=DEBUG
+log_level = {{ log_level }}

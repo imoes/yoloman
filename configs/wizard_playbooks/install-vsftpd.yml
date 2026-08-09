@@ -1,0 +1,122 @@
+- name: install-vsftpd
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/vsftpd.conf
+    listen: true
+    ssl_key: /etc/ssl/private/vsftpd.key
+    _service: vsftpd
+    hide_ids: false
+    _packages:
+    - vsftpd
+    anon_root: /srv/ftp
+    ssl_sslv2: false
+    ssl_sslv3: false
+    ssl_tlsv1: true
+    anon_umask: "077"
+    local_root: ""
+    max_per_ip: 0
+    ssl_enable: false
+    ftpd_banner: "Welcome to FTP service."
+    listen_ipv6: false
+    listen_port: 21
+    local_umask: "022"
+    max_clients: 0
+    pasv_enable: true
+    ssl_ciphers: "HIGH:MEDIUM:!aNULL:!MD5"
+    local_enable: true
+    tcp_wrappers: false
+    write_enable: true
+    xferlog_file: /var/log/vsftpd.log
+    pasv_max_port: 10100
+    pasv_min_port: 10090
+    syslog_enable: false
+    userlist_deny: true
+    userlist_file: /etc/vsftpd.user_list
+    file_open_mode: "0644"
+    xferlog_enable: true
+    connect_timeout: 60
+    ssl_certificate: /etc/ssl/certs/vsftpd.crt
+    ssl_require_ssl: false
+    user_config_dir: /etc/vsftpd/user_conf
+    userlist_enable: true
+    chroot_list_file: /etc/vsftpd.chroot_list
+    pam_service_name: vsftpd
+    chroot_local_user: true
+    anon_upload_enable: false
+    chroot_list_enable: false
+    xferlog_std_format: false
+    ascii_upload_enable: false
+    idle_session_timeout: 300
+    ascii_download_enable: false
+    anon_mkdir_write_enable: false
+    anon_other_write_enable: false
+    data_connection_timeout: 120
+    virtual_use_local_privs: false
+    anon_world_readable_only: true
+  tasks:
+    - name: Install vsftpd FTP Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: vsftpd.j2
+        dest: "{{ _dest }}"
+        mode: '0644'
+      vars:
+        listen: "{{ listen }}"
+        ssl_key: "{{ ssl_key }}"
+        hide_ids: "{{ hide_ids }}"
+        anon_root: "{{ anon_root }}"
+        ssl_sslv2: "{{ ssl_sslv2 }}"
+        ssl_sslv3: "{{ ssl_sslv3 }}"
+        ssl_tlsv1: "{{ ssl_tlsv1 }}"
+        anon_umask: "{{ anon_umask }}"
+        local_root: "{{ local_root }}"
+        max_per_ip: "{{ max_per_ip }}"
+        ssl_enable: "{{ ssl_enable }}"
+        ftpd_banner: "{{ ftpd_banner }}"
+        listen_ipv6: "{{ listen_ipv6 }}"
+        listen_port: "{{ listen_port }}"
+        local_umask: "{{ local_umask }}"
+        max_clients: "{{ max_clients }}"
+        pasv_enable: "{{ pasv_enable }}"
+        ssl_ciphers: "{{ ssl_ciphers }}"
+        local_enable: "{{ local_enable }}"
+        tcp_wrappers: "{{ tcp_wrappers }}"
+        write_enable: "{{ write_enable }}"
+        xferlog_file: "{{ xferlog_file }}"
+        pasv_max_port: "{{ pasv_max_port }}"
+        pasv_min_port: "{{ pasv_min_port }}"
+        syslog_enable: "{{ syslog_enable }}"
+        userlist_deny: "{{ userlist_deny }}"
+        userlist_file: "{{ userlist_file }}"
+        file_open_mode: "{{ file_open_mode }}"
+        xferlog_enable: "{{ xferlog_enable }}"
+        connect_timeout: "{{ connect_timeout }}"
+        ssl_certificate: "{{ ssl_certificate }}"
+        ssl_require_ssl: "{{ ssl_require_ssl }}"
+        user_config_dir: "{{ user_config_dir }}"
+        userlist_enable: "{{ userlist_enable }}"
+        chroot_list_file: "{{ chroot_list_file }}"
+        pam_service_name: "{{ pam_service_name }}"
+        chroot_local_user: "{{ chroot_local_user }}"
+        anon_upload_enable: "{{ anon_upload_enable }}"
+        chroot_list_enable: "{{ chroot_list_enable }}"
+        xferlog_std_format: "{{ xferlog_std_format }}"
+        ascii_upload_enable: "{{ ascii_upload_enable }}"
+        idle_session_timeout: "{{ idle_session_timeout }}"
+        ascii_download_enable: "{{ ascii_download_enable }}"
+        anon_mkdir_write_enable: "{{ anon_mkdir_write_enable }}"
+        anon_other_write_enable: "{{ anon_other_write_enable }}"
+        data_connection_timeout: "{{ data_connection_timeout }}"
+        virtual_use_local_privs: "{{ virtual_use_local_privs }}"
+        anon_world_readable_only: "{{ anon_world_readable_only }}"
+
+    - name: Enable and restart vsftpd FTP Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

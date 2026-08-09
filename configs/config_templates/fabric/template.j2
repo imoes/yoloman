@@ -1,0 +1,62 @@
+{# ============================================================
+   Fabric (libfabric) Configuration Template
+   ============================================================
+   This template generates environment variables for libfabric.
+   Each variable is documented with its schema description.
+   All variables use `| default(...)` to ensure safe rendering
+   even if the variable is undefined in the Ansible context.
+   ============================================================ #}
+
+{# ----------------------------------------------------------------
+   Logging verbosity level
+   Allowed values: 'Warn', 'Trace', 'Info', 'Debug'
+   Note: 'Debug' is only available if libfabric was built with
+   debug symbols.
+   ---------------------------------------------------------------- #}
+export FI_LOG_LEVEL={{ logging_level | default('Info') }}
+
+{# ----------------------------------------------------------------
+   List of provider names to enable logging for.
+   Examples: ['sockets', 'psm3']
+   An empty list disables provider-specific filtering (logs all).
+   Prefix a name with '^' to exclude it.
+   ---------------------------------------------------------------- #}
+export FI_LOG_PROV={{ logging_providers | default([]) | join(',') }}
+
+{# ----------------------------------------------------------------
+   List of subsystem names to enable logging for.
+   Examples: ['core', 'ep_ctrl', 'mr']
+   An empty list disables subsystem-specific filtering (logs all).
+   ---------------------------------------------------------------- #}
+export FI_LOG_SUBSYS={{ logging_subsystems | default([]) | join(',') }}
+
+{# ----------------------------------------------------------------
+   List of provider names to allow for network connections.
+   Examples: ['tcp', 'udp']
+   An empty list means all providers are allowed.
+   Prefix a name with '^' to explicitly exclude it.
+   ---------------------------------------------------------------- #}
+export FI_PROVIDER={{ provider | default([]) | join(',') }}
+
+{# ----------------------------------------------------------------
+   Colon-separated list of directories or explicit paths to search
+   for Dynamic Link (DL) providers.
+   Example: '/opt/libfabric:/opt/libfabric2'
+   May begin with '@' to indicate a specific path format.
+   ---------------------------------------------------------------- #}
+export FI_PROVIDER_PATH={{ provider_path | default('') }}
+
+{# ----------------------------------------------------------------
+   Boolean indicating whether the endpoint is allowed to invoke
+   CUDA APIs.
+   Set to false to avoid CUDA deadlocks in certain contexts.
+   ---------------------------------------------------------------- #}
+export FI_OPT_CUDA_API_PERMITTED={{ cuda_api_permitted | default(true) | lower }}
+
+{# ----------------------------------------------------------------
+   Boolean indicating whether GDRCopy should be used for CUDA
+   memory operations.
+   Requires GDRCopy library/module support and FI_HMEM enabled at
+   compile time.
+   ---------------------------------------------------------------- #}
+export FI_HMEM_CUDA_USE_GDRCOPY={{ hmem_cuda_use_gdrcopy | default(false) | lower }}

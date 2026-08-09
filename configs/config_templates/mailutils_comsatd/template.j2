@@ -1,0 +1,47 @@
+# ==============================================================================
+# /etc/mailutils/comsatd.conf — GNU Mailutils comsatd configuration
+# ==============================================================================
+# This file configures the comsatd daemon, which notifies users of incoming
+# mail via the traditional comsat protocol (RFC 1288).
+# ==============================================================================
+
+# listen_address: IP address to bind the comsatd daemon to (e.g., '0.0.0.0' for all interfaces or '127.0.0.1' for localhost only).
+listen {{ (listen_address | default('0.0.0.0')) }}:{{ (listen_port | default(16080)) }};
+
+# max_connections: Maximum number of simultaneous client connections allowed.
+max-connections {{ (max_connections | default(100)) }};
+
+# debug: Enable detailed debug output to syslog (use only for troubleshooting).
+{% if (debug | default(False) | bool) %}debug;{% endif %}
+
+# syslog_facility: Syslog facility to use for logging (e.g., 'daemon', 'local0', 'user').
+facility {{ (syslog_facility | default('daemon')) }};
+
+# pidfile_path: Path to the PID file where the daemon writes its process ID.
+pidfile {{ (pidfile_path | default('/run/mailutils/comsatd.pid')) }};
+
+# drop_user: System username to drop privileges to after startup (for security hardening).
+user {{ (drop_user | default('nobody')) }};
+
+# drop_group: System group name to drop privileges to after startup (for security hardening).
+group {{ (drop_group | default('nogroup')) }};
+
+# verbose: Enable verbose logging for connection and message handling details.
+{% if (verbose | default(False) | bool) %}verbose;{% endif %}
+
+# allowed_hosts: List of hostnames or CIDR addresses permitted to connect to comsatd.
+{% for host in (allowed_hosts | default([])) %}allow {{ host }};
+{% endfor %}
+
+# denied_hosts: List of hostnames or CIDR addresses explicitly denied from connecting.
+{% for host in (denied_hosts | default([])) %}deny {{ host }};
+{% endfor %}
+
+# ipv6_enabled: Enable or disable IPv6 support (binds to both IPv4 and IPv6 if enabled).
+{% if (ipv6_enabled | default(True) | bool) %}ipv6;{% endif %}
+
+# timeout_seconds: Idle timeout in seconds for client connections (0 = no timeout).
+timeout {{ (timeout_seconds | default(300)) }};
+
+# maildir_path: Path to the root mail spool or maildir directory that comsatd monitors for new mail notifications.
+maildir {{ (maildir_path | default('/var/spool/mail')) }};

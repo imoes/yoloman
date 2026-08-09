@@ -1,0 +1,43 @@
+{
+  "debug": false,
+  "max_jobs": 20,
+  "lpd_user": "lp",
+  "spool_dir": "/var/spool/lpd",
+  "bind_address": "",
+  "port": 515,
+  "remote_enable": true,
+  "log_access": true,
+  "printcap": "/etc/printcap",
+  "log_file": "/var/log/lpd.log",
+  "queues": [
+    {
+      "name": "lp0",
+      "comment": "Local HP LaserJet via USB",
+      "device": "/dev/usb/lp0",
+      "filter": "",
+      "enabled": true,
+      "max_job_size": 0,
+      "allowed_users": [
+        "lp",
+        "root"
+      ],
+      "denied_users": [],
+      "hold_job": false
+    },
+    {
+      "name": "network_printer",
+      "comment": "Remote CUPS queue (filtered)",
+      "device": "lp -H 192.168.1.10 -P default",
+      "filter": "/usr/lib/cups/filter/pstops",
+      "enabled": true,
+      "max_job_size": 52428800,
+      "allowed_users": [
+        "printusers"
+      ],
+      "denied_users": [
+        "@guests"
+      ],
+      "hold_job": true
+    }
+  ]
+}

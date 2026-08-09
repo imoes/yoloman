@@ -1,0 +1,29 @@
+{# DTMF2NUM configuration template - Debian trixie #}
+{# This template generates the command-line invocation for the dtmf2num utility. #}
+{# It supports raw PCM parameters, DSP tuning, debug dumping, and file inputs. #}
+
+{# === Command-line arguments === #}
+
+{# optimize: Enable automatic DC bias adjust and normalization. #}
+{# Default: True. Set to false to disable automatic optimizations. #}
+{% if (optimize | default(True)) == false %}-o {% endif %}
+
+{# raw_params: Raw PCM file parameters (omit if WAV file). #}
+{# Default: None. If provided, contains frequency, channels, and bits. #}
+{% if raw_params is defined and raw_params is mapping %}-r {{ (raw_params.frequency | default(44100)) }} {{ (raw_params.channels | default(1)) }} {{ (raw_params.bits | default(16)) }} {% endif %}
+
+{# debug_dump_file: Path to dump handled samples (for debugging). #}
+{# Default: '' (empty string). If non-empty, enables debug dumping. #}
+{% if debug_dump_file is defined and debug_dump_file | default('') | trim | length > 0 %}-w {{ debug_dump_file | default('') }} {% endif %}
+
+{# dsp_params: Custom DSP parameters (key = param name, value = numeric setting). #}
+{# Default: None. A mapping of DSP knobs to their values. #}
+{% if dsp_params is defined and dsp_params is mapping %}
+{% for param_name, param_value in dsp_params | dict2items %}-z {{ param_name.key }} {{ param_value.value }}{% if not loop.last %} {% endif %}
+{% endfor %}{% endif %}
+
+{# files: Input audio files (WAV or raw PCM if raw_params provided). #}
+{# Default: []. A list of file paths to process. #}
+{% if files is defined and files is iterable %}
+{% for f in files %}{{ f }}{% if not loop.last %} {% endif %}
+{% endfor %}{% endif %}

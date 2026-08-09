@@ -1,0 +1,407 @@
+name: x509_certificate
+fqcn: community.crypto.x509_certificate
+collection: community.crypto
+short_description: Generate and/or check OpenSSL certificates
+description: It implements a notion of provider (one of V(selfsigned), V(ownca), V(acme), and V(entrust))
+  for your certificate. It uses the cryptography python library to interact with OpenSSL. Note that this
+  module was called C(openssl_certificate) when included directly in Ansible up to version 2.9. When moved
+  to the collection C(community.crypto), it was renamed to M(community.crypto.x509_certificate). From
+  Ansible 2.10 on, it can still be used by the old short name (or by C(ansible.builtin.openssl_certificate)),
+  which redirects to M(community.crypto.x509_certificate). When using FQCNs or when using the L(collections,https://docs.ansible.com/ansible/latest/user_guide/collections_using.html#using-collections-in-a-playbook)
+  keyword, the new name M(community.crypto.x509_certificate) should be used to avoid a deprecation warning.
+  Please note that the module regenerates existing certificate if it does not match the module's options,
+  or if it seems to be corrupt. If you are concerned that this could overwrite your existing certificate,
+  consider using the O(backup) option. The V(ownca) provider is intended for generating an OpenSSL certificate
+  signed with your own CA (Certificate Authority) certificate (self-signed certificate). This module allows
+  one to (re)generate OpenSSL certificates.
+options:
+  acme_accountkey_path:
+    type: path
+    description: The path to the accountkey for the V(acme) provider. This is only used by the V(acme)
+      provider.
+  acme_chain:
+    type: bool
+    default: false
+    description: Include the intermediate certificate to the generated certificate This is only used by
+      the V(acme) provider. Note that this is only available for older versions of C(acme-tiny). New versions
+      include the chain automatically, and setting O(acme_chain) to V(true) results in an error.
+  acme_challenge_path:
+    type: path
+    description: The path to the ACME challenge directory that is served on U(http://<HOST>:80/.well-known/acme-challenge/)
+      This is only used by the V(acme) provider.
+  acme_directory:
+    type: str
+    default: https://acme-v02.api.letsencrypt.org/directory
+    description: The ACME directory to use. You can use any directory that supports the ACME protocol,
+      such as Buypass or Let's Encrypt. Let's Encrypt recommends using their staging server while developing
+      jobs. U(https://letsencrypt.org/docs/staging-environment/).
+  attributes:
+    type: str
+    aliases:
+    - attr
+    description: The attributes the resulting filesystem object should have. To get supported flags look
+      at the man page for I(chattr) on the target system. This string should contain the attributes in
+      the same order as the one displayed by I(lsattr). The C(=) operator is assumed as default, otherwise
+      C(+) or C(-) operators need to be included in the string.
+  backup:
+    type: bool
+    default: false
+    description: Create a backup file including a timestamp so you can get the original certificate back
+      if you overwrote it with a new one by accident.
+  csr_content:
+    type: str
+    description: Content of the Certificate Signing Request (CSR) used to generate this certificate. This
+      is mutually exclusive with O(csr_path).
+  csr_path:
+    type: path
+    description: Path to the Certificate Signing Request (CSR) used to generate this certificate. This
+      is mutually exclusive with O(csr_content).
+  entrust_api_client_cert_key_path:
+    type: path
+    description: The path to the private key of the client certificate used to authenticate to the Entrust
+      Certificate Services (ECS) API. This is only used by the V(entrust) provider. This is required if
+      the provider is V(entrust).
+  entrust_api_client_cert_path:
+    type: path
+    description: The path to the client certificate used to authenticate to the Entrust Certificate Services
+      (ECS) API. This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+  entrust_api_key:
+    type: str
+    description: The key (password) for authentication to the Entrust Certificate Services (ECS) API.
+      This is only used by the V(entrust) provider. This is required if the provider is V(entrust).
+  entrust_api_specification_path:
+    type: path
+    default: https://cloud.entrust.net/EntrustCloud/documentation/cms-api-2.1.0.yaml
+    description: The path to the specification file defining the Entrust Certificate Services (ECS) API
+      configuration. You can use this to keep a local copy of the specification to avoid downloading it
+      every time the module is used. This is only used by the V(entrust) provider.
+  entrust_api_user:
+    type: str
+    description: The username for authentication to the Entrust Certificate Services (ECS) API. This is
+      only used by the V(entrust) provider. This is required if the provider is V(entrust).
+  entrust_cert_type:
+    type: str
+    default: STANDARD_SSL
+    choices:
+    - STANDARD_SSL
+    - ADVANTAGE_SSL
+    - UC_SSL
+    - EV_SSL
+    - WILDCARD_SSL
+    - PRIVATE_SSL
+    - PD_SSL
+    - CDS_ENT_LITE
+    - CDS_ENT_PRO
+    - SMIME_ENT
+    description: Specify the type of certificate requested. This is only used by the V(entrust) provider.
+  entrust_not_after:
+    type: str
+    default: +365d
+    description: The point in time at which the certificate stops being valid. Time can be specified either
+      as relative time or as an absolute timestamp. A valid absolute time format is C(ASN.1 TIME) such
+      as V(2019-06-18). A valid relative time format is V([+-]timespec) where timespec can be an integer
+      + C([w | d | h | m | s]), such as V(+365d) or V(+32w1d2h)). Time will always be interpreted as UTC.
+      Note that only the date (day, month, year) is supported for specifying the expiry date of the issued
+      certificate. The full date-time is adjusted to EST (GMT -5:00) before issuance, which may result
+      in a certificate with an expiration date one day earlier than expected if a relative time is used.
+      The minimum certificate lifetime is 90 days, and maximum is three years. If this value is not specified,
+      the certificate will stop being valid 365 days the date of issue. This is only used by the V(entrust)
+      provider. Please note that this value is B(not) covered by the O(ignore_timestamps) option.
+  entrust_requester_email:
+    type: str
+    description: The email of the requester of the certificate (for tracking purposes). This is only used
+      by the V(entrust) provider. This is required if the provider is V(entrust).
+  entrust_requester_name:
+    type: str
+    description: The name of the requester of the certificate (for tracking purposes). This is only used
+      by the V(entrust) provider. This is required if the provider is V(entrust).
+  entrust_requester_phone:
+    type: str
+    description: The phone number of the requester of the certificate (for tracking purposes). This is
+      only used by the V(entrust) provider. This is required if the provider is V(entrust).
+  force:
+    type: bool
+    default: false
+    description: Generate the certificate, even if it already exists.
+  group:
+    type: str
+    description: Name of the group that should own the filesystem object, as would be fed to I(chown).
+      When left unspecified, it uses the current group of the current user unless you are root, in which
+      case it can preserve the previous ownership.
+  ignore_timestamps:
+    type: bool
+    default: true
+    description: Whether the "not before" and "not after" timestamps should be ignored for idempotency
+      checks. It is better to keep the default value V(true) when using relative timestamps (like V(+0s)
+      for now).
+  mode:
+    type: raw
+    description: The permissions the resulting filesystem object should have. For those used to I(/usr/bin/chmod)
+      remember that modes are actually octal numbers. You must give Ansible enough information to parse
+      them correctly. For consistent results, quote octal numbers (for example, V('644') or V('1777'))
+      so Ansible receives a string and can do its own conversion from string into number. Adding a leading
+      zero (for example, V(0755)) works sometimes, but can fail in loops and some other circumstances.
+      Giving Ansible a number without following either of these rules will end up with a decimal number
+      which will have unexpected results. As of Ansible 1.8, the mode may be specified as a symbolic mode
+      (for example, V(u+rwx) or V(u=rw,g=r,o=r)). If O(mode) is not specified and the destination filesystem
+      object B(does not) exist, the default C(umask) on the system will be used when setting the mode
+      for the newly created filesystem object. If O(mode) is not specified and the destination filesystem
+      object B(does) exist, the mode of the existing filesystem object will be used. Specifying O(mode)
+      is the best way to ensure filesystem objects are created with the correct permissions. See CVE-2020-1736
+      for further details.
+  ownca_content:
+    type: str
+    description: Content of the CA (Certificate Authority) certificate. This is only used by the V(ownca)
+      provider. This is mutually exclusive with O(ownca_path).
+  ownca_create_authority_key_identifier:
+    type: bool
+    default: true
+    description: Create a Authority Key Identifier from the CA's certificate. If the CSR provided a authority
+      key identifier, it is ignored. The Authority Key Identifier is generated from the CA certificate's
+      Subject Key Identifier, if available. If it is not available, the CA certificate's public key will
+      be used. This is only used by the V(ownca) provider. Note that this is only supported if the C(cryptography)
+      backend is used!
+  ownca_create_subject_key_identifier:
+    type: str
+    default: create_if_not_provided
+    choices:
+    - create_if_not_provided
+    - always_create
+    - never_create
+    description: Whether to create the Subject Key Identifier (SKI) from the public key. A value of V(create_if_not_provided)
+      (default) only creates a SKI when the CSR does not provide one. A value of V(always_create) always
+      creates a SKI. If the CSR provides one, that one is ignored. A value of V(never_create) never creates
+      a SKI. If the CSR provides one, that one is used. This is only used by the V(ownca) provider. Note
+      that this is only supported if the C(cryptography) backend is used!
+  ownca_digest:
+    type: str
+    default: sha256
+    description: The digest algorithm to be used for the V(ownca) certificate. This is only used by the
+      V(ownca) provider.
+  ownca_not_after:
+    type: str
+    default: +3650d
+    description: The point in time at which the certificate stops being valid. Time can be specified either
+      as relative time or as absolute timestamp. Time will always be interpreted as UTC. Valid format
+      is C([+-]timespec | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example
+      V(+32w1d2h)). If this value is not specified, the certificate will stop being valid 10 years from
+      now. Note that this value is B(not used to determine whether an existing certificate should be regenerated).
+      This can be changed by setting the O(ignore_timestamps) option to V(false). Please note that you
+      should avoid relative timestamps when setting O(ignore_timestamps=false). This is only used by the
+      V(ownca) provider. On macOS 10.15 and onwards, TLS server certificates must have a validity period
+      of 825 days or fewer. Please see U(https://support.apple.com/en-us/HT210176) for more details.
+  ownca_not_before:
+    type: str
+    default: +0s
+    description: The point in time the certificate is valid from. Time can be specified either as relative
+      time or as absolute timestamp. Time will always be interpreted as UTC. Valid format is C([+-]timespec
+      | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)).
+      If this value is not specified, the certificate will start being valid from now. Note that this
+      value is B(not used to determine whether an existing certificate should be regenerated). This can
+      be changed by setting the O(ignore_timestamps) option to V(false). Please note that you should avoid
+      relative timestamps when setting O(ignore_timestamps=false). This is only used by the V(ownca) provider.
+  ownca_path:
+    type: path
+    description: Remote absolute path of the CA (Certificate Authority) certificate. This is only used
+      by the V(ownca) provider. This is mutually exclusive with O(ownca_content).
+  ownca_privatekey_content:
+    type: str
+    description: Content of the CA (Certificate Authority) private key to use when signing the certificate.
+      This is only used by the V(ownca) provider. This is mutually exclusive with O(ownca_privatekey_path).
+  ownca_privatekey_passphrase:
+    type: str
+    description: The passphrase for the O(ownca_privatekey_path) resp. O(ownca_privatekey_content). This
+      is only used by the V(ownca) provider.
+  ownca_privatekey_path:
+    type: path
+    description: Path to the CA (Certificate Authority) private key to use when signing the certificate.
+      This is only used by the V(ownca) provider. This is mutually exclusive with O(ownca_privatekey_content).
+  ownca_version:
+    type: int
+    default: 3
+    description: The version of the V(ownca) certificate. Nowadays it should almost always be V(3). This
+      is only used by the V(ownca) provider.
+  owner:
+    type: str
+    description: Name of the user that should own the filesystem object, as would be fed to I(chown).
+      When left unspecified, it uses the current user unless you are root, in which case it can preserve
+      the previous ownership. Specifying a numeric username will be assumed to be a user ID and not a
+      username. Avoid numeric usernames to avoid this confusion.
+  path:
+    type: path
+    required: true
+    description: Remote absolute path where the generated certificate file should be created or is already
+      located.
+  privatekey_content:
+    type: str
+    description: Content of the private key to use when signing the certificate. This is mutually exclusive
+      with O(privatekey_path).
+  privatekey_passphrase:
+    type: str
+    description: The passphrase for the O(privatekey_path) resp. O(privatekey_content). This is required
+      if the private key is password protected.
+  privatekey_path:
+    type: path
+    description: Path to the private key to use when signing the certificate. This is mutually exclusive
+      with O(privatekey_content).
+  provider:
+    type: str
+    choices:
+    - acme
+    - entrust
+    - ownca
+    - selfsigned
+    description: Name of the provider to use to generate/retrieve the OpenSSL certificate. Please see
+      the examples on how to emulate it with M(community.crypto.x509_certificate_info), M(community.crypto.openssl_csr_info),
+      M(community.crypto.openssl_privatekey_info) and M(ansible.builtin.assert). The V(entrust) provider
+      was added for Ansible 2.9 and requires credentials for the L(Entrust Certificate Services,https://www.entrustdatacard.com/products/categories/ssl-certificates)
+      (ECS) API. Required if O(state) is V(present).
+  return_content:
+    type: bool
+    default: false
+    description: If set to V(true), will return the (current or generated) certificate's content as RV(certificate).
+  select_crypto_backend:
+    type: str
+    default: auto
+    choices:
+    - auto
+    - cryptography
+    description: Determines which crypto backend to use. The default choice is V(auto), which tries to
+      use C(cryptography) if available. If set to V(cryptography), will try to use the L(cryptography,https://cryptography.io/)
+      library.
+  selevel:
+    type: str
+    description: The level part of the SELinux filesystem object context. This is the MLS/MCS attribute,
+      sometimes known as the C(range). When set to V(_default), it will use the C(level) portion of the
+      policy if available.
+  selfsigned_create_subject_key_identifier:
+    type: str
+    default: create_if_not_provided
+    choices:
+    - create_if_not_provided
+    - always_create
+    - never_create
+    description: Whether to create the Subject Key Identifier (SKI) from the public key. A value of V(create_if_not_provided)
+      (default) only creates a SKI when the CSR does not provide one. A value of V(always_create) always
+      creates a SKI. If the CSR provides one, that one is ignored. A value of V(never_create) never creates
+      a SKI. If the CSR provides one, that one is used. This is only used by the V(selfsigned) provider.
+      Note that this is only supported if the C(cryptography) backend is used!
+  selfsigned_digest:
+    type: str
+    default: sha256
+    description: Digest algorithm to be used when self-signing the certificate. This is only used by the
+      V(selfsigned) provider.
+  selfsigned_not_after:
+    type: str
+    default: +3650d
+    aliases:
+    - selfsigned_notAfter
+    description: The point in time at which the certificate stops being valid. Time can be specified either
+      as relative time or as absolute timestamp. Time will always be interpreted as UTC. Valid format
+      is C([+-]timespec | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example
+      V(+32w1d2h)). If this value is not specified, the certificate will stop being valid 10 years from
+      now. Note that this value is B(not used to determine whether an existing certificate should be regenerated).
+      This can be changed by setting the O(ignore_timestamps) option to V(false). Please note that you
+      should avoid relative timestamps when setting O(ignore_timestamps=false). This is only used by the
+      V(selfsigned) provider. On macOS 10.15 and onwards, TLS server certificates must have a validity
+      period of 825 days or fewer. Please see U(https://support.apple.com/en-us/HT210176) for more details.
+  selfsigned_not_before:
+    type: str
+    default: +0s
+    aliases:
+    - selfsigned_notBefore
+    description: The point in time the certificate is valid from. Time can be specified either as relative
+      time or as absolute timestamp. Time will always be interpreted as UTC. Valid format is C([+-]timespec
+      | ASN.1 TIME) where timespec can be an integer + C([w | d | h | m | s]) (for example V(+32w1d2h)).
+      If this value is not specified, the certificate will start being valid from now. Note that this
+      value is B(not used to determine whether an existing certificate should be regenerated). This can
+      be changed by setting the O(ignore_timestamps) option to V(false). Please note that you should avoid
+      relative timestamps when setting O(ignore_timestamps=false). This is only used by the V(selfsigned)
+      provider.
+  selfsigned_version:
+    type: int
+    default: 3
+    description: Version of the V(selfsigned) certificate. Nowadays it should almost always be V(3). This
+      is only used by the V(selfsigned) provider.
+  serole:
+    type: str
+    description: The role part of the SELinux filesystem object context. When set to V(_default), it will
+      use the C(role) portion of the policy if available.
+  setype:
+    type: str
+    description: The type part of the SELinux filesystem object context. When set to V(_default), it will
+      use the C(type) portion of the policy if available.
+  seuser:
+    type: str
+    description: The user part of the SELinux filesystem object context. By default it uses the V(system)
+      policy, where applicable. When set to V(_default), it will use the C(user) portion of the policy
+      if available.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Whether the certificate should exist or not, taking action if the state is different
+      from what is stated.
+  unsafe_writes:
+    type: bool
+    default: false
+    description: Influence when to use atomic operation to prevent data corruption or inconsistent reads
+      from the target filesystem object. By default this module uses atomic operations to prevent data
+      corruption or inconsistent reads from the target filesystem objects, but sometimes systems are configured
+      or just broken in ways that prevent this. One example is docker mounted filesystem objects, which
+      cannot be updated atomically from inside the container and can only be written in an unsafe manner.
+      This option allows Ansible to fall back to unsafe methods of updating filesystem objects when atomic
+      operations fail (however, it doesn't force Ansible to perform unsafe writes). IMPORTANT! Unsafe
+      writes are subject to race conditions and can lead to data corruption.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Generate a Self Signed OpenSSL certificate\n  community.crypto.x509_certificate:\n\
+  \    path: /etc/ssl/crt/ansible.com.crt\n    privatekey_path: /etc/ssl/private/ansible.com.pem\n   \
+  \ csr_path: /etc/ssl/csr/ansible.com.csr\n    provider: selfsigned\n\n- name: Generate an OpenSSL certificate\
+  \ signed with your own CA certificate\n  community.crypto.x509_certificate:\n    path: /etc/ssl/crt/ansible.com.crt\n\
+  \    csr_path: /etc/ssl/csr/ansible.com.csr\n    ownca_path: /etc/ssl/crt/ansible_CA.crt\n    ownca_privatekey_path:\
+  \ /etc/ssl/private/ansible_CA.pem\n    provider: ownca\n\n- name: Generate a Let's Encrypt Certificate\n\
+  \  community.crypto.x509_certificate:\n    path: /etc/ssl/crt/ansible.com.crt\n    csr_path: /etc/ssl/csr/ansible.com.csr\n\
+  \    provider: acme\n    acme_accountkey_path: /etc/ssl/private/ansible.com.pem\n    acme_challenge_path:\
+  \ /etc/ssl/challenges/ansible.com/\n\n- name: Force (re-)generate a new Let's Encrypt Certificate\n\
+  \  community.crypto.x509_certificate:\n    path: /etc/ssl/crt/ansible.com.crt\n    csr_path: /etc/ssl/csr/ansible.com.csr\n\
+  \    provider: acme\n    acme_accountkey_path: /etc/ssl/private/ansible.com.pem\n    acme_challenge_path:\
+  \ /etc/ssl/challenges/ansible.com/\n    force: true\n\n- name: Generate an Entrust certificate via the\
+  \ Entrust Certificate Services (ECS) API\n  community.crypto.x509_certificate:\n    path: /etc/ssl/crt/ansible.com.crt\n\
+  \    csr_path: /etc/ssl/csr/ansible.com.csr\n    provider: entrust\n    entrust_requester_name: Jo Doe\n\
+  \    entrust_requester_email: jdoe@ansible.com\n    entrust_requester_phone: 555-555-5555\n    entrust_cert_type:\
+  \ STANDARD_SSL\n    entrust_api_user: apiusername\n    entrust_api_key: a^lv*32!cd9LnT\n    entrust_api_client_cert_path:\
+  \ /etc/ssl/entrust/ecs-client.crt\n    entrust_api_client_cert_key_path: /etc/ssl/entrust/ecs-key.crt\n\
+  \    entrust_api_specification_path: /etc/ssl/entrust/api-docs/cms-api-2.1.0.yaml\n\n# The following\
+  \ example shows how to emulate the behavior of the removed\n# \"assertonly\" provider with the x509_certificate_info,\
+  \ openssl_csr_info,\n# openssl_privatekey_info and assert modules:\n\n- name: Get certificate information\n\
+  \  community.crypto.x509_certificate_info:\n    path: /etc/ssl/crt/ansible.com.crt\n    # for valid_at,\
+  \ invalid_at and valid_in\n    valid_at:\n      one_day_ten_hours: \"+1d10h\"\n      fixed_timestamp:\
+  \ 20200331202428Z\n      ten_seconds: \"+10\"\n  register: result\n\n- name: Get CSR information\n \
+  \ community.crypto.openssl_csr_info:\n    # Verifies that the CSR signature is valid; module will fail\
+  \ if not\n    path: /etc/ssl/csr/ansible.com.csr\n  register: result_csr\n\n- name: Get private key\
+  \ information\n  community.crypto.openssl_privatekey_info:\n    path: /etc/ssl/csr/ansible.com.key\n\
+  \  register: result_privatekey\n\n- name: Check conditions on certificate, CSR, and private key\n  ansible.builtin.assert:\n\
+  \    that:\n      # When private key was specified for assertonly, this was checked:\n      - result.public_key\
+  \ == result_privatekey.public_key\n      # When CSR was specified for assertonly, this was checked:\n\
+  \      - result.public_key == result_csr.public_key\n      - result.subject_ordered == result_csr.subject_ordered\n\
+  \      - result.extensions_by_oid == result_csr.extensions_by_oid\n      # signature_algorithms check\n\
+  \      - \"result.signature_algorithm == 'sha256WithRSAEncryption' or result.signature_algorithm ==\
+  \ 'sha512WithRSAEncryption'\"\n      # subject and subject_strict\n      - \"result.subject.commonName\
+  \ == 'ansible.com'\"\n      - \"result.subject | length == 1\"  # the number must be the number of entries\
+  \ you check for\n      # issuer and issuer_strict\n      - \"result.issuer.commonName == 'ansible.com'\"\
+  \n      - \"result.issuer | length == 1\"  # the number must be the number of entries you check for\n\
+  \      # has_expired\n      - not result.expired\n      # version\n      - result.version == 3\n   \
+  \   # key_usage and key_usage_strict\n      - \"'Data Encipherment' in result.key_usage\"\n      - \"\
+  result.key_usage | length == 1\"  # the number must be the number of entries you check for\n      #\
+  \ extended_key_usage and extended_key_usage_strict\n      - \"'DVCS' in result.extended_key_usage\"\n\
+  \      - \"result.extended_key_usage | length == 1\"  # the number must be the number of entries you\
+  \ check for\n      # subject_alt_name and subject_alt_name_strict\n      - \"'dns:ansible.com' in result.subject_alt_name\"\
+  \n      - \"result.subject_alt_name | length == 1\"  # the number must be the number of entries you\
+  \ check for\n      # not_before and not_after\n      - \"result.not_before == '20190331202428Z'\"\n\
+  \      - \"result.not_after == '20190413202428Z'\"\n      # valid_at, invalid_at and valid_in\n    \
+  \  - \"result.valid_at.one_day_ten_hours\"  # for valid_at\n      - \"not result.valid_at.fixed_timestamp\"\
+  \  # for invalid_at\n      - \"result.valid_at.ten_seconds\"  # for valid_in\n"

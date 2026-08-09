@@ -1,0 +1,45 @@
+name: catapult
+fqcn: community.general.catapult
+collection: community.general
+short_description: Send a sms / mms using the catapult bandwidth api
+description: Allows notifications to be sent using sms / mms via the catapult bandwidth api.
+options:
+  api_secret:
+    type: str
+    required: true
+    description: Api Secret from Api account page.
+  api_token:
+    type: str
+    required: true
+    description: Api Token from Api account page.
+  dest:
+    type: list
+    required: true
+    description: The phone number or numbers the message should be sent to (must be in E.164 format, like
+      V(+19195551212)).
+  media:
+    type: str
+    description: For MMS messages, a media url to the location of the media to be sent with the message.
+  msg:
+    type: str
+    required: true
+    description: The contents of the text message (must be 2048 characters or less).
+  src:
+    type: str
+    required: true
+    description: One of your catapult telephone numbers the message should come from (must be in E.164
+      format, like V(+19195551212)).
+  user_id:
+    type: str
+    required: true
+    description: User Id from Api account page.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Send a mms to multiple users\n  community.general.catapult:\n    src: \"+15035555555\"\
+  \n    dest:\n      - \"+12525089000\"\n      - \"+12018994225\"\n    media: \"http://example.com/foobar.jpg\"\
+  \n    msg: \"Task is complete\"\n    user_id: \"{{ user_id }}\"\n    api_token: \"{{ api_token }}\"\n\
+  \    api_secret: \"{{ api_secret }}\"\n\n- name: Send a sms to a single user\n  community.general.catapult:\n\
+  \    src: \"+15035555555\"\n    dest: \"+12018994225\"\n    msg: \"Consider yourself notified\"\n  \
+  \  user_id: \"{{ user_id }}\"\n    api_token: \"{{ api_token }}\"\n    api_secret: \"{{ api_secret }}\"\
+  \n\n"

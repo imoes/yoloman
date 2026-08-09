@@ -1,0 +1,162 @@
+# ==============================================================================
+# clangd Configuration Template
+# ==============================================================================
+# This template generates a YAML configuration file for clangd, the C/C++ Language
+# Server Protocol server. All settings correspond to the fields defined in the
+# Ansible role's variable schema.
+#
+# See: https://clangd.llvm.org/config.html
+# ==============================================================================
+
+# --- Core Behavior ---
+
+# EnableConfig: Enable reading configuration files (.clangd in project,
+# clangd/config.yaml in user config dir).
+# Default: false
+EnableConfig: {{ enable_config | default(false) | lower }}
+
+# --- Compilation & Toolchain ---
+
+# CompilationDatabase: Path to a directory containing compile_commands.json.
+# clangd falls back to searching parent directories if invalid or empty.
+# Default: '' (empty)
+{% if compile_commands_dir | default('') | length > 0 %}
+CompilationDatabase: {{ compile_commands_dir | default('') | quote }}
+{% endif %}
+
+# QueryDriver: List of glob patterns for compiler drivers that clangd may safely
+# execute to extract system includes (e.g. /usr/bin/clang-*, /usr/bin/g++-*).
+# Default: [] (empty list)
+{% for pattern in (query_driver | default([])) %}
+- {{ pattern | quote }}
+{% endfor %}
+
+# --- Background Indexing ---
+
+# BackgroundIndex: Enable background indexing and persist it to disk.
+# Default: true
+{% if background_index | default(true) %}
+BackgroundIndex:
+  # Storage: Storage mode for background index. One of: CacheDirectory, Memory, MemoryMapped.
+  # Default: CacheDirectory
+  Storage: {{ background_index_persist | default('CacheDirectory') | lower }}
+
+  # Priority: Thread priority for background indexing. One of: background, low, normal.
+  # Default: background
+  {% if background_index_priority is defined %}
+  Priority: {{ background_index_priority | quote }}
+  {% else %}
+  Priority: background
+  {% endif %}
+{% endif %}
+
+# --- Diagnostics & Code Quality ---
+
+# ClangTidy: Enable clang-tidy diagnostics.
+# Default: false
+ClangTidy: {{ clang_tidy | default(false) | lower }}
+
+# --- Completion Behavior ---
+
+# AllScopesCompletion: Include index symbols from all scopes (not only visible scopes)
+# in completion suggestions.
+# Default: false
+AllScopesCompletion: {{ all_scopes_completion | default(false) | lower }}
+
+# CompletionStyle: Granularity of completion suggestions. One of: detailed, bundled.
+# Default: detailed
+CompletionStyle: {{ completion_style | default('detailed') | quote }}
+
+# FunctionArgPlaceholders: Include placeholders for function arguments in completions.
+# Default: true
+FunctionArgPlaceholders: {{ function_arg_placeholders | default(true) | lower }}
+
+# --- Header Management ---
+
+# HeaderInsertion: Control automatic #include insertion on completion.
+# One of: iwyu, never.
+# Default: never
+HeaderInsertion: {{ header_insertion | default('never') | quote }}
+
+# HeaderInsertionDecorators: Prepend a circular dot/space to completion labels
+# depending on whether an include will be added.
+# Default: false
+HeaderInsertionDecorators: {{ header_insertion_decorators | default(false) | lower }}
+
+# ImportInsertions: Insert #import directives for Objective-C when header insertion
+# is enabled.
+# Default: false
+ImportInsertions: {{ import_insertions | default(false) | lower }}
+
+# --- Limits ---
+
+# LimitReferences: Maximum number of references returned (0 = unlimited).
+# Default: 1000
+LimitReferences: {{ limit_references | default(1000) }}
+
+# LimitResults: Maximum number of results returned (e.g., symbols, completions)
+# (0 = unlimited).
+# Default: 100
+LimitResults: {{ limit_results | default(100) }}
+
+# RenameFileLimit: Maximum number of files affected by a rename operation
+# (0 = unlimited).
+# Default: 50
+RenameFileLimit: {{ rename_file_limit | default(50) }}
+
+# --- Path & Index Server ---
+
+# PathMappings: List of 'client_path=server_path' pairs to translate paths between
+# client (editor) and server filesystems.
+# Default: [] (empty list)
+{% if (path_mappings | default([])) | length > 0 %}
+PathMappings:
+{% for mapping in (path_mappings | default([])) %}
+  - {{ mapping | quote }}
+{% endfor %}
+{% endif %}
+
+# RemoteIndexAddress: Address (host:port) of a remote index server.
+# Default: '' (empty)
+{% if remote_index_address | default('') | length > 0 %}
+RemoteIndexAddress: {{ remote_index_address | default('') | quote }}
+{% endif %}
+
+# --- Logging & Protocol ---
+
+# Log: Log verbosity. One of: error, info, verbose.
+# Default: error
+Log: {{ log | default('error') | quote }}
+
+# OffsetEncoding: Force offset encoding used for character positions.
+# One of: utf-8, utf-16, utf-32. Empty means negotiate via client capabilities.
+# Default: utf-8
+OffsetEncoding: {{ offset_encoding | default('utf-8') | quote }}
+
+# --- Misc ---
+
+# J: Number of async workers (matches the -j CLI flag).
+# Default: 4
+J: {{ j | default(4) }}
+
+# MallocTrim: Call malloc_trim(3) periodically to release unused memory.
+# Default: false
+MallocTrim: {{ malloc_trim | default(false) | lower }}
+
+# PchStorage: Where to store precompiled headers. One of: disk, memory.
+# Default: disk
+PchStorage: {{ pch_storage | default('disk') | quote }}
+
+# ExperimentalModulesSupport: Enable experimental support for C++20 standard modules.
+# Default: false
+ExperimentalModulesSupport: {{ experimental_modules_support | default(false) | lower }}
+
+# FallbackStyle: Default clang-format style when no .clang-format file is found.
+# Default: LLVM
+FallbackStyle: {{ fallback_style | default('LLVM') | quote }}
+
+# ProjectRoot: Path to the project root. Requires remote_index_address to be set.
+# Default: '' (empty)
+{% if project_root | default('') | length > 0 %}
+ProjectRoot: {{ project_root | default('') | quote }}
+{% endif %}

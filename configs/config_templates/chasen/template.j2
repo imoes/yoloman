@@ -1,0 +1,37 @@
+{# Chasen Configuration Template
+# This template generates the chasenrc configuration file for the ChaSen morphological analyzer.
+# It documents every variable from the schema with inline defaults and descriptions.
+# Variables not provided by Ansible will fall back to the schema defaults.
+#}
+
+{# dictionary_path: Path to the ChaSen dictionary directory
+# Default: /usr/share/chasen/dic
+#}
+DICPATH {{ (dictionary_path | default('/usr/share/chasen/dic')) | string }}
+
+{# model_path: Path to the ChaSen language model file
+# Default: /usr/share/chasen/model
+#}
+MODEL {{ (model_path | default('/usr/share/chasen/model')) | string }}
+
+{# input_encoding: Character encoding of input: e=EUC-JP, s=Shift_JIS, w=UTF-8, u=UTF-8, a=ISO-8859-1
+# Default: e
+#}
+ENCODING {{ (input_encoding | default('e')) | string }}
+
+{# cost_width: Cost width parameter (integer)
+# Default: 100
+#}
+COST {{ (cost_width | default(100)) | int }}
+
+{# format_string: Custom output format string (see -F option)
+# Default: %m\t%y\t%M\t%U(%P-)\t%T\t%F\n
+#}
+FORMAT {{ (format_string | default('%m\\t%y\\t%M\\t%U(%P-)\\t%T\\t%F\\n')) | string }}
+
+{# options: List of command-line flags to enable (e.g., 's' for partial sentence mode, 'j' for Japanese mode, 'b' best path, 'e' full morpheme data).
+# Default: ['b']
+#}
+{% for opt in (options | default(['b'])) %}
+OPTION {{ opt }}
+{% endfor %}

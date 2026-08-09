@@ -1,0 +1,154 @@
+; Barman, Backup and Recovery Manager for PostgreSQL
+; http://www.pgbarman.org/ - http://www.enterprisedb.com/
+;
+; Main configuration file
+;
+; This file configures the global Barman daemon. It defines where backups are stored,
+; how they are logged, and global constraints on backup operations.
+;
+; NOTE: Individual PostgreSQL servers managed by Barman are configured in separate
+; files under `servers_conf_dir` (typically /etc/barman.d/<server_name>.conf).
+
+[barman]
+; barman_user: The OS user under which Barman runs.
+; Do not change unless your deployment requires a different user context.
+; This is an OS account, not a database credential.
+barman_user = barman
+
+; configuration_files_directory: The path to the directory containing server-specific
+; configuration files (one per PostgreSQL instance managed by Barman).
+; These files should use the [server_name] section format.
+configuration_files_directory = {{ servers_conf_dir | default('/etc/barman.d') }}
+
+; barman_home: The root directory where Barman stores its configuration, logs,
+; backup metadata, and the actual backup data (base backups and WAL files).
+; Ensure this directory exists and is owned by `barman_user`.
+barman_home = {{ barman_home | default('/var/lib/barman') }}
+
+; barman_lock_directory: Directory for Barman lock files. Used to prevent concurrent
+; operations that could corrupt backup state or cause race conditions.
+; Usually mounted as a tmpfs or resides on the same filesystem as barman_home.
+barman_lock_directory = {{ barman_locks | default('/var/run/barman') }}
+
+; log_file: Path to the main Barman log file. All global Barman operations
+; (backups, recovery checks, WAL archiving status) are recorded here.
+log_file = {{ barman_log_file | default('/var/log/barman/barman.log') }}
+
+; log_level: Verbosity level for logging.
+; Valid values: DEBUG, INFO, WARNING, ERROR, CRITICAL, NOTSET.
+; INFO is recommended for production. DEBUG provides detailed trace information.
+log_level = {{ log_level | default('INFO') }}
+
+; compression: Default compression for backups.
+; Supported values: 'none', 'gzip', 'bzip2', 'lz4'.
+; 'none' provides maximum performance but larger disk usage. 'gzip' is a good balance.
+compression = {{ compression | default('none') }}
+
+; pre_backup_script: Custom action executed before a base backup starts.
+; Uncomment and configure if you need to flush application caches or prepare the system.
+;pre_backup_script = env | grep ^BARMAN
+
+; pre_backup_retry_script: Custom action executed before a base backup retry.
+;pre_backup_retry_script = env | grep ^BARMAN
+
+; post_backup_retry_script: Custom action executed after a failed base backup retry.
+;post_backup_retry_script = env | grep ^BARMAN
+
+; post_backup_script: Custom action executed after a base backup finishes.
+; Useful for notifying monitoring systems or updating inventory.
+;post_backup_script = env | grep ^BARMAN
+
+; pre_archive_script: Hook for WAL archiving events (before archive).
+; Useful for notifying monitoring systems when WAL files are successfully archived.
+;pre_archive_script = env | grep ^BARMAN
+
+; pre_archive_retry_script: Hook for WAL archiving retry (before).
+;pre_archive_retry_script = env | grep ^BARMAN
+
+; post_archive_retry_script: Hook for WAL archiving retry (after).
+;post_archive_retry_script = env | grep ^BARMAN
+
+; post_archive_script: Hook for WAL archiving events (after).
+;post_archive_script = env | grep ^BARMAN
+
+; pre_delete_script: Custom action executed before backup deletion.
+; Useful for cleanup tasks or auditing deletions.
+;pre_delete_script = env | grep ^BARMAN
+
+; pre_delete_retry_script: Custom action executed before backup deletion retry.
+;pre_delete_retry_script = env | grep ^BARMAN
+
+; post_delete_retry_script: Custom action executed after a failed backup deletion retry.
+;post_delete_retry_script = env | grep ^BARMAN
+
+; post_delete_script: Custom action executed after backup deletion.
+;post_delete_script = env | grep ^BARMAN
+
+; pre_wal_delete_script: Custom action executed before WAL file deletion.
+; Useful for ensuring no orphaned WAL files remain in the archive location.
+;pre_wal_delete_script = env | grep ^BARMAN
+
+; pre_wal_delete_retry_script: Custom action executed before WAL file deletion retry.
+;pre_wal_delete_retry_script = env | grep ^BARMAN
+
+; post_wal_delete_retry_script: Custom action executed after a failed WAL file deletion retry.
+;post_wal_delete_retry_script = env | grep ^BARMAN
+
+; post_wal_delete_script: Custom action executed after WAL file deletion.
+;post_wal_delete_script = env | grep ^BARMAN
+
+; bandwidth_limit: Limits the network bandwidth used for backup transfers.
+; Value in kilobytes per second (KB/s). Set to 0 for no limit.
+; Useful to prevent backups from saturating the network during business hours.
+;bandwidth_limit = 4000
+
+; parallel_jobs: Maximum number of parallel jobs for backup and recovery
+; operations via rsync. Increasing this can speed up large backups if the disk
+; subsystem and network can handle the I/O load.
+parallel_jobs = {{ parallel_jobs | default(1) }}
+
+; immediate_checkpoint: Forces PostgreSQL to perform an immediate checkpoint before
+; the base backup starts. This can reduce backup time by ensuring all dirty pages
+; are written to disk, but it may cause a temporary spike in database I/O.
+;immediate_checkpoint = false
+
+; network_compression: If true, compresses data transfers between the
+; Barman server and the PostgreSQL server (or backup streams).
+; Useful for slow networks, but increases CPU usage on both ends.
+;network_compression = false
+
+; basebackup_retry_times: How many times Barman should retry data copying during a
+; base backup after an error occurs.
+;basebackup_retry_times = 0
+
+; basebackup_retry_sleep: Number of seconds to wait after a failed copy attempt before
+; retrying.
+;basebackup_retry_sleep = 30
+
+; check_timeout: Maximum time (in seconds) allowed for a 'barman check'
+; command per server.
+;check_timeout = 30
+
+; last_backup_maximum_age: Defines the validity window for the latest backup.
+; If the latest backup is older than this period, 'barman check' reports an error.
+; Syntax: "i (DAYS | WEEKS | MONTHS | HOURS)". Empty means always valid.
+; Example: last_backup_maximum_age = 7 DAYS
+;last_backup_maximum_age =
+
+; last_wal_maximum_age: Similar to last_backup_maximum_age, but for the latest
+; archived WAL file. Ensures continuous WAL streaming is functioning.
+;last_wal_maximum_age =
+
+; minimum_redundancy: The minimum number of complete base backups that must be
+; retained before old backups are eligible for deletion.
+;minimum_redundancy = 1
+
+; retention_policy: Defines how backups are retained.
+; Options:
+;   - Empty/Not set: Disabled (manual management).
+;   - REDUNDANCY <n>: Keep at least <n> complete backups.
+;   - RECOVERY WINDOW OF <n> <UNIT>: Keep backups sufficient to recover to any point
+;     within the last <n> <UNIT> (DAYS/WEEKS/MONTHS).
+; Example: retention_policy = REDUNDANCY 2
+; Example: retention_policy = RECOVERY WINDOW OF 4 WEEKS
+;retention_policy =

@@ -1,0 +1,247 @@
+# ============================================================================
+# systemd-networkd .network file generator
+# ---------------------------------------------------------------------------
+# This template produces a single .network file for systemd-networkd,
+# configuring DHCPv4/v6, static fallbacks, DNS/NTP integration, and
+# name-resolution policies for the specified network interface.
+#
+# Fields prefixed with 'ipv4' or 'ipv6' control address-family behavior.
+# Fallback fields allow static networking when DHCP is unavailable.
+# ============================================================================
+
+[Match]
+# Name of the network interface to configure (e.g., 'eth0', 'enp0s3').
+# Must match an existing kernel interface name.
+Name={{ interface_name | default('eth0') }}
+
+{% if mac_address | default('') | length > 0 %}
+# Optional MAC address for deterministic matching.
+# Format: 'aa:bb:cc:dd:ee:ff'.
+# If provided, this rule will only match this specific hardware address.
+MACAddress={{ mac_address | default('') }}
+{% endif %}
+
+[Network]
+# Enable DHCP client for this interface.
+# 'yes' enables DHCPv4 (and v6 if not explicitly disabled/overridden elsewhere).
+DHCP=yes
+
+# ============================================================================
+# DHCP Request Options
+# ============================================================================
+{% if request_options | default([]) | length > 0 %}
+# List of specific DHCP option codes to request from the server.
+# Overrides default requests. Examples: '15' (Domain Name), '245' (Private).
+RequestOptions={{ request_options | default([]) | join(', ') }}
+{% endif %}
+
+# ============================================================================
+# IPv6 Autoconfiguration (SLAAC / Router Advertisements)
+# ============================================================================
+{% if ipv6_autoconf | default(true) %}
+# Accept Router Advertisements to configure IPv6 addresses automatically (SLAAC).
+IPv6AcceptRA=yes
+{% else %}
+# Disable IPv6 autoconfiguration. The interface will not acquire IPv6
+# addresses via RA/SLAAC unless configured statically elsewhere.
+IPv6AcceptRA=no
+{% endif %}
+
+# ============================================================================
+# Static IPv4 Fallback Configuration
+# ============================================================================
+{% if fallback_ipv4 | default('') | length > 0 %}
+# Static IPv4 address to assign if DHCP fails or is not used.
+# Note: systemd-networkd treats Address directives as static assignments.
+# If DHCP is enabled, this acts as a fallback or additional address depending
+# on the DHCP server's response and policy.
+Address={{ fallback_ipv4 | default('') }}/24
+
+{% if fallback_ipv4_gw | default('') | length > 0 %}
+# Default gateway for the static IPv4 configuration.
+# Used if DHCP does not provide a gateway or fails entirely.
+Gateway={{ fallback_ipv4_gw | default('') }}
+{% endif %}
+{% endif %}
+
+# ============================================================================
+# DNS Configuration
+# ============================================================================
+{% if dns_servers | default([]) | length > 0 %}
+# Static DNS servers to use.
+# These are added to the DNS list, potentially alongside DHCP-supplied ones.
+DNS={{ dns_servers | default([]) | join(' ') }}
+{% endif %}
+
+{% if fallback_dns | default([]) | length > 0 %}
+# Fallback DNS servers used if DHCP-provided DNS is missing or empty.
+FallbackDNS={{ fallback_dns | default([]) | join(' ') }}
+{% endif %}
+
+# ============================================================================
+# NTP / Time Synchronization
+# ============================================================================
+{% if ntp_servers | default([]) | length > 0 %}
+# Static NTP servers to use for time synchronization.
+NTP={{ ntp_servers | default([]) | join(' ') }}
+{% endif %}
+
+{% if use_timesyncd | default(true) %}
+# Enable systemd-timesyncd to handle time synchronization.
+# This allows the lightweight timesyncd service to sync clocks independently
+# of the static NTP servers defined above (if any).
+Timesyncd=yes
+{% else %}
+# Disable systemd-timesyncd. Use an external NTP daemon (e.g., chrony)
+# or rely solely on the static NTP servers defined in this file.
+Timesyncd=no
+{% endif %}
+
+# ============================================================================
+# Link-Local Addressing (IPv4)
+# ============================================================================
+{% if link_local | default(true) %}
+# Enable IPv4 link-local addressing (169.254.0.0/16).
+# Allows communication on the local link even if DHCP fails.
+LinkLocalAddressing=ipv4
+{% else %}
+# Disable IPv4 link-local addressing.
+LinkLocalAddressing=no
+{% endif %}
+
+# ============================================================================
+# Link-Local Addressing (IPv6)
+# ============================================================================
+{% if ipv6_link_local | default(true) %}
+# Enable IPv6 link-local addressing (fe80::/10).
+# Required for Neighbor Discovery and SLAAC on IPv6 networks.
+IPv6LinkLocalAddress=yes
+{% else %}
+# Disable IPv6 link-local addressing.
+IPv6LinkLocalAddress=no
+{% endif %}
+
+# ============================================================================
+# IPv4 Link-Layer Addressing (IPv4LL / APIPA)
+# ============================================================================
+{% if ipv4ll | default(true) %}
+# Enable IPv4LL (RFC 3927) as a fallback when DHCPv4 fails.
+# Assigns an address in the 169.254.0.0/16 range automatically.
+IPv4LL=yes
+{% else %}
+# Disable automatic IPv4LL fallback.
+IPv4LL=no
+{% endif %}
+
+# ============================================================================
+# Routing Metrics
+# ============================================================================
+{% if routing_metric | default(0) != 0 %}
+# Custom routing metric for routes learned via DHCP or static config.
+# Lower values indicate higher priority. Default is 0.
+RouteMetric={{ routing_metric | default(0) }}
+{% endif %}
+
+# ============================================================================
+# DHCP Client Identifier
+# ============================================================================
+{% if dhcp_client_id | default('') | length > 0 %}
+# Custom DHCP client identifier (Client ID).
+# Can be 'mac' (hardware address) or a specific hex/string identifier.
+DHCPClientIdentifier={{ dhcp_client_id | default('') }}
+{% endif %}
+
+# ============================================================================
+# Hostname Handling
+# ============================================================================
+{% if send_hostname | default(true) %}
+# Send the system's hostname to the DHCP server.
+# Allows the DHCP server to update DNS records with the correct hostname.
+SendHostname=yes
+{% else %}
+# Do not send the hostname to the DHCP server.
+SendHostname=no
+{% endif %}
+
+{% if hostname | default('') | length > 0 %}
+# Explicit hostname to send to the DHCP server, overriding the system hostname.
+# Useful if the system hostname is generic or needs to be distinct for DHCP/DNS.
+Hostname={{ hostname | default('') }}
+{% endif %}
+
+# ============================================================================
+# Fallback Gateway
+# ============================================================================
+{% if fallback_gw | default('') | length > 0 %}
+# Gateway to use if the DHCP server does not provide a default route.
+# Provides a backup path for single-homed interfaces.
+FallbackGateway={{ fallback_gw | default('') }}
+{% endif %}
+
+# ============================================================================
+# Local Multicast Name Resolution
+# ============================================================================
+{% if llmnr | default(true) %}
+# Enable LLMNR (Link-Local Multicast Name Resolution).
+# Allows local hostname resolution without a central DNS server.
+LLMNR=resolve
+{% else %}
+# Disable LLMNR.
+LLMNR=no
+{% endif %}
+
+# ============================================================================
+# Multicast DNS (mDNS)
+# ============================================================================
+{% if mdns | default(false) %}
+# Enable mDNS (multicast DNS) for local service discovery (.local domains).
+MulticastDNS=yes
+{% else %}
+# Disable mDNS.
+MulticastDNS=no
+{% endif %}
+
+# ============================================================================
+# DNS Security (DNSSEC)
+# ============================================================================
+{% if dnssec | default(false) %}
+# Enable DNSSEC validation for DNS queries.
+# Requires upstream resolver support.
+DNSSEC=yes
+{% else %}
+# Disable DNSSEC validation.
+DNSSEC=no
+{% endif %}
+
+# ============================================================================
+# DNS-over-TLS (DoT)
+# ============================================================================
+{% if dns_over_tls | default(false) %}
+# Enable DNS-over-TLS for encrypted DNS queries.
+# Requires a DoT-capable upstream resolver.
+DNSOverTLS=yes
+{% else %}
+# Disable DNS-over-TLS.
+DNSOverTLS=no
+{% endif %}
+
+# ============================================================================
+# DHCPv4 Rapid Commit
+# ============================================================================
+{% if rapid_commit | default(false) %}
+# Enable Rapid Commit (RFC 4039) for faster DHCPv4 lease acquisition.
+# Uses a two-message exchange (Request/Reply) instead of four.
+RapidCommit=yes
+{% else %}
+# Disable Rapid Commit (standard four-message exchange).
+RapidCommit=no
+{% endif %}
+
+# ============================================================================
+# IPv6 Router Preference
+# ============================================================================
+{% if ipv6_router_preference | default('medium') %}
+# Preference level for IPv6 Router Advertisements (RA).
+# Values: 'low', 'medium', 'high'. Affects default route selection.
+IPv6RouterPreference={{ ipv6_router_preference | default('medium') }}
+{% endif %}

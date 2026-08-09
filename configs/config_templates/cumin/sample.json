@@ -1,0 +1,62 @@
+{
+  "debug": false,
+  "log_level": "INFO",
+  "log_file": "/var/log/cumin/cumin.log",
+  "backend": "sqlite",
+  "database": "/var/lib/cumin/cumin.db",
+  "api_host": "0.0.0.0",
+  "api_port": 6382,
+  "tls_cert": "",
+  "tls_key": "",
+  "max_requests": 50,
+  "command_timeout": 600,
+  "discovery_timeout": 45,
+  "allow_shell": false,
+  "auth_backend": "local",
+  "auth_config": "/etc/cumin/local_users.yaml",
+  "ssh_user": "deploy",
+  "ssh_key": "/etc/cumin/keys/deploy_rsa",
+  "ssh_workers": 8,
+  "ssh_reuse": true,
+  "target_groups": [
+    {
+      "name": "webservers",
+      "targets": [
+        "web1.example.com",
+        "web2.example.com",
+        "web[3-5].example.com"
+      ],
+      "description": "Production web servers"
+    },
+    {
+      "name": "dbservers",
+      "targets": [
+        "db1.example.com",
+        "db2.example.com"
+      ],
+      "description": "Production database nodes"
+    }
+  ],
+  "command_rules": [
+    {
+      "group": "webservers",
+      "commands": [
+        "uptime",
+        "systemctl status nginx",
+        "^df -h$"
+      ]
+    },
+    {
+      "group": "dbservers",
+      "commands": [
+        "uptime",
+        "pg_isready",
+        "df"
+      ]
+    }
+  ],
+  "audit_enabled": true,
+  "audit_log": "/var/log/cumin/audit.log",
+  "async_timeout": 600,
+  "max_async_jobs": 200
+}

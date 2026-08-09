@@ -1,0 +1,66 @@
+{
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Minimum logging level. Choices: debug, info, warning, error.",
+    "enum": [
+      "debug",
+      "info"
+    ]
+  },
+  "syslog_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to log to local syslog."
+  },
+  "packet_capture_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable native packet capture (requires elevated privileges). Note: This template parametrizes 'netflow' and 'sflow' booleans, and the interface for capture. The 'packet_capture_enabled' schema item is a logical grouping; in this config, the specific capture methods (netflow, sflow) are controlled by netflow_enabled and sflow_enabled. The 'interfaces' line controls the capture interface."
+  },
+  "packet_capture_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "Network interface to monitor for packets (e.g., eth0)."
+  },
+  "sflow_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable sFlow collector (use if your network devices send sFlow)."
+  },
+  "sflow_port": {
+    "type": "number",
+    "default": 6343,
+    "description": "UDP port to listen for sFlow packets."
+  },
+  "netflow_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NetFlow (v5/v9/IPFIX) collector."
+  },
+  "netflow_port": {
+    "type": "number",
+    "default": 2055,
+    "description": "UDP/TCP port to listen for NetFlow traffic."
+  },
+  "bandwidth_threshold_mbps": {
+    "type": "number",
+    "default": 1000,
+    "description": "Bandwidth threshold (Mbps) above which mitigation triggers."
+  },
+  "flows_threshold_fps": {
+    "type": "number",
+    "default": 3500,
+    "description": "Flows-per-second threshold triggering mitigation. Note: The schema default was 5000, but the real file default is 3500. Using real file default for sample_values accuracy, but schema can be adjusted if 5000 is preferred as a 'recommended' default."
+  },
+  "api_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable REST API for programmatic access and integration. Note: The real file has 'enable_api = on' (gRPC API). The schema refers to REST API. We map 'api_enabled' to 'enable_api' as it's the only API toggle."
+  },
+  "api_address": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address for API binding (also used for Prometheus host)."
+  }
+}

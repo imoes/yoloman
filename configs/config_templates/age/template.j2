@@ -1,0 +1,39 @@
+{# ============================================================================== #}
+{# age configuration template                                                        #}
+{# This package is for the age encryption tool (CLI). It is NOT a network service/daemon. #}
+{# This template generates a system-wide config file (e.g. /etc/age/config) or       #}
+{# a user-level config file used by age(1) in scripts.                               #}
+{# Self-documenting: read the comments to understand every directive.                 #}
+{# ============================================================================== #}
+
+{# -------------------------------------------------------------------------- #}
+{# recipients_list                                                            #}
+{# Description: List of native recipients (age1...), SSH public keys, or      #}
+{#              plugin recipients (age1example1...) for encryption.           #}
+{#              One per line. Comments may be included in the raw values.     #}
+{# -------------------------------------------------------------------------- #}
+{# Recipients file — used with -R/--recipients-file (one per line) #}
+{% for recipient in recipients_list | default([]) %}
+{{ recipient }}
+{% endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# identities_list                                                            #}
+{# Description: List of native identities (AGE-SECRET-KEY-1...), or          #}
+{#              identity files for decryption.                                #}
+{#              One per line.                                                  #}
+{# -------------------------------------------------------------------------- #}
+{# Identities file — used with -i/--identity (one per line) #}
+{% for identity in identities_list | default([]) %}
+{{ identity }}
+{% endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# ssh_keys                                                                   #}
+{# Description: List of paths to SSH private key files used for              #}
+{#              decryption via age's SSH key support.                         #}
+{# -------------------------------------------------------------------------- #}
+{# SSH identities — list of SSH private key paths used for decryption #}
+{% for ssh_key in ssh_keys | default([]) %}
+# SSH identity: {{ ssh_key }}
+{% endfor %}

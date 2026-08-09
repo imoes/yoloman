@@ -1,0 +1,93 @@
+[main]
+# Target(s) to scan: IP, hostname, subnet (CIDR), file path, or protocol://host:port (comma-separated for multiple)
+target = {{ target | default('') }}
+
+# Number of concurrent threads
+threads = {{ threads | default(10) }}
+
+# Timeout in seconds per request
+timeout = {{ timeout | default(10) }}
+
+# Delay between requests in milliseconds (to avoid rate-limiting)
+delay = {{ delay | default(500) }}
+
+# Path to write log file (empty string disables logging)
+log = {{ log | default('') }}
+
+# User-Agent string to use in HTTP requests
+useragent = {{ useragent | default('changeme/1.2.3') }}
+
+# HTTP(S) proxy URL (e.g., http://127.0.0.1:8080); empty string disables proxy
+proxy = {{ proxy | default('') }}
+
+# Redis server hostname or IP (for distributed scanning state); empty string disables Redis
+redishost = {{ redishost | default('') }}
+
+# Redis server port
+redisport = {{ redisport | default(6379) }}
+
+[protocols]
+# List of protocols to test: http, ssh, ssh_key, ftp, snmp, smtp, telnet, rdp, mysql, postgres, etc.
+# Rendered as comma-separated string
+protocols = {{ protocols | default(['http']) | join(',') }}
+
+[output]
+# Output filename (extension determines format: .csv, .html, .json); empty disables file output
+output = {{ output | default('') }}
+
+[shodan]
+# Shodan API key (required for Shodan-based target discovery)
+shodan_key = {{ shodan_key | default('') }}
+
+# Shodan search query to fetch target list (requires shodan_key)
+shodan_query = {{ shodan_query | default('') }}
+
+[behavior]
+# If true, scan all listed protocols on all specified ports (instead of protocol-specific defaults)
+portoverride = {{ portoverride | default(false) | lower }}
+
+# Force SSL/TLS connections; fallback to plaintext on SSLError
+ssl = {{ ssl | default(false) | lower }}
+
+# Enable verbose output
+verbose = {{ verbose | default(false) | lower }}
+
+# Enable debug-level logging
+debug = {{ debug | default(false) | lower }}
+
+# Resume from previous scan state (requires log + Redis or persistent state)
+resume = {{ resume | default(false) | lower }}
+
+# Discard previous scan state and start fresh
+fresh = {{ fresh | default(false) | lower }}
+
+# Print URLs to be scanned without making requests
+dryrun = {{ dryrun | default(false) | lower }}
+
+# Fingerprint targets (e.g., version detection) without credential testing
+fingerprint = {{ fingerprint | default(false) | lower }}
+
+# Validate credential files for correctness (no scanning performed)
+validate = {{ validate | default(false) | lower }}
+
+# Print all loaded credentials to stdout (for inspection)
+dump = {{ dump | default(false) | lower }}
+
+# Enable credential file authoring mode
+mkcred = {{ mkcred | default(false) | lower }}
+
+# Display list of credential file contributors
+contributors = {{ contributors | default(false) | lower }}
+
+[filtering]
+# Narrow testing to specific credential name(s), e.g., 'Apache Tomcat'
+name = {{ name | default('') }}
+
+# Filter credentials by category, e.g., 'camera', 'router', 'cms'
+category = {{ category | default('') }}
+
+# Skip service version detection (faster, less accurate)
+noversion = {{ noversion | default(false) | lower }}
+
+# Scan for all protocols (overrides `protocols` list)
+all = {{ all | default(false) | lower }}

@@ -1,0 +1,196 @@
+{# =============================================================================
+   duff configuration template — Duplicate File Finder
+   =============================================================================
+   
+   This template generates a shell command (or arguments list) for `duff`, a tool
+   that finds duplicate files by computing message digests and comparing them.
+   
+   Configuration is driven by two lists:
+   1. `duff_args`: A list of dictionaries, each specifying a CLI flag and its optional value.
+   2. `duff_files`: A list of file paths or directory names to scan. If empty, `duff`
+      reads candidate file paths from standard input (stdin).
+   
+   The output is intended to be used within a shell task (e.g., `shell:` or `command:`
+   in Ansible) or as part of a script. Trailing backslashes are used for line continuation
+   if the output is assembled into a multi-line shell command.
+   ============================================================================= #}
+
+{# -----------------------------------------------------------------------------
+   SECTION: duff Arguments (Flags and Options)
+   -----------------------------------------------------------------------------
+   
+   Each item in `duff_args` must be a dictionary with at least an 'arg' key.
+   Valid 'arg' values and their corresponding CLI flags are mapped below.
+   ============================================================================= #}
+{%- for item in duff_args | default([]) %}
+  {# ---------------------------------------------------------------------------
+     Argument: digest_function
+     Description: Message digest function to use for hashing file contents.
+     Supported values typically include: sha1, sha256, sha384, sha512.
+     Default: sha1
+     CLI Flag: -d
+     --------------------------------------------------------------------------- #}
+  {%- if item.arg == 'digest_function' %}
+    -d {{ item.value | default('sha1') }} \
+
+  {# ---------------------------------------------------------------------------
+     Argument: format
+     Description: Custom cluster header format string.
+     Supported escape sequences: %n (name), %d (digest), %s (size), %i (inode),
+     %% (literal percent), %c (count). If empty, the default header is used.
+     Default: "" (empty string, uses default header)
+     CLI Flag: -f
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'format' %}
+    -f {{ item.value | default('') }} \
+
+  {# ---------------------------------------------------------------------------
+     Argument: limit
+     Description: Minimum file size (in bytes) to sample before computing the
+     full digest. Files smaller than this size are considered duplicates
+     automatically (based on size match alone) if they match the size of another.
+     Set to 0 to always sample.
+     Default: 0
+     CLI Flag: -l
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'limit' %}
+    -l {{ item.value | default(0) }} \
+
+  {# ---------------------------------------------------------------------------
+     Argument: recursive
+     Description: Recursively search directories for files.
+     Default: Off (not specified)
+     CLI Flag: -r
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'recursive' %}
+    -r \
+
+  {# ---------------------------------------------------------------------------
+     Argument: excess_mode
+     Description: In excess mode, duff prints all files in a duplicate cluster
+     except for one (the first one found). Useful for listing files to delete.
+     Default: Off
+     CLI Flag: -e
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'excess_mode' %}
+    -e \
+
+  {# ---------------------------------------------------------------------------
+     Argument: null_terminated
+     Description: Use null-terminated strings for input/output. This is critical
+     when dealing with filenames containing newlines or special characters.
+     Default: Off
+     CLI Flag: -0
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'null_terminated' %}
+    -0 \
+
+  {# ---------------------------------------------------------------------------
+     Argument: quiet
+     Description: Suppress warnings and error messages. Only output duplicate
+     clusters.
+     Default: Off
+     CLI Flag: -q
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'quiet' %}
+    -q \
+
+  {# ---------------------------------------------------------------------------
+     Argument: physical_mode
+     Description: Treat hard links (files with the same inode) as non-duplicates.
+     This prevents flagging hard links as wasted space since they share data.
+     Default: Off
+     CLI Flag: -p
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'physical_mode' %}
+    -p \
+
+  {# ---------------------------------------------------------------------------
+     Argument: thorough_mode
+     Description: Perform byte-by-byte comparison when two files have the same
+     size and digest. This handles edge cases where hash collisions might occur,
+     though rare with SHA-256+.
+     Default: Off
+     CLI Flag: -t
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'thorough_mode' %}
+    -t \
+
+  {# ---------------------------------------------------------------------------
+     Argument: empty_files
+     Description: Exclude empty files (0 bytes) from duplicate detection.
+     Default: Off (empty files are treated as duplicates)
+     CLI Flag: -z
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'empty_files' %}
+    -z \
+
+  {# ---------------------------------------------------------------------------
+     Argument: hidden_files
+     Description: Include hidden files and directories (those starting with '.')
+     in the scan.
+     Default: Off
+     CLI Flag: -a
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'hidden_files' %}
+    -a \
+
+  {# ---------------------------------------------------------------------------
+     Argument: follow_symlinks_cmdline
+     Description: Follow symlinks ONLY for files/directories specified on the
+     command line. Symlinks found during recursive traversal are ignored.
+     Default: Off
+     CLI Flag: -H
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'follow_symlinks_cmdline' %}
+    -H \
+
+  {# ---------------------------------------------------------------------------
+     Argument: follow_symlinks_all
+     Description: Follow ALL symlinks encountered during the scan (directories
+     only, effectively dereferencing them).
+     Default: Off
+     CLI Flag: -L
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'follow_symlinks_all' %}
+    -L \
+
+  {# ---------------------------------------------------------------------------
+     Argument: no_follow_symlinks
+     Description: Never follow symlinks. Treat symlinks as regular files or
+     skip them if they are directories.
+     Default: Off
+     CLI Flag: -P
+     --------------------------------------------------------------------------- #}
+  {%- elif item.arg == 'no_follow_symlinks' %}
+    -P \
+
+  {# ---------------------------------------------------------------------------
+     Unknown/Unmapped Argument
+     Description: An argument key was provided in `duff_args` that is not
+     explicitly handled in this template. It is skipped.
+     --------------------------------------------------------------------------- #}
+  {%- else %}
+    {# Silently ignore unsupported argument keys to prevent runtime errors #}
+
+  {%- endif %}
+{%- endfor %}
+
+{# -----------------------------------------------------------------------------
+   SECTION: Files and Directories to Scan
+   -----------------------------------------------------------------------------
+   
+   List of paths for `duff` to analyze.
+   - If this list is empty, `duff` will read file paths from stdin (piped in).
+   - Each path is placed on a new line in the generated output.
+   ----------------------------------------------------------------------------- #}
+{%- if duff_files | default([]) | length > 0 %}
+{# Files and directories to scan. These are appended to the command or piped in. #}
+{%- for f in duff_files | default([]) %}
+  {{ f }} \
+{%- endfor %}
+{%- else %}
+{# No files specified; duff expects input from stdin. #}
+  {# Note: If `duff_files` is empty, ensure the calling task provides stdin. #}
+
+{%- endif %}

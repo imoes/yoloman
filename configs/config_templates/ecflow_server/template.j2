@@ -1,0 +1,92 @@
+# ECFlow Server configuration file
+# Auto-generated via Ansible Jinja2 template. Self-documenting: every directive
+# is preceded by a comment explaining its purpose and schema default.
+
+# --- Network Binding ---
+
+# Hostname or IP address the ECFlow server binds to for client connections.
+# Schema default: 'localhost'
+host {{ host | default('localhost') }}
+
+# TCP port number used by the ECFlow server for client communication.
+# Schema default: 31414
+port {{ port | default(31414) }}
+
+# --- Authentication ---
+
+# Authentication method for clients. Use 'password' for username/password
+# or 'none' for no auth.
+# Schema default: 'password'
+auth {{ auth_mode | default('password') }}
+
+# --- Storage & Logging ---
+
+# Directory where the server stores persistent state (suites, logs, recovery data).
+# Schema default: '/var/lib/ecflow-server/data'
+data_dir {{ data_dir | default('/var/lib/ecflow-server/data') }}
+
+# Directory for server log files.
+# Schema default: '/var/log/ecflow-server'
+log_dir {{ log_dir | default('/var/log/ecflow-server') }}
+
+# --- Limits & Timeouts ---
+
+# Maximum number of simultaneous client connections allowed.
+# Schema default: 100
+max_clients {{ max_clients | default(100) }}
+
+# Seconds to wait for graceful shutdown before terminating the process.
+# Schema default: 30
+shutdown_timeout {{ shutdown_timeout | default(30) }}
+
+# Resource limits (ulimit-style) — set to 0 to inherit system defaults.
+# Maximum number of open file descriptors.
+# Schema default: 65536
+max_open_files {{ max_open_files | default(65536) }}
+
+# Maximum number of processes.
+# Schema default: 0
+max_proc {{ max_proc | default(0) }}
+
+# --- Recovery ---
+
+# If true, attempt to recover aborted suites from persisted state on startup.
+# Schema default: True
+recovery {{ recovery | default(True) | lower }}
+
+# --- SSL/TLS Configuration ---
+
+# Enable HTTPS for the web UI and secure client connections.
+# Schema default: False
+ssl_enabled {{ ssl_enabled | default(False) | lower }}
+
+# Conditionally emit SSL certificate and key paths only if SSL is enabled.
+# This prevents the server from starting with invalid or missing certificate
+# paths when SSL is disabled.
+{% if ssl_enabled | default(False) %}
+# Path to SSL certificate file.
+# Schema default: '/etc/ssl/certs/ecflow.crt'
+ssl_cert {{ ssl_cert | default('/etc/ssl/certs/ecflow.crt') }}
+
+# Path to SSL private key file.
+# Schema default: '/etc/ssl/private/ecflow.key'
+ssl_key {{ ssl_key | default('/etc/ssl/private/ecflow.key') }}
+{% endif %}
+
+# --- Access Control ---
+
+# List of allowed client hostnames/IPs. Empty list allows all hosts.
+# Format: 'host' or 'host:port' per line.
+# Schema default: []
+{% for client in (allowed_clients | default([])) %}
+allow {{ client }}
+{% endfor %}
+
+# --- Auto-Load Suites ---
+
+# List of suite paths to load automatically at startup (paths relative to
+# data_dir/suites/).
+# Schema default: []
+{% for suite_path in (auto_load_suites | default([])) %}
+auto_load {{ suite_path }}
+{% endfor %}

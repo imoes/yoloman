@@ -1,0 +1,163 @@
+{
+  "protocols": {
+    "type": "list",
+    "default": [
+      "imap",
+      "pop3"
+    ],
+    "description": "Protocols to enable. Common: 'imap', 'pop3', 'managesieve'."
+  },
+  "mail_location": {
+    "type": "string",
+    "default": "maildir:~/Maildir",
+    "description": "Mailbox format and path template. Use %u (user), %d (domain), %h (home)."
+  },
+  "auth_mechanisms": {
+    "type": "list",
+    "default": [
+      "plain",
+      "login"
+    ],
+    "description": "SASL authentication mechanisms. Use 'plain' only with TLS (SSL/TLS required)."
+  },
+  "pgsql": {
+    "type": "object",
+    "default": null,
+    "description": "PostgreSQL connection parameters. Not a standard dovecot config variable, used here for Jinja2 templating."
+  },
+  "pgsql.host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "PostgreSQL hostname or IP"
+  },
+  "pgsql.port": {
+    "type": "number",
+    "default": 5432,
+    "description": "PostgreSQL port number"
+  },
+  "pgsql.database": {
+    "type": "string",
+    "default": "dovecot",
+    "description": "Database name"
+  },
+  "pgsql.user": {
+    "type": "string",
+    "default": "dovecot",
+    "description": "Database user with SELECT access"
+  },
+  "pgsql.password": {
+    "type": "string",
+    "default": "secret",
+    "description": "Password for database user. Use strong secret management in production."
+  },
+  "pgsql.password_query": {
+    "type": "string",
+    "default": "SELECT username, password FROM users WHERE username = '%u' AND active = true",
+    "description": "SQL query to fetch password hash. Must return 'username' and 'password' columns."
+  },
+  "pgsql.user_query": {
+    "type": "string",
+    "default": "SELECT username, home, uid, gid, mail FROM users WHERE username = '%u' AND active = true",
+    "description": "SQL query for user info. Must return 'username', 'home', 'uid', 'gid', 'mail' columns."
+  },
+  "mail_plugins": {
+    "type": "list",
+    "default": [],
+    "description": "Additional IMAP/POP3 plugins (e.g., ['imap_quota', 'sieve'])."
+  },
+  "ssl_mode": {
+    "type": "string",
+    "default": "required",
+    "description": "SSL/TLS mode: 'required' (enforce TLS), 'optional', 'no'. Recommended: 'required'.\nNote: The default value 'yes' was incorrect; 'required' is the documented secure default for Dovecot 2.x+.",
+    "enum": [
+      "required",
+      "optional",
+      "no"
+    ]
+  },
+  "ssl_cert_path": {
+    "type": "string",
+    "default": "/etc/ssl/certs/dovecot.pem",
+    "description": "Path to SSL certificate file."
+  },
+  "ssl_key_path": {
+    "type": "string",
+    "default": "/etc/ssl/private/dovecot.pem",
+    "description": "Path to SSL private key file."
+  },
+  "ssl_ca_path": {
+    "type": "string",
+    "default": null,
+    "description": "Optional path to CA certificate bundle for client cert verification."
+  },
+  "log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot.log",
+    "description": "Path for error and debug logs."
+  },
+  "info_log_path": {
+    "type": "string",
+    "default": "/var/log/dovecot-info.log",
+    "description": "Path for informational logs."
+  },
+  "mail_max_userip_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Max IMAP/POP3 connections per user+IP pair. Reduce to prevent abuse."
+  },
+  "login_greeting": {
+    "type": "string",
+    "default": "Dovecot ready.",
+    "description": "Greeting banner sent by login services."
+  },
+  "login_trusted_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of trusted IP ranges (CIDR) for SMTP relay or internal use. Leave empty for none."
+  },
+  "mail_charset": {
+    "type": "string",
+    "default": "UTF-8",
+    "description": "Default character set for mail processing."
+  },
+  "first_valid_uid": {
+    "type": "number",
+    "default": 1000,
+    "description": "Minimum UID allowed for mail storage access."
+  },
+  "last_valid_uid": {
+    "type": "number",
+    "default": 65534,
+    "description": "Maximum UID allowed for mail storage access."
+  },
+  "disable_plaintext_auth": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, reject authentication without TLS. Strongly recommended."
+  },
+  "imap_port": {
+    "type": "number",
+    "default": 143,
+    "description": "Port for unencrypted IMAP (only if TLS disabled or STARTTLS)."
+  },
+  "imaps_port": {
+    "type": "number",
+    "default": 993,
+    "description": "Port for IMAPS (TLS-wrapped)."
+  },
+  "pop3_port": {
+    "type": "number",
+    "default": 110,
+    "description": "Port for unencrypted POP3."
+  },
+  "pop3s_port": {
+    "type": "number",
+    "default": 995,
+    "description": "Port for POP3S (TLS-wrapped)."
+  },
+  "sql_driver_args": {
+    "type": "string",
+    "default": "driver=pgsql connect=host=%h port=%p dbname=%d user=%u password=%w",
+    "description": "Args passed to SQL driver (used when external config is not used)."
+  }
+}

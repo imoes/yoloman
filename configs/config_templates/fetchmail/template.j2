@@ -1,0 +1,105 @@
+# ============================================================================
+# Fetchmail Initialization Configuration
+# ============================================================================
+# This configuration file is managed by Ansible. Do not edit manually.
+# It controls the system startup variables for the fetchmail service.
+
+# ---------------------------------------------------------------------------
+# Service Mode Control
+# ---------------------------------------------------------------------------
+# start_daemon: Whether to start fetchmail as a background daemon.
+#               Allowed values: 'yes' or 'no'.
+#               Default: 'no'
+START_DAEMON={{ start_daemon | default('no') }}
+
+# ---------------------------------------------------------------------------
+# Operational Parameters
+# ---------------------------------------------------------------------------
+# postmaster: The local user (or email address) that receives mail
+#             undeliverable to any of the fetched recipients.
+#             Default: 'postmaster'
+# Note: This setting is typically passed via command-line flags or
+#       included in the per-account definitions, but serves as a
+#       global fallback if not specified per-account in some init scripts.
+#       For this init file, it is often handled via OPTIONS if not
+#       natively supported as a standalone variable.
+
+# daemon_interval: Polling interval in seconds when fetchmail runs
+#                  as a background daemon.
+#                  Set to 0 to disable daemon mode (run once and exit).
+#                  Default: 300
+# Note: Similar to postmaster, this is often an OPTIONS flag.
+OPTIONS=""
+
+# If the init script supports these variables directly, uncomment below:
+# POSTMASTER={{ postmaster | default('postmaster') }}
+# DAEMON_INTERVAL={{ daemon_interval | default(300) }}
+
+# logfile: Absolute path for the fetchmail log file.
+#          Leave empty to write to syslog instead.
+#          Default: '' (empty)
+# Note: If empty, fetchmail uses syslog. If specified, ensure the
+#       directory exists and the fetchmail user has write permissions.
+# LOGFILE={{ logfile | default('') }}
+
+# ---------------------------------------------------------------------------
+# Global Limits
+# ---------------------------------------------------------------------------
+# global_fetchlimit: Maximum total number of messages fetched across
+#                    all accounts per daemon cycle.
+#                    0 means unlimited.
+#                    Default: 0
+# Note: Usually passed via command-line flag.
+# FETCH_LIMIT={{ global_fetchlimit | default(0) }}
+
+# global_limit: Messages larger than this many bytes are skipped
+#               and left on the server.
+#               0 means no size filter.
+#               Default: 0
+# Note: Usually passed via command-line flag.
+# MESSAGE_SIZE_LIMIT={{ global_limit | default(0) }}
+
+# ---------------------------------------------------------------------------
+# Advanced Options (Optional)
+# ---------------------------------------------------------------------------
+# bounce_mail: When true, undeliverable messages are bounced back
+#              to the original sender. When false, they are silently dropped.
+#              Default: False
+# Note: This is a boolean flag. In init scripts, it's often 'bounce'
+#       or '-b' if true.
+{% if bounce_mail | default(False) %}
+OPTIONS="{{ OPTIONS }} -b"
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Accounts Configuration
+# ---------------------------------------------------------------------------
+# accounts: A list of remote mailboxes to poll.
+#           Each entry defines the POP3/IMAP server, credentials,
+#           and local delivery settings.
+#           Default: [] (empty list)
+#
+# Since this is an init script variable file, detailed account
+# definitions are typically stored in ~/.fetchmailrc or /etc/fetchmailrc.
+# However, if the init script supports passing configuration via
+# environment variables or a specific config path, it can be referenced here.
+#
+# If the system expects a concatenated string of account definitions
+# in an environment variable (rare for fetchmail), you could do:
+# ACCOUNTS_CFG="{{ accounts | default([]) | join('\n') }}"
+#
+# Most commonly, this file only controls START_DAEMON.
+# Detailed per-account config belongs in /etc/fetchmailrc or similar.
+# The following block is provided as a placeholder if the Ansible role
+# manages /etc/fetchmailrc separately and needs to trigger a service
+# reload or ensure the file is present.
+#
+# Example of how an account entry might look if injected into a
+# dedicated fetchmailrc template (not this init file):
+# poll imap.server.com
+#   protocol IMAP
+#   user 'imap_user'
+#   password 'imap_pass'
+#   is local_user here
+
+# End of fetchmail init configuration.

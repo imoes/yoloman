@@ -1,0 +1,124 @@
+{
+  "maxconn": {
+    "type": "number",
+    "default": 2000,
+    "description": "Maximum number of concurrent connections (global)."
+  },
+  "user": {
+    "type": "string",
+    "default": "haproxy",
+    "description": "User HAProxy runs as."
+  },
+  "group": {
+    "type": "string",
+    "default": "haproxy",
+    "description": "Group HAProxy runs as."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "global",
+    "description": "Log target for the defaults section (usually 'global')."
+  },
+  "mode": {
+    "type": "string",
+    "default": "http",
+    "enum": ["http", "tcp"],
+    "description": "Proxy mode: http (L7) or tcp (L4 passthrough)."
+  },
+  "timeout_connect": {
+    "type": "string",
+    "default": "5000ms",
+    "description": "Max time to wait for a connection to a server."
+  },
+  "timeout_client": {
+    "type": "string",
+    "default": "50000ms",
+    "description": "Max client-side inactivity."
+  },
+  "timeout_server": {
+    "type": "string",
+    "default": "50000ms",
+    "description": "Max server-side inactivity."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 80,
+    "description": "Frontend HTTP bind port."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Terminate TLS on the frontend (bind :443 ssl). Needs a combined PEM."
+  },
+  "https_port": {
+    "type": "number",
+    "default": 443,
+    "description": "Frontend HTTPS bind port (used when TLS is enabled)."
+  },
+  "ssl_cert_pem": {
+    "type": "string",
+    "default": "/etc/haproxy/certs/site.pem",
+    "widget": "file",
+    "pattern": "*.pem",
+    "description": "PEM file for 'crt' — HAProxy expects cert + key + chain concatenated in ONE file (or a directory of them)."
+  },
+  "ssl_min_version": {
+    "type": "string",
+    "default": "TLSv1.2",
+    "enum": ["TLSv1.2", "TLSv1.3"],
+    "description": "Minimum TLS version (ssl-min-ver). Intermediate = TLSv1.2; Modern = TLSv1.3."
+  },
+  "ssl_ciphers": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
+    "description": "TLS 1.2 cipher list (ssl-default-bind-ciphers, Mozilla Intermediate). Empty = HAProxy default."
+  },
+  "redirect_to_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Redirect plain HTTP to HTTPS (http-request redirect scheme https unless ssl_fc)."
+  },
+  "hsts": {
+    "type": "bool",
+    "default": false,
+    "description": "Send HSTS header on responses (mode http). Only enable once HTTPS works."
+  },
+  "backend_name": {
+    "type": "string",
+    "default": "web_servers",
+    "description": "Backend section name."
+  },
+  "balance_algorithm": {
+    "type": "string",
+    "default": "roundrobin",
+    "enum": ["roundrobin", "leastconn", "source", "static-rr", "first"],
+    "description": "Load-balancing algorithm."
+  },
+  "backend_servers": {
+    "type": "list",
+    "default": [],
+    "description": "Backend servers (the pool traffic is balanced across).",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Server label, e.g. 'web1'."
+      },
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "Host or IP."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port."
+      },
+      "check": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable health checking (adds 'check')."
+      }
+    }
+  }
+}

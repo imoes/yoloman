@@ -1,0 +1,115 @@
+# ==============================================================================
+# gcalcli Configuration Template
+# ==============================================================================
+# This template generates the command-line arguments for gcalcli (Google Calendar CLI).
+# It is self-documenting: every directive is commented with its schema description
+# and safe defaults are applied to all variables.
+
+# -----------------------------------------------------------------------------
+# API Authentication Overrides
+# -----------------------------------------------------------------------------
+# API client_id (optional, overrides env/config).
+# Default: '' (empty, uses environment or default config)
+{% if client_id | default('') != '' %}
+--client-id {{ client_id | default('') }}
+{% endif %}
+
+# API client_secret (optional, overrides env/config).
+# Default: '' (empty, uses environment or default config)
+{% if client_secret | default('') != '' %}
+--client-secret {{ client_secret | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Authentication & Network Behavior
+# -----------------------------------------------------------------------------
+# Set to false to enable remote auth (e.g., via port forwarding).
+# Default: True (so --noauth_local_server is NOT passed, allowing local server)
+# Note: gcalcli defaults to local server; passing --noauth_local_server disables it.
+# We only emit the flag if the user explicitly sets it to false.
+{% if noauth_local_server | default(True) == false %}
+--noauth_local_server
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Configuration Path
+# -----------------------------------------------------------------------------
+# Deprecated; use $GCALCLI_CONFIG instead. Path to config directory.
+# Default: '' (empty, uses standard paths)
+{% if config_folder | default('') != '' %}
+--config-folder {{ config_folder | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Configuration Loading
+# -----------------------------------------------------------------------------
+# Set to false to disable loading ~/.gcalclirc
+# Default: True (so --noincluderc is NOT passed, meaning rc file IS included)
+{% if includerc | default(True) == false %}
+--noincluderc
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Calendars
+# -----------------------------------------------------------------------------
+# List of calendars to use globally (preferred per-command). Each object has 'name'.
+# Optional color can be embedded in name (e.g., 'Work#blue').
+# Default: [] (empty list, no specific calendars forced)
+{% if calendars | default([]) | length > 0 %}
+{% for cal in calendars %}
+{% if cal.name is defined and cal.name != '' %}
+--calendar "{{ cal.name }}"
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Default calendar name to use if none specified.
+# Default: '' (empty)
+{% if default_calendar | default('') != '' %}
+--default-calendar "{{ default_calendar | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Localization
+# -----------------------------------------------------------------------------
+# System locale (e.g., 'en_US.UTF-8').
+# Default: '' (empty, uses system default)
+{% if locale | default('') != '' %}
+--locale {{ locale | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Cache Management
+# -----------------------------------------------------------------------------
+# Set to true to delete and refresh cached data.
+# Default: False (so --refresh is NOT passed)
+{% if refresh | default(False) == true %}
+--refresh
+{% endif %}
+
+# Set to false to enable cache usage.
+# Default: True (so --nocache is NOT passed, meaning cache IS used)
+{% if nocache | default(True) == false %}
+--nocache
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Display Options
+# -----------------------------------------------------------------------------
+# Set to true to enable Conky color codes.
+# Default: False (so --conky is NOT passed)
+{% if conky | default(False) == true %}
+--conky
+{% endif %}
+
+# Set to false to disable all color output.
+# Default: True (so --nocolor is NOT passed, meaning color IS enabled)
+{% if color | default(True) == false %}
+--nocolor
+{% endif %}
+
+# Line art style for calendars: 'fancy', 'unicode', or 'ascii'.
+# Default: 'fancy'
+{% if lineart | default('fancy') is defined %}
+--lineart {{ lineart | default('fancy') }}
+{% endif %}

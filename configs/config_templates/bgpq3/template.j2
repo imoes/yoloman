@@ -1,0 +1,197 @@
+{# ============================================================================= #}
+{# bgpq3 Configuration Template                                                   #}
+{#                                                                                #}
+{# Self-documenting configuration generator for bgpq3 (BGP Prefix Generator v3). #}
+{# This template generates configuration entries based on the 'entries' list.     #}
+{# Each entry corresponds to a bgpq3 invocation and its specific parameters.      #}
+{#                                                                                #}
+{# Schema Reference:                                                            #}
+{#   entries: List of bgpq3 configuration entries                                 #}
+{#     entries[].cmd: Optional human-readable command-line summary                #}
+{#     entries[].name: Name of generated entry (e.g., prefix-list name)           #}
+{#     entries[].object: BGP object(s) to expand (prefix, ASN, as-set)            #}
+{#     entries[].asn: ASN to deny in case of empty prefix-list                    #}
+{#     entries[].as_path_number: AS-path access-list ID or group number           #}
+{#     entries[].format: User-defined output format string                        #}
+{#     entries[].ird_host: IRRd host to query                                     #}
+{#     entries[].ird_port: Port for IRRd host                                     #}
+{#     entries[].sources: List of IRR sources to use                              #}
+{#     entries[].max_prefix_len: Maximum prefix length to accept                  #}
+{#     entries[].min_prefix_len: Minimum prefix length to accept                  #}
+{#     entries[].allow_private_asn: Accept routes for private ASNs                #}
+{#     entries[].transition_as: Accept routes for AS23456                         #}
+{#     entries[].asn32_safe: Assume device supports 32-bit ASNs                   #}
+{#     entries[].ipv6: Generate IPv6 prefix/access-lists                          #}
+{#     entries[].aggregate: Attempt to aggregate prefix-list entries              #}
+{#     entries[].bird: Output in BIRD format                                      #}
+{#     entries[].openbgpd: Output in OpenBGPD format                              #}
+{#     entries[].juniper: Output in Juniper format                                #}
+{#     entries[].nokia_sros_classic: Output for Nokia SR OS classic CLI           #}
+{#     entries[].nokia_sros_md: Output for Nokia SR OS MD-CLI                     #}
+{#     entries[].huawei: Output for Huawei devices                                #}
+{#     entries[].cisco_xr: Output for Cisco IOS XR                                #}
+{#     entries[].asdot: Use asdot notation for Cisco as-path lists                #}
+{#     entries[].sequence_numbers: Include sequence numbers in IOS prefix-lists   #}
+{#     entries[].route_filter: Generate route-filters/prefix-sets                 #}
+{#     entries[].as_sets: Generate as-sets                                        #}
+{#     entries[].z_route_filter_list: Generate JunOS 16.2+ route-filter-lists     #}
+{#     entries[].max_as_path_len: Maximum ASNs in as-path string                  #}
+{#     entries[].recursion_limit: Limit recursion depth when expanding as-sets    #}
+{#     entries[].extra_match: Extra match condition for Juniper route-filters     #}
+{#     entries[].asn_to_deny: ASN to deny when prefix-list is empty               #}
+{#     entries[].except_objects: List of objects to exclude from expansion        #}
+{# ============================================================================= #}
+
+{# Loop over each bgpq3 entry defined in the playbook variables.                  #}
+{# Default to an empty list so the template renders safely even if 'entries'      #}
+{# is not provided in the context.                                                #}
+{% for entry in entries | default([]) %}
+{# ---------------------------------------------------------------------------- #}
+{# Begin Configuration Entry                                                    #}
+{# Each iteration generates a block for one bgpq3 invocation.                   #}
+{# ---------------------------------------------------------------------------- #}
+
+{# entries[].cmd: Optional human-readable command-line summary                  #}
+{# (not used by bgpq3, for documentation only)                                  #}
+# bgpq3 command: {{ entry.cmd | default('') }}
+
+{# entries[].name: Name of generated entry                                      #}
+{# (e.g., prefix-list name, policy-statement term, as-path-group)               #}
+{# Required when generating named configurations.                               #}
+name: {{ entry.name | default('') }}
+
+{# entries[].object: BGP object(s) to expand                                    #}
+{# (network prefix(es), ASN, as-set, or route-set)                              #}
+{# Example: 'AS20597', '192.0.2.0/24', 'AS-SET-NAME'                           #}
+object: {{ entry.object | default('') }}
+
+{# entries[].asn: ASN to deny in case of empty prefix-list                      #}
+{# (OpenBGPD -a flag)                                                           #}
+asn: {{ entry.asn | default(0) }}
+
+{# entries[].as_path_number: Number used to identify as-path access-list        #}
+{# (Cisco) or group number (OpenBGPD -f/-G)                                     #}
+as_path_number: {{ entry.as_path_number | default(0) }}
+
+{# entries[].format: User-defined output format string                          #}
+{# (implies -F flag)                                                            #}
+{# Example: 'ipfw add pass all from %n/%l to any\\n'                           #}
+format: {{ entry.format | default('cisco') }}
+
+{# entries[].ird_host: IRRd host to query                                       #}
+{# (bgpq3 -h flag)                                                              #}
+ird_host: {{ entry.ird_host | default('whois.radb.net') }}
+
+{# entries[].ird_port: Port for IRRd host                                       #}
+{# (bgpq3 -h[:port] flag)                                                       #}
+ird_port: {{ entry.ird_port | default(43) }}
+
+{# entries[].sources: List of IRR sources to use                                #}
+{# (bgpq3 -S flag)                                                              #}
+{# Example: ['RADB', 'RIPE', 'APNIC']                                           #}
+sources: {{ entry.sources | default([]) | join(',') }}
+
+{# entries[].max_prefix_len: Maximum prefix length to accept                    #}
+{# (bgpq3 -m flag)                                                              #}
+{# Default: 32 for IPv4, 128 for IPv6                                           #}
+max_prefix_len: {{ entry.max_prefix_len | default(32) }}
+
+{# entries[].min_prefix_len: Minimum prefix length to accept                    #}
+{# (bgpq3 -r flag)                                                              #}
+{# Allow more specific routes with length >= len                                #}
+min_prefix_len: {{ entry.min_prefix_len | default(0) }}
+
+{# entries[].allow_private_asn: Accept routes registered for private ASNs       #}
+{# (bgpq3 -p flag)                                                              #}
+allow_private_asn: {{ entry.allow_private_asn | default(False) | bool | lower }}
+
+{# entries[].transition_as: Accept routes registered for AS23456                #}
+{# (bgpq3 -2 flag)                                                              #}
+transition_as: {{ entry.transition_as | default(False) | bool | lower }}
+
+{# entries[].asn32_safe: Assume device supports 32-bit ASNs                     #}
+{# (bgpq3 -3 flag)                                                              #}
+asn32_safe: {{ entry.asn32_safe | default(False) | bool | lower }}
+
+{# entries[].ipv6: Generate IPv6 prefix/access-lists                            #}
+{# (bgpq3 -6 flag)                                                              #}
+ipv6: {{ entry.ipv6 | default(False) | bool | lower }}
+
+{# entries[].aggregate: Attempt to aggregate prefix-list entries                #}
+{# (bgpq3 -A flag)                                                              #}
+aggregate: {{ entry.aggregate | default(False) | bool | lower }}
+
+{# entries[].bird: Output in BIRD format                                        #}
+{# (bgpq3 -b flag)                                                              #}
+bird: {{ entry.bird | default(False) | bool | lower }}
+
+{# entries[].openbgpd: Output in OpenBGPD format                                #}
+{# (bgpq3 -B flag)                                                              #}
+openbgpd: {{ entry.openbgpd | default(False) | bool | lower }}
+
+{# entries[].juniper: Output in Juniper format                                  #}
+{# (bgpq3 -J flag)                                                              #}
+juniper: {{ entry.juniper | default(False) | bool | lower }}
+
+{# entries[].nokia_sros_classic: Output for Nokia SR OS classic CLI             #}
+{# (bgpq3 -N flag)                                                              #}
+nokia_sros_classic: {{ entry.nokia_sros_classic | default(False) | bool | lower }}
+
+{# entries[].nokia_sros_md: Output for Nokia SR OS MD-CLI                       #}
+{# (bgpq3 -n flag)                                                              #}
+nokia_sros_md: {{ entry.nokia_sros_md | default(False) | bool | lower }}
+
+{# entries[].huawei: Output for Huawei devices                                  #}
+{# (bgpq3 -U flag)                                                              #}
+huawei: {{ entry.huawei | default(False) | bool | lower }}
+
+{# entries[].cisco_xr: Output for Cisco IOS XR                                  #}
+{# (bgpq3 -X flag)                                                              #}
+cisco_xr: {{ entry.cisco_xr | default(False) | bool | lower }}
+
+{# entries[].asdot: Use asdot notation for Cisco as-path lists                  #}
+{# (bgpq3 -D flag)                                                              #}
+asdot: {{ entry.asdot | default(False) | bool | lower }}
+
+{# entries[].sequence_numbers: Include sequence numbers in IOS-style prefix-lists#}
+{# (bgpq3 -s flag)                                                              #}
+sequence_numbers: {{ entry.sequence_numbers | default(False) | bool | lower }}
+
+{# entries[].route_filter: Generate route-filters (Juniper) or prefix-sets      #}
+{# (OpenBGPD/Nokia)                                                             #}
+{# (bgpq3 -E flag)                                                              #}
+route_filter: {{ entry.route_filter | default(False) | bool | lower }}
+
+{# entries[].as_sets: Generate as-sets                                          #}
+{# (OpenBGPD, BIRD, JSON)                                                       #}
+{# (bgpq3 -t flag)                                                              #}
+as_sets: {{ entry.as_sets | default(False) | bool | lower }}
+
+{# entries[].z_route_filter_list: Generate JunOS 16.2+ route-filter-lists       #}
+{# (bgpq3 -z flag)                                                              #}
+z_route_filter_list: {{ entry.z_route_filter_list | default(False) | bool | lower }}
+
+{# entries[].max_as_path_len: Maximum number of ASNs in as-path string          #}
+{# (bgpq3 -W flag)                                                              #}
+{# 0 = infinity                                                                 #}
+max_as_path_len: {{ entry.max_as_path_len | default(0) }}
+
+{# entries[].recursion_limit: Limit recursion depth when expanding as-sets      #}
+{# (bgpq3 -L flag)                                                              #}
+recursion_limit: {{ entry.recursion_limit | default(0) }}
+
+{# entries[].extra_match: Extra match condition for Juniper route-filters       #}
+{# (bgpq3 -M flag)                                                              #}
+extra_match: {{ entry.extra_match | default('') }}
+
+{# entries[].asn_to_deny: ASN to deny when prefix-list is empty                 #}
+{# (OpenBGPD -a flag)                                                           #}
+asn_to_deny: {{ entry.asn_to_deny | default(0) }}
+
+{# entries[].except_objects: List of objects to exclude from expansion          #}
+{# (bgpq3 EXCEPT OBJECTS)                                                       #}
+except_objects:
+{% for obj in entry.except_objects | default([]) %}
+  - {{ obj }}
+{% endfor %}
+{% endfor %}

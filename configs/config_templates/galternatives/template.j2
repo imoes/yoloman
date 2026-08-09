@@ -1,0 +1,39 @@
+# /etc/galternatives.conf — Configuration for galternatives
+#
+# This file models a *hypothetical* configuration overlay for a wrapper script
+# or GUI tool around galternatives. In practice, `galternatives` is a CLI tool
+# that reads the alternatives database directly and does not parse a persistent
+# config file. This template provides self-documenting defaults and CLI overrides.
+#
+# Directives:
+# - altdir: Directory containing alternative group entries.
+# - admindir: Directory containing administrative information for alternatives.
+# - cli_options: List of CLI option overrides (option, value).
+# - log_file: Path to log file for wrapper/script use.
+
+# altdir: default='/var/lib/alternatives'
+# Directory containing alternative group entries (e.g., /var/lib/alternatives).
+# Matches --altdir option.
+# Default: /var/lib/alternatives
+ALTDIR={{ altdir | default('/var/lib/alternatives') }}
+
+# admindir: default='/var/lib/dpkg/alternatives'
+# Directory containing administrative information for alternatives
+# (e.g., /var/lib/dpkg/alternatives). Matches --admindir option.
+# Default: /var/lib/dpkg/alternatives
+ADMINDIR={{ admindir | default('/var/lib/dpkg/alternatives') }}
+
+# cli_options: default=[]
+# List of CLI option overrides to apply (e.g., for --debug or --normal).
+# Each item is a flat object with 'option' and 'value'.
+# These are rendered as comments describing the intended CLI invocation.
+{% for item in cli_options | default([]) %}
+# Override {{ item.option }} via CLI: {{ item.option }} {{ item.value }}
+{% endfor %}
+
+# log_file: default=''
+# Path to log file for wrapper/script use. Matches --log LOG option semantics.
+# Default: (empty)
+{% if log_file | default('') | length > 0 %}
+LOG_FILE={{ log_file | default('') }}
+{% endif %}

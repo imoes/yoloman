@@ -1,0 +1,107 @@
+{
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/osspd.pid",
+    "description": "Absolute path to the PID file for the daemon process"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: 'debug', 'info', 'warn', or 'error'"
+  },
+  "work_dir": {
+    "type": "string",
+    "default": "/run/osspd",
+    "description": "Working directory for temporary device nodes and emulation state"
+  },
+  "bind_addr": {
+    "type": "string",
+    "default": "",
+    "description": "Network address to bind control interface to (empty = all interfaces)"
+  },
+  "control_port": {
+    "type": "number",
+    "default": 9001,
+    "description": "TCP port for the control interface (used for stats, reload, etc.)"
+  },
+  "audio_ports": {
+    "type": "list",
+    "default": [
+      9002,
+      9003
+    ],
+    "description": "List of TCP ports for audio emulation (one per OSS device instance)"
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 64,
+    "description": "Maximum number of simultaneous client connections per audio port"
+  },
+  "osss_compat_v4": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OSS v4.x compatibility mode (if supported); otherwise defaults to v3.9"
+  },
+  "device_emulation": {
+    "type": "list",
+    "default": [
+      {
+        "device": "/dev/dsp",
+        "channels": 2,
+        "sample_rate": 48000,
+        "format": "S16_LE"
+      }
+    ],
+    "description": "List of OSS devices to emulate (e.g., /dev/dsp, /dev/mixer)"
+  },
+  "backend_dsp": {
+    "type": "string",
+    "default": "alsa",
+    "description": "Backend DSP implementation: 'alsa', 'jack', 'pipewire', or empty to auto-detect"
+  },
+  "alsa_device": {
+    "type": "string",
+    "default": "hw:0",
+    "description": "ALSA PCM device name (e.g., 'hw:0,0') when using ALSA backend"
+  },
+  "jack_client_name": {
+    "type": "string",
+    "default": "osspd",
+    "description": "JACK client name when using JACK backend"
+  },
+  "pipewire_node_name": {
+    "type": "string",
+    "default": "osspd",
+    "description": "PipeWire node name when using PipeWire backend"
+  },
+  "realtime": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable real-time scheduling for lower latency (requires CAP_SYS_NICE capability)"
+  },
+  "realtime_priority": {
+    "type": "number",
+    "default": 85,
+    "description": "Real-time priority (1\u201399); higher = more urgent (1\u201310 is safe for non-root, 11+ needs privileges)"
+  },
+  "buffer_size": {
+    "type": "number",
+    "default": 8192,
+    "description": "Audio buffer size in frames (larger = more latency, more stability)"
+  },
+  "periods": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of periods in the audio ring buffer (typically 2 or 4)"
+  },
+  "latency_compensation": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically adjust delay to compensate for system load variations"
+  },
+  "device_mappings": {
+    "type": "list",
+    "default": [],
+    "description": "Optional mapping of OSS device paths to internal instance IDs"
+  }
+}

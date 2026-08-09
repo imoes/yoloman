@@ -1,0 +1,119 @@
+# Default OCI runtime configuration for crun
+# This file is sourced by crun at runtime.
+# crun is a fast and lightweight OCI runtime written in C.
+#
+# This template is self-documenting: every configuration directive is preceded
+# by its schema description to ensure maintainability without external docs.
+
+[runtime]
+# Base directory for OCI bundle data (runtime-generated files, state, etc.).
+# Default: '/var/lib/containers/storage/bundle'
+bundle_dir = "{{ bundle_dir | default('/var/lib/containers/storage/bundle') }}"
+
+# Default root filesystem path for containers when not specified in container config.
+# Default: '/var/lib/containers/storage/rootfs'
+rootfs = "{{ rootfs | default('/var/lib/containers/storage/rootfs') }}"
+
+# Enable or disable seccomp syscall filtering for containers.
+# Default: True
+seccomp = {{ seccomp | default(True) | lower }}
+
+# Enable or disable AppArmor mandatory access control for containers (Linux only).
+# Default: True
+apparmor = {{ apparmor | default(True) | lower }}
+
+# Enable or disable SELinux labeling for containers (Linux only).
+# Default: True
+selinux = {{ selinux | default(True) | lower }}
+
+# Enable or disable POSIX capabilities management for containers.
+# Default: True
+capabilities = {{ capabilities | default(True) | lower }}
+
+# Path to the JSON file defining allowed/denied syscalls when seccomp is enabled.
+# Default: '/etc/crun/seccomp.json'
+seccomp_profile = "{{ seccomp_profile | default('/etc/crun/seccomp.json') }}"
+
+# Name of the AppArmor profile to apply to containers when AppArmor is enabled.
+# Default: 'crun-default'
+apparmor_profile = "{{ apparmor_profile | default('crun-default') }}"
+
+# Default SELinux label to apply to container processes and files when SELinux is enabled.
+# Default: 'system_u:system_r:container_t:s0:c0,c1'
+selinux_label = "{{ selinux_label | default('system_u:system_r:container_t:s0:c0,c1') }}"
+
+# List of capabilities to drop by default in all containers (e.g., ['CAP_SYS_ADMIN']).
+# Default: ['CAP_SYS_ADMIN', 'CAP_NET_RAW']
+cap_drop = [{{ cap_drop | default(['CAP_SYS_ADMIN', 'CAP_NET_RAW']) | join(', ') }}]
+
+# List of additional capabilities to grant to containers (e.g., ['NET_BIND_SERVICE']).
+# Default: []
+cap_add = [{{ cap_add | default([]) | join(', ') }}]
+
+# Default UID used for the container's init process when no user is specified.
+# Default: 1000
+default_uid = {{ default_uid | default(1000) }}
+
+# Default GID used for the container's init process when no group is specified.
+# Default: 1000
+default_gid = {{ default_gid | default(1000) }}
+
+# Enable compatibility mode for CRI-O (e.g., handle CRI-specific annotations).
+# Default: True
+crio_compatibility = {{ crio_compatibility | default(True) | lower }}
+
+# Enable compatibility mode for Podman (e.g., support Podman-specific config keys).
+# Default: True
+podman_compatibility = {{ podman_compatibility | default(True) | lower }}
+
+# Logging verbosity: 'debug', 'info', 'warn', 'error', 'fatal', or 'panic'.
+# Default: 'info'
+log_level = "{{ log_level | default('info') }}"
+
+# Path to the log file. Empty string disables file logging (stdout only).
+# Default: ''
+log_path = "{{ log_path | default('') }}"
+
+# Maximum size (in MB) per log file before rotation.
+# Default: 10
+log_size = {{ log_size | default(10) }}
+
+# Number of rotated log files to keep.
+# Default: 3
+log_files = {{ log_files | default(3) }}
+
+# Use systemd for cgroup management instead of cgroupfs (requires systemd).
+# Default: False
+systemd_cgroup = {{ systemd_cgroup | default(False) | lower }}
+
+# Cgroup driver: 'systemd' or 'cgroupfs'. Used only if systemd_cgroup is false.
+# Default: 'cgroupfs'
+cgroup_manager = "{{ cgroup_manager | default('cgroupfs') }}"
+
+# Key-value pairs added to container metadata (e.g., for debugging or automation).
+# Default: []
+[annotations]
+{% for item in (annotations | default([])) %}
+{{ item.key }} = "{{ item.value }}"
+{% endfor %}
+
+# Commands to run before the container process starts (e.g., setup scripts).
+# Default: []
+[hooks]
+{% for hook in (prestart_hooks | default([])) %}
+# Pre-start hook: {{ hook.description | default('') }}
+prestart = "{{ hook.path }}"
+{% if hook.args is defined %}
+args = [{{ hook.args | join(', ') }}]
+{% endif %}
+{% endfor %}
+
+# Commands to run after the container stops (e.g., cleanup scripts).
+# Default: []
+{% for hook in (poststop_hooks | default([])) %}
+# Post-stop hook: {{ hook.description | default('') }}
+poststop = "{{ hook.path }}"
+{% if hook.args is defined %}
+args = [{{ hook.args | join(', ') }}]
+{% endif %}
+{% endfor %}

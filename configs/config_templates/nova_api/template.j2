@@ -1,0 +1,272 @@
+[DEFAULT]
+# Enables debug logging; set to true for verbose troubleshooting output
+#debug = false
+
+# Enables verbose logging; set to true to show informational messages
+#verbose = true
+
+# Directory path where Nova API logs are written.
+# Ensures the log directory exists and is writable by the nova user.
+log_dir = {{ log_dir | default('/var/log/nova') }}
+
+# Logging format string for context-aware logs
+#logging_context_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s %(message)s
+
+# Default logging format string for general messages
+#logging_default_format_string = %(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s - %(message)s
+
+# Logging format suffix for debug logs (e.g., function name and line number)
+#logging_debug_format_suffix = %(funcName)s %(pathname)s:%(lineno)d
+
+# Prefix for exception log entries
+#logging_exception_prefix = %(asctime)s.%(msecs)03d %(process)d TRACE %(name)s %(instance)s
+
+# Connection string for the main database.
+# Default uses SQLite for development; use PostgreSQL or MySQL for production.
+#sql_connection = sqlite:////var/lib/nova/nova.sqlite
+
+# Connection string for the placement service database.
+#placement_database_connection = mysql+pymysql://placement:placement@controller/placement
+
+# Hostname or IP of the controller node, used for self-referential endpoints.
+#auth_uri = http://{{ keystone_internal_host | default('controller') }}:5000
+
+# Authentication URL for Keystone admin API (v3).
+#auth_url = http://{{ keystone_internal_host | default('controller') }}:{{ keystone_admin_port | default(35357) }}
+
+# List of memcached servers for session and token caching.
+# Format: 'host:port,host:port'.
+memcached_servers = {{ (memcached_servers | default([])) | join(',') }}
+
+# Authentication type for Keystone identity service.
+#auth_type = password
+
+# Project domain name for the service user.
+#project_domain_name = Default
+
+# User domain name for the service user.
+#user_domain_name = Default
+
+# Project name under which the Nova service user exists.
+#project_name = service
+
+# Username for the Nova service user in Keystone.
+#username = nova
+
+# Password for the Nova service user in Keystone.
+#password = {{ nova_service_password | default('') }}
+
+# RPC transport URL for connecting to the message queue (RabbitMQ/Redis).
+# Format: protocol://user:password@host:port/vhost/
+#transport_url = rabbit://{{ rabbitmq_user | default('openstack') }}:{{ rabbitmq_password | default('') }}@{{ rabbitmq_host | default('controller') }}:{{ rabbitmq_port | default(5672) }}/
+
+# List of enabled API extensions (e.g., osapi_compute, metadata).
+#enabled_apis = osapi_compute,metadata
+
+# Number of worker processes for the nova-api service.
+# Increase under high load to handle more concurrent requests.
+api_workers = {{ nova_api_workers | default(2) }}
+
+# Maximum number of instances per server, used for rate limiting.
+#max_limit = 1000
+
+# Enable the os-volume-attach extension.
+#enable_volume = true
+
+# Extensions to load for the OSAPI Compute service.
+#osapi_compute_extension = nova.api.openstack.compute.all_extensions
+
+# Enable cross-origin resource sharing (CORS) for browser-based access.
+#enable_cors = false
+
+# Enable the trustless API (NovaTrusts extension).
+#enable_trust_service = true
+
+# Prefix for OSAPI compute links.
+#osapi_compute_link_prefix = http://{{ nova_api_host | default('0.0.0.0') }}:{{ nova_api_port | default(8774) }}/
+
+# Scheduler hint: prefer instances on the same host.
+#scheduler_hints_same_host = true
+
+# Scheduler hint: prefer instances on different hosts.
+#scheduler_hints_different_host = false
+
+# Enable the os-extended-status extension.
+#osapi_compute_extended_status = true
+
+# Enable the os-server-password extension.
+#enable_server_password = true
+
+# Enable the os-console-output extension.
+#osapi_compute_console_output = true
+
+# Enable the os-virtual-interfaces extension.
+#osapi_compute_virtual_interfaces = true
+
+# Enable the os-migrate-server extension.
+#osapi_compute_migrate_server = true
+
+# Enable the os-server-groups extension.
+#osapi_compute_server_groups = true
+
+# Enable the os-keypairs extension.
+#osapi_compute_keypairs = true
+
+# Enable the os-hosts extension.
+#osapi_compute_hosts = true
+
+# Enable the os-hypervisors extension.
+#osapi_compute_hypervisors = true
+
+# Enable the os-instance-actions extension.
+#osapi_compute_instance_actions = true
+
+# Enable the os-access-ips extension.
+#osapi_compute_access_ips = true
+
+# Enable the os-deferred-delete extension.
+#osapi_compute_deferred_delete = true
+
+# Enable the os-networks extension (deprecated, use neutron).
+#osapi_compute_networks = false
+
+# Enable the os-floating-ips extension (deprecated, use neutron).
+#osapi_compute_floating_ips = false
+
+# Enable the os-fixed-ips extension (deprecated, use neutron).
+#osapi_compute_fixed_ips = false
+
+# Enable the os-instance-usage-audit-log extension.
+#osapi_compute_instance_usage_audit_log = true
+
+# Enable the os-extended-availability-zone extension.
+#osapi_compute_extended_availability_zone = true
+
+# Enable the os-availability-zone extension.
+#osapi_compute_availability_zone = true
+
+# Enable the os-disk-config extension.
+#osapi_compute_disk_config = true
+
+# Enable the os-extended-volumes extension.
+#osapi_compute_extended_volumes = true
+
+# Enable the os-volume-snapshots extension.
+#osapi_compute_volume_snapshots = true
+
+# Enable the os-networks-associates extension (deprecated).
+#osapi_compute_networks_associates = false
+
+# Enable the os-server-metadata extension.
+#osapi_compute_server_metadata = true
+
+# Enable the os-server-tags extension.
+#osapi_compute_server_tags = true
+
+# Enable the os-server-tags-update extension.
+#osapi_compute_server_tags_update = true
+
+# Enable the os-server-tags-delete extension.
+#osapi_compute_server_tags_delete = true
+
+# Enable the os-server-tags-patch extension.
+#osapi_compute_server_tags_patch = true
+
+# Enable the os-server-tags-get-all extension.
+#osapi_compute_server_tags_get_all = true
+
+# Enable the os-server-tags-get extension.
+#osapi_compute_server_tags_get = true
+
+# Enable the os-server-tags-delete-all extension.
+#osapi_compute_server_tags_delete_all = true
+
+# Enable the os-server-tags-replace-all extension.
+#osapi_compute_server_tags_replace_all = true
+
+# Enable the os-server-tags-update-all extension.
+#osapi_compute_server_tags_update_all = true
+
+# Enable the os-server-tags-patch-all extension.
+#osapi_compute_server_tags_patch_all = true
+
+[api]
+# Host to bind the API service to.
+# Use 0.0.0.0 for all interfaces or a specific IP for limited access.
+host = {{ nova_api_host | default('0.0.0.0') }}
+
+# Port to bind the API service to.
+# Standard Nova API port is 8774.
+port = {{ nova_api_port | default(8774) }}
+
+# Enable SSL for the API service.
+# Requires ssl_cert and ssl_key in [ssl] section.
+#enabled_ssl = false
+
+[api_database]
+# Connection string for the API-specific database.
+# Separate from the main compute database for performance and scaling.
+# Use PostgreSQL or MySQL in production.
+connection = {{ nova_api_db_connection | default('sqlite:////var/lib/nova/nova_api.sqlite') }}
+
+[placement]
+# Authentication type for the placement service.
+# Nova uses this to interact with the Placement API.
+auth_type = password
+
+# Placement service user domain.
+project_domain_name = Default
+
+# Placement service user domain.
+user_domain_name = Default
+
+# Project name for the placement service.
+project_name = service
+
+# Username for the placement service.
+username = placement
+
+# Password for the placement service user in Keystone.
+# Must match the password set in Keystone for the 'placement' user.
+password = {{ placement_service_password | default('') }}
+
+# URL for the placement API, pointing to Keystone admin endpoint.
+# Nova uses this to obtain service catalogs and tokens.
+auth_url = http://{{ keystone_internal_host | default('controller') }}:{{ keystone_admin_port | default(35357) }}/v3
+
+[ssl]
+# Enables SSL for the API service.
+#enabled = false
+
+# Path to the SSL certificate file.
+#cert_file = /etc/ssl/certs/nova.pem
+
+# Path to the SSL private key file.
+#key_file = /etc/ssl/private/nova.key
+
+[oslo_concurrency]
+# Path to the lock directory used by oslo_concurrency.
+# Used to prevent race conditions when managing resources.
+lock_path = {{ lock_path | default('/var/lib/nova/tmp') }}
+
+[oslo_middleware]
+# Maximum body size for HTTP requests (in MB).
+#max_request_body_size = 114688
+
+# Enable parsing of proxy headers (e.g., X-Forwarded-For).
+#enable_proxy_headers_parsing = true
+
+[oslo_policy]
+# Path to the policy configuration file.
+# Defines access control rules for API operations.
+policy_file = {{ policy_file | default('/etc/nova/policy.json') }}
+
+# Default rule used when no specific policy matches a request.
+# Common values: 'default', 'owner', 'admin_or_owner'.
+policy_default_rule = {{ policy_default_rule | default('default') }}
+
+# Enable caching of policy checks for performance.
+#enforce_scope = false
+
+# Enable enforcer debug logging for policy evaluation.
+#enforce_new_defaults = false

@@ -1,0 +1,29 @@
+{# fspy configuration template #}
+{# This template generates the command-line arguments for the 'fspy' tool. #}
+
+{# command: The command to execute; typically 'fspy'. #}
+{{ (command | default('fspy')) }}
+
+{# watch_paths: List of files or directories to monitor. Required positional arguments for fspy. #}
+{% for path in (watch_paths | default([])) %} {{ path }}{% endfor %}
+
+{# filter: Regex pattern to include paths; matched against full path. #}
+{% if filter is defined %}--filter {{ (filter | default('')) }}{% endif %}
+
+{# inverted_filter: Regex pattern to exclude paths; inverted match. #}
+{% if inverted_filter is defined %}--inverted {{ (inverted_filter | default('')) }}{% endif %}
+
+{# recursive_depth: Enable recursive scanning up to this depth. 0 disables recursion. #}
+{% if recursive_depth is defined %}--recursive {{ (recursive_depth | default(0)) }}{% endif %}
+
+{# adaptive: Enable adaptive mode to auto-add new paths to the watch list. #}
+{% if adaptive | default(False) %}--adaptive{% endif %}
+
+{# diff_fields: List of diff fields: 's', 'A', 'M', 'S', 'O', 'U', 'G', 'I', 'D'. #}
+{% if diff_fields is defined %}--diff {{ (diff_fields | default([]) | join(',')) }}{% endif %}
+
+{# type_filter: List of element types to watch: 'f', 'd', 's', 'p', 'c', 'b', 'o'. Default (empty) means any. #}
+{% if type_filter is defined %}--type {{ (type_filter | default([]) | join(',')) }}{% endif %}
+
+{# output_format: List of output fields to include in event output. e.g. 'T', 'p', 'f', 'm' etc. #}
+{% if output_format is defined %}--output {{ (output_format | default([]) | join(',')) }}{% endif %}

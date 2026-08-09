@@ -1,0 +1,56 @@
+# Cube 2: Sauerbraten Server Configuration Template
+# This template generates a .conf file for the Cube 2 server.
+# It is self-documenting: every directive includes its schema description
+# as a comment above it.
+
+[server]
+; IP address or hostname to bind the server to. Leave empty to listen on all interfaces.
+host = {{ (host | default('')) | trim }}
+
+; TCP port for game connections.
+port = {{ (port | default(28900)) | int }}
+
+; UDP port for game traffic (e.g., player movement). If omitted, defaults to TCP port.
+udp_port = {{ (udp_port | default(port | default(28900))) | int }}
+
+; Maximum number of players allowed on the server simultaneously.
+maxplayers = {{ (maxplayers | default(16)) | int }}
+
+; Public name of the server shown in server browsers.
+servername = "{{ (servername | default('Cube 2 Server')) | trim }}"
+
+; Game mode: 0=CTF, 1=TDM, 2=FFA, 3=CTF+, 4=TDM+, 5=FFA+.
+gamemode = {{ (gamemode | default(0)) | int }}
+
+; Base name of the map to load (e.g., 'cube' for cube.map).
+mapname = "{{ (mapname | default('cube')) | trim }}"
+
+; Password protection level: 0=none, 1=admin-only, 2=everyone.
+password = {{ (password | default(0)) | int }}
+
+; Password for remote administration via RCON. Keep secret!
+rconpassword = "{{ (rconpassword | default('')) | trim }}"
+
+; Verbosity of server logs: 0=quiet, 1=normal, 2=verbose, 3=debug.
+loglevel = {{ (loglevel | default(1)) | int }}
+
+; Path to server log file. Leave empty to disable file logging.
+logfile = "{{ (logfile | default('')) | trim }}"
+
+[admin]
+; List of SteamIDs (64-bit integers) with admin privileges.
+admins = {{ (admins | default([])) | join(', ') }}
+
+[filters]
+; List of SteamIDs (64-bit integers) to ban from the server.
+bans = {{ (bans | default([])) | join(', ') }}
+
+[features]
+; Enable voice chat: 0=disabled, 1=enabled.
+voice = {{ (voice | default(0)) | int }}
+
+; Allow players to register accounts: 0=no, 1=yes.
+register = {{ (register | default(0)) | int }}
+
+; Broadcast server to public master lists: 0=no, 1=yes.
+public = {{ (public | default(1)) | int }}

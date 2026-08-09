@@ -1,0 +1,39 @@
+[general]
+# Enable or disable mailnag daemon
+enabled = {{ general.enabled | lower }}
+
+[accounts]
+# List of mail accounts to monitor
+{% for account in accounts %}[{{ account.name }}]
+# Account type: 'imap', 'pop3', 'exchange', etc.
+type = {{ account.type }}
+
+# Mail server hostname
+hostname = {{ account.hostname }}
+
+# Mail server port (typically 993 for IMAP with SSL)
+port = {{ account.port }}
+
+# Use SSL/TLS for connection
+use_ssl = {{ account.use_ssl | lower }}
+
+# Use STARTTLS (if supported)
+use_starttls = {{ account.use_starttls | lower }}
+
+# Username for authentication
+username = {{ account.username }}
+
+# Password storage backend ('keyring', 'file', 'ask')
+password_backend = {{ account.password_backend }}
+
+# Folder to monitor for new mail
+folder = {{ account.folder }}
+
+# Enable this account
+enabled = {{ account.enabled | lower }}
+{% if account.icon %}
+# Optional custom icon for notification
+icon = {{ account.icon }}
+{% endif %}
+
+{% endfor %}

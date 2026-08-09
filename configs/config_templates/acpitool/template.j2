@@ -1,0 +1,65 @@
+# acpitool configuration (managed via /etc/default/acpitool or similar)
+# This file is sourced by init scripts or service wrappers when invoking acpitool
+#
+# This configuration controls power management automation for Linux systems,
+# primarily targeting older laptops (Toshiba, ThinkPad, Asus) that require
+# ACPI-based device control rather than modern systemd sleep targets.
+#
+# Variables:
+#   ENABLE_ACPITOOL  - Master switch to enable or disable acpitool automation
+#   WAKEUP_DEVICES   - Comma-separated list of device IDs to enable wake-on-LAN/ACPI
+#   FAN_MODE         - Fan control strategy (auto vs force-on)
+#   BRIGHTNESS_LEVEL - Initial LCD brightness setting
+#   SUSPEND_MODE     - System sleep state (mem/disk)
+#   ULTRABAY_DEVICE  - Optical drive/ultrabay device to eject at boot
+
+# Whether to enable acpitool-based power management automation at boot.
+# Schema default: False
+# Set to 'true' to activate, 'false' to deactivate.
+ENABLE_ACPITOOL={{ enable_acpitool | default(false) }}
+
+# Wakeup device identifiers (e.g., 'XHC', 'EHC1') to enable at boot.
+# Obtained via 'acpitool -w'. Leave empty to skip wakeup configuration.
+# Schema default: [] (empty list)
+{% set _wakeup = wakeup_devices | default([]) %}
+{% if _wakeup | length > 0 %}
+WAKEUP_DEVICES={{ _wakeup | join(',') }}
+{% else %}
+#WAKEUP_DEVICES=
+{% endif %}
+
+# Fan control mode: '0' for auto, '1' for force-on (Toshiba only).
+# Schema default: '0'
+# Set to empty string or omit to leave fan mode unchanged by BIOS defaults.
+{% set _fan = fan_mode | default('0') %}
+FAN_MODE={{ _fan }}
+
+# LCD brightness level: integer 0–7 (Toshiba/ThinkPad) or 0–15 (Asus).
+# Range must match laptop model; empty leaves brightness unchanged.
+# Schema default: '' (empty string)
+{% set _brightness = brightness_level | default('') %}
+{% if _brightness is string and _brightness | length > 0 %}
+BRIGHTNESS_LEVEL={{ _brightness }}
+{% else %}
+#BRIGHTNESS_LEVEL=
+{% endif %}
+
+# Automatic suspend mode: 'mem' (S3, suspend-to-RAM) or 'disk' (S4, suspend-to-disk).
+# Only enable if automatic suspend is desired; empty disables it.
+# Schema default: '' (empty string)
+{% set _suspend = suspend_mode | default('') %}
+{% if _suspend is string and _suspend | length > 0 %}
+SUSPEND_MODE={{ _suspend }}
+{% else %}
+#SUSPEND_MODE=
+{% endif %}
+
+# Thinkpad ultrabay device identifier to eject at boot (e.g., '0').
+# Run 'acpitool -j' to list available devices. Leave empty to skip ejection.
+# Schema default: '' (empty string)
+{% set _ultrabay = ultrabay_device | default('') %}
+{% if _ultrabay is string and _ultrabay | length > 0 %}
+ULTRABAY_DEVICE={{ _ultrabay }}
+{% else %}
+#ULTRABAY_DEVICE=
+{% endif %}

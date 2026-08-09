@@ -1,0 +1,40 @@
+{
+  "mode": "production",
+  "log_level": "warn",
+  "log_dir": "/var/log/molly-brown",
+  "state_dir": "/var/lib/molly-brown",
+  "host": "0.0.0.0",
+  "port": 8080,
+  "workers": 4,
+  "max_requests_per_worker": 50000,
+  "upstream_timeout": 15,
+  "tls_enabled": true,
+  "tls_cert": "/etc/ssl/molly-brown/fullchain.pem",
+  "tls_key": "/etc/ssl/molly-brown/privkey.pem",
+  "upstreams": [
+    {
+      "hostname": "api1.internal.example.com",
+      "port": 8443,
+      "weight": 2,
+      "enabled": true,
+      "health_check_path": "/ready"
+    },
+    {
+      "hostname": "api2.internal.example.com",
+      "port": 8443,
+      "weight": 1,
+      "enabled": true,
+      "health_check_path": "/ready"
+    },
+    {
+      "hostname": "api3.internal.example.com",
+      "port": 8443,
+      "weight": 1,
+      "enabled": false,
+      "health_check_path": "/ready"
+    }
+  ],
+  "cache_enabled": true,
+  "cache_max_entries": 2000,
+  "cache_ttl": 120
+}

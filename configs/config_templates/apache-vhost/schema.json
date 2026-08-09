@@ -1,0 +1,142 @@
+{
+  "server_name": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Primary domain (ServerName)."
+  },
+  "server_alias": {
+    "type": "string",
+    "default": "",
+    "description": "Additional names (ServerAlias), space-separated. Leave empty for none."
+  },
+  "document_root": {
+    "type": "string",
+    "default": "/var/www/html",
+    "description": "DocumentRoot directory served by this vhost."
+  },
+  "directory_index": {
+    "type": "string",
+    "default": "index.html index.php",
+    "description": "DirectoryIndex files, in order."
+  },
+  "allow_override": {
+    "type": "string",
+    "default": "None",
+    "enum": ["None", "All", "AuthConfig", "FileInfo", "Indexes", "Limit", "Options"],
+    "description": "AllowOverride for the document root (.htaccess scope)."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 80,
+    "description": "Port for a plain-HTTP vhost (ignored when TLS is enabled, which uses 443)."
+  },
+  "proxy_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Reverse-proxy target (e.g. http://127.0.0.1:8080/). Needs mod_proxy. Empty = serve files."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Terminate HTTPS here (VirtualHost *:443, SSLEngine on). Needs mod_ssl."
+  },
+  "ssl_certificate": {
+    "type": "string",
+    "default": "/etc/ssl/certs/example.crt",
+    "widget": "file",
+    "pattern": "*.pem *.crt *.cer",
+    "description": "SSLCertificateFile — leaf cert (full chain preferred, 2.4.8+)."
+  },
+  "ssl_certificate_key": {
+    "type": "string",
+    "default": "/etc/ssl/private/example.key",
+    "widget": "file",
+    "pattern": "*.pem *.key",
+    "description": "SSLCertificateKeyFile — private key."
+  },
+  "ssl_protocol": {
+    "type": "string",
+    "default": "-all +TLSv1.2 +TLSv1.3",
+    "enum": ["-all +TLSv1.2 +TLSv1.3", "-all +TLSv1.3", "-all +TLSv1.2"],
+    "description": "SSLProtocol (Mozilla Intermediate = TLSv1.2+1.3; Modern = TLSv1.3)."
+  },
+  "ssl_cipher_suite": {
+    "type": "string",
+    "default": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305",
+    "description": "SSLCipherSuite for TLS 1.2 (Mozilla Intermediate). Empty = Apache default."
+  },
+  "hsts": {
+    "type": "bool",
+    "default": false,
+    "description": "Send HSTS header (needs mod_headers). Only enable once HTTPS works."
+  },
+  "redirect_to_https": {
+    "type": "bool",
+    "default": false,
+    "description": "Add a port-80 vhost that permanently redirects to HTTPS."
+  },
+  "error_log": {
+    "type": "string",
+    "default": "${APACHE_LOG_DIR}/error.log",
+    "description": "ErrorLog path (Debian uses ${APACHE_LOG_DIR}; RedHat e.g. /var/log/httpd/error_log)."
+  },
+  "access_log": {
+    "type": "string",
+    "default": "${APACHE_LOG_DIR}/access.log",
+    "description": "CustomLog path (combined format)."
+  },
+  "directory_browsing": {
+    "type": "bool",
+    "default": false,
+    "description": "Directory Browsing: list directory contents when no index file exists (Options +Indexes)."
+  },
+  "limit_request_body": {
+    "type": "string",
+    "default": "",
+    "description": "Request Filtering: max request body size in bytes (LimitRequestBody, e.g. '20971520'). Empty = unlimited."
+  },
+  "compression": {
+    "type": "bool",
+    "default": false,
+    "description": "Compression: gzip text responses (mod_deflate AddOutputFilterByType for common text types)."
+  },
+  "error_pages": {
+    "type": "list",
+    "default": [],
+    "description": "Error Pages: custom pages per status code (ErrorDocument).",
+    "items": {
+      "code": {
+        "type": "number",
+        "default": 404,
+        "description": "HTTP status code (e.g. 404, 500)."
+      },
+      "path": {
+        "type": "string",
+        "default": "/404.html",
+        "description": "URL or path served for that code (e.g. '/404.html')."
+      }
+    }
+  },
+  "response_headers": {
+    "type": "list",
+    "default": [],
+    "description": "HTTP Response Headers: extra headers on every response (mod_headers 'Header always set').",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Header name (e.g. 'X-Frame-Options')."
+      },
+      "value": {
+        "type": "string",
+        "default": "",
+        "description": "Header value (e.g. 'SAMEORIGIN')."
+      }
+    }
+  },
+  "extra_directives": {
+    "type": "string",
+    "default": "",
+    "description": "Additional raw directives inside the vhost (e.g. 'LimitRequestBody 20971520')."
+  }
+}

@@ -1,0 +1,74 @@
+# gdebi Configuration Template
+#
+# This template generates an APT configuration snippet for `gdebi`, a tool that installs .deb
+# packages along with their dependencies. It translates high-level role variables into
+# APT configuration keys (`APT::Get::*`, `Dir::Root`, etc.).
+#
+# Variables are sourced from the role's defaults or inventory. All variable references use
+# `| default(...)` to ensure safe rendering even if a variable is undefined in the playbook.
+
+# -----------------------------------------------------------------------------
+# Non-Interactive Mode
+# -----------------------------------------------------------------------------
+# If true, gdebi runs in non-interactive mode (equivalent to --non-interactive).
+# This is critical for automated scripts to prevent hanging on prompts.
+{% if non_interactive is defined %}
+# --- Non-interactive mode is ENABLED ---
+{% endif %}
+# Note: gdebi does not have a direct APT config key for --non-interactive; it is a CLI flag.
+# However, this template documents the intent. If you are using gdebi via a shell module,
+# ensure the `--non-interactive` flag is passed in the command line, not here.
+
+# -----------------------------------------------------------------------------
+# APT Assume-Yes (-y)
+# -----------------------------------------------------------------------------
+# If true, sets APT::Get::Assume-Yes. This automatically answers 'yes' to APT prompts
+# (equivalent to -y). Recommended alongside non_interactive mode.
+APT::Get::Assume-Yes "{{ apt_get_assume_yes | default(false) | ternary('true', 'false') }}";
+
+# -----------------------------------------------------------------------------
+# APT Options
+# -----------------------------------------------------------------------------
+# List of APT configuration options (e.g., ['APT::Get::Fix-Broken="true"']).
+# These are passed via --option=APT_OPTS.
+# Each item in the list should be a full APT config directive string.
+{% if apt_opts is defined and apt_opts is iterable %}
+{% for opt in apt_opts %}
+# APT Option: {{ opt }}
+# Parsed directive and value from the list item.
+# Format expected by APT: Directive "Value";
+{% set parts = opt.split('=') %}
+{% if parts | length >= 2 %}
+{{ parts[0] }} "{{ parts[1] | default('') }}";
+{% else %}
+# WARNING: Invalid APT option format (expected 'Key=Value'): {{ opt }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Root Directory Override
+# -----------------------------------------------------------------------------
+# Alternative root directory for chroot installs (equivalent to --root=ROOTDIR).
+# This overrides the default root directory `/` for APT operations.
+# Use this when installing packages into a chroot or container environment.
+Dir::Root "{{ root_dir | default('/') }}";
+
+# -----------------------------------------------------------------------------
+# Quiet Mode
+# -----------------------------------------------------------------------------
+# If true, suppresses progress information and error messages (equivalent to --quiet).
+# Useful for logging where verbose output is noise.
+# APT expects '1' for true and '0' for false in this context.
+APT::Get::Quiet "{{ quiet | default(false) | ternary('1', '0') }}";
+
+# -----------------------------------------------------------------------------
+# APT Line / Simulate Mode
+# -----------------------------------------------------------------------------
+# If true, simulates only and prints the apt-get install line to stderr
+# (equivalent to --apt-line).
+# This sets APT::Get::Print-URIs to true, which changes APT's output behavior.
+APT::Get::Print-URIs "{{ apt_line | default(false) | ternary('true', 'false') }}";
+
+# Note: gdebi's version output is handled via CLI flags, not APT config.
+# This template focuses on APT-level configuration that gdebi consumes.

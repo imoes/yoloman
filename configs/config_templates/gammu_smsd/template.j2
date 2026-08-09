@@ -1,0 +1,200 @@
+# ==============================================================================
+# Gammu SMS Daemon (gammu-smsd) Configuration
+# Generated via Ansible Jinja2 Template
+#
+# This configuration file controls how gammu-smsd connects to a GSM modem,
+# stores messages in a database, and handles logging.
+#
+# Sections:
+#   - Global connection settings (port, modem type)
+#   - Database backend (mysql, sqlite3, postgresql)
+#   - Logging and archival behavior
+# ==============================================================================
+
+# ==============================================================================
+# Connection Settings
+# ==============================================================================
+
+# [Connection Type]
+# Defines how gammu-smsd communicates with the phone/modem.
+# Supported values: 'serial', 'bluetooth', 'at' (raw AT commands).
+# Default: serial
+connection_type = {{ connection_type | default('serial') }}
+
+# [Port / Device Path]
+# Specifies the communication endpoint.
+# - For 'serial': path to the serial device (e.g., /dev/ttyUSB0).
+# - For 'bluetooth': Bluetooth MAC address of the modem (e.g., 00:11:22:33:44:55).
+# - For 'at': generic port string or device path.
+# Default: /dev/ttyUSB0
+port = {{ port | default('/dev/ttyUSB0') }}
+
+# [Connection Speed]
+# Baud rate for serial or AT connections. Ignored for Bluetooth connections.
+# Common values: 9600, 19200, 38400, 57600, 115200.
+# Default: 9600
+# Only emitted if the connection type requires a speed setting.
+{% if connection_type | default('serial') in ['serial', 'at'] %}
+# [Connection Speed]
+# Baud rate for the serial/AT interface.
+speed = {{ connection_speed | default(9600) }}
+{% endif %}
+
+# [Bluetooth Address]
+# MAC address of the Bluetooth modem.
+# Required only when connection_type is 'bluetooth'.
+# Default: '' (empty)
+{% if connection_type | default('serial') == 'bluetooth' %}
+# [Bluetooth Address]
+# The Bluetooth MAC address of the paired modem.
+bluetooth_address = {{ bluetooth_address | default('') }}
+{% endif %}
+
+# [Model]
+# Manufacturer/model of the phone or modem (e.g., 'Nokia 3310', 'Samsung GT-S5670').
+# Leave blank to allow gammu to auto-detect the model via initialization strings.
+# Default: '' (empty)
+model = {{ model | default('') }}
+
+# [Connection Partner]
+# Manufacturer name hint to help gammu select the correct driver/init sequence.
+# Examples: 'nokia', 'siemens', 'motorola'.
+# Default: '' (empty)
+connection = {{ connection | default('') }}
+
+# [SMS Center (SMSC)]
+# The phone number of the SMS Center (SMSC) for your carrier.
+# Required for sending outgoing SMS messages.
+# Format: International E.164 format (e.g., '+1234567890').
+# Default: '' (empty)
+smsc = {{ smsc | default('') }}
+
+# ==============================================================================
+# Database Settings
+# ==============================================================================
+#
+# Gammu-smsd uses a database to store received SMS, sent SMS history,
+# and contact lists. Select one backend below.
+#
+# Supported backends: mysql, sqlite3, postgresql.
+# The corresponding block is emitted based on db_type.
+#
+
+{% if db_type | default('mysql') == 'mysql' %}
+# -----------------------------------------------------------------------------
+# MySQL Configuration
+# Used when db_type is 'mysql'.
+# -----------------------------------------------------------------------------
+
+[mysql]
+# [Database Host]
+# Hostname or IP address of the MySQL server.
+# Default: localhost
+host = {{ db_host | default('localhost') }}
+
+# [Database User]
+# Username for authenticating with the MySQL server.
+# Default: smsd
+user = {{ db_user | default('smsd') }}
+
+# [Database Password]
+# Password for the database user.
+# Default: '' (empty)
+password = {{ db_password | default('') }}
+
+# [Database Name]
+# Name of the database schema to use for storing SMS data.
+# Default: smsd
+database = {{ db_database | default('smsd') }}
+
+{% elif db_type | default('mysql') == 'sqlite3' %}
+# -----------------------------------------------------------------------------
+# SQLite3 Configuration
+# Used when db_type is 'sqlite3'.
+# -----------------------------------------------------------------------------
+
+[sqlite3]
+# [Database File]
+# Absolute path to the SQLite3 database file.
+# The directory must exist and be writable by the gammu-smsd service user.
+# Default: /var/lib/gammu-smsd/gammu.db
+file = {{ db_file | default('/var/lib/gammu-smsd/gammu.db') }}
+
+{% elif db_type | default('mysql') == 'postgresql' %}
+# -----------------------------------------------------------------------------
+# PostgreSQL Configuration
+# Used when db_type is 'postgresql'.
+# -----------------------------------------------------------------------------
+
+[postgresql]
+# [Database Host]
+# Hostname or IP address of the PostgreSQL server.
+# Default: localhost
+host = {{ db_host | default('localhost') }}
+
+# [Database User]
+# Username for authenticating with the PostgreSQL server.
+# Default: smsd
+user = {{ db_user | default('smsd') }}
+
+# [Database Password]
+# Password for the database user.
+# Default: '' (empty)
+password = {{ db_password | default('') }}
+
+# [Database Name]
+# Name of the PostgreSQL database to use.
+# Default: smsd
+database = {{ db_database | default('smsd') }}
+
+{% endif %}
+
+# ==============================================================================
+# Logging and Behavior
+# ==============================================================================
+
+# [Log File]
+# Path to the log file for gammu-smsd.
+# Set to an empty string to disable file logging (logs may go to syslog instead).
+# Default: /var/log/gammu-smsd.log
+logfile = {{ log_file | default('/var/log/gammu-smsd.log') }}
+
+# [Log Level]
+# Verbosity of the log output.
+# 0 = No logging
+# 1 = Errors only
+# 2 = Warnings
+# 3 = Information (default)
+# 4 = Debug
+# Default: 1
+loglevel = {{ loglevel | default(1) }}
+
+# [SMSD Poll Interval]
+# Time in seconds between polling the modem for new SMS messages.
+# Set to 0 to disable polling (requires hardware interrupt support like IrDA or serial CD/DSR).
+# Default: 15
+smsd_poll_interval = {{ smsd_poll_interval | default(15) }}
+
+# [Max Retry]
+# Maximum number of times gammu-smsd will retry sending an SMS that failed.
+# Default: 3
+max_retry = {{ max_retry | default(3) }}
+
+# [Sent Folder]
+# Directory path where sent SMS message files are archived.
+# Optional. Leave empty to disable file-based archiving of sent messages.
+# Default: '' (empty)
+sentfolder = {{ sentfolder | default('') }}
+
+# [Inbox Folder]
+# Directory path where received SMS message files are archived.
+# Optional. Leave empty to disable file-based archiving of received messages.
+# Default: '' (empty)
+inboxfolder = {{ inboxfolder | default('') }}
+
+# [Archive]
+# Whether to archive sent SMS messages into the database.
+# true = Enable archival
+# false = Disable archival
+# Default: true
+archive = {{ archive | default('true') | lower }}

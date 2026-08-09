@@ -1,0 +1,172 @@
+# Deep Learning Gateway Dashboard Configuration
+# ==========================================================
+# This template configures the berrynet_dashboard web interface.
+# It binds to a network interface, serves models via HTTP(S),
+# and supports LDAP/OAuth2 authentication with optional audit logging.
+# ==========================================================
+
+# Network interface to bind the dashboard server to.
+# Default: 0.0.0.0 (all interfaces)
+bind_address: {{ bind_address | default('0.0.0.0') }}
+
+# HTTP(S) port for the web interface.
+# Default: 5000
+port: {{ port | default(5000) }}
+
+# Enable verbose debug logging and auto-reload.
+# Default: false
+debug: {{ debug | default(false) }}
+
+# Directory to cache downloaded model artifacts.
+# Default: /var/cache/berrynet/models
+model_cache_dir: {{ model_cache_dir | default('/var/cache/berrynet/models') }}
+
+# Path to the SQLite database file storing metadata and logs.
+# Default: /var/lib/berrynet/dashboard.db
+database_path: {{ database_path | default('/var/lib/berrynet/dashboard.db') }}
+
+# Maximum number of simultaneous inference requests the dashboard can handle.
+# Default: 4
+max_concurrent_inferences: {{ max_concurrent_inferences | default(4) }}
+
+# Timeout in seconds for inference requests before aborting.
+# Default: 30
+inference_timeout: {{ inference_timeout | default(30) }}
+
+# Enable HTTPS using the provided TLS certificate and key.
+# Default: false
+use_https: {{ use_https | default(false) }}
+
+{% if use_https | default(false) %}
+# Path to the TLS certificate file (used only if HTTPS is enabled).
+# Default: /etc/ssl/berrynet/dashboard.crt
+cert_file: {{ cert_file | default('/etc/ssl/berrynet/dashboard.crt') }}
+
+# Path to the TLS private key file (used only if HTTPS is enabled).
+# Default: /etc/ssl/berrynet/dashboard.key
+key_file: {{ key_file | default('/etc/ssl/berrynet/dashboard.key') }}
+{% endif %}
+
+# Logging verbosity level for the dashboard server.
+# Default: INFO
+log_level: {{ log_level | default('INFO') }}
+
+# Path to the dashboard server log file.
+# Default: /var/log/berrynet/dashboard.log
+log_file: {{ log_file | default('/var/log/berrynet/dashboard.log') }}
+
+# Authentication method for dashboard users.
+# Supported values: 'basic', 'ldap', 'oauth2'
+# Default: basic
+auth_backend: {{ auth_backend | default('basic') }}
+
+{% if auth_backend | default('basic') == 'ldap' %}
+# LDAP-specific settings.
+# Used when auth_backend is 'ldap'.
+
+# LDAP server URI (used if auth_backend is 'ldap').
+# Default: ldaps://ldap.example.com:636
+ldap_uri: {{ ldap_uri | default('ldaps://ldap.example.com:636') }}
+
+# DN for binding to the LDAP server (used if auth_backend is 'ldap').
+# Default: uid=admin,cn=users,cn=accounts,dc=example,dc=com
+ldap_bind_dn: {{ ldap_bind_dn | default('uid=admin,cn=users,cn=accounts,dc=example,dc=com') }}
+
+# Password for LDAP bind DN (used if auth_backend is 'ldap').
+# Default: (empty)
+ldap_password: {{ ldap_password | default('') }}
+
+# Base DN to search for users (used if auth_backend is 'ldap').
+# Default: cn=users,cn=accounts,dc=example,dc=com
+ldap_search_base: {{ ldap_search_base | default('cn=users,cn=accounts,dc=example,dc=com') }}
+
+# Filter to match usernames during authentication.
+# Supports '{{username}}' placeholder.
+# Default: (uid={{username}})
+ldap_search_filter: {{ ldap_search_filter | default('(uid={{username}})') }}
+
+# Optional group DN to require for access (used if auth_backend is 'ldap').
+# Default: cn=users,cn=accounts,dc=example,dc=com
+ldap_user_group: {{ ldap_user_group | default('cn=users,cn=accounts,dc=example,dc=com') }}
+{% elif auth_backend | default('basic') == 'oauth2' %}
+# OAuth2 provider settings.
+# Used when auth_backend is 'oauth2'.
+
+# OAuth2 provider base URL (used if auth_backend is 'oauth2').
+# Default: https://accounts.google.com
+oauth2_provider_url: {{ oauth2_provider_url | default('https://accounts.google.com') }}
+
+# OAuth2 client ID (used if auth_backend is 'oauth2').
+# Default: (empty)
+oauth2_client_id: {{ oauth2_client_id | default('') }}
+
+# OAuth2 client secret (used if auth_backend is 'oauth2').
+# Default: (empty)
+oauth2_client_secret: {{ oauth2_client_secret | default('') }}
+
+# OAuth2 redirect URI (must match provider configuration).
+# Default: https://dashboard.example.com/callback
+oauth2_redirect_uri: {{ oauth2_redirect_uri | default('https://dashboard.example.com/callback') }}
+{% endif %}
+
+# List of models to expose in the dashboard.
+# Each model specifies name, path, and optional labels/input_size.
+models:
+{% if models | default([]) is iterable %}
+{% for model in models | default([]) %}
+- name: {{ model.name | default('') }}
+  path: {{ model.path | default('') }}
+  {% if model.labels is defined and model.labels is iterable %}
+  labels: {{ model.labels | join(', ') }}
+  {% endif %}
+  {% if model.input_size is defined and model.input_size is iterable %}
+  input_size: [{{ model.input_size | join(', ') }}]
+  {% endif %}
+{% endfor %}
+{% else %}
+# No models defined.
+{% endif %}
+
+# Default device to use for inference.
+# Examples: 'cpu', 'cuda:0', 'vpu:MYRIAD'
+# Default: cpu
+default_device: {{ default_device | default('cpu') }}
+
+# Explicit device assignments for multi-accelerator setups.
+devices:
+{% if devices | default([]) is iterable %}
+{% for dev in devices | default([]) %}
+- device_id: {{ dev.device_id | default('') }}
+  type: {{ dev.type | default('') }}
+  {% if dev.label is defined and dev.label is not none %}
+  label: {{ dev.label }}
+  {% endif %}
+{% endfor %}
+{% else %}
+# No explicit device mappings defined.
+{% endif %}
+
+# Maximum number of requests allowed per minute per IP address.
+# Default: 60
+rate_limit_rpm: {{ rate_limit_rpm | default(60) }}
+
+# List of allowed CORS origins.
+# Use ['*'] for all origins, or specific URLs like ['https://dashboard.example.com'].
+# Default: ['*']
+cors_origins: {{ cors_origins | default(['*']) | join(', ') }}
+
+# Session validity period in seconds.
+# Default: 3600
+session_timeout: {{ session_timeout | default(3600) }}
+
+# Enable logging of user actions (login, inference requests, configuration changes).
+# Default: false
+audit_logging: {{ audit_logging | default(false) }}
+
+# Path to the audit log file (used only if audit_logging is enabled).
+# Default: /var/log/berrynet/audit.log
+audit_log_file: {{ audit_log_file | default('/var/log/berrynet/audit.log') }}
+
+# Directory containing frontend assets (HTML, JS, CSS).
+# Default: /usr/share/berrynet/dashboard/static
+frontend_dir: {{ frontend_dir | default('/usr/share/berrynet/dashboard/static') }}

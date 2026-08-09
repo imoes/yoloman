@@ -1,0 +1,111 @@
+# ==============================================================================
+# Neutron L3 Agent Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the OpenStack Neutron L3 Agent.
+# The L3 Agent is responsible for routing, NAT (SNAT/DNAT), and DHCP assistance
+# for virtual machines in OpenStack environments.
+#
+# Self-documenting: every directive includes its schema description as a comment.
+# ==============================================================================
+
+[DEFAULT]
+
+# Interface driver used for L3 agent to manage virtual network interfaces
+# The driver handles the creation and configuration of Linux network interfaces
+# associated with virtual networks (e.g., OVS, LinuxBridge, SR-IOV).
+interface_driver = {{ interface_driver | default('neutron.agent.linux.interface.OVSInterfaceDriver') }}
+
+# Enable high availability mode (HA) for routers (requires L3 HA support)
+# When enabled, redundant agents track virtual IP addresses to provide failover
+# for active routers in case of agent failure.
+enable_ha = {{ enable_ha | default(true) | lower }}
+
+# Number of parallel processes handling router operations (for performance scaling)
+# Increasing this value allows the agent to handle more routers concurrently
+# by spawning multiple child processes.
+num_router_processes = {{ num_router_processes | default(1) }}
+
+# Delete network namespaces when a router is removed (clean up resources)
+# If true, the L3 agent will remove the Linux network namespace associated
+# with a router when the router is deleted from the database.
+router_delete_namespaces = {{ router_delete_namespaces | default(true) | lower }}
+
+# Maximum number of floating IPs allowed per router
+# Limits the number of floating IP addresses that can be associated with
+# a single router to prevent resource exhaustion or misconfiguration.
+max_floating_ips_per_router = {{ max_floating_ips_per_router | default(50) }}
+
+# SNAT IP for DVR SNAT namespaces (auto-computed if left empty)
+# In Distributed Virtual Routing (DVR) with SNAT, this specifies the source
+# IP address used for SNAT traffic in central SNAT namespaces.
+dvr_snat_default_snat_ip = {{ dvr_snat_default_snat_ip | default('') }}
+
+# DVR (Distributed Virtual Routing) mode: legacy (no DVR), dvr (DVR), or dvr_snat (DVR + SNAT)
+# - legacy: Traditional centralized L3 processing.
+# - dvr: Distributed routing at compute nodes, no central SNAT.
+# - dvr_snat: Distributed routing with a central SNAT namespace for egress traffic.
+dvr_mode = {{ dvr_mode | default('legacy') }}
+
+# Name of the bridge used for external network connectivity
+# This bridge connects the virtual network to the physical external network.
+# Commonly 'br-ex' or 'br-ex-int'.
+external_network_bridge = {{ external_network_bridge | default('br-ex') }}
+
+# Interval (seconds) between heartbeats to the Neutron server
+# The agent sends a heartbeat message to the Neutron server at this interval
+# to indicate it is alive and functioning.
+agent_alive_interval = {{ agent_alive_interval | default(30) }}
+
+# Number of missed heartbeats before marking agent as dead
+# If the Neutron server does not receive heartbeats from the agent for
+# this many consecutive intervals, it marks the agent as inactive/dead.
+agent_alive_threshold = {{ agent_alive_threshold | default(10) }}
+
+# Enable verbose/debug logging
+# When true, enables debug-level logging which provides detailed information
+# about agent operations, useful for troubleshooting.
+verbose = {{ verbose | default(true) | lower }}
+
+# Directory to store log files
+log_dir = {{ log_dir | default('/var/log/neutron') }}
+
+# Name of the log file
+log_file = {{ log_file | default('neutron-l3-agent.log') }}
+
+# --- Custom Service Overrides ---
+# If the 'services' variable is provided as a list of dicts with 'name' and 'body',
+# this loop generates additional configuration sections.
+{% for service in services | default([]) %}
+
+# [{{ service.name }}] section — service-specific overrides
+[{{ service.name }}]
+{{ service.body | indent(0) }}
+{% endfor %}
+
+# --- Router Section ---
+[router]
+
+# Default router mode for new routers
+# Specifies the default routing mode (legacy, dvr, dvr_snat) applied to
+# routers when they are created, unless explicitly overridden.
+mode = {{ router_mode | default('legacy') }}
+
+# External gateway implementation class
+# Fully qualified class name used to handle external gateway operations
+# such as SNAT setup and floating IP management.
+external_gateway_helper = {{ external_gateway_helper | default('neutron.agent.linux.external_gateway.ExternalGateway') }}
+
+# Bridge used for SNAT internal traffic in DVR mode
+# This bridge is used internally by the SNAT namespace to handle traffic
+# between internal subnets and the external network in DVR setups.
+snat_internal_bridge = {{ snat_internal_bridge | default('br-int') }}
+
+# Use Linux network namespaces to isolate router instances
+# When enabled, each router gets its own network namespace, ensuring
+# isolation of routing tables and interfaces.
+use_namespaces = {{ use_namespaces | default(true) | lower }}
+
+# Maximum number of external networks a router can connect to (0 = unlimited)
+# Limits the number of external network gateways a single router can have.
+# A value of 0 imposes no limit.
+max_external_gw_nets = {{ max_external_gw_nets | default(0) }}

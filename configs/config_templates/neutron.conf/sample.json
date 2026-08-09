@@ -1,0 +1,50 @@
+{
+  "auth_strategy": "keystone",
+  "core_plugin": "ml2",
+  "service_plugins": [
+    "l3",
+    "dhcp",
+    "metering",
+    "rbac"
+  ],
+  "log_dir": "/var/log/neutron",
+  "log_file": "neutron.log",
+  "database_url": "mysql+pymysql://neutron:secrete@10.0.0.1/neutron",
+  "rpc_backend": "rabbit",
+  "message_queues": [
+    {
+      "type": "rabbit",
+      "host": "10.0.0.1",
+      "port": 5672,
+      "user": "neutron",
+      "password": "secretpassword",
+      "virtual_host": "/"
+    }
+  ],
+  "notification_drivers": [
+    "neutron.notifications.audit"
+  ],
+  "metadata_shared_secret": "metadata_shared_secret_12345",
+  "metadata_proxy_socket": "/var/lib/neutron/metadata_proxy",
+  "metadata_proxy_workers": 4,
+  "quota_driver": "neutron.db.quota.driver.DbQuotaDriver",
+  "quota_items": [
+    {
+      "resource": "network",
+      "limit": 10
+    },
+    {
+      "resource": "port",
+      "limit": 50
+    },
+    {
+      "resource": "subnet",
+      "limit": 10
+    }
+  ],
+  "api_workers": 4,
+  "api_bind_host": "0.0.0.0",
+  "api_bind_port": 9696,
+  "enable_notifications": true,
+  "healthcheck_backend": "config"
+}

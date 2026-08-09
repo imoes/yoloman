@@ -1,0 +1,53 @@
+name: uri
+fqcn: builtin.uri
+collection: builtin
+short_description: Make an arbitrary HTTP(S) request and return its status code, headers,
+  and (if requested) body
+description: 'Make an arbitrary HTTP(S) request and return its status code, headers,
+  and (if requested) body. Fails if the response status isn''t in `status_code` (default:
+  just 200). Always requires write:true regardless of method — method is a runtime
+  parameter (GET vs. POST/PUT/DELETE/...) and this tool can reach and mutate arbitrary
+  remote systems, so it is treated as a write-class capability uniformly rather than
+  trusting the caller''s stated method.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.uri. Same url/method/body/headers/status_code/return_content
+  semantics (a focused subset — Ansible''s own module also supports auth/TLS options
+  and response file saving, not yet implemented here).
+
+  - Chef: the `Chef::HTTP` class or the `remote_file`/`http_request` resources.
+
+  - Puppet: no core equivalent; typically a custom fact/function or an `exec` wrapping
+  curl.
+
+  - Salt: the `http.query` execution module.
+
+  - Terraform: the `http` data source (read-only GET only) or a `null_resource` provisioner
+  wrapping curl for anything mutating.'
+options:
+  body:
+    type: string
+    description: Optional request body.
+  headers:
+    type: object
+    description: Optional request headers.
+  method:
+    type: string
+    description: HTTP method. Default "GET".
+  return_content:
+    type: bool
+    default: false
+    description: When true, include the response body in the result. Default false.
+  status_code:
+    type: list
+    description: Acceptable response status codes. Default [200].
+  url:
+    type: string
+    description: Request URL.
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

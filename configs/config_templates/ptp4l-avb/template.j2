@@ -1,0 +1,118 @@
+# ============================================================================
+# ptp4l.conf — PTPv2 AVB (Audio/Video Bridging) Profile Configuration
+# ============================================================================
+# This template configures linuxptp's ptp4l daemon for AVB compliance.
+# It sets the global PTP profile, timing intervals, and interface-specific
+# delay mechanisms. All variables default to safe AVB values if not provided.
+# ============================================================================
+
+[global]
+
+# PTP profile identifier; 0x001b corresponds to IEEE 1722.1 AVB profile.
+profile_id {{ profile_id | default('0x001b') }}
+
+# Priority1 value for the Best Master Clock Algorithm (BMCA).
+# Lower values indicate higher priority (range 0–14).
+# Typical value for AVB boundary clocks is 2.
+priority1 {{ priority1 | default(2) }}
+
+# Priority2 value for BMCA tie-breaking.
+# Used when two clocks have the same priority1.
+priority2 {{ priority2 | default(6) }}
+
+# Clock class identifier.
+# 248 is typical for AVB boundary clocks; 254 is for ordinary clocks.
+clock_class {{ clock_class | default(248) }}
+
+# Log2 of the offset from the master in microseconds.
+# 0 indicates the clock is synced; adjust only if specific calibration is known.
+offset_from_master {{ offset_from_master | default(0) }}
+
+# Mean path delay in microseconds.
+# 0 enables auto-detection; set explicitly for deterministic behavior.
+path_delay {{ path_delay | default(0) }}
+
+# Number of consecutive lost or out-of-sync Announce messages before
+# the clock rejects the current master.
+master_acceptable {{ master_acceptable | default(2) }}
+
+# If true, this instance acts only as a slave (endpoint).
+# Suitable for AVB audio interfaces that should never become the master.
+# Converted to 'on' or 'off' for the config file.
+slave_only {{ 'on' if slave_only | default(False) else 'off' }}
+
+# Clock accuracy class (hex).
+# 0x21 represents ±25 nanoseconds, typical for AVB hardware.
+accuracy {{ accuracy | default('0x21') }}
+
+# Time source type (hex).
+# 0x10 indicates GPS; 0x80 indicates an atomic clock.
+# Affects grandmaster selection in multi-domain setups.
+time_source {{ time_source | default('0x10') }}
+
+# PTP domain number.
+# AVB typically uses domain 0.
+domain_number {{ domain_number | default(0) }}
+
+# SDO_ID for domain uniqueness.
+# Range 0–65535; used in multi-domain deployments.
+sdo_id {{ sdo_id | default(0) }}
+
+# Announce interval, specified as log2 of seconds.
+# 0 = 1 second; -1 = 500 ms; -2 = 250 ms.
+# AVB usually defaults to 0.
+announce_interval {{ announce_interval | default(0) }}
+
+# Sync interval, specified as log2 of seconds.
+# -2 = 25 ms; -3 = 12.5 ms.
+# AVB typical range is -2 to -3.
+sync_interval {{ sync_interval | default(-2) }}
+
+# Delay_Req interval, specified as log2 of seconds.
+# -2 = 25 ms.
+# Should generally match the sync interval for AVB.
+delayreq_interval {{ delayreq_interval | default(-2) }}
+
+# Destination MAC address for PTP Announce messages.
+# 01:80:C2:00:00:0E is the standard bridge group address.
+ptp_dst_mac 01:80:C2:00:00:0E
+
+# Network transport type.
+# L2 (Ethernet) is required for AVB compliance. L3 (UDP) is not AVB-compliant.
+network_transport {{ network_transport | default('L2') }}
+
+# Transport-specific header bits.
+# 0x0 for L2 (Ethernet); 0x1 for L3 (UDP).
+# Must match the network_transport setting.
+transport_specific {{ transport_specific | default('0x0') }}
+
+# ============================================================================
+# Interface Configuration
+# ============================================================================
+# Iterate over the list of interfaces to generate per-interface blocks.
+# Each interface block defines its own delay mechanism and settings.
+# ============================================================================
+
+{% for iface in interfaces | default([{'name': 'eth0', 'delay_mechanism': 'E2E'}]) %}
+
+[{{ iface.name | default('default') }}]
+
+# Name of the network interface (e.g., eth0, eno1).
+# This must match the interface name in the OS.
+interface {{ iface.name }}
+
+# Enable hardware timestamping on this interface.
+# Recommended 'on' for low-latency AVB applications.
+hw_timestamping {{ 'on' if iface.hw_timestamping is none or (iface.hw_timestamping | default(True)) else 'off' }}
+
+# Port number on this interface (1-indexed).
+# Usually 1 for single-port NICs.
+port_number {{ iface.port_number | default(1) }}
+
+# Delay mechanism used on this interface.
+# 'E2E' (End-to-End) or 'P2P' (Peer-to-Peer).
+# E2E is typical for AVB boundary clocks.
+# If not specified, defaults to E2E.
+delay_mechanism {{ iface.delay_mechanism | default('E2E') }}
+
+{% endfor %}

@@ -1,0 +1,80 @@
+# ==============================================================================
+# Courier Authentication Daemon Configuration Template
+# ==============================================================================
+# This template configures courier-authlib's authdaemon service.
+# It handles authentication module selection, process management, and PAM integration.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Directory path containing the authentication modules (e.g., authmysql.so, authldap.so)
+# ------------------------------------------------------------------------------
+authmodulepath = "{{ authmodulepath | default('/usr/lib/courier-authlib') }}"
+
+# ------------------------------------------------------------------------------
+# Ordered list of authentication module names to use (must match module filenames without .so)
+# The modules are tried in the order specified.
+# ------------------------------------------------------------------------------
+authmodule = "{{ authmodule | default(['authpam']) | join(' ') }}"
+
+# ------------------------------------------------------------------------------
+# Minimum number of idle authentication daemon processes to maintain
+# Ensures immediate responsiveness by keeping at least this many workers ready.
+# ------------------------------------------------------------------------------
+minprocs = {{ minprocs | default(5) }}
+
+# ------------------------------------------------------------------------------
+# Maximum number of authentication daemon processes to spawn
+# Limits resource consumption by capping the total number of auth daemon processes.
+# ------------------------------------------------------------------------------
+maxdaemons = {{ maxdaemons | default(20) }}
+
+# ------------------------------------------------------------------------------
+# Timeout (in seconds) after which idle daemon processes terminate
+# Idle workers beyond minprocs will be killed after this duration to free resources.
+# ------------------------------------------------------------------------------
+daemontimeout = {{ daemontimeout | default(600) }}
+
+# ------------------------------------------------------------------------------
+# Enable verbose debugging output to syslog
+# Set to 1 for on, 0 for off. Useful for troubleshooting authentication failures.
+# ------------------------------------------------------------------------------
+debug = {% if debug | default(false) | bool %}1{% else %}0{% endif %}
+
+# ------------------------------------------------------------------------------
+# Syslog facility to use when logging (e.g., auth, authpriv, local0–local7)
+# Directs log messages to the specified syslog facility.
+# ------------------------------------------------------------------------------
+syslog = {{ syslog_facility | default('auth') }}
+
+# ------------------------------------------------------------------------------
+# Enable PAM-based authentication (required for system users)
+# Set to 1 to enable, 0 to disable. If disabled, PAM-specific settings are ignored.
+# ------------------------------------------------------------------------------
+usepam = {% if usepam | default(true) | bool %}1{% else %}0{% endif %}
+
+# ------------------------------------------------------------------------------
+# Name of the PAM service configuration file (without .conf extension)
+# Usually /etc/pam.d/courier. Only effective if usepam is enabled.
+# ------------------------------------------------------------------------------
+pamservice = "{{ pam_service | default('courier') }}"
+
+# ------------------------------------------------------------------------------
+# Absolute path to a dedicated log file (if not using syslog)
+# If specified, authdaemon logs to this file instead of (or in addition to) syslog.
+# ------------------------------------------------------------------------------
+{% if logfile | default(none) is not none %}
+logfile = "{{ logfile | default(none) }}"
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Per-module instance configurations
+# Allows overriding default settings for specific authentication modules.
+# Each item in module_instances should have a 'comment' and a 'config' dict.
+# ------------------------------------------------------------------------------
+{% for module_instance in module_instances | default([]) %}
+
+# {{ module_instance.comment | default('Module Instance') }}
+{% for item in module_instance.config | default({}) | dict2items %}
+{{ item.key }}={{ item.value }}
+{% endfor %}
+{% endfor %}

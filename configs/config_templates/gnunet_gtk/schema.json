@@ -1,0 +1,215 @@
+{
+  "paths.database_home": {
+    "type": "string",
+    "default": "/var/lib/gnunet",
+    "description": "Directory where GNUnet stores its SQLite databases."
+  },
+  "paths.config_home": {
+    "type": "string",
+    "default": "/etc/gnunet",
+    "description": "Directory for system-wide configuration files."
+  },
+  "paths.dht_data_dir": {
+    "type": "string",
+    "default": "/var/lib/gnunet/dht",
+    "description": "Directory for DHT persistent data (blocks and index)."
+  },
+  "paths.zonekey_dir": {
+    "type": "string",
+    "default": "/var/lib/gnunet/gns",
+    "description": "Directory containing GNS zone signing keys."
+  },
+  "services.resolver.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the DNS resolver service to allow resolution of .gnunet domains."
+  },
+  "services.nat.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable NAT traversal helpers to support peers behind NAT/firewalls."
+  },
+  "services.nat.force_local": {
+    "type": "bool",
+    "default": false,
+    "description": "Force internal (RFC1918) addresses to be used for communication (for testing only)."
+  },
+  "services.peerinfo.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable peer information service to share and discover peer metadata."
+  },
+  "peerinfo.trusted_peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of peer identities (base32-encoded) that are trusted to sign certificates.",
+    "items": {
+      "type": "string",
+      "description": "Base32-encoded peer identity (e.g., P123456789012345678901234567890123456789012345)"
+    }
+  },
+  "transport.plugins": {
+    "type": "list",
+    "default": [
+      "tcp",
+      "udp"
+    ],
+    "description": "List of network transport plugins to enable. Common: tcp, udp, http, https.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "tcp",
+        "udp",
+        "http",
+        "https"
+      ],
+      "description": "Transport plugin name."
+    }
+  },
+  "transport.plugin_configs": {
+    "type": "object",
+    "default": {
+      "tcp": {
+        "port": 2086,
+        "listen": true,
+        "bind_to": "0.0.0.0"
+      },
+      "udp": {
+        "port": 2086,
+        "listen": true,
+        "bind_to": null
+      },
+      "http": {
+        "port": 2087,
+        "listen": true,
+        "bind_to": "127.0.0.1"
+      },
+      "https": {
+        "port": 2088,
+        "listen": true,
+        "bind_to": "0.0.0.0"
+      }
+    },
+    "description": "Per-transport configuration: port, listen (bool), and optional bind_to address.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "port": {
+          "type": "number",
+          "default": 2086,
+          "description": "Port to bind or connect to."
+        },
+        "listen": {
+          "type": "bool",
+          "default": true,
+          "description": "Whether to accept inbound connections on this transport."
+        },
+        "bind_to": {
+          "type": "string",
+          "default": null,
+          "description": "IP address to bind to (e.g., 127.0.0.1, 0.0.0.0); leave empty for all interfaces."
+        }
+      }
+    }
+  },
+  "services.ats.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Automatic Transport Selection for dynamic bandwidth allocation and path selection."
+  },
+  "ats.wan_quota_in": {
+    "type": "number",
+    "default": 102400,
+    "description": "WAN inbound bandwidth quota in bytes per second (e.g., 100 KiB/s)."
+  },
+  "ats.wan_quota_out": {
+    "type": "number",
+    "default": 102400,
+    "description": "WAN outbound bandwidth quota in bytes per second."
+  },
+  "services.vpn.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the VPN service to route traffic through GNUnet tunnels (requires kernel support)."
+  },
+  "services.tun.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TUN interface to route IP traffic over GNUnet (experimental)."
+  },
+  "services.consensus.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable consensus service for distributed agreement (used by DHT, FS, etc.)."
+  },
+  "services.dht.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the DHT (distributed hash table) for key-value lookups."
+  },
+  "dht.debug_no_disk": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable disk persistence for DHT data (for testing or memory-only operation)."
+  },
+  "services.fs.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GNUnet file-sharing (anonymously publish and retrieve files)."
+  },
+  "fs.default_namespace": {
+    "type": "string",
+    "default": "public",
+    "description": "Default namespace for publishing (e.g., 'public', 'private', or custom namespace name)."
+  },
+  "fs.search_timeout_ms": {
+    "type": "number",
+    "default": 30000,
+    "description": "Default search timeout in milliseconds (e.g., 30000 = 30 seconds)."
+  },
+  "fs.max_concurrent_searches": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent file searches allowed."
+  },
+  "services.identity.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable identity service to manage local peer identity."
+  },
+  "identity.default_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Default name for the local peer identity (used for logging and UI)."
+  },
+  "services.revocation.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable cryptographic key revocation service (advanced, rarely needed)."
+  },
+  "services.set.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable social set operations (e.g., private set intersection for contact discovery)."
+  },
+  "services.gns.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GNU Name System \u2014 a decentralized, DNS-compatible naming layer."
+  },
+  "gns.cache_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DHT caching for GNS records to improve lookup performance."
+  },
+  "services.nse.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Network Size Estimation \u2014 helps peers estimate total network size."
+  },
+  "services.statistics.enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable local statistics collection (used by GTK UI and CLI tools)."
+  }
+}

@@ -1,0 +1,71 @@
+# ==============================================================================
+# PostgreSQL PL/Perl Procedural Language Extension Configuration
+# ==============================================================================
+# This file configures the PL/Perl extension for PostgreSQL.
+# PL/Perl allows writing PostgreSQL functions in the Perl programming language.
+#
+# Security Note:
+#   - PL/Perl (trusted) is sandboxed and safe for general use.
+#   - PL/PerlU (untrusted) allows access to system resources and is dangerous.
+#     Only enable PL/PerlU if absolutely necessary and trusted users only.
+# ==============================================================================
+
+# --- Shared Preload Libraries ---
+
+# Enable PL/Perl as a shared preload library so it's available across sessions.
+# When true, PostgreSQL loads the plperl module at startup, allowing immediate
+# function creation without per-session overhead.
+{% if enable_plperl | default(False) | bool %}
+shared_preload_libraries = 'plperl'
+{% endif %}
+
+# --- PL/Perl Security & Strictness ---
+
+# Whether to enforce strict mode for PL/Perl functions.
+# Strict mode enables Perl's 'use strict' pragma automatically, preventing
+# common errors like typos in variable names. This is recommended for security
+# and code quality.
+# Note: Even with strict mode, untrusted PL/Perl (PL/PerlU) remains a risk.
+plperl.use_strict = {{ enable_plperlu | default(False) | bool | ternary('off', 'on') }}
+
+# --- PL/Perl Initialization Hooks ---
+
+# SQL command(s) executed once per Perl interpreter initialization.
+# These commands run when the PostgreSQL backend process starts its Perl interpreter.
+# Typical use: 'use strict;', 'use warnings;', or loading common modules.
+# Leave empty for no initialization commands.
+plperl.on_init = '{{ plperl_on_init | default('', true) | replace('\n', '\\n') }}'
+
+# SQL command(s) executed every time a new PL/Perl function is loaded in the session.
+# These commands run when a PL/Perl function is first called in a session.
+# Useful for session-scoped setup, such as initializing session-specific state.
+# Leave empty for no per-function initialization commands.
+plperl.on_plperl_init = '{{ plperl_on_plperl_init | default('', true) | replace('\n', '\\n') }}'
+
+# --- PL/Perl Resource Limits ---
+
+# Maximum memory (in KB) a single PL/Perl function can allocate during execution.
+# Set to 0 for no limit. Use this to prevent runaway scripts from consuming
+# all available memory. Adjust based on your system's memory capacity and
+# expected function complexity.
+plperl.max_mem = {{ plperl_max_mem | default(0) }}
+
+# --- PL/Perl Module Search Paths ---
+
+# Additional paths to prepend to Perl’s @INC (module search path) for PL/Perl functions.
+# These paths allow PL/Perl functions to load custom Perl modules that are not
+# in the standard Perl library directories. Specify as a comma-separated list.
+# Example: '/usr/local/lib/perl5,/opt/custom/perl'
+{% if plperl_inc_paths | default([]) | length > 0 %}
+plperl.include_paths = '{{ plperl_inc_paths | default([]) | join(", ") }}'
+{% endif %}
+
+# --- PL/Perl Version ---
+
+# Explicit PL/Perl version (e.g., '5.38'). Usually auto-detected by PostgreSQL.
+# Only set this if you need to override the detected version or if multiple
+# Perl versions are installed and you need to specify which one to use.
+# Leave empty to let PostgreSQL auto-detect the version.
+{% if plperl_version | default('') | length > 0 %}
+# plperl.version = '{{ plperl_version | default("") }}'
+{% endif %}

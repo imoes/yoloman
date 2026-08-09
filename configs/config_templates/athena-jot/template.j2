@@ -1,0 +1,105 @@
+{# ============================================================================ #}
+{# athena-jot command configuration template                                     #}
+{# Self-documenting: every directive is preceded by its schema description.     #}
+{# This file drives the `athena-jot` CLI tool to generate pseudo-random,        #}
+{# sequential, repetitive, or formatted output sequences.                       #}
+{# ============================================================================ #}
+
+{# Type of generation: 'sequential', 'random', 'repetitive', or 'formatted' #}
+{%- set _ct = command_type | default('sequential') %}
+{%- if _ct == "sequential" %}
+# Type of generation: 'sequential', 'random', 'repetitive', or 'formatted'
+# Current mode: sequential number generation
+{%- elif _ct == "random" %}
+# Type of generation: 'sequential', 'random', 'repetitive', or 'formatted'
+# Current mode: random number/character generation
+{%- elif _ct == "repetitive" %}
+# Type of generation: 'sequential', 'random', 'repetitive', or 'formatted'
+# Current mode: repetitive word/string generation
+{%- elif _ct == "formatted" %}
+# Type of generation: 'sequential', 'random', 'repetitive', or 'formatted'
+# Current mode: formatted output with printf-style placeholders
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Common numeric parameters: reps, begin, end, step, seed                    #}
+{# -------------------------------------------------------------------------- #}
+
+{# Sequential, Random, and Formatted modes share bounds and repetition count #}
+{%- if _ct == "sequential" or _ct == "random" or _ct == "formatted" %}
+
+    {# Number of values to generate. 0 = infinite (valid only for 'repetitive' #}
+    {# and 'formatted' when used with -b 0) #}
+    {# NOTE: 'reps' is implicitly required for sequential/random, but we #}
+    {# provide the default from schema. #}
+    {# Number of values to generate. 0 = infinite (valid only for 'repetitive' #}
+    {# and 'formatted' when used with -b 0) #}
+    REPS={{ reps | default(100) }}
+
+    {# Lower bound: integer, float, or character (e.g. 'a', '0') #}
+    BEGIN={{ begin | default('1') }}
+
+    {# Upper bound: integer, float, or character (e.g. 'z', '255') #}
+    END={{ end | default('100') }}
+
+    {# Increment step (float or negative for decreasing sequences) #}
+    STEP={{ step | default('1') }}
+
+    {%- if _ct == "random" %}
+    {# Random seed (used only for random mode) #}
+    SEED={{ seed | default(0) }}
+    {%- endif %}
+
+{%- elif _ct == "repetitive" %}
+
+    {# Word to repeat when using -b flag #}
+    WORD={{ word | default('') }}
+
+    {# If reps is 0, we enter infinite loop mode #}
+    {%- if reps | default(100) == 0 %}
+    # Number of values to generate. 0 = infinite (valid only for 'repetitive' #}
+    {# and 'formatted' when used with -b 0) #}
+    INFINITE=yes
+    {%- else %}
+    # Number of values to generate. 0 = infinite (valid only for 'repetitive' #}
+    {# and 'formatted' when used with -b 0) #}
+    REPS={{ reps | default(100) }}
+    {%- endif %}
+
+{%- endif %}
+
+{# -------------------------------------------------------------------------- #}
+{# Output formatting: separator, precision, newline, char mode                #}
+{# -------------------------------------------------------------------------- #}
+
+{# String to separate values (used with -s flag) #}
+{# We always emit this if the user didn't explicitly leave it out, using the #}
+{# schema default \n. Note: indent(2) is not appropriate for a single value #}
+{# in a key=value pair; we output the literal string value. #}
+{# String to separate values (used with -s flag) #}
+SEPARATOR={{ separator | default("\n") | quote }}
+
+{# If true, omit the trailing newline (used with -n flag) #}
+{%- if no_final_newline | default(False) %}
+# If true, omit the trailing newline (used with -n flag)
+NO_FINAL_NEWLINE=yes
+{%- endif %}
+
+{# Precision for output (digits after decimal or max chars; used with -p flag) #}
+{# Only emit if defined (though we have a default, we check defined to respect #}
+{# explicit user intent or omit if schema implies optional. #}
+{%- if precision is defined %}
+# Precision for output (digits after decimal or max chars; used with -p flag)
+PRECISION={{ precision | default(0) }}
+{%- endif %}
+
+{# If true, enables character mode (-c flag); equivalent to format '%c' #}
+{%- if char_output | default(False) %}
+# If true, enables character mode (-c flag); equivalent to format '%c'
+CHAR_MODE=yes
+{%- endif %}
+
+{# ============================================================================ #}
+{# Example invocation (documentation only, not part of config):                 #}
+{#   jot -r -c 160 a z | rs -g 0 8                                              #}
+{# ============================================================================ #}

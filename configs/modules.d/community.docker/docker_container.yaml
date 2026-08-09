@@ -1,0 +1,709 @@
+name: docker_container
+fqcn: community.docker.docker_container
+collection: community.docker
+short_description: manage Docker containers
+description: Manage the life cycle of Docker containers. Supports check mode. Run with C(--check) and
+  C(--diff) to view config difference and list of actions to be taken.
+options:
+  api_version:
+    type: str
+    default: auto
+    aliases:
+    - docker_api_version
+    description: The version of the Docker API running on the Docker Host. Defaults to the latest version
+      of the API supported by this collection and the docker daemon. If the value is not specified in
+      the task, the value of environment variable E(DOCKER_API_VERSION) will be used instead. If the environment
+      variable is not set, the default value will be used.
+  auto_remove:
+    type: bool
+    description: Enable auto-removal of the container on daemon side when the container's process exits.
+      If O(container_default_behavior=compatibility), this option has a default of V(false).
+  blkio_weight:
+    type: int
+    description: Block IO (relative weight), between 10 and 1000.
+  ca_path:
+    type: path
+    aliases:
+    - ca_cert
+    - tls_ca_cert
+    - cacert_path
+    description: Use a CA certificate when performing server verification by providing the path to a CA
+      certificate file. If the value is not specified in the task and the environment variable E(DOCKER_CERT_PATH)
+      is set, the file C(ca.pem) from the directory specified in the environment variable E(DOCKER_CERT_PATH)
+      will be used. This option was called O(ca_cert) and got renamed to O(ca_path) in community.docker
+      3.6.0. The old name has been added as an alias and can still be used.
+  cap_drop:
+    type: list
+    description: List of capabilities to drop from the container.
+  capabilities:
+    type: list
+    description: List of capabilities to add to the container. This is equivalent to C(docker run --cap-add),
+      or the docker-compose option C(cap_add).
+  cgroup_parent:
+    type: str
+    description: Specify the parent cgroup for the container.
+  cgroupns_mode:
+    type: str
+    choices:
+    - host
+    - private
+    description: Specify the cgroup namespace mode for the container. The Docker CLI calls this simply
+      C(cgroupns).
+  cleanup:
+    type: bool
+    default: false
+    description: Use with O(detach=false) to remove the container after successful execution.
+  client_cert:
+    type: path
+    aliases:
+    - tls_client_cert
+    - cert_path
+    description: Path to the client's TLS certificate file. If the value is not specified in the task
+      and the environment variable E(DOCKER_CERT_PATH) is set, the file C(cert.pem) from the directory
+      specified in the environment variable E(DOCKER_CERT_PATH) will be used.
+  client_key:
+    type: path
+    aliases:
+    - tls_client_key
+    - key_path
+    description: Path to the client's TLS key file. If the value is not specified in the task and the
+      environment variable E(DOCKER_CERT_PATH) is set, the file C(key.pem) from the directory specified
+      in the environment variable E(DOCKER_CERT_PATH) will be used.
+  command:
+    type: raw
+    description: Command to execute when the container starts. A command may be either a string or a list.
+      Prior to version 2.4, strings were split on commas. See O(command_handling) for differences in how
+      strings and lists are handled.
+  command_handling:
+    type: str
+    default: correct
+    choices:
+    - compatibility
+    - correct
+    description: The default behavior for O(command) (when provided as a list) and O(entrypoint) is to
+      convert them to strings without considering shell quoting rules. (For comparing idempotency, the
+      resulting string is split considering shell quoting rules.) Also, setting O(command) to an empty
+      list of string, and setting O(entrypoint) to an empty list will be handled as if these options are
+      not specified. This is different from idempotency handling for other container-config related options.
+      When this is set to V(compatibility), which was the default until community.docker 3.0.0, the current
+      behavior will be kept. When this is set to V(correct), these options are kept as lists, and an empty
+      value or empty list will be handled correctly for idempotency checks. This has been the default
+      since community.docker 3.0.0.
+  comparisons:
+    type: dict
+    description: Allows to specify how properties of existing containers are compared with module options
+      to decide whether the container should be recreated / updated or not. Only options which correspond
+      to the state of a container as handled by the Docker daemon can be specified, as well as O(networks).
+      Must be a dictionary specifying for an option one of the keys V(strict), V(ignore) and V(allow_more_present).
+      If V(strict) is specified, values are tested for equality, and changes always result in updating
+      or restarting. If V(ignore) is specified, changes are ignored. V(allow_more_present) is allowed
+      only for lists, sets and dicts. If it is specified for lists or sets, the container will only be
+      updated or restarted if the module option contains a value which is not present in the container's
+      options. If the option is specified for a dict, the container will only be updated or restarted
+      if the module option contains a key which is not present in the container's option, or if the value
+      of a key present differs. The wildcard option C(*) can be used to set one of the default values
+      V(strict) or V(ignore) to I(all) comparisons which are not explicitly set to other values. See the
+      examples for details.
+  container_default_behavior:
+    type: str
+    default: no_defaults
+    choices:
+    - compatibility
+    - no_defaults
+    description: In older versions of this module, various module options used to have default values.
+      This caused problems with containers which use different values for these options. The default value
+      is now V(no_defaults). To restore the old behavior, set it to V(compatibility), which will ensure
+      that the default values are used when the values are not explicitly specified by the user. This
+      affects the O(auto_remove), O(detach), O(init), O(interactive), O(memory), O(paused), O(privileged),
+      O(read_only), and O(tty) options.
+  cpu_period:
+    type: int
+    description: Limit CPU CFS (Completely Fair Scheduler) period. See O(cpus) for an easier to use alternative.
+  cpu_quota:
+    type: int
+    description: Limit CPU CFS (Completely Fair Scheduler) quota. See O(cpus) for an easier to use alternative.
+  cpu_shares:
+    type: int
+    description: CPU shares (relative weight).
+  cpus:
+    type: float
+    description: Specify how much of the available CPU resources a container can use. A value of V(1.5)
+      means that at most one and a half CPU (core) will be used.
+  cpuset_cpus:
+    type: str
+    description: CPUs in which to allow execution. For example V(1,3) or V(1-3).
+  cpuset_mems:
+    type: str
+    description: Memory nodes (MEMs) in which to allow execution V(0-3) or V(0,1).
+  debug:
+    type: bool
+    default: false
+    description: Debug mode
+  default_host_ip:
+    type: str
+    description: Define the default host IP to use. Must be an empty string, an IPv4 address, or an IPv6
+      address. With Docker 20.10.2 or newer, this should be set to an empty string (V("")) to avoid the
+      port bindings without an explicit IP address to only bind to IPv4. See U(https://github.com/ansible-collections/community.docker/issues/70)
+      for details. By default, the module will try to auto-detect this value from the C(bridge) network's
+      C(com.docker.network.bridge.host_binding_ipv4) option. If it cannot auto-detect it, it will fall
+      back to V(0.0.0.0).
+  detach:
+    type: bool
+    description: Enable detached mode to leave the container running in background. If disabled, the task
+      will reflect the status of the container run (failed if the command failed). If O(container_default_behavior=compatibility),
+      this option has a default of V(true).
+  device_read_bps:
+    type: list
+    description: List of device path and read rate (bytes per second) from device.
+  device_read_iops:
+    type: list
+    description: List of device and read rate (IO per second) from device.
+  device_requests:
+    type: list
+    description: Allows to request additional resources, such as GPUs.
+  device_write_bps:
+    type: list
+    description: List of device and write rate (bytes per second) to device.
+  device_write_iops:
+    type: list
+    description: List of device and write rate (IO per second) to device.
+  devices:
+    type: list
+    description: List of host device bindings to add to the container. Each binding is a mapping expressed
+      in the format C(<path_on_host>:<path_in_container>:<cgroup_permissions>).
+  dns_opts:
+    type: list
+    description: List of DNS options.
+  dns_search_domains:
+    type: list
+    description: List of custom DNS search domains.
+  dns_servers:
+    type: list
+    description: List of custom DNS servers.
+  docker_host:
+    type: str
+    default: unix:///var/run/docker.sock
+    aliases:
+    - docker_url
+    description: The URL or Unix socket path used to connect to the Docker API. To connect to a remote
+      host, provide the TCP connection string. For example, V(tcp://192.0.2.23:2376). If TLS is used to
+      encrypt the connection, the module will automatically replace C(tcp) in the connection URL with
+      C(https). If the value is not specified in the task, the value of environment variable E(DOCKER_HOST)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  domainname:
+    type: str
+    description: Container domainname.
+  entrypoint:
+    type: list
+    description: Command that overwrites the default C(ENTRYPOINT) of the image. See O(command_handling)
+      for differences in how strings and lists are handled.
+  env:
+    type: dict
+    description: Dictionary of key,value pairs. Values which might be parsed as numbers, booleans or other
+      types by the YAML parser must be quoted (for example V("true")) in order to avoid data loss. Please
+      note that if you are passing values in with Jinja2 templates, like V("{{ value }}"), you need to
+      add V(| string) to prevent Ansible to convert strings such as V("true") back to booleans. The correct
+      way is to use V("{{ value | string }}").
+  env_file:
+    type: path
+    description: Path to a file, present on the target, containing environment variables C(FOO=BAR). If
+      variable also present in O(env), then the O(env) value will override.
+  etc_hosts:
+    type: dict
+    description: Dict of host-to-IP mappings, where each host name is a key in the dictionary. Each host
+      name will be added to the container's C(/etc/hosts) file.
+  exposed_ports:
+    type: list
+    aliases:
+    - exposed
+    - expose
+    description: List of additional container ports which informs Docker that the container listens on
+      the specified network ports at runtime. If the port is already exposed using C(EXPOSE) in a Dockerfile,
+      it does not need to be exposed again.
+  force_kill:
+    type: bool
+    default: false
+    aliases:
+    - forcekill
+    description: Use the kill command when stopping a running container.
+  groups:
+    type: list
+    description: List of additional group names and/or IDs that the container process will run as.
+  healthcheck:
+    type: dict
+    description: 'Configure a check that is run to determine whether or not containers for this service
+      are "healthy". See the docs for the L(HEALTHCHECK Dockerfile instruction,https://docs.docker.com/engine/reference/builder/#healthcheck)
+      for details on how healthchecks work. O(healthcheck.interval), O(healthcheck.timeout) and O(healthcheck.start_period)
+      are specified as durations. They accept duration as a string in a format that look like: V(5h34m56s),
+      V(1m30s), and so on. The supported units are V(us), V(ms), V(s), V(m) and V(h).'
+  hostname:
+    type: str
+    description: The container's hostname.
+  ignore_image:
+    type: bool
+    default: false
+    description: 'When O(state) is V(present) or V(started), the module compares the configuration of
+      an existing container to requested configuration. The evaluation includes the image version. If
+      the image version in the registry does not match the container, the container will be recreated.
+      You can stop this behavior by setting O(ignore_image) to V(true). B(Warning:) This option is ignored
+      if C(image: ignore) or C(*: ignore) is specified in the O(comparisons) option. This option is deprecated
+      since community.docker 3.2.0 and will be removed in community.docker 4.0.0. Use C(image: ignore)
+      in O(comparisons) instead of O(ignore_image=true).'
+  image:
+    type: str
+    description: Repository path and tag used to create the container. If an image is not found or pull
+      is true, the image will be pulled from the registry. If no tag is included, V(latest) will be used.
+      Can also be an image ID. If this is the case, the image is assumed to be available locally. The
+      O(pull) option is ignored for this case.
+  image_comparison:
+    type: str
+    default: desired-image
+    choices:
+    - desired-image
+    - current-image
+    description: Determines which image to use for idempotency checks that depend on image parameters.
+      The default, V(desired-image), will use the image that is provided to the module via the O(image)
+      parameter. V(current-image) will use the image that the container is currently using, if the container
+      exists. It falls back to the image that is provided in case the container does not yet exist. This
+      affects the O(env), O(env_file), O(exposed_ports), O(labels), and O(volumes) options.
+  image_label_mismatch:
+    type: str
+    default: ignore
+    choices:
+    - ignore
+    - fail
+    description: 'How to handle labels inherited from the image that are not set explicitly. When V(ignore),
+      labels that are present in the image but not specified in O(labels) will be ignored. This is useful
+      to avoid having to specify the image labels in O(labels) while keeping labels O(comparisons) V(strict).
+      When V(fail), if there are labels present in the image which are not set from O(labels), the module
+      will fail. This prevents introducing unexpected labels from the base image. B(Warning:) This option
+      is ignored unless C(labels: strict) or C(*: strict) is specified in the O(comparisons) option.'
+  image_name_mismatch:
+    type: str
+    choices:
+    - recreate
+    - ignore
+    description: 'Determines what the module does if the image matches, but the image name in the container''s
+      configuration does not match the image name provided to the module. This is ignored if C(image:
+      ignore) is set in O(comparisons). If set to V(recreate) the container will be recreated. If set
+      to V(ignore) (currently the default) the container will not be recreated because of this. It might
+      still get recreated for other reasons. This has been the default behavior of the module for a long
+      time, but might not be what users expect. Since community.docker 3.5.0, the default V(ignore) has
+      been deprecated. If not specified, a deprecation warning will be emitted if this setting would make
+      a difference. The default will change to V(recreate) in community.docker 4.0.0.'
+  init:
+    type: bool
+    description: Run an init inside the container that forwards signals and reaps processes. If O(container_default_behavior=compatibility),
+      this option has a default of V(false).
+  interactive:
+    type: bool
+    description: Keep stdin open after a container is launched, even if not attached. If O(container_default_behavior=compatibility),
+      this option has a default of V(false).
+  ipc_mode:
+    type: str
+    description: Set the IPC mode for the container. Can be one of V(container:<name|id>) to reuse another
+      container's IPC namespace or V(host) to use the host's IPC namespace within the container.
+  keep_volumes:
+    type: bool
+    default: true
+    description: Retain anonymous volumes associated with a removed container.
+  kernel_memory:
+    type: str
+    description: Kernel memory limit in format C(<number>[<unit>]). Number is a positive integer. Unit
+      can be V(B) (byte), V(K) (kibibyte, 1024B), V(M) (mebibyte), V(G) (gibibyte), V(T) (tebibyte), or
+      V(P) (pebibyte). Minimum is V(4M). Omitting the unit defaults to bytes.
+  kill_signal:
+    type: str
+    description: Override default signal used to kill a running container.
+  labels:
+    type: dict
+    description: Dictionary of key value pairs.
+  links:
+    type: list
+    description: List of name aliases for linked containers in the format C(container_name:alias). Setting
+      this will force container to be restarted.
+  log_driver:
+    type: str
+    description: Specify the logging driver. Docker uses V(json-file) by default. See L(the Docker logging
+      configuration documentation,https://docs.docker.com/config/containers/logging/configure/) for possible
+      choices.
+  log_options:
+    type: dict
+    aliases:
+    - log_opt
+    description: Dictionary of options specific to the chosen O(log_driver). See U(https://docs.docker.com/engine/admin/logging/overview/)
+      for details. O(log_driver) needs to be specified for O(log_options) to take effect, even if using
+      the default V(json-file) driver.
+  mac_address:
+    type: str
+    description: Container MAC address (for example, V(92:d0:c6:0a:29:33)). Note that the global container-wide
+      MAC address is deprecated and no longer used since Docker API version 1.44. Use O(networks[].mac_address)
+      instead.
+  memory:
+    type: str
+    description: Memory limit in format C(<number>[<unit>]). Number is a positive integer. Unit can be
+      V(B) (byte), V(K) (kibibyte, 1024B), V(M) (mebibyte), V(G) (gibibyte), V(T) (tebibyte), or V(P)
+      (pebibyte). Omitting the unit defaults to bytes. If O(container_default_behavior=compatibility),
+      this option has a default of V("0").
+  memory_reservation:
+    type: str
+    description: Memory soft limit in format C(<number>[<unit>]). Number is a positive integer. Unit can
+      be V(B) (byte), V(K) (kibibyte, 1024B), V(M) (mebibyte), V(G) (gibibyte), V(T) (tebibyte), or V(P)
+      (pebibyte). Omitting the unit defaults to bytes.
+  memory_swap:
+    type: str
+    description: Total memory limit (memory + swap) in format C(<number>[<unit>]), or the special values
+      V(unlimited) or V(-1) for unlimited swap usage. Number is a positive integer. Unit can be V(B) (byte),
+      V(K) (kibibyte, 1024B), V(M) (mebibyte), V(G) (gibibyte), V(T) (tebibyte), or V(P) (pebibyte). Omitting
+      the unit defaults to bytes.
+  memory_swappiness:
+    type: int
+    description: Tune a container's memory swappiness behavior. Accepts an integer between 0 and 100.
+      If not set, the value will be remain the same if container exists and will be inherited from the
+      host machine if it is (re-)created.
+  mounts:
+    type: list
+    description: Specification for mounts to be added to the container. More powerful alternative to O(volumes).
+  name:
+    type: str
+    required: true
+    description: Assign a name to a new container or match an existing container. When identifying an
+      existing container name may be a name or a long or short container ID.
+  network_mode:
+    type: str
+    description: Connect the container to a network. Choices are V(bridge), V(host), V(none), C(container:<name|id>),
+      C(<network_name>) or V(default). Since community.docker 2.0.0, if O(networks_cli_compatible=true)
+      and O(networks) contains at least one network, the default value for O(network_mode) is the name
+      of the first network in the O(networks) list. You can prevent this by explicitly specifying a value
+      for O(network_mode), like the default value V(default) which will be used by Docker if O(network_mode)
+      is not specified.
+  networks:
+    type: list
+    description: 'List of networks the container belongs to. For examples of the data structure and usage
+      see EXAMPLES below. To remove a container from one or more networks, use C(networks: strict) in
+      the O(comparisons) option. If O(networks_cli_compatible=false), this will not remove the default
+      network if O(networks) is specified. This is different from the behavior of C(docker run ...). You
+      need to explicitly use C(networks: strict) in O(comparisons) to enforce the removal of the default
+      network (and all other networks not explicitly mentioned in O(networks)) in that case.'
+  networks_cli_compatible:
+    type: bool
+    default: true
+    description: 'If O(networks_cli_compatible=true) (default), this module will behave as C(docker run
+      --network) and will B(not) add the default network if O(networks) is specified. If O(networks) is
+      not specified, the default network will be attached. When O(networks_cli_compatible=false) and networks
+      are provided to the module via the O(networks) option, the module behaves differently than C(docker
+      run --network): C(docker run --network other) will create a container with network C(other) attached,
+      but the default network not attached. This module with O(networks) set to C({name: other}) will
+      create a container with both C(default) and C(other) attached. If C(networks: strict) or C(*: strict)
+      is set in O(comparisons), the C(default) network will be removed afterwards.'
+  oom_killer:
+    type: bool
+    description: Whether or not to disable OOM Killer for the container.
+  oom_score_adj:
+    type: int
+    description: An integer value containing the score given to the container in order to tune OOM killer
+      preferences.
+  output_logs:
+    type: bool
+    default: false
+    description: If set to true, output of the container command will be printed. Only effective when
+      O(log_driver) is set to V(json-file), V(journald), or V(local).
+  paused:
+    type: bool
+    description: Use with the started state to pause running processes inside the container. If O(container_default_behavior=compatibility),
+      this option has a default of V(false).
+  pid_mode:
+    type: str
+    description: Set the PID namespace mode for the container.
+  pids_limit:
+    type: int
+    description: Set PIDs limit for the container. It accepts an integer value. Set V(-1) for unlimited
+      PIDs.
+  platform:
+    type: str
+    description: 'Platform for the container in the format C(os[/arch[/variant]]). Note that since community.docker
+      3.5.0, the module uses both the image''s metadata and the Docker daemon''s information to normalize
+      platform strings similarly to how Docker itself is doing this. If you notice idempotency problems,
+      L(please create an issue in the community.docker GitHub repository, https://github.com/ansible-collections/community.docker/issues/new?assignees=&labels=&projects=&template=bug_report.md).
+      For older community.docker versions, you can use the O(comparisons) option with C(platform: ignore)
+      to prevent accidental recreation of the container due to this.'
+  privileged:
+    type: bool
+    description: Give extended privileges to the container. If O(container_default_behavior=compatibility),
+      this option has a default of V(false).
+  publish_all_ports:
+    type: bool
+    description: Publish all ports to the host. Any specified port bindings from O(published_ports) will
+      remain intact when V(true).
+  published_ports:
+    type: list
+    aliases:
+    - ports
+    description: 'List of ports to publish from the container to the host. Use docker CLI syntax: V(8000),
+      V(9000:8000), or V(0.0.0.0:9000:8000), where 8000 is a container port, 9000 is a host port, and
+      0.0.0.0 is a host interface. Port ranges can be used for source and destination ports. If two ranges
+      with different lengths are specified, the shorter range will be used. Since community.general 0.2.0,
+      if the source port range has length 1, the port will not be assigned to the first port of the destination
+      range, but to a free port in that range. This is the same behavior as for C(docker) command line
+      utility. Bind addresses must be either IPv4 or IPv6 addresses. Hostnames are B(not) allowed. This
+      is different from the C(docker) command line utility. Use the P(community.general.dig#lookup) lookup
+      to resolve hostnames. If O(networks) parameter is provided, will inspect each network to see if
+      there exists a bridge network with optional parameter C(com.docker.network.bridge.host_binding_ipv4).
+      If such a network is found, then published ports where no host IP address is specified will be bound
+      to the host IP pointed to by C(com.docker.network.bridge.host_binding_ipv4). Note that the first
+      bridge network with a C(com.docker.network.bridge.host_binding_ipv4) value encountered in the list
+      of O(networks) is the one that will be used. The value V(all) was allowed in earlier versions of
+      this module. Support for it was removed in community.docker 3.0.0. Use the O(publish_all_ports)
+      option instead.'
+  pull:
+    type: bool
+    default: false
+    description: If true, always pull the latest version of an image. Otherwise, will only pull an image
+      when missing. B(Note:) images are only pulled when specified by name. If the image is specified
+      as a image ID (hash), it cannot be pulled.
+  purge_networks:
+    type: bool
+    default: false
+    description: 'Remove the container from ALL networks not included in O(networks) parameter. Any default
+      networks such as C(bridge), if not found in O(networks), will be removed as well. This option is
+      deprecated since community.docker 3.2.0 and will be removed in community.docker 4.0.0. Use C(networks:
+      strict) in O(comparisons) instead of O(purge_networks=true) and make sure that O(networks) is specified.
+      If you want to remove all networks, specify O(networks) as C([]).'
+  read_only:
+    type: bool
+    description: Mount the container's root file system as read-only. If O(container_default_behavior=compatibility),
+      this option has a default of V(false).
+  recreate:
+    type: bool
+    default: false
+    description: Use with present and started states to force the re-creation of an existing container.
+  removal_wait_timeout:
+    type: float
+    description: When removing an existing container, the docker daemon API call exists after the container
+      is scheduled for removal. Removal usually is very fast, but it can happen that during high I/O load,
+      removal can take longer. By default, the module will wait until the container has been removed before
+      trying to (re-)create it, however long this takes. By setting this option, the module will wait
+      at most this many seconds for the container to be removed. If the container is still in the removal
+      phase after this many seconds, the module will fail.
+  restart:
+    type: bool
+    default: false
+    description: Use with started state to force a matching container to be stopped and restarted.
+  restart_policy:
+    type: str
+    choices:
+    - 'no'
+    - on-failure
+    - always
+    - unless-stopped
+    description: Container restart policy. Place quotes around V(no) option.
+  restart_retries:
+    type: int
+    description: Use with restart policy to control maximum number of restart attempts.
+  runtime:
+    type: str
+    description: Runtime to use for the container.
+  security_opts:
+    type: list
+    description: List of security options in the form of C("label:user:User").
+  shm_size:
+    type: str
+    description: Size of C(/dev/shm) in format C(<number>[<unit>]). Number is positive integer. Unit can
+      be V(B) (byte), V(K) (kibibyte, 1024B), V(M) (mebibyte), V(G) (gibibyte), V(T) (tebibyte), or V(P)
+      (pebibyte). Omitting the unit defaults to bytes. If you omit the size entirely, Docker daemon uses
+      V(64M).
+  ssl_version:
+    type: str
+    description: Provide a valid SSL version number. Default value determined by L(SSL Python module,
+      https://docs.python.org/3/library/ssl.html). If the value is not specified in the task, the value
+      of environment variable E(DOCKER_SSL_VERSION) will be used instead.
+  state:
+    type: str
+    default: started
+    choices:
+    - absent
+    - present
+    - stopped
+    - started
+    description: 'V(absent) - A container matching the specified name will be stopped and removed. Use
+      O(force_kill) to kill the container rather than stopping it. Use O(keep_volumes) to retain anonymous
+      volumes associated with the removed container. V(present) - Asserts the existence of a container
+      matching the name and any provided configuration parameters. If no container matches the name, a
+      container will be created. If a container matches the name but the provided configuration does not
+      match, the container will be updated, if it can be. If it cannot be updated, it will be removed
+      and re-created with the requested config. V(started) - Asserts that the container is first V(present),
+      and then if the container is not running moves it to a running state. Use O(restart) to force a
+      matching container to be stopped and restarted. V(stopped) - Asserts that the container is first
+      V(present), and then if the container is running moves it to a stopped state. To control what will
+      be taken into account when comparing configuration, see the O(comparisons) option. To avoid that
+      the image version will be taken into account, you can also use the V(image: ignore) in the O(comparisons)
+      option. Use the O(recreate) option to always force re-creation of a matching container, even if
+      it is running. If the container should be killed instead of stopped in case it needs to be stopped
+      for recreation, or because O(state) is V(stopped), please use the O(force_kill) option. Use O(keep_volumes)
+      to retain anonymous volumes associated with a removed container. Use O(keep_volumes) to retain anonymous
+      volumes associated with a removed container.'
+  stop_signal:
+    type: str
+    description: Override default signal used to stop the container.
+  stop_timeout:
+    type: int
+    description: Number of seconds to wait for the container to stop before sending C(SIGKILL). When the
+      container is created by this module, its C(StopTimeout) configuration will be set to this value.
+      When the container is stopped, will be used as a timeout for stopping the container. In case the
+      container has a custom C(StopTimeout) configuration, the behavior depends on the version of the
+      docker daemon. New versions of the docker daemon will always use the container's configured C(StopTimeout)
+      value if it has been configured.
+  storage_opts:
+    type: dict
+    description: Storage driver options for this container as a key-value mapping.
+  sysctls:
+    type: dict
+    description: Dictionary of key,value pairs.
+  timeout:
+    type: int
+    default: 60
+    description: The maximum amount of time in seconds to wait on a response from the API. If the value
+      is not specified in the task, the value of environment variable E(DOCKER_TIMEOUT) will be used instead.
+      If the environment variable is not set, the default value will be used.
+  tls:
+    type: bool
+    default: false
+    description: Secure the connection to the API by using TLS without verifying the authenticity of the
+      Docker host server. Note that if O(validate_certs) is set to V(true) as well, it will take precedence.
+      If the value is not specified in the task, the value of environment variable E(DOCKER_TLS) will
+      be used instead. If the environment variable is not set, the default value will be used.
+  tls_hostname:
+    type: str
+    description: When verifying the authenticity of the Docker Host server, provide the expected name
+      of the server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_HOSTNAME)
+      will be used instead. If the environment variable is not set, the default value will be used. Note
+      that this option had a default value V(localhost) in older versions. It was removed in community.docker
+      3.0.0.
+  tmpfs:
+    type: list
+    description: Mount a tmpfs directory.
+  tty:
+    type: bool
+    description: Allocate a pseudo-TTY. If O(container_default_behavior=compatibility), this option has
+      a default of V(false).
+  ulimits:
+    type: list
+    description: List of ulimit options. A ulimit is specified as V(nofile:262144:262144).
+  use_ssh_client:
+    type: bool
+    default: false
+    description: For SSH transports, use the C(ssh) CLI tool instead of paramiko.
+  user:
+    type: str
+    description: Sets the username or UID used and optionally the groupname or GID for the specified command.
+      Can be of the forms C(user), C(user:group), C(uid), C(uid:gid), C(user:gid) or C(uid:group).
+  userns_mode:
+    type: str
+    description: Set the user namespace mode for the container. Currently, the only valid value are V(host)
+      and the empty string (V("")).
+  uts:
+    type: str
+    description: Set the UTS namespace mode for the container.
+  validate_certs:
+    type: bool
+    default: false
+    aliases:
+    - tls_verify
+    description: Secure the connection to the API by using TLS and verifying the authenticity of the Docker
+      host server. If the value is not specified in the task, the value of environment variable E(DOCKER_TLS_VERIFY)
+      will be used instead. If the environment variable is not set, the default value will be used.
+  volume_driver:
+    type: str
+    description: The container volume driver.
+  volumes:
+    type: list
+    description: 'List of volumes to mount within the container. Use docker CLI-style syntax: C(/host:/container[:mode])
+      Mount modes can be a comma-separated list of various modes such as V(ro), V(rw), V(consistent),
+      V(delegated), V(cached), V(rprivate), V(private), V(rshared), V(shared), V(rslave), V(slave), and
+      V(nocopy). Note that the docker daemon might not support all modes and combinations of such modes.
+      SELinux hosts can additionally use V(z) or V(Z) to use a shared or private label for the volume.
+      Note that Ansible 2.7 and earlier only supported one mode, which had to be one of V(ro), V(rw),
+      V(z), and V(Z).'
+  volumes_from:
+    type: list
+    description: List of container names or IDs to get volumes from.
+  working_dir:
+    type: str
+    description: Path to the working directory.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a data container\n  community.docker.docker_container:\n    name: mydata\n\
+  \    image: busybox\n    volumes:\n      - /data\n\n- name: Re-create a redis container\n  community.docker.docker_container:\n\
+  \    name: myredis\n    image: redis\n    command: redis-server --appendonly yes\n    state: present\n\
+  \    recreate: true\n    exposed_ports:\n      - 6379\n    volumes_from:\n      - mydata\n\n- name:\
+  \ Restart a container\n  community.docker.docker_container:\n    name: myapplication\n    image: someuser/appimage\n\
+  \    state: started\n    restart: true\n    links:\n     - \"myredis:aliasedredis\"\n    devices:\n\
+  \     - \"/dev/sda:/dev/xvda:rwm\"\n    ports:\n     # Publish container port 9000 as host port 8080\n\
+  \     - \"8080:9000\"\n     # Publish container UDP port 9001 as host port 8081 on interface 127.0.0.1\n\
+  \     - \"127.0.0.1:8081:9001/udp\"\n     # Publish container port 9002 as a random host port\n    \
+  \ - \"9002\"\n     # Publish container port 9003 as a free host port in range 8000-8100\n     # (the\
+  \ host port will be selected by the Docker daemon)\n     - \"8000-8100:9003\"\n     # Publish container\
+  \ ports 9010-9020 to host ports 7000-7010\n     - \"7000-7010:9010-9020\"\n    env:\n        SECRET_KEY:\
+  \ \"ssssh\"\n        # Values which might be parsed as numbers, booleans or other types by the YAML\
+  \ parser need to be quoted\n        BOOLEAN_KEY: \"yes\"\n\n- name: Container present\n  community.docker.docker_container:\n\
+  \    name: mycontainer\n    state: present\n    image: ubuntu:14.04\n    command: sleep infinity\n\n\
+  - name: Stop a container\n  community.docker.docker_container:\n    name: mycontainer\n    state: stopped\n\
+  \n- name: Start 4 load-balanced containers\n  community.docker.docker_container:\n    name: \"container{{\
+  \ item }}\"\n    recreate: true\n    image: someuser/anotherappimage\n    command: sleep 1d\n  with_sequence:\
+  \ count=4\n\n- name: Remove container\n  community.docker.docker_container:\n    name: ohno\n    state:\
+  \ absent\n\n- name: Syslogging output\n  community.docker.docker_container:\n    name: myservice\n \
+  \   image: busybox\n    log_driver: syslog\n    log_options:\n      syslog-address: tcp://my-syslog-server:514\n\
+  \      syslog-facility: daemon\n      # NOTE: in Docker 1.13+ the \"syslog-tag\" option was renamed\
+  \ to \"tag\" for\n      # older docker installs, use \"syslog-tag\" instead\n      tag: myservice\n\n\
+  - name: Create db container and connect to network\n  community.docker.docker_container:\n    name:\
+  \ db_test\n    image: \"postgres:latest\"\n    networks:\n      - name: \"{{ docker_network_name }}\"\
+  \n\n- name: Start container, connect to network and link\n  community.docker.docker_container:\n   \
+  \ name: sleeper\n    image: ubuntu:14.04\n    networks:\n      - name: TestingNet\n        ipv4_address:\
+  \ \"172.16.1.100\"\n        aliases:\n          - sleepyzz\n        links:\n          - db_test:db\n\
+  \      - name: TestingNet2\n\n- name: Start a container with a command\n  community.docker.docker_container:\n\
+  \    name: sleepy\n    image: ubuntu:14.04\n    command: [\"sleep\", \"infinity\"]\n\n- name: Add container\
+  \ to networks\n  community.docker.docker_container:\n    name: sleepy\n    networks:\n      - name:\
+  \ TestingNet\n        ipv4_address: 172.16.1.18\n        links:\n          - sleeper\n      - name:\
+  \ TestingNet2\n        ipv4_address: 172.16.10.20\n\n- name: Update network with aliases\n  community.docker.docker_container:\n\
+  \    name: sleepy\n    networks:\n      - name: TestingNet\n        aliases:\n          - sleepyz\n\
+  \          - zzzz\n\n- name: Remove container from one network\n  community.docker.docker_container:\n\
+  \    name: sleepy\n    networks:\n      - name: TestingNet2\n    comparisons:\n      networks: strict\n\
+  \n- name: Remove container from all networks\n  community.docker.docker_container:\n    name: sleepy\n\
+  \    comparisons:\n      networks: strict\n\n- name: Start a container and use an env file\n  community.docker.docker_container:\n\
+  \    name: agent\n    image: jenkinsci/ssh-slave\n    env_file: /var/tmp/jenkins/agent.env\n\n- name:\
+  \ Create a container with limited capabilities\n  community.docker.docker_container:\n    name: sleepy\n\
+  \    image: ubuntu:16.04\n    command: sleep infinity\n    capabilities:\n      - sys_time\n    cap_drop:\n\
+  \      - all\n\n- name: Finer container restart/update control\n  community.docker.docker_container:\n\
+  \    name: test\n    image: ubuntu:18.04\n    env:\n      arg1: \"true\"\n      arg2: \"whatever\"\n\
+  \    volumes:\n      - /tmp:/tmp\n    comparisons:\n      image: ignore   # do not restart containers\
+  \ with older versions of the image\n      env: strict   # we want precisely this environment\n     \
+  \ volumes: allow_more_present   # if there are more volumes, that's ok, as long as `/tmp:/tmp` is there\n\
+  \n- name: Finer container restart/update control II\n  community.docker.docker_container:\n    name:\
+  \ test\n    image: ubuntu:18.04\n    env:\n      arg1: \"true\"\n      arg2: \"whatever\"\n    comparisons:\n\
+  \      '*': ignore  # by default, ignore *all* options (including image)\n      env: strict   # except\
+  \ for environment variables; there, we want to be strict\n\n- name: Start container with healthstatus\n\
+  \  community.docker.docker_container:\n    name: nginx-proxy\n    image: nginx:1.13\n    state: started\n\
+  \    healthcheck:\n      # Check if nginx server is healthy by curl'ing the server.\n      # If this\
+  \ fails or timeouts, the healthcheck fails.\n      test: [\"CMD\", \"curl\", \"--fail\", \"http://nginx.host.com\"\
+  ]\n      interval: 1m30s\n      timeout: 10s\n      retries: 3\n      start_period: 30s\n\n- name: Remove\
+  \ healthcheck from container\n  community.docker.docker_container:\n    name: nginx-proxy\n    image:\
+  \ nginx:1.13\n    state: started\n    healthcheck:\n      # The \"NONE\" check needs to be specified\n\
+  \      test: [\"NONE\"]\n\n- name: Create a tmpfs with a size and mode\n  community.docker.docker_container:\n\
+  \    name: tmpfs test\n    image: ubuntu:22.04\n    state: started\n    mounts:\n      - type: tmpfs\n\
+  \        target: /cache\n        tmpfs_mode: \"1700\" # only readable to the owner\n        tmpfs_size:\
+  \ \"16G\"\n\n- name: Start container with block device read limit\n  community.docker.docker_container:\n\
+  \    name: test\n    image: ubuntu:18.04\n    state: started\n    device_read_bps:\n      # Limit read\
+  \ rate for /dev/sda to 20 mebibytes per second\n      - path: /dev/sda\n        rate: 20M\n    device_read_iops:\n\
+  \      # Limit read rate for /dev/sdb to 300 IO per second\n      - path: /dev/sdb\n        rate: 300\n\
+  \n- name: Start container with GPUs\n  community.docker.docker_container:\n    name: test\n    image:\
+  \ ubuntu:18.04\n    state: started\n    device_requests:\n      - # Add some specific devices to this\
+  \ container\n        device_ids:\n          - '0'\n          - 'GPU-3a23c669-1f69-c64e-cf85-44e9b07e7a2a'\n\
+  \      - # Add nVidia GPUs to this container\n        driver: nvidia\n        count: -1  # this means\
+  \ we want all\n        capabilities:\n          # We have one OR condition: 'gpu' AND 'utility'\n  \
+  \        - - gpu\n            - utility\n          # See https://github.com/NVIDIA/nvidia-container-runtime#supported-driver-capabilities\n\
+  \          # for a list of capabilities supported by the nvidia driver\n\n- name: Start container with\
+  \ storage options\n  community.docker.docker_container:\n    name: test\n    image: ubuntu:18.04\n \
+  \   state: started\n    storage_opts:\n      # Limit root filesystem to 12 MB - note that this requires\
+  \ special storage backends\n      # (https://fabianlee.org/2020/01/15/docker-use-overlay2-with-an-xfs-backing-filesystem-to-limit-rootfs-size/)\n\
+  \      size: 12m\n"

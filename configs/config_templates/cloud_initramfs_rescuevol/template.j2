@@ -1,0 +1,133 @@
+#!/bin/sh
+# /etc/initramfs-tools/scripts/init-bottom/rescuevol
+# Pivots the root filesystem to a rescue volume during early boot (init-bottom phase).
+# This hook is controlled entirely by Ansible variables; see the schema for defaults.
+
+PREREQS=""
+
+# Return initramfs prerequisites — this hook has none
+prereqs() {
+    echo "$PREREQS"
+}
+
+case $1 in
+    prereqs)
+        prereqs
+        exit 0
+        ;;
+esac
+
+. /scripts/functions
+
+# Master switch. Set to 1 to enable rescue-volume pivoting; 0 leaves the hook installed but completely inert.
+# Default: 0
+RESCUEVOL_ENABLED={{ enabled | default(0) }}
+
+# Filesystem label of the rescue block device, resolved with blkid -L. Unused when rescue_uuid is set.
+# Default: 'RESCUE'
+RESCUEVOL_LABEL="{{ rescue_label | default('RESCUE') }}"
+
+# UUID of the rescue volume (e.g. 550e8400-e29b-41d4-a716-446655440000). When non-empty, overrides rescue_label.
+# Default: '' (empty, so label is used)
+RESCUEVOL_UUID="{{ rescue_uuid | default('') }}"
+
+# Filesystem type of the rescue volume passed to mount -t. Common values: ext4, xfs, btrfs.
+# Default: 'ext4'
+RESCUEVOL_FSTYPE="{{ rescue_fstype | default('ext4') }}"
+
+# Mount options for both the probe mount and the root pivot. Use 'ro' for an immutable rescue image or 'rw' if the rescue environment must write.
+# Default: 'ro,noatime'
+RESCUEVOL_MOUNT_OPTS="{{ mount_opts | default('ro,noatime') }}"
+
+# Kernel command-line token whose presence (in /proc/cmdline) activates rescue mode. Pass this word via GRUB or cloud instance user-data to trigger.
+# Default: 'rescuevol'
+RESCUEVOL_TRIGGER_PARAM="{{ cmdline_trigger | default('rescuevol') }}"
+
+# Filename that must exist in the root directory of the rescue volume. Acts as a safety guard to prevent accidentally pivoting root to a wrong device.
+# Default: '.rescuevol'
+RESCUEVOL_MARKER="{{ marker_file | default('.rescuevol') }}"
+
+# Maximum seconds to wait for the rescue block device to appear (udev settle / slow disk). After timeout the hook logs a warning and normal boot proceeds.
+# Default: 30
+RESCUEVOL_TIMEOUT={{ device_wait_timeout | default(30) }}
+
+# Temporary path relative to rootmnt where the rescue volume is mounted for marker verification before the final root pivot.
+# Default: '/run/rescuevol-probe'
+RESCUEVOL_PROBE_MP="{{ probe_mountpoint | default('/run/rescuevol-probe') }}"
+
+# Log verbosity written to the kernel ring buffer: 0=silent (failures only), 1=key milestones, 2=every step (useful during initial deployment).
+# Default: 1
+RESCUEVOL_VERBOSITY={{ verbosity | default(1) }}
+
+# --- functional body ---
+
+if [ "$RESCUEVOL_ENABLED" != "1" ]; then
+    exit 0
+fi
+
+if ! grep -qw "$RESCUEVOL_TRIGGER_PARAM" /proc/cmdline; then
+    [ "$RESCUEVOL_VERBOSITY" -ge 2 ] && \
+        log_begin_msg "rescuevol: trigger '${RESCUEVOL_TRIGGER_PARAM}' absent — normal boot"
+    exit 0
+fi
+
+log_begin_msg "rescuevol: rescue mode triggered by '${RESCUEVOL_TRIGGER_PARAM}'"
+
+# Resolve device path by UUID or label
+_rescuevol_find_dev() {
+    if [ -n "$RESCUEVOL_UUID" ]; then
+        blkid -U "$RESCUEVOL_UUID" 2>/dev/null
+    else
+        blkid -L "$RESCUEVOL_LABEL" 2>/dev/null
+    fi
+}
+
+DEV=$(_rescuevol_find_dev)
+
+# Poll until the device appears or the timeout expires
+WAITED=0
+while [ -z "$DEV" ] && [ "$WAITED" -lt "$RESCUEVOL_TIMEOUT" ]; do
+    sleep 1
+    WAITED=$((WAITED + 1))
+    DEV=$(_rescuevol_find_dev)
+done
+
+if [ -z "$DEV" ]; then
+    log_failure_msg "rescuevol: device not found after ${RESCUEVOL_TIMEOUT}s — continuing normal boot"
+    exit 0
+fi
+
+[ "$RESCUEVOL_VERBOSITY" -ge 1 ] && \
+    log_begin_msg "rescuevol: rescue device resolved to ${DEV}"
+
+# Probe-mount to verify the sentinel file before committing to a root pivot
+PROBE="${rootmnt}${RESCUEVOL_PROBE_MP}"
+mkdir -p "$PROBE"
+
+if ! mount -t "$RESCUEVOL_FSTYPE" -o "$RESCUEVOL_MOUNT_OPTS" "$DEV" "$PROBE"; then
+    log_failure_msg "rescuevol: probe mount failed — continuing normal boot"
+    rmdir "$PROBE" 2>/dev/null || true
+    exit 0
+fi
+
+if [ ! -f "${PROBE}/${RESCUEVOL_MARKER}" ]; then
+    log_failure_msg "rescuevol: marker '${RESCUEVOL_MARKER}' missing on ${DEV} — aborting pivot"
+    umount "$PROBE"
+    rmdir "$PROBE" 2>/dev/null || true
+    exit 0
+fi
+
+[ "$RESCUEVOL_VERBOSITY" -ge 2 ] && \
+    log_begin_msg "rescuevol: marker confirmed — pivoting root to ${DEV}"
+
+umount "$PROBE"
+rmdir "$PROBE" 2>/dev/null || true
+
+# Pivot root: replace the current rootmnt with the rescue volume
+if ! mount -t "$RESCUEVOL_FSTYPE" -o "$RESCUEVOL_MOUNT_OPTS" "$DEV" "$rootmnt"; then
+    log_failure_msg "rescuevol: root pivot mount failed — continuing normal boot"
+    exit 0
+fi
+
+log_end_msg 0
+exit 0

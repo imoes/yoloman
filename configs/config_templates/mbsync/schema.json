@@ -1,0 +1,116 @@
+{
+  "accounts": {
+    "type": "list",
+    "default": [],
+    "description": "One entry per IMAP account to synchronise. Each entry drives an IMAPAccount, IMAPStore, MaildirStore, and Channel block.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "personal",
+        "description": "Short identifier (no spaces) used as a prefix for store and channel names, e.g. 'work' or 'personal'."
+      },
+      "host": {
+        "type": "string",
+        "default": "imap.example.com",
+        "description": "Hostname or IP address of the IMAP server."
+      },
+      "port": {
+        "type": "number",
+        "default": 993,
+        "description": "TCP port. Use 993 for IMAPS (implicit TLS) or 143 for STARTTLS / plain."
+      },
+      "user": {
+        "type": "string",
+        "default": "user@example.com",
+        "description": "IMAP login username, usually the full e-mail address."
+      },
+      "pass_cmd": {
+        "type": "string",
+        "default": "pass email/example.com",
+        "description": "Shell command whose stdout provides the account password. Use a secrets manager (pass, gpg, secret-tool) to avoid storing credentials in plaintext."
+      },
+      "ssl_type": {
+        "type": "string",
+        "default": "IMAPS",
+        "description": "Encryption mode: IMAPS (implicit TLS on the dedicated port), STARTTLS (upgrade on port 143), or None (no encryption \u2014 not recommended)."
+      },
+      "ssl_versions": {
+        "type": "string",
+        "default": "TLSv1.2 TLSv1.3",
+        "description": "Space-separated list of TLS versions the client will accept. Restrict to TLSv1.2 and TLSv1.3 for modern security."
+      },
+      "cert_file": {
+        "type": "string",
+        "default": "/etc/ssl/certs/ca-certificates.crt",
+        "description": "Path to the CA certificate bundle for verifying the server certificate. Leave empty to let OpenSSL use its compiled-in default paths."
+      },
+      "auth_mechs": {
+        "type": "string",
+        "default": "LOGIN",
+        "description": "Space-separated SASL mechanisms to attempt. LOGIN and PLAIN work everywhere; GSSAPI for Kerberos environments."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 120,
+        "description": "Seconds before an idle connection is considered dead and closed. 0 defers to the OS TCP keepalive setting."
+      },
+      "subfolder_style": {
+        "type": "string",
+        "default": "Verbatim",
+        "description": "How IMAP folder hierarchy maps to Maildir sub-directories. Verbatim keeps IMAP names unchanged; Maildir++ uses a dot-delimited flat layout; Legacy uses a slash-delimited tree."
+      },
+      "local_path": {
+        "type": "string",
+        "default": "~/Mail/personal/",
+        "description": "Root path for the local Maildir tree. Must end with a trailing slash. Tilde is expanded."
+      },
+      "inbox_path": {
+        "type": "string",
+        "default": "~/Mail/personal/Inbox",
+        "description": "Absolute or tilde-prefixed path to the local INBOX folder. Often placed directly under the root path."
+      },
+      "patterns": {
+        "type": "list",
+        "default": [
+          "*"
+        ],
+        "description": "IMAP folder name globs to synchronise. Use ['*'] to sync all folders, or list specific names such as ['INBOX', 'Sent', 'Drafts', 'Archive']."
+      },
+      "create": {
+        "type": "string",
+        "default": "Near",
+        "description": "Auto-create missing folders on which side: Both, Far (remote), Near (local), or None. Near is safe for a laptop that mirrors a server."
+      },
+      "expunge": {
+        "type": "string",
+        "default": "None",
+        "description": "Permanently delete messages marked \\Deleted after sync: Both, Far, Near, or None. None is the safest default \u2014 expunge manually when confident."
+      },
+      "sync_state": {
+        "type": "string",
+        "default": "*",
+        "description": "UID state file location. The special value * stores a .mbsyncstate file inside each Maildir folder, which is the most portable choice."
+      },
+      "sync": {
+        "type": "string",
+        "default": "All",
+        "description": "Sync scope: All (full bidirectional), Pull (remote\u2192local only), Push (local\u2192remote only), or a space-separated list of flags like PullNew PushNew."
+      },
+      "max_messages": {
+        "type": "number",
+        "default": 0,
+        "description": "Keep only the newest N messages locally per folder. 0 disables the limit and downloads everything."
+      },
+      "max_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Skip messages larger than this many bytes. Useful to avoid downloading large attachments on metered connections. 0 disables the limit."
+      }
+    }
+  },
+  "group_name": {
+    "type": "string",
+    "default": "all",
+    "description": "Name for a Group block that aggregates all channels. Run 'mbsync <group_name>' to sync every account at once. Leave empty to omit the Group block."
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "server": {
+    "host": "127.0.0.1",
+    "port": 9000
+  },
+  "logging": {
+    "level": "DEBUG",
+    "path": "/var/log/qad/qad.log"
+  },
+  "execution": {
+    "max_workers": 8,
+    "timeout_seconds": 600,
+    "retry_count": 3
+  },
+  "suites": [
+    {
+      "name": "regression-tests",
+      "path": "/opt/qad/suites/regression.yml",
+      "tags": [
+        "smoke",
+        "critical"
+      ]
+    },
+    {
+      "name": "api-integration",
+      "path": "/opt/qad/suites/api-integration.yaml"
+    }
+  ],
+  "endpoints": {
+    "status": "/api/v1/status",
+    "run_test": "/api/v1/run",
+    "health": "/healthz"
+  },
+  "auth": {
+    "enabled": true,
+    "type": "jwt",
+    "token_secret": "supersecretkey123!",
+    "token_expiry_hours": 48
+  },
+  "metrics": {
+    "enabled": true,
+    "pushgateway_url": "http://pushgateway.internal:9091",
+    "interval_seconds": 60
+  }
+}

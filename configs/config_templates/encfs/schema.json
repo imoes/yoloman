@@ -1,0 +1,66 @@
+{
+  "kdf_iterations": {
+    "type": "number",
+    "default": 65536,
+    "description": "Number of PBKDF2 iterations (determines KDF runtime). Typical: 65536 for ~0.5s, 393216 for ~3s (paranoia). Must match actual runtime tuning."
+  },
+  "kdf_salt": {
+    "type": "string",
+    "default": "AAAAAAAAAAAAAAAAAAAAAAAA",
+    "description": "Base64-encoded 160-bit salt used for PBKDF2 (must be exactly 20 bytes raw, 28 chars in base64)."
+  },
+  "cipher": {
+    "type": "string",
+    "default": "AES",
+    "description": "Encryption cipher: 'AES' (128/192/256) or 'Blowfish' (448 max). Must be supported by underlying crypto library.",
+    "enum": [
+      "AES",
+      "Blowfish"
+    ]
+  },
+  "key_size": {
+    "type": "number",
+    "default": 192,
+    "description": "Key size in bits. Standard mode: 192; Paranoia mode: 256. Must match cipher's supported sizes."
+  },
+  "block_size": {
+    "type": "number",
+    "default": 1024,
+    "description": "Filesystem block size in bytes. Standard values: 512 (v1.0 default), 1024 (recommended). Larger blocks reduce overhead but increase latency for small writes."
+  },
+  "filename_iv_chaining": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use per-directory IV chaining for filenames. Enabled by default to prevent filename collision analysis."
+  },
+  "per_file_iv": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to use per-file random initialization vectors. Enabled by default to prevent file-content correlation."
+  },
+  "external_iv_chaining": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to chain per-file IVs using filename IV chaining. Increases security but breaks hardlinks and renames. Default false for standard mode, true for paranoia."
+  },
+  "block_mac_headers": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to enable per-block MAC (Message Authentication Code) headers. Prevents undetected tampering. Default false for standard mode, true for paranoia."
+  },
+  "filename_encoding": {
+    "type": "string",
+    "default": "block",
+    "description": "Filename encoding mode: 'stream', 'block', or 'block32'. 'block' recommended for standard; 'stream' for short filenames.",
+    "enum": [
+      "stream",
+      "block",
+      "block32"
+    ]
+  },
+  "file_holes_pass_through": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to pass file holes (zero regions) unmodified. Required for SMB compatibility."
+  }
+}

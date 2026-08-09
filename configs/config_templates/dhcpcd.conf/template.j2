@@ -1,0 +1,167 @@
+# dhcpcd.conf - DHCP Client Daemon Configuration
+#
+# This file configures the dhcpcd (DHCP Client Daemon). It controls how the
+# system acquires network configuration via DHCP, including IP addresses, DNS,
+# NTP, and static overrides per interface.
+#
+# Variables are drawn from the role's inventory/defaults. All references use
+# safe defaults to prevent render failures if a variable is undefined.
+
+# ---------------------------------------------------------------------------
+# IPv4 and IPv6 DHCP Enabling
+# ---------------------------------------------------------------------------
+
+# ipv4_enabled: default=True
+# desc='Whether to enable IPv4 DHCP. Disable only if using IPv6 only or static IPv4.'
+{% if not (ipv4_enabled | default(true)) %}
+# Disable IPv4 DHCP as requested
+noipv4
+{% endif %}
+
+# ipv6_enabled: default=True
+# desc='Whether to enable IPv6 address autoconfiguration (SLAAC) and DHCPv6.'
+{% if not (ipv6_enabled | default(true)) %}
+# Disable IPv6 DHCP/SLAAC as requested
+noipv6
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Global DHCP Request Options
+# ---------------------------------------------------------------------------
+
+# hostname: default=''
+# desc='Hostname to advertise to the DHCP server. If empty, the system hostname is used.'
+{% if (hostname | default('')) %}
+# Advertise a specific hostname to the DHCP server
+hostname {{ hostname | default('') }}
+{% endif %}
+
+# domain: default=''
+# desc="Domain name to request from the DHCP server (e.g., 'example.com')."
+{% if (domain | default('')) %}
+# Request a specific domain name from the DHCP server
+domain {{ domain | default('') }}
+{% endif %}
+
+# dns_servers: default=[]
+# desc='Additional DNS server IP addresses to append (beyond those provided by DHCP).'
+{% for server in (dns_servers | default([])) %}
+# Append DNS server: {{ server }}
+dns {{ server }}
+{% endfor %}
+
+# rootpath: default=''
+# desc="Root path for PXE boot (e.g., '/tftpboot/pxeboot')."
+{% if (rootpath | default('')) %}
+# Configure root path for PXE boot clients
+rootpath {{ rootpath | default('') }}
+{% endif %}
+
+# ntp_servers: default=[]
+# desc='List of NTP server addresses to configure for time synchronization.'
+{% for server in (ntp_servers | default([])) %}
+# Configure NTP server for time synchronization
+tpserver {{ server }}
+{% endfor %}
+
+# nis_domain: default=''
+# desc='NIS (YP) domain name to request from the DHCP server.'
+{% if (nis_domain | default('')) %}
+# Request NIS (YP) domain name
+nisdomain {{ nis_domain | default('') }}
+{% endif %}
+
+# nis_servers: default=[]
+# desc='List of NIS server addresses to request from the DHCP server.'
+{% for server in (nis_servers | default([])) %}
+# Request NIS server address
+nisservers {{ server }}
+{% endfor %}
+
+# nisplus_domain: default=''
+# desc='NIS+ domain name to request from the DHCP server.'
+{% if (nisplus_domain | default('')) %}
+# Request NIS+ domain name
+nisplusdomain {{ nisplus_domain | default('') }}
+{% endif %}
+
+# nisplus_servers: default=[]
+# desc='List of NIS+ server addresses to request.'
+{% for server in (nisplus_servers | default([])) %}
+# Request NIS+ server address
+nisplus_servers {{ server }}
+{% endfor %}
+
+# nisplus_map: default=''
+# desc="NIS+ map name (e.g., 'netgroup') to request."
+{% if (nisplus_map | default('')) %}
+# Request NIS+ map name
+nisplusmap {{ nisplus_map | default('') }}
+{% endif %}
+
+# retry_count: default=5
+# desc='Number of times to retry DHCP acquisition before giving up.'
+# Configure DHCP retry count
+retry {{ retry_count | default(5) }}
+
+# ---------------------------------------------------------------------------
+# Custom Global Options
+# ---------------------------------------------------------------------------
+
+# custom_options: default={}
+# desc="Arbitrary key-value options passed directly to dhcpcd (e.g., 'blacklist', 'permit', 'nohook')."
+{% for opt, val in (custom_options | default({}) | dict2items) %}
+# Custom global option: {{ opt }}={{ val }}
+{{ opt.key }} {{ val.value }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Requested DHCP Option Codes
+# ---------------------------------------------------------------------------
+
+# request_options: default={}
+# desc="Custom DHCP options to request (by numeric option code, e.g., '121' for classless static routes)."
+{% for code, value in (request_options | default({}) | dict2items) %}
+# Request DHCP option code {{ code.key }}
+request {{ code.key }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Hook Script Overrides
+# ---------------------------------------------------------------------------
+
+# hooks_to_skip: default=[]
+# desc="List of dhcpcd hook scripts to skip (e.g., ['hostname', 'ntp'])."
+# NOTE: The original template logic was flawed. This section now correctly
+# applies 'nohook' ONLY for hooks listed in hooks_to_skip.
+{% for hook in (hooks_to_skip | default([])) %}
+# Skip dhcpcd hook: {{ hook }}
+nohook {{ hook }}
+{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Per-Interface Static Configuration
+# ---------------------------------------------------------------------------
+
+# static_interfaces: default=[]
+# desc='List of interfaces with static IP configuration instead of DHCP.'
+{% for iface in (static_interfaces | default([])) %}
+
+# Static IP configuration for interface: {{ iface.interface | default('unknown') }}
+interface {{ iface.interface | default('unknown') }}
+
+  # Static IP address and prefix length (CIDR notation)
+  {% if iface.ip_address | default('') %}
+static ip_address={{ iface.ip_address }}/{{ (iface.prefix_len | default(24)) | string }}
+  {% endif %}
+
+  # Default gateways/routers
+  {% if iface.routers | default([]) | length > 0 %}
+static routers={{ iface.routers | default([]) | join(',') }}
+  {% endif %}
+
+  # Static DNS servers for this interface
+  {% if iface.dns | default([]) | length > 0 %}
+static domain_name_servers={{ iface.dns | default([]) | join(',') }}
+  {% endif %}
+{% endfor %}

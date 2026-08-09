@@ -1,0 +1,82 @@
+# Global runtime behavior: enable debug logging for troubleshooting.
+# When true, enables verbose debug-level messages in the log output.
+debug = {{ debug | default(false) | lower }}
+
+# Global logging level. Choose from: trace, debug, info, warn, error.
+# Controls the verbosity of logs sent to stdout or the configured log sink.
+log_level = {{ log_level | default('info') }}
+
+# File path where the daemon writes its process ID.
+# Used by init systems or wrapper scripts to manage the daemon lifecycle.
+pid_file = {{ pid_file | default('/run/biometryd/biometryd.pid') }}
+
+# Unix domain socket path for local client communication.
+# Clients connect to this socket to send biometric requests locally.
+socket_path = {{ socket_path | default('/run/biometryd/biometryd.sock') }}
+
+# Number of worker threads handling concurrent device and client operations.
+# Adjust based on CPU cores and expected concurrency load.
+worker_threads = {{ worker_threads | default(4) }}
+
+# Timeout (seconds) for communication with biometric devices.
+# If a device does not respond within this window, the operation is considered failed.
+device_timeout = {{ device_timeout | default(15) }}
+
+# Timeout (seconds) for incoming client requests.
+# Clients must complete their handshake and request within this duration.
+client_timeout = {{ client_timeout | default(30) }}
+
+# Size (bytes) of internal I/O buffers for device communication.
+# Larger buffers may improve throughput for high-speed devices.
+io_buffer_size = {{ io_buffer_size | default(65536) }}
+
+# Maximum number of concurrent device sessions.
+# Limits resource usage by capping simultaneous device connections.
+max_sessions = {{ max_sessions | default(128) }}
+
+# Maximum number of retry attempts for failed device operations.
+# Set to 0 to disable retries, or a positive integer for automatic recovery.
+max_retries = {{ max_retries | default(3) }}
+
+# Delay (milliseconds) between retry attempts.
+# Back-off interval used before re-attempting a failed device operation.
+retry_delay_ms = {{ retry_delay_ms | default(500) }}
+
+# Enable TLS for encrypted communication (if the daemon supports network endpoints).
+# When true, requires tls_cert_path and tls_key_path to be valid.
+tls_enabled = {{ tls_enabled | default(true) }}
+
+# Path to the TLS server certificate file.
+# Used for authenticating the server to clients over TLS.
+tls_cert_path = {{ tls_cert_path | default('/etc/biometryd/tls/biometryd.crt') }}
+
+# Path to the TLS private key file.
+# Corresponds to the server certificate; must be readable by the daemon user.
+tls_key_path = {{ tls_key_path | default('/etc/biometryd/tls/biometryd.key') }}
+
+# Optional path to CA certificate for mutual TLS client authentication.
+# Leave empty or omit to disable client certificate validation.
+ca_cert_path = {{ ca_cert_path | default('/etc/biometryd/tls/ca.pem') }}
+
+# List of allowed client IP addresses or subnets (CIDR notation).
+# Empty list allows all clients. Used for network-layer access control.
+allowed_clients = [
+{% for client in (allowed_clients | default([])) %}  "{{ client }}"{% if not loop.last %},{% endif %}
+{% endfor %}
+]
+
+# List of supported biometric device drivers.
+# Each driver block configures a specific device type or interface.
+{% for driver in (drivers | default([])) %}
+# Driver configuration: {{ driver.name | default('unnamed') }}
+driver.{{ driver.name | default('unnamed') }}.enabled = {{ driver.enabled | default(false) }}
+driver.{{ driver.name | default('unnamed') }}.config_path = {{ driver.config_path | default('') }}
+
+{% if driver.extra_options is mapping and driver.extra_options | length > 0 %}
+# Extra options for {{ driver.name | default('unnamed') }}
+{% for key, value in driver.extra_options | dict2items %}
+# {{ key }}
+{{ key }} = {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}

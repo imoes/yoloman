@@ -1,0 +1,91 @@
+# =============================================================================
+# conntrackd configuration template
+# =============================================================================
+# This file configures conntrackd, a userspace connection tracking daemon.
+# It manages the connection tracking table size and logging behavior.
+# See conntrackd.conf(5) for full documentation.
+
+General {
+    # -----------------------------------------------------------------
+    # HashSize: Size of the connection tracking hash table.
+    # Schema: log_level (not used in General section directly, but affects verbosity)
+    # -----------------------------------------------------------------
+    HashSize 8192
+
+    # -----------------------------------------------------------------
+    # HashLimit: Maximum number of connections per hash bucket.
+    # Schema: log_level (not used here)
+    # -----------------------------------------------------------------
+    HashLimit 65535
+
+    # -----------------------------------------------------------------
+    # Syslog: Enable or disable syslog logging.
+    # Schema field: log_to_syslog
+    # Default: true
+    # Description: If true, use syslog instead of file logging in General section.
+    # -----------------------------------------------------------------
+    Syslog {{ log_to_syslog | default(true) }}
+
+    # -----------------------------------------------------------------
+    # LockFile: Path to the lock file to prevent multiple instances.
+    # Schema field: lock_file
+    # Default: '/var/lock/conntrackd.lock'
+    # Description: Path to the lock file.
+    # -----------------------------------------------------------------
+    LockFile {{ lock_file | default('/var/lock/conntrackd.lock') }}
+
+    # -----------------------------------------------------------------
+    # UNIX socket configuration for local communication with the daemon.
+    # -----------------------------------------------------------------
+    UNIX {
+        # -----------------------------------------------------------------
+        # Path: Path to the UNIX domain socket.
+        # Schema field: unix_socket_path
+        # Default: '/var/run/conntrackd.sock'
+        # Description: Path to the UNIX domain socket.
+        # -----------------------------------------------------------------
+        Path {{ unix_socket_path | default('/var/run/conntrackd.sock') }}
+
+        # -----------------------------------------------------------------
+        # Backlog: Maximum number of pending connections in the socket listen queue.
+        # Schema field: unix_socket_backlog
+        # Default: 20
+        # Description: Backlog for the UNIX socket listen queue.
+        # -----------------------------------------------------------------
+        Backlog {{ unix_socket_backlog | default(20) }}
+    }
+
+    # -----------------------------------------------------------------
+    # SocketBufferSize: Initial size of the socket buffer for netlink communication.
+    # Schema field: socket_buffer_size
+    # Default: 262142
+    # Description: Initial size of the socket buffer.
+    # -----------------------------------------------------------------
+    SocketBufferSize {{ socket_buffer_size | default(262142) }}
+
+    # -----------------------------------------------------------------
+    # SocketBufferSizeMaxGrown: Maximum size the socket buffer can grow to dynamically.
+    # Schema field: socket_buffer_size_max_grown
+    # Default: 655355
+    # Description: Maximum size the socket buffer can grow to.
+    # -----------------------------------------------------------------
+    SocketBufferSizeMaxGrown {{ socket_buffer_size_max_grown | default(655355) }}
+
+    # -----------------------------------------------------------------
+    # Systemd: Enable systemd notify support (Type=notify).
+    # Schema field: systemd_enabled
+    # Default: true
+    # Description: If true, enable systemd notify support.
+    # -----------------------------------------------------------------
+    Systemd {{ systemd_enabled | default(true) }}
+}
+
+Stats {
+    # -----------------------------------------------------------------
+    # LogFile: Enable or disable file logging for statistics.
+    # Schema field: stats_log_file
+    # Default: true
+    # Description: If true, enable file logging in Stats section.
+    # -----------------------------------------------------------------
+    LogFile {{ stats_log_file | default(true) }}
+}

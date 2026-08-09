@@ -1,0 +1,212 @@
+# =============================================================================
+# Dovecot LMTP Service Configuration
+# =============================================================================
+# This template configures Dovecot's LMTP (Local Mail Transfer Protocol) service.
+# LMTP is typically used for local mail delivery from an MTA (like Postfix)
+# to the Dovecot LDA (Local Delivery Agent) or Mailbox.
+#
+# Key variables:
+#   protocols: List of enabled protocols. 'lmtp' is required for this service.
+#   lmtp_*: Specific settings for the LMTP listener.
+#   mail_location: Storage format and path for user mail.
+#   ssl_*: TLS/SSL configuration for the LMTP listener.
+#   passdb/userdb: Authentication backend configuration (optional).
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Protocols to enable.
+# For an LMTP-only server, this should be ['lmtp'].
+# If you also need IMAP/POP3 for user access, add 'imap' and/or 'pop3' here.
+# -----------------------------------------------------------------------------
+protocols = {{ protocols | default(['lmtp']) | join(' ') }}
+
+# -----------------------------------------------------------------------------
+# LMTP Recipient Check:
+# 'yes' = Dovecot verifies the recipient address before accepting the mail
+#         (prevents accepting mail for non-existent users).
+# 'no'  = Relaxed delivery; accepted without verification (useful for catch-all
+#          or if the MTA handles verification).
+# -----------------------------------------------------------------------------
+lmtp_rcpt_check = {{ lmtp_rcpt_check | default('yes') }}
+
+# -----------------------------------------------------------------------------
+# LMTP Authentication Required:
+# Set to true if the LMTP service receives mail from untrusted sources (e.g.,
+# the internet) and requires authentication before accepting delivery.
+# If only trusted local MTAs (like Postfix) send mail, this can be false.
+# -----------------------------------------------------------------------------
+lmtp_auth_required = {{ lmtp_auth_required | default(false) | string | lower }}
+
+# -----------------------------------------------------------------------------
+# LMTP Connection Limit:
+# Maximum number of concurrent LMTP connections allowed per source IP address.
+# Prevents a single IP from consuming all LMTP processes.
+# -----------------------------------------------------------------------------
+lmtp_connection_limit = {{ lmtp_connection_limit | default(100) }}
+
+# -----------------------------------------------------------------------------
+# LMTP Recipient Limit:
+# Maximum number of recipients allowed in a single LMTP transaction.
+# Helps prevent abuse and resource exhaustion.
+# -----------------------------------------------------------------------------
+lmtp_recipient_limit = {{ lmtp_recipient_limit | default(100) }}
+
+# -----------------------------------------------------------------------------
+# LMTP Connect Timeout:
+# Timeout in seconds for connecting to the LMTP server.
+# -----------------------------------------------------------------------------
+lmtp_connect_timeout = {{ lmtp_connect_timeout | default(30) }}
+
+# -----------------------------------------------------------------------------
+# Mail Location:
+# Defines the mail storage format and path.
+# Examples: 'maildir:~/Maildir', 'mbox:~/mbox', 'maildir:/var/vmail/%d/%n/Maildir'
+# This path is expanded using userdb variables.
+# -----------------------------------------------------------------------------
+mail_location = {{ mail_location | default('maildir:~/Maildir') }}
+
+# -----------------------------------------------------------------------------
+# Service Block: lmtp
+# Defines the listener configuration for the LMTP service.
+# -----------------------------------------------------------------------------
+service lmtp {
+
+  # ---------------------------------------------------------------------------
+  # Unix Socket Listener
+  # Used for local communication between Postfix and Dovecot.
+  # Path is determined by the MTA integration (peer injection).
+  # ---------------------------------------------------------------------------
+  unix_listener /var/spool/postfix/private/dovecot-lmtp {
+
+    # Unix Socket File Permissions
+    # '0666' = world-writable (Postfix needs to write to it).
+    # '0660' = group-rwx/writable (secure if Postfix runs in the same group).
+    mode = {{ lmtp_unix_mode | default('0666') }}
+
+    # Unix User Owner of the Socket
+    # Typically 'postfix' so the Postfix process can access the socket.
+    user = {{ lmtp_unix_user | default('postfix') }}
+
+    # Unix Group Owner of the Socket
+    group = {{ lmtp_unix_group | default('postfix') }}
+  }
+
+  # ---------------------------------------------------------------------------
+  # TCP Listener (Optional)
+  # Uncomment/enable if LMTP should listen on a TCP port for remote delivery.
+  # Usually NOT needed if integrating with local Postfix via Unix socket.
+  # ---------------------------------------------------------------------------
+  {% if lmtp_tcp_enabled | default(false) | bool %}
+  inet_listener lmtp {
+    # IP address to bind. '127.0.0.1' for local only, '0.0.0.0' for all interfaces.
+    address = {{ lmtp_tcp_address | default('127.0.0.1') }}
+
+    # Port for LMTP TCP listener. Standard LMTP port is 24.
+    port = {{ lmtp_tcp_port | default(24) }}
+  }
+  {% endif %}
+}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Path to the main Dovecot error log.
+log_path = {{ log_path | default('/var/log/dovecot/dovecot.log') }}
+
+# Path to the Dovecot info log (less verbose, captures general info).
+info_log_path = {{ info_log_path | default('/var/log/dovecot/dovecot-info.log') }}
+
+# -----------------------------------------------------------------------------
+# Mail Plugins
+# List of mail plugins to load for LMTP delivery.
+# Common plugins: 'sieve' (for filtering), 'zlib' (compression), 'mail_log'.
+# -----------------------------------------------------------------------------
+mail_plugins = {{ mail_plugins | default([]) | join(' ') }}
+
+# -----------------------------------------------------------------------------
+# Authentication Configuration (Passdb & Userdb)
+# These blocks are ONLY required if lmtp_auth_required is true.
+# If authentication is not required (trusted local MTA), these can be omitted.
+# -----------------------------------------------------------------------------
+{% if lmtp_auth_required | default(false) | bool %}
+
+# ---------------------------------------------------------------------------
+# Authentication Mechanisms
+# Supported SASL mechanisms for LMTP authentication.
+# Common: 'plain', 'login', 'digest-md5'.
+# ---------------------------------------------------------------------------
+auth_mechanisms = {{ auth_mechanisms | default(['plain', 'login']) | join(' ') }}
+
+# ---------------------------------------------------------------------------
+# Passdb (Password Database)
+# Defines where user passwords are looked up.
+# Drivers: 'pam', 'shadow', 'sql', 'ldap'.
+# ---------------------------------------------------------------------------
+passdb {
+  driver = {{ passdb_driver | default('pam') }}
+
+  {% if passdb_args | default('') %}
+  # Additional arguments for the passdb driver
+  args = {{ passdb_args | default('') }}
+  {% endif %}
+}
+
+# ---------------------------------------------------------------------------
+# Userdb (User Database)
+# Defines how user information (uid, gid, home directory) is retrieved.
+# Driver 'static' is often used with custom args to map virtual users.
+# ---------------------------------------------------------------------------
+userdb {
+  driver = {{ userdb_driver | default('static') }}
+
+  {% if userdb_args | default('') %}
+  # Arguments for the userdb driver (e.g., uid, gid, home path)
+  # Example: uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n
+  args = {{ userdb_args | default('uid=vmail gid=vmail home=/var/mail/vhosts/%d/%n') }}
+  {% endif %}
+}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Mail Process Limits
+# -----------------------------------------------------------------------------
+
+# Maximum message size in bytes (0 = unlimited).
+# Set to e.g., 26214400 for a 25MB limit.
+mail_fsize_limit = {{ mail_fsize_limit | default(0) }}
+
+# Maximum concurrent LMTP connections per user/IP.
+# Helps prevent DoS attacks.
+mail_max_userip_connections = {{ mail_max_userip_connections | default(10) }}
+
+# -----------------------------------------------------------------------------
+# SSL/TLS Configuration
+# Controls whether LMTP connections are encrypted.
+# Values: 'no', 'yes', 'required' (forces TLS).
+# -----------------------------------------------------------------------------
+ssl = {{ ssl | default('no') | lower }}
+
+# SSL Certificate and Key
+# Only required if ssl is 'yes' or 'required'.
+{% if ssl | default('no') | lower in ['yes', 'required'] %}
+# Path to the SSL certificate file.
+ssl_cert = <{{ ssl_cert_path | default('/etc/ssl/certs/dovecot.pem') }}
+
+# Path to the SSL private key file.
+ssl_key = <{{ ssl_key_path | default('/etc/ssl/private/dovecot.key') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Postmaster Address
+# Email address used in error responses and logging for system alerts.
+# -----------------------------------------------------------------------------
+postmaster_address = {{ postmaster_address | default('postmaster@localhost') }}
+
+# -----------------------------------------------------------------------------
+# LDA Mailbox Auto-Creation and Auto-Subscription
+# Automatically create the user's mailbox directory on first delivery.
+# Automatically subscribe the user to the main mailbox.
+# -----------------------------------------------------------------------------
+lda_mailbox_autocreate = {{ lda_mailbox_autocreate | default(true) | string | lower }}
+lda_mailbox_autosubscribe = {{ lda_mailbox_autosubscribe | default(true) | string | lower }}

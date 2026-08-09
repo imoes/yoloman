@@ -1,0 +1,93 @@
+{
+  "dirmngr_local_stream_socket": {
+    "type": "string",
+    "default": "/run/user/{{ ansible_env.USERID }}/dirmngr.sock",
+    "description": "Path to local Unix stream socket for gpg-agent communication. Use 0 to disable local socket or -1 for default."
+  },
+  "dirmngr_ldap_port": {
+    "type": "number",
+    "default": 389,
+    "description": "TCP port to listen on for LDAP queries. Set to 0 to disable LDAP support."
+  },
+  "dirmngr_ldap_server_pool": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic LDAP server failover using DNS SRV records (RFC 2782)."
+  },
+  "dirmngr_ldap_servers": {
+    "type": "list",
+    "default": [
+      {
+        "url": "ldap://pool.sks-keyservers.net"
+      }
+    ],
+    "description": "List of LDAP servers for certificate lookups. Each item contains the LDAP URL (ldap:// or ldaps://).",
+    "items": {
+      "url": {
+        "type": "string",
+        "description": "LDAP server URL (e.g., ldap://ldap.example.com or ldaps://ldap.example.com:636)."
+      }
+    }
+  },
+  "dirmngr_http_proxy": {
+    "type": "string",
+    "default": "auto",
+    "description": "HTTP proxy to use for LDAP/HTTP traffic. Use 'auto' to detect proxy from environment (http_proxy/HTTP_PROXY)."
+  },
+  "dirmngr_no_allow_dns_cert": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable DNS-based certificate lookup (RFC 4398/6186). Recommended for privacy or restricted networks."
+  },
+  "dirmngr_no_allow_ldap": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable LDAP entirely (including DNS SRV-based discovery). Use for air-gapped or non-networked environments."
+  },
+  "dirmngr_connection_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait for network operations (LDAP, HTTP, OCSP)."
+  },
+  "dirmngr_max_connections": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of concurrent network connections (LDAP, HTTP)."
+  },
+  "dirmngr_cache_validity": {
+    "type": "number",
+    "default": 3600,
+    "description": "How long (seconds) to cache certificate responses before revalidation."
+  },
+  "dirmngr_ocsp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable OCSP (Online Certificate Status Protocol) checks for revocation status. Requires responders or DNS SRV records."
+  },
+  "dirmngr_ocsp_responders": {
+    "type": "list",
+    "default": [],
+    "description": "List of explicit OCSP responder URLs (optional; DNS-based discovery used if omitted).",
+    "items": {
+      "url": {
+        "type": "string",
+        "description": "OCSP responder URL (e.g., https://ocsp.example.com)."
+      }
+    }
+  },
+  "dirmngr_use_standard_resolver": {
+    "type": "bool",
+    "default": false,
+    "description": "Use system DNS resolver instead of cURL\u2019s built-in resolver (e.g., for systemd-resolved compatibility)."
+  },
+  "dirmngr_log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file (empty = no log file; log to stdout/stderr). Avoid logging to world-readable paths."
+  },
+  "dirmngr_verbose": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity level (0\u20133). Each increment adds more debug output. Do not enable in production unless debugging."
+  }
+}

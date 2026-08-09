@@ -1,0 +1,179 @@
+# =============================================================================
+# Location Service Configuration Template
+# =============================================================================
+# This template generates the configuration file for the Lomiri location service.
+# It supports multiple backends (gypsy, gpsd, mock) and allows fine-grained
+# control over logging, permissions, and mock data for testing.
+#
+# All variables are sourced from Ansible host/group vars or defaults defined
+# within the template itself to ensure safe rendering even if variables are
+# unexpectedly omitted.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Global Service Control
+# -----------------------------------------------------------------------------
+
+# Enable or disable the location service entirely.
+# If set to false, the daemon will not start or will stop if currently running.
+# Type: Boolean
+# Default: true
+enabled: {{ enabled | default(true) | lower }}
+
+# -----------------------------------------------------------------------------
+# Backend Configuration
+# -----------------------------------------------------------------------------
+
+# List of location backend modules to load.
+# Each item in the list should be a dictionary containing at least 'name'.
+# Common backends: 'gypsy' (GNSS/GPSD), 'gpsd' (external daemon), 'mock' (test data).
+# Type: List of Maps
+# Default: [] (empty list)
+backends:
+{% for backend in backends | default([]) %}  - name: {{ backend.name }}
+{% endfor %}
+
+# Default backend used when multiple are available.
+# This backend will be used unless a specific one is requested by a client.
+# Must match the 'name' of one of the backends listed above.
+# Type: String
+# Default: gypsy
+default_backend: {{ default_backend | default('gypsy') }}
+
+# -----------------------------------------------------------------------------
+# Logging and Daemon Management
+# -----------------------------------------------------------------------------
+
+# Logging verbosity level.
+# 0: error (critical failures only)
+# 1: warning (potential issues)
+# 2: info (standard operational messages)
+# 3: debug (detailed diagnostic information)
+# Type: Integer
+# Default: 1
+log_level: {{ log_level | default(1) | int }}
+
+# Path to the PID file for the location service daemon.
+# The service writes its process ID here upon startup.
+# Type: String (Absolute Path)
+# Default: /run/lomiri/location-service.pid
+pid_file: {{ pid_file | default('/run/lomiri/location-service.pid') }}
+
+# Maximum seconds to wait for a backend to initialize before failing.
+# If a backend does not report ready within this time, it is considered failed.
+# Type: Integer
+# Default: 10
+backend_timeout: {{ backend_timeout | default(10) | int }}
+
+# -----------------------------------------------------------------------------
+# Position Update Limits
+# -----------------------------------------------------------------------------
+
+# Maximum number of position updates per second allowed from the service.
+# This acts as a rate limiter to prevent excessive resource usage or client flooding.
+# Type: Integer
+# Default: 5
+rate_limit: {{ rate_limit | default(5) | int }}
+
+# -----------------------------------------------------------------------------
+# GNSS Hardware Configuration
+# -----------------------------------------------------------------------------
+
+# GNSS constellations the hardware should track.
+# Determines which satellite systems are queried for position data.
+# Supported values typically include: 'GPS', 'GLONASS', 'Galileo', 'BeiDou'.
+# Type: List of Strings
+# Default: ['GPS', 'GLONASS', 'Galileo']
+gnss_systems:
+{% for system in gnss_systems | default(['GPS', 'GLONASS', 'Galileo']) %}  - {{ system }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Mock Location Settings
+# -----------------------------------------------------------------------------
+
+# Mock location mode settings.
+# These settings are ONLY used if the 'mock' backend is loaded and enabled.
+# They allow simulating a specific geographic location for testing applications.
+{% if mock_enabled | default(false) | bool %}
+mock:
+  # Enable mock location injection.
+  # Type: Boolean
+  # Default: false
+  enabled: {{ mock_enabled | default(false) | lower }}
+
+  # Mock latitude in decimal degrees (WGS84).
+  # Type: Float
+  # Default: 48.8566 (Paris)
+  latitude: {{ mock_latitude | default(48.8566) }}
+
+  # Mock longitude in decimal degrees (WGS84).
+  # Type: Float
+  # Default: 2.3522 (Paris)
+  longitude: {{ mock_longitude | default(2.3522) }}
+
+  # Mock altitude in meters above sea level (WGS84 ellipsoid).
+  # Type: Float
+  # Default: 35.0
+  altitude: {{ mock_altitude | default(35.0) }}
+
+  # Mock speed in meters per second.
+  # Type: Float
+  # Default: 0.0
+  speed: {{ mock_speed | default(0.0) }}
+
+  # Mock heading in degrees (0° = North, 90° = East, 180° = South, 270° = West).
+  # Type: Float
+  # Default: 0.0
+  heading: {{ mock_heading | default(0.0) }}
+
+  # Mock position accuracy in meters (radius of uncertainty).
+  # Type: Float
+  # Default: 5.0
+  accuracy: {{ mock_accuracy | default(5.0) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# D-Bus Interface Configuration
+# -----------------------------------------------------------------------------
+
+# D-Bus service interface definition.
+# This block is generally static, defining the bus name and object path
+# exposed by the location service for client applications.
+interface:
+  # D-Bus service name.
+  name: org.freedesktop.location1
+  # D-Bus object path.
+  path: /org/freedesktop/location1
+
+# -----------------------------------------------------------------------------
+# Security and Permissions
+# -----------------------------------------------------------------------------
+
+# D-Bus permission model controlling access to location data.
+# 'system': Restricts access to system services only; users must request elevation.
+# 'user': Permissive; allows any user session to access location data.
+# Type: String ('system' or 'user')
+# Default: system
+permission_policy: {{ permission_policy | default('system') }}
+
+# -----------------------------------------------------------------------------
+# External GPSD Server Configuration
+# -----------------------------------------------------------------------------
+
+# External GPSD server connection settings.
+# Used when an external GPS daemon (gpsd) provides GNSS data to the service.
+# Ignored if the GPSD backend is not loaded or if local GNSS hardware is used directly.
+{% if gpsd_host | default('localhost') != '' %}
+gpsd:
+  # Host or IP address of the external GPSD server.
+  # Type: String
+  # Default: localhost
+  host: {{ gpsd_host | default('localhost') }}
+
+  # Port number of the external GPSD server.
+  # Standard gpsd port is 2947.
+  # Type: Integer
+  # Default: 2947
+  port: {{ gpsd_port | default(2947) | int }}
+{% endif %}

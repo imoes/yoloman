@@ -1,0 +1,13 @@
+#!/bin/sh
+
+{# Shell positional parameter (typically $1) passed to the script; used to detect invocation by systemd timer vs cron. #}
+EX4SYSTEMDTIMER={{ ex4systemd_timer | default('$1') }}
+
+# skip in favour of systemd timer if called from cron.daily
+if [ -d /run/systemd/system ] && [ "$EX4SYSTEMDTIMER" != "systemd-timer" ]; then
+    exit 0
+fi
+
+[ -f /usr/bin/apt-show-versions ] || exit 0
+
+apt-show-versions -i

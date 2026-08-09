@@ -1,0 +1,117 @@
+# AppArmor profile for the Docker daemon binary.
+# This profile restricts the Docker daemon process to specific file, device, and capability accesses.
+#
+# Schema fields mapped to variables:
+# - docker_bin_path: Path to the Docker binary that this profile applies to.
+# - docker_config_paths: Paths and patterns allowing access to Docker configuration files.
+# - docker_state_paths: Paths and patterns allowing read/write access to Docker state and container images.
+# - docker_socket_path: Path to the Docker daemon socket.
+# - seccomp_profiles: Paths to seccomp filter profiles used by Docker containers.
+# - allow_dangerous_caps: List of Linux capabilities the Docker daemon requires.
+# - deny_rules: List of explicit 'deny' rules for fine-grained security hardening.
+# - mount_rules_enabled: Enable 'mount' and 'umount' permissions.
+# - ptrace_enabled: Enable 'ptrace' capability for debugging and introspection.
+
+#include <tunables/global>
+
+# Path to the Docker binary that this profile applies to.
+{{ docker_bin_path | default('/usr/bin/docker') }} {
+  # Include standard Abstractions for base system access, DNS resolution, OpenSSL, and SSL keys.
+  # These are generally safe and required for basic container runtime operation.
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+  #include <abstractions/openssl>
+  #include <abstractions/ssl_keys>
+
+  # Paths and patterns allowing access to Docker configuration files.
+  # Typically includes daemon.json, certificates, and other config files.
+  {% for path in docker_config_paths | default(['/etc/docker/**']) %}
+  {{ path }} r,
+  {% endfor %}
+
+  # Paths and patterns allowing read/write access to Docker state and container images.
+  # Includes container layers, volumes, and internal data.
+  {% for path in docker_state_paths | default(['/var/lib/docker/**']) %}
+  {{ path }} rw,
+  {% endfor %}
+
+  # Path to the Docker daemon socket that containers may access.
+  # Used for 'docker-in-docker' scenarios or external clients communicating with the daemon.
+  {{ docker_socket_path | default('/run/docker.sock') }} rw,
+
+  # Paths to seccomp filter profiles used by Docker containers.
+  # The daemon needs read access to these profiles to apply them to containers.
+  {% for path in seccomp_profiles | default(['/etc/docker/seccomp-profile.json', '/usr/share/docker/seccomp*.json']) %}
+  {{ path }} r,
+  {% endfor %}
+
+  # Allow container rootfs mounts (read-only by default, unless overridden).
+  # Docker needs read access to system directories to copy files into container image layers.
+  / rw,
+  /usr/ r,
+  /bin/ r,
+  /sbin/ r,
+  /lib/ r,
+  /lib64/ r,
+  /etc/ r,
+  /dev/ r,
+
+  # Docker needs to manage network namespaces and devices.
+  # Access to specific /proc and /sys entries for system tuning and device management.
+  /proc/sys/kernel/pid_max r,
+  /proc/sys/kernel/keys/ r,
+  /proc/sys/kernel/random/entropy_avail r,
+  /sys/kernel/mm/transparent_hugepage/enabled r,
+  /sys/kernel/mm/transparent_hugepage/defrag r,
+  /dev/kmsg w,
+  /dev/net/tun rw,
+
+  # Allow container exec and attach (e.g., via `docker exec`).
+  # Access to process file descriptors, namespaces, and cgroups for introspection and management.
+  /proc/*/fd/ r,
+  /proc/*/ns/ r,
+  /sys/fs/cgroup/ r,
+  /sys/fs/cgroup/** r,
+
+  # Allow Docker to create and manage namespaces and cgroups.
+  /sys/kernel/cgroup* w,
+
+  # List of Linux capabilities the Docker daemon requires.
+  # Remove any capability if you need to tighten security (e.g., for highly restricted environments).
+  # Common capabilities: setuid, setgid, sys_admin, sys_ptrace, net_admin, net_raw, sys_chroot, mknod, setpcap, audit_write, sys_resource.
+  {% for cap in allow_dangerous_caps | default(['setuid', 'setgid', 'sys_admin', 'sys_ptrace', 'net_admin', 'net_raw', 'sys_chroot', 'mknod', 'setpcap', 'audit_write', 'sys_resource']) %}
+  capability {{ cap }},
+  {% endfor %}
+
+  # Enable 'mount' and 'umount' permissions.
+  # Disable only if you're not using overlay/other storage drivers that require them.
+  {% if mount_rules_enabled | default(True) | bool %}
+  mount,
+  umount,
+  {% endif %}
+
+  # Allow pivot_root (used in containers).
+  # Required for changing the root directory during container setup.
+  pivot_root,
+
+  # Enable 'ptrace' capability for debugging and introspection.
+  # Allows tools like `docker top`, `docker inspect`, and debuggers to trace container processes.
+  # Disable in maximum-security environments.
+  {% if ptrace_enabled | default(True) | bool %}
+  ptrace,
+  {% endif %}
+
+  # Allow signal handling between host and containers.
+  # Required for graceful shutdown and process management.
+  signal,
+
+  # List of explicit 'deny' rules for fine-grained security hardening.
+  # Use these to block specific dangerous operations even if they might be implied by other rules.
+  # Example: deny /proc/*/mem w,
+  {% for rule in deny_rules | default([]) %}
+  deny {{ rule }},
+  {% endfor %}
+
+  # Allow access to user-specified volumes (handled via profiles per container in practice).
+  # This is usually managed dynamically via include statements per profile.
+}

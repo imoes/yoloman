@@ -1,0 +1,37 @@
+# LDAP server connection settings
+[ldap]
+server = {{ ldap_server }}
+port = {{ ldap_port }}
+use_ssl = {{ ldap_use_ssl | string | lower }}
+bind_dn = {{ ldap_bind_dn }}
+bind_password = {{ ldap_bind_password }}
+base_dn = {{ ldap_base_dn }}
+
+# User search configuration
+[search]
+user_base = {{ user_base | default(ldap_base_dn) }}
+user_filter = {{ user_filter }}
+user_attributes = {{ user_attributes | join(',') }}
+
+# Group search configuration
+[group_search]
+group_base = {{ group_base | default(ldap_base_dn) }}
+group_filter = {{ group_filter }}
+group_attributes = {{ group_attributes | join(',') }}
+
+# Synchronization settings
+[sync]
+enabled = {{ sync_enabled | string | lower }}
+interval = {{ sync_interval }}
+
+# Mapping of LDAP groups to local system groups
+[group_mapping]
+{% for mapping in group_mappings %}
+{{ mapping.ldap_group }} = {{ mapping.local_group }}
+{% endfor %}
+
+# Certificate verification settings (optional)
+{% if ldap_ca_cert_path %}
+[cert]
+ca_cert_path = {{ ldap_ca_cert_path }}
+{% endif %}

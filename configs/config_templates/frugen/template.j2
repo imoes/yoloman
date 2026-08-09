@@ -1,0 +1,97 @@
+{# ============================================================================= #}
+{# frugen(1) - FRU (Vital Product Data) Generator Configuration Template           #}
+{#                                                                                #}
+{# This template generates a configuration file for the frugen utility, which     #}
+{# creates or modifies FRU (Field Replaceable Unit) data structures.              #}
+{#                                                                                #}
+{# Variables are safely defaulted using schema definitions. If a variable is not  #}
+{# provided by Ansible, the template uses the fallback value specified in the     #}
+{# schema (see each variable's {{ ... | default(...) }} block).                   #}
+{# ============================================================================= #}
+
+{# ---------------------------------------------------------------------------- #}
+{# Board Manufacturing Date/Time                                                #}
+{# Schema: board_date                                                           #}
+{# Default: '' (empty)                                                          #}
+{# Description: Board manufacturing date/time in 'DD/MM/YYYY HH:MM:SS' format   #}
+{# ---------------------------------------------------------------------------- #}
+{% if (board_date | default('')) | length > 0 %}#board.date={{ board_date | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Chassis Type                                                                 #}
+{# Schema: chassis_type                                                         #}
+{# Default: '0x02'                                                              #}
+{# Description: Chassis type (hex), defaults to 0x02 ('Unknown')                #}
+{# ---------------------------------------------------------------------------- #}
+#chassis.type={{ chassis_type | default('0x02') }}
+
+{# ---------------------------------------------------------------------------- #}
+{# System Unique ID (UUID/GUID)                                                 #}
+{# Schema: mr_uuid                                                              #}
+{# Default: ''                                                                  #}
+{# Description: System Unique ID (UUID/GUID)                                    #}
+{# ---------------------------------------------------------------------------- #}
+{% if (mr_uuid | default('')) | length > 0 %}#mr.uuid={{ mr_uuid | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Debug Flags                                                                  #}
+{# Schema: debug_flags                                                          #}
+{# Default: []                                                                  #}
+{# Description: List of debug flags (e.g., ['fver', 'rver']) per --debug        #}
+{#              option documentation                                            #}
+{# ---------------------------------------------------------------------------- #}
+{% set _debug_flags = debug_flags | default([]) %}
+{% if _debug_flags | length > 0 %}#debug={{ _debug_flags | join(',') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Input Source Configuration                                                   #}
+{# Schema: input_source, input_file                                             #}
+{# Defaults: input_source='', input_file=''                                     #}
+{# Description: Input source type ('raw', 'json') and file path                 #}
+{# ---------------------------------------------------------------------------- #}
+{% set _input_source = input_source | default('') %}
+{% if _input_source == 'raw' %}#input.raw={{ input_file | default('') }}
+{% endif %}
+{% if _input_source == 'json' %}#input.json={{ input_file | default('') }}
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Output Format                                                                #}
+{# Schema: output_format                                                        #}
+{# Default: 'binary'                                                            #}
+{# Description: Output format: 'binary', 'json', or 'text'                      #}
+{# ---------------------------------------------------------------------------- #}
+#output.format={{ output_format | default('binary') }}
+
+{# ---------------------------------------------------------------------------- #}
+{# Field Overrides                                                              #}
+{# Schema: fields (List of objects with path, value, encoding)                  #}
+{# Default: []                                                                  #}
+{# Description: List of field overrides, each with path, value, and optional    #}
+{#              encoding                                                        #}
+{# ---------------------------------------------------------------------------- #}
+{% set _fields = fields | default([]) %}
+{% for field in _fields %}#set.{{ (field.path | default('')) }}={{ field.value | default('') }}
+{% endfor %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Board Date Unspecified Flag                                                  #}
+{# Schema: board_date_unspec                                                    #}
+{# Default: False                                                               #}
+{# Description: If true, do not use current system date/time for board mfg.     #}
+{#              date                                                            #}
+{# ---------------------------------------------------------------------------- #}
+{% if board_date_unspec | default(False) %}#board.date.unspec
+{% endif %}
+
+{# ---------------------------------------------------------------------------- #}
+{# Verbose Mode                                                                 #}
+{# Schema: verbose                                                              #}
+{# Default: False                                                               #}
+{# Description: Enable verbose/debug output                                     #}
+{# ---------------------------------------------------------------------------- #}
+{% if verbose | default(False) %}#verbose
+{% endif %}

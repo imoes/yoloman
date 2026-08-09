@@ -1,0 +1,101 @@
+# Global configuration for lftp
+# This file is managed by Ansible. Do not edit manually.
+# It sets global defaults for network behavior, FTP/SSL, HTTP proxying,
+# and mirror operations. Per-host aliases and session overrides are
+# appended below.
+
+# --- Global Network Settings ---
+
+# Global network timeout in seconds. Shorter timeouts fail fast;
+# longer ones help with unreliable networks.
+set net:timeout {{ net_timeout | default(30) }}
+
+# Time to wait before attempting to reconnect after a disconnection
+# (for FTP and other protocols).
+set net:reconnect-interval {{ net_reconnect_interval | default(5) }}
+
+# Enable FTP passive mode (PASV). Required behind most firewalls/NAT.
+# Set to 'true' or 'false'.
+set ftp:passive-mode {{ ftp_passive_mode | default(True) | lower }}
+
+# DNS lookup timeout in seconds.
+set dns:timeout {{ dns_timeout | default(30) }}
+
+# --- FTP / SSL Settings ---
+
+# Allow FTP/SSL (FTPS) connections. Disable only in isolated, trusted
+# environments where encryption is not needed or supported.
+set ftp:ssl-allow {{ ftp_ssl_allow | default(True) | lower }}
+
+# Require FTP/SSL (FTPS). If the server does not support SSL/TLS,
+# lftp will abort the connection. Strict security mode.
+set ftp:ssl-force {{ ftp_ssl_force | default(False) | lower }}
+
+# Encrypt the data channel (in addition to the control channel) when
+# using FTP/SSL. Prevents leakage of directory listings and filenames.
+set ftp:ssl-data-protect {{ ftp_ssl_data_protect | default(False) | lower }}
+
+# --- HTTP Proxy Settings ---
+
+# Enable HTTP proxy usage for HTTP downloads/uploads.
+# Requires http_proxy_host and http_proxy_port to be set.
+set http:use-proxy {{ http_use_proxy | default(False) | lower }}
+
+# HTTP proxy hostname or IP address. Empty string means no proxy.
+set http:proxy-host "{{ http_proxy_host | default('') }}"
+
+# HTTP proxy port. 0 means no proxy port configured.
+set http:proxy-port {{ http_proxy_port | default(0) }}
+
+# --- FTP Proxy Settings ---
+
+# FTP proxy hostname or IP address. Empty string means no proxy.
+set ftp:proxy-host "{{ ftp_proxy_host | default('') }}"
+
+# FTP proxy port. 0 means no proxy port configured.
+set ftp:proxy-port {{ ftp_proxy_port | default(0) }}
+
+# --- Mirror / Transfer Settings ---
+
+# Time to wait before retrying failed mirror (recursive sync) operations,
+# in seconds.
+set mirror:retry-timeout {{ mirror_retry_timeout | default(5) }}
+
+# Timeout for establishing each individual connection during a mirror
+# operation, in seconds.
+set mirror:connect-timeout {{ mirror_connect_timeout | default(10) }}
+
+# Ignore files modified more than this many seconds ago when mirroring.
+# 0 means do not ignore based on time.
+set mirror:ignore-time 0
+
+# --- Per-Host Aliases ---
+# Defines convenient shortcuts to jump to pre-configured FTP/HTTP/BitTorrent
+# servers. Each alias creates a command like 'alias myhost "open ..."'
+# that can be invoked directly in the lftp prompt.
+
+{% for host in hosts | default([], true) %}
+# Host alias: {{ host.name | default('unnamed') }}
+# URL: {{ host.url | default('') }}
+# User: {{ host.user | default('anonymous') if host.user is defined else 'anonymous' }}
+# Port: {{ host.port | default('') if host.port is defined else 'default' }}
+# Remote Dir: {{ host.remote_dir | default('/') if host.remote_dir is defined else '/' }}
+alias {{ host.name | default('unnamed') }} "open {{ host.url | default('') }}{% if host.user is defined and host.user %};user {{ host.user }}{% endif %}{% if host.password is defined and host.password %};pass {{ host.password }}{% endif %}{% if host.port is defined and host.port %} -p {{ host.port }}{% endif %};cd {{ host.remote_dir | default('/') if host.remote_dir is defined else '/' }}"
+{% endfor %}
+
+# --- Pseudo-Interactive Session Defaults ---
+# These settings act as defaults for named sessions that can be sourced
+# at runtime via 'lftp -e "source session_name"'. They override global
+# defaults if specified.
+
+{% for session in sessions | default([], true) %}
+# Session: {{ session.name | default('unnamed') }}
+{% if session.timeout is defined %}set net:timeout {{ session.timeout }}
+{% endif %}{% if session.passive is defined %}set ftp:passive-mode {{ session.passive | lower }}
+{% endif %}{% if session.ssl is defined %}set ftp:ssl-allow {{ session.ssl | lower }}
+{% endif %}{% if session.ssl_force is defined %}set ftp:ssl-force {{ session.ssl_force | lower }}
+{% endif %}{% if session.reconnect is defined %}set net:reconnect-interval {{ session.reconnect }}
+{% endif %}{% if session.parallel_max is defined %}set mirror:parallel-max {{ session.parallel_max }}
+{% endif %}{% if session.parallel_num is defined %}set mirror:parallel-num {{ session.parallel_num }}
+{% endif %}
+{% endfor %}

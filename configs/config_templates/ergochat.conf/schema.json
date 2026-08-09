@@ -1,0 +1,122 @@
+{
+  "hostname": {
+    "type": "string",
+    "default": "irc.example.com",
+    "description": "Fully-qualified domain name (FQDN) of this server; must match SSL certificate and DNS."
+  },
+  "network_name": {
+    "type": "string",
+    "default": "ExampleNet",
+    "description": "Network name displayed in client whois and network lists."
+  },
+  "network_description": {
+    "type": "string",
+    "default": "A friendly IRC network for community discussion.",
+    "description": "Short human-readable description of the network."
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "address": "0.0.0.0",
+        "port": 6697,
+        "ssl": {
+          "enabled": true,
+          "cert_path": "/etc/ssl/certs/irc.crt",
+          "key_path": "/etc/ssl/private/irc.key"
+        },
+        "protocol": "ircs"
+      }
+    ],
+    "description": "List of socket listeners for client/server connections."
+  },
+  "max_connections_per_ip": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum concurrent connections allowed per client IP address."
+  },
+  "max_messages_per_second": {
+    "type": "number",
+    "default": 3,
+    "description": "Rate limit: maximum messages per client per second before throttling."
+  },
+  "ssl_verify": {
+    "type": "bool",
+    "default": true,
+    "description": "Require and verify SSL certificates for server-to-server links."
+  },
+  "sasl_backend": {
+    "type": "string",
+    "default": "memory",
+    "description": "Backend for SASL authentication: 'external' (TLS client certs), 'memory' (in-memory), or 'sql' (database-backed)."
+  },
+  "sql_driver": {
+    "type": "string",
+    "default": "sqlite3",
+    "description": "Database driver (e.g., 'sqlite3', 'postgres'). Only used if sasl_backend='sql'."
+  },
+  "sql_dsn": {
+    "type": "string",
+    "default": "/var/lib/ergochat/sasl.db",
+    "description": "Data source name (connection string or file path) for SQL backend."
+  },
+  "tls_min_version": {
+    "type": "string",
+    "default": "1.2",
+    "description": "Minimum TLS version for server-to-server and client TLS (1.2 recommended)."
+  },
+  "tls_ciphers": {
+    "type": "list",
+    "default": [
+      "TLS_AES_256_GCM_SHA384",
+      "TLS_CHACHA20_POLY1305_SHA256",
+      "TLS_AES_128_GCM_SHA256"
+    ],
+    "description": "List of allowed TLS cipher suites (in order of preference)."
+  },
+  "tls_prefer_server_ciphers": {
+    "type": "bool",
+    "default": true,
+    "description": "Prefer server cipher order over client order during TLS negotiation."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of server logs (debug includes full protocol traffic)."
+  },
+  "log_format": {
+    "type": "string",
+    "default": "json",
+    "description": "Log output format: 'json' (structured) or 'text' (human-readable)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/ergochat/ergochat.log",
+    "description": "Path to log file. If empty or null, logs go to stderr."
+  },
+  "links": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream servers (for federated IRC networks)."
+  },
+  "server_description": {
+    "type": "string",
+    "default": "ErgoChat IRC server",
+    "description": "Server description sent to clients and upstream servers."
+  },
+  "server_sid": {
+    "type": "string",
+    "default": "003",
+    "description": "Server ID (3-digit hex string, unique across all servers in the network)."
+  },
+  "opers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IRC operator accounts."
+  },
+  "idle_timeout": {
+    "type": "number",
+    "default": 900,
+    "description": "Seconds of inactivity after which a client is automatically disconnected."
+  }
+}

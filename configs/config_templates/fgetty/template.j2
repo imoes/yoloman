@@ -1,0 +1,34 @@
+# /etc/fgetty.conf — configuration for fgetty(8)
+# This file manages getty-style login prompts on virtual and serial terminals.
+# Each section defines a terminal line (TTY) and the command-line flags passed to fgetty.
+#
+# Schema notes:
+# - tty_lines: List of TTY lines to configure with fgetty, each with device name and optional flags.
+#   One per line in the config file, matching /etc/inittab.
+#   Each item has: 'device' (string, required-ish), 'description' (string, optional), 'options' (mapping, optional).
+# - default: Default device name for a TTY line if no tty_lines are provided.
+#   Device name for a TTY line (e.g., tty1, ttyS0, hvc0), without /dev prefix.
+# - description: Description for a TTY line entry. (Used as comment/documentation in the config).
+
+{# If no tty_lines are provided, we still leave the file structure valid but empty of rules #}
+{# A default single TTY (tty1) is often expected, but we only render what is explicitly in the list #}
+
+{% if tty_lines is defined and tty_lines is iterable %}
+    {% for line in tty_lines %}
+# TTY: {{ line.device | default('unknown') }}
+# Description: {{ line.description | default(line.device | default('unnamed')) }}
+{# device: The TTY device name without /dev prefix (e.g., tty1, ttyS0) #}
+{{ line.device | default('') }}{#
+# flags: Optional fgetty arguments #}
+{% set opts = line.options | default({}) %}
+{% if opts.get('noclear', false) %} --noclear{% endif %}{% if opts.get('long_hostname', false) %} --long-hostname{% endif %}
+{% endfor %}
+{% else %}
+# No TTY lines configured. Add entries to the 'tty_lines' variable to configure terminals.
+{# Default fallback for single TTY if the user did not provide the list #}
+{% if default is defined and default %}
+# Fallback default TTY: {{ default }}
+# Description: {{ description | default(default) }}
+{{ default }}
+{% endif %}
+{% endif %}

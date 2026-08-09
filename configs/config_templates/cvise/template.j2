@@ -1,0 +1,144 @@
+# C-Vise (Automated Software Transformation Engine) configuration.
+# This template generates the command-line arguments for a `cvise` invocation.
+# It is designed to be embedded in an Ansible task's `args:` or `command:` module.
+
+# Number of CPU cores to use; 0 lets cvise auto-detect.
+--n {{ n | default(0) }}
+
+# Do not create .orig backup files during reduction.
+# If true, cvise will not back up the original file before modifying it.
+--tidy {{ tidy | default(False) | ternary('', '--no-tidy') }}
+
+# Terminate immediately if any pass encounters a non-fatal error.
+# By default, cvise may continue after recoverable errors; this flag stops on the first one.
+--die-on-pass-bug {{ die_on_pass_bug | default(False) | ternary('', '--no-die-on-pass-bug') }}
+
+# Prioritize thoroughness over speed.
+# This flag makes cvise spend more time trying to reduce the file, potentially finding smaller results at the cost of time.
+--sllooww {{ sllooww | default(False) | ternary('', '--no-sllooww') }}
+
+# Exit code (64–113) that causes cvise to accept a reduction as interesting.
+# Usually cvise checks the exit code of the interestingness test. This allows custom exit codes to signal success.
+--also-interesting {{ also_interesting | default(0) }}
+
+# Logging verbosity: INFO, DEBUG, WARNING, ERROR.
+--log-level {{ log_level | default('INFO') }}
+
+# Input test cases to reduce.
+# These are the files or directories that cvise will process.
+{% for tc in removed | default([]) %}{{ tc }}
+{% endfor %}
+
+# Note: The following flags were present in the original template but are not defined in the current schema defaults.
+# They are preserved here with their original variable names and 'defined' checks for backward compatibility.
+# If these variables are passed in the playbook, they will appear; otherwise they are omitted.
+
+{% if shaddap is defined %}# Suppress non-fatal internal error output.
+--shaddap
+{% endif %}
+
+{% if log_file is defined %}# Log file path.
+--log-file {{ log_file }}
+{% endif %}
+
+{% if no_give_up is defined %}# Do not give up on unproductive passes.
+--no-give-up
+{% endif %}
+
+{% if print_diff is defined %}# Show changes made by transformations.
+--print-diff
+{% endif %}
+
+{% if save_temps is defined %}# Keep /tmp/cvise-* temp directories.
+--save-temps
+{% endif %}
+
+{% if skip_initial_passes is defined %}# Skip initial reduction passes.
+--skip-initial-passes
+{% endif %}
+
+{% if skip_interestingness_test_check is defined %}# Skip initial interestingness test check.
+--skip-interestingness-test-check
+{% endif %}
+
+{% if remove_pass is defined %}# Remove specified passes from schedule.
+{% for p in remove_pass %}--remove-pass {{ p }}
+{% endfor %}
+{% endif %}
+
+{% if start_with_pass is defined %}# Begin reduction with specified pass.
+--start-with-pass {{ start_with_pass }}
+{% endif %}
+
+{% if no_timing is defined %}# Disable timing output.
+--no-timing
+{% endif %}
+
+{% if timestamp is defined %}# Use absolute timestamps instead of relative time.
+--timestamp
+{% endif %}
+
+{% if timeout is defined %}# Interestingness test timeout in seconds.
+--timeout {{ timeout }}
+{% endif %}
+
+{% if no_cache is defined %}# Disable pass behavior caching.
+--no-cache
+{% endif %}
+
+{% if skip_key_off is defined %}# Disable skipping pass on 's' keypress.
+--skip-key-off
+{% endif %}
+
+{% if max_improvement is defined %}# Max file size improvement per transformation (bytes).
+--max-improvement {{ max_improvement }}
+{% endif %}
+
+{% if pass_group is defined %}# Select predefined pass group.
+--pass-group {{ pass_group }}
+{% endif %}
+
+{% if pass_group_file is defined %}# Use custom pass group from JSON file.
+--pass-group-file {{ pass_group_file }}
+{% endif %}
+
+{% if clang_delta_std is defined %}# C++ standard for clang_delta passes.
+--clang-delta-std {{ clang_delta_std }}
+{% endif %}
+
+{% if clang_delta_preserve_routine is defined %}# Function to preserve in clang_delta pass.
+--clang-delta-preserve-routine {{ clang_delta_preserve_routine }}
+{% endif %}
+
+{% if not_c is defined %}# Disable C/C++-specific passes.
+--not-c
+{% endif %}
+
+{% if renaming is defined %}# Enable renaming passes.
+--renaming
+{% endif %}
+
+{% if commands is defined %}# Use shell commands instead of interestingness test.
+{% for cmd in commands %}--commands {{ cmd }}
+{% endfor %}
+{% endif %}
+
+{% if shell is defined %}# Shell for --commands.
+--shell {{ shell }}
+{% endif %}
+
+{% if to_utf8 is defined %}# Convert non-UTF-8 input to UTF-8.
+--to-utf8
+{% endif %}
+
+{% if skip_after_n_transforms is defined %}# Skip pass after N successful transformations.
+--skip-after-n-transforms {{ skip_after_n_transforms }}
+{% endif %}
+
+{% if stopping_threshold is defined %}# Stop when file size reduced to this fraction of original.
+--stopping-threshold {{ stopping_threshold }}
+{% endif %}
+
+{% if interestingness_test is defined %}# Interestingness test executable.
+{{ interestingness_test }}
+{% endif %}

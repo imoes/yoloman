@@ -1,0 +1,76 @@
+{
+  "timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "Global timeout (seconds) for each probe response. Increase for high-latency or congested networks."
+  },
+  "start_ttl": {
+    "type": "number",
+    "default": 1,
+    "description": "Initial TTL value to start the traceroute from. Usually 1."
+  },
+  "max_ttl": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum TTL value to probe. Limits the hop count of the trace."
+  },
+  "probes_per_hop": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of probe packets sent per hop for averaging. Higher values improve reliability at cost of time."
+  },
+  "use_icmp": {
+    "type": "bool",
+    "default": false,
+    "description": "Fallback to ICMP ECHO probes if UDP probes are blocked by firewalls."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable detailed logging of packet contents and timing for debugging."
+  },
+  "targets": {
+    "type": "list",
+    "default": [],
+    "description": "List of destination hosts to trace, each with optional ports and source IP.",
+    "items": {
+      "hostname": {
+        "type": "string",
+        "description": "Hostname or IP address of the target.",
+        "default": ""
+      },
+      "ports": {
+        "type": "list",
+        "description": "List of destination ports to probe (e.g., [80, 443]). Leave empty to use DefaultPorts.",
+        "default": [],
+        "items": {
+          "type": "number",
+          "default": 80
+        }
+      },
+      "source_ip": {
+        "type": "string",
+        "description": "Optional source IP address to bind outgoing probes (for multi-homed hosts).",
+        "default": ""
+      }
+    }
+  },
+  "default_ports": {
+    "type": "list",
+    "default": [
+      80,
+      443
+    ],
+    "description": "Ports used as fallback when a target entry omits Ports."
+  },
+  "interface": {
+    "type": "string",
+    "default": "",
+    "description": "Network interface name to bind source sockets (e.g., eth0). Leave blank for automatic selection."
+  },
+  "rate_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum packets per second per target. Set to 0 for no limit. Use to avoid overwhelming targets."
+  }
+}

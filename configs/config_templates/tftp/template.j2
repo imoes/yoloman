@@ -1,0 +1,40 @@
+# /etc/tftpd-hpa/tftpd.conf — TFTP server configuration for tftpd-hpa
+# NOTE: This config file is used by the `tftpd-hpa` package (standard Linux TFTP server),
+# not by Erlang/OTP applications. The `erlang-tftp` package does NOT use this file;
+# Erlang TFTP servers are typically configured inline in OTP releases or via env vars.
+# If you're deploying an Erlang TFTP server, ignore this template and configure via
+# application environment (e.g., `sys.config`) or command-line args.
+
+# The root directory from which TFTP files are served. All client paths are relative to this directory.
+path: {{ tftp_root | default('/srv/tftp') }}
+
+# IP address the TFTP server binds to. Use 0.0.0.0 for all interfaces, or a specific IP (e.g., 192.168.1.10).
+address: {{ listen_address | default('0.0.0.0') }}
+
+# UDP port number for TFTP requests. Standard is 69; do not change unless required by network constraints.
+port: {{ listen_port | default(69) }}
+
+# Whether to enable detailed logging (debug level) to syslog.
+# Set to 'yes' for detailed logs, 'no' for minimal logging.
+verbose: {{ verbose | default(false) | lower }}
+
+# Allow clients to upload new files to the server (write access). Set to false for read-only mode.
+# Set to 'yes' to permit uploads, 'no' to make server read-only.
+create_new_files: {{ allow_write | default(true) | lower }}
+
+# Allow clients to overwrite existing files. Only effective if write access is enabled.
+allow_overwrite: {{ allow_overwrite | default(false) | lower }}
+
+# Maximum concurrent TFTP sessions. 0 means unlimited. Set a positive value to limit resource usage.
+max_connections: {{ max_connections | default(0) }}
+
+# Idle timeout (seconds) before closing inactive connections. Adjust based on network latency and use case.
+timeout: {{ timeout | default(60) }}
+
+# Optional chroot jail directory. If specified, the server will drop root and chroot here after startup for security.
+# Must be an absolute path; if empty, no chroot is applied.
+chroot_dir: {{ chroot_dir | default('') }}
+
+# Additional command-line arguments passed to the tftpd-hpa daemon.
+# Each string in the list becomes a separate argument (e.g., '--umask=022').
+extra_daemon_args: {{ extra_daemon_args | default([]) | join(' ') }}

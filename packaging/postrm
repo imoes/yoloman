@@ -1,0 +1,15 @@
+#!/bin/sh
+# agentic-mcp postremove: stops/disables the service only. Deliberately
+# never deletes /etc/agentic-mcp (bearer token, trusted keys, tools.d) or
+# /var/lib/agentic-mcp (SQLite store, ACL, uploads) — losing the generated
+# token or accumulated metrics/audit history on a routine package removal
+# would be a destructive surprise; an operator who wants that data gone can
+# remove it explicitly.
+set -e
+
+if command -v systemctl >/dev/null 2>&1; then
+	systemctl stop agentic-mcp.service || true
+	systemctl disable agentic-mcp.service || true
+fi
+
+exit 0

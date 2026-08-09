@@ -1,0 +1,46 @@
+{# ============================================================================= #}
+{# bogofilter-tokyocabinet configuration template                                  #}
+{# This file configures bogofilter when backed by the Tokyo Cabinet (TCT) engine. #}
+{# All variables use schema defaults to ensure safe rendering even if undefined.  #}
+{# ============================================================================= #}
+
+{# Directory where wordlist.db and metadata are stored. #}
+dir {{ bogofilter_dir | default('/var/lib/bogofilter') }}
+
+{# Tokyo Cabinet cache size in MiB. #}
+--cache-size {{ cache_size | default(64) }}
+
+{# Effective size factor for spam counts (0 = disabled). #}
+--sp-esf {{ sp_esf | default(1.0) }}
+
+{# Effective size factor for non-spam counts (0 = disabled). #}
+--ns-esf {{ ns_esf | default(1.0) }}
+
+{# Minimum deviation from 0.5 required for a token to be used in classification. #}
+--min-dev {{ min_dev | default(0.1) }}
+
+{# Spammish probability assigned to unseen tokens (0.0 to 1.0). #}
+--robx {{ robx | default(0.4) }}
+
+{# Weight applied to robx for new/unseen tokens (0.0 to 1.0). #}
+--robs {{ robs | default(0.5) }}
+
+{# Score >= this is classified as spam. #}
+--spam-cutoff {{ spam_cutoff | default(0.99) }}
+
+{# Score <= this is ham; between ham_cutoff and spam_cutoff => unsure (tristate mode). #}
+--ham-cutoff {{ ham_cutoff | default(0.01) }}
+
+{# Name of header field used to report classification result. #}
+--spam-header-name {{ spam_header_name | default('X-Bogosity') }}
+
+{# Tag used in syslog messages when -l or -L is enabled. #}
+--log-tag {{ log_tag | default('bogofilter') }}
+
+{# Override current date for token timestamping (0 = disable). #}
+--timestamp {{ timestamp | default(0) }}
+
+{# List of raw configuration lines to append verbatim. #}
+{% for line in (extra_config | default([])) %}
+{{ line }}
+{% endfor %}

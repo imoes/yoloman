@@ -1,0 +1,197 @@
+# ==============================================================================
+# designate-api configuration template
+# Self-documenting: every variable has an inline default, every directive has
+# a comment explaining its purpose and schema source.
+# ==============================================================================
+
+[DEFAULT]
+
+# Path to the log file for the API server.
+log_file = {{ log_file | default('/var/log/designate/designate-api.log') }}
+
+# Directory where log files are stored.
+log_dir = {{ log_dir | default('/var/log/designate') }}
+
+# Service name for logging context.
+service_name = designate-api
+
+# Enable verbose logging (INFO level).
+verbose = {{ verbose | default(False) | lower }}
+
+# Enable debug-level logging (very verbose, for troubleshooting).
+debug = {{ debug | default(False) | lower }}
+
+# IP address the API server will listen on (e.g., 0.0.0.0 for all interfaces, or specific IP).
+bind_host = {{ bind_host | default('0.0.0.0') }}
+
+# TCP port for the Designate API server.
+bind_port = {{ bind_port | default(9001) }}
+
+# Path to WSGI app entry point (default, do not change unless overriding).
+paste_config = /etc/designate/paste.ini
+
+# Number of worker processes to handle incoming requests (adjust based on CPU cores).
+workers = {{ workers | default(2) }}
+
+# Maximum time (in seconds) before a request times out.
+timeout = {{ timeout | default(60) }}
+
+# Maximum requests per child worker before restart (0 = unlimited).
+max_requests = {{ max_requests | default(0) }}
+
+# SSL/TLS settings (if enabled).
+[ssl]
+
+# Enable HTTPS for the API server.
+enable = {{ ssl_enabled | default(False) | lower }}
+
+# Path to CA certificate bundle for validating client certificates (optional).
+ca_file = {{ ssl_ca_file | default('') }}
+
+# Path to SSL certificate file (required if SSL enabled).
+cert_file = {{ ssl_cert_file | default('/etc/ssl/certs/designate-api.crt') }}
+
+# Path to SSL private key file (required if SSL enabled).
+key_file = {{ ssl_key_file | default('/etc/ssl/private/designate-api.key') }}
+
+# Keystone authentication settings.
+[keystone_authtoken]
+
+# Keystone authentication endpoint (v3 API required).
+auth_url = {{ keystone_auth_url | default('http://controller:5000/v3') }}
+
+# Authentication type for Keystone.
+auth_type = password
+
+# Keystone domain name for the project (tenant).
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+
+# Keystone domain name for the user.
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# Keystone project name for the Designate service user.
+project_name = {{ keystone_project_name | default('service') }}
+
+# Keystone username for the Designate service.
+username = {{ keystone_username | default('designate') }}
+
+# Password for the Designate Keystone user (set securely via config management or secrets manager in production).
+password = {{ keystone_password | default('designate_password') }}
+
+# Keystone endpoint interface (public/internal/admin).
+interface = {{ keystone_interface | default('internal') }}
+
+# Name of the Designate service in Keystone.
+service_name = {{ keystone_service_name | default('designate') }}
+
+# Region for Keystone service endpoint discovery.
+# Keystone region where the Designate service is deployed.
+region_name = {{ keystone_region_name | default('RegionOne') }}
+
+# Rate limiting and middleware configuration.
+[oslo_middleware]
+
+# Enable request rate limiting via oslo.middleware.
+enable_rate_limiting = {{ enable_rate_limiting | default(True) | lower }}
+
+# Maximum allowed size (in bytes) for request body (1 MiB default).
+max_request_body_size = {{ max_request_body_size | default(1048576) }}
+
+# List of allowed origins for CORS (e.g., ['https://horizon.example.com']).
+cors_allowed_origins = {{ cors_allowed_origins | default([]) | join(', ') }}
+
+# List of response headers to expose to CORS clients.
+cors_expose_headers = {{ cors_expose_headers | default(['X-Auth-Token', 'X-Subject-Token']) | join(', ') }}
+
+# Secure proxy SSL header for detecting protocol behind reverse proxy.
+secure_proxy_ssl_header = X-Forwarded-Proto
+
+# Rate limit rules (list of rate limiting policies).
+# Each rule is for documentation; actual rules typically defined in paste.ini.
+{% if rate_limit_rules | default([]) | length > 0 %}
+{% for rule in rate_limit_rules %}
+# Rate limit rule: {{ rule.name | default('unnamed') }}
+{% endfor %}
+{% endif %}
+
+# RPC / messaging backend settings (for notifications, if used).
+[oslo_messaging_notifications]
+
+# Notification transport driver (e.g., messagingv2 for Oslo Messaging, or null for disabled).
+driver = {{ notification_driver | default('messagingv2') }}
+
+# Notification system (optional; used for event publishing).
+# Alternative transport URL for notifications (overrides notification_driver + rabbit settings if non-empty).
+{% if notification_transport_url | default('') %}
+transport_url = {{ notification_transport_url | default('') }}
+{% else %}
+# Fallback driver if transport_url is empty.
+driver = {{ notification_driver | default('messagingv2') }}
+{% endif %}
+
+# RabbitMQ (or other transport) connection string for notifications (used when driver=messagingv2).
+{% if notification_driver | default('messagingv2') == 'messagingv2' and not notification_transport_url | default('') %}
+transport_url = {{ messaging_transport_url | default('rabbit://user:pass@controller:5672//') }}
+{% endif %}
+
+# DNS backend integration settings.
+[service:designate]
+
+# List of DNS zones/pools to serve. Each pool defines a target DNS backend (e.g., BIND9).
+{% if pools | default([]) | length > 0 %}
+{% for pool in pools %}
+# Pool configuration: {{ pool.id | default('default') }}
+[designate:pool:{{ pool.id | default('default') }}]
+
+# List of DNS servers to forward queries to for this pool.
+nameservers = {{ pool.nameservers | default(['10.0.0.1']) | join(', ') }}
+
+# Targets for this pool. Each target defines a backend DNS server (e.g., BIND9).
+# Format: key=value; key2=value2, ...
+targets = {% set targets_list = pool.targets | default([{'type': 'bind9', 'address': '10.0.0.2', 'port': 53, 'rndc_host': '10.0.0.3', 'rndc_port': 953, 'rndc_key_file': '/etc/designate/rndc.key'}]) %}{% for t in targets_list %}{% for item in t | dict2items %}{{ item.key }}={{ item.value }}; {% endfor %}{% if not loop.last %}{% endif %}{% endfor %}
+
+# Pool-specific options.
+{% if pool.options | default({}) | length > 0 %}
+{% for item in pool.options | default({}) | dict2items %}{{ item.key }} = {{ item.value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# Database connection (shared with other Designate services, but defined here for clarity).
+[database]
+
+# SQLAlchemy database connection string.
+connection = {{ database_connection | default('mysql+pymysql://designate:designate_pass@controller/designate') }}
+
+# Time (seconds) to recycle database connections (avoid stale connections).
+connection_recycle_time = {{ database_connection_recycle_time | default(3600) }}
+
+# Maximum number of additional DB connections beyond pool size.
+max_overflow = {{ database_max_overflow | default(10) }}
+
+# Base size of the database connection pool.
+max_pool_size = {{ database_max_pool_size | default(5) }}
+
+# RPC / messaging (e.g., RabbitMQ).
+[oslo_messaging_rabbit]
+
+# Enable SSL for RabbitMQ connection.
+{% if rabbit_use_ssl | default(False) %}
+rabbit_use_ssl = true
+{% endif %}
+
+# RabbitMQ host hostname or IP.
+rabbit_host = {{ rabbit_host | default('controller') }}
+
+# RabbitMQ port.
+rabbit_port = {{ rabbit_port | default(5672) }}
+
+# RabbitMQ username.
+rabbit_userid = {{ rabbit_userid | default('openstack') }}
+
+# RabbitMQ password.
+rabbit_password = {{ rabbit_password | default('openstack_password') }}
+
+# RabbitMQ virtual host.
+rabbit_virtual_host = {{ rabbit_virtual_host | default('/') }}

@@ -1,0 +1,100 @@
+# ============================================================================
+# AppArmor profile for fwknopd (Single Packet Authorization daemon)
+# This profile confines the fwknopd binary to only the minimum necessary
+# capabilities and file accesses required to function securely.
+#
+# Self-documenting: every variable usage corresponds to a schema field,
+# with a comment above it describing the field's purpose.
+# ============================================================================
+
+# Include global AppArmor tunables (abstract base abstractions)
+include <tunables/global>
+
+# Assumes fwknopd was built with:
+#    './configure --prefix=/usr --sysconfdir=/etc --localstatedir=/run'
+
+# Define the main profile block for the fwknopd binary.
+# The binary path is derived from the fwknopd_binary_path schema field.
+{{ fwknopd_binary_path | default('/usr/sbin/fwknopd') }} {
+  # Include base abstractions for standard library and environment
+  include <abstractions/base>
+  # Include GStreamer abstraction (may be needed for multimedia-related daemons)
+  include <abstractions/gstreamer>
+
+  # --- Capabilities ---
+  # ipc_lock: Allow locking memory pages (often used by cryptographic operations)
+  capability ipc_lock,
+  # net_admin: Allow network namespace administration (needed for iptables/nftables manipulation)
+  capability net_admin,
+  # net_raw: Allow raw socket access (needed for crafting/test packets for SPA)
+  capability net_raw,
+
+  # --- Network Rules ---
+  # Allow Datagram (UDP-like) and Raw sockets on IPv4
+  network inet dgram,
+  network inet raw,
+  # Allow Datagram and Raw sockets on IPv6
+  network inet6 dgram,
+  # Allow packet sockets for low-level packet manipulation (e.g., sniffing or raw packet crafting)
+  network packet dgram,
+  network packet raw,
+
+  # --- File Access Rules ---
+
+  # Shell interpreters: needed if fwknopd executes shell commands
+  # 'rix' = read, inherit execute
+  /bin/bash rix,
+  /bin/dash rix,
+
+  # fwknopd configuration files: read access required to load settings
+  # access_conf_path: Path to the fwknopd access configuration file
+  {{ access_conf_path | default('/etc/fwknop/access.conf') }} r,
+  # fwknopd_conf_path: Path to the fwknopd main configuration file
+  {{ fwknopd_conf_path | default('/etc/fwknop/fwknopd.conf') }} r,
+
+  # Standard system configuration files: read access for name resolution and protocol parsing
+  /etc/gai.conf r,
+  /etc/host.conf r,
+  /etc/nsswitch.conf r,
+  /etc/passwd r,
+  /etc/protocols r,
+  /etc/resolv.conf r,
+  /etc/services r,
+
+  # GnuPG home directory: read/write/lock/append access for key management
+  # root_gnupg_home: Path to root's GnuPG home directory
+  {{ root_gnupg_home | default('/root/.gnupg') }}/* rwlk,
+
+  # Runtime directory: read/write for PID files, sockets, etc.
+  # run_dir: Runtime directory for fwknopd
+  {{ run_dir | default('/run/fwknop') }}/ rw,
+  {{ run_dir | default('/run/fwknop') }}/* rwk,
+
+  # Additional system files required for operation
+  /run/resolvconf/resolv.conf r,
+  /run/xtables.lock rwk,
+
+  # ipset and xtables binaries: execute with inherit access for managing iptables sets/rules
+  /sbin/ipset rix,
+  /sbin/xtables-legacy-multi rix,
+  /sbin/xtables-multi rix,
+
+  # GPG binary: execute with inherit access for signature verification/decryption
+  /usr/bin/gpg rix,
+
+  # The fwknopd binary itself: memory map and read access (inherited execute via profile name)
+  {{ fwknopd_binary_path | default('/usr/sbin/fwknopd') }} mr,
+
+  # Alternative paths for ipset and xtables binaries (depending on distro/package layout)
+  /usr/sbin/ipset rix,
+  /usr/sbin/xtables-legacy-multi rix,
+  /usr/sbin/xtables-nft-multi rix,
+
+  # NSCD (Name Service Cache Daemon) cache file: read access for cached user/group info
+  # nscd_cache_passwd_path: Path to cached passwd file from nscd
+  {{ nscd_cache_passwd_path | default('/var/cache/nscd/passwd') }} r,
+
+  # Process-specific network table access: read access for ip_tables_names in /proc
+  # This allows fwknopd to determine which iptables backend (legacy vs nftables) is active.
+  @{PROC}/@{pid}/net/ip_tables_names r,
+}

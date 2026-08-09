@@ -1,0 +1,198 @@
+// Include theming for Angular Material with `mat.theme()`.
+// Bossman's design (see docs/plan.md's Bossman plan, section C.2):
+// neutral, dense, dark-by-default surfaces (as is conventional for ops
+// tools) with Rasta green/gold/red used ONLY as accent/status colour —
+// never as a table background, chart background, or body text colour.
+// The green Material palette below drives the primary accent (buttons,
+// active nav); the four --bm-* custom properties below are the explicit
+// status colours shared with the Go node agent's own internal/webui
+// (--ok/--warn/--crit/--unknown), just Rasta-tinted rather than reinventing
+// a new colour language.
+@use '@angular/material' as mat;
+@import 'gridstack/dist/gridstack.min.css';
+
+html {
+  @include mat.theme(
+    (
+      color: (
+        theme-type: dark,
+        primary: mat.$green-palette,
+        tertiary: mat.$yellow-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+
+  --bm-green: #1e9600;
+  --bm-gold: #ffc800;
+  --bm-red: #d0021b;
+  --bm-black: #0d0d0d;
+  --bm-unknown: #8a8a8a;
+
+  // Pin Material's own design tokens to the exact same hex the --bm-*
+  // status vars use (rather than mat.$green-palette's independently
+  // generated hue) — otherwise a Material button and a "healthy" status
+  // dot are two visibly different greens next to each other, which reads
+  // as an accident rather than a deliberate brand colour. mat.theme()
+  // above still supplies every other M3 token (surfaces, elevation,
+  // typography); only primary/tertiary/error are overridden here.
+  --mat-sys-primary: var(--bm-green);
+  --mat-sys-tertiary: var(--bm-gold);
+  --mat-sys-error: var(--bm-red);
+
+  // ── macOS-derived design tokens (see docs/design-philosophy.md) ──
+  // One spacing scale — screens reference these instead of ad-hoc px, so
+  // padding/gaps stay consistent (generous, content breathes).
+  --bm-space-1: 4px;
+  --bm-space-2: 8px;
+  --bm-space-3: 12px;
+  --bm-space-4: 16px;
+  --bm-space-6: 24px;
+  --bm-space-8: 32px;
+  // Hairline separators + subtle radius — we divide with 1px lines and
+  // whitespace, not heavy boxes.
+  --bm-hairline: color-mix(in srgb, var(--mat-sys-on-surface) 12%, transparent);
+  --bm-radius: 8px;
+  // The one subtle fill used for a current selection in source lists.
+  --bm-sel: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent);
+  --bm-hover: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent);
+
+  // Rastafari signature (docs/design-philosophy.md § Appearance): the ONE
+  // tricolour gradient, used as a thin rule/band at identity moments only —
+  // never as a fill behind content.
+  --bm-tricolor: linear-gradient(90deg, var(--bm-red) 0%, var(--bm-gold) 50%, var(--bm-green) 100%);
+}
+
+body {
+  color-scheme: dark;
+  background-color: var(--mat-sys-surface);
+  color: var(--mat-sys-on-surface);
+  font: var(--mat-sys-body-medium);
+  margin: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* In-app snackbar (DialogService.notify) — replaces browser alert(). */
+.bm-snack-error { --mdc-snackbar-container-color: #7f1d1d; --mdc-snackbar-supporting-text-color: #fff; }
+.bm-snack-info  { --mdc-snackbar-container-color: #1f2937; --mdc-snackbar-supporting-text-color: #fff; }
+
+/* ── macOS-derived global rules (docs/design-philosophy.md) ── */
+
+/* Accessible, calm focus ring — a soft accent halo, macOS-style, only for
+   keyboard focus (never a hard outline on click). */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--mat-sys-primary) 55%, transparent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Shared page header: title left, one primary action right — consistent
+   across screens (Hosts, Roles, …) instead of each rolling its own. */
+.bm-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--bm-space-4);
+  margin-bottom: var(--bm-space-4);
+}
+/* Rastafari signature: a short tricolour rule under every page title —
+   applied globally to page-level h1s so headers are consistent across screens
+   without each rolling its own. */
+.bm-page-head h1,
+.bm-page > h1 {
+  margin: 0 0 var(--bm-space-4);
+  padding-bottom: var(--bm-space-2);
+  border-bottom: 3px solid transparent;
+  border-image: var(--bm-tricolor) 1;
+}
+.bm-page-head h1 { margin-bottom: 0; }
+
+/* Source list (nav + trees): quiet rows, subtle selection with an accent bar,
+   hairline grouping — the Finder/Mail sidebar treatment. Opt-in via class so
+   it doesn't disturb components not yet migrated. */
+.bm-source-list .bm-source-item {
+  display: flex;
+  align-items: center;
+  gap: var(--bm-space-2);
+  padding: var(--bm-space-2) var(--bm-space-3);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  border-radius: 0 6px 6px 0;
+}
+.bm-source-list .bm-source-item:hover { background: var(--bm-hover); }
+.bm-source-list .bm-source-item.bm-selected {
+  background: var(--bm-sel);
+  border-left-color: var(--mat-sys-primary);
+}
+
+/* Dialogs read as sheets: a hairline-topped action bar, comfortable padding. */
+.mat-mdc-dialog-actions { border-top: 1px solid var(--bm-hairline); padding: var(--bm-space-3) var(--bm-space-6); }
+
+/* Provision wizard: it draws its own title/body/footer and manages scrolling inside .pw-main, so the dialog
+   surface must be flush (no MDC content padding) and must NOT add a second scrollbar of its own. The dialog
+   is sized on open (see openWizard); lift MDC's 560px default cap so that width actually applies. */
+.pw-dialog .mat-mdc-dialog-container { max-width: none; }
+.pw-dialog .mat-mdc-dialog-surface { max-width: none; padding: 0; overflow: hidden; }
+
+/* ── Buttons — one polished, branded system (macOS depth, Rasta green) ──
+   Applied via Material's rendered classes so every mat-button benefits. Calm,
+   crisp, a single filled primary per view; subtle gradient + hairline + soft
+   shadow give macOS depth without gloss. */
+.mat-mdc-button-base {
+  --mdc-shape-small: 8px;
+  border-radius: 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+  height: 38px;
+  transition: filter 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+/* Filled primary (mat-flat/raised): the one green action. */
+.mat-mdc-unelevated-button.mat-primary,
+.mat-mdc-raised-button.mat-primary {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--bm-green) 88%, #fff) 0%, var(--bm-green) 55%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.18) !important;
+  color: #fff !important;
+}
+.mat-mdc-unelevated-button.mat-primary:hover,
+.mat-mdc-raised-button.mat-primary:hover { filter: brightness(1.07); }
+.mat-mdc-unelevated-button.mat-primary:active,
+.mat-mdc-raised-button.mat-primary:active { filter: brightness(0.94); box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important; }
+/* Danger flat (color=warn) picks up the Rasta red the same way. */
+.mat-mdc-unelevated-button.mat-warn,
+.mat-mdc-raised-button.mat-warn {
+  background-image: linear-gradient(180deg, color-mix(in srgb, var(--bm-red) 88%, #fff) 0%, var(--bm-red) 55%);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  color: #fff !important;
+}
+/* Outlined = secondary: hairline border, no fill. */
+.mat-mdc-outlined-button { border-color: var(--bm-hairline) !important; }
+.mat-mdc-outlined-button:hover { background: var(--bm-hover) !important; }
+/* Text = tertiary: quietest. */
+.mat-mdc-button:hover { background: var(--bm-hover) !important; }
+
+/* ── Compact policy-dialog fields (design philosophy: the smaller inputs we use
+   in the gpedit editors, NOT Material's large outline form-fields). Global so
+   every policy dialog can drop mat-form-field and use these directly. ── */
+.bm-field { margin: 8px 0; }
+.bm-field > label { display: block; font-size: 12px; font-weight: 600; margin-bottom: 3px; opacity: 0.8; }
+.bm-in {
+  width: 100%; padding: 6px 9px; border-radius: 6px;
+  border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface);
+  color: inherit; font: inherit; font-size: 13px; box-sizing: border-box;
+}
+.bm-in:focus { outline: none; border-color: var(--mat-sys-primary); }
+.bm-field-row { display: flex; gap: 12px; }
+.bm-field-row .bm-field { flex: 1; }
+.bm-check { display: flex; align-items: center; gap: 8px; font-size: 13px; margin: 10px 0; cursor: pointer; }
+.bm-field-hint { font-size: 12px; opacity: 0.6; margin: 2px 0 0; }
+
+/* Help page renders the README via [innerHTML]; component-scoped styles can't
+   reach that injected content (view encapsulation), so the image sizing MUST be
+   global. The banner should be as WIDE AS THE TEXT column (the .bm-page is capped
+   at 900px), scaling down responsively, with aspect ratio preserved. */
+.bm-md img { max-width: 100%; height: auto; }

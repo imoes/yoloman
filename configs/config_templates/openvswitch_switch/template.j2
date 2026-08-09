@@ -1,0 +1,162 @@
+# Open vSwitch database configuration reference
+# This file documents the expected configuration structure for Open vSwitch.
+# The actual runtime configuration is stored in /etc/openvswitch/conf.db (binary OVSDB format).
+# This file is managed by ovsdb-tool and should not be edited manually.
+# Use `ovs-vsctl` commands to modify the database.
+# See `man ovs-vsctl` and `man ovsdb-schema` for usage.
+
+# ==============================================================================
+# Global System Settings
+# ==============================================================================
+
+# System type identifier (e.g., openvswitch, linux)
+# This helps the OVS daemon identify the platform-specific implementation details.
+# default: 'openvswitch'
+# System type: {{ (system | default({})).system_type | default('openvswitch') }}
+
+# System version string reported by the daemon
+# This is typically auto-detected and should not be manually set.
+# default: '0.0.0'
+# System version: {{ (system | default({})).system_version | default('0.0.0') }}
+
+# The hostname of the local node in the cluster
+# Used for clustering and identification within an OVS cluster.
+# default: ''
+# Cluster hostname: {{ (cluster | default({})).hostname | default('') }}
+
+# The IP address(es) of other cluster members
+# List of IPs to connect to when forming or joining an OVS cluster.
+# default: []
+# Cluster peers: {{ (cluster | default({})).peers | default([]) | join(', ') }}
+
+# ==============================================================================
+# Bridge Configuration
+# ==============================================================================
+# Each entry in `bridges` defines a Linux bridge managed by Open vSwitch.
+# These are not direct file directives but structural documentation for ovs-vsctl commands.
+
+{% for bridge in (bridges | default([])) %}
+# -----------------------------------------------------------------------------
+# Bridge: {{ bridge.name | default('unnamed') }}
+# -----------------------------------------------------------------------------
+# UUID: {{ bridge.uuid | default('N/A') }}
+# Fail mode determines behavior when the connection to the controller is lost.
+# Values: 'secure' (fail closed), 'standalone' (fail open)
+# default: 'secure'
+# Fail Mode: {{ bridge.fail_mode | default('secure') }}
+
+# Spanning Tree Protocol settings
+# Prevents network loops in complex topologies.
+# default: false
+# STP Enable: {{ bridge.stp_enable | default(false) }}
+
+# VLANs allowed for flooding (trunks)
+# List of VLAN IDs that this bridge should forward unconditionally.
+# default: []
+{% if bridge.flood_vlans | default([]) | length > 0 %}
+# Flood VLANs: {{ bridge.flood_vlans | default([]) | join(', ') }}
+{% endif %}
+{% endfor %}
+
+# ==============================================================================
+# Port Configuration
+# ==============================================================================
+# Ports are attached to Bridges. They can be physical interfaces, VLAN sub-interfaces,
+# tunnels, or virtual ports (internal, patch).
+
+{% for port in (ports | default([])) %}
+# -----------------------------------------------------------------------------
+# Port: {{ port.name | default('unnamed') }}
+# -----------------------------------------------------------------------------
+# Attached to Bridge: {{ port.bridge | default('N/A') }}
+# Interfaces: {{ port.interfaces | default([]) | join(', ') }}
+
+# Trunk VLANs for this port
+# If this port is a trunk, these are the specific VLANs allowed.
+# default: []
+{% if port.trunks | default([]) | length > 0 %}
+# Trunks: {{ port.trunks | default([]) | join(', ') }}
+{% endif %}
+{% endfor %}
+
+# ==============================================================================
+# Interface Configuration
+# ==============================================================================
+# Interfaces are the logical endpoints attached to Ports.
+
+{% for iface in (interfaces | default([])) %}
+# -----------------------------------------------------------------------------
+# Interface: {{ iface.name | default('unnamed') }}
+# -----------------------------------------------------------------------------
+# UUID: {{ iface.uuid | default('N/A') }}
+# Interface Type: {{ iface.type | default('internal') }}
+
+# Interface-specific options
+# Key-value pairs specific to the interface type (e.g., VLAN ID for dot1q,
+# remote IP for gre/vxlan).
+# These are structured as a mapping/dict in the schema.
+# default: {}
+{% if iface.options | default({}) %}
+# Options:
+{% for key, value in iface.options | default({}) | dict2items %}
+#   {{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# ==============================================================================
+# Controller Connections (External Management)
+# ==============================================================================
+# Open vSwitch can connect to external SDN controllers (OpenFlow controllers).
+
+{% for ctrl in (controllers | default([])) %}
+# -----------------------------------------------------------------------------
+# Controller Connection: {{ loop.index }}
+# -----------------------------------------------------------------------------
+# Target: {{ ctrl.target | default('tcp:127.0.0.1:6653') }}
+# Protocol: {{ ctrl.protocol | default('tcp') }}
+# Mode: {{ ctrl.mode | default('out-of-band') }}
+# Timeout: {{ ctrl.timeout | default(5000) }} ms
+{% endfor %}
+
+# ==============================================================================
+# SSL/TLS Configuration for Controller Connections
+# ==============================================================================
+# If SSL is used for controller connections or cluster communication.
+
+{% if ssl | default({}) %}
+# -----------------------------------------------------------------------------
+# SSL Settings
+# -----------------------------------------------------------------------------
+# CA Certificate: {{ ssl.ca_cert | default('/etc/openvswitch/ca-cert.pem') }}
+# Server Certificate: {{ ssl.server_cert | default('/etc/openvswitch/server-cert.pem') }}
+# Private Key: {{ ssl.private_key | default('/etc/openvswitch/private-key.pem') }}
+{% endif %}
+
+# ==============================================================================
+# Manager Connections (OVSDB Protocol)
+# ==============================================================================
+# Managers are used for OVSDB protocol connections, typically for configuration
+# retrieval or backup.
+
+{% for mgr in (managers | default([])) %}
+# -----------------------------------------------------------------------------
+# Manager: {{ loop.index }}
+# -----------------------------------------------------------------------------
+# Target: {{ mgr.target | default('tcp:127.0.0.1:6640') }}
+# Protocol: {{ mgr.protocol | default('tcp') }}
+{% endfor %}
+
+# ==============================================================================
+# Logging and Diagnostics
+# ==============================================================================
+
+# Log file destination
+# Where OVS daemons write their logs.
+# default: 'syslog'
+# Log target: {{ (logging | default({})).target | default('syslog') }}
+
+# Log priority/level
+# minimum priority to log (e.g., info, warning, error, debug)
+# default: 'info'
+# Log priority: {{ (logging | default({})).priority | default('info') }}

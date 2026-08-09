@@ -1,0 +1,114 @@
+{
+  "identity": {
+    "type": "string",
+    "default": "diameter.example.com",
+    "description": "Diameter Identity (FQDN) of this node, e.g., 'bob.example.com'. Must be unique in the realm."
+  },
+  "realm": {
+    "type": "string",
+    "default": "example.com",
+    "description": "Diameter Realm this node belongs to. Usually the DNS domain."
+  },
+  "listen_addrs": {
+    "type": "list",
+    "default": [
+      "0.0.0.0"
+    ],
+    "description": "List of IP addresses to bind listening sockets to (e.g., all interfaces, specific IPs). Each entry supports IPv4 or IPv6.",
+    "items": {
+      "type": "string",
+      "description": "An IP address (IPv4 or IPv6) to listen on."
+    }
+  },
+  "port": {
+    "type": "number",
+    "default": 3868,
+    "description": "Diameter base protocol port. Most deployments use the standard 3868."
+  },
+  "tls_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS (Diameter over TLS) for secure transport."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/freediameter/server.crt",
+    "description": "Absolute path to the TLS certificate file (PEM format). Required if TLS is enabled."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/freediameter/server.key",
+    "description": "Absolute path to the TLS private key file (PEM format). Required if TLS is enabled."
+  },
+  "tls_ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional path to a CA certificate bundle for validating peer certs (PEM format)."
+  },
+  "peers": {
+    "type": "list",
+    "default": [],
+    "description": "List of Diameter peers to connect to or accept connections from. At least one peer is needed for inter-node communication.",
+    "items": {
+      "type": "object",
+      "description": "A Diameter peer configuration.",
+      "fields": {
+        "host": {
+          "type": "string",
+          "description": "Hostname or IP address of the peer (e.g., 'sbc.example.com')."
+        },
+        "port": {
+          "type": "number",
+          "default": 3868,
+          "description": "Port number of the peer. Usually 3868."
+        },
+        "realm": {
+          "type": "string",
+          "default": "",
+          "description": "Realm of the peer (e.g., 'sbc.example.com'). Required for routing."
+        },
+        "auth_app_ids": {
+          "type": "list",
+          "default": [],
+          "items": {
+            "type": "number"
+          },
+          "description": "Optional list of Authentication Application IDs (e.g., [16777250] for 3GPP S6a)."
+        }
+      }
+    }
+  },
+  "extensions": {
+    "type": "list",
+    "default": [],
+    "description": "List of FreeDiameter extensions (modules) to load at startup.",
+    "items": {
+      "type": "object",
+      "description": "An extension module definition.",
+      "fields": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the extension shared library (e.g., '/usr/lib/freediameter/libfreediameter-s6a.so')."
+        }
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "allowed": [
+      "DEBUG",
+      "INFO",
+      "NOTICE",
+      "WARNING",
+      "ERROR",
+      "CRITICAL"
+    ],
+    "description": "Verbosity level for logs. Use DEBUG only for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. If empty, logs go to stdout."
+  }
+}

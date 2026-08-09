@@ -1,0 +1,76 @@
+{
+  "default_log_file": "/var/log/aodh/aodh-notifier.log",
+  "default_log_dir": "/var/log/aodh",
+  "default_logging_context_format_string": "%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s %(message)s",
+  "default_logging_default_format_string": "%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(instance)s %(message)s",
+  "default_logging_debug_format_suffix": "from %(funcName)s @%(filename)s:%(lineno)d",
+  "rpc_transport_url": "rabbit://openstack:MyRabbitSecret123@controller:5672/",
+  "keystone_authtoken_project_domain_name": "Default",
+  "keystone_authtoken_user_domain_name": "Default",
+  "keystone_authtoken_project_name": "service",
+  "keystone_authtoken_username": "aodh",
+  "keystone_authtoken_password": "MyAodhSecret123",
+  "keystone_authtoken_auth_url": "http://10.0.0.10:5000/v3",
+  "oslo_concurrency_lock_path": "/var/lib/aodh/lock",
+  "alarm_enabled": true,
+  "alarm_workers": 2,
+  "alarm_evaluation_service": "evaluator",
+  "alarm_notification_retries": 5,
+  "alarm_notification_retry_delay": 10.0,
+  "alarm_notification_rules": [
+    {
+      "name": "high_cpu_rule",
+      "type": "webhook",
+      "threshold": ">",
+      "alarm_id": "",
+      "severity": "high",
+      "enabled": true
+    }
+  ],
+  "notification_endpoints": [
+    {
+      "name": "ops_team_slack",
+      "method": "POST",
+      "url": "https://hooks.slack.com/services/T00/B00/XXX",
+      "project_domain_name": "",
+      "user_domain_name": "",
+      "project_name": "",
+      "username": "",
+      "password": "",
+      "auth_url": ""
+    }
+  ],
+  "alarm_actions": [
+    {
+      "state": "alarm",
+      "actions": [
+        "ops_team_slack",
+        "log"
+      ]
+    },
+    {
+      "state": "ok",
+      "actions": [
+        "log"
+      ]
+    }
+  ],
+  "database_connection": "mysql+pymysql://aodh:MyDbSecret123@controller/aodh",
+  "tls_enabled": false,
+  "tls_cert_file": "/etc/aodh/ssl/cert.pem",
+  "tls_key_file": "/etc/aodh/ssl/key.pem",
+  "tls_ca_file": "/etc/aodh/ssl/ca.pem",
+  "service_credentials_project_domain_name": "Default",
+  "service_credentials_user_domain_name": "Default",
+  "service_credentials_project_name": "service",
+  "service_credentials_username": "aodh",
+  "service_credentials_password": "MyAodhSecret123",
+  "service_credentials_auth_url": "http://10.0.0.10:5000/v3",
+  "service_credentials_interface": "internal",
+  "service_credentials_region_name": "RegionOne",
+  "oslo_messaging_notifications_drivers": [
+    "messagingv2"
+  ],
+  "oslo_messaging_notifications_topic": "notifications",
+  "oslo_messaging_notifications_retry": true
+}

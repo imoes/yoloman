@@ -1,0 +1,65 @@
+# ==============================================================================
+# DisorderFS Configuration Template
+# ==============================================================================
+# This template generates the configuration file for DisorderFS, a FUSE-based
+# filesystem that provides randomized access to files in a directory.
+# It is designed for privacy/anonymity by obscuring file access patterns
+# and directory listing orders.
+#
+# All variables use the `default()` filter to ensure safe rendering even if
+# the variable is undefined in the Ansible play context.
+# ==============================================================================
+
+# --- Basic Mount Configuration ---
+
+# Path to the underlying directory to be mirrored.
+# This is the actual directory on the disk where data resides.
+# DisorderFS does not create this directory; it must exist.
+# Required field: must be a valid absolute path.
+rootdir: {{ rootdir | default('') }}
+
+# Path where the DisorderFS overlay should be mounted.
+# This is the mount point visible to applications.
+# DisorderFS will mount the FUSE filesystem here.
+# Required field: must be an existing mount point directory.
+mountpoint: {{ mountpoint | default('') }}
+
+# --- Behavior Options ---
+
+# Whether to allow other users to access the overlay mount (requires root).
+# If set to 'yes', the mount is made accessible to all users.
+# If set to 'no' (default), access is restricted to the mount owner.
+# Note: DisorderFS runs as the user invoking it, so root is often required for
+# system-wide mounts or specific permission setups.
+multi-user: {{ multi_user | default(false) | ternary('yes', 'no') }}
+
+# Whether to randomly shuffle directory entries.
+# If enabled, `ls` or `readdir()` calls will return files in a random order,
+# preventing directory structure fingerprinting.
+shuffle-dirents: {{ shuffle_dirents | default(false) | ternary('yes', 'no') }}
+
+# Whether to return directory entries in reverse order.
+# If enabled (default), directory entries are returned in reverse alphabetical
+# order compared to the underlying filesystem.
+# Cannot be combined with `sort-dirents`.
+reverse-dirents: {{ reverse_dirents | default(true) | ternary('yes', 'no') }}
+
+# Whether to return directory entries in sorted order.
+# If enabled, directory entries are sorted alphabetically before being served.
+# This overrides random shuffling if both are conceptually attempted,
+# but typically `reverse-dirents` and `sort-dirents` are mutually exclusive
+# in effect. The underlying logic handles precedence.
+sort-dirents: {{ sort_dirents | default(false) | ternary('yes', 'no') }}
+
+# Number to add to the st_blocks field in struct stat(2).
+# This pads the reported block count for files, adding obfuscation to
+# file size/block metadata analysis.
+# Default is 1. Higher values add more noise.
+pad-blocks: {{ pad_blocks | default(1) | int }}
+
+# Whether to share locks between DisorderFS and the underlying filesystem.
+# If disabled (default), DisorderFS uses its own locking mechanism.
+# If enabled, it attempts to share POSIX locks with the underlying FS.
+# Note: This feature is historically buggy and often causes issues;
+# it is disabled by default.
+share-locks: {{ share_locks | default(false) | ternary('yes', 'no') }}

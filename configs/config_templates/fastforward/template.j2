@@ -1,0 +1,42 @@
+# fastforward configuration template
+# This configuration controls the behavior of the fastforward mail forwarding engine.
+# fastforward is a simple, high-performance CDB-based forwarder for qmail.
+# See http://cr.yp.to/proto/forward.html for details.
+
+# cdb_path: Path to the fastforward CDB database file (typically created by setforward)
+# This file maps original recipient addresses to forwarding targets.
+# It must be writable by the qmail user and readable by the fastforward process.
+cdb: {{ cdb_path | default('/var/qmail/alias/.qmail-forward.cdb') }}
+
+# mode: Behavior when no forwarding rule is found.
+# Values:
+#   - 'pass_through': The message is passed through to the original recipient as if no forward existed.
+#   - 'no_deliver': The message is silently discarded (no bounce).
+#   - 'bounce_missing': A bounce message is returned to the sender indicating the address was not found.
+# This setting determines the default action for unmatched addresses.
+{% set m = mode | default('bounce_missing') %}
+{% if m == 'pass_through' %}
+mode: pass_through
+{% elif m == 'no_deliver' %}
+mode: no_deliver
+{% elif m == 'bounce_missing' %}
+mode: bounce_missing
+{% else %}
+# Invalid mode value '{{ m }}', defaulting to bounce_missing
+mode: bounce_missing
+{% endif %}
+
+# recipient_mode: How the recipient address is determined.
+# Values:
+#   - 'default_host': Use the default host from the qmail configuration for recipients not explicitly matched.
+#   - 'recipient': Use the recipient address as provided in the SMTP transaction.
+# This affects how the forwarder resolves the destination when applying rules.
+{% set rm = recipient_mode | default('recipient') %}
+{% if rm == 'default_host' %}
+recipient_mode: default_host
+{% elif rm == 'recipient' %}
+recipient_mode: recipient
+{% else %}
+# Invalid recipient_mode value '{{ rm }}', defaulting to recipient
+recipient_mode: recipient
+{% endif %}

@@ -1,0 +1,81 @@
+name: proxmox_template
+fqcn: community.general.proxmox_template
+collection: community.general
+short_description: Management of OS templates in Proxmox VE cluster
+description: allows you to upload/delete templates in Proxmox VE cluster
+options:
+  api_host:
+    type: str
+    required: true
+    description: Specify the target host of the Proxmox VE cluster.
+  api_password:
+    type: str
+    description: Specify the password to authenticate with. You can use E(PROXMOX_PASSWORD) environment
+      variable.
+  api_token_id:
+    type: str
+    description: Specify the token ID. Requires C(proxmoxer>=1.1.0) to work.
+  api_token_secret:
+    type: str
+    description: Specify the token secret. Requires C(proxmoxer>=1.1.0) to work.
+  api_user:
+    type: str
+    required: true
+    description: Specify the user to authenticate with.
+  content_type:
+    type: str
+    default: vztmpl
+    choices:
+    - vztmpl
+    - iso
+    description: Content type. Required only for O(state=present).
+  force:
+    type: bool
+    default: false
+    description: It can only be used with O(state=present), existing template will be overwritten.
+  node:
+    type: str
+    description: Proxmox VE node on which to operate.
+  src:
+    type: path
+    description: Path to uploaded file. Required only for O(state=present).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the template.
+  storage:
+    type: str
+    default: local
+    description: Target storage.
+  template:
+    type: str
+    description: The template name. Required for O(state=absent) to delete a template. Required for O(state=present)
+      to download an appliance container template (pveam).
+  timeout:
+    type: int
+    default: 30
+    description: Timeout for operations.
+  validate_certs:
+    type: bool
+    default: false
+    description: If V(false), SSL certificates will not be validated. This should only be used on personally
+      controlled sites using self-signed certificates.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Upload new openvz template with minimal options\n  community.general.proxmox_template:\n\
+  \    node: uk-mc02\n    api_user: root@pam\n    api_password: 1q2w3e\n    api_host: node1\n    src:\
+  \ ~/ubuntu-14.04-x86_64.tar.gz\n\n- name: >\n    Upload new openvz template with minimal options use\
+  \ environment\n    PROXMOX_PASSWORD variable(you should export it before)\n  community.general.proxmox_template:\n\
+  \    node: uk-mc02\n    api_user: root@pam\n    api_host: node1\n    src: ~/ubuntu-14.04-x86_64.tar.gz\n\
+  \n- name: Upload new openvz template with all options and force overwrite\n  community.general.proxmox_template:\n\
+  \    node: uk-mc02\n    api_user: root@pam\n    api_password: 1q2w3e\n    api_host: node1\n    storage:\
+  \ local\n    content_type: vztmpl\n    src: ~/ubuntu-14.04-x86_64.tar.gz\n    force: true\n\n- name:\
+  \ Delete template with minimal options\n  community.general.proxmox_template:\n    node: uk-mc02\n \
+  \   api_user: root@pam\n    api_password: 1q2w3e\n    api_host: node1\n    template: ubuntu-14.04-x86_64.tar.gz\n\
+  \    state: absent\n\n- name: Download proxmox appliance container template\n  community.general.proxmox_template:\n\
+  \    node: uk-mc02\n    api_user: root@pam\n    api_password: 1q2w3e\n    api_host: node1\n    storage:\
+  \ local\n    content_type: vztmpl\n    template: ubuntu-20.04-standard_20.04-1_amd64.tar.gz\n"

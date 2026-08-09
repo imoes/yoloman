@@ -1,0 +1,94 @@
+[DEFAULT]
+# Core service options
+auth_strategy = {{ auth_strategy }}
+core_plugin = {{ core_plugin }}
+service_plugins = {{ service_plugins | join(', ') }}
+
+# Logging
+log_dir = {{ log_dir }}
+log_file = {{ log_file }}
+
+# Database connection
+{% if database_url %}
+database_connection = {{ database_url }}
+{% endif %}
+
+# RPC backend
+{% if rpc_backend %}
+rpc_backend = {{ rpc_backend }}
+{% endif %}
+
+# Message queue
+{% for mq in message_queues %}
+{% if mq.type == 'rabbit' %}
+[DEFAULT]
+# RabbitMQ connection
+rabbit_host = {{ mq.host }}
+rabbit_port = {{ mq.port }}
+rabbit_userid = {{ mq.user }}
+rabbit_password = {{ mq.password }}
+{% if mq.virtual_host %}
+rabbit_virtual_host = {{ mq.virtual_host }}
+{% endif %}
+{% endif %}
+{% endfor %}
+
+# Notification system
+{% if notification_driver %}
+notification_driver = {{ notification_driver }}
+{% else %}
+notification_driver = {{ notification_drivers | join(', ') }}
+{% endif %}
+
+# Metadata proxy
+[metadata]
+# Metadata proxy configuration
+{% if metadata_shared_secret %}
+metadata_shared_secret = {{ metadata_shared_secret }}
+{% endif %}
+{% if metadata_proxy_socket %}
+metadata_proxy_socket = {{ metadata_proxy_socket }}
+{% endif %}
+{% if metadata_proxy_workers %}
+metadata_proxy_workers = {{ metadata_proxy_workers }}
+{% endif %}
+
+# Quotas
+[quotas]
+{% if quota_driver %}
+driver = {{ quota_driver }}
+{% endif %}
+{% if quota_items %}
+{% for q in quota_items %}
+{% if q.resource and q.limit is defined %}
+{{ q.resource }} = {{ q.limit }}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# API options
+[api]
+{% if api_workers %}
+api_workers = {{ api_workers }}
+{% endif %}
+{% if api_bind_host %}
+bind_host = {{ api_bind_host }}
+{% endif %}
+{% if api_bind_port %}
+bind_port = {{ api_bind_port }}
+{% endif %}
+{% if auth_encryption_key %}
+auth_encryption_key = {{ auth_encryption_key }}
+{% endif %}
+
+# Notifications
+[notifications]
+{% if enable_notifications %}
+enable_notifications = {{ enable_notifications }}
+{% endif %}
+
+# Healthcheck
+[healthcheck]
+{% if healthcheck_backend %}
+backend = {{ healthcheck_backend }}
+{% endif %}

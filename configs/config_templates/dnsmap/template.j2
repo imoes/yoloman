@@ -1,0 +1,17 @@
+# dnsmap configuration file - generated via Ansible Jinja2
+# This configuration drives the dnsmap DNS reconnaissance tool.
+
+# Target domain to scan for subdomains (required)
+target: {{ target | default('') }}
+
+# Path to external wordlist file (optional; if omitted, built-in wordlist is used)
+{% if wordlist_file | default('') != '' %}wordlist_file: {{ wordlist_file | default('') }}{% endif %}
+
+# Maximum delay in milliseconds between DNS queries (must be 1–300000; default: 10)
+{% if delay_ms | default(10) > 0 %}delay_ms: {{ delay_ms | default(10) }}{% endif %}
+
+# List of IP addresses to exclude from results (up to 5 IPs; use commas without spaces in original dnsmap CLI, but here as list of strings)
+{% if ips_to_ignore | default([]) | length > 0 %}ips_to_ignore: {{ ips_to_ignore | default([]) | join(',') }}{% endif %}
+
+# Directory to save text (-r) and CSV (-c) results (default: current directory, results named dynamically)
+{% if output_dir | default('') != '' %}output_dir: {{ output_dir | default('') }}{% endif %}

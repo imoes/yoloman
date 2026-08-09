@@ -1,0 +1,67 @@
+# /etc/apt/forktracer.conf — apt-forktracer configuration
+# apt-forktracer is a utility to detect packages that have multiple versions available (forks).
+# This file controls which packages to check and how to handle version discrepancies.
+#
+# Syntax:
+#   - Top-level directives apply to all packages unless overridden per-package.
+#   - Per-package blocks start with "package <name>" and contain directives for that specific package.
+
+# [Global Defaults]
+
+# Global default: whether to ignore packages where the candidate version differs from the newest
+# official version (i.e. a "forked" candidate exists).
+# Valid values: True, False
+# Default: True
+ignore_candidate_mismatch {{ default_ignore_candidate_mismatch | default(True) | lower }}
+
+# Global default: whether to ignore packages where the installed version is older than the
+# candidate version (a standard upgrade scenario).
+# Valid values: True, False
+# Default: True
+ignore_version_decrease {{ default_ignore_version_decrease | default(True) | lower }}
+
+# Global default: whether to ignore packages that have no candidate version (e.g., broken packages
+# or those not available in any configured repository).
+# Valid values: True, False
+# Default: True
+ignore_non_candidate {{ default_ignore_non_candidate | default(True) | lower }}
+
+# [Per-Package Configurations]
+# If 'packages' is empty or undefined, only the global defaults above apply.
+{% for pkg in (packages | default([])) %}
+# Configuring package: {{ (pkg | default({})).name | default('<unnamed>') }}
+# This block overrides global defaults for this specific package.
+
+# Package name to configure.
+package {{ (pkg | default({})).name | default('') }}
+
+# If true, ignore this package when candidate version differs from newest official version.
+# Overrides: ignore_candidate_mismatch (global)
+# Valid values: True, False
+# Default: Global default (see above)
+{% if (pkg | default({})).ignore_candidate_mismatch is defined %}
+ignore_candidate_mismatch {{ (pkg | default({})).ignore_candidate_mismatch | lower }}
+{% else %}
+# Note: Using global default for ignore_candidate_mismatch
+{% endif %}
+
+# If true, ignore this package when installed version is older than candidate version.
+# Overrides: ignore_version_decrease (global)
+# Valid values: True, False
+# Default: Global default (see above)
+{% if (pkg | default({})).ignore_version_decrease is defined %}
+ignore_version_decrease {{ (pkg | default({})).ignore_version_decrease | lower }}
+{% else %}
+# Note: Using global default for ignore_version_decrease
+{% endif %}
+
+# If true, ignore this package when no candidate version exists (e.g., broken state).
+# Overrides: ignore_non_candidate (global)
+# Valid values: True, False
+# Default: Global default (see above)
+{% if (pkg | default({})).ignore_non_candidate is defined %}
+ignore_non_candidate {{ (pkg | default({})).ignore_non_candidate | lower }}
+{% else %}
+# Note: Using global default for ignore_non_candidate
+{% endif %}
+{% endfor %}

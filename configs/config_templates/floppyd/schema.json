@@ -1,0 +1,116 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address the daemon binds to for incoming connections."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 1960,
+    "description": "TCP port the daemon listens on."
+  },
+  "image_root": {
+    "type": "string",
+    "default": "/var/lib/floppyd/images",
+    "description": "Absolute path to the directory containing floppy disk image files."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "allow_write": {
+    "type": "bool",
+    "default": false,
+    "description": "When true, allows connected clients to modify floppy images; when false, read-only access."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of log output (debug, info, warn, or error)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to a log file. If empty, logs are written to stdout."
+  },
+  "trusted_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of client hosts permitted to connect (with optional password).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable label for the client (e.g., 'office-main')."
+      },
+      "host": {
+        "type": "string",
+        "description": "IP address or hostname of the trusted client."
+      },
+      "password": {
+        "type": "string",
+        "nullable": true,
+        "description": "Optional password for the client. If omitted, passwordless access is granted."
+      }
+    }
+  },
+  "floppy_types": {
+    "type": "list",
+    "default": [
+      {
+        "name": "144",
+        "size_kb": 1440,
+        "sectors": 36,
+        "heads": 2
+      },
+      {
+        "name": "288",
+        "size_kb": 2880,
+        "sectors": 36,
+        "heads": 2
+      },
+      {
+        "name": "720",
+        "size_kb": 720,
+        "sectors": 9,
+        "heads": 2
+      }
+    ],
+    "description": "List of supported floppy disk types, in order of auto-detection preference.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Short name/code for the format (e.g., '144' for 1.44MB)."
+      },
+      "size_kb": {
+        "type": "number",
+        "description": "Total capacity in kilobytes."
+      },
+      "sectors": {
+        "type": "number",
+        "description": "Sectors per track."
+      },
+      "heads": {
+        "type": "number",
+        "description": "Number of heads (sides)."
+      }
+    }
+  },
+  "tls_cert": {
+    "type": "string",
+    "nullable": true,
+    "default": null,
+    "description": "Path to the TLS certificate file (PEM format). Set both cert and key to enable TLS."
+  },
+  "tls_key": {
+    "type": "string",
+    "nullable": true,
+    "default": null,
+    "description": "Path to the TLS private key file (PEM format)."
+  },
+  "session_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Number of seconds of inactivity before an idle client session is closed."
+  }
+}

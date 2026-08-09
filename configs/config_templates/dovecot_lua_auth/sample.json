@@ -1,0 +1,78 @@
+{
+  "auth_lua_enabled": true,
+  "auth_lua_script_path": "/etc/dovecot/lua-auth.lua",
+  "auth_lua_params": [
+    {
+      "name": "DB_HOST",
+      "value": "localhost"
+    },
+    {
+      "name": "DB_USER",
+      "value": "mailuser"
+    },
+    {
+      "name": "DB_NAME",
+      "value": "mailauth"
+    },
+    {
+      "name": "DB_PASS",
+      "value": "secret123"
+    }
+  ],
+  "mail_location": "maildir:~/Maildir",
+  "namespaces": [
+    {
+      "name": "inbox",
+      "type": "private",
+      "prefix": "INBOX.",
+      "separator": ".",
+      "location": "maildir:~/Maildir",
+      "description": "User\u2019s main mailbox"
+    }
+  ],
+  "auth_mechanisms": [
+    "plain",
+    "login"
+  ],
+  "ssl_mode": "required",
+  "ssl_cert": "/etc/letsencrypt/live/mail.example.com/fullchain.pem",
+  "ssl_key": "/etc/letsencrypt/live/mail.example.com/privkey.pem",
+  "log_path": "/var/log/dovecot.log",
+  "log_timestamp_format": "%Y-%m-%d %H:%M:%S",
+  "first_valid_uid": 1000,
+  "mail_uid": 5000,
+  "mail_gid": 5000,
+  "protocols": [
+    "imap",
+    "pop3"
+  ],
+  "allow_nets": [
+    "127.0.0.0/8",
+    "10.0.0.0/8"
+  ],
+  "disable_plaintext_auth": true,
+  "mail_max_userip_connections": 15,
+  "mail_plugins": [
+    "imap_quota",
+    "acl",
+    "sieve"
+  ],
+  "auth_cache_size": 2048,
+  "auth_lua_fallback": false,
+  "services": [
+    {
+      "name": "imap-login",
+      "login_mode": "0600",
+      "login_user": "dovecot",
+      "login_group": "dovecot",
+      "process_limit": 16
+    },
+    {
+      "name": "pop3-login",
+      "login_mode": "0600",
+      "login_user": "dovecot",
+      "login_group": "dovecot",
+      "process_limit": 8
+    }
+  ]
+}

@@ -1,0 +1,267 @@
+{
+  "org": {
+    "type": "string",
+    "default": "MyCompany Backup",
+    "description": "Organization name \u2014 used in email notifications and logs."
+  },
+  "dumpuser": {
+    "type": "string",
+    "default": "backup",
+    "description": "System user account that runs Amanda backup processes (must have access to tape device)."
+  },
+  "tapedev": {
+    "type": "string",
+    "default": "/dev/st0",
+    "description": "Path to the primary tape device (e.g., /dev/st0 for SCSI tape)."
+  },
+  "changer": {
+    "type": "string",
+    "default": "ch-grup",
+    "description": "Changer command or script for auto-changers (e.g., 'ch-grup' for autoloader with changer scripts)."
+  },
+  "tapeutil": {
+    "type": "string",
+    "default": "mt-st",
+    "description": "Tape utility command for tape control (e.g., 'mt-st', 'mt', or custom script)."
+  },
+  "tpchanger": {
+    "type": "string",
+    "default": "",
+    "description": "Alternative changer device for tape-puller changers (e.g., '/dev/sg1'). Leave blank if not used."
+  },
+  "changerparams": {
+    "type": "string",
+    "default": "",
+    "description": "Parameters passed to the changer (e.g., 'ch-grup /dev/sg1')."
+  },
+  "tapecycle": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of tape cycles before rotation is enforced (minimum number of full backup cycles per tape)."
+  },
+  "tapesize": {
+    "type": "string",
+    "default": "10G",
+    "description": "Maximum total backup data size per tape (e.g., '10G', '2000000K', or 'auto')."
+  },
+  "maxdumps": {
+    "type": "number",
+    "default": 8,
+    "description": "Maximum number of parallel dump processes (concurrent backups)."
+  },
+  "defaultcycle": {
+    "type": "string",
+    "default": "2 weeks",
+    "description": "Full backup cycle duration \u2014 defines how often a full backup runs (e.g., '2 weeks', '7 days')."
+  },
+  "maxdumpsize": {
+    "type": "string",
+    "default": "10G",
+    "description": "Maximum size of a single dump (before splitting or compression)."
+  },
+  "maxdumpfile_size": {
+    "type": "string",
+    "default": "2G",
+    "description": "Maximum size of an individual dump file before splitting."
+  },
+  "auth": {
+    "type": "string",
+    "default": "ssh",
+    "description": "Authentication method between server and clients (e.g., 'ssh', 'bsd', 'password')."
+  },
+  "tlog": {
+    "type": "string",
+    "default": "/var/log/amanda/amanda.log",
+    "description": "Path to the Amanda transaction log file."
+  },
+  "elog": {
+    "type": "string",
+    "default": "/var/log/amanda/amanda-elog",
+    "description": "Path to the Amanda error log file."
+  },
+  "mailto": {
+    "type": "string",
+    "default": "admin@example.com",
+    "description": "Default recipient for all Amanda notifications (alerts, summaries)."
+  },
+  "mailfrom": {
+    "type": "string",
+    "default": "amanda@example.com",
+    "description": "Sender email address for Amanda notifications."
+  },
+  "mailto_success": {
+    "type": "string",
+    "default": "",
+    "description": "Recipient for success reports only (leave blank to use 'mailto')."
+  },
+  "mailto_failure": {
+    "type": "string",
+    "default": "ops-alerts@example.com",
+    "description": "Recipient for failure alerts only (leave blank to use 'mailto')."
+  },
+  "hosts": {
+    "type": "list",
+    "default": [
+      {
+        "name": "client1.example.com",
+        "comment": "Production Web Server",
+        "disklist_file": "/etc/amanda/disklists/client1"
+      },
+      {
+        "name": "client2.example.com",
+        "comment": "Database Server",
+        "disks": [
+          {
+            "name": "/",
+            "mountpoint": "/",
+            "level": "0",
+            "comment": "Root partition"
+          },
+          {
+            "name": "/var/lib/mysql",
+            "mountpoint": "/var/lib/mysql",
+            "level": "0",
+            "comment": "MySQL data"
+          }
+        ]
+      }
+    ],
+    "description": "List of Amanda clients to back up. Each entry may specify an external disklist file or inline disk entries."
+  },
+  "hosts[].name": {
+    "type": "string",
+    "description": "Hostname of the Amanda client."
+  },
+  "hosts[].comment": {
+    "type": "string",
+    "description": "Optional human-readable description of the host."
+  },
+  "hosts[].disklist_file": {
+    "type": "string",
+    "description": "Path to an external disklist file for this host (if omitted, use inline 'disks')."
+  },
+  "hosts[].disks": {
+    "type": "list",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Disk name/path (e.g., '/', '/home', 'C:')."
+      },
+      "mountpoint": {
+        "type": "string",
+        "description": "Actual mountpoint or source path (may differ from name in Windows clients)."
+      },
+      "level": {
+        "type": "string",
+        "default": "0",
+        "description": "Dump level (e.g., '0' for full, '1' for incremental)."
+      },
+      "comment": {
+        "type": "string",
+        "description": "Optional description of the disk."
+      }
+    },
+    "description": "Inline list of disks to back up for this host (used only if disklist_file is absent)."
+  },
+  "devices": {
+    "type": "list",
+    "default": [
+      {
+        "name": "tape1",
+        "labeltype": "amlabel",
+        "labelname": "Tape-%03d",
+        "labelparams": ""
+      }
+    ],
+    "description": "Device-specific labeling configuration (e.g., for tape labeling strategy)."
+  },
+  "devices[].name": {
+    "type": "string",
+    "description": "Logical device name (must match 'tapedev' or changer device name)."
+  },
+  "devices[].labeltype": {
+    "type": "string",
+    "default": "amlabel",
+    "description": "Labeling method: 'amlabel' (Amanda auto-label), 'none', or 'none' for manual labeling."
+  },
+  "devices[].labelname": {
+    "type": "string",
+    "description": "Label format (e.g., 'Tape-%03d' for 'Tape-001')."
+  },
+  "devices[].labelparams": {
+    "type": "string",
+    "description": "Additional label parameters (e.g., '2000000K' for size limit)."
+  },
+  "use_encryption": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable encryption of backup data on tape (requires OpenSSL and compatible device)."
+  },
+  "encryption_type": {
+    "type": "string",
+    "default": "aes256",
+    "description": "Encryption algorithm (e.g., 'aes256', '3des'). Only used if use_encryption=true."
+  },
+  "use_compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable compression of backup data before writing to tape."
+  },
+  "compression_type": {
+    "type": "string",
+    "default": "lzo",
+    "description": "Compression algorithm (e.g., 'lzo', 'gzip', 'none'). Only used if use_compression=true."
+  },
+  "directory": {
+    "type": "string",
+    "default": "/var/lib/amanda",
+    "description": "Base directory for Amanda state files (index, log, lock, etc.)."
+  },
+  "schedule": {
+    "type": "object",
+    "default": {
+      "name": "daily",
+      "rules": [
+        {
+          "name": "daily-sunday",
+          "pattern": "Sun",
+          "level": "0"
+        },
+        {
+          "name": "daily-mon-sat",
+          "pattern": "Mon-Sat",
+          "level": "1"
+        }
+      ]
+    },
+    "description": "Backup schedule definition. Each rule maps a time pattern to a dump level."
+  },
+  "schedule.name": {
+    "type": "string",
+    "description": "Schedule name (for reference only)."
+  },
+  "schedule.rules": {
+    "type": "list",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Rule name (e.g., 'weekend-full')."
+      },
+      "pattern": {
+        "type": "string",
+        "description": "Time pattern (e.g., 'Sun', 'Mon-Fri', '00:00-23:59')."
+      },
+      "level": {
+        "type": "string",
+        "default": "0",
+        "description": "Backup level (e.g., '0' for full, '1' for incremental)."
+      }
+    },
+    "description": "List of schedule rules."
+  },
+  "extra_options": {
+    "type": "object",
+    "default": {},
+    "description": "Free-form extra configuration directives (e.g., 'dumptimeout 600', 'identtimeout 60'). Keys are option names; values are arguments."
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "debug": true,
+  "log_file": "/var/log/manila/manila.log",
+  "api_paste_config": "/etc/manila/api-paste.ini",
+  "rpc_backend": "rabbit",
+  "transport_url": "rabbit://admin:secrete@controller:5672/",
+  "database_connection": "mysql+pymysql://manila:manila@controller/manila",
+  "token_provider": "fernet",
+  "fernet_keys_dir": "/etc/manila/fernet-keys",
+  "enabled_share_drivers": [
+    {
+      "name": "manila.share.drivers.generic.GenericShareDriver",
+      "version": "2.0"
+    },
+    {
+      "name": "manila.share.drivers.dell_emc.common.emc_shares driver.EMCShareDriver",
+      "version": "3.0"
+    }
+  ],
+  "default_share_type": "default",
+  "manage_share_servers": true,
+  "network_api_class": "manila.network.neutron.neutron_network_api.NeutronNetworkAPI",
+  "max_shares_per_tenant": 50,
+  "max_share_snapshots_per_tenant": 25,
+  "share_replication": true,
+  "replication_domain": "replica_dc1",
+  "default_nfs_version": "4.1",
+  "cinder_catalog_info": "volumev3:cinder:publicURL",
+  "volume_driver": "manila.volume.volume_api.API",
+  "scheduler_filter_classes": [
+    "manila.scheduler.filters.availability_zone_filter.AvailabilityZoneFilter",
+    "manila.scheduler.filters.capacity_filter.CapacityFilter",
+    "manila.scheduler.filters.scheduler_filter.SchedulerFilter",
+    "manila.scheduler.filters.driver_filter.DriverFilter"
+  ],
+  "scheduler_weight_classes": [
+    "manila.scheduler.weights.capacity.CapacityWeight",
+    "manila.scheduler.weights.round_robin.RoundRobinWeight"
+  ],
+  "service_token_required": true,
+  "service_token_expires": 300
+}

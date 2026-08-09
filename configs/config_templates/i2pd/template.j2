@@ -1,0 +1,40 @@
+# I2P (Invisible Internet Project) daemon configuration wrapper.
+# This script generates the startup options for i2pd based on Ansible variables.
+
+{% if enabled | default(True) | bool %}
+# I2P daemon is enabled. It will start automatically at boot.
+# This block constructs the command-line options passed to the i2pd process.
+DAEMON_OPTS=" \
+  # Path to the main I2P configuration file.
+  --conf=/etc/i2pd/i2pd.conf \
+  # Path to the static tunnels configuration file.
+  --tunconf=/etc/i2pd/tunnels.conf \
+  # Directory containing additional dynamic tunnel configurations.
+  --tunnelsdir=/etc/i2pd/tunnels.conf.d \
+  # Path to the PID file for the daemon process.
+  --pidfile={{ pid_file | default('/var/run/i2pd/i2pd.pid') }} \
+  # Path to the log file for the daemon process.
+  --logfile={{ log_file | default('/var/log/i2pd/i2pd.log') }} \
+  # Run as a background daemon.
+  --daemon \
+  # Run in service mode (detached from terminal).
+  --service"
+
+# Set the logging verbosity level for I2P.
+# Valid choices are: none, error, warn, info, debug, trace, debuglog.
+# This overrides the default log level defined in i2pd.conf if present.
+DAEMON_OPTS="${DAEMON_OPTS} --loglevel={{ log_level | default('info') }}"
+
+# Consolidated options string for environments that require a single variable.
+# Combines all previous settings into one exportable variable.
+DAEMON_OPTS="--conf=/etc/i2pd/i2pd.conf --tunconf=/etc/i2pd/tunnels.conf --tunnelsdir=/etc/i2pd/tunnels.conf.d --pidfile={{ pid_file | default('/var/run/i2pd/i2pd.pid') }} --logfile={{ log_file | default('/var/log/i2pd/i2pd.log') }} --daemon --service --loglevel={{ log_level | default('info') }}"
+{% else %}
+# I2P daemon is disabled. It will NOT start automatically at boot.
+# DAEMON_OPTS is empty, preventing the service from starting.
+DAEMON_OPTS=""
+{% endif %}
+
+# Increase the maximum number of open file descriptors.
+# If you have problems with hanging i2pd, you can try increasing this limit.
+# i2pd opens many connections to peers, so the default OS limit may be insufficient.
+ulimit -n {{ client_ulimit_n | default(4096) }}

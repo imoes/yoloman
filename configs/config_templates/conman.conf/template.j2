@@ -1,0 +1,63 @@
+# conman.conf — Conserver master configuration file
+# This file configures `conman` (Conserver), a serial console management system.
+# It defines managed console connections and global default parameters.
+
+# List of consoles managed by conman.
+# Each entry in this list defines a serial console connection with its specific parameters.
+consoles {
+{# Iterate over the list of console definitions. #}
+{# Each console object is expected to have fields like name, host, port, protocol, etc. #}
+{% for console in consoles | default([]) %}
+  {{ console.name | default('unnamed_console') }} {
+    # Hostname or IP address of the serial console server (or access node).
+    host {{ console.host | default('localhost') }};
+
+    # Port number for the console connection.
+    # Common ports: 23 (telnet), 5000+ for custom conservers, or serial device nodes.
+    port {{ console.port | default(23) }};
+
+    # Protocol used for the connection (e.g., telnet, rsh, ssh, raw).
+    protocol {{ console.protocol | default('telnet') }};
+
+    # Optional: Login username required for non-telnet protocols.
+    {# Use default('') to ensure the line is omitted if not defined. #}
+    {%- if console.username | default(false) %}
+    username {{ console.username }};
+    {%- endif %}
+
+    # Optional: Login password for non-telnet protocols.
+    # WARNING: Storing passwords in plain text config files is insecure.
+    {%- if console.password | default(false) %}
+    password {{ console.password }};
+    {%- endif %}
+
+    # Optional: Baud rate for serial console connections (e.g., 9600, 115200).
+    {%- if console.baud | default(false) %}
+    baud {{ console.baud }};
+    {%- endif %}
+
+    # Optional: Extra command-line arguments passed to the protocol handler.
+    {%- if console.args | default(false) %}
+    args {{ console.args }};
+    {%- endif %}
+
+    # Optional: Enable or disable logging for this specific console session.
+    # Values are typically 'on', 'off', 'syslog', etc.
+    {%- if console.log | default(false) %}
+    log {{ console.log }};
+    {%- endif %}
+  }
+{% endfor %}
+}
+
+# Global default settings applied to all consoles unless overridden individually.
+# These key-value pairs act as fallbacks for console-specific settings.
+{%- if defaults is defined and defaults | default({}) %}
+defaults {
+{# Iterate over the default key-value pairs. #}
+{# Use dict2items to safely iterate mapping objects in Jinja2. #}
+{% for item in defaults | default({}) | dict2items %}
+  {{ item.key }} {{ item.value }};
+{% endfor %}
+}
+{%- endif %}

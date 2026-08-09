@@ -1,0 +1,137 @@
+# DRBD configuration template for Ansible.
+# Defines a list of DRBD resources, each describing replicated block storage
+# between two or more nodes.
+#
+# Schema expectation for the 'resources' variable:
+#   type: list
+#   items:
+#     type: object
+#     properties:
+#       name:
+#         type: string
+#         description: Unique identifier for this DRBD resource.
+#       config:
+#         type: object
+#         description: Global settings for the resource (protocol, syncer, meta-disk, etc.).
+#         properties:
+#           protocol:
+#             type: string
+#             description: Replication protocol (A, B, or C).
+#           syncer_rate:
+#             type: string
+#             description: Maximum bandwidth for initial sync (e.g., '100M').
+#           meta_disk:
+#             type: string
+#             description: Internal meta-disk definition (e.g., 'internal').
+#           device:
+#             type: string
+#             description: DRBD device node path (e.g., '/dev/drbd0').
+#           disk:
+#             type: string
+#             description: Underlying block device (e.g., '/dev/sdb1').
+#           on_no_quorum:
+#             type: string
+#             description: Action to take when quorum is lost (e.g., 'suspend-io', 'destroy-md').
+#           on_suspendsync_fail:
+#             type: string
+#             description: Action to take if sync/suspend fails (e.g., 'call-local-io-error').
+#       hosts:
+#         type: list
+#         description: List of nodes participating in this resource.
+#         items:
+#           type: object
+#           properties:
+#             hostname:
+#               type: string
+#               description: Hostname of the node in this cluster.
+#             node_id:
+#               type: integer
+#               description: DRBD node ID for this host.
+#             address:
+#               type: string
+#               description: Network address and port for replication traffic (e.g., '192.168.1.1:7789').
+#             disk_path:
+#               type: string
+#               description: Local block device path for this node's data.
+#             meta_disk_path:
+#               type: string
+#               description: Local path for this node's meta-disk.
+
+{% for resource in resources | default([]) %}
+# ---------------------------------------------------------
+# Resource: {{ resource.name | default('unnamed') }}
+# Defines replicated storage between nodes using the specified config.
+# ---------------------------------------------------------
+resource {{ resource.name | default('unnamed') }} {
+{% if (resource.config | default({})) is mapping %}
+{% set cfg = resource.config | default({}) %}
+
+{% if cfg.protocol is defined %}
+  # Replication protocol: A (write-mostly), B (buffered), or C (fully synchronous).
+  protocol {{ cfg.protocol }};
+{% endif %}
+
+{% if cfg.syncer_rate is defined %}
+  # Syncer configuration: limits bandwidth during initial synchronization.
+  syncer {
+    rate {{ cfg.syncer_rate }};
+  }
+{% endif %}
+
+{% if cfg.meta_disk is defined %}
+  # Meta-disk definition: where DRBD stores its internal metadata.
+  meta-disk {{ cfg.meta_disk }};
+{% endif %}
+
+{% if cfg.device is defined %}
+  # DRBD device: the virtual block device exposed to the OS.
+  device {{ cfg.device }};
+{% endif %}
+
+{% if cfg.disk is defined %}
+  # Disk definition: the underlying physical/virtual block device backing the resource.
+  disk {{ cfg.disk }};
+{% endif %}
+
+{% if cfg.on_no_quorum is defined %}
+  # On-no-quorum action: behavior when network partition splits the cluster.
+  on-no-quorum {{ cfg.on_no_quorum }};
+{% endif %}
+
+{% if cfg.on_suspendsync_fail is defined %}
+  # On-suspendsync-fail action: behavior if sync or suspend operations fail.
+  on-suspendsync-fail {{ cfg.on_suspendsync_fail }};
+{% endif %}
+{% endif %}
+
+{% set hosts_list = resource.hosts | default([]) %}
+{% if hosts_list is iterable %}
+  # ---------------------------------------------------------
+  # Node Definitions: one block per participating node.
+  # ---------------------------------------------------------
+  {% for host in hosts_list %}
+  on {{ host.hostname | default('unknown') }} {
+{% if host.node_id is defined %}
+    # DRBD Node ID: unique integer for this node within the resource.
+    node-id {{ host.node_id }};
+{% endif %}
+
+{% if host.address is defined %}
+    # Address: IP and port for replication traffic between nodes.
+    address {{ host.address }};
+{% endif %}
+
+{% if host.disk_path is defined %}
+    # Disk: local block device path for this node's data storage.
+    disk {{ host.disk_path }};
+{% endif %}
+
+{% if host.meta_disk_path is defined %}
+    # Meta-disk: local path for this node's metadata storage.
+    meta-disk {{ host.meta_disk_path }};
+{% endif %}
+  }
+  {% endfor %}
+{% endif %}
+}
+{% endfor %}

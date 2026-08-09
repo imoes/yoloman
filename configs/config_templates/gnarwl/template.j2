@@ -1,0 +1,136 @@
+# gnarwl system-wide configuration
+# comment — A one-line comment to prefix the generated config file.
+# {{ comment | default('gnarwl system-wide configuration') }}
+
+# Server configuration
+# server_uri — Space-separated list of LDAP URIs (e.g., ['ldap://ldap.example.com', 'ldaps://ldap2.example.com']).
+# server — LDAP server hostname or IP address; used if server_uri is empty.
+# port — LDAP server port; used if server_uri is empty.
+{% if (server_uri | default([])) | length > 0 %}
+server_uri {{ server_uri | default([]) | join(' ') }}
+{% else %}
+server {{ server | default('localhost') }}
+port {{ port | default(389) }}
+{% endif %}
+
+# LDAP authentication and security
+# starttls — Enforce StartTLS on connect.
+{% if starttls | default(False) %}
+starttls {{ starttls | default(False) | string | lower }}
+{% endif %}
+
+# ca_cert — Path to CA certificate file for LDAP server validation.
+{% if ca_cert | default('') %}
+ca_cert {{ ca_cert | default('') }}
+{% endif %}
+
+# login — Distinguished name for LDAP bind; empty means anonymous.
+{% if login | default('') %}
+login {{ login | default('') }}
+{% endif %}
+
+# password — Password for LDAP bind; must be secured (0400 permissions on config file).
+{% if password | default('') %}
+password {{ password | default('') }}
+{% endif %}
+
+# Base and scope
+# base — Base DN for LDAP search; required.
+base {{ base | default('') }}
+
+# scope — LDAP search scope: base|one|sub.
+scope {{ scope | default('sub') }}
+
+# protocol — LDAP protocol version: 2 or 3.
+protocol {{ protocol | default(3) }}
+
+# Query configuration
+# queryfilter — LDAP search filter for user lookup; macros $recipient, $sender, $subject available.
+queryfilter {{ queryfilter | default('(&(mail=$recipient)(vacationActive=TRUE))') }}
+
+# result — LDAP attribute to use as the auto-reply body.
+result {{ result | default('vacationMessage') }}
+
+# Macro mappings
+# map_sender — Macro name for sender address.
+{% if map_sender | default('$sender') %}
+map_sender {{ map_sender | default('$sender') }}
+{% endif %}
+
+# map_receiver — Macro name for receiver address.
+{% if map_receiver | default('$receiver') %}
+map_receiver {{ map_receiver | default('$receiver') }}
+{% endif %}
+
+# map_subject — Macro name for subject line.
+{% if map_subject | default('$subject') %}
+map_subject {{ map_subject | default('$subject') }}
+{% endif %}
+
+# map_fields — List of additional LDAP attribute → macro mappings for body substitution.
+{% if map_fields | default([]) | length > 0 %}
+{% for mf in map_fields | default([]) %}
+map_field {{ mf.attribute }} {{ mf.name }}
+{% endfor %}
+{% endif %}
+
+# Blockfiles and expiry
+# blockfiles — Directory for storing blockfiles to prevent duplicate replies.
+blockfiles {{ blockfiles | default('/var/lib/gnarwl/block/') }}
+
+# umask — File mode for newly created blockfiles.
+umask {{ umask | default('0600') }}
+
+# blockexpire — Block duration in hours before re-allowing auto-reply to same sender.
+blockexpire {{ blockexpire | default(48) }}
+
+# Limits
+# maxreceivers — Maximum number of recipients per incoming message.
+maxreceivers {{ maxreceivers | default(256) }}
+
+# maxheader — Maximum number of header lines before rejecting message.
+maxheader {{ maxheader | default(256) }}
+
+# Header/Blacklist/blockfile paths
+# badheaders — Path to db-file of header patterns to ignore (e.g., for mailing lists).
+{% if badheaders | default('') %}
+badheaders {{ badheaders | default('') }}
+{% endif %}
+
+# blacklist — Path to db-file of email addresses excluded from auto-replies.
+{% if blacklist | default('') %}
+blacklist {{ blacklist | default('') }}
+{% endif %}
+
+# Forced header/footer
+# forceheader — Path to fixed header file (should end with empty line).
+{% if forceheader | default('') %}
+forceheader {{ forceheader | default('') }}
+{% endif %}
+
+# forcefooter — Path to fixed footer file.
+{% if forcefooter | default('') %}
+forcefooter {{ forcefooter | default('') }}
+{% endif %}
+
+# Mailer
+# mta — Path to the MTA binary to use for sending mail.
+# mta_args — Arguments passed to the MTA binary.
+{% set _mta_args = mta_args | default(['-oi', '-t']) %}
+mta {{ mta | default('/usr/sbin/sendmail') }} {{ _mta_args | join(' ') }}
+
+# Character set and headers
+# charset — Character set (e.g., 'utf-8', 'iso-8899-1') for body encoding conversion via iconv.
+{% if charset | default('') %}
+charset {{ charset | default('') }}
+{% endif %}
+
+# recvheader — Whitespace-separated list of header fields to scan for receiving addresses.
+recvheader {{ recvheader | default(['To', 'Cc']) | join(' ') }}
+
+# Logging and aliasing
+# loglevel — Syslog verbosity: 0=CRIT, 1=WARN, 2=INFO, 3=DEBUG.
+loglevel {{ loglevel | default(2) }}
+
+# deref — LDAP alias dereferencing: never|search|find|always.
+deref {{ deref | default('find') }}

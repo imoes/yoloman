@@ -1,0 +1,273 @@
+{
+  "heartbeat_period": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds between sending heartbeat events (min: 5)"
+  },
+  "processors": {
+    "type": "list",
+    "default": [],
+    "description": "List of processors to apply to events (e.g., enrich, filter)",
+    "items": {
+      "type": {
+        "type": "string",
+        "default": "add_fields",
+        "description": "Processor type: 'add_fields', 'drop_fields', or 'dissect'"
+      },
+      "fields": {
+        "type": "object",
+        "default": {},
+        "description": "For 'add_fields': static key-value pairs to add"
+      },
+      "fields_to_drop": {
+        "type": "list",
+        "default": [],
+        "description": "For 'drop_fields': list of field names to remove"
+      },
+      "tokenizer": {
+        "type": "string",
+        "default": "",
+        "description": "For 'dissect': pattern to parse message field"
+      },
+      "target_prefix": {
+        "type": "string",
+        "default": "parsed",
+        "description": "For 'dissect': prefix for parsed fields"
+      }
+    }
+  },
+  "monitors": {
+    "type": "list",
+    "default": [],
+    "description": "List of service monitors to run",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this monitor (e.g., 'api-gateway')"
+      },
+      "type": {
+        "type": "string",
+        "default": "http",
+        "description": "Monitor type: 'icmp', 'tcp', 'http', 'dns', or 'ssh'"
+      },
+      "interval": {
+        "type": "number",
+        "default": 60,
+        "description": "Check frequency in seconds (min: 5)"
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable this monitor"
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "For ICMP: hostname or IP to ping"
+      },
+      "hosts": {
+        "type": "list",
+        "default": [],
+        "description": "For TCP/SSH: list of host:port endpoints"
+      },
+      "packet_size": {
+        "type": "number",
+        "default": 56,
+        "description": "ICMP packet size in bytes"
+      },
+      "urls": {
+        "type": "list",
+        "default": [],
+        "description": "For HTTP: list of URLs to probe"
+      },
+      "method": {
+        "type": "string",
+        "default": "GET",
+        "description": "HTTP method (GET, POST, etc.)"
+      },
+      "headers": {
+        "type": "object",
+        "default": {},
+        "description": "HTTP headers to send (e.g., {'Host': 'example.com'})"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 5,
+        "description": "Timeout in seconds for the check"
+      },
+      "nameservers": {
+        "type": "list",
+        "default": [],
+        "description": "For DNS: list of DNS servers to query"
+      },
+      "query_name": {
+        "type": "string",
+        "default": "",
+        "description": "For DNS: domain to resolve"
+      },
+      "query_type": {
+        "type": "string",
+        "default": "A",
+        "description": "For DNS: DNS record type (A, AAAA, MX, TXT, etc.)"
+      },
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "For SSH: port to connect to"
+      },
+      "checks": {
+        "type": "object",
+        "default": {},
+        "description": "Response validation rules",
+        "fields": {
+          "response": {
+            "type": "object",
+            "default": {},
+            "fields": {
+              "contains": {
+                "type": "list",
+                "default": [],
+                "description": "For HTTP: list of text substrings expected in response"
+              }
+            }
+          },
+          "status": {
+            "type": "object",
+            "default": {},
+            "fields": {
+              "codes": {
+                "type": "list",
+                "default": [
+                  200
+                ],
+                "description": "For HTTP: acceptable HTTP status codes"
+              }
+            }
+          }
+        }
+      },
+      "tls": {
+        "type": "object",
+        "default": {
+          "enabled": false
+        },
+        "fields": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable TLS for HTTPS/SSH"
+          },
+          "verification_mode": {
+            "type": "string",
+            "default": "full",
+            "description": "Certificate verification mode: 'full', 'none', or 'relative'"
+          },
+          "certificate_authorities": {
+            "type": "list",
+            "default": [],
+            "description": "Paths to custom CA certs (if self-signed or internal CA)"
+          }
+        }
+      },
+      "tags": {
+        "type": "list",
+        "default": [],
+        "description": "Tags to attach (e.g., ['prod', 'web'])"
+      },
+      "alert": {
+        "type": "object",
+        "default": {},
+        "fields": {
+          "when": {
+            "type": "object",
+            "default": {},
+            "fields": {
+              "fails": {
+                "type": "number",
+                "default": 3,
+                "description": "Alert after N consecutive failures"
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "elasticsearch_hosts": {
+    "type": "list",
+    "default": [
+      "http://localhost:9200"
+    ],
+    "description": "List of Elasticsearch host URLs"
+  },
+  "elasticsearch_username": {
+    "type": "string",
+    "default": "",
+    "description": "Elasticsearch username (if security is enabled)"
+  },
+  "elasticsearch_password": {
+    "type": "string",
+    "default": "",
+    "description": "Elasticsearch password (if security is enabled)",
+    "secret": true
+  },
+  "elasticsearch_ssl": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "fields": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Use SSL/TLS when connecting to Elasticsearch"
+      },
+      "certificate_authorities": {
+        "type": "list",
+        "default": [],
+        "description": "Paths to CA certs for Elasticsearch TLS verification"
+      },
+      "verification_mode": {
+        "type": "string",
+        "default": "full",
+        "description": "TLS verification mode: 'full', 'none', or 'relative'"
+      }
+    }
+  },
+  "logging_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity: debug, info, warning, error, critical"
+  },
+  "logging_to_files": {
+    "type": "bool",
+    "default": false,
+    "description": "Write logs to files instead of stderr"
+  },
+  "logging_file_path": {
+    "type": "string",
+    "default": "/var/log/heartbeat",
+    "description": "Directory for log files"
+  },
+  "logging_rotate_bytes": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum log file size (bytes) before rotation (10 MB)"
+  },
+  "logging_keep_files": {
+    "type": "number",
+    "default": 7,
+    "description": "Number of old log files to keep"
+  },
+  "metrics_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable internal metrics collection"
+  },
+  "metrics_period": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between sending internal metrics"
+  }
+}

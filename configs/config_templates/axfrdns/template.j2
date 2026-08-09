@@ -1,0 +1,102 @@
+#!/usr/bin/env /lib/init/init-d-script
+### BEGIN INIT INFO
+# Provides:          axfrdns
+# Should-Start:      $syslog
+# Required-Start:    $time $local_fs
+# Required-Stop:     $time $local_fs
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: DNS zone-transfer server
+### END INIT INFO
+
+# =============================================================================
+# axfrdns: DNS Zone Transfer Server
+#
+# This script manages the axfrdns service via the runit/daemon ecosystem.
+# It generates the configuration for zone transfer access control rules.
+# =============================================================================
+
+NAME='axfrdns'
+DESC='DNS zone-transfer server'
+DAEMON='/usr/sbin/axfrdns'
+
+# --- Dependency Checks ---
+# Check for 'daemon' utility required by the runit-style wrapper
+if ! test -x '/usr/bin/daemon' ; then
+	log_failure_msg "install \`daemon' package to use ${NAME} script"
+	exit 1
+fi
+
+# Check for 'chpst' from runit, required to set up the environment
+if ! test -x '/usr/bin/chpst' ; then
+	log_failure_msg "install \`runit' package to use ${NAME} script"
+	exit 1
+fi
+
+# =============================================================================
+# Configuration Generation
+#
+# The axfrdns service expects a configuration file (typically in /etc/sv/${NAME}/conf
+# or passed via environment) that defines Access Control Lists (ACLs) for zone transfers.
+# Each rule defines a CIDR range and whether transfers from that range are allowed or denied.
+# =============================================================================
+
+# Generate the configuration directory and file if they do not exist or need update
+# Note: The actual config file content is generated below into ${SV_DIR}/conf or similar
+# depending on the exact axfrdns implementation, but usually axfrdns reads from /etc/axfrdns/axfrdns.conf
+# or similar. We will assume the runit 'conf' directory is used for env vars or a config file.
+# Given the script uses `-e conf`, it likely expects environment variables or a simple config.
+# We will generate a standard config file content based on the 'rules' schema.
+
+# Define the default rules if not provided by Ansible
+{% set rules = rules | default([{'cidr': '0.0.0.0/0', 'action': 'deny', 'tag': ''}]) %}
+
+# Function to write the configuration
+write_config() {
+    local CONFIG_DIR="/etc/sv/${NAME}/conf"
+    local CONFIG_FILE="${CONFIG_DIR}/config"
+
+    mkdir -p "${CONFIG_DIR}"
+
+    # Write the ACL rules to the configuration file
+    # Format: action CIDR [tag]
+    # This section is self-documenting: it lists all allowed/denied zones for transfers.
+    > "${CONFIG_FILE}"
+    
+    {% for rule in rules %}
+    # Rule {{ loop.index }}: {{ rule.cidr }} - {{ rule.action | upper }}
+    # Tag: {{ rule.tag | default('', true) }}
+    {{ rule.action }} {{ rule.cidr }} {{ rule.tag | default('', true) }}
+    {% endfor %}
+
+    # Ensure proper permissions for the configuration file
+    chmod 600 "${CONFIG_FILE}"
+}
+
+# Call the configuration writer
+write_config
+
+# =============================================================================
+# Service Control Functions
+# =============================================================================
+
+# Helper function to call the daemon wrapper
+daemon_ () { /usr/bin/daemon -D "/etc/sv/${NAME}" --noconfig --name "${NAME}" "$@"; }
+
+# Override the start command to use chpst with the environment from the 'conf' directory
+do_start_cmd_override () { 
+    # chpst sets up the environment from the 'conf' directory (variables defined there)
+    # and then executes the run script.
+    daemon_ -- /usr/bin/chpst -e /etc/sv/${NAME}/conf /bin/sh /etc/sv/${NAME}/run; 
+}
+
+# Override the stop command to gracefully stop the service
+do_stop_cmd_override () {
+	if daemon_ --running ; then
+		daemon_ --stop
+	fi
+}
+
+# Export overrides so the init script uses them
+export do_start_cmd_override
+export do_stop_cmd_override

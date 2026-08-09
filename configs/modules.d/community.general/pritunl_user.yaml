@@ -1,0 +1,74 @@
+name: pritunl_user
+fqcn: community.general.pritunl_user
+collection: community.general
+short_description: Manage Pritunl Users using the Pritunl API
+description: A module to manage Pritunl users using the Pritunl API.
+options:
+  organization:
+    type: str
+    required: true
+    aliases:
+    - org
+    description: The name of the organization the user is part of.
+  pritunl_api_secret:
+    type: str
+    required: true
+    description: API Secret found in Administrators > USERNAME > API Secret.
+  pritunl_api_token:
+    type: str
+    required: true
+    description: API Token of a Pritunl admin user. It needs to be enabled in Administrators > USERNAME
+      > Enable Token Authentication.
+  pritunl_url:
+    type: str
+    required: true
+    description: URL and port of the Pritunl server on which the API is enabled.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: If V(present), the module adds user O(user_name) to the Pritunl O(organization). If V(absent),
+      removes the user O(user_name) from the Pritunl O(organization).
+  user_disabled:
+    type: bool
+    description: Enable/Disable the user O(user_name).
+  user_email:
+    type: str
+    description: Email address associated with the user O(user_name).
+  user_gravatar:
+    type: bool
+    description: Enable/Disable Gravatar usage for the user O(user_name).
+  user_groups:
+    type: list
+    description: List of groups associated with the user O(user_name).
+  user_mac_addresses:
+    type: list
+    description: Allowed MAC addresses for the user O(user_name).
+  user_name:
+    type: str
+    required: true
+    description: Name of the user to create or delete from Pritunl.
+  user_type:
+    type: str
+    default: client
+    choices:
+    - client
+    - server
+    description: Type of the user O(user_name).
+  validate_certs:
+    type: bool
+    default: true
+    description: If certificates should be validated or not. This should never be set to V(false), except
+      if you are very sure that your connection to the server can not be subject to a Man In The Middle
+      attack.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create the user Foo with email address foo@bar.com in MyOrg\n  community.general.pritunl_user:\n\
+  \    state: present\n    organization: MyOrg\n    user_name: Foo\n    user_email: foo@bar.com\n    user_mac_addresses:\n\
+  \      - \"00:00:00:00:00:99\"\n\n- name: Disable the user Foo but keep it in Pritunl\n  community.general.pritunl_user:\n\
+  \    state: present\n    organization: MyOrg\n    user_name: Foo\n    user_email: foo@bar.com\n    user_disabled:\
+  \ true\n\n- name: Make sure the user Foo is not part of MyOrg anymore\n  community.general.pritunl_user:\n\
+  \    state: absent\n    organization: MyOrg\n    user_name: Foo\n"

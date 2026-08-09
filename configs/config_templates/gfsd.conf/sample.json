@@ -1,0 +1,65 @@
+{
+  "debug": false,
+  "log_file": "/var/log/gfarm2/gfsd.log",
+  "log_max_size": 100,
+  "log_retention": 5,
+  "num_threads": 8,
+  "bind_address": "0.0.0.0",
+  "metadata_port": 15001,
+  "enable_replication": true,
+  "replication_timeout": 30,
+  "master_hosts": [
+    "gfm.example.com"
+  ],
+  "gfm_hosts": [
+    "gfm-1.example.com",
+    "gfm-2.example.com"
+  ],
+  "pool": {
+    "max_connections": 10,
+    "connect_timeout": 5,
+    "idle_timeout": 300
+  },
+  "storage": {
+    "backend": "postgresql",
+    "postgresql_host": "db.example.com",
+    "postgresql_port": 5432,
+    "postgresql_user": "gfarm",
+    "postgresql_password": "secretpass",
+    "postgresql_database": "gfarm2",
+    "postgresql_sslmode": "require",
+    "sqlite_db": "/var/lib/gfarm2/gfarm2.db"
+  },
+  "security": {
+    "auth_method": "KERBEROS",
+    "kerberos_keytab": "/etc/gfarm2/gfarm2.keytab",
+    "gsi_proxy_cert": "/tmp/x509up_u0",
+    "ca_cert_dir": "/etc/grid-security/certificates",
+    "enable_client_cert_verify": true
+  },
+  "limits": {
+    "max_connections_per_client": 100,
+    "max_upload_size": 10240,
+    "max_open_files": 1024,
+    "max_memory_per_request": 512,
+    "idle_timeout": 600
+  },
+  "replica": {
+    "default_replication_factor": 3,
+    "enable_lazy_replication": false,
+    "lazy_replication_delay": 300,
+    "policies": [
+      "leastloaded",
+      "roundrobin"
+    ]
+  },
+  "quota": {
+    "enable_quotas": true,
+    "backend": "postgresql",
+    "postgresql_host": "quota-db.example.com",
+    "postgresql_port": 5432,
+    "postgresql_user": "gfarm",
+    "postgresql_password": "quotapass",
+    "postgresql_database": "gfarm2_quota"
+  }
+}

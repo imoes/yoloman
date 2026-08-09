@@ -1,0 +1,69 @@
+# Osmocom HLR configuration
+#
+# This file configures the Osmocom Home Location Register (HLR)
+# See: https://osmocom.org/projects/osmo-hlr/wiki
+#
+
+# Enable verbose debug logging (use only for troubleshooting).
+debug {{ debug | default(False) | lower }}
+
+# Path to the SQLite database file storing subscriber and location data.
+sqlite {{ sqlite_db_path | default('/var/lib/osmocom/hlr.db') }}
+
+# IP address on which the HLR listens for MSC connections (A-bis interface).
+msc {{ msc_listen_addr | default('127.0.0.1') }} {{ msc_listen_port | default(4222) }}
+
+# Authentication algorithm used for SIM/USIM verification. Choose from:
+# comp128v1 (default), comp128v2, comp128v3, or none.
+auth_policy {{ auth_policy | default('comp128v1') }}
+
+# Default APN used for subscriber lookups in GPRS/IMS contexts.
+apn {{ apn | default('internet') }}
+
+# Maximum number of simultaneous connections allowed to the HLR from MSCs.
+max_connections {{ max_msc_connections | default(10) }}
+
+# Enable TLS encryption for MSC connections (requires valid certificate and key).
+# Only present if tls_enabled is True.
+{% if tls_enabled | default(False) %}
+tls
+  cert {{ tls_cert_path | default('/etc/osmocom/tls/hlr.crt') }}
+  key {{ tls_key_path | default('/etc/osmocom/tls/hlr.key') }}
+{% endif %}
+
+# Logging configuration
+log
+  # Per-subsystem logging levels (e.g., DHLR, DIUC, DMNCC, DSP).
+  # Use: 'none', 'error', 'notice', 'info', 'debug'.
+  # Default mapping provided in schema.
+{% for sub, level in log_levels | default({'DHLR': 'debug', 'DIUC': 'info', 'DMNCC': 'info', 'DSP': 'info'}) | dict2items | map(attribute='value') | list | zip(log_levels | default({'DHLR': 'debug', 'DIUC': 'info', 'DMNCC': 'info', 'DSP': 'info'}) | default({}) | dict2items | map(attribute='key') | list) | list %}
+  subsystem {{ sub }} level {{ level }}
+{% endfor %}
+
+# Enable GPRS/SGSN support (required for 4G/IMS integration).
+# Only present if gprs_enabled is True.
+{% if gprs_enabled | default(False) %}
+gprs
+  # SGSN configuration
+  sgsn
+    # IP address of the GGSN used for APN resolution (e.g., in S4/IMS scenarios).
+    ggsn {{ sgsn_ggsn_addr | default('127.0.0.1') }}
+    # APN used for GPRS context setup (e.g., for IMS or data services).
+    apn {{ sgsn_apn | default('ims') }}
+{% endif %}
+
+# GSUP (Generic Subscriber Update Protocol) server for inter-HLR communication.
+# Each item in gsup_servers list should have: name, host, port.
+{% for server in gsup_servers | default([]) %}
+gsup server {{ server.name }} {{ server.host }} {{ server.port }}
+{% endfor %}
+
+# CLI (Command Line Interface) for remote management.
+# Bind to localhost by default for security.
+cli
+  telnet {{ cli_telnet_port | default(4242) }}
+  # Optional password for CLI access via Telnet.
+  # Leave empty for no password (not recommended in production).
+{% if cli_telnet_password | default('') | string | trim | length > 0 %}
+  password {{ cli_telnet_password | default('') }}
+{% endif %}

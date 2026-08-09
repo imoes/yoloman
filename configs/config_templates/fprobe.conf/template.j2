@@ -1,0 +1,117 @@
+# ==============================================================================
+# fprobe.conf - NetFlow/IPFIX Probe Configuration
+# ==============================================================================
+# This file configures fprobe, a userspace NetFlow/IPFIX probe that captures
+# network traffic from a specified interface and exports flow records to a
+# collector.
+#
+# Each directive is documented with its source description and safe default
+# values using Jinja2 default filters.
+# ==============================================================================
+
+# Primary network interface to capture traffic from (e.g., eth0, ens33).
+# Required if interface_alt not set.
+interface {{ (interface | default('')) | string }}
+
+# Alternative primary network interface (alias for 'interface'), for clarity or compatibility.
+# If both are set, the order of precedence depends on fprobe's internal logic,
+# but typically the first encountered or explicitly prioritized one is used.
+# Here we emit it if defined to maintain compatibility.
+{% if (interface_alt | default('')) != '' %}
+interface {{ (interface_alt | default('')) | string }}
+{% endif %}
+
+# IP address (IPv4 or IPv6) of the NetFlow/IPFIX collector to receive flow records.
+# Format: IP:PORT or just IP if port is specified separately.
+# Default: '' (No collector configured)
+{% if (collector_ip | default('')) != '' %}
+collector {{ (collector_ip | default('')) | string }}:{{ (collector_port | default(2055)) }}
+{% endif %}
+
+# UDP port on the collector (standard: 2055 for IPFIX, 2055/9995 for NetFlow v9).
+# This is used if collector_ip is set, or as a standalone port directive.
+# Default: 2055
+port {{ (collector_port | default(2055)) }}
+
+# Flow record format: 'netflow5', 'netflow9', or 'ipfix'.
+# IPFIX is modern and recommended.
+# Default: 'ipfix'
+flow-version {{ (flow_version | default('ipfix')) | string }}
+
+# Packet sampling rate (1 = all packets, 10 = every 10th packet).
+# Higher values reduce CPU overhead but decrease data granularity.
+# Default: 1
+sampling-rate {{ (sampling_rate | default(1)) }}
+
+# Flow active timeout in seconds — when a flow is closed after sustained activity.
+# Default: 1800
+active-timeout {{ (active_timeout | default(1800)) }}
+
+# Flow idle timeout in seconds — when a flow is closed after no activity.
+# Default: 300
+idle-timeout {{ (idle_timeout | default(300)) }}
+
+# Maximum flows to bundle per UDP packet (0 = no limit).
+# Use to control packet size and latency.
+# Default: 0
+max-flows-per-packet {{ (max_flows_per_packet | default(0)) }}
+
+# Include TCP flags in IPFIX records (e.g., SYN, FIN, RST).
+# Recommended for analysis.
+# Default: True
+{% if (ipfix_tcp_flags | default(true)) | bool %}
+ipfix-tcp-flags true
+{% endif %}
+
+# Include IPv6 extension headers in IPFIX records.
+# Useful for IPv6 troubleshooting.
+# Default: True
+{% if (ipfix_ipv6_ext | default(true)) | bool %}
+ipfix-ipv6-ext true
+{% endif %}
+
+# Include BGP next-hop info in IPFIX.
+# Only relevant in BGP route reflector setups.
+# Default: False
+{% if (ipfix_bgp_next_hop | default(false)) | bool %}
+ipfix-bgp-next-hop true
+{% endif %}
+
+# Source IP address used in flow records (e.g., loopback).
+# Defaults to interface's primary IP if not set.
+# Default: ''
+{% if (source_ip | default('')) != '' %}
+source-ip {{ (source_ip | default('')) | string }}
+{% endif %}
+
+# IPFIX system-id (unique across collectors).
+# 0 = auto-assign using device IP.
+# Default: 0
+system-id {{ (system_id | default(0)) }}
+
+# IPFIX observation domain ID — used for multi-domain flows.
+# Set consistently if needed.
+# Default: 0
+observation-domain-id {{ (observation_domain_id | default(0)) }}
+
+# Verbosity level for fprobe logs (debug → emerg).
+# Choose 'warning' for production.
+# Default: 'notice'
+log-level {{ (log_level | default('notice')) | string }}
+
+# Path to write logs (e.g., /var/log/fprobe.log).
+# Omit for syslog only.
+# Default: ''
+{% if (log_file | default('')) != '' %}
+log-file {{ (log_file | default('')) | string }}
+{% endif %}
+
+# Path to write process PID file for service management.
+# Default: '/run/fprobe.pid'
+pid-file {{ (pid_file | default('/run/fprobe.pid')) | string }}
+
+# Additional key=value or key value pairs (e.g., `buffer-size 65535`).
+# Use sparingly.
+{% for item in (extra_options | default([])) %}
+{{ item }}
+{% endfor %}

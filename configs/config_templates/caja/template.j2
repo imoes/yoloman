@@ -1,0 +1,50 @@
+{# ============================================================= #}
+{# Caja Desktop File Manager — Command-line Options Template     #}
+{# Self-documenting: every option is commented with its schema   #}
+{# description and safe defaults via Jinja2 `default` filter.    #}
+{# ============================================================= #}
+
+{# ------------------------------------------------------------------ #}
+{# Global options block: pass these flags to the Caja binary on startup. #}
+{# ------------------------------------------------------------------ #}
+
+{% set _options = options | default({}) %}
+
+{# --browser : Open a browser window. Corresponds to --browser. #}
+{% if _options.browser is boolean and _options.browser %}--browser {% endif %}
+
+{# -c / --check : Perform quick self-check tests. Corresponds to -c/--check. #}
+{% if _options.check is boolean and _options.check %}-c {% endif %}
+
+{# --display=DISPLAY : X display to use. Corresponds to --display=DISPLAY. #}
+{% if _options.display is string and _options.display | trim != '' %}--display={{ _options.display | trim }} {% endif %}
+
+{# -g / --geometry : Initial window geometry (e.g., '600x400'). Corresponds to -g/--geometry=GEOMETRY. #}
+{% if _options.geometry is string and _options.geometry | trim != '' %}-g {{ _options.geometry | trim }} {% endif %}
+
+{# --tabs : Open URIs in tabs. Corresponds to --tabs. #}
+{% if _options.tabs is boolean and _options.tabs %}--tabs {% endif %}
+
+{# --no-default-window : Only create windows for explicitly specified URIs. Corresponds to --no-default-window. #}
+{% if _options.no_default_window is boolean and _options.no_default_window %}--no-default-window {% endif %}
+
+{# --no-desktop : Do not manage the desktop. Corresponds to --no-desktop. #}
+{% if _options.no_desktop is boolean and _options.no_desktop %}--no-desktop {% endif %}
+
+{# --force-desktop : Manage the desktop regardless of preferences. Corresponds to --force-desktop. #}
+{% if _options.force_desktop is boolean and _options.force_desktop %}--force-desktop {% endif %}
+
+{# -q / --quit : Quit Caja. Corresponds to -q/--quit. #}
+{% if _options.quit is boolean and _options.quit %}-q {% endif %}
+
+{# --version : Print version and exit. Corresponds to --version. #}
+{% if _options.version is boolean and _options.version %}--version {% endif %}
+
+{# ------------------------------------------------------------------ #}
+{# URIs to open : List of URIs to open in Caja windows.               #}
+{# ------------------------------------------------------------------ #}
+{% set _uris = uris | default([]) %}
+{% if _uris is iterable and _uris | length > 0 %}
+{% for uri in _uris %}{{ uri }}{% if not loop.last %} {% endif %}
+{% endfor %}
+{% endif %}

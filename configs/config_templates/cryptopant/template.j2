@@ -1,0 +1,59 @@
+# ==============================================================================
+# cryptopANT Configuration Template
+# ==============================================================================
+# This configuration file controls the behavior of cryptopANT, a network address
+# obfuscation/scrambling utility. It defines how IP addresses and MAC addresses
+# are processed before transmission.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# keyfile: Path to the keyfile used to store/retrieve cryptographic state.
+# ------------------------------------------------------------------------------
+# This file is created if it does not exist and holds the secret keys used for
+# the scrambling algorithms. Ensure this file has restrictive permissions (e.g.,
+# root-only read/write).
+KEYFILE = {{ keyfile | default('/etc/cryptopANT/keyfile') }}
+
+# ------------------------------------------------------------------------------
+# ipv4_method: Scrambling method for IPv4 addresses.
+# ------------------------------------------------------------------------------
+# Valid values: SCRAMBLE_NONE, SCRAMBLE_AES, SCRAMBLE_BLOWFISH.
+# - SCRAMBLE_NONE: No scrambling; addresses are passed through.
+# - SCRAMBLE_AES: Uses AES encryption to scramble IPv4 addresses.
+# - SCRAMBLE_BLOWFISH: Uses Blowfish encryption to scramble IPv4 addresses.
+IPV4_METHOD = {{ ipv4_method | default('SCRAMBLE_AES') }}
+
+# ------------------------------------------------------------------------------
+# ipv6_method: Scrambling method for IPv6 addresses.
+# ------------------------------------------------------------------------------
+# Valid values: SCRAMBLE_NONE, SCRAMBLE_AES, SCRAMBLE_BLOWFISH.
+# - SCRAMBLE_NONE: No scrambling; addresses are passed through.
+# - SCRAMBLE_AES: Uses AES encryption to scramble IPv6 addresses.
+# - SCRAMBLE_BLOWFISH: Uses Blowfish encryption to scramble IPv6 addresses.
+IPV6_METHOD = {{ ipv6_method | default('SCRAMBLE_AES') }}
+
+# ------------------------------------------------------------------------------
+# pass_bits: Number of leading bits to pass through unchanged.
+# ------------------------------------------------------------------------------
+# If set to 0, the classful prefix is preserved (e.g., 10.0.0.0/8 for class A).
+# If set to a positive integer, exactly that many leading bits of the address
+# remain unmodified, while the rest is scrambled. This allows for granular
+# control over which parts of the address space are visible.
+PASS_BITS = {{ pass_bits | default(0) }}
+
+# ------------------------------------------------------------------------------
+# enable_mac: Whether to enable MAC address scrambling.
+# ------------------------------------------------------------------------------
+# When enabled (True), the MAC_METHOD setting below determines how Ethernet
+# hardware addresses are processed. If disabled (False), MAC addresses are
+# typically passed through or handled by other network stack mechanisms.
+# Note: Enabling this requires that a valid MAC_METHOD is also configured.
+{% if enable_mac | default(false) %}
+# ------------------------------------------------------------------------------
+# mac_method: Scrambling method for MAC addresses (used only if enable_mac is true).
+# ------------------------------------------------------------------------------
+# Valid values: SCRAMBLE_NONE, SCRAMBLE_AES.
+# - SCRAMBLE_NONE: No scrambling; MAC addresses are passed through.
+# - SCRAMBLE_AES: Uses AES encryption to scramble MAC addresses.
+MAC_METHOD = {{ mac_method | default('SCRAMBLE_AES') }}
+{% endif %}

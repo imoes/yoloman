@@ -1,0 +1,81 @@
+# =============================================================================
+# OpenStack Designate Sink Service Configuration
+# =============================================================================
+# This file configures the Designate Sink service, which receives DNS update
+# notifications (typically RFC 2136 style) and propagates them to the central
+# Designate database and message queue.
+# =============================================================================
+
+[DEFAULT]
+# Path to the log file; use 'stderr' to log to console.
+log_file = {{ log_file | default('/var/log/designate/sink.log') }}
+
+# Logging verbosity level.
+log_level = {{ log_level | default('INFO') }}
+
+# Connection URL for the RPC transport (e.g., RabbitMQ).
+rpc_transport_url = {{ rpc_transport_url | default('rabbit://guest:guest@localhost:5672//') }}
+
+# RPC backend driver (usually 'rabbit' for RabbitMQ).
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# Size of the RPC connection pool.
+rpc_conn_pool_size = {{ rpc_conn_pool_size | default(10) }}
+
+[service:sink]
+# Interface/IP to bind the sink service to.
+host = {{ sink_host | default('0.0.0.0') }}
+
+# Port for receiving DNS update notifications (RFC 2136-style).
+port = {{ sink_port | default(5354) }}
+
+# Number of worker processes for the sink service.
+workers = {{ sink_workers | default(2) }}
+
+# Whether the sink should manage zones on incoming updates.
+enable_zone_management = {{ sink_enable_zone_management | default(true) }}
+
+# Service name used when registering with OpenStack services.
+service_name = {{ sink_service_name | default('sink') }}
+
+[service:rpc]
+# API version for RPC communication with central.
+rpc_api_version = {{ rpc_api_version | default('1.0') }}
+
+# Maximum size (bytes) of RPC responses.
+rpc_response_max_size = {{ rpc_response_max_size | default(32768) }}
+
+[rpc_notifier]
+# AMQP exchange name for event notifications.
+exchange = {{ notifier_exchange | default('openstack') }}
+
+# Topics to publish DNS update notifications to.
+topics = {{ notifier_topics | default(['designate_notifications']) | join(', ') }}
+
+[keystone_authtoken]
+# Keystone authentication endpoint URL.
+www_authenticate_uri = {{ keystone_auth_url | default('https://keystone.example.com:5000/v3') }}
+
+# Keystone domain name for the service project.
+project_domain_name = {{ keystone_project_domain | default('Default') }}
+
+# Keystone project (tenant) name for the service user.
+project_name = {{ keystone_project_name | default('service') }}
+
+# Keystone domain name for the service user.
+user_domain_name = {{ keystone_user_domain | default('Default') }}
+
+# Keystone username for the Designate service.
+username = {{ keystone_service_username | default('designate') }}
+
+# Password for the Designate service user in Keystone.
+password = {{ keystone_service_password | default('') }}
+
+# Keystone API version.
+auth_version = {{ keystone_auth_version | default('v3') }}
+
+# Authentication type (e.g., password, token).
+auth_type = {{ keystone_auth_type | default('password') }}
+
+# Whether to skip SSL/TLS certificate verification.
+insecure = {{ keystone_insecure | default(false) }}

@@ -1,0 +1,97 @@
+[Exec]
+# Hostname visible inside the container and used for reverse DNS lookup
+Hostname={{ hostname | default('my-container') }}
+
+# Boot the container's init system as PID 1; requires a complete OS tree (not just a single binary)
+Boot={{ boot | default(True) | lower }}
+
+# Discard all filesystem changes on shutdown; useful for stateless or immutable containers
+Ephemeral={{ ephemeral | default(False) | lower }}
+
+# User namespace mode: 'no' (none), 'yes' (fixed mapping), 'pick' (auto-select safe range), or a numeric UID base like '100000'
+PrivateUsers={{ private_users | default('pick') }}
+
+# Run the container main process as this user; leave empty to run as root
+{% if user | default('') %}
+User={{ user | default('') }}
+{% endif %}
+
+# Initial working directory for the container process; leave empty for the system default
+{% if working_directory | default('') %}
+WorkingDirectory={{ working_directory | default('') }}
+{% endif %}
+
+# Environment variables to inject into all container processes
+{% for env in environment_vars | default([]) %}
+Environment={{ env.name }}={{ env.value }}
+{% endfor %}
+
+# Additional Linux capabilities to grant beyond the default bounding set (e.g. CAP_NET_ADMIN)
+{% for cap in capabilities | default([]) %}
+Capability={{ cap }}
+{% endfor %}
+
+# Linux capabilities to remove from the default bounding set (e.g. CAP_NET_RAW CAP_SYS_ADMIN)
+{% for cap in drop_capabilities | default([]) %}
+DropCapability={{ cap }}
+{% endfor %}
+
+# Block privilege escalation via setuid binaries or file capabilities inside the container
+NoNewPrivileges={{ no_new_privileges | default(True) | lower }}
+
+# Maximum number of open file descriptors per process inside the container (ulimit -n)
+LimitNOFILE={{ limit_nofile | default(65536) }}
+
+# Maximum number of processes or threads the container may spawn (ulimit -u)
+LimitNPROC={{ limit_nproc | default(8192) }}
+
+[Files]
+# Mount the container root filesystem read-only; combine with Volatile or BindReadOnly for mutable state paths
+ReadOnly={{ read_only | default(False) | lower }}
+
+# Volatile mode: 'no' = fully persistent, 'yes' = tmpfs replaces the entire root, 'state' = tmpfs overlays /var only
+Volatile={{ volatile | default('no') }}
+
+# Host paths to bind-mount into the container with read-write access
+{% for mount in bind_mounts | default([]) %}
+Bind={{ mount.host }}:{{ mount.container }}
+{% endfor %}
+
+# Host paths to bind-mount into the container with read-only access
+{% for mount in bind_read_only_mounts | default([]) %}
+BindReadOnly={{ mount.host }}:{{ mount.container }}
+{% endfor %}
+
+# Paths inside the container to mount as fresh ephemeral tmpfs on each start (e.g. /tmp, /run)
+{% for path in tmpfs_mounts | default([]) %}
+TemporaryFileSystem={{ path }}
+{% endfor %}
+
+[Network]
+# Run the container in its own isolated network namespace (strongly recommended)
+Private={{ network_private | default(True) | lower }}
+
+{% if network_private | default(True) %}
+# Create a veth pair between host and container for network connectivity; effective only when Private=yes
+VirtualEthernet={{ virtual_ethernet | default(True) | lower }}
+
+# Host bridge interface to attach the container veth to (e.g. br0); leave empty for a point-to-point veth pair
+{% if bridge | default('') %}
+Bridge={{ bridge | default('') }}
+{% endif %}
+
+# systemd-networkd zone name; the daemon auto-creates a bridge and manages DHCP/routing (leave empty to configure networking manually)
+{% if network_zone | default('') %}
+Zone={{ network_zone | default('') }}
+{% endif %}
+
+# Host-to-container port forwarding rules; only effective when Private=yes
+{% for port in port_forwards | default([]) %}
+Port={{ port.protocol }}:{{ port.host_port }}:{{ port.container_port }}
+{% endfor %}
+
+# Host network interfaces to clone as MACVLAN links inside the container (e.g. eth0)
+{% for iface in macvlan_interfaces | default([]) %}
+MACVLAN={{ iface }}
+{% endfor %}
+{% endif %}

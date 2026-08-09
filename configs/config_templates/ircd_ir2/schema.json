@@ -1,0 +1,470 @@
+{
+  "serverinfo": {
+    "type": "object",
+    "default": {
+      "name": "irc.example.com",
+      "description": "Example IRC Server",
+      "network_name": "ExampleNet",
+      "network_desc": "A friendly local IRC network",
+      "max_clients": 150
+    },
+    "description": "Global server identification and network metadata"
+  },
+  "serverinfo.name": {
+    "type": "string",
+    "default": "irc.example.com",
+    "description": "Server's hostname (must be DNS-resolvable by other servers)"
+  },
+  "serverinfo.description": {
+    "type": "string",
+    "default": "Example IRC Server",
+    "description": "Human-readable server description"
+  },
+  "serverinfo.network_name": {
+    "type": "string",
+    "default": "ExampleNet",
+    "description": "Network name, used in protocol messages (e.g., :network.name 003)"
+  },
+  "serverinfo.network_desc": {
+    "type": "string",
+    "default": "A friendly local IRC network",
+    "description": "Publicly visible network description"
+  },
+  "serverinfo.max_clients": {
+    "type": "number",
+    "default": 150,
+    "description": "Maximum concurrent client connections allowed"
+  },
+  "opers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IRC operators (admin users) with special privileges"
+  },
+  "opers.*.name": {
+    "type": "string",
+    "default": "admin",
+    "description": "Operator\u2019s username (e.g., \u2018admin\u2019, \u2018ircop\u2019)"
+  },
+  "opers.*.password": {
+    "type": "string",
+    "default": "",
+    "description": "MD5 or plaintext operator password (use secure hashing in production)"
+  },
+  "opers.*.class": {
+    "type": "string",
+    "default": "oper_class",
+    "description": "Reference to a defined class (e.g., 'oper_class') for resource limits"
+  },
+  "opers.*.flags": {
+    "type": "list",
+    "default": [
+      "kline",
+      "unkline",
+      "dline",
+      "unkline",
+      "global",
+      "restart",
+      "kill",
+      "admin"
+    ],
+    "description": "Operator capabilities (e.g., 'kline', 'global', 'restart')"
+  },
+  "opers.*.max_local": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum local connections allowed for this operator"
+  },
+  "opers.*.max_remote": {
+    "type": "number",
+    "default": 1,
+    "description": "Maximum remote (server-to-server) connections"
+  },
+  "opers.*.whois_display": {
+    "type": "string",
+    "default": "",
+    "description": "Custom text shown in /WHOIS (e.g., 'Server Admin')"
+  },
+  "opers.*.gecos": {
+    "type": "string",
+    "default": "",
+    "description": "Optional GECOS (real name) shown in /WHOIS"
+  },
+  "listeners": {
+    "type": "list",
+    "default": [
+      {
+        "host": "*",
+        "port": 6667,
+        "ssl": false,
+        "ssl_cert": "",
+        "ssl_key": "",
+        "options": []
+      }
+    ],
+    "description": "IP:port endpoints the server listens on"
+  },
+  "listeners.*.host": {
+    "type": "string",
+    "default": "*",
+    "description": "IP address or hostname to bind to (\u2018*\u2019 = all interfaces)"
+  },
+  "listeners.*.port": {
+    "type": "number",
+    "default": 6667,
+    "description": "TCP port for client connections (6667 = standard non-SSL)"
+  },
+  "listeners.*.ssl": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS/SSL encryption on this listener"
+  },
+  "listeners.*.ssl_cert": {
+    "type": "string",
+    "default": "/etc/ircd-irc2/server.crt",
+    "description": "Path to TLS certificate (only used if ssl = true)"
+  },
+  "listeners.*.ssl_key": {
+    "type": "string",
+    "default": "/etc/ircd-irc2/server.key",
+    "description": "Path to TLS private key (only used if ssl = true)"
+  },
+  "listeners.*.options": {
+    "type": "list",
+    "default": [],
+    "description": "Listener-specific options (e.g., 'ssl_only', 'ssl_client_verify')"
+  },
+  "client": {
+    "type": "object",
+    "default": {
+      "max_clients": 200,
+      "max_connections_per_ip": 3,
+      "ping_timeout": 120,
+      "connect_timeout": 30,
+      "away_timeout": 900,
+      "nick_timeout": 15,
+      "dead_ip_timeout": 300
+    },
+    "description": "Per-client resource and timeout controls"
+  },
+  "client.max_clients": {
+    "type": "number",
+    "default": 200,
+    "description": "Hard cap on total client connections"
+  },
+  "client.max_connections_per_ip": {
+    "type": "number",
+    "default": 3,
+    "description": "Max simultaneous connections per IP address"
+  },
+  "client.ping_timeout": {
+    "type": "number",
+    "default": 120,
+    "description": "Seconds of inactivity before sending PING and eventually disconnecting"
+  },
+  "client.connect_timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Time to wait for client to complete registration"
+  },
+  "client.away_timeout": {
+    "type": "number",
+    "default": 900,
+    "description": "Seconds before marking a user as away automatically"
+  },
+  "client.nick_timeout": {
+    "type": "number",
+    "default": 15,
+    "description": "Seconds to wait before allowing nick change after registration"
+  },
+  "client.dead_ip_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Time before purging a disconnected IP from memory"
+  },
+  "channel": {
+    "type": "object",
+    "default": {
+      "max_channels_per_user": 10,
+      "max_bans": 40,
+      "max_nick_changes": 5,
+      "max_join": 5,
+      "kick_on_invalid_chanmsg": true
+    },
+    "description": "Per-user and per-channel limits"
+  },
+  "channel.max_channels_per_user": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum channels a user may join"
+  },
+  "channel.max_bans": {
+    "type": "number",
+    "default": 40,
+    "description": "Maximum ban masks per channel"
+  },
+  "channel.max_nick_changes": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum nick changes allowed per minute"
+  },
+  "channel.max_join": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum channels a user may join per minute"
+  },
+  "channel.kick_on_invalid_chanmsg": {
+    "type": "bool",
+    "default": true,
+    "description": "Kick user who sends channel messages without being joined"
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "level": "DEBUG",
+      "files": [
+        {
+          "name": "default",
+          "path": "/var/log/ircd/ircd.log",
+          "max_size": 10485760
+        }
+      ]
+    },
+    "description": "Server logging configuration"
+  },
+  "log.level": {
+    "type": "string",
+    "default": "DEBUG",
+    "description": "Logging verbosity level"
+  },
+  "log.files": {
+    "type": "list",
+    "default": [
+      {
+        "name": "default",
+        "path": "/var/log/ircd/ircd.log",
+        "max_size": 10485760
+      }
+    ],
+    "description": "Log file definitions"
+  },
+  "log.files.*.name": {
+    "type": "string",
+    "default": "default",
+    "description": "Log file alias (used internally)"
+  },
+  "log.files.*.path": {
+    "type": "string",
+    "default": "/var/log/ircd/ircd.log",
+    "description": "Absolute path to the log file"
+  },
+  "log.files.*.max_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Max log file size (bytes) before rotation (0 = no rotation)"
+  },
+  "klines": {
+    "type": "list",
+    "default": [],
+    "description": "List of persistent klines (IP/user/host bans)"
+  },
+  "klines.*.mask": {
+    "type": "string",
+    "default": "user@*",
+    "description": "Glob-style ban mask (e.g., 'baduser@*.evil.com')"
+  },
+  "klines.*.reason": {
+    "type": "string",
+    "default": "Abuse",
+    "description": "Public reason for the kline"
+  },
+  "klines.*.set_by": {
+    "type": "string",
+    "default": "ircop@irc.example.com",
+    "description": "Operator who set the kline (appears in logs)"
+  },
+  "klines.*.duration": {
+    "type": "number",
+    "default": 0,
+    "description": "Ban duration in seconds (0 = permanent)"
+  },
+  "modules": {
+    "type": "list",
+    "default": [],
+    "description": "Dynamic modules to load at startup"
+  },
+  "modules.*.path": {
+    "type": "string",
+    "default": "/usr/lib/ircd-irc2/modules/m_ircv3.so",
+    "description": "Absolute path to the module shared object (.so)"
+  },
+  "links": {
+    "type": "list",
+    "default": [],
+    "description": "Server linking configuration (uplinks/downlinks)"
+  },
+  "links.*.name": {
+    "type": "string",
+    "default": "us.irc.example.com",
+    "description": "Remote server\u2019s name (must match its serverinfo.name)"
+  },
+  "links.*.password": {
+    "type": "string",
+    "default": "secret",
+    "description": "Shared password for server-to-server authentication"
+  },
+  "links.*.outgoing.host": {
+    "type": "string",
+    "default": "10.0.0.5",
+    "description": "Local IP to use when connecting outbound"
+  },
+  "links.*.outgoing.port": {
+    "type": "number",
+    "default": 7000,
+    "description": "Port of the remote server (default 7000 for server links)"
+  },
+  "links.*.outgoing.ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Use TLS for server link"
+  },
+  "links.*.class": {
+    "type": "string",
+    "default": "server_class",
+    "description": "Reference to a defined class for link-specific limits"
+  },
+  "links.*.flags": {
+    "type": "list",
+    "default": [],
+    "description": "Link flags (e.g., 'autoconnect', 'zip', 'silent')"
+  },
+  "classes": {
+    "type": "list",
+    "default": [
+      {
+        "name": "server_class",
+        "ping_freq": 60,
+        "connect_freq": 60,
+        "max_sendq": 409600,
+        "max_recvq": 8192,
+        "max_users": 1
+      },
+      {
+        "name": "oper_class",
+        "ping_freq": 90,
+        "connect_freq": 90,
+        "max_sendq": 262144,
+        "max_recvq": 8192,
+        "max_users": 1
+      }
+    ],
+    "description": "Resource classes for users/links"
+  },
+  "classes.*.name": {
+    "type": "string",
+    "default": "server_class",
+    "description": "Class name (referenced by link/oper entries)"
+  },
+  "classes.*.ping_freq": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between PING checks"
+  },
+  "classes.*.connect_freq": {
+    "type": "number",
+    "default": 60,
+    "description": "Minimum time between new connections"
+  },
+  "classes.*.max_sendq": {
+    "type": "number",
+    "default": 409600,
+    "description": "Max buffer size (bytes) for outgoing data"
+  },
+  "classes.*.max_recvq": {
+    "type": "number",
+    "default": 8192,
+    "description": "Max buffer size (bytes) for incoming data"
+  },
+  "classes.*.max_users": {
+    "type": "number",
+    "default": 1,
+    "description": "Max users allowed under this class (0 = unlimited)"
+  },
+  "options": {
+    "type": "object",
+    "default": {
+      "ssl": true,
+      "ssl_cert": "/etc/ircd-irc2/server.crt",
+      "ssl_key": "/etc/ircd-irc2/server.key",
+      "ssl_ca": "",
+      "enable_dns": true,
+      "enable_ident": false,
+      "hide_servers": false,
+      "hide_oper": true,
+      "default_server": "irc.example.com",
+      "default_floodcount": 10,
+      "default_sendq": 102400,
+      "default_recvq": 8192
+    },
+    "description": "Global runtime options"
+  },
+  "options.ssl": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable SSL/TLS globally (required for SSL listeners)"
+  },
+  "options.ssl_cert": {
+    "type": "string",
+    "default": "/etc/ircd-irc2/server.crt",
+    "description": "Default SSL certificate for non-listener SSL usage"
+  },
+  "options.ssl_key": {
+    "type": "string",
+    "default": "/etc/ircd-irc2/server.key",
+    "description": "Default SSL private key"
+  },
+  "options.ssl_ca": {
+    "type": "string",
+    "default": "",
+    "description": "Optional CA bundle for validating client certificates"
+  },
+  "options.enable_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS lookups for hostname resolution"
+  },
+  "options.enable_ident": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable IDENT (auth) lookups (insecure; disable unless required)"
+  },
+  "options.hide_servers": {
+    "type": "bool",
+    "default": false,
+    "description": "Hide servers from /LINKS and /STATS output"
+  },
+  "options.hide_oper": {
+    "type": "bool",
+    "default": true,
+    "description": "Hide oper users from /USERS listing"
+  },
+  "options.default_server": {
+    "type": "string",
+    "default": "irc.example.com",
+    "description": "Primary server hostname shown to clients"
+  },
+  "options.default_floodcount": {
+    "type": "number",
+    "default": 10,
+    "description": "Number of commands before flood protection kicks in"
+  },
+  "options.default_sendq": {
+    "type": "number",
+    "default": 102400,
+    "description": "Default send queue limit for clients (bytes)"
+  },
+  "options.default_recvq": {
+    "type": "number",
+    "default": 8192,
+    "description": "Default receive queue limit for clients (bytes)"
+  }
+}

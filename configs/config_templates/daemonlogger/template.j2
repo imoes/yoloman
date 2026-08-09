@@ -1,0 +1,60 @@
+# /etc/default/daemonlogger
+# Shell defaults sourced by /etc/init.d/daemonlogger or systemd EnvironmentFile.
+# All variables map directly to daemonlogger CLI flags; see daemonlogger(8).
+
+# Start daemonlogger automatically at boot. Set to false to install the package without activating the daemon.
+START_DAEMONLOGGER="{{ 'yes' if (start_enabled | default(True)) else 'no' }}"
+
+# System user account the daemon drops privileges to after opening the raw capture socket. Must have write access to log_dir.
+DAEMONLOGGER_USER="{{ daemon_user | default('daemonlogger') }}"
+
+# System group the daemon drops privileges to after opening the raw capture socket.
+DAEMONLOGGER_GROUP="{{ daemon_group | default('daemonlogger') }}"
+
+# Network interface to capture packets from (e.g. eth0, ens3, bond0). The interface must be up before the daemon starts.
+INTERFACE="{{ interface | default('eth0') }}"
+
+# Directory where rotating pcap log files are written. Must exist and be writable by daemon_user before the daemon starts.
+LOGDIR="{{ log_dir | default('/var/log/daemonlogger') }}"
+
+# Filename prefix for pcap log files. A Unix timestamp suffix is appended automatically (e.g. capture.1718000000.pcap).
+LOG_PREFIX="{{ log_prefix | default('daemonlogger') }}"
+
+# Per-packet snapshot length in bytes. 1514 captures the full payload of a standard 1500-byte MTU Ethernet frame. Increase to 9014 for jumbo frames.
+SNAPLEN={{ snaplen | default(1514) }}
+
+# Maximum pcap file size in bytes before rotating to a new file. 134217728 = 128 MiB. Set to 0 to disable size-based rotation.
+ROLLOVER_SIZE={{ rollover_size | default(134217728) }}
+
+# Maximum pcap file age in seconds before rotating to a new file. 3600 = 1 hour. Set to 0 to disable time-based rotation.
+ROLLOVER_TIME={{ rollover_time | default(3600) }}
+
+# Maximum number of pcap files to keep on disk. The oldest file is deleted when this limit is reached. 0 means unlimited — manage retention externally.
+MAX_FILES={{ max_files | default(0) }}
+
+# Optional soft-tap output interface. A verbatim copy of each captured packet is injected here in addition to being logged. Leave empty to disable.
+TAP_INTERFACE="{{ tap_interface | default('') }}"
+
+# Absolute path to the PID file. The parent directory must exist and be writable by daemon_user before the daemon starts.
+PIDFILE="{{ pid_file | default('/var/run/daemonlogger/daemonlogger.pid') }}"
+
+# Enable verbose debug output to syslog. Useful for initial setup and troubleshooting; disable in production to avoid log noise.
+{% if (verbose | default(False)) %}
+VERBOSE=1
+{% else %}
+VERBOSE=0
+{% endif %}
+
+# Berkeley Packet Filter expression passed to libpcap (-f); individual rule atoms are OR-combined into a single expression.
+{% if (bpf_rules | default([])) %}
+# BPF filter rules provided:
+{% for rule in bpf_rules | default([]) %}
+# Rule {{ loop.index }}: {{ rule.description | default('') }}
+{% endfor %}BPF_FILTER="{% for rule in bpf_rules | default([]) %}{% if not loop.first %} or {% endif %}{{ rule.expr }}{% endfor %}"
+{% else %}
+# No BPF filter — all traffic on INTERFACE is captured
+BPF_FILTER=""
+{% endif %}
+
+# Additional command-line flags passed verbatim to daemonlogger. Use only for options not exposed as dedicated variables above.
+EXTRA_ARGS="{{ extra_args | default('') }}"

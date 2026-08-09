@@ -1,0 +1,105 @@
+# ==============================================================================
+# cdebootstrap-static Configuration
+# ==============================================================================
+# This configuration file drives the `cdebootstrap-static` utility to create
+# a static Debian/Ubuntu-based root filesystem. It uses environment-style
+# KEY=VALUE pairs. Each variable is documented below with its schema default.
+#
+# Self-documenting: every variable has a comment explaining its purpose,
+# valid values, and the default used when not specified in the Ansible input.
+# ==============================================================================
+
+# Target architecture for the bootstrapped system (e.g., 'amd64', 'arm64', 'armhf').
+# If empty, cdebootstrap detects the host architecture.
+ARCH={{ arch | default('') }}
+
+# Bootstrap flavour determining the base package set:
+#   'minimal' - Essential base only
+#   'standard' - Standard base plus common utilities (default)
+#   'build'   - Includes build-essential and development tools
+FLAVOUR={{ flavour | default('standard') }}
+
+# Mirror URL to fetch packages from. Supports http://, ftp://, file://, ssh://.
+# Common mirrors: 'http://deb.debian.org/debian', 'http://ftp.us.debian.org/debian', etc.
+MIRROR={{ mirror | default('http://ftp.debian.org/debian') }}
+
+# Target directory or device where the bootstrapped system will be installed.
+# Must be specified for the bootstrap to proceed.
+TARGET={{ target | default('') }}
+
+# Origin distribution name, used for metadata and keyring selection.
+# Typically 'Debian' or 'Ubuntu'.
+ORIGIN={{ origin | default('Debian') }}
+
+# Comma-separated list of package names to EXCLUDE from the bootstrap.
+# Only applies to packages explicitly listed in include_packages or base sets.
+# Example: "vim,emacs,nano"
+EXCLUDE={{ exclude_packages | default([]) | join(',') }}
+
+# Comma-separated list of extra package names to INSTALL into the bootstrap.
+# These are added on top of the flavour's base set.
+# Example: "curl,wget,openssh-server"
+INCLUDE={{ include_packages | default([]) | join(',') }}
+
+# Path or filename of a GPG keyring file used to verify package signatures.
+# Relative paths are searched in: /usr/local/share/keyrings, /usr/share/keyrings, and CONFIGDIR.
+# If empty, the default distribution keyrings are used.
+KEYRING={{ keyring | default('') }}
+
+# Path to a directory containing additional configuration files (e.g., apt preferences).
+# If empty, no extra configuration directory is used.
+CONFIGDIR={{ configdir | default('') }}
+
+# Path to a directory containing helper scripts or binaries for the bootstrap process.
+# If empty, the system default helper directory is used.
+HELPERDIR={{ helperdir | default('') }}
+
+# Set to 1 to allow installation of packages without valid signatures or keyrings.
+# DANGER: This disables cryptographic verification of package integrity and origin.
+# Default: false (verification enabled).
+{% if allow_unauthenticated | default(False) | bool %}
+ALLOW_UNAUTHENTICATED=1
+{% endif %}
+
+# Set to 1 to only download the .deb files into a cache directory, without installing them.
+# Useful for offline preparation or inspection.
+# Default: false (install packages into TARGET).
+{% if download_only | default(False) | bool %}
+DOWNLOAD_ONLY=1
+{% endif %}
+
+# Set to 1 for a foreign architecture bootstrap (cross-architecture).
+# Requires qemu-user-static to be installed and working on the host.
+# Example: building arm64 rootfs on amd64 host.
+# Default: false (native architecture).
+{% if foreign | default(False) | bool %}
+FOREIGN=1
+{% endif %}
+
+# Set to 1 for minimal output (only warnings and errors are printed).
+# Useful for logging to files where verbose output is noise.
+# Default: false (normal output).
+{% if quiet | default(False) | bool %}
+QUIET=1
+{% endif %}
+
+# Set to 1 for verbose output (all command output, including dpkg/apt trace, is shown).
+# Useful for debugging bootstrap failures.
+# Default: false (normal output).
+{% if verbose | default(False) | bool %}
+VERBOSE=1
+{% endif %}
+
+# Set to 1 for debug output (internal cdebootstrap debug messages).
+# Intended for troubleshooting the bootstrap script itself.
+# Default: false (no debug output).
+{% if debug | default(False) | bool %}
+DEBUG=1
+{% endif %}
+
+# Set to 1 to enable suite configuration mode.
+# Used in conjunction with suite-specific configuration files.
+# Default: false (standard bootstrap mode).
+{% if suite_config | default(False) | bool %}
+SUITE_CONFIG=1
+{% endif %}

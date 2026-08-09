@@ -1,0 +1,82 @@
+{
+  "client_launch": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "client_hosts": [],
+      "client_interval": 300,
+      "max_concurrent": 10,
+      "cmd_prefix": "",
+      "base_dir": "/var/lib/hobbit/client-launch",
+      "tests": []
+    },
+    "description": "Configuration for the client-launch module, which controls how Xymon (Hobbit) dynamically launches client-side tests.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable or disable the client-launch module."
+      },
+      "client_hosts": {
+        "type": "list",
+        "default": [],
+        "description": "List of hostname glob patterns to limit which clients get auto-launched. Empty list means all clients are launched.",
+        "items": {
+          "type": "string",
+          "description": "A glob pattern (e.g., 'web*' or 'db[0-9]*') matching allowed client hostnames."
+        }
+      },
+      "client_interval": {
+        "type": "number",
+        "default": 300,
+        "description": "Interval (in seconds) between checks that client tests should be launched."
+      },
+      "max_concurrent": {
+        "type": "number",
+        "default": 10,
+        "description": "Maximum number of client tests that may be launched concurrently."
+      },
+      "cmd_prefix": {
+        "type": "string",
+        "default": "",
+        "description": "Command prefix (e.g., 'sudo -u hobbit') to wrap test commands. Leave empty to use default."
+      },
+      "base_dir": {
+        "type": "string",
+        "default": "/var/lib/hobbit/client-launch",
+        "description": "Base directory where client test scripts are stored and executed from."
+      },
+      "tests": {
+        "type": "list",
+        "default": [],
+        "description": "List of custom client tests to be launched on matched clients.",
+        "items": {
+          "type": "object",
+          "description": "A named test with its command and options.",
+          "items": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Unique name of the test (alphanumeric + hyphens/underscores recommended)."
+            },
+            "cmd": {
+              "type": "string",
+              "default": "",
+              "description": "Command to run for this test (relative to base_dir or absolute path)."
+            },
+            "timeout": {
+              "type": "number",
+              "default": 60,
+              "description": "Maximum time (in seconds) before the test is considered failed due to timeout."
+            },
+            "enabled": {
+              "type": "bool",
+              "default": true,
+              "description": "Enable or disable this specific test."
+            }
+          }
+        }
+      }
+    }
+  }
+}

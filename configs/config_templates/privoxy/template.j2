@@ -1,0 +1,30 @@
+#!/bin/sh
+#
+# Expire https inspection certificates
+#
+# This script cleans up old HTTPS inspection certificates managed by Privoxy.
+# It is designed to be safe for reuse in an Ansible role, using defaults from
+# the Privoxy configuration schema.
+#
+# Variables:
+#   cert_dir       - Directory where HTTPS inspection certificates are stored.
+#   cert_expiry_days - Number of days after which to expire HTTPS inspection certificates.
+
+set -e
+
+# Skip this script if systemd is running and it's not explicitly called from a systemd timer.
+# This prevents duplicate execution when both cron.daily and systemd timers are present.
+if [ -d /run/systemd/system ] && [ "$1" != "systemd-timer" ]; then
+    exit 0
+fi
+
+# cert_dir: default='/var/lib/privoxy/certs' desc='Directory where HTTPS inspection certificates are stored.'
+CERTDIR={{ cert_dir | default('/var/lib/privoxy/certs') }}
+
+# cert_expiry_days: default=90 desc='Number of days after which to expire HTTPS inspection certificates.'
+EXPIREDAYS={{ cert_expiry_days | default(90) }}
+
+# Remove certificate files older than EXPIREDAYS from CERTDIR if the directory exists.
+if [ -d "$CERTDIR" ]; then
+    find "$CERTDIR" -type f -mtime +"$EXPIREDAYS" -print0 | xargs -0 -r rm -f
+fi

@@ -1,0 +1,100 @@
+{
+  "base_dir": {
+    "type": "string",
+    "default": "/var/cache/apt-cacher-ng",
+    "description": "Root directory where cached packages, indexes, and metadata are stored."
+  },
+  "temp_dir": {
+    "type": "string",
+    "default": "/tmp",
+    "description": "Directory for temporary files (e.g., incomplete downloads). Should be on fast I/O storage."
+  },
+  "log_dir": {
+    "type": "string",
+    "default": "/var/log/apt-cacher-ng",
+    "description": "Directory where access and error logs are written."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address to bind the server to. Use '127.0.0.1' to restrict to local only."
+  },
+  "port": {
+    "type": "number",
+    "default": 3142,
+    "description": "TCP port the server listens on. Clients must point to this port (e.g., http://server:3142)."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum number of simultaneous client connections. Increase for high-traffic environments."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Verbosity of logs: 0 (quiet, production), 1 (normal), 2 (verbose, debugging)."
+  },
+  "max_age": {
+    "type": "number",
+    "default": 604800,
+    "description": "Maximum age (in seconds) of cached metadata before it's refreshed from upstream. Default: 7 days."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Seconds to wait for upstream response before giving up. Reduce for faster failure in unstable networks."
+  },
+  "compression": {
+    "type": "string",
+    "default": "gzip",
+    "description": "Compression format for cached files. 'gzip' saves disk space; 'none' may improve speed on I/O-bound systems."
+  },
+  "use_pipelining": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to enable HTTP/1.1 request pipelining for better upstream throughput. Disable if upstream has bugs."
+  },
+  "use_gzip_encoding": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable gzip content encoding for downloads. Reduces bandwidth but increases CPU usage."
+  },
+  "support_deb822": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable support for DEB822-style Sources files (apt \u2265 2.7). Required for newer Ubuntu/Debian clients."
+  },
+  "normalize_path": {
+    "type": "bool",
+    "default": true,
+    "description": "Normalize request paths to avoid duplicate caching (e.g., /dists/ and /dists are treated identically)."
+  },
+  "upstream_proxies": {
+    "type": "list",
+    "default": [],
+    "description": "List of upstream HTTP proxies to use (e.g., corporate proxies). Format: 'host:port' or 'host:port:user:pass'. Leave empty if none.",
+    "items": {
+      "type": "string",
+      "description": "Proxy URL in the form 'host:port' or 'host:port:username:password'."
+    }
+  },
+  "mirrors": {
+    "type": "list",
+    "default": [],
+    "description": "List of repositories or mirrors to cache. Each entry maps an upstream URL to a local cache path.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Human-readable identifier (used only in comments)."
+      },
+      "url": {
+        "type": "string",
+        "description": "Upstream repository URL (scheme://host/path), e.g., http://archive.ubuntu.com/ubuntu/."
+      },
+      "local_path": {
+        "type": "string",
+        "description": "Local cache subdirectory under BaseDir, e.g., 'ubuntu'. Must be unique per mirror."
+      }
+    }
+  }
+}

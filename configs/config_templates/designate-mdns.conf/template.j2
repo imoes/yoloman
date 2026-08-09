@@ -1,0 +1,129 @@
+[DEFAULT]
+# Log level for the mdns service
+log_level = {{ log_level }}
+
+# Bind address for the mdns service API
+bind_address = "{{ bind_address }}"
+
+# Port on which the mdns service listens for queries
+port = {{ port }}
+
+# Maximum size of the response (in bytes)
+max_response_size = {{ max_response_size }}
+
+# Number of worker processes for the mdns service
+workers = {{ workers }}
+
+# Enable DNS-over-HTTPS (DoH) support
+doh_enabled = {{ doh_enabled | lower }}
+
+# Bind address for DNS-over-HTTPS (if enabled)
+doh_bind_address = "{{ doh_bind_address }}"
+
+# Port for DNS-over-HTTPS (if enabled)
+doh_port = {{ doh_port }}
+
+# Path to TLS certificate (required for DoH if enabled)
+tls_cert_file = "{{ tls_cert_file }}"
+
+# Path to TLS private key (required for DoH if enabled)
+tls_key_file = "{{ tls_key_file }}"
+
+# Maximum number of concurrent DoH connections
+doh_max_conns = {{ doh_max_conns }}
+
+# List of upstream DNS servers for recursive resolution
+{% for upstream in upstream_dns_servers %}
+upstream_dns_server = {{ upstream | to_json }}
+{% endfor %}
+
+# Enable DNSSEC validation
+enable_dnssec_validation = {{ enable_dnssec_validation | lower }}
+
+# Path to trust anchor file for DNSSEC
+trust_anchor_file = "{{ trust_anchor_file }}"
+
+# Zone transfer (AXFR) rate limit per source IP (zones per minute)
+axfr_rate_limit = {{ axfr_rate_limit }}
+
+# Maximum number of simultaneous AXFR transfers
+max_axfr_concurrent = {{ max_axfr_concurrent }}
+
+# Comma-separated list of allowed AXFR source IPs (empty = allow all)
+allowed_axfr_range = {{ allowed_axfr_range }}
+
+# Enable pool monitoring (for health checking of DNS backends)
+enable_pool_monitoring = {{ enable_pool_monitoring | lower }}
+
+# Interval (in seconds) between pool health checks
+pool_monitor_interval = {{ pool_monitor_interval }}
+
+# Pool ID to monitor (if multi-pool setup)
+pool_id = "{{ pool_id }}"
+
+[service:mdns]
+# Enable the mdns service
+enabled = {{ service_enabled | lower }}
+
+# RPC topic used for communication with other designate services
+rpc_topic = "{{ rpc_topic }}"
+
+# RPC port for internal service communication (if applicable)
+rpc_port = {{ rpc_port }}
+
+# Time-to-live (TTL) for negative responses (NXDOMAIN, NODATA)
+neg_ttl = {{ neg_ttl }}
+
+# TTL for SOA records served by this mdns instance
+soa_ttl = {{ soa_ttl }}
+
+# Minimum TTL for SOA records
+soa_minimum = {{ soa_minimum }}
+
+# Retry interval for SOA records
+soa_retry = {{ soa_retry }}
+
+# Expire time for SOA records
+soa_expire = {{ soa_expire }}
+
+# Default refresh interval for SOA records
+soa_refresh = {{ soa_refresh }}
+
+# Primary NS (nameserver) to advertise in SOA records
+soa_primary_ns = "{{ soa_primary_ns }}"
+
+# Admin email (in DNS format, e.g., hostmaster.example.com)
+soa_email = "{{ soa_email }}"
+
+# List of additional NS records to include in SOA answer
+{% for ns in soa_additional_ns %}
+soa_additional_ns = {{ ns | to_json }}
+{% endfor %}
+
+[storage:designate]
+# Designate RPC endpoint (for talking to central designate service)
+api_endpoint = "{{ api_endpoint }}"
+
+# Authentication type: 'none', 'keystone'
+auth_type = "{{ auth_type }}"
+
+# Keystone auth URL
+auth_url = "{{ keystone_auth_url }}"
+
+# Project name for authentication
+project_name = "{{ project_name }}"
+
+# Username for authentication
+username = "{{ username }}"
+
+# Password for authentication
+password = "{{ password }}"
+
+# Region name (for keystone)
+region_name = "{{ region_name }}"
+
+# Enable TLS for API connections
+api_tls_verify = {{ api_tls_verify | lower }}
+
+# Path to CA bundle for TLS verification
+api_tls_ca_file = "{{ api_tls_ca_file }}"

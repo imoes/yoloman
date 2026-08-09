@@ -1,0 +1,447 @@
+{
+  "log_fifo_size": {
+    "type": "number",
+    "default": 10000,
+    "description": "Number of messages queued in output FIFOs before blocking."
+  },
+  "use_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable reverse DNS lookups for source IP addresses (affects latency and load)."
+  },
+  "dns_cache_hosts": {
+    "type": "string",
+    "default": "",
+    "description": "Path to static hosts file for DNS caching (empty = disable static lookup)."
+  },
+  "use_fqdn": {
+    "type": "bool",
+    "default": false,
+    "description": "Use fully-qualified domain names instead of short hostnames in logs."
+  },
+  "create_dirs": {
+    "type": "bool",
+    "default": true,
+    "description": "Automatically create parent directories for log files."
+  },
+  "perm_dir": {
+    "type": "string",
+    "default": "0755",
+    "description": "Directory permissions used when creating log directories."
+  },
+  "template_escape": {
+    "type": "bool",
+    "default": true,
+    "description": "Escape control characters in log messages to prevent template injection."
+  },
+  "keep_timestamps": {
+    "type": "bool",
+    "default": true,
+    "description": "Preserve original timestamps from incoming messages (disable only if re-timestamping)."
+  },
+  "sources": {
+    "type": "list",
+    "default": [
+      {
+        "name": "s_internal",
+        "type": "internal",
+        "path": "",
+        "port": 0,
+        "bind_address": "",
+        "perm": "",
+        "group": "",
+        "owner": "",
+        "follow_freq": 1,
+        "flags": [],
+        "max_connections": 0,
+        "recv_buffer": 0,
+        "tls": {
+          "enabled": false,
+          "verify": "optional",
+          "ca_file": "",
+          "cert_file": "",
+          "key_file": ""
+        }
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Identifier for this source."
+      },
+      "type": {
+        "type": "string",
+        "default": "internal",
+        "enum": [
+          "internal",
+          "unix-stream",
+          "tcp",
+          "udp",
+          "file",
+          "pipe"
+        ],
+        "description": "Source type."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Path to device/file/socket (for unix-stream, file, pipe)."
+      },
+      "port": {
+        "type": "number",
+        "default": 514,
+        "description": "TCP/UDP port to listen on (0 for disabled)."
+      },
+      "bind_address": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "Local IP address to bind to."
+      },
+      "perm": {
+        "type": "string",
+        "default": "0660",
+        "description": "Permission bits for unix socket/file (e.g. \"0660\")."
+      },
+      "group": {
+        "type": "string",
+        "default": "",
+        "description": "Group owner of unix socket."
+      },
+      "owner": {
+        "type": "string",
+        "default": "",
+        "description": "User owner of unix socket."
+      },
+      "follow_freq": {
+        "type": "number",
+        "default": 1,
+        "description": "File polling interval (for file type; 0 = inotify)."
+      },
+      "flags": {
+        "type": "list",
+        "default": [
+          "no-parse"
+        ],
+        "items": {
+          "type": "string",
+          "enum": [
+            "no-parse",
+            "syslog-protocol",
+            "validate-utf8",
+            "empty-lines"
+          ]
+        },
+        "description": "Parsing flags for file/pipe sources."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 0,
+        "description": "Max concurrent TCP connections (0 = unlimited)."
+      },
+      "recv_buffer": {
+        "type": "number",
+        "default": 0,
+        "description": "UDP receive buffer size in bytes."
+      },
+      "tls": {
+        "type": "object",
+        "default": {
+          "enabled": false,
+          "verify": "optional",
+          "ca_file": "",
+          "cert_file": "",
+          "key_file": ""
+        },
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable TLS for this source."
+          },
+          "verify": {
+            "type": "string",
+            "enum": [
+              "optional",
+              "required"
+            ],
+            "default": "optional",
+            "description": "Whether to require client certificate."
+          },
+          "ca_file": {
+            "type": "string",
+            "default": "",
+            "description": "CA certificate file for TLS verification."
+          },
+          "cert_file": {
+            "type": "string",
+            "default": "",
+            "description": "Server certificate file."
+          },
+          "key_file": {
+            "type": "string",
+            "default": "",
+            "description": "Server private key file."
+          }
+        }
+      }
+    }
+  },
+  "destinations": {
+    "type": "list",
+    "default": [
+      {
+        "name": "d_file",
+        "type": "file",
+        "host": "",
+        "port": 0,
+        "path": "/var/log/messages",
+        "template": "",
+        "template_escape": false,
+        "perm": "0640",
+        "dir_perm": "0755",
+        "transport": "",
+        "sanitize": false,
+        "connstr": "",
+        "table_name": "",
+        "columns": [],
+        "extra_columns": "",
+        "tls": {
+          "enabled": false,
+          "verify": "optional",
+          "ca_file": "",
+          "cert_file": "",
+          "key_file": ""
+        }
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Identifier for this destination."
+      },
+      "type": {
+        "type": "string",
+        "default": "file",
+        "enum": [
+          "file",
+          "syslog",
+          "tcp",
+          "udp",
+          "network",
+          "db",
+          "syslog-ng-internal",
+          "null"
+        ],
+        "description": "Destination type."
+      },
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Remote host for network destinations (syslog, tcp, udp, network)."
+      },
+      "port": {
+        "type": "number",
+        "default": 514,
+        "description": "Port for remote destinations."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/messages",
+        "description": "Local file path for file destinations."
+      },
+      "template": {
+        "type": "string",
+        "default": "",
+        "description": "Custom template (e.g. \"$TIME $HOST $MSG\\n\")."
+      },
+      "template_escape": {
+        "type": "bool",
+        "default": false,
+        "description": "Escape message content in file output."
+      },
+      "perm": {
+        "type": "string",
+        "default": "0640",
+        "description": "File permissions."
+      },
+      "dir_perm": {
+        "type": "string",
+        "default": "0755",
+        "description": "Directory permissions for auto-created log paths."
+      },
+      "transport": {
+        "type": "string",
+        "enum": [
+          "tcp",
+          "ssl",
+          "tls"
+        ],
+        "default": "tcp",
+        "description": "Transport for network destinations."
+      },
+      "sanitize": {
+        "type": "bool",
+        "default": false,
+        "description": "Sanitize JSON keys (replace dots/special chars) for structured logs."
+      },
+      "connstr": {
+        "type": "string",
+        "default": "host=localhost user=postgres password=secret dbname=syslog",
+        "description": "Database connection string for SQL destinations."
+      },
+      "table_name": {
+        "type": "string",
+        "default": "syslog",
+        "description": "Table name for SQL destinations."
+      },
+      "columns": {
+        "type": "list",
+        "default": [
+          "ts",
+          "host",
+          "program",
+          "pid",
+          "message"
+        ],
+        "items": {
+          "type": "string",
+          "description": "Column names for SQL table."
+        },
+        "description": "Column definitions."
+      },
+      "extra_columns": {
+        "type": "string",
+        "default": "",
+        "description": "Additional comma-separated column expressions for SQL."
+      },
+      "tcp_keepalive": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable TCP keepalive for TCP/TLS destinations."
+      },
+      "tls": {
+        "type": "object",
+        "default": {
+          "enabled": false,
+          "verify": "optional",
+          "ca_file": "",
+          "cert_file": "",
+          "key_file": ""
+        },
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable TLS for this destination."
+          },
+          "verify": {
+            "type": "string",
+            "enum": [
+              "optional",
+              "required"
+            ],
+            "default": "optional",
+            "description": "Whether to verify remote server certificate."
+          },
+          "ca_file": {
+            "type": "string",
+            "default": "",
+            "description": "CA certificate file for TLS verification."
+          },
+          "cert_file": {
+            "type": "string",
+            "default": "",
+            "description": "Client certificate file (if client-auth needed)."
+          },
+          "key_file": {
+            "type": "string",
+            "default": "",
+            "description": "Client private key file."
+          }
+        }
+      }
+    }
+  },
+  "filters": {
+    "type": "list",
+    "default": [
+      {
+        "name": "f_messages",
+        "expression": "level(info..emerg)"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Filter name."
+      },
+      "expression": {
+        "type": "string",
+        "default": "",
+        "description": "Filter expression (e.g., 'program(syslog-ng) and level(info..err)'). See syslog-ng filter docs."
+      }
+    }
+  },
+  "logpaths": {
+    "type": "list",
+    "default": [
+      {
+        "sources": [
+          {
+            "name": "s_internal"
+          }
+        ],
+        "filters": [],
+        "destinations": [
+          {
+            "name": "d_file"
+          }
+        ]
+      }
+    ],
+    "items": {
+      "sources": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "description": "Name(s) of source(s) for this log path."
+        }
+      },
+      "filters": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "description": "Name(s) of filter(s) for this path (AND semantics)."
+        }
+      },
+      "destinations": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string",
+          "description": "Name(s) of destination(s) for this path."
+        }
+      }
+    }
+  },
+  "stats": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable internal statistics reporting (requires stats_freq)."
+  },
+  "stats_freq": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between internal stats log messages."
+  },
+  "include_dir": {
+    "type": "string",
+    "default": "/etc/syslog-ng/conf.d",
+    "description": "Directory to auto-include additional .conf files (set to empty to disable)."
+  }
+}

@@ -1,0 +1,218 @@
+{
+  "name": {
+    "type": "string",
+    "default": "etcd-node-1",
+    "description": "Unique name for this etcd node in the cluster (alphanumeric, no spaces)."
+  },
+  "initial_cluster": {
+    "type": "list",
+    "default": [
+      "node1=http://10.0.0.1:2380"
+    ],
+    "description": "List of initial cluster members in the format 'name=http://host:port'. Used at cluster bootstrap.",
+    "items": {
+      "type": "string",
+      "description": "One cluster member, e.g., 'node1=http://10.0.0.1:2380'"
+    }
+  },
+  "initial_cluster_state": {
+    "type": "string",
+    "default": "new",
+    "description": "Initial cluster state: 'new' for new cluster, 'existing' for adding nodes to an existing cluster.",
+    "enum": [
+      "new",
+      "existing"
+    ]
+  },
+  "initial_cluster_token": {
+    "type": "string",
+    "default": "etcd-cluster-1",
+    "description": "Cluster token for cluster discovery. All members must use the same token."
+  },
+  "advertise_client_urls": {
+    "type": "list",
+    "default": [
+      "http://localhost:2379"
+    ],
+    "description": "List of client URLs exposed for client connections (e.g., public IPs or DNS).",
+    "items": {
+      "type": "string",
+      "description": "Client access URL, e.g., 'https://etcd.example.com:2379'"
+    }
+  },
+  "initial_advertise_peer_urls": {
+    "type": "list",
+    "default": [
+      "http://localhost:2380"
+    ],
+    "description": "List of peer URLs advertised to other cluster members.",
+    "items": {
+      "type": "string",
+      "description": "Peer communication URL, e.g., 'http://10.0.0.1:2380'"
+    }
+  },
+  "listen_client_urls": {
+    "type": "list",
+    "default": [
+      "http://127.0.0.1:2379",
+      "http://0.0.0.0:2379"
+    ],
+    "description": "List of URLs the server listens on for client requests.",
+    "items": {
+      "type": "string",
+      "description": "Listen client URL, e.g., 'https://0.0.0.0:2379'"
+    }
+  },
+  "listen_peer_urls": {
+    "type": "list",
+    "default": [
+      "http://127.0.0.1:2380",
+      "http://0.0.0.0:2380"
+    ],
+    "description": "List of URLs the server listens on for peer (cluster) traffic.",
+    "items": {
+      "type": "string",
+      "description": "Listen peer URL, e.g., 'http://0.0.0.0:2380'"
+    }
+  },
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/etcd",
+    "description": "Path to the directory where etcd stores its data (must be writable)."
+  },
+  "snapshot_count": {
+    "type": "number",
+    "default": 100000,
+    "description": "Number of transactions between snapshots (lower = more frequent snapshots, higher = more writes before snapshot)."
+  },
+  "election_timeout": {
+    "type": "number",
+    "default": 1000,
+    "description": "Election timeout in milliseconds \u2014 time allowed before starting a new election."
+  },
+  "heartbeat_interval": {
+    "type": "number",
+    "default": 100,
+    "description": "Heartbeat interval in milliseconds \u2014 how often peers send heartbeats."
+  },
+  "max_requests_per_second": {
+    "type": "number",
+    "default": 1000,
+    "description": "Rate limit for client requests (0 = unlimited). Helps prevent overload during traffic spikes."
+  },
+  "enable_v2": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable legacy v2 API (not recommended \u2014 only if needed for older clients)."
+  },
+  "enable_trace": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose request tracing (useful for debugging, increases log size)."
+  },
+  "enable_pprof": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable /debug/pprof endpoints for runtime profiling (security-sensitive \u2014 disable in production)."
+  },
+  "metrics": {
+    "type": "string",
+    "default": "basic",
+    "description": "Level of metrics exposed on /metrics endpoint: 'basic', 'extensive' (more detailed), or 'none' (disabled).",
+    "enum": [
+      "basic",
+      "extensive"
+    ]
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level. 'debug' for detailed logs; 'info' for standard production logs.",
+    "enum": [
+      "debug",
+      "info",
+      "warn",
+      "error",
+      "panic",
+      "fatal"
+    ]
+  },
+  "log_format": {
+    "type": "string",
+    "default": "text",
+    "description": "Log format: 'text' for human-readable, 'json' for structured logging (e.g., for log aggregators).",
+    "enum": [
+      "text",
+      "json"
+    ]
+  },
+  "client_cert_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Require TLS client certificates for client connections."
+  },
+  "trusted_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/etcd/ca.crt",
+    "description": "Path to CA certificate for verifying client certificates (if client_cert_auth is true)."
+  },
+  "cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/etcd/server.crt",
+    "description": "Path to TLS certificate for client connections."
+  },
+  "key_file": {
+    "type": "string",
+    "default": "/etc/ssl/etcd/server.key",
+    "description": "Path to TLS private key for client connections."
+  },
+  "peer_client_cert_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Require TLS client certificates from other cluster members."
+  },
+  "peer_trusted_ca_file": {
+    "type": "string",
+    "default": "/etc/ssl/etcd/ca.crt",
+    "description": "Path to CA certificate for verifying peer node certificates."
+  },
+  "peer_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/etcd/peer.crt",
+    "description": "Path to TLS certificate for peer-to-peer communication."
+  },
+  "peer_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/etcd/peer.key",
+    "description": "Path to TLS private key for peer-to-peer communication."
+  },
+  "auto_compaction_retention": {
+    "type": "string",
+    "default": "1h",
+    "description": "Auto-compaction retention period (e.g., '1h' = hourly compaction, '1000000' = per-revision mode)."
+  },
+  "auto_compaction_mode": {
+    "type": "string",
+    "default": "periodic",
+    "description": "Compaction mode: 'periodic' (time-based) or 'revision' (based on revision count).",
+    "enum": [
+      "periodic",
+      "revision"
+    ]
+  },
+  "quota_backend_bytes": {
+    "type": "number",
+    "default": 8589934592,
+    "description": "Maximum backend storage size in bytes (e.g., 8 GiB = 8589934592). Prevents unbounded growth."
+  },
+  "snapshot_count_max": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of snapshot files to retain on disk."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable low-level debugging (disables log rotation, may degrade performance \u2014 not for production)."
+  }
+}

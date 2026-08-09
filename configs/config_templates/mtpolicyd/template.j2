@@ -1,0 +1,33 @@
+# ============================================================================
+# mtpolicyd Cron Schedule Configuration
+# ============================================================================
+# This template generates the crontab entries for mtpolicyd.
+# mtpolicyd uses these scheduled tasks to periodically update its
+# policy databases (RBLs, blocklists, etc.) and perform maintenance.
+#
+# The schedule ensures updates happen frequently (hourly) during the day,
+# and with combined frequencies (hourly+daily/weekly/monthly) at night
+# to minimize daytime network load and ensure up-to-date policies.
+# ============================================================================
+
+# System user under which the mtpolicyd cron job runs (must exist and have
+# appropriate permissions). Default: mtpolicyd
+{% set cron_user_val = cron_user | default('mtpolicyd') %}
+
+# Run hourly policy updates every hour from 1 AM to 11 PM.
+# This ensures the system has fresh data during active mail processing hours.
+0 1-23 * * * {{ cron_user_val }} /usr/bin/mtpolicyd --cron hourly
+
+# Run combined hourly and daily updates on days 2-31 of the month,
+# Monday through Saturday. Starting at midnight, this performs both
+# the hourly check and any daily aggregation tasks.
+# Note: Day 1 of the month is handled separately below to accommodate monthly tasks.
+0 0 2-31 * 1-6 {{ cron_user_val }} /usr/bin/mtpolicyd --cron hourly,daily
+
+# Run combined hourly, daily, AND weekly updates on Sundays.
+# This triggers the weekly policy refresh cycle.
+0 0 2-31 * 0 {{ cron_user_val }} /usr/bin/mtpolicyd --cron hourly,daily,weekly
+
+# Run combined hourly, daily, AND monthly updates on the 1st of every month.
+# This triggers the monthly policy refresh cycle.
+0 0 1 * * {{ cron_user_val }} /usr/bin/mtpolicyd --cron hourly,daily,weekly,monthly

@@ -1,0 +1,60 @@
+# =============================================================================
+# OVN Host Configuration Template
+# =============================================================================
+# This file configures the OVN (Open Virtual Network) host components
+# (ovs-vswitchd/ovn-controller) to connect to OVN databases and identify
+# the local chassis.
+#
+# Sections:
+#   [OVN]  - Database connection endpoints
+#   [SSL]  - TLS/SSL certificates for secure database connections
+#   [Host] - Local host identification and tunneling settings
+# =============================================================================
+
+[OVN]
+# Base URL for the OVN Northbound database.
+# Format: ssl:host:port, tcp:host:port, unix:path, etc.
+# Default: ssl:127.0.0.1:54326
+nb_db = {{ (ovn_nb_db | default('ssl:127.0.0.1:54326')) | string }}
+
+# Base URL for the OVN Southbound database.
+# Format: ssl:host:port, tcp:host:port, unix:path, etc.
+# Default: ssl:127.0.0.1:54327
+sb_db = {{ (ovn_sb_db | default('ssl:127.0.0.1:54327')) | string }}
+
+[SSL]
+# Path to the CA certificate file used to verify the OVN database server's certificate.
+# Required for ssl: connections.
+# Default: /etc/ovn/ovn-ca.crt
+cacert = {{ (ovn_ca_cert_path | default('/etc/ovn/ovn-ca.crt')) | string }}
+
+# Path to the client certificate file used for mutual TLS (mTLS) authentication.
+# The server validates this certificate against the CA.
+# Default: /etc/ovn/ovn-host.crt
+cert = {{ (ovn_client_cert_path | default('/etc/ovn/ovn-host.crt')) | string }}
+
+# Path to the client private key file corresponding to the client certificate.
+# Must be readable by the OVN process user.
+# Default: /etc/ovn/ovn-host.key
+key = {{ (ovn_client_key_path | default('/etc/ovn/ovn-host.key')) | string }}
+
+[Host]
+# Local IP address for tunneling (Geneve/VXLAN) and chassis identification.
+# If 'auto', OVN attempts to detect the correct IP.
+# Default: auto
+local_ip = {{ (local_ip | default('auto')) | string }}
+
+# List of key=value pairs to attach as external IDs to the chassis.
+# These IDs are visible in the OVN Northbound database and can be used
+# for tagging or filtering in OVN controllers.
+# Example input: ['zone=us-east-1', 'role=compute']
+# Output format:
+#   external_ids:zone=us-east-1
+#   external_ids:role=compute
+{% set ext_ids_list = (chassis_external_ids | default([])) %}
+{% if ext_ids_list is defined and ext_ids_list is iterable and ext_ids_list | length > 0 %}
+# Attached external IDs for chassis identification:
+{% for ext_id in ext_ids_list %}
+external_ids:{{ ext_id.key }}={{ ext_id.value }}
+{% endfor %}
+{% endif %}

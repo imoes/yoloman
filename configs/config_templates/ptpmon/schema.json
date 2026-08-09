@@ -1,0 +1,199 @@
+{
+  "global": {
+    "type": "object",
+    "default": {
+      "log_level": 3,
+      "log_file": "-",
+      "pid_file": "/run/ptpmon.pid",
+      "interface": "",
+      "domain_number": -1
+    },
+    "description": "Global daemon options: logging, PID file, interface, and PTP domain to monitor.",
+    "properties": {
+      "log_level": {
+        "type": "number",
+        "default": 3,
+        "description": "Verbosity of log output: 0=quiet, 1=error, 2=warn, 3=info (recommended), 4=debug."
+      },
+      "log_file": {
+        "type": "string",
+        "default": "-",
+        "description": "Path to log file. Use '-' to log to stdout."
+      },
+      "pid_file": {
+        "type": "string",
+        "default": "/run/ptpmon.pid",
+        "description": "Full path to PID file used for daemon control."
+      },
+      "interface": {
+        "type": "string",
+        "default": "",
+        "description": "Network interface to monitor (e.g., 'eth0'). Leave empty to monitor all PTP-capable interfaces."
+      },
+      "domain_number": {
+        "type": "number",
+        "default": -1,
+        "description": "PTP domain number to monitor. -1 means all domains; typical values are 0 (default) or 127 (custom domain)."
+      }
+    }
+  },
+  "alarm": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "warn_threshold": 1000,
+      "warn_threshold_rms": 100,
+      "error_threshold": 10000,
+      "error_threshold_rms": 1000,
+      "hold_time": 5
+    },
+    "description": "Time error alarm thresholds and behavior (values in nanoseconds).",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable time error monitoring and alarm triggers."
+      },
+      "warn_threshold": {
+        "type": "number",
+        "default": 1000,
+        "description": "Absolute time error (in ns) that triggers a warning alarm."
+      },
+      "warn_threshold_rms": {
+        "type": "number",
+        "default": 100,
+        "description": "Root mean square (RMS) time error (in ns) over recent samples to trigger warning."
+      },
+      "error_threshold": {
+        "type": "number",
+        "default": 10000,
+        "description": "Absolute time error (in ns) that triggers a critical alarm."
+      },
+      "error_threshold_rms": {
+        "type": "number",
+        "default": 1000,
+        "description": "RMS time error (in ns) above which a critical alarm triggers."
+      },
+      "hold_time": {
+        "type": "number",
+        "default": 5,
+        "description": "Duration (in seconds) an alarm must persist before escalation (e.g., triggering notification)."
+      }
+    }
+  },
+  "notifications": {
+    "type": "object",
+    "default": {
+      "ready_notify": false,
+      "handlers": []
+    },
+    "description": "Notification configuration for alarm events and status updates.",
+    "properties": {
+      "ready_notify": {
+        "type": "boolean",
+        "default": false,
+        "description": "If true, notify systemd of daemon readiness (requires systemd)."
+      },
+      "handlers": {
+        "type": "list",
+        "default": [],
+        "description": "List of external notification endpoints to alert on alarms.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "default": "http",
+              "description": "Protocol for notification: 'http' or 'syslog'.",
+              "enum": [
+                "http",
+                "syslog"
+              ]
+            },
+            "endpoint": {
+              "type": "string",
+              "default": "http://localhost:8080/alert",
+              "description": "URL for HTTP or facility:priority for syslog (e.g., 'local0.info')."
+            },
+            "timeout": {
+              "type": "number",
+              "default": 5,
+              "description": "HTTP request timeout in seconds."
+            },
+            "retries": {
+              "type": "number",
+              "default": 3,
+              "description": "Number of retry attempts on failure."
+            },
+            "retry_delay": {
+              "type": "number",
+              "default": 1,
+              "description": "Seconds to wait between retries."
+            }
+          }
+        }
+      }
+    }
+  },
+  "health": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "interval": 5,
+      "timeout": 10
+    },
+    "description": "Internal health monitoring settings for the daemon itself.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable health monitoring of the ptpmon process and data freshness."
+      },
+      "interval": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds between internal health checks."
+      },
+      "timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Seconds without fresh sync data before marking the daemon unhealthy."
+      }
+    }
+  },
+  "sinks": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "endpoints": []
+    },
+    "description": "Optional external PTP sink endpoints to verify sync quality from the local device\u2019s perspective.",
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "If true, monitor external PTP sinks in addition to local domain."
+      },
+      "endpoints": {
+        "type": "list",
+        "default": [],
+        "description": "List of host:port strings for external PTP sinks.",
+        "items": {
+          "type": "object",
+          "properties": {
+            "host": {
+              "type": "string",
+              "default": "ptp-gateway.local",
+              "description": "Hostname or IP address of the PTP sink."
+            },
+            "port": {
+              "type": "number",
+              "default": 319,
+              "description": "PTP event port (typically 319 or 320)."
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,65 @@
+{
+  "hostname": "monitoring-host01",
+  "fqdn_lookup": false,
+  "base_dir": "/var/lib/collectd",
+  "plugin_dir": "/usr/lib/collectd",
+  "plugin_cache_file": "/var/cache/collectd/plugin.cache",
+  "enabled_plugins": [
+    "cpu",
+    "memory",
+    "interface",
+    "load",
+    "disk"
+  ],
+  "interval": 10,
+  "read_threads": 4,
+  "write_threads": 4,
+  "log_level": "info",
+  "log_file": "/var/log/collectd.log",
+  "syslog_facility": "daemon",
+  "ttl": 1,
+  "include_snippets": [
+    "/etc/collectd/conf.d/10-network.conf"
+  ],
+  "plugins_config": [
+    {
+      "name": "network",
+      "options": {
+        "Listen": "0.0.0.0:25826",
+        "Forward": "true"
+      },
+      "list_items": [
+        {
+          "tag": "Server",
+          "options": {
+            "address": "192.168.1.10",
+            "port": "25826",
+            "protocol": "udp"
+          }
+        },
+        {
+          "tag": "Listen",
+          "options": {
+            "address": "0.0.0.0",
+            "port": "25826"
+          }
+        }
+      ]
+    },
+    {
+      "name": "disk",
+      "options": {
+        "Disk": "/",
+        "IgnoreSelected": "false"
+      },
+      "list_items": [
+        {
+          "tag": "Disk",
+          "options": {
+            "Name": "nvme0n1"
+          }
+        }
+      ]
+    }
+  ]
+}

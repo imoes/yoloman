@@ -1,0 +1,40 @@
+{# Main log level: debug, info, warning, error #}
+{"log_level": "{{ log_level }}"}
+
+{# Backend modules to load (e.g., 'mpris', 'rest', 'renderer') #}
+{"backends": [{{ backends | map('quote') | join(', ') }}]}
+
+{# HTTP server binding address and port #}
+{"http_address": "{{ http_address }}", "http_port": {{ http_port }}}
+
+{# Optional: Max number of concurrent connections #}
+{% if max_connections is defined and max_connections > 0 %}
+{"max_connections": {{ max_connections }}}
+{% endif %}
+
+{# Optional: Service discovery hostname override (e.g., for mDNS) #}
+{% if service_hostname is defined and service_hostname != "" %}
+{"service_hostname": "{{ service_hostname }}"}
+{% endif %}
+
+{# Optional: Additional D-Bus interface restrictions (list of strings) #}
+{% if dbus_interfaces is defined and dbus_interfaces | length > 0 %}
+{"dbus_interfaces": [{{ dbus_interfaces | map('quote') | join(', ') }}]}
+{% endif %}
+
+{# Optional: Custom environment variables for subprocesses #}
+{% if environment is defined and environment | length > 0 %}
+{"environment": [
+{% for kv in environment %}  {"{{ kv.key }}": "{{ kv.value }}"}{% if not loop.last %},{% endif %}
+{% endfor %}]}
+{% endif %}
+
+{# Optional: Trusted LAN subnets (CIDR notation) for access control #}
+{% if trusted_subnets is defined and trusted_subnets | length > 0 %}
+{"trusted_subnets": [{{ trusted_subnets | map('quote') | join(', ') }}]}
+{% endif %}
+
+{# Optional: SSL/TLS certificate and key paths (for HTTPS) #}
+{% if ssl_cert_path is defined and ssl_cert_path != "" and ssl_key_path is defined and ssl_key_path != "" %}
+{"ssl_cert_path": "{{ ssl_cert_path }}", "ssl_key_path": "{{ ssl_key_path }}"}
+{% endif %}

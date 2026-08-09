@@ -1,0 +1,114 @@
+{# Pebble ACME Test Server Configuration #}
+{#
+  This template generates the `pebble` JSON configuration file.
+  Pebble is a test ACME server used primarily for testing ACME client implementations.
+  It mimics the behavior of production CAs (like Let's Encrypt) but uses self-signed
+  or test certificates.
+#}
+{
+  "pebble": {
+{# Network interface address for ACME protocol (HTTP/HTTPS) listeners. #}
+{# Default: '0.0.0.0' (all interfaces) #}
+    "listenAddress": "{{ listen_address | default('0.0.0.0') }}",
+
+{# Network interface address for the management API listener. #}
+{# Default: '127.0.0.1' (loopback only for security) #}
+    "managementListenAddress": "{{ management_address | default('127.0.0.1') }}",
+
+{# Path to the TLS certificate used by Pebble for ACME HTTPS. #}
+{# Default: '/etc/pebble/cert.pem' #}
+    "certificate": "{{ certificate_path | default('/etc/pebble/cert.pem') }}",
+
+{# Path to the TLS private key used by Pebble for ACME HTTPS. #}
+{# Default: '/etc/pebble/key.pem' #}
+    "privateKey": "{{ private_key_path | default('/etc/pebble/key.pem') }}",
+
+{# Path to the CA intermediate certificate used for ACME chain building. #}
+{# Default: '/etc/pebble/intermediate1.pem' #}
+    "caCertificate": "{{ ca_certificate_path | default('/etc/pebble/intermediate1.pem') }}",
+
+{# OCSP responder URL for certificate status checks (optional; empty disables OCSP). #}
+{# Default: '' (empty/disabled) #}
+    "ocspResponderURL": "{{ ocsp_responder_url | default('') }}",
+
+{# Operation mode: 'mainline' or 'testing'. #}
+{# Default: 'mainline' #}
+    "mode": "{{ mode | default('mainline') }}",
+
+{# Port number for HTTP-01 challenge validation. #}
+{# Default: 14000 #}
+    "httpPort": {{ http_port | default(14000) }},
+
+{# Port number for HTTPS (ACME main endpoint). #}
+{# Default: 14001 #}
+    "httpsPort": {{ https_port | default(14001) }},
+
+{# Port number for Pebble management API (e.g., account/CSR introspection). #}
+{# Default: 15000 #}
+    "managementPort": {{ management_port | default(15000) }},
+
+{# Maximum number of concurrent HTTP requests Pebble will accept. #}
+{# Default: 100 #}
+    "maxConcurrentRequests": {{ max_concurrent_requests | default(100) }},
+
+{# Maximum memory (in bytes) Pebble is allowed to use before rejecting new requests. #}
+{# Default: 104857600 (100 MB) #}
+    "maxMemoryBytes": {{ max_memory_bytes | default(104857600) }},
+
+    "rateLimit": {
+{# Maximum number of certificate requests allowed per domain per 24h. #}
+{# Default: 50 #}
+      "maxRequestsPerDomainPerDay": {{ rate_limit_max_requests_per_domain_per_day | default(50) }},
+
+{# Maximum pending authorizations per ACME account. #}
+{# Default: 50 #}
+      "maxPendingAuthorizationsPerAccount": {{ rate_limit_max_pending_authorizations_per_account | default(50) }},
+
+{# Maximum certificates issued per domain per 7-day period. #}
+{# Default: 50 #}
+      "maxCertificatesPerDomainPerWeek": {{ rate_limit_max_certificates_per_domain_per_week | default(50) }}
+    },
+
+    "features": {
+{# Enable Certificate Transparency logging. #}
+{# Default: True #}
+      "enableCT": {{ features_enable_ct | default(True) }},
+
+{# Enable strict ACME protocol compliance (reject non-conforming requests). #}
+{# Default: True #}
+      "enableSTRICT": {{ features_enable_strict | default(True) }},
+
+{# Enable issuance of certificates without SCTs (for testing only). #}
+{# Default: False #}
+      "enableNOSCT": {{ features_enable_nosct | default(False) }}
+    },
+
+{# List of domains Pebble is authorized to issue certificates for. #}
+{# Default: ['example.com', 'example.net'] #}
+    "domains": [
+{% for domain in domains | default(['example.com', 'example.net']) %}      "{{ domain }}"{% if not loop.last %},{% endif %}
+{% endfor %}    ],
+
+{# List of pre-provisioned account public keys (in JWK format) to pre-authorize. #}
+{# Default: [] (empty) #}
+    "accountKeys": [
+{% for account_key in account_keys | default([]) %}      {{ account_key | tojson }}
+{% endfor %}    ],
+
+{# Directory used for HTTP-01 challenge file storage (if not using a custom solver). #}
+{# Default: '/var/www/pebble-webroot' #}
+    "webroot": "{{ webroot | default('/var/www/pebble-webroot') }}",
+
+{# Override path for revocation requests (leave blank for default /acme/revoke-cert). #}
+{# Default: '' (empty/disabled) #}
+    "revocationEndpoint": "{{ revocation_endpoint | default('') }}",
+
+{# Default revocation reason code (e.g., 0 = unspecified; see RFC 5280). #}
+{# Default: 0 #}
+    "revocationReason": {{ revocation_reason | default(0) }},
+
+{# Logging verbosity: 'DEBUG', 'INFO', 'WARN', or 'ERROR'. #}
+{# Default: 'INFO' #}
+    "logLevel": "{{ log_level | default('INFO') }}"
+  }
+}

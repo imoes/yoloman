@@ -1,0 +1,129 @@
+#!/bin/sh
+
+# ==============================================================================
+# efingerd backend script
+# ==============================================================================
+# This script is called by efingerd to determine user information and handle
+# special cases for specific users or hosts. It is the core logic for the
+# finger service response generation.
+# ==============================================================================
+
+# Path to the backend logging script. This file is sourced to perform
+# logging or other pre-processing tasks before generating the response.
+. {{ backend_script | default('/etc/efingerd/log') }}
+
+echo
+
+# ------------------------------------------------------------------------------
+# Special User: vanya
+# ------------------------------------------------------------------------------
+# If the queried username matches the special user 'vanya', respond with a
+# specific message and exit immediately without displaying the user list.
+# This effectively blocks 'vanya' from seeing who is logged in.
+# ------------------------------------------------------------------------------
+{% set special_user_vanya = special_user_vanya | default('vanya') %}
+{% set vanya_response = vanya_response | default('What do you want?????') %}
+{% set vanya_exit_msg = vanya_exit_msg | default('Go away') %}
+
+if [ "$1" = "{{ special_user_vanya }}" ]; then      # special action if vanya wants to finger us
+  echo "{{ vanya_response }}" # from any computer
+  echo "{{ vanya_exit_msg }}"
+  exit 0                       # and finish without telling him who is logged
+fi
+
+# ------------------------------------------------------------------------------
+# Special User: jzatko
+# ------------------------------------------------------------------------------
+# If the queried username matches 'jzatko', print a longer greeting.
+# This user is not blocked from seeing the list, but receives a custom intro.
+# ------------------------------------------------------------------------------
+{% set special_user_jzatko = special_user_jzatko | default('jzatko') %}
+{% set jzatko_greeting = jzatko_greeting | default('Hellooooooooooooooo') %}
+
+if [ "$1" = "{{ special_user_jzatko }}" ]; then  # not so special action if jzatko wants to finger us
+  echo "{{ jzatko_greeting }}"
+  echo
+fi
+
+# ------------------------------------------------------------------------------
+# Special User: matos
+# ------------------------------------------------------------------------------
+# If the queried username matches 'matos', execute a short listing command
+# instead of the standard full user list. This user prefers concise output.
+# ------------------------------------------------------------------------------
+{% set special_user_matos = special_user_matos | default('matos') %}
+{% set matos_command = matos_command | default('who -q') %}
+
+if [ "$1" = "{{ special_user_matos }}" ]; then  # this user likes short listings
+  {{ matos_command }}
+  exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# Blocked Computer
+# ------------------------------------------------------------------------------
+# If the connecting host matches the blocked computer's hostname, reject
+# the request entirely with a polite refusal message.
+# ------------------------------------------------------------------------------
+{% set blocked_computer = blocked_computer | default('pascal.fmph.uniba.sk') %}
+{% set block_computer_response = block_computer_response | default('Sorry, we do not want you to know who is here.') %}
+
+if [ "$2" = "{{ blocked_computer }}" ]; then # ban the whole computer pascal
+  echo "{{ block_computer_response }}"
+  exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# Special Occasion User/Host
+# ------------------------------------------------------------------------------
+# If the combination of user and host matches specific values (e.g. for
+# an April Fools' joke or a specific event), output a custom block of text.
+# This is a placeholder for site-specific dynamic actions.
+# ------------------------------------------------------------------------------
+{% set special_occasion_user = special_occasion_user | default('linus') %}
+{% set special_occasion_host = special_occasion_host | default('transmeta.com') %}
+{% set special_occasion_output = special_occasion_output | default('Unable to handle kernel paging request at virtual address c8848ffc\ncurrent->tss.cr3 = 00ff1000, %cr3 = 00ff1000\n*pde = 0009e067\n*pte = 00000000\nOops: 0000\nCPU:    0\nEIP:    0010:[<0018596b>]\nEFLAGS: 00010297\neax: 08848ffc   ebx: ffffffff   ecx: 08848ffc   edx: fffffffe\nesi: ffffffff   edi: 07230073   ebp: 00000000   esp: 07150ed4\nds: 0018   es: 0018   fs: 002b   gs: 002b   ss: 0018\nProcess cat (pid: 526, process nr: 35, stackpage=07150000)\nStack: 00389ad8 00000062 00000007 07230000 00000000 00000061 00000004 ffffffff\n       0000001b 00000001 00185b14 07230062 0018641e 07150f28 0010ca43 07230062\n       00186410 00000007 00000001 00000020 08848ffc 00000000 07150f90 00001000\nCall Trace: [<00185b14>] [<0010ca43>] [<08848ffc>] [<0015c9b6>] [<0015cc26>] [<001236e0>] [<0010a8a9>]\nCode: 80 38 00 74 07 40 4a 83 fa ff 75 f4 29 c8 89 c6 f7 c5 10 00') %}
+
+if [ "$1@$2" = "{{ special_occasion_user }}@{{ special_occasion_host }}" ]; then  
+# a very special occasion
+# you should put here site specific action
+# this here is just an example:
+cat <<EOM
+{{ special_occasion_output }}
+EOM
+exit 0
+fi
+
+# ------------------------------------------------------------------------------
+# Standard Greeting
+# ------------------------------------------------------------------------------
+# If no special rules apply, greet the user.
+# If the username is null (e.g. from a non-ident connection), greet by host.
+# Otherwise, greet by username@host.
+# ------------------------------------------------------------------------------
+if [ "$1" = "(null)" ]; then
+  echo Hello "$2",      # we do not know who it is - does not run ident
+else 
+  echo Hello "$1@$2",  # else greet him
+fi
+
+# ------------------------------------------------------------------------------
+# User List Display
+# ------------------------------------------------------------------------------
+# Display the list of currently logged-in users.
+# The primary command is configurable. Alternative commands are commented out
+# for reference, but usually not enabled to avoid information leakage.
+# ------------------------------------------------------------------------------
+{% set user_list_command = user_list_command | default('who -uHw') %}
+{% set alternative_user_list_1 = alternative_user_list_1 | default('finger') %}
+{% set alternative_user_list_2 = alternative_user_list_2 | default('ps aux') %}
+
+echo users currently logged in are:
+echo
+{{ user_list_command }}        # and display the user listing in readable form
+                 # or:
+# {{ alternative_user_list_1 }}         # classical alternative
+                 # or:
+# {{ alternative_user_list_2 }}         # this reveals too much - do not use this command, unless 
+                 # you trust people who finger you
+echo

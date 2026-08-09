@@ -1,0 +1,78 @@
+[# Main munin-node configuration
+[main]
+
+# Log file location
+logfile: {{ main.logfile }}
+
+# PID file location
+pid_file: {{ main.pid_file }}
+
+# Port the munin-node listens on
+port: {{ main.port }}
+
+# Hostname this node reports as (used for master authentication)
+host_name: {{ main.host_name }}
+
+# Timeout for client connections (seconds)
+timeout: {{ main.timeout }}
+
+# Allow connections from these networks/CIDRs
+{% for net in main.allow %}
+allow ^{{ net }}$
+{% endfor %}
+
+# Deny connections from these networks/CIDRs (if any)
+{% if main.deny %}
+{% for net in main.deny %}
+deny ^{{ net }}$
+{% endfor %}
+{% endif %}
+
+# Host-specific plugin configuration
+{% for plugin in plugins %}
+[{{ plugin.name }}]
+{% if plugin.env %}
+{% for key, value in plugin.env.items() %}
+env.{{ key }} {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Group-specific plugin configuration (for plugins with multiple instances)
+{% for group in plugin_groups %}
+# {{ group.description }}
+[{{ group.name }}]
+{% if group.env %}
+{% for key, value in group.env.items() %}
+env.{{ key }} {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+
+# Plugin-specific host rules
+{% if plugin_rules %}
+{% for rule in plugin_rules %}
+# {{ rule.description }}
+[{{ rule.plugin }}:{{ rule.instance }}]
+{% if rule.env %}
+{% for key, value in rule.env.items() %}
+env.{{ key }} {{ value }}
+{% endfor %}
+{% endif %}
+{% endfor %}
+{% endif %}
+
+# TLS/SSL settings (optional, for newer munin-node versions)
+{% if tls.enabled %}
+ssl yes
+ssl_key_file {{ tls.key_file }}
+ssl_cert_file {{ tls.cert_file }}
+ssl_ca_file {{ tls.ca_file | default('') }}
+{% endif %}
+
+# User/group to run as
+user {{ user }}
+group {{ group }}
+
+# Directory containing plugins
+plugins_dir {{ plugins_dir }}

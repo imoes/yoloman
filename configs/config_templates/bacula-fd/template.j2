@@ -1,0 +1,114 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          bacula-fd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:    $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:     0 1 6
+# Short-Description: Bacula File Daemon
+# Description:       bacula-fd installs on the machine to be backuped up. It is
+#                    responsible for providing the file attributes and data
+#                    when requested by the Director. It is also responsible
+#                    for the file system dependent part of restoring the file
+#                    attributes and data during a recovery operation.
+### END INIT INFO
+#
+# bacula-fd	SysV init script for Bacula-FD.
+#
+#	Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#	Modified for Debian GNU/Linux by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+#	Customized for Bacula by Jose Luis Tallon <jltallon@adv-solutions.net>
+#
+
+set -e
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+DAEMON=/usr/sbin/bacula-fd
+NAME="bacula-fd"
+# TCP port on which the Bacula File Daemon listens
+PORT={{ port | default(9102) }}
+DESC="Bacula File daemon"
+BUSER="root"
+BGROUP="root"
+
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+. /usr/share/bacula-common/common-functions.init
+if [ -r /etc/default/$NAME ]; then
+	. /etc/default/$NAME
+fi
+
+CONFIG="${CONFIG:-/etc/bacula/$NAME.conf}"
+
+create_run_dir
+
+PIDFILE=/run/bacula/$NAME.$PORT.pid
+
+do_start()
+{
+	# When the runtime user is not root and we are running on Linux,
+	# we can use the option -k to have bacula-fd keep the readall
+	# capability.
+	if [ x`uname` = xLinux -a $BUSER != "root" ]; then
+		KEEP_READALL_CAP="-k"
+	fi
+
+	if $DAEMON -u $BUSER -g $BGROUP $KEEP_READALL_CAP -t -c $CONFIG > /dev/null 2>&>; then
+		start-stop-daemon --start --quiet --pidfile $PIDFILE \
+		--oknodo --exec $DAEMON -- -u $BUSER -g $BGROUP $KEEP_READALL_CAP -c $CONFIG
+		return 0
+	else
+		log_progress_msg "- the configtest"
+		return 1
+	fi
+}
+
+do_stop()
+{
+        start-stop-daemon --oknodo --stop --quiet --pidfile $PIDFILE \
+        --retry TERM/30/KILL/5 --name `basename $DAEMON`
+}
+
+case "$1" in
+  start)
+        if [ "$ENABLED" = "no" ]; then
+                log_failure_msg "Not starting $DESC: disabled via /etc/default/$NAME"
+                exit 0
+        fi
+
+        log_daemon_msg "Starting $DESC..." "$NAME"
+        if do_start ; then
+                log_end_msg 0
+        else
+                log_end_msg 1
+        fi
+        ;;
+  stop)
+        log_daemon_msg "Stopping $DESC..." "$NAME"
+        if do_stop ; then
+                log_end_msg 0
+        else
+                log_end_msg 1
+        fi
+        ;;
+  restart|force-reload)
+        $0 stop
+        sleep 1
+        $0 start
+        ;;
+  try-restart)
+	$0 status || exit 0
+	$0 restart
+	;;
+  status)
+	status_of_proc -p $PIDFILE $DAEMON $NAME
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload|try-restart|status}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

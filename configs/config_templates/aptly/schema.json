@@ -1,0 +1,385 @@
+{
+  "root_dir": {
+    "type": "string",
+    "default": "~/.aptly",
+    "description": "Root directory for aptly database, package pool, and published repositories"
+  },
+  "database_open_attempts": {
+    "type": "number",
+    "default": -1,
+    "description": "Number of attempts to open the database if locked (-1 for no retry)"
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Log level: debug, info, warning, or error",
+    "enum": [
+      "debug",
+      "info",
+      "warning",
+      "error"
+    ]
+  },
+  "log_format": {
+    "type": "string",
+    "default": "default",
+    "description": "Log format: default (text) or json",
+    "enum": [
+      "default",
+      "json"
+    ]
+  },
+  "architectures": {
+    "type": "list",
+    "default": [],
+    "description": "List of architectures to consider (empty = all available)"
+  },
+  "dependency_follow_suggests": {
+    "type": "bool",
+    "default": false,
+    "description": "Follow 'Suggests:' dependencies during processing"
+  },
+  "dependency_follow_recommends": {
+    "type": "bool",
+    "default": false,
+    "description": "Follow 'Recommends:' dependencies during processing"
+  },
+  "dependency_follow_all_variants": {
+    "type": "bool",
+    "default": false,
+    "description": "Follow all variants in 'a | b' dependencies"
+  },
+  "dependency_follow_source": {
+    "type": "bool",
+    "default": false,
+    "description": "Follow dependencies from binary to source packages"
+  },
+  "dependency_verbose_resolve": {
+    "type": "bool",
+    "default": false,
+    "description": "Log additional detail during dependency resolution"
+  },
+  "ppa_distributor_id": {
+    "type": "string",
+    "default": "ubuntu",
+    "description": "Default distributor ID for PPA short URLs"
+  },
+  "ppa_codename": {
+    "type": "string",
+    "default": "",
+    "description": "Default codename for PPA short URLs"
+  },
+  "skip_legacy_pool": {
+    "type": "bool",
+    "default": true,
+    "description": "Skip checking legacy MD5-based package pool paths"
+  },
+  "serve_in_api_mode": {
+    "type": "bool",
+    "default": false,
+    "description": "Serve published repos and API over HTTP"
+  },
+  "enable_metrics_endpoint": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Prometheus metrics endpoint"
+  },
+  "database_backend": {
+    "type": "object",
+    "default": "leveldb",
+    "description": "Database backend configuration (leveldb or etcd)"
+  },
+  "downloader": {
+    "type": "string",
+    "default": "default",
+    "description": "Downloader type: default or grab",
+    "enum": [
+      "default",
+      "grab"
+    ]
+  },
+  "download_concurrency": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of parallel download threads"
+  },
+  "download_speed_limit": {
+    "type": "number",
+    "default": 0,
+    "description": "Download speed limit in kbytes/sec (0 = no limit)"
+  },
+  "download_retries": {
+    "type": "number",
+    "default": 0,
+    "description": "Number of download retries"
+  },
+  "download_source_packages": {
+    "type": "bool",
+    "default": false,
+    "description": "Download source packages by default"
+  },
+  "gpg_provider": {
+    "type": "string",
+    "default": "gpg",
+    "description": "GPG provider: gpg (external) or internal",
+    "enum": [
+      "gpg",
+      "internal"
+    ]
+  },
+  "gpg_disable_sign": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable signing of published repositories"
+  },
+  "gpg_disable_verify": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable signature verification of remote repositories"
+  },
+  "skip_contents_publishing": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip publishing Contents files"
+  },
+  "skip_bz2_publishing": {
+    "type": "bool",
+    "default": false,
+    "description": "Skip creating bz2 compressed index files"
+  },
+  "filesystem_publish_endpoints": {
+    "type": "object",
+    "default": "",
+    "description": "Filesystem publishing endpoints configuration (key = endpoint name)"
+  },
+  "filesystem_publish_endpoints.items": {
+    "type": "object",
+    "default": "",
+    "description": "Single endpoint configuration"
+  },
+  "filesystem_publish_endpoints.items.root_dir": {
+    "type": "string",
+    "default": "/opt/srv/aptly_public",
+    "description": "Directory for publishing"
+  },
+  "filesystem_publish_endpoints.items.link_method": {
+    "type": "string",
+    "default": "hardlink",
+    "description": "File linking method: hardlink, symlink, or copy",
+    "enum": [
+      "hardlink",
+      "symlink",
+      "copy"
+    ]
+  },
+  "filesystem_publish_endpoints.items.verify_method": {
+    "type": "string",
+    "default": "md5",
+    "description": "Verification method for copy linking: md5 or size",
+    "enum": [
+      "md5",
+      "size"
+    ]
+  },
+  "s3_publish_endpoints": {
+    "type": "object",
+    "default": "",
+    "description": "S3 publishing endpoints configuration (key = endpoint name)"
+  },
+  "s3_publish_endpoints.items": {
+    "type": "object",
+    "default": "",
+    "description": "Single S3 endpoint configuration"
+  },
+  "s3_publish_endpoints.items.region": {
+    "type": "string",
+    "default": "us-east-1",
+    "description": "AWS region for S3 bucket"
+  },
+  "s3_publish_endpoints.items.bucket": {
+    "type": "string",
+    "default": "",
+    "description": "S3 bucket name"
+  },
+  "s3_publish_endpoints.items.endpoint": {
+    "type": "string",
+    "default": "",
+    "description": "S3-compatible endpoint URL (leave blank for AWS)"
+  },
+  "s3_publish_endpoints.items.prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix path within bucket (defaults to root)"
+  },
+  "s3_publish_endpoints.items.acl": {
+    "type": "string",
+    "default": "private",
+    "description": "S3 ACL: private, public-read, or none",
+    "enum": [
+      "private",
+      "public-read",
+      "none"
+    ]
+  },
+  "s3_publish_endpoints.items.aws_access_key_id": {
+    "type": "string",
+    "default": "",
+    "description": "AWS access key ID"
+  },
+  "s3_publish_endpoints.items.aws_secret_access_key": {
+    "type": "string",
+    "default": "",
+    "description": "AWS secret access key"
+  },
+  "s3_publish_endpoints.items.storage_class": {
+    "type": "string",
+    "default": "STANDARD",
+    "description": "S3 storage class",
+    "enum": [
+      "STANDARD",
+      "REDUCED_REDUNDANCY"
+    ]
+  },
+  "s3_publish_endpoints.items.encryption_method": {
+    "type": "string",
+    "default": "none",
+    "description": "S3 server-side encryption method",
+    "enum": [
+      "none",
+      "AES256"
+    ]
+  },
+  "s3_publish_endpoints.items.plus_workaround": {
+    "type": "bool",
+    "default": false,
+    "description": "Workaround for '+' in filenames (store twice)"
+  },
+  "s3_publish_endpoints.items.disable_multi_del": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable MultiDel API (for non-AWS S3)"
+  },
+  "s3_publish_endpoints.items.force_sig_v2": {
+    "type": "bool",
+    "default": false,
+    "description": "Force SigV2 authentication (for non-AWS)"
+  },
+  "s3_publish_endpoints.items.force_virtual_hosted_style": {
+    "type": "bool",
+    "default": false,
+    "description": "Force virtual-hosted-style S3 access"
+  },
+  "swift_publish_endpoints": {
+    "type": "object",
+    "default": "",
+    "description": "Swift publishing endpoints configuration (key = endpoint name)"
+  },
+  "swift_publish_endpoints.items": {
+    "type": "object",
+    "default": "",
+    "description": "Single Swift endpoint configuration"
+  },
+  "swift_publish_endpoints.items.container": {
+    "type": "string",
+    "default": "",
+    "description": "Swift container name"
+  },
+  "swift_publish_endpoints.items.prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix path within container (defaults to root)"
+  },
+  "swift_publish_endpoints.items.osname": {
+    "type": "string",
+    "default": "",
+    "description": "OpenStack username"
+  },
+  "swift_publish_endpoints.items.password": {
+    "type": "string",
+    "default": "",
+    "description": "OpenStack password"
+  },
+  "swift_publish_endpoints.items.tenant": {
+    "type": "string",
+    "default": "",
+    "description": "OpenStack tenant name"
+  },
+  "swift_publish_endpoints.items.tenantid": {
+    "type": "string",
+    "default": "",
+    "description": "OpenStack tenant ID"
+  },
+  "swift_publish_endpoints.items.authurl": {
+    "type": "string",
+    "default": "",
+    "description": "Keystone auth URL (including version)"
+  },
+  "azure_publish_endpoints": {
+    "type": "object",
+    "default": "",
+    "description": "Azure Blob Storage publishing endpoints configuration"
+  },
+  "azure_publish_endpoints.items": {
+    "type": "object",
+    "default": "",
+    "description": "Single Azure endpoint configuration"
+  },
+  "azure_publish_endpoints.items.container": {
+    "type": "string",
+    "default": "",
+    "description": "Azure container name"
+  },
+  "azure_publish_endpoints.items.prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Prefix path within container (defaults to root)"
+  },
+  "azure_publish_endpoints.items.account_name": {
+    "type": "string",
+    "default": "",
+    "description": "Azure storage account name"
+  },
+  "azure_publish_endpoints.items.account_key": {
+    "type": "string",
+    "default": "",
+    "description": "Azure storage account access key"
+  },
+  "azure_publish_endpoints.items.endpoint": {
+    "type": "string",
+    "default": "",
+    "description": "Azure endpoint URL"
+  },
+  "package_pool_storage": {
+    "type": "object",
+    "default": "",
+    "description": "Package pool storage backend configuration"
+  },
+  "package_pool_storage.type": {
+    "type": "string",
+    "default": "local",
+    "description": "Pool type: local or azure",
+    "enum": [
+      "local",
+      "azure"
+    ]
+  },
+  "package_pool_storage.path": {
+    "type": "string",
+    "default": "",
+    "description": "Local pool path (defaults to rootDir/pool)"
+  },
+  "database_backend.type": {
+    "type": "string",
+    "default": "leveldb",
+    "description": "Database backend type: leveldb or etcd",
+    "enum": [
+      "leveldb",
+      "etcd"
+    ]
+  },
+  "database_backend.db_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to leveldb files (empty = rootDir/db)"
+  }
+}

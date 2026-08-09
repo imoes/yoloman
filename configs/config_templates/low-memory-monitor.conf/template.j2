@@ -1,0 +1,25 @@
+[# Low-Memory-Monitor Configuration File #]
+[# This file controls the behavior of the low-memory-monitor daemon. #]
+[main]
+enabled = {{ main.enabled }}
+check_interval = {{ main.check_interval }}
+min_free_kbytes = {{ main.min_free_kbytes }}
+log_level = {{ main.log_level }}
+log_file = {{ main.log_file }}
+
+[notifications]
+enabled = {{ notifications.enabled }}
+notify_script = {{ notifications.notify_script }}
+email_recipients = {{ notifications.email_recipients | join(', ') }}
+min_free_kbytes_threshold = {{ notifications.min_free_kbytes_threshold }}
+
+[actions]
+kill_process = {{ actions.kill_process }}
+kill_process_pattern = {{ actions.kill_process_pattern }}
+kill_process_min_age_sec = {{ actions.kill_process_min_age_sec }}
+
+[monitor]
+# List of processes to monitor (not subject to auto-kill, but still reported)
+monitor_processes =
+{% for proc in monitor.monitor_processes %}  {{ proc.name }}
+{% endfor %}

@@ -1,0 +1,46 @@
+# Enable required modules for proxy and load balancing
+LoadModule proxy_module modules/mod_proxy.so
+LoadModule proxy_http_module modules/mod_proxy_http.so
+LoadModule proxy_balancer_module modules/mod_proxy_balancer.so
+LoadModule slotmem_shm_module modules/mod_slotmem_shm.so
+
+# Enable or disable proxy requests (disable in production unless explicitly needed)
+<IfModule mod_proxy.c>
+  ProxyRequests Off
+  
+  # Require explicit authorization to use the proxy (security best practice)
+  <Proxy "*">
+    Require host localhost
+  </Proxy>
+</IfModule>
+
+# Set default proxy timeout values (seconds)
+ProxyTimeout {{ proxy_timeout }}
+
+# Define load balancer cluster members
+{% for upstream in upstreams %}
+# Upstream cluster: {{ upstream.name }}
+<Proxy "balancer://{{ upstream.name }}">
+  BalancerMember http://{{ upstream.host }}:{{ upstream.port }} route={{ upstream.name }}{% if upstream.weight %} weight={{ upstream.weight }}{% endif %}{% if upstream.max_connections %} max_connections={{ upstream.max_connections }}{% endif %}{% if upstream.timeout %} timeout={{ upstream.timeout }}{% endif %}{% if not upstream.enabled %} disabled{% endif %}
+</Proxy>
+
+# Optional load balancer configuration (stickiness, fallback, etc.)
+<Proxy "balancer://{{ upstream.name }}">
+{% if upstream.sticky_session %}
+  ProxySet lbmethod=byrequests stickysession=ROUTEID
+{% else %}
+  ProxySet lbmethod=byrequests
+{% endif %}
+</Proxy>
+
+# Reverse proxy mapping for this cluster
+{% if upstream.alias %}
+# Route requests to /{{ upstream.alias }} to balancer://{{ upstream.name }}
+ProxyPass "http://{{ upstream.alias }}" "balancer://{{ upstream.name }}/"
+ProxyPassReverse "http://{{ upstream.alias }}" "balancer://{{ upstream.name }}/"
+{% else %}
+# Route all requests to balancer://{{ upstream.name }}
+ProxyPass "/" "balancer://{{ upstream.name }}/"
+ProxyPassReverse "/" "balancer://{{ upstream.name }}/"
+{% endif %}
+{% endfor %}

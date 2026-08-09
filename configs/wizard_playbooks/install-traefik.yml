@@ -1,0 +1,29 @@
+- name: install-traefik
+  hosts: all
+  become: true
+  vars:
+    _dest: /etc/traefik/traefik.yml
+    _service: traefik
+    _packages:
+      - traefik
+    routers: []
+    services: []
+  tasks:
+    - name: Install Traefik Proxy
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: traefik.j2
+        dest: "{{ _dest }}"
+      vars:
+        routers: "{{ routers }}"
+        services: "{{ services }}"
+
+    - name: Enable and restart Traefik Proxy
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

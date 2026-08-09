@@ -1,0 +1,66 @@
+# ==============================================================================
+# comprez configuration template
+# ==============================================================================
+# This template generates shell options for the `comprez` utility.
+# Each variable below maps to a CLI flag. Defaults are applied inline to ensure
+# safe rendering even when variables are undefined.
+
+# --- Compression Format ---
+# Controls the compression algorithm used for feathered files.
+# Maps to specific short flags: gzip (-gz), bzip2 (-I), lzip (-lz),
+# xz (-xz), compress (-Z), zip (-zip).
+# Default: 'gzip'
+COMPREZ_OPTS="{% if (compression_format | default('gzip')) == 'gzip' %}-gz{% elif (compression_format | default('gzip')) == 'bzip2' %}-I{% elif (compression_format | default('gzip')) == 'lzip' %}-lz{% elif (compression_format | default('gzip')) == 'xz' %}-xz{% elif (compression_format | default('gzip')) == 'compress' %}-Z{% elif (compression_format | default('gzip')) == 'zip' %}-zip{% elif (compression_format | default('gzip')) == 'gzip-z' %}-z{% endif %} {% if suffix_style | default('.tgz') %}-s {{ suffix_style | default('.tgz') }}{% endif %}"
+
+# --- Compression Level ---
+# Sets the compression strength (1-9). 1 is fastest, 9 is best compression.
+# Applied via -<level> flag if not default (6).
+# Default: 6
+{% if compression_level | default(6) != 6 %}
+ZOPTS="{{ ZOPTS }} {% if compression_level | default(6) %}-{{ compression_level | default(6) }}{% endif %}"
+{% endif %}
+
+# --- Preserve Modes ---
+# Controls whether file permissions and ownership are preserved during extraction.
+# Default is True (preserve, -p). If False, -P is used (strip/mask modes).
+# Default: True
+{% if preserve_modes | default(True) == false %}
+ZOPTS="{{ ZOPTS }} -P"
+{% endif %}
+
+# --- Verbosity ---
+# Enables detailed output including compression ratios.
+# Default is True (verbose/report). If False, -V suppresses reporting.
+# Default: True
+{% if verbose | default(True) == false %}
+ZOPTS="{{ ZOPTS }} -V"
+{% endif %}
+
+# --- File Mode ---
+# Applies a chmod mode to created archive files.
+# Default: 'go-rwx' (remove read/write/execute for group and other).
+# If set to '-', no chmod is performed.
+# Default: 'go-rwx'
+{% if file_mode | default('go-rwx') != 'go-rwx' %}
+ZOPTS="{{ ZOPTS }} -m {{ file_mode | default('go-rwx') }}"
+{% endif %}
+
+# --- List Created ---
+# Lists names of created files/directories after processing.
+# Default is True (list). If False, -L suppresses listing.
+# Default: True
+{% if list_created | default(True) == false %}
+ZOPTS="{{ ZOPTS }} -L"
+{% endif %}
+
+# --- List Only ---
+# Performs a no-op list of the table of contents without modifying files.
+# Corresponds to -t option.
+# Default: False
+{% if list_only | default(False) == true %}
+ZOPTS="{{ ZOPTS }} -t"
+{% endif %}
+
+# ==============================================================================
+# End of comprez configuration
+# ==============================================================================

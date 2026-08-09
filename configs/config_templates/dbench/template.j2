@@ -1,0 +1,44 @@
+# ============================================================================
+# dbench Configuration Template
+# ============================================================================
+# This template generates a command-line invocation for dbench, a file server
+# benchmarking tool. It maps schema fields to dbench CLI flags.
+#
+# Variables:
+#   dir            : Base directory for filesystem operations (-D)
+#   runtime_seconds: Runtime of the benchmark in seconds (-t)
+#   num_clients    : Number of simultaneous clients (positional argument)
+#   client_txt_path: Path to the client load description file (-c)
+#   sync_file_io   : Enable synchronous file IO (-s)
+#   sync_dir_io    : Enable synchronous directory IO (-S)
+#   xattr_support  : Enable xattr support for Samba4 simulation (-x)
+# ============================================================================
+
+# -D <dir> : Base directory for filesystem operations
+#           Corresponds to dbench's -D flag.
+-D {{ dir | default('/tmp/dbench') }}
+
+# -t <seconds> : Runtime of the benchmark
+#                Corresponds to dbench's -t flag.
+-t {{ runtime_seconds | default(600) }}
+
+# <num_clients> : Number of clients to run simultaneously
+#                 This is a positional argument for dbench.
+{{ num_clients | default(1) }}
+
+# -c <path> : Full path to the client.txt load description file
+#             Corresponds to dbench's -c flag.
+#             Uncomment and adjust if a custom client list is required.
+# -c {{ client_txt_path | default('/usr/share/dbench/client.txt') }}
+
+# -s : Use synchronous file IO on all file operations
+#      Corresponds to dbench's -s flag.
+{% if sync_file_io | default(False) %}-s{% endif %}
+
+# -S : Use synchronous IO for all directory operations
+#      Corresponds to dbench's -S flag.
+{% if sync_dir_io | default(False) %}-S{% endif %}
+
+# -x : Enable xattr support to simulate Samba4 operations
+#      Corresponds to dbench's -x flag.
+{% if xattr_support | default(False) %}-x{% endif %}

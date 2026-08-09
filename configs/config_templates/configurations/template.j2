@@ -1,0 +1,144 @@
+# Default input-remapper configuration file
+# Defines keymaps and device mappings for input event remapping
+
+# Enable or disable the daemon at boot
+{% if enabled | default(true) %}
+{% set enabled_comment = "" %}
+{% else %}
+{% set enabled_comment = "# " %}
+{% endif %}
+{% if enabled | default(true) %}
+{% else %}
+# {% endif %}
+enabled: {{ enabled | default(true) }}
+
+# Path to the Uinput device to create for remapped events
+{% if uinput_path %}
+uinput_path: {{ uinput_path }}
+{% else %}
+uinput_path: /dev/uinput
+{% endif %}
+
+# Log level: debug, info, warning, error, critical
+{% if log_level %}
+log_level: {{ log_level }}
+{% else %}
+log_level: info
+{% endif %}
+
+# Global keymap defaults
+{% if default_grab_exclusive %}
+default_grab_exclusive: {{ default_grab_exclusive }}
+{% else %}
+default_grab_exclusive: true
+{% endif %}
+
+# Device-specific configurations
+{% for device in devices %}
+# Remapping configuration for device: {{ device.name }}
+- device:
+    name: "{{ device.name }}"
+{% if device.phys %}
+    phys: "{{ device.phys }}"
+{% endif %}
+{% if device.unique %}
+    unique: "{{ device.unique }}"
+{% endif %}
+{% if device.enabled is defined %}
+    enabled: {{ device.enabled }}
+{% endif %}
+{% if device.grab_exclusive is defined %}
+    grab_exclusive: {{ device.grab_exclusive }}
+{% endif %}
+    mappings:
+{% for mapping in device.mappings %}
+{% if mapping.comment %}
+      # {{ mapping.comment }}
+{% endif %}
+      - from:
+{% if mapping.from.key %}
+          key: {{ mapping.from.key }}
+{% elif mapping.from.button %}
+          button: {{ mapping.from.button }}
+{% elif mapping.from.axis %}
+          axis: {{ mapping.from.axis }}
+{% elif mapping.from.gesture %}
+          gesture: {{ mapping.from.gesture }}
+{% endif %}
+{% if mapping.from.code is defined %}
+          code: {{ mapping.from.code }}
+{% endif %}
+{% if mapping.from.value is defined %}
+          value: {{ mapping.from.value }}
+{% endif %}
+        to:
+{% if mapping.to.key %}
+          key: {{ mapping.to.key }}
+{% elif mapping.to.button %}
+          button: {{ mapping.to.button }}
+{% elif mapping.to.axis %}
+          axis: {{ mapping.to.axis }}
+{% elif mapping.to.gesture %}
+          gesture: {{ mapping.to.gesture }}
+{% elif mapping.to.combination %}
+          combination:
+{% for combo in mapping.to.combination %}
+            - {{ combo }}
+{% endfor %}
+{% elif mapping.to.command %}
+          command: {{ mapping.to.command }}
+{% elif mapping.to.mouse %}
+          mouse:
+            x: {{ mapping.to.mouse.x | default(0) }}
+            y: {{ mapping.to.mouse.y | default(0) }}
+{% elif mapping.to.wheel %}
+          wheel:
+            direction: {{ mapping.to.wheel.direction }}
+            steps: {{ mapping.to.wheel.steps | default(1) }}
+{% endif %}
+{% if mapping.to.value is defined %}
+          value: {{ mapping.to.value }}
+{% endif %}
+{% if mapping.to.repeat is defined %}
+          repeat: {{ mapping.to.repeat }}
+{% endif %}
+{% if mapping.to.delay_ms is defined %}
+          delay_ms: {{ mapping.to.delay_ms }}
+{% endif %}
+{% if mapping.to.timeout_ms is defined %}
+          timeout_ms: {{ mapping.to.timeout_ms }}
+{% endif %}
+{% if mapping.to.modifiers %}
+          modifiers:
+{% for mod in mapping.to.modifiers %}
+            - {{ mod }}
+{% endfor %}
+{% endif %}
+{% if mapping.to.invert is defined %}
+          invert: {{ mapping.to.invert }}
+{% endif %}
+{% if mapping.to.threshold is defined %}
+          threshold: {{ mapping.to.threshold }}
+{% endif %}
+{% if mapping.to.release_timeout_ms is defined %}
+          release_timeout_ms: {{ mapping.to.release_timeout_ms }}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+# Optional global pre-remap hook (command executed before remapping)
+{% if pre_remap_hook %}
+pre_remap_hook: {{ pre_remap_hook }}
+{% endif %}
+
+# Optional post-remap hook (command executed after remapping)
+{% if post_remap_hook %}
+post_remap_hook: {{ post_remap_hook }}
+{% endif %}
+
+# Optional stop_on_exit flag — kill uinput on daemon stop
+{% if stop_on_exit is defined %}
+stop_on_exit: {{ stop_on_exit }}
+{% else %}
+stop_on_exit: true
+{% endif %}

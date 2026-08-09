@@ -1,0 +1,114 @@
+{
+  "addr": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname for the NBD server to listen on."
+  },
+  "port": {
+    "type": "number",
+    "default": 10809,
+    "description": "TCP port number for incoming NBD connections."
+  },
+  "threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle I/O requests."
+  },
+  "export_name": {
+    "type": "string",
+    "default": "default",
+    "description": "Name of the exported device; clients use this to select which export to connect to."
+  },
+  "description": {
+    "type": "string",
+    "default": "",
+    "description": "Optional human-readable description of the export."
+  },
+  "export_file": {
+    "type": "string",
+    "default": "/var/lib/nbd-server/file.img",
+    "description": "Path to the file or block device to export (e.g., /dev/sdb1 or /path/to/disk.img)."
+  },
+  "export_size": {
+    "type": "string",
+    "default": "",
+    "description": "Override auto-detected export size (e.g., '1G', '500M'). Leave empty to auto-detect."
+  },
+  "read_only": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, clients can only read from the exported device; writes are rejected."
+  },
+  "multifile": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, treat export_file as a directory of files to treat as a single logical device (use with caution)."
+  },
+  "copy_on_write": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, enable copy-on-write mode \u2014 writes create a separate overlay instead of modifying the source."
+  },
+  "strict_io": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, disable asynchronous I/O for stricter compliance and reduced risk of data corruption (slower)."
+  },
+  "prealloc": {
+    "type": "string",
+    "default": "",
+    "description": "Preallocation strategy for sparse files ('none', 'falloc', or 'full'). Leave empty for default behavior."
+  },
+  "block_size": {
+    "type": "number",
+    "default": null,
+    "description": "Override the logical block size (in bytes) advertised to clients (e.g., 512 or 4096). Default uses device-native size."
+  },
+  "tls": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS encryption for this export (requires TLS cert/key configuration)."
+  },
+  "tls_cert": {
+    "type": "string",
+    "default": "/etc/nbd-server/certs/server.crt",
+    "description": "Path to the TLS server certificate (PEM format). Required if TLS is enabled."
+  },
+  "tls_key": {
+    "type": "string",
+    "default": "/etc/nbd-server/certs/server.key",
+    "description": "Path to the TLS server private key (PEM format, unencrypted). Required if TLS is enabled."
+  },
+  "tls_ca_cert": {
+    "type": "string",
+    "default": "/etc/nbd-server/certs/ca.crt",
+    "description": "Path to the CA certificate for client certificate verification (optional, for mutual TLS)."
+  },
+  "hosts_allow": {
+    "type": "list",
+    "default": [],
+    "description": "List of IP addresses, hostnames, or CIDR ranges allowed to connect to this export.",
+    "items": {
+      "type": "string",
+      "description": "A single allowed host or subnet (e.g., '192.168.1.0/24' or 'client.example.com')."
+    }
+  },
+  "hosts_deny": {
+    "type": "list",
+    "default": [],
+    "description": "List of hosts/subnets explicitly denied access to this export.",
+    "items": {
+      "type": "string",
+      "description": "A single denied host or subnet (e.g., '10.0.0.5' or '0.0.0.0/0' to deny all)."
+    }
+  },
+  "custom_options": {
+    "type": "list",
+    "default": [],
+    "description": "Additional low-level options not covered by the above fields (e.g., 'no-tls', 'send_meta', etc.). Each list item is one full line.",
+    "items": {
+      "type": "string",
+      "description": "A single raw configuration line to append to this export block."
+    }
+  }
+}

@@ -1,0 +1,97 @@
+# Ironic Fence Agent Configuration
+# This file configures the fencing agent for OpenStack Ironic.
+# It handles authentication with Keystone, endpoint targeting,
+# and specific node fencing actions (power cycle, status check, etc.).
+
+# ==============================================================================
+# Authentication and Endpoint Details for Ironic
+# ==============================================================================
+
+# Auth type; usually 'password' for Ironic.
+auth_type = "{{ auth_type | default('password') }}"
+
+# Keystone authentication URL (identity endpoint).
+auth_url = "{{ auth_url | default('https://keystone.example.com:5000/v3') }}"
+
+# OpenStack username with Ironic access.
+username = "{{ username | default('admin') }}"
+
+# Password for the OpenStack user. Securely managed in production (e.g., via vault).
+password = "{{ password | default('') }}"
+
+# Tenant (project) name for authentication.
+tenant_name = "{{ tenant_name | default('admin') }}"
+
+# Region to use for Ironic API calls (optional).
+region_name = "{{ region_name | default('') }}"
+
+# ==============================================================================
+# Ironic-specific options
+# ==============================================================================
+
+# Ironic API endpoint URL (overrides discovery).
+api_endpoint = "{{ api_endpoint | default('https://ironic.example.com:6385') }}"
+
+# Enable debug logging for troubleshooting.
+# Note: Fixed directive name from 'odebug' to 'debug' for correctness.
+debug = {{ debug | default(False) | lower }}
+
+# Path to CA bundle for TLS verification (empty = system defaults).
+cafile = "{{ cafile | default('') }}"
+
+# Skip TLS certificate verification (insecure — only for testing).
+insecure = {{ insecure | default(False) | lower }}
+
+# ==============================================================================
+# Node selection (how to identify the target node to fence)
+# ==============================================================================
+
+# Ironic node UUID to fence. Required if node_name is not provided.
+node_id = "{{ node_id | default('') }}"
+
+# Ironic node name to fence. Ignored if node_id is set.
+node_name = "{{ node_name | default('') }}"
+
+# ==============================================================================
+# Fencing action and behavior
+# ==============================================================================
+
+# Number of times to retry the fencing operation.
+retry = {{ retry | default(4) }}
+
+# Seconds to wait between retries.
+retry_wait = {{ retry_wait | default(3) }}
+
+# Fencing action: 'on', 'off', 'reboot', 'status', or 'list'.
+action = "{{ action | default('reboot') }}"
+
+# ==============================================================================
+# Optional: power off mode (graceful vs immediate)
+# ==============================================================================
+
+# Power-off behavior: 'graceful' (soft shutdown) or 'immediate' (hard power-off).
+power_off_mode = "{{ power_off_mode | default('graceful') }}"
+
+# ==============================================================================
+# Timeout settings (seconds)
+# ==============================================================================
+
+# Seconds to wait for authentication (login) to complete.
+login_timeout = {{ login_timeout | default(60) }}
+
+# Seconds to wait for a fencing command (e.g., node state change) to complete.
+command_timeout = {{ command_timeout | default(120) }}
+
+# ==============================================================================
+# Extra options (e.g., domain name if using keystone v3)
+# ==============================================================================
+
+{% if domain_name | default('') %}
+# Keystone domain name (for v3 auth with domains).
+domain_name = "{{ domain_name | default('') }}"
+{% endif %}
+
+{% if project_domain_name | default('') %}
+# Keystone project domain name (for v3 auth).
+project_domain_name = "{{ project_domain_name | default('') }}"
+{% endif %}

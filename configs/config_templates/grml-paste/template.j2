@@ -1,0 +1,35 @@
+# grml-paste CLI configuration file
+# This file sets global defaults for the grml-paste command-line tool.
+# It does not support per-action overrides; those must be passed on the command line.
+
+# server: URL of the paste server
+# This specifies the remote server where pastes will be uploaded and retrieved.
+# The default value is 'paste.grml.org' if the variable is not set in the playbook context.
+server: {{ (server | default('paste.grml.org')) }}
+
+# nickname: Nickname to use for uploads
+# If not explicitly provided, this defaults to the operating system login username.
+# Note: This template relies on a static default or a passed variable.
+# Dynamic lookups like 'lookup' are not safe for self-documenting, static templates.
+nickname: {{ (nickname | default('unknown')) }}
+
+# lang: Language identifier for syntax highlighting
+# Determines the syntax highlighting theme applied when viewing the paste.
+# Supported values depend on the paste server implementation (e.g., 'python', 'bash').
+lang: {{ (lang | default('text')) }}
+
+# expire: Time in hours after which paste expires
+# Set to 0 to keep pastes forever. Any positive integer specifies the TTL in hours.
+expire: {{ (expire | default(0)) }}
+
+# private: Whether pastes should be private (hidden) by default
+# When true, pastes are not listed in public indexes until explicitly shared or fetched.
+private: {{ (private | default(false)) }}
+
+# verbose: Whether to enable more verbose output
+# Enables debug-level logging and detailed status messages in the CLI output.
+verbose: {{ (verbose | default(false)) }}
+
+# Supported actions are: add, del, get, addurl, geturl, getclicks, getlangs, help
+# All action-specific parameters are passed via command-line invocation
+# Configuration file format supports only global defaults — not per-action settings

@@ -1,0 +1,121 @@
+# Debusine Server Configuration Template
+# This configuration file defines the behavior of the Debusine build server.
+# It controls network listening, TLS, database connectivity, logging,
+# job lifecycle management, and worker/toolchain definitions.
+
+# ==============================================================================
+# SERVER SECTION
+# ==============================================================================
+
+# Network address and port the server listens on (host:port format)
+# Default: 127.0.0.1:8000
+bind: {{ (server | default({})).bind | default('127.0.0.1:8000') }}
+
+# Base directory for job artifacts, logs, and internal state
+# Default: /var/lib/debusine/server
+workdir: {{ (server | default({})).workdir | default('/var/lib/debusine/server') }}
+
+# Maximum number of concurrent build jobs the server will accept
+# Default: 16
+max_workers: {{ (server | default({})).max_workers | default(16) }}
+
+# ==============================================================================
+# TLS / HTTPS SECTION
+# ==============================================================================
+
+# Enable TLS (HTTPS) for the API endpoint
+# If enabled, cert_file and key_file must be valid paths
+# Default: False
+tls_enabled: {{ ((server | default({})).tls | default({})).enabled | default(False) }}
+
+# Path to TLS certificate file (PEM format)
+# Used only if tls_enabled is true
+# Default: /etc/debusine/server.crt
+tls_cert_file: {{ ((server | default({})).tls | default({})).cert_file | default('/etc/debusine/server.crt') }}
+
+# Path to TLS private key file (PEM format)
+# Used only if tls_enabled is true
+# Default: /etc/debusine/server.key
+tls_key_file: {{ ((server | default({})).tls | default({})).key_file | default('/etc/debusine/server.key') }}
+
+# ==============================================================================
+# DATABASE SECTION
+# ==============================================================================
+
+# Database connection string (DSN)
+# Format examples:
+#   SQLite:  sqlite:////var/lib/debusine/server.db
+#   PostgreSQL: postgresql://user:pass@host:port/dbname
+# SQLite is suitable for development; PostgreSQL is recommended for production.
+# Default: sqlite:////var/lib/debusine/server.db
+postgresql_dsn: {{ (database | default({})).dsn | default('sqlite:////var/lib/debusine/server.db') }}
+
+# ==============================================================================
+# LOGGING SECTION
+# ==============================================================================
+
+# Verbosity of server logs
+# Allowed levels: debug, info, warn, error
+# Default: info
+log_level: {{ (logging | default({})).level | default('info') }}
+
+# Path to log file
+# Use '-' to log to stdout instead of a file
+# Default: /var/log/debusine/server.log
+log_file: {{ (logging | default({})).file | default('/var/log/debusine/server.log') }}
+
+# ==============================================================================
+# CLEANUP SECTION
+# ==============================================================================
+
+# Number of days to retain completed jobs before automatic cleanup
+# Jobs older than this value will be considered for deletion/archive
+# Default: 30
+job_retention_days: {{ (cleanup | default({})).job_retention_days | default(30) }}
+
+# Whether to compress job artifacts before deleting them after retention period
+# If true, artifacts are archived (e.g., tar.gz) before removal
+# Default: True
+archive_before_delete: {{ (cleanup | default({})).archive_before_delete | default(True) }}
+
+# ==============================================================================
+# TOOLCHAINS SECTION
+# ==============================================================================
+
+# List of supported build toolchains.
+# Each toolchain defines a name, version, and optional environment variables.
+{% set _toolchains = toolchains | default([]) %}
+{% if _toolchains is iterable and _toolchains %}
+{% for toolchain in _toolchains %}
+# Toolchain: {{ toolchain.name | default('unknown') }} (version: {{ toolchain.version | default('unknown') }})
+- name: {{ toolchain.name | default('unknown') }}
+  version: {{ toolchain.version | default('unknown') }}
+  {% if toolchain.env is mapping and toolchain.env %}
+  env:
+    {% for key, val in toolchain.env | dict2items %}
+    {{ key }}: {{ val | tojson }}
+    {% endfor %}
+  {% endif %}
+{% endfor %}
+{% endif %}
+
+# ==============================================================================
+# WORKERS SECTION
+# ==============================================================================
+
+# Worker-specific limits and profiles.
+# Each worker profile defines resource constraints for build jobs.
+{% set _workers = workers | default([]) %}
+{% if _workers is iterable and _workers %}
+{% for worker in _workers %}
+# Worker profile: {{ worker.name | default('unknown') }}
+- name: {{ worker.name | default('unknown') }}
+  max_jobs: {{ worker.max_jobs | default(1) }}
+  {% if worker.cpu_limit is defined and worker.cpu_limit is not none %}
+  cpu_limit: {{ worker.cpu_limit }}
+  {% endif %}
+  {% if worker.memory_limit is defined and worker.memory_limit is not none %}
+  memory_limit: {{ worker.memory_limit }}
+  {% endif %}
+{% endfor %}
+{% endif %}

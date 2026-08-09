@@ -1,0 +1,36 @@
+### Configuration for checkrestart(8)
+# Entries in this file are used with the -x option
+# Instead of adding to this file you can create
+# /etc/checkrestart/local-exclude.conf
+# Blank lines and lines starting with '#' are ignored
+
+## Excluding individual files
+# Common locations for temporary files which are created and unlinked,
+# or other locations where deleted files are expected (eg, apache2
+# uses /dev/zero, nginx uses files in /var and many prorams use /tmp
+# or /home)
+#
+# Schema Description: List of directory prefixes to exclude temporary or volatile files (e.g., /dev/*, /tmp/*).
+# Ansible Variable: checkrestart_temp_file_dirs
+# Default: ['dev', 'run', 'home', 'tmp', 'var']
+file:^/({{ checkrestart_temp_file_dirs | default(['dev', 'run', 'home', 'tmp', 'var']) | join('|') }})/
+
+# /memfd: - see memfd_create(2), used by (eg) gnome
+# /[aio] - asynchronous io files, used by (eg) MySQL
+# /SYSV - SysV shared memory segments, used by (eg), gnome-shell
+#
+# Schema Description: List of patterns to exclude special memory/file mappings (e.g., memfd, aio, SysV shm).
+# Ansible Variable: checkrestart_memfd_aio_sysv_pattern
+# Default: ['memfd:', '[aio]', 'SYSV']
+file:^/({{ checkrestart_memfd_aio_sysv_pattern | default(['memfd:', '[aio]', 'SYSV']) | join('|') }})
+
+# Used by chromium, firefox (#979878)
+file:^/proc/[0-9]+/fdinfo$
+
+# /i915 "used by some X apps on systems with Intel video" -
+#  see https://etbe.coker.com.au/2020/02/04/deleted-mapped-files/
+#
+# Schema Description: List of patterns to exclude Intel graphics-related virtual files (e.g., /drm, /i915).
+# Ansible Variable: checkrestart_x11_intel_video_pattern
+# Default: ['drm', 'i915']
+file:^/({{ checkrestart_x11_intel_video_pattern | default(['drm', 'i915']) | join('|') }})

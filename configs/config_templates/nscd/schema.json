@@ -1,0 +1,62 @@
+{
+  "user": {
+    "type": "string",
+    "default": "nobody",
+    "description": "System user account under which nscd runs. Use a non-root user for security."
+  },
+  "enable_cache_passwd": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of user (passwd) information."
+  },
+  "enable_cache_group": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of group information."
+  },
+  "enable_cache_hosts": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable caching of host (DNS) lookups."
+  },
+  "max_connection": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum number of simultaneous client connections allowed. Increase under high load."
+  },
+  "threads": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of worker threads to handle requests. Match to CPU core count under high concurrency."
+  },
+  "positive_time_to_live": {
+    "type": "object",
+    "default": "{{ positive_time_to_live }}",
+    "description": "TTL (seconds) for positive cache entries (successful lookups). Higher values reduce load but increase stale data risk."
+  },
+  "negative_time_to_live": {
+    "type": "object",
+    "default": "{{ negative_time_to_live }}",
+    "description": "TTL (seconds) for negative cache entries (failed lookups). Keep low to avoid missing newly created accounts."
+  },
+  "pwm_files": {
+    "type": "list",
+    "default": "{{ pwm_files }}",
+    "description": "List of shared memory file paths for each cache type. Each entry maps to a cache type in order."
+  },
+  "debug_level": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0 = silent, higher = more verbose). Set to 1+ only for troubleshooting."
+  },
+  "reload_count": {
+    "type": "number",
+    "default": 5,
+    "description": "After how many cache reloads (due to file changes) the cache should be revalidated automatically."
+  },
+  "max_db_id_len": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum length (bytes) of database identifier (e.g., filename) used for cache invalidation."
+  }
+}

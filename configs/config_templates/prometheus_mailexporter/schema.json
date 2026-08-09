@@ -1,0 +1,84 @@
+{
+  "web_listen_address": {
+    "type": "string",
+    "default": "0.0.0.0:9130",
+    "description": "Network address (host:port) on which to expose the Prometheus metrics endpoint."
+  },
+  "mail_servers": {
+    "type": "list",
+    "default": [],
+    "description": "List of IMAP servers to monitor. Each entry defines a server connection.",
+    "items": {
+      "label": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable name for this server (used in comments and metric labels)."
+      },
+      "connection_string": {
+        "type": "string",
+        "default": "imaps://user:pass@host:993",
+        "description": "IMAP server connection string in the format scheme://user:password@host:port. Use 'imaps' for SSL/TLS, 'imap' for plain/STARTTLS."
+      }
+    }
+  },
+  "check_interval": {
+    "type": "string",
+    "default": "30s",
+    "description": "How often to poll mail servers for new messages. Accepts Go duration strings (e.g., '30s', '1m')."
+  },
+  "timeout": {
+    "type": "string",
+    "default": "10s",
+    "description": "Maximum time allowed per IMAP connection/check before timing out."
+  },
+  "max_messages": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of recent messages to fetch per mailbox. Set to 0 for unlimited."
+  },
+  "skip_tls_verify": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, skip TLS certificate verification when connecting to IMAP servers (not recommended for production)."
+  },
+  "starttls": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, attempt to upgrade plain connections using STARTTLS (use only when connecting to port 143)."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity of logs: 'debug', 'info', 'warn', or 'error'.",
+    "allowed_values": [
+      "debug",
+      "info",
+      "warn",
+      "error"
+    ]
+  },
+  "imap_flags": {
+    "type": "list",
+    "default": [
+      "UNSEEN",
+      "FLAGGED",
+      "ANSWERED"
+    ],
+    "description": "IMAP flags to track as separate metrics (e.g., count of flagged or unseen messages)."
+  },
+  "web_basic_auth_user": {
+    "type": "string",
+    "default": "",
+    "description": "Optional username for HTTP Basic Auth protecting the metrics endpoint."
+  },
+  "web_basic_auth_password": {
+    "type": "string",
+    "default": "",
+    "description": "Optional password for HTTP Basic Auth protecting the metrics endpoint."
+  },
+  "metric_prefix": {
+    "type": "string",
+    "default": "mailexporter",
+    "description": "Prefix for all exported metric names (e.g., 'mailexporter_imap_messages_unseen')."
+  }
+}

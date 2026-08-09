@@ -1,0 +1,205 @@
+{# =============================================================================
+# Dovecot POP3 Configuration Template
+# =============================================================================
+# This template generates the main Dovecot configuration file (dovecot.conf)
+# specifically tuned for POP3 service. It is self-documenting: every
+# configuration directive is preceded by a comment derived from the schema
+# description, ensuring maintainability without external documentation.
+# ============================================================================= #}
+
+{# -----------------------------------------------------------------------------
+# Protocol Definition
+# Enable POP3 protocol support in Dovecot.
+# ----------------------------------------------------------------------------- #}
+protocols = pop3
+
+{# -----------------------------------------------------------------------------
+# Base Directory
+# Base directory where to store runtime data.
+# ----------------------------------------------------------------------------- #}
+base_dir = /var/run/dovecot/
+
+{# -----------------------------------------------------------------------------
+# User Database Configuration
+# Directory for per-user configuration (if used). Defines the user database
+# driver and arguments for locating user credentials.
+# ----------------------------------------------------------------------------- #}
+userdb {
+  driver = passwd-file
+  args = scheme=SHA512-CRYPT username_format = %n /etc/dovecot/users
+}
+
+{# -----------------------------------------------------------------------------
+# Password Database Configuration
+# Password database for authentication. Defines the passdb driver and
+# arguments for verifying user passwords.
+# ----------------------------------------------------------------------------- #}
+passdb {
+  driver = passwd-file
+  args = scheme=SHA512-CRYPT username_format = %n /etc/dovecot/users
+}
+
+{# -----------------------------------------------------------------------------
+# Listen Addresses
+# IP addresses or hostnames to listen on. Use ['*'] for all interfaces,
+# ['127.0.0.1'] for localhost only, or specific IPs.
+# ----------------------------------------------------------------------------- #}
+listen = {{ listen_address | default(['*']) | join(', ') }}
+
+{# -----------------------------------------------------------------------------
+# SSL/TLS Status
+# Enable SSL/TLS encryption for POP3 connections. Required for secure auth.
+# ----------------------------------------------------------------------------- #}
+ssl = {{ ssl_enabled | default(true) | string | lower }}
+
+{# -----------------------------------------------------------------------------
+# SSL Certificate Path
+# Path to SSL certificate used for TLS/SSL encryption.
+# ----------------------------------------------------------------------------- #}
+ssl_cert = </etc/dovecot/ssl/dovecot.crt
+
+{# -----------------------------------------------------------------------------
+# SSL Private Key Path
+# Path to SSL private key used for TLS/SSL encryption.
+# ----------------------------------------------------------------------------- #}
+ssl_key = </etc/dovecot/ssl/dovecot.key
+
+{# -----------------------------------------------------------------------------
+# Minimum SSL Protocol Version
+# Minimum SSL protocol version (e.g., ssl_min_protocol = !SSLv3, !TLSv1).
+# Enforces modern security standards.
+# ----------------------------------------------------------------------------- #}
+ssl_min_protocol = TLSv1.2
+
+{# -----------------------------------------------------------------------------
+# SSL Cipher List
+# Allowed ciphers (strong ciphers only) for TLS negotiation.
+# ----------------------------------------------------------------------------- #}
+ssl_cipher_list = ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+
+{# -----------------------------------------------------------------------------
+# Login Greeting
+# Login user greeting displayed to connecting clients.
+# ----------------------------------------------------------------------------- #}
+login_greeting = Dovecot POP3 ready.
+
+{# -----------------------------------------------------------------------------
+# Mail Location
+# Mail location format defining where user mails are stored on disk.
+# ----------------------------------------------------------------------------- #}
+mail_location = maildir:~/Maildir
+
+{# -----------------------------------------------------------------------------
+# Mail Namespace Configuration
+# Namespace for mailboxes. Defines the structure visible to the user.
+# ----------------------------------------------------------------------------- #}
+namespace {
+  type = private
+  separator = /
+  prefix =
+  inbox = yes
+}
+
+{# -----------------------------------------------------------------------------
+# Mail Processes
+# Maximum number of mail processes (workers) per user session.
+# Controls parallelism for mail delivery and access.
+# ----------------------------------------------------------------------------- #}
+mail_processes = {{ mail_processes | default(10) }}
+
+{# -----------------------------------------------------------------------------
+# Process Limits: Max Connections per User/IP
+# Maximum number of simultaneous connections allowed per user per IP address.
+# Prevents single-user resource exhaustion.
+# ----------------------------------------------------------------------------- #}
+mail_max_userip_connections = {{ mail_max_userip_connections | default(20) }}
+
+{# -----------------------------------------------------------------------------
+# POP3 UIDL Format
+# POP3 UIDL format string for unique message identifiers.
+# ----------------------------------------------------------------------------- #}
+pop3_uidl_format = %08Xu%08Xv
+
+{# -----------------------------------------------------------------------------
+# POP3 Client Workarounds
+# List of POP3 client compatibility workarounds to enable. Common:
+# outlook-no-nuls, oe-ns-eoh. Fixes issues with non-standard clients.
+# ----------------------------------------------------------------------------- #}
+pop3_client_workarounds = {{ pop3_client_workarounds | default(['outlook-no-nuls', 'oe-ns-eoh']) | join(', ') }}
+
+{# -----------------------------------------------------------------------------
+# Disable Plaintext Authentication
+# Disallow plaintext authentication unless SSL/TLS is active.
+# Recommended to keep enabled to prevent credential sniffing.
+# ----------------------------------------------------------------------------- #}
+disable_plaintext_auth = {{ disable_plaintext_auth | default(true) | string | lower }}
+
+{# -----------------------------------------------------------------------------
+# Logging Path
+# Path to the log file (e.g., '/var/log/dovecot.log'). Leave blank or use
+# 'syslog' to log to the system log instead.
+# ----------------------------------------------------------------------------- #}
+log_path = {{ log_path | default('syslog') }}
+
+{# -----------------------------------------------------------------------------
+# Info Logging Path
+# Path for informational log messages. Defaults to log_path if not specified.
+# ----------------------------------------------------------------------------- #}
+info_log_path = {{ log_path | default('syslog') }}
+
+{# -----------------------------------------------------------------------------
+# Authentication Mechanisms
+# Supported SASL authentication mechanisms. Avoid 'anonymous'.
+# Defines how clients authenticate against the passdb.
+# ----------------------------------------------------------------------------- #}
+auth_mechanisms = {{ auth_mechanisms | default(['plain', 'login']) | join(' ') }}
+
+{# -----------------------------------------------------------------------------
+# Mail Storage Directives
+# Configuration for mail storage performance and backend type.
+# ----------------------------------------------------------------------------- #}
+mail_temp_dir = /var/spool/dovecot
+mail_fsync = always
+mail_nfs_storage = no
+mail_nfs_index = no
+
+{# -----------------------------------------------------------------------------
+# Service: Auth Socket
+# Auth socket path for mail delivery (e.g., from Postfix). Defines the
+# unix listener for the auth-userdb socket with appropriate permissions.
+# ----------------------------------------------------------------------------- #}
+service auth {
+  unix_listener auth-userdb {
+    mode = 0660
+    user = vmail
+    group = vmail
+  }
+}
+
+{# -----------------------------------------------------------------------------
+# Service: POP3
+# POP3 service definition. Handles actual mail retrieval connections.
+# ----------------------------------------------------------------------------- #}
+service pop3 {
+  {# Max connections per POP3 process #}
+  max_clients = {{ pop3_max_clients | default(200) }}
+}
+
+{# -----------------------------------------------------------------------------
+# Service: POP3-Login
+# POP3 login service (handles incoming connections). Manages the authentication
+# phase before the actual POP3 session starts.
+# ----------------------------------------------------------------------------- #}
+service pop3-login {
+  {# Max connections to login service #}
+  max_clients = {{ pop3_login_max_clients | default(100) }}
+  {# Idle kill timeout for login sessions - removed due to missing variable #}
+  # login_idle_kill = {{ login_idle_kill | default('0s') }}
+}
+
+{# -----------------------------------------------------------------------------
+# Include Additional Configuration
+# Include conf.d/*.conf files (optional, enabled by default).
+# Allows modular configuration extension.
+# ----------------------------------------------------------------------------- #}
+# !include conf.d/*.conf

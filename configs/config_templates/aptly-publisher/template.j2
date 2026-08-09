@@ -1,0 +1,63 @@
+# aptly-publisher global configuration file
+# This template configures the aptly package publishing agent.
+# Variables are sourced from Ansible host/group vars. All variables use
+# Jinja2 `default()` filters to ensure safe rendering even if a variable
+# is undefined in the playbook context.
+
+[global]
+# URL to Aptly API endpoint (e.g., http://localhost:8080)
+url = {{ aptly_url | default('http://localhost:8080') }}
+
+# Timeout in seconds for Aptly API requests; increase for large publishes
+timeout = {{ timeout | default(30) }}
+
+# Storage backend type: 'filesystem', 'swift:<name>', or 's3:<name>'
+storage = {{ storage | default('filesystem') }}
+
+# Enable verbose output
+verbose = {{ verbose | default(false) | lower }}
+
+# Enable debug output
+debug = {{ debug | default(false) | lower }}
+
+[aptly]
+# List of architectures to publish by default
+# Values are joined into a comma-separated string as required by aptly
+architectures = {{ default_architectures | default(['amd64', 'i386']) | join(', ') }}
+
+# Whether to generate and publish the Contents file (slower)
+publish_contents = {{ publish_contents | default(false) | lower }}
+
+# Use Acquire-by-hash for repository consistency
+acquire_by_hash = {{ acquire_by_hash | default(false) | lower }}
+
+# Default components (e.g., ['main', 'contrib']) to use for publish/promote actions
+default_components = {{ default_components | default([]) | join(', ') }}
+
+[actions]
+# Default components to use for publish/promote/cleanup actions
+components = {{ default_components | default([]) | join(', ') }}
+
+{# Publish action defaults #}
+[actions.publish]
+# Default distribution names (e.g., ['bullseye', 'bullseye-updates']) for publish
+default_dists = {{ default_dists | default([]) | join(', ') }}
+
+# Publish only the latest version of each package
+only_latest = {{ only_latest | default(false) | lower }}
+
+{# Promote action defaults #}
+[actions.promote]
+# Default source publish pattern (e.g., 'jessie(/?.*)/nightly') for promote
+default_source = {{ default_source | default('') }}
+
+# Default target publish format (e.g., 'jessie{0}/testing') for promote
+default_target = {{ default_target | default('') }}
+
+# Show differences between snapshots before promotion
+show_diff = {{ show_diff | default(false) | lower }}
+
+{# Cleanup action defaults #}
+[actions.cleanup]
+# Hard-delete unused packages and snapshots during cleanup
+hard = {{ hard_cleanup | default(false) | lower }}

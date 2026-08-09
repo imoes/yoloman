@@ -1,0 +1,90 @@
+# cdebootstrap configuration script
+# This template generates the command-line arguments for `cdebootstrap`, a tool to bootstrap a Debian base system.
+# Every variable reference uses `| default(...)` to ensure safe rendering even if the variable is undefined.
+# Boolean flags are emitted only when the value is truthy; string arguments are emitted only when non-empty.
+
+{% set arch = arch | default('') %}
+{% if arch | length > 0 %}
+# Target architecture (e.g., amd64, arm64). Required only for non-default arch.
+--arch={{ arch }}
+{% endif %}
+
+{% set configdir = configdir | default('') %}
+{% if configdir | length > 0 %}
+# Path to custom config directory (for flavour files, etc.).
+--configdir={{ configdir }}
+{% endif %}
+
+{% set flavour = flavour | default('standard') %}
+# Bootstrap flavour: standard, minimal, or build.
+--flavour={{ flavour }}
+
+{% set keyring = keyring | default('') %}
+{% if keyring | length > 0 %}
+# Filename of GPG keyring to use (relative paths searched in /usr/local/share/keyrings, /usr/share/keyrings, and configdir).
+--keyring={{ keyring }}
+{% endif %}
+
+{% set helperdir = helperdir | default('') %}
+{% if helperdir | length > 0 %}
+# Path to custom helper directory (e.g., for policy-rc.d scripts).
+--helperdir={{ helperdir }}
+{% endif %}
+
+{% if allow_unauthenticated | default(false) %}
+# If true, ignore unauthenticated packages and missing Release.gpg.
+--allow-unauthenticated
+{% endif %}
+
+{% if download_only | default(false) %}
+# If true, download packages but skip installation.
+--download-only
+{% endif %}
+
+{% if foreign | default(false) %}
+# If true, enable bootstrap for non-native architecture (requires qemu-user-static).
+--foreign
+{% endif %}
+
+{% set include = include | default([]) %}
+{% if include | length > 0 %}
+# Comma-separated list of extra packages to install (e.g., ['vim', 'curl']).
+--include={{ include | join(',') }}
+{% endif %}
+
+{% set exclude = exclude | default([]) %}
+{% if exclude | length > 0 %}
+# Comma-separated list of packages to exclude (only effective for explicitly included packages).
+--exclude={{ exclude | join(',') }}
+{% endif %}
+
+{% if quiet | default(false) %}
+# If true, suppress most output (warnings and errors only).
+-q
+{% endif %}
+
+{% if verbose | default(false) %}
+# If true, show all command output.
+-v
+{% endif %}
+
+{% if debug | default(false) %}
+# If true, enable debug output.
+--debug
+{% endif %}
+
+{% set target = target | default('') %}
+# Target directory where the new system is bootstrapped (e.g., /target).
+{% if target | length > 0 %}
+{{ target }}
+{% else %}
+# ERROR: 'target' is required but not set.
+{% endif %}
+
+{% set mirror = mirror | default('') %}
+# Mirror URL (http://, ftp://, file://, or ssh://). Empty string defaults to http://ftp.debian.org/debian.
+{% if mirror | length > 0 %}
+{{ mirror }}
+{% else %}
+http://ftp.debian.org/debian
+{% endif %}

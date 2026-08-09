@@ -1,0 +1,160 @@
+# =============================================================================
+# Gfarm gfsd (Gfarm Filesystem Daemon) Configuration
+# =============================================================================
+# This file configures the gfsd daemon, which manages data storage and
+# retrieval for the Gfarm distributed filesystem.
+#
+# Syntax: Key: Value
+# See gfsd.conf(5) for full documentation of each directive.
+# =============================================================================
+
+# --- Network Binding ---
+
+# IP address or hostname to bind the gfsd service to.
+# Use '*' to listen on all available interfaces.
+# Variable: listen_addr (default: '*')
+listen_addr: {{ listen_addr | default('*') }}
+
+# TCP port for the gfsd daemon to accept client connections.
+# Variable: port (default: 6001)
+port: {{ port | default(6001) }}
+
+# --- System Paths & Limits ---
+
+# Directory where gfsd stores runtime state, including PID and lock files.
+# Variable: spool_dir (default: '/var/spool/gfarm')
+spool_dir: {{ spool_dir | default('/var/spool/gfarm') }}
+
+# Directory for caching file metadata (e.g., directory listings) to improve performance.
+# Variable: metadata_cache_dir (default: '/var/cache/gfarm')
+metadata_cache_dir: {{ metadata_cache_dir | default('/var/cache/gfarm') }}
+
+# Soft limit on open file descriptors for the gfsd process.
+# Variable: rlimit_nofile (default: 65536)
+rlimit_nofile: {{ rlimit_nofile | default(65536) }}
+
+# Path to chroot directory. Leave empty to disable chrooting.
+# Variable: chroot_dir (default: '')
+chroot_dir: {{ chroot_dir | default('') }}
+
+# --- Concurrency & Performance ---
+
+# Maximum number of worker threads handling client I/O requests.
+# Variable: max_worker_threads (default: 32)
+max_worker_threads: {{ max_worker_threads | default(32) }}
+
+# Maximum number of simultaneous client connections the daemon accepts.
+# Variable: max_client_connections (default: 1024)
+max_client_connections: {{ max_client_connections | default(1024) }}
+
+# Timeout in seconds for idle client connections before termination.
+# Variable: client_keepalive_timeout (default: 300)
+client_keepalive_timeout: {{ client_keepalive_timeout | default(300) }}
+
+# Time-to-live (seconds) for cached metadata entries.
+# Variable: metadata_cache_ttl (default: 300)
+metadata_cache_ttl: {{ metadata_cache_ttl | default(300) }}
+
+# --- Data Integrity & Replication ---
+
+# Enable verification of end-to-end data integrity using checksums during I/O.
+# Variable: enable_io_checksum (default: true)
+enable_io_checksum: {{ enable_io_checksum | default(true) | lower }}
+
+# Default number of copies (replicas) for newly created files.
+# Variable: replication_factor (default: 2)
+replication_factor: {{ replication_factor | default(2) }}
+
+# Placement constraint for replicas (e.g., 'rack:1' ensures replicas are on different racks).
+# Variable: replication_constraint (default: 'rack:1')
+replication_constraint: {{ replication_constraint | default('rack:1') }}
+
+# Force synchronous updates to metadata. Slower but safer in case of failure.
+# Variable: sync_metadata (default: false)
+sync_metadata: {{ sync_metadata | default(false) | lower }}
+
+# --- Authentication & Security ---
+
+# Enable TLS encryption for client–server communication.
+# Variable: use_ssl (default: false)
+use_ssl: {{ use_ssl | default(false) | lower }}
+
+# Path to the server certificate (PEM format) for TLS client connections.
+# Variable: ssl_cert_file (default: '/etc/gfarm2/ssl/server.crt')
+ssl_cert_file: {{ ssl_cert_file | default('/etc/gfarm2/ssl/server.crt') }}
+
+# Path to the server private key (PEM format, unencrypted) for TLS.
+# Variable: ssl_key_file (default: '/etc/gfarm2/ssl/server.key')
+ssl_key_file: {{ ssl_key_file | default('/etc/gfarm2/ssl/server.key') }}
+
+# CA certificate bundle for verifying the GFM server’s TLS certificate.
+# Variable: ssl_ca_cert_file (default: '/etc/gfarm2/ssl/ca.crt')
+ssl_ca_cert_file: {{ ssl_ca_cert_file | default('/etc/gfarm2/ssl/ca.crt') }}
+
+# Verify that the GFM server’s certificate matches its hostname during TLS handshake.
+# Variable: ssl_verify_hostname (default: true)
+ssl_verify_hostname: {{ ssl_verify_hostname | default(true) | lower }}
+
+# Enable Kerberos v5 authentication for client access.
+# Variable: use_kerberos (default: false)
+use_kerberos: {{ use_kerberos | default(false) | lower }}
+
+# Enable GSI (Grid Security Infrastructure) authentication instead of Kerberos.
+# Variable: use_gsi (default: false)
+use_gsi: {{ use_gsi | default(false) | lower }}
+
+# Path to the GSI proxy certificate (used only if use_gsi is true).
+# Variable: gsi_proxy_cert (default: '/tmp/x509up_u0')
+gsi_proxy_cert: {{ gsi_proxy_cert | default('/tmp/x509up_u0') }}
+
+# --- Logging ---
+
+# Minimum log level (DEBUG, INFO, NOTICE, WARNING, ERROR) to record in the log.
+# Variable: log_level (default: 'NOTICE')
+log_level: {{ log_level | default('NOTICE') }}
+
+# Send file access logs to syslog (useful for centralized log aggregation).
+# Variable: access_log_to_syslog (default: true)
+access_log_to_syslog: {{ access_log_to_syslog | default(true) | lower }}
+
+# Path to file for access logs if not using syslog. Set to empty to disable file logging.
+# Variable: access_log_file (default: '/var/log/gfarm/access.log')
+{% if access_log_file | default('/var/log/gfarm/access.log') %}
+access_log_file: {{ access_log_file | default('/var/log/gfarm/access.log') }}
+{% else %}
+# access_log_file: disabled
+{% endif %}
+
+# Log detailed I/O operations (e.g., read/write per-file stats) for debugging.
+# Variable: verbose_io_log (default: false)
+verbose_io_log: {{ verbose_io_log | default(false) | lower }}
+
+# --- Quotas & Access Control ---
+
+# Enable enforcement of per-user or per-project quotas.
+# Variable: enable_quota (default: false)
+enable_quota: {{ enable_quota | default(false) | lower }}
+
+# List of trusted networks for administrative access (CIDR notation).
+# Variable: admin_trusted_cidrs (default: ['127.0.0.0/8', '::1/128'])
+{% for cidr in admin_trusted_cidrs | default(['127.0.0.0/8', '::1/128']) %}
+admin_trusted_network: {{ cidr }}
+{% endfor %}
+
+# --- Metadata Servers (GFM) ---
+
+# List of metadata servers (GFM) for the gfsd to connect to.
+# Format: hostname[:port] (port defaults to 15005 if omitted).
+# Variable: gfm_host_list (default: ['gfm.example.com'])
+# Comma-separated list of hosts.
+gfm_host: {{ gfm_host_list | default(['gfm.example.com']) | join(',') }}
+
+# --- Network Features ---
+
+# Perform DNS reverse-lookup on client IP to resolve hostname (used for logging and auth).
+# Variable: use_dns (default: true)
+use_dns: {{ use_dns | default(true) | lower }}
+
+# Enable IPv6 support for network binding and connections.
+# Variable: enable_ipv6 (default: true)
+enable_ipv6: {{ enable_ipv6 | default(true) | lower }}

@@ -1,0 +1,26 @@
+# Ansible-generated gcab command configuration.
+# gcab is a command-line utility to create, extract, and list Microsoft Cabinet (.cab) archives.
+# This template generates the full command line based on the provided boolean flags,
+# directory, output file, and input file list.
+
+gcab \
+{# create: Create a new cabinet archive #}
+{% if create | default(false) %}-c {% endif %}
+{# extract: Extract files from a cabinet archive #}
+{% if extract | default(false) %}-x {% endif %}
+{# list: List files of a cabinet archive #}
+{% if list | default(false) %}-t {% endif %}
+{# nopath: Create files without pathnames #}
+{% if nopath | default(false) %}-n {% endif %}
+{# directory: Change to or extract to directory DIR #}
+{% if directory | default('') is not none and (directory | default('')) | length > 0 %}-C {{ directory | default('') }} {% endif %}
+{# verbose: Verbosely list files processed #}
+{% if verbose | default(false) %}-v {% endif %}
+{# zip: Use zip compression #}
+{% if zip | default(false) %}-z {% endif %}
+{# cabfile: Output cabinet file path #}
+{{ cabfile | default('') }} \
+{# files: List of input files to archive or extract #}
+{% for file in files | default([]) %}
+{{ file }}{% if not loop.last %} {% endif %}
+{% endfor %}

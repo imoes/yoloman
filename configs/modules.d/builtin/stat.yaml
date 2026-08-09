@@ -1,0 +1,40 @@
+name: stat
+fqcn: builtin.stat
+collection: builtin
+short_description: 'Inspect a single filesystem path without reading its content:
+  whether it exists, its size in bytes, permission mode (octal string, e.g'
+description: 'Inspect a single filesystem path without reading its content: whether
+  it exists, its size in bytes, permission mode (octal string, e.g. "0644"), owning
+  uid/gid, whether it is a regular file, directory, or symlink, and its modification
+  time (Unix seconds). Returns {"exists": false, "path": ...} if nothing is at that
+  path — this is not an error, callers should check the "exists" field. Use this before
+  a file/copy/template operation to check whether a change is actually needed (idempotency
+  check), or to verify a prior write took effect.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.stat. Same field semantics (exists, size, mode, isdir,
+  isreg, issymlink, uid, gid, mtime).
+
+  - Chef: the implicit current-resource lookup a `file`/`directory`/`template` resource
+  performs internally (File.stat), or explicit Ruby `::File.exist?`/`::File.stat`
+  in a recipe/library.
+
+  - Puppet: no dedicated introspection type; closest is querying the `file` resource''s
+  current state via `puppet resource file <path>`, or a custom fact.
+
+  - Salt: the `file.stats` execution module.
+
+  - Terraform: a `data "local_file"` data source (for the machine running Terraform)
+  or a `null_resource` with a `remote-exec`/`local-exec` provisioner running `stat`
+  for a managed host.'
+options:
+  path:
+    type: string
+    description: Filesystem path to inspect, e.g. "/etc/nginx/nginx.conf" or "/opt/app".
+    required: true
+native: true
+writes: false
+runtime: native
+source: agent-registry

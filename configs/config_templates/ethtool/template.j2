@@ -1,0 +1,23 @@
+#!/bin/sh
+
+# Self-documenting ethtool configuration script.
+# Generated from Ansible Jinja2 template.
+# This script configures specific Ethernet adapter settings using `ethtool`.
+
+ETHTOOL=/usr/sbin/ethtool
+
+# Ensure ethtool binary exists before proceeding.
+test -x $ETHTOOL || exit 0
+
+# Skip loopback interface as ethtool settings are generally not applicable/relevant.
+[ "$IFACE" != "lo" ] || exit 0
+
+# Gather together the mixed bag of settings applied with -s/--change
+# Each setting is only included if its corresponding variable is defined and non-empty.
+SETTINGS="\
+{% if IF_ETHERNET_PORT is defined %} port {{ IF_ETHERNET_PORT }}{% endif %}\
+{% if IF_DRIVER_MESSAGE_LEVEL is defined %} msglvl {{ IF_DRIVER_MESSAGE_LEVEL }}{% endif %}\
+"
+
+# Apply the settings if any were collected; otherwise do nothing.
+[ -z "$SETTINGS" ] || $ETHTOOL --change "$IFACE" $SETTINGS

@@ -1,0 +1,23 @@
+{# belenios-tool configuration #}
+{#
+  This template generates the belenios-tool configuration file.
+  belenios-tool is a utility for managing elections in the Belenios voting system.
+  It typically operates via command-line invocations rather than a long-running daemon
+  with network listeners. Therefore, this configuration primarily controls a list
+  of predefined commands to be executed or monitored.
+#}
+
+{% set _commands = commands | default([]) %}
+
+{#
+  commands: List of belenios-tool command invocations (e.g., 'belenios-tool election create --public-key /etc/belenios/public.pem') — one string per list item.
+  Each entry in this list becomes a line in the configuration file.
+  Use this to automate election creation, setup, or auditing steps.
+#}
+{% if _commands | length > 0 %}
+# Command-specific invocation options
+# Defined by the 'commands' variable.
+{% for cmd in _commands %}
+{{ cmd | indent(0) }}
+{% endfor %}
+{% endif %}

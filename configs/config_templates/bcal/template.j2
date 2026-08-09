@@ -1,0 +1,77 @@
+{# =============================================================================
+   bcal(1) Configuration Template
+   =============================================================================
+   This file configures persistent defaults for the `bcal` (bytes calculator) utility.
+   It supports CHS/LBA geometry conversions, interactive defaults, and batch expression evaluation.
+   
+   All variables are populated from the Ansible playbook/role variables with safe defaults.
+   ============================================================================= #}
+
+# bcal(1) configuration file
+# Format: one directive per line.
+# Empty lines and lines starting with '#' are ignored.
+# Directives set default options for interactive mode and one-shot execution.
+
+# -----------------------------------------------------------------------------
+# Sector size in bytes (e.g., 512, 4096). Must be a positive integer.
+# Controls the base unit for storage capacity calculations.
+# Command-line equivalent: -s <bytes>
+# -----------------------------------------------------------------------------
+sector_size = {{ sector_size | default(512) }}
+
+# -----------------------------------------------------------------------------
+# Maximum heads per cylinder for CHS (Cylinder-Head-Sector) / LBA conversion.
+# Positive integer (e.g., 16, 255). Used when converting between CHS and LBA
+# addressing schemes without explicit parameters.
+# Command-line equivalent: -f l...-MH-MS or -f c...-MH-MS (MH part)
+# -----------------------------------------------------------------------------
+max_heads = {{ max_heads | default(16) }}
+
+# -----------------------------------------------------------------------------
+# Maximum sectors per track for CHS/LBA conversion.
+# Positive integer (e.g., 63, 64). Used alongside max_heads for geometry
+# calculations.
+# Command-line equivalent: -f l...-MH-MS or -f c...-MH-MS (MS part)
+# -----------------------------------------------------------------------------
+max_sectors = {{ max_sectors | default(63) }}
+
+# -----------------------------------------------------------------------------
+# Use calc(1) instead of bc(1) for non-storage arithmetic.
+# When enabled, bcal delegates complex math to the `calc` utility.
+# Default: false (uses bc).
+# Command-line equivalent: -b or BCAL_USE_CALC=1
+# -----------------------------------------------------------------------------
+{% if use_calc | default(false) | bool %}
+use_calc = true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Minimal output mode.
+# When enabled, outputs only decimal byte values, suppressing unit labels
+# and verbose formatting. Useful for scripting.
+# Default: false.
+# Command-line equivalent: -m
+# -----------------------------------------------------------------------------
+{% if minimal_output | default(false) | bool %}
+minimal_output = true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Debug mode.
+# Enables verbose logging and diagnostic output to stderr.
+# Default: false.
+# Command-line equivalent: -d
+# -----------------------------------------------------------------------------
+{% if debug | default(false) | bool %}
+debug = true
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Batch expressions.
+# List of bcal expressions to evaluate in one-shot mode.
+# Each item is a string representing a valid bcal expression.
+# These are evaluated sequentially.
+# -----------------------------------------------------------------------------
+{% for expr in expressions | default([]) %}
+expression = "{{ expr }}"
+{% endfor %}

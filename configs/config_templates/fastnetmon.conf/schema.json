@@ -1,0 +1,231 @@
+{
+  "main": {
+    "type": "object",
+    "description": "Core FastNetMon daemon settings",
+    "properties": {
+      "ban_time": {
+        "type": "number",
+        "default": 300,
+        "description": "Duration (in seconds) for which an IP is banned after exceeding thresholds"
+      },
+      "graphite_enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable sending performance and attack statistics to Graphite"
+      },
+      "graphite_host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Graphite server hostname or IP"
+      },
+      "graphite_port": {
+        "type": "number",
+        "default": 2003,
+        "description": "Graphite server port"
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "description": "Logging verbosity: 'debug', 'info', 'warning', 'error'"
+      },
+      "log_dir": {
+        "type": "string",
+        "default": "/var/log/fastnetmon",
+        "description": "Directory for FastNetMon log files"
+      },
+      "monitor_interfaces": {
+        "type": "list",
+        "default": [
+          "eth0"
+        ],
+        "description": "List of network interfaces to monitor for traffic",
+        "items": {
+          "type": "string",
+          "description": "Interface name (e.g., 'eth0', 'ens1f0')"
+        }
+      },
+      "capture_method": {
+        "type": "string",
+        "default": "netmap",
+        "description": "Packet capture backend: 'netmap', 'af_packet', or 'pcap'"
+      },
+      "bandwidth_threshold_enable": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable ban based on bandwidth (Mbps) threshold"
+      },
+      "pps_threshold_enable": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable ban based on packets-per-second (PPS) threshold"
+      },
+      "flow_collector_ip": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address for receiving NetFlow/sFlow/IPFIX (set to 0.0.0.0 to disable)"
+      },
+      "flow_collector_port": {
+        "type": "number",
+        "default": 2055,
+        "description": "UDP port for flow collector"
+      }
+    }
+  },
+  "threshold": {
+    "type": "object",
+    "description": "Attack detection thresholds (per-IP)",
+    "properties": {
+      "bandwidth_threshold": {
+        "type": "number",
+        "default": 1000,
+        "description": "Bandwidth in Mbps that triggers a ban (if enabled)"
+      },
+      "pps_threshold": {
+        "type": "number",
+        "default": 10000,
+        "description": "Packets per second that triggers a ban (if enabled)"
+      },
+      "udp_amplification_pps_threshold": {
+        "type": "number",
+        "default": 1000,
+        "description": "PPS threshold for UDP amplification (e.g., SSDP, mDNS)"
+      },
+      "ntp_amplification_pps_threshold": {
+        "type": "number",
+        "default": 1000,
+        "description": "PPS threshold for NTP amplification"
+      },
+      "dns_amplification_pps_threshold": {
+        "type": "number",
+        "default": 1000,
+        "description": "PPS threshold for DNS amplification"
+      },
+      "syn_flood_pps_threshold": {
+        "type": "number",
+        "default": 5000,
+        "description": "PPS threshold for SYN flood detection"
+      }
+    }
+  },
+  "white_list": {
+    "type": "object",
+    "description": "Trusted IPs/subnets that are never banned",
+    "properties": {
+      "ip_list": {
+        "type": "list",
+        "default": [],
+        "description": "List of trusted IPv4/IPv6 addresses or CIDR subnets",
+        "items": {
+          "type": "string",
+          "description": "IP or subnet (e.g., '192.0.2.0/24', '2001:db8::/32')"
+        }
+      }
+    }
+  },
+  "black_list": {
+    "type": "object",
+    "description": "Known malicious IPs/subnets that are always banned",
+    "properties": {
+      "ip_list": {
+        "type": "list",
+        "default": [],
+        "description": "List of IPs/subnets to ban automatically",
+        "items": {
+          "type": "string",
+          "description": "IP or subnet (e.g., '198.51.100.1')"
+        }
+      }
+    }
+  },
+  "attack_notification": {
+    "type": "object",
+    "description": "Alert configuration for attack events",
+    "properties": {
+      "enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable sending attack notifications"
+      },
+      "telegram_enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Send notifications via Telegram"
+      },
+      "telegram_token": {
+        "type": "string",
+        "default": "",
+        "description": "Telegram bot API token"
+      },
+      "telegram_chat_id": {
+        "type": "string",
+        "default": "",
+        "description": "Telegram chat ID (numeric or @channel)"
+      },
+      "email_enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Send notifications via email (SMTP)"
+      },
+      "email_to": {
+        "type": "string",
+        "default": "",
+        "description": "Comma-separated list of recipient email addresses"
+      },
+      "email_from": {
+        "type": "string",
+        "default": "",
+        "description": "Sender email address"
+      },
+      "email_smtp_server": {
+        "type": "string",
+        "default": "",
+        "description": "SMTP server hostname"
+      },
+      "email_smtp_port": {
+        "type": "number",
+        "default": 587,
+        "description": "SMTP server port (typically 25, 465, or 587)"
+      },
+      "email_smtp_tls": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use STARTTLS for SMTP connection"
+      },
+      "message_template": {
+        "type": "string",
+        "default": "",
+        "description": "Custom message template (empty uses built-in default). Variables: {{ attack_type }}, {{ attacker_ip }}, {{ traffic_mbps }}, {{ traffic_pps }}"
+      }
+    }
+  },
+  "mitigation": {
+    "type": "object",
+    "description": "Automatic mitigation settings",
+    "properties": {
+      "enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable automatic mitigation (e.g., blackhole, flow spec)"
+      },
+      "method": {
+        "type": "string",
+        "default": "blackhole",
+        "description": "Mitigation method: 'blackhole' (Linux routing), 'flow_spec' (BGP Flowspec), or 'null_route' (Cisco/Arista via CLI)"
+      },
+      "bgp_flow_spec_enable": {
+        "type": "boolean",
+        "default": false,
+        "description": "Use BGP Flowspec for mitigation (requires BGP peering)"
+      },
+      "bgp_flow_spec_announce_to": {
+        "type": "list",
+        "default": [],
+        "description": "List of BGP peer IPs to announce flowspec rules to",
+        "items": {
+          "type": "string",
+          "description": "BGP peer IP address (e.g., '192.0.2.1')"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,290 @@
+{
+  "base_uri": {
+    "type": "string",
+    "default": "/monitorix",
+    "description": "Base URL path for the Monitorix web interface (e.g., '/monitorix'). Must start with a slash."
+  },
+  "http_host": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address or hostname to bind the HTTP server to. Use '0.0.0.0' for all interfaces."
+  },
+  "http_port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port on which the Monitorix HTTP server listens."
+  },
+  "use_internal_server": {
+    "type": "boolean",
+    "default": true,
+    "description": "Whether to use Monitorix\u2019s built-in HTTP server (true) or rely on a reverse proxy (false)."
+  },
+  "template_dir": {
+    "type": "string",
+    "default": "/usr/share/monitorix/templates",
+    "description": "Absolute path to directory containing HTML templates for rendering graphs."
+  },
+  "data_dir": {
+    "type": "string",
+    "default": "/var/lib/monitorix",
+    "description": "Directory where RRD database files and other persistent data are stored."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/var/run/monitorix/monitorix.pid",
+    "description": "Path to the PID file for the Monitorix daemon."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/monitorix.log",
+    "description": "Path to the log file. Use '-' to log to standard output (useful for systemd)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 3,
+    "description": "Verbosity of logging: 0 = quiet, 1 = errors only, 2 = warnings, 3 = info (recommended for production)."
+  },
+  "timezone": {
+    "type": "string",
+    "default": "UTC",
+    "description": "Timezone identifier (e.g., 'America/New_York', 'Europe/London') for displayed timestamps."
+  },
+  "lang": {
+    "type": "string",
+    "default": "en",
+    "description": "Default language for the UI labels and messages (Monitorix supports 'en', 'de', 'es', 'fr', 'pt_BR', 'ru')."
+  },
+  "interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval in seconds between each data collection cycle (minimum 5, typical values: 60\u2013300)."
+  },
+  "history_hours": {
+    "type": "number",
+    "default": 72,
+    "description": "Number of hours of historical data to retain in the RRD database (12\u2013720 typical)."
+  },
+  "mysql_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable monitoring of MySQL/MariaDB server statistics."
+  },
+  "mysql_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "MySQL host to connect to."
+  },
+  "mysql_port": {
+    "type": "number",
+    "default": 3306,
+    "description": "MySQL server port."
+  },
+  "mysql_user": {
+    "type": "string",
+    "default": "monitorix",
+    "description": "MySQL username for monitoring (requires REPLICATION CLIENT/SLAVE MONITOR privileges)."
+  },
+  "mysql_password": {
+    "type": "string",
+    "default": "",
+    "description": "MySQL password for the monitoring user. Leave empty for socket auth (recommended)."
+  },
+  "mysql_socket": {
+    "type": "string",
+    "default": "/var/run/mysqld/mysqld.sock",
+    "description": "MySQL socket path \u2014 used instead of host/port if provided."
+  },
+  "monitored_services": {
+    "type": "list",
+    "default": [],
+    "description": "List of systemd services to monitor (name, enabled toggle, and unit name).",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Friendly display name for the service."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to enable monitoring for this service."
+        },
+        "unit": {
+          "type": "string",
+          "default": "",
+          "description": "Exact systemd unit name (e.g., 'sshd', 'nginx.service')."
+        },
+        "description": {
+          "type": "string",
+          "default": "",
+          "description": "Optional human-readable description (defaults to unit name if omitted)."
+        }
+      }
+    }
+  },
+  "monitored_ports": {
+    "type": "list",
+    "default": [],
+    "description": "List of TCP/UDP ports to monitor for listening status.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Friendly display name for the port."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to monitor this port."
+        },
+        "port": {
+          "type": "number",
+          "default": 0,
+          "description": "Port number to watch."
+        },
+        "proto": {
+          "type": "string",
+          "default": "tcp",
+          "description": "Protocol: 'tcp', 'udp', or 'tcpudp'."
+        }
+      }
+    }
+  },
+  "monitored_filesystems": {
+    "type": "list",
+    "default": [
+      {
+        "name": "rootfs",
+        "enabled": true,
+        "mount_point": "/",
+        "type": "ext4"
+      }
+    ],
+    "description": "Filesystems to monitor for disk usage and I/O stats.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Display name (e.g., 'root', 'data')."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to monitor this filesystem."
+        },
+        "mount_point": {
+          "type": "string",
+          "default": "/",
+          "description": "Mount point path (e.g., '/home', '/var')."
+        },
+        "type": {
+          "type": "string",
+          "default": "auto",
+          "description": "Filesystem type (e.g., 'ext4', 'xfs', 'btrfs'); 'auto' auto-detects."
+        }
+      }
+    }
+  },
+  "monitored_interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "enabled": true,
+        "device": "eth0"
+      }
+    ],
+    "description": "Network interfaces to monitor for traffic and error counters.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Display name for the interface."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to monitor this interface."
+        },
+        "device": {
+          "type": "string",
+          "default": "eth0",
+          "description": "Kernel network device name (e.g., 'ens33', 'wlan0')."
+        }
+      }
+    }
+  },
+  "monitored_processes": {
+    "type": "list",
+    "default": [],
+    "description": "Processes to monitor by name pattern (e.g., 'nginx', 'python3').",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Display name for the process group."
+        },
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether to monitor processes matching this pattern."
+        },
+        "pattern": {
+          "type": "string",
+          "default": "",
+          "description": "Process name or regex pattern (as seen in 'ps aux')."
+        }
+      }
+    }
+  },
+  "webserver_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable monitoring of Apache or Nginx status pages (e.g., mod_status or stub_status)."
+  },
+  "webserver_type": {
+    "type": "string",
+    "default": "apache",
+    "description": "Web server type: 'apache' or 'nginx'."
+  },
+  "webserver_url": {
+    "type": "string",
+    "default": "http://localhost/server-status?auto",
+    "description": "URL to the server-status endpoint (must end with '?auto' for Apache)."
+  },
+  "webserver_user": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP Basic auth username (if required by the status endpoint)."
+  },
+  "webserver_password": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP Basic auth password (if required)."
+  },
+  "smart_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable SMART disk monitoring (requires smartmontools and appropriate permissions)."
+  },
+  "smart_devices": {
+    "type": "list",
+    "default": [],
+    "description": "List of disk devices (e.g., ['/dev/sda', '/dev/sdb']) to monitor SMART attributes for.",
+    "items": {
+      "type": "string",
+      "default": "/dev/sda",
+      "description": "Device path for a SMART-capable disk."
+    }
+  }
+}

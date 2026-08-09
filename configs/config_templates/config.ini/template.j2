@@ -1,0 +1,129 @@
+[general]
+# Base directory for fnott runtime files (e.g., state, pid, icons cache).
+# Default: /var/lib/fnott
+config_dir = {{ config_dir | default('/var/lib/fnott') }}
+
+# Font name and size for notification text (e.g., 'DejaVu Sans 9').
+# Default: sans 10
+font = {{ font | default('sans 10') }}
+
+# Name of the icon theme to use (e.g., 'Adwaita'); leave empty to use system default.
+# Default: '' (empty)
+{% if icon_theme | default('') %}
+icon_theme = {{ icon_theme | default('') }}
+{% endif %}
+
+# Whether to automatically start fnott at user login.
+# Default: True
+{% if autostart | default(True) %}
+autostart = true
+{% else %}
+autostart = false
+{% endif %}
+
+# Maximum number of notifications visible on screen at once.
+# Default: 5
+max_notifications = {{ max_notifications | default(5) }}
+
+# Default duration (in seconds) before a notification expires.
+# Default: 10
+notification_timeout = {{ notification_timeout | default(10) }}
+
+# Duration (in milliseconds) for fade-in/out animations.
+# Default: 200
+animation_duration = {{ animation_duration | default(200) }}
+
+# Pixels of space between notifications and the screen edge.
+# Default: 16
+margin = {{ margin | default(16) }}
+
+# Scaling factor for notification size (e.g., 0.9 = 90% size).
+# Default: 1.0
+scale = {{ scale | default(1.0) }}
+
+# Verbosity of logging: 0=error, 1=warn, 2=info, 3=debug.
+# Default: 2
+log_level = {{ log_level | default(2) }}
+
+# Path to write logs to (e.g., '/var/log/fnott.log'); leave empty to log only to stderr.
+# Default: '' (empty)
+{% if log_file | default('') %}
+log_file = {{ log_file | default('') }}
+{% endif %}
+
+[colors]
+# Notification appearance colors (ARGB hex).
+# Default: background='#1e1e2eff', text='#e0e0e0ff', border_urgent='#ff5555ff',
+#          border_low='#666666ff', border_normal='#4c7899ff'
+#
+# Background color (hex, #RRGGBBAA format).
+{% set _colors = colors | default({'background': '#1e1e2eff', 'text': '#e0e0e0ff', 'border_urgent': '#ff5555ff', 'border_low': '#666666ff', 'border_normal': '#4c7899ff'}) %}
+background = {{ _colors.background }}
+
+# Text color (hex).
+text = {{ _colors.text }}
+
+# Urgent notification border color.
+border_urgent = {{ _colors.border_urgent }}
+
+# Low priority border color.
+border_low = {{ _colors.border_low }}
+
+# Normal notification border color.
+border_normal = {{ _colors.border_normal }}
+
+[display]
+# List of output (display) names to show notifications on (e.g., ['eDP-1', 'HDMI-A-1']);
+# empty = all outputs.
+# Default: []
+{% if outputs | default([]) | length > 0 %}
+outputs = {{ outputs | default([]) | join(', ') }}
+{% endif %}
+
+# Vertical position of notifications: top, center, bottom.
+# Default: bottom
+position = {{ position | default('bottom') }}
+
+# Horizontal position when `position` is not center: left, center, right.
+# Default: center
+{% if position | default('bottom') == 'center' %}
+hposition = center
+{% else %}
+hposition = {{ hposition | default('center') }}
+{% endif %}
+
+# Group notifications from the same app into a single stack.
+# Default: False
+{% if group_by_app | default(False) %}
+group_by_app = true
+{% else %}
+group_by_app = false
+{% endif %}
+
+[notifications]
+# Default urgency level for new notifications: low, normal, critical.
+# Default: normal
+{% if default_urgency | default('normal') %}
+default_urgency = {{ default_urgency | default('normal') }}
+{% endif %}
+
+# List of application IDs (e.g., 'firefox.desktop') to suppress notifications from.
+# Default: []
+{% if suppressed_app_ids | default([]) | length > 0 %}
+suppressed_app_ids = {{ suppressed_app_ids | default([]) | join(', ') }}
+{% endif %}
+
+[actions]
+# Allow interactive actions (buttons) on notifications.
+# Default: True
+{% if actions_enabled | default(True) %}
+enabled = true
+{% else %}
+enabled = false
+{% endif %}
+
+# Seconds before action buttons disappear (0 = never expire).
+# Default: 30
+{% if action_timeout | default(30) > 0 %}
+timeout = {{ action_timeout | default(30) }}
+{% endif %}

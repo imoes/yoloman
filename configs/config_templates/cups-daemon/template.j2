@@ -1,0 +1,40 @@
+# CUPS log rotation configuration (/etc/logrotate.d/cups)
+#
+# This file configures logrotate for CUPS daemon logs located under /var/log/cups/.
+# It ensures logs are rotated daily, compressed, and the CUPS service is
+# gracefully restarted after rotation to pick up new log files.
+
+/var/log/cups/*log {
+    # Rotate logs daily
+    daily
+
+    # Do not error if the log file is missing
+    missingok
+
+    # Keep up to {{ log_rotate_count | default(7) }} rotated log files
+    rotate {{ log_rotate_count | default(7) }}
+
+    # Share the log file between processes (if any) so that all instances
+    # rotate together rather than independently
+    sharedscripts
+
+    # Execute post-rotation script
+    postrotate
+        # Restart the CUPS service quietly to ensure log handles are refreshed
+        # service_name defaults to 'cups'
+        invoke-rc.d --quiet {{ service_name | default('cups') }} restart > /dev/null
+    endscript
+
+    # Compress old log files to save disk space
+    compress
+
+    # Delay compression of the most recently rotated file
+    # (allows a process still writing to it to finish cleanly)
+    delaycompress
+
+    # Do not rotate if the log file is empty
+    notifempty
+
+    # Create new log files with default permissions after rotation
+    create
+}

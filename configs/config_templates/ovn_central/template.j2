@@ -1,0 +1,94 @@
+# ==============================================================================
+# OVN Northbound Database Server Configuration
+# ==============================================================================
+# This template configures the OVN Northbound (NB) database server.
+# It supports clustering (HA) via peers, SSL/TLS encryption, and remote
+# connectivity to the Southbound (SB) database.
+#
+# Self-documenting: every directive is preceded by a comment describing
+# its source schema field, purpose, and default value.
+# ==============================================================================
+
+[Database]
+
+# --- Connection Limits & Timeouts ---
+
+# max_connections: Maximum number of concurrent client connections allowed
+# to the OVN Northbound database.
+# Default: 64
+max_connections={{ (max_connections | default(64)) | int }}
+
+# max_log_entries: Maximum number of in-memory log entries retained per
+# client connection for debugging and monitoring purposes.
+# Default: 1000
+max_log_entries={{ (max_log_entries | default(1000)) | int }}
+
+# connection_timeout: Idle connection timeout in seconds. Connections not
+# receiving activity for this duration will be closed by the server.
+# Default: 30
+connection_timeout={{ (connection_timeout | default(30)) | int }}
+
+# --- SSL/TLS Configuration ---
+
+# ssl_enable: Enable SSL/TLS encryption for remote connections.
+# Must be set to true to use SSL certificates and encrypted traffic.
+# Default: False (boolean)
+ssl_enable={{ ssl_enable | default(false) | bool | lower }}
+
+# ssl_cert: Path to the SSL certificate file used to identify the OVN
+# Northbound database server to clients.
+# Default: /etc/ovn/ovnnb-ssl-cert.pem
+ssl_cert={{ ssl_cert | default('/etc/ovn/ovnnb-ssl-cert.pem') | string }}
+
+# ssl_key: Path to the SSL private key file corresponding to the server
+# certificate. Ensure proper file permissions (e.g., 600).
+# Default: /etc/ovn/ovnnb-ssl-key.pem
+ssl_key={{ ssl_key | default('/etc/ovn/ovnnb-ssl-key.pem') | string }}
+
+# ssl_ca_cert: Path to the CA certificate used to verify client certificates
+# when mutual TLS (mTLS) is required.
+# Default: /etc/ovn/ovn-ca-cert.pem
+ssl_ca_cert={{ ssl_ca_cert | default('/etc/ovn/ovn-ca-cert.pem') | string }}
+
+# ssl_ciphers: Colon-separated list of allowed SSL cipher suites.
+# Example: 'ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA256'.
+# Leave empty to use Open vSwitch defaults.
+# Default: '' (empty string)
+ssl_ciphers={{ ssl_ciphers | default('') | string }}
+
+# --- Network Binding ---
+
+# local: Local IP address the OVN Northbound database server binds to.
+# Use 127.0.0.1 for localhost only, 0.0.0.0 for all interfaces, or a
+# specific interface IP.
+# Default: 127.0.0.1
+local={{ local | default('127.0.0.1') | string }}
+
+# --- Clustering / High Availability ---
+
+# peers: List of other OVN Northbound database servers for clustering (HA mode).
+# Each entry defines a peer node with name, address, and port.
+# The loop below generates cluster-specific directives for each peer.
+# Default: [] (empty list)
+{% for peer in (peers | default([])) %}
+# Peer {{ (peer.name | default('unnamed')) | string }}: {{ (peer.address | default('')) | string }}:{{ (peer.port | default(6641)) | int }}
+cluster_{{ (peer.name | default(loop.index0 + 1)) | string }}_address={{ (peer.address | default('')) | string }}
+cluster_{{ (peer.name | default(loop.index0 + 1)) | string }}_port={{ (peer.port | default(6641)) | int }}
+{% endfor %}
+
+# --- Remote Database Connectivity ---
+
+# remote_address: Address of the OVN Southbound database server for cross-database
+# lookups (e.g., to resolve chassis information).
+# Default: 127.0.0.1
+# remote_port: Port of the OVN Southbound database server (default 6642).
+# Default: 6642
+remote={{ remote_address | default('127.0.0.1') | string }}:{{ remote_port | default(6642) | int }}
+
+# --- Debugging ---
+
+# debug: Enable verbose debug logging for troubleshooting.
+# Should be disabled (false) in production environments for performance
+# and log size reasons.
+# Default: False (boolean)
+debug={{ debug | default(false) | bool | lower }}

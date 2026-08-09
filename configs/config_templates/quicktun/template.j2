@@ -1,0 +1,27 @@
+#!/bin/sh
+# quicktun interface management script
+# This script manages the lifecycle of a quicktun tunnel interface.
+# It checks for remote address configuration and optionally pre-creates
+# the tunnel user and interface before daemonizing.
+
+# Ensure remote address is configured; if not, exit silently.
+test -n "${IF_QT_REMOTE_ADDRESS}" || exit 0
+
+# Determine the user account for the quicktun daemon.
+# If pre-creation is NOT disabled (IF_QT_NO_PRECREATE is unset or empty),
+# use the configured runuser; otherwise, default to root for safety.
+if [ -z "${IF_QT_NO_PRECREATE}" ]; then
+    # runuser: User account under which the quicktun daemon runs when precreation is enabled
+	RUNUSER="{{ runuser | default('quicktun') }}"
+else
+    # Precreation is disabled or explicitly requested to run as root.
+	RUNUSER="root"
+fi
+
+# Start/stop the quicktun daemon associated with this interface.
+# -n: Specifies the tunnel interface name (also used as the daemon name).
+# -u: Specifies the user to run the daemon as.
+# --stop: Instructs the daemon manager to stop the existing instance.
+# Note: The original template uses 'daemon' with --stop. Ensure the
+# 'daemon' command is available in the environment (e.g., from daemontools).
+daemon -n "{{ iface | default('quicktun.qt0') }}" -u "${RUNUSER}" --stop

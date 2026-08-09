@@ -1,0 +1,51 @@
+# distcc-pump configuration file
+# This file is sourced by distcc-pump as a shell script.
+# It configures environment variables used by distcc-pump and include_server.
+#
+# This template is self-documenting. Each configuration directive is preceded by a comment
+# derived from the Ansible role's schema description. All variables use the 'default' filter
+# to ensure a value is always rendered, preventing "undefined variable" errors during Ansible play.
+
+# The distcc servers that will be queried by lsdistcc in order to produce a value for DISTCC_HOSTS.
+# This value may be unset or null.
+# If defined and non-empty, exports the space-separated list of potential hosts.
+{% if DISTCC_POTENTIAL_HOSTS | default([]) | length > 0 %}
+export DISTCC_POTENTIAL_HOSTS="{{ DISTCC_POTENTIAL_HOSTS | default([]) | join(' ') }}"
+{% else %}
+# DISTCC_POTENTIAL_HOSTS is unset or empty; lsdistcc will probe dynamically or fall back to defaults.
+{% endif %}
+
+# This variable is passed through to distcc but only if DISTCC_POTENTIAL_HOSTS is not set.
+# Each entry follows distcc host syntax (e.g., localhost@2, 192.168.1.10@4).
+# If defined and non-empty, exports the explicit host list.
+{% if DISTCC_HOSTS | default([]) | length > 0 %}
+export DISTCC_HOSTS="{{ DISTCC_HOSTS | default([]) | join(' ') }}"
+{% else %}
+# DISTCC_HOSTS is unset or empty; distcc will determine hosts via DISTCC_POTENTIAL_HOSTS or defaults.
+{% endif %}
+
+# See the distcc(1) man page.
+# Maximum discrepancy allowed between local and remote compiler versions.
+# 0 means strict matching; higher values allow more variance.
+export DISTCC_MAX_DISCREPANCY="{{ DISTCC_MAX_DISCREPANCY | default(0) }}"
+
+# Extra arguments to pass to lsdistcc. See lsdistcc --help for more details.
+# If defined and non-empty, exports the arguments as a quoted string.
+{% if LSDISTCC_ARGS | default([]) | length > 0 %}
+export LSDISTCC_ARGS="{{ LSDISTCC_ARGS | default([]) | join(' ') }}"
+{% else %}
+# LSDISTCC_ARGS is unset or empty; default arguments will be used.
+{% endif %}
+
+# Extra arguments to pass to the include server.
+# If defined and non-empty, exports the arguments as a quoted string.
+{% if INCLUDE_SERVER_ARGS | default([]) | length > 0 %}
+export INCLUDE_SERVER_ARGS="{{ INCLUDE_SERVER_ARGS | default([]) | join(' ') }}"
+{% else %}
+# INCLUDE_SERVER_ARGS is unset or empty; default include server arguments will be used.
+{% endif %}
+
+# The location of the distcc bin directory, which is normally inferred from the link-resolved dirname of argv[0].
+# If this location is in fact different, specify it here.
+# If empty, the system will attempt auto-detection.
+export DISTCC_LOCATION="{{ DISTCC_LOCATION | default('') }}"

@@ -1,0 +1,132 @@
+{
+  "ssh_rules": {
+    "type": "list",
+    "default": [
+      {
+        "port": 22,
+        "source": "0.0.0.0/0",
+        "target": "ACCEPT",
+        "description": "Allow SSH from anywhere"
+      }
+    ],
+    "description": "List of SSH access rules. Each rule defines port, source CIDR, target action, and optional description.",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "TCP port for SSH"
+      },
+      "source": {
+        "type": "string",
+        "default": "0.0.0.0/0",
+        "description": "Source IP/CIDR to allow (e.g., '192.168.1.0/24' or '0.0.0.0/0')"
+      },
+      "target": {
+        "type": "string",
+        "default": "ACCEPT",
+        "description": "Action: ACCEPT, DROP, or REJECT"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable note for this rule"
+      }
+    }
+  },
+  "icmp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable basic ICMP echo (ping) requests and replies"
+  },
+  "allow_ports": {
+    "type": "list",
+    "default": [],
+    "description": "List of port/protocol rules to allow inbound (e.g., web servers, databases).",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 0,
+        "description": "Destination port (e.g., 80 for HTTP, 443 for HTTPS)"
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "enum": [
+          "tcp",
+          "udp"
+        ],
+        "description": "Protocol: 'tcp' or 'udp'"
+      },
+      "source": {
+        "type": "string",
+        "default": "0.0.0.0/0",
+        "description": "Source IP/CIDR to restrict access"
+      },
+      "target": {
+        "type": "string",
+        "default": "ACCEPT",
+        "enum": [
+          "ACCEPT",
+          "DROP",
+          "REJECT"
+        ],
+        "description": "Action for matching packets"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Note about the rule purpose"
+      }
+    }
+  },
+  "nat_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable NAT (masquerading) on outbound interface (required for gateway/router roles)"
+  },
+  "nat_interface": {
+    "type": "string",
+    "default": "eth0",
+    "description": "External-facing interface for NAT (e.g., 'eth0', 'wan0')"
+  },
+  "nat_internal_interface": {
+    "type": "string",
+    "default": "eth1",
+    "description": "Internal-facing interface (e.g., for LAN)"
+  },
+  "custom_chains": {
+    "type": "list",
+    "default": [],
+    "description": "List of user-defined chains to create (must be referenced by jumps).",
+    "items": {
+      "name": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_-]+$",
+        "default": "",
+        "description": "Chain name (1\u201330 chars; must be valid for iptables)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Purpose of the chain"
+      }
+    }
+  },
+  "custom_jumps": {
+    "type": "list",
+    "default": [],
+    "description": "Rules that jump to user-defined chains (optional).",
+    "items": {
+      "chain": {
+        "type": "string",
+        "default": "",
+        "description": "Name of user-defined chain to jump to (must exist in custom_chains)"
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Explanation for the jump"
+      }
+    }
+  }
+}

@@ -1,0 +1,100 @@
+{
+  "upload_dir": {
+    "type": "string",
+    "default": "/var/lib/lomiri/upload-manager/uploads",
+    "description": "Directory where pending uploads are staged before being sent."
+  },
+  "completed_dir": {
+    "type": "string",
+    "default": "/var/lib/lomiri/upload-manager/completed",
+    "description": "Directory where successfully uploaded files are moved (for cleanup or archival)."
+  },
+  "max_upload_size": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum total storage (in bytes) allowed for pending uploads. Set to 0 for unlimited."
+  },
+  "max_concurrent_uploads": {
+    "type": "number",
+    "default": 2,
+    "description": "Maximum number of uploads that can run simultaneously."
+  },
+  "retry_delay": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of seconds to wait before retrying a failed upload."
+  },
+  "max_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Maximum number of retry attempts for a single upload before giving up."
+  },
+  "background_upload": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether uploads should continue in the background when no app is active."
+  },
+  "allow_metered": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether uploads should proceed over metered (e.g., mobile) connections."
+  },
+  "providers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "owncloud",
+        "enabled": true,
+        "account_path": "/var/lib/lomiri/owncloud/accounts.json",
+        "server_url": "https://example.com/remote.php/webdav/",
+        "display_name": "OwnCloud"
+      },
+      {
+        "name": "nextcloud",
+        "enabled": true,
+        "account_path": "/var/lib/lomiri/nextcloud/accounts.json",
+        "server_url": "https://example.com/remote.php/webdav/",
+        "display_name": "Nextcloud"
+      },
+      {
+        "name": "webdav",
+        "enabled": false,
+        "server_url": "https://example.com/webdav/",
+        "display_name": "WebDAV"
+      }
+    ],
+    "description": "List of supported cloud storage providers and their configuration.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Internal provider identifier (e.g., 'owncloud', 'nextcloud', 'webdav')."
+      },
+      "enabled": {
+        "type": "bool",
+        "description": "Whether this provider is active and available."
+      },
+      "account_path": {
+        "type": "string",
+        "description": "Path to the provider-specific account configuration file (if any)."
+      },
+      "server_url": {
+        "type": "string",
+        "description": "Base WebDAV or API endpoint URL for the cloud service."
+      },
+      "display_name": {
+        "type": "string",
+        "description": "Human-readable name shown to users (e.g., in settings)."
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for logs (DEBUG, INFO, WARNING, ERROR, or CRITICAL)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/lomiri/upload-manager.log",
+    "description": "Path to the log file, or '-' to log to stdout."
+  }
+}

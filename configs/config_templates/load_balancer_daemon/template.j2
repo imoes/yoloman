@@ -1,0 +1,131 @@
+# ============================================================================
+# lbcd (Load Balancer Daemon) Configuration
+# ============================================================================
+#
+# This file is managed by Ansible. Manual edits may be overwritten.
+#
+# The daemon listens for UDP load reports from backend nodes and computes
+# weighted system load scores to make forwarding decisions.
+# ============================================================================
+
+# ---------------------------------------------------------------------------
+# Network Listening Configuration
+# ---------------------------------------------------------------------------
+
+# IP address on which lbcd listens for incoming load reports.
+listen_addr = "{{ listen_addr | default('0.0.0.0') }}"
+
+# UDP port to receive load reports from backend nodes.
+listen_port = {{ listen_port | default(11784) }}
+
+# ---------------------------------------------------------------------------
+# Report Processing Settings
+# ---------------------------------------------------------------------------
+
+# How often (in seconds) backend nodes should send load reports.
+report_interval = {{ report_interval | default(10) }}
+
+# Maximum age (in seconds) of a received load report before it is discarded
+# as stale.
+report_max_age = {{ report_max_age | default(30) }}
+
+# Time-to-live (in seconds) for cached load entries in the daemon's memory.
+cache_ttl = {{ cache_ttl | default(60) }}
+
+# ---------------------------------------------------------------------------
+# Security & Access Control
+# ---------------------------------------------------------------------------
+
+# List of allowed IP subnets (CIDR notation) permitted to send load reports.
+# Only nodes from these subnets are accepted if strict_mode is enabled.
+allowed_subnets = [{{ (allowed_subnets | default(['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'])) | join(', ') }}]
+
+# If true, only accept load reports from IPs in `allowed_subnets`.
+# If false, reports from any IP are accepted (not recommended for production).
+strict_mode = {{ strict_mode | default(true) }}
+
+# ---------------------------------------------------------------------------
+# Logging & Status
+# ---------------------------------------------------------------------------
+
+# Enable verbose debug logging to stderr or syslog.
+log_debug = {{ log_debug | default(false) }}
+
+# Path to write the daemon’s PID file for process management.
+pidfile = "{{ pidfile | default('/run/lbcd.pid') }}"
+
+# Path to write the current load status in JSON for external monitoring tools.
+status_file = "{{ status_file | default('/var/run/lbcd_status.json') }}"
+
+# ---------------------------------------------------------------------------
+# Capacity Limits
+# ---------------------------------------------------------------------------
+
+# Maximum number of concurrent reporter nodes allowed before new reports are
+# dropped to protect the daemon.
+max_reporters = {{ max_reporters | default(500) }}
+
+# ---------------------------------------------------------------------------
+# Load Metric Weight Configuration
+# ---------------------------------------------------------------------------
+
+# Defines how to compute the weighted load score from individual metric classes.
+# Each entry specifies a class name, its weight factor, and a description.
+class_weights = [
+{% for weight in (class_weights | default([
+  {'class': 'cpu', 'weight': 0.5, 'description': 'CPU load factor'},
+  {'class': 'mem', 'weight': 0.3, 'description': 'Memory pressure factor'},
+  {'class': 'net', 'weight': 0.2, 'description': 'Network I/O factor'}
+])) %}  {
+    class: "{{ weight.class }}",
+    weight: {{ weight.weight }},
+    description: "{{ weight.description }}"
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# ---------------------------------------------------------------------------
+# Backend Service Definitions
+# ---------------------------------------------------------------------------
+
+# List of backend services that receive traffic based on load decisions.
+# Each backend is defined by name, host, port, protocol, weight, and enabled state.
+backends = [
+{% for backend in (backends | default([
+  {'name': 'web-1', 'host': '10.0.1.10', 'port': 80, 'protocol': 'http', 'weight': 1.0, 'enabled': True},
+  {'name': 'web-2', 'host': '10.0.1.11', 'port': 80, 'protocol': 'http', 'weight': 1.0, 'enabled': True}
+])) %}  {
+    name: "{{ backend.name }}",
+    host: "{{ backend.host }}",
+    port: {{ backend.port }},
+    protocol: "{{ backend.protocol }}",
+    weight: {{ backend.weight }},
+    enabled: {{ backend.enabled }}
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]
+
+# ---------------------------------------------------------------------------
+# Health Check Configuration
+# ---------------------------------------------------------------------------
+
+# Proactive health check settings for backend services.
+health_check = {
+  enabled: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).enabled }},
+  timeout: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).timeout }},
+  interval: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).interval }},
+  max_failures: {{ (health_check | default({'enabled': True, 'timeout': 5, 'interval': 15, 'max_failures': 2})).max_failures }}
+}
+
+# ---------------------------------------------------------------------------
+# Alert Notifications
+# ---------------------------------------------------------------------------
+
+# List of alert endpoints to notify when a backend status changes (e.g., down/up).
+# Each alert entry specifies type, endpoint, HTTP method, and timeout.
+alerts = [
+{% for alert in (alerts | default([])) %}  {
+    type: "{{ alert.type }}",
+    endpoint: "{{ alert.endpoint }}",
+    method: "{{ alert.method }}",
+    timeout: {{ alert.timeout }}
+  }{% if not loop.last %},{% endif %}
+{% endfor %}]

@@ -1,0 +1,37 @@
+name: webfaction_domain
+fqcn: community.general.webfaction_domain
+collection: community.general
+short_description: Add or remove domains and subdomains on Webfaction
+description: Add or remove domains or subdomains on a Webfaction host. Further documentation at https://github.com/quentinsf/ansible-webfaction.
+options:
+  login_name:
+    type: str
+    required: true
+    description: The webfaction account to use
+  login_password:
+    type: str
+    required: true
+    description: The webfaction password to use
+  name:
+    type: str
+    required: true
+    description: The name of the domain
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Whether the domain should exist
+  subdomains:
+    type: list
+    default: []
+    description: Any subdomains to create.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n  - name: Create a test domain\n    community.general.webfaction_domain:\n      name: mydomain.com\n\
+  \      state: present\n      subdomains:\n       - www\n       - blog\n      login_name: \"{{webfaction_user}}\"\
+  \n      login_password: \"{{webfaction_passwd}}\"\n\n  - name: Delete test domain and any subdomains\n\
+  \    community.general.webfaction_domain:\n      name: mydomain.com\n      state: absent\n      login_name:\
+  \ \"{{webfaction_user}}\"\n      login_password: \"{{webfaction_passwd}}\"\n\n"

@@ -1,0 +1,201 @@
+# =============================================================================
+# ddpt Job Configuration File
+# =============================================================================
+# This file configures ddpt, a block-level copy utility for devices and files.
+# It supports SCSI pass-through (pt), offloaded copy (XCOPY/ODX), and various
+# block I/O optimizations.
+#
+# Run with: ddpt --job=ddpt.conf
+#
+# NOTE: 'input_file' is REQUIRED. If not set, ddpt will likely fail or error.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# input_file: Input file/device path (REQUIRED). Use '-' for stdin.
+# Must be specified for ddpt to function.
+# -----------------------------------------------------------------------------
+{% if input_file is defined and input_file != '' %}
+if={{ input_file }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# output_file: Output file/device path (optional). Defaults to /dev/null.
+# Use '-' for stdout.
+# -----------------------------------------------------------------------------
+{% if output_file is defined and output_file != '' %}
+of={{ output_file }}
+{% elif output_file is not defined %}
+# Default output to /dev/null if not specified
+of=/dev/null
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# block_size: Uniform block size in bytes for both IFILE and OFILE.
+# Conflicts with ibs/obs. For pt devices, must match device logical block size.
+# -----------------------------------------------------------------------------
+{% if block_size is defined and block_size != 512 %}
+bs={{ block_size }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# input_block_size: Input block size in bytes.
+# Conflicts with bs. Default: same as bs.
+# -----------------------------------------------------------------------------
+{% if input_block_size is defined and input_block_size != 512 %}
+ibs={{ input_block_size }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# output_block_size: Output block size in bytes.
+# Conflicts with bs. Default: same as bs.
+# -----------------------------------------------------------------------------
+{% if output_block_size is defined and output_block_size != 512 %}
+obs={{ output_block_size }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# blocks_per_transfer: Number of input blocks per transfer buffer (BPT).
+# Controls copy buffer size: IBS * BPT. Must satisfy ((IBS * BPT) % OBS == 0).
+# -----------------------------------------------------------------------------
+{% if blocks_per_transfer is defined and blocks_per_transfer != 128 %}
+bpt={{ blocks_per_transfer }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# skip_blocks: Number of input blocks to skip before copying.
+# -----------------------------------------------------------------------------
+{% if skip_blocks is defined and skip_blocks != 0 %}
+skip={{ skip_blocks }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# seek_blocks: Number of output blocks to seek before writing.
+# -----------------------------------------------------------------------------
+{% if seek_blocks is defined and seek_blocks != 0 %}
+seek={{ seek_blocks }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# copy_blocks: Number of blocks to copy.
+# -1 means 'all available'.
+# -----------------------------------------------------------------------------
+{% if copy_blocks is defined and copy_blocks != -1 %}
+count={{ copy_blocks }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# continue_on_error: Continue copying despite input errors (coe=1).
+# Not effective for output errors on regular files.
+# -----------------------------------------------------------------------------
+{% if continue_on_error is defined and continue_on_error is true %}
+coe=1
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# pt_access: Use SCSI pass-through (pt) access.
+# Required for raw SCSI commands on devices that support both pt and standard I/O.
+# -----------------------------------------------------------------------------
+{% if pt_access is defined and pt_access is true %}
+iflag=pt
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# oflag_pt: Force pt access for output (oflag=pt).
+# -----------------------------------------------------------------------------
+{% if oflag_pt is defined and oflag_pt is true %}
+oflag=pt
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# sparse_writes: Skip writing blocks that are entirely zero (sparse writes).
+# -----------------------------------------------------------------------------
+{% if sparse_writes is defined and sparse_writes is true %}
+oflag=sparse
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# protect_read: RDPROTECT field for READ commands (0-7).
+# Requires IFILE to be a pt device if >0.
+# -----------------------------------------------------------------------------
+# -----------------------------------------------------------------------------
+# protect_write: WRPROTECT field for WRITE commands (0-7).
+# Requires OFILE to be a pt device if >0.
+# -----------------------------------------------------------------------------
+{% if (protect_read is defined and protect_read != 0) or (protect_write is defined and protect_write != 0) %}
+protect={{ protect_read | default(0) }},{{ protect_write | default(0) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# cmd_duration_limit: Command duration limit (CDL) value (0-7).
+# 0 means no limit. Only effective with cdbsz >= 16.
+# -----------------------------------------------------------------------------
+{% if cmd_duration_limit is defined and cmd_duration_limit != 0 %}
+cdl={{ cmd_duration_limit }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# cdb_size: SCSI CDB size in bytes (0=auto, or 6,10,12,16,32).
+# 0 uses auto-selection logic.
+# -----------------------------------------------------------------------------
+{% if cdb_size is defined and cdb_size != 0 %}
+cdbsz={{ cdb_size }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# retries: Number of retries for transient SCSI errors on pt devices.
+# -----------------------------------------------------------------------------
+{% if retries is defined and retries != 0 %}
+retries={{ retries }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# verbose_level: Verbose/diagnostic level (0-5).
+# Higher values increase stderr output.
+# -----------------------------------------------------------------------------
+{% if verbose_level is defined and verbose_level != 0 %}
+verbose={{ verbose_level }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# use_xcopy: Enable offloaded copy using XCOPY(LID1) commands.
+# -----------------------------------------------------------------------------
+{% if use_xcopy is defined and use_xcopy is true %}
+iflag=xcopy
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# use_odx: Enable offloaded copy using ODX (XCOPY(LID4) subset).
+# -----------------------------------------------------------------------------
+{% if use_odx is defined and use_odx is true %}
+--odx
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# verify_mode: Enable verify mode (--verify).
+# Compares IFILE and OFILE contents without copying.
+# -----------------------------------------------------------------------------
+{% if verify_mode is defined and verify_mode is true %}
+--verify
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# dry_run: Enable dry-run mode (--dry-run).
+# Parses and validates arguments but skips actual I/O.
+# -----------------------------------------------------------------------------
+{% if dry_run is defined and dry_run is true %}
+--dry-run
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# progress_report: Enable progress reporting (status=progress).
+# Prints throughput/ETA periodically to stderr.
+# -----------------------------------------------------------------------------
+{% if progress_report is defined and progress_report is true %}
+status=progress
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# ddpt marker
+# Required: ddpt marker (must appear once, outside comments)
+# -----------------------------------------------------------------------------
+ddpt

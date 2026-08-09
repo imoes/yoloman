@@ -1,0 +1,87 @@
+# ==============================================================================
+# Caddy 2 Configuration Template
+# ==============================================================================
+# This template generates a valid Caddyfile (Caddy v2 configuration).
+# It supports global options and a list of virtual host definitions.
+#
+# Schema Fields:
+# - global_options: Global directives applying to all sites (e.g., auto_https off).
+# - sites: List of site/virtual-host configurations.
+# ==============================================================================
+
+{# -------------------------------------------------------------------------- #}
+# Global Options Block
+# -------------------------------------------------------------------------- #
+# These options apply to the entire Caddy instance.
+# Default: 'auto_https off'
+{# -------------------------------------------------------------------------- #}
+{%- if global_options is defined and global_options | trim | length > 0 %}
+{{ global_options | default('auto_https off') | trim }}
+{% else %}
+auto_https off
+{% endif %}
+
+# Blank line for readability
+
+{# -------------------------------------------------------------------------- #}
+# Virtual Hosts / Sites Block
+# -------------------------------------------------------------------------- #
+# Iterates over the 'sites' list. Each site defines a domain/address and its
+# associated routes and directives.
+# Default: [] (empty list)
+# -------------------------------------------------------------------------- #}
+{%- for site in sites | default([]) %}
+
+{# -------------------------------------------------------------------------- #}
+# Site Address Block
+# -------------------------------------------------------------------------- #}
+{# The address (domain or IP) for this virtual host. #}
+{%- if site.address is defined and site.address | trim | length > 0 %}
+{{ site.address | default('localhost') }} {
+{%- else %}
+:80 {
+{%- endif %}
+
+  {# -------------------------------------------------------------------------- #}
+  # Site-Specific Options / Directives
+  # -------------------------------------------------------------------------- #}
+  {# Additional directives at the site scope (e.g., tls, root, respond). #}
+  {# Default: empty string if not provided. #}
+  {%- if site.options is defined and site.options | trim | length > 0 %}
+  {{ site.options | default('') | trim }}
+  {%- endif %}
+
+  {# -------------------------------------------------------------------------- #}
+  # Route Definitions
+  # -------------------------------------------------------------------------- #}
+  {# Each route defines matchers (path, host, etc.) and handlers (php, reverse_proxy, etc.). #}
+  {%- for route in site.routes | default([]) %}
+  {# -------------------------------------------------------------------------- #}
+  # Route {{ loop.index }}
+  # Matcher: {{ route.matcher | default('(implicit default route)') }}
+  # -------------------------------------------------------------------------- #}
+  {%- if route.matcher is defined and route.matcher | trim | length > 0 %}
+  {{ route.matcher | trim }} {
+  {%- else %}
+  {
+  {%- endif %}
+    {# -------------------------------------------------------------------------- #}
+    # Route Handlers
+    # -------------------------------------------------------------------------- #}
+    {# Each handler is a directive like `php_fastcgi`, `reverse_proxy`, `file_server`. #}
+    {%- for handler in route.handlers | default([]) %}
+    {{ handler | trim }}
+    {%- endfor %}
+  }
+  {%- endfor %}
+
+  {# -------------------------------------------------------------------------- #}
+  # Site-Level Directives (Outside Routes)
+  # -------------------------------------------------------------------------- #}
+  {# Directives that apply to the site but not inside a specific route block. #}
+  {%- for directive in site.site_directives | default([]) %}
+  {{ directive | trim }}
+  {%- endfor %}
+
+}
+{%- endfor %}

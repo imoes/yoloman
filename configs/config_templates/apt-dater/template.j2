@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE apt-dater SYSTEM "file:///usr/share/xml/schema/apt-dater/apt-dater.dtd">
+<apt-dater xmlns:xi="http://www.w3.org/2001/XInclude">
+    <!--
+        SSH(1) options: Configure how apt-dater connects to remote hosts.
+        This block defines the SSH client path, flags, SFTP path, and key management.
+        Multiuser mode uses shared keys; single-user mode allows custom per-user keys.
+    -->
+    <ssh
+        cmd="{{ ssh_cmd | default('/usr/bin/ssh') }}"
+        opt-cmd-flags="{{ ssh_opt_cmd_flags | default('-t') }}"
+        sftp-cmd="{{ ssh_sftp_cmd | default('/usr/bin/sftp') }}"
+        spawn-agent="{{ ssh_spawn_agent | default('false') }}">
+        {# First custom SSH key path (for non-multiuser mode) #}
+        <add-key fn="{{ ssh_add_key_1 | default('/path/to/id_rsa1') }}"/>
+        {# Second custom SSH key path (for non-multiuser mode) #}
+        <add-key fn="{{ ssh_add_key_2 | default('/path/to/id_rsa2') }}"/>
+    </ssh>
+
+    <!--
+        Path to hosts file and status directory.
+        hosts-file: Path to the XML file listing managed hosts.
+        history-dir: Directory for storing host operation history files.
+        stats-dir: Directory for storing statistics.
+        umask: Umask to apply when creating files/dirs (multiuser mode).
+    -->
+    <paths
+        hosts-file="{{ paths_hosts_file | default('/etc/apt-dater/hosts.xml') }}"
+        history-dir="{{ paths_history_dir | default('/var/lib/apt-dater/history') }}"
+        stats-dir="{{ paths_stats_dir | default('/var/cache/apt-dater/stats') }}"
+        umask="{{ paths_umask | default('007') }}"/>
+
+    <!--
+        SCREEN(1) options: Configure the screen terminal multiplexer behavior.
+        rc-file: Path to custom screenrc configuration file.
+        title: Screen window title format (uses screen escape sequences).
+    -->
+    <screen
+        rc-file="{{ screen_rc_file | default('path-to/screenrc') }}"
+        title="{{ screen_title | default('%m # %u@%h:%p') }}"/>
+
+    <!--
+        TMUX(1) options: Configure the tmux terminal multiplexer behavior.
+        socket-path: Shared tmux socket path (multiuser mode).
+    -->
+    <tmux
+        socket-path="{{ tmux_socket_path | default('/var/cache/apt-dater/tmux') }}"/>
+
+    <!--
+        Colors configuration for UI components.
+        Format: 'component fg bg;...'
+        Components: menu, status, selector, hoststatus, query, input.
+        Colors: black, blue, cyan, green, magenta, red, white, yellow.
+        Default: 'menu brightgreen blue;status brightgreen blue;selector black red;'
+    -->
+    <appearance
+        colors="{{ appearance_colors | default('menu brightgreen blue;status brightgreen blue;selector black red;') }}"/>
+
+    <!--
+        Notify user by terminal bell and/or screen flash.
+        beep: Enable terminal bell notification.
+        flash: Enable screen flash notification.
+    -->
+    <notify
+        beep="{{ notify_beep | default('true') }}"
+        flash="{{ notify_flash | default('true') }}"/>
+
+    <!--
+        Hooks configuration: plugin directory and hook scripts.
+        plugin-dir: Directory containing host plugins.
+        pre/post-*: Paths to hook directories for various actions (upgrade, refresh, install, connect).
+    -->
+    <hooks
+        plugin-dir="{{ hooks_plugin_dir | default('/etc/apt-dater/plugins') }}"
+        pre-upgrade="{{ hooks_pre_upgrade | default('/etc/apt-dater/pre-upg.d') }}"
+        post-upgrade="{{ hooks_post_upgrade | default('/etc/apt-dater/post-upg.d') }}"
+        pre-refresh="{{ hooks_pre_refresh | default('/etc/apt-dater/pre-ref.d') }}"
+        post-refresh="{{ hooks_post_refresh | default('/etc/apt-dater/post-ref.d') }}"
+        pre-install="{{ hooks_pre_install | default('/etc/apt-dater/pre-ins.d') }}"
+        post-install="{{ hooks_post_install | default('/etc/apt-dater/post-ins.d') }}"
+        pre-connect="{{ hooks_pre_connect | default('/etc/apt-dater/pre-con.d') }}"
+        post-connect="{{ hooks_post_connect | default('/etc/apt-dater/post-con.d') }}"/>
+</apt-dater>

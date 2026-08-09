@@ -1,0 +1,31 @@
+# Global options for arpwatch(8).
+# This template configures the LSB init script defaults for the arpwatch MAC address changer tracking daemon.
+#
+# Variables:
+#   INTERFACES_LIST - Space-separated list of network interfaces to monitor.
+#                     Ignored when using systemd (systemd requires individual unit enablement).
+
+# do not use the -i, -f or -u options here, they are added automatically
+# Debian: don't report bogons, don't use PROMISC.
+# This sets the default flags passed to the arpwatch binary.
+ARGS="-N -p"
+
+# if you want to add a pcap filter, uncomment and adjust the option below (you
+# will need spaces so adding -F to the ARGS above will cause problems). See -F
+# option in man 8 arpwatch for more information
+#PCAP_FILTER="not ether host (00:11:22:33:44:55 or 66:77:88:99:aa:bb)"
+
+# Debian: run as `arpwatch' user.  Empty this to run as root.
+# This defines the user account under which the arpwatch process runs.
+RUNAS="arpwatch"
+
+# when using systemd you have to enable arpwatch explicitly for each interface
+# you want to run it on by running:
+# systemctl enable arpwatch@IFACE
+# systemctl start arpwatch@IFACE
+
+# For the LSB init script, enter a list of interfaces into the list below;
+# arpwatch will be started to listen on these interfaces.
+# Note: This is ignored when using systemd!
+# INTERFACES_LIST: Space-separated list of network interfaces to monitor via LSB init script.
+INTERFACES="{{ INTERFACES_LIST | default('') }}"

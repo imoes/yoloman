@@ -1,0 +1,87 @@
+# Prometheus Postfix Exporter Configuration
+#
+# This file defines the command-line arguments passed to the
+# prometheus-postfix-exporter binary. It is managed by Ansible.
+# All variables should be defined in the role's defaults or
+# inventory, using the names provided in the schema.
+
+# -------------------------------------------------------------------
+# Args: General command-line arguments passed to the exporter binary.
+# This is the raw string that becomes the ARGS environment variable
+# or command-line suffix. It is often composed of individual flags
+# or left empty if individual fields are used below.
+# -------------------------------------------------------------------
+ARGS="{{ args | default('', true) }}"
+
+# -------------------------------------------------------------------
+# web_listen_address: The address and port on which the exporter
+# listens for HTTP requests. Use 'host:port' format (e.g., ':9154'
+# or '127.0.0.1:9154').
+# -------------------------------------------------------------------
+{%- if (args | default('', true)) | length > 0 %}
+# Note: web_listen_address is omitted because 'args' is populated.
+# To use this field, clear 'args' or pass this flag within 'args'.
+{%- else %}
+--web.listen-address="{{ web_listen_address | default(':9154', true) }}"
+{%- endif %}
+
+# -------------------------------------------------------------------
+# web_metrics_path: The HTTP path under which metrics are exposed.
+# Default is '/metrics'.
+# -------------------------------------------------------------------
+{%- if (args | default('', true)) | length > 0 %}
+# Note: web_metrics_path is omitted because 'args' is populated.
+{%- else %}
+--web.metrics-path="{{ web_metrics_path | default('/metrics', true) }}"
+{%- endif %}
+
+# -------------------------------------------------------------------
+# postfix_queue_dir: Path to the Postfix spool directory containing
+# active, defer, etc. subdirectories.
+# -------------------------------------------------------------------
+{%- if (args | default('', true)) | length > 0 %}
+# Note: postfix_queue_dir is omitted because 'args' is populated.
+{%- else %}
+--postfix-queue-dir="{{ postfix_queue_dir | default('/var/spool/postfix', true) }}"
+{%- endif %}
+
+# -------------------------------------------------------------------
+# timeout_seconds: Maximum seconds to wait for Postfix CLI commands
+# (e.g., postqueue -p) before timing out.
+# -------------------------------------------------------------------
+{%- if (args | default('', true)) | length > 0 %}
+# Note: timeout_seconds is omitted because 'args' is populated.
+{%- else %}
+--timeout="{{ timeout_seconds | default(5, true) }}"
+{%- endif %}
+
+# -------------------------------------------------------------------
+# enable_tls: Enable TLS (HTTPS) for the metrics endpoint.
+# Requires valid certificate and key paths.
+# -------------------------------------------------------------------
+{%- if (args | default('', true)) | length > 0 %}
+# Note: TLS settings are omitted because 'args' is populated.
+{%- elif enable_tls | default(false, true) | bool %}
+--tls.enabled
+--tls.cert-file="{{ tls_cert_file | default('', true) }}"
+--tls.key-file="{{ tls_key_file | default('', true) }}"
+{%- else %}
+# TLS is disabled.
+{%- endif %}
+
+# -------------------------------------------------------------------
+# stats: List of statistics categories to enable or disable.
+# Each entry specifies a stats group and whether it should be collected.
+# If 'args' is provided, this list is ignored.
+# -------------------------------------------------------------------
+{%- if (args | default('', true)) | length > 0 %}
+# Note: stats list is omitted because 'args' is populated.
+{%- else %}
+{%- for stat_item in stats | default([], true) %}
+{%-   set stat_name = stat_item.name if stat_item is mapping and stat_item.name is defined else 'unknown' %}
+{%-   set stat_enabled = stat_item.enabled if stat_item is mapping and stat_item.enabled is defined else true %}
+{%-   if stat_enabled | default(true, true) | bool %}
+--stats.{{ stat_name }}
+{%-   endif %}
+{%- endfor %}
+{%- endif %}

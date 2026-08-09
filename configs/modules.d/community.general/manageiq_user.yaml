@@ -1,0 +1,62 @@
+name: manageiq_user
+fqcn: community.general.manageiq_user
+collection: community.general
+short_description: Management of users in ManageIQ
+description: The manageiq_user module supports adding, updating and deleting users in ManageIQ.
+options:
+  email:
+    type: str
+    description: The users' E-mail address.
+  group:
+    type: str
+    description: The name of the group to which the user belongs.
+  manageiq_connection:
+    type: dict
+    description: ManageIQ connection configuration information.
+  name:
+    type: str
+    description: The users' full name.
+  password:
+    type: str
+    description: The users' password.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: absent - user should not exist, present - user should be.
+  update_password:
+    type: str
+    default: always
+    choices:
+    - always
+    - on_create
+    description: V(always) will update passwords unconditionally.  V(on_create) will only set the password
+      for a newly created user.
+  userid:
+    type: str
+    required: true
+    description: The unique userid in manageiq, often mentioned as username.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a new user in ManageIQ\n  community.general.manageiq_user:\n    userid: 'jdoe'\n\
+  \    name: 'Jane Doe'\n    password: 'VerySecret'\n    group: 'EvmGroup-user'\n    email: 'jdoe@example.com'\n\
+  \    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n      username: 'admin'\n      password:\
+  \ 'smartvm'\n      validate_certs: false  # only do this when you trust the network!\n\n- name: Create\
+  \ a new user in ManageIQ using a token\n  community.general.manageiq_user:\n    userid: 'jdoe'\n   \
+  \ name: 'Jane Doe'\n    password: 'VerySecret'\n    group: 'EvmGroup-user'\n    email: 'jdoe@example.com'\n\
+  \    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n      token: 'sometoken'\n      validate_certs:\
+  \ false  # only do this when you trust the network!\n\n- name: Delete a user in ManageIQ\n  community.general.manageiq_user:\n\
+  \    state: 'absent'\n    userid: 'jdoe'\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n\n- name: Delete a user in ManageIQ using a token\n  community.general.manageiq_user:\n\
+  \    state: 'absent'\n    userid: 'jdoe'\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      token: 'sometoken'\n      validate_certs: false  # only do this when you trust the network!\n\
+  \n- name: Update email of user in ManageIQ\n  community.general.manageiq_user:\n    userid: 'jdoe'\n\
+  \    email: 'jaustine@example.com'\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n \
+  \     username: 'admin'\n      password: 'smartvm'\n      validate_certs: false  # only do this when\
+  \ you trust the network!\n\n- name: Update email of user in ManageIQ using a token\n  community.general.manageiq_user:\n\
+  \    userid: 'jdoe'\n    email: 'jaustine@example.com'\n    manageiq_connection:\n      url: 'http://127.0.0.1:3000'\n\
+  \      token: 'sometoken'\n      validate_certs: false  # only do this when you trust the network!\n"

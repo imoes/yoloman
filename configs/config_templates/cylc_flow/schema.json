@@ -1,0 +1,87 @@
+{
+  "scheduler_auto_shutdown": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically shut down the workflow after all tasks complete."
+  },
+  "scheduler_try_1_max_submissions": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of task submission attempts (try 1)."
+  },
+  "scheduler_poll_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval in seconds between polling task states."
+  },
+  "scheduler_cycle_point_delay": {
+    "type": "number",
+    "default": 120,
+    "description": "Delay in seconds between checking for new cycle points."
+  },
+  "scheduler_max_active_cycle_points": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of active cycle points held in memory."
+  },
+  "log_file_enable": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable writing workflow logs to disk."
+  },
+  "log_file_path": {
+    "type": "string",
+    "default": "${HOME}/.cylc-run/${WORKFLOW_NAME}/log/log",
+    "description": "Path to the workflow log file (supports Cylc environment variables)."
+  },
+  "log_file_max_size": {
+    "type": "number",
+    "default": 10485760,
+    "description": "Maximum size (in bytes) before log rotation; 0 disables rotation."
+  },
+  "tasks": {
+    "type": "list",
+    "default": [],
+    "description": "List of task definitions (each task has its own configuration block).",
+    "items": {
+      "task_name": {
+        "type": "string",
+        "description": "Name of the task (used as section key in config)."
+      },
+      "environment": {
+        "type": "object",
+        "default": {},
+        "description": "Key-value pairs of environment variables for the task."
+      },
+      "script": {
+        "type": "string",
+        "default": "echo 'Task placeholder'",
+        "description": "The shell script to execute for the task."
+      },
+      "batch_system": {
+        "type": "string",
+        "enum": [
+          "local",
+          "slurm",
+          "pbs",
+          "oge"
+        ],
+        "default": "local",
+        "description": "Batch system used to submit this task (if not local)."
+      },
+      "submit_command": {
+        "type": "string",
+        "default": null,
+        "description": "Custom command to submit the task to a batch system (e.g., 'sbatch'). Optional."
+      },
+      "retry": {
+        "type": "list",
+        "items": {
+          "type": "number"
+        },
+        "default": [],
+        "description": "Delays (in seconds) between task retry attempts."
+      }
+    }
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "gss_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Grid Security Service (GSS) configuration block (required for authenticated job submission)."
+  },
+  "gss_instances": {
+    "type": "list",
+    "default": [],
+    "description": "List of GSS service instances. Each instance defines how security authentication/authorization is performed for GRAM.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "type": {
+          "type": "string",
+          "default": "GSI_AUTH",
+          "description": "GSS service type (e.g., GSI_AUTH, GSI_AUTHZ)."
+        },
+        "name": {
+          "type": "string",
+          "default": "globus-gssapi-gsi",
+          "description": "Name/identifier of the GSS service instance."
+        },
+        "authz_module": {
+          "type": "string",
+          "default": "",
+          "description": "Authorization module path (e.g., /usr/libexec/globus/globus_gsi_authz_module_gsi.so). Optional."
+        },
+        "authn_module": {
+          "type": "string",
+          "default": "",
+          "description": "Authentication module path (e.g., /usr/libexec/globus/globus_gsi_authn_module_gsi.so). Optional."
+        },
+        "cred_store": {
+          "type": "string",
+          "default": "",
+          "description": "Credential store path (e.g., /etc/grid-security/hostcert.pem). Optional."
+        }
+      }
+    }
+  },
+  "pbs_job_manager_executable": {
+    "type": "string",
+    "default": "/usr/bin/pbs_mom",
+    "description": "Path to the PBS job manager executable (or wrapper script used by GRAM)."
+  },
+  "pbs_job_manager_jobtype": {
+    "type": "string",
+    "default": "pbs",
+    "description": "Type of job manager (must be 'pbs' for PBS support)."
+  },
+  "pbs_job_manager_account": {
+    "type": "string",
+    "default": "",
+    "description": "Account string to pass to PBS (e.g., for accounting or qos). Optional."
+  },
+  "pbs_job_manager_queue": {
+    "type": "string",
+    "default": "normal",
+    "description": "Default PBS queue for submitted jobs."
+  },
+  "pbs_job_manager_project": {
+    "type": "string",
+    "default": "",
+    "description": "Project name/identifier for PBS job submission. Optional."
+  },
+  "pbs_job_manager_walltime": {
+    "type": "string",
+    "default": "",
+    "description": "Default walltime limit (e.g., '01:00:00') for submitted jobs. Optional."
+  },
+  "pbs_job_manager_memory": {
+    "type": "string",
+    "default": "",
+    "description": "Default memory limit (e.g., '2048M') for submitted jobs. Optional."
+  },
+  "pbs_job_manager_processes": {
+    "type": "string",
+    "default": "",
+    "description": "Total number of processes requested per job. Optional."
+  },
+  "pbs_job_manager_processor_count": {
+    "type": "string",
+    "default": "",
+    "description": "Number of processors (CPUs) requested per job. Optional."
+  },
+  "pbs_job_manager_memory_per_node": {
+    "type": "string",
+    "default": "",
+    "description": "Memory requested per compute node (e.g., '8G'). Optional."
+  },
+  "pbs_job_manager_processes_per_node": {
+    "type": "string",
+    "default": "",
+    "description": "Number of processes (e.g., MPI ranks) per compute node. Optional."
+  },
+  "pbs_job_manager_hosts_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to hosts file (e.g., /tmp/machinesfile) for MPI job launch. Optional."
+  },
+  "pbs_job_manager_environment": {
+    "type": "list",
+    "default": [],
+    "description": "List of environment variables to set for submitted PBS jobs.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "default": "",
+          "description": "Environment variable name (e.g., 'PATH', 'LD_LIBRARY_PATH')."
+        },
+        "value": {
+          "type": "string",
+          "default": "",
+          "description": "Environment variable value."
+        }
+      }
+    }
+  },
+  "gridftp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable GridFTP server support for data staging (recommended for job input/output transfer)."
+  },
+  "gridftp_servers": {
+    "type": "list",
+    "default": [
+      {
+        "host": "localhost",
+        "port": 2811,
+        "service": "gsiftp",
+        "transfer_mode": "passive",
+        "certificate": "/etc/grid-security/hostcert.pem",
+        "key": "/etc/grid-security/hostkey.pem",
+        "ca_certificate": "",
+        "trusted_ca_certs_dir": "/etc/grid-security/certificates"
+      }
+    ],
+    "description": "List of GridFTP server instances for data transfers (e.g., staging input files).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "host": {
+          "type": "string",
+          "default": "localhost",
+          "description": "Hostname or IP address of the GridFTP server."
+        },
+        "port": {
+          "type": "number",
+          "default": 2811,
+          "description": "Port number on which GridFTP server listens."
+        },
+        "service": {
+          "type": "string",
+          "default": "gsiftp",
+          "description": "Service name or URI scheme (usually 'gsiftp')."
+        },
+        "transfer_mode": {
+          "type": "string",
+          "default": "passive",
+          "description": "Transfer mode: 'passive' or 'active'. Passive is recommended for firewalled clients."
+        },
+        "certificate": {
+          "type": "string",
+          "default": "/etc/grid-security/hostcert.pem",
+          "description": "Path to the GridFTP server certificate file."
+        },
+        "key": {
+          "type": "string",
+          "default": "/etc/grid-security/hostkey.pem",
+          "description": "Path to the GridFTP server private key file."
+        },
+        "ca_certificate": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a specific CA certificate (for single-CA scenarios). Optional."
+        },
+        "trusted_ca_certs_dir": {
+          "type": "string",
+          "default": "/etc/grid-security/certificates",
+          "description": "Directory containing trusted CA certificates (used for client authentication)."
+        }
+      }
+    }
+  }
+}

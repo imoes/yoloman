@@ -1,0 +1,96 @@
+{
+  "cluster_name": "crm-cluster",
+  "stonith_enabled": true,
+  "resource_stickiness": 100,
+  "migration_limit": 0,
+  "remote_timeout": 60,
+  "logging": {
+    "file": "/var/log/pacemaker.log",
+    "level": "info",
+    "to_logfile": true,
+    "to_syslog": true
+  },
+  "corosync": {
+    "bindnetaddr": "10.0.0.0",
+    "mcastaddr": "239.100.100.1",
+    "mcastport": "5405",
+    "ttl": "1"
+  },
+  "nodes": [
+    {
+      "name": "node1.example.com",
+      "id": 1,
+      "addr": "10.0.0.1"
+    },
+    {
+      "name": "node2.example.com",
+      "id": 2,
+      "addr": "10.0.0.2"
+    }
+  ],
+  "resources": [
+    {
+      "type": "IPaddr2",
+      "id": "vip-nginx",
+      "params": {
+        "ip": "10.0.0.100",
+        "cidr_netmask": "24",
+        "nic": "eth0"
+      }
+    },
+    {
+      "type": "Filesystem",
+      "id": "fs-data",
+      "params": {
+        "device": "/dev/disk/by-uuid/abcd1234",
+        "directory": "/srv/data",
+        "fstype": "xfs"
+      }
+    }
+  ],
+  "resource_groups": [
+    {
+      "name": "nginx-group",
+      "resources": [
+        "vip-nginx",
+        "fs-data"
+      ]
+    }
+  ],
+  "colocations": [
+    {
+      "id": "coloc-nginx",
+      "score": "INFINITY",
+      "items": [
+        {
+          "resource": "vip-nginx"
+        },
+        {
+          "resource": "fs-data"
+        }
+      ]
+    }
+  ],
+  "orderings": [
+    {
+      "id": "order-fs-then-ip",
+      "score": "INFINITY",
+      "first": {
+        "resource": "fs-data",
+        "role": "Started"
+      },
+      "then": {
+        "resource": "vip-nginx",
+        "role": "Started"
+      }
+    }
+  ],
+  "locations": [
+    {
+      "id": "prefer-node1",
+      "resource": "vip-nginx",
+      "node": "node1.example.com",
+      "score": 100
+    }
+  ]
+}

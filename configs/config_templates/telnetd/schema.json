@@ -1,0 +1,76 @@
+{
+  "telnet_ipv4_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the Telnet service on IPv4 (TCP port 23)"
+  },
+  "telnet_ipv6_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the Telnet service on IPv6 (TCP port 23); enable only if the network stack requires it"
+  },
+  "run_user": {
+    "type": "string",
+    "default": "root",
+    "description": "Unix user that in.telnetd runs as; root is required for PAM-based login"
+  },
+  "use_tcp_wrappers": {
+    "type": "bool",
+    "default": true,
+    "description": "Route every connection through tcpd to enforce host-based ACLs defined in /etc/hosts.allow and /etc/hosts.deny"
+  },
+  "tcpd_path": {
+    "type": "string",
+    "default": "/usr/sbin/tcpd",
+    "description": "Absolute path to the tcpd binary; relevant only when use_tcp_wrappers is true"
+  },
+  "telnetd_path": {
+    "type": "string",
+    "default": "/usr/sbin/in.telnetd",
+    "description": "Absolute path to the in.telnetd binary installed by inetutils-telnetd"
+  },
+  "telnetd_options": {
+    "type": "list",
+    "default": [],
+    "description": "Extra flags passed to in.telnetd, e.g. [\"-a\",\"none\"] to disable Telnet auth negotiation or [\"-L\",\"/bin/login\"] to specify the login program"
+  },
+  "extra_services": {
+    "type": "list",
+    "default": [],
+    "description": "Additional inetd service entries appended after the telnet blocks; each entry becomes one line in inetd.conf",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Service name from /etc/services or a numeric port number"
+      },
+      "socket_type": {
+        "type": "string",
+        "description": "Socket type: stream, dgram, raw, rdm, or seqpacket"
+      },
+      "proto": {
+        "type": "string",
+        "description": "Transport protocol: tcp, udp, tcp6, udp6, or an RPC specification"
+      },
+      "wait": {
+        "type": "string",
+        "description": "wait or nowait; optionally append .max-connections, e.g. nowait.10"
+      },
+      "user": {
+        "type": "string",
+        "description": "Unix user (optionally .group) the server program runs as"
+      },
+      "server_path": {
+        "type": "string",
+        "description": "Absolute path to the server executable"
+      },
+      "args": {
+        "type": "string",
+        "description": "Space-separated arguments passed to the server executable; leave empty if none"
+      },
+      "comment": {
+        "type": "string",
+        "description": "One-line description rendered as a comment above this service entry"
+      }
+    }
+  }
+}

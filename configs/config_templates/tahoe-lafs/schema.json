@@ -1,0 +1,255 @@
+{
+  "introducer_furl": {
+    "type": "string",
+    "default": "",
+    "description": "The FURL (encrypted URL) of the introducer server to join. Leave empty to operate as a standalone node (no sharing)."
+  },
+  "webapi": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "listen": "tcp:12345",
+      "auth_token": ""
+    },
+    "description": "Web API settings for management via HTTP.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable the management web API (REST)."
+      },
+      "listen": {
+        "type": "string",
+        "default": "tcp:12345",
+        "description": "Network endpoint for the web API (e.g., tcp:12345 or tcp:0.0.0.0:12345)."
+      },
+      "auth_token": {
+        "type": "string",
+        "default": "",
+        "description": "Secret token for authenticating API requests. Set a strong random value in production."
+      }
+    }
+  },
+  "sftp": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "listen": "tcp:2222"
+    },
+    "description": "SFTP server settings.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable SFTP server for secure file access via SFTP protocol."
+      },
+      "listen": {
+        "type": "string",
+        "default": "tcp:2222",
+        "description": "SFTP listening endpoint (e.g., tcp:2222)."
+      }
+    }
+  },
+  "fuse": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "mount": ""
+    },
+    "description": "FUSE filesystem mount settings (for POSIX-like access).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable FUSE mount \u2014 not recommended for production servers."
+      },
+      "mount": {
+        "type": "string",
+        "default": "",
+        "description": "Local directory to mount the FUSE filesystem (e.g., /mnt/tahoe)."
+      }
+    }
+  },
+  "anonymous": {
+    "type": "object",
+    "default": {
+      "readonly": false
+    },
+    "description": "Anonymous access policy.",
+    "items": {
+      "readonly": {
+        "type": "bool",
+        "default": false,
+        "description": "Allow anonymous users to read public shares. Write access is never allowed for anonymous users."
+      }
+    }
+  },
+  "node": {
+    "type": "object",
+    "default": {
+      "nickname": "unnamed-node",
+      "privkey_path": "private/privkey",
+      "pubkey_path": "public/node.pubkey",
+      "connect_timeout": 10,
+      "connection_attempts": 3,
+      "max_connections": 50,
+      "autostart": true
+    },
+    "description": "Core node identity and network behavior.",
+    "items": {
+      "nickname": {
+        "type": "string",
+        "default": "unnamed-node",
+        "description": "Human-readable name for this node (used in introducer reports and UIs)."
+      },
+      "privkey_path": {
+        "type": "string",
+        "default": "private/privkey",
+        "description": "Relative or absolute path to the node\u2019s private key file."
+      },
+      "pubkey_path": {
+        "type": "string",
+        "default": "public/node.pubkey",
+        "description": "Relative or absolute path to the node\u2019s public key file."
+      },
+      "connect_timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "Seconds to wait before giving up on a connection to another node."
+      },
+      "connection_attempts": {
+        "type": "number",
+        "default": 3,
+        "description": "Maximum connection attempts per remote node before giving up."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 50,
+        "description": "Maximum simultaneous network connections this node will open."
+      },
+      "autostart": {
+        "type": "bool",
+        "default": true,
+        "description": "Start all services (storage, introducer, etc.) automatically on node launch."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "storage_dir": "/var/lib/tahoe/storage",
+      "reserved_space": 1073741824,
+      "max_shares": 0,
+      "min_shares": 3,
+      "num_shares": 10,
+      "desired_replication": 3,
+      "preferred_share_size": 1048576,
+      "max_share_size": 0,
+      "anonymous_storage": false,
+      "client_quotas": [],
+      "storage_server_timeout": 30
+    },
+    "description": "Storage server configuration. Enables this node to store encrypted data shares.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable storage of encrypted data shares on this node."
+      },
+      "storage_dir": {
+        "type": "string",
+        "default": "/var/lib/tahoe/storage",
+        "description": "Directory where encrypted data shares are stored (must be writable by the Tahoe user)."
+      },
+      "reserved_space": {
+        "type": "number",
+        "default": 1073741824,
+        "description": "Bytes to keep free on the filesystem (e.g., for OS logs and temp space)."
+      },
+      "max_shares": {
+        "type": "number",
+        "default": 0,
+        "description": "Maximum number of shares to store on this node (0 = unlimited)."
+      },
+      "min_shares": {
+        "type": "number",
+        "default": 3,
+        "description": "Minimum number of shares (k) required to reconstruct a file (set by client)."
+      },
+      "num_shares": {
+        "type": "number",
+        "default": 10,
+        "description": "Total number of shares (n) created for each file (set by client); n >= k."
+      },
+      "desired_replication": {
+        "type": "number",
+        "default": 3,
+        "description": "How many storage servers should hold each share (set by client)."
+      },
+      "preferred_share_size": {
+        "type": "number",
+        "default": 1048576,
+        "description": "Target size (bytes) for each share \u2014 used for performance tuning (not a strict limit)."
+      },
+      "max_share_size": {
+        "type": "number",
+        "default": 0,
+        "description": "Hard limit (in bytes) on share size (0 = unlimited)."
+      },
+      "anonymous_storage": {
+        "type": "bool",
+        "default": false,
+        "description": "Accept shares from anyone without authentication (not recommended unless intentionally open)."
+      },
+      "client_quotas": {
+        "type": "list",
+        "default": [],
+        "description": "List of per-client storage quotas (by client ID)."
+      },
+      "storage_server_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Seconds to wait for storage operations (read/write) before timing out."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "destination": "stderr",
+      "level": "warning",
+      "timestamp": true
+    },
+    "description": "Logging configuration.",
+    "items": {
+      "destination": {
+        "type": "string",
+        "default": "stderr",
+        "description": "Log destination: 'stdout', 'stderr', or path to log file."
+      },
+      "level": {
+        "type": "string",
+        "default": "warning",
+        "enum": [
+          "debug",
+          "info",
+          "warning",
+          "error",
+          "critical"
+        ],
+        "description": "Minimum log level to emit."
+      },
+      "timestamp": {
+        "type": "bool",
+        "default": true,
+        "description": "Include ISO timestamps in log entries."
+      }
+    }
+  },
+  "additional_introducers": {
+    "type": "list",
+    "default": [],
+    "description": "List of additional introducer FURLs (beyond the main one). Each adds redundancy for node discovery."
+  }
+}

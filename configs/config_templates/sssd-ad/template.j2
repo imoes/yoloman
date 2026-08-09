@@ -1,0 +1,70 @@
+[sssd]
+# Enable SSSD and list active domains
+services = nss, pam
+config_file_version = 2
+domains = {{ domains | join(', ') }}
+
+{% for domain in domains_config %}
+[domain/{{ domain.name }}]
+# AD domain configuration
+id_provider = ldap
+auth_provider = krb5
+access_provider = simple
+chpass_provider = krb5
+
+# LDAP connection to AD (read-only for identity lookup)
+ldap_uri = {{ domain.ldap_uri }}
+ldap_search_base = {{ domain.search_base }}
+ldap_tls_cacert = {{ domain.tls_cacert | default('/etc/pki/tls/certs/ca-bundle.crt') }}
+ldap_user_object_class = user
+ldap_group_object_class = group
+ldap_user_home_directory = unixHomeDirectory
+ldap_user_shell = loginShell
+ldap_schema = rfc2307bis
+
+# Kerberos authentication settings
+krb5_realm = {{ domain.krb5_realm }}
+krb5_server = {{ domain.krb5_server }}
+krb5_ccname_template = FILE:/run/sssd/krb5cc_%U
+
+# Simple access control (optional group whitelist/blacklist)
+{% if domain.allow_groups is defined and domain.allow_groups %}
+allow_groups = {{ domain.allow_groups | join(', ') }}
+{% elif domain.deny_groups is defined and domain.deny_groups %}
+deny_groups = {{ domain.deny_groups | join(', ') }}
+{% else %}
+# Default: allow all authenticated users (configure carefully in production)
+# simple_allow_groups = domain\groupname
+{% endif %}
+
+# Optimize cache and timeout behavior
+cache_credentials = {{ domain.cache_credentials | default('true') | lower }}
+ldap_referrals = {{ domain.ldap_referrals | default('false') | lower }}
+entry_cache_timeout = {{ domain.entry_cache_timeout | default(600) }}
+
+# DNS SRV record discovery fallback (optional; usually rely on realm domain)
+# ldap_default_bind_dn and ldap_default_authtok are NOT set for GSSAPI/Kerberos auth
+
+# Debug level (0=none, 5=verbose, 7=very verbose) — adjust for troubleshooting
+# debug_level = 5
+
+{% endfor %}
+
+[sssd]
+# Optional: enable service-specific timeout overrides (advanced)
+#和服务重启后保持连接
+reconnection_retries = 3
+sbus_timeout = 30
+
+[nss]
+# NSS service options
+# filter_groups = root
+# filter_users = root
+reconnection_retries = 3
+entry_cache_timeout = 600
+
+[pam]
+# PAM service options
+reconnection_retries = 3
+offline_credentials_expiration = {{ pam_offline_expiration | default(0) }}
+pam_id_disable = {{ pam_id_disable | default(false) | lower }}

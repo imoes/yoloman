@@ -1,0 +1,204 @@
+# ============================================================================
+# dhcp-helper configuration template
+# ============================================================================
+# This file configures the dhcp-helper daemon. dhcp-helper is a DHCP relay agent
+# that forwards DHCP broadcasts from client interfaces to specific DHCP servers.
+#
+# Format: Shell variable assignments consumed by the service definition (systemd
+#         or init script) to launch the dhcp-helper binary.
+#
+# Schema Reference:
+#   - enabled: Whether to start the dhcp-helper service on boot (bool)
+#   - servers: List of destination DHCP server addresses (list of str)
+#   - interfaces: List of network interfaces to listen on (list of str)
+#   - port: UDP port for incoming requests (int, default 67)
+#   - max_packet: Max packet size in bytes (int, default 1500)
+#   - source_addr: Source IP for relaying (str, default '')
+#   - extra_opts: Additional CLI flags (list of str)
+#   - syslog_facility: Syslog facility (str, default 'daemon')
+#   - log_level: Logging verbosity (str, default 'info')
+#   - drop_invalid_checksums: Drop bad checksums (bool, default True)
+#   - dhcp_helper_extra_opts: Legacy/Manual extra options string (str)
+# ============================================================================
+
+# --------------------------------------------------------------------------
+# Service Enablement
+# --------------------------------------------------------------------------
+# enabled: Whether to start the dhcp-helper service on boot.
+# Note: This variable is typically consumed by the service definition (systemd
+#       or init script) rather than being written into the config file itself,
+#       but it is defined here for template completeness.
+{# Service enablement is usually handled by the Ansible service module, #}
+{# not written into the config file. However, we can define it for clarity #}
+{# if the wrapper script reads this file. #}
+
+# --------------------------------------------------------------------------
+# DHCP Server Destinations
+# --------------------------------------------------------------------------
+# servers: List of destination DHCP server addresses (IP or hostname).
+# The -s <ip> flag is used once per server.
+{# Build the -s arguments for each configured DHCP server #}
+{# If 'servers' is not defined or is empty, default to an empty list to avoid #}
+{# generating invalid options, unless explicit manual opts are provided. #}
+{% set _servers = servers | default([], boolean=true) %}
+{% for server in _servers %}
+# Destination DHCP server: {{ server }}
+# Flag: -s {{ server }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Network Interfaces to Listen On
+# --------------------------------------------------------------------------
+# interfaces: List of network interfaces on which to listen for DHCP requests.
+# The -b <interface> flag is used once per interface.
+{# Build the -b arguments for each configured interface #}
+{% set _interfaces = interfaces | default([], boolean=true) %}
+{% for iface in _interfaces %}
+# Listen on interface: {{ iface }}
+# Flag: -b {{ iface }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Port Configuration
+# --------------------------------------------------------------------------
+# port: UDP port on which to listen for incoming DHCP requests.
+# Default is 67 (standard DHCP).
+{# dhcp-helper typically uses raw sockets or binds to port 67. #}
+{# The port flag is often -p <port>. #}
+# Flag: -p {{ port | default(67) }}
+
+# --------------------------------------------------------------------------
+# Maximum Packet Size
+# --------------------------------------------------------------------------
+# max_packet: Maximum packet size in bytes to accept.
+# RFC 1542 recommends 576 for relays, but modern networks often support jumbo frames.
+# Default is 1500.
+# Flag: -m {{ max_packet | default(1500) }}
+
+# --------------------------------------------------------------------------
+# Source Address
+# --------------------------------------------------------------------------
+# source_addr: Source IP address to use when relaying packets to servers.
+# Leave empty to let the system choose (typically the IP of the outgoing interface).
+# Flag: -a {{ source_addr | default('') }}
+
+# --------------------------------------------------------------------------
+# Syslog Configuration
+# --------------------------------------------------------------------------
+# syslog_facility: Syslog facility to use for logging (e.g., daemon, local0–local7).
+# Default is 'daemon'.
+# log_level: Verbosity level for logging (debug, info, notice, warning, error, crit, alert, emerg).
+# Default is 'info'.
+{# dhcp-helper uses -f for facility and -l for level/verbose. #}
+# Flag: -f {{ syslog_facility | default('daemon') }}
+# Flag: -v {{ log_level | default('info') }}
+
+# --------------------------------------------------------------------------
+# Checksum Handling
+# --------------------------------------------------------------------------
+# drop_invalid_checksums: Whether to drop packets with invalid IP/UDP checksums.
+# Recommended for security and reliability. Default is True.
+{# dhcp-helper uses --drop-invalid-checksums or similar. #}
+{% if drop_invalid_checksums | default(true) %}
+# Drop packets with invalid checksums (Recommended)
+# Flag: --drop-invalid-checksums
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Additional Options
+# --------------------------------------------------------------------------
+# extra_opts: Additional command-line flags for the dhcp-helper binary.
+# Example: ['-d'] for debug mode.
+{% set _extra_opts = extra_opts | default([], boolean=true) %}
+{% for opt in _extra_opts %}
+# Additional option: {{ opt }}
+# Flag: {{ opt }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Main Options Variable
+# --------------------------------------------------------------------------
+# dhcp_helper_extra_opts: Complete command-line options string passed to dhcp-helper,
+# combining servers, interfaces, and other flags.
+# This variable is used by the init script/systemd service to launch the daemon.
+# It takes precedence or combines with the individual directives above.
+# If the user provides explicit 'dhcp_helper_extra_opts', it is used directly.
+# Otherwise, the template constructs the options from the structured fields.
+
+{# Determine the final options string #}
+{# If dhcp_helper_extra_opts is explicitly provided (even if empty string), use it. #}
+{# Otherwise, construct from structured fields. #}
+{% if dhcp_helper_extra_opts is defined and dhcp_helper_extra_opts is not none %}
+# User provided explicit extra options string
+DHCPHELPER_OPTS="{{ dhcp_helper_extra_opts }}"
+{% else %}
+# Constructed options from structured fields
+{# Build the list of option parts #}
+{# Note: Jinja does not support mutable lists, so we construct strings directly #}
+{# or use join on a static structure. Here we build the full string step-by-step. #}
+
+{% set _opts = [] %}
+
+{# Add server flags #}
+{% for server in servers | default([], boolean=true) %}
+{% set _dummy = _opts.extend(['-s', server]) %}
+{% endfor %}
+
+{# Add interface flags #}
+{% for iface in interfaces | default([], boolean=true) %}
+{% set _dummy = _opts.extend(['-b', iface]) %}
+{% endfor %}
+
+{# Add port flag if not default #}
+{% if port | default(67) != 67 %}
+{% set _dummy = _opts.extend(['-p', (port | default(67))|string]) %}
+{% endif %}
+
+{# Add max packet flag if not default #}
+{% if max_packet | default(1500) != 1500 %}
+{% set _dummy = _opts.extend(['-m', (max_packet | default(1500))|string]) %}
+{% endif %}
+
+{# Add source address flag if set #}
+{% if source_addr | default('') != '' %}
+{% set _dummy = _opts.extend(['-a', source_addr | default('')]) %}
+{% endif %}
+
+{# Add syslog facility flag if not default #}
+{% if syslog_facility | default('daemon') != 'daemon' %}
+{% set _dummy = _opts.extend(['-f', syslog_facility | default('daemon')]) %}
+{% endif %}
+
+{# Add log level / verbose flag #}
+{# Note: dhcp-helper -v is often used for verbose/debug. #}
+{# Mapping log_level to -v or specific flags can be complex. #}
+{# Assuming -v for debug/verbose if not 'info'. #}
+{% set _log_level = log_level | default('info') %}
+{% if _log_level != 'info' %}
+{% if _log_level == 'debug' %}
+{% set _dummy = _opts.extend(['-d']) %}
+{% else %}
+{% set _dummy = _opts.extend(['-v', _log_level]) %}
+{% endif %}
+{% endif %}
+
+{# Add drop invalid checksums flag if enabled #}
+{% if drop_invalid_checksums | default(true) %}
+{% set _dummy = _opts.extend(['--drop-invalid-checksums']) %}
+{% endif %}
+
+{# Add extra opts #}
+{% for opt in extra_opts | default([], boolean=true) %}
+{% set _dummy = _opts.append(opt) %}
+{% endfor %}
+
+{# Join the options #}
+{% set _final_opts = _opts | join(' ') %}
+
+{# Fallback to schema default if constructed is empty #}
+{% if _final_opts == '' %}
+{% set _final_opts = '-b eth0' %}
+{% endif %}
+
+DHCPHELPER_OPTS="{{ _final_opts }}"
+{% endif %}

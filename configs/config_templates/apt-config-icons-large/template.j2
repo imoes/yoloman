@@ -1,0 +1,27 @@
+# Apt configuration snippet to enable DEP-11 large icons download.
+# This configures the APT `Acquire::IndexTargets` subsystem to allow
+# downloading large icons (specified by `icon_size`) for software centers
+# like `software_center_1` and `software_center_2`.
+#
+# When enabled (`default_enabled`), APT will download these icons during
+# repository synchronization, preventing on-demand downloads later.
+
+# Pixel size of the large icons (e.g., '128').
+# Default: 128
+{% set _icon_size = icon_size | default('128') %}
+## This file enables the download of large {{ _icon_size }}x{{ _icon_size }}px
+## icons for use in software centers like {{ software_center_1 | default('GNOME Software') }}
+## and {{ software_center_2 | default('Plasma Discover') }}.
+##
+## The icons speed up usage of the software centers,
+## and would otherwise be downloaded on-demand for each user.
+
+Acquire::IndexTargets {
+    deb::DEP-11-icons-large  {
+        # Whether DEP-11 large icons are enabled by default.
+        # Accepts true/false.
+        # Default: true
+        {% set _default_enabled = default_enabled | default('true') %}
+        DefaultEnabled "{{ _default_enabled }}";
+    };
+};

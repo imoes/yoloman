@@ -1,0 +1,211 @@
+# DavMail Configuration Template
+# This template generates the davmail.properties file.
+# It acts as a bridge between Java-based mail clients (like Outlook) and Microsoft Exchange servers.
+
+# ========================
+# Basic Server Settings
+# ========================
+
+# Enable or disable the DavMail server. Set to 'false' to stop the server without uninstalling.
+listen={{ davmail_listen | default(True) | ternary('true', 'false') }}
+
+# IMAP default port (used if no specific IMAP port is configured).
+port={{ davmail_port | default(10110) }}
+
+# Enable SSL/TLS encryption for the main port. Requires keystore configuration.
+ssl={{ davmail_ssl | default(False) | ternary('true', 'false') }}
+
+# Path to Java keystore file containing the server certificate and private key.
+keystore={{ davmail_keystore | default('') }}
+
+# Password to unlock the keystore.
+keystorePassword={{ davmail_keystorePassword | default('') }}
+
+# Password for the private key inside the keystore (if different from keystore password).
+keyPassword={{ davmail_keyPassword | default('') }}
+
+# Path to Java truststore containing trusted CA certificates (for validating Exchange server certificate).
+truststore={{ davmail_truststore | default('') }}
+
+# Password to unlock the truststore.
+truststorePassword={{ davmail_truststorePassword | default('') }}
+
+# Protocol to use for connecting to Exchange: 'auto', 'owa', 'ews', or 'exchange2007_sp1_ews'.
+protocol={{ davmail_protocol | default('auto') }}
+
+# Hostname or IP address of your Exchange server.
+host={{ davmail_host | default('exchange.example.com') }}
+
+# Port on which Exchange listens for the selected protocol (usually 443 for HTTPS).
+# Note: The property name dynamically includes the protocol name.
+port_{{ davmail_protocol | default('auto') }}={{ davmail_port_exchange | default(443) }}
+
+# URL path to the Exchange web service endpoint (varies by Exchange version).
+path_{{ davmail_protocol | default('auto') }}={{ davmail_path_exchange | default('/exchweb/ws.asmx') }}
+
+# ========================
+# Authentication
+# ========================
+
+# Authentication method: 'basic' (HTTP Basic Auth) or 'ntlm' (NTLMv2 for Windows domain).
+authentication={{ davmail_authentication | default('basic') }}
+
+# Exchange username (if not using per-user credentials in mailboxes section).
+username={{ davmail_username | default('') }}
+
+# Password for the Exchange account.
+password={{ davmail_password | default('') }}
+
+# Windows domain name, required when using NTLM authentication.
+ntlmDomain={{ davmail_ntlmDomain | default('') }}
+
+# Host (NetBIOS) name of the client workstation, required by some NTLM setups.
+ntlmHost={{ davmail_ntlmHost | default('') }}
+
+# ========================
+# Connection Limits and Timeouts
+# ========================
+
+# Timeout in milliseconds before giving up on establishing a connection to Exchange.
+connectionTimeout={{ davmail_connectionTimeout | default(30000) }}
+
+# Timeout in milliseconds for socket read operations.
+socketTimeout={{ davmail_socketTimeout | default(60000) }}
+
+# Maximum number of simultaneous connections to Exchange.
+maxConnections={{ davmail_maxConnections | default(20) }}
+
+# ========================
+# Logging
+# ========================
+
+# Full path to the log file.
+logFile={{ davmail_logFile | default('/var/log/davmail.log') }}
+
+# Logging verbosity: 'OFF', 'FATAL', 'ERROR', 'WARN', 'INFO', 'DEBUG', 'TRACE', or 'ALL'.
+logLevel={{ davmail_logLevel | default('INFO') }}
+
+# ========================
+# Proxy Settings
+# ========================
+
+# Optional HTTP proxy for outgoing connections (e.g., via corporate firewall).
+{% if davmail_proxy_host | default('') %}
+proxyHost={{ davmail_proxy_host | default('') }}
+proxyPort={{ davmail_proxy_port | default(8080) }}
+
+# Username for authenticated proxy (if required).
+{% if davmail_proxy_user | default('') %}
+proxyUser={{ davmail_proxy_user | default('') }}
+proxyPassword={{ davmail_proxy_password | default('') }}
+{% endif %}
+{% endif %}
+
+# ========================
+# IMAP-specific Settings
+# ========================
+
+# Port for IMAP service (default: 1143). Set to 0 to disable IMAP.
+imapPort={{ davmail_imapPort | default(1143) }}
+
+# Enable IMAP IDLE support for real-time push notifications (requires client support).
+imapIdle={{ davmail_imapIdle | default(True) | ternary('true', 'false') }}
+
+# Max simultaneous IMAP connections.
+imapMaxConnections={{ davmail_imapMaxConnections | default(10) }}
+
+# ========================
+# POP3-specific Settings
+# ========================
+
+# Port for POP3 service (default: 1110). Set to 0 to disable POP3.
+popPort={{ davmail_popPort | default(1110) }}
+
+# When to delete messages from Exchange after POP retrieval: 'never', 'onRead', 'onTrash', or 'afterDays:N'.
+popDeletePolicy={{ davmail_popDeletePolicy | default('never') }}
+
+# Maximum number of messages per POP session.
+popMaxMessages={{ davmail_popMaxMessages | default(5000) }}
+
+# ========================
+# SMTP-specific Settings
+# ========================
+
+# Port for SMTP service (default: 1025). Set to 0 to disable SMTP.
+smtpPort={{ davmail_smtpPort | default(1025) }}
+
+# Require authentication for sending mail via SMTP (recommended).
+smtpAuth={{ davmail_smtpAuth | default(True) | ternary('true', 'false') }}
+
+# If true, reject unauthenticated SMTP attempts (even if smtpAuth=false).
+smtpRequireAuth={{ davmail_smtpRequireAuth | default(False) | ternary('true', 'false') }}
+
+# Enable STARTTLS for SMTP (upgrade to TLS after connection).
+smtpStarttls={{ davmail_smtpStarttls | default(False) | ternary('true', 'false') }}
+
+# Enable SSL for SMTP (connect over SSL from the start).
+smtpUseSSL={{ davmail_smtpUseSSL | default(False) | ternary('true', 'false') }}
+
+# Allow 'From:' headers to use local-domain addresses (e.g., @localhost).
+smtpAllowLocalFrom={{ davmail_smtpAllowLocalFrom | default(True) | ternary('true', 'false') }}
+
+# ========================
+# CalDAV/CardDAV Settings
+# ========================
+
+{% if davmail_caldav_enabled | default(False) %}
+# Port for CalDAV service (default: 1080).
+caldavPort={{ davmail_caldavPort | default(1080) }}
+{% endif %}
+
+{% if davmail_carddav_enabled | default(False) %}
+# Port for CardDAV service (default: 1081).
+carddavPort={{ davmail_carddavPort | default(1081) }}
+{% endif %}
+
+# ========================
+# Web Interface
+# ========================
+
+# Enable built-in web UI for diagnostics and status.
+{% if davmail_web_enabled | default(False) %}
+# Port for the web UI (used only if web_enabled=true).
+webPort={{ davmail_webPort | default(8080) }}
+{% endif %}
+
+# ========================
+# Security & Mailbox Options
+# ========================
+
+# Allow connections to Exchange servers using self-signed or untrusted certificates (security risk).
+{% if davmail_allow_untrusted_certificates | default(False) %}
+allowUntrustedCertificates=true
+{% endif %}
+
+# Unique identifier for the DavMail server (used by Outlook to distinguish multiple gateways).
+serverId={{ davmail_serverId | default('DavMail-Server') }}
+
+# Mailbox configurations with custom folder paths per user or profile.
+# The davmail_mailboxes field is a list of objects.
+{% for mailbox in (davmail_mailboxes | default([])) %}
+# Mailbox Configuration
+# Determine the mailbox name, defaulting to 'default' if not specified.
+{% set mb_name = mailbox.name | default('default') if mailbox is mapping else 'default' %}
+{% if mb_name == 'default' %}
+folderPrefix={{ mailbox.folderPrefix | default('') }}
+folderInbox={{ mailbox.folderInbox | default('Inbox') }}
+folderSent={{ mailbox.folderSent | default('Sent Items') }}
+folderDrafts={{ mailbox.folderDrafts | default('Drafts') }}
+folderTrash={{ mailbox.folderTrash | default('Deleted Items') }}
+folderJunk={{ mailbox.folderJunk | default('Junk Email') }}
+folderArchive={{ mailbox.folderArchive | default('') }}
+{% else %}
+{{ mb_name }}.folderPrefix={{ mailbox.folderPrefix | default('') }}
+{{ mb_name }}.folderInbox={{ mailbox.folderInbox | default('Inbox') }}
+{{ mb_name }}.folderSent={{ mailbox.folderSent | default('Sent Items') }}
+{{ mb_name }}.folderDrafts={{ mailbox.folderDrafts | default('Drafts') }}
+{{ mb_name }}.folderTrash={{ mailbox.folderTrash | default('Deleted Items') }}
+{{ mb_name }}.folderJunk={{ mailbox.folderJunk | default('Junk Email') }}
+{{ mb_name }}.folderArchive={{ mailbox.folderArchive | default('') }}
+{% endif %}
+{% endfor %}

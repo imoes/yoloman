@@ -1,0 +1,123 @@
+# ==============================================================================
+# APT Configuration for AppStream DEP-11 Metadata Downloads
+# ==============================================================================
+# This file configures APT to download and maintain DEP-11 metadata (DEP-11 is a
+# specification for desktop application metadata). It defines how to fetch
+# Components-*.yml files and associated icon tarballs for various display densities.
+#
+# Variables:
+#   appstream_native_architecture (default: 'amd64')
+#       The native CPU architecture used in DEP-11 metadata paths (e.g., 'amd64', 'arm64').
+#   appstream_component (default: 'main')
+#       The repository component name (e.g., 'main', 'contrib', 'non-free').
+#   appstream_release (default: 'bookworm')
+#       The Debian/Ubuntu release codename (e.g., 'bookworm', 'bullseye').
+# ==============================================================================
+
+Acquire::IndexTargets {
+    # -------------------------------------------------------------------------
+    # Primary DEP-11 Components metadata
+    # -------------------------------------------------------------------------
+    deb::DEP-11  {
+        # Path to the YAML metadata file: $(COMPONENT)/dep11/Components-$(NATIVE_ARCHITECTURE).yml
+        MetaKey "$(COMPONENT)/dep11/Components-{{ appstream_native_architecture | default('amd64') }}.yml";
+        ShortDescription "Components-{{ appstream_native_architecture | default('amd64') }}";
+        # Human-readable description: $(RELEASE)/$(COMPONENT) $(NATIVE_ARCHITECTURE) Components
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} {{ appstream_native_architecture | default('amd64') }} Components";
+
+        # Keep the compressed version of this metadata index
+        KeepCompressed "true";
+        # Compression format to use for the metadata index
+        KeepCompressedAs "gz";
+    };
+
+    # -------------------------------------------------------------------------
+    # Small icons (48x48) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-small  {
+        # Path to the small icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-48x48.tar";
+        ShortDescription "icons-48x48";
+        # Description for the small icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (48x48)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default (typically false for small icons)
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # Normal-sized icons (64x64) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons  {
+        # Path to the normal icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-64x64.tar";
+        ShortDescription "icons-64x64";
+        # Description for the normal icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (64x64)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # HiDPI icons (64x64@2) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-hidpi  {
+        # Path to the HiDPI icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-64x64@2.tar";
+        ShortDescription "icons-64x64@2";
+        # Description for the HiDPI icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (64x64@2)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # Large icons (128x128) for GUI components (fallback on HiDPI displays)
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-large  {
+        # Path to the large icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-128x128.tar";
+        ShortDescription "icons-128x128";
+        # Description for the large icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (128x128)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+
+    # -------------------------------------------------------------------------
+    # Extra-large HiDPI icons (128x128@2) for GUI components
+    # -------------------------------------------------------------------------
+    deb::DEP-11-icons-large-hidpi  {
+        # Path to the extra-large HiDPI icons tarball
+        MetaKey "$(COMPONENT)/dep11/icons-128x128@2.tar";
+        ShortDescription "icons-128x128@2";
+        # Description for the extra-large HiDPI icons index
+        Description "{{ appstream_release | default('bookworm') }}/{{ appstream_component | default('main') }} Icons (128x128@2)";
+
+        KeepCompressed "true";
+        KeepCompressedAs "gz";
+        # Whether this icon set is enabled by default
+        DefaultEnabled "false";
+    };
+};
+
+# -------------------------------------------------------------------------
+# Post-update hook: Refresh AppStream cache after APT update
+# -------------------------------------------------------------------------
+# This command runs automatically after 'apt update'. It checks if the
+# AppStream cache directory is writable and if appstreamcli is available,
+# then refreshes the OS source cache. Errors are suppressed with '|| true'.
+APT::Update::Post-Invoke-Success {
+    "if /usr/bin/test -w /var/cache/swcatalog -a -e /usr/bin/appstreamcli; then appstreamcli refresh --source=os > /dev/null || true; fi";
+};

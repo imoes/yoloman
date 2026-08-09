@@ -1,0 +1,92 @@
+# ==============================================================================
+# extundelete configuration
+#
+# This template generates a configuration file for `extundelete`, a tool used to
+# recover deleted files from ext3/ext4 filesystems. The generated file is NOT a
+# standard configuration file read by extundelete; rather, it is a structured
+# manifest (YAML-like) that an Ansible playbook or wrapper script consumes to
+# assemble the correct command-line arguments.
+#
+# Fields with empty defaults are omitted from the rendered output unless explicitly
+# set in the Ansible variables. Use Jinja2 defaults to ensure safe rendering.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Source Device or Image
+# --------------------------------------------------------------------------
+# Device file or image file of the partition (e.g., /dev/sda3 or /path/to/image.img).
+# Maps to the required positional argument or -f/--force if an image is specified.
+device: {{ device | default('') | string }}
+
+# --------------------------------------------------------------------------
+# Journal Device
+# --------------------------------------------------------------------------
+# External journal device (for -j). Useful if the journal is on a separate partition.
+journal_device: {{ journal_device | default('') | string }}
+
+# --------------------------------------------------------------------------
+# Backup Superblock
+# --------------------------------------------------------------------------
+# Block number of a backup superblock (for -b). Set to 0 to use the default superblock.
+backup_superblock: {{ backup_superblock | default(0) | int }}
+
+# --------------------------------------------------------------------------
+# Block Size
+# --------------------------------------------------------------------------
+# Block size in bytes (for -B). Set to 0 to let extundelete auto-detect.
+block_size: {{ block_size | default(0) | int }}
+
+# --------------------------------------------------------------------------
+# Restore Scope: Files
+# --------------------------------------------------------------------------
+# List of file paths to restore via --restore-files.
+# The wrapper script will write this list to a temporary file and pass
+# --restore-files <tempfile> to extundelete.
+restore_files:
+{% if restore_files | default([]) | length > 0 %}
+{% for f in restore_files | default([]) %}
+  - {{ f | string | trim }}
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Restore Scope: Inodes
+# --------------------------------------------------------------------------
+# List of inode numbers to restore.
+# The wrapper script will pass these as one or more --restore-inode <inode> arguments.
+restore_inodes:
+{% if restore_inodes | default([]) | length > 0 %}
+{% for i in restore_inodes | default([]) %}
+  - {{ i | string | trim }}
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Restore Scope: Directories
+# --------------------------------------------------------------------------
+# List of directory paths whose deleted files to restore.
+# The wrapper script will pass these as one or more --restore-directory <path> arguments.
+restore_directories:
+{% if restore_directories | default([]) | length > 0 %}
+{% for d in restore_directories | default([]) %}
+  - {{ d | string | trim }}
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Restore Scope: All
+# --------------------------------------------------------------------------
+# If true, enables --restore-all, causing extundelete to attempt restoring all
+# recoverable files. Use with caution as it can be slow and clutter the output directory.
+restore_all: {{ restore_all | default(false) | bool }}
+
+# --------------------------------------------------------------------------
+# Time Constraints
+# --------------------------------------------------------------------------
+# Only restore files deleted before this UNIX timestamp (for --before).
+# Set to 0 to unset (no upper bound).
+before_timestamp: {{ before_timestamp | default(0) | int }}
+
+# Only restore files deleted after this UNIX timestamp (for --after).
+# Set to 0 to unset (no lower bound).
+after_timestamp: {{ after_timestamp | default(0) | int }}

@@ -1,0 +1,54 @@
+# Global configuration for Incus daemon
+# This file is read only at daemon startup
+# All settings are optional; defaults apply if omitted
+
+# Network listen address and port
+{% if listen_addr %}listen_addr = "{{ listen_addr }}"{% else %}# listen_addr = "127.0.0.1:8443"{% endif %}
+
+# Unix socket path for local client access
+{% if socket_path %}socket_path = "{{ socket_path }}"{% else %}# socket_path = "/var/lib/incus/incus.sock"{% endif %}
+
+# Trust password required for new clients to join the trust model
+{% if trust_password %}trust_password = "{{ trust_password }}"{% else %}# trust_password = ""{% endif %}
+
+# Storage backend to use (dir, zfs, btrfs, lvm, ceph, etc.)
+{% if storage_backend %}storage_backend = "{{ storage_backend }}"{% else %}# storage_backend = "dir"{% endif %}
+
+# Storage pool name (ignored if storage_backend=dir)
+{% if storage_pool %}storage_pool = "{{ storage_pool }}"{% else %}# storage_pool = "default"{% endif %}
+
+# Storage path for 'dir' backend — root of container/VM filesystems
+{% if storage_dir %}storage_dir = "{{ storage_dir }}"{% else %}# storage_dir = "/var/lib/incus/storage"{% endif %}
+
+# Logging level: debug, info, warn, error (default: info)
+{% if logging_level %}logging_level = "{{ logging_level }}"{% else %}# logging_level = "info"{% endif %}
+
+# Logging format: text or json (default: text)
+{% if logging_format %}logging_format = "{{ logging_format }}"{% else %}# logging_format = "text"{% endif %}
+
+# Log path for daemon logs — use - for stdout/stderr
+{% if log_path %}log_path = "{{ log_path }}"{% else %}# log_path = "/var/log/incus/daemon.log"{% endif %}
+
+# Resource limits: maximum number of containers/VMs
+{% if max_instances %}max_instances = {{ max_instances }}{% else %}# max_instances = 100{% endif %}
+
+# Image aliases — shortcuts to image references
+{% for alias in image_aliases %}# Image alias: {{ alias.name }} -> {{ alias.target }}
+image_aliases.{{ alias.name }} = "{{ alias.target }}"{% endfor %}
+
+# Allowed image servers (for image import)
+{% for server in allowed_image_servers %}# Allowed image server: {{ server.name }} ({{ server.url }})
+{% if server.name %}allowed_image_servers.{{ server.name }} = "{{ server.url }}"{% endif %}{% endfor %}
+
+# Features: enable/disable experimental features
+{% for feature, enabled in features.items() %}# Feature: {{ feature }} — {{ 'enabled' if enabled else 'disabled' }}
+{% if enabled %}features.{{ feature }} = true{% else %}features.{{ feature }} = false{% endif %}{% endfor %}
+
+# Cluster configuration (for multi-node setups)
+{% if cluster_server %}cluster_server = "{{ cluster_server }}"{% else %}# cluster_server = ""{% endif %}
+{% if cluster_role %}cluster_role = "{{ cluster_role }}"{% else %}# cluster_role = ""{% endif %}
+{% if cluster_certificate %}cluster_certificate = "{{ cluster_certificate }}"{% else %}# cluster_certificate = ""{% endif %}
+{% if cluster_key %}cluster_key = "{{ cluster_key }}"{% else %}# cluster_key = ""{% endif %}
+
+# Default profiles to apply to new instances
+{% if default_profiles %}default_profiles = [{{ default_profiles | map('quote') | join(', ') }}]{% else %}# default_profiles = ["default"]{% endif %}

@@ -1,0 +1,46 @@
+# Ferret (GNU CASE tool) configuration file
+# Self-documenting template: every directive is preceded by its schema description.
+# Variables use | default(D) where D is the schema-defined default.
+
+# Logging verbosity: debug, info, warn, or error
+log_level: {{ log_level | default('info') }}
+
+# Path to the input data model file (e.g., .er, .erx, or .xml format)
+{% if model_path is defined and model_path | trim != '' %}
+model_path: {{ model_path }}
+{% else %}
+model_path: {{ model_path | default('') }}
+{% endif %}
+
+# List of data model generation targets (e.g., SQL DDL generation specifications).
+# Each entry defines a target database schema and output path.
+{% for target in (targets | default([])) %}
+# --- Start of target: {{ target.name | default('') }} (type: {{ target.type | default('unknown') }}) ---
+
+# Human-readable name for the target configuration
+{% if target.name is defined and target.name | trim != '' %}
+name: {{ target.name }}
+{% endif %}
+
+# Target type (e.g., 'sql', 'json', 'xml')
+{% if target.type is defined and target.type != 'unknown' %}
+type: {{ target.type }}
+{% endif %}
+
+# Target database backend (e.g., 'postgresql', 'mysql')
+{% if target.database is defined and target.database | trim != '' %}
+database: {{ target.database }}
+{% endif %}
+
+# Target database schema name
+{% if target.schema is defined and target.schema | trim != '' %}
+schema: {{ target.schema }}
+{% endif %}
+
+# Directory path where generated output files will be written
+{% if target.output_dir is defined and target.output_dir | trim != '' %}
+output_dir: {{ target.output_dir }}
+{% endif %}
+# --- End of target: {{ target.name | default('') }} ---
+
+{% endfor %}

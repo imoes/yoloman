@@ -1,0 +1,69 @@
+# ==============================================================================
+# BOINC TUI Configuration Template
+# ==============================================================================
+# This template generates the configuration file for boinctui, a text-user-interface
+# client for the BOINC (Berkeley Open Infrastructure for Network Computing) project.
+# It allows users to monitor and manage BOINC tasks from the terminal.
+#
+# This section corresponds to the 'boinctui' schema field, which contains
+# all configuration parameters for the BOINC TUI client.
+# ==============================================================================
+
+[boinctui]
+
+# ------------------------------------------------------------------------------
+# hosts
+# Description: Comma-separated list of BOINC host addresses to monitor.
+#              Each entry can be just a hostname/IP or host:port.
+#              If empty, boinctui may attempt to connect to localhost.
+# Default: localhost (when the list is empty or undefined)
+# ------------------------------------------------------------------------------
+{% set _boinctui = boinctui | default({}) %}
+{% set _hosts = _boinctui.get('hosts') | default([]) %}
+{% if _hosts and _hosts | length > 0 %}
+hosts = {{ _hosts | join(', ') }}
+{% else %}
+hosts = localhost
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# port
+# Description: Default port for BOINC clients if not specified in the host entry.
+#              BOINC core clients typically listen on port 31416.
+# Default: 31416
+# ------------------------------------------------------------------------------
+port = {{ _boinctui.get('port') | default(31416) }}
+
+# ------------------------------------------------------------------------------
+# max_tasks_per_project
+# Description: Maximum number of tasks to display per project in the UI.
+#              Helps reduce screen clutter when many tasks are running.
+# Default: 10
+# ------------------------------------------------------------------------------
+max_tasks_per_project = {{ _boinctui.get('max_tasks_per_project') | default(10) }}
+
+# ------------------------------------------------------------------------------
+# suspend_gpu_when_cpu_high
+# Description: Suspend GPU tasks when CPU usage is high.
+#              If set to yes, boinctui will instruct BOINC to pause GPU work
+#              when the system CPU load exceeds a certain threshold (configured
+#              in BOINC core itself).
+# Default: no
+# ------------------------------------------------------------------------------
+suspend_gpu_when_cpu_high = {% if _boinctui.get('suspend_gpu_when_cpu_high') | default(false) | bool %}yes{% else %}no{% endif %}
+
+# ------------------------------------------------------------------------------
+# show_cpu_benchmarks
+# Description: Show CPU benchmarks in the main screen.
+#              Enables display of benchmark results for CPU tasks.
+# Default: no
+# ------------------------------------------------------------------------------
+show_cpu_benchmarks = {% if _boinctui.get('show_cpu_benchmarks') | default(false) | bool %}yes{% else %}no{% endif %}
+
+# ------------------------------------------------------------------------------
+# show_gpu_benchmarks
+# Description: Show GPU benchmarks in the main screen.
+#              Enables display of benchmark results for GPU tasks.
+# Default: no
+# ------------------------------------------------------------------------------
+show_gpu_benchmarks = {% if _boinctui.get('show_gpu_benchmarks') | default(false) | bool %}yes{% else %}no{% endif %}

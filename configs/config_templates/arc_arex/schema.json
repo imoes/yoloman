@@ -1,0 +1,109 @@
+{
+  "server_hostname": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or FQDN of the AREX service (e.g., arc.example.com)"
+  },
+  "server_port": {
+    "type": "number",
+    "default": 443,
+    "description": "TCP port on which the AREX service listens (commonly 443 for HTTPS)"
+  },
+  "rest_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the REST API endpoint (required for ARC 6+ clients)"
+  },
+  "websocket_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable the WebSocket endpoint for live job updates"
+  },
+  "max_jobs": {
+    "type": "number",
+    "default": 10000,
+    "description": "Maximum number of jobs this service instance will manage (prevents resource exhaustion)"
+  },
+  "job_state_path": {
+    "type": "string",
+    "default": "/var/lib/arc/jobstate",
+    "description": "Path to the directory storing job state information (must be writable by arc user)"
+  },
+  "job_output_path": {
+    "type": "string",
+    "default": "/var/spool/arc/joboutput",
+    "description": "Path to the directory where job outputs are staged for retrieval"
+  },
+  "worker_threads": {
+    "type": "number",
+    "default": 16,
+    "description": "Number of worker threads to handle incoming REST/WebSocket requests"
+  },
+  "auth_method": {
+    "type": "string",
+    "default": "gcc",
+    "description": "Authentication method: 'gcc' (GSI-GCC), 'x509' (client certificate), or 'none' (unauthenticated, insecure)"
+  },
+  "gridftp_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable GridFTP data transfer support"
+  },
+  "gridftp_ports": {
+    "type": "list",
+    "default": [
+      2811,
+      50000,
+      51000
+    ],
+    "description": "List of ports for GridFTP data connections (first is control port; range for data ports)",
+    "items": {
+      "type": "number",
+      "description": "TCP port number (e.g., 2811 for control, or range 50000-51000 for data)"
+    }
+  },
+  "job_managers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "local",
+        "resource": "localhost",
+        "manager": "fork",
+        "queue": ""
+      }
+    ],
+    "description": "List of job managers to handle jobs for specific computing resources",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "local",
+        "description": "Unique identifier for this job manager (used in service URLs)"
+      },
+      "resource": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Hostname or identifier of the computing resource (e.g., batch scheduler host)"
+      },
+      "manager": {
+        "type": "string",
+        "default": "fork",
+        "description": "Job execution backend: 'fork', 'pbs', 'slurm', 'lsf', 'condor', etc."
+      },
+      "queue": {
+        "type": "string",
+        "default": "",
+        "description": "Batch queue or partition to use (leave empty to use default)"
+      },
+      "workdir": {
+        "type": "string",
+        "default": "",
+        "description": "Optional working directory for this job manager (must be accessible to arc user)"
+      }
+    }
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Logging verbosity level (debug, info, notice, warning, error, critical, alert, emergency)"
+  }
+}

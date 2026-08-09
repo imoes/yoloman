@@ -1,0 +1,97 @@
+# L2TPns main configuration file
+# This template generates a self-documenting l2tpns.conf file.
+# All variables use 'default(...)' to ensure safe rendering even if undefined.
+# Booleans are normalized to 'true'/'false' strings. Lists are joined with commas.
+
+[global]
+# IP address to bind L2TP control port (UDP 1701).
+# Use 0.0.0.0 to listen on all interfaces.
+listen = {{ (listen_ip | default('0.0.0.0')) }}
+
+# Maximum number of concurrent L2TP sessions allowed.
+max_sessions = {{ (max_sessions | default(1000)) }}
+
+# Verbosity of logs: 0=none, 1=fatal, 2=error, 3=warning, 4=info, 5=debug.
+log_level = {{ (log_level | default(3)) }}
+
+# Run in LAC (Access Concentrator) mode instead of LNS (Network Server) mode.
+# Rarely needed for typical VPN setups.
+lac_mode = {{ (lac_mode | default(false) | lower) }}
+
+# Shared secret for authenticating L2TP control channel messages.
+# Required for peer trust. Empty string disables/leaves blank if not set.
+control_secret = {{ (control_secret | default('')) }}
+
+# Shared secret for L2TP data channel encryption (optional).
+# Leave empty to disable data channel auth.
+data_secret = {{ (data_secret | default('')) }}
+
+# Idle timeout (in seconds) for L2TP tunnels before they are torn down.
+tunnel_timeout = {{ (tunnel_timeout | default(300)) }}
+
+# Idle timeout (in seconds) for individual PPP sessions.
+session_timeout = {{ (session_timeout | default(600)) }}
+
+# Enable IP payload compression for L2TP data traffic.
+# May reduce CPU load but increase latency.
+ipcomp = {{ (ipcomp | default(false) | lower) }}
+
+# Enable PPP multilink to bundle multiple PPP sessions.
+# Useful for load balancing.
+multilink = {{ (multilink | default(true) | lower) }}
+
+[ip_pool]
+# IPv4 address ranges (CIDR or start-end) to allocate to clients.
+# Defaults to a single /24 subnet.
+ip_pool = {{ (ip_pool | default(['192.168.100.0/24']) | join(', ')) }}
+
+# DNS servers to push to connected clients.
+# Comma-separated list of IP addresses.
+{% if dns_servers is defined and dns_servers | length > 0 %}
+dns_servers = {{ (dns_servers | default(['8.8.8.8', '8.8.4.4']) | join(', ')) }}
+{% endif %}
+
+# WINS servers to push to clients.
+# Optional, mostly for legacy Windows compatibility.
+{% if wins_servers is defined and wins_servers | length > 0 %}
+wins_servers = {{ (wins_servers | default([]) | join(', ')) }}
+{% endif %}
+
+# Push a default route (0.0.0.0/0) to clients.
+# Forces all traffic through the tunnel when true.
+default_route = {{ (default_route | default(true) | lower) }}
+
+{% if users is defined and users | length > 0 %}
+[users]
+# Static user accounts with per-user configuration.
+{% for user in users %}
+# User: {{ (user.username | default('unknown')) }}
+# Description: {{ (user.description | default('user account')) }}
+# Authentication: {{ 'mschapv2' if user.mschapv2 else 'pap' }}
+# Session Timeout: {{ user.session_timeout | default(session_timeout) }}
+{% set user_ip = (user.ip | default('')) %}
+{% set user_pool = (user.ip_pool | default('')) %}
+{% set rate = (user.rate_limit | default('')) %}
+{% set auth_proto = 'mschapv2' if user.mschapv2 else 'pap' %}
+
+# Constructing the user entry string: password, ip[, protocol][, session_timeout=...][, ip_pool=...][, rate_limit=...]
+{{ (user.password | default('')) }}{% if user_ip %}, {{ user_ip }}{% endif %}{% if auth_proto %}, {{ auth_proto }}{% endif %}{% if user.session_timeout is defined or user.session_timeout %}, session_timeout={{ user.session_timeout | default(session_timeout) }}{% endif %}{% if user_pool %}, ip_pool={{ user_pool }}{% endif %}{% if rate %}, rate_limit={{ rate }}{% endif %}
+
+{% endfor %}
+{% endif %}
+
+{% if hosts is defined and hosts | length > 0 %}
+[hosts]
+# Predefined trusted peer hosts (e.g., for L2TP interconnection or static LNS/LAC pairing).
+{% for host in hosts %}
+# Host: {{ (host.hostname | default('unknown')) }}
+# Description: {{ (host.description | default('static host')) }}
+# Secret: {{ (host.secret | default(control_secret)) }}
+{% set host_ip = (host.ip | default('')) %}
+{% set host_proto = 'mschapv2' if host.mschapv2 else '' %}
+
+# Constructing the host entry string: ip, secret[, protocol]
+{{ host_ip }}{% if host_ip %}, {% endif %}{{ (host.secret | default(control_secret)) }}{% if host_proto %}, {{ host_proto }}{% endif %}
+
+{% endfor %}
+{% endif %}

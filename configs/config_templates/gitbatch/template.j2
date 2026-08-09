@@ -1,0 +1,33 @@
+# GitBatch configuration file
+# This template generates the command-line arguments and settings for GitBatch.
+
+# List of directory paths to scan for Git repositories
+# Each directory is passed as a separate `-d` flag.
+# Defaults to an empty list if not provided.
+{% set dirs = directories | default([], true) %}
+{% if dirs | length > 0 %}
+{% for dir in dirs %}-d {{ dir }}{% if not loop.last %} \{% endif %}
+{% endfor %}{% else %}-d /var/lib/gitbatch/repo
+{% endif %}
+
+# Application start mode (e.g., run, tray)
+# Controls whether the application runs in the foreground or in the system tray.
+# Default: 'run'
+-m {{ (mode | default('run', true)) | upper }}
+
+# Maximum depth for recursive directory scanning; 0 means no recursion
+# Limits how deep the scanner goes into subdirectories.
+# Default: 0
+-r {{ (recursive_depth | default(0, true)) | int }}
+
+# Logging level; one of trace, debug, info, warn, error
+# Sets the verbosity of the application logs.
+# Default: 'error'
+-l {{ (log_level | default('error', true)) | lower }}
+
+# Run in quick mode (no GUI, fetches/pulls remote upstream)
+# If true, bypasses the GUI and performs immediate fetch/pull operations.
+# Default: False (boolean)
+{% if (quick | default(False, true)) | bool %}
+--quick
+{% endif %}

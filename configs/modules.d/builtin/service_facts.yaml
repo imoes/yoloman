@@ -1,0 +1,34 @@
+name: service_facts
+fqcn: builtin.service_facts
+collection: builtin
+short_description: Enumerate every systemd service unit known to the host (via `systemctl
+  list-units --type=service --all`) along with its load/active/sub state (e.g
+description: 'Enumerate every systemd service unit known to the host (via `systemctl
+  list-units --type=service --all`) along with its load/active/sub state (e.g. loaded/active/running,
+  loaded/failed/failed, not-found/inactive/dead). Takes no parameters — it always
+  returns the full list; filter client-side for a specific service. Use this to check
+  whether a desired service is already running before deciding to call the write-gated
+  `service`/`systemd` module, or to answer ''what services are on this box'' questions.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.service_facts. Same underlying `systemctl list-units`
+  approach; result shape mirrors ansible_facts[''services''].
+
+  - Chef: no direct fact-gathering equivalent; typically queried ad hoc via a `shell_out(''systemctl
+  ...'')` in a recipe/library, since Ohai does not enumerate services by default.
+
+  - Puppet: `puppet resource service` lists resources of type service with their ensure/enable
+  state.
+
+  - Salt: the `service.get_all` and `service.status` execution modules.
+
+  - Terraform: not applicable — Terraform does not perform live runtime service introspection;
+  this kind of check would be done via a `null_resource` `local-exec`/`remote-exec`
+  provisioner shelling out to systemctl.'
+options: {}
+native: true
+writes: false
+runtime: native
+source: agent-registry

@@ -1,0 +1,44 @@
+# ==============================================================================
+# NSLCD Configuration Template
+# ==============================================================================
+# This template generates the configuration for nslcd (Name Service Switch
+# Local Configuration Daemon). It handles both the main nslcd configuration
+# and the optional k5start initialization parameters for Kerberos authentication.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# K5START INITIALIZATION
+# ------------------------------------------------------------------------------
+# The following section configures k5start, a helper daemon that obtains and
+# maintains a Kerberos ticket cache for nslcd. This is required when using
+# GSSAPI/SASL authentication with the directory server.
+
+# K5START_START: Controls whether the k5start daemon should be started automatically.
+# Set to "yes" to force starting k5start. Any other value will prevent k5start
+# from being started, even if other Kerberos options are present.
+# Schema Description: Whether to start k5start. Set to 'yes' to force starting, any other value disables it.
+# Schema Default: yes
+K5START_START="{{ k5start_start | default('yes') }}"
+
+# K5START_BIN: Path to the k5start executable binary.
+# Schema Description: Path to the k5start binary.
+# Schema Default: /usr/bin/k5start
+K5START_BIN={{ k5start_bin | default('/usr/bin/k5start') }}
+
+# K5START_KEYTAB: Path to the Kerberos keytab file used by k5start to authenticate.
+# This file must be readable by the user running nslcd/k5start.
+# Schema Description: Path to the Kerberos keytab file for k5start.
+# Schema Default: /etc/krb5.keytab
+K5START_KEYTAB={{ k5start_keytab | default('/etc/krb5.keytab') }}
+
+# K5START_CCREFRESH: Interval in seconds at which k5start attempts to refresh the
+# Kerberos ticket cache. This ensures the cache remains valid for long-running nslcd processes.
+# Schema Description: Interval in seconds for k5start to refresh the ticket cache.
+# Schema Default: 60
+K5START_CCREFRESH={{ k5start_ccrefresh | default(60) }}
+
+# K5START_PRINCIPAL: The Kerberos principal name that k5start will use for authentication.
+# Supports shell expansion variables such as $(hostname -f) to dynamically resolve the hostname.
+# Schema Description: Kerberos principal for k5start. Supports shell expansion like $(hostname -f).
+# Schema Default: host/$(hostname -f)
+K5START_PRINCIPAL="{{ k5start_principal | default('host/$(hostname -f)') }}"

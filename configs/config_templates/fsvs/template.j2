@@ -1,0 +1,53 @@
+# =============================================================================
+# FSVS Working Copy Configuration
+# =============================================================================
+# This template generates the `.fsvs/fsvs.conf` file for the fsvs version control
+# system. It manages repository URLs, ignore patterns, property groups, and
+# working copy properties.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Repository URLs
+# -----------------------------------------------------------------------------
+# Defines the repository URLs to use for the working copy.
+# Syntax: URL [name=name] [prio=priority] [target=rev] [readonly=bool]
+# Each item in fsvs_urls generates one line here.
+
+{% for url in (fsvs_urls | default([])) %}
+{{ url.url | default('') }}{% if url.name | default('') %} name={{ url.name | default('') }}{% endif %}{% if url.prio is defined %} prio={{ url.prio | default(0) }}{% endif %}{% if url.target is defined %} target={{ url.target | default(-1) }}{% endif %}{% if url.readonly is defined %} readonly={{ url.readonly | default(False) }}{% endif %}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Ignore Patterns
+# -----------------------------------------------------------------------------
+# Defines shell-style ignore patterns for the working copy.
+# Syntax: ignore [prepend|append|at=n] <pattern>
+# Supports * ? ** wildcards.
+
+{% for item in (fsvs_ignore | default([])) %}
+ignore {{ item.mode | default(['append']) | join(',') }} {{ item.pattern | default('') }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Property Groups
+# -----------------------------------------------------------------------------
+# Defines groups of criteria that can be applied to properties.
+# Syntax: groups [prepend|append|at=n] <group_name>:<criteria1>,<criteria2>
+# Groups allow conditional application of properties based on file attributes.
+
+{% for group in (fsvs_groups | default([])) %}
+groups {{ group.mode | default(['append']) | join(',') }} {{ group.name | default('ignore') }}:{{ group.criteria | default([]) | join(',') }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# Property Settings
+# -----------------------------------------------------------------------------
+# Defines explicit property assignments for the working copy.
+# Syntax: prop-set <key>=<value>
+# These are global defaults unless a path is specified in the value (not handled
+# by this simplified template). For key-value pairs without a path, the property
+# applies to the root or inherited.
+
+{% for prop in (fsvs_properties | default([])) %}
+prop-set {{ prop.key | default('') }}={{ prop.value | default('') }}
+{% endfor %}

@@ -1,0 +1,64 @@
+# ==============================================================================
+# dmeventd.conf — LVM Device-Mapper Event Daemon Configuration
+# ==============================================================================
+# This file controls the behavior of the `dmeventd` daemon, which monitors
+# device-mapper devices (such as Logical Volumes and thin pools) for events
+# like snapshots running out of space, I/O errors, or metadata changes.
+#
+# This template is self-documenting: every directive is preceded by a comment
+# derived from its schema definition. All variables use `.default()` to ensure
+# safe rendering even if upstream Ansible variables are undefined.
+# ==============================================================================
+
+# Set verbosity of logging: 0=none, 1=normal, 2=verbose, 3=debug.
+# Controls how much detail dmeventd writes to syslog or standard error.
+log_level = {{ log_level | default(1) }}
+
+# Absolute path to the file where the daemon writes its process ID.
+# Used by service managers to track the daemon's lifecycle.
+pid_file = "{{ pid_file | default('/run/dmeventd.pid') }}"
+
+# Maximum number of concurrent worker threads for event handling.
+# Limits concurrency to prevent resource exhaustion on systems with many monitored devices.
+max_worker_threads = {{ max_worker_threads | default(8) }}
+
+# Time (in seconds) to wait before aborting a monitoring or recovery operation.
+# Prevents operations from hanging indefinitely if the underlying device is unresponsive.
+operation_timeout = {{ operation_timeout | default(30) }}
+
+# Whether to run as a background daemon (detach from controlling terminal).
+# When true, dmeventd forks into the background upon startup.
+daemonize = {{ daemonize | default(True) | lower }}
+
+# List of device-mapper devices to monitor (e.g., LVs, thin pools).
+# Each entry specifies the device path and optional flags.
+# If the list is empty (default), dmeventd relies on other mechanisms (like udev)
+# to discover devices, or no devices are actively monitored by this instance.
+{% for device in monitored_devices | default([]) %}
+# Device: {{ device.path }}
+# Optional flags associated with this device monitoring.
+{% if device.flags %}
+# Flags: {{ device.flags }}
+{% endif %}
+monitor_device = "{{ device.path }}"
+{% endfor %}
+
+# Path to the `lvm` binary used for performing recovery actions.
+# dmeventd calls this binary to execute automated recovery scripts (e.g., extending a thin pool).
+lvm2_path = "{{ lvm2_path | default('/sbin/lvm') }}"
+
+# Directory used to store runtime state (e.g., recovery status, logs).
+# Ensures state persistence across restarts and prevents duplicate monitoring.
+state_dir = "{{ state_dir | default('/run/dmeventd') }}"
+
+# Whether to wait for udev to settle before performing device operations.
+# Prevents race conditions where device nodes are not yet fully initialized.
+use_udev = {{ use_udev | default(True) | lower }}
+
+# Maximum number of attempts to retry a failed operation before giving up.
+# Limits retry loops to avoid infinite loops on persistent hardware failures.
+max_retries = {{ max_retries | default(3) }}
+
+# Delay (in seconds) between retry attempts.
+# Provides a back-off period before the next retry of a failed operation.
+retry_delay = {{ retry_delay | default(2) }}

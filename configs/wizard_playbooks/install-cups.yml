@@ -1,0 +1,29 @@
+- name: install-cups
+  hosts: all
+  become: true
+  vars:
+    _dest: "/etc/cups/cupsd.conf"
+    _service: "cups"
+    _packages:
+      - cups
+    snmp_address: "@LOCAL"
+    snmp_community: "public"
+  tasks:
+    - name: Install CUPS Print Server
+      ansible.builtin.package:
+        name: "{{ _packages }}"
+        state: present
+
+    - name: Render configuration
+      ansible.builtin.template:
+        src: cups.j2
+        dest: "{{ _dest }}"
+      vars:
+        snmp_address: "{{ snmp_address }}"
+        snmp_community: "{{ snmp_community }}"
+
+    - name: Enable and restart CUPS Print Server
+      ansible.builtin.service:
+        name: "{{ _service }}"
+        state: restarted
+        enabled: true

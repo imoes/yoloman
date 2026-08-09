@@ -1,0 +1,19 @@
+# AppArmor profile for cockpit-desktop.
+#
+# This profile confines the Cockpit desktop client application.
+# It is generated from the package's configuration schema, ensuring
+# that all variables have safe defaults and are self-documented.
+
+abi <abi/4.0>,
+
+include <tunables/global>
+
+# The absolute path to the cockpit-desktop executable to be profiled.
+# Default: /usr/lib/cockpit/cockpit-desktop
+profile cockpit-desktop {{ cockpit_desktop_path | default('/usr/lib/cockpit/cockpit-desktop') }} flags=(unconfined) {
+    userns,
+
+    # Site-specific additions and overrides.
+    # See local/README for details on how to extend this profile.
+    include if exists <local/cockpit-desktop>
+}

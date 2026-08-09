@@ -1,0 +1,141 @@
+# /etc/nbd-server/config — NBD (Network Block Device) Server Configuration
+# This template configures an NBD server instance, allowing block devices
+# or images to be exported over the network for mounting by NBD clients.
+#
+# The configuration is divided into a [generic] section for server-wide
+# settings and an export-specific section for individual device exports.
+
+[generic]
+
+# IP address or hostname for the NBD server to listen on.
+# Default: 0.0.0.0
+addr = {{ (addr | default('0.0.0.0')) }}
+
+# TCP port number for incoming NBD connections.
+# Default: 10809
+port = {{ (port | default(10809)) }}
+
+# Number of worker threads to handle I/O requests concurrently.
+# Default: 4
+threads = {{ (threads | default(4)) }}
+
+[export:/default]
+
+# Name of the exported device. Clients use this name to select which export
+# to connect to when the server offers multiple exports.
+# Default: default
+name = {{ (export_name | default('default')) }}
+
+# Optional human-readable description of the export.
+# This is informational only and does not affect functionality.
+# Default: (empty)
+description = {{ (description | default('')) }}
+
+# Path to the file or block device to export.
+# Can be a regular file (e.g., /path/to/disk.img) or a block device (e.g., /dev/sdb1).
+# Default: /var/lib/nbd-server/file.img
+file = {{ (export_file | default('/var/lib/nbd-server/file.img')) }}
+
+# Override auto-detected export size.
+# If left empty, NBD detects the size automatically.
+# Examples: '1G', '500M', '1073741824'
+# Default: (empty)
+{% if (export_size | default('')) %}
+size = {{ (export_size | default('')) }}
+{% endif %}
+
+# Read-only mode toggle.
+# If true, clients can only read from the exported device; writes are rejected.
+# If false, clients can read and write.
+# Default: False
+{% if (read_only | default(False)) %}
+ro
+{% else %}
+rw
+{% endif %}
+
+# Multifile support.
+# If true, treat export_file as a directory where files are concatenated to form
+# a single logical device. Use with caution.
+# Default: False
+{% if (multifile | default(False)) %}
+multifile
+{% endif %}
+
+# Copy-on-write support.
+# If true, enabled CoW mode: writes create a separate overlay instead of modifying
+# the source file/device, preserving the original data.
+# Default: False
+{% if (copy_on_write | default(False)) %}
+cow
+{% endif %}
+
+# Strict IO.
+# If true, disables asynchronous I/O for stricter compliance with POSIX semantics
+# and reduced risk of data corruption, at the cost of performance.
+# Default: False
+{% if (strict_io | default(False)) %}
+strict
+{% endif %}
+
+# Preallocation strategy for sparse files.
+# Options: 'none' (default), 'falloc' (fast allocation), 'full' (zero-fill).
+# Only applies when creating new image files.
+# Default: (empty)
+{% if (prealloc | default('')) %}
+prealloc = {{ (prealloc | default('')) }}
+{% endif %}
+
+# Override the logical block size (in bytes) advertised to clients.
+# Common values: 512, 4096.
+# If unset, the device-native sector size is used.
+# Default: None
+{% if (block_size | default(None)) is not none %}
+block-size = {{ (block_size | default(None)) }}
+{% endif %}
+
+# TLS encryption is enabled for this export.
+# Server certificate (PEM format) required for client verification.
+# Default: /etc/nbd-server/certs/server.crt
+{% if (tls | default(False)) %}
+cert = {{ (tls_cert | default('/etc/nbd-server/certs/server.crt')) }}
+
+# Server private key (PEM format, unencrypted) required for TLS handshake.
+# Default: /etc/nbd-server/certs/server.key
+key = {{ (tls_key | default('/etc/nbd-server/certs/server.key')) }}
+
+# CA certificate for optional mutual TLS (client certificate verification).
+# Default: /etc/nbd-server/certs/ca.crt
+ca-cert = {{ (tls_ca_cert | default('/etc/nbd-server/certs/ca.crt')) }}
+{% endif %}
+
+# Export-specific access control: Allowed hosts.
+# List of IP addresses, hostnames, or CIDR ranges permitted to connect.
+# If empty, access is not restricted by this list (subject to hosts_deny).
+# Default: []
+{% if (hosts_allow | default([])) | length > 0 %}
+# Allowed hosts
+{% for host in (hosts_allow | default([])) %}
+hosts_allow = {{ host }}
+{% endfor %}
+{% endif %}
+
+# Export-specific access control: Denied hosts.
+# List of IP addresses, hostnames, or CIDR ranges explicitly denied access.
+# Takes precedence over hosts_allow if both are specified.
+# Default: []
+{% if (hosts_deny | default([])) | length > 0 %}
+# Denied hosts
+{% for host in (hosts_deny | default([])) %}
+hosts_deny = {{ host }}
+{% endfor %}
+{% endif %}
+
+# Custom options.
+# Additional low-level directives not covered by the schema fields above.
+# Each item in the list is rendered as a full configuration line.
+# Use with caution; invalid options may cause the server to fail to start.
+# Default: []
+{% for option in (custom_options | default([])) %}
+{{ option }}
+{% endfor %}

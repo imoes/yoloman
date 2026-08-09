@@ -1,0 +1,305 @@
+{
+  "local_db": {
+    "type": "object",
+    "default": {
+      "host": "localhost",
+      "port": 5432,
+      "name": "pgq_local",
+      "user": "pgqadmin",
+      "password": ""
+    },
+    "description": "Database credentials and connection for the local PgQ node database (where events are consumed into).",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Hostname or IP of local PostgreSQL instance."
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Port of local PostgreSQL instance."
+      },
+      "name": {
+        "type": "string",
+        "default": "pgq_local",
+        "description": "Database name for local queue data (typically 'pgq_local')."
+      },
+      "user": {
+        "type": "string",
+        "default": "pgqadmin",
+        "description": "Username with access to local PgQ schema and tables."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for local DB user (use secrets management in production)."
+      }
+    }
+  },
+  "upstream_db": {
+    "type": "object",
+    "default": {
+      "host": "upstream.example.com",
+      "port": 5432,
+      "name": "pgq_upstream",
+      "user": "pgqreader",
+      "password": ""
+    },
+    "description": "Database credentials for the upstream (source) PgQ queue.",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "upstream.example.com",
+        "description": "Hostname or IP of upstream PostgreSQL instance."
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Port of upstream PostgreSQL instance."
+      },
+      "name": {
+        "type": "string",
+        "default": "pgq_upstream",
+        "description": "Database name hosting the upstream queue."
+      },
+      "user": {
+        "type": "string",
+        "default": "pgqreader",
+        "description": "Username with read-only access to PgQ tables (e.g., pgq.subscription, pgq.tick)."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for upstream DB user (use secrets management)."
+      }
+    }
+  },
+  "node_name": {
+    "type": "string",
+    "default": "node1",
+    "description": "Unique identifier for this PgQ node (must be consistent across restarts and match topology config)."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 4,
+    "description": "Number of parallel worker threads processing events from the queue."
+  },
+  "batch_size": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of events to fetch and process per transaction (larger = better throughput, higher latency)."
+  },
+  "poll_delay_ms": {
+    "type": "number",
+    "default": 100,
+    "description": "Delay (ms) between polls for new events when upstream queue is empty (lower = lower latency, higher CPU)."
+  },
+  "max_idle_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds to wait between successful transactions before logging a warning (detects hangs)."
+  },
+  "queue_name": {
+    "type": "string",
+    "default": "events",
+    "description": "Name of the upstream queue to consume from (e.g., 'events', 'orders', 'logs')."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity of log output. Set to DEBUG for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/pgq-node/node.log",
+    "description": "Path to the log file."
+  },
+  "log_max_size_mb": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum size (MB) per log file before rotation."
+  },
+  "log_max_files": {
+    "type": "number",
+    "default": 5,
+    "description": "Number of rotated log files to retain."
+  },
+  "health_check": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "port": 8080,
+      "path": "/health"
+    },
+    "description": "HTTP health check endpoint for container/orchestrator liveness/readiness probes.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable the health check HTTP server."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "Port to listen on for health checks."
+      },
+      "path": {
+        "type": "string",
+        "default": "/health",
+        "description": "Path for the health check endpoint (e.g., /healthz)."
+      }
+    }
+  },
+  "lag_monitoring": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "interval_seconds": 10,
+      "warn_threshold_seconds": 60,
+      "crit_threshold_seconds": 300
+    },
+    "description": "Configuration for monitoring replication lag between upstream and this node (critical in cascaded topologies).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable lag monitoring and alerting."
+      },
+      "interval_seconds": {
+        "type": "number",
+        "default": 10,
+        "description": "How often (seconds) to check upstream lag."
+      },
+      "warn_threshold_seconds": {
+        "type": "number",
+        "default": 60,
+        "description": "Lag > this value triggers warning log and metrics."
+      },
+      "crit_threshold_seconds": {
+        "type": "number",
+        "default": 300,
+        "description": "Lag > this value triggers critical alert and may trigger failover."
+      }
+    }
+  },
+  "pause_on_upstream_failure": {
+    "type": "bool",
+    "default": true,
+    "description": "If upstream is unavailable, pause processing instead of exiting (prevents data loss due to network blips)."
+  },
+  "event_timeout_seconds": {
+    "type": "number",
+    "default": 30,
+    "description": "Maximum seconds allowed per event handler before timing out and retrying (or failing)."
+  },
+  "init_sql": {
+    "type": "object",
+    "default": {
+      "file": ""
+    },
+    "description": "Optional SQL file to run on startup to initialize node state (e.g., set up consumer markers).",
+    "items": {
+      "file": {
+        "type": "string",
+        "default": "",
+        "description": "Absolute path to SQL initialization script (must be idempotent)."
+      }
+    }
+  },
+  "event_filters": {
+    "type": "list",
+    "default": [],
+    "description": "List of event filtering rules to selectively forward events. Each rule applies to new events from upstream.",
+    "items": {
+      "type": "object",
+      "description": "A single event filter rule.",
+      "items": {
+        "type": {
+          "type": "string",
+          "default": "type_equals",
+          "enum": [
+            "type_equals",
+            "type_regex",
+            "field_equals",
+            "field_regex"
+          ],
+          "description": "Filter type (e.g., match event type or custom field)."
+        },
+        "pattern": {
+          "type": "string",
+          "default": "",
+          "description": "Pattern to match (e.g., 'user.created' or '\\d+\\s+error')."
+        },
+        "action": {
+          "type": "string",
+          "default": "allow",
+          "enum": [
+            "allow",
+            "discard",
+            "delay"
+          ],
+          "description": "Action to take when rule matches (allow = forward, discard = drop, delay = defer to retry)."
+        }
+      }
+    }
+  },
+  "retry_policy": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "max_attempts": 3,
+      "delay_seconds": 5,
+      "backoff_multiplier": 2.0
+    },
+    "description": "Retry behavior for failed events (applies to handlers and event replication).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable automatic retry of failed events."
+      },
+      "max_attempts": {
+        "type": "number",
+        "default": 3,
+        "description": "Maximum retries before marking event as failed permanently."
+      },
+      "delay_seconds": {
+        "type": "number",
+        "default": 5,
+        "description": "Initial delay (seconds) before first retry."
+      },
+      "backoff_multiplier": {
+        "type": "number",
+        "default": 2.0,
+        "description": "Multiplier for exponential backoff (e.g., 2 \u2192 5s, 10s, 20s)."
+      }
+    }
+  },
+  "metrics": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "port": 9090,
+      "path": "/metrics"
+    },
+    "description": "Metrics export for monitoring (e.g., Prometheus scraping).",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable metrics HTTP endpoint."
+      },
+      "port": {
+        "type": "number",
+        "default": 9090,
+        "description": "Port to expose metrics on."
+      },
+      "path": {
+        "type": "string",
+        "default": "/metrics",
+        "description": "Path where metrics are served (e.g., /metrics, /prometheus/metrics)."
+      }
+    }
+  }
+}

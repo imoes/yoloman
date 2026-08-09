@@ -1,0 +1,106 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address of the network interface the server listens on. Use '0.0.0.0' to listen on all interfaces."
+  },
+  "port": {
+    "type": "number",
+    "default": 8080,
+    "description": "TCP port for incoming HTTP connections."
+  },
+  "max_connections": {
+    "type": "number",
+    "default": 100,
+    "description": "Maximum number of simultaneous client connections allowed."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 30,
+    "description": "Idle connection timeout in seconds. Connections beyond this duration are closed."
+  },
+  "compression": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable or disable gzip compression for HTTP responses (helps reduce bandwidth)."
+  },
+  "root": {
+    "type": "string",
+    "default": "/srv/harvid/videos",
+    "description": "Absolute or relative path to the top-level directory where video files are stored."
+  },
+  "index_dir": {
+    "type": "string",
+    "default": "",
+    "description": "Subdirectory under `root` to serve as default index landing page (e.g., 'main'). Leave empty to disable."
+  },
+  "index_template": {
+    "type": "string",
+    "default": "",
+    "description": "Path to custom HTML template for directory listings. If omitted, a basic auto-generated listing is used."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/harvid/harvid.log",
+    "description": "Path to server log file. Use '-' to log to stderr instead."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level of logging. Choose from: debug, info, warn, error, fatal.",
+    "enum": [
+      "mute",
+      "critical",
+      "error",
+      "warning",
+      "info"
+    ]
+  },
+  "access_log": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable detailed access logging (every request with IP, path, status, etc.)."
+  },
+  "services": {
+    "type": "list",
+    "default": [],
+    "description": "List of optional named services (each with its own root path and mount point). Useful for multi-tenant or segmented deployments.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Unique identifier for the service (used as section header, e.g., 'projects', 'archive').",
+        "required": true
+      },
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable this service instance."
+      },
+      "root": {
+        "type": "string",
+        "description": "Base path for files served by this service (may be absolute or relative to `server.root`).",
+        "required": true
+      },
+      "mount": {
+        "type": "string",
+        "default": "",
+        "description": "URL path prefix under which this service is exposed (e.g., '/docs' \u2192 http://host:port/docs/...). If omitted, service root is exposed directly at `/`."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable description shown in config comments (optional)."
+      }
+    }
+  },
+  "enable_basic_auth": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP Basic Authentication for all endpoints."
+  },
+  "password_file": {
+    "type": "string",
+    "default": "/etc/harvid/htpasswd",
+    "description": "Path to htpasswd-formatted file containing usernames and hashed passwords (supports md5, bcrypt, sha1)."
+  }
+}

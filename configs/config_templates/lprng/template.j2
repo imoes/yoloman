@@ -1,0 +1,64 @@
+#!/bin/sh
+#
+# source:
+#   $Source: /var/cvs/hosts/quoininc/smoke/etc/cron.daily/lprng,v $
+#
+# revision:
+#   @(#) $Id: lprng,v 1.1 1998/01/11 02:19:10 jplejacq Exp $
+#
+# copyright:
+#   Copyright (C) 1997 Jean Pierre LeJacq <jplejacq@quoininc.com>
+#
+# description:
+#   Host configuration of cron daily program for lprng.
+#
+#   Reports warnings or errors using the syslog facility.  If there
+#   are no errors, removes junk files older than a day.
+
+# Check that the lprng printer checking utility exists
+test -x /usr/sbin/checkpc || exit 0
+# Check that the printer configuration file exists
+test -e /etc/printcap || exit 0
+
+# filter defining what errors to look for:
+# Warning string pattern to detect in checkpc output.
+# Default: 'Warning'
+CS_WARN="{{ cs_warn | default('Warning') }}"
+# Error string pattern to detect in checkpc output.
+# Default: 'lp\\:  Need to fix'
+CS_ERROR="{{ cs_error | default('lp\\:  Need to fix') }}"
+
+CS_DENY="${{ cs_warn | default('Warning') }}|${{ cs_error | default('lp\\:  Need to fix') }}"
+
+
+# filter defining which errors you'll accept:
+# Specific lock file ownership warning to ignore.
+# Default: 'Warning - owner/group of ./var/lock. are 0/0, not 7/7'
+CS_LOCK_OWN="{{ cs_lock_own | default('Warning - owner/group of ./var/lock. are 0/0, not 7/7') }}"
+# Specific lock file permission warning to ignore.
+# Default: 'Warning - permissions of ./var/lock. are 041777, not 042700'
+CS_LOCK_PERM="{{ cs_lock_perm | default('Warning - permissions of ./var/lock. are 041777, not 042700') }}"
+# Specific missing lockfile warning to ignore.
+# Default: 'Warning -   LPD Lockfile .* does not exist!'
+CS_MISS_LOCKFILE="{{ cs_miss_lockfile | default('Warning -   LPD Lockfile .* does not exist!') }}"
+
+CS_ALLOW="${{ cs_lock_own | default('Warning - owner/group of ./var/lock. are 0/0, not 7/7') }}|${{ cs_lock_perm | default('Warning - permissions of ./var/lock. are 041777, not 042700') }}|${{ cs_miss_lockfile | default('Warning -   LPD Lockfile .* does not exist!') }}"
+
+
+# main:
+
+  if [ -x /usr/sbin/checkpc ]
+  then
+
+    /usr/sbin/checkpc | grep -E "${{ cs_warn | default('Warning') }}|${{ cs_error | default('lp\\:  Need to fix') }}" | grep -q -v -E "${{ cs_lock_own | default('Warning - owner/group of ./var/lock. are 0/0, not 7/7') }}|${{ cs_lock_perm | default('Warning - permissions of ./var/lock. are 041777, not 042700') }}|${{ cs_miss_lockfile | default('Warning -   LPD Lockfile .* does not exist!') }}" ; RV=$?
+    if [ "$RV" = "{{ cs_rv_match | default('0') }}" ]
+    then
+      # Syslog message to log when errors are detected.
+      # Default: 'cron.daily found errors, run checkpc for details.'
+      /usr/bin/logger -p "lpr.err" -t "lpd" "{{ cs_error_message | default('cron.daily found errors, run checkpc for details.') }}"
+    else
+      /usr/sbin/checkpc -r -A 1D
+    fi
+  fi
+
+exit 0

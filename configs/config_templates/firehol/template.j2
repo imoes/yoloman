@@ -1,0 +1,54 @@
+# FireHOL application default file
+# Sourced by the init script `/etc/init.d/firehol`.
+#
+# This file configures the boot-time behavior and basic initialization
+# parameters for the FireHOL firewall framework.
+#
+# =================================================================
+# STARTUP CONTROL
+# =================================================================
+
+# Control whether FireHOL starts automatically at boot.
+# Allowed values:
+#   NO   - FireHOL is disabled at boot (default).
+#   YES  - FireHOL is started automatically during system boot.
+#   AUTO - FireHOL is managed externally (e.g., by ifupdown scripts);
+#          internal waiting lists are cleared in this mode.
+#
+# Schema: start_firehol
+# Default: 'NO'
+START_FIREHOL={{ start_firehol | default('NO') }}
+
+# =================================================================
+# INTERFACE DEPENDENCIES
+# =================================================================
+
+# If you want FireHOL to wait for a specific network interface
+# to be up before activating the firewall rules, add the interface
+# name here (e.g., eth0).
+#
+# Note: If START_FIREHOL is set to 'AUTO', this list is typically
+# emptied by the external management scheme.
+#
+# Schema: wait_for_iface
+# Default: empty list []
+WAIT_FOR_IFACE={{ wait_for_iface | default([]) | join(' ') }}
+
+# =================================================================
+# ACTIVATION BEHAVIOR
+# =================================================================
+
+# Disallow pre-established traffic to continue whilst the firewall is
+# activated.
+#
+# 0 (default): Kill/allow existing connections to be dropped or handled
+#              according to the firewall policies as they are applied.
+# 1:           Allow existing pre-established connections to continue
+#              uninterrupted while new rules are applied.
+#
+# This setting helps prevent service interruption during firewall restarts
+# if the underlying application allows persistent connections.
+#
+# Schema: firehol_established_activation_accept
+# Default: 0
+FIREHOL_ESTABLISHED_ACTIVATION_ACCEPT={{ firehol_established_activation_accept | default(0) }}

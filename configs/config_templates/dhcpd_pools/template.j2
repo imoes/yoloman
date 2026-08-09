@@ -1,0 +1,91 @@
+# ISC DHCP Lease Analysis Tool (dhcpd_pools) configuration
+# Configuration file: /etc/dhcpd-pools.conf
+# Ref: https://dhcpd-pools.sourceforge.net/
+
+[global]
+# Absolute path to the ISC DHCP server lease database file to analyze.
+# Default: /var/lib/dhcp/dhcpd.leases
+lease_file = {{ lease_file | default('/var/lib/dhcp/dhcpd.leases') }}
+
+# Directory where HTML reports are generated. Set to empty string to disable HTML output.
+# Default: /var/www/dhcpd-pools/reports
+html_output_dir = {{ html_output_dir | default('/var/www/dhcpd-pools/reports') }}
+
+# Directory where CSV reports are generated. Set to empty string to disable CSV output.
+# Default: /var/lib/dhcpd-pools/csv
+csv_output_dir = {{ csv_output_dir | default('/var/lib/dhcpd-pools/csv') }}
+
+# Directory where JSON reports are generated. Set to empty string to disable JSON output.
+# Default: /var/lib/dhcpd-pools/json
+json_output_dir = {{ json_output_dir | default('/var/lib/dhcpd-pools/json') }}
+
+# Date/time format used in report headers and timestamps (Python strptime syntax).
+# Default: %Y-%m-%d %H:%M:%S
+report_date_format = {{ report_date_format | default('%Y-%m-%d %H:%M:%S') }}
+
+# Number of days into the past considered 'recent' for activity analysis.
+# Default: 7
+recent_days = {{ recent_days | default(7) }}
+
+# Minimum number of days since last activity before a lease is flagged as 'stale'.
+# Default: 30
+stale_days = {{ stale_days | default(30) }}
+
+# Whether to include per-subnet statistics in reports. More accurate but heavier on large files.
+# Default: True
+detailed_subnets = {{ detailed_subnets | default(true) }}
+
+# List of subnet CIDR or dotted-quad ranges to exclude from analysis.
+# If empty, no subnets are excluded.
+# Format: one subnet per line, indented.
+exclude_subnets = {% if (exclude_subnets | default([])) is defined and (exclude_subnets | default([])) is iterable and (exclude_subnets | default([])) | length > 0 %}
+{% for subnet in exclude_subnets | default([]) %}  {{ subnet }}
+{% endfor %}{% else %}
+  # (none excluded)
+{% endif %}
+
+# List of subnet ranges to include in analysis. If non-empty, only these subnets are analyzed.
+# If empty, all subnets found in the lease file are included.
+include_subnets = {% if (include_subnets | default([])) is defined and (include_subnets | default([])) is iterable and (include_subnets | default([])) | length > 0 %}
+{% for subnet in include_subnets | default([]) %}  {{ subnet }}
+{% endfor %}{% else %}
+  # (all subnets included by default)
+{% endif %}
+
+[thresholds]
+# Warning threshold: pool utilization percentage above which a warning is triggered.
+# Default: 80
+pool_warn_pct = {{ (thresholds | default({})).pool_warn_pct | default(80) }}
+
+# Critical threshold: pool utilization percentage above which a critical alert is triggered.
+# Default: 95
+pool_crit_pct = {{ (thresholds | default({})).pool_crit_pct | default(95) }}
+
+# Warning threshold: number of stale leases above which a warning is triggered.
+# Default: 100
+stale_warn_count = {{ (thresholds | default({})).stale_warn_count | default(100) }}
+
+# Critical threshold: number of stale leases above which a critical alert is triggered.
+# Default: 200
+stale_crit_count = {{ (thresholds | default({})).stale_crit_count | default(200) }}
+
+[reports]
+# Enable per-pool statistics in generated reports.
+# Default: True
+pool_stats = {{ (reports | default({})).pool_stats | default(true) }}
+
+# Enable per-class (vendor class identifier) statistics in generated reports.
+# Default: False
+class_stats = {{ (reports | default({})).class_stats | default(false) }}
+
+# Include host reservations in the generated reports.
+# Default: False
+host_reservations = {{ (reports | default({})).host_reservations | default(false) }}
+
+# Enable MAC vendor lookup in reports (requires external lookup service; adds latency).
+# Default: False
+mac_vendor_lookup = {{ (reports | default({})).mac_vendor_lookup | default(false) }}
+
+# Enable time-series summary in reports (requires multiple runs with historic data).
+# Default: False
+time_series = {{ (reports | default({})).time_series | default(false) }}

@@ -1,0 +1,41 @@
+# Extrance configuration template
+#
+# This template configures the 'extrace' systemd service unit.
+# It maps schema fields to command-line flags for the extrace binary.
+#
+# Schema Reference:
+# - include_cwd (bool): Print current working directory of new process (-d)
+# - include_env (bool): Print environment of process (-e)
+# - flat_output (bool): Generate flat output without indentation (-f)
+# - resolve_full_path (bool): Resolve full path of executable (-l)
+# - suppress_args (bool): Suppress printing of exec(3) arguments (-q)
+# - show_exit_status (bool): Display process exit status and duration (-t)
+# - show_user (bool): Display user running the process (-u)
+# - output_file (str): Redirect trace output to file (-o file)
+# - trace_pid (int): Only trace descendants of pid (-p pid)
+# - trace_cmd (list): Command to run and trace its descendants
+
+[Service]
+# The main execution command for the extrace service.
+# Flags are appended conditionally based on schema defaults.
+ExecStart=/usr/bin/extrace \
+{%- if include_cwd | default(false) %} \
+-d{%- endif %} \
+{%- if include_env | default(false) %} \
+-e{%- endif %} \
+{%- if flat_output | default(false) %} \
+-f{%- endif %} \
+{%- if resolve_full_path | default(false) %} \
+-l{%- endif %} \
+{%- if suppress_args | default(false) %} \
+-q{%- endif %} \
+{%- if show_exit_status | default(false) %} \
+-t{%- endif %} \
+{%- if show_user | default(false) %} \
+-u{%- endif %} \
+{%- if output_file | default('') %} \
+-o {{ output_file | default('') | trim }}{%- endif %} \
+{%- if trace_pid | default(0) %} \
+-p {{ trace_pid | default(0) | int }}{%- endif %} \
+{%- if trace_cmd | default([]) %} \
+{{ trace_cmd | default([]) | join(' ') }}{%- endif %}

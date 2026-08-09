@@ -1,0 +1,90 @@
+# dhcpy6d main configuration file
+# dhcpy6d follows RFC 822 style parsed by Python ConfigParser module.
+# It contains several sections: [dhcpy6d], [address_*], [prefix_*], [class_*], [bootfile_*].
+#
+# This configuration is self-documenting. Every directive includes its
+# schema description as a comment above it. Defaults are applied inline
+# using Jinja2 'default' filters to ensure valid rendering even if
+# variables are omitted from the Ansible playbook.
+
+[dhcpy6d]
+# Network interface on which to listen for IPv6 DHCPv6 requests.
+# Default: 'eth0'
+interface = {{ interface | default('eth0') }}
+
+# Log verbosity. Options: debug, info, warning, error, critical.
+# Note: dhcpy6d does not have a 'log_level' directive in the INI file.
+# Logging is controlled by the 'log' boolean directive and the OS logger.
+# We set 'log' to 'yes' if the log_level is not 'off'.
+log = {{ log_level | default('info') | lower() | ternary('yes' if log_level | default('info') | lower() != 'off' else 'no', 'yes') }}
+
+# Path to the DNS server configuration file.
+# The schema's dns_servers are mapped to this file or the global 'nameserver'
+# if supported. Standard dhcpy6d uses 'nameserver' in [dhcpy6d].
+# Default: ['2001:4860:4860::8888', '2001:4860:4860::8844']
+# We map the first DNS server to the 'nameserver' directive if it exists,
+# or leave it if the schema implies a separate client file.
+# However, the schema lists 'dns_servers' as a list. dhcpy6d's 'nameserver'
+# is a single IP. We will map the list to the 'nameserver' directive if
+# it's a single value, or ignore if the implementation expects a separate
+# client config file. Given the abstraction, we map the first one or join
+# if the backend supports multiple. Standard ini usually takes one.
+# We will omit the direct mapping to 'nameserver' if it's a list, as that
+# would require a separate section or multiple lines which ConfigParser
+# handles as a list.
+# Actually, dhcpy6d's 'nameserver' can take multiple IPs? No, usually one.
+# We will map the 'dns_servers' list to a comment or a specific section
+# if provided. But the schema has it as a global field.
+# Let's map the first DNS server to 'nameserver' and document the rest.
+nameserver = {{ dns_servers | default(['2001:4860:4860::8888', '2001:4860:4860::8844']) | first() }}
+
+# Domain search list. Maps to 'domain_search_list'.
+# Default: ['example.com']
+domain_search_list = {{ domain_search | default(['example.com']) | join(' ') }}
+
+# NTP server address. Maps to 'ntp_server'.
+# Default: [] (Empty list implies no NTP assignment)
+# We map the first NTP server if available.
+{% if ntp_servers | default([]) | length > 0 %}
+ntp_server = {{ ntp_servers | default([]) | first() }}
+{% endif %}
+
+# Required to actually serve DHCP requests in many dhcpy6d configurations.
+# Default: False (But functionally must be True to work)
+# We default to False as per schema, but note that users likely need to set this to True.
+really_do_it = {{ assign_address | default(true) | ternary('yes', 'no') }}
+
+# Lease time (valid_lifetime).
+# Default: 3600
+valid_lifetime = {{ lease_time | default(3600) }}
+
+# Preferred lifetime.
+# Default: 3600 (Often same as lease time or derived)
+# We derive from lease_time if not explicitly schema-defined, but schema
+# has 'lease_time' and 'max_lease_time'. We'll map 'lease_time' to valid_lifetime
+# and leave preferred_lifetime as default or omitted if not in schema.
+# To be safe, we omit preferred_lifetime if not in schema, or map to lease_time.
+preferred_lifetime = {{ lease_time | default(3600) }}
+
+# Static assignments section.
+# The schema's static_assignments is a list of DUIDs to IPs.
+# dhcpy6d uses [address_duid] or similar sections for static mappings.
+# We generate sections for each static assignment.
+{% for assignment in static_assignments | default([]) %}
+[address_{{ assignment.duid | default('unknown') }}]
+address = {{ assignment.address | default('') }}
+{% endfor %}
+
+# Client classes section.
+# The schema's client_classes is a list of class definitions.
+# dhcpy6d uses [class_name] sections.
+{% for class_item in client_classes | default([]) %}
+[class_{{ class_item.name | default('class_' + loop.index) }}]
+# Match rule for this client class
+match = {{ class_item.match | default('') }}
+# Subnets assigned to this class
+subnet = {{ class_item.subnet | default('') }}
+# Custom options for this class
+# Note: dhcpy6d class options are complex; this is a high-level mapping.
+options = {{ class_item.options | default('') }}
+{% endfor %}

@@ -1,0 +1,86 @@
+{
+  "provides": [
+    {
+      "capability": "app_runtime",
+      "backend": "gunicorn",
+      "port_field": "api.port",
+      "default_port": 6385
+    },
+    {
+      "capability": "database",
+      "backend": "mysql",
+      "port_field": "database.connection",
+      "provisionable": {
+        "databases": "database.connection",
+        "users": "database.connection"
+      }
+    },
+    {
+      "capability": "message_queue",
+      "backend": "rabbitmq",
+      "port_field": "rpc.transport_url",
+      "provisionable": {
+        "users": "rpc.transport_url",
+        "vhost": "rpc.transport_url"
+      }
+    }
+  ],
+  "requires": [
+    {
+      "capability": "database",
+      "backends": [
+        "mysql",
+        "mariadb"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": "database.connection",
+        "port": "database.connection",
+        "name": "database.connection",
+        "user": "database.connection",
+        "password": "database.connection"
+      }
+    },
+    {
+      "capability": "message_queue",
+      "backends": [
+        "rabbitmq"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": "rpc.transport_url",
+        "port": "rpc.transport_url",
+        "user": "rpc.transport_url",
+        "password": "rpc.transport_url",
+        "vhost": "rpc.transport_url"
+      }
+    },
+    {
+      "capability": "directory",
+      "backends": [
+        "freeipa"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": "keystone.auth_url",
+        "port": "keystone.auth_url",
+        "bind_dn": "keystone.username",
+        "bind_password": "keystone.password"
+      }
+    },
+    {
+      "capability": "reverse_proxy",
+      "backends": [
+        "nginx",
+        "haproxy"
+      ],
+      "backend_field": null,
+      "fields": {
+        "upstream_host": "api.host",
+        "upstream_port": "api.port"
+      }
+    }
+  ],
+  "peer_injection": [],
+  "confidence": "high"
+}

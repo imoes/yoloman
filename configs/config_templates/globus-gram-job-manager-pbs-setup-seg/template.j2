@@ -1,0 +1,21 @@
+# Globus GRAM Job Manager PBS Setup - SEG Configuration
+# This template generates the command-line arguments for the globus-job-manager daemon.
+# It configures the SEG (Simple Execution Gateway) module for PBS job management.
+
+# Path to the main Globus GRAM job manager configuration file.
+# This file contains global settings for the GRAM job manager.
+# Default: /etc/globus/globus-gram-job-manager.conf
+# Format: -conf <path>
+-stderr_log,local_cred -/usr/sbin/globus-job-manager globus-job-manager -conf {{ config_file_path | default('/etc/globus/globus-gram-job-manager.conf') }}
+
+# Type of job manager backend.
+# Specifies which job scheduler backend to use (e.g., pbs, slurm, condor).
+# For this package, the expected value is 'pbs'.
+# Format: -type <type>
+-stderr_log,local_cred -/usr/sbin/globus-job-manager globus-job-manager -conf {{ config_file_path | default('/etc/globus/globus-gram-job-manager.conf') }} -type {{ job_manager_type | default('pbs') }}
+
+# Name of the SEG (Simple Execution Gateway) module to load.
+# This module implements the interface between Globus GRAM and the job scheduler.
+# For PBS support, this should typically be 'pbs'.
+# Format: -seg-module <module_name>
+-stderr_log,local_cred -/usr/sbin/globus-job-manager globus-job-manager -conf {{ config_file_path | default('/etc/globus/globus-gram-job-manager.conf') }} -type {{ job_manager_type | default('pbs') }} -seg-module {{ seg_module | default('pbs') }}

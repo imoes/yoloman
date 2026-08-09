@@ -1,0 +1,299 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "url_base": "/",
+      "log_level": "info"
+    },
+    "description": "Core server network and logging configuration.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address the server binds to (e.g., '127.0.0.1', '::', '0.0.0.0')."
+      },
+      "port": {
+        "type": "number",
+        "default": 8080,
+        "description": "TCP port the server listens on."
+      },
+      "url_base": {
+        "type": "string",
+        "default": "/",
+        "description": "Base URL path under which the service is exposed (e.g., '/', '/auth')."
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "allowed_values": [
+          "debug",
+          "info",
+          "warn",
+          "error"
+        ],
+        "description": "Verbosity of server logging output."
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "type": "sqlite",
+      "path": "/var/lib/glewlwyd/glewlwyd.db"
+    },
+    "description": "Database configuration for user and session storage.",
+    "properties": {
+      "type": {
+        "type": "string",
+        "default": "sqlite",
+        "allowed_values": [
+          "sqlite",
+          "postgresql",
+          "mysql"
+        ],
+        "description": "Database backend type."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/glewlwyd/glewlwyd.db",
+        "description": "Absolute path to the SQLite database file (only used if type is 'sqlite')."
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database server hostname or IP (only used if type is not 'sqlite')."
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "description": "Database server port (e.g., 5432 for PostgreSQL, 3306 for MySQL)."
+      },
+      "name": {
+        "type": "string",
+        "default": "glewlwyd",
+        "description": "Name of the database to connect to."
+      },
+      "user": {
+        "type": "string",
+        "default": "glewlwyd",
+        "description": "Database username for authentication."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Database password for authentication (leave empty for peer/authenticated OS login where supported)."
+      }
+    }
+  },
+  "jwt": {
+    "type": "object",
+    "default": {
+      "secret": "CHANGE_ME_with_a_long_random_string",
+      "expiration": 3600,
+      "algorithm": "HS256",
+      "public_key": ""
+    },
+    "description": "JWT token generation and validation settings.",
+    "properties": {
+      "secret": {
+        "type": "string",
+        "default": "CHANGE_ME_with_a_long_random_string",
+        "description": "Secret key used to sign tokens (HS256, HS384, HS512). Must be at least 256 bits for HS256."
+      },
+      "expiration": {
+        "type": "number",
+        "default": 3600,
+        "description": "Time in seconds after which JWTs expire."
+      },
+      "algorithm": {
+        "type": "string",
+        "default": "HS256",
+        "allowed_values": [
+          "HS256",
+          "HS384",
+          "HS512",
+          "RS256",
+          "RS384",
+          "RS512",
+          "ES256",
+          "ES384",
+          "ES512",
+          "PS256",
+          "PS384",
+          "PS512"
+        ],
+        "description": "JWT signing algorithm. For asymmetric algorithms (RS*, ES*, PS*), a public key must be provided."
+      },
+      "public_key": {
+        "type": "string",
+        "default": "",
+        "description": "PEM-encoded public key (for asymmetric algorithms). Required for RS*, ES*, PS* algorithms."
+      }
+    }
+  },
+  "clients": {
+    "type": "list",
+    "default": [
+      {
+        "client_id": "client_1",
+        "client_name": "My Application",
+        "client_secret": "CHANGE_ME",
+        "redirect_uri": [
+          "https://example.com/callback"
+        ],
+        "grant_type": [
+          "authorization_code",
+          "refresh_token"
+        ],
+        "scope": [
+          "openid",
+          "profile",
+          "email"
+        ],
+        "active": true
+      }
+    ],
+    "description": "List of OAuth2/OpenID Connect clients registered with the server.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "description": "Unique identifier for the client (alphanumeric, hyphens, underscores)."
+        },
+        "client_name": {
+          "type": "string",
+          "description": "Human-readable name of the client application."
+        },
+        "client_secret": {
+          "type": "string",
+          "description": "Secret key for the client (keep confidential, never expose in frontend code)."
+        },
+        "redirect_uri": {
+          "type": "list",
+          "description": "Allowed callback URLs (must match exactly; use exact HTTPS URLs in production).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "grant_type": {
+          "type": "list",
+          "description": "Supported OAuth2 grant types (e.g., 'authorization_code', 'password', 'client_credentials', 'refresh_token').",
+          "items": {
+            "type": "string",
+            "allowed_values": [
+              "authorization_code",
+              "implicit",
+              "password",
+              "client_credentials",
+              "refresh_token"
+            ]
+          }
+        },
+        "scope": {
+          "type": "list",
+          "description": "Initial/allowed scopes for the client (e.g., 'openid', 'profile', 'email', 'offline_access').",
+          "items": {
+            "type": "string",
+            "allowed_values": [
+              "openid",
+              "profile",
+              "email",
+              "offline_access"
+            ]
+          }
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Enable or disable this client."
+        }
+      }
+    }
+  },
+  "user_backend": {
+    "type": "object",
+    "default": {
+      "type": "database",
+      "use_main_database": true
+    },
+    "description": "User directory backend (database or LDAP).",
+    "properties": {
+      "type": {
+        "type": "string",
+        "default": "database",
+        "allowed_values": [
+          "database",
+          "ldap"
+        ],
+        "description": "User storage backend type."
+      },
+      "use_main_database": {
+        "type": "boolean",
+        "default": true,
+        "description": "Use the main database (from 'database' section) for user storage (only for 'database' backend)."
+      },
+      "host": {
+        "type": "string",
+        "default": "ldap.example.com",
+        "description": "LDAP server hostname."
+      },
+      "port": {
+        "type": "number",
+        "default": 389,
+        "description": "LDAP server port (389 for unencrypted, 636 for LDAPS)."
+      },
+      "use_ssl": {
+        "type": "boolean",
+        "default": false,
+        "description": "Use SSL/TLS for LDAP connection (LDAPS)."
+      },
+      "bind_dn": {
+        "type": "string",
+        "default": "cn=admin,dc=example,dc=com",
+        "description": "Bind DN used to search LDAP directory."
+      },
+      "bind_password": {
+        "type": "string",
+        "default": "",
+        "description": "Password for the bind DN."
+      },
+      "base_dn": {
+        "type": "string",
+        "default": "ou=users,dc=example,dc=com",
+        "description": "Base DN for user search."
+      },
+      "user_search_filter": {
+        "type": "string",
+        "default": "(objectClass=person)",
+        "description": "LDAP filter for user entries (e.g., '(objectClass=inetOrgPerson)')."
+      },
+      "attribute_mapping": {
+        "type": "object",
+        "default": {
+          "username": "uid",
+          "email": "mail",
+          "name": "cn"
+        },
+        "properties": {
+          "username": {
+            "type": "string",
+            "default": "uid",
+            "description": "LDAP attribute used as the username (e.g., 'uid', 'sAMAccountName')."
+          },
+          "email": {
+            "type": "string",
+            "default": "mail",
+            "description": "LDAP attribute for user email address."
+          },
+          "name": {
+            "type": "string",
+            "default": "cn",
+            "description": "LDAP attribute for user display name."
+          }
+        }
+      }
+    }
+  }
+}

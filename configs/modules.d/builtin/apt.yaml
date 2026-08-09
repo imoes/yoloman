@@ -1,0 +1,50 @@
+name: apt
+fqcn: builtin.apt
+collection: builtin
+short_description: Ensure one or more Debian packages are present, absent, or upgraded
+  to the latest available version, via dpkg/apt-get
+description: 'Ensure one or more Debian packages are present, absent, or upgraded
+  to the latest available version, via dpkg/apt-get. Idempotent: queries dpkg''s current
+  status (and, for state=latest, apt-cache''s candidate version — a read-only query,
+  safe to run even under check_mode) before deciding whether to act. Debian/Ubuntu
+  only in v1. Supports check_mode via dry_run=true (queries state but issues no apt-get
+  mutation).
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.apt. Same name/state/update_cache parameter names (name
+  accepts either a single package or a list); v1 is a focused subset — Ansible''s
+  apt also supports upgrade, autoremove, deb, and more, not yet implemented here.
+
+  - Chef: the `apt_package` resource — `action :install`/`:remove`/`:upgrade`.
+
+  - Puppet: the `package` type with `provider => apt` — `ensure => present`/`absent`/`latest`.
+
+  - Salt: the `pkg.installed`/`pkg.removed`/`pkg.latest` states.
+
+  - Terraform: not applicable — Terraform does not manage OS packages on a running
+  host; this would normally be done via a provisioner or left to configuration management
+  entirely.'
+options:
+  name:
+    type: list
+    description: One or more package names, e.g. ["nginx"] or ["nginx", "curl=8.5.0-2ubuntu10"]
+      (an "=version" suffix pins a specific version for state=present).
+    required: true
+  state:
+    type: string
+    choices:
+    - present
+    - absent
+    - latest
+    description: Desired package state. Default "present".
+  update_cache:
+    type: bool
+    default: false
+    description: Whether to run `apt-get update` before evaluating package state.
+      Default false.
+native: true
+writes: true
+runtime: native
+source: agent-registry

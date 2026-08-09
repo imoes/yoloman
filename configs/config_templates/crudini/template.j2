@@ -1,0 +1,61 @@
+# crudini configuration template
+#
+# This template generates INI-style configuration blocks for use with `crudini`.
+# `crudini` is a command-line utility to manipulate INI-style configuration files.
+# It allows setting, getting, deleting, and merging parameters in specific sections.
+#
+# Configuration is driven by the `config_sections` variable, which is a list of objects.
+# Each object represents a config section and contains:
+#   - `name`: The section header name. Use an empty string "" or "DEFAULT" for global parameters (no header).
+#   - `params`: A list of parameter objects, each with `name` and `value`.
+#
+# The output follows standard INI format:
+#   [section_name]
+#   param_name = param_value
+#
+# Parameters in the global/DEFAULT section are written without a section header.
+
+# Iterate over the list of configuration sections.
+# Default to an empty list if config_sections is not defined.
+{% for section in (config_sections | default([], true)) %}
+    {# Retrieve section name; default to empty string for global params #}
+    {% set section_name = (section | default({}, true)).name | default('') %}
+
+    {# Check if this is a global/DEFAULT section #}
+    {% if section_name == '' or section_name == 'DEFAULT' %}
+# ==============================================================================
+# Global/DEFAULT Section Parameters
+# These parameters apply globally to the configuration file and do not have
+# a section header.
+# ==============================================================================
+        {# Retrieve the list of parameters for this section #}
+        {% set params = (section | default({}, true)).params | default([], true) %}
+        {% if params | length > 0 %}
+            {# Iterate through parameters in the global section #}
+            {% for param in params %}
+{# Parameter: {{ (param | default({}, true)).name | default('') }} = {{ (param | default({}, true)).value | default('') }} #}
+{{ (param | default({}, true)).name | default('') }} = {{ (param | default({}, true)).value | default('') }}
+            {% endfor %}
+        {% else %}
+# No global parameters defined for this section.
+        {% endif %}
+
+    {% else %}
+# ==============================================================================
+# Section: [{{ section_name }}]
+# ==============================================================================
+[{{ section_name }}]
+        {# Retrieve the list of parameters for this section #}
+        {% set params = (section | default({}, true)).params | default([], true) %}
+        {% if params | length > 0 %}
+            {# Iterate through parameters in this specific section #}
+            {% for param in params %}
+{# Parameter: {{ (param | default({}, true)).name | default('') }} = {{ (param | default({}, true)).value | default('') }} #}
+{{ (param | default({}, true)).name | default('') }} = {{ (param | default({}, true)).value | default('') }}
+            {% endfor %}
+        {% else %}
+# No parameters defined for section [{{ section_name }}].
+        {% endif %}
+
+    {% endif %}
+{% endfor %}

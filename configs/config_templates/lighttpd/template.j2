@@ -1,0 +1,44 @@
+#!/bin/sh
+
+# ==============================================================================
+# lighttpd Cron Cache Cleanup Script
+#
+# This script is executed by the system cron daemon as the lighttpd service user.
+# It removes stale files from the lighttpd cache directories to prevent disk
+# exhaustion.
+#
+# Directives:
+#   server.runas_user : The OS user account used to run this cleanup (default: www-data).
+#   server.cache_dir  : The base directory containing 'compress' and 'uploads' subdirs.
+# ==============================================================================
+
+cd /
+
+{#
+  # Execute the actual cleanup routine as the service user.
+  # Only runs if the script is currently running as root.
+  # Uses server.runas_user to determine the target user.
+#}
+if [ "$(id -u)" = 0 ]
+then
+    exec /usr/sbin/runuser -u {{ (server | default({})).runas_user | default('www-data') }} /etc/cron.daily/lighttpd
+fi
+
+{#
+  # Cleanup lighttpd compress cache.
+  # Removes files older than 30 days from the compress subdirectory.
+  # Directory path is derived from server.cache_dir.
+#}
+cache={{ (server | default({})).cache_dir | default('/var/cache/lighttpd') }}
+if test -d "$cache/compress"; then
+    /usr/bin/find "$cache/compress" -ignore_readdir_race -type f -atime +30 -delete
+fi
+
+{#
+  # Cleanup lighttpd uploads cache.
+  # Removes temporary upload files older than 1 day from the uploads subdirectory.
+  # Directory path is derived from server.cache_dir.
+#}
+if test -d "$cache/uploads"; then
+    /usr/bin/find "$cache/uploads" -ignore_readdir_race -type f -atime +1 -delete
+fi

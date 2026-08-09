@@ -1,0 +1,112 @@
+{
+  "profile_name": "nginx",
+  "abi_version": "2.9",
+  "include_common": true,
+  "includes": [
+    "tunables/home"
+  ],
+  "attach_path": "/usr/sbin/nginx",
+  "mode": "enforce",
+  "audit_rules": [
+    "capability net_bind_service"
+  ],
+  "debug": false,
+  "capabilities": [
+    "net_bind_service"
+  ],
+  "network_rules": [
+    {
+      "domain": "inet",
+      "access": "stream tcp",
+      "local": "port=80"
+    },
+    {
+      "domain": "inet",
+      "access": "stream tcp",
+      "local": "port=443"
+    },
+    {
+      "domain": "unix",
+      "access": "stream",
+      "local": "addr=@/run/php/php-fpm.sock"
+    }
+  ],
+  "file_rules": [
+    {
+      "owner": true,
+      "type": "file",
+      "path": "/var/log/nginx/*",
+      "access": "rw"
+    },
+    {
+      "type": "file",
+      "path": "/etc/nginx/*",
+      "access": "r"
+    },
+    {
+      "type": "file",
+      "path": "/usr/share/nginx/*",
+      "access": "r"
+    },
+    {
+      "owner": true,
+      "type": "file",
+      "path": "/var/www/**",
+      "access": "mrw"
+    },
+    {
+      "owner": true,
+      "type": "file",
+      "path": "/run/nginx.pid",
+      "access": "rw"
+    },
+    {
+      "owner": true,
+      "type": "file",
+      "path": "/var/cache/nginx/*",
+      "access": "rw"
+    }
+  ],
+  "signal_rules": [
+    {
+      "access": "send",
+      "peer": "unconfined"
+    }
+  ],
+  "unix_rules": [
+    {
+      "access": "connect",
+      "local": "addr=@/var/run/dbus/system_bus_socket"
+    }
+  ],
+  "dbus_rules": [
+    {
+      "access": "send",
+      "bus": "system",
+      "interface": "org.freedesktop.DBus.Introspectable",
+      "member": "Introspect"
+    },
+    {
+      "access": "send",
+      "bus": "system",
+      "name": "org.freedesktop.systemd1"
+    }
+  ],
+  "mount_rules": [],
+  "rlimit_rules": [
+    {
+      "resource": "nofile",
+      "value": "65536"
+    },
+    {
+      "resource": "cpu",
+      "value": "10s"
+    }
+  ],
+  "change_profile_rules": [
+    {
+      "target": "/usr/lib/nginx/modules/*"
+    }
+  ],
+  "allow_all": false
+}

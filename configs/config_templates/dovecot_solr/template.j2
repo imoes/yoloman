@@ -1,0 +1,72 @@
+# Dovecot Solr Full-Text Search Plugin Configuration
+#
+# This template configures the 'fts_solr' plugin within Dovecot. It instructs Dovecot
+# how to connect to an external Solr server (or cluster) for indexing and searching
+# mail content.
+#
+# Variables are sourced from the Ansible role's variables. Every variable reference
+# includes a default value matching the schema to ensure idempotent rendering.
+
+plugin {
+  # Enable the Solr FTS plugin
+  # Description: Activates the Solr backend for Dovecot's Full Text Search.
+  fts = solr
+
+  # Comma-separated list of Solr server URLs (supports failover)
+  # Description: One or more Solr server URLs for indexing and querying mail content.
+  fts_solr_urls = {{ solr_urls | default(['http://localhost:8983/solr/dovecot']) | join(',') }}
+
+  # HTTP Basic Auth username for Solr
+  # Description: Username for HTTP Basic Auth to Solr (leave blank if unauthenticated).
+  fts_solr_username = {{ solr_username | default('') }}
+
+  # HTTP Basic Auth password for Solr
+  # Description: Password for HTTP Basic Auth to Solr (leave blank if unauthenticated).
+  fts_solr_password = {{ solr_password | default('') }}
+
+  # Timeout for Solr requests (in seconds)
+  # Description: Timeout (in seconds) for Solr HTTP requests. Increase for slow networks or large indexes.
+  fts_solr_timeout = {{ solr_timeout | default(30) | int }}
+
+  # Batch size for indexing operations
+  # Description: Number of messages to batch per indexing request. Larger batches improve throughput but use more memory.
+  fts_solr_batch_size = {{ solr_batch_size | default(100) | int }}
+
+  # Automatic indexing toggle
+  # Description: Whether to automatically index new or modified messages upon delivery or change.
+  # Note: Dovecot config expects 'yes' or 'no' for boolean plugin options.
+  fts_solr_autoindex = {% if solr_autoindex | default(True) | bool %}yes{% else %}no{% endif %}
+
+  # Retry attempts for failed indexing
+  # Description: Number of retry attempts for transient failures during indexing.
+  fts_solr_retries = {{ solr_retries | default(3) | int }}
+
+  # Solr document ID prefix
+  # Description: Prefix prepended to Solr document IDs to avoid naming collisions across services.
+  fts_solr_doc_prefix = {{ solr_doc_prefix | default('dovecot:') }}
+
+  # Solr core name
+  # Description: Solr core (or collection) name used for storing mail FTS data.
+  fts_solr_core = {{ solr_core | default('dovecot') }}
+
+  # SSL/TLS Configuration Section
+  # Description: Conditional block for SSL/TLS settings when connecting to Solr over HTTPS.
+  # Only included if solr_ssl_enabled is true.
+  {% if solr_ssl_enabled | default(False) | bool %}
+  # Enable SSL/TLS verification
+  # Description: Verify Solr SSL certificate when HTTPS is enabled.
+  fts_solr_ssl_verify = {% if solr_ssl_verify | default(True) | bool %}yes{% else %}no{% endif %}
+
+  # Path to client certificate for mTLS
+  # Description: Path to client certificate (PEM format) for mTLS (optional).
+  fts_solr_ssl_cert = {{ solr_ssl_cert_path | default('') }}
+
+  # Path to client private key for mTLS
+  # Description: Path to client private key (PEM format) for mTLS (optional).
+  fts_solr_ssl_key = {{ solr_ssl_key_path | default('') }}
+
+  # Path to CA certificate for server validation
+  # Description: Path to CA certificate (PEM format) for validating Solr's server certificate.
+  fts_solr_ssl_ca_cert = {{ solr_ssl_ca_cert_path | default('') }}
+  {% endif %}
+}

@@ -1,0 +1,27 @@
+# bzip2 configuration file
+# This file configures the bzip2 compression utility via environment variables.
+# bzip2 checks the BZIP2 and BZIP environment variables before command-line arguments.
+# BZIP2 has higher precedence than BZIP.
+
+# Environment variable configuration for bzip2 command-line defaults (BZIP2 > BZIP).
+# Each list entry is a space-separated list of options to b.
+# If the 'env' key is missing, an empty dict is used to allow safe access to nested keys.
+{% set _env = (bzip2 | default({})).env | default({}) %}
+
+# List of bzip2 options for the BZIP2 environment variable (higher precedence).
+# Each item is a list of flags combined into a single string.
+# Default is an empty list (no extra options).
+# Format: BZIP2='option1 option2 ...'
+{% set _bzip2_opts = _env.BZIP2 | default([]) %}
+{% if _bzip2_opts | length > 0 %}
+BZIP2='{{ _bzip2_opts | join(" ") }}'
+{% endif %}
+
+# List of bzip2 options for the BZIP environment variable (lower precedence).
+# Same format as BZIP2.
+# Default is an empty list (no extra options).
+# Format: BZIP='option1 option2 ...'
+{% set _bzip_opts = _env.BZIP | default([]) %}
+{% if _bzip_opts | length > 0 %}
+BZIP='{{ _bzip_opts | join(" ") }}'
+{% endif %}

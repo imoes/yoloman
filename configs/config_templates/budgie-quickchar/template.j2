@@ -1,0 +1,36 @@
+# ==============================================================================
+# QuickChar Autostart Configuration
+# ==============================================================================
+# This file configures the QuickChar desktop entry for automatic startup.
+# It instructs the desktop environment (MATE/GNOME) to launch the QuickChar
+# helper process, which assists in displaying matching typed characters
+# (useful for coding or precise text entry).
+# ==============================================================================
+
+[Desktop Entry]
+# Type of entry: Application indicates a standalone executable.
+Type=Application
+
+# Display name of the application as shown in menus or startup lists.
+Name=QuickChar
+
+# Brief description of what this application does, used in tooltips/search.
+Comment=Helper process to manage displaying matching typed characters
+
+# The command to execute to start the QuickChar helper process.
+# Defaults to 'quickchar' if not explicitly overridden in the role variables.
+Exec={{ quickchar_exec | default('quickchar') }}
+
+# Hide this entry from the application menu; it is a background helper.
+NoDisplay=true
+
+# AutostartCondition specifies the dependency for launching this app.
+# The application will only start if the specified GSettings key is enabled.
+# Schema and key are configured below.
+AutostartCondition=GSettings {{ gsettings_schema | default('org.ubuntubudgie.quickchar') }} {{ gsettings_key | default('enable-quickchar') }}
+
+# Enable auto-restart mechanisms for MATE desktop environment.
+X-MATE-AutoRestart=true
+
+# Enable auto-restart mechanisms for GNOME desktop environment.
+X-GNOME-AutoRestart=true

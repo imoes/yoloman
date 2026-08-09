@@ -1,0 +1,33 @@
+# =============================================================================
+# abisip-find Interface Configuration Template
+# =============================================================================
+#
+# Purpose:
+#   This template generates the configuration or invocation parameters for
+#   `abisip-find`. `abisip-find` is a utility used to discover ip.access BTS
+#   (Base Transceiver Station) devices connected via the ABIS interface.
+#
+#   Note: `abisip-find` typically takes no persistent configuration file.
+#   Instead, it is invoked via a wrapper script, systemd service, or cron job,
+#   where this list of interfaces drives the command arguments:
+#       abisip-find <interface_name>
+#
+# Variables:
+#   interfaces (list): List of network interfaces to scan for ip.access BTS devices.
+#                      Default: [] (empty list, no interfaces scanned)
+# =============================================================================
+
+{% set interfaces = interfaces | default([]) %}
+
+{# Generate one comment line per interface, describing the target for discovery #}
+{% for iface in interfaces %}
+# Target Interface for ABIS discovery: {{ iface }}
+# Command invocation: abisip-find {{ iface }}
+{% endfor %}
+
+{# If no interfaces are configured, provide a hint for manual usage #}
+{% if interfaces | length == 0 %}
+# No interfaces configured. To scan, invoke manually:
+#   abisip-find <interface_name>
+# Example: abisip-find eth0
+{% endif %}

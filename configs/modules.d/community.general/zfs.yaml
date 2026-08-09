@@ -1,0 +1,38 @@
+name: zfs
+fqcn: community.general.zfs
+collection: community.general
+short_description: Manage zfs
+description: Manages ZFS file systems, volumes, clones and snapshots
+options:
+  extra_zfs_properties:
+    type: dict
+    default: {}
+    description: A dictionary of zfs properties to be set. See the zfs(8) man page for more information.
+  name:
+    type: str
+    required: true
+    description: File system, snapshot or volume name, for example V(rpool/myfs).
+  origin:
+    type: str
+    description: Snapshot from which to create a clone.
+  state:
+    type: str
+    required: true
+    choices:
+    - absent
+    - present
+    description: Whether to create (V(present)), or remove (V(absent)) a file system, snapshot or volume.
+      All parents/children will be created/destroyed as needed to reach the desired state.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a new file system called myfs in pool rpool with the setuid property turned\
+  \ off\n  community.general.zfs:\n    name: rpool/myfs\n    state: present\n    extra_zfs_properties:\n\
+  \      setuid: 'off'\n\n- name: Create a new volume called myvol in pool rpool.\n  community.general.zfs:\n\
+  \    name: rpool/myvol\n    state: present\n    extra_zfs_properties:\n      volsize: 10M\n\n- name:\
+  \ Create a snapshot of rpool/myfs file system.\n  community.general.zfs:\n    name: rpool/myfs@mysnapshot\n\
+  \    state: present\n\n- name: Create a new file system called myfs2 with snapdir enabled\n  community.general.zfs:\n\
+  \    name: rpool/myfs2\n    state: present\n    extra_zfs_properties:\n      snapdir: enabled\n\n- name:\
+  \ Create a new file system by cloning a snapshot\n  community.general.zfs:\n    name: rpool/cloned_fs\n\
+  \    state: present\n    origin: rpool/myfs@mysnapshot\n\n- name: Destroy a filesystem\n  community.general.zfs:\n\
+  \    name: rpool/myfs\n    state: absent\n"

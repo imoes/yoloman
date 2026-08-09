@@ -1,0 +1,130 @@
+{# Claws Mail Multi-Notifier Plugin Configuration #}
+{# Format: INI-style configuration file. #}
+{# Sections define the notification module to use (Banner, Popup, Command, LCD, SysTrayicon, Indicator). #}
+{# Keys within sections define specific parameters for that module. #}
+{# This template is self-documenting: every variable reference includes its schema default and description. #}
+
+{% for module in (modules | default([], true)) %}
+{# Define the section header with the module name. #}
+{# Valid module names are: Banner, Popup, Command, LCD, SysTrayicon, Indicator. #}
+[{% if module.name == 'Banner' %}Banner{% elif module.name == 'Popup' %}Popup{% elif module.name == 'Command' %}Command{% elif module.name == 'LCD' %}LCD{% elif module.name == 'SysTrayicon' %}SysTrayicon{% elif module.name == 'Indicator' %}Indicator{% endif %}]
+
+{# --- Banner Module --- #}
+{# Renders a text banner notification. #}
+{% if module.name == 'Banner' %}
+{# Text content to display in the banner. Default: 'New mail arrived!' #}
+{% if module.text %}text={{ module.text | default('New mail arrived!') }}{% endif %}
+
+{# Font specification for the banner text. Default: 'Sans 12' #}
+{% if module.font %}font={{ module.font | default('Sans 12') }}{% endif %}
+
+{# Text color in hex format. Default: '#000000' (black) #}
+{% if module.color %}color={{ module.color | default('#000000') }}{% endif %}
+
+{# Background color in hex format. Default: '#FFFFFF' (white) #}
+{% if module.bgcolor %}bgcolor={{ module.bgcolor | default('#FFFFFF') }}{% endif %}
+
+{# Duration the banner is displayed, in milliseconds. Default: 3000 #}
+{% if module.duration %}duration={{ module.duration | default(3000) }}{% endif %}
+
+{# X-coordinate position of the banner. Default: 10 #}
+{% if module.position_x %}position_x={{ module.position_x | default(10) }}{% endif %}
+
+{# Y-coordinate position of the banner. Default: 10 #}
+{% if module.position_y %}position_y={{ module.position_y | default(10) }}{% endif %}
+
+{# --- Popup Module --- #}
+{# Renders a window-style popup notification. #}
+{% elif module.name == 'Popup' %}
+{# External command to run when notification triggers. Default: '' (empty) #}
+{% if module.command %}command={{ module.command | default('') }}{% endif %}
+
+{# Width of the popup window in pixels. Default: 400 #}
+{% if module.width %}width={{ module.width | default(400) }}{% endif %}
+
+{# Height of the popup window in pixels. Default: 150 #}
+{% if module.height %}height={{ module.height | default(150) }}{% endif %}
+
+{# Font specification for the popup text. Default: 'Sans 10' #}
+{% if module.font %}font={{ module.font | default('Sans 10') }}{% endif %}
+
+{# Background color of the popup in hex format. Default: '#FFFFCC' (light yellow) #}
+{% if module.bgcolor %}bgcolor={{ module.bgcolor | default('#FFFFCC') }}{% endif %}
+
+{# Timeout before the popup closes automatically, in seconds. Default: 10 #}
+{% if module.timeout %}timeout={{ module.timeout | default(10) }}{% endif %}
+
+{# X-coordinate position of the popup. Default: 0 #}
+{% if module.position_x %}position_x={{ module.position_x | default(0) }}{% endif %}
+
+{# Y-coordinate position of the popup. Default: 0 #}
+{% if module.position_y %}position_y={{ module.position_y | default(0) }}{% endif %}
+
+{# Whether the popup stays on top of other windows. Default: false #}
+{% if module.on_top %}on_top={{ 'true' if module.on_top else 'false' }}{% endif %}
+
+{# --- Command Module --- #}
+{# Executes a command when notifications occur. #}
+{% elif module.name == 'Command' %}
+{# External command to execute. Default: '' (empty) #}
+{% if module.command %}command={{ module.command | default('') }}{% endif %}
+
+{# Trigger command execution on new mail arrival. Default: false #}
+{% if module.on_arrival %}on_arrival={{ 'true' if module.on_arrival else 'false' }}{% endif %}
+
+{# Trigger command execution on unread mail count change. Default: false #}
+{% if module.on_unread %}on_unread={{ 'true' if module.on_unread else 'false' }}{% endif %}
+
+{# Trigger command execution on IMAP fetch events. Default: false #}
+{% if module.on_imap %}on_imap={{ 'true' if module.on_imap else 'false' }}{% endif %}
+
+{# --- LCD Module --- #}
+{# Sends notifications to an external LCD display via network. #}
+{% elif module.name == 'LCD' %}
+{# Hostname or IP of the LCD display server. Default: 'localhost' #}
+{% if module.host %}host={{ module.host | default('localhost') }}{% endif %}
+
+{# Port of the LCD display server. Default: 13666 #}
+{% if module.port %}port={{ module.port | default(13666) }}{% endif %}
+
+{# Message text to display on the LCD. Default: 'New mail' #}
+{% if module.message %}message={{ module.message | default('New mail') }}{% endif %}
+
+{# Duration to display the message on the LCD, in seconds. Default: 5 #}
+{% if module.duration %}duration={{ module.duration | default(5) }}{% endif %}
+
+{# --- SysTrayicon Module --- #}
+{# Uses system tray icon for notifications. #}
+{% elif module.name == 'SysTrayicon' %}
+{# Enable toaster-style notifications (system popups) instead of just tray icon. Default: false #}
+{% if module.toaster %}toaster={{ 'true' if module.toaster else 'false' }}{% endif %}
+
+{# Command to run if toaster mode is enabled. Default: '' (empty) #}
+{% if module.toaster_command %}toaster_command={{ module.toaster_command | default('') }}{% endif %}
+
+{# Timeout for toaster notification, in seconds. Default: 5 #}
+{% if module.toaster_timeout %}toaster_timeout={{ module.toaster_timeout | default(5) }}{% endif %}
+
+{# Text content for toaster notification. Default: 'New mail' #}
+{% if module.toaster_text %}toaster_text={{ module.toaster_text | default('New mail') }}{% endif %}
+
+{# Title for toaster notification. Default: 'Claws Mail' #}
+{% if module.toaster_title %}toaster_title={{ module.toaster_title | default('Claws Mail') }}{% endif %}
+
+{# Icon path for toaster notification. Default: '' (empty) #}
+{% if module.toaster_icon %}toaster_icon={{ module.toaster_icon | default('') }}{% endif %}
+
+{# Tooltip text shown when hovering over the tray icon. Default: 'Claws Mail: New mail' #}
+{% if module.tooltip %}tooltip={{ module.tooltip | default('Claws Mail: New mail') }}{% endif %}
+
+{# --- Indicator Module --- #}
+{# Uses Ubuntu/GNOME application indicator for notifications. #}
+{% elif module.name == 'Indicator' %}
+{# Show unread count badge on the indicator. Default: false #}
+{% if module.show_count %}show_count={{ 'true' if module.show_count else 'false' }}{% endif %}
+
+{# Path to the custom icon file. Default: '' (empty, uses default) #}
+{% if module.icon_path %}icon_path={{ module.icon_path | default('') }}{% endif %}
+
+{% endif %}
+{% endfor %}

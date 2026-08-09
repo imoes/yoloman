@@ -1,0 +1,17 @@
+# DAA2ISO conversion configuration
+# Defines a list of batch conversion tasks. Each task specifies an input DAA/GBI disc image file
+# and the desired output path for the resulting ISO file.
+# The configuration expects 'conversion_tasks' to be a list of mappings, each containing 'input'
+# and 'output' keys.
+{% set _tasks = conversion_tasks | default([]) %}
+{% if _tasks | length > 0 %}
+# Conversion tasks: Input Source -> Output Destination
+{% for task in _tasks %}
+# Task {{ loop.index }}
+# input: Path to the source DAA or GBI file to be converted
+# output: Path where the resulting ISO file will be written
+{{ task.input }} {{ task.output }}
+{% endfor %}
+{% else %}
+# No conversion tasks defined. Add entries to the conversion_tasks list to enable batch processing.
+{% endif %}

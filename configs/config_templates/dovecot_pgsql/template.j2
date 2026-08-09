@@ -1,0 +1,235 @@
+# Dovecot Configuration Template (PostgreSQL Backend)
+# This template generates a valid dovecot.conf configuration file.
+# It uses Jinja2 for dynamic configuration based on Ansible variables.
+# All variable references use the `default()` filter to ensure safe rendering
+# even if a variable is undefined in the Ansible play.
+
+# ==============================================================================
+# General Settings
+# ==============================================================================
+
+# Protocols to enable.
+# Common values: 'imap', 'pop3', 'managesieve'.
+# Default: imap, pop3
+protocols = {{ (protocols | default(['imap', 'pop3'])) | join(' ') }}
+
+# Mail location format.
+# Defines where user mailboxes are stored.
+# Supported variables in path: %u (user), %d (domain), %h (home).
+# Example: maildir:~/Maildir or mbox:~/mail:INBOX=/var/mail/%u
+# Default: maildir:~/Maildir
+mail_location = {{ mail_location | default('maildir:~/Maildir') }}
+
+# Mail charset.
+# Default character set for mail processing.
+# Default: UTF-8
+mail_charset = {{ mail_charset | default('UTF-8') }}
+
+# Login greeting banner.
+# The message sent by the login service to clients.
+# Default: Dovecot ready.
+login_greeting = {{ login_greeting | default('Dovecot ready.') }}
+
+# ==============================================================================
+# SSL/TLS Configuration
+# ==============================================================================
+
+# SSL mode.
+# 'required': Enforce TLS (clients must connect securely).
+# 'optional': Allow both plaintext and TLS.
+# 'no': Disable SSL entirely.
+# Default: required
+ssl = {{ ssl_mode | default('required') }}
+
+# SSL certificate file.
+# Path to the server's public certificate.
+# Default: /etc/ssl/certs/dovecot.pem
+ssl_cert = <{{ ssl_cert_path | default('/etc/ssl/certs/dovecot.pem') }}
+
+# SSL private key file.
+# Path to the server's private key.
+# Default: /etc/ssl/private/dovecot.pem
+ssl_key = <{{ ssl_key_path | default('/etc/ssl/private/dovecot.pem') }}
+
+# SSL CA file.
+# Optional CA bundle for client certificate verification.
+# If None, this directive is omitted.
+{% if (ssl_ca_path | default(None)) is not none %}
+ssl_ca = <{{ ssl_ca_path | default(None) }}
+{% endif %}
+
+# ==============================================================================
+# Authentication Settings
+# ==============================================================================
+
+# Authentication mechanisms.
+# SASL mechanisms to support.
+# 'plain' and 'login' are standard. 'plain' requires TLS.
+# Default: plain, login
+auth_mechanisms = {{ (auth_mechanisms | default(['plain', 'login'])) | join(' ') }}
+
+# Disable plaintext authentication.
+# If true, authentication without TLS is rejected.
+# Strongly recommended for security.
+# Default: True
+{% if disable_plaintext_auth | default(true) | bool %}
+disable_plaintext_auth = yes
+{% else %}
+disable_plaintext_auth = no
+{% endif %}
+
+# ==============================================================================
+# Logging Settings
+# ==============================================================================
+
+# Error log path.
+# Path to the main log file for errors and debug info.
+# Default: /var/log/dovecot.log
+log_path = {{ log_path | default('/var/log/dovecot.log') }}
+
+# Info log path.
+# Path to the informational log file.
+# Default: /var/log/dovecot-info.log
+info_log_path = {{ info_log_path | default('/var/log/dovecot-info.log') }}
+
+# ==============================================================================
+# Mailbox & User Limits
+# ==============================================================================
+
+# Mail plugins.
+# Space-separated list of additional plugins (e.g., imap_quota, sieve).
+# Default: [] (empty)
+mail_plugins = {{ (mail_plugins | default([])) | join(' ') }}
+
+# Max connections per user/IP.
+# Limits the number of simultaneous IMAP/POP3 connections from a single user+IP pair.
+# Helps prevent abuse and resource exhaustion.
+# Default: 10
+mail_max_userip_connections = {{ mail_max_userip_connections | default(10) }}
+
+# First valid UID.
+# Minimum UID allowed to access mail storage.
+# Default: 1000
+first_valid_uid = {{ first_valid_uid | default(1000) }}
+
+# Last valid UID.
+# Maximum UID allowed to access mail storage.
+# Default: 65534
+last_valid_uid = {{ last_valid_uid | default(65534) }}
+
+# ==============================================================================
+# Network & Trusted Networks
+# ==============================================================================
+
+# Trusted networks.
+# List of IP ranges (CIDR) considered trusted (e.g., for SMTP relay).
+# Empty list means no specific trusted networks are defined.
+# Default: []
+login_trusted_networks = {{ (login_trusted_networks | default([])) | join(', ') }}
+
+# ==============================================================================
+# SQL Backend Configuration (PostgreSQL)
+# ==============================================================================
+
+# This section defines how Dovecot connects to the PostgreSQL database
+# for user authentication and mailbox location lookup.
+
+# SQL Driver Arguments (Passdb/Userdb).
+# Connection string passed to the SQL driver.
+# Placeholders: %h (host), %p (port), %d (database), %u (user), %w (password).
+# Default: driver=pgsql connect=host=%h port=%p dbname=%d user=%u password=%w
+args = {{ sql_driver_args | default('driver=pgsql connect=host=%h port=%p dbname=%d user=%u password=%w') }}
+
+# Passdb (Password Database).
+# Configures Dovecot to check passwords against the SQL backend.
+passdb {
+  driver = sql
+  args = {{ sql_driver_args | default('driver=pgsql connect=host=%h port=%p dbname=%d user=%u password=%w') }}
+}
+
+# Userdb (User Database).
+# Configures Dovecot to fetch user info (UID, GID, home, mail) from the SQL backend.
+userdb {
+  driver = sql
+  args = {{ sql_driver_args | default('driver=pgsql connect=host=%h port=%p dbname=%d user=%u password=%w') }}
+}
+
+# Direct SQL Driver Configuration (Alternative/Deprecated method).
+# Note: Modern Dovecot often prefers the passdb/userdb 'args' with variables,
+# but some setups still use the direct driver/connect block.
+# We include this for compatibility if the 'args' variable in passdb/userdb
+# does not fully resolve the connection details in older versions.
+driver = pgsql
+connect = host={{ (pgsql | default({})).host | default('localhost') }} port={{ (pgsql | default({})).port | default(5432) }} dbname={{ (pgsql | default({})).database | default('dovecot') }} user={{ (pgsql | default({})).user | default('dovecot') }} password={{ (pgsql | default({})).password | default('secret') }}
+
+# Password Query.
+# SQL query to retrieve the password hash for a user.
+# Must return 'username' and 'password' columns.
+# Default: SELECT username, password FROM users WHERE username = '%u' AND active = true
+password_query = {{ (pgsql | default({})).password_query | default("SELECT username, password FROM users WHERE username = '%u' AND active = true") }}
+
+# User Query.
+# SQL query to retrieve user attributes (home, uid, gid, mail).
+# Must return 'username', 'home', 'uid', 'gid', 'mail' columns.
+# Default: SELECT username, home, uid, gid, mail FROM users WHERE username = '%u' AND active = true
+user_query = {{ (pgsql | default({})).user_query | default("SELECT username, home, uid, gid, mail FROM users WHERE username = '%u' AND active = true") }}
+
+# ==============================================================================
+# Namespace & Mailbox Defaults
+# ==============================================================================
+
+# Namespace: Inbox.
+# Defines the default namespace and standard mailboxes.
+namespace inbox {
+  inbox = yes
+  
+  mailbox Drafts {
+    auto = subscribe
+    special_use = \Drafts
+  }
+  
+  mailbox Sent {
+    auto = subscribe
+    special_use = \Sent
+  }
+  
+  mailbox Trash {
+    auto = subscribe
+    special_use = \Trash
+  }
+  
+  mailbox Archive {
+    auto = subscribe
+    special_use = \Archive
+  }
+}
+
+# ==============================================================================
+# Service Definitions (Listeners)
+# ==============================================================================
+
+# IMAP Login Service.
+# Defines listeners for IMAP (143) and IMAPS (993).
+service imap-login {
+  inet_listener imap {
+    port = {{ imap_port | default(143) }}
+  }
+  inet_listener imaps {
+    port = {{ imaps_port | default(993) }}
+    ssl = yes
+  }
+}
+
+# POP3 Login Service.
+# Defined conditionally based on the 'protocols' list.
+{% if 'pop3' in (protocols | default(['imap', 'pop3'])) %}
+service pop3-login {
+  inet_listener pop3 {
+    port = {{ pop3_port | default(110) }}
+  }
+  inet_listener pop3s {
+    port = {{ pop3s_port | default(995) }}
+    ssl = yes
+  }
+}
+{% endif %}

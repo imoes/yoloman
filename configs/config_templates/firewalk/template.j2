@@ -1,0 +1,38 @@
+# firewalk configuration
+# Network interface to use; only required on multi-homed hosts.
+# Note: firewalk's CLI argument parsing requires the interface name without
+# surrounding whitespace. We strip it here to ensure a clean value.
+interface_name = {{ (interface_name | default('')) | trim }}
+
+# Disable DNS reverse lookups during scanning.
+# Set to 'yes' or 'no' (firewalk typically accepts yes/no or true/false in config,
+# but lower-casing ensures consistency).
+no_resolve = {{ no_resolve | default(False) | lower }}
+
+# Source port for outgoing probes (both ramping and scan phases).
+source_port = {{ source_port | default(53) }}
+
+# Initial destination port for TTL ramping phase.
+initial_dest_port = {{ initial_dest_port | default(34434) }}
+
+# Protocol to use: TCP or UDP.
+scan_type = {{ scan_type | default('UDP') | upper }}
+
+# Enforce strict RFC 793 TCP handling (affects closed-port response interpretation).
+rfc_compliant = {{ rfc_compliant | default(False) | lower }}
+
+# Initial IP TTL value for probes; can be pre-set if gateway hop count is known.
+initial_ttl = {{ initial_ttl | default(1) }}
+
+# Number of hops beyond gateway at which probes expire.
+expire_vector = {{ expire_vector | default(1) }}
+
+# Response timeout in seconds (1-2000 range per man page).
+timeout = {{ timeout | default(2) }}
+
+# Pause between sending packets in milliseconds (1-2000 range per man page).
+pause = {{ pause | default(0) }}
+
+# Target ports for scanning, specified as comma-separated ports or ranges.
+# Example output: 1-130,139,1025
+target_ports = {{ target_ports | default(['1-130', '139', '1025']) | join(',') }}

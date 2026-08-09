@@ -1,0 +1,47 @@
+# bkt configuration template
+# Self-documenting Jinja2 template for the bkt cache utility.
+# Each directive below corresponds to a schema field.
+# Defaults are explicitly provided to ensure safe rendering when variables are undefined.
+
+[Service]
+# bkt executable with command-line arguments driven by schema fields.
+ExecStart=/usr/bin/bkt \
+    # ttl: Duration the cached result will be valid for. Must be a valid duration string (e.g., '60s', '5m', '1h').
+    --ttl {{ ttl | default('60s') }} \
+    {% if stale | default('') | trim != '' %}
+    # stale: Duration after which the result will be asynchronously refreshed. Must be a valid duration string.
+    --stale {{ stale | default('') | trim }} \
+    {% endif %}
+    {% if warm | default(False) | bool %}
+    # warm: Asynchronously execute and cache the given command, even if it's already cached.
+    --warm \
+    {% endif %}
+    {% if force | default(False) | bool %}
+    # force: Execute and cache the given command, even if it's already cached.
+    --force \
+    {% endif %}
+    {% if cwd | default(False) | bool %}
+    # cwd: Include the current working directory in the cache key.
+    --cwd \
+    {% endif %}
+    {% for env_var in env | default([]) %}
+    # env: List of environment variable names to include in the cache key.
+    --env {{ env_var }} \
+    {% endfor %}
+    {% for modfile in modtime | default([]) %}
+    # modtime: List of file paths whose modification time should be included in the cache key.
+    --modtime {{ modfile }} \
+    {% endfor %}
+    {% if discard_failures | default(False) | bool %}
+    # discard_failures: Do not cache invocations that fail (non-zero exit code).
+    --discard-failures \
+    {% endif %}
+    {% if scope | default('') | trim != '' %}
+    # scope: If set, all cached data will be scoped to this value to prevent collisions.
+    --scope {{ scope | default('') | trim }} \
+    {% endif %}
+    {% if cache_dir | default('') | trim != '' %}
+    # cache_dir: Directory under which to persist cached invocations. Defaults to system temp dir if unset.
+    --cache-dir {{ cache_dir | default('') | trim }} \
+    {% endif %}
+    -- <COMMAND>

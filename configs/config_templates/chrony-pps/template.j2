@@ -1,0 +1,56 @@
+# Use PPS (pulse-per-second) source for high-accuracy time synchronization
+# Source: {{ pps_device }} via kernel PPS API
+# NTP server pool for fallback and initial synchronization
+# Enable hardware timestamping for PPS if supported
+
+# PPS reference clock configuration (kernel PPS driver)
+refclock PHC {{ pps_device }} poll 3 dpoll -2 offset {{ pps_offset }} flag1 {{ pps_flag1 }}
+
+# Fallback NTP servers (public or internal pool)
+{% for server in ntp_servers %}
+server {{ server.hostname }} iburst{{ ' prefer' if server.prefer else '' }}{{ ' key ' ~ server.key_id if server.key_id else '' }}
+{% endfor %}
+
+# Enable NTP server authentication (optional)
+{% if enable_ntp_auth %}
+# NTP authentication keys
+{% for key in ntp_auth_keys %}
+key {{ key.id }} md5 {{ key.secret }}
+{% endfor %}
+trustedkey {{ ntp_trusted_keys | join(' ') }}
+{% endif %}
+
+# Enable command socket for local chronyd control
+bindcmdaddress 127.0.0.1
+bindcmdaddress ::1
+
+# Logging configuration
+log measurements statistics tracking
+logdir {{ log_dir }}
+
+# Initial step correction behavior (avoid large jumps on startup)
+initstepslew {{ init_stepslew_threshold }} {{ ntp_servers | map(attribute='hostname') | list | join(' ') }}
+
+# Make step on first sync if offset > threshold
+makestep {{ makestep_threshold }} {{ makestep_burst_limit }}
+
+# RT calibration (for network delay estimation)
+rtcalibration {{ rtcalibration_interval }}
+
+# Allow NTP client access (optional, for servers acting as time sources)
+{% if allow_ntp_clients %}
+allow {{ allow_ntp_clients | join(', ') }}
+{% else %}
+# No remote NTP clients allowed (default: localhost only)
+# allow 192.168.0.0/16
+{% endif %}
+
+# Hardware clock synchronization
+hwtimestamp {{ hwtimestamp_interfaces | join(' ') if hwtimestamp_interfaces else 'all' }}
+
+# Drift file and RTC persistence
+driftfile {{ drift_file }}
+rtcfile {{ rtc_file }}
+
+# Source information summary
+sourceinfo

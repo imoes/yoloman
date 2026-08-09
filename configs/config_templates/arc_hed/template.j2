@@ -1,0 +1,108 @@
+# ==============================================================================
+# ARC HED Service Configuration
+# ==============================================================================
+# This file configures the ARC HED (Hosting Environment Daemon).
+# It is managed by Ansible. Do not edit manually.
+# ==============================================================================
+
+[hed]
+
+# IP address or hostname to bind the ARC HED service to.
+# Use 0.0.0.0 to listen on all interfaces.
+host = {{ (hed | default({})).host | default('0.0.0.0') }}
+
+# TCP port for the main ARC HED API service (HTTP/HTTPS).
+port = {{ (hed | default({})).port | default(5444) }}
+
+# Path to the file where the daemon writes its process ID.
+pidfile = {{ (hed | default({})).pidfile | default('/run/arc/hed.pid') }}
+
+# Verbosity level for daemon logging.
+# Allowed values: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+loglevel = {{ (hed | default({})).loglevel | default('INFO') }}
+
+# Path to the log file. Leave empty to log to stdout only.
+logfile = {{ (hed | default({})).logfile | default('/var/log/arc/hed.log') }}
+
+# Maximum number of worker threads to handle incoming requests.
+max_threads = {{ (hed | default({})).max_threads | default(16) }}
+
+# Interval (in seconds) between periodic health checks of hosting environments.
+check_interval = {{ (hed | default({})).check_interval | default(30) }}
+
+# Enable SSL/TLS encryption for the main service port (HTTPS).
+ssl_enabled = {{ (hed | default({})).ssl_enabled | default(false) | ternary('true', 'false') }}
+
+# Path to the SSL certificate file (PEM format).
+# Required if ssl_enabled=true.
+ssl_cert = {{ (hed | default({})).ssl_cert | default('/etc/arc/ssl/server.crt') }}
+
+# Path to the SSL private key file (PEM format).
+# Required if ssl_enabled=true.
+ssl_key = {{ (hed | default({})).ssl_key | default('/etc/arc/ssl/server.key') }}
+
+# Path to the CA certificate chain (PEM format) for validating client certificates.
+ssl_ca_cert = {{ (hed | default({})).ssl_ca_cert | default('/etc/arc/ssl/ca.crt') }}
+
+# Require and verify client certificates for authentication (mTLS).
+client_cert_auth = {{ (hed | default({})).client_cert_auth | default(false) | ternary('true', 'false') }}
+
+# Directory for shared coordination files (e.g., lock files, state sync).
+shared_dir = {{ (hed | default({})).shared_dir | default('/var/lib/arc/hed/shared') }}
+
+# Maximum time (in seconds) allowed for external commands (e.g., job submission, status query).
+exec_timeout = {{ (hed | default({})).exec_timeout | default(300) }}
+
+# Enable verbose debugging mode for troubleshooting.
+debug = {{ (hed | default({})).debug | default(false) | ternary('true', 'false') }}
+
+# Directory containing templates for hosting environment configuration files.
+hetemplates_dir = {{ (hed | default({})).hetemplates_dir | default('/usr/share/arc/hetemplates') }}
+
+# Directory to store runtime state of hosting environments.
+hestate_dir = {{ (hed | default({})).hestate_dir | default('/var/lib/arc/hestate') }}
+
+# List of ARC hosting environments to manage.
+{% for env in ((hed | default({})).environments | default([])) %}
+[hed.environments.{{ loop.index0 }}]
+# Name of the hosting environment.
+name = {{ (env | default({})).name | default('') }}
+# Whether this environment is enabled.
+enabled = {{ (env | default({})).enabled | default(false) | ternary('true', 'false') }}
+# Executor type for this environment.
+executor = {{ (env | default({})).executor | default('') }}
+# Comma-separated list of resource names referenced by this environment.
+resources = {% for r in ((env | default({})).resources | default([])) %}{{ (r | default({})).name | default('') }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endfor %}
+
+# Resource definitions (referenced by hosting environments).
+{% for resource in ((hed | default({})).resources | default([])) %}
+[hed.resources.{{ loop.index0 }}]
+# Name of the resource.
+name = {{ (resource | default({})).name | default('') }}
+# Hostname or IP of the resource.
+host = {{ (resource | default({})).host | default('') }}
+# Port of the resource.
+port = {{ (resource | default({})).port | default('') }}
+# Authentication method (e.g., password, gssapi, x509).
+auth_method = {{ (resource | default({})).auth_method | default('') }}
+{% if (resource | default({})).auth_method | default('') in ['gssapi', 'x509'] %}
+# Certificate used for proxying requests in gssapi/x509 auth.
+proxy_cert = {{ (resource | default({})).proxy_cert | default('') }}
+{% endif %}
+{% if (resource | default({})).auth_method | default('') == 'password' %}
+# Username for password authentication.
+username = {{ (resource | default({})).username | default('') }}
+# Password for password authentication.
+password = {{ (resource | default({})).password | default('') }}
+{% endif %}
+{% endfor %}
+
+# Optional monitoring endpoint configuration (for external health probes).
+[hed.monitoring]
+# Enable the internal HTTP health/status endpoint.
+enabled = {{ ((hed | default({})).monitoring | default({})).enabled | default(false) | ternary('true', 'false') }}
+# Port for the monitoring endpoint (HTTP only).
+port = {{ ((hed | default({})).monitoring | default({})).port | default(5445) }}
+# URL path for the health check endpoint.
+path = {{ ((hed | default({})).monitoring | default({})).path | default('/healthz') }}

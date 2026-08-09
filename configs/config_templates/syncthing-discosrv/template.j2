@@ -1,0 +1,72 @@
+{#
+  Syncthing Discovery Server Configuration
+  ========================================
+  This template generates the JSON configuration file for the syncthing-discosrv service.
+  It is self-documenting: every configuration directive is preceded by a comment
+  explaining its purpose and source.
+
+  Security Note: Ensure `api_key` is set in production to protect admin endpoints.
+  TLS settings are required if `tls_enabled` is true; ensure cert/key paths are valid.
+#}
+{
+  # API key for admin endpoints (e.g., /admin/config). Must be set for security.
+  "api_key": "{{ api_key | default('') }}",
+
+  # Network address the discovery server listens on (e.g., 0.0.0.0, 127.0.0.1, or specific IP).
+  "bind": "{{ bind_address | default('0.0.0.0') }}:{{ port | default(22026) }}",
+
+  # Verbosity of logging.
+  "log_level": "{{ log_level | default('info') }}",
+
+  # Maximum number of concurrent connections allowed per IP address. Helps prevent abuse.
+  "max_conn_per_ip": {{ max_conn_per_ip | default(10) }},
+
+  # Average rate limit (requests per second) per client IP over time.
+  "rate_limit": {{ rate_limit | default(100) }},
+
+  # Maximum burst size (concurrent requests) before rate limiting kicks in.
+  "rate_limit_burst": {{ rate_limit_burst | default(200) }},
+
+  # Metrics configuration block.
+  {% if enable_metrics | default(False) | bool %}
+  "metrics": {
+    # Enable the Prometheus-compatible metrics endpoint.
+    "enabled": true,
+    # Metrics endpoint bind address (ignored if metrics disabled).
+    "bind": "{{ metrics_bind | default('127.0.0.1') }}:{{ metrics_port | default(22027) }}"
+  },
+  {% else %}
+  "metrics": {
+    # Enable the Prometheus-compatible metrics endpoint.
+    "enabled": false
+  },
+  {% endif %}
+
+  # TLS configuration block for the main discovery endpoint.
+  "tls": {
+    # Enable TLS for the main discovery endpoint.
+    "enabled": {{ tls_enabled | default(False) }},
+    # Path to TLS certificate file (PEM format). Required if TLS enabled.
+    "cert_file": "{{ tls_cert_path | default('/etc/syncthing-discosrv/tls.crt') }}",
+    # Path to TLS private key file (PEM format). Required if TLS enabled.
+    "key_file": "{{ tls_key_path | default('/etc/syncthing-discosrv/tls.key') }}"
+  },
+
+  # List of additional network or Unix socket URLs to accept connections on.
+  "listen_urls": [
+    {% if listen_urls | default([]) | length > 0 %}
+    {% for url in listen_urls | default([]) %}
+      "{{ url }}"{% if not loop.last %},{% endif %}
+    {% endfor %}
+    {% endif %}
+  ],
+
+  # Print logs to standard output (useful for containerized deployments).
+  "log_to_stdout": {{ log_to_stdout | default(True) }},
+
+  # Path to log file (ignored if log_to_stdout is true).
+  "log_file": "{{ log_file | default('/var/log/syncthing-discosrv/syncthing-discosrv.log') }}",
+
+  # Path to write PID file. Used by service managers for process control.
+  "pid_file": "{{ pid_file | default('/run/syncthing-discosrv.pid') }}"
+}

@@ -1,0 +1,83 @@
+# Global daemon settings
+# Controls overall daemon behavior and logging
+[global]
+  # Enable or disable debug logging
+  debug={{ debug_enabled | lower }}
+  # Path to PID file
+  pidfile={{ pidfile_path }}
+  # Log level: 0 (none) to 5 (debug)
+  loglevel={{ log_level }}
+  # Path to log file
+  logfile={{ log_path }}
+
+# Network interface binding
+# Specifies which interfaces/services the daemon binds to
+[network]
+  # TCP port for HTTP control interface
+  http_port={{ http_port }}
+  # TCP port for TCP raw protocol
+  tcp_port={{ tcp_port }}
+  # TCP port for WebSocket interface
+  ws_port={{ ws_port }}
+  # Listen address for all services (use 0.0.0.0 for all interfaces)
+  bind_address={{ bind_address }}
+
+# Bluetooth configuration
+# Settings for Bluetooth remote control support
+[bluetooth]
+  # Enable Bluetooth interface
+  enabled={{ bluetooth.enabled | lower }}
+  # Bluetooth device (e.g., hci0)
+  device={{ bluetooth.device }}
+  # RFCOMM channel for service (0 = auto)
+  channel={{ bluetooth.channel }}
+  # Service name visible to remote devices
+  name={{ bluetooth.service_name }}
+  # Comma-separated list of allowed remote device MAC addresses (empty = allow all)
+  allowed_devices={{ bluetooth.allowed_devices | join(',') }}
+
+# Wi-Fi (TCP/IP) configuration
+# Optional TCP/IP remote control channels
+[wi-fi]
+  # Enable Wi-Fi/TCP remote interface
+  enabled={{ wifi.enabled | lower }}
+  # TCP port for Wi-Fi remote control
+  port={{ wifi.port }}
+  # List of allowed client IP addresses or subnets (CIDR notation)
+{% for allowed_ip in wifi.allowed_ips %}
+  allowed_ip={{ allowed_ip }}
+{% endfor %}
+
+# IrDA configuration
+# Settings for Infrared remote control support
+[irda]
+  # Enable IrDA interface
+  enabled={{ irda.enabled | lower }}
+  # IrDA device (e.g., /dev/ircomm0)
+  device={{ irda.device }}
+
+# Application control configuration
+# Defines how remote events map to application actions
+{% for app in applications %}
+[{{ app.name }}]
+  # Enable this application handler
+  enabled={{ app.enabled | lower }}
+  # Path to application binary (for autostart, if supported)
+  binary={{ app.binary | default('') }}
+  # Command to launch or signal the app (e.g., signal name, command args)
+  command={{ app.command | default('') }}
+  # List of supported remote keys mapped to actions
+{% for key, action in app.keys.items() %}
+  {{ key }}={{ action }}
+{% endfor %}
+{% endfor %}
+
+# Input mapping (legacy support)
+# Maps remote buttons to keyboard/mouse events (for generic input forwarding)
+[input]
+  # Enable input forwarding mode
+  enabled={{ input_forwarding.enabled | lower }}
+  # Type of input device: keyboard, mouse, or both
+  type={{ input_forwarding.type }}
+  # Delay between repeated key events (ms)
+  repeat_delay={{ input_forwarding.repeat_delay }}

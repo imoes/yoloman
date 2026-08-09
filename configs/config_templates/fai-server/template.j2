@@ -1,0 +1,87 @@
+# FAI Server Package List Configuration
+# This template generates the package lists for FAI (Fully Automatic Installation)
+# used to create the NFSROOT and handle installation tasks.
+
+# ============================================================================
+# General Packages for NFSROOT
+# ============================================================================
+# Description: Target architecture for architecture-specific package lists; must be one of: I386, AMD64, ARM64, ARMHF
+# Default: AMD64
+PACKAGES install-norec FULL
+nfs-common fai-nfsroot rpcbind
+rsync
+lshw procinfo
+dump reiserfsprogs xfsprogs xfsdump btrfs-progs
+hwinfo hdparm smartmontools nvme-cli
+zile
+numactl
+udns-utils
+netcat-traditional nmap
+pxelinux syslinux-common
+ca-certificates # for get-config-dir-https and apt-transport-https
+usbutils pciutils nvidia-detect
+ssh
+screen tmux
+netselect
+mdadm
+cryptsetup
+memtest86+
+#git # git consumes a lot of disk space on the FAI CD
+
+PACKAGES install-norec
+# dracut replaces live-boot and initramfs-tools
+dracut live-boot- initramfs-tools-
+dracut-config-generic
+dracut-network isc-dhcp-client
+curl lftp
+util-linux-extra
+less
+ntpsec-ntpdate rdate
+dosfstools
+lvm2
+psmisc
+uuid-runtime
+dialog
+console-common kbd
+xz-utils pigz zstd
+gpg
+
+
+# ============================================================================
+# Non-Free Firmware
+# ============================================================================
+# Description: Some network cards need firmware; these are installed from non-free repos
+PACKAGES install-norec NONFREE
+firmware-bnx2 firmware-bnx2x firmware-realtek
+firmware-cavium firmware-myricom firmware-netronome firmware-netxen firmware-qlogic
+firmware-misc-nonfree
+
+# ============================================================================
+# Architecture-Specific Packages
+# ============================================================================
+# Description: Architecture dependend list of packages that are installed
+# Note: These blocks are evaluated based on the FAI_ARCH variable
+
+PACKAGES install-norec I386
+grub-pc
+efibootmgr
+linux-image-686-pae
+
+{% if FAI_ARCH | default('AMD64') == 'AMD64' %}
+PACKAGES install-norec {{ FAI_ARCH | default('AMD64') }}
+grub-pc
+grub-efi-amd64-bin
+efibootmgr
+linux-image-amd64
+#linux-image-amd64/trixie-backports # if you want to use a newer kernel
+
+PACKAGES install-norec ARM64
+grub-efi-arm64
+efibootmgr
+linux-image-arm64
+
+PACKAGES install-norec ARMHF
+grub-efi-arm
+efibootmgr
+linux-image-armmp
+{% endif %}

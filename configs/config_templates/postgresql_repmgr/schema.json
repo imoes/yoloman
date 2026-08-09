@@ -1,0 +1,173 @@
+{
+  "primary_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the primary PostgreSQL server."
+  },
+  "primary_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port number of the primary PostgreSQL server."
+  },
+  "repmgr_user": {
+    "type": "string",
+    "default": "repmgr",
+    "description": "PostgreSQL user for repmgr operations (must have replication privileges)."
+  },
+  "repmgr_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the repmgr user. Should be stored securely (e.g., via .pgpass)."
+  },
+  "repmgr_database": {
+    "type": "string",
+    "default": "repmgr",
+    "description": "Name of the PostgreSQL database used by repmgr to store cluster metadata."
+  },
+  "node_id": {
+    "type": "number",
+    "default": 1,
+    "description": "Unique integer identifier for this node in the cluster (1\u2013999999999)."
+  },
+  "node_name": {
+    "type": "string",
+    "default": "node1",
+    "description": "Human-readable name for this node (must be unique within the cluster)."
+  },
+  "data_directory": {
+    "type": "string",
+    "default": "/var/lib/postgresql/17/main",
+    "description": "Path to the PostgreSQL data directory on this node."
+  },
+  "replication_user": {
+    "type": "string",
+    "default": "replication",
+    "description": "PostgreSQL user used for streaming replication."
+  },
+  "replication_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the replication user. Recommended to use peer or scram-sha-256 auth in pg_hba.conf."
+  },
+  "failover": {
+    "type": "string",
+    "default": "automatic",
+    "description": "Failover mode: 'automatic' (full automated) or 'manual' (requires manual intervention)."
+  },
+  "promote_command": {
+    "type": "string",
+    "default": "repmgr standby promote -f /etc/repmgr/17/repmgr.conf --log-level=DEBUG",
+    "description": "Shell command to execute when promoting a standby to primary."
+  },
+  "follow_command": {
+    "type": "string",
+    "default": "repmgr standby follow -f /etc/repmgr/17/repmgr.conf --log-level=DEBUG --upstream-node-id=%n",
+    "description": "Shell command to execute when a standby starts following a new primary."
+  },
+  "monitoring_interval_secs": {
+    "type": "number",
+    "default": 5,
+    "description": "Interval in seconds between health checks for the cluster."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Verbosity level for repmgr logs (e.g., DEBUG, INFO, NOTICE, WARNING, ERROR)."
+  },
+  "log_facility": {
+    "type": "string",
+    "default": "LOG_LOCAL0",
+    "description": "Syslog facility to use when logging to syslog."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/postgresql/repmgr.log",
+    "description": "Path to the file where repmgr writes its logs (if syslog not used)."
+  },
+  "service_start_command": {
+    "type": "string",
+    "default": "pg_ctlcluster 17 main start",
+    "description": "Command used to start PostgreSQL on this node (e.g., via pg_ctlcluster or systemctl)."
+  },
+  "service_stop_command": {
+    "type": "string",
+    "default": "pg_ctlcluster 17 main stop -m fast",
+    "description": "Command used to stop PostgreSQL on this node (e.g., via pg_ctlcluster or systemctl)."
+  },
+  "service_status_command": {
+    "type": "string",
+    "default": "pg_ctlcluster 17 main status",
+    "description": "Command used to check PostgreSQL status on this node."
+  },
+  "auto_registration": {
+    "type": "bool",
+    "default": false,
+    "description": "If true, automatically register this standby node with the cluster on startup."
+  },
+  "auto_follow": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, automatically reattach to a new primary after failover or follow event."
+  },
+  "failover_targets": {
+    "type": "list",
+    "default": [],
+    "description": "Ordered list of standby node IDs and hosts to prefer as failover targets. Lowest node_id has highest priority.",
+    "items": {
+      "node_id": {
+        "type": "number",
+        "required": true
+      },
+      "host": {
+        "type": "string",
+        "required": true
+      },
+      "port": {
+        "type": "number",
+        "default": 5432,
+        "required": false
+      }
+    }
+  },
+  "upstream_node": {
+    "type": "number",
+    "default": null,
+    "description": "Node ID of the upstream node (for cascading replication). Leave blank for direct primary connection."
+  },
+  "pg_basebackup_options": {
+    "type": "string",
+    "default": "-c fast -X stream -P",
+    "description": "Extra options passed to pg_basebackup when creating a new standby."
+  },
+  "events": {
+    "type": "list",
+    "default": [],
+    "description": "Custom scripts to execute on specific repmgr events (e.g., post_promote, post_failover).",
+    "items": {
+      "name": {
+        "type": "string",
+        "enum": [
+          "post_promote",
+          "post_failover",
+          "post_primary_switch",
+          "pre_standby_clone",
+          "pre_standby_follow"
+        ],
+        "required": true
+      },
+      "script": {
+        "type": "string",
+        "required": true
+      }
+    }
+  },
+  "postgresql_parameters": {
+    "type": "object",
+    "default": {},
+    "description": "Custom PostgreSQL configuration parameters to apply on promotion/follow (e.g., max_connections).",
+    "items": {
+      "type": "string",
+      "description": "Parameter name \u2192 value mapping"
+    }
+  }
+}

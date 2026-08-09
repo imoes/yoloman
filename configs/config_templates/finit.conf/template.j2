@@ -1,0 +1,75 @@
+# Finit init system configuration
+# This template is self-documenting. Each directive is preceded by its schema description.
+# Variables default to their schema values if not provided by Ansible.
+
+# === Global Process Settings ===
+
+# Path to Finit's PID file.
+pidfile {{ pidfile_path | default('/var/run/finit.pid') }}
+
+# === Logging & Verbosity ===
+
+# Log verbosity level: 0=silent, 1=minimal, 2=normal, 3=verbose.
+# Finit uses this to determine the amount of detail in logs.
+verbosity {{ verbosity | default(2) }}
+
+# Enable logging to syslog.
+# When enabled, Finit sends log messages to the system syslog daemon.
+syslog {{ syslog_enabled | default(true) | lower }}
+
+# Log level for console output: 0=none, 1=errors, 2=warnings, 3=info, 4=debug.
+# This controls what appears on the specified console_device.
+console {{ console_level | default(3) }}
+
+# === Service Discovery ===
+
+# List of directories to search for service definitions (e.g., /etc/finit.d/*.conf, /etc/init.d/).
+# Each directory results in a 'service' directive in the config.
+{% for dir in (service_dirs | default(['/etc/finit.d', '/etc/init.d'])) %}service {{ dir }}
+{% endfor %}
+
+# === Boot Target Configuration ===
+
+# Default runlevel to enter at boot (e.g., S for single-user, 2 for multi-user without network, 3 for multi-user with network).
+# Note: mutually exclusive with 'target' in some configurations, but Finit often allows both.
+runlevel {{ default_runlevel | default('S') }}
+
+# Alternative to runlevel: target unit to activate at boot (e.g., multi-user, graphical).
+# Mutually exclusive with runlevel in strict POSIX definitions, but Finit may support both.
+# Only emitted if explicitly defined in variables to avoid redundancy with runlevel.
+{% if default_target is defined %}target {{ default_target | default('multi-user') }}
+{% endif %}
+
+# === Console & Shutdown Behavior ===
+
+# TTY device to use for init messages (e.g., /dev/console, tty0, ttyS0).
+console_device {{ console_device | default('/dev/console') }}
+
+# Whether to call sync() before reboot/halt to flush filesystem buffers.
+# Recommended to keep true to prevent data corruption on power loss.
+sync {{ sync_on_shutdown | default(true) | lower }}
+
+# === Plugin System ===
+
+# Enable plugin support in Finit (requires compiled-in plugin support).
+plugins {{ plugins_enabled | default(false) | lower }}
+
+# Directory where Finit looks for loadable plugins (if plugins_enabled=true).
+# Only emitted if explicitly defined to allow default fallback if not specified.
+{% if plugins_dir is defined %}plugindir {{ plugins_dir | default('/usr/lib/finit/plugins') }}
+{% endif %}
+
+# === Network & Hostname Integration ===
+
+# Enable automatic network interface bring-up via /etc/finit.d/network.conf hook.
+network {{ network_enabled | default(true) | lower }}
+
+# Enable reading and setting system hostname from /etc/hostname.
+hostname {{ hostname_enabled | default(true) | lower }}
+
+# === Plugin Specific Configuration ===
+
+# Key-value pairs passed as configuration to loaded plugins (syntax: plugin <key> <value>).
+# Iterates over the plugins_config dictionary. If empty or undefined, no directives are emitted.
+{% for key, value in (plugins_config | default({}) | dict2items) %}plugin {{ key }} {{ value.value }}
+{% endfor %}

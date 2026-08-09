@@ -1,0 +1,97 @@
+{# ============================================================ #}
+{# bconsole.conf — Bacula Console Configuration Template        #}
+{#                                                              #}
+{# This template generates a valid bconsole.conf(5) file for     #}
+{# connecting to a Bacula/Bareos Director. It is self-documented#}
+{# using schema descriptions as target-file comments.           #}
+{#                                                              #}
+{# Self-documentation principle: every directive is preceded by  #}
+{# its schema description, and every variable uses a safe default#}
+{# to prevent render failures when the variable is undefined.   #}
+{# ============================================================ #}
+
+# Director resource: Name of the Director resource to connect to;
+# must match a defined Director in bconsole.conf
+Director {
+  {# Name of the Director resource to connect to; must match a defined Director in bconsole.conf #}
+  Name = {{ director_name | default('bareos-dir') }}
+
+  {# TCP port on which the Director listens; standard Bacula port is 9101 #}
+  DIRport = {{ director_port | default(9101) }}
+
+  {# Hostname or IP address of the Director #}
+  address = {{ director_address | default('localhost') }}
+
+  {# Password used to authenticate the Console to the Director #}
+  password = {{ director_password | default('') }}
+
+  {# Name of the Catalog resource to use for file listing; optional #}
+  {% if (director_catalog | default('') | length) > 0 %}
+  Catalog = {{ director_catalog | default('') }}
+  {% endif %}
+
+  {# File retention period (e.g., '30 days'); optional #}
+  {% if (director_file_retention | default('') | length) > 0 %}
+  File Retention = {{ director_file_retention | default('') }}
+  {% endif %}
+
+  {# Job retention period (e.g., '6 months'); optional #}
+  {% if (director_job_retention | default('') | length) > 0 %}
+  Job Retention = {{ director_job_retention | default('') }}
+  {% endif %}
+
+  {# Whether to automatically prune expired files and jobs (true/false); optional #}
+  {% if director_auto_prune | default(False) | bool %}
+  Auto Prune = yes
+  {% endif %}
+}
+
+{# List of Catalog resources for file catalog queries; required if using -c catalog in bconsole CLI or referencing Catalog in Director resource #}
+{% for catalog in catalogs | default([]) %}
+{# Catalog resource: {{ catalog.name | default('') }} #}
+Catalog {
+  {# Name of the Catalog resource #}
+  Name = {{ catalog.name | default('') }}
+
+  {# Database server hostname or IP #}
+  DB Address = {{ catalog.db_address | default('localhost') }}
+
+  {# Name of the Bacula database (e.g., 'bacula') #}
+  DB Name = {{ catalog.db_name | default('') }}
+
+  {# Database user for Bacula access #}
+  DB User = {{ catalog.db_user | default('') }}
+
+  {# Password for the database user #}
+  DB Password = {{ catalog.db_password | default('') }}
+
+  {# Optional database driver (e.g., 'postgresql', 'mysql', 'sqlite3') #}
+  {% if (catalog.db_driver | default('') | length) > 0 %}
+  DB Driver = {{ catalog.db_driver | default('') }}
+  {% endif %}
+
+  {# Database server port; leave 0 for default (5432 for PostgreSQL, 3306 for MySQL) #}
+  {% if (catalog.db_port | default(0)) != 0 %}
+  DB Port = {{ catalog.db_port | default(0) }}
+  {% endif %}
+}
+{% endfor %}
+
+{# Name of the Director resource to receive messages from (e.g., 'bareos-dir'); optional #}
+{% if (messages_director_name | default('') | length) > 0 %}
+# Messages resource for Director communication: Name of the Director resource to
+# receive messages from (e.g., 'bareos-dir'); optional
+Messages {
+  Name = Standard
+  director = {{ messages_director_name | default('') }} = all, !skipped, !restored
+}
+{% endif %}
+
+{# List of custom console command definitions (name=value pairs); optional #}
+{% if console_commands | default([]) | length > 0 %}
+# Optional: Console command definitions
+{% for cmd in console_commands | default([]) %}
+{# Name of the console command (e.g., 'list', 'status') #}
+{{ cmd.name | default('') }} = {{ cmd.value | default('') }}
+{% endfor %}
+{% endif %}

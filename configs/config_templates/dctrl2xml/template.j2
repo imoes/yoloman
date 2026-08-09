@@ -1,0 +1,25 @@
+{# ============================================================ #}
+{# dctrl2xml configuration template                              #}
+{# Converts Debian control data files to XML or JSON format.   #}
+{# Self-documenting: every option is explained here.           #}
+{# ============================================================ #}
+
+{# Input source files. #}
+{# Schema: List of Debian control data files to process (e.g., /var/lib/dpkg/available, Packages, Sources, .dsc, .changes). #}
+{# Default: [] (empty list). If omitted or empty, dctrl2xml reads from stdin. #}
+# Input files. If this list is empty, the tool will read from standard input.
+{% set _input_files = input_files | default([]) %}
+{% if _input_files | length > 0 %}
+-f {{ _input_files | join(' -f ') }}
+{% endif %}
+
+{# Output format. #}
+{# Schema: Output format: 'xml' for XML (default), 'json' for JSON. #}
+{# Default: 'xml'. #}
+# Output format. Use --xml (-x) for XML or --json (-j) for JSON.
+{% set _output_format = output_format | default('xml') | lower %}
+{% if _output_format == 'json' %}
+-j
+{% else %}
+-x
+{% endif %}

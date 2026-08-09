@@ -1,0 +1,144 @@
+; =============================================================================
+; Barbican Worker Configuration
+; This template configures the Barbican Key Management Service worker process.
+; It handles secret storage, encryption/decryption operations, and interacts
+; with Keystone for authentication and a database for persistence.
+; =============================================================================
+
+[DEFAULT]
+# Hostname or IP address the worker binds to. Use '0.0.0.0' to listen on all interfaces.
+bind_host = {{ bind_host | default('0.0.0.0') }}
+
+# Port the worker listens on for incoming requests.
+bind_port = {{ bind_port | default(9311) }}
+
+# Number of worker processes (forks) to handle incoming requests.
+workers = {{ workers | default(1) }}
+
+# Path to the log file. Use '-' to log to stdout/stderr.
+log_file = {{ log_file | default('/var/log/barbican/barbican-worker.log') }}
+
+# Logging verbosity level for the worker service (e.g., DEBUG, INFO, WARNING, ERROR).
+log_level = {{ log_level | default('INFO') }}
+
+[keystone_authtoken]
+# Keystone authentication credentials and endpoint details for the Barbican worker.
+; The following fields are extracted from the keystone_authtoken dictionary.
+
+# Authentication type (typically 'password' for service users).
+auth_type = {{ (keystone_authtoken | default({})).auth_type | default('password') }}
+
+# Identity provider URL (WWW-Authenticate URI).
+www_authenticate_uri = {{ (keystone_authtoken | default({})).www_authenticate_uri | default('http://controller:5000/v3') }}
+
+# Project domain name for the service user.
+project_domain_name = {{ (keystone_authtoken | default({})).project_domain_name | default('Default') }}
+
+# Project name for the service user (typically 'service').
+project_name = {{ (keystone_authtoken | default({})).project_name | default('service') }}
+
+# User domain name for the service user.
+user_domain_name = {{ (keystone_authtoken | default({})).user_domain_name | default('Default') }}
+
+# Service user username (typically 'barbican').
+username = {{ (keystone_authtoken | default({})).username | default('barbican') }}
+
+# Service user password.
+password = {{ (keystone_authtoken | default({})).password | default('SERVICE_PASSWORD') }}
+
+# API endpoint for keystone (often same as www_authenticate_uri or admin URL).
+auth_url = {{ (keystone_authtoken | default({})).auth_url | default('http://controller:5000/v3') }}
+
+# Skip SSL certificate verification if set to True.
+{% if (keystone_authtoken | default({})).insecure is defined %}
+insecure = {{ (keystone_authtoken | default({})).insecure | lower }}
+{% endif %}
+
+[database]
+# Database connection configuration for persistent storage.
+; The connection string uses SQLAlchemy format (e.g., mysql+pymysql://...).
+
+# Database connection string.
+connection = {{ (database | default({})).connection | default('mysql+pymysql://barbican:BARBICAN_DB_PASS@controller/barbican') }}
+
+# Maximum number of connections to keep in the pool.
+max_pool_size = {{ (database | default({})).max_pool_size | default(10) }}
+
+# Idle timeout in seconds for database connections before closing them.
+idle_timeout = {{ (database | default({})).idle_timeout | default(3600) }}
+
+[secretstore]
+# Secret store plugin configuration (e.g., encryption backends).
+; Enables the barbican-secretstore extension and defines active plugins.
+
+# Enable secretstore extension.
+enable_secretstore = {{ (secretstore | default({})).enable_secretstore | default(True) | lower }}
+
+# List of enabled secret store plugins (order matters for priority).
+{% if (secretstore | default({})).enabled_plugins is defined %}
+enabled_plugins = {{ (secretstore | default({})).enabled_plugins | join(', ') }}
+{% endif %}
+
+; Plugin-specific sections are generated below.
+{% for plugin in (secretstore | default({})).plugins | default([]) %}
+; Plugin: {{ plugin.name }} configuration
+[secretstore:{{ plugin.name }}]
+; Enable this specific plugin.
+enabled = {{ plugin.enabled | lower }}
+
+; Plugin-specific configuration options.
+{% for key, value in plugin.config | dict2items %}{{ key.key }} = {{ value.value }}
+{% endfor %}
+{% endfor %}
+
+[otppkcs11]
+# PKCS#11/HSM settings used by the PKCS11 secret store plugin.
+; These settings configure access to Hardware Security Modules.
+
+# Path to the PKCS#11 shared library (e.g., libsofthsm2.so).
+library_path = {{ (otppkcs11 | default({})).library_path | default('/usr/lib/libsofthsm2.so') }}
+
+# PIN code for accessing the HSM token.
+pin = {{ (otppkcs11 | default({})).pin | default('12345') }}
+
+# Slot ID of the HSM token to use.
+slot_id = {{ (otppkcs11 | default({})).slot_id | default(1) }}
+
+# Label for the crypto object/token.
+label = {{ (otppkcs11 | default({})).label | default('barbican') }}
+
+[admin]
+# Keystone admin user/project context for CLI/admin tools.
+; Used for administrative operations outside of the standard worker flow.
+
+# Admin user name.
+user_name = {{ (admin | default({})).user_name | default('admin') }}
+
+# Admin project name.
+project_name = {{ (admin | default({})).project_name | default('admin') }}
+
+[notification]
+# Notification configuration for event-driven operations (e.g., audit, alerts).
+; Publishes events to a message queue for monitoring and auditing.
+
+# Notification driver (e.g., messagingv2 for RabbitMQ/Kafka).
+notification_driver = {{ (notification | default({})).notification_driver | default('messagingv2') }}
+
+; Notification topics configuration.
+{% for topic in (notification | default({})).topics | default([]) %}
+# Notification topic for {{ topic.name }} events.
+{{ topic.name }}_topic = {{ topic.topic_name }}
+{% endfor %}
+
+[cache]
+# Caching backend configuration for performance (e.g., for token caching).
+; Uses Memcached or Redis to cache authentication tokens and other data.
+
+# Enable caching.
+enabled = {{ (cache | default({})).enabled | default(True) | lower }}
+
+# Cache backend URL (e.g., memcached://controller:11211 or redis://...).
+backend_url = {{ (cache | default({})).backend_url | default('memcached://controller:11211') }}
+
+# Cache expiration time in seconds.
+expiration_time = {{ (cache | default({})).expiration_time | default(600) }}

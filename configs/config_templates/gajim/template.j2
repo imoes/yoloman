@@ -1,0 +1,37 @@
+{# ============================================================================ #}
+{# Gajim Jabber Client Configuration                                              #}
+{# ============================================================================ #}
+{# This template generates the gajim profile configuration file.                #}
+{# It is designed to be reusable within an Ansible role, handling defaults and   #}
+{# conditional logic for all supported schema fields.                           #}
+{# ============================================================================ #}
+
+# Gajim config for profile '{{ profile_name | default('default') }}'
+# Generated for use with gajim(1) using --profile={{ profile_name | default('default') }}
+{# profile_name: Profile name passed to gajim via --profile=NAME; used to select $XDG_CONFIG_HOME/gajim/NAME/ directory #}
+profile: {{ profile_name | default('default') }}
+
+# Logging configuration
+{# loglevels: List of logging subsystem-level pairs (see --loglevel=SUBSYSTEM=LEVEL in man page). Each item defines a subsystem and its log level. #}
+{% if loglevels is defined and loglevels | length > 0 %}
+loglevels:
+{% for item in loglevels %}
+  - subsystem: {{ item.subsystem | default('') }}
+    level: {{ item.level | default('info') }}
+{% endfor %}
+{% else %}
+loglevels: []
+{% endif %}
+
+# Logging verbosity flags
+{# quiet: If true, suppress non-critical output (equivalent to -q/--quiet) #}
+quiet: {{ quiet | default(false) | ternary('true', 'false') }}
+
+{# verbose: If true, print XML stanzas and debug info (equivalent to -v/--verbose) #}
+verbose: {{ verbose | default(false) | ternary('true', 'false') }}
+
+{# warnings: If true, show all warnings (equivalent to -w/--warnings) #}
+warnings: {{ warnings | default(false) | ternary('true', 'false') }}
+
+{# gdebug: If true, enable GLib debug messages (equivalent to --gdebug) #}
+gdebug: {{ gdebug | default(false) | ternary('true', 'false') }}

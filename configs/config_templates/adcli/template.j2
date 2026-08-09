@@ -1,0 +1,72 @@
+# =============================================================================
+# adcli configuration template
+# =============================================================================
+# This file configures adcli, a command-line tool used to join Linux systems
+# to Microsoft Active Directory or FreeIPA domains via Samba/Winbind or
+# native LDAP/Kerberos mechanisms.
+#
+# It is an INI-style configuration file processed by adcli.
+# All variables MUST have defaults defined using Jinja2 `default()` filter
+# to prevent rendering failures when variables are omitted.
+# =============================================================================
+
+[adcli]
+
+# The Active Directory domain to join.
+# If a domain is not specified, then the domain part of the local computer's
+# host name is used.
+# Type: string
+domain = {{ domain | default('') }}
+
+# The domain controller hostname or IP address.
+# Equivalent to `--domain-controller`. If not specified, then an appropriate
+# domain controller is auto-discovered via DNS SRV queries.
+# Type: string
+domain_controller = {{ domain_controller | default('') }}
+
+# The Kerberos realm for the domain.
+# Equivalent to `--domain-realm`. If not specified, then the upper cased
+# domain name is used.
+# Type: string
+domain_realm = {{ domain_realm | default('') }}
+
+# The user account to use for authentication when joining the domain.
+# Equivalent to `--login-user`. If not specified, then the name 'Administrator'
+# will be used.
+# Type: string
+login_user = {{ login_user | default('Administrator') }}
+
+# The short (non-dotted) name of the computer account to create in the domain.
+# Equivalent to `--computer-name`. If not specified, then the local hostname
+# is used.
+# Type: string
+computer_name = {{ computer_name | default('') }}
+
+# The full distinguished name (DN) of the Organizational Unit (OU) in which
+# to create the computer account.
+# Equivalent to `--domain-ou`. If not specified, then the computer account
+# is created in the default Computers container.
+# Type: string
+domain_ou = {{ domain_ou | default('') }}
+
+# Override the local machine's fully qualified domain name (FQDN).
+# Equivalent to `--host-fqdn`. If not specified, the local machine's hostname
+# (as returned by the OS) will be used.
+# Type: string
+host_fqdn = {{ host_fqdn | default('') }}
+
+# Specify the path to the host keytab file where host credentials will be
+# written after a successful join operation.
+# Equivalent to `--host-keytab`.
+# Type: string
+host_keytab = {{ host_keytab | default('/etc/krb5.keytab') }}
+
+# Use LDAPS (LDAP over SSL/TLS) to connect to the domain controller.
+# Equivalent to `--use-ldaps`. By default, the standard LDAP port (389) is used.
+# Type: boolean
+use_ldaps = {{ use_ldaps | default(False) }}
+
+# Run in verbose mode with debug output.
+# Equivalent to `--verbose`. Useful for troubleshooting join failures.
+# Type: boolean
+verbose = {{ verbose | default(False) }}

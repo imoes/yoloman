@@ -1,0 +1,105 @@
+{
+  "host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "IP address or hostname the NAS daemon will bind to for incoming connections."
+  },
+  "port": {
+    "type": "number",
+    "default": 5000,
+    "description": "TCP port number used for audio streaming (commonly 5000\u20135010)."
+  },
+  "sample_format": {
+    "type": "string",
+    "default": "float",
+    "description": "Data format of audio samples (e.g., 'float', 'int16', 'uint8'). Choose based on client expectations and CPU efficiency."
+  },
+  "sample_rate": {
+    "type": "number",
+    "default": 48000,
+    "description": "Audio sample rate in Hz (e.g., 44100, 48000, 96000). Match to your audio hardware or network constraints."
+  },
+  "channels": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of audio channels (1 = mono, 2 = stereo). Higher counts increase bandwidth use."
+  },
+  "buffer_ms": {
+    "type": "number",
+    "default": 100,
+    "description": "Audio buffer size in milliseconds. Larger values reduce dropouts on slow networks but increase latency."
+  },
+  "compress": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable on-the-fly audio compression (e.g., for reducing bandwidth over constrained links)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of simultaneous clients allowed to connect and stream audio."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/nas/nas.pid",
+    "description": "Absolute path where the daemon writes its process ID (PID) on startup."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/nas/nas.log",
+    "description": "Absolute path to the log file where the daemon writes runtime messages."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging: 'debug', 'info', 'notice', 'warning', 'error', or 'critical'."
+  },
+  "allowed_ips": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client IP addresses. If empty, all IPs are allowed (not recommended for production).",
+    "items": {
+      "type": "string",
+      "description": "IPv4 or IPv6 address (e.g., '192.168.1.100', '2001:db8::1')."
+    }
+  },
+  "allowed_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of allowed client hostnames. Resolved at connection time.",
+    "items": {
+      "type": "string",
+      "description": "Fully-qualified hostname (e.g., 'client.lan', 'workstation.example.com')."
+    }
+  },
+  "multicast": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable multicast streaming (requires compatible client and network infrastructure)."
+  },
+  "mcast_group": {
+    "type": "string",
+    "default": "239.255.0.1",
+    "description": "Multicast IP group address (valid range: 224.0.0.0\u2013239.255.255.255). Ignored if multicast = false."
+  },
+  "mcast_ttl": {
+    "type": "number",
+    "default": 64,
+    "description": "Multicast Time-to-Live (TTL). Limits how many hops the packet can traverse (1 = local subnet, 64 = typical default)."
+  },
+  "output_device": {
+    "type": "string",
+    "default": "default",
+    "description": "Audio output device identifier (e.g., 'default', 'hw:0,0', 'plughw:1,0'). Must match ALSA or system audio backend."
+  },
+  "agc": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable automatic gain control to normalize input volume (useful for inconsistent source levels)."
+  },
+  "volume_step": {
+    "type": "number",
+    "default": 0.05,
+    "description": "Volume control increment (0.0\u20131.0) per step (e.g., 0.05 = \u00b15% per button press)."
+  }
+}

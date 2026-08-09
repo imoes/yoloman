@@ -1,0 +1,35 @@
+# ISATAP Tunnel Client configuration file
+# Reference: isatapd(8) and RFC 5214 (IPv6 Automatic Tunnel Addressing Protocol)
+
+# =============================================================================
+# Enable ISATAP client mode
+# =============================================================================
+# Enable ISATAP client mode — required to create and maintain the tunnel.
+# If disabled, the tunnel interface will not be started or managed.
+enable_isatap = {{ enable_isatap | default(false) }}
+
+# =============================================================================
+# ISATAP Router IPv4 Address
+# =============================================================================
+# IPv4 address of the ISATAP router — must be globally routable and reachable.
+# This address is used as the link-local component for IPv6 addresses generated
+# for the tunnel interface.
+isatap_router_ipv4 = {{ isatap_router_ipv4 | default('') }}
+
+# =============================================================================
+# Tunnel Interface Name
+# =============================================================================
+# Name of the virtual tunnel interface to create (e.g., isatap0).
+# This interface will carry IPv6 traffic over the IPv4 network.
+tunnel_interface = {{ tunnel_interface | default('isatap0') }}
+
+# =============================================================================
+# Static ISATAP Routers
+# =============================================================================
+# List of static IPv4 addresses or hostnames for known ISATAP routers.
+# These are used as fallback or primary peers if automatic discovery fails
+# or is not configured. Items must be strings representing valid IPv4 addresses
+# or resolvable hostnames.
+{% for router in routers | default([]) %}
+static_router = {{ router }}
+{% endfor %}

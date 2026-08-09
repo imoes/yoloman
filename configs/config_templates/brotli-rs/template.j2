@@ -1,0 +1,35 @@
+# =============================================================================
+# brotli-rs Configuration Template
+# =============================================================================
+# This template generates a command-line invocation for the brotli-rs compressor.
+# It is not a service daemon; it is a utility configuration for batch compression tasks.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Command-line flags for brotli-rs.
+# Source: flags (List of strings, e.g., '--magic', '-q9').
+# Default: [] (empty list, no extra flags)
+# -----------------------------------------------------------------------------
+{% for flag in flags | default([], true) %}{{ flag }}
+{% endfor %}
+{# If flags was empty/missing, this block produces nothing, which is correct. #}
+
+# -----------------------------------------------------------------------------
+# Input file path.
+# Source: input_file (String path).
+# Default: '' (empty string, implies stdin).
+# -----------------------------------------------------------------------------
+{%- if input_file | default('', true) | length > 0 %}
+{{ input_file | default('', true) }}
+{%- else %}
+-
+{%- endif %}
+
+# -----------------------------------------------------------------------------
+# Output file path.
+# Source: output_file (String path).
+# Default: '' (empty string, implies stdout).
+# -----------------------------------------------------------------------------
+{%- if output_file | default('', true) | length > 0 %}
+> {{ output_file | default('', true) }}
+{%- endif %}

@@ -1,0 +1,45 @@
+name: dpkg_selections
+fqcn: builtin.dpkg_selections
+collection: builtin
+short_description: Set a Debian/Ubuntu package's dpkg selection state — most commonly
+  "hold", to prevent apt from ever upgrading/removing it even when a newer version
+  is available
+description: 'Set a Debian/Ubuntu package''s dpkg selection state — most commonly
+  "hold", to prevent apt from ever upgrading/removing it even when a newer version
+  is available. Idempotent — checks the package''s current selection via `dpkg --get-selections`
+  first and only calls `dpkg --set-selections` when it differs. Supports check_mode
+  via dry_run=true.
+
+
+  Cross-tool equivalents:
+
+  - Ansible: ansible.builtin.dpkg_selections. Same name/selection parameters.
+
+  - Chef: the `dpkg_autostart`/`apt_preference` resources approximate parts of this;
+  the closest direct equivalent is shelling out to `dpkg --set-selections` in a custom
+  resource.
+
+  - Puppet: the `package` type''s `hold` provider-specific ensure value on Debian
+  systems (`ensure => held`).
+
+  - Salt: the `pkg.held`/`pkg.unheld` states.
+
+  - Terraform: not applicable — Terraform does not manage OS package hold state.'
+options:
+  name:
+    type: string
+    description: Package name, e.g. "curl".
+    required: true
+  selection:
+    type: string
+    choices:
+    - install
+    - hold
+    - deinstall
+    - purge
+    description: Desired dpkg selection state.
+    required: true
+native: true
+writes: true
+runtime: native
+source: agent-registry

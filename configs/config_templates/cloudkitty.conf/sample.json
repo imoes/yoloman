@@ -1,0 +1,86 @@
+{
+  "debug": false,
+  "verbose": true,
+  "auth": {
+    "auth_type": "keystone",
+    "auth_url": "http://keystone.openstack.svc:5000/v3",
+    "project_domain_name": "default",
+    "project_name": "service",
+    "user_domain_name": "default",
+    "username": "cloudkitty",
+    "password": "secret123"
+  },
+  "storage": {
+    "backend": "sqlalchemy",
+    "connection": "mysql+pymysql://cloudkitty:cloudkitty@mysql.openstack.svc/cloudkitty",
+    "retry_attempts": 5,
+    "retry_delay": 2
+  },
+  "prometheus": {
+    "enabled": true,
+    "endpoint": "http://prometheus.openstack.svc:9090",
+    "query_path": "/api/v1/query"
+  },
+  "collector": {
+    "metrics": [
+      "cpu",
+      "memory.usage",
+      "disk.root.size",
+      "memory",
+      "vcpus"
+    ]
+  },
+  "fetcher": {
+    "module": "nova"
+  },
+  "reporting": {
+    "report_dir": "/var/lib/cloudkitty/reports",
+    "report_period": "month"
+  },
+  "api": {
+    "host": "0.0.0.0",
+    "port": 8889,
+    "ssl_cert": "/etc/cloudkitty/ssl/cloudkitty.crt",
+    "ssl_key": "/etc/cloudkitty/ssl/cloudkitty.key",
+    "workers": 4,
+    "enable_cors": true
+  },
+  "cinder": {
+    "enabled": true,
+    "endpoint_type": "internalURL"
+  },
+  "glance": {
+    "enabled": true,
+    "endpoint_type": "internalURL"
+  },
+  "keystone": {
+    "enabled": true,
+    "endpoint_type": "internalURL"
+  },
+  "neutron": {
+    "enabled": false,
+    "endpoint_type": "internalURL"
+  },
+  "nova": {
+    "enabled": true,
+    "endpoint_type": "internalURL"
+  },
+  "modules": {
+    "enabled_modules": [
+      "rating.module.flat",
+      "rating.module.prometheus"
+    ]
+  },
+  "collectors": {
+    "nova": {
+      "enabled": true,
+      "interval": 3600,
+      "endpoint": "http://nova.openstack.svc:8774/v2.1"
+    },
+    "cinder": {
+      "enabled": true,
+      "interval": 7200,
+      "endpoint": "http://cinder.openstack.svc:8776/v3"
+    }
+  }
+}

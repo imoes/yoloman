@@ -1,0 +1,91 @@
+# Main server configuration for Firebird 3.0 - auto-managed by template
+# Core server behavior
+
+# Absolute path to the Firebird installation directory (contains bin/, system/DBs, etc.).
+RootDirectory = {{ root_dir | default('/opt/firebird') }}
+
+# TCP port for client connections. Standard Firebird port is 3050.
+TCPIPPort = {{ tcpip_port | default(3050) }}
+
+# IP address(es) the server listens on. Use 'localhost', '0.0.0.0' (all), or specific IPs (comma-separated).
+TCPIPBindAddress = {{ tcpip_bind_address | default('localhost') }}
+
+# Maximum number of concurrent client connections allowed. Increase for high-traffic apps.
+MaxConnectCount = {{ max_connect_count | default(20) }}
+
+# Path to the security database (gsec-managed users). Usually security2.fdb inside the root dir.
+# Note: This uses the root_dir variable, so we default to a string containing the Jinja expression
+# if root_dir is not yet set, but typically root_dir is set first.
+SecurityDatabase = {{ (root_dir | default('/opt/firebird')) }}/security2.fdb
+
+# Default directory where database files are stored if no full path is given in SQL.
+DefaultDatabasePath = {{ default_database_path | default('/var/lib/firebird/3.0/data') }}
+
+# Logging and diagnostics
+
+# Path to the main server log file. Use empty string '' or 'none' to disable.
+LogFilename = {{ (root_dir | default('/opt/firebird')) }}/firebird.log
+
+# Max log file size (MB) before rotation. Set 0 to disable rotation.
+LogMaxSize = {{ log_max_size | default(50) }}
+
+# Enable SQL tracing (detailed query logs). Only for debugging — not for production.
+TraceSQL = {{ trace_sql | default(False) | string | lower }}
+
+# Enable authentication event logging (successful/unsuccessful logins).
+TraceAuth = {{ trace_auth | default(False) | string | lower }}
+
+# Path for authentication/SQL trace logs (if enabled).
+TraceFilename = {{ (root_dir | default('/opt/firebird')) }}/trace.log
+
+# Memory and resource limits
+
+# Default number of cache pages (≈ 8 KB each) per database. Larger caches improve performance.
+DefaultDbCachePages = {{ default_db_cache_pages | default(2048) }}
+
+# Max temp memory (KB) per transaction for sorting/joins. Increase for complex OLAP queries.
+TempCacheLimit = {{ temp_cache_limit | default(8192) }}
+
+# Max memory (MB) per transaction. Adjust for large multi-statement transactions.
+TransactionMemoryLimit = {{ transaction_memory_limit | default(100) }}
+
+# Locking and concurrency
+
+# Hash table size for lock management. Must be power of 2; larger values reduce contention.
+LockHashSlots = {{ lock_hash_slots | default(262144) }}
+
+# Optional services and extensions
+
+# Replication and shadowing (advanced)
+
+# Directory for auto-created shadow database files. Shadows provide crash redundancy.
+ShadowPath = {{ shadow_path | default('/var/lib/firebird/3.0/shadows') }}
+
+# Cluster and high-availability (if using Firebird SuperServer + external HA)
+
+# Security hardening
+
+# Allow remote (network) client connections. Disable for local-only use.
+RemoteAccess = {{ remote_access | default(True) | string | lower }}
+
+# Enforce password policy (min length, complexity) for new/changed users.
+UserPasswordPolicy = {{ user_password_policy | default(True) | string | lower }}
+
+# Advanced tuning (rarely changed)
+
+# Seconds of inactivity before auto-closing idle connections (0 = no timeout).
+IdleConnectionTimeout = {{ idle_connection_timeout | default(1800) }}
+
+# Number of worker threads for SuperServer mode. Increase under high concurrency.
+WorkerThreads = {{ worker_threads | default(20) }}
+
+# Max query execution time (ms). 0 = no timeout (use with caution).
+QueryTimeout = {{ query_timeout | default(0) }}
+
+# Max open file descriptors. Ensure system limits (ulimit) support this value.
+MaxOpenFiles = {{ max_open_files | default(1024) }}
+
+# Alias resolution
+
+# List of paths where Firebird looks for .conf files defining database aliases (e.g., alias.conf).
+AliasResolution = {{ alias_resolution | default(['/opt/firebird/aliases.conf', '/etc/firebird/aliases.conf']) | join(', ') }}

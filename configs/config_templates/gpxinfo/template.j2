@@ -1,0 +1,35 @@
+# =============================================================================
+# gpxinfo Configuration File
+# =============================================================================
+# This file configures the gpxinfo tool for processing GPX (GPS Exchange Format)
+# files. It controls output formatting and precision for calculated metrics.
+# All settings below can typically be overridden via command-line arguments,
+# but this file provides sensible defaults.
+# =============================================================================
+
+[global]
+
+# Output format: 'text' (human-readable) or 'json' (machine-readable).
+# Use 'text' for console viewing, 'json' for scripting or API consumption.
+output_format = {{ output_format | default('text') }}
+
+# Number of decimal places for distance values (e.g., meters/kilometers).
+# Higher precision yields more accurate but verbose output.
+distance_precision = {{ distance_precision | default(2) }}
+
+# Number of decimal places for time values (e.g., seconds/hours).
+# Controls the granularity of duration calculations.
+time_precision = {{ time_precision | default(2) }}
+
+# Number of decimal places for elevation values (e.g., meters).
+# Controls the precision of altitude change statistics.
+elevation_precision = {{ elevation_precision | default(1) }}
+
+# List of GPX file paths to process by default.
+# If this list is empty, gpxinfo expects file paths to be passed via CLI arguments.
+# If provided, these files are processed in the order listed.
+{% if gpx_files | default([]) | length > 0 -%}
+files =
+{% for f in gpx_files %}  {{ f }}
+{% endfor %}
+{% endif %}

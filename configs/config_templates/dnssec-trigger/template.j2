@@ -1,0 +1,185 @@
+# =============================================================================
+# dnssec-trigger configuration file
+# =============================================================================
+# This file configures the dnssec-trigger daemon (dnssec-triggerd).
+# It manages DNSSEC validation, hotspot detection, and resolv.conf updates.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+
+# Logging detail level:
+# 0 = only errors
+# 1 = operations (default)
+# 2 = detail
+# 3/4 = debug
+# Verbosity level for dnssec-trigger.
+verbosity: {{ verbosity | default('1') }}
+
+# Path to the PID file used by dnssec-triggerd.
+# The directory containing the pidfile must exist and be writable by the daemon.
+pidfile: "{{ pidfile | default('/run/dnssec-triggerd.pid') }}"
+
+# Path to the log file instead of syslog.
+# If use-syslog is yes, this path is ignored unless syslog is unavailable or
+# specific log levels are required locally.
+logfile: "{{ logfile | default('/var/log/dnssec-trigger.log') }}"
+
+# Enable logging to syslog ('yes' or 'no').
+# If 'yes', logs are sent to the system syslog daemon.
+# If 'no', logs go to stderr or the logfile specified above.
+use-syslog: {{ use_syslog | default('yes') }}
+
+# -----------------------------------------------------------------------------
+# Operational Directories and Tools
+# -----------------------------------------------------------------------------
+
+# Directory to chroot into before starting.
+# Leave empty to disable chroot.
+# The directory must exist and be populated with necessary libraries/binaries.
+chroot: "{{ chroot | default('') }}"
+
+# Path to the unbound-control binary if it is not found in the system PATH.
+# This tool is used to manage the Unbound DNS resolver (reloading, status).
+# Additional command-line options can be appended if desired (e.g., "-c /etc/unbound/unbound.conf").
+unbound-control: "{{ unbound_control | default('/usr/sbin/unbound-control') }}"
+
+# Path to the resolv.conf file to edit.
+# dnssec-trigger will modify this file to configure the system's DNS resolver.
+resolvconf: "{{ resolvconf | default('/etc/resolv.conf') }}"
+
+# -----------------------------------------------------------------------------
+# resolv.conf Domain Settings
+# -----------------------------------------------------------------------------
+
+# The domain name to add to resolv.conf (as the 'domain' directive).
+# Example: example.com
+# Default is none (empty).
+domain: "{{ domain | default('') }}"
+
+# Domain name search path to add to resolv.conf (as the 'search' directive).
+# This allows short hostnames to be resolved by appending these domains.
+# Note: The search path from DHCP is not picked up automatically, as it can be used
+# to misdirect traffic. Specify explicitly here if needed.
+search: "{{ search | default('') }}"
+
+# -----------------------------------------------------------------------------
+# Hotspot Login Configuration
+# -----------------------------------------------------------------------------
+
+# The command to run to open login pages on captive hotspots.
+# This is typically a web browser command.
+# An empty string will run no command (silent mode).
+# Default is 'sensible-browser', which selects the system's default browser.
+login-command: "{{ login_command | default('sensible-browser') }}"
+
+# The URL to open for hotspot login pages.
+# This URL is overridden by the actual hotspot login page detected by the system.
+# It serves as a fallback or manual access point.
+login-location: "{{ login_location | default('http://www.nlnetlabs.nl/projects/dnssec-trigger') }}"
+
+# -----------------------------------------------------------------------------
+# Dry-Run Mode
+# -----------------------------------------------------------------------------
+
+# Do not perform any actions (such as calling unbound-control or editing resolv.conf).
+# Set to 'yes' for a dry-run to test configuration validity without side effects.
+noaction: {{ noaction | default('no') }}
+
+# -----------------------------------------------------------------------------
+# Network and Probe Configuration
+# -----------------------------------------------------------------------------
+
+# Port number to use for the probe daemon.
+# The daemon listens on this port to receive network probes and status updates.
+port: {{ port | default(8955) }}
+
+# -----------------------------------------------------------------------------
+# TLS/SSL Certificate Configuration
+# -----------------------------------------------------------------------------
+
+# These keys and certificates are used for secure TLS communication between
+# components of dnssec-trigger and the unbound resolver.
+# They can be generated using the script: dnssec-trigger-control-setup
+
+# Path to the server private key file for TLS communication.
+server-key-file: "{{ server_key_file | default('/etc/dnssec-trigger/dnssec_trigger_server.key') }}"
+
+# Path to the server certificate file for TLS communication.
+server-cert-file: "{{ server_cert_file | default('/etc/dnssec-trigger/dnssec_trigger_server.pem') }}"
+
+# Path to the control private key file for TLS communication.
+control-key-file: "{{ control_key_file | default('/etc/dnssec-trigger/dnssec_trigger_control.key') }}"
+
+# Path to the control certificate file for TLS communication.
+control-cert-file: "{{ control_cert_file | default('/etc/dnssec-trigger/dnssec_trigger_control.pem') }}"
+
+# -----------------------------------------------------------------------------
+# Update Checking
+# -----------------------------------------------------------------------------
+
+# Check for updates and ask to install them.
+# Primarily relevant for Windows and OSX ports, but supported here for consistency.
+# Set to 'yes' to enable automatic update checks.
+check-updates: {{ check_updates | default('no') }}
+
+# -----------------------------------------------------------------------------
+# Internet Connectivity Probes
+# -----------------------------------------------------------------------------
+
+# Webservers that are probed to see if internet access is possible.
+# They serve a simple static page over HTTP port 80.
+# The format is: url: "HTTP_URL EXPECTED_CONTENT"
+# The probe checks that the content of the page contains the expected string.
+# Without URLs, HTTP probes are skipped.
+
+# Provided by NLnetLabs. Provided on a best effort basis, with no service guarantee.
+url: "http://ster.nlnetlabs.nl/hotspot.txt OK"
+
+# Provided by FedoraProject
+url: "http://fedoraproject.org/static/hotspot.txt OK"
+
+# -----------------------------------------------------------------------------
+# DNS Forwarders (TCP/SSL)
+# -----------------------------------------------------------------------------
+
+# Fallback open DNSSEC resolvers that run on TCP port 80 and TCP port 443.
+# These relay incoming DNS traffic to the usual DNS servers.
+#
+# Format for TCP 80:
+# tcp80: <IP_ADDRESS>
+#
+# Format for SSL 443:
+# ssl443: <IP_ADDRESS> <SHA256_HASH_OF_SERVER_CERT>
+# The hash is the output of: openssl x509 -sha256 -fingerprint -in server.pem
+# Specifying the hash ensures the connection is secure and the server identity is verified.
+# You can add more entries with additional config lines.
+
+# Provided by NLnetLabs. Provided on a best effort basis, with no service guarantee.
+
+# TCP 80 forwarders
+tcp80: 185.49.140.67
+tcp80: 2a04:b900::10:0:0:67
+
+# SSL 443 forwarders with certificate pinning (SHA256 hashes)
+ssl443: 185.49.140.67 7E:CF:B4:BE:B9:9A:56:0D:F7:3B:40:51:A4:78:E6:A6:FD:66:0F:10:58:DC:A8:2E:C0:43:D4:77:5A:71:8A:CF
+ssl443: 2a04:b900::10:0:0:67 7E:CF:B4:BE:B9:9A:56:0D:F7:3B:40:51:A4:78:E6:A6:FD:66:0F:10:58:DC:A8:2E:C0:43:D4:77:5A:71:8A:CF
+
+# -----------------------------------------------------------------------------
+# VPN and Private Address Handling
+# -----------------------------------------------------------------------------
+
+# Use VPN servers for all traffic.
+# If set to 'yes', DNS queries will be forwarded through VPN servers.
+use-vpn-forwarders: {{ use_vpn_forwarders | default('no') }}
+
+# Forward RFC 1918 private addresses to global forwarders.
+# If set to 'yes', traffic destined for private IP ranges (10.x.x.x, 192.168.x.x, etc.)
+# will be forwarded to global DNS forwarders instead of being blocked or resolved locally.
+use-private-addresses: {{ use_private_addresses | default('yes') }}
+
+# Add domains provided by VPN connections into Unbound forward zones.
+# If set to 'yes', domains detected from active VPN connections will be added
+# to Unbound's forward zones, ensuring that VPN-specific names are resolved correctly.
+add-wifi-provided-zones: {{ add_wifi_provided_zones | default('no') }}

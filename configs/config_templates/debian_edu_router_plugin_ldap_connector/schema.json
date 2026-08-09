@@ -1,0 +1,205 @@
+{
+  "ldap_uris": {
+    "type": "list",
+    "default": [
+      "ldap://ldap.example.com"
+    ],
+    "description": "One or more LDAP server URIs (space-separated). Supports ldap:// and ldaps://. Prefer ldaps:// for encryption."
+  },
+  "base_dn": {
+    "type": "string",
+    "default": "dc=example,dc=com",
+    "description": "Root Distinguished Name (DN) of the LDAP directory to search."
+  },
+  "bind_dn": {
+    "type": "string",
+    "default": "",
+    "description": "DN of the account used to bind to the LDAP server. Leave blank for anonymous bind."
+  },
+  "bind_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for bind_dn. Not required if using bind_password_file or SASL."
+  },
+  "bind_password_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to file containing bind password (e.g., /etc/debian-edu-router/.ldap-passwd). More secure than embedding password."
+  },
+  "ssl_mode": {
+    "type": "string",
+    "default": "simple",
+    "description": "Security mode for LDAP connections: 'simple' (plain), 'starttls' (upgrade to TLS), 'off' (no TLS). Use 'starttls' or 'simple' with ldaps://."
+  },
+  "ca_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/certs/ca-certificates.crt",
+    "description": "Path to CA certificate bundle for verifying the LDAP server's TLS certificate."
+  },
+  "client_cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional client certificate for mutual TLS (mTLS) authentication."
+  },
+  "client_key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Optional client private key for mTLS."
+  },
+  "user_search_base": {
+    "type": "string",
+    "default": "",
+    "description": "Subtree to search for users. If empty, defaults to base_dn."
+  },
+  "group_search_base": {
+    "type": "string",
+    "default": "",
+    "description": "Subtree to search for groups. If empty, defaults to base_dn."
+  },
+  "user_filter": {
+    "type": "string",
+    "default": "(&(objectClass=posixAccount)(uid={{username}}))",
+    "description": "LDAP search filter for users. '{{username}}' is replaced with the login name during lookup."
+  },
+  "group_filter": {
+    "type": "string",
+    "default": "(&(objectClass=posixGroup)(cn={{groupname}}))",
+    "description": "LDAP search filter for groups. '{{groupname}}' is replaced with the group name."
+  },
+  "user_attrs": {
+    "type": "list",
+    "default": [
+      "uid",
+      "uidNumber",
+      "gidNumber",
+      "cn",
+      "homeDirectory",
+      "loginShell"
+    ],
+    "description": "LDAP attributes to fetch for user entries. Required for home directory, shell, UID/GID mapping."
+  },
+  "group_attrs": {
+    "type": "list",
+    "default": [
+      "cn",
+      "gidNumber",
+      "memberUid"
+    ],
+    "description": "LDAP attributes to fetch for group entries."
+  },
+  "nested_groups": {
+    "type": "boolean",
+    "default": false,
+    "description": "Whether to recursively expand nested group memberships (e.g., for Active Directory or complex group hierarchies)."
+  },
+  "cache_ttl": {
+    "type": "number",
+    "default": 300,
+    "description": "Time-to-live (in seconds) for cached LDAP entries. Set to 0 to disable caching."
+  },
+  "cache_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable result caching to reduce LDAP queries and improve performance."
+  },
+  "min_uid": {
+    "type": "number",
+    "default": 1000,
+    "description": "Minimum acceptable UID (to exclude system accounts like root, daemon)."
+  },
+  "min_gid": {
+    "type": "number",
+    "default": 1000,
+    "description": "Minimum acceptable GID (to exclude system groups)."
+  },
+  "max_uid": {
+    "type": "number",
+    "default": 2000000000,
+    "description": "Maximum UID to accept \u2014 prevents conflicts with Windows SID-based UIDs > 1M in AD integrations."
+  },
+  "max_gid": {
+    "type": "number",
+    "default": 2000000000,
+    "description": "Maximum GID to accept."
+  },
+  "home_dir_template": {
+    "type": "string",
+    "default": "/home/%u",
+    "description": "Template for generating user home directories. '%u' is replaced by username; '%{uidNumber}' uses UID attr."
+  },
+  "shell_template": {
+    "type": "string",
+    "default": "/bin/bash",
+    "description": "Shell path to assign if user loginShell attribute is missing or empty. Can use '%s' for loginShell value."
+  },
+  "sudo_search_base": {
+    "type": "string",
+    "default": "",
+    "description": "Subtree to search for sudoRole entries (e.g., ou=SUDOers,dc=example,dc=com)."
+  },
+  "sudo_filter": {
+    "type": "string",
+    "default": "(&(objectClass=sudoRole)(sudoUser=%u))",
+    "description": "LDAP filter for sudo rules. '%u' is replaced by the user\u2019s login name."
+  },
+  "sudo_cmd_attr": {
+    "type": "string",
+    "default": "sudoCommand",
+    "description": "LDAP attribute containing allowed commands (e.g., ALL)."
+  },
+  "sudo_runas_attr": {
+    "type": "string",
+    "default": "sudoRunAsUser",
+    "description": "LDAP attribute specifying which user to run as (e.g., root)."
+  },
+  "sudo_enabled": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable sudo rule fetching from LDAP/AD."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Connection timeout in seconds."
+  },
+  "sizelimit": {
+    "type": "number",
+    "default": 1000,
+    "description": "Maximum number of entries to return per search (0 = unlimited)."
+  },
+  "alias_dereference": {
+    "type": "string",
+    "default": "never",
+    "description": "How to handle referrals/aliases: 'never', 'searching', 'finding', or 'always'."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "info",
+    "description": "Verbosity level for logging."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. If empty, logs to syslog."
+  },
+  "sasl_principal": {
+    "type": "string",
+    "default": "",
+    "description": "GSSAPI service principal name (e.g., host/router.example.com@REALM). Required for Kerberos auth."
+  },
+  "keytab_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to Kerberos keytab for SASL/GSSAPI authentication."
+  },
+  "sasl_mech": {
+    "type": "string",
+    "default": "GSSAPI",
+    "description": "SASL mechanism to use. Options: 'GSSAPI', 'DIGEST-MD5', 'CRAM-MD5'."
+  },
+  "referral_mode": {
+    "type": "string",
+    "default": "ignore",
+    "description": "How to handle referrals: 'follow', 'ignore', or 'return'."
+  }
+}

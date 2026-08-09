@@ -1,0 +1,202 @@
+# ==============================================================================
+# dnscrypt-proxy Configuration Template
+# ==============================================================================
+# This template generates a valid TOML configuration for dnscrypt-proxy.
+# It is self-documenting: every directive is preceded by a comment explaining
+# its purpose and source schema default.
+#
+# Usage in Ansible:
+#   - Ensure all variables defined in the schema are available in the play/host vars.
+#   - The template handles missing optional variables safely by using defaults.
+# ==============================================================================
+
+# Local addresses and ports to listen on (e.g., '127.0.0.1:53' or '[::1]:53')
+# Default: ['127.0.0.1:53', '[::1]:53']
+listen_addresses = [ {{ (listen_addresses | default(['127.0.0.1:53', '[::1]:53'])) | map('quote') | join(', ') }} ]
+
+# Maximum number of simultaneous client connections allowed
+# Default: 256
+max_clients = {{ max_clients | default(256) }}
+
+# Maximum queries per second per client before throttling
+# Default: 100
+rate_limit = {{ rate_limit | default(100) }}
+
+# Enable or disable HTTP/3 (QUIC) support for DoH
+# Default: true
+http3 = {{ http3 | default(true) | lower }}
+
+# Require DNSSEC validation for responses; reject unsigned results
+# Default: true
+require_dnssec = {{ require_dnssec | default(true) | lower }}
+
+# Path to the log file; empty string to disable file logging
+# Default: '/var/log/dnscrypt-proxy/dnscrypt-proxy.log'
+{% set _log_file = log_file | default('/var/log/dnscrypt-proxy/dnscrypt-proxy.log') %}
+{% if _log_file %}
+log_file = '{{ _log_file }}'
+{% else %}
+# log_file = ''  # disabled (file logging turned off)
+{% endif %}
+
+# Logging verbosity: 0=error, 1=warn, 2=info, 3=debug
+# Default: 2
+log_level = {{ log_level | default(2) }}
+
+# Path to cache file for server certificates (for offline validation)
+# Default: '/var/cache/dnscrypt-proxy/certificates'
+certificates_cache = '{{ certificates_cache | default("/var/cache/dnscrypt-proxy/certificates") }}'
+
+# Path to optional domain blocklist (one domain per line); empty to disable
+# Default: '/etc/dnscrypt-proxy/blocklist.txt'
+{% set _blocklist = blocklist_file | default('/etc/dnscrypt-proxy/blocklist.txt') %}
+{% if _blocklist %}
+blocklist_file = '{{ _blocklist }}'
+{% else %}
+# blocklist_file = ''  # disabled
+{% endif %}
+
+# Raw TOML block defining resolver sources (URLs + signatures).
+# Do not modify unless you know the implications.
+# Default: Standard public resolver sources
+[sources]
+{{ (sources | default("[sources.public]\n  urls = ['https://raw.githubusercontent.com/DNSCrypt/dnscrypt-resolvers/master/v3/public-resolvers.md', 'https://download.dnscrypt.info/dnscrypt-resolvers/v3/public-resolvers.md', 'https://mirror.censurfridns.dk/dnscrypt/v3/public-resolvers.md']\n  minisign_key = 'RWQf6LRCGA9z595dl7fVS5276k6hD2GpAKdYjRkHt90tN75i1XkO'\n  cache_file = 'public-resolvers.md'")) | to_nice_yaml | indent(2, true) }}
+
+# List of static resolver entries (e.g., for private or custom resolvers)
+# Default: []
+[static]
+{% for server in static_servers | default([]) %}
+# Static resolver entry: {{ server.name | default('unnamed') }}
+['{{ server.name | default("unnamed") }}']
+{% if server.stamp is defined %}
+stamp = '{{ server.stamp }}'
+{% endif %}
+{% if server.is_blocked is defined %}
+is_blocked = {{ server.is_blocked | default(false) | lower }}
+{% endif %}
+{% endfor %}
+
+# List of filtering rules (regex or domain-based)
+# Default: []
+[filters]
+{% for filter_item in filters | default([]) %}
+{% if filter_item.type == 'regex' %}
+# Regex filter: {{ filter_item.name | default('unnamed') }}
+[filters.regex.{{ filter_item.name | default("unnamed") }}]
+pattern = '{{ filter_item.pattern }}'
+{% if filter_item.replacement is defined %}
+replacement = '{{ filter_item.replacement }}'
+{% endif %}
+enabled = {{ filter_item.enabled | default(true) | lower }}
+{% elif filter_item.type == 'domain' %}
+# Domain filter: {{ filter_item.name | default('unnamed') }}
+[filters.domain.{{ filter_item.name | default("unnamed") }}]
+domains = [ {{ (filter_item.domains | default([])) | map('quote') | join(', ') }} ]
+enabled = {{ filter_item.enabled | default(true) | lower }}
+{% endif %}
+{% endfor %}
+
+# Rules to forward queries for specific domains to particular resolvers
+# Default: []
+[forwarding_rules]
+{% for rule in forwarding_rules | default([]) %}
+# {{ rule.comment | default('Forwarding rule') }}
+{% if rule.pattern is defined %}
+{{ rule.pattern | quote }} = {{ (rule.targets | default([])) | map('quote') | join(', ') }}
+{% endif %}
+{% endfor %}
+
+# Path to the public suffix list (used for domain normalization); empty to disable
+# Default: '/etc/dnscrypt-proxy/public_suffix_list.dat'
+{% set _psl = public_suffix_list | default('/etc/dnscrypt-proxy/public_suffix_list.dat') %}
+{% if _psl %}
+public_suffix_list = '{{ _psl }}'
+{% else %}
+# public_suffix_list = ''  # disabled
+{% endif %}
+
+# Enable local caching of DNS responses
+# Default: true
+[cache]
+enabled = {{ cache_enabled | default(true) | lower }}
+
+# Maximum number of cache entries
+# Default: 65536
+size = {{ cache_size | default(65536) }}
+
+# Minimum cache TTL in seconds (respects original TTL if shorter)
+# Default: 60
+min_ttl = {{ cache_min_ttl | default(60) }}
+
+# Maximum cache TTL in seconds
+# Default: 86400
+max_ttl = {{ cache_max_ttl | default(86400) }}
+
+# Time in seconds to cache negative (NXDOMAIN, etc.) responses
+# Default: 60
+temp_failure_ttl = {{ cache_temp_failure_ttl | default(60) }}
+
+# Initial timeout (in seconds) for initial connection to upstream resolvers
+# Default: 10
+[net]
+timeout = {{ net_timeout | default(10) }}
+
+# Enable or disable IPv6 connectivity to upstream resolvers
+# Default: false
+ipv6_enabled = {{ net_ipv6_enabled | default(false) | lower }}
+
+# Enable TCP Fast Open for upstream connections (Linux only)
+# Default: true
+tcp_fast_open = {{ net_tcp_fast_open | default(true) | lower }}
+
+# DSCP codepoint to apply to outgoing packets (0=disabled)
+# Default: 0
+dscp = {{ net_dscp | default(0) }}
+
+# SOCKS5 or HTTPS proxy URL for outbound connections (e.g., 'socks5://127.0.0.1:9050')
+# Default: ''
+{% set _proxy = proxy_url | default('') %}
+{% if _proxy %}
+proxy_url = '{{ _proxy }}'
+{% else %}
+# proxy_url = ''  # disabled
+{% endif %}
+
+# Minimum ECDHE key size (in bits) for TLS handshakes
+# Default: 224
+[network_security]
+ecdhe_min_size = {{ network_security_ecdhe_min_size | default(224) }}
+
+# Minimum RSA key size (in bits) for TLS handshakes
+# Default: 2048
+rsa_min_size = {{ network_security_rsa_min_size | default(2048) }}
+
+# Minimum DH group size (in bits) for TLS handshakes
+# Default: 2048
+dh_min_size = {{ network_security_dh_min_size | default(2048) }}
+
+# Minimum TLS version allowed (e.g., 'TLS12' or 'TLS13')
+# Default: 'TLS13'
+tls_min_version = '{{ network_security_tls_min_version | default("TLS13") }}'
+
+# List of allowed TLS cipher suites (leave empty for recommended defaults)
+# Default: []
+{% set _ciphers = network_security_cipher_suites | default([]) %}
+{% if _ciphers %}
+cipher_suites = [ {{ _ciphers | map('quote') | join(', ') }} ]
+{% else %}
+# cipher_suites = []  # default (recommended) set used
+{% endif %}
+
+# Allow fallback to older TLS versions (not recommended)
+# Default: false
+allow_insecure = {{ network_security_allow_insecure | default(false) | lower }}
+
+# Path to custom CA certificate file (for private PKI); empty to use system store
+# Default: ''
+{% set _ca = ca_cert_file | default('') %}
+{% if _ca %}
+ca_cert_file = '{{ _ca }}'
+{% else %}
+# ca_cert_file = ''  # use system CA store
+{% endif %}

@@ -1,0 +1,72 @@
+[global]
+# Base DNS domain of the IPA realm (lowercased automatically).
+base_dn = {{ (realm_domain | default('example.com')) | lower }}
+
+# Kerberos realm name (uppercased automatically).
+realm = {{ (realm_name | default('EXAMPLE')) | upper }}
+
+# List of IPA server hostnames to contact for authentication and directory operations.
+server = {{ (server_hostnames | default(['ipa1.example.com', 'ipa2.example.com'])) | join(', ') }}
+
+# If true, use DNS SRV records to auto-discover IPA servers.
+autodiscover = {{ (dns_discovery | default(True)) | string | lower }}
+
+# If true, verify IPA server SSL/TLS certificates using the CA certificate.
+ssl_verify = {{ (ssl_verify | default(True)) | string | lower }}
+
+# Absolute path to the IPA CA certificate file used for server validation.
+ca_cert_file = {{ (ca_cert_path | default('/etc/ipa/ca.crt')) }}
+
+# Comma-separated list of allowed SSH key algorithms for host key enrollment.
+ssh_key_algorithm = {{ (ssh_key_algorithm | default('ssh-rsa,ssh-ed25519')) }}
+
+# If true, automatically register/update the host's SSHFP DNS records.
+update_dns = {{ (update_dns | default(False)) | string | lower }}
+
+# If true, enable integration with SSSD for identity, authentication, and authorization.
+sss = {{ (sssd_enabled | default(True)) | string | lower }}
+
+# If true, enable integration with nsswitch for local name resolution (users, groups, hosts).
+nss = {{ (nss_enabled | default(True)) | string | lower }}
+
+# If true, enable support for centralized sudo rules from IPA.
+sudo = {{ (sudo_enabled | default(True)) | string | lower }}
+
+# If true, enable support for centralized automounter maps from IPA.
+autofs = {{ (autofs_enabled | default(False)) | string | lower }}
+
+# If true, enable Kerberos credential caching (required for interactive and batch auth).
+ccache = {{ (ccache_enabled | default(True)) | string | lower }}
+
+# Kerberos credential cache type (e.g., 'FILE:', 'KEYRING:', 'MEMORY:').
+ccache_type = {{ (ccache_type | default('KEYRING:')) }}
+
+# If true, enable SSSD-managed KDC discovery (requires SSSD).
+krb5_use_kdcinfo = {{ (krb5_use_kdcinfo | default(True)) | string | lower }}
+
+# If true, attempt IPv6 communication to IPA servers before falling back to IPv4.
+ipv6 = {{ (ipv6_enabled | default(True)) | string | lower }}
+
+# Timeout (seconds) for network connections to IPA servers.
+connect_timeout = {{ (connect_timeout | default(15)) }}
+
+# If true, enable verbose debug logging in client tools (not recommended in production).
+verbose = {{ (verbose_logging | default(False)) | string | lower }}
+
+# If true, enroll a host keytab (required for SPNEGO, HTTP, and other service principals).
+keytab = {{ (enroll_keytab | default(True)) | string | lower }}
+
+# If true, enroll the host’s SSH public key to IPA (for trust and remote login).
+ssh_enabled = {{ (ssh_enroll_enabled | default(True)) | string | lower }}
+
+# Custom FQDN to advertise as the host’s identity in IPA; leave blank to use system hostname.
+hostname = {{ (advertised_hostname | default('')) }}
+
+# Location of the SSSD config file (for reference only; not used by IPA client directly).
+sssd_conf = /etc/sssd/sssd.conf
+
+# Location of the Kerberos config file.
+krb5_conf = /etc/krb5.conf
+
+# Location of the nsswitch config file.
+nss_conf = /etc/nsswitch.conf

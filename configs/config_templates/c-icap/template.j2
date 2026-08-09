@@ -1,0 +1,188 @@
+#
+# c-icap Configuration File
+# ==========================
+# This template is self-documenting: every directive is preceded by a comment
+# derived from the schema description. All variables use | default(D) to prevent
+# rendering failures if a role variable is undefined.
+#
+# c-icap is an ICAP (Internet Content Adaptation Protocol) server. It is NOT a
+# traditional web server (like nginx or apache) and therefore does not expose
+# a 'web_server' capability. It provides an 'icap_server' capability, though
+# the deterministic matcher may not yet have a specific token for it; in that
+# case we treat it as a generic network service provider.
+#
+
+# PID file location
+# Description: PID file name under /var/run/c-icap/
+# Default: c-icap.pid
+PidFile /var/run/c-icap/{{ c_icap_pid_file | default('c-icap.pid') }}
+
+# Command socket for external control
+# Description: Commands socket name under /var/run/c-icap/
+# Default: c-icap.ctl
+CommandsSocket /var/run/c-icap/{{ c_icap_commands_socket | default('c-icap.ctl') }}
+
+# Connection timeout
+# Description: Connection timeout in seconds
+# Default: 300
+Timeout {{ c_icap_timeout | default(300) }}
+
+# Keep-alive request limit
+# Description: Maximum number of requests per keep-alive connection
+# Default: 100
+MaxKeepAliveRequests {{ c_icap_max_keepalive_requests | default(100) }}
+
+# Keep-alive timeout
+# Description: Keep-alive timeout in seconds
+# Default: 600
+KeepAliveTimeout {{ c_icap_keepalive_timeout | default(600) }}
+
+# Initial server processes
+# Description: Initial number of server processes
+# Default: 3
+StartServers {{ c_icap_start_servers | default(3) }}
+
+# Maximum server processes
+# Description: Maximum allowed number of server processes
+# Default: 10
+MaxServers {{ c_icap_max_servers | default(10) }}
+
+# Minimum spare threads
+# Description: Minimum number of spare threads to keep
+# Default: 10
+MinSpareThreads {{ c_icap_min_spare_threads | default(10) }}
+
+# Maximum spare threads
+# Description: Maximum number of spare threads to keep
+# Default: 20
+MaxSpareThreads {{ c_icap_max_spare_threads | default(20) }}
+
+# Threads per child process
+# Description: Number of threads per child process
+# Default: 10
+ThreadsPerChild {{ c_icap_threads_per_child | default(10) }}
+
+# Requests per child limit
+# Description: Maximum requests per child process (0 = unlimited)
+# Default: 0
+MaxRequestsPerChild {{ c_icap_max_requests_per_child | default(0) }}
+
+# Interprocess shared memory scheme
+# Description: Interprocess shared memory scheme: posix | mmap | sysv
+# Default: posix
+InterProcessSharedMemScheme {{ c_icap_interprocess_shared_mem_scheme | default('posix') }}
+
+# Interprocess locking scheme
+# Description: Interprocess locking scheme: file | sysv | posix
+# Default: file
+InterProcessLockingScheme {{ c_icap_interprocess_locking_scheme | default('file') }}
+
+# Listen port (optionally with address)
+# Description: Port to listen on (optionally with address)
+# Default: 1344
+Port {{ c_icap_port | default('1344') }}
+
+# Process user
+# Description: User to run c-icap processes as
+# Default: c-icap
+User {{ c_icap_user | default('c-icap') }}
+
+# Process group
+# Description: Group to run c-icap processes as
+# Default: c-icap
+Group {{ c_icap_group | default('c-icap') }}
+
+# Administrator email
+# Description: Administrator email address
+# Default: you@your.address
+ServerAdmin {{ c_icap_server_admin | default('you@your.address') }}
+
+# Server name
+# Description: Server name for logs and info
+# Default: YourServerName
+ServerName {{ c_icap_server_name | default('YourServerName') }}
+
+# Temporary directory
+# Description: Directory for temporary files
+# Default: /tmp
+TmpDir {{ c_icap_tmp_dir | default('/tmp') }}
+
+# Maximum memory object size
+# Description: Maximum object size kept in memory (in bytes)
+# Default: 131072
+MaxMemObject {{ c_icap_max_mem_object | default(131072) }}
+
+# Debug level
+# Description: Debug log level (0-10)
+# Default: 1
+DebugLevel {{ c_icap_debug_level | default(1) }}
+
+# Pipelining
+# Description: Enable pipelining: on | off
+# Default: on
+Pipelining {{ c_icap_pipelining | default('on') }}
+
+# Support for buggy clients
+# Description: Support buggy clients: on | off
+# Default: off
+SupportBuggyClients {{ c_icap_support_buggy_clients | default('off') }}
+
+# Fake 204 support
+# Description: Fake 204 support: on | off
+# Default: on
+FakeAllow204 {{ c_icap_fake_allow_204 | default('on') }}
+
+# Modules directory
+# Description: Directory for c-icap modules
+# Default: /usr/lib/x86_64-linux-gnu/c_icap
+ModulesDir {{ c_icap_modules_dir | default('/usr/lib/x86_64-linux-gnu/c_icap') }}
+
+# Services directory
+# Description: Directory for c-icap services
+# Default: /usr/lib/x86_64-linux-gnu/c_icap
+ServicesDir {{ c_icap_services_dir | default('/usr/lib/x86_64-linux-gnu/c_icap') }}
+
+# Templates directory
+# Description: Directory for templates
+# Default: /usr/share/c_icap/templates/
+TemplateDir {{ c_icap_template_dir | default('/usr/share/c_icap/templates/') }}
+
+# Load magic file
+# Description: Load a c-icap magic file.
+# Default: /etc/c-icap/c-icap.magic
+LoadMagicFile /etc/c-icap/c-icap.magic
+
+# Remote proxy users
+# Description: Use username provided by the proxy server.
+# Default: off
+RemoteProxyUsers {{ c_icap_support_buggy_clients | default('off') }}
+
+# Remote proxy user header
+# Description: The icap header used by the proxy server to send the authenticated client username.
+# Default: X-Authenticated-User
+RemoteProxyUserHeader {{ c_icap_server_name | default('X-Authenticated-User') }}
+
+# Remote proxy user header encoded
+# Description: Set it to off if the RemoteProxyUserHeader is not base64 encoded.
+# Default: on
+RemoteProxyUserHeaderEncoded {{ c_icap_fake_allow_204 | default('on') }}
+
+# Server log file
+# Description: The file used by the build-in logger file_logger.
+# Default: /var/log/c-icap/server.log
+ServerLog {{ c_icap_tmp_dir | default('/var/log/c-icap/server.log') }}
+
+# Access log file
+# Description: LogFile is a file where to log access information.
+# Default: /var/log/c-icap/access.log
+AccessLog {{ c_icap_tmp_dir | default('/var/log/c-icap/access.log') }}
+
+# Logger type
+# Description: Specify which logger to use.
+# Default: file_logger
+Logger {{ c_icap_debug_level | default('file_logger') }}
+
+# Service: echo
+# Description: Simple test service provided with core c-icap server.
+# Default: srv_echo.so
+Service echo srv_echo.so

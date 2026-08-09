@@ -1,0 +1,48 @@
+# ===========================================================================
+# gpstrans configuration file
+# This template generates a simple key-value configuration for the gpstrans
+# GPS data transfer utility. It is self-documenting: every directive includes
+# a comment explaining its purpose, default value, and source.
+# ===========================================================================
+
+# Serial I/O device path for GPS communication.
+# Overrides the GPSDEV environment variable, but can be overridden by the -p command-line option.
+# Default: /dev/ttyS0
+gpsdev: {{ gpsdev | default('/dev/ttyS0') }}
+
+# Geodetic datum code used for coordinate transformations.
+# Examples: WGS84, NAD27. Can be set interactively with -s and stored in ~/.gpstrans.
+# Default: WGS84
+datum: {{ datum | default('WGS84') }}
+
+# Output/input format for data transfer.
+# Supported values: 'garmin' (native format) or 'mxmap' (Mayko mXmap compatibility).
+# Affects the behavior of -dx/-ux (download/upload) and -m options.
+# Default: garmin
+format: {{ format | default('garmin') }}
+
+# Time zone offset in minutes east of UTC.
+# Positive values indicate east of UTC, negative values indicate west.
+# Used for converting GPS time (UTC) to local time.
+# Default: 0
+tzoffset: {{ tzoffset | default(0) }}
+
+# List of data transfer operations to perform.
+# Each entry specifies a type, file path, and mode.
+# Supported types: 'r' (route), 'w' (waypoint), 't' (track), 'a' (almanac).
+# Modes: 'upload' or 'download'.
+# These operations correspond to -[du]x command-line switches.
+{% if actions is defined and actions | length > 0 %}
+actions:
+{% for item in actions %}
+  # Operation type: 'r' (route), 'w' (waypoint), 't' (track), or 'a' (almanac)
+  - type: {{ item.type | default('w') }}
+  # File path for the data. Defaults to <type>.txt if not specified.
+  - file: {{ item.file | default(item.type + '.txt') }}
+  # Transfer mode: 'upload' or 'download'
+  - mode: {{ item.mode | default('download') }}
+{% endfor %}
+{% else %}
+# No actions configured. Use the 'actions' list to define data transfers.
+actions: []
+{% endif %}

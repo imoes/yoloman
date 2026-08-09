@@ -1,0 +1,46 @@
+# Fossil SCM Server Configuration
+# This template generates the configuration file for the Fossil Distributed Version Control System.
+# Fossil is a self-contained, single-file, cross-platform application that handles version control,
+# bug tracking, and wiki functionality.
+
+# ==============================================================================
+# Global Configuration Options
+# ==============================================================================
+
+# List of key-value configuration options, matching Fossil's `fossil set` command syntax.
+# Each item in the 'config' list should be a dictionary with 'key' and 'value' fields.
+# Example:
+#   - key: "server-login"
+#     value: "admin"
+{% for item in config | default([]) %}
+# Set configuration option '{{ item.key | default("unknown") }}'
+config {{ item.key | default("unknown") }} {{ item.value | default("") }}
+{% endfor %}
+
+# ==============================================================================
+# HTTPS / SSL Configuration
+# ==============================================================================
+
+# Whether to enable HTTPS using a certificate and key.
+# If true, the server will listen for SSL/TLS connections.
+{% if enable_https | default(false) %}
+# Enable HTTPS support via OpenSSL
+# ssl <certificate_file> <private_key_file>
+ssl {{ ssl_cert_file | default('none') }} {{ ssl_key_file | default('none') }}
+{% else %}
+# HTTPS is disabled. The server will use plain HTTP.
+# To enable, set `enable_https` to true and provide `ssl_cert_file` and `ssl_key_file`.
+{% endif %}
+
+# ==============================================================================
+# Additional Repositories
+# ==============================================================================
+
+# List of additional repositories to register with the fossil server instance.
+# Each item in the 'extra_repos' list should be a dictionary with 'path' and 'url' fields.
+# 'path' is the local path to the repository, 'url' is the access URL.
+{% for repo in extra_repos | default([]) %}
+# Additional repository registration
+# repo <local_path> <url>
+repo {{ repo.path | default("/path/to/repo.fossil") }} {{ repo.url | default("none") }}
+{% endfor %}

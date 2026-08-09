@@ -1,0 +1,31 @@
+# amispammer configuration
+# Check IP or domain against spam blacklists
+[amispammer]
+
+# IP address to check (A.B.C.D format)
+# If omitted, public IP will be auto-detected.
+# Mutually exclusive with 'domain'.
+ip = {{ ip | default('') }}
+
+# Domain to check; MX records will be resolved
+# Cannot be used together with ip
+# If neither ip nor domain provided, auto-detects public IP
+domain = {{ domain | default('') }}
+
+# Enable or disable multithreading for parallel queries
+# 1 = enabled (default), 0 = disabled
+threaded = {{ threaded | default(true) | ternary('1','0') }}
+
+# Email sender address for results notification (e.g., sender@domain)
+email_from = {{ email_from | default('') }}
+
+# Email recipient address for results notification (e.g., admin@domain)
+email_to = {{ email_to | default('') }}
+
+# SMTP server hostname or IP for sending emails
+# Defaults to localhost if omitted
+smtp_server = {{ smtp_server | default('localhost') }}
+
+# Verbose output mode
+# 0 = summary only (default); 1 = per-list results on stderr
+verbose = {{ verbose | default(false) | ternary('1','0') }}

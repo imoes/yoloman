@@ -1,0 +1,72 @@
+# Fail2ban jail.local configuration template — generated for operator customization
+# GLOBAL DEFAULTS — applied to all jails unless overridden
+[DEFAULT]
+# Enable logging to syslog (syslog-target depends on system setup)
+logtarget = {{ logtarget }}
+# Syslog socket to use (common: /dev/log, /var/log/fail2ban.f2b.sock on some distros)
+syslogsocket = {{ syslogsocket }}
+# Backend for file change detection (inotify, polling, auto)
+backend = {{ backend }}
+# Ban action (default uses iptables; can switch to firewalld, nftables, etc.)
+banaction = {{ banaction }}
+banaction_allports = {{ banaction_allports }}
+# Timeout for unban (seconds)
+findtime = {{ findtime }}
+bantime = {{ bantime }}
+bantime_increment = {{ bantime_increment }}
+bantime_rndtime = {{ bantime_rndtime }}
+bantime_maxtime = {{ bantime_maxtime }}
+# Retry limit (max failures before ban)
+maxretry = {{ maxretry }}
+# Action to perform on ban (e.g., send email, log, unban on reset)
+action = {{ action }}
+
+# PER-JAIL DEFINITIONS
+{% for jail in jails %}
+# Jail: {{ jail.name }} — monitors {{ jail.service }}
+[{{ jail.name }}]
+enabled = {{ jail.enabled | lower }}
+port = {{ jail.port | join(', ') }}
+filter = {{ jail.filter }}
+{% if jail.logpath is defined and jail.logpath %}
+logpath = {{ jail.logpath | join('\nlogpath = ') | join(' ') }}
+{% endif %}
+maxretry = {{ jail.maxretry }}
+findtime = {{ jail.findtime }}
+bantime = {{ jail.bantime }}
+banaction = {{ jail.banaction }}
+{% if jail.action_overrides is defined and jail.action_overrides %}
+{% for action in jail.action_overrides %}
+action_{{ action.name }} = {{ action.value }}
+{% endfor %}
+{% endif %}
+{% if jail.addaction is defined and jail.addaction %}
+{% for action in jail.addaction %}
+action += {{ action }}
+{% endfor %}
+{% endif %}
+{% if jail.destemail is defined and jail.destemail %}
+destemail = {{ jail.destemail }}
+{% endif %}
+{% if jail.sendername is defined and jail.sendername %}
+sendername = {{ jail.sendername }}
+{% endif %}
+{% if jail.sender is defined and jail.sender %}
+sender = {{ jail.sender }}
+{% endif %}
+{% if jail.mta is defined and jail.mta %}
+mta = {{ jail.mta }}
+{% endif %}
+{% if jail.datadir is defined and jail.datadir %}
+datadir = {{ jail.datadir }}
+{% endif %}
+{% if jail.ignoreip is defined and jail.ignoreip %}
+ignoreip = {{ jail.ignoreip | join(' ') }}
+{% endif %}
+{% if jail.backend is defined and jail.backend %}
+backend = {{ jail.backend }}
+{% endif %}
+{% if jail.protocol is defined and jail.protocol %}
+protocol = {{ jail.protocol }}
+{% endif %}
+{% endfor %}

@@ -1,0 +1,48 @@
+{
+  "db_conn_string": "postgresql://pgq_admin:secret123@db.internal:5432/pgq_prod",
+  "user": "pgq_admin",
+  "database": "pgq_prod",
+  "host": "",
+  "port": 5432,
+  "socket_path": "/var/run/postgresql",
+  "log_dir": "/var/log/pgq",
+  "log_file": "pgq-%Y%m%d.log",
+  "log_level": "INFO",
+  "worker_count": 2,
+  "worker_max_batch": 100,
+  "worker_tick_delay": 500,
+  "worker_tick_interval": 100,
+  "worker_conn_timeout": 10,
+  "worker_query_timeout": 60,
+  "auto_create_tables": true,
+  "coordinator_enabled": true,
+  "coordinator_tick_interval": 1,
+  "coordinator_tick_timeout": 5,
+  "queues": [
+    {
+      "name": "orders",
+      "enabled": true,
+      "consumer_prefix": "order_worker",
+      "worker_count": 4,
+      "max_batch": 120,
+      "max_lag_ms": 3000,
+      "ticker_enabled": true
+    },
+    {
+      "name": "notifications",
+      "enabled": true,
+      "worker_count": 2,
+      "max_batch": 80,
+      "max_lag_ms": 10000
+    }
+  ],
+  "forward_targets": [
+    {
+      "source_queue": "orders",
+      "dest_db": "postgresql://backup_user:backup_pass@backup.internal:5432/pgq_archive",
+      "dest_user": "backup_user",
+      "dest_table": "pgq.queue_data"
+    }
+  ],
+  "monitor_script": "/usr/local/bin/pgq_healthcheck.sh"
+}

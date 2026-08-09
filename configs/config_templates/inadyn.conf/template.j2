@@ -1,0 +1,44 @@
+# Default configuration file for inadyn dynamic DNS client
+# This file is processed line-by-line; blank lines and lines starting with # are ignored.
+# Specify update provider and credentials for each dynamic DNS service you want to use.
+
+[general]
+# Whether inadyn runs in daemon mode (true) or one-shot mode (false)
+# Default: True (runs as a background service)
+daemon = {{ daemon_mode | default(true) | lower }}
+# Path to PID file when running as daemon
+# Default: /run/inadyn.pid (standard Linux PID directory)
+pidfile = {{ pidfile_path | default('/run/inadyn.pid') }}
+# Frequency (in seconds) to check for IP change when in daemon mode
+# Minimum: 60; recommended: 300 or higher
+# Default: 300 seconds (5 minutes)
+update_period = {{ update_period | default(300) }}
+
+[logging]
+# Verbosity level: 0 (quiet), 1 (normal), 2 (verbose), 3 (debug)
+# Default: 1 (normal operational logging)
+verbosity = {{ log_verbosity | default(1) }}
+# Log file path (use '-' for stderr/stdout)
+# Default: /var/log/inadyn.log
+logfile = {{ log_file | default('/var/log/inadyn.log') }}
+
+# For each dynamic DNS provider, define a separate [provider_name] section:
+# The 'providers' variable is expected to be a list of mappings.
+{% for provider in providers | default([]) %}
+[{{ provider.name | default('unnamed') }}]
+# Username (or full email for some providers)
+username = {{ provider.username | default('') }}
+# Password or app-specific token
+password = {{ provider.password | default('') }}
+# Hostname(s) to update — comma-separated list of fully qualified domain names
+hostname = {{ provider.hostnames | default([]) | join(', ') }}
+# Optional: custom DDNS server URL (defaults to provider's standard endpoint)
+{% if provider.server_url is defined and provider.server_url %}server_url = {{ provider.server_url }}
+{% endif %}# Optional: custom IP detection method or URL
+{% if provider.ip_url is defined and provider.ip_url %}ip_url = {{ provider.ip_url }}
+{% endif %}# Optional: IP version (ipv4 or ipv6)
+{% if provider.ip_version is defined and provider.ip_version %}ip_version = {{ provider.ip_version }}
+{% endif %}# Optional: timeout for HTTP requests (seconds)
+{% if provider.timeout is defined and provider.timeout %}timeout = {{ provider.timeout }}
+{% endif %}
+{% endfor %}

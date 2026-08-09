@@ -1,0 +1,108 @@
+{
+  "main": {
+    "type": "object",
+    "description": "Core daemon settings",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable the low-memory-monitor service"
+      },
+      "check_interval": {
+        "type": "number",
+        "default": 5,
+        "description": "Seconds between memory checks"
+      },
+      "min_free_kbytes": {
+        "type": "number",
+        "default": 10240,
+        "description": "Minimum free memory (in KiB) threshold to trigger action"
+      },
+      "log_level": {
+        "type": "string",
+        "default": "info",
+        "description": "Log verbosity level: debug, info, warning, error"
+      },
+      "log_file": {
+        "type": "string",
+        "default": "/var/log/low-memory-monitor.log",
+        "description": "Path to the log file"
+      }
+    }
+  },
+  "notifications": {
+    "type": "object",
+    "description": "Notification and alerting behavior",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable custom notification actions (e.g., email, scripts)"
+      },
+      "notify_script": {
+        "type": "string",
+        "default": "/usr/local/bin/notify-low-mem.sh",
+        "description": "Path to a script executed when low memory is detected"
+      },
+      "email_recipients": {
+        "type": "list",
+        "default": [],
+        "description": "List of email addresses to notify on low-memory events"
+      },
+      "min_free_kbytes_threshold": {
+        "type": "number",
+        "default": 5120,
+        "description": "More urgent free-memory threshold (KiB) that triggers alerts"
+      }
+    }
+  },
+  "actions": {
+    "type": "object",
+    "description": "Automatic memory-recovery actions",
+    "properties": {
+      "kill_process": {
+        "type": "bool",
+        "default": false,
+        "description": "Automatically kill low-priority processes under memory pressure"
+      },
+      "kill_process_pattern": {
+        "type": "string",
+        "default": "^user:",
+        "description": "Regex pattern to match process names for auto-termination"
+      },
+      "kill_process_min_age_sec": {
+        "type": "number",
+        "default": 60,
+        "description": "Minimum age (seconds) for a process to be considered for termination"
+      }
+    }
+  },
+  "monitor": {
+    "type": "object",
+    "description": "Process monitoring configuration",
+    "properties": {
+      "monitor_processes": {
+        "type": "list",
+        "default": [
+          {
+            "name": "sshd"
+          },
+          {
+            "name": "systemd"
+          }
+        ],
+        "description": "List of processes to track and report (excluded from auto-kill)",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "default": "",
+              "description": "Process name or pattern (exact match or regex)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

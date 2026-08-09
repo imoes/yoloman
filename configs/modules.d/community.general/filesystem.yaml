@@ -1,0 +1,82 @@
+name: filesystem
+fqcn: community.general.filesystem
+collection: community.general
+short_description: Makes a filesystem
+description: This module creates a filesystem.
+options:
+  dev:
+    type: path
+    required: true
+    aliases:
+    - device
+    description: Target path to block device (Linux) or character device (FreeBSD) or regular file (both).
+      When setting Linux-specific filesystem types on FreeBSD, this module only works when applying to
+      regular files, aka disk images. Currently V(lvm) (Linux-only) and V(ufs) (FreeBSD-only) do not support
+      a regular file as their target O(dev). Support for character devices on FreeBSD has been added in
+      community.general 3.4.0.
+  force:
+    type: bool
+    default: false
+    description: If V(true), allows to create new filesystem on devices that already has filesystem.
+  fstype:
+    type: str
+    choices:
+    - btrfs
+    - ext2
+    - ext3
+    - ext4
+    - ext4dev
+    - f2fs
+    - lvm
+    - ocfs2
+    - reiserfs
+    - xfs
+    - vfat
+    - swap
+    - ufs
+    aliases:
+    - type
+    description: Filesystem type to be created. This option is required with O(state=present) (or if O(state)
+      is omitted). ufs support has been added in community.general 3.4.0.
+  opts:
+    type: str
+    description: List of options to be passed to C(mkfs) command.
+  resizefs:
+    type: bool
+    default: false
+    description: If V(true), if the block device and filesystem size differ, grow the filesystem into
+      the space. Supported for C(btrfs), C(ext2), C(ext3), C(ext4), C(ext4dev), C(f2fs), C(lvm), C(xfs),
+      C(ufs) and C(vfat) filesystems. Attempts to resize other filesystem types will fail. XFS Will only
+      grow if mounted. Currently, the module is based on commands from C(util-linux) package to perform
+      operations, so resizing of XFS is not supported on FreeBSD systems. vFAT will likely fail if C(fatresize
+      < 1.04). Mutually exclusive with O(uuid).
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: If O(state=present), the filesystem is created if it doesn't already exist, that is the
+      default behaviour if O(state) is omitted. If O(state=absent), filesystem signatures on O(dev) are
+      wiped if it contains a filesystem (as known by C(blkid)). When O(state=absent), all other options
+      but O(dev) are ignored, and the module does not fail if the device O(dev) doesn't actually exist.
+  uuid:
+    type: str
+    description: Set filesystem's UUID to the given value. The UUID options specified in O(opts) take
+      precedence over this value. See xfs_admin(8) (C(xfs)), tune2fs(8) (C(ext2), C(ext3), C(ext4), C(ext4dev))
+      for possible values. For O(fstype=lvm) the value is ignored, it resets the PV UUID if set. Supported
+      for O(fstype) being one of C(ext2), C(ext3), C(ext4), C(ext4dev), C(lvm), or C(xfs). This is B(not
+      idempotent). Specifying this option will always result in a change. Mutually exclusive with O(resizefs).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a ext2 filesystem on /dev/sdb1\n  community.general.filesystem:\n    fstype:\
+  \ ext2\n    dev: /dev/sdb1\n\n- name: Create a ext4 filesystem on /dev/sdb1 and check disk blocks\n\
+  \  community.general.filesystem:\n    fstype: ext4\n    dev: /dev/sdb1\n    opts: -cc\n\n- name: Blank\
+  \ filesystem signature on /dev/sdb1\n  community.general.filesystem:\n    dev: /dev/sdb1\n    state:\
+  \ absent\n\n- name: Create a filesystem on top of a regular file\n  community.general.filesystem:\n\
+  \    dev: /path/to/disk.img\n    fstype: vfat\n\n- name: Reset an xfs filesystem UUID on /dev/sdb1\n\
+  \  community.general.filesystem:\n    fstype: xfs\n    dev: /dev/sdb1\n    uuid: generate\n\n- name:\
+  \ Reset an ext4 filesystem UUID on /dev/sdb1\n  community.general.filesystem:\n    fstype: ext4\n  \
+  \  dev: /dev/sdb1\n    uuid: random\n\n- name: Reset an LVM filesystem (PV) UUID on /dev/sdc\n  community.general.filesystem:\n\
+  \    fstype: lvm\n    dev: /dev/sdc\n    uuid: random\n"

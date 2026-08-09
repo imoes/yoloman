@@ -1,0 +1,67 @@
+# ==============================================================================
+# Fence Agent: HP iLO SSH (fence_ilo_ssh)
+# ==============================================================================
+# This template generates a configuration file for the fence_ilo_ssh agent,
+# part of the fence-agents package used in HA clusters (e.g., Pacemaker/Corosync).
+# The agent manages power state of HP Integrated Lights-Out (iLO) management
+# controllers via SSH.
+#
+# SECURITY WARNING: This file stores credentials in PLAINTEXT. Ensure that
+# the file permissions are restrictive (e.g., 600) and owned by root or the
+# fence agent user.
+# ==============================================================================
+
+# --- Connection Target ---
+
+# IP address or hostname of the HP iLO management interface.
+# This is the destination that the fence agent will SSH into to execute power commands.
+ilo_ip={{ ilo_ip | default('') }}
+
+# SSH port to use for connecting to iLO.
+# Defaults to standard SSH port 22. Change only if iLO is configured on a non-standard port.
+port={{ port | default(22) }}
+
+# Username for authenticating to the iLO interface.
+# Must have sufficient privileges to execute power management commands (e.g., 'status', 'on', 'off', 'reboot').
+login={{ login | default('') }}
+
+# Password for the iLO user.
+# Stored in plaintext. Use with caution.
+password={{ password | default('') }}
+
+# Path to SSH private key file.
+# If specified, password authentication is bypassed in favor of key-based auth.
+# Example: /root/.ssh/ilo_key
+# If empty (default), password auth is used.
+identity_file={{ identity_file | default('') }}
+
+# Additional SSH command-line options.
+# Allows fine-tuning of the SSH connection behavior.
+# Common examples: '-o ConnectTimeout=5 -o StrictHostKeyChecking=no'
+# Enclose multi-word options in quotes if passing directly to CLI, but here we just pass arguments.
+ssh_options={{ ssh_options | default('') }}
+
+# Whether to enable SSL/TLS support for SSH connections.
+# Most modern iLO interfaces require or prefer encrypted connections.
+ssl={{ ssl | default(True) }}
+
+# Maximum time (seconds) to wait for SSH and iLO command responses.
+# Prevents the fence agent from hanging indefinitely if the iLO is unresponsive.
+timeout={{ timeout | default(60) }}
+
+# Seconds to wait after powering on a node before checking its status.
+# Allows the OS/boot process to initialize before the agent queries for status.
+wait={{ wait | default(10) }}
+
+# --- Compatibility / Deprecated ---
+
+# Use IPMI over LAN.
+# DEPRECATED: Ignored by fence_ilo_ssh as it uses SSH.
+# Kept for legacy compatibility if older scripts reference this key.
+# Always set to 'no' to avoid confusion.
+ipmi_lan=no
+
+# --- Notes ---
+# Action to perform (e.g., 'reboot', 'on', 'off', 'status') is NOT configurable here.
+# It is passed as a CLI argument when invoking fence_ilo_ssh.
+# Example: fence_ilo_ssh -o reboot -a <ilo_ip> -l <user> -p <pass>

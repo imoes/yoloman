@@ -1,0 +1,264 @@
+{
+  "global_hostname": {
+    "type": "string",
+    "default": "router",
+    "description": "System hostname (short name, no domain)."
+  },
+  "global_domain": {
+    "type": "string",
+    "default": "lan",
+    "description": "Default DNS search domain."
+  },
+  "global_ipv6": {
+    "type": "boolean",
+    "default": false,
+    "description": "Enable IPv6 globally. When false, IPv6 is disabled on all interfaces."
+  },
+  "global_gateway": {
+    "type": "string",
+    "default": "",
+    "description": "Default IPv4 gateway IP address. Leave blank to omit static default route."
+  },
+  "resolver_dns_servers": {
+    "type": "list",
+    "default": [
+      "8.8.8.8",
+      "8.8.4.4"
+    ],
+    "description": "List of DNS server IP addresses to configure in /etc/resolv.conf.",
+    "items": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "IPv4 address of a DNS server."
+    }
+  },
+  "resolver_search": {
+    "type": "list",
+    "default": [
+      "lan",
+      "local"
+    ],
+    "description": "List of DNS search domains (space-separated in rendered config).",
+    "items": {
+      "type": "string",
+      "description": "A DNS search domain."
+    }
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "lo",
+        "type": "loopback",
+        "address_mode": "manual",
+        "up": true,
+        "comment": "Loopback interface"
+      },
+      {
+        "name": "eth0",
+        "type": "eth",
+        "address_mode": "static",
+        "address": "192.168.1.1",
+        "netmask": "255.255.255.0",
+        "up": true,
+        "mtu": 1500
+      }
+    ],
+    "description": "List of network interfaces to configure.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "name": {
+          "type": "string",
+          "description": "Interface name (e.g., eth0, br0, bond0)."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "loopback",
+            "eth",
+            "bond",
+            "vlan",
+            "bridge",
+            "dummy"
+          ],
+          "description": "Interface type."
+        },
+        "address_mode": {
+          "type": "string",
+          "enum": [
+            "static",
+            "dhcp",
+            "manual"
+          ],
+          "default": "static",
+          "description": "Address assignment mode."
+        },
+        "address": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "IPv4 address (required for static mode)."
+        },
+        "netmask": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "IPv4 netmask in dotted-decimal notation."
+        },
+        "gateway": {
+          "type": "string",
+          "default": "",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Interface-specific gateway (rarely used)."
+        },
+        "mtu": {
+          "type": "integer",
+          "default": 1500,
+          "minimum": 68,
+          "maximum": 9000,
+          "description": "Maximum Transmission Unit (0 = system default)."
+        },
+        "up": {
+          "type": "boolean",
+          "default": true,
+          "description": "Bring interface up at boot."
+        },
+        "comment": {
+          "type": "string",
+          "default": "",
+          "description": "Optional description/comment."
+        },
+        "vlan_id": {
+          "type": "integer",
+          "default": null,
+          "minimum": 1,
+          "maximum": 4094,
+          "description": "VLAN ID (required if type = 'vlan')."
+        },
+        "vlan_link": {
+          "type": "string",
+          "default": null,
+          "description": "Parent interface for VLAN (required if type = 'vlan')."
+        },
+        "bridge_ports": {
+          "type": "list",
+          "default": null,
+          "description": "List of interfaces to add to the bridge (required if type = 'bridge').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bridge_stp": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable Spanning Tree Protocol for bridge."
+        },
+        "bond_slaves": {
+          "type": "list",
+          "default": null,
+          "description": "List of interfaces to bond (required if type = 'bond').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "bond_mode": {
+          "type": "string",
+          "default": "balance-rr",
+          "description": "Bonding mode (e.g., balance-rr, active-backup, balance-xor)."
+        },
+        "bond_miimon": {
+          "type": "integer",
+          "default": 100,
+          "minimum": 0,
+          "description": "Link monitoring interval in milliseconds."
+        }
+      }
+    }
+  },
+  "firewall_enabled": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable the built-in packet filtering firewall."
+  },
+  "firewall_default_input": {
+    "type": "string",
+    "default": "drop",
+    "description": "Default policy for INPUT chain (incoming to host)."
+  },
+  "firewall_default_forward": {
+    "type": "string",
+    "default": "drop",
+    "description": "Default policy for FORWARD chain (routed traffic)."
+  },
+  "firewall_default_output": {
+    "type": "string",
+    "default": "accept",
+    "description": "Default policy for OUTPUT chain (outgoing from host)."
+  },
+  "firewall_enable_conntrack": {
+    "type": "boolean",
+    "default": true,
+    "description": "Enable stateful connection tracking (required for most NAT/stateful rules)."
+  },
+  "nat_rules": {
+    "type": "list",
+    "default": [
+      {
+        "chain": "POSTROUTING",
+        "src_net": "192.168.1.0/24",
+        "comment": "Masquerade LAN subnet"
+      }
+    ],
+    "description": "List of NAT masquerade rules.",
+    "items": {
+      "type": "object",
+      "fields": {
+        "chain": {
+          "type": "string",
+          "enum": [
+            "POSTROUTING",
+            "PREROUTING"
+          ],
+          "default": "POSTROUTING",
+          "description": "Iptables chain (POSTROUTING for SNAT/Masquerade)."
+        },
+        "src_net": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+(/[0-9]+)?$",
+          "description": "Source network/CIDR to masquerade."
+        },
+        "comment": {
+          "type": "string",
+          "description": "Human-readable description of the rule."
+        }
+      }
+    }
+  },
+  "static_routes": {
+    "type": "list",
+    "default": [],
+    "description": "Static IP routes (independent of interface).",
+    "items": {
+      "type": "object",
+      "fields": {
+        "comment": {
+          "type": "string",
+          "description": "Description of the route."
+        },
+        "to": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+(/[0-9]+)?$",
+          "description": "Destination network/CIDR."
+        },
+        "via": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "description": "Next-hop gateway IP address."
+        },
+        "dev": {
+          "type": "string",
+          "description": "Output interface name (optional)."
+        }
+      }
+    }
+  }
+}

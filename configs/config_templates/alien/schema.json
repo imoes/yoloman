@@ -1,0 +1,111 @@
+{
+  "base_format": {
+    "type": "string",
+    "default": "deb",
+    "description": "Base package format to read from (rpm|deb|tgz|slp|pkg). alien reads the input package type from its filename extension, but this can be used to force interpretation.",
+    "enum": [
+      "rpm",
+      "deb",
+      "tgz",
+      "slp",
+      "pkg"
+    ]
+  },
+  "target_formats": {
+    "type": "list",
+    "default": [
+      "deb"
+    ],
+    "description": "List of output formats to generate. Valid values: deb, rpm, tgz, slp, pkg. If omitted but install is true, defaults to ['deb']."
+  },
+  "install": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to automatically install each generated package after conversion and remove the input package file."
+  },
+  "scripts": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to convert package maintainer scripts (preinst, postinst, prerm, postrm). Note: review scripts manually before using."
+  },
+  "patch_file": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit patch file path to use during deb generation, overriding automatic lookup in /var/lib/alien. Has no effect unless generating a deb."
+  },
+  "no_patch": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable all patching when building a deb package."
+  },
+  "keep_version": {
+    "type": "bool",
+    "default": false,
+    "description": "Do not increment the minor version number when converting packages. By default, alien adds 1 to the minor version."
+  },
+  "bump_version": {
+    "type": "number",
+    "default": 0,
+    "description": "Increment the converted package version by this number instead of the default +1 (requires keep_version=false)."
+  },
+  "target_arch": {
+    "type": "string",
+    "default": "",
+    "description": "Force the architecture string for the generated package (e.g., 'amd64', 'i386', 'all').",
+    "enum": [
+      "all",
+      "source",
+      "any"
+    ]
+  },
+  "description": {
+    "type": "string",
+    "default": "",
+    "description": "Package description (only effective when converting from tgz, which lacks descriptions)."
+  },
+  "version": {
+    "type": "string",
+    "default": "",
+    "description": "Package version (only effective when converting from tgz, which may lack version info)."
+  },
+  "fixperms": {
+    "type": "bool",
+    "default": false,
+    "description": "Sanitize file owners and permissions during deb generation. May break some packages; defaults to off."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose mode: print commands as they are executed."
+  },
+  "very_verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Very verbose mode: also print output of each executed command."
+  },
+  "generate_only": {
+    "type": "bool",
+    "default": false,
+    "description": "Generate a temporary build directory but do not build the package. Useful for manual modification before building."
+  },
+  "single_directory": {
+    "type": "bool",
+    "default": false,
+    "description": "Generate a single directory without the .orig subdirectory (useful when disk space is constrained and building a deb)."
+  },
+  "test_package": {
+    "type": "bool",
+    "default": false,
+    "description": "Run lintian (if installed) to test generated deb packages. Currently deb-only."
+  },
+  "email": {
+    "type": "string",
+    "default": "",
+    "description": "Email address to embed in generated Debian packages. Overrides environment variable EMAIL."
+  },
+  "input_files": {
+    "type": "list",
+    "default": [],
+    "description": "List of input package files to convert. Required. Supported extensions: .rpm, .deb, .tgz, .slp, .pkg."
+  }
+}

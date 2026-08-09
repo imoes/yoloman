@@ -1,0 +1,32 @@
+# DN for the sudo schema entry in the LDAP configuration.
+dn: {{ sudo_schema_dn | default('cn=sudo,cn=schema,cn=config') }}
+
+# Object class required for schema configuration entries in OpenLDAP.
+objectClass: olcSchemaConfig
+
+# Common name for this schema entry, identifying it within its parent container.
+cn: {{ sudo_schema_cn | default('sudo') }}
+
+# Define the 'sudoUser' attribute type: identifies the users permitted to execute commands via sudo.
+# Syntax: case-insensitive ASCII string.
+olcAttributeTypes: ( 1.3.6.1.4.1.15953.9.1.1 NAME 'sudoUser' DESC 'User(s) who may run sudo' EQUALITY caseExactIA5Match SUBSTR caseExactIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Define the 'sudoHost' attribute type: identifies the hosts from which sudo commands are allowed.
+# Syntax: case-insensitive ASCII string.
+olcAttributeTypes: ( 1.3.6.1.4.1.15953.9.1.2 NAME 'sudoHost' DESC 'Host(s) who may run sudo' EQUALITY caseExactIA5Match SUBSTR caseExactIA5SubstringsMatch SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Define the 'sudoCommand' attribute type: specifies the commands that may be executed.
+# Syntax: case-insensitive ASCII string.
+olcAttributeTypes: ( 1.3.6.1.4.1.15953.9.1.3 NAME 'sudoCommand' DESC 'Command(s) to be executed by sudo' EQUALITY caseExactIA5Match SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Define the 'sudoRunAs' attribute type: specifies the user accounts that may be impersonated.
+# Syntax: case-insensitive ASCII string.
+olcAttributeTypes: ( 1.3.6.1.4.1.15953.9.1.4 NAME 'sudoRunAs' DESC 'User(s) impersonated by sudo' EQUALITY caseExactIA5Match SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Define the 'sudoOption' attribute type: specifies options passed to the sudo command or shell.
+# Syntax: case-insensitive ASCII string.
+olcAttributeTypes: ( 1.3.6.1.4.1.15953.9.1.5 NAME 'sudoOption' DESC 'Options(s) followed by sudo' EQUALITY caseExactIA5Match SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 )
+
+# Define the 'sudoRole' object class: represents a sudo privilege rule entry.
+# Mandatory attribute: cn. Optional attributes: sudoUser, sudoHost, sudoCommand, sudoRunAs, sudoOption, description.
+olcObjectClasses: ( 1.3.6.1.4.1.15953.9.2.1 NAME 'sudoRole' SUP top STRUCTURAL DESC 'Sudoer Entries' MUST ( cn ) MAY ( sudoUser $ sudoHost $ sudoCommand $ sudoRunAs $ sudoOption $ description ) )

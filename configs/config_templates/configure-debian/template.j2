@@ -1,0 +1,36 @@
+{# ========================================================================== #}
+{# /etc/configure-debian.conf                                                 #}
+{#                                                                            #}
+{# Self-documenting configuration for configure-debian(8).                     #}
+{# This file controls the default Debconf frontend, priority threshold,         #}
+{# and per-package reconfiguration overrides via dpkg-reconfigure.            #}
+{#                                                                            #}
+{# - packages: List of packages to pre-select for reconfiguration. Each entry  #}
+{#   specifies a package name and an optional frontend override.               #}
+{# - default_priority: Minimum priority level for interactive prompts (low,    #}
+{#   medium, high, critical).                                                  #}
+{# - global_frontend: Default frontend to use (e.g., 'noninteractive',        #}
+{#   'dialog', 'readline').                                                    #}
+{# - debug: Enable verbose debugging output (0 or 1).                          #}
+{# ========================================================================== #}
+
+# List of packages to pre-select for reconfiguration via configure-debian frontend.
+# Each entry specifies a package name and optional frontend override.
+{% for pkg in (packages | default([])) %}
+# Reconfigure package '{{ pkg.name | default('') }}' with debconf frontend '{{ pkg.frontend | default('') }}'
+{% endfor %}
+
+# Default debconf priority (low|medium|high|critical)
+# Controls which questions are shown during reconfiguration.
+default_priority = {{ default_priority | default('medium') }}
+
+# Global debconf frontend override (e.g., 'noninteractive', 'dialog')
+# If set, this overrides the default system frontend for all packages
+# unless a per-package frontend is specified in the packages list.
+{% if global_frontend | default('') | trim | length > 0 %}
+# global_frontend = {{ global_frontend | default('') }}
+{% endif %}
+
+# Enable debug output (0|1)
+# Corresponds to dpkg-reconfigure's --debug= flag family when passed through.
+debug = {{ debug | default(false) | bool | int }}

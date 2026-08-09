@@ -1,0 +1,168 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging for troubleshooting."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Leave empty to log only to syslog."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL)."
+  },
+  "state_path": {
+    "type": "string",
+    "default": "/var/lib/octavia",
+    "description": "Base directory for Octavia state and runtime files."
+  },
+  "worker_count": {
+    "type": "number",
+    "default": 2,
+    "description": "Number of worker processes to handle incoming requests."
+  },
+  "driver_name": {
+    "type": "string",
+    "default": "amphora",
+    "description": "Backend driver module for load balancer management (e.g., amphora, provider_driver)."
+  },
+  "controller_endpoint": {
+    "type": "string",
+    "default": "",
+    "description": "HTTP(S) endpoint URL of the Octavia controller API."
+  },
+  "controller_ca_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the CA certificate used to verify the Octavia controller's TLS certificate."
+  },
+  "client_cert": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the client certificate used for mutual TLS with the controller."
+  },
+  "client_key": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the private key corresponding to the client certificate."
+  },
+  "controller_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to wait for responses from the Octavia controller."
+  },
+  "amphora_periodic_health_check_interval": {
+    "type": "number",
+    "default": 30,
+    "description": "Interval (seconds) between health checks of amphorae."
+  },
+  "max_loadbalancers_per_amphora": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of load balancers allowed per amphora instance."
+  },
+  "failover_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable automatic failover to a standby amphora if active amphora becomes unhealthy."
+  },
+  "loadbalancer_topologies": {
+    "type": "list",
+    "default": [
+      "SINGLE",
+      "ACTIVE_STANDBY"
+    ],
+    "items": {
+      "type": "string",
+      "enum": [
+        "SINGLE",
+        "ACTIVE_STANDBY"
+      ],
+      "description": "Supported load balancer topology (SINGLE or ACTIVE_STANDBY)."
+    },
+    "description": "List of enabled load balancer topologies supported by this agent."
+  },
+  "provider_drivers": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "type": "string",
+      "description": "Name of a provider driver (used when driver_name=provider_driver)."
+    },
+    "description": "List of registered provider driver names to load."
+  },
+  "amphorae": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "id": {
+        "type": "string",
+        "description": "Unique identifier of the amphora (UUID)."
+      },
+      "ip": {
+        "type": "string",
+        "description": "Management IP address of the amphora."
+      },
+      "compute_id": {
+        "type": "string",
+        "description": "Nova compute instance ID for the amphora."
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "ALLOCATED",
+          "READY",
+          "DELETED"
+        ],
+        "description": "Current status of the amphora."
+      },
+      "vrrp_ip": {
+        "type": "string",
+        "description": "VRRP IP used for high availability failover."
+      },
+      "ha_ip": {
+        "type": "string",
+        "description": "HA IP used for communication between amphorae in ACTIVE_STANDBY topology."
+      }
+    },
+    "description": "List of pre-registered amphorae to manage (optional, for static deployments)."
+  },
+  "transport_url": {
+    "type": "string",
+    "default": "rabbit://openstack:password@controller:5672/",
+    "description": "Message bus transport URL (e.g., RabbitMQ, Redis, etc.)."
+  },
+  "rpc_topic": {
+    "type": "string",
+    "default": "driver-agent",
+    "description": "RPC topic used to send messages to and from the Octavia controller."
+  },
+  "rpc_response_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Timeout (seconds) for RPC responses before considering request failed."
+  },
+  "health_driver": {
+    "type": "string",
+    "default": "health_master",
+    "description": "Health manager backend driver (e.g., health_master, health_backup)."
+  },
+  "health_manager_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable the health manager subprocess for amphora health monitoring."
+  },
+  "health_check_interval": {
+    "type": "number",
+    "default": 10,
+    "description": "Interval (seconds) between health syncs to amphorae."
+  },
+  "health_manager_socket": {
+    "type": "string",
+    "default": "/var/lib/octavia/health_manager.sock",
+    "description": "Unix domain socket path used by the health manager for IPC."
+  }
+}

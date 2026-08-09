@@ -1,0 +1,29 @@
+{# Far2l configuration file #}
+{# The 'config' variable is a list of configuration sections. #}
+{# Each section contains key-value pairs that define Far2l's behavior. #}
+
+{% for section_data in config | default([]) %}
+{# Each item in 'config' is a section object. #}
+{# 'section_data' is expected to be a dictionary like { "name": "...", "params": { ... } } #}
+{# or potentially a mapping where keys are section names and values are params. #}
+{# Assuming the schema description: "List of configuration sections with key-value pairs." #}
+{# We iterate over the list, and assume each item is a dict with 'name' (or similar) and 'params'. #}
+{# However, standard far2l.ini uses [SectionName] headers. #}
+{# Let's assume the schema item structure is: { "section_name": "...", "params": { "key": "val", ... } } #}
+{# If the item IS the section dict directly (name: value, name2: value2), we treat the first key as section? No, that's ambiguous. #}
+{# Given "List of configuration sections", and typical Ansible practices, let's assume: #}
+{# config = [ { "section": "Plugins", "params": { ... } }, ... ] #}
+{# OR config = { "Plugins": { ... }, "Colors": { ... } } ? Schema says "List". #}
+
+{# Safety: If section_data is not a mapping, skip or error? We'll try to handle it. #}
+{% set section_name = section_data.section | default(section_data.name | default('Unknown')) %}
+{% set params = section_data.params | default(section_data) %}
+
+[{{ section_name }}]
+{# Section: {{ section_name }} #}
+{% for key, value in params.items() %}
+{# Parameter: {{ key }} #}
+{{ key }} = {{ value }}
+{% endfor %}
+
+{% endfor %}

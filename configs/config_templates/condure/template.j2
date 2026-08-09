@@ -1,0 +1,113 @@
+# Condure Configuration Template
+#
+# This template generates the configuration file for Condure, a high-performance reverse proxy and
+# WebSocket gateway. It handles HTTP listeners, WebSocket tuning, upstream backend definitions,
+# and logging configuration.
+#
+# Variables are sourced from the Ansible role variables, typically prefixed with 'condure_'.
+# If a variable is not defined, defaults from the schema are applied.
+
+# ==========================================================================
+# HTTP Listener Configuration
+#
+# Defines where condure accepts incoming connections. Supports HTTP and HTTPS (TLS).
+# ==========================================================================
+listen:
+  - # Network interface to bind the HTTP listener to (e.g., '127.0.0.1' or '0.0.0.0').
+    # Default: '0.0.0.0'
+    host: {{ (http | default({})).listen_host | default('0.0.0.0') }}
+
+    # Port number for the HTTP listener.
+    # Default: 8080
+    port: {{ (http | default({})).listen_port | default(8080) }}
+
+    # Enable TLS (HTTPS) on the HTTP listener.
+    # Default: False
+    ssl: {{ ((http | default({})).ssl | default({})).enabled | default(False) }}
+
+    # ------------------------------------------------------------------------
+    # TLS/SSL Configuration
+    #
+    # Required if ssl.enabled is true.
+    # ------------------------------------------------------------------------
+    {% if ((http | default({})).ssl | default({})).enabled | default(False) %}
+    # Path to the TLS certificate file (PEM format). Required if SSL is enabled.
+    # Default: '/etc/condure/ssl/cert.pem'
+    ssl_cert_file: {{ ((http | default({})).ssl | default({})).cert_file | default('/etc/condure/ssl/cert.pem') }}
+
+    # Path to the TLS private key file (PEM format). Required if SSL is enabled.
+    # Default: '/etc/condure/ssl/key.pem'
+    ssl_key_file: {{ ((http | default({})).ssl | default({})).key_file | default('/etc/condure/ssl/key.pem') }}
+    {% endif %}
+
+# ==========================================================================
+# WebSocket Connection Tuning
+#
+# Parameters specifically for WebSocket connections handled by condure.
+# ==========================================================================
+websocket:
+  # Maximum number of simultaneous WebSocket connections.
+  # Default: 10000
+  max_connections: {{ (websocket | default({})).max_connections | default(10000) }}
+
+  # Seconds between WebSocket ping frames (0 disables keepalive).
+  # Default: 30
+  ping_interval: {{ (websocket | default({})).ping_interval | default(30) }}
+
+  # Seconds to wait for a pong response before closing a stale connection.
+  # Default: 10
+  ping_timeout: {{ (websocket | default({})).ping_timeout | default(10) }}
+
+  # Enable per-message deflate compression for WebSocket messages.
+  # Default: True
+  compression: {{ (websocket | default({})).compression | default(True) }}
+
+# ==========================================================================
+# Upstream Backends
+#
+# List of upstream backends to which condure proxies connections.
+# This can include web servers, application runtimes, databases (via proxy), etc.
+# ==========================================================================
+backends:
+  {% if backends is defined and backends is iterable %}
+    {% for backend in backends %}
+  - # Logical name for this backend (used in logging and routing).
+    # Default: '' (empty)
+    name: {{ (backend | default({})).name | default('') }}
+
+    # Hostname or IP address of the backend service.
+    # Default: '' (empty)
+    host: {{ (backend | default({})).host | default('') }}
+
+    # Port number of the backend service.
+    # Default: 80
+    port: {{ (backend | default({})).port | default(80) }}
+
+    # Enable TLS when connecting to this backend.
+    # Default: False
+    {% if (backend | default({})).ssl | default(False) %}
+    ssl: true
+
+    # If SSL is enabled, verify the backend certificate (disable only for self-signed in trusted networks).
+    # Default: True
+    ssl_verify: {{ (backend | default({})).ssl_verify | default(True) }}
+    {% endif %}
+    {% endfor %}
+  {% else %}
+  # No backends defined.
+  []
+  {% endif %}
+
+# ==========================================================================
+# Logging Configuration
+#
+# Controls verbosity and output format of condure logs.
+# ==========================================================================
+log:
+  # Minimum log level to emit. Set to 'debug' for detailed diagnostics.
+  # Default: 'info'
+  level: {{ (log | default({})).level | default('info') }}
+
+  # Log line format — 'json' for structured logging, 'text' for human-readable.
+  # Default: 'json'
+  format: {{ (log | default({})).format | default('json') }}

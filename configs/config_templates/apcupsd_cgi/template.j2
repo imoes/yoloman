@@ -1,0 +1,106 @@
+# =============================================================================
+# apcupsd CGI Configuration
+# =============================================================================
+# This file configures the apcupsd daemon and its CGI web interface.
+# It uses the standard /etc/apcupsd/cgis.conf format (or similar, depending
+# on distribution packaging, but directives are standard).
+
+# =============================================================================
+# Device detection and connection
+# =============================================================================
+
+# UPS connection type. Common values: 'usb', 'snmp', 'net', 'custom'. Choose based on your UPS hardware and connection.
+UPSTYPE {{ ups_type | default('usb') }}
+
+# Device path or network endpoint. Examples: /dev/ttyS0 (serial), /dev/usb/hiddev0 (USB), hostname:port (SNMP).
+DEVICE {{ device | default('/dev/usb/hiddev0') }}
+
+# =============================================================================
+# Network Information Server (NIS) Configuration
+# =============================================================================
+
+# IP address the NIS server will bind to. Use '127.0.0.1' for local only, '0.0.0.0' for all interfaces.
+NISIP {{ nis_ip | default('127.0.0.1') }}
+
+# Port for the Network Information Server (NIS) — used by monitoring clients like apcaccess.
+NISPORT {{ nis_port | default(3551) }}
+
+# =============================================================================
+# Power Event Handling
+# =============================================================================
+
+# Maximum time in seconds to wait for a response from the UPS before timing out.
+TIMEOUT {{ timeout | default(60) }}
+
+# Delay (in minutes) after power failure before initiating automatic shutdown.
+ONBATTERYDELAY {{ on_battery_delay | default(30) }}
+
+# Minimum battery charge (%) that triggers shutdown. Lower values extend runtime but risk data loss.
+BATTERYLEVEL {{ battery_level | default(10) }}
+
+# Minimum remaining runtime (in minutes) before forced shutdown — overrides battery level if reached first.
+MINUTES {{ minutes | default(3) }}
+
+# If true, the UPS will power off completely after shutdown (only supported on certain models).
+KILLONHIBERNATE {{ kill_on_hibernate | default(False) | ternary('yes', 'no') }}
+
+# If true, allows the UPS to enter low-power hibernation mode when idle.
+HIBERNATE {{ hibernate | default(False) | ternary('yes', 'no') }}
+
+# =============================================================================
+# Web Interface (CGI) Configuration
+# =============================================================================
+
+# Enable the built-in web server for viewing UPS status via a browser.
+WEBACCESS {{ web_access | default(True) | ternary('yes', 'no') }}
+
+# List of IP addresses, hostnames, or CIDR subnets allowed to access the web interface.
+# Each entry generates a WEBACCESS directive line.
+{% for host in (web_hosts | default(['127.0.0.1', '::1'])) %}
+WEBACCESS {{ host }}
+{% endfor %}
+
+# TCP port for the web interface (CGI server).
+WEBPORT {{ web_port | default(8080) }}
+
+# Filesystem path to the CGI scripts (typically installed with apcupsd-cgi package).
+CGIPATH {{ cgi_path | default('/usr/lib/apcupsdcgi') }}
+
+# =============================================================================
+# Logging and Reporting
+# =============================================================================
+
+# Enable the network server (required if using apcupsd over the network, e.g., with NIS).
+NETSERVER {{ net_server | default(True) | ternary('yes', 'no') }}
+
+# List of email addresses to notify during power events (if email_log is enabled).
+{% if (email_addresses | default([])) | length > 0 %}
+EMAILADDRS {{ email_addresses | default([]) | join(', ') }}
+{% endif %}
+
+# If true, send email notifications on power events (e.g., onbatteries, offbatteries).
+EMAILLOG {{ email_log | default(False) | ternary('yes', 'no') }}
+
+# Syslog facility for logging. Common values: 'daemon', 'local0'–'local7'.
+# Note: apcupsd uses the 'daemon' facility by default. This field is preserved for documentation.
+# SYSLOG {{ syslog | default('daemon') }}
+
+# =============================================================================
+# Advanced / Optional Settings
+# =============================================================================
+
+# Seconds between status polls to the UPS. Lower values give more responsive status but increase load.
+POLLTIME {{ poll_time | default(20) }}
+
+# SNMP system name (if ups_type is 'snmp'). Usually matches the UPS model or hostname.
+{% if ups_type | default('usb') == 'snmp' %}
+SNMPSN {{ snmp_sn | default('') }}
+{% endif %}
+
+# SNMP community string for read-only access.
+{% if ups_type | default('usb') == 'snmp' %}
+SNMPCOMM {{ snmp_community | default('public') }}
+{% endif %}
+
+# Path to lockfile to prevent multiple apcupsd instances from running.
+LOCKFILE {{ lockfile | default('/var/lock/lockfile') }}

@@ -1,0 +1,54 @@
+# nfcapd.conf — Main configuration file for nfcapd (NetFlow capture daemon)
+# This file configures how nfcapd receives, stores, and rotates flow records.
+
+# Listen on this UDP port for incoming NetFlow/sFlow/IPFIX flows.
+# Default: 9995
+port: {{ port | default(9995) }}
+
+# IP address or hostname to bind to.
+# If empty, nfcapd listens on all available interfaces (0.0.0.0 / ::).
+# Default: '' (empty)
+bindhost: {{ bindhost | default('') }}
+
+# Root directory where flow files are stored.
+# The daemon creates this path if it does not exist.
+# Default: '/var/nfcapd'
+flowdir: {{ flowdir | default('/var/nfcapd') }}
+
+# Subdirectory hierarchy level under flowdir.
+# 0: no subdirectories (all files in flowdir).
+# 1: flowdir/YYYY/MM/DD/
+# 2: flowdir/YYYY/MM/DD/HH/
+# Use this to prevent directory listing performance issues with many files.
+# Default: 0
+subdir_level: {{ subdir_level | default(0) }}
+
+# Time interval in seconds to rotate flow files.
+# After this many seconds, the current flow file is closed and a new one is started.
+# Default: 300
+rotate_interval: {{ rotate_interval | default(300) }}
+
+# Compression type for flow files.
+# Supported: 'lzo', 'bz2', 'lz4', 'zstd'.
+# Leave empty to disable compression.
+# Default: '' (empty)
+compress: {{ compress | default('') }}
+
+# System user to drop privileges to after startup.
+# The daemon starts as root to bind ports, then switches to this user.
+# Default: 'nfcapd'
+user: {{ user | default('nfcapd') }}
+
+# System group to drop privileges to after startup.
+# Default: 'nfcapd'
+group: {{ group | default('nfcapd') }}
+
+# Path to the PID file written by the daemon.
+# Used for process management (stop/restart signals).
+# Default: '/var/run/nfcapd.pid'
+pidfile: {{ pidfile | default('/var/run/nfcapd.pid') }}
+
+# Verbose level: 0=quiet, 1-3=increasing verbosity.
+# Higher levels produce more detailed logs to stdout/stderr or syslog.
+# Default: 0
+verbose: {{ verbose | default(0) }}

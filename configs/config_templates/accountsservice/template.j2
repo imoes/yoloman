@@ -1,0 +1,68 @@
+# /etc/accountsservice/users/<username>
+# User account metadata file for accountsservice
+# Generated automatically by accountsservice; do not edit manually
+# See `man 5 users` for format documentation
+
+[User]
+
+# Unique login name (e.g., `alice`). Must match the system username and filename.
+Username={{ username | default('') }}
+
+# User’s full display name (e.g., `Alice Smith`). Shown in login manager and user lists.
+RealName={{ real_name | default('') }}
+
+# Absolute path to the user’s avatar image (PNG or XPM).
+# Usually `/var/lib/AccountsService/icons/<username>`.
+Icon={{ icon_path | default('') }}
+
+# Privilege level: `standard` (regular user) or `administrator` (sudo access).
+AccountType={{ account_type | default('standard') }}
+
+# Optional hint shown when password entry is focused. Leave blank to hide.
+PasswordHint={{ password_hint | default('') }}
+
+# Deprecated. Ignored by modern accountsservice. Keep empty.
+PasswordMode={{ password_mode | default('') }}
+
+# Locale for the user (e.g., `en_US.UTF-8`, `de_DE`). Blank uses system locale.
+Language={{ language | default('') }}
+
+# Default desktop session (e.g., `gnome`, `plasma`, `xfce`). Blank defaults to system session.
+Session={{ session | default('') }}
+
+# How often the user appears in the login list: `never`, `recent`, or `always`.
+LoginFrequency={{ login_frequency | default('recent') }}
+
+# Unix timestamp of last login. Auto-updated; set to 0 to reset.
+LastLogin={{ last_login | default(0) }}
+
+# Count of recent failed login attempts. Auto-updated.
+LoginFailed={{ login_failed | default(0) }}
+
+# Enable automatic login on boot (skips password prompt). Insecure on multi-user systems.
+AutomaticLogin={{ automatic_login | default(false) | ternary('true', 'false') }}
+
+# Allow auto-login even after locking (e.g., when resuming from suspend). Highly discouraged.
+AutomaticLoginWhileLocked={{ automatic_login_while_locked | default(false) | ternary('true', 'false') }}
+
+# Unix timestamp when password expires (0 = no expiry). Requires PAM module `pam_unix`.
+PasswordExpiry={{ password_expiry | default(0) }}
+
+# Unix timestamp when password was last changed. Auto-updated.
+PasswordChanged={{ password_changed | default(0) }}
+
+# Mark as a system account (UID < 1000). Hides user from greeter and UI tools.
+SystemAccount={{ system_account | default(false) | ternary('true', 'false') }}
+
+# Additional key-value pairs for custom integration (e.g., PolicyKit or LDAP extensions).
+# custom_fields is a list of dicts (each with 'key' and 'value' or similar structure).
+# Iterating the list directly to avoid filter errors on non-mappings.
+{% for item in custom_fields | default([]) %}
+{% if item is mapping %}
+{% for k, v in item | dict2items %}
+{{ k.key }}={{ v.value }}
+{% endfor %}
+{% else %}
+# Skipping invalid custom_fields entry: {{ item }}
+{% endif %}
+{% endfor %}

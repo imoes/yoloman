@@ -1,0 +1,67 @@
+{# ========================================================================== #}
+{# appstream-util Configuration Template                                      #}
+{# -------------------------------------------------------------------------- #}
+{# Purpose: Generate an INI-style configuration file for appstream-util(1).   #}
+{# Context: appstream-util is primarily a CLI tool that does not read a        #}
+{#          persistent config file. This template is useful for:               #}
+{#            1. Bootstrapping a default config file for automated validation. #}
+{#            2. Seeding validation rules into a known location for CI/CD.     #}
+{#            3. Documenting the expected [Metadata] section structure.        #}
+{# Format: INI (similar to /etc/appstream-util.conf or ~/.config/appstream)   #}
+{# ========================================================================== #}
+
+{# -------------------------------------------------------------------------- #}
+{# Section: [Metadata]                                                        #}
+{# Purpose: Controls global metadata generation and validation behavior.      #}
+{# Trigger: Only emitted if validate_metadata is True.                        #}
+{# -------------------------------------------------------------------------- #}
+{% if validate_metadata|default(false) %}
+[Metadata]
+
+{# -------------------------------------------------------------------------- #}
+{# Directive: Strict                                                          #}
+{# Schema:   strict (default: False)                                          #}
+{# Description: Enforce strict compliance with the AppStream specification.   #}
+{#              Equivalent to the --strict flag in the CLI. When enabled,     #}
+{#              validation errors that would normally be warnings cause the   #}
+{#              tool to fail with a non-zero exit code.                       #}
+{# -------------------------------------------------------------------------- #}
+Strict={{ strict|default(false) | string|lower }}
+
+{# -------------------------------------------------------------------------- #}
+{# Directive: AllowedLanguages                                                #}
+{# Schema:   allowed_languages (default: ['en'])                              #}
+{# Description: Comma-separated list of ISO 639 language codes permitted in   #}
+{#              translations. Used by appstream-util validate to ensure that   #}
+{#              locale data in AppStream components only uses approved        #}
+{#              languages.                                                    #}
+{# -------------------------------------------------------------------------- #}
+AllowedLanguages={{ allowed_languages|default(['en']) | join(',') }}
+
+{% endif %}
+{# End of [Metadata] section                                                  #}
+
+{# -------------------------------------------------------------------------- #}
+{# Section: Custom Validation Rules                                           #}
+{# Purpose: Define specific key=value validation constraints.                 #}
+{# Trigger: Only emitted if validation_rules list is non-empty.               #}
+{# -------------------------------------------------------------------------- #}
+{% if validation_rules|default([]) %}
+
+{# -------------------------------------------------------------------------- #}
+{# Directive: Rule Key-Value Pairs                                            #}
+{# Schema:   validation_rules (default: [])                                   #}
+{# Description: Iterates over the list of custom validation rules. Each rule  #}
+{#              is a key=value pair (e.g., IconRequired=true) that instructs #}
+{#              appstream-util to enforce a specific constraint during        #}
+{#              validation. Keys and values must conform to appstream-util(1) #}
+{#              --help syntax and AppStream specification requirements.       #}
+{# -------------------------------------------------------------------------- #}
+{% for rule in validation_rules %}
+{# Rule Key:   rule.key (default: '') - The name of the validation rule.    #}
+{# Rule Value: rule.value (default: '') - The expected value or constraint. #}
+{{ rule.key|default('') }}={{ rule.value|default('') }}
+{% endfor %}
+
+{% endif %}
+{# End of Custom Validation Rules                                            #}

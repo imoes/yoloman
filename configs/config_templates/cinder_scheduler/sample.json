@@ -1,0 +1,73 @@
+{
+  "log_level": "INFO",
+  "log_file": "/var/log/cinder/scheduler.log",
+  "state_path": "/var/lib/cinder",
+  "transport_url": "rabbit://openstack:secrete@controller:5672/",
+  "default_volume_type": "standard",
+  "max_gigs_per_tenant": 1000,
+  "max_snapshots_per_tenant": 10,
+  "max_backups_per_tenant": 50,
+  "max_backup_gigs": 10000,
+  "default_volume_type_create": true,
+  "scheduler_default_filters": [
+    "AvailabilityZoneFilter",
+    "CapacityFilter",
+    "CapabilitiesFilter",
+    "ImagePropertiesFilter",
+    "ServerGroupAntiAffinityFilter",
+    "ServerGroupAffinityFilter"
+  ],
+  "scheduler_default_weighers": [
+    "WeightedSumWeigher"
+  ],
+  "workers": 2,
+  "api_rate_limit": false,
+  "api_debug": false,
+  "volume_allocate_retries": 3,
+  "volume_allocate_retry_interval": 10,
+  "enable_cross_tenant_clone": false,
+  "enable_cross_tenant_snapshot_restore": false,
+  "enable_consistency_groups": false,
+  "enable_replication": false,
+  "enable_backup": true,
+  "migration_confirm_timeout": 1800,
+  "scheduler_host_subset_size": 1,
+  "scheduler_use_bare_host": false,
+  "scheduler_available_backends": [],
+  "backends": [
+    {
+      "name": "lvm",
+      "driver": "cinder.volume.drivers.lvm.LVMVolumeDriver",
+      "target_ip": "10.0.0.50",
+      "options": {
+        "volume_group": "cinder-volumes",
+        "target_protocol": "iscsi",
+        "target_helper": "lioadm",
+        "lvm_type": "thin",
+        "iscsi_ip_address": "10.0.0.50",
+        "iscsi_port": 3260,
+        "iscsi_helper": "tgtadm"
+      }
+    },
+    {
+      "name": "nfs",
+      "driver": "cinder.volume.drivers.nfs.NfsDriver",
+      "target_ip": "10.0.0.51",
+      "options": {
+        "nfs_shares_config": "/etc/cinder/nfs_shares",
+        "nfs_mount_point_base": "/var/lib/cinder/mnt",
+        "nfs_mount_options": "vers=3"
+      }
+    }
+  ],
+  "availability_zones": {
+    "nova": [
+      "lvm",
+      "nfs"
+    ],
+    "failover": [
+      "nfs"
+    ]
+  },
+  "debug": false
+}

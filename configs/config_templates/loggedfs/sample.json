@@ -1,0 +1,41 @@
+{
+  "mount_point": "/mnt/logged",
+  "logging": {
+    "enabled": true,
+    "log_file": "/var/log/loggedfs.log",
+    "format": "json"
+  },
+  "rules": [
+    {
+      "path": "/home/*",
+      "mode": "all",
+      "recursive": true,
+      "description": "Log all file activity in user home directories",
+      "actions": [
+        {
+          "type": "write"
+        },
+        {
+          "type": "delete"
+        }
+      ]
+    },
+    {
+      "path": "/etc",
+      "mode": "write",
+      "recursive": false,
+      "description": "Watch for config changes",
+      "actions": [
+        {
+          "type": "write",
+          "target": "/var/log/etc-changes.log"
+        }
+      ]
+    }
+  ],
+  "allow_user": "root",
+  "allow_group": "",
+  "max_log_size": 10485760,
+  "log_rotation_count": 5,
+  "buffer_size": 65536
+}

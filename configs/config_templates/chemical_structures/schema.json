@@ -1,0 +1,215 @@
+{
+  "server": {
+    "type": "object",
+    "default": {
+      "host": "127.0.0.1",
+      "port": 8000,
+      "max_connections": 100,
+      "use_tls": false
+    },
+    "description": "HTTP server configuration: interface, port, concurrency, and TLS toggle.",
+    "properties": {
+      "host": {
+        "type": "string",
+        "default": "127.0.0.1",
+        "description": "IP address or hostname to bind the HTTP server to."
+      },
+      "port": {
+        "type": "number",
+        "default": 8000,
+        "description": "TCP port to listen on."
+      },
+      "max_connections": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum number of concurrent connections the server will accept."
+      },
+      "use_tls": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable HTTPS instead of HTTP."
+      }
+    }
+  },
+  "ssl": {
+    "type": "object",
+    "default": {
+      "certfile": "/etc/chemical-structures/ssl/cert.pem",
+      "keyfile": "/etc/chemical-structures/ssl/key.pem"
+    },
+    "description": "SSL/TLS certificate and key file paths \u2014 required only if HTTPS is enabled.",
+    "properties": {
+      "certfile": {
+        "type": "string",
+        "default": "/etc/chemical-structures/ssl/cert.pem",
+        "description": "Absolute path to the SSL certificate file (PEM format)."
+      },
+      "keyfile": {
+        "type": "string",
+        "default": "/etc/chemical-structures/ssl/key.pem",
+        "description": "Absolute path to the SSL private key file (PEM format)."
+      }
+    }
+  },
+  "database": {
+    "type": "object",
+    "default": {
+      "type": "sqlite",
+      "path": "/var/lib/chemical-structures/db.sqlite3",
+      "connection_string": "postgresql://user:pass@localhost/chemical_structures"
+    },
+    "description": "Database backend settings. Supports SQLite (file-based) or PostgreSQL.",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "sqlite",
+          "postgresql"
+        ],
+        "default": "sqlite",
+        "description": "Database type. Use 'sqlite' for single-instance deployments, 'postgresql' for production clusters."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/lib/chemical-structures/db.sqlite3",
+        "description": "Absolute path to the SQLite database file (ignored if type=postgresql)."
+      },
+      "connection_string": {
+        "type": "string",
+        "default": "postgresql://user:pass@localhost/chemical_structures",
+        "description": "PostgreSQL connection URI (e.g., 'postgresql://user:password@host:5432/dbname')."
+      }
+    }
+  },
+  "cache": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "type": "memory",
+      "redis_url": "redis://localhost:6379/0",
+      "max_size": 1000
+    },
+    "description": "Caching configuration for computed structures. Use 'memory' for single-node or 'redis' for distributed caching.",
+    "properties": {
+      "enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable result caching to reduce computation load."
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "memory",
+          "redis"
+        ],
+        "default": "memory",
+        "description": "Cache backend type. 'redis' recommended for multi-instance deployments."
+      },
+      "redis_url": {
+        "type": "string",
+        "default": "redis://localhost:6379/0",
+        "description": "Redis server URL (used only if type='redis')."
+      },
+      "max_size": {
+        "type": "number",
+        "default": 1000,
+        "description": "Maximum number of entries in the in-memory cache (used only if type='memory')."
+      }
+    }
+  },
+  "workers": {
+    "type": "object",
+    "default": {
+      "count": 4,
+      "request_timeout": 60
+    },
+    "description": "Parallel worker configuration for heavy structure processing tasks.",
+    "properties": {
+      "count": {
+        "type": "number",
+        "default": 4,
+        "description": "Number of worker processes to spawn. Set to 1 for development; 4\u201316 for production depending on CPU cores."
+      },
+      "request_timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Maximum time (seconds) a worker may spend processing a single request before timeout."
+      }
+    }
+  },
+  "logging": {
+    "type": "object",
+    "default": {
+      "level": "INFO",
+      "file": "/var/log/chemical-structures/chemical-structures.log"
+    },
+    "description": "Logging configuration.",
+    "properties": {
+      "level": {
+        "type": "string",
+        "enum": [
+          "DEBUG",
+          "INFO",
+          "WARNING",
+          "ERROR",
+          "CRITICAL"
+        ],
+        "default": "INFO",
+        "description": "Minimum log level to emit."
+      },
+      "file": {
+        "type": "string",
+        "default": "/var/log/chemical-structures/chemical-structures.log",
+        "description": "Absolute path to the log file. Set to '-' to log to stdout."
+      }
+    }
+  },
+  "services": {
+    "type": "object",
+    "default": {
+      "pubchem_enabled": true,
+      "service_timeout": 30
+    },
+    "description": "External service integration settings.",
+    "properties": {
+      "pubchem_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Allow fallback lookups to PubChem (NCBI) when local data is missing."
+      },
+      "service_timeout": {
+        "type": "number",
+        "default": 30,
+        "description": "Timeout (seconds) for external service requests (e.g., PubChem)."
+      }
+    }
+  },
+  "cors.origins": {
+    "type": "list",
+    "default": [
+      {
+        "host": "https://myapp.example.com"
+      },
+      {
+        "host": "http://localhost",
+        "port": 3000
+      }
+    ],
+    "description": "List of allowed origins for CORS (Cross-Origin Resource Sharing). Each entry defines a permitted client origin.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "host": {
+          "type": "string",
+          "default": "",
+          "description": "Origin host (e.g., 'https://example.com' or 'http://localhost')."
+        },
+        "port": {
+          "type": "number",
+          "default": null,
+          "description": "Optional port to restrict origin to (e.g., 3000 for localhost dev)."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+# ALSA Player Daemon configuration file
+# This file controls the behavior of alsaplayer-daemon
+
+[general]
+
+# Run alsaplayer as a background daemon (recommended for headless systems)
+{% if daemon_enabled | default(true) %}daemon = yes{% else %}daemon = no{% endif %}
+
+# System username to run the daemon as (for security isolation)
+user = {{ run_as_user | default('alsaplayer') }}
+
+# System group to run the daemon as (must allow audio device access)
+group = {{ run_as_group | default('audio') }}
+
+# Absolute path to the PID file for process management
+pidfile = {{ pidfile_path | default('/run/alsaplayer/alsaplayer.pid') }}
+
+# Verbosity: 0=quiet, 1=error, 2=warn (default), 3=info, 4=debug
+log_level = {{ log_level | default(2) }}
+
+# Path to write logs to; leave empty to log only to stdout/stderr
+log_file = {{ log_file | default('') }}
+
+[output]
+
+# ALSA PCM device name (e.g., 'hw:0,0' for first sound card, first device)
+device = {{ alsa_device | default('default') }}
+
+# ALSA mixer control name to adjust volume (e.g., 'PCM', 'Speaker')
+mixer = {{ alsa_mixer | default('Master') }}
+
+# Initial playback volume (0–100) on start or restart
+default_volume = {{ default_volume | default(80) }}
+
+# Preferred output bit depth: 0=auto-detect, 1=16-bit, 2=24-bit, 3=32-bit
+preferred_bitdepth = {{ audio_bitdepth | default(0) }}
+
+# Resampling algorithm quality: 0=nearest, 1=linear, 2=best (Sinc)
+resample_quality = {{ resample_quality | default(2) }}
+
+# Audio buffer duration in milliseconds (0 = use ALSA default)
+buffer_time = {{ buffer_time | default(0) }}
+
+# Prebuffering target as percentage of buffer (0–100); higher = smoother start, longer latency
+prebuffer_percent = {{ prebuffer_percent | default(20) }}
+
+[input]
+
+# Ordered list of decoder plugins to use (e.g., ['ffmpeg', 'sndfile']); empty = all enabled decoders
+{% if decoders | default([]) %}decoders = {{ decoders | default([]) | join(', ') }}{% endif %}
+
+[playlist]
+
+# Default format for playlist imports/exports
+default_format = {{ default_playlist_format | default('m3u') }}
+
+# Automatically start playback when a track is added to an empty queue
+{% if autoplay | default(true) %}autoplay = yes{% else %}autoplay = no{% endif %}
+
+# Repeat mode: 0=none, 1=replay current track, 2=replay playlist, 3=track+playlist
+repeat_mode = {{ repeat_mode | default(0) }}
+
+# Enable playlist shuffle mode
+{% if shuffle_enabled | default(false) %}shuffle = yes{% else %}shuffle = no{% endif %}

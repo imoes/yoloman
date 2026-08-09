@@ -1,0 +1,47 @@
+# =============================================================================
+# BiglyBT Daemon (biglybtd) Configuration
+# =============================================================================
+# This template configures sudoers-style aliases for the BiglyBT daemon.
+# It defines which users can interact with the GUI via JWT and which system
+# user the daemon runs as.
+#
+# IMPORTANT: This file is intended to be included in the sudoers file
+# (/etc/sudoers or /etc/sudoers.d/biglybtd). Ensure appropriate permissions
+# (0440) and ownership (root:root).
+
+# -----------------------------------------------------------------------------
+# JWT GUI Users Configuration
+# -----------------------------------------------------------------------------
+# Comma-separated list of usernames allowed to show the JWT UI when BiglyBT
+# is running as a daemon.
+# Schema Field: jwt_gui_users
+# Default: 'put_username_here'
+# Example: alice,bob
+# -----------------------------------------------------------------------------
+User_Alias      BIGLYBTD_GUI = {{ jwt_gui_users | default('put_username_here') }}
+
+# -----------------------------------------------------------------------------
+# Daemon Run-as User Configuration
+# -----------------------------------------------------------------------------
+# The system user account the BiglyBT daemon runs as.
+# This MUST match the User= directive in the corresponding systemd service
+# file (biglybtd.service).
+# Schema Field: runas_user
+# Default: 'biglybt'
+# -----------------------------------------------------------------------------
+Runas_Alias      BIGLYBTD_USER = {{ runas_user | default('biglybt') }}
+
+# -----------------------------------------------------------------------------
+# Command Aliases / Permissions
+# -----------------------------------------------------------------------------
+# Define commands allowed for the GUI users running as the daemon user.
+# These rules allow xauth operations necessary for X11 forwarding/display
+# when the GUI is accessed via JWT.
+
+# Allow merging Xauthority files
+BIGLYBTD_GUI  ALL=(BIGLYBTD_USER) NOPASSWD: /bin/bash -c /usr/bin/xauth -f $HOME/.Xauthority merge -
+BIGLYBTD_GUI  ALL=(BIGLYBTD_USER) NOPASSWD: /usr/bin/xauth merge -
+
+# Note: The following line is commented out but shows an alternative
+# configuration where the command is explicitly restricted to the 'biglybt' user.
+#BIGLYBTD_GUI  ALL=(biglybt) NOPASSWD: /usr/bin/xauth -f $HOME/.Xauthority merge -

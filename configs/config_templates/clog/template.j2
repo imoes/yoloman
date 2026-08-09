@@ -1,0 +1,41 @@
+# =============================================================================
+# clog configuration file
+# =============================================================================
+# This file configures the clog utility, which filters and colors log output.
+# It is structured into sections containing rules that define how log lines
+# matching specific patterns should be processed (colored, suppressed, etc.).
+#
+# Structure:
+#   [Section Name]
+#     rule /<pattern>/ --> <color> <action>
+#     rule "<pattern>" --> <color> <action>
+#
+# Variables:
+#   sections: List of section names to define in this configuration.
+#   rules:    List of rule objects to apply within the sections.
+
+# --- Section Definitions ---
+# Iterate over the list of section names defined in the schema.
+# Each section name becomes a header in the config file.
+{% for section_name in sections | default(['default']) %}
+{{ section_name }}
+{% endfor %}
+
+# --- Rule Definitions ---
+# Iterate over the list of rules.
+# Each rule outputs a line in the format: <section> rule <pattern> --> <color> <action>
+#
+# Pattern formatting:
+#   - If is_regex is true, the pattern is enclosed in slashes: /pattern/
+#   - If is_regex is false, the pattern is enclosed in double quotes: "pattern"
+#
+# Schema Fields for each rule item:
+#   section : Name of the section this rule belongs to (must be in 'sections').
+#   pattern : The text or regex to match.
+#   is_regex: Boolean indicating if 'pattern' is a regular expression.
+#   color   : The color attribute to apply (e.g., 'bold', 'red', 'underline').
+#   action  : The action to take on match (e.g., 'line', 'match', 'suppress').
+
+{% for rule in rules | default([]) %}
+{{ rule.section | default('default') }} rule {% if rule.is_regex | default(False) %}/{% endif %}{{ rule.pattern | default('') }}{% if rule.is_regex | default(False) %}/{% endif %} --> {{ rule.color | default('default') }} {{ rule.action | default('line') }}
+{% endfor %}

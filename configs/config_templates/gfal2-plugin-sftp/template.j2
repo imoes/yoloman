@@ -1,0 +1,27 @@
+#
+# Configuration for the gfal2-plugin-sftp
+#
+# This template configures the SFTP transport plugin for GLOBUS FILE ACCESS LIBRARY 2 (gfal2).
+# It manages SSH authentication settings: username, password, private key path, and key passphrase.
+#
+# Fields:
+#   - sftp_user: SSH username. If empty, the plugin defaults to the current system user.
+#   - sftp_password: SSH password. If empty, password authentication is disabled; key-based auth is preferred.
+#   - sftp_privkey: Path to the private SSH key file (e.g., ~/.ssh/id_rsa).
+#   - sftp_passphrase: Passphrase to decrypt the private SSH key. Empty if the key is unencrypted.
+
+[SFTP PLUGIN]
+
+# SSH username; if empty, defaults to the current user name.
+USER = {{ sftp_user | default('') }}
+
+# SSH password; if empty, password authentication is disabled (use key-based auth).
+PASSWORD = {{ sftp_password | default('') }}
+
+# Path to the private SSH key file; defaults to $HOME/.ssh/id_rsa.
+# Note: The tilde (~) expansion is handled by the SSH client library at runtime;
+# the config file stores the literal string.
+PRIVKEY = {{ sftp_privkey | default('~/.ssh/id_rsa') }}
+
+# Passphrase to decrypt the private SSH key; empty if unencrypted or no passphrase needed.
+PASSPHRASE = {{ sftp_passphrase | default('') }}

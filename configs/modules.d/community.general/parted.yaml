@@ -1,0 +1,128 @@
+name: parted
+fqcn: community.general.parted
+collection: community.general
+short_description: Configure block device partitions
+description: This module allows configuring block device partition using the C(parted) command line tool.
+  For a full description of the fields and the options check the GNU parted manual.
+options:
+  align:
+    type: str
+    default: optimal
+    choices:
+    - cylinder
+    - minimal
+    - none
+    - optimal
+    - undefined
+    description: Set alignment for newly created partitions. Use V(undefined) for parted default alignment.
+  device:
+    type: str
+    required: true
+    description: The block device (disk) where to operate. Regular files can also be partitioned, but
+      it is recommended to create a loopback device using C(losetup) to easily access its partitions.
+  flags:
+    type: list
+    description: A list of the flags that has to be set on the partition.
+  fs_type:
+    type: str
+    description: If specified and the partition does not exist, will set filesystem type to given partition.
+      Parameter optional, but see notes below about negative O(part_start) values.
+  label:
+    type: str
+    default: msdos
+    choices:
+    - aix
+    - amiga
+    - bsd
+    - dvh
+    - gpt
+    - loop
+    - mac
+    - msdos
+    - pc98
+    - sun
+    description: Disk label type or partition table to use. If O(device) already contains a different
+      label, it will be changed to O(label) and any previous partitions will be lost. A O(name) must be
+      specified for a V(gpt) partition table.
+  name:
+    type: str
+    description: Sets the name for the partition number (GPT, Mac, MIPS and PC98 only).
+  number:
+    type: int
+    description: The partition number being affected. Required when performing any action on the disk,
+      except fetching information.
+  part_end:
+    type: str
+    default: 100%
+    description: Where the partition will end as offset from the beginning of the disk, that is, the "distance"
+      from the start of the disk. Negative numbers specify distance from the end of the disk. The distance
+      can be specified with all the units supported by parted (except compat) and it is case sensitive,
+      for example V(10GiB), V(15%).
+  part_start:
+    type: str
+    default: 0%
+    description: Where the partition will start as offset from the beginning of the disk, that is, the
+      "distance" from the start of the disk. Negative numbers specify distance from the end of the disk.
+      The distance can be specified with all the units supported by parted (except compat) and it is case
+      sensitive, for example V(10GiB), V(15%). Using negative values may require setting of O(fs_type)
+      (see notes).
+  part_type:
+    type: str
+    default: primary
+    choices:
+    - extended
+    - logical
+    - primary
+    description: May be specified only with O(label=msdos) or O(label=dvh). Neither O(part_type) nor O(name)
+      may be used with O(label=sun).
+  resize:
+    type: bool
+    default: false
+    description: Call C(resizepart) on existing partitions to match the size specified by O(part_end).
+  state:
+    type: str
+    default: info
+    choices:
+    - absent
+    - present
+    - info
+    description: Whether to create or delete a partition. If set to V(info) the module will only return
+      the device information.
+  unit:
+    type: str
+    default: KiB
+    choices:
+    - s
+    - B
+    - KB
+    - KiB
+    - MB
+    - MiB
+    - GB
+    - GiB
+    - TB
+    - TiB
+    - '%'
+    - cyl
+    - chs
+    - compact
+    description: Selects the current default unit that Parted will use to display locations and capacities
+      on the disk and to interpret those given by the user if they are not suffixed by an unit. When fetching
+      information about a disk, it is recommended to always specify a unit.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a new ext4 primary partition\n  community.general.parted:\n    device: /dev/sdb\n\
+  \    number: 1\n    state: present\n    fs_type: ext4\n\n- name: Remove partition number 1\n  community.general.parted:\n\
+  \    device: /dev/sdb\n    number: 1\n    state: absent\n\n- name: Create a new primary partition with\
+  \ a size of 1GiB\n  community.general.parted:\n    device: /dev/sdb\n    number: 1\n    state: present\n\
+  \    part_end: 1GiB\n\n- name: Create a new primary partition for LVM\n  community.general.parted:\n\
+  \    device: /dev/sdb\n    number: 2\n    flags: [ lvm ]\n    state: present\n    part_start: 1GiB\n\
+  \n- name: Create a new primary partition with a size of 1GiB at disk's end\n  community.general.parted:\n\
+  \    device: /dev/sdb\n    number: 3\n    state: present\n    fs_type: ext3\n    part_start: -1GiB\n\
+  \n# Example on how to read info and reuse it in subsequent task\n- name: Read device information (always\
+  \ use unit when probing)\n  community.general.parted: device=/dev/sdb unit=MiB\n  register: sdb_info\n\
+  \n- name: Remove all partitions from disk\n  community.general.parted:\n    device: /dev/sdb\n    number:\
+  \ '{{ item.num }}'\n    state: absent\n  loop: '{{ sdb_info.partitions }}'\n\n- name: Extend an existing\
+  \ partition to fill all available space\n  community.general.parted:\n    device: /dev/sdb\n    number:\
+  \ \"{{ sdb_info.partitions | length }}\"\n    part_end: \"100%\"\n    resize: true\n    state: present\n"

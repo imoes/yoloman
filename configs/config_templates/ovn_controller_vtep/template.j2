@@ -1,0 +1,38 @@
+{# Main OVN VTEP controller configuration #}
+[ovn_vtep]
+{# UUID of the VTEP logical switch to manage #}
+logical_switch = {{ vtep_logical_switch_uuid }}
+{# IP address of the physical interface used for VTEP tunnel endpoints (e.g., vxlan) #}
+physical_interface = {{ vtep_physical_interface }}
+{# IP address to use as source for VTEP tunnels (typically same as physical_interface IP) #}
+physical_ip = {{ vtep_physical_ip }}
+{# Enable VTEP tunnel protocol (true/false) #}
+enabled = {{ vtep_enabled | string | lower }}
+{# Maximum number of VTEP connections to keep in cache #}
+max_vtep_connections = {{ max_vtep_connections }}
+{# Maximum tunnel key (VNI) to assign; must be between 1 and 16777215 #}
+max_tunnel_key = {{ max_tunnel_key }}
+{# OVN Northbound database connection string (e.g., tcp:127.0.0.1:6641) #}
+nb_db = {{ nb_db_connection }}
+{# OVN Southbound database connection string (e.g., tcp:127.0.0.1:6642) #}
+sb_db = {{ sb_db_connection }}
+{# TLS CA certificate file (optional) #}
+ca_cert = {{ tls_ca_cert | default('') }}
+{# TLS server certificate file (optional) #}
+cert = {{ tls_cert | default('') }}
+{# TLS server private key file (optional) #}
+private_key = {{ tls_private_key | default('') }}
+{# Enable SSL/TLS for database connections (true/false) #}
+ssl_enable = {{ ssl_enable | string | lower }}
+{# Log level: info, debug, err, warn (case-insensitive) #}
+log_level = {{ log_level }}
+{# Path to log file (empty or '-' for stdout) #}
+log_file = {{ log_file }}
+{# List of additional physical networks to monitor (each with name and interface mapping) #}
+{% for net in vtep_physical_networks %}
+physical_network_{{ net.name | replace('-', '_') }} = {{ net.interface }}
+{% endfor %}
+{# Optional: External IDs for VTEP logical switch identification in OVN NB/SB DBs #}
+external_ids = {
+{% for key, value in external_ids.items() %}  {{ key }}="{{ value }}"{% if not loop.last %},{% endif %}
+{% endfor %}}

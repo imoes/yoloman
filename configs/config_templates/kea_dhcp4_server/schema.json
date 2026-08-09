@@ -1,0 +1,279 @@
+{
+  "interfaces": {
+    "type": "list",
+    "default": [
+      "eth0"
+    ],
+    "description": "List of network interface names to listen on for DHCP requests."
+  },
+  "lease_db": {
+    "type": "object",
+    "default": {
+      "type": "memfile",
+      "persist": true,
+      "lename": "kea-leases4.csv"
+    },
+    "description": "Lease database backend configuration.",
+    "items": {
+      "type": "string",
+      "enum": [
+        "memfile",
+        "mysql",
+        "postgresql"
+      ],
+      "description": "Database backend type."
+    },
+    "properties": {
+      "type": {
+        "type": "string",
+        "default": "memfile",
+        "enum": [
+          "memfile",
+          "mysql",
+          "postgresql"
+        ],
+        "description": "Lease database backend type."
+      },
+      "persist": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to persist leases to disk (memfile only)."
+      },
+      "lename": {
+        "type": "string",
+        "default": "kea-leases4.csv",
+        "description": "Path to the lease file (memfile only)."
+      },
+      "host": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Database server hostname (SQL backends only)."
+      },
+      "port": {
+        "type": "number",
+        "default": 3306,
+        "description": "Database server port (SQL backends only)."
+      },
+      "user": {
+        "type": "string",
+        "default": "kea",
+        "description": "Database username."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Database password (leave blank for none)."
+      },
+      "name": {
+        "type": "string",
+        "default": "kea_dhcp4",
+        "description": "Database name."
+      },
+      "auto_multi_thread": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable automatic multi-threading for SQL backends."
+      }
+    }
+  },
+  "hooks_libraries": {
+    "type": "list",
+    "default": [],
+    "description": "List of hook libraries to load (e.g., for logging, DDNS, etc.).",
+    "items": {
+      "library": {
+        "type": "string",
+        "description": "Path to shared library (e.g., '/usr/lib/kea/hooks/libdhcp_lease_cmds.so')."
+      },
+      "parameters": {
+        "type": "object",
+        "description": "JSON parameters to pass to the hook library."
+      }
+    }
+  },
+  "subnets": {
+    "type": "list",
+    "default": [
+      {
+        "id": 1,
+        "subnet": "192.0.2.0/24",
+        "pools": [
+          "192.0.2.10 - 192.0.2.200"
+        ],
+        "option_data": [
+          {
+            "name": "routers",
+            "data": [
+              "192.0.2.1"
+            ]
+          },
+          {
+            "name": "domain-name-servers",
+            "data": [
+              "192.0.2.1",
+              "192.0.2.2"
+            ]
+          }
+        ],
+        "renew_timer": 300,
+        "rebind_timer": 1800,
+        "valid_lifetime": 3600,
+        "min_valid_lifetime": 1800,
+        "max_valid_lifetime": 7200
+      }
+    ],
+    "description": "List of IPv4 subnets to serve.",
+    "items": {
+      "id": {
+        "type": "number",
+        "description": "Unique numeric identifier for this subnet."
+      },
+      "subnet": {
+        "type": "string",
+        "description": "Subnet CIDR notation (e.g., '192.0.2.0/24')."
+      },
+      "pools": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "IP ranges for dynamic address allocation (e.g., ['192.0.2.10 - 192.0.2.200'])."
+      },
+      "option_data": {
+        "type": "list",
+        "items": {
+          "name": {
+            "type": "string"
+          },
+          "data": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "description": "DHCP options specific to this subnet (e.g., routers, DNS servers)."
+      },
+      "renew_timer": {
+        "type": "number",
+        "description": "T1 timer (seconds)."
+      },
+      "rebind_timer": {
+        "type": "number",
+        "description": "T2 timer (seconds)."
+      },
+      "valid_lifetime": {
+        "type": "number",
+        "description": "Default lease lifetime (seconds)."
+      },
+      "min_valid_lifetime": {
+        "type": "number",
+        "description": "Minimum lease lifetime allowed."
+      },
+      "max_valid_lifetime": {
+        "type": "number",
+        "description": "Maximum lease lifetime allowed."
+      }
+    }
+  },
+  "shared_networks": {
+    "type": "list",
+    "default": [],
+    "description": "List of shared networks (used when multiple subnets share the same physical network).",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the shared network."
+      },
+      "subnets": {
+        "type": "list",
+        "items": {
+          "id": {
+            "type": "number"
+          },
+          "subnet": {
+            "type": "string"
+          },
+          "pools": {
+            "type": "list",
+            "items": {
+              "pool": {
+                "type": "string"
+              },
+              "option_data": {
+                "type": "list",
+                "items": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "data": {
+                    "type": "list",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "List of subnets in this shared network."
+      },
+      "renew_timer": {
+        "type": "number",
+        "description": "T1 timer (seconds)."
+      },
+      "rebind_timer": {
+        "type": "number",
+        "description": "T2 timer (seconds)."
+      },
+      "valid_lifetime": {
+        "type": "number",
+        "description": "Default lease lifetime (seconds)."
+      }
+    }
+  },
+  "authoritative": {
+    "type": "bool",
+    "default": true,
+    "description": "If true, server will respond with 'authoritative' flag in DHCP replies."
+  },
+  "dhcp_queue_control": {
+    "type": "object",
+    "default": {
+      "enabled": true,
+      "capacity": 1000
+    },
+    "description": "Queue control settings for incoming packets.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "description": "Enable packet queuing."
+      },
+      "capacity": {
+        "type": "number",
+        "description": "Maximum number of packets to queue."
+      }
+    }
+  },
+  "log_output": {
+    "type": "string",
+    "default": "stdout",
+    "description": "Log output destination ('stdout', 'stderr', or file path)."
+  },
+  "log_rotate": {
+    "type": "string",
+    "default": "0",
+    "description": "Log rotation behavior: '0' (no rotation), 'daily', 'weekly', or max bytes (e.g., '10485760')."
+  },
+  "log_severity": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Minimum log severity level."
+  },
+  "log_debuglevel": {
+    "type": "number",
+    "default": 0,
+    "description": "Debug verbosity level (0\u201399). Higher = more verbose."
+  }
+}

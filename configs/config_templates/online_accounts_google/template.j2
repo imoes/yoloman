@@ -1,0 +1,82 @@
+# Google plugin configuration for Lomiri Online Accounts
+# Enables Google account authentication and sync via OAuth2
+
+[General]
+# Plugin identifier — must match the package name for Lomiri to load it
+PluginId=google
+
+# Display name shown in account settings UI
+Name={{ name }}
+
+# Icon identifier (used by theme); falls back to 'account-google' if missing
+Icon={{ icon }}
+
+# Version of the plugin spec implemented (required for compatibility)
+Version=1.0
+
+# List of supported services with their display names and OAuth scopes
+{% for service in services %}
+[Service:{{ service.id }}]
+# Human-readable name of the service
+Name={{ service.name }}
+
+# OAuth2 scopes required to access the service (space-separated)
+Scopes={{ service.scopes | join(' ') }}
+
+# API endpoint prefix for discovery; used to build full URLs
+# (e.g., https://www.googleapis.com/plus/v1/people/me for Google+ profile)
+DiscoveryUrl={{ service.discovery_url }}
+
+# Whether this service supports resource-specific authentication (e.g., selective sync)
+ResourceAuth={{ service.resource_auth | lower }}
+
+# Optional: Default permissions requested (e.g., 'read', 'read-write')
+{% if service.default_permissions is defined %}DefaultPermissions={{ service.default_permissions }}
+{% endif %}
+{% endfor %}
+
+# Authentication flow configuration
+[Auth]
+# OAuth2 client ID — *must* be set by operator from Google Cloud Console
+ClientId={{ auth_client_id }}
+
+# OAuth2 client secret — *must* be kept secure; never exposed in public repos
+ClientSecret={{ auth_client_secret }}
+
+# Redirect URI (must be registered in Google Cloud Console); typically 'urn:ietf:wg:oauth:2.0:oob' or a custom scheme
+RedirectUri={{ auth_redirect_uri }}
+
+# OAuth2 authorization endpoint (Google's standard endpoint)
+AuthEndpoint={{ auth_endpoint }}
+
+# OAuth2 token endpoint (Google's standard endpoint)
+TokenEndpoint={{ token_endpoint }}
+
+# OAuth2 revocation endpoint (to invalidate tokens on sign-out)
+RevokeEndpoint={{ revoke_endpoint }}
+
+# Token refresh behavior: 'auto' or 'manual'
+RefreshMode={{ auth_refresh_mode }}
+
+# Whether to use PKCE (Proof Key for Code Exchange) for enhanced security (recommended)
+UsePkce={{ auth_use_pkce | lower }}
+
+# Whether to auto-provision new accounts (true = allow UI creation, false = restrict to pre-provisioned)
+AllowAutoProvision={{ allow_auto_provision | lower }}
+
+# Sync behavior defaults
+[Sync]
+# Maximum concurrent syncs per account
+MaxConcurrentSyncs={{ sync_max_concurrent }}
+
+# Minimum sync interval in seconds
+MinSyncInterval={{ sync_min_interval }}
+
+# Default sync interval in seconds (for manual or background sync)
+DefaultSyncInterval={{ sync_default_interval }}
+
+# Whether to enable background sync by default
+EnableBackgroundSync={{ sync_enable_background | lower }}
+
+# Whether to use Wi-Fi only for large syncs
+WifiOnlySync={{ sync_wifi_only | lower }}

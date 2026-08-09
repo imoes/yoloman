@@ -1,0 +1,26 @@
+{
+  "selinux_mode": {
+    "type": "string",
+    "default": "permissive",
+    "description": "SELinux enforcement mode. Use `enforcing` for strict security, `permissive` for logging without blocking, or `disabled` to turn off SELinux entirely. For containers, `permissive` is often used during deployment, but `enforcing` is preferred in production.",
+    "enum": [
+      "enforcing",
+      "permissive",
+      "disabled"
+    ]
+  },
+  "selinux_policy_type": {
+    "type": "string",
+    "default": "targeted",
+    "description": "SELinux policy type. `targeted` restricts only specific daemons/services (recommended for containers); `mls` provides Multi-Level Security (for high-security environments); `minimum` is a stripped-down targeted policy."
+  },
+  "selinux_booleans": {
+    "type": "list",
+    "default": [],
+    "description": "List of SELinux booleans to persistently enable/disable for container compatibility. Each entry must be a fully-qualified `setsebool -P` command string (e.g., `setsebool -P container_manage_cgroup on`).",
+    "items": {
+      "type": "string",
+      "description": "A `setsebool -P <bool_name> <on|off>` command line for persistent boolean setting."
+    }
+  }
+}

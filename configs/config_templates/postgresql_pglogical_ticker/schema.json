@@ -1,0 +1,87 @@
+{
+  "db_name": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Name of the PostgreSQL database where pglogical metadata and tick records are stored."
+  },
+  "db_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the PostgreSQL server."
+  },
+  "db_port": {
+    "type": "number",
+    "default": 5432,
+    "description": "Port number used by PostgreSQL."
+  },
+  "db_user": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Database user (with superuser or replication privileges) used to connect."
+  },
+  "db_pass": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the database user. Leave blank to use peer authentication or .pgpass."
+  },
+  "db_sslmode": {
+    "type": "string",
+    "default": "prefer",
+    "description": "SSL connection mode: disable, allow, prefer, require, verify-ca, or verify-full."
+  },
+  "db_connect_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum time (seconds) to wait for connection establishment."
+  },
+  "tick_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Interval (seconds) between each replication lag tick. Minimum recommended: 15."
+  },
+  "schema_name": {
+    "type": "string",
+    "default": "pglogical_ticker",
+    "description": "Schema to contain the tick table (created automatically on first run if missing)."
+  },
+  "tick_table": {
+    "type": "string",
+    "default": "ticks",
+    "description": "Name of the table used to store tick timestamps per replication set."
+  },
+  "retention_days": {
+    "type": "number",
+    "default": 30,
+    "description": "Number of days to retain tick records before automatic purging."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable or disable verbose logging output to the log file (true/false)."
+  },
+  "replication_sets": {
+    "type": "list",
+    "default": [],
+    "description": "List of logical replication sets (publications) to monitor for lag.",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the replication set (publication) on the provider."
+      },
+      "provider": {
+        "type": "string",
+        "description": "Connection string (e.g., host=localhost port=5432 dbname=mydb) for the provider node."
+      }
+    }
+  },
+  "post_tick_cmd": {
+    "type": "string",
+    "default": "",
+    "description": "Optional shell command to execute after each tick (e.g., for alerting). Use with caution; ensure script is executable."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/postgresql/pglogical_ticker.log",
+    "description": "Path to the log file where ticker output is written."
+  }
+}

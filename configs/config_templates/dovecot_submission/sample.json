@@ -1,0 +1,56 @@
+{
+  "protocols": [
+    "imap",
+    "submission"
+  ],
+  "listen": [
+    "*",
+    "::"
+  ],
+  "disable_plaintext_auth": true,
+  "mail_location": "maildir:~/Maildir",
+  "auth_mechanisms": [
+    "plain",
+    "login",
+    "cram-md5"
+  ],
+  "passdb": {
+    "driver": "sql",
+    "args": "driver=mysql\nconnect = host=localhost dbname=mail user=dovecot password=secret\npassword_query = SELECT username as user, password, home, mail, uid, gid FROM users WHERE username = '%u' AND active = 'Y'"
+  },
+  "userdb": {
+    "driver": "sql",
+    "args": "driver=mysql\nconnect = host=localhost dbname=mail user=dovecot password=secret\nuser_query = SELECT home, mail, uid, gid FROM users WHERE username = '%u'"
+  },
+  "ssl": {
+    "mode": "required",
+    "cert_path": "/etc/letsencrypt/live/mail.example.com/fullchain.pem",
+    "key_path": "/etc/letsencrypt/live/mail.example.com/privkey.pem",
+    "min_protocol": "TLSv1.2"
+  },
+  "mail_max_userip_connections": 10,
+  "log_path": "/var/log/dovecot.log",
+  "services": [
+    {
+      "name": "imap-login",
+      "chroot": "login",
+      "executable": "imap-login",
+      "user": "dovecot",
+      "group": "",
+      "extra_config": "service_count = 1\nprocess_min_avail = 0\n"
+    },
+    {
+      "name": "submission-login",
+      "chroot": "login",
+      "executable": "submission-login",
+      "user": "dovecot",
+      "group": "",
+      "extra_config": "inet_listener submission {\n  port = 587\n  # ssl = yes  # optional, if SSL-only submission\n}\n"
+    }
+  ],
+  "imap_max_line_length": 8192,
+  "submission_port": 587,
+  "submission_hostname": "mail.example.com",
+  "auth_verbose": false,
+  "auth_debug": false
+}

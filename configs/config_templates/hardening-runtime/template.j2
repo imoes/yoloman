@@ -1,0 +1,15 @@
+# Linux command line options recommended by the KSPP
+# https://kernsec.org/wiki/index.php/Kernel_Self_Protection_Project/Recommended_Settings#kernel_command_line_options
+#
+# This variable appends additional security-hardening kernel parameters to the default
+# GRUB command line. The default set covers Kernel Address Space Layout Randomization
+# (KASLR), Page Table Isolation (PTI), slab debugging, page poisoning, and disables
+# symmetric multithreading (SMT) to mitigate side-channel attacks like Spectre/Meltdown.
+# These settings are applied globally to all boot entries unless overridden elsewhere.
+GRUB_CMDLINE_LINUX_DEFAULT="$GRUB_CMDLINE_LINUX_DEFAULT {{ (grub_cmdline_linux_default_additions | default('kaslr pti=on slab_nomerge page_poison=1 slub_debug=FPZ nosmt')) }}"
+
+# Other interesting options are:
+# - intel_iommu=on (sometimes intel_iommu=on,igfx_off) for enabling IOMMU
+# - mitigations=auto,nosmt (alternative aggregate mitigation switch)
+
+# When done editing the file, rebuild grub configuration with: update-grub

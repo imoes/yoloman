@@ -1,0 +1,93 @@
+{# =============================================================================
+# chake Node Configuration Template
+# =============================================================================
+# This file defines the nodes that chake (a configuration management orchestrator)
+# will manage. Each node entry consists of a URL, an optional config manager
+# (itamae, shell, chef), and a list of recipes to run.
+#
+# Structure:
+#   url:
+#     config_manager_key:
+#       - recipe1
+#       - recipe2
+#     encrypted:
+#       - encrypted_file1
+# ============================================================================= #}
+
+{# Iterate over the list of nodes defined in the schema.
+#   Variable: nodes (default: [])
+#   Description: List of nodes to manage.
+# #}
+{% for node in nodes | default([]) %}
+
+{# Node URL: The connection endpoint for the node.
+#   Variable: node.url (required string)
+#   Note: node is guaranteed defined by the loop context.
+# #}
+{{ node.url }}:
+
+{# Determine the config manager.
+#   Variable: node.config_manager (default: 'itamae')
+#   Supported values: 'itamae' (default), 'shell', 'chef'.
+# #}
+{% set cm = node.config_manager | default('itamae') %}
+
+{% if cm != 'itamae' %}
+  {# If not itamae, explicitly set the config manager key
+#     Description: The configuration manager to use for this node.
+#     Values: itamae, shell, chef.
+# #}
+  # config_manager: {{ cm }}
+{% endif %}
+
+{# Output the specific config manager block based on the selected manager.
+# #}
+{% if cm == 'itamae' %}
+  {# Itamae configuration block
+#     Description: Itamae-specific settings (currently just the key).
+# #}
+  itamae:
+{% elif cm == 'shell' %}
+  {# Shell script configuration block
+#     Description: Shell script-based configuration execution.
+# #}
+  shell:
+{% elif cm == 'chef' %}
+  {# Chef configuration block
+#     Description: Chef-based configuration management.
+# #}
+  chef:
+{% else %}
+  {# Fallback for unsupported or unknown config managers
+#     Description: If an unrecognized manager is specified, fall back to comments.
+# #}
+  # unsupported config_manager: {{ cm }}
+{% endif %}
+
+{# List of recipes to execute on this node.
+#   Variable: node.recipes (default: [])
+#   Description: List of recipe names or paths.
+# #}
+{% for recipe in node.recipes | default([]) %}
+{% if loop.first %}
+  - {{ recipe }}
+{% else %}
+    - {{ recipe }}
+{% endif %}
+{% endfor %}
+
+{# List of encrypted files to handle on this node.
+#   Variable: node.encrypted_files (default: [])
+#   Description: List of encrypted configuration file paths.
+# #}
+{% if node.encrypted_files is defined and node.encrypted_files | length > 0 %}
+  {# Encrypted files block
+#     Description: Files that require decryption before use.
+# #}
+  encrypted:
+{% for f in node.encrypted_files %}
+    - {{ f }}
+{% endfor %}
+{% endif %}
+
+{% endfor %}

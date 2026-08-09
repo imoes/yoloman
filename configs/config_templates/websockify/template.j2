@@ -1,0 +1,131 @@
+# ==============================================================================
+# websockify Configuration Template
+# ==============================================================================
+# This template generates a websockify configuration file.
+# websockify is a WebSocket-to-TCP proxy, often used to expose
+# VNC, RDP, or other TCP services over WebSocket.
+# ==============================================================================
+
+# --- Network Binding ---
+
+# IP address or hostname to bind the WebSocket proxy to.
+# Use '0.0.0.0' to listen on all interfaces.
+# Default: 127.0.0.1
+bind_address: {{ (bind_address | default('127.0.0.1')) | string }}
+
+# Port number to listen for incoming WebSocket connections.
+# Default: 6080
+bind_port: {{ bind_port | default(6080) | int }}
+
+# --- Backend Target (Single-Target Mode) ---
+
+# Backend host to which WebSocket traffic will be proxied.
+# Used in single-target mode.
+# Default: localhost
+target_host: {{ (target_host | default('localhost')) | string }}
+
+# Backend port to proxy to (e.g., VNC 5900, RDP 3389).
+# Used in single-target mode.
+# Default: 5900
+target_port: {{ target_port | default(5900) | int }}
+
+# --- SSL/TLS Configuration ---
+
+# Enable WSS (secure WebSocket) by presenting TLS to clients.
+# Requires ssl_cert and ssl_key to be set.
+# Default: False
+ssl_target: {{ ssl_target | default(false) | bool }}
+
+# Path to SSL/TLS certificate file (PEM format).
+# Required if ssl_target is true.
+# Default: '' (empty)
+ssl_cert: {{ (ssl_cert | default('')) | string }}
+
+# Path to SSL/TLS private key file (PEM format).
+# Required if ssl_target is true.
+# Default: '' (empty)
+ssl_key: {{ (ssl_key | default('')) | string }}
+
+# Path to CA bundle (PEM format) for mutual TLS client authentication.
+# Optional.
+# Default: '' (empty)
+ssl_ca: {{ (ssl_ca | default('')) | string }}
+
+# --- Logging ---
+
+# Logging verbosity: DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+# Default: INFO
+log_level: {{ (log_level | default('INFO')) | upper }}
+
+# Path to log file. If empty, logs to stdout (or stderr in some builds).
+# Default: '' (empty)
+log_file: {{ (log_file | default('')) | string }}
+
+# --- Connection Management ---
+
+# Seconds of inactivity before closing idle WebSocket or backend connections.
+# Default: 600
+idle_timeout: {{ idle_timeout | default(600) | int }}
+
+# Enable TCP keepalive probes to backend connections to detect dead peers.
+# Default: True
+tcp_keepalive: {{ tcp_keepalive | default(true) | bool }}
+
+# --- Security / CORS ---
+
+# List of allowed HTTP origins for CORS.
+# If empty, all origins are permitted (not recommended for production).
+{% for origin in (allowed_origins | default([])) %}
+origin: {{ origin | string }}
+{% endfor %}
+
+# --- Routing (Multi-Target Mode) ---
+
+# List of path-based routing rules.
+# Use when proxying multiple backends on different paths.
+# Format in config: route: path=host:port
+# Example: route: /vnc1=localhost:5900
+{% for route in (routes | default([])) %}
+{% if route is mapping %}
+# Route rule: {{ route.get('path', '/') }} -> {{ route.get('target_host', 'localhost') }}:{{ route.get('target_port', 5900) }}
+route: {{ route.get('path', '/') }}={{ route.get('target_host', 'localhost') }}:{{ route.get('target_port', 5900) }}
+{% else %}
+# Raw route string: {{ route | string }}
+route: {{ route | string }}
+{% endif %}
+{% endfor %}
+
+# --- Daemonization ---
+
+# Run websockify as a background daemon process.
+# Requires root privileges to bind low ports if necessary.
+# Default: False
+daemonize: {{ daemonize | default(false) | bool }}
+
+# File path to write the daemon process PID.
+# Used only if daemonize is true.
+# Default: /var/run/websockify.pid
+pidfile: {{ (pidfile | default('/var/run/websockify.pid')) | string }}
+
+# --- Privilege Dropping ---
+
+# System user to drop privileges to after startup.
+# Requires root initially.
+# Default: websockify
+user: {{ (user | default('websockify')) | string }}
+
+# System group to drop privileges to after startup.
+# Requires root initially.
+# Default: websockify
+group: {{ (group | default('websockify')) | string }}
+
+# --- WebSocket Settings ---
+
+# Enable permessage-deflate compression for WebSocket messages.
+# May reduce bandwidth usage at the cost of CPU.
+# Default: False
+compression: {{ compression | default(false) | bool }}
+
+# URL path prefix for the WebSocket endpoint (e.g., '/ws' or '/proxy').
+# Default: /
+ws_path: {{ (ws_path | default('/')) | string }}

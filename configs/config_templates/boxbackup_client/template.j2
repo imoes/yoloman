@@ -1,0 +1,147 @@
+# ==============================================================================
+# BoxBackup Client Configuration (bbackupd.conf)
+# ==============================================================================
+# This template configures the BoxBackup client daemon (bbackupd).
+# It defines what to back up, how often to scan, where to send data,
+# and operational parameters like logging and encryption.
+#
+# Self-documented: every directive is preceded by a comment explaining
+# its purpose, derived from the Ansible role schema.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Backup Location Block
+# Defines the local directory to scan for changes and backup.
+# ------------------------------------------------------------------------------
+{% if backup_location is defined and backup_location is mapping %}
+# BackupLocation: Local directory to back up and associated options
+BackupLocation {
+  # Path = The root directory to monitor for changes
+  Path = {{ (backup_location.path | default(None)) | default('') }}
+
+  # MaxFilesize = Maximum size of a single file to back up (in bytes).
+  # Files larger than this will be skipped. Set to 0 for unlimited.
+  MaxFilesize = {{ (backup_location.max_filesize | default(0)) | default('0') }}
+
+  # SkipPattern = Shell-style wildcard patterns for files to ignore (case-sensitive).
+  # One per line.
+{% if backup_location.skip_patterns is defined and backup_location.skip_patterns is iterable %}
+{% for pattern in backup_location.skip_patterns %}
+  SkipPattern = {{ pattern }}
+{% endfor %}
+{% endif %}
+
+  # SkipXAttr = Extended attributes to skip if supported by the filesystem.
+  # One per line. Leave empty if none.
+{% if backup_location.skip_xattrs is defined and backup_location.skip_xattrs is iterable %}
+{% for attr in backup_location.skip_xattrs %}
+  SkipXAttr = {{ attr }}
+{% endfor %}
+{% endif %}
+}
+{% else %}
+# BackupLocation is not defined or is not a mapping; skipping block.
+# Ensure backup_location is defined in vars if you need this section.
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Scan Interval
+# Seconds between scans for file changes.
+# Minimum recommended: 60 seconds to avoid excessive disk I/O.
+# ------------------------------------------------------------------------------
+ScanInterval = {{ scan_interval | default(300) }}
+
+# ------------------------------------------------------------------------------
+# Auto Upload
+# If true, automatically upload changes as soon as they are detected.
+# If false, changes must be triggered manually or by an external mechanism.
+# ------------------------------------------------------------------------------
+AutoUpload = {{ auto_upload | default(true) }}
+
+# ------------------------------------------------------------------------------
+# Max Upload Rate
+# Maximum bytes per second to upload.
+# Set to 0 for unlimited (no throttling).
+# ------------------------------------------------------------------------------
+MaxUploadRate = {{ max_upload_rate | default(0) }}
+
+# ------------------------------------------------------------------------------
+# Server Configuration Block
+# BoxBackup server connection details.
+# ------------------------------------------------------------------------------
+{% if server is defined and server is mapping %}
+Server {
+  # Address = Hostname or IP of the BoxBackup store server.
+  Address = {{ server.address | default('') }}
+
+  # Port = Port used for backup protocol (default 10025).
+  Port = {{ server.port | default(10025) }}
+
+  # CertificateFile = Path to the certificate used to verify the server (PEM format).
+  # Required if server uses SSL/TLS (recommended).
+  CertificateFile = {{ server.certificate_file | default('') }}
+
+  # StorePublicKeyFile = Path to the RSA public key file of the store.
+  # Used to encrypt upload data; required if Encrypted is true.
+  StorePublicKeyFile = {{ server.store_public_key_file | default('') }}
+}
+{% else %}
+# Server configuration is not defined.
+# BoxBackup requires server details. Ensure 'server' variable is populated.
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Account Number
+# Account identifier assigned by the BoxBackup store admin.
+# Must match the server's configuration for this client.
+# ------------------------------------------------------------------------------
+AccountNumber = {{ account_number | default('00000001') }}
+
+# ------------------------------------------------------------------------------
+# PID File
+# Path to write the daemon PID file for process management.
+# ------------------------------------------------------------------------------
+PIDFile = {{ pid_file | default('/var/run/bbackupd.pid') }}
+
+# ------------------------------------------------------------------------------
+# Log File
+# Path to the log file. Use '-' to log to stdout.
+# ------------------------------------------------------------------------------
+LogFile = {{ log_file | default('/var/log/boxbackup/bbackupd.log') }}
+
+# ------------------------------------------------------------------------------
+# Log Verbosity
+# Logging verbosity level:
+#   0 = errors only
+#   1 = normal
+#   2 = verbose
+#   3 = debug (may expose sensitive paths)
+# ------------------------------------------------------------------------------
+LogVerbosity = {{ log_verbosity | default(1) }}
+
+# ------------------------------------------------------------------------------
+# Encrypted
+# Enable client-side encryption before upload.
+# Requires store public key and client private key to be configured.
+# ------------------------------------------------------------------------------
+Encrypted = {{ encrypted | default(true) }}
+
+# ------------------------------------------------------------------------------
+# Warning Age
+# If last backup is older than this many days, issue a warning.
+# Set to 0 to disable age-based alerts.
+# ------------------------------------------------------------------------------
+WarningAge = {{ warning_age | default(7) }}
+
+# ------------------------------------------------------------------------------
+# Post Backup Command
+# Optional shell command to run after each successful backup.
+# (e.g., send notification, update status files).
+# Leave empty to disable.
+# ------------------------------------------------------------------------------
+{% if post_backup_command is defined and post_backup_command | trim != '' %}
+AfterBackupCommand = {{ post_backup_command | default('') }}
+{% else %}
+# AfterBackupCommand is disabled (empty or not defined).
+# AfterBackupCommand =
+{% endif %}

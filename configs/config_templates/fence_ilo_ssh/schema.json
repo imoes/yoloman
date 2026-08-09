@@ -1,0 +1,112 @@
+{
+  "ilo_host": {
+    "type": "string",
+    "default": "",
+    "description": "Primary HP iLO hostname or IP address (required for basic operation)"
+  },
+  "ilo_user": {
+    "type": "string",
+    "default": "",
+    "description": "iLO user account with remote power control privileges (e.g., 'Administrator')"
+  },
+  "ilo_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the iLO user (preferably managed by a secrets backend in production)",
+    "sensitive": true
+  },
+  "ssh_port": {
+    "type": "number",
+    "default": 22,
+    "description": "SSH port on the iLO interface (typically 22)"
+  },
+  "ssh_timeout": {
+    "type": "number",
+    "default": 10,
+    "description": "SSH connection timeout in seconds"
+  },
+  "ilo_proxy_host": {
+    "type": "string",
+    "default": "",
+    "description": "Optional proxy/bastion host to tunnel SSH connections (e.g., 'bastion.example.com')"
+  },
+  "ilo_proxy_user": {
+    "type": "string",
+    "default": "",
+    "description": "User for the SSH proxy host (if used)"
+  },
+  "ilo_proxy_password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the SSH proxy user (if used)",
+    "sensitive": true
+  },
+  "ssh_options": {
+    "type": "string",
+    "default": "-o StrictHostKeyChecking=no",
+    "description": "Extra SSH command-line options (e.g., '-i /path/to/key -o ServerAliveInterval=30')"
+  },
+  "fence_cmd_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Optional command prefix before the actual fencing command (e.g., 'sudo -n')"
+  },
+  "power_timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (seconds) to wait for a power operation to complete"
+  },
+  "retry_count": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retry attempts for failed power operations"
+  },
+  "retry_sleep": {
+    "type": "number",
+    "default": 5,
+    "description": "Seconds to wait between retries"
+  },
+  "verbose": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug"
+  },
+  "secure_power_check": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to query hardware power state before executing commands (prevents duplicate actions)"
+  },
+  "ilo_hosts": {
+    "type": "list",
+    "default": [],
+    "description": "List of alternate iLO endpoints for redundancy (e.g., secondary iLO in a dual-socket server)",
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Alternate iLO hostname or IP"
+      },
+      "user": {
+        "type": "string",
+        "default": "",
+        "description": "iLO username (optional; defaults to primary user if omitted)"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "iLO password (optional; defaults to primary password if omitted)",
+        "sensitive": true
+      },
+      "ssh_port": {
+        "type": "number",
+        "default": 22,
+        "description": "SSH port for this alternate host (optional)"
+      },
+      "ssh_timeout": {
+        "type": "number",
+        "default": 10,
+        "description": "SSH timeout for this alternate host (optional)"
+      }
+    }
+  }
+}

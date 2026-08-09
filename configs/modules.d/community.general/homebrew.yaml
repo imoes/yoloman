@@ -1,0 +1,71 @@
+name: homebrew
+fqcn: community.general.homebrew
+collection: community.general
+short_description: Package manager for Homebrew
+description: Manages Homebrew packages
+options:
+  install_options:
+    type: list
+    aliases:
+    - options
+    description: options flags to install a package.
+  name:
+    type: list
+    aliases:
+    - formula
+    - package
+    - pkg
+    description: A list of names of packages to install/remove.
+  path:
+    type: path
+    default: /usr/local/bin:/opt/homebrew/bin:/home/linuxbrew/.linuxbrew/bin
+    description: A V(:) separated list of paths to search for C(brew) executable. Since a package (I(formula)
+      in homebrew parlance) location is prefixed relative to the actual path of C(brew) command, providing
+      an alternative C(brew) path enables managing different set of packages in an alternative location
+      in the system.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - head
+    - installed
+    - latest
+    - linked
+    - present
+    - removed
+    - uninstalled
+    - unlinked
+    - upgraded
+    description: state of the package.
+  update_homebrew:
+    type: bool
+    default: false
+    description: update homebrew itself first.
+  upgrade_all:
+    type: bool
+    default: false
+    aliases:
+    - upgrade
+    description: upgrade all homebrew packages.
+  upgrade_options:
+    type: list
+    description: Option flags to upgrade.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n# Install formula foo with 'brew' in default path\n- community.general.homebrew:\n    name:\
+  \ foo\n    state: present\n\n# Install formula foo with 'brew' in alternate path (/my/other/location/bin)\n\
+  - community.general.homebrew:\n    name: foo\n    path: /my/other/location/bin\n    state: present\n\
+  \n# Update homebrew first and install formula foo with 'brew' in default path\n- community.general.homebrew:\n\
+  \    name: foo\n    state: present\n    update_homebrew: true\n\n# Update homebrew first and upgrade\
+  \ formula foo to latest available with 'brew' in default path\n- community.general.homebrew:\n    name:\
+  \ foo\n    state: latest\n    update_homebrew: true\n\n# Update homebrew and upgrade all packages\n\
+  - community.general.homebrew:\n    update_homebrew: true\n    upgrade_all: true\n\n# Miscellaneous other\
+  \ examples\n- community.general.homebrew:\n    name: foo\n    state: head\n\n- community.general.homebrew:\n\
+  \    name: foo\n    state: linked\n\n- community.general.homebrew:\n    name: foo\n    state: absent\n\
+  \n- community.general.homebrew:\n    name: foo,bar\n    state: absent\n\n- community.general.homebrew:\n\
+  \    name: foo\n    state: present\n    install_options: with-baz,enable-debug\n\n- name: Install formula\
+  \ foo with 'brew' from cask\n  community.general.homebrew:\n    name: homebrew/cask/foo\n    state:\
+  \ present\n\n- name: Use ignore-pinned option while upgrading all\n  community.general.homebrew:\n \
+  \   upgrade_all: true\n    upgrade_options: ignore-pinned\n"

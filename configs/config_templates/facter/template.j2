@@ -1,0 +1,28 @@
+{# Facter configuration file in HOCON format #}
+{# This file configures the 'facter' tool, which collects system facts #}
+{# for configuration management systems like Puppet. #}
+{# Global settings block. #}
+global : {
+  # The output format for facts. Supported values are 'json', 'hash', 'simple'.
+  # Default: json
+  output-format : {{ type | default('json') | lower }},
+
+  # A brief description of the configuration scope.
+  # Default: '' (empty)
+  description : "{{ description | default('') | string }}"
+
+{# External directory containing custom Facter facts (.rb or .js files). #}
+# If provided, Facter will load facts from this directory in addition to
+# the default locations.
+{%- if external_dir is defined %}
+  ,
+  external-dir : "{{ external_dir | default('') | string }}"
+{%- endif %}
+
+{# Custom directory containing additional Facter facts. #}
+# This allows users to place custom fact files in a specific path.
+{%- if custom_dir is defined %}
+  ,
+  custom-dir : "{{ custom_dir | default('') | string }}"
+{%- endif %}
+}

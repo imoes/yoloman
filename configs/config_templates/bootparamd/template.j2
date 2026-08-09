@@ -1,0 +1,59 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:          bootparamd
+# Required-Start:    $remote_fs $syslog
+# Required-Stop:     $remote_fs $syslog
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: {{ "Startup script for " + (DESC | default('boot parameter server')) }}
+### END INIT INFO
+#
+#		Modified for bootparamd by Herbert Xu <herbert@debian.org>
+#		Written by Miquel van Smoorenburg <miquels@cistron.nl>.
+#		Modified for Debian GNU/Linux
+#		by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+#
+# Version:	$$Id: bootparamd.init,v 1.3 2002/10/05 07:43:06 herbert Exp $
+#
+
+# Path to the bootparamd daemon executable.
+DAEMON={{ DAEMON | default('/usr/sbin/rpc.bootparamd') }}
+
+# Service name (used for PID files, log messages, and init.d symlink name).
+NAME={{ NAME | default('bootparamd') }}
+
+# Human-readable description of the service.
+DESC="{{ DESC | default('boot parameter server') }}"
+
+test -f $DAEMON || exit 0
+
+set -e
+
+. /lib/lsb/init-functions
+
+case "$1" in
+  start)
+	echo -n "Starting $DESC: "
+	start-stop-daemon --start --quiet --exec $DAEMON -- -s
+	echo "$NAME."
+	;;
+  stop)
+	echo -n "Stopping $DESC: "
+	start-stop-daemon --oknodo --stop --quiet --exec $DAEMON
+	echo "$NAME."
+	;;
+  restart|force-reload)
+	echo -n "Restarting $DESC: "
+	start-stop-daemon --oknodo --stop --quiet --exec $DAEMON
+	sleep 1
+	start-stop-daemon --start --quiet --exec $DAEMON -- -s
+	echo "$NAME."
+	;;
+  *)
+	N=/etc/init.d/$NAME
+	echo "Usage: $N {start|stop|restart|force-reload}" >&2
+	exit 1
+	;;
+esac
+
+exit 0

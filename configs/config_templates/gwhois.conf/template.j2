@@ -1,0 +1,54 @@
+[general]
+# Default domain used for internal reference when no specific domain context is available.
+base_domain = {{ base_domain | default('localhost') }}
+
+# Verbosity of logging; recommended values: debug, info, warning, error.
+log_level = {{ log_level | default('info') | lower }}
+
+# Path to a log file. Leave empty to log to stderr instead.
+log_file = {{ log_file | default('') }}
+
+[server]
+# Default WHOIS server hostname used for queries without domain-specific overrides.
+server_host = {{ server_host | default('whois.internic.net') }}
+
+# Port number on which the WHOIS server listens (standard is 43).
+server_port = {{ server_port | default(43) }}
+
+# Maximum seconds to wait for connection before timing out.
+connect_timeout = {{ connect_timeout | default(10) | int }}
+
+# Whether to attempt IPv6 connections to WHOIS servers when available.
+ipv6_enabled = {{ ipv6_enabled | default(False) | lower }}
+
+[cache]
+# Enable caching of repeated queries for improved performance and reduced server load.
+enabled = {{ cache_enabled | default(True) | lower }}
+
+# Directory path where cached WHOIS responses will be stored.
+dir = {{ cache_dir | default('/var/cache/gwhois') }}
+
+# Time-to-live for cached entries, in seconds. Entries older than this will be refreshed.
+ttl = {{ cache_ttl | default(3600) | int }}
+
+# Maximum number of entries allowed in the cache.
+max_entries = {{ cache_max_entries | default(1000) | int }}
+
+{% if response_rules is defined and response_rules %}
+{% for rule in response_rules %}
+# Rule {{ loop.index }}: domain-specific override rule for custom WHOIS server targeting.
+[rule:{{ (rule.name | default('default')) | replace(' ', '_') }}]
+# Pattern to match incoming queries against.
+pattern = {{ rule.pattern | default('*') }}
+# Custom WHOIS server hostname for this rule.
+server_host = {{ rule.server_host | default('') }}
+{% if rule.server_port is defined and rule.server_port is not none %}
+# Custom WHOIS server port for this rule.
+server_port = {{ rule.server_port | default(43) }}
+{% endif %}
+{% if rule.timeout is defined and rule.timeout is not none %}
+# Custom connection timeout for this rule (seconds).
+timeout = {{ rule.timeout | default(10) }}
+{% endif %}
+{% endfor %}
+{% endif %}

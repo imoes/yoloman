@@ -1,0 +1,272 @@
+{#
+  appstream-generator configuration file (asgen-config.json)
+  This template generates a JSON configuration for the appstream-generator tool.
+  It iterates over distribution suites, handles media/font settings, metadata,
+  and hints for finding system metadata sources.
+#}
+{
+  {# Name of the distribution (e.g., 'Debian', 'Ubuntu') #}
+  "distro-name": "{{ distro_name | default('') }}",
+
+  {# List of distribution suites (releases) to process; each suite corresponds
+     to a distinct repository configuration (e.g., 'bullseye', 'focal') #}
+  "suites": [
+    {% for suite in (suites | default([])) %}
+    {
+      {# Suite name (e.g., 'bullseye', 'focal') #}
+      "name": "{{ suite.name | default('') }}",
+      {# APT section for package filtering (e.g., 'main', 'contrib', 'non-free') #}
+      "section": "{{ suite.section | default('main') }}",
+      {# Component to process (e.g., 'main', 'contrib', 'non-free') #}
+      "component": "{{ suite.component | default('main') }}",
+      {# Origin label for the suite #}
+      "origin": "{{ suite.origin | default('') }}",
+      {# Label for the suite #}
+      "label": "{{ suite.label | default('') }}",
+      {# List of architectures to process (e.g., ['amd64', 'arm64']) #}
+      "architectures": [{{ suite.architectures | default([]) | join(", ") }}],
+      {# List of components to include in this suite #}
+      "components": [{{ suite.components | default([]) | join(", ") }}],
+      {# APT indices to use (e.g., ['Packages', 'Sources']) #}
+      "indices": [{{ suite.indices | default([]) | join(", ") }}],
+      {# Primary source index file name (e.g., 'Sources') #}
+      "source-index": "{{ suite.source_index | default('') }}",
+      {# List of source index file names #}
+      "source-indices": [{{ suite.source_indices | default([]) | join(", ") }}],
+      {# Additional component names to include #}
+      "components-include": [{{ suite.components_include | default([]) | join(", ") }}],
+      {# Component names to exclude #}
+      "components-exclude": [{{ suite.components_exclude | default([]) | join(", ") }}],
+      {# Packages to include exclusively #}
+      "package-include": [{{ suite.package_include | default([]) | join(", ") }}],
+      {# Packages to exclude #}
+      "package-exclude": [{{ suite.package_exclude | default([]) | join(", ") }}],
+      {# Override source URIs for this suite #}
+      "sources": [{{ suite.sources | default([]) | join(", ") }}],
+      {# Override source URIs for source packages #}
+      "source-sources": [{{ suite.source_sources | default([]) | join(", ") }}],
+      {# APT architectures list (overrides defaults) #}
+      "apt-architectures": [{{ suite.apt_architectures | default([]) | join(", ") }}],
+      {# Architectures to include #}
+      "apt-architectures-include": [{{ suite.apt_architectures_include | default([]) | join(", ") }}],
+      {# Architectures to exclude #}
+      "apt-architectures-exclude": [{{ suite.apt_architectures_exclude | default([]) | join(", ") }}],
+      {# Only these architectures (exclusive list) #}
+      "apt-architectures-only": [{{ suite.apt_architectures_only | default([]) | join(", ") }}],
+      {# Custom APT cache locations #}
+      "apt-caches": [{{ suite.apt_caches | default([]) | join(", ") }}],
+      {# Paths to APT trusted key files #}
+      "apt-keys": [{{ suite.apt_keys | default([]) | join(", ") }}],
+      {# Path to /etc/apt/sources.list file #}
+      "apt-sources-list": "{{ suite.apt_sources_list | default('') }}",
+      {# Path to /etc/apt/sources.list.d/ (overrides default) #}
+      "apt-sources-list-available": "{{ suite.apt_sources_list_available | default('') }}",
+      {# Whether to trust APT repositories by default #}
+      "apt-trusted": {{ suite.apt_trusted | default(true) }},
+      {# Enable APT SecureApt checks #}
+      "apt-secure": {{ suite.apt_secure | default(true) }},
+      {# Default APT download method (http, https, ftp, file) #}
+      "apt-method": "{{ suite.apt_method | default('http') }}",
+      {# Username for authenticated APT access #}
+      "apt-user": "{{ suite.apt_user | default('') }}",
+      {# Password for authenticated APT access (insecure for production; prefer keyring) #}
+      "apt-password": "{{ suite.apt_password | default('') }}",
+      {# Generic APT proxy URL #}
+      "apt-proxy": "{{ suite.apt_proxy | default('') }}",
+      {# HTTPS-specific APT proxy #}
+      "apt-https-proxy": "{{ suite.apt_https_proxy | default('') }}",
+      {# HTTP-specific APT proxy #}
+      "apt-http-proxy": "{{ suite.apt_http_proxy | default('') }}",
+      {# FTP-specific APT proxy #}
+      "apt-ftp-proxy": "{{ suite.apt_ftp_proxy | default('') }}",
+      {# File-based APT proxy #}
+      "apt-file-proxy": "{{ suite.apt_file_proxy | default('') }}",
+      {# Ignore stale APT caches #}
+      "apt-dirty-ignore": {{ suite.apt_dirty_ignore | default(false) }},
+      {# Allow insecure (non-HTTPS) repositories #}
+      "apt-allow-insecure": {{ suite.apt_allow_insecure | default(false) }},
+      {# Allow weak cryptographic hashes #}
+      "apt-allow-weak": {{ suite.apt_allow_weak | default(false) }},
+      {# Allow release info changes (e.g., codename changes) #}
+      "apt-allow-releaseinfo-change": {{ suite.apt_allow_releaseinfo_change | default(false) }},
+      {# Run apt-get update before processing #}
+      "apt-update": {{ suite.apt_update | default(true) }},
+      {# Run apt-get upgrade before processing #}
+      "apt-upgrade": {{ suite.apt_upgrade | default(false) }},
+      {# Run apt-get dist-upgrade before processing #}
+      "apt-dist-upgrade": {{ suite.apt_dist_upgrade | default(false) }},
+      {# Run apt-get full-upgrade before processing #}
+      "apt-full-upgrade": {{ suite.apt_full_upgrade | default(false) }},
+      {# Directory containing additional sources.list.d entries #}
+      "apt-sources-d": "{{ suite.apt_sources_d | default('/etc/apt/sources.list.d/') }}",
+      {# Directory for trusted GPG key files #}
+      "apt-trusted-gpg-d": "{{ suite.apt_trusted_gpg_d | default('/etc/apt/trusted.gpg.d/') }}",
+      {# Directory where keys are stored during runtime #}
+      "apt-keys-dir": "{{ suite.apt_keys_dir | default('/etc/apt/trusted.gpg.d/') }}",
+      {# File mode (octal string) for apt_keys_dir #}
+      "apt-keys-dir-mode": "{{ suite.apt_keys_dir_mode | default('0755') }}",
+      {# Owner name for apt_keys_dir #}
+      "apt-keys-dir-owner": "{{ suite.apt_keys_dir_owner | default('root') }}",
+      {# Group for apt_keys_dir #}
+      "apt-keys-dir-group": "{{ suite.apt_keys_dir_group | default('root') }}",
+      {# File permissions for apt_keys_dir (octal string) #}
+      "apt-keys-dir-perm": "{{ suite.apt_keys_dir_perm | default('0755') }}",
+      {# Owner UID for apt_keys_dir #}
+      "apt-keys-dir-owner-uid": {{ suite.apt_keys_dir_owner_uid | default(0) }},
+      {# Group GID for apt_keys_dir #}
+      "apt-keys-dir-group-gid": {{ suite.apt_keys_dir_group_gid | default(0) }},
+      {# SELinux context for apt_keys_dir #}
+      "apt-keys-dir-selinux": "{{ suite.apt_keys_dir_selinux | default('') }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ],
+
+  {# Base output directory for generated AppStream files #}
+  "output-dir": "{{ output_dir | default('/var/cache/appstream') }}",
+  {# Directory to export final AppStream files and reports #}
+  "export-dir": "{{ export_dir | default('/srv/appstream') }}",
+  {# Directory to store runtime cache (screenshots, scaled images) #}
+  "cache-dir": "{{ cache_dir | default('/var/cache/appstream') }}",
+  {# Temporary directory for transient processing #}
+  "temp-dir": "{{ temp_dir | default('/tmp/appstream') }}",
+  {# Directory for generated reports (HTML, JSON) #}
+  "report-dir": "{{ report_dir | default('/var/log/appstream') }}",
+
+  {# Public base URL where media files (screenshots, icons) are hosted #}
+  "media-base-url": "{{ media_base_url | default('') }}",
+  {# Relative path under media_base_url where media files are stored #}
+  "media-path": "{{ media_path | default('media') }}",
+  {# Whether to remove obsolete media files during cleanup #}
+  "media-cleanup": {{ media_cleanup | default(true) }},
+
+  {# Whether to render desktop icons with fonts embedded #}
+  "font-rendering": {{ font_rendering | default(true) }},
+  {# Font size (pixels) used in icon rendering #}
+  "font-size": {{ font_size | default(14) }},
+  {# Font family name for icon rendering (e.g., 'sans-serif', 'serif') #}
+  "font-family": "{{ font_family | default('sans-serif') }}",
+  {# Font color in hex RGB format #}
+  "font-color": "{{ font_color | default('#000000') }}",
+  {# Background color in hex RGB format #}
+  "font-background": "{{ font_background | default('#ffffff') }}",
+  {# Image format for font-rendered icons #}
+  "font-format": "{{ font_format | default('png') }}",
+  {# Dots per inch for font rendering #}
+  "font-dpi": {{ font_dpi | default(96) }},
+  {# Enable font antialiasing #}
+  "font-antialias": {{ font_antialias | default(true) }},
+
+  {# Whether to scale icons and media to required sizes #}
+  "image-scaling": {{ image_scaling | default(true) }},
+  {# List of target image sizes (pixels) to generate #}
+  "image-sizes": [{{ image_sizes | default([128, 256, 512]) | join(", ") }}],
+  {# Image format for scaled icons and screenshots #}
+  "image-format": "{{ image_format | default('png') }}",
+  {# JPEG/WEBP compression quality (0–100) #}
+  "image-quality": {{ image_quality | default(90) }},
+
+  {# Whether to remove stale screenshots from cache #}
+  "screenshot-cleanup": {{ screenshot_cleanup | default(true) }},
+  {# Default screenshot width/height (pixels) #}
+  "screenshot-size": {{ screenshot_size | default(640) }},
+  {# Maximum screenshot width (pixels) #}
+  "screenshot-max-width": {{ screenshot_max_width | default(1280) }},
+  {# Maximum screenshot height (pixels) #}
+  "screenshot-max-height": {{ screenshot_max_height | default(800) }},
+
+  {# Component types to include (e.g., 'desktop', 'font') #}
+  "component-include": [{{ component_include | default([]) | join(", ") }}],
+  {# Component types to exclude #}
+  "component-exclude": [{{ component_exclude | default([]) | join(", ") }}],
+  {# Package names to include (exact match) #}
+  "package-include": [{{ package_include | default([]) | join(", ") }}],
+  {# Package names to exclude (exact match) #}
+  "package-exclude": [{{ package_exclude | default([]) | join(", ") }}],
+
+  {# Output format for metadata ('yaml' or 'xml') #}
+  "format": "{{ format | default('yaml') }}",
+  {# AppStream metadata version #}
+  "version": "{{ version | default('1.0') }}",
+
+  {# Enable verbose logging #}
+  "verbose": {{ verbose | default(false) }},
+  {# Enable debug output #}
+  "debug": {{ debug | default(false) }},
+
+  {# Enable caching of processed media and metadata #}
+  "cache-enabled": {{ cache_enabled | default(true) }},
+  {# Number of days to retain cache before cleanup #}
+  "cache-expire-days": {{ cache_expire_days | default(30) }},
+
+  {# Number of worker threads (0 = auto-detect) #}
+  "threads": {{ threads | default(0) }},
+
+  {# Global metadata hints (override per-distro defaults); used only if provided #}
+  "metadata": {
+    {# Website URL for the distribution #}
+    "website": "{{ ((metadata | default({})).website | default('')) }}",
+    {# Contact email or URL #}
+    "contact": "{{ ((metadata | default({})).contact | default('')) }}",
+    {# FAQ URL #}
+    "faq": "{{ ((metadata | default({})).faq | default('')) }}",
+    {# Donation page URL #}
+    "donation": "{{ ((metadata | default({})).donation | default('')) }}",
+    {# Translation project URL (e.g., Launchpad, Weblate) #}
+    "translation": "{{ ((metadata | default({})).translation | default('')) }}",
+    {# List of translation entries; each must include 'lang' and 'url' #}
+    "translations": [
+      {% for trans in ((metadata | default({})).translations | default([])) %}
+      {
+        "lang": "{{ trans.lang | default('') }}",
+        "url": "{{ trans.url | default('') }}"
+      }{% if not loop.last %},{% endif %}
+      {% endfor %}
+    ]
+  },
+
+  {# Build-time metadata; usually auto-populated; only override if needed #}
+  "build-info": {
+    {# ISO 8601 timestamp of build (e.g., '2025-06-25T12:00:00Z') #}
+    "timestamp": "{{ ((build_info | default({})).timestamp | default('')) }}",
+    {# Version of appstream-generator used #}
+    "generator-version": "{{ ((build_info | default({})).generator_version | default('')) }}"
+  },
+
+  {# Paths and hints for finding system metadata (desktop, metainfo, icons, fonts, MIME) #}
+  "hints": {
+    {# Directory containing .desktop files #}
+    "desktop-file-dir": "{{ ((hints | default({})).desktop_file_dir | default('/usr/share/applications')) }}",
+    {# Directory containing .metainfo.xml files #}
+    "metainfo-dir": "{{ ((hints | default({})).metainfo_dir | default('/usr/share/metainfo')) }}",
+    {# Top-level directory for icon themes #}
+    "icon-theme-dir": "{{ ((hints | default({})).icon_theme_dir | default('/usr/share/icons')) }}",
+    {# Top-level directory for font files #}
+    "font-dir": "{{ ((hints | default({})).font_dir | default('/usr/share/fonts')) }}",
+    {# MIME information file path #}
+    "mime-info-file": "{{ ((hints | default({})).mime_info_file | default('/usr/share/mime/packages/freedesktop.org.xml')) }}",
+    {# Merge .desktop metadata into AppData #}
+    "appdata-merge": {{ ((hints | default({})).appdata_merge | default(true)) }},
+    {# Merge .desktop metadata into AppStream components #}
+    "desktop-merge": {{ ((hints | default({})).desktop_merge | default(true)) }},
+    {# Create symlinks for icon cache #}
+    "icon-symlink": {{ ((hints | default({})).icon_symlink | default(true)) }},
+    {# Clean up stale icon symlinks #}
+    "icon-cleanup": {{ ((hints | default({})).icon_cleanup | default(true)) }},
+    {# Update font caches #}
+    "font-cache": {{ ((hints | default({})).font_cache | default(true)) }},
+    {# Update MIME database #}
+    "mime-cache": {{ ((hints | default({})).mime_cache | default(true)) }},
+    {# Skip icon theme processing #}
+    "icon-theme-skip": {{ ((hints | default({})).icon_theme_skip | default(false)) }},
+    {# Skip metainfo file processing #}
+    "metainfo-skip": {{ ((hints | default({})).metainfo_skip | default(false)) }},
+    {# Skip .desktop file processing #}
+    "desktop-skip": {{ ((hints | default({})).desktop_skip | default(false)) }},
+    {# Skip font processing #}
+    "font-skip": {{ ((hints | default({})).font_skip | default(false)) }},
+    {# Skip MIME processing #}
+    "mime-skip": {{ ((hints | default({})).mime_skip | default(false)) }},
+    {# Skip icon processing #}
+    "icon-skip": {{ ((hints | default({})).icon_skip | default(false)) }}
+  }
+}

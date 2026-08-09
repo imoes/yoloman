@@ -1,0 +1,72 @@
+{
+  "log_level": "2 0,2 0,2 0,2 0",
+  "unique_ids": true,
+  "connections": [
+    {
+      "name": "office-to-branch",
+      "type": "tunnel",
+      "ike_version": "ikev2",
+      "esp": [
+        "aes256gcm16-sha256-modp2048"
+      ],
+      "ike": [
+        "aes256-sha256-modp2048"
+      ],
+      "auth_method": "pubkey",
+      "left": {
+        "type": "host",
+        "value": "192.0.2.1",
+        "id": "vpn.office.example.com",
+        "subnet": [
+          "10.10.0.0/16"
+        ],
+        "cert": "office-vpn.crt"
+      },
+      "right": {
+        "type": "host",
+        "value": "198.51.100.10",
+        "id": "vpn.branch.example.com",
+        "subnet": [
+          "10.20.0.0/16"
+        ],
+        "certificate": "branch-vpn.crt"
+      },
+      "life_seconds": 7200,
+      "life_kb": 5000000,
+      "auto": "start",
+      "pfs_group": "modp2048",
+      "comments": [
+        "Primary site-to-site tunnel",
+        "Uses IKEv2 with AES-GCM"
+      ]
+    },
+    {
+      "name": "mobile-vpn",
+      "type": "tunnel",
+      "ike_version": "ikev2",
+      "esp": [
+        "aes256-sha256-modp3072"
+      ],
+      "ike": [
+        "aes256-sha256-modp3072"
+      ],
+      "auth_method": "psk",
+      "left": {
+        "type": "%defaultroute",
+        "subnet": [
+          "10.10.0.0/16"
+        ]
+      },
+      "right": {
+        "type": "%any",
+        "id": "%any"
+      },
+      "life_seconds": 3600,
+      "auto": "start",
+      "comments": [
+        "Mobile client access",
+        "PSK-based authentication"
+      ]
+    }
+  ]
+}

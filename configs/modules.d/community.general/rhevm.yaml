@@ -1,0 +1,146 @@
+name: rhevm
+fqcn: community.general.rhevm
+collection: community.general
+short_description: RHEV/oVirt automation
+description: This module only supports oVirt/RHEV version 3. A newer module M(ovirt.ovirt.ovirt_vm) supports
+  oVirt/RHV version 4. Allows you to create/remove/update or powermanage virtual machines on a RHEV/oVirt
+  platform.
+options:
+  boot_order:
+    type: list
+    default:
+    - hd
+    - network
+    description: This option uses complex arguments and is a list of items that specify the bootorder.
+  cd_drive:
+    type: str
+    description: The CD you wish to have mounted on the VM when O(state=cd).
+  cluster:
+    type: str
+    default: ''
+    description: The RHEV/oVirt cluster in which you want you VM to start.
+  cpu_share:
+    type: int
+    default: 0
+    description: This parameter is used to configure the CPU share.
+  datacenter:
+    type: str
+    default: Default
+    description: The RHEV/oVirt datacenter in which you want you VM to start.
+  del_prot:
+    type: bool
+    default: true
+    description: This option sets the delete protection checkbox.
+  disks:
+    type: list
+    description: This option uses complex arguments and is a list of disks with the options name, size
+      and domain.
+  ifaces:
+    type: list
+    aliases:
+    - interfaces
+    - nics
+    description: This option uses complex arguments and is a list of interfaces with the options name
+      and vlan.
+  image:
+    type: str
+    description: The template to use for the VM.
+  insecure_api:
+    type: bool
+    default: false
+    description: A boolean switch to make a secure or insecure connection to the server.
+  mempol:
+    type: int
+    default: 1
+    description: The minimum amount of memory you wish to reserve for this system.
+  name:
+    type: str
+    description: The name of the VM.
+  osver:
+    type: str
+    default: rhel_6x64
+    description: The operating system option in RHEV/oVirt.
+  password:
+    type: str
+    required: true
+    description: The password for user authentication.
+  port:
+    type: int
+    default: 443
+    description: The port on which the API is reachable.
+  server:
+    type: str
+    default: 127.0.0.1
+    description: The name/IP of your RHEV-m/oVirt instance.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - cd
+    - down
+    - info
+    - ping
+    - present
+    - restarted
+    - up
+    description: This serves to create/remove/update or powermanage your VM.
+  timeout:
+    type: int
+    description: The timeout you wish to define for power actions. When O(state=up). When O(state=down).
+      When O(state=restarted).
+  type:
+    type: str
+    default: server
+    choices:
+    - desktop
+    - host
+    - server
+    description: To define if the VM is a server or desktop.
+  user:
+    type: str
+    default: admin@internal
+    description: The user to authenticate with.
+  vm_ha:
+    type: bool
+    default: true
+    description: To make your VM High Available.
+  vmcpu:
+    type: int
+    default: 2
+    description: The number of CPUs you want in your VM.
+  vmhost:
+    type: str
+    description: The host you wish your VM to run on.
+  vmmem:
+    type: int
+    default: 1
+    description: The amount of memory you want your VM to use (in GB).
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Basic get info from VM\n  community.general.rhevm:\n    server: rhevm01\n    user:\
+  \ '{{ rhev.admin.name }}'\n    password: '{{ rhev.admin.pass }}'\n    name: demo\n    state: info\n\n\
+  - name: Basic create example from image\n  community.general.rhevm:\n    server: rhevm01\n    user:\
+  \ '{{ rhev.admin.name }}'\n    password: '{{ rhev.admin.pass }}'\n    name: demo\n    cluster: centos\n\
+  \    image: centos7_x64\n    state: present\n\n- name: Power management\n  community.general.rhevm:\n\
+  \    server: rhevm01\n    user: '{{ rhev.admin.name }}'\n    password: '{{ rhev.admin.pass }}'\n   \
+  \ cluster: RH\n    name: uptime_server\n    image: centos7_x64\n    state: down\n\n- name: Multi disk,\
+  \ multi nic create example\n  community.general.rhevm:\n    server: rhevm01\n    user: '{{ rhev.admin.name\
+  \ }}'\n    password: '{{ rhev.admin.pass }}'\n    cluster: RH\n    name: server007\n    type: server\n\
+  \    vmcpu: 4\n    vmmem: 2\n    ifaces:\n    - name: eth0\n      vlan: vlan2202\n    - name: eth1\n\
+  \      vlan: vlan36\n    - name: eth2\n      vlan: vlan38\n    - name: eth3\n      vlan: vlan2202\n\
+  \    disks:\n    - name: root\n      size: 10\n      domain: ssd-san\n    - name: swap\n      size:\
+  \ 10\n      domain: 15kiscsi-san\n    - name: opt\n      size: 10\n      domain: 15kiscsi-san\n    -\
+  \ name: var\n      size: 10\n      domain: 10kiscsi-san\n    - name: home\n      size: 10\n      domain:\
+  \ sata-san\n    boot_order:\n    - network\n    - hd\n    state: present\n\n- name: Add a CD to the\
+  \ disk cd_drive\n  community.general.rhevm:\n    user: '{{ rhev.admin.name }}'\n    password: '{{ rhev.admin.pass\
+  \ }}'\n    name: server007\n    cd_drive: rhev-tools-setup.iso\n    state: cd\n\n- name: New host deployment\
+  \ + host network configuration\n  community.general.rhevm:\n    password: '{{ rhevm.admin.pass }}'\n\
+  \    name: ovirt_node007\n    type: host\n    cluster: rhevm01\n    ifaces:\n    - name: em1\n    -\
+  \ name: em2\n    - name: p3p1\n      ip: 172.31.224.200\n      netmask: 255.255.254.0\n    - name: p3p2\n\
+  \      ip: 172.31.225.200\n      netmask: 255.255.254.0\n    - name: bond0\n      bond:\n      - em1\n\
+  \      - em2\n      network: rhevm\n      ip: 172.31.222.200\n      netmask: 255.255.255.0\n      management:\
+  \ true\n    - name: bond0.36\n      network: vlan36\n      ip: 10.2.36.200\n      netmask: 255.255.254.0\n\
+  \      gateway: 10.2.36.254\n    - name: bond0.2202\n      network: vlan2202\n    - name: bond0.38\n\
+  \      network: vlan38\n    state: present\n"

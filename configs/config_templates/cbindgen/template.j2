@@ -1,0 +1,119 @@
+{# ============================================================================= #}
+{# cbindgen CLI Configuration Template                                          #}
+{#                                                                              #}
+{# This template generates command-line arguments for cbindgen, a Rust crate    #}
+{# that generates C bindings for Rust libraries.                                #}
+{#                                                                              #}
+{# Each variable below uses a Jinja2 `default()` filter to ensure safe rendering #}
+{# even when the variable is undefined in the Ansible context. The defaults      #}
+{# match the schema definitions provided for this package.                       #}
+{# ============================================================================= #}
+
+{% set verbose = verbose | default(False) %}
+{% set verify = verify | default(False) %}
+{% set config_path = config_path | default('') %}
+{% set lang = lang | default('c') %}
+{% set package_version = package_version | default(False) %}
+{% set cpp_compat = cpp_compat | default(False) %}
+{% set only_target_dependencies = only_target_dependencies | default(False) %}
+{% set style = style | default('both') %}
+{% set parse_dependencies = parse_dependencies | default(False) %}
+{% set clean = clean | default(False) %}
+{% set crate_name = crate_name | default('') %}
+{% set output_path = output_path | default('') %}
+{% set lockfile_path = lockfile_path | default('') %}
+{% set metadata_path = metadata_path | default('') %}
+{% set profile = profile | default('Release') %}
+{% set quiet = quiet | default(False) %}
+{% set depfile_path = depfile_path | default('') %}
+{% set input_path = input_path | default('') %}
+
+{# Verbosity: Enable verbose logging for debugging purposes #}
+{% if verbose %}
+-v
+{% endif %}
+
+{# Verification: Generate bindings and compare to existing file, error if different #}
+{% if verify %}
+--verify
+{% endif %}
+
+{# Configuration File: Path to cbindgen.toml config file #}
+{% if config_path %}
+-c {{ config_path }}
+{% endif %}
+
+{# Language: Output language for bindings (c, c++, cython) #}
+{% if lang %}
+-l {{ lang | lower }}
+{% endif %}
+
+{# Package Version: Include the package version in the header comment #}
+{% if package_version %}
+--package-version
+{% endif %}
+
+{# C++ Compatibility: Add C++ compatibility to generated C bindings #}
+{% if cpp_compat %}
+--cpp-compat
+{% endif %}
+
+{# Target Dependencies: Only fetch dependencies needed by the target platform #}
+{% if only_target_dependencies %}
+--only-target-dependencies
+{% endif %}
+
+{# Style: Declaration style (both, tag, or type) #}
+{% if style %}
+-s {{ style | lower }}
+{% endif %}
+
+{# Parse Dependencies: Whether to parse dependencies when generating bindings #}
+{% if parse_dependencies %}
+--parse-dependencies
+{% endif %}
+
+{# Clean: Use a new temporary directory for expanding macros #}
+{% if clean %}
+--clean
+{% endif %}
+
+{# Crate Name: Specific crate name to generate bindings for #}
+{% if crate_name %}
+--crate {{ crate_name }}
+{% endif %}
+
+{# Output Path: File to output the bindings to #}
+{% if output_path %}
+-o {{ output_path }}
+{% endif %}
+
+{# Lockfile Path: Explicit path to Cargo.lock file #}
+{% if lockfile_path %}
+--lockfile {{ lockfile_path }}
+{% endif %}
+
+{# Metadata Path: Path to precomputed `cargo metadata` output #}
+{% if metadata_path %}
+--metadata {{ metadata_path }}
+{% endif %}
+
+{# Profile: Profile to use when expanding macros (Debug/Release) #}
+{% if profile %}
+--profile {{ profile | lower }}
+{% endif %}
+
+{# Quiet: Report errors only (overrides verbosity options) #}
+{% if quiet %}
+-q
+{% endif %}
+
+{# Depfile Path: Generate a depfile at this path #}
+{% if depfile_path %}
+--depfile {{ depfile_path }}
+{% endif %}
+
+{# Input Path: Crate directory or source file (typically where Cargo.toml resides) #}
+{% if input_path %}
+{{ input_path }}
+{% endif %}

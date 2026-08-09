@@ -1,0 +1,135 @@
+{
+  "home": {
+    "type": "string",
+    "default": "/var/lib/csync2",
+    "description": "Home directory for csync2 runtime data (e.g., lock files, temp files)"
+  },
+  "database_dir": {
+    "type": "string",
+    "default": "/var/lib/csync2",
+    "description": "Directory where csync2 stores its local database of file checksums and state"
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/csync2.log",
+    "description": "Path to the log file for csync2 operations"
+  },
+  "verbose": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0 (quiet) to 3 (debug); higher values produce more detailed logs"
+  },
+  "exclude_patterns": {
+    "type": "list",
+    "default": [
+      "*.tmp",
+      "*.bak",
+      ".git/",
+      "*.swp"
+    ],
+    "description": "List of file/directory patterns to exclude from synchronization (glob-style)",
+    "items": {
+      "type": "string",
+      "description": "A glob or regex pattern to exclude files or directories"
+    }
+  },
+  "auth_mode": {
+    "type": "string",
+    "default": "shared_secret",
+    "description": "Authentication method: 'shared_secret' for PSK or 'ssl' for TLS mutual authentication"
+  },
+  "secret": {
+    "type": "string",
+    "default": "secret",
+    "description": "Shared secret passphrase used for peer authentication (only used if auth_mode=shared_secret)",
+    "sensitive": true
+  },
+  "ssl_cert": {
+    "type": "string",
+    "default": "/etc/csync2/csync2_cert.pem",
+    "description": "Path to the SSL certificate file (PEM format) for mutual TLS authentication"
+  },
+  "ssl_key": {
+    "type": "string",
+    "default": "/etc/csync2/csync2_key.pem",
+    "description": "Path to the SSL private key file (PEM format) for mutual TLS authentication"
+  },
+  "ssl_ca": {
+    "type": "string",
+    "default": "/etc/csync2/ca_cert.pem",
+    "description": "Path to the CA certificate file used to verify peer certificates (PEM format)"
+  },
+  "peers": {
+    "type": "list",
+    "default": [
+      {
+        "name": "host1.example.com"
+      },
+      {
+        "name": "host2.example.com"
+      }
+    ],
+    "description": "List of hostnames/IPs in the sync cluster; each is referenced in the 'host' directive",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Fully qualified hostname or IP address of the peer"
+      }
+    }
+  },
+  "groups": {
+    "type": "list",
+    "default": [
+      {
+        "name": "webcontent",
+        "paths": [
+          "/var/www",
+          "/etc/nginx/sites-enabled"
+        ],
+        "auto": true,
+        "group": "www-data",
+        "user": "root"
+      }
+    ],
+    "description": "List of file groups to synchronize, each with a set of paths and optional attributes",
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the group (used for logging and debugging)"
+      },
+      "paths": {
+        "type": "list",
+        "description": "Absolute paths to include in this group (files or directories)",
+        "items": {
+          "type": "string",
+          "description": "Absolute filesystem path"
+        }
+      },
+      "auto": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, csync2 will automatically trigger sync (e.g., via inotify). If false, must be triggered manually."
+      },
+      "group": {
+        "type": "string",
+        "default": "root",
+        "description": "OS group ownership to apply to synced files"
+      },
+      "user": {
+        "type": "string",
+        "default": "root",
+        "description": "OS user ownership to apply to synced files"
+      },
+      "mode": {
+        "type": "string",
+        "default": "0644",
+        "description": "File permission mode to apply (e.g., '0644', '0755')"
+      },
+      "timeout": {
+        "type": "number",
+        "default": 60,
+        "description": "Maximum time (seconds) to wait for a sync operation to complete"
+      }
+    }
+  }
+}

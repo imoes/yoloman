@@ -1,0 +1,182 @@
+{
+  "listen_addr": {
+    "type": "string",
+    "default": "127.0.0.1",
+    "description": "IP address the policy daemon listens on. Use 0.0.0.0 to listen on all interfaces."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 12525,
+    "description": "Port number for incoming connections from Postfix."
+  },
+  "max_children": {
+    "type": "number",
+    "default": 10,
+    "description": "Maximum number of worker processes (concurrent connections) to spawn."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/policyd-weight/policyd-weight.log",
+    "description": "Path to the log file. Set to '-' to log to stdout."
+  },
+  "log_syslog": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to also log to syslog in addition to file."
+  },
+  "chroot": {
+    "type": "bool",
+    "default": false,
+    "description": "Whether to chroot the daemon for security isolation."
+  },
+  "pid_file": {
+    "type": "string",
+    "default": "/run/policyd-weight.pid",
+    "description": "Path to store the daemon's process ID (PID) file."
+  },
+  "connection_timeout": {
+    "type": "number",
+    "default": 300,
+    "description": "Maximum idle time (in seconds) before a connection is closed."
+  },
+  "use_dns": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable DNS lookups (required for SPF, DNSBL, and HELO checks)."
+  },
+  "dns_timeout": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum time (in seconds) to wait for a DNS response."
+  },
+  "rate_limit_interval": {
+    "type": "number",
+    "default": 60,
+    "description": "Time window (in seconds) over which connections are counted for rate limiting."
+  },
+  "max_connections_per_source": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum connections allowed per source IP within rate_limit_interval."
+  },
+  "check_spf": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Sender Policy Framework (SPF) validation."
+  },
+  "check_dnsbl": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable Real-time Blackhole List (DNSBL) lookups."
+  },
+  "check_helo": {
+    "type": "bool",
+    "default": true,
+    "description": "Check HELO/EHLO hostname reputation (e.g., IP vs hostname match)."
+  },
+  "check_sender": {
+    "type": "bool",
+    "default": true,
+    "description": "Check sender domain reputation and format."
+  },
+  "check_client_ip": {
+    "type": "bool",
+    "default": true,
+    "description": "Check client IP address reputation."
+  },
+  "use_greylist": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable greylisting: temporarily reject first-time senders."
+  },
+  "greylist_delay": {
+    "type": "number",
+    "default": 300,
+    "description": "Minimum delay (in seconds) before accepting a retried connection."
+  },
+  "greylist_expiry": {
+    "type": "number",
+    "default": 2592000,
+    "description": "Time (in seconds) after which a greylisted entry is removed."
+  },
+  "greylist_db_path": {
+    "type": "string",
+    "default": "/var/lib/policyd-weight/greylist.db",
+    "description": "Path to the SQLite database storing greylisting entries."
+  },
+  "dnsbl_conf": {
+    "type": "string",
+    "default": "/etc/postfix-policyd-weight/dnsbl.conf",
+    "description": "Path to the DNSBL configuration file (host,rcode,reason format)."
+  },
+  "spf_conf": {
+    "type": "string",
+    "default": "/etc/postfix-policyd-weight/spf.conf",
+    "description": "Path to optional SPF rules file."
+  },
+  "helo_conf": {
+    "type": "string",
+    "default": "/etc/postfix-policyd-weight/helo.conf",
+    "description": "Path to optional HELO rules file."
+  },
+  "sender_conf": {
+    "type": "string",
+    "default": "/etc/postfix-policyd-weight/sender.conf",
+    "description": "Path to optional sender rules file."
+  },
+  "client_ip_conf": {
+    "type": "string",
+    "default": "/etc/postfix-policyd-weight/client_ip.conf",
+    "description": "Path to optional client IP rules file."
+  },
+  "permitted_senders": {
+    "type": "list",
+    "default": [],
+    "description": "List of domains or IPs that are exempt from all checks (e.g., internal mail servers).",
+    "items": {
+      "type": "string",
+      "description": "Domain or IP address allowed to bypass policy checks."
+    }
+  },
+  "permitted_clients": {
+    "type": "list",
+    "default": [],
+    "description": "List of client IPs exempt from rate limiting and greylisting.",
+    "items": {
+      "type": "string",
+      "description": "IP address or CIDR subnet exempt from rate limiting."
+    }
+  },
+  "weight_rules": {
+    "type": "list",
+    "default": [],
+    "description": "List of weight adjustment rules. Each rule adds or subtracts from the sender\u2019s score.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Rule identifier (e.g., 'DNSBL_HIT', 'Helo_Mismatch')."
+      },
+      "weight": {
+        "type": "number",
+        "default": 0,
+        "description": "Score penalty (positive = bad, negative = good)."
+      },
+      "condition": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable condition description."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Detailed description for documentation (used in comment)."
+      }
+    }
+  }
+}

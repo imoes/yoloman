@@ -1,0 +1,72 @@
+name: stacki_host
+fqcn: community.general.stacki_host
+collection: community.general
+short_description: Add or remove host to stacki front-end
+description: Use this module to add or remove hosts to a stacki front-end via API. Information on stacki
+  can be found at U(https://github.com/StackIQ/stacki).
+options:
+  appliance:
+    type: str
+    default: backend
+    description: Appliance to be used in host creation. Required if O(state=present) and host does not
+      yet exist.
+  force_install:
+    type: bool
+    default: false
+    description: Set value to V(true) to force node into install state if it already exists in stacki.
+  name:
+    type: str
+    required: true
+    description: Name of the host to be added to Stacki.
+  network:
+    type: str
+    default: private
+    description: Network to be configured in the host. Currently not used by the module.
+  prim_intf:
+    type: str
+    description: Name of the primary network interface. Currently not used by the module.
+  prim_intf_ip:
+    type: str
+    description: IP Address for the primary network interface. Currently not used by the module.
+  prim_intf_mac:
+    type: str
+    description: MAC Address for the primary PXE boot network interface. Currently not used by the module.
+  rack:
+    type: int
+    default: 0
+    description: Rack to be used in host creation. Required if O(state=present) and host does not yet
+      exist.
+  rank:
+    type: int
+    default: 0
+    description: Rank to be used in host creation. In Stacki terminology, the rank is the position of
+      the machine in a rack. Required if O(state=present) and host does not yet exist.
+  stacki_endpoint:
+    type: str
+    required: true
+    description: URL for the Stacki API Endpoint.
+  stacki_password:
+    type: str
+    required: true
+    description: Password for authenticating with Stacki API, but if not specified, the environment variable
+      E(stacki_password) is used instead.
+  stacki_user:
+    type: str
+    required: true
+    description: Username for authenticating with Stacki API, but if not specified, the environment variable
+      E(stacki_user) is used instead.
+  state:
+    type: str
+    default: present
+    choices:
+    - absent
+    - present
+    description: Set value to the desired state for the specified host.
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Add a host named test-1\n  community.general.stacki_host:\n    name: test-1\n   \
+  \ stacki_user: usr\n    stacki_password: pwd\n    stacki_endpoint: url\n    prim_intf_mac: mac_addr\n\
+  \    prim_intf_ip: x.x.x.x\n    prim_intf: eth0\n\n- name: Remove a host named test-1\n  community.general.stacki_host:\n\
+  \    name: test-1\n    stacki_user: usr\n    stacki_password: pwd\n    stacki_endpoint: url\n    state:\
+  \ absent\n"

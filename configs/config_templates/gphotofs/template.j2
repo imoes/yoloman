@@ -1,0 +1,22 @@
+{# ============================================================================ #}
+{# GPhotoFS Configuration File                                                   #}
+{# This file configures the gphotofs FUSE mount.                                #}
+{# gphotofs exposes a digital camera's storage as a FUSE filesystem.            #}
+{# It does not provide network services, databases, or queues.                  #}
+{# ============================================================================ #}
+
+{# mountpoint: The local directory where the camera's filesystem will be mounted. #}
+# Mount point directory where the camera filesystem will be exposed.
+{{ (mountpoint | default('/mnt/gphoto')) | string }}
+
+{# additional_options: List of additional FUSE mount options to pass to the mount command. #}
+# Optional FUSE mount options (e.g., allow_other, allow_root, use_ino).
+# Each item is a string option name or 'key=value'.
+{% if additional_options is defined and additional_options is iterable and additional_options | length > 0 %}
+# Additional FUSE mount options:
+{% for option in additional_options %}
+#   {{ option | string }}
+{% endfor %}
+{% else %}
+# No additional FUSE options specified.
+{% endif %}

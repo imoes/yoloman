@@ -1,0 +1,59 @@
+# aeskeyfind configuration — locates AES keys in memory images
+# This file defines a list of memory images to scan.
+# Each entry can specify the image path and optional per-image flags.
+# Global defaults (if passed as role vars):
+#   -t THRESHOLD: maximum bit errors in candidate key schedule (default: 0)
+#   -v: verbose output (default: false)
+#   -q: suppress progress bar (default: false)
+#
+# Format is a shell-like command line for each image, suitable for
+# iteration by a playbook or wrapper script.
+
+{% for item in memory_images | default([], true) %}
+# ------------------------------------------------------------------
+# Memory image scan configuration
+# Schema description: List of memory images to scan with optional
+# per-image overrides of aeskeyfind options. Each entry must contain
+# 'path' and may include 'threshold', 'verbose', 'quiet'.
+# ------------------------------------------------------------------
+
+# Path to the memory image file to scan (required)
+# {{ item.path }} is the absolute path to the .img/.dd file
+{% if item.path is defined %}
+# Memory image path: {{ item.path }}
+{% else %}
+# WARNING: 'path' is missing for this entry in memory_images
+{% endif %}
+
+# Threshold for AES key detection (optional, default: 0)
+# -t THRESHOLD: maximum bit errors in candidate key schedule
+# Accepts integer 0-7; lower is stricter.
+{% if item.threshold is defined %}
+# Threshold (bit errors): {{ item.threshold }}
+-t {{ item.threshold }}
+{% else %}
+# Threshold not specified; using default 0
+-t 0
+{% endif %}
+
+# Verbose output flag (optional, default: false)
+# -v: enables verbose logging
+# If item.verbose is true, the flag is emitted.
+{% if item.verbose is defined %}
+{% if item.verbose %}
+# Verbose mode enabled
+-v
+{% endif %}
+{% endif %}
+
+# Quiet mode flag (optional, default: false)
+# -q: suppresses the progress bar
+# If item.quiet is true, the flag is emitted.
+{% if item.quiet is defined %}
+{% if item.quiet %}
+# Quiet mode enabled (progress bar suppressed)
+-q
+{% endif %}
+{% endif %}
+
+{% endfor %}

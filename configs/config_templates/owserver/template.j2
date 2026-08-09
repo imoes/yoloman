@@ -1,0 +1,104 @@
+#!/bin/sh
+
+### BEGIN INIT INFO
+# Provides:          owserver
+# Required-Start:    $remote_fs $syslog $network $named
+# Required-Stop:     $remote_fs $syslog $network $named
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: 1-wire TCP server
+# Description:       Start and stop a TCP server for 1-wire control.
+### END INIT INFO
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+# Configuration file path for owfs/owserver.
+CONFFILE=/etc/owfs.conf
+
+# Description of the service shown in log messages and status output.
+DESC="{{ desc | default('1-Wire TCP Server') }}"
+
+# The name of the daemon binary and service, used in paths, PID files, and log messages.
+NAME="{{ name | default('owserver') }}"
+
+# Path to the daemon binary.
+DAEMON=/usr/bin/{{ name | default('owserver') }}
+
+# Directory where the PID file for the owserver daemon is stored.
+PIDDIR="{{ pid_dir | default('/var/run/owfs') }}"
+
+# Full path to the PID file.
+PIDFILE=$PIDDIR/$NAME.pid
+
+# Gracefully exit if the package has been removed.
+test -x $DAEMON || exit 0
+
+. /lib/lsb/init-functions
+
+d_start() {
+    # Ensure the PID directory exists with appropriate permissions.
+    [ -d $PIDDIR ] || {
+        mkdir -m 0775 -p $PIDDIR
+        chown root:root $PIDDIR >/dev/null 2>&1
+    }
+    # Start the daemon using start-stop-daemon.
+    # It reads configuration from CONFFILE and writes PID to PIDFILE.
+    start-stop-daemon --start --quiet --oknodo --exec $DAEMON -- -c $CONFFILE \
+        --pid-file $PIDFILE
+    # Wait briefly for the daemon to initialize and write its PID.
+    sleep 1
+    # Verify the process is actually running.
+    pidofproc -p $PIDFILE $DAEMON >/dev/null
+}
+
+d_stop() {
+    # Stop the daemon.
+    start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
+    # Wait for process termination.
+    sleep 1
+    # If PID file exists but process is gone, it's a stale PID from a successful stop.
+    if [ -f $PIDFILE ] && ! ps h `cat $PIDFILE` > /dev/null
+    then
+        # Remove stale PID file.
+        rm -f $PIDFILE
+    fi
+}
+
+d_status() {
+    # Check if the daemon is currently running.
+    pidofproc -p $PIDFILE $DAEMON > /dev/null
+}
+
+case "$1" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        d_start
+        log_end_msg $?
+        ;;
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        d_stop
+        log_end_msg $?
+        ;;
+    restart|force-reload)
+        log_daemon_msg "Restarting $DESC" "$NAME"
+        # Check status and stop if running before restarting.
+        d_status && d_stop
+        d_start
+        log_end_msg $?
+        ;;
+    status)
+        d_status
+        if [ $? -eq 0 ];then
+            log_success_msg "$NAME is running"
+        else
+            log_failure_msg "$NAME is not running"
+        fi
+        ;;
+    *)
+        echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
+        exit 1
+        ;;
+esac
+
+exit 0

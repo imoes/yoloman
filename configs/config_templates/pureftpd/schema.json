@@ -1,0 +1,106 @@
+{
+  "auth_backend": {
+    "type": "string",
+    "default": "unix",
+    "description": "Authentication method: 'unix' (system users), 'puredb' (PureDB file), 'ldap', 'mysql', 'postgres', etc."
+  },
+  "allow_anonymous": {
+    "type": "bool",
+    "default": false,
+    "description": "Allow anonymous FTP logins (not recommended for production)."
+  },
+  "puredb_path": {
+    "type": "string",
+    "default": "/etc/pure-ftpd/pureftpd.pdb",
+    "description": "Path to the PureDB password database file (used only when auth_backend = 'puredb')."
+  },
+  "require_tls": {
+    "type": "bool",
+    "default": true,
+    "description": "Enforce TLS/SSL for all connections (secure FTPS). Required for modern compliance."
+  },
+  "tls_cert_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/pure-ftpd.pem",
+    "description": "Path to the TLS certificate file (PEM format)."
+  },
+  "tls_key_file": {
+    "type": "string",
+    "default": "/etc/ssl/private/pure-ftpd.pem",
+    "description": "Path to the TLS private key file (PEM format). Same file if combined cert+key."
+  },
+  "tls_min_version": {
+    "type": "string",
+    "default": "TLSv1.2",
+    "description": "Minimum TLS protocol version (e.g., 'TLSv1.2', 'TLSv1.3')."
+  },
+  "chroot_all": {
+    "type": "bool",
+    "default": true,
+    "description": "Chroot every user to their home directory for security (recommended)."
+  },
+  "hide_ids": {
+    "type": "bool",
+    "default": true,
+    "description": "Hide user/group numeric IDs in directory listings (display names only)."
+  },
+  "max_clients": {
+    "type": "number",
+    "default": 50,
+    "description": "Maximum total number of simultaneous FTP clients."
+  },
+  "max_clients_per_ip": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of connections allowed per client IP address."
+  },
+  "bind_address": {
+    "type": "string",
+    "default": "",
+    "description": "IP address to bind to (empty = all interfaces)."
+  },
+  "port": {
+    "type": "number",
+    "default": 21,
+    "description": "FTP control port (standard is 21)."
+  },
+  "passive_port_range_start": {
+    "type": "number",
+    "default": 30000,
+    "description": "Start of passive data port range (must match firewall/NAT rules)."
+  },
+  "passive_port_range_end": {
+    "type": "number",
+    "default": 31000,
+    "description": "End of passive data port range."
+  },
+  "public_ip": {
+    "type": "string",
+    "default": "auto",
+    "description": "Public IP address advertised to clients (useful behind NAT; 'auto' detects automatically)."
+  },
+  "auto_homedir": {
+    "type": "bool",
+    "default": false,
+    "description": "Automatically create home directories for system users upon first login."
+  },
+  "max_bandwidth": {
+    "type": "number",
+    "default": 0,
+    "description": "Maximum upload/download bandwidth per user in KB/s (0 = unlimited)."
+  },
+  "log_level": {
+    "type": "number",
+    "default": 1,
+    "description": "Verbosity of logs: 0 (quiet), 1 (errors + startup), 2 (commands), 3 (verbose)."
+  },
+  "extra_config": {
+    "type": "list",
+    "default": [],
+    "description": "Additional configuration lines to append (e.g., custom flags from /etc/pure-ftpd/conf.d/). Each item is one line.",
+    "items": {
+      "type": "string",
+      "description": "A single raw configuration line (e.g., 'NoAnonymous', 'VerboseLog yes')"
+    }
+  }
+}

@@ -1,0 +1,174 @@
+[DEFAULT]
+# Enable debug logging for detailed troubleshooting.
+debug = {{ debug | default(false) | ternary('True', 'False') }}
+
+# Directory where neutron log files are stored.
+log_dir = {{ log_dir | default('/var/log/neutron') }}
+
+# Optional log file path. If empty, logs only to syslog.
+{% if log_file | default('') %}log_file = {{ log_file | default('') }}{% endif %}
+
+# Logging verbosity (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+log_level = {{ log_level | default('INFO') }}
+
+# RPC transport backend (e.g., rabbit). Note: 'oslo' is not a valid backend type.
+rpc_backend = {{ rpc_backend | default('rabbit') }}
+
+# Authentication strategy (e.g., keystone, noauth).
+auth_strategy = {{ auth_strategy | default('keystone') }}
+
+# Path for file-based locking. Leave empty to use default.
+{% if lock_path | default('') %}lock_path = {{ lock_path | default('') }}{% endif %}
+
+# IP address the Neutron API listens on (default: 0.0.0.0).
+{% if api_bind_address | default('') %}bind_host = {{ api_bind_address | default('') }}{% else %}bind_host = 0.0.0.0{% endif %}
+
+# Port number for the Neutron API service.
+bind_port = {{ api_port | default(9696) }}
+
+# Region name used in service catalog lookups.
+region_name = {{ region_name | default('RegionOne') }}
+
+# Message broker connection URL (e.g., RabbitMQ).
+transport_url = {{ transport_url | default('rabbit://guest:guest@localhost:5672/') }}
+
+# Number of worker processes for the Neutron API service (0 = auto-detect).
+api_workers = {{ api_workers | default(0) }}
+
+# Number of threads per worker (leave empty for default).
+{% if api_threads | default('') %}api_threads = {{ api_threads | default('') }}{% endif %}
+
+# Max number of retries when reconnecting to the database.
+db_reconnect_retries = {{ db_reconnect_retries | default(30) }}
+
+# Seconds between database reconnection attempts.
+db_reconnect_interval = {{ db_reconnect_interval | default(2) }}
+
+# Maximum connections per pool in the database connection pool.
+db_max_pool_size = {{ db_max_pool_size | default(10) }}
+
+# Maximum overflow connections beyond the pool.
+db_max_overflow = {{ db_max_overflow | default(20) }}
+
+# Timeout in seconds for establishing a database connection.
+db_connection_timeout = {{ db_connection_timeout | default(10) }}
+
+# Database connection string (supports MySQL, PostgreSQL).
+connection = {{ db_connection | default('mysql+pymysql://neutron:neutron@localhost/neutron') }}
+
+# List of notification drivers (e.g., ['noop', 'routing']).
+{% for driver in notification_drivers | default([]) %}notification_driver = {{ driver }}{% endfor %}
+
+# Minimum level for emitting notifications (NONE disables them).
+notification_level = {{ notification_level | default('INFO') }}
+
+# RabbitMQ topic(s) for notifications (comma-separated).
+notification_topics = {{ notification_topics | default('notifications') }}
+
+# Time-to-live (in seconds) for floating IP entries.
+floatip_ttl = {{ floatip_ttl | default(3600) }}
+
+# Time-to-live (in seconds) for security group rule cache.
+sg_ttl = {{ sg_ttl | default(300) }}
+
+# Allow tenants to use overlapping IP ranges (dangerous in production).
+{% if allow_overlapping_ips | default(false) %}allow_overlapping_ips = True{% else %}allow_overlapping_ips = False{% endif %}
+
+# Class path for the DHCP agent scheduler.
+dhcp_agent_scheduler = {{ dhcp_agent_scheduler | default('neutron.scheduler.dhcp_agent_scheduler.AvailableDHCPAgentScheduler') }}
+
+# Class path for the L3 router scheduler.
+router_scheduler = {{ router_scheduler | default('neutron.scheduler.l3_agent_scheduler.LeastRoutersScheduler') }}
+
+# Class path for the network scheduler.
+network_scheduler = {{ network_scheduler | default('neutron.scheduler.network_scheduler.SimpleNetworkScheduler') }}
+
+# Per-tenant resource quotas (key: resource name, value: limit).
+{% for k in (quotas | default({})) | dictsort %}quota_{{ k[0] }} = {{ k[1] }}{% endfor %}
+
+# Name of the default floating IP pool (if not using auto-allocation).
+{% if default_floating_pool | default('') %}default_floating_pool = {{ default_floating_pool | default('') }}{% endif %}
+
+# Core plugin module (e.g., ml2, ovs).
+core_plugin = {{ core_plugin | default('ml2') }}
+
+# List of service plugin modules (e.g., ['router', 'trunk']).
+{% for plugin in service_plugins | default([]) %}service_plugin = {{ plugin }}{% endfor %}
+
+# Optional path to ML2 plugin configuration file (if external).
+{% if ml2_config_path | default('') %}ml2_config_path = {{ ml2_config_path | default('') }}{% endif %}
+
+# Path to L3 agent configuration file (if separate).
+{% if l3_agent_config_path | default('') %}l3_agent_config_path = {{ l3_agent_config_path | default('') }}{% endif %}
+
+# Path to DHCP agent configuration file (if separate).
+{% if dhcp_agent_config_path | default('') %}dhcp_agent_config_path = {{ dhcp_agent_config_path | default('') }}{% endif %}
+
+# Enable isolated metadata service for VMs in private networks.
+{% if enable_isolated_metadata | default(false) %}enable_isolated_metadata = True{% else %}enable_isolated_metadata = False{% endif %}
+
+# Enable metadata proxy for tenant network metadata access.
+{% if enable_metadata_proxy | default(true) %}enable_metadata_proxy = True{% else %}enable_metadata_proxy = False{% endif %}
+
+# Hostname or IP of the metadata service (e.g., Nova metadata API).
+{% if metadata_host | default('') %}metadata_host = {{ metadata_host | default('') }}{% endif %}
+
+# Port of the metadata service (default: 8775).
+{% if metadata_port | default('') %}metadata_port = {{ metadata_port | default('') }}{% endif %}
+
+# Secret key for metadata proxy authentication (required if enabled).
+{% if metadata_secret | default('') %}metadata_secret = {{ metadata_secret | default('') }}{% endif %}
+
+# Default DNS domain appended to instance hostnames.
+{% if default_dns_domain | default('') %}default_dns_domain = {{ default_dns_domain | default('') }}{% endif %}
+
+# Number of worker processes for the metadata service.
+{% if metadata_workers | default('') %}metadata_workers = {{ metadata_workers | default('') }}{% endif %}
+
+# Number of worker processes for the DHCP agent.
+{% if dhcp_workers | default('') %}dhcp_workers = {{ dhcp_workers | default('') }}{% endif %}
+
+# Number of worker processes for the L3 agent.
+{% if l3_workers | default('') %}l3_workers = {{ l3_workers | default('') }}{% endif %}
+
+[keystone_authtoken]
+# Keystone authentication settings for Neutron service.
+# Note: This section is populated from the keystone_authtoken mapping.
+
+# The authentication URL for Keystone.
+auth_url = {{ (keystone_authtoken | default({})).auth_url | default('http://localhost:5000') }}
+
+# The project domain name.
+project_domain_name = {{ (keystone_authtoken | default({})).project_domain_name | default('Default') }}
+
+# The user domain name.
+user_domain_name = {{ (keystone_authtoken | default({})).user_domain_name | default('Default') }}
+
+# The project name for the Neutron service user.
+project_name = {{ (keystone_authtoken | default({})).project_name | default('service') }}
+
+# The username for the Neutron service user.
+username = {{ (keystone_authtoken | default({})).username | default('neutron') }}
+
+# The password for the Neutron service user.
+password = {{ (keystone_authtoken | default({})).password | default('') }}
+
+# The signing directory for token caching.
+signing_dir = {{ (keystone_authtoken | default({})).signing_dir | default('/var/cache/neutron/keystone-signing') }}
+
+# Whether to skip certificate verification (insecure; use only for testing).
+{% if (keystone_authtoken | default({})).insecure | default(false) %}insecure = True{% else %}insecure = False{% endif %}
+
+[oslo_concurrency]
+# Concurrency and locking settings for Neutron processes.
+# Note: This section is populated from the oslo_concurrency mapping.
+
+# The lock path (overrides global lock_path).
+lock_path = {{ (oslo_concurrency | default({})).lock_path | default('/var/lib/neutron/tmp') }}
+
+[oslo_messaging_notifications]
+# Notifications configuration (alternative to global section).
+# Note: This section is populated from the oslo_messaging_notifications mapping.
+
+# The notification driver(s) (alternative to global section, overrides if both present).
+{% for driver in (oslo_messaging_notifications | default({})).drivers | default([]) %}driver = {{ driver }}{% endfor %}

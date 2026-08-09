@@ -1,0 +1,469 @@
+{
+  "renderer": {
+    "type": "string",
+    "default": "systemd-networkd",
+    "description": "Network backend renderer to use. Options: 'systemd-networkd', 'NetworkManager'. Leave empty for auto-selection.",
+    "enum": [
+      "systemd-networkd",
+      "NetworkManager",
+      "networkd"
+    ]
+  },
+  "ethernets": {
+    "type": "list",
+    "default": [],
+    "description": "List of Ethernet interfaces to configure",
+    "items": {
+      "id": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Logical interface name (e.g., 'eth0', 'mgmt', 'lan')"
+      },
+      "match": {
+        "type": "object",
+        "default": {},
+        "description": "Interface matching criteria (macaddress, driver, name, etc.)",
+        "fields": {
+          "macaddress": {
+            "type": "string",
+            "default": "",
+            "description": "MAC address pattern"
+          },
+          "driver": {
+            "type": "string",
+            "default": "",
+            "description": "Kernel driver name"
+          },
+          "name": {
+            "type": "string",
+            "default": "",
+            "description": "Physical interface name pattern"
+          },
+          "type": {
+            "type": "string",
+            "default": "",
+            "description": "Interface type (e.g., 'ether')"
+          },
+          "original-name": {
+            "type": "string",
+            "default": "",
+            "description": "Original kernel interface name"
+          }
+        }
+      },
+      "set_name": {
+        "type": "string",
+        "default": "",
+        "description": "Assign a custom name to the matched interface (overrides system name)"
+      },
+      "dhcp4": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv4 DHCP on this interface"
+      },
+      "dhcp6": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv6 DHCP on this interface"
+      },
+      "dhcp4_overrides": {
+        "type": "object",
+        "default": {},
+        "description": "DHCPv4 client behavior overrides",
+        "fields": {
+          "route_metric": {
+            "type": "number",
+            "default": 100,
+            "description": "Priority metric for DHCP routes (lower = higher priority)"
+          },
+          "use_dns": {
+            "type": "bool",
+            "default": true,
+            "description": "Use DNS servers from DHCP"
+          },
+          "use_ntp": {
+            "type": "bool",
+            "default": true,
+            "description": "Use NTP servers from DHCP"
+          },
+          "use_routes": {
+            "type": "bool",
+            "default": true,
+            "description": "Use routes from DHCP"
+          }
+        }
+      },
+      "dhcp6_overrides": {
+        "type": "object",
+        "default": {},
+        "description": "DHCPv6 client behavior overrides",
+        "fields": {
+          "route_metric": {
+            "type": "number",
+            "default": 100,
+            "description": "Priority metric for DHCPv6 routes"
+          },
+          "use_dns": {
+            "type": "bool",
+            "default": true,
+            "description": "Use DNS servers from DHCPv6"
+          },
+          "use_ntp": {
+            "type": "bool",
+            "default": true,
+            "description": "Use NTP servers from DHCPv6"
+          },
+          "use_routes": {
+            "type": "bool",
+            "default": true,
+            "description": "Use routes from DHCPv6"
+          }
+        }
+      },
+      "addresses": {
+        "type": "list",
+        "default": [],
+        "description": "List of static IP addresses (CIDR notation, e.g., '192.168.1.10/24')",
+        "items": {
+          "type": "string",
+          "description": "IPv4 or IPv6 address in CIDR format"
+        }
+      },
+      "gateway4": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 default gateway (e.g., '192.168.1.1')"
+      },
+      "gateway6": {
+        "type": "string",
+        "default": "",
+        "description": "IPv6 default gateway (e.g., 'fe80::1')"
+      },
+      "nameservers": {
+        "type": "object",
+        "default": {},
+        "description": "DNS and search domain configuration",
+        "fields": {
+          "addresses": {
+            "type": "list",
+            "items": {
+              "type": "string",
+              "description": "DNS server IP address"
+            }
+          },
+          "search": {
+            "type": "list",
+            "items": {
+              "type": "string",
+              "description": "DNS search domain"
+            }
+          }
+        }
+      },
+      "routings": {
+        "type": "list",
+        "default": [],
+        "description": "Static routing table entries",
+        "items": {
+          "to": {
+            "type": "string",
+            "default": "",
+            "description": "Destination network in CIDR (e.g., '10.0.0.0/8')"
+          },
+          "via": {
+            "type": "string",
+            "default": "",
+            "description": "Next-hop gateway IP"
+          },
+          "metric": {
+            "type": "number",
+            "default": 0,
+            "description": "Route priority (lower = higher priority)"
+          },
+          "from": {
+            "type": "string",
+            "default": "",
+            "description": "Source address for policy routing"
+          },
+          "table": {
+            "type": "number",
+            "default": 0,
+            "description": "Routing table ID (for policy routing)"
+          }
+        }
+      }
+    }
+  },
+  "bridges": {
+    "type": "list",
+    "default": [],
+    "description": "List of Linux bridges to configure",
+    "items": {
+      "id": {
+        "type": "string",
+        "default": "br0",
+        "description": "Bridge interface name"
+      },
+      "interfaces": {
+        "type": "list",
+        "items": {
+          "type": "string",
+          "description": "Member interface names (e.g., ['eth0', 'eth1'])"
+        }
+      },
+      "parameters": {
+        "type": "object",
+        "default": {},
+        "description": "Spanning Tree Protocol and bridge tuning",
+        "fields": {
+          "stp": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable Spanning Tree Protocol"
+          },
+          "forward_delay": {
+            "type": "number",
+            "default": 15,
+            "description": "STP forward delay in seconds"
+          },
+          "ageing_time": {
+            "type": "number",
+            "default": 300,
+            "description": "MAC address ageing time"
+          },
+          "hello_time": {
+            "type": "number",
+            "default": 2,
+            "description": "STP hello packet interval"
+          },
+          "max_age": {
+            "type": "number",
+            "default": 20,
+            "description": "Max age for STP info"
+          },
+          "priority": {
+            "type": "number",
+            "default": 32768,
+            "description": "Bridge priority (lower = preferred root)"
+          }
+        }
+      },
+      "dhcp4": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv4 DHCP on bridge"
+      },
+      "dhcp6": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv6 DHCP on bridge"
+      },
+      "addresses": {
+        "type": "list",
+        "items": {
+          "type": "string",
+          "description": "Bridge IP addresses in CIDR"
+        }
+      },
+      "gateway4": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 gateway"
+      },
+      "gateway6": {
+        "type": "string",
+        "default": "",
+        "description": "IPv6 gateway"
+      },
+      "nameservers": {
+        "type": "object",
+        "fields": {
+          "addresses": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "routings": {
+        "type": "list",
+        "items": {
+          "to": {
+            "type": "string"
+          },
+          "via": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "number"
+          },
+          "from": {
+            "type": "string"
+          },
+          "table": {
+            "type": "number"
+          }
+        }
+      }
+    }
+  },
+  "vlans": {
+    "type": "list",
+    "default": [],
+    "description": "List of VLAN interfaces",
+    "items": {
+      "id": {
+        "type": "string",
+        "default": "eth0.100",
+        "description": "VLAN interface name"
+      },
+      "vlan_id": {
+        "type": "number",
+        "default": 1,
+        "description": "VLAN ID (1\u20134094)"
+      },
+      "link": {
+        "type": "string",
+        "default": "eth0",
+        "description": "Parent physical interface"
+      },
+      "addresses": {
+        "type": "list",
+        "items": {
+          "type": "string",
+          "description": "IP addresses (CIDR)"
+        }
+      },
+      "gateway4": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 gateway"
+      },
+      "gateway6": {
+        "type": "string",
+        "default": "",
+        "description": "IPv6 gateway"
+      },
+      "dhcp4": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv4 DHCP"
+      },
+      "dhcp6": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv6 DHCP"
+      },
+      "nameservers": {
+        "type": "object",
+        "fields": {
+          "addresses": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  },
+  "wifis": {
+    "type": "list",
+    "default": [],
+    "description": "List of Wi-Fi interfaces (requires NetworkManager backend)",
+    "items": {
+      "id": {
+        "type": "string",
+        "default": "wlan0",
+        "description": "Wi-Fi interface name"
+      },
+      "access_points": {
+        "type": "list",
+        "items": {
+          "ssid": {
+            "type": "string",
+            "default": "",
+            "description": "Network SSID"
+          },
+          "password": {
+            "type": "string",
+            "default": "",
+            "description": "WPA/WPA2 PSK password"
+          },
+          "hidden": {
+            "type": "bool",
+            "default": false,
+            "description": "Whether the AP is hidden"
+          },
+          "band": {
+            "type": "string",
+            "default": "",
+            "description": "Frequency band: '2.4', '5', or 'any'"
+          },
+          "channel": {
+            "type": "number",
+            "default": 0,
+            "description": "Channel number (0 = auto)"
+          }
+        }
+      },
+      "dhcp4": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv4 DHCP"
+      },
+      "dhcp6": {
+        "type": "bool",
+        "default": false,
+        "description": "Enable IPv6 DHCP"
+      },
+      "addresses": {
+        "type": "list",
+        "items": {
+          "type": "string",
+          "description": "Static IP addresses (CIDR)"
+        }
+      },
+      "gateway4": {
+        "type": "string",
+        "default": "",
+        "description": "IPv4 gateway"
+      },
+      "gateway6": {
+        "type": "string",
+        "default": "",
+        "description": "IPv6 gateway"
+      },
+      "nameservers": {
+        "type": "object",
+        "fields": {
+          "addresses": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          },
+          "search": {
+            "type": "list",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

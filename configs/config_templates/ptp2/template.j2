@@ -1,0 +1,228 @@
+# ==============================================================================
+# PTP2 (Precision Time Protocol) Configuration Template
+# ==============================================================================
+# This template generates the configuration file for linuxptp's ptp2 daemon
+# (ptp4l/phc2sys). It is self-documenting: every directive includes a comment
+# describing its purpose and valid range, sourced from the schema definition.
+# ==============================================================================
+
+# -----------------------------------------------------------------------------
+# Service Control
+# -----------------------------------------------------------------------------
+# Enable or disable the ptp2 service at boot.
+# True enables the daemon; False disables it.
+# Schema: enabled (bool, default=True)
+{% if (enabled | default(true)) %}
+START_PTP2=yes
+{% else %}
+START_PTP2=no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Network Interfaces
+# -----------------------------------------------------------------------------
+# List of network interfaces to use for PTP communication.
+# Must support IEEE 1588 PTP timestamping (PHC).
+# Defaults to ['eth0'] if not specified.
+# Schema: interfaces (list, default=['eth0'])
+PTP2_interfaces="{{ (interfaces | default(['eth0'])) | join(' ') }}"
+
+# -----------------------------------------------------------------------------
+# Transport Mode
+# -----------------------------------------------------------------------------
+# PTP transport mode. Common values: 'udp' (IPv4/IPv6 over UDP),
+# 'l2' (raw Ethernet), 'ethernet' (alias for l2).
+# Defaults to 'udp'.
+# Schema: transport (str, default='udp')
+PTP2_transport="{{ transport | default('udp') }}"
+
+# -----------------------------------------------------------------------------
+# Clock Identity
+# -----------------------------------------------------------------------------
+# Optional 8-byte clock identity in hex (e.g., '00:1b:2b:ff:fe:3c:4d:5e').
+# If omitted, derived from MAC address.
+# Schema: clock_identity (str|null, default=None)
+{% if (clock_identity | default('')) | length > 0 %}
+PTP2_clock_identity="{{ clock_identity | default('') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Domain Number
+# -----------------------------------------------------------------------------
+# PTP domain number (0–127). Must match across all clocks in the same PTP network.
+# Defaults to 0.
+# Schema: domain_number (int, default=0)
+PTP2_domain_number={{ domain_number | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Primary Clock Role
+# -----------------------------------------------------------------------------
+# If true, this node will act as the primary (best master) clock on the domain
+# (assuming it meets criteria). Defaults to False.
+# Schema: primary (bool, default=False)
+{% if (primary | default(false)) %}
+PTP2_primary=yes
+{% else %}
+PTP2_primary=no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
+# Logging verbosity (0=none, 7=debug). Matches syslog levels.
+# Defaults to 7 (debug).
+# Schema: log_level (int, default=7)
+PTP2_log_level={{ log_level | default(7) }}
+
+# Path to the PTP daemon log file.
+# Defaults to '/var/log/linuxptp/ptp2.log'.
+# Schema: log_file (str, default='/var/log/linuxptp/ptp2.log')
+PTP2_log_file="{{ log_file | default('/var/log/linuxptp/ptp2.log') }}"
+
+# -----------------------------------------------------------------------------
+# Message Intervals (Power-of-Two Seconds)
+# -----------------------------------------------------------------------------
+# Interval between Announce messages as power-of-two seconds.
+# e.g., 0 = 1s, -1 = 0.5s, 1 = 2s. Defaults to 0.
+# Schema: announce_interval (int, default=0)
+PTP2_announce_interval={{ announce_interval | default(0) }}
+
+# Interval between Sync messages as power-of-two seconds.
+# Defaults to 0 (1s).
+# Schema: sync_interval (int, default=0)
+PTP2_sync_interval={{ sync_interval | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Delay Request Configuration
+# -----------------------------------------------------------------------------
+# Number of missed Delay_Req messages before reselecting master.
+# Range: 1–20. Defaults to 4.
+# Schema: delay_req_timeout (int, default=4)
+PTP2_delay_req_timeout={{ delay_req_timeout | default(4) }}
+
+# Interval between Delay_Req messages as power-of-two seconds.
+# Defaults to 0 (1s).
+# Schema: delay_req_interval (int, default=0)
+PTP2_delay_req_interval={{ delay_req_interval | default(0) }}
+
+# -----------------------------------------------------------------------------
+# Faulty Path Detection
+# -----------------------------------------------------------------------------
+# Seconds before marking a path as faulty. Disabled if null.
+# Schema: faulty_path_timeout (int|null, default=None)
+{% if (faulty_path_timeout | default('')) | length > 0 %}
+PTP2_faulty_path_timeout={{ faulty_path_timeout | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Watchdog Timeout
+# -----------------------------------------------------------------------------
+# Seconds before the watchdog triggers a restart.
+# 0 = disabled. Defaults to 0.
+# Schema: watchdog_timeout (int, default=0)
+{% if (watchdog_timeout | default(0)) != 0 %}
+PTP2_watchdog_timeout={{ watchdog_timeout | default(0) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Multiple Domains
+# -----------------------------------------------------------------------------
+# Allow multiple PTP domains on same network.
+# Enable only if necessary and understood. Defaults to False.
+# Schema: allow_multiple_domains (bool, default=False)
+{% if (allow_multiple_domains | default(false)) %}
+PTP2_allow_multiple_domains=yes
+{% else %}
+PTP2_allow_multiple_domains=no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Fallback to Generic PHC
+# -----------------------------------------------------------------------------
+# Allow use of non-PHC (e.g., software timestamped) devices if no hardware
+# PHC available. Defaults to False.
+# Schema: fallback_to_generic_phc (bool, default=False)
+{% if (fallback_to_generic_phc | default(false)) %}
+PTP2_fallback_to_generic_phc=yes
+{% else %}
+PTP2_fallback_to_generic_phc=no
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Initial Offset
+# -----------------------------------------------------------------------------
+# Initial clock offset (nanoseconds) to apply on startup.
+# Useful for calibration. Disabled if null.
+# Schema: initial_offset_ns (int|null, default=None)
+{% if (initial_offset_ns | default('')) | length > 0 %}
+PTP2_initial_offset_ns={{ initial_offset_ns | default('') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Extra Options
+# -----------------------------------------------------------------------------
+# Additional command-line options (e.g., ['-s'] for software timestamping,
+# ['-a'] for auto-selection).
+# Schema: extra_options (list, default=[])
+{% if (extra_options | default([])) | length > 0 %}
+PTP2_extra_options="{{ (extra_options | default([])) | join(' ') }}"
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Per-Interface Overrides
+# -----------------------------------------------------------------------------
+# List of per-interface configuration overrides.
+# Each entry configures one interface with specific settings.
+# Schema: interface_overrides (list, default=[])
+{% for iface in (interface_overrides | default([])) %}
+# --- Override for interface: {{ (iface.name | default('unknown')) }} ---
+# Transport mode for this specific interface.
+# Inherits from global transport if not specified.
+# Schema: iface.transport (str, default from global transport)
+PTP2_{{ (iface.name | default('unknown')) }}_transport="{{ (iface.transport | default(transport | default('udp'))) }}"
+# Priority 1 (Clock Class/Accuracy priority override).
+# Schema: iface.priority1 (int|null)
+{% if (iface.priority1 | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_priority1={{ iface.priority1 | default('') }}
+{% endif %}
+# Priority 2.
+# Schema: iface.priority2 (int|null)
+{% if (iface.priority2 | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_priority2={{ iface.priority2 | default('') }}
+{% endif %}
+# Clock Class.
+# Schema: iface.clock_class (int|null)
+{% if (iface.clock_class | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_clock_class={{ iface.clock_class | default('') }}
+{% endif %}
+# Clock Accuracy.
+# Schema: iface.clock_accuracy (int|null)
+{% if (iface.clock_accuracy | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_clock_accuracy={{ iface.clock_accuracy | default('') }}
+{% endif %}
+# Offset Scaled Log Variance.
+# Schema: iface.offset_scaled_log_variance (int|null)
+{% if (iface.offset_scaled_log_variance | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_offset_scaled_log_variance={{ iface.offset_scaled_log_variance | default('') }}
+{% endif %}
+# Master Offset.
+# Schema: iface.master_offset (int|null)
+{% if (iface.master_offset | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_master_offset={{ iface.master_offset | default('') }}
+{% endif %}
+# Log Sync Interval.
+# Schema: iface.log_sync_interval (int|null)
+{% if (iface.log_sync_interval | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_log_sync_interval={{ iface.log_sync_interval | default('') }}
+{% endif %}
+# Log Announce Interval.
+# Schema: iface.log_announce_interval (int|null)
+{% if (iface.log_announce_interval | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_log_announce_interval={{ iface.log_announce_interval | default('') }}
+{% endif %}
+# Log Delay Req Interval.
+# Schema: iface.log_delay_req_interval (int|null)
+{% if (iface.log_delay_req_interval | default('')) | length > 0 %}
+PTP2_{{ (iface.name | default('unknown')) }}_log_delay_req_interval={{ iface.log_delay_req_interval | default('') }}
+{% endif %}
+{% endfor %}

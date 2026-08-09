@@ -1,0 +1,83 @@
+{# distrobox.ini manifest file for distrobox assemble #}
+{# This file defines container configurations. Each section corresponds to one container environment. #}
+{# The 'sections' variable is a list of dictionaries, where each dictionary represents a container config. #}
+{# Each dictionary uses flat keys matching the distrobox.ini directives. #}
+
+{%- for section in sections | default([], true) %}
+{# Section Header: The unique name identifier for this container configuration. #}
+[{% if loop.first %}{# no prefix for first section #}{% endif %}{{ section.name | default('container_' ~ loop.index0) }}]
+
+{# image: Base container image to use (e.g., ubuntu, archlinux, fedora). #}
+{%- if section.image is defined %}image={{ section.image | default('') }}{% endif %}
+
+{# home: Path to the user's home directory inside the container. #}
+{%- if section.home is defined %}home={{ section.home | default('') }}{% endif %}
+
+{# init: Command to run as PID 1 inside the container. #}
+{%- if section.init is defined %}init={{ section.init | default('') }}{% endif %}
+
+{# nvidia: Enable NVIDIA GPU support within the container (true/false). #}
+{%- if section.nvidia is defined %}nvidia={{ section.nvidia | default('false') }}{% endif %}
+
+{# pull: Pull the image from the registry before starting if not present locally (true/false). #}
+{%- if section.pull is defined %}pull={{ section.pull | default('false') }}{% endif %}
+
+{# root: Run the container as root (true/false). #}
+{%- if section.root is defined %}root={{ section.root | default('false') }}{% endif %}
+
+{# start_now: Immediately start the container after creation (true/false). #}
+{%- if section.start_now is defined %}start_now={{ section.start_now | default('false') }}{% endif %}
+
+{# replace: Replace existing container with the same name if it exists (true/false). #}
+{%- if section.replace is defined %}replace={{ section.replace | default('false') }}{% endif %}
+
+{# clone: Clone the configuration from an existing container (true/false). #}
+{%- if section.clone is defined %}clone={{ section.clone | default('false') }}{% endif %}
+
+{# exported_apps: List of desktop applications to export from the container to the host. #}
+{%- if section.exported_apps is defined %}exported_apps={{ section.exported_apps | join(' ') | default('') }}{% endif %}
+
+{# exported_bins: List of binaries to export from the container to the host PATH. #}
+{%- if section.exported_bins is defined %}exported_bins={{ section.exported_bins | join(' ') | default('') }}{% endif %}
+
+{# exported_bins_path: Custom PATH directory to place exported binaries in. #}
+{%- if section.exported_bins_path is defined %}exported_bins_path={{ section.exported_bins_path | default('') }}{% endif %}
+
+{# entry: Command to run when entering the container via `distrobox enter`. #}
+{%- if section.entry is defined %}entry={{ section.entry | default('') }}{% endif %}
+
+{# init_hooks: List of commands to run during the container's initialization phase. #}
+{%- if section.init_hooks is defined %}init_hooks={{ section.init_hooks | join('; ') | default('') }}{% endif %}
+
+{# pre_init_hooks: List of commands to run before the container's initialization phase. #}
+{%- if section.pre_init_hooks is defined %}pre_init_hooks={{ section.pre_init_hooks | join('; ') | default('') }}{% endif %}
+
+{# volume: List of volumes to mount into the container (format: host:container[:options]). #}
+{%- if section.volume is defined %}volume={{ section.volume | join(' ') | default('') }}{% endif %}
+
+{# additional_packages: List of extra packages to install in the container at creation. #}
+{%- if section.additional_packages is defined %}additional_packages={{ section.additional_packages | join(' ') | default('') }}{% endif %}
+
+{# additional_flags: Additional flags to pass to the container runtime command. #}
+{%- if section.additional_flags is defined %}additional_flags={{ section.additional_flags | join(' ') | default('') }}{% endif %}
+
+{# unshare_ipc: Unshare the IPC namespace for the container. #}
+{%- if section.unshare_ipc is defined %}unshare_ipc={{ section.unshare_ipc | default('false') }}{% endif %}
+
+{# unshare_netns: Unshare the network namespace for the container. #}
+{%- if section.unshare_netns is defined %}unshare_netns={{ section.unshare_netns | default('false') }}{% endif %}
+
+{# unshare_process: Unshare the process namespace for the container. #}
+{%- if section.unshare_process is defined %}unshare_process={{ section.unshare_process | default('false') }}{% endif %}
+
+{# unshare_devsys: Unshare the dev/sys namespace for the container. #}
+{%- if section.unshare_devsys is defined %}unshare_devsys={{ section.unshare_devsys | default('false') }}{% endif %}
+
+{# unshare_all: Enable all unshare namespaces for the container. #}
+{%- if section.unshare_all is defined %}unshare_all={{ section.unshare_all | default('false') }}{% endif %}
+
+{# Separator between sections. No trailing newline after the last section. #}
+{%- if not loop.last %}
+
+{% endif %}
+{%- endfor %}

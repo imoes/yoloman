@@ -1,0 +1,62 @@
+# Claws Mail: fetchinfo_plugin configuration
+# -------------------------------------------
+# This template configures the fetchinfo_plugin for Claws Mail.
+# When enabled, it injects custom headers (X-FETCH-*) into fetched emails
+# containing download metadata and timestamps.
+#
+# The plugin is controlled by the 'enabled' boolean. If disabled, the
+# entire configuration block is omitted, effectively turning off the plugin
+# without requiring file removal.
+
+# Global toggle for the fetchinfo_plugin.
+# Schema default: true
+{% if enabled | default(true) %}
+
+# fetchinfo_plugin is ENABLED.
+# The following sections define the headers and formatting behavior.
+
+# List of headers to add with download information.
+# Each entry corresponds to one of the documented X-FETCH-* headers.
+# All five are enabled by default if this list is not provided.
+#
+# Schema type: list of mappings (objects), e.g.:
+#   - name: "X-FETCH-SIZE"
+#     enabled: true
+#   - name: "X-FETCH-TIME"
+#     enabled: true
+{% if headers | default([]) is defined and headers | default([]) | length > 0 %}
+
+# Iterate over each header configuration entry.
+# We use dict2items to safely iterate a list of dictionaries in Jinja2
+# without invoking Python methods. Note: The schema defines 'headers' as a
+# list, but if it were passed as a dict mapping, dict2items handles it.
+# Here we assume 'headers' is a list of dicts as per description.
+# However, dict2items is for dicts. If 'headers' is a list of objects,
+# we should just iterate the list.
+# Correction based on schema: headers is a list of mappings.
+# So we iterate 'headers' directly, not dict2items.
+{% for header_item in headers | default([]) %}
+# Header name (e.g., X-FETCH-SIZE, X-FETCH-TIME).
+# Required field in the schema entry.
+Header: {{ header_item.name | default('UNKNOWN') }}
+# Whether this specific header is active.
+# Default: true
+Enabled: {{ header_item.enabled | default(true) }}
+
+{% endfor %}
+
+{% else %}
+# Fallback: If no headers are explicitly defined, the plugin may use
+# its internal defaults or enable all standard X-FETCH-* headers.
+# This comment documents that behavior for the reader.
+# No specific headers defined; using plugin defaults.
+
+{% endif %}
+
+# Format of the X-FETCH-TIME header.
+# Only 'RFC-822' is supported as per the man page.
+# Schema default: 'RFC-822'
+Timestamp format: {{ timestamp_format | default('RFC-822') }}
+
+{% endif %}
+# End of fetchinfo_plugin block if enabled #

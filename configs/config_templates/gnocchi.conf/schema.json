@@ -1,0 +1,138 @@
+{
+  "bind_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to bind the Gnocchi REST API to (e.g., '0.0.0.0' for all interfaces, or '127.0.0.1' for localhost-only)."
+  },
+  "bind_port": {
+    "type": "number",
+    "default": 8041,
+    "description": "TCP port for the Gnocchi API service."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to the log file. Leave blank to log to stdout/stderr instead."
+  },
+  "log_level": {
+    "type": "string",
+    "default": "INFO",
+    "description": "Logging verbosity. Recommended: INFO for production, DEBUG for troubleshooting."
+  },
+  "keystone": {
+    "type": "object",
+    "description": "Keystone authentication settings for Gnocchi.",
+    "items": {
+      "auth_url": {
+        "type": "string",
+        "default": "http://localhost:5000/v3",
+        "description": "Keystone auth endpoint (must include version, e.g., /v3)."
+      },
+      "project_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name of the project."
+      },
+      "project_name": {
+        "type": "string",
+        "default": "services",
+        "description": "Project (tenant) name used for service credentials."
+      },
+      "user_domain_name": {
+        "type": "string",
+        "default": "Default",
+        "description": "Domain name of the user."
+      },
+      "username": {
+        "type": "string",
+        "default": "gnocchi",
+        "description": "Keystone service user name."
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Keystone service user password (should be set securely, e.g., via config management)."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "description": "Storage backend configuration.",
+    "items": {
+      "driver": {
+        "type": "string",
+        "default": "file",
+        "enum": [
+          "file",
+          "ceph",
+          "s3",
+          "swift"
+        ],
+        "description": "Storage backend to use. 'file' is simplest for testing; others require extra dependencies."
+      },
+      "file_basepath": {
+        "type": "string",
+        "default": "/var/lib/gnocchi",
+        "description": "Directory for local file storage (only used if driver='file')."
+      },
+      "indexer_url": {
+        "type": "string",
+        "default": "mysql+pymysql://gnocchi:password@localhost/gnocchi",
+        "description": "Database URL for the indexer backend (SQLAlchemy format)."
+      },
+      "metricd_workers": {
+        "type": "number",
+        "default": 1,
+        "description": "Number of worker processes for the metricd service (handles metric processing)."
+      },
+      "coordination_url": {
+        "type": "string",
+        "default": "file:///var/lib/gnocchi/gnocchi.lock",
+        "description": "URL for distributed locking (e.g., file, redis, or memcached). Required for HA deployments."
+      }
+    }
+  },
+  "indexer": {
+    "type": "object",
+    "description": "Indexer (database) backend configuration.",
+    "items": {
+      "url": {
+        "type": "string",
+        "default": "mysql+pymysql://gnocchi:password@localhost/gnocchi",
+        "description": "Database connection URL (SQLAlchemy URI)."
+      }
+    }
+  },
+  "metricd": {
+    "type": "object",
+    "description": "Metricd processing settings.",
+    "items": {
+      "batch_size": {
+        "type": "number",
+        "default": 100,
+        "description": "Number of metrics to process per batch (trade-off between latency and throughput)."
+      }
+    }
+  },
+  "statsd": {
+    "type": "object",
+    "description": "StatsD ingestion settings (for accepting metrics from statsd clients).",
+    "items": {
+      "resource_id": {
+        "type": "string",
+        "default": "",
+        "description": "Resource UUID to associate ingested statsd metrics with (optional but recommended in multi-tenant setups)."
+      },
+      "user_id": {
+        "type": "string",
+        "default": "",
+        "description": "User ID to assign to statsd-ingested metrics (for authorization)."
+      },
+      "project_id": {
+        "type": "string",
+        "default": "",
+        "description": "Project ID to assign to statsd-ingested metrics."
+      }
+    }
+  }
+}

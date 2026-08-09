@@ -1,0 +1,53 @@
+{
+  "service_name": {
+    "type": "string",
+    "default": "myservice",
+    "description": "Name of the supervised service; used to identify logs and generate tag names."
+  },
+  "rotate_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable log rotation: keep a fixed number of files with max size and compression."
+  },
+  "sync_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable synchronous writes to disk after each line (slower, safer)."
+  },
+  "use_iso8601": {
+    "type": "bool",
+    "default": true,
+    "description": "Use ISO8601 timestamps (e.g., 2024-06-15T10:22:33.123456+02:00); otherwise use Unix epoch seconds."
+  },
+  "tag_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Prepend each log line with a tag (derived from the service name) for source identification."
+  },
+  "dedup_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Drop duplicate consecutive lines (useful to suppress repeated warnings or errors)."
+  },
+  "filter_patterns": {
+    "type": "list",
+    "default": [],
+    "description": "List of regex patterns to filter log lines. Each pattern specifies how lines are matched and included/excluded.",
+    "items": {
+      "regex": {
+        "type": "string",
+        "default": "",
+        "description": "Perl-compatible regex to match log lines. Use empty string for a no-op (skip filter)."
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "include",
+          "exclude"
+        ],
+        "default": "include",
+        "description": "Whether to keep ('include') or drop ('exclude') lines matching the pattern."
+      }
+    }
+  }
+}

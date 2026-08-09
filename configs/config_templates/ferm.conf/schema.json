@@ -1,0 +1,328 @@
+{
+  "modules": {
+    "type": "list",
+    "default": [
+      "ip",
+      "tcp",
+      "udp",
+      "icmp"
+    ],
+    "description": "List of netfilter modules (e.g., ip, tcp, udp, icmp) to load before rule processing."
+  },
+  "default_input_policy": {
+    "type": "string",
+    "default": "DROP",
+    "description": "Default policy for the INPUT chain (e.g., ACCEPT, DROP, REJECT).",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "DNAT",
+      "SNAT",
+      "MASQUERADE",
+      "LOG",
+      "ULOG",
+      "NFLOG",
+      "CLASSIFY",
+      "MARK",
+      "CONNMARK",
+      "SECMARK",
+      "TCPOPTSTRIP",
+      "TCPMSS",
+      "TOS",
+      "TTL",
+      "HL",
+      "IDLETIMER",
+      "LED",
+      "RATEEST",
+      "HMARK",
+      "CHECKSUM",
+      "MIRROR",
+      "NOTRACK",
+      "QUEUE",
+      "NFQUEUE",
+      "REDIRECT",
+      "SAME",
+      "DNPT",
+      "SNPT",
+      "SYNPROXY"
+    ]
+  },
+  "default_output_policy": {
+    "type": "string",
+    "default": "ACCEPT",
+    "description": "Default policy for the OUTPUT chain.",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "DNAT",
+      "SNAT",
+      "MASQUERADE",
+      "LOG",
+      "ULOG",
+      "NFLOG",
+      "CLASSIFY",
+      "MARK",
+      "CONNMARK",
+      "SECMARK",
+      "TCPOPTSTRIP",
+      "TCPMSS",
+      "TOS",
+      "TTL",
+      "HL",
+      "IDLETIMER",
+      "LED",
+      "RATEEST",
+      "HMARK",
+      "CHECKSUM",
+      "MIRROR",
+      "NOTRACK",
+      "QUEUE",
+      "NFQUEUE",
+      "REDIRECT",
+      "SAME",
+      "DNPT",
+      "SNPT",
+      "SYNPROXY"
+    ]
+  },
+  "default_forward_policy": {
+    "type": "string",
+    "default": "DROP",
+    "description": "Default policy for the FORWARD chain.",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "DNAT",
+      "SNAT",
+      "MASQUERADE",
+      "LOG",
+      "ULOG",
+      "NFLOG",
+      "CLASSIFY",
+      "MARK",
+      "CONNMARK",
+      "SECMARK",
+      "TCPOPTSTRIP",
+      "TCPMSS",
+      "TOS",
+      "TTL",
+      "HL",
+      "IDLETIMER",
+      "LED",
+      "RATEEST",
+      "HMARK",
+      "CHECKSUM",
+      "MIRROR",
+      "NOTRACK",
+      "QUEUE",
+      "NFQUEUE",
+      "REDIRECT",
+      "SAME",
+      "DNPT",
+      "SNPT",
+      "SYNPROXY"
+    ]
+  },
+  "chains": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional comment describing this chain."
+      },
+      "table": {
+        "type": "string",
+        "default": "filter",
+        "description": "Netfilter table name (e.g., filter, nat, mangle)."
+      },
+      "chain": {
+        "type": "string",
+        "default": "",
+        "description": "Chain name (e.g., INPUT, OUTPUT, FORWARD, or custom like 'ssh_chain')."
+      },
+      "rules": {
+        "type": "list",
+        "default": [],
+        "description": "List of raw ferm rules (strings) for this chain."
+      }
+    }
+  },
+  "services": {
+    "type": "list",
+    "default": [
+      {
+        "name": "ssh",
+        "port": 22
+      },
+      {
+        "name": "icmp",
+        "comment": "Allow ping"
+      }
+    ],
+    "items": {
+      "comment": {
+        "type": "string",
+        "default": "",
+        "description": "Optional comment explaining this service rule."
+      },
+      "name": {
+        "type": "string",
+        "default": "ssh",
+        "description": "Predefined service name (ssh, http, https, icmp, custom)."
+      },
+      "daddr": {
+        "type": "string",
+        "default": "0.0.0.0/0",
+        "description": "Destination address/mask (for TCP/UDP services)."
+      },
+      "port": {
+        "type": "number",
+        "default": 22,
+        "description": "TCP/UDP port number (used for ssh/http/https services)."
+      },
+      "rules": {
+        "type": "list",
+        "default": [],
+        "description": "Raw ferm rule(s) for custom services (only used if name='custom')."
+      }
+    }
+  },
+  "load_modules": {
+    "type": "list",
+    "default": [],
+    "description": "Additional modules to load via @load (e.g., 'conntrack', 'limit')."
+  },
+  "drop_invalid": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether to explicitly drop invalid packets (enables stateful inspection)."
+  },
+  "final_policy_input": {
+    "type": "string",
+    "default": "DROP",
+    "description": "Final policy for INPUT chain (overrides default_input_policy if set).",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "DNAT",
+      "SNAT",
+      "MASQUERADE",
+      "LOG",
+      "ULOG",
+      "NFLOG",
+      "CLASSIFY",
+      "MARK",
+      "CONNMARK",
+      "SECMARK",
+      "TCPOPTSTRIP",
+      "TCPMSS",
+      "TOS",
+      "TTL",
+      "HL",
+      "IDLETIMER",
+      "LED",
+      "RATEEST",
+      "HMARK",
+      "CHECKSUM",
+      "MIRROR",
+      "NOTRACK",
+      "QUEUE",
+      "NFQUEUE",
+      "REDIRECT",
+      "SAME",
+      "DNPT",
+      "SNPT",
+      "SYNPROXY"
+    ]
+  },
+  "final_policy_output": {
+    "type": "string",
+    "default": "ACCEPT",
+    "description": "Final policy for OUTPUT chain (overrides default_output_policy if set).",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "DNAT",
+      "SNAT",
+      "MASQUERADE",
+      "LOG",
+      "ULOG",
+      "NFLOG",
+      "CLASSIFY",
+      "MARK",
+      "CONNMARK",
+      "SECMARK",
+      "TCPOPTSTRIP",
+      "TCPMSS",
+      "TOS",
+      "TTL",
+      "HL",
+      "IDLETIMER",
+      "LED",
+      "RATEEST",
+      "HMARK",
+      "CHECKSUM",
+      "MIRROR",
+      "NOTRACK",
+      "QUEUE",
+      "NFQUEUE",
+      "REDIRECT",
+      "SAME",
+      "DNPT",
+      "SNPT",
+      "SYNPROXY"
+    ]
+  },
+  "final_policy_forward": {
+    "type": "string",
+    "default": "DROP",
+    "description": "Final policy for FORWARD chain (overrides default_forward_policy if set).",
+    "enum": [
+      "ACCEPT",
+      "DROP",
+      "REJECT",
+      "RETURN",
+      "DNAT",
+      "SNAT",
+      "MASQUERADE",
+      "LOG",
+      "ULOG",
+      "NFLOG",
+      "CLASSIFY",
+      "MARK",
+      "CONNMARK",
+      "SECMARK",
+      "TCPOPTSTRIP",
+      "TCPMSS",
+      "TOS",
+      "TTL",
+      "HL",
+      "IDLETIMER",
+      "LED",
+      "RATEEST",
+      "HMARK",
+      "CHECKSUM",
+      "MIRROR",
+      "NOTRACK",
+      "QUEUE",
+      "NFQUEUE",
+      "REDIRECT",
+      "SAME",
+      "DNPT",
+      "SNPT",
+      "SYNPROXY"
+    ]
+  }
+}

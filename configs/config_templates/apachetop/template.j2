@@ -1,0 +1,46 @@
+# apachetop.conf — configuration for apachetop(1)
+# apachetop is a real-time Apache log viewer/monitor.
+# This file generates the command-line options passed to the apachetop binary.
+# Each commented section corresponds to a schema field in the Ansible role.
+
+# List of Apache access log files to monitor. Each string is a file path.
+# Maps to: -f <logfile>
+# Default: ['/var/log/apache2/access.log']
+{% for lf in (logfile | default(['/var/log/apache2/access.log'])) %}-f {{ lf }}
+{% endfor %}
+
+# Whether to limit entries by number of hits ('hits') or by time window ('time').
+# If 'hits', max_entries_count is the number of hits to remember.
+# If 'time', max_entries_count is the time window in seconds.
+# Default: 'time'
+{% if (max_entries_type | default('time')) == 'hits' %}
+# Limit entries by number of hits.
+# max_entries_count specifies the maximum number of hits to remember.
+# Default: 5000 (when type is hits)
+-H {{ (max_entries_count | default(5000)) }}
+{% elif (max_entries_type | default('time')) == 'time' %}
+# Limit entries by time window.
+# max_entries_count specifies the time window in seconds.
+# Default: 30 (when type is time)
+-T {{ (max_entries_count | default(30)) }}
+{% endif %}
+
+# If true, preserve query strings in URLs (equivalent to -q).
+# Default: False
+{% if (preserve_querystring | default(false)) %}-q{% endif %}
+
+# If true, lowercase all URLs so /FOO and /foo are merged (equivalent to -l).
+# Default: False
+{% if (lowercase_urls | default(false)) %}-l{% endif %}
+
+# Number of path segments to keep (e.g., 3 keeps /a/b/). If zero or negative, disabled.
+# Default: 0
+{% if (path_segments | default(0)) > 0 %}-s {{ path_segments | default(0) }}{% endif %}
+
+# If true, preserve the protocol (http://) in referrer strings (equivalent to -p).
+# Default: False
+{% if (preserve_protocol | default(false)) %}-p{% endif %}
+
+# Screen refresh delay in seconds (equivalent to -r). Must be ≥1.
+# Default: 2
+{% if (refresh_delay | default(2)) > 0 %}-r {{ refresh_delay | default(2) }}{% endif %}

@@ -1,0 +1,55 @@
+# edbrowse configuration (.ebrc equivalent)
+# See ebrc(5) for full syntax and options.
+# Each directive is a command or assignment executed at startup.
+
+# Debug level: 0 (none) to 9 (verbose); 1 shows buffer sizes, 2 adds URLs.
+# Higher values provide more detailed logging for troubleshooting.
+db{{ debug_level | default(1) }}
+
+# Batch mode: exit immediately on error instead of entering interactive mode.
+# Useful for scripts or non-interactive automation.
+{% if batch_mode | default(false) %}be{% endif %}
+
+# Set HTTP proxy URL (e.g., 'http://proxy.example.com:8080').
+# Only the first non-empty proxy set (http or https) is typically active per-request type.
+set httpProxy{{ http_proxy | default('') }}
+
+# Set HTTPS proxy URL (e.g., 'http://proxy.example.com:8080').
+# Overrides http_proxy for HTTPS connections if both are set.
+set httpsProxy{{ https_proxy | default('') }}
+
+# Enable or disable JavaScript evaluation in HTML content.
+# Disabling improves security and performance on untrusted pages.
+set javaScript{{ enable_js | default(true) | string | lower }}
+
+# Timeout for network operations in seconds.
+# edbrowse will abort requests that take longer than this duration.
+set timeout{{ network_timeout | default(30) }}
+
+# Maximum line width in characters for rendered HTML pages.
+# Controls how text wraps in the terminal output.
+set width{{ page_width | default(80) }}
+
+# Default homepage: URL or file path loaded automatically if no arguments provided.
+# If empty, edbrowse starts in interactive mode without loading a page.
+{{ homepage | default('') }}
+
+# Load an additional startup script from the given path.
+# Executes edbrowse commands in that file, useful for macros or aliases.
+{% if startup_script | default('') | trim != '' %}e{{ startup_script | default('') | trim }}{% endif %}
+
+# Set a user stylesheet (CSS file) for custom rendering of HTML content.
+# Applies styles to the rendered HTML output.
+set style{{ user_stylesheet | default('') }}
+
+# Set the default character encoding for text/HTML rendering.
+# Common values: 'utf-8', 'iso-8859-1'.
+set charset{{ charset | default('utf-8') }}
+
+# Enable or disable cookie handling during HTTP requests.
+# Cookies persist between sessions if cookies_file is also set.
+set cookies{{ cookies_enabled | default(true) | string | lower }}
+
+# File path to store persistent cookies.
+# Cookies are saved here when sessions end and loaded on next start.
+set cookiesFile{{ cookies_file | default('~/.ebcookies') }}

@@ -1,0 +1,143 @@
+{
+  "global_maxconn": {
+    "type": "number",
+    "default": 4096,
+    "description": "Maximum number of simultaneous connections for the global process."
+  },
+  "defaults_timeout_connect": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum time to wait for a connection attempt to a server (in seconds)."
+  },
+  "defaults_timeout_client": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum inactivity time on the client side (in seconds)."
+  },
+  "defaults_timeout_server": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum inactivity time on the server side (in seconds)."
+  },
+  "defaults_retries": {
+    "type": "number",
+    "default": 3,
+    "description": "Number of retries to perform when a connection to a server fails."
+  },
+  "frontends": {
+    "type": "list",
+    "default": [],
+    "description": "List of frontend listeners for incoming Postfix policy queries.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "postfix-policy-frontend",
+        "description": "Name of the frontend (alphanumeric, underscores only)."
+      },
+      "bind_host": {
+        "type": "string",
+        "default": "0.0.0.0",
+        "description": "IP address or hostname to bind to (e.g., 127.0.0.1 for localhost-only)."
+      },
+      "bind_port": {
+        "type": "number",
+        "default": 12340,
+        "description": "Port to listen on for Postfix policy requests (commonly 12340 or 2465)."
+      },
+      "default_backend": {
+        "type": "string",
+        "default": "postfix-backend",
+        "description": "Name of the backend to use by default (must match a backend.name)."
+      }
+    }
+  },
+  "backends": {
+    "type": "list",
+    "default": [],
+    "description": "List of backend server pools for handling Postfix policy requests.",
+    "items": {
+      "name": {
+        "type": "string",
+        "default": "postfix-backend",
+        "description": "Name of the backend (must match frontend.default_backend values)."
+      },
+      "balance": {
+        "type": "string",
+        "default": "roundrobin",
+        "description": "Load balancing algorithm (e.g., roundrobin, leastconn, first)."
+      },
+      "check_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Whether to enable TCP checks (recommended for reliability)."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "description": "List of Postfix policy servers (typically `postfix-policyd` instances).",
+        "items": {
+          "name": {
+            "type": "string",
+            "default": "postfix1",
+            "description": "Internal name for the server (used in logs and health status)."
+          },
+          "host": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "IP address or hostname of the Postfix policy server."
+          },
+          "port": {
+            "type": "number",
+            "default": 12340,
+            "description": "Port where the Postfix policy service listens (commonly 12340)."
+          },
+          "check_interval": {
+            "type": "number",
+            "default": 2,
+            "description": "Time between health checks (in seconds)."
+          },
+          "fall": {
+            "type": "number",
+            "default": 3,
+            "description": "Number of consecutive failed checks before marking server as down."
+          },
+          "rise": {
+            "type": "number",
+            "default": 2,
+            "description": "Number of consecutive successful checks before marking server as up."
+          },
+          "backup": {
+            "type": "bool",
+            "default": false,
+            "description": "Whether this server is a backup (only used when all primaries are down)."
+          }
+        }
+      }
+    }
+  },
+  "stats_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable the built-in HAProxy stats web interface (for monitoring)."
+  },
+  "stats_port": {
+    "type": "number",
+    "default": 8404,
+    "description": "Port for the stats web interface (if enabled)."
+  },
+  "stats_uri": {
+    "type": "string",
+    "default": "/stats",
+    "description": "Path for the stats web page (e.g., /stats)."
+  },
+  "stats_user": {
+    "type": "string",
+    "default": "hapolicy",
+    "description": "Username for stats web interface authentication."
+  },
+  "stats_password": {
+    "type": "string",
+    "default": "changeme",
+    "description": "Password for stats web interface authentication (avoid defaults in production)."
+  }
+}

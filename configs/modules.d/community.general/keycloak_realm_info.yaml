@@ -1,0 +1,30 @@
+name: keycloak_realm_info
+fqcn: community.general.keycloak_realm_info
+collection: community.general
+short_description: Allows obtaining Keycloak realm public information via Keycloak API
+description: This module allows you to get Keycloak realm public information via the Keycloak REST API.
+  The names of module options are snake_cased versions of the camelCase ones found in the Keycloak API
+  and its documentation at U(https://www.keycloak.org/docs-api/8.0/rest-api/index.html). Attributes are
+  multi-valued in the Keycloak API. All attributes are lists of individual values and will be returned
+  that way by this module. You may pass single values for attributes when calling the module, and this
+  will be translated into a list suitable for the API.
+options:
+  auth_keycloak_url:
+    type: str
+    required: true
+    aliases:
+    - url
+    description: URL to the Keycloak instance.
+  realm:
+    type: str
+    default: master
+    description: They Keycloak realm ID.
+  validate_certs:
+    type: bool
+    default: true
+    description: Verify TLS certificates (do not disable this in production).
+writes: false
+runtime: starlark
+source: translated
+examples: "\n- name: Get a Keycloak public key\n  community.general.keycloak_realm_info:\n    realm: MyCustomRealm\n\
+  \    auth_keycloak_url: https://auth.example.com/auth\n  delegate_to: localhost\n"

@@ -1,0 +1,180 @@
+{
+  "aide_version": {
+    "type": "string",
+    "default": "5.4",
+    "description": "AIDE version being configured (used for header comment only)."
+  },
+  "db_dir": {
+    "type": "string",
+    "default": "/var/lib/aide",
+    "description": "Directory where the AIDE database files are stored."
+  },
+  "db_file": {
+    "type": "string",
+    "default": "aide.db.gz",
+    "description": "Filename of the active AIDE database (relative to DB_DIR)."
+  },
+  "db_url": {
+    "type": "string",
+    "default": "file://{{ db_dir }}/{{ db_file }}",
+    "description": "URL (or file path) to the database used at runtime (used by --check)."
+  },
+  "log_file": {
+    "type": "string",
+    "default": "/var/log/aide/aide.log",
+    "description": "Path to the AIDE log file for integrity check reports."
+  },
+  "db_compress": {
+    "type": "string",
+    "default": "gz",
+    "description": "Compression type for the database: 'none', 'gz', or 'bzip2'."
+  },
+  "verbose": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose output during database operations (true/false)."
+  },
+  "db_new": {
+    "type": "string",
+    "default": "aide.db.new",
+    "description": "Filename used when building a new database (relative to DB_DIR)."
+  },
+  "reread_conf": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether AIDE should reread the config file on startup."
+  },
+  "symlink_count": {
+    "type": "number",
+    "default": 5,
+    "description": "Maximum number of symbolic links to follow during a scan."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 0,
+    "description": "Seconds to wait for interactive input during init (0 = no timeout)."
+  },
+  "rules": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Basic",
+        "desc": "Standard file attributes and checksums",
+        "expression": "p+u+g+acl+selinux+xattrs+sha256"
+      },
+      {
+        "name": "Dir",
+        "desc": "Directories only",
+        "expression": "p+u+g+acl+selinux+xattrs+sha256+dir"
+      },
+      {
+        "name": "All",
+        "desc": "All attributes including inode and timestamps",
+        "expression": "p+u+g+acl+selinux+xattrs+sha256+atime+ctime+inode+mtime+size"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the rule set (e.g., 'Basic')"
+      },
+      "desc": {
+        "type": "string",
+        "description": "Optional human-readable description of the rule"
+      },
+      "expression": {
+        "type": "string",
+        "description": "AIDE attribute/indicator expression (e.g., 'p+u+g+sha256')"
+      }
+    }
+  },
+  "file_groups": {
+    "type": "list",
+    "default": [
+      {
+        "name": "Bin",
+        "desc": "Essential system binaries",
+        "paths": [
+          "/bin",
+          "/sbin",
+          "/usr/bin",
+          "/usr/sbin"
+        ]
+      },
+      {
+        "name": "Etc",
+        "desc": "Configuration files",
+        "paths": [
+          "/etc",
+          "/etc/passwd",
+          "/etc/group",
+          "/etc/hosts",
+          "/etc/ssh"
+        ]
+      },
+      {
+        "name": "Logs",
+        "desc": "Log files (only check for changes in existence/size)",
+        "paths": [
+          "/var/log"
+        ]
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the file group (e.g., 'Etc')"
+      },
+      "desc": {
+        "type": "string",
+        "description": "Human-readable description for comment"
+      },
+      "paths": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of paths or patterns to include in this group"
+      }
+    }
+  },
+  "mappings": {
+    "type": "list",
+    "default": [
+      {
+        "name": "FullSystem",
+        "desc": "Default mapping for the entire filesystem",
+        "group": "Bin Etc",
+        "rules": "Basic Dir"
+      }
+    ],
+    "items": {
+      "name": {
+        "type": "string",
+        "description": "Name of the mapping (e.g., 'FullSystem')"
+      },
+      "desc": {
+        "type": "string",
+        "description": "Comment description for the mapping"
+      },
+      "group": {
+        "type": "string",
+        "description": "Space-separated list of file groups (must match group names above)"
+      },
+      "rules": {
+        "type": "list",
+        "items": {
+          "type": "string"
+        },
+        "description": "List of rule set names to apply to this group"
+      }
+    }
+  },
+  "default_rule_set": {
+    "type": "list",
+    "default": [
+      "FullSystem"
+    ],
+    "description": "List of rule-set names (from 'mappings') to use by default (e.g., ['FullSystem']). If empty, no default is set."
+  }
+}

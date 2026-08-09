@@ -1,0 +1,133 @@
+# Global configuration options
+[global]
+; Pid file location
+pid = {{ pid_file }}
+
+; Error log file
+error_log = {{ error_log }}
+
+; Log level: debug, notice, warning, error, critical
+log_level = {{ log_level }}
+
+; Syslog ident
+syslog.ident = {{ syslog_ident }}
+
+; Syslog facility
+syslog.facility = {{ syslog_facility }}
+
+; Process manager configuration
+; Valid options: static, dynamic, ondemand
+process_manager = {{ process_manager }}
+
+{% if process_manager == 'static' %}
+; Number of child processes (for static pool)
+pm.max_children = {{ pm_max_children }}
+{% elif process_manager == 'dynamic' %}
+; Dynamic pool settings
+pm.start_servers = {{ pm_start_servers }}
+pm.min_spare_servers = {{ pm_min_spare_servers }}
+pm.max_spare_servers = {{ pm_max_spare_servers }}
+pm.max_children = {{ pm_max_children_dynamic }}
+{% elif process_manager == 'ondemand' %}
+; On-demand pool settings
+pm.max_children = {{ pm_max_children_ondemand }}
+pm.process_idle_timeout = {{ pm_process_idle_timeout }}
+pm.max_requests = {{ pm_max_requests_ondemand }}
+{% endif %}
+
+; User and group under which processes run
+user = {{ user }}
+group = {{ group }}
+
+; Listen on a TCP socket or Unix domain socket
+listen = {{ listen }}
+
+; Listen owner/group/mode for Unix socket
+listen.owner = {{ listen_owner }}
+listen.group = {{ listen_group }}
+listen.mode = {{ listen_mode }}
+
+{% if enable_status_endpoint | default(false) %}
+; Enable FPM's status page
+listen.allowed_clients = {{ status_allowed_clients | join(', ') }}
+{% endif %}
+
+; PHP ini overrides per-pool (applied in this pool context)
+php_admin_value[error_log] = {{ php_admin_error_log }}
+php_admin_flag[log_errors] = {{ php_admin_log_errors | lower }}
+
+; Environment variables passed to PHP processes
+{% for key, value in env_vars.items() %}
+environment[{{ key }}] = {{ value | tojson }}
+{% endfor %}
+
+{% if processes_cleanup_on_startup | default(true) %}
+; Cleanup on restart
+process.control = dynamic
+{% endif %}
+
+# Pool definitions (one per `[pool_name]` section)
+{% for pool in pools %}
+; Pool: {{ pool.name }}
+[{{ pool.name }}]
+
+; Inherit global settings? (use `clear = true` to reset global defaults)
+clear = {{ pool.clear_global | lower }}
+
+; Pid, log, and log level (pool-specific overrides)
+{% if pool.pid_file %}pid = {{ pool.pid_file }}{% endif %}
+{% if pool.error_log %}error_log = {{ pool.error_log }}{% endif %}
+{% if pool.log_level %}log_level = {{ pool.log_level }}{% endif %}
+
+; Process manager (overrides global if set)
+{% if pool.process_manager %}process_manager = {{ pool.process_manager }}{% else %}process_manager = {{ global_process_manager }}{% endif %}
+
+{% if pool.process_manager == 'static' or pool.process_manager is not defined %}
+pm.max_children = {{ pool.pm_max_children | default(pm_max_children) }}
+{% elif pool.process_manager == 'dynamic' %}
+pm.start_servers = {{ pool.pm_start_servers | default(pm_start_servers) }}
+pm.min_spare_servers = {{ pool.pm_min_spare_servers | default(pm_min_spare_servers) }}
+pm.max_spare_servers = {{ pool.pm_max_spare_servers | default(pm_max_spare_servers) }}
+pm.max_children = {{ pool.pm_max_children | default(pm_max_children_dynamic) }}
+{% elif pool.process_manager == 'ondemand' %}
+pm.max_children = {{ pool.pm_max_children | default(pm_max_children_ondemand) }}
+pm.process_idle_timeout = {{ pool.pm_process_idle_timeout | default(pm_process_idle_timeout) }}
+pm.max_requests = {{ pool.pm_max_requests | default(pm_max_requests_ondemand) }}
+{% endif %}
+
+; User/group for this pool (defaults to global if not set)
+user = {{ pool.user | default(user) }}
+group = {{ pool.group | default(group) }}
+
+; Listen socket (required)
+listen = {{ pool.listen }}
+
+; Socket permissions
+listen.owner = {{ pool.listen_owner | default(listen_owner) }}
+listen.group = {{ pool.listen_group | default(listen_group) }}
+listen.mode = {{ pool.listen_mode | default(listen_mode) }}
+
+{% if pool.enable_status_endpoint | default(false) %}
+; Pool-specific status endpoint
+pm.status_path = {{ pool.status_path | default('/status') }}
+listen.allowed_clients = {{ pool.status_allowed_clients | join(', ') }}
+{% endif %}
+
+; Security & performance tweaks
+pm.max_requests = {{ pool.pm_max_requests | default(pm_max_requests_ondemand) }}
+request_terminate_timeout = {{ pool.request_terminate_timeout }}
+request_slowlog_timeout = {{ pool.request_slowlog_timeout }}
+
+slowlog = {{ pool.slowlog }}
+
+; PHP ini directives (pool-specific overrides)
+{% for directive, value in pool.php_values.items() %}php_value[{{ directive }}] = {{ value | tojson }}
+{% endfor %}
+{% for directive, value in pool.php_flags.items() %}php_flag[{{ directive }}] = {{ value | lower }}
+{% endfor %}
+{% for directive, value in pool.php_admin_values.items() %}php_admin_value[{{ directive }}] = {{ value | tojson }}
+{% endfor %}
+{% for directive, value in pool.php_admin_flags.items() %}php_admin_flag[{{ directive }}] = {{ value | lower }}
+{% endfor %}
+
+{% endfor %}

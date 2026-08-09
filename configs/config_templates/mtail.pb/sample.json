@@ -1,0 +1,26 @@
+{
+  "programs": [
+    {
+      "name": "nginx_requests",
+      "match": "/var/log/nginx/*.log",
+      "labels": {
+        "service": "nginx"
+      },
+      "metrics": [
+        {
+          "name": "http_requests_total",
+          "type": "counter",
+          "buckets": null
+        }
+      ],
+      "program": "counter http_requests_total by status\n/^(?P<ip>\\S+) \\S+ \\S+ \\[.+\\] \"(?P<method>\\S+) (?P<path>\\S+) (?P<proto>[^\"]+)\" (?P<status>\\d+) (?P<size>\\d+)/\nhttp_requests_total[status]++\n"
+    }
+  ],
+  "log_patterns": [
+    "/var/log/nginx/*.log",
+    "/var/log/auth.log"
+  ],
+  "output_path": "/metrics",
+  "server_port": 3903,
+  "log_level": "info"
+}

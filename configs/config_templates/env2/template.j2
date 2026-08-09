@@ -1,0 +1,85 @@
+{# ============================================================================ #}
+{# env2(1) Configuration Template                                                 #}
+{#                                                                                #}
+{# This template generates a configuration file for the `env2` utility, which      #}
+{# converts environment variable dumps between different shell dialects.            #}
+{#                                                                                #}
+{# All configuration options below correspond to fields in the Ansible role         #}
+{# schema. Each variable is safely defaulted to prevent rendering failures if       #}
+{# the variable is not defined in the host or playbook context.                     #}
+{#                                                                                #}
+{# See env2(1) manpage for detailed descriptions of each option.                    #}
+{# ============================================================================ #}
+
+# --------------------------------------------------------------------------
+{# from: Source dialect (shell language) to convert from.                    #}
+{# Must be one of: bash, csh, ksh, modulecmd, perl, plist, sh, tclsh, ...   #}
+{# Default: 'bash'                                                           #}
+# --------------------------------------------------------------------------
+from: {{ from | default('bash') }}
+
+# --------------------------------------------------------------------------
+{# to: Target dialect (shell language) to convert to.                        #}
+{# Must be one of the supported dialects.                                    #}
+{# Default: 'bash' (inferred from SHELL or explicitly set)                  #}
+# --------------------------------------------------------------------------
+to: {{ to | default('bash') }}
+
+# --------------------------------------------------------------------------
+{# output: Output file path.                                                 #}
+{# If empty or omitted, output goes to stdout.                               #}
+{# If specified without path, defaults to 'env2.' + $SHELL.                  #}
+{# Default: ''                                                               #}
+# --------------------------------------------------------------------------
+{% if output is defined and output | length > 0 %}
+output: {{ output }}
+{% else %}
+# output: (stdout)
+{% endif %}
+
+# --------------------------------------------------------------------------
+{# profile: Path to file containing the starting environment.                #}
+{# Default: '.env2profile'                                                   #}
+# --------------------------------------------------------------------------
+{% if profile is defined and profile | length > 0 %}
+profile: {{ profile }}
+{% else %}
+profile: .env2profile
+{% endif %}
+
+# --------------------------------------------------------------------------
+{# ignore: Additional variables to ignore (beyond default list: _, ENV,      #}
+{#         ENV2, OLDPWD, SHLVL).                                              #}
+{#         Items must be scalar variable names.                               #}
+{#         Default: []                                                        #}
+# --------------------------------------------------------------------------
+{% if ignore is defined and ignore | length > 0 %}
+ignore:
+{% for var in ignore %}
+  - {{ var }}
+{% endfor %}
+{% else %}
+# ignore: (only defaults: _, ENV, ENV2, OLDPWD, SHLVL)
+{% endif %}
+
+# --------------------------------------------------------------------------
+{# all_vars: If true, include all variables (even unchanged ones).           #}
+{#           By default (false), only changed variables are included.        #}
+{#           Default: False                                                   #}
+# --------------------------------------------------------------------------
+all_vars: {{ all_vars | default(False) | bool | lower }}
+
+# --------------------------------------------------------------------------
+{# uniq: List of PATH-like variables to deduplicate (colon-separated values).#}
+{#        If empty or not provided, defaults to [MANPATH, PATH,              #}
+{#        LD_LIBRARY_PATH, PYTHONPATH, PERLLIB, MANPATH, INFOPATH, etc.].    #}
+{#        Default: []                                                        #}
+# --------------------------------------------------------------------------
+{% if uniq is defined and uniq | length > 0 %}
+uniq:
+{% for v in uniq %}
+  - {{ v }}
+{% endfor %}
+{% else %}
+# uniq: (auto-deduplication for PATH-like variables)
+{% endif %}

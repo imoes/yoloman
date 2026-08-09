@@ -1,0 +1,88 @@
+; Name of this knxd instance (used in logging and discovery)
+[main]
+; Enable the main knxd daemon (if false, knxd starts but does not process EIB frames)
+; Default: True
+enable = {{ (main | default({})).enable | default(True) | lower }}
+
+; Device path to the physical KNX interface (e.g., serial port or /dev/knxd)
+; Default: /dev/ttyUSB0
+device = {{ (main | default({})).device | default('/dev/ttyUSB0') }}
+
+; Type of physical connection: 'tpuarts' (serial), 'ip' (tunnel/routing over IP), etc.
+; Default: tpuarts
+connection_type = {{ (main | default({})).connection_type | default('tpuarts') }}
+
+; Name of this knxd instance (used in logging and discovery)
+name = {{ (main | default({})).name | default('knxd') }}
+
+[server]
+; Enable the built-in KNX server for EIBnet/IP tunneling/routing
+; Default: True
+enable = {{ (server | default({})).enable | default(True) | lower }}
+
+; TCP port for EIBnet/IP server (standard: 3671)
+; Default: 3671
+port = {{ (server | default({})).port | default(3671) }}
+
+; IP address to bind the server to (e.g., '0.0.0.0' for all, '127.0.0.1' for local-only)
+; Default: 0.0.0.0
+bind = {{ (server | default({})).bind | default('0.0.0.0') }}
+
+; Enable multicast KNXnet/IP routing (requires compatible network infrastructure)
+; Default: False
+multicast_enable = {{ (server | default({})).multicast_enable | default(False) | lower }}
+
+[mcast]
+; Multicast group address for KNXnet/IP routing
+; Default: 224.0.23.12
+address = {{ (mcast | default({})).address | default('224.0.23.12') }}
+
+; UDP port used for multicast KNX traffic
+; Default: 3671
+port = {{ (mcast | default({})).port | default(3671) }}
+
+; Network interface name for multicast (e.g., 'eth0'); empty = let system decide
+; Default: ''
+interface = {{ (mcast | default({})).interface | default('') }}
+
+[log]
+; Verbosity level: 0 (none) to 6 (debug); 4=notice is a good default for production
+; Default: 4
+level = {{ (log | default({})).level | default(4) }}
+
+; Send log output to syslog instead of standard error
+; Default: True
+syslog = {{ (log | default({})).syslog | default(True) | lower }}
+
+; Path to a file for log output; empty disables file logging
+; Default: ''
+logfile = {{ (log | default({})).logfile | default('') }}
+
+[security]
+; Require passwords for client connections to the server
+; Default: False
+password_enable = {{ (security | default({})).password_enable | default(False) | lower }}
+
+; Path to file containing base64-encoded passwords (see knxd docs for format)
+; Default: /etc/knxd/passwords
+password_file = {{ (security | default({})).password_file | default('/etc/knxd/passwords') }}
+
+[filter]
+; List of group addresses that knxd should not forward (useful for hiding internal addresses)
+{% for addr in (filter | default({})).suppressed_addresses | default([]) %}
+suppressed_group_address = {{ addr }}
+{% endfor %}
+
+; List of physical addresses to ignore (e.g., to avoid loopback traffic)
+{% for addr in (filter | default({})).ignored_physical_addresses | default([]) %}
+ignored_physical_address = {{ addr }}
+{% endfor %}
+
+[usb]
+; USB vendor ID for KNX USB devices (hex string); typical for Philips/KNX devices
+; Default: 0x03EB
+vendor_id = {{ (usb | default({})).vendor_id | default('0x03EB') }}
+
+; USB product ID for KNX USB devices (hex string)
+; Default: 0x0001
+product_id = {{ (usb | default({})).product_id | default('0x0001') }}

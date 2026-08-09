@@ -1,0 +1,60 @@
+{
+  "worker_processes": "auto",
+  "max_open_files": 65535,
+  "upstreams": [
+    {
+      "name": "postgres_pool",
+      "description": "Primary PostgreSQL read replicas",
+      "balance": "least_conn",
+      "servers": [
+        {
+          "host": "pg1.internal",
+          "port": 5432
+        },
+        {
+          "host": "pg2.internal",
+          "port": 5432
+        },
+        {
+          "host": "pg3.internal",
+          "port": 5432,
+          "backup": true
+        }
+      ]
+    },
+    {
+      "name": "fallback_http",
+      "servers": [
+        {
+          "host": "block.example.com",
+          "port": 443
+        }
+      ]
+    }
+  ],
+  "stream_servers": [
+    {
+      "listen_address": "0.0.0.0",
+      "listen_port": 5432,
+      "protocol": "tcp",
+      "upstream_name": "postgres_pool",
+      "timeout": "10s",
+      "geoip_redirect": true,
+      "geoip_countries": [
+        "US",
+        "CA",
+        "GB",
+        "DE",
+        "FR"
+      ],
+      "geoip_fallback_host": "block.example.com:443"
+    },
+    {
+      "listen_address": "0.0.0.0",
+      "listen_port": 53,
+      "protocol": "udp",
+      "upstream_name": "postgres_pool",
+      "timeout": "1s"
+    }
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Hostname or IP address of the VirtualBox host system (where VBoxHeadless/VirtualBox runs)"
+  },
+  "port": {
+    "type": "number",
+    "default": 18083,
+    "description": "TCP port for the VirtualBox web service (VRDE or HTTP API). Default is 18083 for VBoxHeadless VRDE, or 18083/18093 for WebSockets API."
+  },
+  "username": {
+    "type": "string",
+    "default": "",
+    "description": "Username for authenticating to the VirtualBox host (used with VBOX_PASSWORD)"
+  },
+  "password": {
+    "type": "string",
+    "default": "",
+    "description": "Password for the VirtualBox user. For security, consider storing in a protected file with restricted permissions.",
+    "sensitive": true
+  },
+  "ssh_key_path": {
+    "type": "string",
+    "default": "",
+    "description": "Path to SSH private key for key-based authentication (alternative to password). Leave empty to use password auth."
+  },
+  "timeout": {
+    "type": "number",
+    "default": 60,
+    "description": "Maximum time (in seconds) to wait for power operations (on/off/status) before timing out."
+  },
+  "extra_opts": {
+    "type": "list",
+    "default": [],
+    "description": "Additional command-line flags to pass to VBoxManage (e.g., ['--nologo', '--quiet']).",
+    "items": {
+      "type": "string"
+    }
+  },
+  "vms": {
+    "type": "list",
+    "default": [],
+    "description": "List of virtual machines known to this fence agent (used for status monitoring and explicit targeting). Each entry identifies a VM by UUID or name.",
+    "items": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Friendly name of the VM (for logging/labeling)."
+        },
+        "uuid": {
+          "type": "string",
+          "description": "VirtualBox VM UUID (required for reliable identification)."
+        }
+      }
+    }
+  }
+}

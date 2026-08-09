@@ -1,0 +1,220 @@
+# FreeRADIUS 3.2+ Configuration File (radiusd.conf)
+#
+# This is the main configuration file for the FreeRADIUS server.
+# It defines global settings, directory paths, logging, and module loading behavior.
+# The configuration is organized into subsections:
+#   - global: Global variables and defaults
+#   - security: Security-related settings
+#   - logging: Logging configuration
+#   - modules: Module loading and configuration
+#   - server: Server instance configuration (virtual servers)
+#   - proxy: Proxy configuration
+#   - clients: Client definitions
+
+# =========================================================================
+# GLOBAL SECTION
+# =========================================================================
+# Global settings apply to the entire server unless overridden elsewhere.
+
+# Base directory for FreeRADIUS configuration files.
+# All relative paths in this config are resolved against this directory.
+prefix = {{ raddb_dir | default('/etc/freeradius') }}
+
+# Directory for FreeRADIUS modules.
+# This is where the compiled module shared objects (.so) are located.
+libdir = {{ libdir | default('/usr/lib/freeradius') }}
+
+# Configuration directory alias.
+# Typically the same as prefix, used for resolving configuration file paths.
+confdir = {{ confdir | default('/etc/freeradius') }}
+
+# Directory for runtime files (PID files, sockets).
+# Ensure this directory exists and is writable by the FreeRADIUS user.
+run_dir = {{ run_dir | default('/run/freeradius') }}
+
+# Directory for runtime databases (e.g., SQL cache, session files).
+db_dir = {{ db_dir | default('/var/lib/freeradius') }}
+
+# Directory for accounting log files.
+# Used by SQL and other modules to store accounting records temporarily or permanently.
+radacctdir = {{ radacctdir | default('/var/log/radacct') }}
+
+# Directory for general log files.
+# If not explicitly set in the logging section, some logs may end up here.
+logdir = {{ logdir | default('/var/log/freeradius') }}
+
+# Hostname used for local identification.
+# Used in logging, EAP certificates, and other identification contexts.
+hostname = {{ hostname | default('localhost') | string }}
+
+# =========================================================================
+# SECURITY SECTION
+# =========================================================================
+# Security settings control privileges and runtime behavior.
+
+# Run the server as this user (if not set via command line -u).
+# Typically 'freerad' or 'radiusd'.
+# user = freerad
+
+# Run the server as this group (if not set via command line -g).
+# Typically 'freerad' or 'radiusd'.
+# group = freerad
+
+# Allow core dumps.
+# Set to 'yes' if you need to debug crashes by analyzing core files.
+allow_core_dumps = no
+
+# Reject delay in seconds.
+# Delay added to Reject responses to prevent timing attacks.
+reject_delay = 1
+
+# Enable status server.
+# The status server provides a web interface for monitoring the server.
+status_server = yes
+
+# =========================================================================
+# LOGGING SECTION
+# =========================================================================
+# Configuration for server logging.
+
+# Main radius log file path.
+# Supports variables like ${logdir}.
+logfile = ${logdir}/radius.log
+
+# Log level.
+# Levels: debug (0-255), info, notice, warn, err, fatal.
+# For production, 'info' or 'notice' is recommended.
+# debug_level = 0
+
+# =========================================================================
+# MODULES SECTION
+# =========================================================================
+# Defines where module configuration files are stored and how they are loaded.
+
+# Directory containing available module configuration files.
+# These are "example" or "default" configs that can be copied/enabled.
+mods_config_dir = {{ raddb_mods_config_dir | default('/etc/freeradius/mods-config') }}
+
+# Directory containing enabled module configuration files.
+# Modules listed here (or linked here) are loaded by the server.
+# Symlink from mods-available to mods-enabled to enable a module.
+mods_enabled_dir = {{ raddb_mods_enabled_dir | default('/etc/freeradius/mods-enabled') }}
+
+# Directory containing available module configuration files.
+# This is the source directory for module configurations.
+mods_available_dir = {{ raddb_mods_available_dir | default('/etc/freeradius/mods-available') }}
+
+# List of modules to load at startup.
+# You can specify individual module names or use wildcards.
+# Example: include mods-enabled/*
+# This is typically handled by the server automatically if you symlink modules.
+# For explicit control, you can list them here.
+# instantiate {
+#     # Example: files, sql, eap, etc.
+# }
+
+# =========================================================================
+# SERVER SECTION
+# =========================================================================
+# Defines the server instances and their behavior.
+
+# Maximum request processing time in seconds.
+# Requests taking longer than this are terminated.
+max_request_time = {{ max_request_time | default(30) }}
+
+# Cleanup delay in seconds.
+# Delay before cleaning up completed requests from memory.
+cleanup_delay = {{ cleanup_delay | default(5) }}
+
+# Maximum number of simultaneous requests.
+# Limits the concurrency of the server to prevent resource exhaustion.
+max_requests = {{ max_requests | default(1024) }}
+
+# =========================================================================
+# CLIENTS SECTION
+# =========================================================================
+# Defines the NAS (Network Access Servers) allowed to connect to this server.
+# These are typically defined in a separate file: clients.conf.
+
+# Path to the clients configuration file.
+# This file defines trusted NAS devices by IP address and secret.
+$INCLUDE {{ raddb_clients_file | default('/etc/freeradius/clients.conf') }}
+
+# =========================================================================
+# POLICIES SECTION
+# =========================================================================
+# Policy files contain reusable Unlang blocks.
+
+# Directory containing policy files.
+# These files are included and can be referenced in virtual server configs.
+$INCLUDE {{ raddb_policies_dir | default('/etc/freeradius/policy.d') }}/*
+
+# =========================================================================
+# SITES SECTION
+# =========================================================================
+# Defines virtual servers (listener configurations).
+
+# Directory containing available virtual server configurations.
+sites_available_dir = {{ raddb_sites_available_dir | default('/etc/freeradius/sites-available') }}
+
+# Directory containing enabled virtual server configurations.
+# Symlink from sites-available to sites-enabled to activate a virtual server.
+sites_enabled_dir = {{ raddb_sites_enabled_dir | default('/etc/freeradius/sites-enabled') }}
+
+# =========================================================================
+# DEFAULT USERS AND HUNTGROUPS
+# =========================================================================
+# Path to the default users file.
+# Contains static user definitions and attributes.
+$INCLUDE {{ raddb_users_file | default('/etc/freeradius/users') }}
+
+# Path to the default huntgroups file.
+# Maps NAS identifiers to specific realms or virtual servers.
+$INCLUDE {{ raddb_huntgroups_file | default('/etc/freeradius/huntgroups') }}
+
+# =========================================================================
+# MODULE CONFIGURATION FILES
+# =========================================================================
+# These sections include the main configuration files for specific modules.
+
+# EAP Module Configuration
+# Controls EAP (Extensible Authentication Protocol) settings, including TLS and PEAP.
+# $INCLUDE {{ raddb_eap_conf | default('/etc/freeradius/mods-available/eap') }}
+
+# SQL Module Configuration
+# Controls SQL database connection and query settings.
+# $INCLUDE {{ raddb_sql_conf | default('/etc/freeradius/mods-available/sql') }}
+
+# SQL IPPool Module Configuration
+# Controls IP address allocation via SQL.
+# $INCLUDE {{ raddb_sql_ippool_conf | default('/etc/freeradius/mods-available/sqlippool') }}
+
+# LDAP Module Configuration
+# Controls LDAP directory connection and search settings.
+# $INCLUDE {{ raddb_ldap_conf | default('/etc/freeradius/mods-available/ldap') }}
+
+# =========================================================================
+# NETWORK LISTENERS
+# =========================================================================
+# Define the ports FreeRADIUS listens on.
+
+# Authentication Port
+# Standard RADIUS authentication port.
+listen {
+    type = auth
+    ipaddr = *
+    port = {{ port | default(1812) }}
+}
+
+# Accounting Port
+# Standard RADIUS accounting port.
+listen {
+    type = acct
+    ipaddr = *
+    port = {{ acct_port | default(1813) }}
+}
+
+# =========================================================================
+# END OF CONFIGURATION
+# =========================================================================
+# End of radiusd.conf

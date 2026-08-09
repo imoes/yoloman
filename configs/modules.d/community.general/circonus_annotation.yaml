@@ -1,0 +1,46 @@
+name: circonus_annotation
+fqcn: community.general.circonus_annotation
+collection: community.general
+short_description: Create an annotation in circonus
+description: Create an annotation event with a given category, title and description. Optionally start,
+  end or durations can be provided
+options:
+  api_key:
+    type: str
+    required: true
+    description: Circonus API key
+  category:
+    type: str
+    required: true
+    description: Annotation Category
+  description:
+    type: str
+    required: true
+    description: Description of annotation
+  duration:
+    type: int
+    default: 0
+    description: Duration in seconds of annotation
+  start:
+    type: int
+    description: Unix timestamp of event start If not specified, it defaults to "now".
+  stop:
+    type: int
+    description: Unix timestamp of event end If not specified, it defaults to "now" + O(duration).
+  title:
+    type: str
+    required: true
+    description: Title of annotation
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create a simple annotation event with a source, defaults to start and end time of\
+  \ now\n  community.general.circonus_annotation:\n    api_key: XXXXXXXXXXXXXXXXX\n    title: App Config\
+  \ Change\n    description: This is a detailed description of the config change\n    category: This category\
+  \ groups like annotations\n\n- name: Create an annotation with a duration of 5 minutes and a default\
+  \ start time of now\n  community.general.circonus_annotation:\n    api_key: XXXXXXXXXXXXXXXXX\n    title:\
+  \ App Config Change\n    description: This is a detailed description of the config change\n    category:\
+  \ This category groups like annotations\n    duration: 300\n\n- name: Create an annotation with a start_time\
+  \ and end_time\n  community.general.circonus_annotation:\n    api_key: XXXXXXXXXXXXXXXXX\n    title:\
+  \ App Config Change\n    description: This is a detailed description of the config change\n    category:\
+  \ This category groups like annotations\n    start_time: 1395940006\n    end_time: 1395954407\n"

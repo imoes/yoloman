@@ -1,0 +1,38 @@
+{# Dot-forward configuration template #}
+{# This template generates the content of $HOME/.forward (or equivalent) #}
+{# to instruct the MTA where to deliver mail for the user. #}
+{# #}
+{# Each line in a .forward file is a separate delivery instruction. #}
+{# Instructions can be email addresses, local account names, or #}
+{# program pipes (e.g., '| /path/to/script'). #}
+{# #}
+{# Variables used: #}
+{# - forward_targets (list): Primary delivery targets, typically parsed #}
+{#   from an existing .forward file. #}
+{# - fallback_targets (list): Secondary delivery targets, used if #}
+{#   forward_targets is empty or the .forward file is missing. #}
+
+{# ------------------------------------------------------------------ #}
+{# Primary forwarding targets #}
+{# ------------------------------------------------------------------ #}
+{# These addresses are the main destination for mail delivery. #}
+{# If `forward_targets` is non-empty, these lines are emitted. #}
+{%- if forward_targets | default([]) | length > 0 %}
+# Forward to these addresses (from .forward file) #
+{% for target in forward_targets | default([]) %}
+{{ target }}
+{% endfor -%}
+{%- endif %}
+
+{# ------------------------------------------------------------------ #}
+{# Fallback forwarding targets #}
+{# ------------------------------------------------------------------ #}
+{# These addresses are used as a backup delivery method. #}
+{# They apply if `forward_targets` is empty or if the .forward file #}
+{# does not exist/is empty. Common sources: .courier file, DEFAULTDELIVERY. #}
+{%- if fallback_targets | default([]) | length > 0 %}
+# Fallback delivery instructions if .forward is missing or empty #
+{% for target in fallback_targets | default([]) %}
+{{ target }}
+{% endfor -%}
+{%- endif %}

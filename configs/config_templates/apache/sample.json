@@ -1,0 +1,105 @@
+{
+  "server_root": "/etc/apache2",
+  "pid_file": "/var/run/apache2.pid",
+  "timeout": 300,
+  "keepalive": true,
+  "max_keepalive_requests": 100,
+  "keepalive_timeout": 5,
+  "user": "www-data",
+  "group": "www-data",
+  "server_admin": "admin@example.com",
+  "server_name": "web.example.com",
+  "directory_index": [
+    "index.html",
+    "index.php"
+  ],
+  "error_log": "/var/log/apache2/error.log",
+  "log_level": "warn",
+  "included_module_configs": [
+    {
+      "path": "/etc/apache2/mods-enabled/*.load"
+    },
+    {
+      "path": "/etc/apache2/mods-enabled/*.conf"
+    }
+  ],
+  "modules_to_load": [
+    {
+      "name": "proxy",
+      "path": "modules/mod_proxy.so"
+    },
+    {
+      "name": "proxy_http",
+      "path": "modules/mod_proxy_http.so"
+    },
+    {
+      "name": "proxy_balancer",
+      "path": "modules/mod_proxy_balancer.so"
+    },
+    {
+      "name": "slotmem_shm",
+      "path": "modules/mod_slotmem_shm.so"
+    }
+  ],
+  "listen_addresses": [
+    "*:80",
+    "127.0.0.1:8080"
+  ],
+  "virtual_hosts": [
+    {
+      "address": "*",
+      "port": 80,
+      "server_name": "app.example.com",
+      "server_alias": [
+        "www.app.example.com"
+      ],
+      "document_root": "/var/www/app",
+      "error_log": "/var/log/apache2/app-error.log",
+      "custom_log": "/var/log/apache2/app-access.log",
+      "log_format": "combined",
+      "options": [
+        "Indexes",
+        "FollowSymLinks"
+      ],
+      "allow_override": "All",
+      "balance_name": "app_cluster",
+      "balance_member_list": [
+        {
+          "url": "http://10.0.0.10:3000",
+          "route": "app1"
+        },
+        {
+          "url": "http://10.0.0.11:3000",
+          "route": "app2"
+        }
+      ]
+    },
+    {
+      "address": "*",
+      "port": 443,
+      "server_name": "secure.example.com",
+      "document_root": "/var/www/secure",
+      "options": [
+        "FollowSymLinks"
+      ],
+      "allow_override": "None",
+      "proxy_backend": "http://127.0.0.1:9000"
+    }
+  ],
+  "load_balancers": [
+    {
+      "name": "app_cluster",
+      "members": [
+        {
+          "url": "http://10.0.0.10:3000",
+          "route": "app1"
+        },
+        {
+          "url": "http://10.0.0.11:3000",
+          "route": "app2"
+        }
+      ],
+      "sticky_session": "JSESSIONID"
+    }
+  ]
+}

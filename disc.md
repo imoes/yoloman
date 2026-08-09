@@ -1,0 +1,682 @@
+- generic [ref=f257e31]:
+  - navigation "Main navigation" [ref=f257e32]:
+    - generic [ref=f257e33]:
+      - img "Bossman" [ref=f257e34]
+      - generic [ref=f257e35]: Bossman
+      - generic [ref=f257e36]: Fleet Commander
+    - link "fleet Fleet Overview" [ref=f257e37] [cursor=pointer]:
+      - /url: /fleet
+      - img "fleet" [ref=f257e40]
+      - generic [ref=f257e46]: Fleet Overview
+    - link "fleet NOC view" [ref=f257e47] [cursor=pointer]:
+      - /url: /noc
+      - img "fleet" [ref=f257e50]
+      - generic [ref=f257e56]: NOC view
+    - link "hosts Hosts" [ref=f257e57] [cursor=pointer]:
+      - /url: /hosts
+      - img "hosts" [ref=f257e60]
+      - generic [ref=f257e65]: Hosts
+    - link "problems Problems" [ref=f257e66] [cursor=pointer]:
+      - /url: /problems
+      - img "problems" [ref=f257e69]
+      - generic [ref=f257e73]: Problems
+    - link "fleet Business services" [ref=f257e74] [cursor=pointer]:
+      - /url: /business-services
+      - img "fleet" [ref=f257e77]
+      - generic [ref=f257e83]: Business services
+    - link "fleet Capacity" [ref=f257e84] [cursor=pointer]:
+      - /url: /capacity
+      - img "fleet" [ref=f257e87]
+      - generic [ref=f257e93]: Capacity
+    - link "topology Topology" [ref=f257e94] [cursor=pointer]:
+      - /url: /topology
+      - img "topology" [ref=f257e97]
+      - generic [ref=f257e103]: Topology
+    - link "security Security" [ref=f257e104] [cursor=pointer]:
+      - /url: /security
+      - img "security" [ref=f257e107]
+      - generic [ref=f257e111]: Security
+    - link "host-placement Host placement" [ref=f257e112] [cursor=pointer]:
+      - /url: /host-placement
+      - img "host-placement" [ref=f257e115]
+      - generic [ref=f257e121]: Host placement
+    - link "roles Roles" [ref=f257e122] [cursor=pointer]:
+      - /url: /plan-library
+      - img "roles" [ref=f257e125]
+      - generic [ref=f257e129]: Roles
+    - link "workflow Workflow designer" [ref=f257e130] [cursor=pointer]:
+      - /url: /runbooks
+      - img "workflow" [ref=f257e133]
+      - generic [ref=f257e139]: Workflow designer
+    - link "fleet Scheduler" [ref=f257e140] [cursor=pointer]:
+      - /url: /scheduler
+      - img "fleet" [ref=f257e143]
+      - generic [ref=f257e149]: Scheduler
+    - link "fleet Rollouts" [ref=f257e150] [cursor=pointer]:
+      - /url: /rollouts
+      - img "fleet" [ref=f257e153]
+      - generic [ref=f257e159]: Rollouts
+    - link "deploy Deploy" [ref=f257e160] [cursor=pointer]:
+      - /url: /deploy
+      - img "deploy" [ref=f257e163]
+      - generic [ref=f257e168]: Deploy
+    - link "runs Runs" [ref=f257e169] [cursor=pointer]:
+      - /url: /runs
+      - img "runs" [ref=f257e172]
+      - generic [ref=f257e177]: Runs
+    - link "help Help" [ref=f257e178] [cursor=pointer]:
+      - /url: /help
+      - img "help" [ref=f257e181]
+      - generic [ref=f257e186]: Help
+    - button "setup Setup chevron-down" [ref=f257e187] [cursor=pointer]:
+      - img "setup" [ref=f257e190]
+      - generic [ref=f257e196]: Setup
+      - img "chevron-down" [ref=f257e199]
+    - generic [ref=f257e202]:
+      - generic [ref=f257e203]: admin
+      - button "Log out" [ref=f257e204] [cursor=pointer]:
+        - img "logout" [ref=f257e207]
+  - generic [ref=f257e211]:
+    - generic [ref=f257e214]:
+      - generic [ref=f257e215]:
+        - heading "docker-test.test.example.com" [level=1] [ref=f257e216]
+        - generic [ref=f257e218]: enrolled
+      - generic [ref=f257e219]:
+        - tablist [ref=f257e222]:
+          - generic [ref=f257e223]:
+            - tab "Overview" [ref=f257e224] [cursor=pointer]:
+              - generic [ref=f257e226]: Overview
+            - tab "Services" [ref=f257e227] [cursor=pointer]:
+              - generic [ref=f257e229]: Services
+            - tab "Inventory" [ref=f257e230] [cursor=pointer]:
+              - generic [ref=f257e232]: Inventory
+            - tab "Configuration" [ref=f257e233] [cursor=pointer]:
+              - generic [ref=f257e235]: Configuration
+            - tab "Checks" [selected] [ref=f257e236] [cursor=pointer]:
+              - generic [ref=f257e238]: Checks
+            - tab "Console" [ref=f257e239] [cursor=pointer]:
+              - generic [ref=f257e241]: Console
+            - tab "Relationships" [ref=f257e242] [cursor=pointer]:
+              - generic [ref=f257e244]: Relationships
+            - tab "eBPF" [ref=f257e245] [cursor=pointer]:
+              - generic [ref=f257e247]: eBPF
+            - tab "Processes" [ref=f257e248] [cursor=pointer]:
+              - generic [ref=f257e250]: Processes
+            - tab "Runs" [ref=f257e251] [cursor=pointer]:
+              - generic [ref=f257e253]: Runs
+            - tab "Management" [ref=f257e254] [cursor=pointer]:
+              - generic [ref=f257e256]: Management
+        - generic [ref=f257e257]:
+          - tabpanel [ref=f257e291]
+          - tabpanel [ref=f257e262]
+          - tabpanel [ref=f257e263]
+          - tabpanel [ref=f257e264]
+          - tabpanel "Checks" [ref=f257e292]:
+            - generic [ref=f257e296]:
+              - generic [ref=f257e297]:
+                - button "Auto-discover checks" [ref=f257e298] [cursor=pointer]:
+                  - img [ref=f257e299]: travel_explore
+                  - generic [ref=f257e300]: Auto-discover checks
+                - button "Recheck now" [ref=f257e303]:
+                  - img [ref=f257e304]: refresh
+                  - generic [ref=f257e305]: Recheck now
+                - generic [ref=f257e310] [cursor=pointer]:
+                  - generic [ref=f257e311]: Add a check manually
+                  - combobox "Add a check manually" [ref=f257e313]:
+                    - img [ref=f257e319]
+                - button "Variables…" [ref=f257e321]:
+                  - img [ref=f257e322]: data_object
+                  - generic [ref=f257e323]: Variables…
+              - generic [ref=f257e516]:
+                - generic [ref=f257e517]: Discovered checks for docker-test.test.example.com
+                - generic [ref=f257e518]:
+                  - generic [ref=f257e519]:
+                    - checkbox [ref=f257e520]
+                    - button "Collapse" [ref=f257e521] [cursor=pointer]:
+                      - img [ref=f257e522]: expand_more
+                    - generic [ref=f257e523]: acme_sbc_settings
+                    - generic [ref=f257e524]: Settings
+                    - generic [ref=f257e525]: 1 item(s)
+                  - generic [ref=f257e527]: "## Overview This check verifies the configuration settings of an ACME SBC (Session Border Controller) by comparing current settings against saved/policy values, ensuring critical synchronization and redundancy parameters remain as expected. ## What it monitors - Synchronization status of various protocols (Media, SIP, BGF, MGCP, H248, Config, IPSEC, Iked, etc.) - Redundancy protocol state (Active/Standby) and health percentage - Active peer address and peer health metrics ## How it works The check runs a simulated agent output probe (via `echo`) and parses the `<<<acme_sbc>>>` section manually. In discovery mode, it yields one service with current settings as parameters. In check mode, it compares current settings against saved parameters; any mismatch triggers CRIT, otherwise OK. ## Parameters None. ## States - **OK**: All saved settings match current values. - **CRIT**: Any saved setting differs from current value (or is missing). - **UNKNOWN**: Not applicable—no failure paths to UNKNOWN in the logic. ## Metrics None."
+                  - generic [ref=f257e528]: (single)
+                - generic [ref=f257e529]:
+                  - generic [ref=f257e530]:
+                    - checkbox [ref=f257e531]
+                    - button "Collapse" [ref=f257e532] [cursor=pointer]:
+                      - img [ref=f257e533]: expand_more
+                    - generic [ref=f257e534]: apt
+                    - generic [ref=f257e535]: APT Updates
+                    - generic [ref=f257e536]: 1 item(s)
+                  - generic [ref=f257e538]: "## Overview Monitors available APT package updates on Debian/Ubuntu systems, distinguishing between normal, security, and removal updates to assess system patch status and security posture. ## What it monitors - Number of normal (non-security) package updates - Number of security-related updates - Number of packages to be automatically removed during an upgrade ## How it works In discovery mode, it reports one service with default thresholds. In check mode, it runs `apt list --upgradable` to list pending updates and categorizes them by security keywords. It then runs `apt-get dist-upgrade --dry-run` to count removals. On Ubuntu, it checks ESM support and activation via file checks and `ua status`. State is set based on configurable thresholds (`normal`, `removals`, `security`) and ESM status. ## Parameters None. ## States - **OK**: No updates pending or within threshold limits; ESM enabled if supported. - **WARN**: Updates pending but below critical thresholds. - **CRIT**: Updates exceed thresholds, or ESM is supported but not enabled (Ubuntu only), or `apt` commands fail. - **UNKNOWN**: Not applicable for this check; no explicit UNKNOWN logic in source. ## Metrics - `normal_updates` — count of non-security updates - `security_updates` — count of security updates - `removals` — count of packages to be removed"
+                  - generic [ref=f257e539]: (single)
+                - generic [ref=f257e540]:
+                  - generic [ref=f257e541]:
+                    - checkbox [ref=f257e542]
+                    - button "Collapse" [ref=f257e543] [cursor=pointer]:
+                      - img [ref=f257e544]: expand_more
+                    - generic [ref=f257e545]: bi_aggregation_connection
+                    - generic [ref=f257e546]: BI Datasource Connection
+                    - generic [ref=f257e547]: 1 item(s)
+                  - generic [ref=f257e549]: "## Overview Monitors the connectivity and data availability of BI (Business Intelligence) aggregations in yolo-man by checking for missing sites, aggregations, or generic errors reported by the agent. ## What it monitors - Missing monitoring sites (`missing_sites`) - Missing aggregation data (`missing_aggr`) - Generic data collection errors (`generic_errors`) ## How it works The check reads the yolo-man agent output file (`/var/lib/check_mk/agent_output`), parses the `bi_aggregation_connection` section (which contains JSON-like Python dict strings), and extracts error lists. It returns a single discovered service (no items). State is set to WARN if any of the three error lists contain items; otherwise OK. ## Parameters None. ## States - **OK**: No missing sites, missing aggregations, or generic errors. - **WARN**: One or more items found in `missing_sites`, `missing_aggr`, or `generic_errors`. - **UNKNOWN**: Not applicable; the check always returns OK or WARN if data is parsed. ## Metrics None."
+                  - generic [ref=f257e550]: (single)
+                - generic [ref=f257e551]:
+                  - generic [ref=f257e552]:
+                    - checkbox [ref=f257e553]
+                    - button "Collapse" [ref=f257e554] [cursor=pointer]:
+                      - img [ref=f257e555]: expand_more
+                    - generic [ref=f257e556]: citrix_controller_services
+                    - generic [ref=f257e557]: Citrix Active Site Services
+                    - generic [ref=f257e558]: 1 item(s)
+                  - generic [ref=f257e560]: "## Overview Monitors the Citrix Virtual Apps and Desktops controller’s active site services status to ensure the site is properly configured and operational. ## What it monitors - Presence and value of the `ActiveSiteServices` field in `/opt/citrix/agent/state` - Whether the Citrix controller has an active site service configured (e.g., \"Controller\" or empty/unset) ## How it works The check reads `/opt/citrix/agent/state`, parses it line-by-line for the `ActiveSiteServices` key, and extracts its value. During discovery (`_discover=True`), it emits a single item with empty label if the field exists; otherwise, no items. In check mode, it returns OK with a message containing the service name if found, or \"No services\" if missing. ## Parameters None. ## States - **OK**: When `ActiveSiteServices` is present in the file (even if value is empty). - **CRIT/UNKNOWN**: Not explicitly defined—always returns OK in current logic; no error path for missing key or parse failure. ## Metrics None."
+                  - generic [ref=f257e561]: (single)
+                - generic [ref=f257e562]:
+                  - generic [ref=f257e563]:
+                    - checkbox [ref=f257e564]
+                    - button "Collapse" [ref=f257e565] [cursor=pointer]:
+                      - img [ref=f257e566]: expand_more
+                    - generic [ref=f257e567]: dmi_sysinfo
+                    - generic [ref=f257e568]: DMI Sysinfo
+                    - generic [ref=f257e569]: 1 item(s)
+                  - generic [ref=f257e571]: "Checkmk check 'dmi_sysinfo' (service: DMI Sysinfo), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e572]: (single)
+                - generic [ref=f257e573]:
+                  - generic [ref=f257e574]:
+                    - checkbox [ref=f257e575]
+                    - button "Collapse" [ref=f257e576] [cursor=pointer]:
+                      - img [ref=f257e577]: expand_more
+                    - generic [ref=f257e578]: docker_container_status_uptime
+                    - generic [ref=f257e579]: Uptime
+                    - generic [ref=f257e580]: 1 item(s)
+                  - generic [ref=f257e582]: "Checkmk check 'docker_container_status_uptime' (service: Uptime), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e583]: (single)
+                - generic [ref=f257e584]:
+                  - generic [ref=f257e585]:
+                    - checkbox [ref=f257e586]
+                    - button "Collapse" [ref=f257e587] [cursor=pointer]:
+                      - img [ref=f257e588]: expand_more
+                    - generic [ref=f257e589]: docker_node_info
+                    - generic [ref=f257e590]: Docker node info
+                    - generic [ref=f257e591]: 1 item(s)
+                  - generic [ref=f257e593]: "Checkmk check 'docker_node_info' (service: Docker node info), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e594]: (single)
+                - generic [ref=f257e595]:
+                  - generic [ref=f257e596]:
+                    - checkbox [ref=f257e597]
+                    - button "Collapse" [ref=f257e598] [cursor=pointer]:
+                      - img [ref=f257e599]: expand_more
+                    - generic [ref=f257e600]: filehandler
+                    - generic [ref=f257e601]: Filehandler
+                    - generic [ref=f257e602]: 1 item(s)
+                  - generic [ref=f257e604]: "Checkmk check 'filehandler' (service: Filehandler), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e605]: (single)
+                - generic [ref=f257e606]:
+                  - generic [ref=f257e607]:
+                    - checkbox [ref=f257e608]
+                    - button "Collapse" [ref=f257e609] [cursor=pointer]:
+                      - img [ref=f257e610]: expand_more
+                    - generic [ref=f257e611]: hr_fs
+                    - generic [ref=f257e612]: Filesystem %s
+                    - generic [ref=f257e613]: 10 item(s)
+                  - generic [ref=f257e615]: "Checkmk check 'hr_fs' (service: Filesystem %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e616]: /, /usr, /run, /opt, /boot, /home, /tmp, /var +2 more
+                - generic [ref=f257e617]:
+                  - generic [ref=f257e618]:
+                    - checkbox [ref=f257e619]
+                    - button "Collapse" [ref=f257e620] [cursor=pointer]:
+                      - img [ref=f257e621]: expand_more
+                    - generic [ref=f257e622]: ibm_svc_eventlog
+                    - generic [ref=f257e623]: Eventlog
+                    - generic [ref=f257e624]: 1 item(s)
+                  - generic [ref=f257e626]: "Checkmk check 'ibm_svc_eventlog' (service: Eventlog), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e627]: (single)
+                - generic [ref=f257e628]:
+                  - generic [ref=f257e629]:
+                    - checkbox [ref=f257e630]
+                    - button "Collapse" [ref=f257e631] [cursor=pointer]:
+                      - img [ref=f257e632]: expand_more
+                    - generic [ref=f257e633]: lgp_info
+                    - generic [ref=f257e634]: Liebert Info
+                    - generic [ref=f257e635]: 1 item(s)
+                  - generic [ref=f257e637]: "Checkmk check 'lgp_info' (service: Liebert Info), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e638]: (single)
+                - generic [ref=f257e639]:
+                  - generic [ref=f257e640]:
+                    - checkbox [ref=f257e641]
+                    - button "Collapse" [ref=f257e642] [cursor=pointer]:
+                      - img [ref=f257e643]: expand_more
+                    - generic [ref=f257e644]: libelle_business_shadow_process
+                    - generic [ref=f257e645]: Libelle Business Shadow Process
+                    - generic [ref=f257e646]: 1 item(s)
+                  - generic [ref=f257e648]: "Checkmk check 'libelle_business_shadow_process' (service: Libelle Business Shadow Process), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e649]: (single)
+                - generic [ref=f257e650]:
+                  - generic [ref=f257e651]:
+                    - checkbox [ref=f257e652]
+                    - button "Collapse" [ref=f257e653] [cursor=pointer]:
+                      - img [ref=f257e654]: expand_more
+                    - generic [ref=f257e655]: lnx_if
+                    - generic [ref=f257e656]: Interface %s
+                    - generic [ref=f257e657]: 3 item(s)
+                  - generic [ref=f257e659]: "Checkmk check 'lnx_if' (service: Interface %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e660]: lo, ens18, docker0
+                - generic [ref=f257e661]:
+                  - generic [ref=f257e662]:
+                    - checkbox [ref=f257e663]
+                    - button "Collapse" [ref=f257e664] [cursor=pointer]:
+                      - img [ref=f257e665]: expand_more
+                    - generic [ref=f257e666]: lsi_array
+                    - generic [ref=f257e667]: RAID array %s
+                    - generic [ref=f257e668]: 1 item(s)
+                  - generic [ref=f257e670]: "Checkmk check 'lsi_array' (service: RAID array %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e671]: (single)
+                - generic [ref=f257e672]:
+                  - generic [ref=f257e673]:
+                    - checkbox [ref=f257e674]
+                    - button "Collapse" [ref=f257e675] [cursor=pointer]:
+                      - img [ref=f257e676]: expand_more
+                    - generic [ref=f257e677]: mkevents
+                    - generic [ref=f257e678]: 1 item(s)
+                  - generic [ref=f257e680]: Checkmk active check 'mkevents', translated to a read-only on-host Starlark check module.
+                  - generic [ref=f257e681]: (single)
+                - generic [ref=f257e682]:
+                  - generic [ref=f257e683]:
+                    - checkbox [ref=f257e684]
+                    - button "Collapse" [ref=f257e685] [cursor=pointer]:
+                      - img [ref=f257e686]: expand_more
+                    - generic [ref=f257e687]: mounts
+                    - generic [ref=f257e688]: Mount options of %s
+                    - generic [ref=f257e689]: 24 item(s)
+                  - generic [ref=f257e691]: "Checkmk check 'mounts' (service: Mount options of %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e692]: /, /usr, /dev, /dev/pts, /dev/hugepages, /dev/mqueue, /sys, /sys/kernel/security +16 more
+                - generic [ref=f257e693]:
+                  - generic [ref=f257e694]:
+                    - checkbox [ref=f257e695]
+                    - button "Collapse" [ref=f257e696] [cursor=pointer]:
+                      - img [ref=f257e697]: expand_more
+                    - generic [ref=f257e698]: mssql_instance
+                    - generic [ref=f257e699]: MSSQL %s Instance
+                    - generic [ref=f257e700]: 1 item(s)
+                  - generic [ref=f257e702]: "Checkmk check 'mssql_instance' (service: MSSQL %s Instance), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e703]: (single)
+                - generic [ref=f257e704]:
+                  - generic [ref=f257e705]:
+                    - checkbox [ref=f257e706]
+                    - button "Collapse" [ref=f257e707] [cursor=pointer]:
+                      - img [ref=f257e708]: expand_more
+                    - generic [ref=f257e709]: netstat
+                    - generic [ref=f257e710]: TCP Connection %s
+                    - generic [ref=f257e711]: 1 item(s)
+                  - generic [ref=f257e713]: "Checkmk check 'netstat' (service: TCP Connection %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e714]: (single)
+                - generic [ref=f257e715]:
+                  - generic [ref=f257e716]:
+                    - checkbox [ref=f257e717]
+                    - button "Collapse" [ref=f257e718] [cursor=pointer]:
+                      - img [ref=f257e719]: expand_more
+                    - generic [ref=f257e720]: nfsexports
+                    - generic [ref=f257e721]: NFS export %s
+                    - generic [ref=f257e722]: 1 item(s)
+                  - generic [ref=f257e724]: "Checkmk check 'nfsexports' (service: NFS export %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e725]: (single)
+                - generic [ref=f257e726]:
+                  - generic [ref=f257e727]:
+                    - checkbox [ref=f257e728]
+                    - button "Collapse" [ref=f257e729] [cursor=pointer]:
+                      - img [ref=f257e730]: expand_more
+                    - generic [ref=f257e731]: nullmailer_mailq
+                    - generic [ref=f257e732]: Nullmailer Queue
+                    - generic [ref=f257e733]: 1 item(s)
+                  - generic [ref=f257e735]: "Checkmk check 'nullmailer_mailq' (service: Nullmailer Queue), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e736]: (single)
+                - generic [ref=f257e737]:
+                  - generic [ref=f257e738]:
+                    - checkbox [ref=f257e739]
+                    - button "Collapse" [ref=f257e740] [cursor=pointer]:
+                      - img [ref=f257e741]: expand_more
+                    - generic [ref=f257e742]: postfix_mailq
+                    - generic [ref=f257e743]: Postfix Queue %s
+                    - generic [ref=f257e744]: 1 item(s)
+                  - generic [ref=f257e746]: "Checkmk check 'postfix_mailq' (service: Postfix Queue %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e747]: default
+                - generic [ref=f257e748]:
+                  - generic [ref=f257e749]:
+                    - checkbox [ref=f257e750]
+                    - button "Collapse" [ref=f257e751] [cursor=pointer]:
+                      - img [ref=f257e752]: expand_more
+                    - generic [ref=f257e753]: postgres_instances
+                    - generic [ref=f257e754]: PostgreSQL Instance %s
+                    - generic [ref=f257e755]: 1 item(s)
+                  - generic [ref=f257e757]: "Checkmk check 'postgres_instances' (service: PostgreSQL Instance %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e758]: (single)
+                - generic [ref=f257e759]:
+                  - generic [ref=f257e760]:
+                    - checkbox [ref=f257e761]
+                    - button "Collapse" [ref=f257e762] [cursor=pointer]:
+                      - img [ref=f257e763]: expand_more
+                    - generic [ref=f257e764]: ps
+                    - generic [ref=f257e765]: Process %s
+                    - generic [ref=f257e766]: 126 item(s)
+                  - generic [ref=f257e768]: "Checkmk check 'ps' (service: Process %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e769]: 0:0-ata_sff], 0:0H-events_highpri], 0:1-events], 0:1H-kblockd], 0:3-events], 0], 1:0-events], 1:1-mm_percpu_wq] +118 more
+                - generic [ref=f257e770]:
+                  - generic [ref=f257e771]:
+                    - checkbox [ref=f257e772]
+                    - button "Collapse" [ref=f257e773] [cursor=pointer]:
+                      - img [ref=f257e774]: expand_more
+                    - generic [ref=f257e775]: safenet_ntls_clients
+                    - generic [ref=f257e776]: NTLS Clients
+                    - generic [ref=f257e777]: 6 item(s)
+                  - generic [ref=f257e779]: "Checkmk check 'safenet_ntls_clients' (service: NTLS Clients), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e780]: (single), (single), (single), (single), successful, failed
+                - generic [ref=f257e781]:
+                  - generic [ref=f257e782]:
+                    - checkbox [ref=f257e783]
+                    - button "Collapse" [ref=f257e784] [cursor=pointer]:
+                      - img [ref=f257e785]: expand_more
+                    - generic [ref=f257e786]: skype_sip_stack
+                    - generic [ref=f257e787]: Skype SIP Stack
+                    - generic [ref=f257e788]: 1 item(s)
+                  - generic [ref=f257e790]: "Checkmk check 'skype_sip_stack' (service: Skype SIP Stack), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e791]: (single)
+                - generic [ref=f257e792]:
+                  - generic [ref=f257e793]:
+                    - checkbox [ref=f257e794]
+                    - button "Collapse" [ref=f257e795] [cursor=pointer]:
+                      - img [ref=f257e796]: expand_more
+                    - generic [ref=f257e797]: sshd_config
+                    - generic [ref=f257e798]: SSH daemon configuration
+                    - generic [ref=f257e799]: 1 item(s)
+                  - generic [ref=f257e801]: "Checkmk check 'sshd_config' (service: SSH daemon configuration), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e802]: (single)
+                - generic [ref=f257e803]:
+                  - generic [ref=f257e804]:
+                    - checkbox [ref=f257e805]
+                    - button "Collapse" [ref=f257e806] [cursor=pointer]:
+                      - img [ref=f257e807]: expand_more
+                    - generic [ref=f257e808]: sylo
+                    - generic [ref=f257e809]: Sylo
+                    - generic [ref=f257e810]: 1 item(s)
+                  - generic [ref=f257e812]: "Checkmk check 'sylo' (service: Sylo), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e813]: (single)
+                - generic [ref=f257e814]:
+                  - generic [ref=f257e815]:
+                    - checkbox [ref=f257e816]
+                    - button "Collapse" [ref=f257e817] [cursor=pointer]:
+                      - img [ref=f257e818]: expand_more
+                    - generic [ref=f257e819]: systemd_units_services
+                    - generic [ref=f257e820]: Systemd Service %s
+                    - generic [ref=f257e821]: 133 item(s)
+                  - generic [ref=f257e823]: "Checkmk check 'systemd_units_services' (service: Systemd Service %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e824]: acct, agentic-mcp, apparmor, apt-daily-upgrade, apt-daily, blk-availability, chrony, cockpit-motd +125 more
+                - generic [ref=f257e825]:
+                  - generic [ref=f257e826]:
+                    - checkbox [ref=f257e827]
+                    - button "Collapse" [ref=f257e828] [cursor=pointer]:
+                      - img [ref=f257e829]: expand_more
+                    - generic [ref=f257e830]: systemd_units_services_summary
+                    - generic [ref=f257e831]: Systemd Service Summary
+                    - generic [ref=f257e832]: 143 item(s)
+                  - generic [ref=f257e834]: "Checkmk check 'systemd_units_services_summary' (service: Systemd Service Summary), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e835]: acct, agentic-mcp, apparmor, apt-daily-upgrade, apt-daily, blk-availability, chrony, cockpit-motd +135 more
+                - generic [ref=f257e836]:
+                  - generic [ref=f257e837]:
+                    - checkbox [ref=f257e838]
+                    - button "Collapse" [ref=f257e839] [cursor=pointer]:
+                      - img [ref=f257e840]: expand_more
+                    - generic [ref=f257e841]: systemd_units_sockets
+                    - generic [ref=f257e842]: Systemd Socket %s
+                    - generic [ref=f257e843]: 29 item(s)
+                  - generic [ref=f257e845]: "Checkmk check 'systemd_units_sockets' (service: Systemd Socket %s), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e846]: cockpit-wsinstance-http-redirect, cockpit-wsinstance-http, cockpit-wsinstance-https-factory, cockpit, dbus, dm-event, docker, lvm2-lvmpolld +21 more
+                - generic [ref=f257e847]:
+                  - generic [ref=f257e848]:
+                    - checkbox [ref=f257e849]
+                    - button "Collapse" [ref=f257e850] [cursor=pointer]:
+                      - img [ref=f257e851]: expand_more
+                    - generic [ref=f257e852]: systemd_units_sockets_summary
+                    - generic [ref=f257e853]: Systemd Socket Summary
+                    - generic [ref=f257e854]: 1 item(s)
+                  - generic [ref=f257e856]: "Checkmk check 'systemd_units_sockets_summary' (service: Systemd Socket Summary), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e857]: (single)
+                - generic [ref=f257e858]:
+                  - generic [ref=f257e859]:
+                    - checkbox [ref=f257e860]
+                    - button "Collapse" [ref=f257e861] [cursor=pointer]:
+                      - img [ref=f257e862]: expand_more
+                    - generic [ref=f257e863]: ucd_mem
+                    - generic [ref=f257e864]: Memory
+                    - generic [ref=f257e865]: 1 item(s)
+                  - generic [ref=f257e867]: "Checkmk check 'ucd_mem' (service: Memory), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e868]: (single)
+                - generic [ref=f257e869]:
+                  - generic [ref=f257e870]:
+                    - checkbox [ref=f257e871]
+                    - button "Collapse" [ref=f257e872] [cursor=pointer]:
+                      - img [ref=f257e873]: expand_more
+                    - generic [ref=f257e874]: ups_battery_state
+                    - generic [ref=f257e875]: Battery state
+                    - generic [ref=f257e876]: 1 item(s)
+                  - generic [ref=f257e878]: "Checkmk check 'ups_battery_state' (service: Battery state), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e879]: (single)
+                - generic [ref=f257e880]:
+                  - generic [ref=f257e881]:
+                    - checkbox [ref=f257e882]
+                    - button "Collapse" [ref=f257e883] [cursor=pointer]:
+                      - img [ref=f257e884]: expand_more
+                    - generic [ref=f257e885]: uptime
+                    - generic [ref=f257e886]: Uptime
+                    - generic [ref=f257e887]: 1 item(s)
+                  - generic [ref=f257e889]: "## Overview This check monitors the system uptime—the duration since the host was last booted—providing insight into system stability and planned reboots. ## What it monitors - System uptime in seconds, derived from `/proc/uptime` on Linux or parsed from the `uptime` command output on other OSes. ## How it works On Linux (Red Hat or Debian families), it reads `/proc/uptime` and extracts the first field (uptime in seconds). On other systems, it executes `uptime` and parses human-readable time components (days, hours, minutes) from the output using string scanning. It converts all durations to total seconds for metrics and constructs a human-readable message. The check always reports state `OK`; no thresholds or parameters affect status. ## Parameters None. ## States OK: Always. The check does not implement warning or critical thresholds; it simply reports uptime. ## Metrics `uptime` — system uptime in seconds."
+                  - generic [ref=f257e890]: (single)
+                - generic [ref=f257e891]:
+                  - generic [ref=f257e892]:
+                    - checkbox [ref=f257e893]
+                    - button "Collapse" [ref=f257e894] [cursor=pointer]:
+                      - img [ref=f257e895]: expand_more
+                    - generic [ref=f257e896]: vbox_guest
+                    - generic [ref=f257e897]: VBox Guest Additions
+                    - generic [ref=f257e898]: 1 item(s)
+                  - generic [ref=f257e900]: "Checkmk check 'vbox_guest' (service: VBox Guest Additions), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e901]: (single)
+                - generic [ref=f257e902]:
+                  - generic [ref=f257e903]:
+                    - checkbox [ref=f257e904]
+                    - button "Collapse" [ref=f257e905] [cursor=pointer]:
+                      - img [ref=f257e906]: expand_more
+                    - generic [ref=f257e907]: vms_system_procs
+                    - generic [ref=f257e908]: Number of processes
+                    - generic [ref=f257e909]: 1 item(s)
+                  - generic [ref=f257e911]: "Checkmk check 'vms_system_procs' (service: Number of processes), translated to a read-only on-host Starlark check module."
+                  - generic [ref=f257e912]: (single)
+                - generic [ref=f257e913]:
+                  - button "Assign selected to host" [disabled]:
+                    - generic: Assign selected to host
+                  - button "Dismiss" [ref=f257e914]:
+                    - generic [ref=f257e915]: Dismiss
+              - heading "Effective checks" [level=3] [ref=f257e326]
+              - table [ref=f257e328]:
+                - rowgroup [ref=f257e329]:
+                  - row "Check From Parameters" [ref=f257e330]:
+                    - columnheader "Check" [ref=f257e331]
+                    - columnheader "From" [ref=f257e332]
+                    - columnheader "Parameters" [ref=f257e333]
+                    - columnheader [ref=f257e334]
+                - rowgroup [ref=f257e335]:
+                  - row "http HTTP service host ssl=\"false\", uri=\"/\", url=\"http://bossman-ui/\", host=\"\", port=null, method=\"GET\", auth_user=\"\", post_data=\"\", timeout_s=\"10\", user_agent=\"bossman-check/1.0\", verify_tls=\"true\", invert_match=\"false\", service_name=\"Bossman UI check\", virtual_host=\"\", auth_password=\"\", expect_status=[], expect_string=\"\", cert_crit_days=null, cert_warn_days=null, min_size_bytes=null, follow_redirects=\"true\", response_time_crit_ms=null, response_time_warn_ms=null Remove" [ref=f257e336]:
+                    - cell "http HTTP service" [ref=f257e337]:
+                      - text: http
+                      - generic [ref=f257e338]: HTTP service
+                    - cell "host" [ref=f257e339]
+                    - cell "ssl=\"false\", uri=\"/\", url=\"http://bossman-ui/\", host=\"\", port=null, method=\"GET\", auth_user=\"\", post_data=\"\", timeout_s=\"10\", user_agent=\"bossman-check/1.0\", verify_tls=\"true\", invert_match=\"false\", service_name=\"Bossman UI check\", virtual_host=\"\", auth_password=\"\", expect_status=[], expect_string=\"\", cert_crit_days=null, cert_warn_days=null, min_size_bytes=null, follow_redirects=\"true\", response_time_crit_ms=null, response_time_warn_ms=null" [ref=f257e340]
+                    - cell "Remove" [ref=f257e341]:
+                      - button "Remove" [ref=f257e342]:
+                        - generic [ref=f257e343]: Remove
+                  - row "http HTTP service host url=\"https://llamacpp03.example.com/qwen79b/health\", verify_tls=false, service_name=\"Health Qwen79b\", expect_status=[200], response_time_crit_ms=8000, response_time_warn_ms=3000 Remove" [ref=f257e346]:
+                    - cell "http HTTP service" [ref=f257e347]:
+                      - text: http
+                      - generic [ref=f257e348]: HTTP service
+                    - cell "host" [ref=f257e349]
+                    - cell "url=\"https://llamacpp03.example.com/qwen79b/health\", verify_tls=false, service_name=\"Health Qwen79b\", expect_status=[200], response_time_crit_ms=8000, response_time_warn_ms=3000" [ref=f257e350]
+                    - cell "Remove" [ref=f257e351]:
+                      - button "Remove" [ref=f257e352]:
+                        - generic [ref=f257e353]: Remove
+                  - row "service_health Service health host unit=\"chrony\", service_name=\"Chrony NTP health\", require_enabled=true Remove" [ref=f257e356]:
+                    - cell "service_health Service health" [ref=f257e357]:
+                      - text: service_health
+                      - generic [ref=f257e358]: Service health
+                    - cell "host" [ref=f257e359]
+                    - cell "unit=\"chrony\", service_name=\"Chrony NTP health\", require_enabled=true" [ref=f257e360]
+                    - cell "Remove" [ref=f257e361]:
+                      - button "Remove" [ref=f257e362]:
+                        - generic [ref=f257e363]: Remove
+                  - row "sshd_config SSH daemon configuration host (defaults) Remove" [ref=f257e366]:
+                    - cell "sshd_config SSH daemon configuration" [ref=f257e367]:
+                      - text: sshd_config
+                      - generic [ref=f257e368]: SSH daemon configuration
+                    - cell "host" [ref=f257e369]
+                    - cell "(defaults)" [ref=f257e370]
+                    - cell "Remove" [ref=f257e371]:
+                      - button "Remove" [ref=f257e372]:
+                        - generic [ref=f257e373]: Remove
+              - heading "Monitoring services (18)" [level=3] [ref=f257e376]
+              - paragraph [ref=f257e377]:
+                - text: From threshold rules + the agent's built-in metrics — distinct from the assigned checks above. Edit thresholds in
+                - link "OU / Policy" [ref=f257e378] [cursor=pointer]:
+                  - /url: /ou
+                - text: ; full detail on the
+                - link "Services" [ref=f257e379] [cursor=pointer]:
+                  - /url: /hosts/6a0db3e4-0ce6-40cf-adf9-ff007254e9c7?tab=services
+                - text: tab.
+              - table [ref=f257e381]:
+                - rowgroup [ref=f257e382]:
+                  - row "Service State Value Metric" [ref=f257e383]:
+                    - columnheader "Service" [ref=f257e384]
+                    - columnheader "State" [ref=f257e385]
+                    - columnheader "Value" [ref=f257e386]
+                    - columnheader "Metric" [ref=f257e387]
+                - rowgroup [ref=f257e388]:
+                  - row "Bossman UI check CRIT — http" [ref=f257e389]:
+                    - cell "Bossman UI check" [ref=f257e390]
+                    - cell "CRIT" [ref=f257e391]:
+                      - generic [ref=f257e393]: CRIT
+                    - cell "—" [ref=f257e394]
+                    - cell "http" [ref=f257e395]
+                  - row "CPU load OK 4.55 cpu_pct" [ref=f257e396]:
+                    - cell "CPU load" [ref=f257e397]
+                    - cell "OK" [ref=f257e398]:
+                      - generic [ref=f257e400]: OK
+                    - cell "4.55" [ref=f257e401]
+                    - cell "cpu_pct" [ref=f257e402]
+                  - row "CPU usage OK 13.9 cpu_pct" [ref=f257e403]:
+                    - cell "CPU usage" [ref=f257e404]
+                    - cell "OK" [ref=f257e405]:
+                      - generic [ref=f257e407]: OK
+                    - cell "13.9" [ref=f257e408]
+                    - cell "cpu_pct" [ref=f257e409]
+                  - row "Chrony NTP health OK 1 service_health" [ref=f257e410]:
+                    - cell "Chrony NTP health" [ref=f257e411]
+                    - cell "OK" [ref=f257e412]:
+                      - generic [ref=f257e414]: OK
+                    - cell "1" [ref=f257e415]
+                    - cell "service_health" [ref=f257e416]
+                  - row "Disk / OK 0.4 % disk_used_pct" [ref=f257e417]:
+                    - cell "Disk /" [ref=f257e418]
+                    - cell "OK" [ref=f257e419]:
+                      - generic [ref=f257e421]: OK
+                    - cell "0.4 %" [ref=f257e422]
+                    - cell "disk_used_pct" [ref=f257e423]
+                  - row "Disk /boot OK 12 % disk_used_pct" [ref=f257e424]:
+                    - cell "Disk /boot" [ref=f257e425]
+                    - cell "OK" [ref=f257e426]:
+                      - generic [ref=f257e428]: OK
+                    - cell "12 %" [ref=f257e429]
+                    - cell "disk_used_pct" [ref=f257e430]
+                  - row "Disk /data1 OK 0.1 % disk_used_pct" [ref=f257e431]:
+                    - cell "Disk /data1" [ref=f257e432]
+                    - cell "OK" [ref=f257e433]:
+                      - generic [ref=f257e435]: OK
+                    - cell "0.1 %" [ref=f257e436]
+                    - cell "disk_used_pct" [ref=f257e437]
+                  - row "Disk /home OK 21.2 % disk_used_pct" [ref=f257e438]:
+                    - cell "Disk /home" [ref=f257e439]
+                    - cell "OK" [ref=f257e440]:
+                      - generic [ref=f257e442]: OK
+                    - cell "21.2 %" [ref=f257e443]
+                    - cell "disk_used_pct" [ref=f257e444]
+                  - row "Disk /opt OK 0 % disk_used_pct" [ref=f257e445]:
+                    - cell "Disk /opt" [ref=f257e446]
+                    - cell "OK" [ref=f257e447]:
+                      - generic [ref=f257e449]: OK
+                    - cell "0 %" [ref=f257e450]
+                    - cell "disk_used_pct" [ref=f257e451]
+                  - row "Disk /systems OK 0 % disk_used_pct" [ref=f257e452]:
+                    - cell "Disk /systems" [ref=f257e453]
+                    - cell "OK" [ref=f257e454]:
+                      - generic [ref=f257e456]: OK
+                    - cell "0 %" [ref=f257e457]
+                    - cell "disk_used_pct" [ref=f257e458]
+                  - row "Disk /tmp OK 1.3 % disk_used_pct" [ref=f257e459]:
+                    - cell "Disk /tmp" [ref=f257e460]
+                    - cell "OK" [ref=f257e461]:
+                      - generic [ref=f257e463]: OK
+                    - cell "1.3 %" [ref=f257e464]
+                    - cell "disk_used_pct" [ref=f257e465]
+                  - row "Disk /usr OK 38.6 % disk_used_pct" [ref=f257e466]:
+                    - cell "Disk /usr" [ref=f257e467]
+                    - cell "OK" [ref=f257e468]:
+                      - generic [ref=f257e470]: OK
+                    - cell "38.6 %" [ref=f257e471]
+                    - cell "disk_used_pct" [ref=f257e472]
+                  - row "Disk /var OK 30.1 % disk_used_pct" [ref=f257e473]:
+                    - cell "Disk /var" [ref=f257e474]
+                    - cell "OK" [ref=f257e475]:
+                      - generic [ref=f257e477]: OK
+                    - cell "30.1 %" [ref=f257e478]
+                    - cell "disk_used_pct" [ref=f257e479]
+                  - row "Disk IOPS OK 6.3 disk_iops" [ref=f257e480]:
+                    - cell "Disk IOPS" [ref=f257e481]
+                    - cell "OK" [ref=f257e482]:
+                      - generic [ref=f257e484]: OK
+                    - cell "6.3" [ref=f257e485]
+                    - cell "disk_iops" [ref=f257e486]
+                  - row "Health Qwen79b OK 15 http" [ref=f257e487]:
+                    - cell "Health Qwen79b" [ref=f257e488]
+                    - cell "OK" [ref=f257e489]:
+                      - generic [ref=f257e491]: OK
+                    - cell "15" [ref=f257e492]
+                    - cell "http" [ref=f257e493]
+                  - row "Memory OK 45.7 % mem_used_pct" [ref=f257e494]:
+                    - cell "Memory" [ref=f257e495]
+                    - cell "OK" [ref=f257e496]:
+                      - generic [ref=f257e498]: OK
+                    - cell "45.7 %" [ref=f257e499]
+                    - cell "mem_used_pct" [ref=f257e500]
+                  - row "Uptime OK 18 d 21 h" [ref=f257e501]:
+                    - cell "Uptime" [ref=f257e502]
+                    - cell "OK" [ref=f257e503]:
+                      - generic [ref=f257e505]: OK
+                    - cell "18 d 21 h" [ref=f257e506]
+                    - cell [ref=f257e507]
+                  - row "sshd_config OK — sshd_config" [ref=f257e508]:
+                    - cell "sshd_config" [ref=f257e509]
+                    - cell "OK" [ref=f257e510]:
+                      - generic [ref=f257e512]: OK
+                    - cell "—" [ref=f257e513]
+                    - cell "sshd_config" [ref=f257e514]
+          - tabpanel [ref=f257e266]
+          - tabpanel [ref=f257e267]
+          - tabpanel [ref=f257e268]
+          - tabpanel [ref=f257e269]
+          - tabpanel [ref=f257e270]
+          - tabpanel [ref=f257e271]
+    - generic [ref=f257e275]:
+      - button "Expand" [ref=f257e276] [cursor=pointer]:
+        - img [ref=f257e277]: expand_less
+      - img [ref=f257e280]: smart_toy
+      - generic [ref=f257e281]: Assistant
+      - combobox [ref=f257e282]:
+        - option "hermes-web" [selected]
+      - button "New chat" [ref=f257e283] [cursor=pointer]:
+        - img [ref=f257e284]: add_comment
+      - button "Maximize" [ref=f257e287] [cursor=pointer]:
+        - img [ref=f257e288]: fullscreen

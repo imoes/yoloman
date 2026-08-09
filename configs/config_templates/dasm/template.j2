@@ -1,0 +1,68 @@
+{# DASm (Delaware Assembler) configuration template #}
+{# This template generates command-line arguments for the dasm assembler based on Ansible variables. #}
+{# Each directive corresponds to a schema field with a safe default. #}
+
+{# output_format: Output format (1-3); default: 1 #}
+-f{{ output_format | default(1) }}
+
+{# output_file: Output file name #}
+-o{{ output_file | default('a.out') }}
+
+{# list_file: List file name; empty means none generated #}
+{% if list_file | default('') != '' %}
+-l{{ list_file | default('') }}
+{% endif %}
+
+{# all_passes_list_file: List file containing all passes #}
+{% if all_passes_list_file | default('') != '' %}
+-L{{ all_passes_list_file | default('') }}
+{% endif %}
+
+{# verbosity: Verboseness level (0-4); default: 0 #}
+-v{{ verbosity | default(0) }}
+
+{# debug: Enable debug mode #}
+{% if debug | default(False) | bool %}
+-d
+{% endif %}
+
+{# symbol_defs: List of symbols to define via -D; each entry defines a symbol name and optionally an expression #}
+{% for symbol_def in symbol_defs | default([]) %}
+-D{{ symbol_def.name }}{% if symbol_def.expr is defined %}={{ symbol_def.expr }}{% endif %}
+{% endfor %}
+
+{# eqm_defs: List of symbols to define via -M (EQM); each entry must include an expression #}
+{% for symbol_eqm in eqm_defs | default([]) %}
+-M{{ symbol_eqm.name }}={{ symbol_eqm.expr }}
+{% endfor %}
+
+{# max_passes: Maximum number of passes (with full checks) #}
+{% if max_passes | default('') != '' %}
+-p{{ max_passes | default('') }}
+{% endif %}
+
+{# max_passes_relaxed: Maximum number of passes (with fewer checks) #}
+{% if max_passes_relaxed | default('') != '' %}
+-P{{ max_passes_relaxed | default('') }}
+{% endif %}
+
+{# symbol_table_sort: Symbol table sorting mode: 0=alphabetical, 1=address/value #}
+-T{{ symbol_table_sort | default(0) }}
+
+{# error_format: Error format: 0=MS, 1=Dillon, 2=GNU #}
+-E{{ error_format | default(0) }}
+
+{# strict_syntax: Enable strict syntax checking #}
+{% if strict_syntax | default(False) | bool %}
+-S
+{% endif %}
+
+{# remove_on_error: Remove binary output file in case of errors #}
+{% if remove_on_error | default(False) | bool %}
+-R
+{% endif %}
+
+{# max_file_size_kb: Maximum allowed file-size in kB #}
+{% if max_file_size_kb | default('') != '' %}
+-m{{ max_file_size_kb | default('') }}
+{% endif %}

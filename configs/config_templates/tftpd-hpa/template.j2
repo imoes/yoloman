@@ -1,0 +1,57 @@
+# Ansible-managed configuration for tftpd-hpa (HPA's TFTP Daemon).
+# This template generates the /etc/default/tftpd-hpa file, which is sourced by the
+# SysV init script (or service wrapper) to configure the daemon's runtime behavior.
+
+# Absolute path to the TFTP root directory. All files served must be under this directory.
+TFTP_DIRECTORY="{{ tftp_root | default('/srv/tftp') }}"
+
+# System user account under which the TFTP service runs (for security isolation).
+TFTP_USERNAME="{{ tftp_user | default('nobody') }}"
+
+# IP address (IPv4 or IPv6) the TFTP server binds to.
+# Use '0.0.0.0' for all IPv4 interfaces, '::' for all IPv6 interfaces, or a specific IP.
+TFTP_ADDRESS="{{ tftp_address | default('0.0.0.0') }}"
+
+# UDP port number for the TFTP service (standard TFTP port is 69).
+# Note: Port 69 is privileged; root access is usually required to bind it.
+TFTP_PORT="{{ tftp_port | default(69) }}"
+
+# Space-separated command-line options passed to the TFTP daemon.
+# Common options:
+#   --secure : Chroots into TFTP_DIRECTORY and disables write operations.
+#   --verbose: Logs more detailed information to syslog.
+#   --listen : Explicitly tells the daemon to listen for requests (often required).
+#   --listen-ipv6: Enables IPv6 listening if not using a specific IPv6 address.
+# This variable accumulates options from the base string plus conditional flags below.
+
+# Start with the base options, ensuring a clean string to append to.
+TFTP_OPTIONS="{{ tftp_options | default('--secure') | trim }}"
+
+# Conditional: If IPv6 is enabled, append the specific flag for tftpd-hpa.
+{% if tftp_ipv6_enabled | default(False) | bool %}
+# IPv6 support is enabled. Appending --listen-ipv6 to TFTP_OPTIONS.
+TFTP_OPTIONS="{{ TFTP_OPTIONS }} --listen-ipv6"
+{% endif %}
+
+# Umask (e.g., '022') to apply to newly created files in the TFTP directory.
+# Omit (leave null) to use system default.
+# Note: tftpd-hpa does not natively support a --umask flag in older versions;
+# if your version supports it, you can append it here. Otherwise, rely on systemd or
+# the init script's environment. Here we comment it out for configuration reference
+# or append if the daemon version supports it. Since the schema mentions it, we assume
+# it might be passed or handled externally.
+{% if tftp_umask is defined and tftp_umask is not none and tftp_umask | trim | length > 0 %}
+# Umask is set to {{ tftp_umask | trim }}.
+# Append to options if the daemon version supports --umask.
+# TFTP_OPTIONS="{{ TFTP_OPTIONS }} --umask={{ tftp_umask | trim }}"
+{% else %}
+# Umask is not set; using system default.
+{% endif %}
+
+# If true, enables verbose debug logging (sent to syslog).
+# Note: Often controlled via --verbose flag. If --verbose is not in the base options,
+# we add it here when debug is enabled.
+{% if tftp_debug | default(False) | bool %}
+# Debug mode enabled. Appending --verbose to TFTP_OPTIONS.
+TFTP_OPTIONS="{{ TFTP_OPTIONS }} --verbose"
+{% endif %}

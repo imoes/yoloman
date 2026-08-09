@@ -1,0 +1,91 @@
+{
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable debugging output to syslog."
+  },
+  "debug_level": {
+    "type": "string",
+    "default": "",
+    "description": "Debug level suffix (e.g., ' 2' for more verbose logs); empty to use default level.",
+    "enum": [
+      "packet",
+      "prunes",
+      "routes",
+      "rtdetail",
+      "peers",
+      "cache",
+      "timeout",
+      "interface",
+      "groups",
+      "mtrace",
+      "igmp",
+      "icmp",
+      "rsrr",
+      "pim",
+      "pim_routes",
+      "pim_bsr",
+      "pim_detail",
+      "pim_hello"
+    ]
+  },
+  "vrid": {
+    "type": "number",
+    "default": 1,
+    "description": "Virtual Router ID (0\u2013255) for VRRP interoperability. Only relevant if using VRRP with PIM."
+  },
+  "pimsm_enabled": {
+    "type": "bool",
+    "default": true,
+    "description": "Enable PIM-Sparse Mode (required for most production deployments)."
+  },
+  "pimdm_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable PIM-Dense Mode (rarely used; disable unless explicitly required)."
+  },
+  "boundaries": {
+    "type": "list",
+    "default": [],
+    "description": "List of boundary filters (inbound ACLs) per interface to restrict multicast sources or groups."
+  },
+  "rp_address": {
+    "type": "string",
+    "default": "192.168.1.1",
+    "description": "IP address of the Rendezvous Point (RP) for PIM-SM."
+  },
+  "bsr_enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Bootstrap Router (BSR) functionality for dynamic RP discovery."
+  },
+  "cp_threshold": {
+    "type": "number",
+    "default": 0,
+    "description": "TTL threshold (0\u2013255) for multicast packets to be forwarded. 0 = forward all."
+  },
+  "static_routes": {
+    "type": "list",
+    "default": [],
+    "description": "List of static (*,G) multicast routes for manual forwarding control."
+  },
+  "interfaces": {
+    "type": "list",
+    "default": [
+      {
+        "name": "eth0",
+        "mode": "sm",
+        "hello_interval": 30,
+        "dr_priority": 1,
+        "pim_disabled": false,
+        "igmp_querier": true
+      }
+    ],
+    "description": "Per-interface PIM/IGMP settings."
+  },
+  "access_lists": {
+    "type": "list",
+    "default": [],
+    "description": "Access-lists to filter multicast groups and sources."
+  }
+}

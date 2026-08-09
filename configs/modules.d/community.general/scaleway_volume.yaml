@@ -1,0 +1,75 @@
+name: scaleway_volume
+fqcn: community.general.scaleway_volume
+collection: community.general
+short_description: Scaleway volumes management module
+description: This module manages volumes on Scaleway account U(https://developer.scaleway.com).
+options:
+  api_timeout:
+    type: int
+    default: 30
+    aliases:
+    - timeout
+    description: HTTP timeout to Scaleway API in seconds.
+  api_token:
+    type: str
+    required: true
+    aliases:
+    - oauth_token
+    description: Scaleway OAuth token.
+  api_url:
+    type: str
+    default: https://api.scaleway.com
+    aliases:
+    - base_url
+    description: Scaleway API URL.
+  name:
+    type: str
+    required: true
+    description: Name used to identify the volume.
+  organization:
+    type: str
+    description: ScaleWay organization ID to which volume belongs.
+  project:
+    type: str
+    description: Scaleway project ID to which volume belongs.
+  query_parameters:
+    type: dict
+    default: {}
+    description: List of parameters passed to the query string.
+  region:
+    type: str
+    required: true
+    choices:
+    - ams1
+    - EMEA-NL-EVS
+    - par1
+    - EMEA-FR-PAR1
+    - par2
+    - EMEA-FR-PAR2
+    - waw1
+    - EMEA-PL-WAW1
+    description: Scaleway region to use (for example par1).
+  size:
+    type: int
+    description: Size of the volume in bytes.
+  state:
+    type: str
+    default: present
+    choices:
+    - present
+    - absent
+    description: Indicate desired state of the volume.
+  validate_certs:
+    type: bool
+    default: true
+    description: Validate SSL certs of the Scaleway API.
+  volume_type:
+    type: str
+    description: Type of the volume (for example 'l_ssd').
+writes: true
+runtime: starlark
+source: translated
+examples: "\n- name: Create 10GB volume\n  community.general.scaleway_volume:\n    name: my-volume\n \
+  \   state: present\n    region: par1\n    project: \"{{ scw_org }}\"\n    \"size\": 10000000000\n  \
+  \  volume_type: l_ssd\n  register: server_creation_check_task\n\n- name: Make sure volume deleted\n\
+  \  community.general.scaleway_volume:\n    name: my-volume\n    state: absent\n    region: par1\n"

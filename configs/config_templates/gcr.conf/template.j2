@@ -1,0 +1,168 @@
+# =============================================================================
+# GCR Daemon Configuration Template
+# =============================================================================
+# This template generates the gcr.conf configuration file for the GCR daemon.
+# It is self-documenting: every directive is preceded by a comment describing
+# its purpose and source field from the Ansible inventory/schema.
+# =============================================================================
+
+# [Global Settings]
+# -----------------
+
+# Enable or disable the GCR service on startup.
+# Source: enabled (bool)
+enabled = {{ (gcr | default({})).enabled | default(True) | lower }}
+
+# Working directory for temporary and runtime files.
+# Source: work_dir (string)
+work_dir = {{ (gcr | default({})).work_dir | default('/var/lib/gcr') }}
+
+# Path to the PID file used to track the daemon process.
+# Source: pid_file (string)
+pid_file = {{ (gcr | default({})).pid_file | default('/run/gcr.pid') }}
+
+# Minimum log level to output. Set to 'debug' for verbose diagnostics.
+# Source: log_level (string)
+log_level = {{ (gcr | default({})).log_level | default('info') }}
+
+# Path to log file. Empty value logs to stdout/stderr instead.
+# Source: log_file (string)
+log_file = {{ (gcr | default({})).log_file | default('') }}
+
+# TCP port on which the GCR service listens for client connections.
+# Source: listen_port (int)
+listen_port = {{ (gcr | default({})).listen_port | default(8080) }}
+
+# Number of worker threads handling client requests.
+# Source: worker_count (int)
+worker_count = {{ (gcr | default({})).worker_count | default(4) }}
+
+# Maximum number of simultaneous client connections allowed.
+# Source: max_connections (int)
+max_connections = {{ (gcr | default({})).max_connections | default(1024) }}
+
+# Seconds of inactivity before a client connection is closed.
+# Source: idle_timeout (int)
+idle_timeout = {{ (gcr | default({})).idle_timeout | default(60) }}
+
+# [TLS Configuration]
+# -------------------
+
+# Enable TLS for encrypted client communication.
+# Source: tls_enabled (bool)
+tls_enabled = {{ (gcr | default({})).tls_enabled | default(False) | lower }}
+
+# Path to the server TLS certificate file. Required if TLS is enabled.
+# Source: tls_cert_file (string)
+tls_cert_file = {{ (gcr | default({})).tls_cert_file | default('/etc/gcr/tls/server.crt') }}
+
+# Path to the server TLS private key file. Required if TLS is enabled.
+# Source: tls_key_file (string)
+tls_key_file = {{ (gcr | default({})).tls_key_file | default('/etc/gcr/tls/server.key') }}
+
+# Path to CA certificate for mutual TLS (mTLS) client verification.
+# Leave blank to disable client cert authentication.
+# Source: tls_ca_cert_file (string)
+tls_ca_cert_file = {{ (gcr | default({})).tls_ca_cert_file | default('') }}
+
+# Optional hostname to present in TLS SNI during handshake.
+# If empty, the system hostname is used.
+# Source: tls_sni_hostname (string)
+tls_sni_hostname = {{ (gcr | default({})).tls_sni_hostname | default('') }}
+
+# [Rate Limiting]
+# ---------------
+[rate_limit]
+
+# Enable per-client request rate limiting.
+# Source: rate_limit.enabled (bool)
+enabled = {{ ((gcr | default({})).rate_limit | default({})).enabled | default(True) | lower }}
+
+# Maximum number of requests allowed per client per interval before throttling.
+# Source: rate_limit.max_requests (int)
+max_requests = {{ ((gcr | default({})).rate_limit | default({})).max_requests | default(100) }}
+
+# Time window (in seconds) over which rate limiting is applied.
+# Source: rate_limit.window_seconds (int)
+window_seconds = {{ ((gcr | default({})).rate_limit | default({})).window_seconds | default(60) }}
+
+# [Access Control Lists (ACLs)]
+# -----------------------------
+# Each ACL entry defines an allow/deny rule based on IP network (CIDR).
+
+# Source: acls (list of objects)
+{% for acl in (gcr | default({})).acls | default([{'name': 'allow_all', 'action': 'allow', 'network': '0.0.0.0/0', 'description': 'Allow all connections by default'}]) %}
+# ACL Rule: {{ acl.name | default('rule_' + loop.index|string) }}
+# Description: {{ acl.description | default('') }}
+# Action: {{ acl.action | default('allow') }}
+# Network: {{ acl.network | default('0.0.0.0/0') }}
+[{{ acl.name | default('rule_' + loop.index|string) }}]
+action = {{ acl.action | default('allow') }}
+{% if acl.network is defined and acl.network %}
+network = {{ acl.network }}
+{% endif %}
+{% endfor %}
+
+# [Upstream Backends]
+# -------------------
+# GCR proxies requests to these upstream backend servers.
+# Source: upstreams (list of objects)
+
+{% for upstream in (gcr | default({})).upstreams | default([{'name': 'backend1', 'host': '127.0.0.1', 'port': 9000, 'weight': 100}]) %}
+# Upstream Backend: {{ upstream.name | default('upstream_' + loop.index|string) }}
+# Host: {{ upstream.host | default('127.0.0.1') }}
+# Port: {{ upstream.port | default(9000) }}
+# Weight: {{ upstream.weight | default(100) }}
+# Max Connections: {{ upstream.max_connections | default('unlimited') if upstream.max_connections is defined else 'unlimited' }}
+[upstream:{{ upstream.name | default('upstream_' + loop.index|string) }}]
+host = {{ upstream.host | default('127.0.0.1') }}
+port = {{ upstream.port | default(9000) }}
+weight = {{ upstream.weight | default(100) }}
+{% if upstream.max_connections is defined %}
+max_connections = {{ upstream.max_connections }}
+{% endif %}
+{% endfor %}
+
+# [Cache Configuration]
+# ---------------------
+[cache]
+
+# Enable in-memory caching of responses.
+# Source: cache.enabled (bool)
+enabled = {{ ((gcr | default({})).cache | default({})).enabled | default(True) | lower }}
+
+# Maximum number of entries the cache can hold.
+# Source: cache.capacity (int)
+capacity = {{ ((gcr | default({})).cache | default({})).capacity | default(10000) }}
+
+# Default time-to-live for cached entries (in seconds).
+# Source: cache.default_ttl (int)
+default_ttl = {{ ((gcr | default({})).cache | default({})).default_ttl | default(300) }}
+
+# Cache eviction policy when capacity is exceeded.
+# Source: cache.policy (string)
+policy = {{ ((gcr | default({})).cache | default({})).policy | default('lru') }}
+
+# [Health Check Configuration]
+# ----------------------------
+[health_check]
+
+# Enable periodic health checks on upstream backends.
+# Source: health_check.enabled (bool)
+enabled = {{ ((gcr | default({})).health_check | default({})).enabled | default(True) | lower }}
+
+# Seconds between consecutive health checks.
+# Source: health_check.interval (int)
+interval = {{ ((gcr | default({})).health_check | default({})).interval | default(10) }}
+
+# Seconds to wait for a health check response before marking unhealthy.
+# Source: health_check.timeout (int)
+timeout = {{ ((gcr | default({})).health_check | default({})).timeout | default(5) }}
+
+# Consecutive failed checks required to mark an upstream as unhealthy.
+# Source: health_check.failures (int)
+failures = {{ ((gcr | default({})).health_check | default({})).failures | default(3) }}
+
+# Consecutive successful checks required to mark an upstream as healthy again.
+# Source: health_check.successes (int)
+successes = {{ ((gcr | default({})).health_check | default({})).successes | default(2) }}

@@ -1,0 +1,102 @@
+{
+  "logger": {
+    "level": "info"
+  },
+  "db": {
+    "uri": "mongodb://localhost:27017/nextepc"
+  },
+  "pcrf": {
+    "plmns": [
+      {
+        "plmn_id": {
+          "mcc": "001",
+          "mnc": "01"
+        },
+        "apn": [
+          "internet",
+          "ims"
+        ]
+      }
+    ],
+    "policy": {
+      "charging_rules": [
+        {
+          "rule_name": "rule-voice",
+          "qci": 1,
+          "max_bitrate_ul": 128000,
+          "max_bitrate_dl": 128000,
+          "gbr_ul": 128000,
+          "gbr_dl": 128000,
+          "arp": {
+            "priority_level": 2,
+            "preemption_capability": false,
+            "preemption_vulnerability": false
+          },
+          "monitoring_time": "3600"
+        },
+        {
+          "rule_name": "rule-video",
+          "qci": 2,
+          "max_bitrate_ul": 500000,
+          "max_bitrate_dl": 1000000,
+          "gbr_ul": 256000,
+          "gbr_dl": 512000,
+          "arp": {
+            "priority_level": 5,
+            "preemption_capability": false,
+            "preemption_vulnerability": true
+          }
+        }
+      ],
+      "qos_profiles": [
+        {
+          "profile_id": "default-internet",
+          "qci": 9,
+          "priority_level": 15,
+          "max_bitrate_ul": 1000000000,
+          "max_bitrate_dl": 1000000000,
+          "gbr_ul": 0,
+          "gbr_dl": 0
+        },
+        {
+          "profile_id": "default-voice",
+          "qci": 1,
+          "priority_level": 2,
+          "max_bitrate_ul": 128000,
+          "max_bitrate_dl": 128000,
+          "gbr_ul": 128000,
+          "gbr_dl": 128000
+        }
+      ]
+    },
+    "sgw": {
+      "addr": "10.0.0.5",
+      "port": 3868
+    },
+    "pgw": {
+      "addr": "10.0.0.6",
+      "port": 3868
+    },
+    "diameter": {
+      "hostname": "pcrf.epc.mnc001.mcc001.3gppnetwork.org",
+      "realm": "epc.mnc001.mcc001.3gppnetwork.org",
+      "peers": [
+        {
+          "hostname": "hss.epc.mnc001.mcc001.3gppnetwork.org",
+          "realm": "epc.mnc001.mcc001.3gppnetwork.org"
+        },
+        {
+          "hostname": "ocs.example.com",
+          "realm": "ocs.example.com"
+        }
+      ]
+    }
+  },
+  "system": {
+    "listen": {
+      "addr": "0.0.0.0",
+      "port": 3868
+    },
+    "workers": 4
+  }
+}

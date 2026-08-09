@@ -1,0 +1,44 @@
+# Globus Gatekeeper Configuration
+# This file configures the Globus Gatekeeper service, which provides grid security and
+# authentication for Globus services. It handles X.509 certificate validation and optional
+# Kerberos ticket translation.
+
+# Gatekeeper service port number (IANA registered as gsigatekeeper).
+GLOBUS_GATEKEEPER_PORT="{{ (GLOBUS_GATEKEEPER_PORT | default('2119')) | string }}"
+
+# Globus installation base path. Used to resolve relative paths for other settings.
+GLOBUS_LOCATION="{{ (GLOBUS_LOCATION | default('/usr')) | string }}"
+
+# Path to gatekeeper log file. If empty or unset, logging will be done via syslog.
+GLOBUS_GATEKEEPER_LOG="{{ (GLOBUS_GATEKEEPER_LOG | default('/var/log/globus-gatekeeper.log')) | string }}"
+
+# Log facility for gatekeeper logging (e.g. LOG_DAEMON, LOG_USER).
+GLOBUS_GATEKEEPER_LOG_FACILITY="{{ (GLOBUS_GATEKEEPER_LOG_FACILITY | default('LOG_DAEMON')) | string }}"
+
+# Directory containing grid service descriptions (service.xml files).
+GLOBUS_GATEKEEPER_GRID_SERVICES="{{ (GLOBUS_GATEKEEPER_GRID_SERVICES | default('/etc/grid-services')) | string }}"
+
+# Path to X.509 identity to local user mapping file (grid-mapfile).
+GLOBUS_GATEKEEPER_GRIDMAP="{{ (GLOBUS_GATEKEEPER_GRIDMAP | default('/etc/grid-security/grid-mapfile')) | string }}"
+
+# Directory containing trusted X.509 CA certificates.
+GLOBUS_GATEKEEPER_CERT_DIR="{{ (GLOBUS_GATEKEEPER_CERT_DIR | default('/etc/grid-security/certificates')) | string }}"
+
+# Path to service X.509 certificate file.
+GLOBUS_GATEKEEPER_CERT_FILE="{{ (GLOBUS_GATEKEEPER_CERT_FILE | default('/etc/grid-security/hostcert.pem')) | string }}"
+
+# Path to service private key file.
+GLOBUS_GATEKEEPER_KEY_FILE="{{ (GLOBUS_GATEKEEPER_KEY_FILE | default('/etc/grid-security/hostkey.pem')) | string }}"
+
+# Enable Kerberos ticket translation from X.509 credentials.
+# Set to true to enable translation via kerberos k5 service.
+GLOBUS_GATEKEEPER_KERBEROS_ENABLED={{ GLOBUS_GATEKEEPER_KERBEROS_ENABLED | default(False) }}
+
+# Path to globuskmap file. If empty, the default globuskmap file is used if Kerberos is enabled.
+GLOBUS_GATEKEEPER_KMAP="{{ (GLOBUS_GATEKEEPER_KMAP | default('')) | string }}"
+
+# Path to PID file for the gatekeeper daemon. Used by init scripts to stop the service.
+GLOBUS_GATEKEEPER_PIDFILE="{{ (GLOBUS_GATEKEEPER_PIDFILE | default('/var/run/globus-gatekeeper.pid')) | string }}"
+
+# Nice level for gatekeeper process priority (0-19, higher = lower priority).
+GLOBUS_GATEKEEPER_NICE_LEVEL={{ GLOBUS_GATEKEEPER_NICE_LEVEL | default(0) }}

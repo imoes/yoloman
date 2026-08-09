@@ -1,0 +1,381 @@
+{
+  "listen_host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Network interface to listen on for NATS client connections."
+  },
+  "listen_port": {
+    "type": "number",
+    "default": 4222,
+    "description": "Port to listen on for client NATS connections."
+  },
+  "http_monitoring": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "host": "0.0.0.0",
+      "port": 8222
+    },
+    "description": "Enable HTTP-based monitoring endpoint for introspection (/varz, /connz, etc.)."
+  },
+  "http_monitoring.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable HTTP monitoring server."
+  },
+  "http_monitoring.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host for HTTP monitoring endpoint."
+  },
+  "http_monitoring.port": {
+    "type": "number",
+    "default": 8222,
+    "description": "Port for HTTP monitoring endpoint."
+  },
+  "prometheus": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "host": "0.0.0.0",
+      "port": 7777
+    },
+    "description": "Enable Prometheus-compatible metrics endpoint."
+  },
+  "prometheus.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable Prometheus metrics endpoint."
+  },
+  "prometheus.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host for Prometheus metrics endpoint."
+  },
+  "prometheus.port": {
+    "type": "number",
+    "default": 7777,
+    "description": "Port for Prometheus metrics endpoint."
+  },
+  "cluster": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "host": "0.0.0.0",
+      "port": 6222,
+      "routes": []
+    },
+    "description": "Configure NATS clustering for high availability and message replication."
+  },
+  "cluster.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable cluster mode."
+  },
+  "cluster.name": {
+    "type": "string",
+    "default": "",
+    "description": "Optional cluster name for multi-cluster topologies (required for cross-cluster leafnodes)."
+  },
+  "cluster.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host for cluster node-to-node communication."
+  },
+  "cluster.port": {
+    "type": "number",
+    "default": 6222,
+    "description": "Port for cluster node-to-node communication."
+  },
+  "cluster.routes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Remote cluster node host/IP"
+      },
+      "port": {
+        "type": "number",
+        "default": 6222,
+        "description": "Remote cluster node port"
+      }
+    },
+    "description": "List of seed cluster node URLs for initial cluster discovery."
+  },
+  "cluster.tls": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "TLS configuration for cluster communication (if enabled)."
+  },
+  "cluster.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for cluster connections."
+  },
+  "cluster.tls.cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to cluster TLS certificate."
+  },
+  "cluster.tls.key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to cluster TLS private key."
+  },
+  "cluster.tls.ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for cluster TLS verification."
+  },
+  "auth": {
+    "type": "object",
+    "default": {
+      "type": "none",
+      "users": []
+    },
+    "description": "Authentication configuration."
+  },
+  "auth.type": {
+    "type": "string",
+    "default": "none",
+    "description": "Authentication mode: none (disabled), token (single shared secret), or users (per-user credentials)."
+  },
+  "auth.token": {
+    "type": "string",
+    "default": "",
+    "description": "Shared authorization token when auth.type is 'token'."
+  },
+  "auth.users": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "username": {
+        "type": "string",
+        "default": "",
+        "description": "Username"
+      },
+      "password": {
+        "type": "string",
+        "default": "",
+        "description": "Password"
+      },
+      "permissions": {
+        "type": "object",
+        "default": {
+          "subscribe": [],
+          "publish": []
+        },
+        "description": "Permissions for this user (empty = full access)"
+      }
+    },
+    "description": "List of users for username/password authentication."
+  },
+  "log": {
+    "type": "object",
+    "default": {
+      "file": ""
+    },
+    "description": "Logging configuration."
+  },
+  "log.file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to log file. Leave empty to log to stdout/stderr."
+  },
+  "debug": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable verbose debug logging (trace-level)."
+  },
+  "limits": {
+    "type": "object",
+    "default": {
+      "max_connections": 65536,
+      "max_payload": "64K",
+      "max_control_line": 256
+    },
+    "description": "Connection and payload resource limits."
+  },
+  "limits.max_connections": {
+    "type": "number",
+    "default": 65536,
+    "description": "Maximum number of simultaneous client connections."
+  },
+  "limits.max_payload": {
+    "type": "string",
+    "default": "64K",
+    "description": "Maximum size of a single message payload (e.g., '64K', '1M')."
+  },
+  "limits.max_control_line": {
+    "type": "number",
+    "default": 256,
+    "description": "Maximum length (in bytes) of a single protocol control line."
+  },
+  "jetstream": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "store_dir": "/var/lib/nats/jetstream",
+      "max_mem": "1G",
+      "max_file": "10G"
+    },
+    "description": "Enable JetStream for persistent, streaming, and durable queue groups."
+  },
+  "jetstream.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable JetStream functionality."
+  },
+  "jetstream.store_dir": {
+    "type": "string",
+    "default": "/var/lib/nats/jetstream",
+    "description": "Directory to store JetStream data."
+  },
+  "jetstream.max_mem": {
+    "type": "string",
+    "default": "1G",
+    "description": "Maximum memory allocation for JetStream streams."
+  },
+  "jetstream.max_file": {
+    "type": "string",
+    "default": "10G",
+    "description": "Maximum disk usage for JetStream streams."
+  },
+  "leafnodes": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "host": "0.0.0.0",
+      "port": 7422,
+      "remotes": []
+    },
+    "description": "Leaf node configuration for connecting to remote clusters or hubs."
+  },
+  "leafnodes.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable leaf node connectivity mode."
+  },
+  "leafnodes.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host for accepting leaf node connections."
+  },
+  "leafnodes.port": {
+    "type": "number",
+    "default": 7422,
+    "description": "Port for accepting leaf node connections."
+  },
+  "leafnodes.remotes": {
+    "type": "list",
+    "default": [],
+    "items": {
+      "urls": {
+        "type": "list",
+        "default": [],
+        "description": "Remote leaf node URLs"
+      },
+      "local_account": {
+        "type": "string",
+        "default": "",
+        "description": "Local account to map remote connections to"
+      }
+    },
+    "description": "Remote leaf node endpoints to connect to."
+  },
+  "websocket": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "host": "0.0.0.0",
+      "port": 8080,
+      "tls": {
+        "enabled": false
+      }
+    },
+    "description": "WebSocket support for browser and lightweight clients."
+  },
+  "websocket.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable WebSocket server."
+  },
+  "websocket.host": {
+    "type": "string",
+    "default": "0.0.0.0",
+    "description": "Host to bind WebSocket server to."
+  },
+  "websocket.port": {
+    "type": "number",
+    "default": 8080,
+    "description": "Port for WebSocket connections."
+  },
+  "websocket.tls": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "Enable TLS for WebSocket connections."
+  },
+  "websocket.tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Use TLS for WebSocket connections (wss://)."
+  },
+  "websocket.tls.cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to WebSocket TLS certificate."
+  },
+  "websocket.tls.key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to WebSocket TLS private key."
+  },
+  "websocket.tls.ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for WebSocket client verification."
+  },
+  "tls": {
+    "type": "object",
+    "default": {
+      "enabled": false
+    },
+    "description": "TLS configuration for standard NATS client connections."
+  },
+  "tls.enabled": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable TLS for NATS client connections."
+  },
+  "tls.cert_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS certificate (for client connections)."
+  },
+  "tls.key_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to TLS private key (for client connections)."
+  },
+  "tls.ca_file": {
+    "type": "string",
+    "default": "",
+    "description": "Path to CA certificate for client TLS verification."
+  },
+  "tls.timeout": {
+    "type": "number",
+    "default": 2,
+    "description": "TLS handshake timeout (seconds)."
+  },
+  "ldm_grace_period": {
+    "type": "string",
+    "default": "5s",
+    "description": "Lame duck mode grace period before forced shutdown (e.g., '5s', '30s')."
+  }
+}

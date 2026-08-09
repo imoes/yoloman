@@ -1,0 +1,18 @@
+{# CTPL (Config Template Processor) invocation command #}
+{# This template generates the CLI command to run ctpl with the specified parameters. #}
+{# Ensure all required inputs (input_file) are provided before rendering. #}
+
+{# Input template file path (required positional argument) #}
+ctpl
+{# Enable verbose mode (corresponds to -v) #}
+{% if (verbose | default(False) | bool) %} -v{% endif %}
+{# Input/output encoding (e.g., UTF-8); if empty, uses system default #}
+{% if (encoding | default('') | trim) %} --encoding={{ encoding | default('') | trim }}{% endif %}
+{# List of environment file paths (one per -e option) #}
+{% for env_file in env_files | default([]) %} -e {{ env_file | string | trim }}{% endfor %}
+{# List of environment chunk strings (one per -c option) #}
+{% for env_chunk in env_chunks | default([]) %} -c {{ env_chunk | string | trim }}{% endfor %}
+{# Output file path; if empty, output goes to stdout #}
+{% if (output | default('') | trim) %} -o {{ output | default('') | trim }}{% endif %}
+{# Input template file path (required positional argument) #}
+{{ input_file | default('') | string | trim }}

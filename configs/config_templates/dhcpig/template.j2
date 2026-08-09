@@ -1,0 +1,109 @@
+{# dhcpig configuration template #}
+{# Self-documented: every directive includes its schema description and safe defaults. #}
+
+[main]
+
+# Network interface to use for DHCP exhaustion attack
+interface = {{ interface | default('eth0') }}
+
+# Verbosity level: 0 (none), 1 (minimal), 10 (default), 99 (debug)
+verbosity = {{ verbosity | default(10) }}
+
+# Enable IPv6 (DHCPv6); otherwise use IPv4 (DHCP)
+{% if ipv6 | default(False) %}
+ipv6 = yes
+{% else %}
+ipv6 = no
+{% endif %}
+
+# Enable DHCPv6 Rapid Commit (2-way handshake)
+{% if v6_rapid_commit | default(False) %}
+v6_rapid_commit = yes
+{% else %}
+v6_rapid_commit = no
+{% endif %}
+
+# List of client MAC addresses to use; empty list means random
+{% if client_src | default([]) | length > 0 %}
+client_src = {{ client_src | default([]) | join(',') }}
+{% endif %}
+
+# DHCP option codes to request, as list of integers or ranges
+{% if request_options | default([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80]) | length > 0 %}
+request_options = {{ request_options | default([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80]) | join(',') }}
+{% endif %}
+
+# Enable random packet fuzzing
+{% if fuzz | default(False) %}
+fuzz = yes
+{% else %}
+fuzz = no
+{% endif %}
+
+# Number of sending threads
+threads = {{ threads | default(1) }}
+
+# Enable detection and print ARP who_has requests
+{% if show_arp | default(False) %}
+show_arp = yes
+{% else %}
+show_arp = no
+{% endif %}
+
+# Enable detection and print ICMP requests
+{% if show_icmp | default(False) %}
+show_icmp = yes
+{% else %}
+show_icmp = no
+{% endif %}
+
+# Print lease options info
+{% if show_options | default(False) %}
+show_options = yes
+{% else %}
+show_options = no
+{% endif %}
+
+# Detect and print DHCP replies
+{% if show_lease_confirm | default(False) %}
+show_lease_confirm = yes
+{% else %}
+show_lease_confirm = no
+{% endif %}
+
+# Knock neighbors offline using gratuitous ARP
+{% if neighbors_attack_garp | default(False) %}
+neighbors_attack_garp = yes
+{% else %}
+neighbors_attack_garp = no
+{% endif %}
+
+# Release all neighbor IPs via DHCPRELEASE
+{% if neighbors_attack_release | default(False) %}
+neighbors_attack_release = yes
+{% else %}
+neighbors_attack_release = no
+{% endif %}
+
+# Enable ARP-based neighbor scanning
+{% if neighbors_scan_arp | default(False) %}
+neighbors_scan_arp = yes
+{% else %}
+neighbors_scan_arp = no
+{% endif %}
+
+# Thread spawn timer in seconds
+timeout_threads = {{ timeout_threads | default(0.4) }}
+
+# DOS timeout — wait time between gratuitous ARP bursts
+timeout_dos = {{ timeout_dos | default(8) }}
+
+# DHCP request timeout in seconds
+timeout_dhcprequest = {{ timeout_dhcprequest | default(2) }}
+
+# Enable colored terminal output
+{% if color | default(False) %}
+color = yes
+{% else %}
+color = no
+{% endif %}

@@ -1,0 +1,129 @@
+# ==============================================================================
+# glmark2-drm Configuration Template
+# ==============================================================================
+# This template generates a command-line execution plan for glmark2-drm.
+# glmark2-drm is a graphics benchmarking tool for DRM/KMS displays.
+# Instead of a traditional INI-style config, it accepts a list of full command
+# invocations, one per line.
+# ==============================================================================
+
+# ---------------------------------------------------------------------------
+# Benchmarks
+# ---------------------------------------------------------------------------
+# List of full glmark2-drm command invocations (one per line).
+# Each string must be a valid command line as accepted by glmark2-drm(1).
+# If empty or undefined, no benchmarks are listed.
+{% for benchmark in benchmarks | default([], true) %}{{ benchmark }}{% if not loop.last %}
+{% endif %}{% endfor %}
+
+# ---------------------------------------------------------------------------
+# Validation Mode
+# ---------------------------------------------------------------------------
+# If true, run a quick output validation test instead of benchmarks
+# (uses the --validate flag). Overrides any benchmark entries if true.
+{% if validate | default(False, true) | bool %}
+--validate
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Data Path
+# ---------------------------------------------------------------------------
+# Path to glmark2 models, shaders and textures (--data-path).
+# If empty, glmark2 uses its internal defaults or system paths.
+{% if data_path | default('', true) | trim | length > 0 %}
+--data-path={{ data_path | default('', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Frame End Behavior
+# ---------------------------------------------------------------------------
+# How to end a frame: 'default', 'none', 'swap', 'finish', or 'readpixels' (--frame-end).
+{% if frame_end | default('default', true) | trim != 'default' %}
+--frame-end={{ frame_end | default('default', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Swap Mode
+# ---------------------------------------------------------------------------
+# Frame swap mode: 'default', 'immediate', 'mailbox', or 'fifo' (--swap-mode).
+{% if swap_mode | default('default', true) | trim != 'default' %}
+--swap-mode={{ swap_mode | default('default', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Off-Screen Rendering
+# ---------------------------------------------------------------------------
+# Render to an off-screen surface (--off-screen).
+{% if off_screen | default(False, true) | bool %}
+--off-screen
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Context Reuse
+# ---------------------------------------------------------------------------
+# Use a single context for all scenes (--reuse-context).
+# Can improve performance by avoiding context creation overhead.
+{% if reuse_context | default(False, true) | bool %}
+--reuse-context
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Window Size
+# ---------------------------------------------------------------------------
+# Output window size as 'WxH' (e.g., '800x600') or '-1x-1' for fullscreen (--size).
+{% if size | default('', true) | trim | length > 0 %}
+--size={{ size | default('', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Result Types
+# ---------------------------------------------------------------------------
+# Colons-separated result types: 'fps', 'cpu', 'shader' (--results).
+# Example: 'fps:cpu' outputs both frames-per-second and CPU usage.
+{% if results | default('fps', true) | trim != 'fps' %}
+--results={{ results | default('fps', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Results File Output
+# ---------------------------------------------------------------------------
+# Output file for results, with extension determining format (.csv or .xml) (--results-file).
+{% if results_file | default('', true) | trim | length > 0 %}
+--results-file={{ results_file | default('', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Window System Options
+# ---------------------------------------------------------------------------
+# Colon-separated window system options in 'opt=value' pairs (--winsys-options).
+# Example: 'drm:prime=0'
+{% if winsys_options | default('', true) | trim | length > 0 %}
+--winsys-options={{ winsys_options | default('', true) | trim }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Run Forever
+# ---------------------------------------------------------------------------
+# Run indefinitely, looping through benchmarks (--run-forever).
+# Useful for stress testing or long-duration stability checks.
+{% if run_forever | default(False, true) | bool %}
+--run-forever
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Annotations
+# ---------------------------------------------------------------------------
+# Annotate benchmarks with on-screen info (--annotate).
+# Displays real-time statistics on the framebuffer.
+{% if annotate | default(False, true) | bool %}
+--annotate
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Debug Mode
+# ---------------------------------------------------------------------------
+# Display debug messages (-d, --debug).
+# Outputs detailed logging to stdout/stderr for troubleshooting.
+{% if debug | default(False, true) | bool %}
+--debug
+{% endif %}

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE busconfig PUBLIC
+ "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <!--
+    policy_user: User allowed to own the service (typically 'root').
+    Defines the user identity authorized to claim the D-Bus service name.
+  -->
+  <policy user="{{ policy_user | default('root') }}">
+    <!--
+      service_name: Primary D-Bus service name.
+      Grants ownership of the primary service name to the policy user.
+    -->
+    <allow own="{{ service_name | default('org.group.admin') }}"/>
+  </policy>
+
+  <!--
+    Policy context for all other connections (default deny/reject unless allowed).
+    Defines what clients are permitted to send messages to the services.
+  -->
+  <policy context="default">
+    <!--
+      Grants permission to send messages to the primary service name.
+    -->
+    <allow send_destination="{{ service_name | default('org.group.admin') }}"/>
+    
+    <!--
+      Grants permission to send messages to the primary service name for
+      standard D-Bus property introspection and modification.
+    -->
+    <allow send_destination="{{ service_name | default('org.group.admin') }}"
+           send_interface="org.freedesktop.DBus.Properties"/>
+    
+    <!--
+      Grants permission to send messages to the primary service name for
+      standard D-Bus interface introspection (XML description).
+    -->
+    <allow send_destination="{{ service_name | default('org.group.admin') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+    
+    <!--
+      list_service_name: Secondary D-Bus service name (for list operations).
+      Grants permission to send messages to the secondary service name
+      for standard D-Bus property introspection and modification.
+    -->
+    <allow send_destination="{{ list_service_name | default('org.group.admin.list') }}"
+           send_interface="org.freedesktop.DBus.Properties"/>
+    
+    <!--
+      Grants permission to send messages to the secondary service name
+      for standard D-Bus interface introspection (XML description).
+    -->
+    <allow send_destination="{{ list_service_name | default('org.group.admin.list') }}"
+           send_interface="org.freedesktop.DBus.Introspectable"/>
+  </policy>
+
+</busconfig>

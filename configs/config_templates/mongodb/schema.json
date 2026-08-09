@@ -1,0 +1,351 @@
+{
+  "log": {
+    "type": "object",
+    "default": {
+      "path": "/var/log/mongodb/mongod.log",
+      "append": true,
+      "rotate": "rename"
+    },
+    "description": "Logging configuration for the MongoDB server.",
+    "items": {
+      "path": {
+        "type": "string",
+        "default": "/var/log/mongodb/mongod.log",
+        "description": "Absolute path to the log file."
+      },
+      "append": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, logs are appended to the existing log file instead of overwriting it."
+      },
+      "rotate": {
+        "type": "string",
+        "default": "rename",
+        "enum": [
+          "rename",
+          "reopen"
+        ],
+        "description": "Log rotation strategy: 'rename' (rename old logs and create new), 'reopen' (reopen log file for rotation)."
+      }
+    }
+  },
+  "storage": {
+    "type": "object",
+    "default": {
+      "dbPath": "/var/lib/mongodb",
+      "journal": {
+        "enabled": true
+      },
+      "directoryPerDB": false,
+      "wiredTiger": {
+        "engineConfig": {
+          "cacheSizeGB": 0
+        },
+        "collectionConfig": {
+          "blockCompressor": "snappy"
+        }
+      },
+      "directoryForIndexFiles": false
+    },
+    "description": "Storage engine and data directory settings.",
+    "items": {
+      "dbPath": {
+        "type": "string",
+        "default": "/var/lib/mongodb",
+        "description": "Path to the directory where MongoDB stores its data files."
+      },
+      "journal": {
+        "type": "object",
+        "items": {
+          "enabled": {
+            "type": "bool",
+            "default": true,
+            "description": "Enable journaling for durability."
+          }
+        }
+      },
+      "directoryPerDB": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, stores each database\u2019s data in a separate subdirectory under dbPath."
+      },
+      "wiredTiger": {
+        "type": "object",
+        "items": {
+          "engineConfig": {
+            "type": "object",
+            "items": {
+              "cacheSizeGB": {
+                "type": "number",
+                "default": 0,
+                "description": "WiredTiger storage engine cache size in gigabytes. 0 uses automatic sizing (recommended for production)."
+              }
+            }
+          },
+          "collectionConfig": {
+            "type": "object",
+            "items": {
+              "blockCompressor": {
+                "type": "string",
+                "default": "snappy",
+                "enum": [
+                  "none",
+                  "snappy",
+                  "zlib",
+                  "zstd"
+                ],
+                "description": "Compression algorithm for collection data blocks."
+              }
+            }
+          }
+        }
+      },
+      "directoryForIndexFiles": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, stores index files in a separate directory under dbPath."
+      }
+    }
+  },
+  "net": {
+    "type": "object",
+    "default": {
+      "port": 27017,
+      "bindIp": [
+        "127.0.0.1"
+      ],
+      "ssl": {
+        "mode": "disabled",
+        "PEMKeyFile": "",
+        "CAFile": "",
+        "allowConnectionsWithoutCertificates": false
+      }
+    },
+    "description": "Network binding and SSL/TLS configuration.",
+    "items": {
+      "port": {
+        "type": "number",
+        "default": 27017,
+        "description": "TCP port on which MongoDB listens for connections."
+      },
+      "bindIp": {
+        "type": "list",
+        "default": [
+          "127.0.0.1"
+        ],
+        "description": "List of IP addresses to bind to. Always include 127.0.0.1 for local access.",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$|^::1$|^[a-fA-F0-9:]+$|^[a-zA-Z0-9.-]+$"
+        }
+      },
+      "ssl": {
+        "type": "object",
+        "items": {
+          "mode": {
+            "type": "string",
+            "default": "disabled",
+            "enum": [
+              "disabled",
+              "allowSSL",
+              "preferSSL",
+              "requireSSL"
+            ],
+            "description": "SSL mode: disabled (no TLS), allowSSL (TLS optional), preferSSL (TLS preferred), requireSSL (TLS mandatory)."
+          },
+          "PEMKeyFile": {
+            "type": "string",
+            "default": "",
+            "description": "Path to the PEM certificate/key file. Required if SSL enabled."
+          },
+          "CAFile": {
+            "type": "string",
+            "default": "",
+            "description": "Path to the CA certificate file for validating client/server certificates."
+          },
+          "allowConnectionsWithoutCertificates": {
+            "type": "bool",
+            "default": false,
+            "description": "If true, clients may connect without providing a certificate (only if ssl.mode \u2260 'requireSSL')."
+          }
+        }
+      }
+    }
+  },
+  "security": {
+    "type": "object",
+    "default": {
+      "authorization": "disabled",
+      "keyFile": ""
+    },
+    "description": "Access control and inter-member authentication.",
+    "items": {
+      "authorization": {
+        "type": "string",
+        "default": "disabled",
+        "enum": [
+          "disabled",
+          "enabled"
+        ],
+        "description": "Enable or disable role-based access control (RBAC)."
+      },
+      "keyFile": {
+        "type": "string",
+        "default": "",
+        "description": "Path to the key file used for authentication between members of a replica set. Required for replica sets."
+      }
+    }
+  },
+  "processManagement": {
+    "type": "object",
+    "default": {
+      "fork": true
+    },
+    "description": "Process control settings.",
+    "items": {
+      "fork": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, MongoDB detaches from the controlling terminal and runs as a background daemon."
+      }
+    }
+  },
+  "replication": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "replSetName": "",
+      "oplogSizeMB": 1024
+    },
+    "description": "Replica set configuration. Enable only for replicated deployments.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, enables replica set mode."
+      },
+      "replSetName": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the replica set. Must match on all members."
+      },
+      "oplogSizeMB": {
+        "type": "number",
+        "default": 1024,
+        "description": "Size (in MB) of the oplog, which records operations for replication."
+      }
+    }
+  },
+  "sharding": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "clusterRole": "",
+      "configDB": ""
+    },
+    "description": "Sharding configuration. Enable only for sharded clusters.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, enables sharding mode."
+      },
+      "clusterRole": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "configsvr",
+          "shardsvr",
+          ""
+        ],
+        "description": "Cluster role: 'configsvr' (config server), 'shardsvr' (shard server), or empty (standalone)."
+      },
+      "configDB": {
+        "type": "string",
+        "default": "",
+        "description": "Connection string to the config servers in the format <replica-set>/host:port[,...]. Required for shard/config servers."
+      }
+    }
+  },
+  "audit": {
+    "type": "object",
+    "default": {
+      "enabled": false,
+      "destination": "",
+      "format": "",
+      "path": ""
+    },
+    "description": "Audit logging configuration. Only available in MongoDB Enterprise.",
+    "items": {
+      "enabled": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, enables audit logging."
+      },
+      "destination": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "file",
+          "stdout"
+        ],
+        "description": "Audit log output destination."
+      },
+      "format": {
+        "type": "string",
+        "default": "",
+        "enum": [
+          "JSON",
+          "BSON"
+        ],
+        "description": "Format of audit log events."
+      },
+      "path": {
+        "type": "string",
+        "default": "",
+        "description": "Path to audit log file (if destination=file)."
+      }
+    }
+  },
+  "systemLog": {
+    "type": "object",
+    "default": {
+      "destination": "file",
+      "path": "/var/log/mongodb/mongod.log",
+      "logAppend": true,
+      "logRotate": "rename"
+    },
+    "description": "Legacy system log settings (superseded by top-level logPath, but included for compatibility).",
+    "items": {
+      "destination": {
+        "type": "string",
+        "default": "file",
+        "enum": [
+          "file",
+          "stdout",
+          "syslog"
+        ],
+        "description": "Destination for log messages."
+      },
+      "path": {
+        "type": "string",
+        "default": "/var/log/mongodb/mongod.log",
+        "description": "Path to the log file (if destination=file)."
+      },
+      "logAppend": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, append to existing log file on restart."
+      },
+      "logRotate": {
+        "type": "string",
+        "default": "rename",
+        "enum": [
+          "rename",
+          "reopen"
+        ],
+        "description": "Log rotation behavior."
+      }
+    }
+  }
+}

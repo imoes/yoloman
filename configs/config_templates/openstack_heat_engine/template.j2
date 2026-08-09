@@ -1,0 +1,166 @@
+[DEFAULT]
+
+# Enables debug mode for verbose logging.
+# debug: default=False  desc='Enable debug-level logging for detailed troubleshooting.'
+debug = {{ debug | default(False) }}
+
+# Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).
+# log_level: default='INFO'  desc='Logging verbosity level. Recommended: INFO for production, WARNING or ERROR for high-volume systems.'
+log_level = {{ log_level | default('INFO') }}
+
+# Path to log file (empty string disables file logging).
+# log_file: default='/var/log/heat/heat-engine.log'  desc='Absolute path to the Heat engine log file. Set to empty string to disable file logging.'
+log_file = {{ log_file | default('/var/log/heat/heat-engine.log') }}
+
+# Rootwrap configuration to allow privilege escalation for certain operations.
+# rootwrap_config: default='/etc/heat/rootwrap.conf'  desc='Path to rootwrap configuration file used for privilege escalation.'
+rootwrap_config = {{ rootwrap_config | default('/etc/heat/rootwrap.conf') }}
+
+# Number of worker processes for the Heat engine (0 = single-process mode).
+# workers: default=1  desc='Number of concurrent worker processes. Set to 0 for single-process mode (development only).'
+workers = {{ workers | default(1) }}
+
+# Transport URL for messaging (RabbitMQ, Redis, etc.).
+# transport_url: default='rabbit://openstack:RABBIT_PASSWORD@controller:5672/'  desc='Message broker connection URL. Use `redis://` for Redis or other backends.'
+transport_url = {{ transport_url | default('rabbit://openstack:RABBIT_PASSWORD@controller:5672/') }}
+
+# Database connection string.
+# connection: default='mysql+pymysql://heat:HEAT_DB_PASSWORD@controller/heat'  desc='Database connection string. Supports MySQL/MariaDB, PostgreSQL, SQLite (not recommended for production).'
+connection = {{ connection | default('mysql+pymysql://heat:HEAT_DB_PASSWORD@controller/heat') }}
+
+# Authentication URL for keystone (public endpoint).
+# auth_uri: default='http://controller:5000/'  desc='Public Identity API endpoint (v3). Used for user-facing authentication.'
+auth_uri = {{ auth_uri | default('http://controller:5000/') }}
+
+# Internal Identity API endpoint (v3).
+# auth_url: default='http://controller:35357/'  desc='Internal Identity API endpoint (v3). Used for administrative operations.'
+auth_url = {{ auth_url | default('http://controller:35357/') }}
+
+# Authentication method for Heat service credentials.
+# auth_type: default='password'  desc="Authentication method for Heat service credentials. Typically 'password'."
+auth_type = {{ auth_type | default('password') }}
+
+# Domain name for the service project (OpenStack default: Default).
+# project_domain_name: default='Default'  desc='Domain name for the service project (OpenStack default: Default).'
+project_domain_name = {{ project_domain_name | default('Default') }}
+
+# Project name where Heat service account resides.
+# project_name: default='service'  desc='Project name where Heat service account resides.'
+project_name = {{ project_name | default('service') }}
+
+# Domain name for the service user.
+# user_domain_name: default='Default'  desc='Domain name for the service user.'
+user_domain_name = {{ user_domain_name | default('Default') }}
+
+# Username of the Heat service account in keystone.
+# username: default='heat'  desc='Username of the Heat service account in keystone.'
+username = {{ username | default('heat') }}
+
+# Password for the Heat service account.
+# password: default='heat_password'  desc='Password for the Heat service account.'
+password = {{ password | default('heat_password') }}
+
+# Enable trust delegation for nested stacks (requires trustee support).
+# trusts_delegated: default=False  desc='Enable trust delegation for nested stacks (requires trustee support).'
+trusts_delegated = {{ trusts_delegated | default(False) }}
+
+# Domain name used to isolate stack users (must be unique per deployment).
+# stack_user_domain_name: default='heat_stack_user_domain'  desc='Domain name used to isolate stack users (must be unique per deployment).'
+stack_user_domain_name = {{ stack_user_domain_name | default('heat_stack_user_domain') }}
+
+# Optional UUID of the stack user domain. Leave empty to auto-resolve from domain name.
+# stack_user_domain_id: default=''  desc='Optional UUID of the stack user domain. Leave empty to auto-resolve from domain name.'
+stack_user_domain_id = {{ stack_user_domain_id | default('') }}
+
+# Heat API endpoint used for stack notifications (e.g., scaling events).
+# heat_api_uri: default='http://controller:8004/v1/%(project_id)s'  desc='Heat API endpoint used for stack notifications (e.g., scaling events).'
+heat_api_uri = {{ heat_api_uri | default('http://controller:8004/v1/%(project_id)s') }}
+
+# CA certificate bundle for verifying SSL/TLS connections. Empty = system default.
+# ssl_ca_file: default='/etc/ssl/certs/ca-certificates.crt'  desc='CA certificate bundle for verifying SSL/TLS connections. Empty = system default.'
+ssl_ca_file = {{ ssl_ca_file | default('/etc/ssl/certs/ca-certificates.crt') }}
+
+# Client certificate file for mTLS (optional).
+# ssl_cert_file: default=''  desc='Client certificate file for mTLS (optional).'
+ssl_cert_file = {{ ssl_cert_file | default('') }}
+
+# Client private key file for mTLS (optional).
+# ssl_key_file: default=''  desc='Client private key file for mTLS (optional).'
+ssl_key_file = {{ ssl_key_file | default('') }}
+
+# Enforce SSL verification when Heat communicates with instance metadata endpoints.
+# verify_ssl_for_instances: default=True  desc='Enforce SSL verification when Heat communicates with instance metadata endpoints.'
+verify_ssl_for_instances = {{ verify_ssl_for_instances | default(True) }}
+
+# Seconds to wait for synchronous RPC responses before timing out.
+# rpc_response_timeout: default=60  desc='Seconds to wait for synchronous RPC responses before timing out.'
+rpc_response_timeout = {{ rpc_response_timeout | default(60) }}
+
+# Maximum duration (seconds) allowed for a stack operation before it is marked as FAILED.
+# stack_operation_timeout: default=3600  desc='Maximum duration (seconds) allowed for a stack operation before it is marked as FAILED.'
+stack_operation_timeout = {{ stack_operation_timeout | default(3600) }}
+
+# Enable stack adopt functionality (recreates stack from existing resources).
+# enable_stack_adopt: default=False  desc='Enable stack adopt functionality (recreates stack from existing resources).'
+enable_stack_adopt = {{ enable_stack_adopt | default(False) }}
+
+# Enable automatic rollback when stack creation/update fails.
+# enable_stack_rollback: default=True  desc='Enable automatic rollback when stack creation/update fails.'
+enable_stack_rollback = {{ enable_stack_rollback | default(True) }}
+
+# Enable stack abandon functionality (detach from resources).
+# enable_stack_abandon: default=False  desc='Enable stack abandon functionality (detach from resources).'
+enable_stack_abandon = {{ enable_stack_abandon | default(False) }}
+
+# Maximum number of resources allowed per stack (prevents resource exhaustion).
+# max_resources_per_stack: default=1000  desc='Maximum number of resources allowed per stack (prevents resource exhaustion).'
+max_resources_per_stack = {{ max_resources_per_stack | default(1000) }}
+
+# Maximum depth of nested stacks allowed (prevents infinite recursion).
+# max_nested_stack_depth: default=5  desc='Maximum depth of nested stacks allowed (prevents infinite recursion).'
+max_nested_stack_depth = {{ max_nested_stack_depth | default(5) }}
+
+# Default region for service endpoints. Required in multi-region deployments.
+# region_name: default='RegionOne'  desc='Default region for service endpoints. Required in multi-region deployments.'
+region_name = {{ region_name | default('RegionOne') }}
+
+[engine]
+# Enable the newer convergence engine (recommended for production).
+# convergence_engine: default=True  desc='Enable the newer convergence engine (recommended for production).'
+convergence_engine = {{ convergence_engine | default(True) }}
+
+[database]
+# Seconds before idle database connections are closed (MySQL/PostgreSQL).
+# db_idle_timeout: default=3600  desc='Seconds before idle database connections are closed (MySQL/PostgreSQL).'
+idle_timeout = {{ db_idle_timeout | default(3600) }}
+
+# Minimum number of connections kept open in the database connection pool.
+# db_min_pool_size: default=1  desc='Minimum number of connections kept open in the database connection pool.'
+min_pool_size = {{ db_min_pool_size | default(1) }}
+
+# Maximum number of additional connections beyond min_pool_size.
+# db_max_overflow: default=10  desc='Maximum number of additional connections beyond min_pool_size.'
+max_overflow = {{ db_max_overflow | default(10) }}
+
+[notifications]
+# Notifications transport driver. Recommended: messagingv2.
+# notifications_driver: default='messagingv2'  desc='Notifications transport driver. Recommended: messagingv2.'
+driver = {{ notifications_driver | default('messagingv2') }}
+
+# Persist notifications to database (required for Heat dashboard events).
+# notifications_storage_enabled: default=False  desc='Persist notifications to database (required for Heat dashboard events).'
+storage_enabled = {{ notifications_storage_enabled | default(False) }}
+
+[trustee]
+# Service name registered in keystone for trustee delegation (usually 'heat').
+# trustee_client: default='heat'  desc="Service name registered in keystone for trustee delegation (usually 'heat')."
+client = {{ trustee_client | default('heat') }}
+
+[clients]
+# Timeout in seconds for client calls to other OpenStack services (Nova, Neutron, etc.).
+# clients_timeout: default=60  desc='Timeout in seconds for client calls to other OpenStack services (Nova, Neutron, etc.).'
+openstack_stack_domain_admin_password_timeout = {{ clients_timeout | default(60) }}
+
+# List of endpoints where SSL certificate verification should be disabled (for lab/testing environments).
+# skip_ssl_verify_endpoints: default=[]  desc='List of endpoints where SSL certificate verification should be disabled (for lab/testing environments).'
+skip_ssl_verify_endpoints = {{ skip_ssl_verify_endpoints | default([]) | join(',') }}

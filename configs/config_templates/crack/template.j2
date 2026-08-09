@@ -1,0 +1,120 @@
+# ==============================================================================
+# Crack Configuration Template
+# ==============================================================================
+# This file configures the Crack password auditing tool.
+# All directives below map directly to the schema fields.
+# Variables use defaults to ensure safe rendering even if omitted.
+# ==============================================================================
+
+{# Directory for temporary files used by Crack. #}
+TMPDIR={{ tmpdir | default('/var/lib/Crack') }}
+
+{# Directory for Crack dictionaries and supporting data. #}
+CRACKLIB={{ cracklib | default('/usr/share/Crack/lib') }}
+
+{# Default input format for password files; 'spf' is shadow password file (Debian default). #}
+DEFAULT_FMT={{ default_fmt | default('spf') }}
+
+{# List of usernames to notify via email when their password is cracked. #}
+{% if notify_users is defined and notify_users is iterable %}
+{% if notify_users | length > 0 %}
+MAIL_USERS={{ notify_users | join(',') }}
+{% endif %}
+{% endif %}
+
+{# Path to the 'nastygram' script used for sending email warnings. #}
+NASTYGRAM={{ nastygram_path | default('/usr/share/Crack/nastygram') }}
+
+{# Nice level (priority adjustment) for Crack process. #}
+{% if nice is defined %}
+CRACK_NICE={{ nice | default(10) }}
+{% endif %}
+
+{# Maximum number of rules to process per pass; 0 means no limit. #}
+{% if max_rules is defined %}
+MAX_RULES={{ max_rules | default(0) }}
+{% endif %}
+
+{# Run Crack in foreground mode (attaches stdin/stdout/stderr to console). #}
+{% if foreground is defined %}
+{% if foreground | default(false) | bool %}
+CRACK_FGND=1
+{% else %}
+CRACK_FGND=0
+{% endif %}
+{% endif %}
+
+{# List of password files to process (e.g., /etc/passwd, /etc/shadow). #}
+{% if password_files is defined and password_files is iterable %}
+{% for file in password_files | default(['/etc/passwd']) %}
+PASSWD_FILE_{{ loop.index }}={{ file }}
+{% endfor %}
+{% endif %}
+
+{# Enable sending email warnings to affected users when their passwords are cracked. #}
+{% if mail_enabled is defined %}
+{% if mail_enabled | default(false) | bool %}
+CRACK_MAIL=1
+{% else %}
+CRACK_MAIL=0
+{% endif %}
+{% endif %}
+
+{# Enable verbose debug output for Crack script. #}
+{% if debug is defined %}
+{% if debug | default(false) | bool %}
+CRACK_DEBUG=1
+{% else %}
+CRACK_DEBUG=0
+{% endif %}
+{% endif %}
+
+{# Preserve temporary input file after cracking completes. #}
+{% if keep_tmp is defined %}
+{% if keep_tmp | default(false) | bool %}
+CRACK_KEEP=1
+{% else %}
+CRACK_KEEP=0
+{% endif %}
+{% endif %}
+
+{# Enable recover mode to resume an abnormally terminated run. #}
+{% if recover is defined %}
+{% if recover | default(false) | bool %}
+CRACK_RECOVER=1
+{% else %}
+CRACK_RECOVER=0
+{% endif %}
+{% endif %}
+
+{# Start cracking from this rule number; 0 means start from first rule. #}
+{% if start_rule is defined %}
+START_RULE={{ start_rule | default(0) }}
+{% endif %}
+
+{# Run Crack in network mode (distributed cracking). #}
+{% if network_mode is defined %}
+{% if network_mode | default(false) | bool %}
+CRACK_NETWORK=1
+{% else %}
+CRACK_NETWORK=0
+{% endif %}
+{% endif %}
+
+{# Suppress error reporting (e.g., corrupt entries) in Crack-Reporter. #}
+{% if reporter_quiet is defined %}
+{% if reporter_quiet | default(false) | bool %}
+REPORTER_QUIET=1
+{% else %}
+REPORTER_QUIET=0
+{% endif %}
+{% endif %}
+
+{# Produce HTML-formatted output from Crack-Reporter. #}
+{% if reporter_html is defined %}
+{% if reporter_html | default(false) | bool %}
+REPORTER_HTML=1
+{% else %}
+REPORTER_HTML=0
+{% endif %}
+{% endif %}
