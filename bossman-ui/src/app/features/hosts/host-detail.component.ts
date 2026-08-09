@@ -12,6 +12,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog } from '@angular/material/dialog';
 import { AgentService } from '../../core/services/agent.service';
+import { CheckService } from '../../core/services/check.service';
+import { CheckCatalogEntry } from '../../core/models/check.model';
 import { SearchService } from '../../core/services/search.service';
 import { MassAssignFacets } from '../../core/models/search.model';
 import { RelationshipService } from '../../core/services/relationship.service';
@@ -2045,6 +2047,8 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 export class HostDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private agentService = inject(AgentService);
+  private checkService = inject(CheckService);
+  private thrCatalog = signal<CheckCatalogEntry[]>([]);
   private searchService = inject(SearchService);
   private relationshipService = inject(RelationshipService);
   private runService = inject(RunService);
@@ -3127,6 +3131,14 @@ export class HostDetailComponent implements OnInit {
     this.thrKey.set(null);
     this.thrError.set(null);
     this.newMetric.set(''); this.newService.set(''); this.newWarn.set(''); this.newCrit.set('');
+    // The check catalog (name, short_description, summary) — so a picked service
+    // can show its real check description (the yaml text), not just a glossary.
+    if (!this.thrCatalog().length) {
+      this.checkService.listChecks().subscribe({
+        next: (r) => this.thrCatalog.set(r.checks || []),
+        error: () => this.thrCatalog.set([]),
+      });
+    }
     const agent = this.agent();
     if (agent && !this.metricOptions().length) {
       // the host's own metric names, minus the ones that already have a threshold
@@ -3175,14 +3187,51 @@ export class HostDetailComponent implements OnInit {
     if (s.comparison) this.newComparison.set(s.comparison);
     if (s.warn_threshold !== null && s.warn_threshold !== undefined) this.newWarn.set(String(s.warn_threshold));
     if (s.crit_threshold !== null && s.crit_threshold !== undefined) this.newCrit.set(String(s.crit_threshold));
-    const parts: string[] = [];
-    const gloss = this.metricGlossary(s.metric);
-    if (gloss) parts.push(gloss);
-    if (s.output) parts.push(`Latest result: ${s.output}`);
+    // Show the real check description. Live parts first so something is always
+    // there; the check's yaml description is fetched + prepended when resolved.
+    const live: string[] = [];
+    if (s.output) live.push(`Latest result: ${s.output}`);
     const graded = thresholdContext(s);
-    if (graded) parts.push(`Currently graded: ${graded}.`);
-    parts.push(`Metric: ${s.metric}.`);
-    this.thrDesc.set(parts.join('\n'));
+    if (graded) live.push(`Currently graded: ${graded}.`);
+    live.push(`Metric: ${s.metric}.`);
+    const compose = (desc: string) => this.thrDesc.set([desc, ...live].filter(Boolean).join('\n\n'));
+    compose(this.metricGlossary(s.metric));
+
+    // Resolve the check's real description. Try the best candidate names in turn
+    // (catalog match, the raw service name, the metric) — robust even if the
+    // catalog hasn't loaded yet, since services are often named after their check.
+    const match = this.matchCheckForService(s);
+    const candidates = [...new Set([match?.name, s.name, s.metric].filter((x): x is string => !!x))];
+    const tryNext = (i: number): void => {
+      if (i >= candidates.length) { if (match?.summary) compose(match.summary); return; }
+      this.checkService.getCheck(candidates[i]).subscribe({
+        next: (r) => {
+          const d = (r as { metadata?: { description?: string } })?.metadata?.description || '';
+          if (d) compose(d); else tryNext(i + 1);
+        },
+        error: () => tryNext(i + 1),
+      });
+    };
+    tryNext(0);
+  }
+
+  /** Best-effort map from a running service to its library check, so we can show
+   * the check's own description. Match on the service-name template (short_desc
+   * with %s stripped) exactly or as a prefix, else on the metric/name token. */
+  private matchCheckForService(s: ServiceState): CheckCatalogEntry | null {
+    const cat = this.thrCatalog();
+    if (!cat.length) return null;
+    const label = (c: CheckCatalogEntry) => (c.short_description || '').replace(/%s/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const sn = (s.name || '').trim().toLowerCase();
+    const metric = (s.metric || '').trim().toLowerCase();
+    // Exact raw name/metric first (services named after their check, e.g.
+    // systemd_units_services_summary); then the service-name template exactly;
+    // then as a prefix at a word boundary. No loose substring — "md" must not
+    // match "systemd…".
+    return cat.find((c) => c.name && (c.name.toLowerCase() === sn || c.name.toLowerCase() === metric))
+      || cat.find((c) => label(c) && label(c) === sn)
+      || cat.find((c) => label(c) && (sn === label(c) || sn.startsWith(label(c) + ' ')))
+      || null;
   }
   pickThrOther(): void {
     this.thrOther.set(true);
