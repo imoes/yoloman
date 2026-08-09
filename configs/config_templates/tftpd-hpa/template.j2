@@ -1,99 +1,57 @@
-#!/bin/sh
+# Ansible-managed configuration for tftpd-hpa (HPA's TFTP Daemon).
+# This template generates the /etc/default/tftpd-hpa file, which is sourced by the
+# SysV init script (or service wrapper) to configure the daemon's runtime behavior.
 
-### BEGIN INIT INFO
-# Provides:		tftpd-hpa
-# Required-Start:	$local_fs $remote_fs $syslog $network
-# Required-Stop:	$local_fs $remote_fs $syslog $network
-# Default-Start:	2 3 4 5
-# Default-Stop:		0 1 6
-# Short-Description:	HPA's tftp server
-# Description:		Trivial File Transfer Protocol (TFTP) is a file transfer
-#			protocol, mainly to serve boot images over the network
-#			to other machines (PXE).
-### END INIT INFO
+# Absolute path to the TFTP root directory. All files served must be under this directory.
+TFTP_DIRECTORY="{{ tftp_root | default('/srv/tftp') }}"
 
-PATH="/sbin:/bin:/usr/sbin:/usr/bin"
-DAEMON="/usr/sbin/in.tftpd"
+# System user account under which the TFTP service runs (for security isolation).
+TFTP_USERNAME="{{ tftp_user | default('nobody') }}"
 
-test -x "$DAEMON" || exit 0
+# IP address (IPv4 or IPv6) the TFTP server binds to.
+# Use '0.0.0.0' for all IPv4 interfaces, '::' for all IPv6 interfaces, or a specific IP.
+TFTP_ADDRESS="{{ tftp_address | default('0.0.0.0') }}"
 
-NAME="in.tftpd"
-DESC="HPA's tftpd"
-PIDFILE="/var/run/tftpd-hpa.pid"
-DEFAULTS="/etc/default/tftpd-hpa"
+# UDP port number for the TFTP service (standard TFTP port is 69).
+# Note: Port 69 is privileged; root access is usually required to bind it.
+TFTP_PORT="{{ tftp_port | default(69) }}"
 
-set -e
+# Space-separated command-line options passed to the TFTP daemon.
+# Common options:
+#   --secure : Chroots into TFTP_DIRECTORY and disables write operations.
+#   --verbose: Logs more detailed information to syslog.
+#   --listen : Explicitly tells the daemon to listen for requests (often required).
+#   --listen-ipv6: Enables IPv6 listening if not using a specific IPv6 address.
+# This variable accumulates options from the base string plus conditional flags below.
 
-[ -r "$DEFAULTS" ] && . "$DEFAULTS"
+# Start with the base options, ensuring a clean string to append to.
+TFTP_OPTIONS="{{ tftp_options | default('--secure') | trim }}"
 
-. /lib/lsb/init-functions
+# Conditional: If IPv6 is enabled, append the specific flag for tftpd-hpa.
+{% if tftp_ipv6_enabled | default(False) | bool %}
+# IPv6 support is enabled. Appending --listen-ipv6 to TFTP_OPTIONS.
+TFTP_OPTIONS="{{ TFTP_OPTIONS }} --listen-ipv6"
+{% endif %}
 
+# Umask (e.g., '022') to apply to newly created files in the TFTP directory.
+# Omit (leave null) to use system default.
+# Note: tftpd-hpa does not natively support a --umask flag in older versions;
+# if your version supports it, you can append it here. Otherwise, rely on systemd or
+# the init script's environment. Here we comment it out for configuration reference
+# or append if the daemon version supports it. Since the schema mentions it, we assume
+# it might be passed or handled externally.
+{% if tftp_umask is defined and tftp_umask is not none and tftp_umask | trim | length > 0 %}
+# Umask is set to {{ tftp_umask | trim }}.
+# Append to options if the daemon version supports --umask.
+# TFTP_OPTIONS="{{ TFTP_OPTIONS }} --umask={{ tftp_umask | trim }}"
+{% else %}
+# Umask is not set; using system default.
+{% endif %}
 
-do_start()
-{
-	# Ensure --secure and multiple server directories are not used at the
-	# same time
-	if [ "$(echo $TFTP_DIRECTORY | wc -w)" -ge 2 ] && \
-	   echo $TFTP_OPTIONS | grep -qs secure
-	then
-		echo
-		echo "When --secure is specified, exactly one directory can be specified."
-		echo "Please correct your $DEFAULTS."
-		exit 1
-	fi
-
-	# Ensure server directories exist
-	for d in $TFTP_DIRECTORY
-	do
-		if [ ! -d "$d" ]
-		then
-			echo "$d missing, aborting."
-			exit 1
-		fi
-	done
-
-	start-stop-daemon --start --quiet --oknodo --exec $DAEMON -- \
-		--listen --user $TFTP_USERNAME --address $TFTP_ADDRESS \
-		$TFTP_OPTIONS $TFTP_DIRECTORY
-}
-
-do_stop ()
-{
-	start-stop-daemon --stop --quiet --oknodo --name $NAME
-}
-
-do_reload ()
-{
-	start-stop-daemon --stop --quiet --oknodo --name $NAME --signal 1
-}
-
-case "$1" in
-	start)
-		log_daemon_msg "Starting $DESC" "$NAME"
-		do_start
-		log_end_msg $?
-		;;
-
-	stop)
-		log_daemon_msg "Stopping $DESC" "$NAME"
-		do_stop
-		log_end_msg $?
-		;;
-
-	restart|force-reload)
-		log_daemon_msg "Restarting $DESC" "$NAME"
-		do_stop
-		sleep 1
-		do_start
-		log_end_msg $?
-		;;
-
-	status)
-		status_of_proc $DAEMON $NAME
-		;;
-
-	*)
-		echo "Usage: $0 {start|stop|restart|force-reload|status}" >&2
-		exit 3
-		;;
-esac
+# If true, enables verbose debug logging (sent to syslog).
+# Note: Often controlled via --verbose flag. If --verbose is not in the base options,
+# we add it here when debug is enabled.
+{% if tftp_debug | default(False) | bool %}
+# Debug mode enabled. Appending --verbose to TFTP_OPTIONS.
+TFTP_OPTIONS="{{ TFTP_OPTIONS }} --verbose"
+{% endif %}

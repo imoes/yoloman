@@ -1,7 +1,7 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
-import { ConfigCategory, groupByCategory } from '../../shared/config-categories';
+import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
 import { formatBytes, formatMetricValue, thresholdContext } from '../../shared/format.util';
 import { DatePipe, DecimalPipe } from '@angular/common';
 import { forkJoin } from 'rxjs';
@@ -547,11 +547,37 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                     <mat-icon>{{ drift().drift.length ? 'sync_problem' : 'verified' }}</mat-icon>
                     @if (drift().drift.length) {
                       <span>{{ drift().drift.length }} of {{ drift().managed.length }} managed file(s) drifted from desired.</span>
+                      <button mat-button (click)="driftOpen.set(!driftOpen())">{{ driftOpen() ? 'Hide' : 'Show' }} diff</button>
                       <button mat-flat-button color="primary" (click)="reapplyConfig()" [disabled]="driftBusy()">Re-sync to desired</button>
                     } @else {
                       <span>{{ drift().managed.length }} managed file(s), all in sync with desired.</span>
                     }
                   </div>
+                  @if (drift().drift.length && driftOpen()) {
+                    <div class="bm-drift-diff">
+                      @for (c of drift().drift; track c.path) {
+                        <div class="bm-drift-file">
+                          <div class="bm-drift-fname" (click)="jumpToFile(c.path)" title="Open this file">
+                            <mat-icon>description</mat-icon>{{ c.path }}
+                            <span class="bm-drift-n">{{ driftRows(c.path).length }} change(s)</span>
+                          </div>
+                          <table class="bm-drift-tbl">
+                            <thead><tr><th>Setting</th><th>Live (on host)</th><th></th><th>Desired</th></tr></thead>
+                            <tbody>
+                              @for (d of driftRows(c.path); track d.key) {
+                                <tr>
+                                  <td class="bm-mono">{{ d.key }}</td>
+                                  <td class="bm-mono bm-drift-live">{{ d.live }}</td>
+                                  <td class="bm-drift-arrow">→</td>
+                                  <td class="bm-mono bm-drift-want">{{ d.desired }}</td>
+                                </tr>
+                              }
+                            </tbody>
+                          </table>
+                        </div>
+                      }
+                    </div>
+                  }
                 }
                 <input
                   class="bm-gpo-search"
@@ -1413,6 +1439,18 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-tpl-field label .bm-dim { font-weight: 400; }
       .bm-drift-banner { display: flex; align-items: center; gap: 10px; padding: 8px 12px; margin-bottom: 12px; border-radius: 8px; background: color-mix(in srgb, var(--bm-green, #2e7d32) 12%, transparent); font-size: 13px; }
       .bm-drift-banner.bm-drift-on { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 16%, transparent); }
+      .bm-drift-diff { margin: 0 0 12px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 8px 12px; }
+      .bm-drift-file { margin: 6px 0; }
+      .bm-drift-fname { display: flex; align-items: center; gap: 6px; font-family: ui-monospace, monospace; font-size: 12.5px; cursor: pointer; }
+      .bm-drift-fname:hover { color: var(--mat-sys-primary); }
+      .bm-drift-fname mat-icon { font-size: 16px; height: 16px; width: 16px; opacity: 0.7; }
+      .bm-drift-n { opacity: 0.6; font-family: inherit; font-size: 11px; }
+      .bm-drift-tbl { width: 100%; border-collapse: collapse; font-size: 12px; margin: 4px 0 2px; }
+      .bm-drift-tbl th { text-align: left; font-size: 10.5px; opacity: 0.6; padding: 2px 10px; font-weight: 500; }
+      .bm-drift-tbl td { padding: 2px 10px; border-top: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 60%, transparent); }
+      .bm-drift-live { color: var(--mat-sys-error, #c62828); }
+      .bm-drift-want { color: var(--bm-green, #2e7d32); }
+      .bm-drift-arrow { opacity: 0.5; }
       .bm-drift-banner mat-icon { flex: 0 0 auto; }
       .bm-tag-drift { background: color-mix(in srgb, var(--bm-warn, #ef6c00) 30%, transparent); }
       .bm-tag-sync { background: color-mix(in srgb, var(--bm-green, #2e7d32) 24%, transparent); }
@@ -2663,6 +2701,15 @@ export class HostDetailComponent implements OnInit {
   // categories from categoryGroups().
   gpoActiveCat = signal<string>('::mon');
   selectGpoCat(key: string): void { this.gpoActiveCat.set(key); }
+
+  // Drift diff: the banner can expand to show every drifted file + its
+  // key-level live→desired changes, and jump to a file in the Miller view.
+  driftOpen = signal(false);
+  jumpToFile(path: string): void {
+    this.gpoSearch.set('');
+    this.gpoActiveCat.set(categorizeConfigPath(path).key);
+    this.selectPane(path);
+  }
 
   gpoCategories(obs: ObservedState): { key: string; label: string; icon: string; count: number }[] {
     const cats: { key: string; label: string; icon: string; count: number }[] = [

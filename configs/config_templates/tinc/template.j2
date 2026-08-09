@@ -1,7 +1,99 @@
-# Extra options to be passed to tincd.
-# EXTRA="-d"
+# Tincd configuration template.
+#
+# This template generates the tincd configuration file (typically tinc.conf)
+# for a specific VPN node. It uses Jinja2 to allow dynamic configuration
+# based on Ansible variables, with sensible defaults derived from the
+# provided schema.
 
-# Limits to be configured for the tincd process. Please read your shell
-# (pointed by /bin/sh) documentation for ulimit. You probably want to raise the
-# max locked memory value if using both --mlock and --user flags.
-# LIMITS="-l 1024"
+# --- General Settings ---
+
+# Name of the VPN network (used in paths and host identification).
+# This name must match across all nodes in the same mesh.
+Name = {{ vpn_name | default('vpn') }}
+
+# Debug verbosity level (0 = none, 1 = normal, 2 = verbose).
+# Increase this value for troubleshooting connectivity issues.
+# Note: In modern tinc versions, this might be handled via command-line flags,
+# but some legacy configurations or wrappers expect it here.
+DebugLevel = {{ debug_level | default(0) }}
+
+# Network interface type: 'tun' for IP routing, 'tap' for Ethernet bridging.
+# 'tun' creates a point-to-point IP interface.
+# 'tap' creates a point-to-point Ethernet interface.
+Mode = {{ interface_type | default('tun') }}
+
+# Subnets this node will route on the mesh.
+# Each subnet must be reachable via this node.
+{% for subnet in subnets | default([]) %}
+Subnet = {{ subnet }}
+{% endfor %}
+
+# --- Connection Settings ---
+
+# TCP/UDP port used by tinc for incoming connections.
+# This port must be open in firewalls for all peers to connect to this node.
+ListenOn = *:{{ port | default(6553) }}
+
+# Maximum number of simultaneous peer connections allowed.
+# Limits the concurrency for incoming connections.
+MaxConnections = {{ max_connections | default(100) }}
+
+# Seconds between keepalive pings to maintain connection health.
+# Ensures that NAT mappings stay alive and connections are detected as down.
+KeepAlive = {{ keepalive_interval | default(10) }}
+
+# Seconds of inactivity before declaring a peer unreachable.
+# If no data is received from a peer within this time, the connection is closed.
+Timeout = {{ timeout | default(60) }}
+
+# --- Security & Encryption ---
+
+# Symmetric encryption algorithm for data traffic.
+# Supported algorithms include chacha20, aes-256-cbc, etc.
+# All peers in the mesh must support the configured cipher.
+Cipher = {{ cipher | default('chacha20') }}
+
+# Hash algorithm used for integrity checks.
+# Ensures that data has not been tampered with during transmission.
+Hash = {{ hash | default('sha256') }}
+
+# Traffic compression method.
+# Reduces bandwidth usage at the cost of CPU.
+# 'lzo' is fast but offers moderate compression; 'no' disables it.
+Compression = {{ compression | default('lzo') }}
+
+# --- Advanced / Optional Settings ---
+
+# Local IP address to bind to (leave blank to auto-detect).
+# If specified, tincd will bind to this specific address for incoming connections.
+# {% if local_address | default('') | trim | length > 0 %}
+# BindToAddress = {{ local_address | default('') }}
+# {% endif %}
+
+# Enable IPv6 support on the VPN interface.
+# If true, adds an IPv6 subnet for the node if not explicitly defined.
+# Note: Tinc's native IPv6 support requires specific configuration in
+# individual host files or additional Subnet directives. This flag
+# primarily serves as a high-level toggle for roles to enable IPv6
+# subnet generation if needed.
+{% if ipv6 | default(False) | bool %}
+# IPv6 support is enabled. Ensure Subnets include IPv6 addresses (e.g., fd00::/16).
+{% endif %}
+
+# Static hosts list.
+# Pre-defined host entries for static peers.
+# Expected structure: List of dicts with 'name', 'address', 'port', 'subnets'.
+{% for host in static_hosts | default([]) %}
+# Host entry for {{ host.name | default('unknown') }}
+{% if host.address | default('') %}
+Address = {{ host.address }}
+{% endif %}
+{% if host.port | default(0) %}
+Port = {{ host.port }}
+{% endif %}
+{% if host.subnets | default([]) | length > 0 %}
+{% for subnet in host.subnets %}
+Subnet = {{ subnet }}
+{% endfor %}
+{% endif %}
+{% endfor %}

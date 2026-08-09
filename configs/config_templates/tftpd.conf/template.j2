@@ -1,53 +1,100 @@
-# TFTP server configuration for tftpd-hpa
-# This file controls the behavior of the TFTP daemon.
+# ==============================================================================
+# TFTP Server Configuration (tftpd-hpa)
+# ==============================================================================
+# This template generates a configuration file for the tftpd-hpa daemon.
+# It supports a global [main] section and optional per-service sections defined
+# in the `services` list.
+#
+# Variables are sourced from the Ansible role's variables, with sensible
+# defaults provided inline to ensure the template is self-documenting and
+# safe to reuse.
+
 [main]
-# Directory to serve files from
-location = {{ location }}
 
-# IP address to bind to (empty or '0.0.0.0' for all interfaces)
-address = {{ address }}
+# Root directory from which TFTP serves files. Must be accessible and readable
+# by the daemon user.
+# Default: /var/lib/tftpboot
+location = {{ location | default('/var/lib/tftpboot') }}
 
-# UDP port to listen on
-port = {{ port }}
+# IP address to bind the TFTP server to. Leave empty or set to '0.0.0.0' to
+# listen on all interfaces. Use '::' for IPv6 all.
+# Default: (empty)
+address = {{ address | default('') }}
 
-# Maximum block size (in bytes) to use in transfers
-max_blocksize = {{ max_blocksize }}
+# UDP port number for TFTP traffic. Standard TFTP uses 69.
+# Default: 69
+port = {{ port | default(69) }}
 
-# Enable verbose logging
-verbose = {{ verbose }}
+# Maximum TFTP block size in bytes. RFC 2348 allows up to 65464, but typical
+# safe value is ~1428 for Ethernet MTU.
+# Default: 1428
+max_blocksize = {{ max_blocksize | default(1428) }}
 
-# Enable debugging output
-debug = {{ debug }}
+# Enable verbose logging for TFTP operations (e.g., transfer start/end).
+# Default: false
+verbose = {{ verbose | default(false) }}
 
-# Enable secure mode (chroot to location and drop privileges)
-secure = {{ secure }}
+# Enable debug-level logging for troubleshooting.
+# Default: false
+debug = {{ debug | default(false) }}
 
-# Enable extended options support (RFC 2347, 2348, 2349)
-extended = {{ extended }}
+# Enable secure mode: chroot into `location` and drop privileges to
+# `user`/`group`. Recommended for production.
+# Default: true
+secure = {{ secure | default(true) }}
 
-# Enable IPv6 support
-ipv6 = {{ ipv6 }}
+# Enable RFC-compliant extensions: blocksize (RFC 2348), timeout (RFC 2349),
+# and tsize (RFC 2347).
+# Default: true
+extended = {{ extended | default(true) }}
 
-# Enable legacy mode (RFC 1350 only, no blocksize/timeout options)
-legacy = {{ legacy }}
+# Enable IPv6 support. If `address` is set to '::', this is implied.
+# Default: false
+ipv6 = {{ ipv6 | default(false) }}
 
-# User to run daemon as
-user = {{ user }}
+# Disable all RFC extensions and enforce strict RFC 1350 (original TFTP) mode.
+# Default: false
+legacy = {{ legacy | default(false) }}
 
-# Group to run daemon as
-group = {{ group }}
+# User account under which the TFTP daemon runs when in secure mode.
+# Default: nobody
+user = {{ user | default('nobody') }}
 
-# Umask for created files
-umask = {{ umask }}
+# Group account under which the TFTP daemon runs when in secure mode.
+# Default: nogroup
+group = {{ group | default('nogroup') }}
 
-# Extra options passed to the daemon (e.g., '--no-fork' or '--verbose')
-extra_options = {{ extra_options | join(' ') }}
+# Umask for files created during TFTP writes (e.g., '022' → 0o022 → mode 0644).
+# Default: 022
+umask = {{ umask | default('022') }}
 
-{% for service in services %}# Service-specific override for '{{ service.name }}'
-[{{ service.name }}]
-location = {{ service.location | default(location) }}
-address = {{ service.address | default(address) }}
-port = {{ service.port | default(port) }}
-secure = {{ service.secure | default(secure) }}
+# Additional command-line options passed directly to the tftpd-hpa daemon
+# (e.g., --no-fork, --pidfile /run/tftpd.pid).
+# Default: (empty)
+extra_options = {{ extra_options | default([]) | join(' ') }}
+
+{% for service in services | default([]) %}
+
+# ==============================================================================
+# Service: {{ service.name | default('unnamed') }}
+# ==============================================================================
+# Service-specific overrides for named service instances.
+
+[{{ service.name | default('unnamed') }}]
+
+# Directory to serve files from (inherits global if not specified)
+location = {{ service.location | default(location | default('/var/lib/tftpboot')) }}
+
+# IP address to bind to (inherits global if not specified)
+address = {{ service.address | default(address | default('')) }}
+
+# Port to listen on (inherits global if not specified)
+port = {{ service.port | default(port | default(69)) }}
+
+# Secure mode (inherits global if not specified)
+secure = {{ service.secure | default(secure | default(true)) }}
+
+# Extra options for this service (inherits global if not specified)
 extra_options = {{ service.extra_options | default([]) | join(' ') }}
+
 {% endfor %}
