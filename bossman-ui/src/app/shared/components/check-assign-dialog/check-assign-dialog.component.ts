@@ -31,17 +31,28 @@ export interface CheckAssignResult {
       <input class="bm-in bm-search" type="search" placeholder="Search checks…"
              [ngModel]="search()" (ngModelChange)="search.set($event)" />
       <div class="bm-browser">
-        <div class="bm-list">
-          @for (c of filtered(); track c.name) {
-            <div class="bm-item" [class.sel]="pick() === c.name" (click)="onPick(c.name)" [title]="c.name">
-              <div class="bm-item-name">{{ c.name }}</div>
-              @if (c.short_description) { <div class="bm-item-desc">{{ c.short_description }}</div> }
+        <!-- Miller column 1: category -->
+        <div class="bm-cats">
+          @for (g of grouped(); track g.category) {
+            <div class="bm-cat" [class.sel]="effectiveCat() === g.category" (click)="activeCat.set(g.category)">
+              <span class="bm-cat-lbl">{{ g.category }}</span><span class="bm-cat-n">{{ g.items.length }}</span>
             </div>
           } @empty { <p class="bm-dim">No checks match.</p> }
         </div>
+        <!-- Miller column 2: checks with full names + descriptions -->
+        <div class="bm-list">
+          @for (c of catItems(); track c.name) {
+            <div class="bm-item" [class.sel]="pick() === c.name" (click)="onPick(c.name)" [title]="c.name">
+              <div class="bm-item-name">{{ label(c) }}</div>
+              <div class="bm-item-key">{{ c.name }}</div>
+              @if (c.short_description) { <div class="bm-item-desc">{{ c.short_description }}</div> }
+            </div>
+          } @empty { <p class="bm-dim">Pick a category.</p> }
+        </div>
         <div class="bm-params">
           @if (pick(); as p) {
-            <div class="bm-params-head">{{ p }}</div>
+            <div class="bm-params-head">{{ label(picked()!) }} <span class="bm-params-key">{{ p }}</span></div>
+            @if (fullDesc()) { <pre class="bm-params-desc">{{ fullDesc() }}</pre> }
             @for (o of options(); track o.key) {
               <div class="bm-field">
                 <label>{{ o.key }}{{ o.spec.required ? ' *' : '' }}</label>
@@ -62,15 +73,23 @@ export interface CheckAssignResult {
   `,
   styles: [`
     .bm-search { max-width: 100%; margin-bottom: 10px; }
-    .bm-browser { display: flex; gap: 12px; min-width: 560px; }
-    .bm-list { flex: 0 0 260px; max-height: 380px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
+    .bm-browser { display: flex; gap: 12px; min-width: 680px; }
+    .bm-cats { flex: 0 0 170px; max-height: 380px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 4px; }
+    .bm-cat { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .bm-cat:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-cat.sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
+    .bm-cat-lbl { flex: 1; } .bm-cat-n { font-size: 11px; opacity: 0.5; }
+    .bm-list { flex: 0 0 240px; max-height: 380px; overflow-y: auto; border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; }
     .bm-item { padding: 6px 10px; cursor: pointer; border-left: 3px solid transparent; }
     .bm-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
     .bm-item.sel { border-left-color: var(--mat-sys-primary); background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
-    .bm-item-name { font-size: 13px; font-family: ui-monospace, monospace; }
+    .bm-item-name { font-size: 13px; font-weight: 600; }
+    .bm-item-key { font-size: 11px; font-family: ui-monospace, monospace; opacity: 0.5; }
     .bm-item-desc { font-size: 11.5px; opacity: 0.6; line-height: 1.35; margin-top: 1px; }
-    .bm-params { flex: 1 1 300px; min-width: 0; max-height: 380px; overflow-y: auto; }
-    .bm-params-head { font-family: ui-monospace, monospace; font-size: 14px; margin-bottom: 6px; }
+    .bm-params { flex: 1 1 280px; min-width: 0; max-height: 380px; overflow-y: auto; }
+    .bm-params-head { font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+    .bm-params-key { font-family: ui-monospace, monospace; font-size: 12px; opacity: 0.5; font-weight: 400; }
+    .bm-params-desc { font-size: 11.5px; white-space: pre-wrap; opacity: 0.75; line-height: 1.4; margin: 4px 0 10px; max-height: 140px; overflow-y: auto; }
     .bm-dim { opacity: 0.7; font-size: 13px; padding: 6px 2px; }
   `],
 })
@@ -82,13 +101,40 @@ export class CheckAssignDialogComponent implements OnInit {
   draft = signal<Record<string, string>>({});
   search = signal<string>('');
   conditions = signal<Record<string, unknown>>({});
+  activeCat = signal<string>('');
+  fullDesc = signal<string>('');
 
-  filtered = computed<CheckCatalogEntry[]>(() => {
+  /** Human name from the Checkmk service template (e.g. "Capacity %s" → "Capacity"),
+   * falling back to a title-cased package name. Mirrors the host add-check dialog. */
+  label(c: CheckCatalogEntry): string {
+    const d = (c.short_description || '').replace(/%s/g, '').replace(/\s+/g, ' ').trim();
+    return d || c.name.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
+  }
+
+  private filtered = computed<CheckCatalogEntry[]>(() => {
     const q = this.search().trim().toLowerCase();
     const all = this.catalog();
     if (!q) return all;
-    return all.filter((c) => c.name.toLowerCase().includes(q) || (c.short_description || '').toLowerCase().includes(q));
+    return all.filter((c) => c.name.toLowerCase().includes(q)
+      || this.label(c).toLowerCase().includes(q) || (c.short_description || '').toLowerCase().includes(q));
   });
+
+  grouped = computed(() => {
+    const groups = new Map<string, CheckCatalogEntry[]>();
+    for (const c of this.filtered()) {
+      const cat = c.category || 'Other';
+      (groups.get(cat) ?? groups.set(cat, []).get(cat)!).push(c);
+    }
+    return [...groups.entries()]
+      .map(([category, items]) => ({ category, items: items.sort((a, b) => this.label(a).localeCompare(this.label(b))) }))
+      .sort((a, b) => a.category.localeCompare(b.category));
+  });
+  effectiveCat = computed(() => {
+    const cats = this.grouped();
+    return cats.some((c) => c.category === this.activeCat()) ? this.activeCat() : (cats[0]?.category ?? '');
+  });
+  catItems = computed(() => this.grouped().find((c) => c.category === this.effectiveCat())?.items ?? []);
+  picked = computed(() => this.catalog().find((x) => x.name === this.pick()) ?? null);
 
   options = computed<{ key: string; spec: CheckOption }[]>(() => {
     const c = this.catalog().find((x) => x.name === this.pick());
@@ -109,6 +155,13 @@ export class CheckAssignDialogComponent implements OnInit {
       if (spec.default !== undefined && spec.default !== null) d[k] = String(spec.default);
     }
     this.draft.set(d);
+    // Load the full "what this check does" description for the detail pane.
+    this.fullDesc.set('');
+    this.checkService.getCheck(name).subscribe({
+      next: (r) => this.fullDesc.set((r as { metadata?: { description?: string } })?.metadata?.description
+        || c?.summary || c?.short_description || ''),
+      error: () => this.fullDesc.set(c?.short_description || ''),
+    });
   }
 
   setDraft(key: string, value: string): void {
