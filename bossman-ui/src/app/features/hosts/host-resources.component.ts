@@ -47,21 +47,11 @@ const nameOf = (item: unknown, field = 'name'): string => {
   return String(o[field] ?? '');
 };
 
+// Only kinds that have NO dedicated tab live here — so every manageable thing has
+// exactly one home: config → Configuration tab, containers → Docker state tab,
+// snapins → Management tab, and everything else (helm/package/service/…) → here,
+// where the generic inspector IS the editor. No duplication, no confusion.
 const KINDS: KindSource[] = [
-  {
-    kind: 'config', label: 'Config files', icon: 'description',
-    description: 'Managed config files on this host — the same set the Configuration tab edits, here as Resource-protocol objects (observe/plan/apply/rollback). Edit richly in Configuration.',
-    list: 'config-desired',
-    names: (b) => pick(b, 'resources').map((r) => ({ name: nameOf(r, 'path') })).filter((r) => r.name),
-    deepLink: (id) => ({ path: `/hosts/${id}`, query: { tab: 'configuration' }, label: 'Open in Configuration' }),
-  },
-  {
-    kind: 'docker', label: 'Containers', icon: 'inventory_2',
-    description: 'Docker containers recovered as portable, versioned specs (image/env/ports/volumes). Full generation history + rollback lives in the Docker state page.',
-    list: 'docker/containers',
-    names: (b) => pick(b, 'containers').map((c) => ({ name: nameOf(c) })).filter((r) => r.name),
-    deepLink: () => ({ path: '/docker-state', label: 'Open in Docker state' }),
-  },
   {
     kind: 'helm', label: 'Helm releases', icon: 'deployed_code',
     description: 'Helm releases on this host. No dedicated tab — this generic inspector is their home: see the values (schema), what is deployed (observe), a diff before upgrade (plan), and the release history (generations/rollback).',
@@ -112,7 +102,6 @@ interface Row { kind: ResourceKind; label: string; name: string; namespace?: str
         <input class="bm-hr-search" type="search" placeholder="filter…" [ngModel]="search()" (ngModelChange)="search.set($event)" />
         @for (row of visibleRows(); track row.kind + row.name + (row.namespace || '')) {
           <button type="button" class="bm-hr-item" [class.on]="isSelected(row)" (click)="select(row)">
-            <span class="bm-hr-dot" [class.drift]="isDrifted(row)" [title]="isDrifted(row) ? 'drifted from desired' : 'in sync'"></span>
             <span class="bm-hr-name">{{ row.name }}</span>
             @if (row.namespace) { <span class="bm-hr-ns">{{ row.namespace }}</span> }
           </button>
@@ -169,20 +158,17 @@ export class HostResourcesComponent {
   agentId = input.required<string>();
 
   kinds = KINDS;
-  activeKind = signal<ResourceKind>('config');
+  activeKind = signal<ResourceKind>('helm');
   search = signal('');
   private rows = signal<Row[]>([]);
   loading = signal(false);
   private selected = signal<Row | null>(null);
-  /** Config file paths currently drifted from desired (host config-drift) → yellow dot. */
-  private driftPaths = signal<Set<string>>(new Set());
 
   constructor() {
     effect(() => {
       const id = this.agentId();
       this.rows.set([]);
       this.selected.set(null);
-      this.driftPaths.set(new Set());
       if (!id) return;
       this.loading.set(true);
       let pending = KINDS.length;
@@ -197,11 +183,6 @@ export class HostResourcesComponent {
           error: () => done(),
         });
       }
-      // Config drift → status dots for the config kind (cheap, one call).
-      this.http.get<{ drift?: { path: string }[] }>(`${environment.apiUrl}/agents/${id}/config-drift`).subscribe({
-        next: (d) => this.driftPaths.set(new Set((d.drift ?? []).map((c) => c.path))),
-        error: () => {},
-      });
     });
   }
 
@@ -218,7 +199,6 @@ export class HostResourcesComponent {
       .sort((a, b) => a.name.localeCompare(b.name));
   });
 
-  isDrifted(row: Row): boolean { return row.kind === 'config' && this.driftPaths().has(row.name); }
   isSelected(row: Row): boolean {
     const s = this.selected();
     return !!s && s.kind === row.kind && s.name === row.name && (s.namespace || '') === (row.namespace || '');
