@@ -637,38 +637,66 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       @if (addThr()) {
                         <mat-card class="bm-setting-dlg">
                           <strong>New threshold</strong>
-                          <div class="bm-thr-inputs">
-                            <label>Metric
-                              <input class="bm-kvin" list="bm-metric-options" [value]="newMetric()"
-                                     (input)="onNewMetric($any($event.target).value)" placeholder="e.g. uptime_seconds" />
-                              <datalist id="bm-metric-options">
-                                @for (m of metricOptions(); track m) { <option [value]="m"></option> }
-                              </datalist>
-                            </label>
-                            <label>Service <input class="bm-kvin" [value]="newService()" (input)="newService.set($any($event.target).value)" placeholder="display name" /></label>
-                          </div>
-                          <div class="bm-thr-inputs">
-                            <label>Comparison
-                              <select class="bm-kvin" [value]="newComparison()" (change)="newComparison.set($any($event.target).value)">
-                                @for (c of comparisons; track c.v) { <option [value]="c.v">{{ c.label }}</option> }
-                              </select>
-                            </label>
-                            <label>Warn <input class="bm-kvin" [value]="newWarn()" (input)="newWarn.set($any($event.target).value)" /></label>
-                            <label>Crit <input class="bm-kvin" [value]="newCrit()" (input)="newCrit.set($any($event.target).value)" /></label>
-                          </div>
-                          <label class="bm-scope">Scope:
-                            <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
-                              <option value="host">this host</option>
-                              @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
-                              @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
-                            </select>
-                          </label>
-                          <p class="bm-dim">A threshold set here always wins over a policy — it appears in the
-                            desired state with source <code>host:…</code> once the change is compiled.</p>
-                          @if (thrError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
-                          <div class="bm-rollback-actions">
-                            <button mat-button (click)="addThr.set(false)" [disabled]="thrBusy()">Cancel</button>
-                            <button mat-flat-button color="primary" (click)="createThr()" [disabled]="thrBusy() || !newMetric().trim()">Add</button>
+                          <p class="bm-dim">Pick a check configured on this host, then set its warn/crit. Everything is documented — the selected check's description is shown on the right.</p>
+                          <div class="bm-thr-miller">
+                            <!-- Column 1: the checks/services configured on this host -->
+                            <div class="bm-thr-col bm-thr-checks">
+                              <input class="bm-kvin bm-thr-search" type="search" placeholder="filter checks…" [value]="thrSearch()" (input)="thrSearch.set($any($event.target).value)" />
+                              @for (s of addThrServices(); track s.id) {
+                                <div class="bm-thr-item" [class.sel]="newMetric() === s.metric && newService() === s.name" (click)="pickThrService(s)">
+                                  <span class="bm-thr-dot" [style.background]="availabilityColor(s.state)"></span>
+                                  <span class="bm-thr-item-name">{{ s.name }}</span>
+                                  <span class="bm-thr-item-metric">{{ s.metric }}</span>
+                                </div>
+                              } @empty { <p class="bm-dim bm-thr-pad">No checks match.</p> }
+                              <div class="bm-thr-other" [class.sel]="thrOther()" (click)="pickThrOther()">
+                                <mat-icon>tune</mat-icon> Other metric…
+                              </div>
+                            </div>
+                            <!-- Column 2: description + the threshold settings -->
+                            <div class="bm-thr-col bm-thr-settings">
+                              @if (newMetric() || thrOther()) {
+                                <div class="bm-thr-desc">
+                                  <div class="bm-thr-desc-h">{{ newService() || newMetric() || 'New check' }}</div>
+                                  <pre class="bm-thr-desc-body">{{ thrDesc() }}</pre>
+                                </div>
+                                @if (thrOther()) {
+                                  <label>Metric
+                                    <input class="bm-kvin" list="bm-metric-options" [value]="newMetric()"
+                                           (input)="onNewMetric($any($event.target).value)" placeholder="e.g. uptime_seconds" />
+                                    <datalist id="bm-metric-options">
+                                      @for (m of metricOptions(); track m) { <option [value]="m"></option> }
+                                    </datalist>
+                                  </label>
+                                  <label>Service <input class="bm-kvin" [value]="newService()" (input)="newService.set($any($event.target).value)" placeholder="display name" /></label>
+                                }
+                                <div class="bm-thr-inputs">
+                                  <label>Comparison
+                                    <select class="bm-kvin" [value]="newComparison()" (change)="newComparison.set($any($event.target).value)">
+                                      @for (c of comparisons; track c.v) { <option [value]="c.v">{{ c.label }}</option> }
+                                    </select>
+                                  </label>
+                                  <label>Warn <input class="bm-kvin" [value]="newWarn()" (input)="newWarn.set($any($event.target).value)" /></label>
+                                  <label>Crit <input class="bm-kvin" [value]="newCrit()" (input)="newCrit.set($any($event.target).value)" /></label>
+                                </div>
+                                <label class="bm-scope">Scope:
+                                  <select [value]="applyScope()" (change)="applyScope.set($any($event.target).value)">
+                                    <option value="host">this host</option>
+                                    @if (agent.ou_id) { <option value="ou">OU (every host under it)</option> }
+                                    @for (g of hostGroups(); track g.id) { <option [value]="'group:' + g.id">group {{ g.name }}</option> }
+                                  </select>
+                                </label>
+                                <p class="bm-dim">A threshold set here always wins over a policy — it appears in the
+                                  desired state with source <code>host:…</code> once the change is compiled.</p>
+                                @if (thrError(); as te) { <p class="bm-cfg-err">{{ te }}</p> }
+                              } @else {
+                                <p class="bm-dim bm-thr-pad">Pick a check on the left to set its warn/crit — its description appears here.</p>
+                              }
+                              <div class="bm-rollback-actions">
+                                <button mat-button (click)="addThr.set(false)" [disabled]="thrBusy()">Cancel</button>
+                                <button mat-flat-button color="primary" (click)="createThr()" [disabled]="thrBusy() || !newMetric().trim()">Add</button>
+                              </div>
+                            </div>
                           </div>
                         </mat-card>
                       }
@@ -1484,6 +1512,24 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
       .bm-radio { display: flex; align-items: center; gap: 8px; font-size: 13px; }
       .bm-setting-val { max-width: 420px; margin-left: 24px; }
       .bm-thr-inputs { display: flex; gap: 14px; margin-left: 24px; }
+      .bm-thr-miller { display: grid; grid-template-columns: 260px 1fr; gap: 12px; min-height: 260px; }
+      .bm-thr-col { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px; overflow-y: auto; max-height: 46vh; }
+      .bm-thr-checks { display: flex; flex-direction: column; gap: 2px; }
+      .bm-thr-search { margin: 2px 2px 6px; }
+      .bm-thr-item { display: flex; align-items: center; gap: 7px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+      .bm-thr-item:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+      .bm-thr-item.sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
+      .bm-thr-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+      .bm-thr-item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .bm-thr-item-metric { font-family: ui-monospace, monospace; font-size: 10.5px; opacity: 0.55; }
+      .bm-thr-other { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 12.5px; opacity: 0.8; border-top: 1px dashed var(--mat-sys-outline-variant); margin-top: 4px; }
+      .bm-thr-other.sel { background: color-mix(in srgb, var(--mat-sys-primary) 14%, transparent); }
+      .bm-thr-other mat-icon { font-size: 16px; height: 16px; width: 16px; }
+      .bm-thr-settings { display: flex; flex-direction: column; gap: 8px; }
+      .bm-thr-pad { padding: 10px; }
+      .bm-thr-desc { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); border-radius: 6px; padding: 8px 10px; }
+      .bm-thr-desc-h { font-weight: 600; font-size: 13px; margin-bottom: 3px; }
+      .bm-thr-desc-body { margin: 0; font-size: 11.5px; opacity: 0.8; white-space: pre-wrap; line-height: 1.4; }
       .bm-thr-inputs label { display: flex; align-items: center; gap: 6px; font-size: 13px; }
       .bm-dot-drift { color: var(--bm-warn, #ef6c00); margin-left: 6px; }
       .bm-cfg-gen-h { margin: 20px 0 8px; }
@@ -3096,6 +3142,70 @@ export class HostDetailComponent implements OnInit {
     if (!this.newService().trim()) {
       this.newService.set(v.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
     }
+    this.thrDesc.set(this.metricGlossary(v) || 'A custom metric threshold. Warn/crit grade the reported value.');
+  }
+
+  // ---- Add-threshold Miller: pick a check configured on the host ----------
+  thrSearch = signal('');
+  thrOther = signal(false);
+  thrDesc = signal('');
+
+  /** The checks configured on this host = its monitored services, filtered by
+   * the search box. This is the left Miller column of Add threshold. */
+  addThrServices = computed<ServiceState[]>(() => {
+    const q = this.thrSearch().trim().toLowerCase();
+    return this.services()
+      .filter((s) => s.metric && s.name !== 'Config drift' ? true : !!s.metric)
+      .filter((s) => !q || s.name.toLowerCase().includes(q) || (s.metric || '').toLowerCase().includes(q))
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  /** Pick a host check → prefill the threshold form from it + show its
+   * description (self-explaining: what it measures, its live result, and what
+   * it is currently graded against). */
+  pickThrService(s: ServiceState): void {
+    this.thrOther.set(false);
+    this.newMetric.set(s.metric);
+    this.newService.set(s.name);
+    if (s.comparison) this.newComparison.set(s.comparison);
+    if (s.warn_threshold !== null && s.warn_threshold !== undefined) this.newWarn.set(String(s.warn_threshold));
+    if (s.crit_threshold !== null && s.crit_threshold !== undefined) this.newCrit.set(String(s.crit_threshold));
+    const parts: string[] = [];
+    const gloss = this.metricGlossary(s.metric);
+    if (gloss) parts.push(gloss);
+    if (s.output) parts.push(`Latest result: ${s.output}`);
+    const graded = thresholdContext(s);
+    if (graded) parts.push(`Currently graded: ${graded}.`);
+    parts.push(`Metric: ${s.metric}.`);
+    this.thrDesc.set(parts.join('\n'));
+  }
+  pickThrOther(): void {
+    this.thrOther.set(true);
+    this.newMetric.set(''); this.newService.set('');
+    this.thrDesc.set('Set a threshold on any metric this host reports, even one without a service yet. Start typing a metric name.');
+  }
+
+  /** One-line "what this measures" for the common builtin metrics, so the
+   * threshold editor is self-documenting even for metrics without a library
+   * check description. */
+  private metricGlossary(metric: string): string {
+    const m = (metric || '').toLowerCase();
+    const G: [RegExp, string][] = [
+      [/cpu_load|load1|load5|load15/, 'System load average — the mean number of processes waiting to run; compare against the core count.'],
+      [/cpu.*pct|cpu.*percent|cpu_usage/, 'CPU utilisation in percent across all cores.'],
+      [/mem.*used.*pct|mem.*percent|memory.*used/, 'RAM in use as a percent of total physical memory.'],
+      [/swap/, 'Swap space in use — sustained swapping indicates memory pressure.'],
+      [/disk.*used.*pct|fs.*used|filesystem/, 'Filesystem usage in percent; crit before it fills up.'],
+      [/disk.*io|iops|read_bytes|write_bytes/, 'Disk I/O throughput / operations per second.'],
+      [/uptime/, 'Time since last boot — a sudden drop means the host rebooted.'],
+      [/net.*rx|net.*tx|bandwidth|throughput/, 'Network throughput on the interface.'],
+      [/temp|temperature/, 'Hardware temperature sensor reading.'],
+      [/process|proc_/, 'Per-process resource usage.'],
+      [/config_drift/, 'Number of managed config files drifted from desired (out-of-band changes).'],
+    ];
+    for (const [re, desc] of G) if (re.test(m)) return desc;
+    return '';
   }
 
   createThr(): void {
