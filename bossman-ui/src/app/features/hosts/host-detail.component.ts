@@ -969,6 +969,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
             </div>
           </ng-template></mat-tab>
 
+          <mat-tab label="Management"><ng-template matTabContent>
+            <div class="bm-tab-content">
+              <app-host-management [agentId]="agent.id" />
+            </div>
+          </ng-template></mat-tab>
+
           <mat-tab label="Checks"><ng-template matTabContent>
             <div class="bm-tab-content">
               <app-host-checks [agent]="agent" />
@@ -1363,11 +1369,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 
           <!-- Block J4: Cockpit-like host management (Services/Logs/Accounts/
                Storage/Network). Each inner section pulls its live data lazily. -->
-          <mat-tab label="Management"><ng-template matTabContent>
-            <div class="bm-tab-content">
-              <app-host-management [agentId]="agent.id" />
-            </div>
-          </ng-template></mat-tab>
           <!-- Slice 2 (docs/ui-workspaces.md): everything on this host that answers the Resource
                protocol — config files, containers, Helm releases — each opened in the ONE generic
                inspector whose tabs are the verbs. -->
@@ -2307,7 +2308,10 @@ export class HostDetailComponent implements OnInit {
 
   // Tabs in template order; a ?tab= query param (e.g. from the Overview
   // problems panel → Services) selects the initial tab.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'management', 'kubernetes'];
+  // Order MUST match the <mat-tab> order in the template (index → ?tab= deep link).
+  // Grouped by theme: status (overview/services/inventory) → config & manage
+  // (configuration + management adjacent) → checks/diagnostics → ops.
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
   initialTabIndex = 0;
 
   ngOnInit(): void {

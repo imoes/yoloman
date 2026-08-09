@@ -373,21 +373,18 @@ async def _refresh_observed_cache(session: AsyncSession, agent: Agent, client: A
         row.updated_at = now
 
 
-async def _enforce_config_drift(session: AsyncSession, agent: Agent, client: AgentClient) -> None:
-    """GPO-style config enforcement (auto, per poll): re-plan the host's managed
-    desired config against its live state and, if a MANAGED file drifted (someone
-    changed it out of band), re-apply the desired resource to overwrite the change
-    back — recording an agent generation (so the change is noted + roll-backable).
-    Host-based (unmanaged) files are never touched: they have no policy, so the
-    host's own value stands and a rollback is still available. Best-effort; a
-    failure here must never break the poll cycle."""
+async def _detect_config_drift(session: AsyncSession, agent: Agent, client: AgentClient) -> None:
+    """DETECT config drift (per poll) and surface it as the "Config drift"
+    monitoring service — WARN when a MANAGED file has been changed out of band.
+
+    Deliberately REPORT-ONLY: the operator's rule is no automatic reconfiguration
+    (man-in-the-middle safety). Nothing is re-applied here; the re-sync to desired
+    is a manual, explicit action (the "Re-sync to desired" button on the host's
+    Configuration tab). Best-effort; a failure here must never break the poll."""
     from bossman.services.config_desired import effective_resources
     from bossman.services.monitoring import CONFIG_DRIFT_SERVICE, DEFAULT_MAX_ATTEMPTS, _upsert_service_state
 
     async def _record_drift(n: int, detail: str) -> None:
-        # Monitoring signal: a "Config drift" service per host carrying the number
-        # of managed files drifted from desired — WARN when > 0 — so out-of-band
-        # tampering is visible/alertable, not just silently re-applied.
         await _upsert_service_state(
             session, agent.id, CONFIG_DRIFT_SERVICE, "WARN" if n else "OK", float(n), detail,
             datetime.now(timezone.utc), DEFAULT_MAX_ATTEMPTS, metric="config_drift_files",
@@ -406,21 +403,12 @@ async def _enforce_config_drift(session: AsyncSession, agent: Agent, client: Age
     drifted = {c.get("path") for c in changes if c.get("action") not in (None, "noop") and not c.get("error")}
     await _record_drift(
         len(drifted),
-        (f"{len(drifted)} managed config file(s) drifted from desired: "
+        (f"{len(drifted)} managed config file(s) drifted from desired (manual re-sync required): "
          + ", ".join(sorted(str(p) for p in drifted))) if drifted
         else "all managed config files in sync with desired")
-
-    if not drifted:
-        return
-    push = [r for r in resources if r.get("path") in drifted]
-    try:
-        await client.state_apply({"resources": push}, False)
-        logger.info(
-            "config drift enforced on %s: re-applied %d managed file(s): %s",
-            agent.name, len(push), ", ".join(sorted(drifted)),
-        )
-    except AgentClientError as exc:
-        logger.warning("config drift enforcement failed on %s: %s", agent.name, exc)
+    if drifted:
+        logger.info("config drift DETECTED on %s (report-only, manual re-sync): %d file(s): %s",
+                    agent.name, len(drifted), ", ".join(sorted(str(p) for p in drifted)))
 
 
 async def _collect_packages(agent: Agent, client: AgentClient, now: datetime) -> None:
@@ -665,13 +653,14 @@ async def poll_agent(
             # Inventory: refresh the installed-package list (throttled, best-effort).
             if not is_infra_agent(agent):
                 await _collect_packages(agent, client, now)
-            # Config enforcement: overwrite any drifted MANAGED config back to
-            # desired (GPO-style). Isolated so it can't crash the poll cycle.
+            # Config drift DETECTION (report-only): surface drifted MANAGED config
+            # as the "Config drift" service. No automatic reconfiguration — re-sync
+            # is a manual operator action. Isolated so it can't crash the poll cycle.
             if not is_infra_agent(agent):
                 try:
-                    await _enforce_config_drift(session, agent, client)
+                    await _detect_config_drift(session, agent, client)
                 except Exception:
-                    logger.exception("config drift enforcement crashed for agent %s", agent.name)
+                    logger.exception("config drift detection crashed for agent %s", agent.name)
                 # Cache the observed-state document (server-as-a-document) so the
                 # Configuration view loads from Postgres, not a slow live
                 # pass-through on every open. Throttled — config changes rarely,

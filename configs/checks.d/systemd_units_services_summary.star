@@ -150,7 +150,15 @@ def main(ctx, params):
         "msg": msg,
         "data": {
             "state": state,
-            "metrics": {},
+            # Expose the aggregate counts as metrics so the value is visible AND a
+            # warn/crit threshold can be set on the number of FAILED systemd service
+            # units (the summary's whole point — not a duplicate of per-unit checks).
+            # `failed_services` is the primary value a threshold grades against.
+            "metrics": {
+                "failed_services": failed_count,
+                "systemd_services_total": total,
+                "systemd_services_disabled": disabled_count,
+            },
             "details": "",
         },
     }
