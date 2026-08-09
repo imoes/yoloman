@@ -1,94 +1,4 @@
 {
-  "node_id": {
-    "type": "string",
-    "default": "node-1",
-    "description": "Unique identifier for this node in the overlay (e.g., 'node-1', 'ovr-edge-ny01'). Must not contain spaces or special characters."
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Verbosity of logging output. Use 'debug' only for troubleshooting."
-  },
-  "state_dir": {
-    "type": "string",
-    "default": "/var/lib/openoverlayrouter/state",
-    "description": "Directory to store runtime state, topology database, and encryption keys."
-  },
-  "cert_dir": {
-    "type": "string",
-    "default": "/etc/openoverlayrouter/certs",
-    "description": "Directory containing TLS certificates and keys for node authentication."
-  },
-  "heartbeat_interval": {
-    "type": "number",
-    "default": 5,
-    "description": "Seconds between heartbeat messages. Lower values detect failures faster but increase network traffic."
-  },
-  "heartbeat_timeout": {
-    "type": "number",
-    "default": 15,
-    "description": "Seconds of silence before a peer is considered unreachable. Should be \u2265 3\u00d7 heartbeat_interval."
-  },
-  "encrypt_traffic": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, encrypts all overlay traffic using ECIES (elliptic-curve integrated encryption). Disable only for testing."
-  },
-  "private_key_file": {
-    "type": "string",
-    "default": "/etc/openoverlayrouter/certs/private.key",
-    "description": "Path to the node's ECDSA private key used for signing control-plane messages."
-  },
-  "ca_cert_file": {
-    "type": "string",
-    "default": "/etc/openoverlayrouter/certs/ca.crt",
-    "description": "Path to the CA certificate used to verify peer certificates."
-  },
-  "overlay_name": {
-    "type": "string",
-    "default": "default-overlay",
-    "description": "Name of the logical overlay network. Nodes must share the same overlay name to interoperate."
-  },
-  "overlay_type": {
-    "type": "string",
-    "default": "mesh",
-    "description": "Overlay topology. 'mesh' allows full node-to-node connectivity; 'star' routes all traffic via hub nodes; 'hybrid' combines both."
-  },
-  "overlay_mtu": {
-    "type": "number",
-    "default": 1400,
-    "description": "Maximum Transmission Unit for overlay packets. Reduce if fragmentation occurs on underlay."
-  },
-  "auto_discover": {
-    "type": "bool",
-    "default": true,
-    "description": "If true, automatically discovers and connects to nearby nodes using flooding/gossip. Disable for controlled topologies."
-  },
-  "peers": {
-    "type": "list",
-    "default": [],
-    "description": "List of static peer nodes. Required in 'star' or 'hybrid' topologies, optional otherwise for resilience."
-  },
-  "tunnel_interface": {
-    "type": "string",
-    "default": "ovr0",
-    "description": "Name of the virtual interface used for overlay traffic (e.g., 'ovr0'). Will be created automatically."
-  },
-  "underlay_interface": {
-    "type": "string",
-    "default": "eth0",
-    "description": "Physical interface used to carry overlay traffic (encapsulated in UDP/IP)."
-  },
-  "underlay_ip": {
-    "type": "string",
-    "default": "",
-    "description": "IP address to use as source for overlay packets. If omitted, inferred from underlay_interface."
-  },
-  "underlay_subnet": {
-    "type": "string",
-    "default": "10.0.0.0/24",
-    "description": "Underlay subnet for overlay network."
-  },
   "debug": {
     "type": "number",
     "default": 0,
@@ -107,7 +17,7 @@
   "operating_mode": {
     "type": "string",
     "default": "xTR",
-    "description": "LISP device operating mode: 'xTR', 'RTR', 'MN', or 'MS'.",
+    "description": "LISP device operating mode: 'xTR', 'RTR', 'MN', or 'MS'. Enum: xTR, RTR, MN, MS",
     "enum": [
       "xTR",
       "RTR",
@@ -117,23 +27,48 @@
   },
   "control_iface": {
     "type": "string",
-    "default": "eth0",
-    "description": "Interface for control-plane messages (MS only)."
+    "default": "",
+    "description": "Interface for control messages (MS mode). Required for MS operating mode."
   },
-  "lisp_site": {
-    "type": "list",
-    "default": [],
-    "description": "Allowed LISP sites for registration (MS only)."
+  "ms_eid_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "Accepted EID prefix for Map Server registration (MS mode). e.g., '10.0.0.0/24'."
   },
-  "ms_static_registered_site": {
-    "type": "list",
-    "default": [],
-    "description": "Static registered mappings for Map Server."
+  "ms_key": {
+    "type": "string",
+    "default": "",
+    "description": "Password to authenticate Map-Registers received by the Map Server (MS mode)."
+  },
+  "ms_accept_more_specifics": {
+    "type": "bool",
+    "default": true,
+    "description": "Accept more specific prefixes with same authentication information for MS lisp-site."
+  },
+  "ms_static_eid_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "EID prefix for static registered site in Map Server (MS mode)."
+  },
+  "ms_static_rloc_address": {
+    "type": "string",
+    "default": "",
+    "description": "RLOC address (IPv4/IPv6/ELP) for MS static registered site."
+  },
+  "ms_static_rloc_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for the RLOC of the MS static registered site [0-255]."
+  },
+  "ms_static_rloc_weight": {
+    "type": "number",
+    "default": 0,
+    "description": "Weight for the RLOC of the MS static registered site [0-255]."
   },
   "encapsulation": {
     "type": "string",
     "default": "LISP",
-    "description": "Encapsulation type: 'LISP' or 'VXLAN-GPE'.",
+    "description": "Encapsulation type for data plane: 'LISP' or 'VXLAN-GPE'.",
     "enum": [
       "LISP",
       "VXLAN-GPE"
@@ -142,60 +77,189 @@
   "rloc_probe_interval": {
     "type": "number",
     "default": 30,
-    "description": "Seconds between RLOC probes. Set to 0 to disable."
+    "description": "Interval in seconds for periodic RLOC probes."
   },
   "rloc_probe_retries": {
     "type": "number",
     "default": 2,
-    "description": "Number of RLOC probe retries before marking locator down."
+    "description": "RLOC probe retries before setting locator down [0..5]."
   },
   "rloc_probe_retries_interval": {
     "type": "number",
     "default": 5,
-    "description": "Seconds between RLOC probe retries."
+    "description": "Interval in seconds for RLOC probe retries [1..rloc-probe-interval]."
   },
-  "map_resolver": {
+  "map_resolver_address": {
     "type": "string",
-    "default": "127.0.0.1",
-    "description": "IP address(es) of Map Resolver(s), comma-separated."
+    "default": "",
+    "description": "IPv4 or IPv6 address of the Map-Resolver."
   },
-  "static_map_cache": {
-    "type": "list",
-    "default": [],
-    "description": "Static entries in the Map Cache."
+  "static_map_eid_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "EID prefix for static map cache entry."
   },
-  "rtr_ifaces": {
-    "type": "list",
-    "default": [],
-    "description": "RTR interface definitions for outgoing traffic."
+  "static_map_rloc_address": {
+    "type": "string",
+    "default": "",
+    "description": "RLOC address for static map cache entry."
+  },
+  "static_map_rloc_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for RLOC in static map cache [0-255]."
+  },
+  "static_map_rloc_weight": {
+    "type": "number",
+    "default": 0,
+    "description": "Weight for RLOC in static map cache [0-255]."
+  },
+  "rtr_iface_name": {
+    "type": "string",
+    "default": "",
+    "description": "Interface name for RTR outgoing traffic (RTR mode)."
+  },
+  "rtr_iface_ip_version": {
+    "type": "number",
+    "default": 4,
+    "description": "IP version for RTR interface: 4 or 6."
+  },
+  "rtr_iface_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for RTR interface RLOC [0-255]."
+  },
+  "rtr_iface_weight": {
+    "type": "number",
+    "default": 0,
+    "description": "Weight for RTR interface RLOC [0-255]."
   },
   "nat_traversal_support": {
     "type": "string",
     "default": "off",
-    "description": "Enable NAT traversal ('on' or 'off').",
+    "description": "NAT traversal support: 'on' or 'off'. Required for xTR/MN if behind NAT.",
     "enum": [
       "on",
       "off"
     ]
   },
-  "map_server": {
-    "type": "list",
-    "default": [],
-    "description": "Map Server(s) to send Map-Registers to."
+  "map_server_address": {
+    "type": "string",
+    "default": "",
+    "description": "IPv4 or IPv6 address of the Map-Server."
   },
-  "proxy_etr": {
-    "type": "list",
-    "default": [],
-    "description": "Proxy-ETR(s) for non-LISP-located destinations."
+  "map_server_key": {
+    "type": "string",
+    "default": "",
+    "description": "Password to authenticate with the Map-Server."
   },
-  "database_mapping": {
-    "type": "list",
-    "default": [],
-    "description": "Local EID-to-RLOC mappings."
+  "map_server_proxy_reply": {
+    "type": "string",
+    "default": "off",
+    "description": "Configure map-server to Map-Reply on behalf of the xTR: 'on' or 'off'.",
+    "enum": [
+      "on",
+      "off"
+    ]
   },
-  "explicit_locator_path": {
-    "type": "list",
-    "default": [],
-    "description": "Predefined ELPs used in routing."
+  "proxy_etr_address": {
+    "type": "string",
+    "default": "",
+    "description": "IPv4 or IPv6 address of the Proxy-ETR."
+  },
+  "proxy_etr_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for Proxy-ETR [0-255]."
+  },
+  "proxy_etr_weight": {
+    "type": "number",
+    "default": 0,
+    "description": "Weight for Proxy-ETR [0-255]."
+  },
+  "database_mapping_eid_prefix": {
+    "type": "string",
+    "default": "",
+    "description": "EID prefix (ip-prefix/mask) for the node's database mapping."
+  },
+  "database_mapping_rloc_address": {
+    "type": "string",
+    "default": "",
+    "description": "RLOC address for the node's database mapping."
+  },
+  "database_mapping_rloc_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for RLOC in database mapping [0-255]."
+  },
+  "database_mapping_rloc_weight": {
+    "type": "number",
+    "default": 0,
+    "description": "Weight for RLOC in database mapping [0-255]."
+  },
+  "database_mapping_rloc_iface": {
+    "type": "string",
+    "default": "",
+    "description": "Interface name associated with RLOC in database mapping."
+  },
+  "database_mapping_rloc_iface_ip_version": {
+    "type": "number",
+    "default": 4,
+    "description": "IP version for RLOC interface in database mapping: 4 or 6."
+  },
+  "database_mapping_rloc_iface_priority": {
+    "type": "number",
+    "default": 0,
+    "description": "Priority for RLOC interface in database mapping [0-255]."
+  },
+  "database_mapping_rloc_iface_weight": {
+    "type": "number",
+    "default": 0,
+    "description": "Weight for RLOC interface in database mapping [0-255]."
+  },
+  "elp_name": {
+    "type": "string",
+    "default": "",
+    "description": "Name to define the Explicit Locator Path (ELP)."
+  },
+  "elp_node1_address": {
+    "type": "string",
+    "default": "",
+    "description": "RLOC address of the first ELP node."
+  },
+  "elp_node1_strict": {
+    "type": "bool",
+    "default": false,
+    "description": "Strict routing for first ELP node (not yet implemented, use false)."
+  },
+  "elp_node1_probe": {
+    "type": "bool",
+    "default": false,
+    "description": "Probe setting for first ELP node (not yet implemented, use false)."
+  },
+  "elp_node1_lookup": {
+    "type": "bool",
+    "default": false,
+    "description": "Lookup setting for first ELP node (not yet implemented, use false)."
+  },
+  "elp_node2_address": {
+    "type": "string",
+    "default": "",
+    "description": "RLOC address of the second ELP node."
+  },
+  "elp_node2_strict": {
+    "type": "bool",
+    "default": false,
+    "description": "Strict routing for second ELP node (not yet implemented, use false)."
+  },
+  "elp_node2_probe": {
+    "type": "bool",
+    "default": false,
+    "description": "Probe setting for second ELP node (not yet implemented, use false)."
+  },
+  "elp_node2_lookup": {
+    "type": "bool",
+    "default": false,
+    "description": "Lookup setting for second ELP node (not yet implemented, use false)."
   }
 }

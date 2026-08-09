@@ -11,11 +11,20 @@
 #                    /etc/nfdump/*.conf
 ### END INIT INFO
 
+# Path to binaries and scripts
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
+
+# Service identification variables
 NAME=nfcapd
 DESC='Netflow capture daemon'
 NFCAPD='/usr/bin/nfcapd'
-PIDDIR="/var/run/$NAME/"
+
+# PID directory: derived from the pidfile path with a trailing slash
+# Schema: pidfile='/run/nfcapd.pid' (Path to the PID file for service management (e.g., systemd). Set to empty to disable.)
+# Note: dirname is not a valid Jinja2 filter. We manually extract the directory part.
+{%- set _pidfile = pidfile | default('/run/nfcapd.pid') %}
+{%- set _piddir = _pidfile.rsplit('/', 1)[0] if '/' in _pidfile else '' %}
+PIDDIR="{{ _piddir }}/"
 
 [ -x "$NFCAPD" ] || exit 0
 
@@ -37,6 +46,7 @@ do_start () {
     local INSTANCE="$1"
     local CONFIG="$2"
 
+    # Validate config syntax
     sh -n "$CONFIG" 2>/dev/null || return 2
 
     cache_dir=
@@ -44,10 +54,12 @@ do_start () {
     group=
     options=
 
+    # Source the instance-specific configuration
     . "$CONFIG"
 
     [ "$options" ] || return 2
 
+    # Handle cache directory permissions
     if [ "$cache_dir" ] ; then
         mkdir -p "$cache_dir"
         if [ "$user" ] && [ "$group" ] ; then
@@ -57,13 +69,15 @@ do_start () {
         fi
     fi
 
+    # Construct full PID file path for this instance
     local PIDFILE="$PIDDIR$INSTANCE.pid"
+
     # Check if process is already running
     start-stop-daemon --start --quiet \
         --pidfile "$PIDFILE" --exec "$NFCAPD" --test > /dev/null \
         || return 1
 
-    # Start process
+    # Start process with options and PID file
     start-stop-daemon --start --quiet \
         --pidfile "$PIDFILE" \
         --exec "$NFCAPD" -- \
@@ -106,6 +120,7 @@ EXIT=0
 do_action () {
     local CONFIG="$1"
 
+    # Extract instance name from config filename
     INSTANCE="$(basename "${CONFIG%%.conf}")"
 
     case "$ACTION" in

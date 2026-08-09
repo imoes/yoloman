@@ -1,21 +1,81 @@
-# ProFTPD configuration — managed by agentic-mcp.
-# Virtual FTP users are managed in the ProFTPD snap-in (Management →
-# Package configuration → ProFTPD); this role owns the global daemon config.
-ServerName "{{ server_name }}"
-ServerType {{ server_type }}
-DefaultServer {{ default_server }}
-{% if port %}Port {{ port }}
-{% endif %}UseIPv6 {{ use_ipv6 }}
-Umask {{ umask }}
-MaxInstances {{ max_instances }}
-{% if max_clients %}MaxClients {{ max_clients }}
-{% endif %}{% if max_clients_per_host %}MaxClientsPerHost {{ max_clients_per_host }}
-{% endif %}User {{ run_user }}
-Group {{ run_group }}
-{% if default_root %}DefaultRoot {{ default_root }}
-{% endif %}RequireValidShell {{ require_valid_shell }}
-AllowOverwrite {{ allow_overwrite }}
-TimeoutIdle {{ timeout_idle }}
-{% if passive_ports %}PassivePorts {{ passive_ports }}
-{% endif %}IdentLookups {{ ident_lookups }}
-UseReverseDNS {{ use_reverse_dns }}
+# ProFTPD global configuration.
+# Managed by Ansible; do not edit manually.
+#
+# This file configures the ProFTPD daemon's global behavior: identification,
+# run mode, security constraints, and resource limits.
+
+# Public FTP server name shown to clients during banner and identification.
+# Schema: server_name | default='ProFTPD Server'
+ServerName "{{ server_name | default('ProFTPD Server') }}"
+
+# Run mode: 'standalone' for a persistent daemon, 'inetd' for per-connection launch.
+# Schema: server_type | default='standalone'
+ServerType {{ server_type | default('standalone') }}
+
+# Whether to handle connections not matched by any <VirtualHost> block.
+# Schema: default_server | default='on'
+DefaultServer {{ default_server | default('on') }}
+
+# Control port for FTP commands (standard is 21).
+# Schema: port | default=21
+Port {{ port | default(21) }}
+
+# Default umask for newly created files and directories.
+# Schema: umask | default='022'
+Umask {{ umask | default('022') }}
+
+# Maximum number of child server processes allowed.
+# Schema: max_instances | default=30
+MaxInstances {{ max_instances | default(30) }}
+
+# Maximum simultaneous logged-in clients (0 = unlimited).
+# Schema: max_clients | default=50
+# Note: Using an explicit integer default (50) to avoid 'omit' undefined errors.
+MaxClients {{ max_clients | default(50) }}
+
+# Maximum simultaneous clients allowed from a single host (0 = unlimited).
+# Schema: max_clients_per_host | default=5
+# Note: Using an explicit integer default (5) to avoid 'omit' undefined errors.
+MaxClientsPerHost {{ max_clients_per_host | default(5) }}
+
+# System user the daemon drops privileges to after binding ports.
+# Schema: run_user | default='proftpd'
+User {{ run_user | default('proftpd') }}
+
+# System group the daemon drops privileges to after binding ports.
+# Schema: run_group | default='nogroup'
+Group {{ run_group | default('nogroup') }}
+
+# Chroot each login to this directory.
+# '~' chroots to the user's home directory; empty string disables chroot.
+# Note: ProFTPD interprets '~' as the home directory.
+# Schema: default_root | default='~'
+DefaultRoot {{ default_root | default('~') }}
+
+# Require the login user to have a valid shell listed in /etc/shells.
+# Set to 'off' for virtual FTP-only users or system accounts without login shells.
+# Schema: require_valid_shell | default='off'
+RequireValidShell {{ require_valid_shell | default('off') }}
+
+# Allow clients to overwrite existing files via STOR/APPE.
+# Schema: allow_overwrite | default='on'
+AllowOverwrite {{ allow_overwrite | default('on') }}
+
+# Idle session timeout in seconds. 0 means no limit.
+# Schema: timeout_idle | default=600
+TimeoutIdle {{ timeout_idle | default(600) }}
+
+# Passive-mode data connection port range (min max).
+# Ensure these ports are open in the firewall.
+# Schema: passive_ports | default='49152 65534'
+PassivePorts {{ passive_ports | default('49152 65534') }}
+
+# Perform RFC1413 ident lookups on connecting clients.
+# Usually 'off' to avoid delays and potential failures.
+# Schema: ident_lookups | default='off'
+IdentLookups {{ ident_lookups | default('off') }}
+
+# Reverse-resolve client IPs in log messages.
+# Usually 'off' to improve performance and avoid DNS dependency.
+# Schema: use_reverse_dns | default='off'
+UseReverseDNS {{ use_reverse_dns | default('off') }}

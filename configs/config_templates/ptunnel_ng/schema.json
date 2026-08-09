@@ -2,7 +2,7 @@
   "daemon": {
     "type": "bool",
     "default": false,
-    "description": "Run ptunnel-ng as a background daemon process (recommended for servers)."
+    "description": "Run ptunnel-ng as a background daemon process."
   },
   "log_level": {
     "type": "number",
@@ -12,27 +12,17 @@
   "log_file": {
     "type": "string",
     "default": "",
-    "description": "Path to log file. Leave blank to log to stderr (useful for systemd/syslog)."
+    "description": "Path to log file. Leave blank to log to stderr."
   },
-  "ping_timeout": {
-    "type": "number",
-    "default": 2000,
-    "description": "Timeout (ms) for waiting for ICMP echo replies."
+  "dst_host": {
+    "type": "string",
+    "default": "localhost",
+    "description": "Remote server IP or hostname to connect to."
   },
-  "reply_timeout": {
+  "dst_port": {
     "type": "number",
-    "default": 5000,
-    "description": "Maximum time (ms) to wait for a complete ICMP echo reply sequence."
-  },
-  "max_echo_requests": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum number of concurrent ICMP echo requests (higher = more throughput, more packets)."
-  },
-  "max_icmp_payload": {
-    "type": "number",
-    "default": 480,
-    "description": "Maximum ICMP payload size in bytes. Lower values avoid fragmentation on small-MTU links."
+    "default": 22,
+    "description": "Remote server port to connect to."
   },
   "src_interface": {
     "type": "string",
@@ -42,66 +32,26 @@
   "listen_addr": {
     "type": "string",
     "default": "127.0.0.1",
-    "description": "Local address to bind the TCP proxy to. Use 0.0.0.0 for all interfaces."
+    "description": "Local address to bind the TCP proxy to."
   },
   "listen_port": {
     "type": "number",
     "default": 8080,
     "description": "Local TCP port where applications connect to use the tunnel."
   },
-  "dst_host": {
-    "type": "string",
-    "default": "localhost",
-    "description": "Target TCP destination (e.g., web server IP/hostname) behind the remote ptunnel-ng daemon."
-  },
-  "dst_icmp": {
+  "remote_ip": {
     "type": "string",
     "default": "192.168.1.100",
-    "description": "IP address of the remote ptunnel-ng ICMP listener (the server you\u2019re tunneling through)."
+    "description": "IP address of the remote ptunnel-ng daemon (ICMP target)."
   },
-  "auth_key": {
+  "shared_key": {
     "type": "string",
     "default": "",
-    "description": "Shared secret for ICMP authentication (prevents spoofing). Must match on client and server."
+    "description": "Shared secret for authentication. Must match on client and server."
   },
-  "port_mappings": {
-    "type": "list",
-    "default": [],
-    "description": "List of TCP port mappings to forward via a single tunnel (e.g., SSH, HTTP).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "local_port": {
-          "type": "number",
-          "default": 0,
-          "description": "Local port to bind for this mapping (e.g., 2222)."
-        },
-        "remote_host": {
-          "type": "string",
-          "default": "localhost",
-          "description": "Destination host on the remote network (e.g., internal database)."
-        },
-        "remote_port": {
-          "type": "number",
-          "default": 0,
-          "description": "Port on the remote host to connect to (e.g., 3306)."
-        }
-      }
-    }
-  },
-  "allowed_sources": {
-    "type": "list",
-    "default": [],
-    "description": "List of allowed source IPs/CIDRs for incoming ICMP echo requests (access control).",
-    "items": {
-      "type": "string",
-      "default": "",
-      "description": "Source IP or CIDR subnet (e.g., 10.0.0.0/24) permitted to use the tunnel."
-    }
-  },
-  "relax_icmp_id": {
-    "type": "bool",
-    "default": false,
-    "description": "Relax strict ICMP identifier matching (use only if NAT/firewall modifies IDs)."
+  "local_port": {
+    "type": "number",
+    "default": 0,
+    "description": "Local port for the client side of the tunnel. If 0, auto-assigned."
   }
 }

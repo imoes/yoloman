@@ -9,6 +9,7 @@ import { AuthService } from './core/auth/auth.service';
 import { ChatDockComponent } from './features/chat/chat-dock.component';
 import { IconComponent } from './shared/components/icon/icon.component';
 import { FleetSearchComponent } from './features/fleet-overview/fleet-search.component';
+import { EventBrowserComponent } from './features/events/event-browser.component';
 
 // Route → bespoke icon name (icon.component's set). Keyed by path so the nav
 // data stays declarative and the icon set can evolve independently.
@@ -74,7 +75,6 @@ const WORKSPACES: Workspace[] = [
       { path: '/security', label: 'Security', icon: 'security' },
       { path: '/compliance', label: 'Compliance', icon: 'verified_user' },
       { path: '/runs', label: 'Runs', icon: 'history' },
-      { path: '/event-browser', label: 'Event Browser', icon: 'fact_check' },
       { path: '/audit', label: 'Audit log', icon: 'receipt_long', adminOnly: true },
     ],
   },
@@ -141,7 +141,7 @@ const WORKSPACES: Workspace[] = [
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent, IconComponent, FleetSearchComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatIconModule, MatButtonModule, ChatDockComponent, IconComponent, FleetSearchComponent, EventBrowserComponent],
   templateUrl: './app.html',
   styleUrl: './app.scss',
 })
@@ -155,6 +155,8 @@ export class App implements OnDestroy {
   // (plan runs / PXE restores / rollouts) from GET /activity/running, polled.
   // Clicking it opens the Event Browser.
   runningJobs = signal(0);
+  // Event Browser opens as a popup overlay from the header badge (not a page).
+  eventBrowserOpen = signal(false);
   private pollTimer: ReturnType<typeof setInterval> | null = null;
   private pollActivity(): void {
     if (!this.auth.isLoggedIn()) return;
@@ -176,6 +178,7 @@ export class App implements OnDestroy {
       .subscribe((e) => {
         this.url.set(e.urlAfterRedirects);
         this.searchOpen.set(false);
+        this.eventBrowserOpen.set(false);
         // Navigating hands control back to the route: the page you are on decides which workspace tree is
         // open, so a deep link is never shown under the wrong workspace.
         this.picked.set(null);
@@ -196,6 +199,8 @@ export class App implements OnDestroy {
       if (this.auth.isLoggedIn()) this.searchOpen.update((v) => !v);
     } else if (e.key === 'Escape' && this.searchOpen()) {
       this.searchOpen.set(false);
+    } else if (e.key === 'Escape' && this.eventBrowserOpen()) {
+      this.eventBrowserOpen.set(false);
     }
   }
   // Block M: hide admin-only entries (Users & Access) for non-admins. The

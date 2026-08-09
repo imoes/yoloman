@@ -1,31 +1,44 @@
 # ratbagd configuration file — D-Bus daemon for mouse configuration
+# Self-documented: every option includes its schema description as a comment.
 # See 'man 5 ratbagd.conf' for detailed options
 
 [Logging]
-# Log level: 0=none, 1=error, 2=warning, 3=info, 4=debug, 5=trace
-level = {{ log_level }}
-# Log targets: file, syslog, or both (comma-separated)
-targets = {{ log_targets | join(', ') }}
+# Verbosity of logging: 0 (none) to 5 (trace). Higher levels help debug issues.
+level = {{ log_level | default(3) }}
+
+# Where to send logs. Choose from 'syslog', 'file', or both.
+# Note: If log_targets is a string, it is split by whitespace; if a list, it is joined by comma.
+targets = {{ log_targets | default(['syslog', 'file']) | join(', ') }}
 
 [DeviceSettings]
-# Default polling rate for devices (Hz); 0 = use device default
-polling_rate = {{ polling_rate }}
-# Default report rate (Hz); 0 = use device default
-report_rate = {{ report_rate }}
-# Enable/disable automatic profile switching on connect
-enable_profile_switch = {{ enable_profile_switch }}
+# Default polling rate in Hz. Set to 0 to use the device's native rate.
+polling_rate = {{ polling_rate | default(0) }}
+
+# Default report rate in Hz (for devices supporting report rate control). Set to 0 for device default.
+report_rate = {{ report_rate | default(0) }}
+
+# Automatically switch to the last active profile when connecting a device.
+enable_profile_switch = {{ enable_profile_switch | default(True) | lower }}
 
 [Capabilities]
-# Enable support for DPI switching
-supports_dpi = {{ supports_dpi }}
-# Enable support for button remapping
-supports_buttons = {{ supports_buttons }}
-# Enable support for profile macros
-supports_macros = {{ supports_macros }}
+# Enable DPI (dots per inch) resolution switching via D-Bus.
+supports_dpi = {{ supports_dpi | default(True) | lower }}
 
-# List of device-specific quirks (device quirks apply globally)
+# Enable button remapping and macro assignment via D-Bus.
+supports_buttons = {{ supports_buttons | default(True) | lower }}
+
+# Enable macro playback via D-Bus. Requires device support.
+supports_macros = {{ supports_macros | default(True) | lower }}
+
+# List of per-device workarounds for hardware-specific issues.
 [Quirks]
+# The following block iterates over device_quirks.
+# Each quirk is expected to be a dictionary with 'device_id', 'value', and optionally 'description'.
+{% if device_quirks is defined and device_quirks is iterable %}
 {% for quirk in device_quirks %}
-# {{ quirk.description }}
+# {{ quirk.description | default('Device quirk for ' + quirk.device_id) }}
 {{ quirk.device_id }} = {{ quirk.value }}
 {% endfor %}
+{% else %}
+# No device quirks configured.
+{% endif %}

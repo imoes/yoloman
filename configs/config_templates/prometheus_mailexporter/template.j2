@@ -1,43 +1,60 @@
 # /etc/default/prometheus-mailexporter
 # Environment variables passed to the prometheus-mailexporter service
+# This configuration file is self-documenting. Each directive is preceded by a comment
+# explaining its purpose, derived from the schema definition.
 
-# Address (host:port) to expose the metrics endpoint
-export MAILEXPORTER_WEB_LISTEN_ADDRESS="{{ web_listen_address }}"
+# Network address (host:port) on which to expose the Prometheus metrics endpoint.
+# Default: 0.0.0.0:9130
+export MAILEXPORTER_WEB_LISTEN_ADDRESS="{{ web_listen_address | default('0.0.0.0:9130') }}"
 
-# IMAP server connection string (scheme://user:password@host:port)
-{% for server in mail_servers %}
-# IMAP server: {{ server.label }}
+# List of IMAP servers to monitor. Each entry defines a server connection via connection_string and optional label.
+# Default: [] (empty list)
+{% for server in (mail_servers | default([])) %}
+# IMAP server: {{ server.label | default('server-' ~ loop.index) }}
+# Connection string format: scheme://user:password@host:port
 export MAILEXPORTER_IMAP_SERVER_{{ loop.index }}="{{ server.connection_string }}"
 {% endfor %}
 
-# Interval between mail checks (e.g., "30s", "1m")
-export MAILEXPORTER_CHECK_INTERVAL="{{ check_interval }}"
+# How often to poll mail servers for new messages. Accepts Go duration strings (e.g., '30s', '1m').
+# Default: 30s
+export MAILEXPORTER_CHECK_INTERVAL="{{ check_interval | default('30s') }}"
 
-# Timeout per IMAP check (e.g., "10s")
-export MAILEXPORTER_TIMEOUT="{{ timeout }}"
+# Maximum time allowed per IMAP connection/check before timing out.
+# Default: 10s
+export MAILEXPORTER_TIMEOUT="{{ timeout | default('10s') }}"
 
-# Maximum number of messages to fetch per mailbox (0 = unlimited)
-export MAILEXPORTER_MAX_MESSAGES="{{ max_messages }}"
+# Maximum number of recent messages to fetch per mailbox. Set to 0 for unlimited.
+# Default: 1000
+export MAILEXPORTER_MAX_MESSAGES="{{ max_messages | default(1000) }}"
 
-# Enable TLS/SSL verification? (true/false)
-export MAILEXPORTER_SKIP_TLS_VERIFY="{{ skip_tls_verify | string | lower }}"
+# If true, skip TLS certificate verification when connecting to IMAP servers (not recommended for production).
+# Default: false
+export MAILEXPORTER_SKIP_TLS_VERIFY="{{ skip_tls_verify | default(false) | string | lower }}"
 
-# Enable STARTTLS when connecting? (true/false)
-export MAILEXPORTER_STARTTLS="{{ starttls | string | lower }}"
+# If true, attempt to upgrade plain connections using STARTTLS (use only when connecting to port 143).
+# Default: true
+export MAILEXPORTER_STARTTLS="{{ starttls | default(true) | string | lower }}"
 
-# Log level: debug, info, warn, error
-export MAILEXPORTER_LOG_LEVEL="{{ log_level }}"
+# Verbosity of logs: 'debug', 'info', 'warn', or 'error'.
+# Default: info
+export MAILEXPORTER_LOG_LEVEL="{{ log_level | default('info') }}"
 
-# Additional IMAP flags to track (comma-separated, e.g., "UNSEEN,FLAGGED")
-export MAILEXPORTER_IMAP_FLAGS="{{ imap_flags | join(", ") }}"
+# IMAP flags to track as separate metrics (e.g., count of flagged or unseen messages).
+# Default: ['UNSEEN', 'FLAGGED', 'ANSWERED']
+export MAILEXPORTER_IMAP_FLAGS="{{ (imap_flags | default(['UNSEEN', 'FLAGGED', 'ANSWERED'])) | join(', ') }}"
 
-# Optional: Basic auth username/password for metrics endpoint
-{% if web_basic_auth_user %}
-export MAILEXPORTER_WEB_BASIC_AUTH_USER="{{ web_basic_auth_user }}"
+# Optional username for HTTP Basic Auth protecting the metrics endpoint.
+# Default: '' (empty, no auth)
+{% if web_basic_auth_user | default('') %}
+export MAILEXPORTER_WEB_BASIC_AUTH_USER="{{ web_basic_auth_user | default('') }}"
 {% endif %}
-{% if web_basic_auth_password %}
-export MAILEXPORTER_WEB_BASIC_AUTH_PASSWORD="{{ web_basic_auth_password }}"
+
+# Optional password for HTTP Basic Auth protecting the metrics endpoint.
+# Default: '' (empty)
+{% if web_basic_auth_password | default('') %}
+export MAILEXPORTER_WEB_BASIC_AUTH_PASSWORD="{{ web_basic_auth_password | default('') }}"
 {% endif %}
 
-# Optional: Metric name prefix (e.g., "mailexporter")
-export MAILEXPORTER_METRIC_PREFIX="{{ metric_prefix }}"
+# Prefix for all exported metric names (e.g., 'mailexporter_imap_messages_unseen').
+# Default: mailexporter
+export MAILEXPORTER_METRIC_PREFIX="{{ metric_prefix | default('mailexporter') }}"

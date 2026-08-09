@@ -1,42 +1,62 @@
-# Listen on this local address and port for incoming TCP connections
-listen_addr = "{{ listen_addr }}"
-listen_port = {{ listen_port }}
+# sixtunnel TCP tunneling proxy configuration
+# ===============================================
+# This file defines a single TCP port forwarding rule and optional extra rules.
 
-# Destination host and port to forward traffic to
-dest_host = "{{ dest_host }}"
-dest_port = {{ dest_port }}
+# [listen]
+# Local IP address (IPv4 or IPv6) to bind the proxy to. Use 0.0.0.0 for all IPv4
+# interfaces, or :: for all interfaces.
+listen_addr = "{{ (listen_addr | default('0.0.0.0')) | string }}"
 
-# Run as this user (recommended: "nobody" for security)
-user = "{{ user }}"
+# Local TCP port number to listen on for incoming connections.
+listen_port = {{ listen_port | default(8080) }}
 
-# Enable IPv4 (true) or IPv6-only (false)
-ipv4_only = {{ "true" if ipv4_enabled else "false" }}
+# [destination]
+# Remote host (hostname or IP) to which traffic will be forwarded.
+dest_host = "{{ (dest_host | default('127.0.0.1')) | string }}"
 
-# Enable IPv6 (true) or IPv4-only (false)
-ipv6_only = {{ "true" if ipv6_enabled else "false" }}
+# Remote port on dest_host to forward traffic to.
+dest_port = {{ dest_port | default(80) }}
 
-# Buffer size for incoming/outgoing data (in bytes)
-buffer_size = {{ buffer_size }}
+# [process]
+# System user to drop privileges to after binding to the port (must be an
+# unprivileged user).
+user = "{{ (user | default('nobody')) | string }}"
 
-# Number of seconds to wait before closing idle connections
-idle_timeout = {{ idle_timeout }}
+# [protocol]
+# If true, enable IPv4 support (listen and forward using IPv4).
+ipv4_only = {{ ipv4_enabled | default(True) | ternary('true', 'false') }}
 
-# Background process (daemonize) on startup
-daemonize = {{ "true" if daemonize else "false" }}
+# If true, enable IPv6 support (listen and forward using IPv6).
+ipv6_only = {{ ipv6_enabled | default(False) | ternary('true', 'false') }}
 
-{% if pid_file %}
-# Write process ID to this file when running in daemon mode
-pid_file = "{{ pid_file }}"
+# [performance]
+# Size of internal read/write buffer in bytes (larger buffers may improve
+# throughput).
+buffer_size = {{ buffer_size | default(65536) }}
+
+# [connection]
+# Number of seconds of inactivity before closing a connection (0 = no timeout).
+idle_timeout = {{ idle_timeout | default(300) }}
+
+# [daemon]
+# Maximum number of concurrent connections allowed.
+max_connections = {{ max_connections | default(1024) }}
+
+# If true, run as a background daemon process. If false, run in the foreground.
+daemonize = {{ daemonize | default(True) | ternary('true', 'false') }}
+
+# Path to the PID file (only used when daemonize=true). Set to empty to disable.
+{% if (pid_file | default('/var/run/6tunnel.pid')) != '' %}
+pid_file = "{{ (pid_file | default('/var/run/6tunnel.pid')) | string }}"
 {% endif %}
 
-# Redirect stderr output to this file (use "syslog" for syslog)
-log_file = "{{ log_file }}"
+# [logging]
+# Path to the log file, or 'syslog' to use the system logger.
+log_file = "{{ (log_file | default('syslog')) | string }}"
 
-# Maximum number of simultaneous connections
-max_connections = {{ max_connections }}
-
-{% if extra_forwarding %}
-# Additional forwarding rules (one per line: local_addr:local_port -> remote_host:remote_port)
-{% for rule in extra_forwarding %}{{ rule.local_addr }}:{{ rule.local_port }} {{ rule.remote_host }}:{{ rule.remote_port }}
+# [forwarding]
+# List of additional forwarding rules. Each rule specifies a local address:port
+# and remote host:port to proxy.
+{% for rule in (extra_forwarding | default([]) | list) %}
+{{ rule.local_addr }}:{{ rule.local_port }} -> {{ rule.remote_host }}:{{ rule.remote_port }}
 {% endfor %}
-{% endif %}

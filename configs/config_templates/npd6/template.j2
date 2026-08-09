@@ -2,26 +2,32 @@
 ### BEGIN INIT INFO
 # Provides:          npd6
 # Required-Start:    $remote_fs $syslog $network
-# Required-Stop:     $remote_fs $syslog	$network
+# Required-Stop:     $remote_fs $syslog $network
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Description: Provides the npd6 daemon.
+# Description: {{ desc | default('npd6 - Neighbor proxy Daemon IPv6') }}
 # Short-Description: Provides the npd6 daemon.
 ### END INIT INFO
 
-# Author: Sean Groarke, sgroarke@gmail.com>
+# Author: Sean Groarke, sgroarke@gmail.com
 # $HeadURL$
 # $Id$
 
 # Do NOT "set -e"
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
-DESC="npd6 - Neighbor proxy Daemon IPv6"
-NAME=npd6
+
+# Description of the npd6 daemon displayed in logs.
+DESC="{{ desc | default('npd6 - Neighbor proxy Daemon IPv6') }}"
+
+# Name of the npd6 service/daemon.
+NAME={{ name | default('npd6') }}
+
 DAEMON=/usr/bin/$NAME
-# Check man page or --help to get more optional arguments
-#DAEMON_ARGS="--debug -l /var/log/npd6.log"
-DAEMON_ARGS=""
+
+# Command line arguments passed to the npd6 daemon (e.g., --debug -l /var/log/npd6.log).
+DAEMON_ARGS="{{ daemon_args | default('') }}"
+
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
@@ -71,7 +77,7 @@ case "$1" in
   restart|force-reload)
 	log_daemon_msg "Restarting $DESC" "$NAME"
         start-stop-daemon --stop --retry=TERM/30/KILL/5 --exec $DAEMON
-        start-stop-daemon --start --exec $DAEMON -- $DAEMON_ARGS 
+        start-stop-daemon --start --exec $DAEMON -- $DAEMON_ARGS
 	;;
   *)
 	echo "Usage: $SCRIPTNAME {start|stop|status|restart}" >&2

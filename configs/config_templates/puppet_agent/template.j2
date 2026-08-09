@@ -26,7 +26,7 @@ manifest = /etc/puppetlabs/code/environments/production/manifests/site.pp
 # The environment in which the agent is running
 environment = production
 
-# Whether to use environment manifests (true by default in modern Puppet)
+# The timeout for configuration retrieval
 environment_timeout = unlimited
 
 # Whether to auto-enroll certificates (if using Puppet CA)
@@ -38,32 +38,41 @@ use_cached_crl = true
 # Whether to submit reports to the Puppet master
 report = true
 
-# Whether to apply configurations automatically (no manual 'puppet agent -t' needed)
+# How often the agent checks in (seconds)
 runinterval = 1800
 
-# Whether to use Splay for staggering agent runs (helps reduce load on master)
+# Whether to use Splay for staggering agent runs
 splay = true
 
-# Whether to log to syslog
+# Destination for logs
 logdest = /var/log/puppetlabs/puppet/puppet.log
 
 # Whether to use syslog for logging
 syslog = false
 
-# Whether to use daemon mode (run as service)
+# Whether to use daemon mode
 daemon = true
 
-# Whether to run in test mode (verbose, no daemon, one run only) — override via CLI if needed
+# Whether to run in test mode
 test = false
 
-# Whether to ignore certname mismatches (for multi-host certs or FQDN aliases)
+# Certnames that are ignorable
 ignorable_certnames =
 
-# The name of this Puppet node (overrides hostname)
+# The unique identifier (FQDN or custom name) for this Puppet node. Must be unique per agent and match DNS/Cert SANs.
+{% if certname is defined and certname %}
 certname = {{ certname }}
+{% else %}
+certname = {{ ansible_hostname | default('puppet-agent') }}
+{% endif %}
 
 # The DNS alt names to request in the CSR (comma-separated)
+# List of DNS alt names to include in the SSL certificate request (e.g., ['puppet.example.com', 'puppet'] ). Must include at least the certname
+{% if subject_alt_names is defined and subject_alt_names | length > 0 %}
 subject_alt_names = {{ subject_alt_names | join(', ') }}
+{% else %}
+# subject_alt_names =
+{% endif %}
 
 # The maximum time (in seconds) to wait for a response from the server
 timeout = 300
@@ -79,8 +88,16 @@ use_http_proxy = false
 
 [agent]
 # Reiterate key agent-specific settings for clarity
-server = {{ server_hostname }}
+# Hostname (or DNS alias) of the primary Puppet server. Used for configuration retrieval and reporting.
+server = {{ server_hostname | default('puppet') }}
+
+# Hostname of the dedicated Puppet CA server (optional; defaults to same as server_hostname if not set). Leave empty to use the same server.
+{% if ca_server_hostname is defined and ca_server_hostname %}
 ca_server = {{ ca_server_hostname }}
+{% else %}
+# ca_server = {{ server_hostname | default('puppet') }}
+{% endif %}
+
 environment = production
 runinterval = 1800
 splay = true
@@ -90,10 +107,12 @@ logdest = /var/log/puppetlabs/puppet/puppet.log
 
 # Whether to use the Puppet CA to sign certificates
 # (if set to 'false', certificates must be signed externally or via auto_sign)
-ca = {{ ca_enabled | string | lower }}
+# Whether to use the built-in Puppet CA to sign node certificates. Set to false if using an external CA (e.g., ACM, HashiCorp Vault).
+ca = {{ ca_enabled | default(true) | string | lower }}
 
 # Whether to use certificate revocation checking
-use_revocation = {{ cert_revocation_enabled | string | lower }}
+# Whether to enable certificate revocation checking using CRLs. Requires a configured CA and valid CRL distribution points.
+use_revocation = {{ cert_revocation_enabled | default(false) | string | lower }}
 
 # Whether to refresh certificates automatically when close to expiry
 certificate_refresh = true

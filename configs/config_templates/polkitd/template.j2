@@ -1,41 +1,132 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- PolicyKit configuration file -->
+<!--
+  PolicyKit (polkitd) Configuration File
+  ======================================
+  This file defines authorization policies and default behaviors for polkitd.
+  It is managed by Ansible. Do not edit manually.
+-->
 <config version="0.1">
-  <!-- Global settings -->
-  {% if auth_admin_keep.value is defined %}
-  <match action="org.freedesktop.policykit.exec">
-    <return result="yes"/>
-  </match>
-  {% endif %}
-  <!-- Default authentication session timeout (in seconds) -->
+  <!--
+    Default PolicyKit settings.
+    These control how authentication requests are handled by default.
+  -->
   <defaults>
-    <defaults>
-      <match action="org.freedesktop.policykit.exec">
-        <defaults>
-          <return result="yes"/>
-        </defaults>
-      </match>
-    </defaults>
+    <!--
+      The default admin auth mechanism.
+      Controls the required authentication for admin actions.
+      Valid values: auth_admin, auth_admin_keep, yes, no, auth_self, auth_self_keep.
+      Default: auth_admin
+    -->
+    <policy_default_admin>auth_admin</policy_default_admin>
+
+    <!--
+      The anonymous identity mechanism for unauthenticated sessions.
+      Default: system-bus-name
+    -->
+    <anonymous_id>system-bus-name</anonymous_id>
+
+    <!--
+      The auth mechanism used when asking for admin privileges.
+      Default: auth_admin_keep
+    -->
+    <auth_admin>auth_admin_keep</auth_admin>
+
+    <!--
+      Whether to keep the authentication for subsequent actions.
+      Valid values: yes, no.
+      Default: yes
+    -->
+    <auth_admin_keep>yes</auth_admin_keep>
   </defaults>
-  <!-- Explicit rule definitions -->
-  {% for rule in rules %}
-  <!-- {{ rule.description }} -->
-  <rule name="{{ rule.name }}">
-    {% if rule.match_user is defined and rule.match_user != "" %}
-    <match user="{{ rule.match_user }}">
+
+  <!--
+    Custom PolicyKit Rule Definitions.
+    Each rule grants or denies specific authorization results based on match criteria.
+  -->
+  {% for rule in rules | default([]) %}
+  <!--
+    Rule: {{ rule.id | default('unknown') }}
+    Description: {{ rule.description | default('No description provided.') }}
+    This rule applies match criteria to determine if the subsequent actions are allowed.
+  -->
+  <rule id="{{ rule.id | default('') }}">
+
+    {% if rule.match_any is defined and rule.match_any == "any" %}
+    <!--
+      Match Any: This rule applies if ANY of the following match criteria are met.
+      Note: When match_any is 'any', specific match_user/match_group are often ignored or treated as OR conditions.
+    -->
+    <match_any>
+      <user></user>
+    </match_any>
+    {% else %}
+    <!--
+      Specific Match Criteria (AND logic unless match_any is used).
+      Only one set of specific matches applies here.
+    -->
+    {% if rule.match_user is defined and rule.match_user is not none and rule.match_user != "" %}
+    <!--
+      Match User: Restrict this rule to a specific system user.
+      Default: (none)
+    -->
+    <match_user>{{ rule.match_user | default('') }}</match_user>
     {% endif %}
-    {% if rule.match_group is defined and rule.match_group != "" %}
-    <match group="{{ rule.match_group }}">
+
+    {% if rule.match_group is defined and rule.match_group is not none and rule.match_group != "" %}
+    <!--
+      Match Group: Restrict this rule to users belonging to a specific group.
+      Default: (none)
+    -->
+    <match_group>{{ rule.match_group | default('') }}</match_group>
     {% endif %}
-    {% if rule.match_user is not defined and rule.match_group is not defined %}
-    <match>
+
+    {% if rule.match_any is defined and rule.match_any == "none" %}
+    <!--
+      Match Any (None): This rule applies if NONE of the specified criteria match (i.e., strict exclusion or specific single match).
+      Often used with match_user or match_group to create a specific allow-all or allow-none block.
+    -->
+    <match_any>
+      <user></user>
+    </match_any>
     {% endif %}
-      {% for action in rule.actions %}
-      <match action="{{ action }}">
-        <return result="{{ action_result.get(action, "yes") }}"/>
-      </match>
-      {% endfor %}
-    </match>
+    {% endif %}
+
+    {% if rule.match_is_console is defined and rule.match_is_console is true %}
+    <!--
+      Match Is Console: Require the session to be from a local console.
+      Default: false
+    -->
+    <match_is_console>true</match_is_console>
+    {% endif %}
+
+    {% if rule.match_is_local is defined and rule.match_is_local is true %}
+    <!--
+      Match Is Local: Require the connection to be from a local socket (e.g., D-Bus system bus).
+      Default: false
+    -->
+    <match_is_local>true</match_is_local>
+    {% endif %}
+
+    <!--
+      Actions: The specific polkit action IDs this rule applies to.
+    -->
+    {% if rule.actions is defined and rule.actions is iterable %}
+    {% for action in rule.actions %}
+    <!--
+      Action: {{ action.id | default('unknown') }}
+      Result: {{ action.result | default('') }}
+      The result to return if this rule matches (e.g., 'yes', 'no', 'auth_self', etc.).
+    -->
+    <action id="{{ action.id | default('') }}">
+      <return result="{{ action.result | default('') }}"/>
+    </action>
+    {% endfor %}
+    {% else %}
+    <!--
+      No actions defined for this rule.
+    -->
+    {% endif %}
+
   </rule>
   {% endfor %}
 </config>

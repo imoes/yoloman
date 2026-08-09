@@ -1,40 +1,134 @@
-; Common settings
+; php-fpm.conf - PHP-FPM configuration template
+; This file configures the PHP-FPM daemon. The [global] section sets
+; daemon-wide behavior, while the [pool] section (e.g., 'www') defines
+; worker process management and PHP execution environment.
+
 [global]
-error_log = {{ global.error_log }}
-log_level = {{ global.log_level }}
+; -----------------------------------------------------------------------
+; Global Daemon Settings
+; -----------------------------------------------------------------------
+; Log file location for PHP-FPM errors and status.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.error-log
+error_log = {{ (global | default({})).error_log | default('/var/log/php-fpm/error.log') }}
 
-; Process management
-process_manager = {{ pool.process_manager }}
-start_servers = {{ pool.start_servers }}
-min_spare_servers = {{ pool.min_spare_servers }}
-max_spare_servers = {{ pool.max_spare_servers }}
-max_requests = {{ pool.max_requests }}
+; Log verbosity level: error, warn, notice, info, debug.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.log-level
+log_level = {{ (global | default({})).log_level | default('notice') }}
 
-; Listen configuration
-listen = {{ pool.listen }}
-listen.allowed_clients = {{ pool.listen_allowed_clients | join(', ') if pool.listen_allowed_clients else 'none' }}
-listen.backlog = {{ pool.listen_backlog }}
-listen.owner = {{ pool.listen_owner }}
-listen.group = {{ pool.listen_group }}
-listen.mode = {{ pool.listen_mode }}
+; -----------------------------------------------------------------------
+; Pool Configuration
+; -----------------------------------------------------------------------
+; This block configures a specific PHP-FPM pool (typically named 'www').
+; It controls how PHP scripts are executed, under which user/group, and
+; how the process manager handles load.
 
-; Unix user/group of processes
-user = {{ pool.user }}
-group = {{ pool.group }}
+{% if pool is defined %}
 
-; PHP configuration
-php_admin_value[error_log] = {{ pool.php_admin_value.error_log }}
-php_admin_flag[log_errors] = {{ pool.php_admin_flag.log_errors | string | lower }}
+; -----------------------------------------------------------------------
+; Listen Configuration
+; -----------------------------------------------------------------------
+; Where PHP-FPM listens for FastCGI requests. Can be a TCP address or
+; a Unix socket path.
+; NOTE: For app_runtime capability, the 'host' is the IP part of this field,
+; and 'port' is the port part, or 'socket' is the path if it starts with '/'.
+listen = {{ (pool | default({})).listen | default('127.0.0.1:9000') }}
 
-; Additional PHP settings
-{% for key, value in pool.php_values.items() %}php_value[{{ key }}] = {{ value }}
+; -----------------------------------------------------------------------
+; Process Manager
+; -----------------------------------------------------------------------
+; Process manager style: 'static', 'dynamic', or 'ondemand'.
+; - static: fixed number of child processes.
+; - dynamic: number of processes varies between min/max spare servers.
+; - ondemand: processes spawned only when request arrives.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.process-manager
+process_manager = {{ (pool | default({})).process_manager | default('dynamic') }}
+
+{% set pm = (pool | default({})).process_manager | default('dynamic') %}
+
+{% if pm == 'dynamic' %}
+; Initial number of child processes to spawn at startup.
+; Only valid when process_manager is 'dynamic'.
+start_servers = {{ (pool | default({})).start_servers | default(2) }}
+
+; Minimum number of idle child processes.
+; Only valid when process_manager is 'dynamic'.
+min_spare_servers = {{ (pool | default({})).min_spare_servers | default(1) }}
+
+; Maximum number of idle child processes.
+; Only valid when process_manager is 'dynamic'.
+max_spare_servers = {{ (pool | default({})).max_spare_servers | default(2) }}
+
+{% elif pm == 'ondemand' %}
+; Initial number of child processes to spawn when the first request arrives.
+; Only valid when process_manager is 'ondemand'.
+start_servers = {{ (pool | default({})).start_servers | default(2) }}
+
+; Maximum number of child processes allowed.
+; Only valid when process_manager is 'ondemand'.
+max_spare_servers = {{ (pool | default({})).max_spare_servers | default(2) }}
+
+{% endif %}
+
+; Maximum number of requests a child process handles before it exits.
+; Set to 0 for no limit. Useful to prevent memory leaks.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.max-requests
+max_requests = {{ (pool | default({})).max_requests | default(500) }}
+
+; -----------------------------------------------------------------------
+; Security & Runtime
+; -----------------------------------------------------------------------
+; Under which OS user the worker processes run.
+; CRITICAL: Do not run as root in production.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.user
+user = {{ (pool | default({})).user | default('www-data') }}
+
+; Group for worker processes.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.group
+group = {{ (pool | default({})).group | default('www-data') }}
+
+; -----------------------------------------------------------------------
+; PHP Value Overrides
+; -----------------------------------------------------------------------
+; These directives allow setting PHP ini values per-pool.
+; 'php_admin_value' cannot be overridden by ini_set() in scripts.
+; 'php_admin_flag' sets boolean directives (On/Off).
+
+; Dynamic PHP values (non-admin, can be overridden by script).
+; Example: php_value[display_errors] = On
+{% if pool.php_values is defined %}
+{% for item in pool.php_values | dict2items %}
+php_value[{{ item.key }}] = {{ item.value }}
 {% endfor %}
-{% for key, value in pool.php_flags.items() %}php_flag[{{ key }}] = {{ value | string | lower }}
+{% endif %}
+
+; Dynamic PHP flags (boolean settings).
+{% if pool.php_flags is defined %}
+{% for item in pool.php_flags | dict2items %}
+php_flag[{{ item.key }}] = {{ item.value | string | lower }}
 {% endfor %}
+{% endif %}
 
-; Status page
-pm.status_path = {{ pool.status_path }}
+; -----------------------------------------------------------------------
+; Monitoring & Diagnostics
+; -----------------------------------------------------------------------
+; Path for the status page (enabled only if pm.status_path is set).
+; Accessible via HTTP if 'listen.allowed_clients' or web server config permits.
+; pm.status_path = {{ (pool | default({})).status_path | default('/status') }}
 
-; Logging
-slowlog = {{ pool.slowlog }}
-request_slowlog_timeout = {{ pool.request_slowlog_timeout }}
+; -----------------------------------------------------------------------
+; Slow Log
+; -----------------------------------------------------------------------
+; Path to the slow log file. Requests exceeding request_slowlog_timeout
+; are logged here with backtrace.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.slowlog
+slowlog = {{ (pool | default({})).slowlog | default('/var/log/php-fpm/www-slow.log') }}
+
+; Threshold in seconds for a request to be considered 'slow'.
+; Set to 0 to disable slow logging.
+; See: https://www.php.net/manual/en/install.fpm.configuration.php#pm.request_slowlog_timeout
+request_slowlog_timeout = {{ (pool | default({})).request_slowlog_timeout | default('0s') }}
+
+{% else %}
+; NOTE: 'pool' variable is not defined. No pool configuration block emitted.
+; Ensure 'pool' is provided by Ansible variables to configure a valid PHP-FPM pool.
+{% endif %}

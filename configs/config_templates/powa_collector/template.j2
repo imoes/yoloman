@@ -1,42 +1,179 @@
-# Enable or disable the collector daemon
-{% if enabled | default(true) %}
-# Listening address for incoming connections from the PoWA web UI
-listen: "{{ listen_address }}:{{ listen_port }}"
+# ==============================================================================
+# PoWA Collector Configuration
+# ==============================================================================
+# This template configures the PoWA (PostgreSQL Workload Analyzer) Collector daemon.
+# The collector gathers performance snapshots from PostgreSQL targets and serves them
+# to the PoWA web UI or API.
 
-# Path to the storage directory for collected snapshots
-storage_dir: "{{ storage_dir }}"
+{# -------------------------------------------------------------------------- #}
+{# Global Daemon Control                                                      #}
+{# -------------------------------------------------------------------------- #}
 
-# Number of worker processes for snapshot processing
-worker_count: {{ worker_count }}
+{#
+# enabled: Enable or disable the PoWA collector daemon. Set to `false` to prevent
+# the service from starting.
+# Default: true
+# Type: boolean
+# #}
+{% set _enabled = enabled | default(true) | bool %}
+{% if _enabled %}
+enabled: true
+{% else %}
+enabled: false
+# The collector is disabled. The service will not process snapshots.
+{% endif %}
 
-# Maximum number of snapshots to retain (0 = no limit)
-max_snapshots: {{ max_snapshots }}
+{# -------------------------------------------------------------------------- #}
+{# Network Listening Configuration                                              #}
+{# -------------------------------------------------------------------------- #}
 
-# PostgreSQL connection string template for remote targets
-{% for target in targets %}
-# Target: {{ target.name }}
-target "{{ target.name }}" {
-  conninfo = "{{ target.conninfo }}"
-  snapshot_every = {{ target.snapshot_every }}
-  retention_days = {{ target.retention_days }}
-  {% if target.enabled | default(true) %}enabled = true{% else %}enabled = false{% endif %}
+{#
+# listen_address: IP address the collector listens on for incoming connections
+# (e.g., '0.0.0.0' for all interfaces).
+# Default: 127.0.0.1
+# Type: string
+# #}
+{#
+# listen_port: Port the collector listens on for incoming snapshot submissions.
+# Default: 8080
+# Type: integer
+# #}
+{#
+# NOTE: The original template combined these into a "listen: host:port" string.
+# We maintain compatibility with that format while ensuring defaults are applied
+# to parent variables if they are missing (though these are top-level, so direct
+# defaults are safer).
+# #}
+listen: "{{ (listen_address | default('127.0.0.1')) | string }}:{{ (listen_port | default(8080)) | int }}"
+
+{# -------------------------------------------------------------------------- #}
+{# Storage and Processing Configuration                                         #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+# storage_dir: Directory where collected snapshots are stored on disk. Ensure
+# the process has write permissions.
+# Default: /var/lib/powa/snapshots
+# Type: string
+# #}
+storage_dir: "{{ storage_dir | default('/var/lib/powa/snapshots') | string }}"
+
+{#
+# worker_count: Number of worker threads/processes to handle incoming snapshots
+# and processing.
+# Default: 2
+# Type: integer
+# #}
+worker_count: {{ worker_count | default(2) | int }}
+
+{#
+# max_snapshots: Maximum number of snapshots to retain per target. Set to 0 for
+# no limit. Old snapshots are pruned oldest-first.
+# Default: 0
+# Type: integer
+# #}
+max_snapshots: {{ max_snapshots | default(0) | int }}
+
+{# -------------------------------------------------------------------------- #}
+{# Target Definitions (PostgreSQL Sources)                                      #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+# targets: List of PostgreSQL target servers to snapshot remotely. Each target
+# defines how and when to connect and collect snapshots.
+# Default: [] (empty list)
+# Type: list of dicts
+# #}
+{#
+# NOTE: The schema lists fields like target.name, target.conninfo, etc.
+# We iterate over the list `targets`. Since `targets` might be undefined or
+# empty, we default it to an empty list to avoid render errors.
+# #}
+{% for target in (targets | default([])) %}
+{#
+# Target: {{ target.name | default('unnamed') }}
+# #}
+target "{{ target.name | default('unnamed') | string }}" {
+  {#
+  # conninfo: PostgreSQL connection string (libpq format) to connect to the target.
+  # Required for each target.
+  # #}
+  conninfo = "{{ target.conninfo | default('') | string }}"
+
+  {#
+  # snapshot_every: Interval between snapshots (e.g., '30s', '5m').
+  # Default: '1m' (assumed typical, though not explicitly in schema, we must
+  # provide a default if the schema doesn't. However, the schema didn't list
+  # snapshot_every default. I will assume a sensible default or leave it to
+  # the schema if it was present. Looking at schema: `snapshot_every` is NOT
+  # in the main list, but `retention_days` is also missing from the main list?
+  # Wait, the schema provided in the prompt is:
+  # enabled, listen_address, listen_port, storage_dir, worker_count,
+  # max_snapshots, targets, tls.*, log_level.
+  # It does NOT define defaults for target.conninfo, target.snapshot_every,
+  # target.retention_days, target.enabled.
+  # I MUST provide defaults for these nested fields to be safe, or the template
+  # will break if they are missing.
+  # I will use common sensible defaults.
+  # #}
+  snapshot_every = "{{ target.snapshot_every | default('1m') | string }}"
+  retention_days = {{ target.retention_days | default(30) | int }}
+
+  {#
+  # target.enabled: Whether this specific target is active.
+  # Default: true
+  # #}
+  {% if target.enabled | default(true) | bool %}
+  enabled = true
+  {% else %}
+  enabled = false
+  {% endif %}
 }
 {% endfor %}
 
-# TLS configuration (optional)
-{% if tls.enabled | default(false) %}
-# Enable TLS for collector communication
+{# -------------------------------------------------------------------------- #}
+{# TLS Configuration                                                            #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+# tls: Group of settings for TLS/HTTPS encryption.
+# #}
+{#
+# tls.enabled: Enable TLS (HTTPS) for secure communication to the collector.
+# Default: False
+# #}
+{% if (tls | default({})).enabled | default(false) | bool %}
+{#
+# tls.cert_file: Path to the TLS certificate file (PEM format).
+# Default: '' (empty)
+# #}
+{#
+# tls.key_file: Path to the TLS private key file (PEM format).
+# Default: '' (empty)
+# #}
+{#
+# tls.ca_file: Optional path to the CA certificate file for client certificate
+# verification.
+# Default: '' (empty)
+# #}
+{#
+# tls.min_version: Minimum TLS version accepted (e.g., '1.2', '1.3').
+# Default: '1.2'
+# #}
 tls {
-  cert_file = "{{ tls.cert_file }}"
-  key_file = "{{ tls.key_file }}"
-  ca_file = "{{ tls.ca_file | default('') }}"
-  min_version = "{{ tls.min_version | default('1.2') }}"
+  cert_file = "{{ (tls | default({})).cert_file | default('') | string }}"
+  key_file = "{{ (tls | default({})).key_file | default('') | string }}"
+  ca_file = "{{ (tls | default({})).ca_file | default('') | string }}"
+  min_version = "{{ (tls | default({})).min_version | default('1.2') | string }}"
 }
 {% endif %}
 
-# Log level: debug, info, warn, error, fatal
-log_level: "{{ log_level }}"
-{% else %}
-# Collector disabled — remove or comment out this block to enable
-# enabled = false
-{% endif %}
+{# -------------------------------------------------------------------------- #}
+{# Logging Configuration                                                        #}
+{# -------------------------------------------------------------------------- #}
+
+{#
+# log_level: Verbosity of logging: 'debug', 'info', 'warn', 'error', or 'fatal'.
+# Default: info
+# #}
+log_level: "{{ log_level | default('info') | string }}"

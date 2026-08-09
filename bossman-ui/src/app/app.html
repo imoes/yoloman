@@ -40,14 +40,22 @@
       </div>
     </nav>
     <div class="bm-content">
-      <!-- Event Console: top-right, clickable, badges the count of jobs running now. -->
-      <a class="bm-eventconsole" routerLink="/event-browser"
+      <!-- Event Console: top-right, clickable, badges the count of jobs running now. Opens the Event Browser as a popup. -->
+      <button type="button" class="bm-eventconsole" (click)="eventBrowserOpen.set(true)"
          [class.bm-ec-active]="runningJobs() > 0"
          [title]="runningJobs() > 0 ? runningJobs() + ' job(s) running — open Event Browser' : 'Event Browser'"
          aria-label="Event Console">
         <app-icon name="runs" [size]="18" />
         @if (runningJobs() > 0) { <span class="bm-ec-badge">{{ runningJobs() }}</span> }
-      </a>
+      </button>
+
+      @if (eventBrowserOpen()) {
+        <div class="bm-ebpop-scrim" (click)="eventBrowserOpen.set(false)"></div>
+        <div class="bm-ebpop" role="dialog" aria-label="Event Browser">
+          <button class="bm-ebpop-close" (click)="eventBrowserOpen.set(false)" aria-label="Close"><app-icon name="close" [size]="18" /></button>
+          <app-event-browser />
+        </div>
+      }
       <div class="bm-main">
         <router-outlet></router-outlet>
       </div>

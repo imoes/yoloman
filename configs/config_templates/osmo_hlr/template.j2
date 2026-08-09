@@ -4,62 +4,66 @@
 # See: https://osmocom.org/projects/osmo-hlr/wiki
 #
 
-# Enable debug output for more verbose logging
-debug {{ debug | lower }}
+# Enable verbose debug logging (use only for troubleshooting).
+debug {{ debug | default(False) | lower }}
 
-# Path to SQLite database file
-sqlite {{ sqlite_db_path }}
+# Path to the SQLite database file storing subscriber and location data.
+sqlite {{ sqlite_db_path | default('/var/lib/osmocom/hlr.db') }}
 
-# Listen address and port for the A-bis interface (BSC/NAS)
-# Note: For production, bind to internal IP, not 0.0.0.0
-msc {{ msc_listen_addr }} {{ msc_listen_port }}
+# IP address on which the HLR listens for MSC connections (A-bis interface).
+msc {{ msc_listen_addr | default('127.0.0.1') }} {{ msc_listen_port | default(4222) }}
 
-# Authentication algorithm preference
-# Valid: comp128v1, comp128v2, comp128v3 (or 'none' to disable)
-auth_policy {{ auth_policy }}
+# Authentication algorithm used for SIM/USIM verification. Choose from:
+# comp128v1 (default), comp128v2, comp128v3, or none.
+auth_policy {{ auth_policy | default('comp128v1') }}
 
-# APN used for GPRS/IMSI lookup (e.g., for SMSC, SGs, or S4)
-# Must match the APN configured in the HLR database or used for subscriber provisioning
-apn {{ apn }}
+# Default APN used for subscriber lookups in GPRS/IMS contexts.
+apn {{ apn | default('internet') }}
 
-# Maximum number of concurrent connections to the MSC
-max_connections {{ max_msc_connections }}
+# Maximum number of simultaneous connections allowed to the HLR from MSCs.
+max_connections {{ max_msc_connections | default(10) }}
 
-# Enable TLS for secure MSC connections (requires cert/key files)
-{% if tls_enabled %}
+# Enable TLS encryption for MSC connections (requires valid certificate and key).
+# Only present if tls_enabled is True.
+{% if tls_enabled | default(False) %}
 tls
-  cert {{ tls_cert_path }}
-  key {{ tls_key_path }}
+  cert {{ tls_cert_path | default('/etc/osmocom/tls/hlr.crt') }}
+  key {{ tls_key_path | default('/etc/osmocom/tls/hlr.key') }}
 {% endif %}
 
 # Logging configuration
 log
-  # Logging level per subsystem
-  # Subsystems: DHLR, DIUC, DMNCC, DREF, DSP, DSTK, DGSUP, DLU, DLAC, DREF, DSP, DSTK, DGSUP
-{% for sub, level in log_levels.items() %}
+  # Per-subsystem logging levels (e.g., DHLR, DIUC, DMNCC, DSP).
+  # Use: 'none', 'error', 'notice', 'info', 'debug'.
+  # Default mapping provided in schema.
+{% for sub, level in log_levels | default({'DHLR': 'debug', 'DIUC': 'info', 'DMNCC': 'info', 'DSP': 'info'}) | dict2items | map(attribute='value') | list | zip(log_levels | default({'DHLR': 'debug', 'DIUC': 'info', 'DMNCC': 'info', 'DSP': 'info'}) | default({}) | dict2items | map(attribute='key') | list) | list %}
   subsystem {{ sub }} level {{ level }}
 {% endfor %}
 
-# GPRS support (SGSN interconnection)
-{% if gprs_enabled %}
+# Enable GPRS/SGSN support (required for 4G/IMS integration).
+# Only present if gprs_enabled is True.
+{% if gprs_enabled | default(False) %}
 gprs
   # SGSN configuration
   sgsn
-    # GGSN address (for APN resolution)
-    ggsn {{ sgsn_ggsn_addr }}
-    # APN for GPRS context setup
-    apn {{ sgsn_apn }}
+    # IP address of the GGSN used for APN resolution (e.g., in S4/IMS scenarios).
+    ggsn {{ sgsn_ggsn_addr | default('127.0.0.1') }}
+    # APN used for GPRS context setup (e.g., for IMS or data services).
+    apn {{ sgsn_apn | default('ims') }}
 {% endif %}
 
-# GSUP (Generic Subscriber Update Protocol) server for inter-HLR communication
-{% for server in gsup_servers %}
+# GSUP (Generic Subscriber Update Protocol) server for inter-HLR communication.
+# Each item in gsup_servers list should have: name, host, port.
+{% for server in gsup_servers | default([]) %}
 gsup server {{ server.name }} {{ server.host }} {{ server.port }}
 {% endfor %}
 
-# CLI (Command Line Interface) for remote management
-# Bind to localhost by default for security
+# CLI (Command Line Interface) for remote management.
+# Bind to localhost by default for security.
 cli
-  telnet {{ cli_telnet_port }}
-{% if cli_telnet_password is defined and cli_telnet_password != '' %}
-  password {{ cli_telnet_password }}
+  telnet {{ cli_telnet_port | default(4242) }}
+  # Optional password for CLI access via Telnet.
+  # Leave empty for no password (not recommended in production).
+{% if cli_telnet_password | default('') | string | trim | length > 0 %}
+  password {{ cli_telnet_password | default('') }}
 {% endif %}

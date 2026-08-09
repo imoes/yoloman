@@ -1,54 +1,113 @@
-# Listen on specified address and port
-Port {{ sftp_listen_port }}
-# Bind to specified address (or all interfaces if empty)
-{% if sftp_bind_address %}ListenAddress {{ sftp_bind_address }}{% endif %}
+# ==============================================================================
+# SSH/SFTP Server Configuration Template
+# ==============================================================================
+# This template generates an sshd_config suitable for SFTP-only or hybrid
+# SSH/SFTP access. It enforces security best practices (no forwarding,
+# chroot jails) while allowing flexible user/group management.
+# ==============================================================================
 
-# Require public key authentication (common for SFTP-only access)
+# ------------------------------------------------------------------------------
+# Network Listeners
+# ------------------------------------------------------------------------------
+
+# Port on which the SSH/SFTP server listens for incoming connections.
+Port {{ sftp_listen_port | default(22) }}
+
+# IP address to bind to. Empty means all interfaces (default behavior).
+{% if sftp_bind_address | default('') | trim %}
+ListenAddress {{ sftp_bind_address | default('') | trim }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Authentication & Security
+# ------------------------------------------------------------------------------
+
+# Require public key authentication. This is standard for SFTP-only setups.
 PubkeyAuthentication yes
 
-# Disable password authentication for security (unless explicitly enabled)
-{% if password_auth_enabled %}PasswordAuthentication yes{% else %}PasswordAuthentication no{% endif %}
+# Allow password-based authentication. Set to 'no' for key-only access (recommended).
+{% if password_auth_enabled | default(False) | bool %}
+PasswordAuthentication yes
+{% else %}
+PasswordAuthentication no
+{% endif %}
 
-# Use PAM for account/session management (required for most SFTP setups)
+# Use PAM for account/session management. Required for chroot and group handling.
 UsePAM yes
 
-# Disable X11 forwarding (not needed for SFTP)
+# ------------------------------------------------------------------------------
+# Forwarding Restrictions (Security Best Practices)
+# ------------------------------------------------------------------------------
+
+# Disable X11 forwarding. Not needed for SFTP; reduces attack surface.
 X11Forwarding no
 
-# Disable TCP forwarding (not needed for SFTP)
+# Disable TCP forwarding. Prevents tunneling through SSH.
 AllowTcpForwarding no
 
-# Disable agent forwarding (security best practice for SFTP-only)
+# Disable agent forwarding. Prevents credential relay via ssh-agent.
 AllowAgentForwarding no
 
-# Disable port forwarding (security best practice)
+# Disable stream local (Unix socket) forwarding.
 AllowStreamLocalForwarding no
 
-# Restrict users to SFTP subsystem only
-{% if sftp_only_users %}Match User {{ sftp_only_users | join(', ') }}{% else %}{% endif %}
+# ------------------------------------------------------------------------------
+# SFTP-Only User Restrictions
+# ------------------------------------------------------------------------------
+
+# Apply chroot and internal-sftp restrictions to specific users.
+# The 'Match User' block restricts these users to SFTP only.
+{% if sftp_only_users | default([]) | length > 0 %}
+Match User {{ sftp_only_users | default([]) | join(',') }}
+    # Force the internal-sftp subsystem. Users cannot execute shell commands.
     ForceCommand internal-sftp
-    ChrootDirectory {{ sftp_chroot_dir }}
+    # Root directory for the SFTP chroot jail. Must be owned by root, not writable by user.
+    ChrootDirectory {{ sftp_chroot_dir | default('/sftp') }}
+    # Disable tunneling.
     PermitTunnel no
+    # Re-affirm forwarding restrictions within the Match block.
     AllowAgentForwarding no
     AllowTcpForwarding no
     X11Forwarding no
-{% if sftp_only_users %}Match{% endif %}
+{% endif %}
 
-# SFTP subsystem definition
+# ------------------------------------------------------------------------------
+# SFTP Subsystem Definition
+# ------------------------------------------------------------------------------
+
+# Define the SFTP subsystem to use the internal implementation.
 Subsystem sftp internal-sftp
 
-# Set idle timeout (seconds)
-ClientAliveInterval {{ sftp_client_alive_interval }}
-ClientAliveCountMax {{ sftp_client_alive_count_max }}
+# ------------------------------------------------------------------------------
+# Connection Management
+# ------------------------------------------------------------------------------
 
-# Log level for SFTP activity
-LogLevel {{ sftp_log_level }}
+# Seconds between client alive messages to detect dead connections.
+# Set to 0 to disable keep-alive checks.
+ClientAliveInterval {{ sftp_client_alive_interval | default(300) }}
 
-# Set max sessions per connection (controls concurrent SFTP sessions)
-MaxSessions {{ sftp_max_sessions }}
+# Number of unanswered keep-alive messages before disconnecting the client.
+ClientAliveCountMax {{ sftp_client_alive_count_max | default(3) }}
 
-# Login grace time (seconds)
-LoginGraceTime {{ sftp_login_grace_time }}
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
 
-# Allow groups to connect (leave empty to disable group-based access control)
-{% if ssh_allow_groups %}AllowGroups {{ ssh_allow_groups | join(' ') }}{% endif %}
+# Verbosity of logging (QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG).
+LogLevel {{ sftp_log_level | default('INFO') }}
+
+# Maximum number of concurrent sessions per network connection.
+# Limits simultaneous uploads/downloads per connection.
+MaxSessions {{ sftp_max_sessions | default(10) }}
+
+# Seconds the server waits for successful authentication before disconnecting.
+LoginGraceTime {{ sftp_login_grace_time | default(120) }}
+
+# ------------------------------------------------------------------------------
+# Access Control Groups
+# ------------------------------------------------------------------------------
+
+# List of Unix groups permitted to connect. Leave empty to allow all users.
+{% if ssh_allow_groups | default([]) | length > 0 %}
+AllowGroups {{ ssh_allow_groups | default([]) | join(' ') }}
+{% endif %}

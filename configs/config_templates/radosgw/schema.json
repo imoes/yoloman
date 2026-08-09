@@ -1,110 +1,12 @@
 {
-  "cluster_name": {
+  "cluster_name_prefix": {
     "type": "string",
-    "default": "ceph",
-    "description": "The name of the Ceph cluster (used for config and keyring files)."
+    "default": "client.radosgw.",
+    "description": "The prefix used for radosgw instance sections in ceph.conf."
   },
-  "instance_name": {
+  "default_user": {
     "type": "string",
-    "default": "rgw1",
-    "description": "Unique identifier for this RGW instance (e.g., 'rgw1', 'rgw-proxy')."
-  },
-  "keyring_path": {
-    "type": "string",
-    "default": "/etc/ceph/client.radosgw.{{ instance_name }}.keyring",
-    "description": "File path to the client keyring used for authentication to the Ceph cluster."
-  },
-  "frontend_config": {
-    "type": "string",
-    "default": "civetweb port=8080 num_threads=100",
-    "description": "Frontend configuration string specifying host, port, and server backend (e.g., 'civetweb', 'fastcgi', 'nginx+uwsgi')."
-  },
-  "enabled_apis": {
-    "type": "list",
-    "default": [
-      "s3",
-      "swift"
-    ],
-    "description": "List of REST APIs to enable: 's3', 'swift', 'swift_auth', 'admin', 'null'."
-  },
-  "dns_name": {
-    "type": "string",
-    "default": "rgw.{{ cluster_name }}.internal",
-    "description": "DNS name used for virtual-hosted-style bucket access (e.g., 'bucket.rgw.example.com')."
-  },
-  "log_file_path": {
-    "type": "string",
-    "default": "/var/log/ceph/ceph-radosgw.{{ instance_name }}.log",
-    "description": "Path to the RGW daemon log file."
-  },
-  "metadata_pool": {
-    "type": "string",
-    "default": "default.rgw.meta",
-    "description": "Name of the pool used to store metadata (user info, buckets, etc.)."
-  },
-  "data_pool": {
-    "type": "string",
-    "default": "default.rgw.data.root",
-    "description": "Name of the primary data pool for objects (if using non-default layout)."
-  },
-  "s3_auth_use_rados": {
-    "type": "bool",
-    "default": true,
-    "description": "When true, use internal Rados (RADOS users) for S3/Swift authentication instead of external stores."
-  },
-  "max_read_mb": {
-    "type": "number",
-    "default": 2048,
-    "description": "Maximum size (in MB) of a single GET request body."
-  },
-  "max_read_time_ms": {
-    "type": "number",
-    "default": 30000,
-    "description": "Maximum time (in ms) allowed for a single GET request."
-  },
-  "max_chunk_size": {
-    "type": "number",
-    "default": 1048576,
-    "description": "Maximum chunk size (in bytes) for multipart uploads."
-  },
-  "op_thread_pool_size": {
-    "type": "number",
-    "default": 64,
-    "description": "Number of threads in the operation thread pool."
-  },
-  "max_open_buckets": {
-    "type": "number",
-    "default": 128,
-    "description": "Maximum number of concurrently open bucket indexes."
-  },
-  "bucket_index_max_shards": {
-    "type": "number",
-    "default": 12,
-    "description": "Number of shards for bucket index objects (increases scalability)."
-  },
-  "zone_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Set to true to enable multi-site zone configuration."
-  },
-  "zone_name": {
-    "type": "string",
-    "default": "default",
-    "description": "Name of the RGW zone in a multi-site configuration."
-  },
-  "ssl_enabled": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable TLS termination at the RGW instance level."
-  },
-  "ssl_cert_path": {
-    "type": "string",
-    "default": "/etc/ceph/rgw.crt",
-    "description": "Path to the SSL/TLS certificate for RGW."
-  },
-  "ssl_key_path": {
-    "type": "string",
-    "default": "/etc/ceph/rgw.key",
-    "description": "Path to the SSL/TLS private key for RGW."
+    "default": "root",
+    "description": "The default user to run radosgw as if not specified in ceph.conf."
   }
 }

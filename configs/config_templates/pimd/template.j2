@@ -1,62 +1,127 @@
-#! /bin/sh
-### BEGIN INIT INFO
-# Provides:          pimd
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: PIM-SM/SSM multicast routing daemon
-# Description:       Lightweight, stand-alone PIM-SM/SSM multicast routing daemon
-### END INIT INFO
+# ==============================================================================
+# PIMd (Protocol Independent Multicast Daemon) Configuration
+# ==============================================================================
+# This template generates the configuration file for pimd, a lightweight,
+# stand-alone PIM-SM/SSM multicast routing daemon.
+#
+# It supports PIM-Sparse Mode (PIM-SM), PIM-Dense Mode (PIM-DM), VRRP
+# interoperability, RP configuration, Bootstrap Router (BSR), and per-interface
+# settings including IGMP querier and boundary ACLs.
+# ==============================================================================
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/pimd
-NAME=pimd
-DESC="PIM-SM/SSM multicast routing daemon"
-PIDFILE="/run/${NAME}.pid"
+# --------------------------------------------------------------------------
+# Global Debug Settings
+# --------------------------------------------------------------------------
 
-. /lib/lsb/init-functions
+# Enable debugging output to syslog.
+# Type: boolean
+debug {{ debug | default(false) }}
 
-test -x $DAEMON || exit 0
+# Debug level suffix (e.g., ' 2' for more verbose logs); empty to use default level.
+# Type: string
+debug_level {{ debug_level | default('') }}
 
-set -e
+# --------------------------------------------------------------------------
+# Global Multicast Routing Settings
+# --------------------------------------------------------------------------
 
-case "$1" in
-  start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	start-stop-daemon --start --quiet --pidfile /var/run/$NAME.pid \
-		--exec $DAEMON
-	log_end_msg $?
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/$NAME.pid \
-		--exec $DAEMON --retry 5
-	log_end_msg $?
-	;;
-  restart)
-	log_action_begin_msg "Restarting $DESC" "$NAME"
-	start-stop-daemon --stop --quiet --pidfile \
-		/var/run/$NAME.pid --exec $DAEMON --retry 5
-	start-stop-daemon --start --quiet --pidfile \
-		/var/run/$NAME.pid --exec $DAEMON
-	log_end_msg $?
-	;;
-  reload|force-reload)
-	log_action_begin_msg "Reloading $DESC configuration files" "$NAME"
-	start-stop-daemon --oknodo --stop --signal HUP --quiet \
-		--pidfile "$PIDFILE" --exec "$DAEMON"
-	log_end_msg $?
-	;;
-  status)
-	status_of_proc -p "$PIDFILE" "$DAEMON" "$NAME"
-	exit $?
-	;;
-  *)
-	N=/etc/init.d/$NAME
-	echo "Usage: $N {start|stop|restart|force-reload}" >&2
-	exit 1
-	;;
-esac
+# Virtual Router ID (0–255) for VRRP interoperability. Only relevant if using VRRP with PIM.
+# Type: integer
+vrid {{ vrid | default(1) }}
 
-exit 0
+# Enable PIM-Sparse Mode (required for most production deployments).
+# Type: boolean
+pimsm_enabled {{ pimsm_enabled | default(true) }}
+
+# Enable PIM-Dense Mode (rarely used; disable unless explicitly required).
+# Type: boolean
+pimdm_enabled {{ pimdm_enabled | default(false) }}
+
+# TTL threshold (0–255) for multicast packets to be forwarded. 0 = forward all.
+# Type: integer
+cp_threshold {{ cp_threshold | default(0) }}
+
+# --------------------------------------------------------------------------
+# Rendezvous Point (RP) Configuration
+# --------------------------------------------------------------------------
+
+# IP address of the Rendezvous Point (RP) for PIM-SM.
+# This is used as a static RP when BSR is not enabled.
+# Type: string (IP address)
+rp_address {{ rp_address | default('192.168.1.1') }}
+
+# Enable Bootstrap Router (BSR) functionality for dynamic RP discovery.
+# If enabled, the static rp_address is ignored for RP election purposes.
+# Type: boolean
+bsr_enabled {{ bsr_enabled | default(false) }}
+
+# --------------------------------------------------------------------------
+# Static Multicast Routes
+# --------------------------------------------------------------------------
+
+# List of static (*,G) multicast routes for manual forwarding control.
+# Format per item: source_group_prefix
+# Example: "239.0.0.1/32" or "192.168.1.1/32" for S(*,G)
+# If empty, no static routes are configured.
+{% for route in static_routes | default([]) %}
+static_route {{ route }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Access Lists
+# --------------------------------------------------------------------------
+
+# Access-lists to filter multicast groups and sources.
+# These are typically referenced by boundary filters.
+# Format per item: a valid pimd access-list definition string.
+# Example: "access_list 10 permit 224.0.0.0/4"
+{% for acl in access_lists | default([]) %}
+access_list {{ acl }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Interface-Specific Configurations
+# --------------------------------------------------------------------------
+
+# Per-interface PIM/IGMP settings.
+# Each interface item includes:
+#   - name: Interface name (e.g., eth0)
+#   - mode: 'sm' for Sparse Mode, 'dm' for Dense Mode
+#   - hello_interval: Seconds between PIM Hello messages (default 30)
+#   - dr_priority: DR Election priority (higher wins)
+#   - pim_disabled: If true, disable PIM on this interface
+#   - igmp_querier: If true, enable IGMP Querier on this interface
+
+{% for iface in interfaces | default([{'name': 'eth0', 'mode': 'sm', 'hello_interval': 30, 'dr_priority': 1, 'pim_disabled': False, 'igmp_querier': True}]) %}
+interface {{ iface.name | default('eth0') }}
+  # Mode for this interface: sm (Sparse) or dm (Dense)
+  mode {{ iface.mode | default('sm') }}
+
+  # Hello interval in seconds
+  hello_interval {{ iface.hello_interval | default(30) }}
+
+  # DR Priority for this interface
+  dr_priority {{ iface.dr_priority | default(1) }}
+
+  # Disable PIM on this interface if true
+  {% if iface.pim_disabled | default(false) %}
+  pim_disabled
+  {% endif %}
+
+  # Enable IGMP Querier on this interface if true
+  {% if iface.igmp_querier | default(true) %}
+  igmp_querier
+  {% endif %}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# Boundary Filters
+# --------------------------------------------------------------------------
+
+# List of boundary filters (inbound ACLs) per interface to restrict multicast sources or groups.
+# Format per item: interface_name:acl_name_or_number
+# Example: "eth0:10" applies access-list 10 to eth0
+# If empty, no boundary filters are applied.
+{% for boundary in boundaries | default([]) %}
+boundary {{ boundary }}
+{% endfor %}

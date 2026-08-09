@@ -1,17 +1,32 @@
-# $attrib|$nodeid|$ipv4/$ipv6|$port
-#
-# i|0|a.a.a.a|9001
-# if|1001|b.b.b.b|9001
-# n|1002|c.c.c.c|9001
+# OpenGNB Node Configuration
+# This file configures the node identity, network settings, discovery mechanism,
+# and the list of public index nodes for the OpenGNB mesh network.
 
-# Here are the available public gnb index nodes provided by volunteers.
-# These public gnb index nodes may change, please visit
-# https://github.com/gnbdev/opengnb/blob/master/README_EN.md and
-# https://github.com/gnbdev/opengnb/blob/master/examples/node_config_example/address.conf
-# to get the newest public gnb index nodes infos.
-# OpenGNB will take affect at lease one of these nodes exist when you don't
-# setup your own index node.
-# The following public gnb index nodes infos update on 2025-05-03:
-i|0|{{ network.public_index_nodes.0.0 }}|{{ network.public_index_nodes.0.1 }}
-i|0|{{ network.public_index_nodes.1.0 }}|{{ network.public_index_nodes.1.1 }}
-# You may also setup your own gnb index node and use it.
+# --- Node Identity ---
+# Identifier for this specific node in the GNB mesh.
+# Format: i|<node_id>|<public_ip>|<port>
+i|{{ (node | default({})).id | default('') }}|{{ (network | default({})).public_ip | default('') }}|{{ (network | default({})).port | default(0) }}
+
+# --- Discovery: Custom Index Node ---
+# If a custom index node is configured, it is listed here to override or supplement public nodes.
+# Format: if|<index_node_id>|<index_node_ip>|<index_node_port>
+# Note: The schema defines 'discovery.index_node' but the template accesses specific sub-fields.
+# We default each sub-field to empty string or 0 if missing.
+{% if discovery is defined and discovery.index_node is defined %}
+if|{{ discovery.index_node.id | default('') }}|{{ discovery.index_node.ip | default('') }}|{{ discovery.index_node.port | default(0) }}
+{% else %}
+# No custom index node configured in discovery settings.
+{% endif %}
+
+# --- Network: Local Node Identity ---
+# Format: n|<node_id>|<node_ip>|<node_port>
+n|{{ (network | default({})).node_id | default('') }}|{{ (network | default({})).node_ip | default('') }}|{{ (network | default({})).node_port | default(0) }}
+
+# --- Public Index Nodes ---
+# List of public GNB index nodes provided by volunteers.
+# These nodes are used if no custom index node is set up.
+# Format: i|0|<host>|<port>
+# The list comes from `network.public_index_nodes`, which is a list of [host, port] pairs.
+{% for item in (network | default({})).public_index_nodes | default([['101.32.178.3', 9001], ['45.78.14.231', 9001]]) %}
+i|0|{{ item[0] }}|{{ item[1] }}
+{% endfor %}

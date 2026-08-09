@@ -37,12 +37,12 @@
   "events.use": {
     "type": "string",
     "default": "epoll",
-    "description": "Event notification method to use (platform-dependent).",
+    "description": "Event notification method to use (platform-dependent). (Note: 'select' and 'poll' are deprecated in modern Nginx). Supported: kqueue, epoll, /dev/poll, event ports, aio.",
     "enum": [
+      "epoll",
+      "kqueue",
       "select",
       "poll",
-      "kqueue",
-      "epoll",
       "/dev/poll"
     ]
   },
@@ -283,12 +283,7 @@
   },
   "servers[].location_blocks[].rewrite": {
     "type": "string",
-    "description": "Regex rewrite rule (e.g., '^/old/(.*)$ /new/$1 permanent').",
-    "enum": [
-      "permanent",
-      "rewrite"
-    ],
-    "default": "permanent"
+    "description": "Regex rewrite rule (e.g., '^/old/(.*)$ /new/$1 permanent')."
   },
   "servers[].location_blocks[].rewrite_flags": {
     "type": "list",
@@ -319,11 +314,6 @@
   "servers[].location_blocks[].limit_rate": {
     "type": "string",
     "description": "Per-connection bandwidth limit (e.g., '100k', '1m')."
-  },
-  "servers[].location_blocks[].add_trailer": {
-    "type": "list",
-    "default": [],
-    "description": "HTTP trailer headers to add (for chunked responses)."
   },
   "servers[].access_log": {
     "type": "string",

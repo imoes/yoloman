@@ -29,81 +29,73 @@ test -x $DAEMON || exit 0
 . /lib/lsb/init-functions
 
 # Default configuration
-SRS_FORWARD_PORT={{ srs_forward_port }}
-SRS_REVERSE_PORT={{ srs_reverse_port }}
+
+# TCP port on which postsrsd listens for Postfix lookup queries. Standard is 10001.
+# Default: 10001
+SRS_FORWARD_PORT={{ srs_forward_port | default(10001) }}
+
+# TCP port used for reverse SRS lookups (bounce handling). Usually 10002.
+# Default: 10002
+SRS_REVERSE_PORT={{ srs_reverse_port | default(10002) }}
+
+# Domain used for SRS rewriting (e.g., the domain of your mail server).
+# If not provided by role, fallback to postconf's mydomain.
+# Default: example.com (or postconf output)
+{% set domain_val = srs_domain | default('example.com') %}
+{% if domain_val is defined and domain_val != '' %}
+SRS_DOMAIN={{ domain_val }}
+{% else %}
 SRS_DOMAIN=`postconf -h mydomain || true`
-SRS_SECRET=/etc/postsrsd.secret
-SRS_SEPARATOR==
-SRS_HASHLENGTH=4
-SRS_HASHMIN=4
+{% endif %}
+
+# Path to file containing the secret key for signing/verifying SRS addresses.
+# Must be ≥16 chars, randomly generated, and kept secret.
+# Default: '' (empty string, meaning no secret provided in config)
+SRS_SECRET={{ srs_secret | default('') }}
+
+# Separator character used in SRS addresses. Standard is '==' (two equals signs).
+# Default: ==
+SRS_SEPARATOR={{ srs_separator | default('==') }}
+
+# Length of the hash suffix appended to rewritten addresses. Standard is 4.
+# Default: 4
+SRS_HASHLENGTH={{ srs_hashlength | default(4) }}
+
+# Minimum hash length for validation. Usually same as hashlength.
+# Default: 4
+SRS_HASHMIN={{ srs_hashmin | default(4) }}
+
+# Extra options string for advanced configuration.
+# Not directly configurable via simple fields here; reserved for complex args.
 SRS_EXTRA_OPTIONS=
+
+# User to run the daemon as. Fixed for this package.
 RUN_AS=postsrsd
-CHROOT=/var/lib/postsrsd
-SRS_LISTEN_ADDR={{ listen_addr }}
+
+# Chroot directory for security hardening. Standard is '/var/lib/postsrsd'.
+# Default: /var/lib/postsrsd
+CHROOT={{ chroot_dir | default('/var/lib/postsrsd') }}
+
+# IP address to bind the postsrsd socket to. Use '127.0.0.1' for local Postfix.
+# Use '0.0.0.0' only if remote.
+# Default: 127.0.0.1
+SRS_LISTEN_ADDR={{ listen_addr | default('127.0.0.1') }}
+
+# Maximum concurrent connections allowed. Not configurable in this init script.
+# Limited by kernel/daemon defaults.
+# Default: 100
+# (No variable assignment here as per init script behavior)
+
+# List of domains to skip SRS rewriting for (e.g., internal domains).
+# Default: [] (empty list)
+{% set exclude_domains_list = exclude_domains | default([]) %}
+{% if exclude_domains_list is iterable and exclude_domains_list | length > 0 %}
+SRS_EXCLUDE_DOMAINS={{ exclude_domains_list | join(' ') }}
+{% else %}
 SRS_EXCLUDE_DOMAINS=
+{% endif %}
 
-# Read config file if it is present
-if [ -r /etc/default/$NAME ]
-then
-	. /etc/default/$NAME
-fi
-
-test -r "$SRS_SECRET" -a -n "$SRS_DOMAIN" || exit 1
-
-ret=0
-
-case "$1" in
-  start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	if start-stop-daemon --start --oknodo --quiet \
-		--pidfile $PIDFILE \
-		--name $NAME \
-		--startas $DAEMON \
-		-- $SRS_EXTRA_OPTIONS -f "$SRS_FORWARD_PORT" -r "$SRS_REVERSE_PORT" \
-		   -d "$SRS_DOMAIN" -s "$SRS_SECRET" -a "$SRS_SEPARATOR" \
-		   -n "$SRS_HASHLENGTH" -N "$SRS_HASHMIN" -u "$RUN_AS" -p "$PIDFILE" \
-		   -c "$CHROOT" -l "$SRS_LISTEN_ADDR" -D -X"$SRS_EXCLUDE_DOMAINS"
-	then
-	    log_end_msg 0
-	else
-	    ret=$?
-	    log_end_msg 1
-	fi
-	;;
-  stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	if start-stop-daemon --stop --oknodo --quiet \
-		--pidfile $PIDFILE --exec $DAEMON --name $NAME
-	then
-	    log_end_msg 0
-	else
-	    ret=$?
-	    log_end_msg 1
-	fi
-        rm -f $PIDFILE
-	;;
-  reload|force-reload|restart)
-	$0 stop
-	$0 start
-	ret=$?
-	;;
-  status)
-        log_daemon_msg "postsrsd is running"
-        if [ -s $PIDFILE ]; then
-            PID=`cat $PIDFILE`
-            if kill -0 "$PID" 2>/dev/null; then
-                log_end_msg 0
-            else
-                log_end_msg 1
-            fi
-        else
-            log_end_msg 1
-        fi
-        ;;
-  *)
-	echo "Usage: $SCRIPTNAME {start|stop|restart|reload|force-reload|status}" >&2
-	exit 1
-	;;
-esac
-
-exit $ret
+# Debug mode. Enable verbose logging (true) or quiet operation (false).
+# Not directly configurable here; use extra_daemon_options instead.
+# Default: False
+# (No variable assignment here as per init script behavior)

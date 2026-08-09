@@ -1,21 +1,49 @@
-# Enable pg_stat_kcache extension (must be loaded at server start)
-shared_preload_libraries = '{{ shared_preload_libraries }}'
+# =============================================================================
+# PostgreSQL Configuration: pg_stat_kcache Extension
+#
+# This template configures the pg_stat_kcache extension for PostgreSQL.
+# pg_stat_kcache provides kernel-level statistics (CPU, I/O, context switches)
+# for PostgreSQL queries, extending the standard pg_stat_statements.
+#
+# IMPORTANT: The 'pg_stat_kcache' module MUST be present in shared_preload_libraries.
+# PostgreSQL must be restarted after changing shared_preload_libraries.
+# =============================================================================
 
-# Kernel statistics level to collect (none, user, kernel, all)
-pg_stat_kcache.level = '{{ pg_stat_kcache_level }}'
+# Comma-separated list of shared libraries to preload at PostgreSQL startup.
+# Must include 'pg_stat_kcache' for this extension to work.
+# Other common extensions like 'pg_stat_statements' or 'auto_explain' can also be listed here.
+shared_preload_libraries = '{{ shared_preload_libraries | default("pg_stat_kcache") }}'
 
-# Enable tracking of kernel time (CPU, I/O, etc.)
-pg_stat_kcache.track = '{{ pg_stat_kcache_track }}'
+# Kernel statistics level to collect.
+# Allowed values:
+#   - 'none': Disable kernel statistics collection.
+#   - 'user': Collect user-space CPU time only.
+#   - 'kernel': Collect kernel-space CPU time only.
+#   - 'all': Collect both user and kernel CPU time.
+pg_stat_kcache.level = '{{ pg_stat_kcache_level | default("user") }}'
 
-# Maximum number of top queries to track per database (0 = no limit)
-pg_stat_kcache.top_k_queries = {{ pg_stat_kcache_top_k_queries }}
+# Which statistics to track.
+# Allowed values:
+#   - 'queries': Track statistics per SQL query.
+#   - 'plans': Track statistics per query plan node.
+#   - 'all': Track both query and plan statistics.
+pg_stat_kcache.track = '{{ pg_stat_kcache_track | default("all") }}'
 
-# Reset statistics on server restart?
-pg_stat_kcache.reset_on_dump = {{ pg_stat_kcache_reset_on_dump | lower }}
+# Maximum number of top queries to retain statistics for per database.
+# Setting this to 0 disables the limit (unlimited).
+# Use this to bound memory usage for the extension.
+pg_stat_kcache.top_k_queries = {{ pg_stat_kcache_top_k_queries | default(100) }}
 
-# Per-database inclusion/exclusion rules (if specified)
-{% for db_rule in pg_stat_kcache_database_rules %}
-# Rule for database '{{ db_rule.database }}': {{ db_rule.include | title }} queries from '{{ db_rule.pattern }}'
+# If true, reset collected statistics when pg_dump is run.
+# This is useful to prevent statistics from being affected by dump operations.
+# Values: true or false.
+pg_stat_kcache.reset_on_dump = {{ pg_stat_kcache_reset_on_dump | default(False) | lower }}
+
+# Per-database inclusion/exclusion rules for statistics collection.
+# This section generates configuration entries to include or exclude specific databases
+# based on pattern matching. If no rules are provided, the global settings apply to all databases.
+{% for db_rule in (pg_stat_kcache_database_rules | default([])) %}
+# Rule #{{ loop.index }}: {{ "Include" if db_rule.include else "Exclude" }} database matching pattern '{{ db_rule.pattern }}'
 {% if db_rule.include %}
 pg_stat_kcache.include_patterns.{{ loop.index }} = '{{ db_rule.pattern }}'
 {% else %}
@@ -23,14 +51,23 @@ pg_stat_kcache.exclude_patterns.{{ loop.index }} = '{{ db_rule.pattern }}'
 {% endif %}
 {% endfor %}
 
-# Rate limiting: max samples per second per query (0 = unlimited)
-pg_stat_kcache.sample_rate = {{ pg_stat_kcache_sample_rate }}
+# Maximum number of samples per second per query.
+# Setting to 0 means unlimited (collect every sample).
+# Use this to limit the overhead of the extension on high-load systems.
+pg_stat_kcache.sample_rate = {{ pg_stat_kcache_sample_rate | default(0) }}
 
-# Enable per-query kernel time (e.g., sys_time, user_time)
-pg_stat_kcache.track_time = {{ pg_stat_kcache_track_time | lower }}
+# If true, track kernel/user CPU time per query.
+# This requires kernel support (e.g., perf_event_open).
+# Values: true or false.
+pg_stat_kcache.track_time = {{ pg_stat_kcache_track_time | default(True) | lower }}
 
-# Enable per-query I/O stats (read/write bytes & count)
-pg_stat_kcache.track_io = {{ pg_stat_kcache_track_io | lower }}
+# If true, track I/O stats (bytes read/written, reads/writes count) per query.
+# This provides insight into disk usage per query.
+# Values: true or false.
+pg_stat_kcache.track_io = {{ pg_stat_kcache_track_io | default(True) | lower }}
 
-# Enable per-query context switches & page faults
-pg_stat_kcache.track_context = {{ pg_stat_kcache_track_context | lower }}
+# If true, track context switches and page faults per query.
+# WARNING: This is expensive and can significantly impact performance.
+# Use only for deep profiling sessions.
+# Values: true or false.
+pg_stat_kcache.track_context = {{ pg_stat_kcache_track_context | default(False) | lower }}

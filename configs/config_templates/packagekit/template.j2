@@ -3,39 +3,19 @@
 
 [Daemon]
 
-# Default backends, as chosen in the configure script. This will be used
-# where no --backend="foo" option is given to the daemon.
-#
-# The order they are specified is the order they are tried, so for the
-# value "foo,bar" first "foo" will be attempted and then "bar" if the
-# libpk_backend_foo.so module load failed.
-#DefaultBackend=auto
+# Default backend(s) to use for PackageKit, as chosen in the configure script.
+# Comma-separated list. 'auto' allows automatic selection.
+# Example: "apt,dnf" or "auto".
+DefaultBackend={{ default_backend | default('auto') }}
 
-# Unlock the backend after this many seconds idle.
-#BackendShutdownTimeout=5
+# Time in seconds to wait before unlocking the backend after it becomes idle.
+# This controls how long the package management system stays locked while unused.
+BackendShutdownTimeout={{ backend_shutdown_timeout | default(5) }}
 
-# Shut down the daemon after this many seconds idle. 0 means don't shutdown.
-#ShutdownTimeout=300
+# Time in seconds to wait before shutting down the daemon when idle.
+# Set to 0 to disable automatic shutdown.
+ShutdownTimeout={{ shutdown_timeout | default(300) }}
 
-# Keep the packages after they have been downloaded
-#KeepCache=false
-
-[CommandNotFound]
-
-# Whether to enable the command-not-found handler
-CommandNotFoundEnabled={{ command_not_found_enabled }}
-
-# Full path to the command-not-found handler script
-CommandNotFoundPath={{ command_not_found_path }}
-
-# Maximum number of simultaneous command-not-found lookups allowed
-MaxConcurrentLookups={{ max_concurrent_lookups }}
-
-# List of allowed package sources for command-not-found suggestions (comma-separated)
-AllowedSources={{ allowed_sources }}
-
-# Maximum time (in seconds) to wait for each lookup before timing out
-LookupTimeout={{ lookup_timeout }}
-
-# Whether to emit detailed debug logging
-Verbose={{ verbose }}
+# Whether to keep downloaded package files in the cache after installation.
+# If true, downloaded .deb/.rpm files are retained; if false, they are deleted.
+KeepCache={{ keep_cache | default(false) | lower }}

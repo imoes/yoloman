@@ -1,61 +1,84 @@
-# OsmoTRX main configuration file
-# Bind to localhost by default; change if multi-host deployment
-bind-address {{ bind_address }}
+# =============================================================================
+# OsmoTRX Configuration Template
+# =============================================================================
+# This file configures OsmoTRX, a transceiver for OpenBTS/OsmoBTS.
+# It binds to a specific network interface and exposes RTP and control ports.
+# Hardware-specific sections (LimeSDR, USRP, HackRF) are generated based on `device_type`.
+# =============================================================================
 
-# UDP port for RTP media stream (L1 <-> L2 interface)
-rtp-port {{ rtp_port }}
+# [bind-address] Network interface IP address to bind control and media ports (e.g., '127.0.0.1', '0.0.0.0'). Use 0.0.0.0 only in trusted networks.
+bind-address {{ bind_address | default('127.0.0.1') }}
 
-# UDP port for control interface (OSMO_TRX control protocol)
-control-port {{ control_port }}
+# [rtp-port] UDP port for RTP voice/data frames (L1 ↔ L2 interface). Must match BTS (e.g., osmo-bts-trx) configuration.
+rtp-port {{ rtp_port | default(4000) }}
 
-# Transceiver instance name (used in logging and control interface)
-instance {{ instance_name }}
+# [control-port] UDP port for OsmoTRX control protocol (used by osmo-bts-trx to manage transceiver).
+control-port {{ control_port | default(4001) }}
 
-# Maximum number of simultaneously active TRX (typically 1 or 3 for 3-sector BTS)
-max-trx {{ max_trx }}
+# [instance] Logical name for this TRX instance (e.g., 'trx0', 'trx1'). Must be unique per host and match BTS config.
+instance {{ instance_name | default('trx0') }}
 
-# Baseband device type: 'lms7' (LimeSDR), 'usrp' (UHD), ' HackRF', etc.
-device-type {{ device_type }}
+# [max-trx] Maximum number of TRX instances this transceiver can support (e.g., 1 for single-carrier, 3 for 3-sector BTS).
+max-trx {{ max_trx | default(1) }}
 
-{% if device_type == 'lms7' %}
-# LimeSDR-specific settings
+# [device-type] Hardware interface type: 'lms7' (LimeSDR), 'usrp' (USRP), or 'hackrf' (HackRF).
+device-type {{ device_type | default('lms7') }}
+
+{% if device_type | default('lms7') == 'lms7' %}
+# =============================================================================
+# LimeSDR (LMS7) Specific Configuration
+# =============================================================================
+
 [limesdr]
-# LimeSDR device serial (optional; auto-detect if omitted)
+
+# [serial] LimeSDR device serial number (optional; leave blank to auto-detect).
 serial {{ limesdr_serial | default('') }}
-# TX gain in dB (0–73)
-tx-gain {{ limesdr_tx_gain }}
-# RX gain in dB (0–73)
-rx-gain {{ limesdr_rx_gain }}
-# TX frequency offset in kHz (fine-tune for calibration)
-tx-freq-offset {{ limesdr_tx_freq_offset }}
-# RX frequency offset in kHz
-rx-freq-offset {{ limesdr_rx_freq_offset }}
-{% endif %}
 
-{% if device_type == 'usrp' %}
-# USRP (UHD) settings
+# [tx-gain] LimeSDR transmit gain (0–73 dB). Start with ~60 and adjust for signal strength.
+tx-gain {{ limesdr_tx_gain | default(60) }}
+
+# [rx-gain] LimeSDR receive gain (0–73 dB). Adjust to avoid saturation while maintaining good SNR.
+rx-gain {{ limesdr_rx_gain | default(60) }}
+
+# [tx-freq-offset] LimeSDR TX frequency correction in kHz (used for calibration against reference oscillator).
+tx-freq-offset {{ limesdr_tx_freq_offset | default(0) }}
+
+# [rx-freq-offset] LimeSDR RX frequency correction in kHz.
+rx-freq-offset {{ limesdr_rx_freq_offset | default(0) }}
+
+{% elif device_type | default('lms7') == 'usrp' %}
+# =============================================================================
+# USRP (UHD) Specific Configuration
+# =============================================================================
+
 [uhd]
-# USRP device address string (e.g., 'addr=192.168.10.2')
-addr {{ usrp_addr }}
-# Subdevice spec: e.g., 'A:0' or 'B:0'
-subdev {{ usrp_subdev }}
-# TX gain in dB (0–90, hardware-dependent)
-tx-gain {{ usrp_tx_gain }}
-rx-gain {{ usrp_rx_gain }}
-{% endif %}
 
-{% if device_type == 'hackrf' %}
-# HackRF settings
+# [addr] USRP device address string (e.g., 'addr=192.168.10.2', 'type=usrp1').
+addr {{ usrp_addr | default('addr=192.168.10.2') }}
+
+# [subdev] USRP subdevice specification (e.g., 'A:0' for main A port).
+subdev {{ usrp_subdev | default('A:0') }}
+
+# [tx-gain] USRP transmit gain (0–90 dB, hardware-dependent).
+tx-gain {{ usrp_tx_gain | default(60) }}
+
+# [rx-gain] USRP receive gain (0–90 dB, hardware-dependent).
+rx-gain {{ usrp_rx_gain | default(60) }}
+
+{% elif device_type | default('lms7') == 'hackrf' %}
+# =============================================================================
+# HackRF Specific Configuration
+# =============================================================================
+
 [hackrf]
-# HackRF device index (0-based, for multiple devices)
-device-index {{ hackrf_device_index }}
+
+# [device-index] HackRF device index (0 for first device, 1 for second, etc.).
+device-index {{ hackrf_device_index | default(0) }}
+
 {% endif %}
 
-# Log level: 0=none, 1=error, 2=warning, 3=info, 4=debug, 5=trace
-log-level {{ log_level }}
+# [log-level] Verbosity of logs: 0=none, 1=error, 2=warning, 3=info, 4=debug, 5=trace. 3 is recommended for production.
+log-level {{ log_level | default(3) }}
 
-# Enable/Disable RF loopback mode (for factory test)
-loopback {{ loopback | lower }}
-
-# Clock source: 'internal', 'external', 'gpsdo'
-clock-source {{ clock_source }}
+# [clock-source] Timing reference source: 'internal' (board oscillator), 'external' (10 MHz input), or 'gpsdo' (GPS-disciplined oscillator).
+clock-source {{ clock_source | default('internal') }}

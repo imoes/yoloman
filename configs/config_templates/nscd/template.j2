@@ -1,145 +1,131 @@
-#!/bin/sh
-### BEGIN INIT INFO
-# Provides:          nscd
-# Required-Start:    $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: Starts the Name Service Cache Daemon
-### END INIT INFO
-
 #
-# nscd:	Starts the Name Service Cache Daemon
+# nscd:	Name Service Cache Daemon configuration file
 #
-# description:  This is a daemon which handles passwd and group lookups
-#		for running programs and caches the results for the next
-#		query.  You should start this daemon only if you use
-#		slow Services like NIS or NIS+
+# This file configures the Name Service Cache Daemon (nscd), which caches
+# results from the Name Service Switch (NSS) for passwd, group, hosts, and
+# other database lookups. This significantly speeds up lookups on systems
+# using slow backends like NIS, LDAP, or when DNS resolution is sluggish.
+#
+# See `man nscd.conf` for a complete description of all directives.
+#
 
-PATH="/sbin:/usr/sbin:/bin:/usr/bin"
-NAME="nscd"
-DESC="Name Service Cache Daemon"
-DAEMON="/usr/sbin/nscd"
-PIDFILE="/var/run/nscd/nscd.pid"
+# ---------------------------------------------------------------
+# General Settings
+# ---------------------------------------------------------------
 
-# Sanity checks.
-umask 022
-[ -f /etc/nscd.conf ] || exit 0
-[ -x "$DAEMON" ] || exit 0
-[ -d /var/run/nscd ] || mkdir -p /var/run/nscd
-. /lib/lsb/init-functions
+# System user account under which nscd runs. Use a non-root user for security.
+# nscd drops privileges to this user after binding to its socket.
+user {{ user | default('nobody') }}
 
-start_nscd()
-{
-	# Return
-	#   0 if daemon has been started or was already running
-	#   2 if daemon could not be started
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" --test > /dev/null || return 0
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" || return 2
-}
+# Maximum number of simultaneous client connections allowed.
+# Increase under high load if you see "max connections" errors in logs.
+# This limits the number of open file descriptors nscd will hold.
+max_connections {{ max_connection | default(256) }}
 
-stop_nscd()
-{
-	# Return
-	#   0 if daemon has been stopped
-	#   1 if daemon was already stopped
-	#   2 if daemon could not be stopped
+# Number of worker threads to handle requests.
+# Match to CPU core count under high concurrency. More threads help with
+# parallel cache lookups but consume more memory per thread stack.
+threads {{ threads | default(4) }}
 
-	# we try to stop using nscd --shutdown, that fails also if nscd is not present.
-	# in that case, fallback to "good old methods"
-	RETVAL=0
-	if ! $DAEMON --shutdown; then
-		start-stop-daemon --stop --quiet --pidfile "$PIDFILE" --name "$NAME" --test > /dev/null
-		RETVAL="$?"
-		[ "$?" -ne 0  -a  "$?" -ne 1 ] && return 2
-	fi
+# After how many cache reloads (due to file changes) the cache should be
+# revalidated automatically. If the underlying files (e.g., /etc/passwd)
+# change, nscd can detect this and flush relevant caches.
+reload_count {{ reload_count | default(5) }}
 
-	# Wait for children to finish too
-	start-stop-daemon --stop --quiet --oknodo --retry=0/30/KILL/5 --exec "$DAEMON" > /dev/null
-	[ "$?" -ne 0  -a  "$?" -ne 1 ] && return 2
-	rm -f "$PIDFILE"
-	return "$RETVAL"
-}
+# Maximum length (bytes) of database identifier (e.g., filename) used
+# for cache invalidation. This limits the size of filenames nscd tracks
+# for automatic cache flushing.
+max_db_id_len {{ max_db_id_len | default(256) }}
 
-status()
-{
-	# Return
-	#   0 if daemon is stopped
-	#   1 if daemon is running
-	start-stop-daemon --start --quiet --pidfile "$PIDFILE" --exec "$DAEMON" --test > /dev/null || return 1
-	return 0
-}
+# Debug verbosity level (0 = silent, higher = more verbose).
+# Set to 1+ only for troubleshooting. Higher levels produce extensive
+# logs to stderr, useful for diagnosing NSS failures.
+debug_level {{ debug_level | default(0) }}
 
-invalidate_cache()
-{
-	for table in passwd group hosts services netgroup ; do
-		$DAEMON --invalidate $table
-	done
-}
+# ---------------------------------------------------------------
+# Per-Service Cache Configuration
+# ---------------------------------------------------------------
 
-case "$1" in
-start)
-	log_daemon_msg "Starting $DESC" "$NAME"
-	start_nscd
-	case "$?" in
-		0) invalidate_cache ; log_end_msg 0 ; exit 0 ;;
-		1) log_warning_msg " (already running)." ; exit 0 ;;
-		*) log_end_msg 1 ; exit 1 ;;
-	esac
-	;;
-stop)
-	log_daemon_msg "Stopping $DESC" "$NAME"
-	stop_nscd
-	case "$?" in
-		0) log_end_msg 0 ; exit 0 ;;
-		1) log_warning_msg " (not running)." ; exit 0 ;;
-		*) log_end_msg 1 ; exit 1 ;;
-	esac
-	;;
-restart|force-reload)
-	log_daemon_msg "Restarting $DESC" "$NAME"
-	invalidate_cache
-	stop_nscd
-	case "$?" in
-	0|1)
-		start_nscd
-		case "$?" in
-			0) log_end_msg 0 ; exit 0 ;;
-			1) log_failure_msg " (failed -- old process is still running)." ; exit 1 ;;
-			*) log_failure_msg " (failed to start)." ; exit 1 ;;
-		esac
-		;;
-	*)
-		log_failure_msg " (failed to stop)."
-		exit 1
-		;;
-	esac
-	;;
-try-restart)
-	log_daemon_msg "Trying to restart $DESC" "$NAME"
-	stop_nscd
-	case "$?" in
-		0)
-			start_nscd
-			case "$?" in
-				0) invalidate_cache ; log_end_msg 0 ; exit 0 ;;
-				*) log_failure_msg " (failed to start)." ; exit 1 ;;
-			esac
-			;;
-		1) log_success_msg "(not running)." ; exit 0 ;;
-		*) log_failure_msg "(failed to stop)." ; exit 1 ;;
-	esac
-	;;
-status)
-	log_daemon_msg "Status of $DESC service: "
-	status
-	case "$?" in
-		0) log_failure_msg "not running." ; exit 3 ;;
-		1) log_success_msg "running." ; exit 0 ;;
-	esac
-	;;
-*)
-	echo "Usage: /etc/init.d/$NAME {start|stop|force-reload|restart|status}" >&2
-	exit 1
-	;;
-esac
+# Enable caching of user (passwd) information.
+# When true, nscd caches /etc/passwd and getpwnam/getpwent results.
+# Essential for systems with many users or slow LDAP/NIS backends.
+enable-cache passwd {{ enable_cache_passwd | default(True) | ternary('yes', 'no') }}
+    max-db-size 524288000    # Max DB size in bytes (500 MB)
+    max-n-db 100             # Max number of entries in the passwd DB
+    min-n-db 50              # Min number of entries to keep
+    max-db-age 1h            # Max age of cache entries before refresh
+
+# Enable caching of group information.
+# When true, nscd caches /etc/group and getgrnam/getgrent results.
+group {{ enable_cache_group | default(True) | ternary('yes', 'no') }}
+    max-db-size 524288000    # Max DB size in bytes (500 MB)
+    max-n-db 100             # Max number of entries in the group DB
+    min-n-db 50              # Min number of entries to keep
+    max-db-age 1h            # Max age of cache entries before refresh
+
+# Enable caching of host (DNS) lookups.
+# When true, nscd caches gethostbyname/gethostbyaddr results.
+# Crucial for reducing DNS query load. Be careful with short TTLs on
+# dynamic DNS records.
+hosts {{ enable_cache_hosts | default(True) | ternary('yes', 'no') }}
+    max-db-size 1048576000   # Max DB size in bytes (1 GB)
+    max-n-db 10000           # Max number of entries in the hosts DB
+    min-n-db 100             # Min number of entries to keep
+    max-db-age 1h            # Max age of cache entries before refresh
+
+# Positive cache TTL (seconds) for successful lookups.
+# Higher values reduce backend load but increase stale data risk.
+# Applies to all cache types unless overridden per-service.
+positive-time-to-live {{ positive_time_to_live | default(3600) }}
+
+# Negative cache TTL (seconds) for failed lookups.
+# Keep low to avoid missing newly created accounts or hosts.
+# A short TTL ensures that if a user is created, it's picked up quickly.
+negative-time-to-live {{ negative_time_to_live | default(60) }}
+
+# Shared memory file paths for each cache type.
+# nscd uses shared memory segments for performance.
+# Each entry in this list corresponds to a cache type in order:
+# passwd, group, hosts, services, netgroup, protocols, rpc, ethers.
+# These are typically auto-managed, but can be pinned to specific paths.
+pwm-files {{ pwm_files | default(['/var/run/nscd/passwd.db', '/var/run/nscd/group.db', '/var/run/nscd/hosts.db']) | join(' ') }}
+
+# ---------------------------------------------------------------
+# Service-Specific Overrides (Optional)
+# ---------------------------------------------------------------
+
+# Services database (nsswitch.conf services line).
+# Caching service lookups (e.g., rpc, portmapper).
+services no
+    max-db-size 10485760     # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# Netgroup database.
+netgroup no
+    max-db-size 10485760     # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# Protocols database.
+protocols no
+    max-db-size 1048576      # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# RPC database.
+rpc no
+    max-db-size 1048576      # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries
+
+# Ethers database.
+ethers no
+    max-db-size 1048576      # Max DB size in bytes
+    max-n-db 100             # Max number of entries
+    min-n-db 10              # Min number of entries
+    max-db-age 1h            # Max age of cache entries

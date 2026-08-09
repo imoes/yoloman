@@ -1,52 +1,103 @@
-# ntpd-rs configuration file
+# ==============================================================================
+# ntpd-rs Configuration Template
+# ==============================================================================
+# This file configures the ntpd-rs NTP daemon. It controls binding, NTS (Network
+# Time Security), allowed clients, hardware reference clocks, upstream peers,
+# logging, and runtime state.
+#
 # Reference: https://github.com/autonomys/ntpd-rs
+# ==============================================================================
 
-# Listen interface and address binding
-bind = {{ bind_address | quote }}
+# ------------------------------------------------------------------------------
+# Network Binding
+# ------------------------------------------------------------------------------
 
-# Port to listen on for standard NTP (UDP 123)
-port = {{ ntp_port }}
+# IP address (IPv4 or IPv6) to bind the NTP server to (e.g., '0.0.0.0' for all
+# interfaces or '127.0.0.1' for localhost only).
+bind = {{ bind_address | default('0.0.0.0') | quote }}
 
-# Enable or disable NTS (Network Time Security) support
-nts_enable = {{ nts_enable }}
+# UDP port on which the NTP service listens. Standard NTP port is 123.
+port = {{ ntp_port | default(123) }}
 
-# NTS key and certificate file paths (only required if nts_enable = true)
-nts_key_file = {{ nts_key_file | quote }}
-nts_cert_file = {{ nts_cert_file | quote }}
+# ------------------------------------------------------------------------------
+# Network Time Security (NTS)
+# ------------------------------------------------------------------------------
 
-# Allow clients from these subnets (CIDR notation). Empty list = deny all.
-{% for subnet in allowed_subnets %}# Allow NTP queries from {{ subnet }}
-{% endfor %}allowed_subnets = [{{ allowed_subnets | map('quote') | join(', ') }}]
+# Enable or disable Network Time Security (NTS) for encrypted and authenticated
+# time synchronization.
+nts_enable = {{ nts_enable | default(true) }}
 
-# Refclock configuration — only enable if hardware PPS/serial GPS is present
-{% if refclock_enabled %}# Hardware reference clock (e.g., GPS DO-178B/PPS via /dev/pps0)
+# Path to the NTS server private key file (PEM format). Required if NTS is enabled.
+nts_key_file = {{ nts_key_file | default('/etc/ntpd-rs/nts.key') | quote }}
+
+# Path to the NTS server X.509 certificate file (PEM format). Required if NTS is enabled.
+nts_cert_file = {{ nts_cert_file | default('/etc/ntpd-rs/nts.crt') | quote }}
+
+# ------------------------------------------------------------------------------
+# Client Access Control
+# ------------------------------------------------------------------------------
+
+# List of client subnets (CIDR) allowed to query this NTP server. Empty list denies all clients.
+# Each subnet is listed below with a comment for clarity.
+{% for subnet in allowed_subnets | default(['0.0.0.0/0']) %}
+# Allow NTP queries from {{ subnet }}
+{% endfor %}
+allowed_subnets = [{{ allowed_subnets | default(['0.0.0.0/0']) | map('quote') | join(', ') }}]
+
+# ------------------------------------------------------------------------------
+# Hardware Reference Clock (Refclock)
+# ------------------------------------------------------------------------------
+
+# Refclock configuration — only enable if hardware PPS/serial GPS is present.
+{% if refclock_enabled | default(false) %}
+# Hardware reference clock (e.g., GPS DO-178B/PPS via /dev/pps0)
 refclock = [
   {
-    driver = {{ refclock_driver | quote }},
-    path   = {{ refclock_path | quote }},
-    flags  = {{ refclock_flags | quote }}
+    # Refclock driver type (e.g., 'pps', 'shared', 'clockwork').
+    driver = {{ refclock_driver | default('pps') | quote }},
+
+    # Device path to the refclock source (e.g., /dev/pps0, /dev/gps0).
+    path   = {{ refclock_path | default('/dev/pps0') | quote }},
+
+    # Refclock flags (driver-specific, e.g., '0', '1', 'noselect').
+    flags  = {{ refclock_flags | default('0') | quote }}
   }
 ]
-{% else %}# No reference clock configured
+{% else %}
+# No reference clock configured.
 refclock = []
 {% endif %}
 
-# Peers (stratum-1 servers or other trusted NTP sources)
-# Each peer may include NTS support via `nts = true`
-{% for peer in peers %}# Sync with {{ peer.name }} ({{ peer.address }}){{ ' using NTS' if peer.nts else '' }}
-{% endfor %}peers = [
-{% for peer in peers %}  { address = {{ peer.address | quote }}{{ ', nts = true' if peer.nts else '' }} }{% if not loop.last %},{% endif %}
+# ------------------------------------------------------------------------------
+# Upstream Peers
+# ------------------------------------------------------------------------------
+
+# Peers (stratum-1 servers or other trusted NTP sources).
+# Each peer may include NTS support via `nts = true`.
+# The following list defines the default upstream synchronization sources.
+{% for peer in peers | default([{'address': 'pool.ntp.org', 'nts': False}, {'address': '0.pool.ntp.org', 'nts': False}, {'address': '1.pool.ntp.org', 'nts': False}]) %}
+# Sync with {{ peer.address }}{{ ' using NTS' if peer.nts else '' }}
+{% endfor %}
+peers = [
+{% for peer in peers | default([{'address': 'pool.ntp.org', 'nts': False}, {'address': '0.pool.ntp.org', 'nts': False}, {'address': '1.pool.ntp.org', 'nts': False}]) %}
+  { address = {{ peer.address | quote }}{{ ', nts = true' if peer.nts else '' }} }{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-# Logging level: "error", "warn", "info", "debug", "trace"
-log_level = {{ log_level | quote }}
+# ------------------------------------------------------------------------------
+# Runtime Configuration
+# ------------------------------------------------------------------------------
 
-# Path for persistent state (e.g., drift file, leap seconds table)
-state_dir = {{ state_dir | quote }}
+# Minimum logging level: 'error', 'warn', 'info', 'debug', or 'trace'.
+log_level = {{ log_level | default('info') | quote }}
 
-# Optional: restrict access via rate limiting
-max_rate = {{ max_rate }}  # packets per second (0 = no limit)
+# Directory to store persistent state (drift, leap seconds, peer stats).
+# Must be writable by the ntpd-rs user.
+state_dir = {{ state_dir | default('/var/lib/ntpd-rs') | quote }}
 
-# Optional: initial synchronization mode
-# - "normal" (default), "fast" (aggressive sync at startup), "disabled"
-init_sync_mode = {{ init_sync_mode | quote }}
+# Maximum request rate per source IP (packets/second).
+# Set to 0 to disable rate limiting.
+max_rate = {{ max_rate | default(0) }}
+
+# Behavior during initial startup synchronization.
+# 'fast' aggressively syncs; 'normal' uses standard slewing; 'disabled' skips initial sync.
+init_sync_mode = {{ init_sync_mode | default('normal') | quote }}

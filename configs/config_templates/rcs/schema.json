@@ -22,16 +22,13 @@
     ],
     "description": "List of filesystems to mount during early boot.",
     "items": {
-      "type": "object",
-      "fields": {
-        "target": {
-          "type": "string",
-          "description": "Mount point path."
-        },
-        "type": {
-          "type": "string",
-          "description": "Filesystem type (e.g., proc, sysfs, devtmpfs)."
-        }
+      "target": {
+        "type": "string",
+        "description": "Mount point path."
+      },
+      "type": {
+        "type": "string",
+        "description": "Filesystem type (e.g., proc, sysfs, devtmpfs)."
       }
     }
   },
@@ -47,21 +44,18 @@
     },
     "description": "System clock configuration.",
     "items": {
-      "type": "object",
-      "fields": {
-        "mode": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "manual"
-          ],
-          "description": "'auto' (leave to NTP/hardware), 'manual' to set specific time."
-        },
-        "datetime": {
-          "type": "string",
-          "default": "2024-01-01 00:00:00",
-          "description": "Date/time string (e.g., 'YYYY-MM-DD HH:MM:SS') for manual mode."
-        }
+      "mode": {
+        "type": "string",
+        "enum": [
+          "auto",
+          "manual"
+        ],
+        "description": "'auto' (leave to NTP/hardware), 'manual' to set specific time."
+      },
+      "datetime": {
+        "type": "string",
+        "default": "2024-01-01 00:00:00",
+        "description": "Date/time string (e.g., 'YYYY-MM-DD HH:MM:SS') for manual mode."
       }
     }
   },
@@ -70,22 +64,19 @@
     "default": [],
     "description": "List of kernel modules to load at boot.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Module name (e.g., 'e1000e')."
-        },
-        "options": {
-          "type": "string",
-          "default": "",
-          "description": "Optional module parameters (e.g., 'Option1=1 Option2=2')."
-        }
+      "name": {
+        "type": "string",
+        "description": "Module name (e.g., 'e1000e')."
+      },
+      "options": {
+        "type": "string",
+        "default": "",
+        "description": "Optional module parameters (e.g., 'Option1=1 Option2=2')."
       }
     }
   },
   "swap_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable swap activation during boot."
   },
@@ -101,7 +92,7 @@
     }
   },
   "fsck_force": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Force filesystem check even if filesystems appear clean."
   },
@@ -112,21 +103,18 @@
     },
     "description": "Configuration for /tmp directory setup.",
     "items": {
-      "type": "object",
-      "fields": {
-        "mode": {
-          "type": "string",
-          "enum": [
-            "clean",
-            "size_limited"
-          ],
-          "description": "'clean' removes all contents; 'size_limited' trims oversized files."
-        },
-        "max_size_mb": {
-          "type": "number",
-          "default": 100,
-          "description": "Maximum size (in MB) for files in /tmp when using 'size_limited' mode."
-        }
+      "mode": {
+        "type": "string",
+        "enum": [
+          "clean",
+          "size_limited"
+        ],
+        "description": "'clean' removes all contents; 'size_limited' trims oversized files."
+      },
+      "max_size_mb": {
+        "type": "number",
+        "default": 100,
+        "description": "Maximum size (in MB) for files in /tmp when using 'size_limited' mode."
       }
     }
   },
@@ -145,7 +133,19 @@
   "default_runlevel": {
     "type": "string",
     "default": "2",
-    "description": "Default SysV runlevel (e.g., '2' for multi-user, '5' for GUI). Ignored on systemd systems unless in compatibility mode."
+    "description": "Default SysV runlevel (e.g., '2' for multi-user, '5' for GUI). Ignored on systemd systems unless in compatibility mode.",
+    "enum": [
+      "0",
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "s",
+      "S",
+      "single"
+    ]
   },
   "s_scripts": {
     "type": "list",
@@ -156,7 +156,7 @@
     }
   },
   "use_sysv_init": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "If true, attempt to switch to the default runlevel after initialization (only on SysV-only systems)."
   }

@@ -92,8 +92,7 @@ gzip_min_length {{ gzip.min_length }};
 {% endfor %}{% endif %}{% if loc.return is defined %}    return {{ loc.return.code }}{{ loc.return.body | default('') | replace('\n', '\\n') | replace('"', '\\"') }};
 {% endif %}{% if loc.limit_req is defined %}    limit_req zone={{ loc.limit_req.zone }}{{ ' burst=' + loc.limit_req.burst | default('') }}{{ ' nodelay' if loc.limit_req.nodelay }};
 {% endif %}{% if loc.limit_rate is defined %}    limit_rate {{ loc.limit_rate }};
-{% endif %}{% if loc.add_trailer is defined %}{% for hdr in loc.add_trailer %}    add_trailer {{ hdr.name }} "{{ hdr.value }}";
-{% endfor %}{% endif %}  }
+{% endif %}  }
 
 {% endfor %}{% endif %}  access_log {{ server.access_log | default(access_log.path) }};
   error_log {{ server.error_log | default(error_log.path) }} {{ error_log.level }};

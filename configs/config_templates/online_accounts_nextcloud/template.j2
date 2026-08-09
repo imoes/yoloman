@@ -1,37 +1,42 @@
-{# Nextcloud account plugin configuration for Lomiri Online Accounts #}
-{# The base URL of the Nextcloud server (required) #}
-URL={{ url }}
+{# ============================================================================= #}
+{# Lomiri Online Accounts — Nextcloud plugin configuration                       #}
+{# Self-documenting Jinja2 template. Every directive is annotated with its       #}
+{# source schema description. Defaults are applied inline to ensure safe         #}
+{# rendering when variables are omitted.                                         #}
+{# ============================================================================= #}
 
+{# The full base URL of your Nextcloud server (e.g., https://cloud.example.com)  #}
+{# Required. No default in schema, but we provide an empty string to avoid     #}
+{# Jinja undefined errors. The consuming application must validate this value. #}
+URL={{ url | default('') }}
+
+{# Username to pre-fill in login dialog (optional). Leave blank to prompt user.#}
+{% if (username | default('')) | length > 0 %}
 {# The username to use for initial authentication (optional, can be overridden by user) #}
-{% if username %}Username={{ username }}{% endif %}
+Username={{ username | default('') }}
+{% endif %}
 
-{# The app password or OAuth client ID (optional, if not set, user will be prompted) #}
-{% if app_password %}AppPassword={{ app_password }}{% endif %}
+{# App password or OAuth client secret for non-interactive login (optional).   #}
+{# If omitted, user must enter credentials.                                    #}
+{% if (app_password | default('')) | length > 0 %}
+AppPassword={{ app_password | default('') }}
+{% endif %}
 
-{# Enable WebDAV sync for contacts (default: true) #}
-WebDAVContacts={{ webdav_contacts }}
+{# Enable synchronization of contacts via WebDAV (default: true)               #}
+{# Boolean value. Defaults to true if not provided.                            #}
+WebDAVContacts={{ webdav_contacts | default(true) | lower }}
 
-{# Enable WebDAV sync for calendars (default: true) #}
-WebDAVCalendars={{ webdav_calendars }}
+{# Enable synchronization of calendars via WebDAV (default: true)              #}
+{# Boolean value. Defaults to true if not provided.                            #}
+WebDAVCalendars={{ webdav_calendars | default(true) | lower }}
 
-{# Enable WebDAV sync for files (default: true) #}
-WebDAVFiles={{ webdav_files }}
+{# Enable synchronization of files via WebDAV (Nextcloud Files app)            #}
+{# Boolean value. Defaults to true if not provided.                            #}
+WebDAVFiles={{ webdav_files | default(true) | lower }}
 
-{# Timeout (in seconds) for HTTP requests (default: 30) #}
-Timeout={{ timeout }}
-
-{# Maximum number of retries for failed requests (default: 3) #}
-MaxRetries={{ max_retries }}
-
-{# Optional list of WebDAV paths (e.g., for custom calendar/contacts paths) #}
-{% for path in webdav_paths %}WebDAVPath={{ path }}
+{# Custom WebDAV paths (e.g., remote.php/dav/files/username/MyFolder).         #}
+{# One per line. Useful for non-standard setups. This is a list of strings.    #}
+{# Empty list results in no additional paths.                                  #}
+{% for path in (webdav_paths | default([])) %}
+WebDAVPath={{ path }}
 {% endfor %}
-
-{# Enable background sync (default: false) #}
-BackgroundSync={{ background_sync }}
-
-{# Sync interval in minutes (only used if BackgroundSync=true) (default: 60) #}
-{% if background_sync %}SyncInterval={{ sync_interval }}{% endif %}
-
-{# Disable SSL verification (dangerous, for testing only) (default: false) #}
-DisableSSLVerify={{ disable_ssl_verify }}

@@ -55,7 +55,7 @@
     "description": "Minimum WAL size to retain for reuse."
   },
   "logging_collector": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable collection of log output into files (required for log rotation and centralized logs)."
   },
@@ -85,7 +85,7 @@
     "description": "Which SQL statements to log: 'none', 'ddl', 'mod', 'all'."
   },
   "log_lock_waits": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Log lock waits exceeding deadlock_timeout."
   },
@@ -159,18 +159,15 @@
     "default": [],
     "description": "List of standby hosts allowed to connect for streaming replication. Each item includes host and auth_method.",
     "items": {
-      "type": "object",
-      "fields": {
-        "host": {
-          "type": "string",
-          "default": "",
-          "description": "Hostname or IP of standby server."
-        },
-        "auth_method": {
-          "type": "string",
-          "default": "trust",
-          "description": "Authentication method (e.g., trust, md5, scram-sha-256)."
-        }
+      "host": {
+        "type": "string",
+        "default": "",
+        "description": "Hostname or IP of standby server."
+      },
+      "auth_method": {
+        "type": "string",
+        "default": "trust",
+        "description": "Authentication method (e.g., trust, md5, scram-sha-256)."
       }
     }
   },
@@ -179,33 +176,30 @@
     "default": [],
     "description": "List of pg_hba.conf rules (not the full file). Each rule specifies access control for clients.",
     "items": {
-      "type": "object",
-      "fields": {
-        "type": {
-          "type": "string",
-          "default": "local",
-          "description": "Connection type: 'local', 'host', 'hostssl', 'hostnossl'."
-        },
-        "database": {
-          "type": "string",
-          "default": "all",
-          "description": "Database(s) this rule applies to (comma-separated, 'all', 'sameuser', etc.)."
-        },
-        "user": {
-          "type": "string",
-          "default": "all",
-          "description": "User(s) this rule applies to (comma-separated, 'all', 'sameuser', etc.)."
-        },
-        "address": {
-          "type": "string",
-          "default": "",
-          "description": "Client IP/network (e.g., '192.168.1.0/24'). Omit for local sockets."
-        },
-        "method": {
-          "type": "string",
-          "default": "peer",
-          "description": "Authentication method: 'trust', 'reject', 'md5', 'scram-sha-256', 'peer', 'cert', etc."
-        }
+      "type": {
+        "type": "string",
+        "default": "local",
+        "description": "Connection type: 'local', 'host', 'hostssl', 'hostnossl'."
+      },
+      "database": {
+        "type": "string",
+        "default": "all",
+        "description": "Database(s) this rule applies to (comma-separated, 'all', 'sameuser', etc.)."
+      },
+      "user": {
+        "type": "string",
+        "default": "all",
+        "description": "User(s) this rule applies to (comma-separated, 'all', 'sameuser', etc.)."
+      },
+      "address": {
+        "type": "string",
+        "default": "",
+        "description": "Client IP/network (e.g., '192.168.1.0/24'). Omit for local sockets."
+      },
+      "method": {
+        "type": "string",
+        "default": "peer",
+        "description": "Authentication method: 'trust', 'reject', 'md5', 'scram-sha-256', 'peer', 'cert', etc."
       }
     }
   },
@@ -247,7 +241,7 @@
     }
   },
   "archive_mode": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable archiving of WAL segments (required for point-in-time recovery)."
   },
@@ -287,7 +281,7 @@
     "description": "Recover to a named restore point."
   },
   "logical_decoding": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable logical decoding (required for logical replication slots and publications)."
   },
@@ -296,22 +290,19 @@
     "default": [],
     "description": "List of logical replication publications to define at startup.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Publication name."
+      },
+      "tables": {
+        "type": "list",
+        "default": [],
+        "description": "Tables included in publication.",
+        "items": {
           "type": "string",
           "default": "",
-          "description": "Publication name."
-        },
-        "tables": {
-          "type": "list",
-          "default": [],
-          "description": "Tables included in publication.",
-          "items": {
-            "type": "string",
-            "default": "",
-            "description": "Qualified table name (e.g., 'public.users')."
-          }
+          "description": "Qualified table name (e.g., 'public.users')."
         }
       }
     }
@@ -321,27 +312,24 @@
     "default": [],
     "description": "List of logical replication subscriptions to create at startup.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Subscription name."
+      },
+      "provider": {
+        "type": "string",
+        "default": "",
+        "description": "Connection info to primary (e.g., 'host=primary port=5432 dbname=app user=repl password=secret')."
+      },
+      "publications": {
+        "type": "list",
+        "default": [],
+        "description": "Publication names to subscribe to.",
+        "items": {
           "type": "string",
           "default": "",
-          "description": "Subscription name."
-        },
-        "provider": {
-          "type": "string",
-          "default": "",
-          "description": "Connection info to primary (e.g., 'host=primary port=5432 dbname=app user=repl password=secret')."
-        },
-        "publications": {
-          "type": "list",
-          "default": [],
-          "description": "Publication names to subscribe to.",
-          "items": {
-            "type": "string",
-            "default": "",
-            "description": "Publication name."
-          }
+          "description": "Publication name."
         }
       }
     }
@@ -357,7 +345,7 @@
     "description": "Planner's estimate of relative cost of random disk access. Lower = favor index scans more aggressively."
   },
   "jit": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable JIT compilation for queries (improves complex queries on large datasets)."
   },

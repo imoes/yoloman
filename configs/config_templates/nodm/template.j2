@@ -19,13 +19,29 @@ NAME=nodm
 PIDDIR=/var/run/
 PIDFILE=${PIDDIR}/${NAME}.pid
 
-NODM_ENABLED=no
+# Enable or disable automatic display manager startup on boot.
+# Default: false
+NODM_ENABLED={{ enabled | default(false) }}
+
+# Always use virtual terminal 7 for the X server.
 NODM_FIRST_VT=7
-NODM_XSESSION=/etc/X11/Xsession
-NODM_OPTIONS=
-NODM_X_OPTIONS="-nolisten tcp"
-NODM_USER=root
+
+# Command or script to execute as the user session (e.g., desktop environment launcher).
+# Default: /etc/X11/Xsession
+NODM_XSESSION={{ xsession | default('/etc/X11/Xsession') }}
+
+# Command-line arguments passed to the X server when starting.
+# Default: -nolisten tcp
+NODM_OPTIONS={{ xserver_options | default('-nolisten tcp') }}
+
+# Username to automatically log in. Must exist on the system.
+# Default: '' (empty, usually implies current or default user behavior depending on nodm version)
+NODM_USER={{ user | default('') }}
+
+# Minimum time in seconds before a session is considered stable.
 NODM_MIN_SESSION_TIME=60
+
+# Timeout in seconds for X server startup.
 NODM_X_TIMEOUT=300
 
 if [ -f /etc/default/$NAME ]

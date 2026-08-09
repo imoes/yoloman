@@ -1,46 +1,96 @@
 [global]
-# Global Samba settings
-workgroup = {{ workgroup }}
-server string = Samba Server %v
-security = {{ security }}
-map to guest = {{ map_to_guest }}
-log file = {{ log_file }}
-max log size = {{ max_log_size }}
+# Workgroup or domain name for Samba.
+workgroup = {{ workgroup | default('WORKGROUP') }}
 
-# DNS update settings (for AD integration)
-{% if dns_update_enabled %}
+# Description string displayed by `nmblookup` and other tools. %v is replaced with Samba version.
+server string = {{ server_string | default('Samba Server %v') }}
+
+# Security mode: 'user' for local accounts, 'domain' for NT domain, 'ads' for Active Directory.
+security = {{ security | default('user') }}
+
+# Controls when a user is mapped to the guest account (e.g., 'Bad User' when username is unknown).
+map to guest = {{ map_to_guest | default('Bad User') }}
+
+# Path for log files. %m expands to the client machine name.
+log file = {{ log_file | default('/var/log/samba/log.%m') }}
+
+# Maximum size (in KB) of each log file before rotation.
+max log size = {{ max_log_size | default(5000) }}
+
+# Enable DNS dynamic update support (required for AD DC mode).
+# When enabled, Samba acts as a DNS client to register its own records.
+{% if dns_update_enabled | default(false) %}
 dns proxy = no
 dns update command = /usr/bin/samba-dnsupdate
 dns zone update script = /usr/bin/samba-dnsupdate
 {% endif %}
 
-# VFS modules global defaults (applied unless overridden per-share)
-{% if vfs_modules_global %}
-vfs objects = {{ vfs_modules_global | join(' ') }}
+# Global list of VFS modules to load for every share.
+# These modules are loaded before any per-share vfs objects.
+{% if vfs_modules_global | default([]) | length > 0 %}
+vfs objects = {{ vfs_modules_global | default([]) | join(' ') }}
 {% endif %}
 
-{% for share in shares %}
+# List of shares to configure. Each share defines path, permissions, and optional VFS behavior.
+{% for share in shares | default([]) %}
 [{{ share.name }}]
-# Share: {{ share.name }} — {{ share.comment | default('No comment') }}
-path = {{ share.path }}
-browseable = {{ share.browseable | string | lower }}
-read only = {{ share.read_only }}
-{% if share.guest_ok is defined %}guest ok = {{ share.guest_ok | string | lower }}{% endif %}
-{% if share.create_mask is defined %}create mask = {{ share.create_mask }}{% endif %}
-{% if share.directory_mask is defined %}directory mask = {{ share.directory_mask }}{% endif %}
-{% if share.force_user is defined %}force user = {{ share.force_user }}{% endif %}
-{% if share.force_group is defined %}force group = {{ share.force_group }}{% endif %}
-{% if share.vfs_modules is defined %}# Custom VFS modules for this share
-vfs objects = {{ share.vfs_modules | join(' ') }}{% endif %}
+# Share name: {{ share.name }}
+# Comment/Description for the share.
+comment = {{ share.comment | default('') }}
 
-{% if share.vfs_options %}# VFS module options
-{% for module, options in share.vfs_options.items() %}# Options for {{ module }} VFS module
-{{ module }}:{{ options | join('\n' + module + ':') }}
-{% endfor %}{% endif %}
+# Absolute path to the directory to share.
+path = {{ share.path | default('/') }}
+
+# Whether the share appears in network neighborhood listings.
+browseable = {{ share.browseable | default(true) | string | lower }}
+
+# Whether clients can write to the share.
+read only = {{ share.read_only | default(false) | string | lower }}
+
+# Allow guest (anonymous) access to this share.
+{% if share.guest_ok is defined %}
+guest ok = {{ share.guest_ok | string | lower }}
+{% endif %}
+
+# File creation permission mask (octal).
+{% if share.create_mask is defined %}
+create mask = {{ share.create_mask }}
+{% endif %}
+
+# Directory creation permission mask (octal).
+{% if share.directory_mask is defined %}
+directory mask = {{ share.directory_mask }}
+{% endif %}
+
+# Force the specified user for all file operations on this share.
+{% if share.force_user is defined %}
+force user = {{ share.force_user }}
+{% endif %}
+
+# Force the specified group for all file operations on this share.
+{% if share.force_group is defined %}
+force group = {{ share.force_group }}
+{% endif %}
+
+# Per-share VFS modules. Overrides or adds to the global vfs objects.
+{% if share.vfs_modules is defined and share.vfs_modules | length > 0 %}
+vfs objects = {{ share.vfs_modules | join(' ') }}
+{% endif %}
+
+# VFS module specific options.
+# Format: <module>:<option1>=<value1>\n<module>:<option2>=<value2>
+{% if share.vfs_options is defined and share.vfs_options | length > 0 %}
+{% for module, options in share.vfs_options | dict2items %}
+{{ module }}:{{ options | join(', ') }}
+{% endfor %}
+{% endif %}
 
 {% endfor %}
 
-# Optional include for additional configs (e.g., AD-specific or per-site)
-{% if include_files %}# Include additional config snippets
-include = {{ include_files | join('\ninclude = ') }}
+# Extra config snippets (one per line) to include at end of smb.conf.
+# Useful for AD integration or per-site customizations.
+{% if include_files | default([]) | length > 0 %}
+{% for inc in include_files | default([]) %}
+include = {{ inc }}
+{% endfor %}
 {% endif %}

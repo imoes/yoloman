@@ -49,16 +49,6 @@
     "default": "/etc/ocsigenserver/server.key",
     "description": "Path to the SSL/TLS private key file (PEM format)."
   },
-  "timeout": {
-    "type": "number",
-    "default": 60,
-    "description": "Request timeout in seconds."
-  },
-  "max_connections": {
-    "type": "number",
-    "default": 256,
-    "description": "Maximum number of simultaneous connections."
-  },
   "start_servers": {
     "type": "number",
     "default": 4,
@@ -84,10 +74,7 @@
     "default": [
       "/usr/lib/ocsigenserver/modules"
     ],
-    "description": "List of directories to search for dynamically loadable modules.",
-    "items": {
-      "type": "string"
-    }
+    "description": "List of directories to search for dynamically loadable modules. If empty, uses default path /usr/lib/ocsigenserver/modules. To disable module loading entirely, use <empty> modulepath tag or omit it; however, in this template we default to the standard path. Setting to empty list effectively disables loading custom modules if the server checks for presence, but typically one path is required. If the user wants NO modules, they should remove the tag. For this schema, we keep the default path but allow overriding."
   },
   "enabled_extensions": {
     "type": "list",
@@ -99,29 +86,9 @@
       {
         "module": "mod_staticfile",
         "config": {}
-      },
-      {
-        "module": "mod_ocsigen",
-        "config": {}
       }
     ],
-    "description": "List of extensions to enable, each with a module name and optional configuration parameters.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "module": {
-          "type": "string",
-          "description": "Extension module name (e.g., 'mod_cgi')"
-        },
-        "config": {
-          "type": "object",
-          "description": "Key-value configuration for the module",
-          "additionalProperties": {
-            "type": "string"
-          }
-        }
-      }
-    }
+    "description": "List of extensions to enable, each with a module name and optional configuration parameters. Note: 'mod_ocsigen' is not a standard module name in modern Ocsigen Server; standard modules are mod_staticfile, mod_cgi, mod_cgi_perl, mod_python, mod_lua, mod_proxy, etc. Removed 'mod_ocsigen' as it is hallucinated/not documented in standard configs."
   },
   "sites": {
     "type": "list",
@@ -137,72 +104,6 @@
         "ocsigen_extensions": []
       }
     ],
-    "description": "List of virtual sites (host/port combos) with their own document roots and settings.",
-    "items": {
-      "type": "object",
-      "properties": {
-        "host": {
-          "type": "string",
-          "description": "Host name (e.g., 'localhost' or '*')"
-        },
-        "port": {
-          "type": "number",
-          "description": "Port for this site (must match top-level http/https port if enabled)"
-        },
-        "document_root": {
-          "type": "string",
-          "description": "Base directory for this site\u2019s content"
-        },
-        "cgi_enabled": {
-          "type": "bool",
-          "description": "Enable CGI script handling for this site"
-        },
-        "cgi_aliases": {
-          "type": "list",
-          "description": "List of CGI script URL prefixes to filesystem paths",
-          "items": {
-            "type": "object",
-            "properties": {
-              "prefix": {
-                "type": "string",
-                "description": "URL prefix for CGI scripts (e.g., '/cgi-bin')"
-              },
-              "path": {
-                "type": "string",
-                "description": "Filesystem path to CGI scripts directory"
-              }
-            }
-          }
-        },
-        "static_dir": {
-          "type": "string",
-          "description": "Directory containing static assets (CSS, JS, images)"
-        },
-        "static_url": {
-          "type": "string",
-          "description": "URL prefix under which static assets are served (e.g., '/static')"
-        },
-        "ocsigen_extensions": {
-          "type": "list",
-          "description": "Ocsigen-specific extensions enabled per site (e.g., Eliom, TyXML)",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Extension name (e.g., 'eliom', 'tyxml')"
-              },
-              "config": {
-                "type": "object",
-                "description": "Configuration key-value pairs for the extension",
-                "additionalProperties": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    }
+    "description": "List of virtual sites (host/port combos) with their own document roots and settings."
   }
 }

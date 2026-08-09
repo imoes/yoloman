@@ -2,10 +2,10 @@
 ### BEGIN INIT INFO
 # Provides:          renderd
 # Required-Start:    $remote_fs
-# Required-Stop:     $remote_fs
+# Required-Stop:    $remote_fs
 # Should-Start:      postgresql
 # Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
+# Default-Stop:     0 1 6
 # Short-Description: Mapnik rendering daemon
 # Description:       Mapnik rendering daemon.
 ### END INIT INFO
@@ -18,7 +18,8 @@ DESC="Mapnik rendering daemon"
 NAME=renderd
 DAEMON=/usr/bin/$NAME
 DAEMON_ARGS=""
-PIDSOCKDIR=/run/{{ renderd.socket_name | basename | splitext | first }}
+# Global settings for the renderd daemon, including threading, timeouts, and Mapnik XML paths. Also used for init script socket path extraction.
+PIDSOCKDIR=/run/{{ renderd | default('renderd') }}
 PIDFILE=$PIDSOCKDIR/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 RUNASUSER=_renderd
@@ -41,6 +42,7 @@ RUNASUSER=_renderd
 #
 do_start()
 {
+    # Ensure the runtime directory exists and has correct ownership
     [ -d "$PIDSOCKDIR" ] ||  mkdir -p $PIDSOCKDIR && chown $RUNASUSER $PIDSOCKDIR
 	# Return
 	#   0 if daemon has been started
@@ -98,8 +100,7 @@ do_reload() {
 case "$1" in
   start)
 	log_daemon_msg "Starting $DESC" "$NAME"
-
-do_start
+	do_start
 	case "$?" in
 		0|1) log_end_msg 0 ;;
 		2) log_end_msg 1 ;;
@@ -107,8 +108,7 @@ do_start
 	;;
   stop)
 	log_daemon_msg "Stopping $DESC" "$NAME"
-
-do_stop
+	do_stop
 	case "$?" in
 		0|1) log_end_msg 0 ;;
 		2) log_end_msg 1 ;;
@@ -129,8 +129,7 @@ do_stop
 	# 'force-reload' alias
 	#
 	log_daemon_msg "Restarting $DESC" "$NAME"
-
-do_stop
+	do_stop
 	case "$?" in
 	  0|1)
 		do_start
@@ -141,7 +140,7 @@ do_stop
 		esac
 		;;
 	  *)
-	  	# Failed to stop
+	   	# Failed to stop
 		log_end_msg 1
 		;;
 	esac
@@ -155,5 +154,3 @@ do_stop
 	exit 3
 	;;
 esac
-
-:

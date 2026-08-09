@@ -1,56 +1,95 @@
+# =============================================================================
 # PostgreSQL pglogical extension configuration
-# Enables logical replication between PostgreSQL instances
+#
+# This template configures the pglogical extension for logical replication
+# between PostgreSQL instances. It manages shared library loading, worker
+# process counts, replication slots, logging, conflict resolution, and
+# replication set definitions (publisher and subscriber sides).
+#
+# NOTE: Changes to 'shared_preload_libraries' require a PostgreSQL restart.
+# =============================================================================
 
-# Enable pglogical extension on the database
-shared_preload_libraries = '{{ shared_preload_libraries }}'
+# Comma-separated list of shared libraries to preload (must include 'pglogical').
+# PostgreSQL requires restart to change this.
+shared_preload_libraries = '{{ (shared_preload_libraries | default("pglogical")) }}'
 
-# Logical replication worker count (0 = auto, recommended: 2–8 depending on load)
-pglogical.max_workers = {{ max_workers }}
+# Maximum number of pglogical worker processes (publisher/subscriber workers).
+# Increase for higher replication throughput.
+pglogical.max_workers = {{ max_workers | default(4) }}
 
-# Maximum number of concurrent replication connections
-pglogical.max_slots = {{ max_slots }}
+# Maximum number of replication slots pglogical may create (per node).
+# Must be >= number of active subscriptions.
+pglogical.max_slots = {{ max_slots | default(10) }}
 
-# Synchronization timeout in seconds for initial table synchronization
-pglogical.synchronize_structure_timeout = {{ sync_structure_timeout }}
+# Timeout (in seconds) for schema synchronization during initial subscription setup.
+# Increase for large databases.
+pglogical.synchronize_structure_timeout = {{ sync_structure_timeout | default(300) }}
 
-# Enable synchronous replication (true/false) — use only in high-availability setups
-pglogical.synchronous = {{ synchronous }}
+# Whether to use synchronous replication for subscriber commit acknowledgment.
+# Reduces latency but may increase failure risk.
+pglogical.synchronous = {{ synchronous | default(false) | lower }}
 
-# Logging level: DEBUG, INFO (default), NOTICE, WARNING, ERROR, LOG, FATAL
-pglogical.log_level = '{{ log_level }}'
+# Logging level for pglogical operations.
+# Use 'DEBUG' only for troubleshooting.
+pglogical.log_level = '{{ log_level | default("INFO") | upper }}'
 
-# Enable verbose logging of replication events (useful for debugging)
-pglogical.verbose = {{ verbose }}
+# Enable verbose per-operation logging (e.g., row-level replication events).
+# Increases log volume significantly.
+pglogical.verbose = {{ verbose | default(false) | lower }}
 
-# Timeout for replication apply process in seconds
-pglogical.apply_interval = {{ apply_interval }}
+# Minimum time (in milliseconds) between apply cycles.
+# Lower values reduce replication lag but increase CPU usage.
+pglogical.apply_interval = {{ apply_interval | default(1000) }}
 
-# Enable conflict resolution for updatable subscriptions (requires pglogical_conflict_resolver)
-pglogical.conflict_resolution = '{{ conflict_resolution }}'
+# Conflict resolution strategy for updatable subscriptions.
+# Options: 'none', 'apply_first', 'remote_first', 'log'.
+pglogical.conflict_resolution = '{{ conflict_resolution | default("none") }}'
 
-# Path to custom conflict resolver function (e.g., 'pglogical.conflict_log_and_exit')
-pglogical.conflict_resolver = '{{ conflict_resolver }}'
+# Name of a custom conflict resolver function (e.g., 'pglogical.conflict_log_and_exit').
+# Leave blank unless using custom logic.
+pglogical.conflict_resolver = '{{ conflict_resolver | default("") }}'
 
-# Subscription-side: list of tables to replicate (must match publication names)
-# Use empty list for no tables or if acting as publisher-only
-{% for table in replicated_tables %}# Table '{{ table.schema }}.{{ table.name }}' — {{ table.description or 'no description' }}
+# Subscription-side: list of tables to replicate (for subscriber configuration).
+# Each entry must specify schema and table name.
+{% if replicated_tables | default([]) | length > 0 %}
+# Configured replicated tables (subscriber side):
+{% for table in replicated_tables | default([]) %}
+# Table '{{ table.schema | default("") }}.{{ table.name | default("") }}'
+pglogical.replication_set_table = {{ table.schema | default("") }}.{{ table.name | default("") }}
 {% endfor %}
+{% else %}
+# No tables explicitly configured for replication on this node.
+{% endif %}
 
-# Publisher-side: list of replication sets and their tables
-{% for rs in replication_sets %}# Replication set '{{ rs.name }}' — {{ rs.description or 'no description' }}
-pglogical.replication_set = {{ rs.name }}
-{% for tbl in rs.tables %}pglogical.replication_set_table = {{ tbl.schema }}.{{ tbl.name }}
+# Publisher-side: list of replication sets and their tables.
+# Each set groups tables for selective replication.
+{% if replication_sets | default([{'name': 'default', 'description': 'Default replication set', 'tables': []}]) | length > 0 %}
+{% for rs in replication_sets | default([{'name': 'default', 'description': 'Default replication set', 'tables': []}]) %}
+# Replication set '{{ rs.name | default("default") }}' — {{ rs.description | default("no description") }}
+pglogical.replication_set = {{ rs.name | default("default") }}
+{% for tbl in rs.tables | default([]) %}
+pglogical.replication_set_table = {{ tbl.schema | default("") }}.{{ tbl.name | default("") }}
 {% endfor %}
 {% endfor %}
+{% endif %}
 
-# Network and security settings
-pglogical.log_remote_commands = {{ log_remote_commands }}
-pglogical.log_apply_stats = {{ log_apply_stats }}
-pglogical.log_level_debug = {{ debug_logging }}
+# Log remote SQL commands executed by pglogical.
+# Useful for auditing but increases log volume.
+pglogical.log_remote_commands = {{ log_remote_commands | default(false) | lower }}
 
-# Optional: custom connection strings for external services (e.g., backup WAL receiver)
-# Not required for standard pglogical use
-{% if extra_params %}# Additional custom parameters
-{% for key, value in extra_params.items() %}{{ key }} = {{ value }}
+# Log periodic apply statistics (e.g., latency, rows applied).
+# Helps monitor replication health.
+pglogical.log_apply_stats = {{ log_apply_stats | default(false) | lower }}
+
+# Enable pglogical-specific debug logging.
+# (Equivalent to log_level_debug in older/pglogical-specific contexts).
+pglogical.log_level_debug = {{ debug_logging | default(false) | lower }}
+
+# Optional: custom connection strings or other extra parameters for external services.
+# These are written verbatim into the config.
+{% if extra_params | default([]) | length > 0 %}
+# Additional custom parameters:
+{% for item in extra_params | default([]) | dict2items %}
+{{ item.key }} = {{ item.value }}
 {% endfor %}
 {% endif %}

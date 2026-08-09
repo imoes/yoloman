@@ -1,16 +1,25 @@
 # /etc/default/parprouted — configuration for the parprouted daemon
+# This file is sourced by the init system to configure parprouted.
+# parprouted bridges IP routes between two layer-2 interfaces.
+
 # Enable/disable the daemon at boot (true/false)
-PARPRouted_ENABLED={{ enabled }}
+# Schema: enabled (bool) = Enable the parprouted service to start automatically at boot.
+PARPRouted_ENABLED={{ enabled | default(True) | lower }}
 
 # Interface pairs to bridge (format: 'in_if out_if') — one pair per line
-{% for pair in interfaces %}PARPRouted_INTERFACES="{{ pair.in_if }} {{ pair.out_if }}"
+# Schema: interfaces (list[dict]) = List of interface pairs to bridge. Each item specifies an input interface
+# and an output interface (both must exist and be up). parprouted re-routes IP traffic between them.
+# Each dict in the list must have 'in_if' and 'out_if' keys.
+{% set interfaces_list = interfaces | default([]) %}
+{% if interfaces_list | length > 0 %}
+{% for pair in interfaces_list %}
+# Schema: interfaces[].in_if (str) = Input interface name for this bridge pair.
+# Schema: interfaces[].out_if (str) = Output interface name for this bridge pair.
+PARPRouted_INTERFACES="{{ pair.in_if }} {{ pair.out_if }}"
 {% endfor %}
-
-# Log level: 0 (quiet) to 5 (verbose)
-PARPRouted_LOGLEVEL={{ loglevel }}
-
-# Path to PID file
-PARPRouted_PIDFILE={{ pidfile }}
+{% endif %}
 
 # Additional options passed directly to parprouted(8)
-PARPRouted_OPTIONS="{{ options }}"
+# Schema: options (str) = Extra command-line arguments to pass to the parprouted binary.
+# Supported switches include: -d (debugging, stay in foreground), -p (permanent routing table entries), etc.
+PARPRouted_OPTIONS="{{ options | default('') }}"

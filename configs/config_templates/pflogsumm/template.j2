@@ -1,40 +1,61 @@
-# /etc/default/pflogsumm — Configuration for the pflogsumm daemon
-# Runs daily via cron to summarize Postfix logs and email the report
+# /etc/default/pflogsumm — Configuration for the pflogsumm cron job
+# This file is sourced by the cron entry to configure pflogsumm behavior.
+# pflogsumm analyzes Postfix mail logs and emails a summary report.
 
-# Enable or disable the pflogsumm cron job (true/false)
-ENABLED={{ enabled }}
+# Enable or disable the pflogsumm cron job.
+# When set to false, the cron job will not run the summary.
+# Schema default: True
+ENABLED={{ enabled | default(True) }}
 
-# Path to the Postfix log file (usually /var/log/mail.log or /var/log/maillog)
-LOG_FILE={{ log_file }}
+# Primary Postfix log file to analyze.
+# Common paths: /var/log/mail.log or /var/log/maillog depending on the distro.
+# Schema default: /var/log/mail.log
+LOG_FILE={{ log_file | default('/var/log/mail.log') }}
 
-# Optional: Additional log files to include (space-separated)
-# Set to empty string '' to skip extra logs
-EXTRA_LOGS={{ extra_logs | join(' ') }}
+# List of extra log files to include (e.g., rotated logs).
+# These are joined into a space-separated string for the command line.
+# Schema default: []
+EXTRA_LOGS={{ extra_logs | default([]) | join(' ') }}
 
-# Recipient address for the summary email
-MAIL_TO={{ mail_to }}
+# Email address that receives the log summary report.
+# Schema default: postmaster@example.com
+MAIL_TO={{ mail_to | default('postmaster@example.com') }}
 
-# Sender address for the email (use empty string for default 'postfix' or leave blank)
+# Email sender address.
+# Leave empty to use the system default (usually 'postfix').
+# Schema default: ''
 MAIL_FROM={{ mail_from | default('') }}
 
-# Subject line prefix for the email report
-MAIL_SUBJECT_PREFIX='{{ mail_subject_prefix }}'
+# Prefix for the email subject line.
+# Example: '[pflogsumm]'
+# Schema default: 'Postfix Log Summary'
+MAIL_SUBJECT_PREFIX='{{ mail_subject_prefix | default('Postfix Log Summary') }}'
 
-# Optional: Limit the number of days of logs to summarize (0 = all available)
-DAYS={{ days }}
+# Number of days of logs to summarize.
+# Set to 0 to summarize all available logs (ignores rotation limits).
+# Schema default: 1
+DAYS={{ days | default(1) }}
 
-# Optional: Add verbose output (true/false)
-VERBOSE={{ verbose }}
+# Include verbose details in the summary.
+# When true, includes per-host statistics and more granular data.
+# Schema default: False
+VERBOSE={{ verbose | default(False) }}
 
-# Optional: Include detailed sender/recipient lists (true/false)
-DETAILED={{ detailed }}
+# Include detailed sender/recipient lists in the summary.
+# Note: This can produce very large output for busy mail servers.
+# Schema default: False
+DETAILED={{ detailed | default(False) }}
 
-# Optional: Time zone offset in minutes (e.g., +60 for UTC+1)
-# Set to empty string '' to use system default
-TZ_OFFSET='{{ tz_offset }}'
+# Time zone offset in minutes (e.g., +60 for UTC+1).
+# Leave empty to use the system's configured time zone.
+# Schema default: ''
+TZ_OFFSET='{{ tz_offset | default('') }}'
 
-# Optional: Path to a custom pflogsumm binary (defaults to /usr/sbin/pflogsumm)
-PFLOGSUMM_BIN='{{ pflogsumm_bin }}'
+# Full path to the pflogsumm executable.
+# Schema default: /usr/sbin/pflogsumm
+PFLOGSUMM_BIN='{{ pflogsumm_bin | default('/usr/sbin/pflogsumm') }}'
 
-# Optional: Additional arguments passed to pflogsumm (e.g., --help --bounce=10)
-PFLOGSUMM_ARGS='{{ pflogsumm_args }}'
+# Additional command-line arguments passed to pflogsumm.
+# Example: '--bounce=10 --no_dkim'
+# Schema default: ''
+PFLOGSUMM_ARGS='{{ pflogsumm_args | default('') }}'

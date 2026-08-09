@@ -1,34 +1,46 @@
-# Environment variables for prometheus-pgbackrest-exporter service
-# Must be valid shell syntax for /etc/default/ files
+# Environment variables for prometheus_pgbackrest_exporter service.
+# This file is sourced by the systemd unit (e.g., /etc/default/prometheus-pgbackrest-exporter)
+# to configure the exporter. All variables use the PGBACKREST_EXPORTER_ or PGBACKREST_ prefix.
 
-# Comma-separated list of PostgreSQL instances to monitor
-PGBACKREST_INSTANCES="{{ instances | join(',') }}"
+# List of PostgreSQL instance identifiers to monitor.
+# Each identifier should be a unique name corresponding to a pgBackRest stanza.
+# Defaults to an empty list if not provided.
+PGBACKREST_INSTANCES="{{ (instances | default([])) | join(',') }}"
 
-# Hostname or IP address to bind the exporter HTTP server to
-PGBACKREST_EXPORTER_LISTEN="{{ listen }}"
+# IP address or hostname the exporter should bind to for HTTP requests.
+# Defaults to 0.0.0.0 (all interfaces) if not specified.
+PGBACKREST_EXPORTER_LISTEN="{{ listen | default('0.0.0.0') }}"
 
-# Port to expose the metrics endpoint on
-PGBACKREST_EXPORTER_PORT={{ port }}
+# TCP port on which the exporter exposes Prometheus metrics.
+# Defaults to 9699 if not specified.
+PGBACKREST_EXPORTER_PORT="{{ port | default(9699) }}"
 
-# Path to pgBackRest configuration file (stanza config)
-# If omitted, defaults to searching common locations like /etc/pgbackrest/pgbackrest.conf
-PGBACKREST_CONF="{{ conf_path | default('/etc/pgbackrest/pgbackrest.conf') }}"
+# Absolute path to the main pgBackRest configuration file.
+# Used to read stanza definitions and repository settings.
+# Defaults to /etc/pgbackrest/pgbackrest.conf if not specified.
+PGBACKREST_EXPORTER_CONF="{{ conf_path | default('/etc/pgbackrest/pgbackrest.conf') }}"
 
-# Timeout in seconds for pgBackRest commands
-PGBACKREST_TIMEOUT={{ timeout }}
+# Maximum seconds to wait for pgBackRest command completion before timing out.
+# Defaults to 30 seconds if not specified.
+PGBACKREST_EXPORTER_TIMEOUT="{{ timeout | default(30) }}"
 
-# Enable/disable TLS for the exporter endpoint (values: 'true', 'false')
-PGBACKREST_EXPORTER_TLS={{ 'true' if tls_enabled else 'false' }}
+# Enable TLS (HTTPS) for the exporter’s metrics endpoint.
+# Valid values are 'true' or 'false'. Defaults to 'false' if not specified.
+PGBACKREST_EXPORTER_TLS="{{ tls_enabled | default(False) | ternary('true', 'false') }}"
 
-# Path to TLS certificate file (required if TLS enabled)
+# Path to the TLS certificate file.
+# Required when TLS is enabled. Defaults to the standard location if not specified.
 PGBACKREST_EXPORTER_TLS_CERT="{{ tls_cert_path | default('/etc/prometheus-pgbackrest-exporter/tls/server.crt') }}"
 
-# Path to TLS private key file (required if TLS enabled)
+# Path to the TLS private key file.
+# Required when TLS is enabled. Defaults to the standard location if not specified.
 PGBACKREST_EXPORTER_TLS_KEY="{{ tls_key_path | default('/etc/prometheus-pgbackrest-exporter/tls/server.key') }}"
 
-# Comma-separated list of stanza names to query explicitly
-# If empty, all stanzas visible to pgBackRest will be queried
-PGBACKREST_STANZAS="{{ (stanzas | default([])) | join(',') }}"
+# Optional list of specific stanza names to query.
+# If empty or omitted, all stanzas discovered by pgBackRest will be queried.
+# Defaults to an empty list if not specified.
+PGBACKREST_EXPORTER_STANZAS="{{ (stanzas | default([])) | join(',') }}"
 
-# Log level for the exporter: debug, info, warn, error
-PGBACKREST_EXPORTER_LOG_LEVEL="{{ log_level }}"
+# Verbosity of exporter logging.
+# Common values: debug, info, warn, error. Defaults to 'info' if not specified.
+PGBACKREST_EXPORTER_LOG_LEVEL="{{ log_level | default('info') }}"

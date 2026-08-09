@@ -1,52 +1,39 @@
 [global]
-# Clock identity (16-hex-byte identifier, typically derived from MAC)
-clock_identity = {{ clock_identity }}
+# PTP clock identity: 16-hex-digit string (e.g., '001B44FFFE5A3B12') or 'auto' to derive from MAC.
+# Derived from schema field: clock_identity (default: 'auto')
+clock_identity = {{ clock_identity | default('auto') }}
 
-# Interface to use for PTP traffic
-interface = {{ interface }}
+# Network interface to use for PTP peer-to-peer communication.
+# Must support hardware timestamping for best results.
+# Derived from schema field: interface (default: 'eth0')
+interface = {{ interface | default('eth0') }}
 
-# Transport type: 2 = peer-to-peer (P2P) mode
-transport_specific = 0x0
+# Priority1 field for best master clock selection (0–255).
+# Lower value = higher priority. Recommended: 248 for ordinary clock.
+# Derived from schema field: priority1 (default: 248)
+priority1 = {{ priority1 | default(248) }}
 
-# PTP domain number (0–127); use 0 for default
-priority1 = {{ priority1 }}
+# Clock class (0–255), indicating clock quality.
+# Lower is better (0=primary reference, 6=ordinary clock).
+# Derived from schema field: clock_class (default: 6)
+clock_class = {{ clock_class | default(6) }}
 
-# Clock class (0–255); lower = better clock (e.g., 6 for ordinary clock, 13–14 for TC)
-clock_class = {{ clock_class }}
+# Manual frequency offset in parts per billion (ppb).
+# Range: ±1,000,000. Use to calibrate oscillator. 0 = no offset.
+# Derived from schema field: frequency_offset (default: 0)
+frequency_offset = {{ frequency_offset | default(0) }}
 
-# Frequency adjustment (ppb, ±1000000); 0 = no manual offset
-frequency_offset = {{ frequency_offset }}
+# Verbosity of logging (0–7).
+# 7 = debug, 3 = info, 0 = quiet.
+# Derived from schema field: log_level (default: 7)
+log_level = {{ log_level | default(7) }}
 
-# Logging level (0=quiet, 7=verbose)
-log_level = {{ log_level }}
+# P2P delay request interval as exponent of 2 (s).
+# Value = 2^(-n). n=0 → 1s, n=-1 → 2s.
+# Derived from schema field: p2p_delay_req_interval (default: 0)
+p2p_delay_req_interval = {{ p2p_delay_req_interval | default(0) }}
 
-# Announce interval (s), 2^(-n); -1 = default (1 s, i.e. -0)
-announced_priority1 = -1
-
-# Use Peer-to-Peer delay mechanism
-p2p = 1
-
-# P2P announce interval (s), 2^(-n); default = 1 (i.e. -0)
-# (Only effective when p2p=1)
-p2p_announce_interval = -1
-
-# P2P delay request interval (s), 2^(-n); default = 0 (i.e. 1 s)
-p2p_delay_req_interval = {{ p2p_delay_req_interval }}
-
-# Enable SSM (Source-Specific Multicast) for P2P announcements (optional)
-# Only set if using SSM-based discovery; otherwise leave commented or false
-{% if ssm_enabled %}ssm = 1
-{% endif %}# SSM address (e.g., 232.0.0.1) — only if ssm_enabled=true
-{% if ssm_enabled and ssm_address %}ssm_address = {{ ssm_address }}
-{% endif %}# Network interface for SSM (if different from `interface`)
-{% if ssm_enabled and ssm_interface %}ssm_interface = {{ ssm_interface }}
-{% endif %}
-# Enable hardware timestamping (recommended for low latency)
-{% if hw_timestamping %}hw_timestamping = 1
-{% endif %}# Maximum frequency error (ppm × 1e6); default = 10000000 (10 ppm)
-max_frequency = {{ max_frequency }}
-
-# Path to phc2sys config (for syncing system clock to PTP clock)
-# (Only needed if phc2sys is used separately)
-{% if phc2sys_config_path %}phc2sys_config_path = {{ phc2sys_config_path }}
+# Enable hardware timestamping for precise timing (sub-100ns accuracy).
+# Derived from schema field: hw_timestamping (default: True)
+{% if hw_timestamping | default(true) is sameas true %}hw_timestamping = 1
 {% endif %}

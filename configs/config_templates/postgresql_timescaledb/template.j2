@@ -1,34 +1,88 @@
-# TimescaleDB extension must be loaded at server startup
-shared_preload_libraries = '{{ shared_preload_libraries }}'
+# ==============================================================================
+# TimescaleDB Configuration Template for PostgreSQL
+# ==============================================================================
+# This template configures the TimescaleDB extension for PostgreSQL.
+# It MUST be placed in the PostgreSQL config directory (e.g., /etc/postgresql/*/main/).
+# Most of these settings require a PostgreSQL server restart to take effect.
 
-# TimescaleDB-specific settings
-# Control whether TimescaleDB is enabled (cannot be changed after first start)
-timescaledb.allow_version_below = {{ timescaledb_allow_version_below | string | lower }}
-timescaledb.allow_deprecated_guc = {{ timescaledb_allow_deprecated_guc | string | lower }}
+# ------------------------------------------------------------------------------
+# Core Extension Loading
+# ------------------------------------------------------------------------------
+# List of shared libraries to preload at PostgreSQL startup.
+# Must include 'timescaledb' to enable the extension.
+# Format: comma-separated list of library names.
+{%- set spd_libs = shared_preload_libraries | default('timescaledb') %}
+shared_preload_libraries = '{{ spd_libs }}'
 
-# Memory and resource limits
-# Maximum memory used for background workers (e.g., compression, continuous aggregates)
-timescaledb.max_background_workers = {{ timescaledb_max_background_workers }}
-timescaledb.max_background_workers_per_db = {{ timescaledb_max_background_workers_per_db }}
+# ------------------------------------------------------------------------------
+# Compatibility & Deprecation Controls
+# ------------------------------------------------------------------------------
+# Allow TimescaleDB to run on a PostgreSQL version newer than its last known
+# compatible version. Only for testing or if you know what you are doing.
+# Values: true or false.
+timescaledb.allow_version_below = {{ timescaledb_allow_version_below | default(false) | string | lower }}
 
-# Resource tracking
-# Enable resource tracking for background workers
-timescaledb.enable_background_workers = {{ timescaledb_enable_background_workers | string | lower }}
+# Allow use of deprecated GUC (configuration) parameters.
+# Not recommended for production environments.
+# Values: true or false.
+timescaledb.allow_deprecated_guc = {{ timescaledb_allow_deprecated_guc | default(false) | string | lower }}
 
-# Compression settings
-# Default compression algorithm (lz4, pgzstd, or zstd)
-timescaledb.compress_segmentby = '{{ timescaledb_compress_segmentby }}'
+# ------------------------------------------------------------------------------
+# Memory and Resource Limits
+# ------------------------------------------------------------------------------
+# Maximum total number of background worker processes (e.g., for compression,
+# continuous aggregates, and hypertable maintenance) across all databases.
+# This value is added to the standard PostgreSQL 'max_worker_processes' if needed,
+# but specifically limits TimescaleDB's internal worker pool.
+timescaledb.max_background_workers = {{ timescaledb_max_background_workers | default(8) }}
 
-# Continuous aggregates
-# Default refresh interval for continuous aggregates (in seconds)
-timescaledb.compress_time_interval = '{{ timescaledb_compress_time_interval }}'
+# Maximum number of background worker processes allowed per database.
+# This prevents a single database from consuming all background workers.
+timescaledb.max_background_workers_per_db = {{ timescaledb_max_background_workers_per_db | default(4) }}
 
-# License & telemetry
-# Enable TimescaleDB telemetry (anonymous usage reporting)
-timescaledb.telemetry_level = '{{ timescaledb_telemetry_level }}'
+# ------------------------------------------------------------------------------
+# Resource Tracking
+# ------------------------------------------------------------------------------
+# Enable resource tracking for background workers.
+# Required for TimescaleDB to function properly (e.g., for stats and limits).
+# Values: true or false.
+timescaledb.enable_background_workers = {{ timescaledb_enable_background_workers | default(true) | string | lower }}
 
-# Optional: custom user-defined extension parameters (e.g., for tuning)
-{% for param in timescaledb_extra_params %}
-# {{ param.description }}
-{{ param.name }} = {{ param.value }}
-{% endfor %}
+# ------------------------------------------------------------------------------
+# Compression Settings
+# ------------------------------------------------------------------------------
+# Default column used for segmenting compressed data.
+# Usually 'time' or another high-cardinality column to improve compression ratios.
+# Leave empty to disable default segment-by behavior.
+timescaledb.compress_segmentby = '{{ timescaledb_compress_segmentby | default("") }}'
+
+# ------------------------------------------------------------------------------
+# Continuous Aggregates & Time-Based Operations
+# ------------------------------------------------------------------------------
+# Default time interval for continuous aggregates and compression.
+# Examples: '1day', '1hour', '1week'.
+# Leave empty to require explicit specification in commands.
+timescaledb.compress_time_interval = '{{ timescaledb_compress_time_interval | default("") }}'
+
+# ------------------------------------------------------------------------------
+# License & Telemetry
+# ------------------------------------------------------------------------------
+# Telemetry level for anonymous usage statistics and crash reporting.
+# Options:
+#   - 'off':     Disable all telemetry.
+#   - 'basic':   Send anonymous usage stats (default).
+#   - 'full':    Include crash reports and detailed metrics.
+timescaledb.telemetry_level = '{{ timescaledb_telemetry_level | default("basic") }}'
+
+# ------------------------------------------------------------------------------
+# Custom Extension Parameters
+# ------------------------------------------------------------------------------
+# List of additional TimescaleDB-specific parameters to set (e.g., tuning chunk
+# size, compression settings, or internal behavior).
+# Each item in the list is a mapping with 'name' and 'value' keys.
+{%- if timescaledb_extra_params | default([]) is iterable %}
+{%- for param in timescaledb_extra_params | default([]) | list %}
+# Custom parameter: {{ (param | default({})).name | default('unknown_param') }}
+{{ (param | default({})).name }} = {{ (param | default({})).value | default('') }}
+{%- endfor %}
+{%- endif %}

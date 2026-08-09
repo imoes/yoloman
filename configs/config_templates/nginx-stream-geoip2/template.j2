@@ -3,8 +3,8 @@
 load_module modules/ngx_stream_geoip2_module.so;
 
 # Worker process configuration
-# Adjust worker processes to match available CPU cores
-worker_processes auto;
+# Adjust worker processes to match available CPU cores. 'auto' detects CPU count.
+worker_processes {{ worker_processes | default('auto') }};
 
 # Global error logging
 # Log errors to this file (rotate externally if needed)
@@ -40,32 +40,36 @@ stream {
 
     # Upstream definitions — define servers by logical group
     # Each upstream is a group of backend TCP/UDP servers for load balancing
-    {% for upstream in upstreams %}
-    # Upstream: {{ upstream.name }} — {{ upstream.description | default('No description') }}
-    upstream {{ upstream.name }} {
+    {% for upstream in (upstreams | default([])) %}
+    # Upstream: {{ upstream.name | default('unnamed') }} — {{ upstream.description | default('No description') }}
+    upstream {{ upstream.name | default('unnamed') }} {
         # Use round-robin by default; add ip_hash or least_conn if needed
-        {% if upstream.balance == 'ip_hash' %}ip_hash;{% elif upstream.balance == 'least_conn' %}least_conn;{% endif %}
-        {% for server in upstream.servers %}
-        server {{ server.host }}:{{ server.port }}{% if server.backup %} backup{% endif %};
+        {% if upstream.balance == 'ip_hash' %}
+        ip_hash;
+        {% elif upstream.balance == 'least_conn' %}
+        least_conn;
+        {% endif %}
+        {% for server in (upstream.servers | default([])) %}
+        server {{ server.host | default('127.0.0.1') }}:{{ server.port | default(8080) }}{% if server.backup %} backup{% endif %};
         {% endfor %}
     }
     {% endfor %}
 
     # Server blocks: each defines a listening socket + routing logic
-    {% for server in stream_servers %}
-    # Listen: {{ server.listen_address }}:{{ server.listen_port }}
-    # Protocol: {{ server.protocol | upper }}
+    {% for server in (stream_servers | default([])) %}
+    # Listen: {{ server.listen_address | default('*') }}:{{ server.listen_port | default(0) }}
+    # Protocol: {{ server.protocol | upper | default('TCP') }}
     server {
-        listen {{ server.listen_address | default('*') }}:{{ server.listen_port }} {{ 'udp' if server.protocol == 'udp' else '' }};
+        listen {{ server.listen_address | default('*') }}:{{ server.listen_port | default(0) }} {{ 'udp' if server.protocol == 'udp' else '' }};
 
         # GeoIP2-based routing: redirect traffic by country/continent
         {% if server.geoip_redirect %}
         # Redirect traffic not from allowed countries to fallback upstream
         {% if server.geoip_countries %}
         {% for country in server.geoip_countries %}
-        {% if loop.first %}if ($geoip2_data_country_code !~* "^(%s"{% else %} if ($geoip2_data_country_code !~* "^(%s"{% endif %}"{% if loop.last %")$"{% endif %}) {
+        {% if loop.first %}if ($geoip2_data_country_code !~* "^(%s)"{% else %} or ($geoip2_data_country_code !~* "^(%s)"{% endif %}{% if loop.last %}) {
             return 302 http://{{ server.geoip_fallback_host | default('fallback.example.com') }};
-        }
+        }{% endif %}
         {% endfor %}
         # Note: Multiple if blocks may be consolidated using map for better performance
         # Alternative: Use `map` in a separate block for complex logic
@@ -75,13 +79,13 @@ stream {
         {% endif %}
 
         # Proxy to upstream (resolve upstream name defined above)
-        proxy_pass {{ server.upstream_name }};
+        proxy_pass {{ server.upstream_name | default('default_upstream') }};
 
         # Connection timeout tuning
         proxy_timeout {{ server.timeout | default('3s') }};
 
         # Log format: include upstream, client IP, and country code
-        access_log /var/log/nginx/{{ server.log_name | default(server.listen_port) }}_stream.log;
+        access_log /var/log/nginx/{{ server.log_name | default(server.listen_port | default('unknown')) }}_stream.log;
     }
     {% endfor %}
 }

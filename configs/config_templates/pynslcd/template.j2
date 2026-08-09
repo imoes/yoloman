@@ -1,14 +1,41 @@
-# Defaults for nslcd init script
+# ============================================================
+# nslcd (NSLCD Daemon) Configuration Template
+# ============================================================
+# This file configures the nslcd init script defaults, specifically
+# focusing on Kerberos ticket management via k5start.
+# nslcd uses these settings to automatically obtain and renew
+# Kerberos tickets for GSSAPI/SASL authentication with directory servers.
+#
+# Self-Documentation:
+# Every variable below uses | default(...) to ensure safe rendering even
+# if the variable is undefined in the Ansible play.
+# Comments above each directive describe the schema field's purpose.
+# ============================================================
 
-# Whether to start k5start (for obtaining and keeping a Kerberos ticket)
-# By default k5start is started if nslcd.conf has sasl_mech set to GSSAPI
-# and krb5_ccname is set to a file-type ticket cache.
-# Set to "yes" to force starting k5start, any other value will not start
-# k5start.
-#K5START_START="{{ k5start_start }}"
+# ---------------------------------------------------------------------------
+# Section: k5start Activation
+# ---------------------------------------------------------------------------
+# k5start_start: Whether to force starting k5start: "yes" to enable, empty
+# (or any other value) to disable. Default empty (disabled unless auto-detected).
+# ---------------------------------------------------------------------------
+K5START_START="{{ k5start_start | default('') }}"
 
-# Options for k5start.
-#K5START_BIN={{ k5start_bin }}
-#K5START_KEYTAB={{ k5start_keytab }}
-#K5START_CCREFRESH={{ k5start_ccrefresh }}
-#K5START_PRINCIPAL="{{ k5start_principal }}"
+# ---------------------------------------------------------------------------
+# Section: k5start Execution Options
+# ---------------------------------------------------------------------------
+
+# k5start_bin: Path to k5start binary.
+# ---------------------------------------------------------------------------
+K5START_BIN={{ k5start_bin | default('/usr/bin/k5start') }}
+
+# k5start_keytab: Path to Kerberos keytab file for k5start.
+# ---------------------------------------------------------------------------
+K5START_KEYTAB={{ k5start_keytab | default('/etc/krb5.keytab') }}
+
+# k5start_ccrefresh: Seconds between Kerberos ticket refresh by k5start.
+# ---------------------------------------------------------------------------
+K5START_CCREFRESH={{ k5start_ccrefresh | default(60) }}
+
+# k5start_principal: Kerberos principal for k5start.
+# ---------------------------------------------------------------------------
+K5START_PRINCIPAL="{{ k5start_principal | default('host/$(hostname -f)') }}"

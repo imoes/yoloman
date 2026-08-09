@@ -1,25 +1,88 @@
-# QGIS Server configuration file — sets environment variables for the QGIS Server CGI/FCGI process
-# Note: This file is typically sourced by the web server (Apache/Nginx) or FCGI wrapper
-# QGIS project search path (colon-separated directories)
-# Allows QGIS Server to find .qgs and .qgz projects dynamically
-QGIS_SERVER_PROJECT_FILE={{ qgis_project_file | default('') }}
+# =============================================================================
+# QGIS Server Environment Configuration Template
+# =============================================================================
+# This Jinja2 template generates an environment variable file (or equivalent)
+# for QGIS Server. These variables control the behavior of the QGIS Server
+# CGI/FCGI process, typically sourced by the web server (Apache/Nginx) or
+# an FCGI wrapper like mod_proxy_fcgi or spawn-fcgi.
+#
+# Self-documenting: Every directive below corresponds to a schema field.
+# See the Ansible role variables for detailed descriptions.
+# =============================================================================
 
-# Cache directory for rendered maps and tiles
-QGIS_SERVER_CACHE_DIRECTORY={{ cache_directory | default('/var/cache/qgis-server') }}
+# -----------------------------------------------------------------------------
+# QGIS Project File
+# -----------------------------------------------------------------------------
+# Description: Absolute path to a default QGIS project file (.qgs or .qgz)
+#              to serve when no project is specified in the request.
+#              Leave empty to require explicit project specification in URL.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_PROJECT_FILE={{ (qgis_project_file | default('')) | string }}
 
-# Maximum cache size in MB (0 = unlimited)
-QGIS_SERVER_CACHE_SIZE={{ cache_size_mb | default(512) }}
+# -----------------------------------------------------------------------------
+# Cache Directory
+# -----------------------------------------------------------------------------
+# Description: Directory for QGIS Server cache files (rendered maps, tile
+#              caches, etc.). Ensure the web server user (e.g., www-data)
+#              has read/write access to this directory.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_CACHE_DIRECTORY={{ (cache_directory | default('/var/cache/qgis-server')) | string }}
 
-# Enable/disable logging to syslog
-QGIS_SERVER_LOG_LEVEL={{ log_level | default('0') }}
-# 0=none, 1=error, 2=warning, 3=info, 4=debug
+# -----------------------------------------------------------------------------
+# Cache Size
+# -----------------------------------------------------------------------------
+# Description: Maximum cache size in megabytes. Set to 0 for unlimited.
+#              QGIS Server automatically evicts least-recently-used items
+#              when the limit is exceeded.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_CACHE_SIZE={{ (cache_size_mb | default(512)) | int }}
 
-# Maximum number of parallel rendering threads
-QGIS_SERVER_PARALLEL_RENDERING={{ parallel_rendering | default('false') }}
-QGIS_SERVER_MAX_THREADS={{ max_threads | default(2) }}
+# -----------------------------------------------------------------------------
+# Log Level
+# -----------------------------------------------------------------------------
+# Description: Logging verbosity level:
+#   0 = none
+#   1 = error
+#   2 = warning
+#   3 = info
+#   4 = debug
+#   Use higher levels for troubleshooting.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_LOG_LEVEL={{ (log_level | default('0')) | string }}
 
-# Enable/disable authentication (QGIS Server authentication plugin support)
-QGIS_SERVER_AUTH_DATABASE={{ auth_database_path | default('/etc/qgis/qgis-server/auth.db') }}
+# -----------------------------------------------------------------------------
+# Parallel Rendering
+# -----------------------------------------------------------------------------
+# Description: Enable parallel rendering of map layers to improve performance
+#              on multi-core systems. Requires QGIS to be compiled with
+#              thread-safety support.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_PARALLEL_RENDERING={{ (parallel_rendering | default(false)) | bool | ternary('true', 'false') }}
 
-# Optional: Additional environment variables (e.g., custom plugin paths, project settings)
-{% for var_name, var_value in extra_env.items() %}{{ var_name }}={{ var_value }}{% endfor %}
+# -----------------------------------------------------------------------------
+# Maximum Threads
+# -----------------------------------------------------------------------------
+# Description: Maximum number of rendering threads to use when parallel
+#              rendering is enabled. Adjust based on available CPU cores.
+#              Recommended: equal to number of CPU cores or slightly less.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_MAX_THREADS={{ (max_threads | default(2)) | int }}
+
+# -----------------------------------------------------------------------------
+# Authentication Database Path
+# -----------------------------------------------------------------------------
+# Description: Path to the SQLite database used for QGIS Server
+#              authentication and authorization (if using the QGIS auth
+#              plugin system). Leave empty to disable auth plugin DB.
+# -----------------------------------------------------------------------------
+QGIS_SERVER_AUTH_DATABASE={{ (auth_database_path | default('/etc/qgis/qgis-server/auth.db')) | string }}
+
+# -----------------------------------------------------------------------------
+# Additional Environment Variables
+# -----------------------------------------------------------------------------
+# Description: Optional list of additional environment variables for advanced
+#              configuration (e.g., custom plugin paths, project templates,
+#              GDAL data paths). Each entry maps a variable name to its value.
+# -----------------------------------------------------------------------------
+{% for var_entry in (extra_env | default([]) | list) %}{{ var_entry.name }}={{ var_entry.value }}
+{% endfor %}

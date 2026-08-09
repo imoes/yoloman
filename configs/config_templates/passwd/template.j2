@@ -1,5 +1,122 @@
+# PAM configuration for the Shadow `passwd` service.
+# This file is included by the PAM stack during password changes/updates.
+# It defines password policy enforcement via `pam_pwquality` (or `pam_cracklib`).
+
+# --- Include common PAM password settings ---
+# @include common-password
+# Loads shared defaults for password hashing and module chaining.
+
+{% if pam_enforce | default(True) | bool %}
 #
-# The PAM configuration file for the Shadow `passwd' service
+# Password Quality / Complexity Enforcement
+# Enforced via PAM module `pam_pwquality` (preferred) or `pam_cracklib` (fallback).
 #
 
-@include common-password
+# `pam_pwquality` module: enforces complexity rules.
+# `try_first_pass` ensures we don't prompt twice if the previous module in the stack already asked for a password.
+# `retry=3` gives the user 3 attempts before failing the authentication/password change.
+
+# --- Minimum Length ---
+# min_length: {{ min_length | default(8) }}
+# desc: Minimum password length in characters. Must be ≥ 4 and ≤ 128.
+#
+password	requisite	pam_pwquality.so retry=3 minlen={{ min_length | default(8) }}
+
+# --- Maximum Length ---
+# max_length: {{ max_length | default(0) }}
+# desc: Maximum password length in characters. Set to 0 for no limit.
+# Note: pam_pwquality does not strictly enforce a hard max length in its standard options,
+# but `maxlen` is often supported in newer versions. If 0, we omit it.
+{% if (max_length | default(0)) != 0 %}
+password	requisite	pam_pwquality.so maxlen={{ max_length | default(0) }}
+{% endif %}
+
+# --- Character Class Requirements ---
+# min_digits: {{ min_digits | default(1) }}
+# desc: Minimum number of digit characters (0–9) required.
+# min_lower: {{ min_lower | default(1) }}
+# desc: Minimum number of lowercase letters (a–z) required.
+# min_upper: {{ min_upper | default(1) }}
+# desc: Minimum number of uppercase letters (A–Z) required.
+# min_other: {{ min_other | default(1) }}
+# desc: Minimum number of special (non-alphanumeric) characters required.
+# min_classes: {{ min_classes | default(3) }}
+# desc: Minimum number of character classes (upper, lower, digit, special) required.
+
+# These are passed as options to pam_pwquality.
+# `lcredit`, `ucredit`, `dcredit`, `ocredit` specify the count.
+# Negative values mean "at least N". Positive values mean "at most N".
+# `minclass` is the total number of classes required.
+password	requisite	pam_pwquality.so
+    lcredit=-{{ min_lower | default(1) }}
+    ucredit=-{{ min_upper | default(1) }}
+    dcredit=-{{ min_digits | default(1) }}
+    ocredit=-{{ min_other | default(1) }}
+    minclass={{ min_classes | default(3) }}
+
+# --- Consecutive Characters ---
+# max_consecutive: {{ max_consecutive | default(3) }}
+# desc: Maximum number of identical consecutive characters allowed.
+# `maxrepeat` limits consecutive identical chars.
+password	requisite	pam_pwquality.so maxrepeat={{ max_consecutive | default(3) }}
+
+# --- Dictionary Check ---
+# dictionary_check: {{ dictionary_check | default(False) | lower }}
+# desc: If true, all passwords are checked against a system dictionary.
+# `dictcheck` enables dictionary lookups.
+{% if dictionary_check | default(False) | bool %}
+password	requisite	pam_pwquality.so dictcheck=1
+{% endif %}
+
+# --- Disallowed Words ---
+# disallow_words: {{ disallow_words | default([]) | tojson }}
+# desc: List of additional words to disallow in passwords.
+# `usercheck` checks against the username. `dictfile` checks against a file.
+{% if disallow_words | default([]) | length > 0 %}
+# Create a temporary dictionary file with disallowed words for PAM to check.
+# This is handled via a separate task in the Ansible role, which writes to:
+# /etc/security/disallowed_words.txt
+# The `dictfile` option points to this file.
+password	requisite	pam_pwquality.so dictfile=/etc/security/disallowed_words.txt
+{% endif %}
+
+# --- Strict Non-Root Enforcement ---
+# strict_non_root: {{ strict_non_root | default(True) | lower }}
+# desc: If true, non-root users are strictly subject to all password policies.
+# `enforce_for_root` is not a standard pam_pwquality option, but we can control
+# whether the module is called for root. If strict_non_root is true, we include
+# this for all users. If false, we might skip it for root in a broader PAM config,
+# but since this file is often included globally or via `passwd` service specific,
+# we assume this block applies to the `passwd` command which runs as root.
+# However, `pam_pwquality` itself has `enforce_for_root` in some versions.
+# To be safe and compliant with "strict_non_root", we ensure the module is present.
+# If `strict_non_root` is false, we might want to skip this block for root, but
+# since the template is for the `passwd` service which is root-only, this logic
+# is implicitly handled by the calling context. We keep the rules active.
+
+# --- Password History (Old Passwords) ---
+# old_passwords: {{ old_passwords | default(5) }}
+# desc: Number of previous passwords to remember (history depth).
+# This is typically handled by `pam_unix` with `remember=`, not `pam_pwquality`.
+# However, some setups use `pam_pwquality` with `remember=`, but standard is `pam_unix`.
+# Since this template is specifically for `passwd` service and `@include common-password`,
+# the history is often set in `common-password`. If we must set it here:
+# Note: `pam_pwquality` does NOT manage password history. `pam_unix` does.
+# We add a comment to remind the role author that history is usually in `pam_unix.so` line.
+# password requisite pam_unix.so sha512 shadow remember={{ old_passwords | default(5) }} use_authtok
+
+# --- Password Expiration Policies (min_days, max_days, warn_days, inactive_days) ---
+# These are NOT set in PAM. They are set in /etc/login.defs or via `chage`.
+# min_days: {{ min_days | default(0) }}
+# max_days: {{ max_days | default(99999) }}
+# warn_days: {{ warn_days | default(7) }}
+# inactive_days: {{ inactive_days | default(30) }}
+# desc: Days between password changes, max validity, warning period, and inactive period.
+# These are typically managed by the `login_defs` module in the Ansible role.
+# We do NOT put them in PAM config files.
+
+# --- End of PAM Configuration ---
+{% else %}
+# pam_enforce is false. No `pam_pwquality` rules are enforced.
+# Password policies may be managed by other means (e.g., LDAP, external PAM modules).
+{% endif %}

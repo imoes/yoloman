@@ -1,64 +1,121 @@
-# nsca-ng server configuration file
-# Server binds to this network address (host:port or just port)
-bind_address: {{ bind_address }}
+# ==============================================================================
+# nsca-ng Server Configuration Template
+# ==============================================================================
+# This template generates a configuration file for the nsca-ng server.
+# It is self-documenting: every directive is preceded by its schema description.
+# Variables use the `| default(...)` filter to ensure safe rendering even if
+# an Ansible variable is undefined.
+# ==============================================================================
 
-# Maximum number of seconds to wait for incoming connections
-connection_timeout: {{ connection_timeout }}
+# [bind_address]
+# Network address (host:port or just port) to bind the server to.
+# Default: '0.0.0.0:5667'
+bind_address: {{ (bind_address | default('0.0.0.0:5667')) | string }}
 
-# Maximum number of seconds to wait for complete packets
-packet_timeout: {{ packet_timeout }}
+# [connection_timeout]
+# Maximum seconds to wait for an incoming connection before timing out.
+# Default: 60
+connection_timeout: {{ (connection_timeout | default(60)) | int }}
 
-# Maximum number of incoming connections to queue
-max_connections: {{ max_connections }}
+# [packet_timeout]
+# Maximum seconds to wait for a complete encrypted packet before disconnecting.
+# Default: 10
+packet_timeout: {{ (packet_timeout | default(10)) | int }}
 
-# Enable TLS encryption
-{% if enable_tls %}
+# [max_connections]
+# Maximum number of queued incoming connections.
+# Default: 100
+max_connections: {{ (max_connections | default(100)) | int }}
+
+# [enable_tls]
+# Enable TLS encryption for client communication.
+# Default: False
+# Note: nsca-ng expects 'yes' or 'no' for boolean directives.
+{% if (enable_tls | default(False) | bool) %}
 enable_tls: yes
 {% else %}
 enable_tls: no
 {% endif %}
 
-# Path to the TLS certificate (required if TLS enabled)
-{% if enable_tls %}
-certificate_file: {{ tls_certificate_file }}
-private_key_file: {{ tls_private_key_file }}
-ca_file: {{ tls_ca_file }}
+# [tls_certificate_file]
+# Path to the TLS certificate (PEM format) — required if TLS is enabled.
+# Default: '/etc/nsca-ng/tls/server.crt'
+# [tls_private_key_file]
+# Path to the TLS private key (PEM format) — required if TLS is enabled.
+# Default: '/etc/nsca-ng/tls/server.key'
+# [tls_ca_file]
+# Path to the CA certificate (PEM format) for verifying clients — optional, enables client cert auth.
+# Default: '/etc/nsca-ng/tls/ca.crt'
+#
+# These directives are only written if TLS is explicitly enabled.
+{% if (enable_tls | default(False) | bool) %}
+certificate_file: {{ (tls_certificate_file | default('/etc/nsca-ng/tls/server.crt')) | string }}
+private_key_file: {{ (tls_private_key_file | default('/etc/nsca-ng/tls/server.key')) | string }}
+ca_file: {{ (tls_ca_file | default('/etc/nsca-ng/tls/ca.crt')) | string }}
 {% endif %}
 
-# Path to the PID file
-pid_file: {{ pid_file }}
+# [pid_file]
+# Path to the PID file.
+# Default: '/run/nsca-ng/nsca-ng.pid'
+pid_file: {{ (pid_file | default('/run/nsca-ng/nsca-ng.pid')) | string }}
 
-# Path to the log file (use '-' for stdout)
-log_file: {{ log_file }}
+# [log_file]
+# Path to the log file; use '-' to log to stdout (e.g., with systemd).
+# Default: '/var/log/nsca-ng/nsca-ng.log'
+log_file: {{ (log_file | default('/var/log/nsca-ng/nsca-ng.log')) | string }}
 
-# Logging verbosity level (0–4, 4 = most verbose)
-log_level: {{ log_level }}
+# [log_level]
+# Logging verbosity (0=error, 1=warn, 2=info, 3=debug, 4=trace); higher = more verbose.
+# Default: 2
+log_level: {{ (log_level | default(2)) | int }}
 
-# Run as this user (and group)
-user: {{ run_as_user }}
-{% if run_as_group %}
-group: {{ run_as_group }}
+# [run_as_user]
+# System user to run the server process as.
+# Default: 'nsca'
+user: {{ (run_as_user | default('nsca')) | string }}
+
+# [run_as_group]
+# System group to run the server process as (optional).
+# Default: 'nsca'
+#
+# This directive is only emitted if a group is explicitly specified (non-empty).
+{% if run_as_group is defined and run_as_group | string | trim | length > 0 %}
+group: {{ (run_as_group | default('nsca')) | string }}
 {% endif %}
 
-# Command pipe (FIFO) path — NSCA-NG writes processed checks here
-command_pipe: {{ command_pipe }}
+# [command_pipe]
+# Path to the command FIFO (named pipe) where NSCA-NG writes processed checks.
+# Default: '/var/spool/nagios/cmd/nagios.cmd'
+command_pipe: {{ (command_pipe | default('/var/spool/nagios/cmd/nagios.cmd')) | string }}
 
-# Enable reading additional configuration snippets (e.g., /etc/nsca-ng/conf.d/*.cfg)
-{% if enable_include_dir %}
-include_dir: {{ include_dir }}
+# [enable_include_dir]
+# Enable reading extra config files from a directory (e.g., per-client configs).
+# Default: False
+#
+# The include_dir directive is only emitted if this flag is true.
+{% if (enable_include_dir | default(False) | bool) %}
+include_dir: {{ (include_dir | default('/etc/nsca-ng/conf.d')) | string }}
 {% endif %}
 
-# Allowed clients (IPs or hostnames) and their shared passwords
-{% for client in allowed_clients %}
+# [allowed_clients]
+# List of allowed client hosts (IP or hostname) and their authentication details.
+# Default: [] (empty list)
+#
+# Each client entry is rendered as a block. If the list is empty, no directives
+# are emitted for this section.
+{% for client in (allowed_clients | default([])) %}
+# --- Client Configuration ---
+{% if client.name is defined %}
 # Client: {{ client.name }}
-{% if client.host %}
-allowed_host: {{ client.host }}
 {% endif %}
-{% if client.password %}
-password: {{ client.password }}
+{% if client.host is defined and client.host | string | trim | length > 0 %}
+allowed_host: {{ client.host | string }}
 {% endif %}
-{% if client.encryption %}
-encryption: {{ client.encryption }}
+{% if client.password is defined and client.password | string | trim | length > 0 %}
+password: {{ client.password | string }}
+{% endif %}
+{% if client.encryption is defined and client.encryption | string | trim | length > 0 %}
+encryption: {{ client.encryption | string }}
 {% endif %}
 {% endfor %}
 

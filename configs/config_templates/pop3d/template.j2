@@ -1,44 +1,127 @@
-# Courier POP3 daemon configuration
-# Listen address and port
-PORT={{ pop3.port }}
+# ==============================================================================
+# Courier POP3 Daemon (pop3d) Configuration
+# ==============================================================================
+# This template generates the main configuration file for the Courier POP3 daemon.
+# It controls listening ports, SSL/TLS settings, authentication backends, daemon limits,
+# and logging verbosity.
+#
+# SELF-DOCUMENTATION:
+# Every configuration directive is preceded by a comment derived from its schema description.
+# All variable references include inline defaults to prevent rendering errors if the variable
+# is undefined. Use the 'pop3' dict to pass these values via Ansible variables.
 
-# Use SSL/TLS
-POP3DSSLSTART={{ pop3.ssl_start | lower }}
-POP3DSSLPORT={{ pop3.ssl_port }}
+# ==============================================================================
+# Network & Protocol Settings
+# ==============================================================================
 
-# TLS certificate and key paths
-SSLPORT={{ pop3.ssl_port }}
-TLS_CERT={{ pop3.tls_cert }}
-TLS_KEY={{ pop3.tls_key }}
+# TCP port on which the POP3 daemon listens (typically 110 for unencrypted POP3).
+# If STARTTLS is enabled on this port, clients can upgrade to TLS.
+# Schema: pop3.port | default: 110
+PORT={{ (pop3 | default({})).port | default(110) }}
 
-# Maximum number of simultaneous connections
-MAXDAEMONS={{ pop3.max_daemons }}
+# ==============================================================================
+# SSL/TLS Configuration
+# ==============================================================================
 
-# Timeout settings (in seconds)
-CACHETIMEOUT={{ pop3.cache_timeout }}
+# Enable POP3 with STARTTLS support (port 110 advertises TLS after protocol initiation).
+# If True, the daemon will advertise STARTTLS capability on the standard port.
+# Schema: pop3.ssl_start | default: True
+POP3DSSLSTART={{ (pop3 | default({})).ssl_start | default(True) | lower }}
 
-# Authentication method
-AUTHMODULES="{{ pop3.auth_modules | join(' ') }}"
-AUTHMODULES_ORIG="{{ pop3.auth_modules | join(' ') }}"
+# TCP port for POP3S (POP3 over SSL/TLS).
+# Connections on this port are immediately encrypted and do not require STARTTLS.
+# Schema: pop3.ssl_port | default: 995
+POP3DSSLPORT={{ (pop3 | default({})).ssl_port | default(995) }}
 
-# Allow/disallow plaintext auth over non-SSL connections
-AUTH_ALLOW_PLAINTEXT={{ pop3.allow_plaintext_auth | lower }}
+# Legacy variable alias for SSL port.
+# Often required by older Courier scripts or wrappers that expect this specific variable name.
+# Schema: pop3.ssl_port | default: 995
+SSLPORT={{ (pop3 | default({})).ssl_port | default(995) }}
 
-# Logging verbosity
-LOGLEVEL={{ pop3.loglevel }}
+# Path to the TLS certificate file (PEM format).
+# This certificate is presented to clients during the SSL handshake.
+# Ensure the file is readable by the pop3d process user.
+# Schema: pop3.tls_cert | default: /etc/courier/pop3d.pem
+TLS_CERT={{ (pop3 | default({})).tls_cert | default('/etc/courier/pop3d.pem') }}
 
-# Maildir path (if not using system-wide Maildir location)
-# Leave empty to use default user Maildir
-#MAILDIR={{ pop3.maildir }}
+# Path to the TLS private key file (PEM format).
+# Often the same file as the certificate if stored in a combined PEM.
+# Must contain the private key corresponding to the certificate.
+# Schema: pop3.tls_key | default: /etc/courier/pop3d.pem
+TLS_KEY={{ (pop3 | default({})).tls_key | default('/etc/courier/pop3d.pem') }}
 
-# Require client to issue STARTTLS before auth (if TLS enabled)
-STARTTLS={{ pop3.require_starttls | lower }}
+# ==============================================================================
+# Daemon Resource Limits
+# ==============================================================================
 
-# Maximum message size (in KB); 0 = unlimited
-MAXMESSAGESIZE={{ pop3.max_message_size_kb }}
+# Maximum number of concurrent POP3 daemon processes.
+# Limits the parallelism of the service to prevent resource exhaustion.
+# Increase this value if you expect a high number of simultaneous connections.
+# Schema: pop3.max_daemons | default: 25
+MAXDAEMONS={{ (pop3 | default({})).max_daemons | default(25) }}
 
-# Enable/disable UIDL persistence
-UIDL_UNIQUE_PREFIX={{ pop3.uidl_unique_prefix }}
+# ==============================================================================
+# Authentication & Caching
+# ==============================================================================
 
-# Hostname advertised in banner
-HOSTNAME={{ pop3.hostname }}
+# Time (in seconds) before cached authentication results expire.
+# Reduces backend load by avoiding repeated lookups for valid credentials.
+# Set to 0 to disable caching entirely.
+# Schema: pop3.cache_timeout | default: 60
+CACHETIMEOUT={{ (pop3 | default({})).cache_timeout | default(60) }}
+
+# Ordered list of authentication backends to try.
+# Order matters: the daemon attempts them sequentially until one succeeds.
+# Valid backends depend on installed Courier auth modules (e.g., authshadow, authpwd, authvchkpw).
+# Schema: pop3.auth_modules | default: ['authshadow', 'authpwd']
+AUTHMODULES="{{ (pop3 | default({})).auth_modules | default(['authshadow', 'authpwd']) | join(' ') }}"
+
+# Original authentication modules list (legacy compatibility).
+# Often mirrors AUTHMODULES but may be used by specific legacy scripts.
+# Schema: pop3.auth_modules | default: ['authshadow', 'authpwd']
+AUTHMODULES_ORIG="{{ (pop3 | default({})).auth_modules | default(['authshadow', 'authpwd']) | join(' ') }}"
+
+# Allow plaintext passwords (e.g., 'USER/PASS') over non-SSL connections.
+# Disable in production unless necessary for legacy clients that cannot use STARTTLS/SSL.
+# If STARTTLS is required, this is effectively ignored for authenticated sessions.
+# Schema: pop3.allow_plaintext_auth | default: False
+AUTH_ALLOW_PLAINTEXT={{ (pop3 | default({})).allow_plaintext_auth | default(False) | lower }}
+
+# Require clients to issue STARTTLS before authentication (if SSL port is also enabled).
+# If enabled on the STARTTLS port (110), clients MUST upgrade the connection to TLS
+# before sending credentials. This enhances security for plaintext-port connections.
+# Schema: pop3.require_starttls | default: True
+STARTTLS={{ (pop3 | default({})).require_starttls | default(True) | lower }}
+
+# ==============================================================================
+# Logging & Mailbox Settings
+# ==============================================================================
+
+# Logging verbosity level.
+# 0 = none, 1 = minimal, 2 = normal, 3 = verbose, 4 = debug.
+# Adjust this value to troubleshoot connection or authentication issues.
+# Schema: pop3.loglevel | default: 1
+LOGLEVEL={{ (pop3 | default({})).loglevel | default(1) }}
+
+# Maximum allowed message size (in KB).
+# Set to 0 for unlimited size. Helps prevent storage abuse and DoS.
+# Note: This applies to messages retrieved via POP3; IMAP may have different limits.
+# Schema: pop3.max_message_size_kb | default: 0
+MAXMESSAGESIZE={{ (pop3 | default({})).max_message_size_kb | default(0) }}
+
+# ==============================================================================
+# Session & Identity
+# ==============================================================================
+
+# Unique prefix for UIDL (Unique ID Listing) values.
+# Ensures global uniqueness of UIDLs across sessions/servers.
+# UIDLs are used by POP3 clients to identify messages and track which have been downloaded.
+# A common practice is to include the domain name or a server-specific identifier.
+# Schema: pop3.uidl_unique_prefix | default: U2FsdGVkX1
+UIDL_UNIQUE_PREFIX="{{ (pop3 | default({})).uidl_unique_prefix | default('U2FsdGVkX1') }}"
+
+# Hostname advertised in the POP3 greeting banner.
+# Should resolve correctly via DNS for clients performing reverse lookups.
+# This value is sent immediately upon connection establishment.
+# Schema: pop3.hostname | default: localhost
+HOSTNAME="{{ (pop3 | default({})).hostname | default('localhost') }}"

@@ -1,178 +1,310 @@
-# Server identification
-IdentName {{ ident_name }}
+# =============================================================================
+# ProFTPD Configuration Template
+# =============================================================================
+# This template generates a complete proftpd.conf file.
+# All variables use defaults derived from the schema to ensure idempotency.
+# =============================================================================
 
-# Server description
-ServerName "{{ server_name }}"
+# -----------------------------------------------------------------------------
+# Server Identification
+# -----------------------------------------------------------------------------
+# Server identification name used in FTP responses
+IdentName {{ ident_name | default('proftpd') }}
 
-# Server type (standalone or inetd)
-ServerType {{ server_type }}
+# Server name displayed to users (e.g., in '220' welcome message)
+ServerName "{{ server_name | default('ProFTPD Server') }}"
 
-# Default umask for new files
-DefaultUmask {{ default_umask }}
+# -----------------------------------------------------------------------------
+# Server Type
+# -----------------------------------------------------------------------------
+# Whether the server runs as a daemon or under inetd/xinetd
+ServerType {{ server_type | default('standalone') }}
 
-# Listen address and port
-{% if listen_address %}
-{% if listen_address | split('.') | length == 4 %}
-# IPv4 listening address
+# -----------------------------------------------------------------------------
+# Default Umask
+# -----------------------------------------------------------------------------
+# Default UMASK for new files and directories (octal)
+DefaultUmask {{ default_umask | default('022') }}
+
+# -----------------------------------------------------------------------------
+# Listening Address and Port
+# -----------------------------------------------------------------------------
+# IP address to bind to (empty = all interfaces); supports IPv4 or IPv6
+{% set listen_addr = listen_address | default('') %}
+{% if listen_addr %}
+# Listening on specific address: {{ listen_addr }}
+Listen {{ listen_addr }} {{ listen_port | default(21) }}
 {% else %}
-# IPv6 listening address
+# Listening on all interfaces
+Listen * {{ listen_port | default(21) }}
 {% endif %}
-{% endif %}
-{% if listen_address %}Listen {{ listen_address }}{% else %}# Listen address not set (uses default interface)%}
-{% endif %} {{ listen_port }}
 
-# Control socket path
-SystemLog {{ system_log_path }}
+# -----------------------------------------------------------------------------
+# System Log
+# -----------------------------------------------------------------------------
+# Path to the system log file
+SystemLog {{ system_log_path | default('/var/log/proftpd/proftpd.log') }}
 
-# PID file location
-PIDFile {{ pid_file_path }}
+# -----------------------------------------------------------------------------
+# PID File
+# -----------------------------------------------------------------------------
+# Path to the PID file
+PIDFile {{ pid_file_path | default('/run/proftpd.pid') }}
 
-# Maximum number of simultaneous clients
-MaxClients {{ max_clients }}
+# -----------------------------------------------------------------------------
+# Client Limits
+# -----------------------------------------------------------------------------
+# Maximum total number of simultaneous clients allowed
+MaxClients {{ max_clients | default(30) }}
 
-# Maximum number of connections per host (per-IP limit)
-MaxClientsPerHost {{ max_clients_per_host }}
+# Maximum number of connections allowed from a single host
+MaxClientsPerHost {{ max_clients_per_host | default(2) }}
 
-# Maximum connections per user
-MaxHostsPerUser {{ max_hosts_per_user }}
+# Maximum number of hosts one user may connect from simultaneously
+MaxHostsPerUser {{ max_hosts_per_user | default(1) }}
 
-# Maximum connections per user per IP
-MaxUserPerHost {{ max_user_per_host }}
+# Maximum number of connections per user per host
+MaxUserPerHost {{ max_user_per_host | default(1) }}
 
-# Maximum login attempts before disconnect
-MaxLoginAttempts {{ max_login_attempts }}
+# -----------------------------------------------------------------------------
+# Login Attempts
+# -----------------------------------------------------------------------------
+# Maximum failed login attempts before disconnection
+MaxLoginAttempts {{ max_login_attempts | default(3) }}
 
-# Timeout settings (seconds)
-TimeoutNoTransfer {{ timeout_no_transfer }}
-TimeoutIdle {{ timeout_idle }}
-TimeoutLinger {{ timeout_linger }}
+# -----------------------------------------------------------------------------
+# Timeout Settings
+# -----------------------------------------------------------------------------
+# Seconds before disconnect if no data transfer (idle transfer timeout)
+TimeoutNoTransfer {{ timeout_no_transfer | default(300) }}
 
-# Allow/deny reconnection after disconnect
-{% if allow_reconnect %}
+# Seconds before idle session disconnect
+TimeoutIdle {{ timeout_idle | default(600) }}
+
+# Seconds to wait during graceful shutdown before forced close
+TimeoutLinger {{ timeout_linger | default(90) }}
+
+# -----------------------------------------------------------------------------
+# Reconnection Handling
+# -----------------------------------------------------------------------------
+# Allow clients to reconnect after connection drop
+{% if allow_reconnect | default(False) %}
 # Reconnection allowed
+ReconnectAllowOn {{ allow_reconnect_on | default('all') }}
 {% else %}
 # Reconnection disabled
+ReconnectAllowOn none
 {% endif %}
-{% if allow_reconnect %}ReconnectAllowOn {{ allow_reconnect_on }}{% endif %}
 
-# Chroot users to home directories
-{% if chroot_enabled %}
+# -----------------------------------------------------------------------------
+# Chroot Configuration
+# -----------------------------------------------------------------------------
+# Enable chroot jail for local users (standard security practice)
+{% if chroot_enabled | default(True) %}
 # Chroot jail for local users
+DefaultRoot ~
 {% else %}
 # Chroot jail disabled
+# DefaultRoot is not set
 {% endif %}
-{% if chroot_enabled %}DefaultRoot ~{% endif %}
 
-# Allow users to override some settings
-{% if allow_override_enabled %}
+# -----------------------------------------------------------------------------
+# Override Configuration
+# -----------------------------------------------------------------------------
+# Allow .ftpaccess files in user directories to override config
+{% if allow_override_enabled | default(False) %}
 # Allow .ftpaccess overrides in user directories
+AllowOverride
 {% else %}
 # Override disabled
+# AllowOverride is not set
 {% endif %}
-{% if allow_override_enabled %}AllowOverride{% endif %}
 
-# ODBC backend configuration
-{% if odbc_enabled %}
-# Enable ODBC authentication and group lookup
+# -----------------------------------------------------------------------------
+# ODBC Backend Configuration
+# -----------------------------------------------------------------------------
+# Enable ODBC authentication and group lookup backend
+{% if odbc_enabled | default(True) %}
+# ODBC DataSource Name (DSN)
+ODBCDataSource {{ odbc_dsn | default('proftpd') }}
+
+# ODBC database username
+ODBCUser {{ odbc_username | default('proftpd') }}
+
+# ODBC database password (leave blank if using trusted auth)
+{% set odbc_pass = odbc_password | default('') %}
+{% if odbc_pass %}
+ODBCPassword {{ odbc_pass }}
+{% endif %}
+
+# SQL query to fetch user info (supports %U for username placeholder)
+# Note: ProFTPD expects literal braces in SQL queries.
+# We use the raw block to prevent Jinja from interpreting curly braces.
+ODBCGetUserInfo "{% raw %}SELECT login, password, uid, gid, shell, homedir FROM users WHERE login='%U'{% endraw %}"
+
+# SQL query to fetch group info (supports %G for group placeholder)
+ODBCGetGroupInfo "{% raw %}SELECT group_name, gid, members FROM groups WHERE group_name='%G'{% endraw %}"
+
+# Alternative SQL query to fetch user home directory only
+ODBCHomedirQuery "{% raw %}SELECT homedir FROM users WHERE login='%U'{% endraw %}"
+
+# GID to assign when no group info found in DB (nogroup)
+ODBCDefaultGID {{ odbc_default_gid | default(65534) }}
+
+# UID to assign when no user info found in DB (nobody)
+ODBCDefaultUID {{ odbc_default_uid | default(65534) }}
 {% else %}
 # ODBC backend disabled
+# ODBC configuration blocks omitted
 {% endif %}
-{% if odbc_enabled %}ODBCDataSource {{ odbc_dsn }}{% endif %}
-{% if odbc_enabled %}ODBCUser {{ odbc_username }}{% endif %}
-{% if odbc_enabled %}ODBCPassword {{ odbc_password }}{% endif %}
-{% if odbc_enabled %}ODBCGetUserInfo "{{ odbc_get_user_info_query }}"{% endif %}
-{% if odbc_enabled %}ODBCGetGroupInfo "{{ odbc_get_group_info_query }}"{% endif %}
-{% if odbc_enabled %}ODBCHomedirQuery "{{ odbc_homedir_query }}"{% endif %}
-{% if odbc_enabled %}ODBCDefaultGID {{ odbc_default_gid }}{% endif %}
-{% if odbc_enabled %}ODBCDefaultUID {{ odbc_default_uid }}{% endif %}
 
-# Log format and verbosity
-{% if log_level in ['none', 'info', 'debug', 'trace'] %}
-# Logging verbosity level
+# -----------------------------------------------------------------------------
+# Logging Level
+# -----------------------------------------------------------------------------
+# Verbosity of server logs
+{% if log_level | default('info') in ['none', 'info', 'debug', 'trace'] %}
+# Logging verbosity level: {{ log_level | default('info') }}
+LogLevel {{ log_level | default('info') }}
 {% else %}
-# Invalid log level, defaulting to 'info'
+# Invalid log level specified, defaulting to 'info'
+LogLevel info
 {% endif %}
-{% if log_level in ['none', 'info', 'debug', 'trace'] %}LogLevel {{ log_level }}{% else %}LogLevel info{% endif %}
 
-# Transfer logging (xferlog format)
-{% if transfer_log_enabled %}
-# Enable detailed transfer logging
+# -----------------------------------------------------------------------------
+# Transfer Logging (xferlog format)
+# -----------------------------------------------------------------------------
+# Enable detailed transfer logging in xferlog format
+{% if transfer_log_enabled | default(True) %}
+TransferLog {{ transfer_log_path | default('/var/log/proftpd/xferlog') }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Authentication Modules
+# -----------------------------------------------------------------------------
+# List of auth modules to use (order matters)
+{% for module in auth_modules | default(['mod_auth_file.c', 'mod_auth_unix.c', 'mod_auth_odbc.c']) %}
+AuthOrder {{ module }}
+{% endfor %}
+
+# -----------------------------------------------------------------------------
+# TLS/SSL Support
+# -----------------------------------------------------------------------------
+# Enable TLS (FTPS) support for encrypted connections
+{% if tls_enabled | default(True) %}
+# TLS Engine On
+TLSEngine on
+
+# TLS versions to allow (minimum TLSv1.2 recommended)
+# Joining list with spaces as per ProFTPD directive format
+TLSProtocol {{ tls_protocol | default(['TLSv1.2', 'TLSv1.3']) | join(' ') }}
+
+# Require TLS for all connections (data and control)
+{% if tls_required | default(False) %}
+TLSRequired on
 {% else %}
-# Transfer logging disabled
+TLSRequired off
 {% endif %}
-{% if transfer_log_enabled %}TransferLog {{ transfer_log_path }}{% endif %}
 
-# Auth modules
-{% if auth_modules | count > 0 %}
-# Auth module configuration
+# Path to TLS server certificate file
+TLSRSACertificateFile {{ tls_cert_file | default('/etc/proftpd/tls/server.crt') }}
+
+# Path to TLS server private key file
+TLSRSACertificateKeyFile {{ tls_key_file | default('/etc/proftpd/tls/server.key') }}
+
+# Path to CA certificate file for client cert verification (optional)
+{% set tls_ca = tls_ca_cert_file | default('') %}
+{% if tls_ca %}
+TLSCACertificateFile {{ tls_ca }}
 {% endif %}
-{% for module in auth_modules %}AuthOrder {{ module }}{% endfor %}
 
-# TLS/SSL support
-{% if tls_enabled %}
-# Enable TLS for secure transfers
+# Allowed TLS cipher suites (modern, secure defaults recommended)
+TLSCipherSuite {{ tls_cipher_suite | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384') }}
 {% else %}
 # TLS disabled
+# TLSEngine off
 {% endif %}
-{% if tls_enabled %}TLSEngine on{% endif %}
-{% if tls_enabled %}TLSProtocol {{ tls_protocol | join(' ') }}{% endif %}
-{% if tls_enabled %}TLSRequired {{ 'on' if tls_required else 'off' }}{% endif %}
-{% if tls_enabled %}TLSRSACertificateFile {{ tls_cert_file }}{% endif %}
-{% if tls_enabled %}TLSRSACertificateKeyFile {{ tls_key_file }}{% endif %}
-{% if tls_enabled %}TLSCACertificateFile {{ tls_ca_cert_file }}{% endif %}
-{% if tls_enabled %}TLSCipherSuite {{ tls_cipher_suite }}{% endif %}
 
-# Default directory options for anonymous and regular users
+# -----------------------------------------------------------------------------
+# Default Directory
+# -----------------------------------------------------------------------------
+# Root directory for FTP sessions (e.g., for anonymous or non-chrooted users)
+{% set default_dir = default_dir | default('/srv/ftp') %}
 {% if default_dir %}
-# Default directory access for logged-in users
-{% endif %}
-{% if default_dir %}<Directory {{ default_dir }}>{% endif %}
-{% if default_dir %}  Umask {{ default_dir_umask }}{% endif %}
-{% if default_dir %}  <Limit ALL>{% endif %}
-{% if default_dir %}    AllowUser {{ default_dir_allowed_user }}{% endif %}
-{% if default_dir %}  </Limit>{% endif %}
-{% if default_dir %}</Directory>{% endif %}
+<Directory {{ default_dir }}>
+  # Umask applied in the default directory
+  Umask {{ default_dir_umask | default('022') }}
 
-# Virtual hosting: per-host configuration blocks
-{% for vhost in virtual_hosts %}
-# Virtual host: {{ vhost.hostname }}
-{% if vhost.address %}<VirtualHost {{ vhost.address }}>{% else %}<VirtualHost {% if vhost.address %}{{ vhost.address }}{% else %}*{% endif %}>{% endif %}
-  ServerName "{{ vhost.name }}"
-  {% if vhost.port %}Port {{ vhost.port }}{% endif %}
-  DefaultRoot {{ vhost.chroot | default('~') }}
-  {% if vhost.anonymous_enabled %}
-  # Anonymous access enabled
-  {% else %}
-  # Anonymous access disabled
+  <Limit ALL>
+    # User allowed access to default directory (for anonymous chroot)
+    AllowUser {{ default_dir_allowed_user | default('ftp') }}
+  </Limit>
+</Directory>
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# Virtual Hosts
+# -----------------------------------------------------------------------------
+# List of virtual host blocks (one per domain or IP)
+{% for vhost in virtual_hosts | default([]) %}
+# Virtual host: {{ vhost.name | default('unknown') }}
+{% set vhost_addr = vhost.address | default('') %}
+{% if vhost_addr %}
+<VirtualHost {{ vhost_addr }}>
+{% else %}
+<VirtualHost *>
+{% endif %}
+
+  # Server name for this virtual host
+  ServerName "{{ vhost.name | default('') }}"
+
+  # Port for this virtual host
+  {% set vhost_port = vhost.port | default('') %}
+  {% if vhost_port %}
+  Port {{ vhost_port }}
   {% endif %}
-  {% if vhost.anonymous_enabled %}
-  <Anonymous {{ vhost.anonymous_path }}>
-    User {{ vhost.anonymous_user }}
-    Group {{ vhost.anonymous_group }}
-    UserAlias anonymous {{ vhost.anonymous_user }}
-    {% if vhost.anonymous_chroot_upload %}
+
+  # Chroot setting for this virtual host
+  DefaultRoot {{ vhost.chroot | default('~') }}
+
+  # Anonymous access configuration
+  {% if vhost.anonymous_enabled | default(False) %}
+  # Anonymous access enabled
+  <Anonymous {{ vhost.anonymous_path | default('/srv/ftp/anon') }}>
+    User {{ vhost.anonymous_user | default('ftp') }}
+    Group {{ vhost.anonymous_group | default('ftp') }}
+    UserAlias anonymous {{ vhost.anonymous_user | default('ftp') }}
+
+    {% if vhost.anonymous_chroot_upload | default(False) %}
     <Directory upload>
       <Limit WRITE>
         AllowAll
       </Limit>
     </Directory>
     {% endif %}
+
     <Limit LOGIN>
-      AllowGroup {{ vhost.anonymous_allowed_group }}
+      AllowGroup {{ vhost.anonymous_allowed_group | default('ftp') }}
     </Limit>
   </Anonymous>
   {% endif %}
+
 </VirtualHost>
 {% endfor %}
 
-# Global access control
-{% if global_access_control %}
-# Global access rules
+# -----------------------------------------------------------------------------
+# Global Access Control
+# -----------------------------------------------------------------------------
+# Global login allow/deny rules
+{% if global_access_control | default([]) %}
+<Limit LOGIN>
+  Order {% for rule in global_access_control | default([]) %}{% if rule.allow | default(False) %}Allow{% else %}Deny{% endif %} {{ rule.host | default('*') }}{% if not loop.last %}, {% endif %}{% endfor %}
+</Limit>
 {% endif %}
-{% if global_access_control %}<Limit LOGIN>{% endif %}
-{% if global_access_control %}  Order {% for rule in global_access_control %}{% if rule.allow %}Allow{% else %}Deny{% endif %} {{ rule.host }}{% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
-{% if global_access_control %}</Limit>{% endif %}
 
-# Custom site-specific directives (e.g., for modules or special behavior)
-{% for directive in custom_directives %}{{ directive }}
+# -----------------------------------------------------------------------------
+# Custom Directives
+# -----------------------------------------------------------------------------
+# List of arbitrary ProFTPD directives (e.g., 'Include /etc/proftpd/modules.conf')
+{% for directive in custom_directives | default([]) %}
+{{ directive }}
 {% endfor %}

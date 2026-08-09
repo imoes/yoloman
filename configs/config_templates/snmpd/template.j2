@@ -1,12 +1,148 @@
-# This file controls the behaviour of /etc/init.d/snmpd
-# but not of the corresponding systemd service file.
-# If needed, create an override file in
-# /etc/systemd/system/snmpd.service.d/local.conf
-# see man 5 systemd.unit and man 5 systemd.service
+# ==============================================================================
+# SNMP Daemon (snmpd) Configuration Template
+# ==============================================================================
+# This file configures the Net-SNMP daemon (snmpd). It controls the behavior
+# of the daemon started via /etc/init.d/snmpd (or the wrapper used by the
+# distribution). For systemd-based overrides, create a drop-in unit file at
+# /etc/systemd/system/snmpd.service.d/local.conf.
+#
+# Self-documenting: every directive is preceded by a comment derived from
+# the Ansible role schema, explaining its purpose and default value.
+# ==============================================================================
 
-# Don't load any MIBs by default.
-# You might comment this lines once you have the MIBs downloaded.
-# export MIBS=
+# --------------------------------------------------------------------------
+# Daemon startup options
+# --------------------------------------------------------------------------
+# Additional options to pass to the snmpd daemon.
+# Default: '' (empty string)
+# Example: '-DNET_SMI' for verbose debugging
+# Note: Base options are set internally by this template; append here.
+SNMPDOPTS='-LSwd -Lf /dev/null -u Debian-snmp -g Debian-snmp -I -smux,mteTrigger,mteTriggerConf -p /run/snmpd.pid {{ extra_daemon_opts | default("") }}'
 
-# snmpd options (use syslog priority warning, close stdin/out/err).
-#SNMPDOPTS='-LSwd -Lf /dev/null -u Debian-snmp -g Debian-snmp -I -smux,mteTrigger,mteTriggerConf -p /run/snmpd.pid'
+# --------------------------------------------------------------------------
+# Listening address and port
+# --------------------------------------------------------------------------
+# IP address for the SNMP daemon to listen on (0.0.0.0 = all interfaces).
+# Default: 0.0.0.0
+# UDP port for SNMP requests (standard: 161).
+# Default: 161
+# Format: agentAddress <ip>:<port>
+agentAddress {{ agent_listen_addr | default("0.0.0.0") }}:{{ agent_listen_port | default(161) }}
+
+# --------------------------------------------------------------------------
+# AgentX Subagent Support
+# --------------------------------------------------------------------------
+# Enable AgentX protocol support for external subagents (e.g., net-snmp-detect).
+# Default: false
+# When enabled, the path to the AgentX master socket is configured below.
+# Path to the AgentX master socket (only used when AgentX is enabled).
+# Default: /var/agentx/master
+{% if enable_agentx | default(false) | bool %}
+# AgentX support is enabled
+agentxSocket {{ agentx_socket_path | default("/var/agentx/master") }}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# System Information (SNMPv1/v2c MIB-II)
+# --------------------------------------------------------------------------
+# Value for the system.sysContact MIB object.
+# Default: admin@example.com
+sysContact {{ system_contact | default("admin@example.com") }}
+
+# Value for the system.sysLocation MIB object.
+# Default: Server Room
+sysLocation {{ system_location | default("Server Room") }}
+
+# Value for the system.sysName MIB object.
+# Default: localhost
+sysName {{ system_name | default("localhost") }}
+
+# --------------------------------------------------------------------------
+# SNMPv1/v2c Communities (Read-Only)
+# --------------------------------------------------------------------------
+# List of SNMPv1/v2c read-only community strings.
+# Default: [{'name': 'public', 'source': 'default', 'security_model': 'default'}]
+# Format: com2sec <security_model> <source_network> <community_string>
+# Each item in the list is a mapping with keys: name, source, security_model.
+# 'source' may be 'default' (matches 127.0.0.1) or a CIDR like '10.0.0.0/8'.
+# 'security_model' is typically 'default' (maps to a com2sec entry).
+{% for community in communities | default([], true) %}
+com2sec {{ community.security_model | default("default") }} {{ community.source | default("default") }} {{ community.name | default("public") }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# SNMPv1/v2c Communities (Read-Write)
+# --------------------------------------------------------------------------
+# List of SNMPv1/v2c read-write community strings. Use with caution.
+# Default: [] (empty list)
+# Format: com2sec <security_model> <source_network> <community_string>
+{% for community in write_communities | default([], true) %}
+com2sec {{ community.security_model | default("default") }} {{ community.source | default("default") }} {{ community.name | default("") }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# SNMPv1/v2c Groups
+# --------------------------------------------------------------------------
+# List of SNMPv1/v2c groups.
+# Default: [] (empty list)
+# Each item is a mapping with keys: name, users.
+# 'name' is the group name; 'users' is a space-separated list of usernames
+# (referring to com2sec entries) allowed in this group.
+{% for group in groups | default([], true) %}
+group {{ group.name | default("") }} v1 {{ group.users | default("") }}
+group {{ group.name | default("") }} v2c {{ group.users | default("") }}
+{% endfor %}
+
+# --------------------------------------------------------------------------
+# SNMPv1/v2c Views and Access Rules
+# --------------------------------------------------------------------------
+# List of SNMPv1/v2c views.
+# Default: [] (empty list)
+# Each item is a mapping with keys: name, subtree.
+# 'name' is the view name; 'subtree' is the OID subtree included/excluded.
+{% for view in views | default([], true) %}
+view {{ view.name | default("") }} included {{ view.subtree | default("") }}
+{% endfor %}
+
+{% if views | default([], true) | length > 0 %}
+# List of SNMPv1/v2c access rules.
+# Default: [] (empty list)
+# Each item is a mapping with keys: group, context, security_level,
+# read_view, write_view, notification_view.
+# 'security_level' is typically 'noAuthNoPriv', 'authNoPriv', or 'authPriv'.
+{% for access in access_rules | default([], true) %}
+access {{ access.group | default("") }} {{ access.context | default("") }} {{ access.security_level | default("noAuthNoPriv") }} {{ access.read_view | default("") }} {{ access.write_view | default("") }} {{ access.notification_view | default("") }}
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# SNMPv3 Users, Groups, and Access
+# --------------------------------------------------------------------------
+# List of SNMPv3 users.
+# Default: [] (empty list)
+# Each item is a mapping with keys: name, auth_protocol, auth_password,
+# priv_protocol (optional), priv_password (optional).
+# 'auth_protocol' is typically 'MD5' or 'SHA'.
+# 'priv_protocol' is typically 'DES', 'AES', or 'AES128'.
+{% for user in snmpv3_users | default([], true) %}
+createUser {{ user.name | default("") }} {{ user.auth_protocol | default("") }} {{ user.auth_password | default("") }}{% if user.priv_protocol | default('') != '' %} {{ user.priv_protocol | default("") }} {{ user.priv_password | default("") }}{% endif %}
+{% endfor %}
+
+{% if snmpv3_users | default([], true) | length > 0 %}
+# List of SNMPv3 groups.
+# Default: [] (empty list)
+# Each item is a mapping with keys: name, security_level, users.
+# 'security_level' is typically 'noAuthNoPriv', 'authNoPriv', or 'authPriv'.
+# 'users' is a space-separated list of SNMPv3 usernames.
+{% for group in snmpv3_groups | default([], true) %}
+group {{ group.name | default("") }} v3 {{ group.security_level | default("noAuthNoPriv") }} {{ group.users | default("") }}
+{% endfor %}
+
+# List of SNMPv3 access rules.
+# Default: [] (empty list)
+# Each item is a mapping with keys: group, context, security_level,
+# read_view, write_view, notification_view.
+{% for access in snmpv3_access | default([], true) %}
+access {{ access.group | default("") }} {{ access.context | default("") }} {{ access.security_level | default("noAuthNoPriv") }} {{ access.read_view | default("") }} {{ access.write_view | default("") }} {{ access.notification_view | default("") }}
+{% endfor %}
+{% endif %}

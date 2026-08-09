@@ -1,42 +1,74 @@
-# pre-commit configuration for Git hook management
-# Define repositories and hooks to run on commit
+# ==============================================================================
+# pre-commit Configuration Template
+# ==============================================================================
+# This file configures pre-commit, a framework for managing and maintaining
+# multi-language git pre-commit hooks. It defines which repositories to pull
+# hooks from, global defaults, and behavioral flags.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# List of Git repositories to pull hooks from.
+# Each repo entry must specify a `repo` URL (git URL or local path).
+# Optional: `rev` (tag, branch, or commit), and a list of `hooks` to enable.
+# --------------------------------------------------------------------------
 repos:
-{% for repo in repos %}
+{% for repo in (repos | default([])) %}
   - repo: {{ repo.repo }}
-{% if repo.rev %}    rev: {{ repo.rev }}
-{% endif %}{% if repo.hooks %}    hooks:
-{% for hook in repo.hooks %}{% if hook.id %}      - id: {{ hook.id }}
-{% endif %}{% if hook.name %}        name: {{ hook.name }}
-{% endif %}{% if hook.entry %}        entry: {{ hook.entry }}
-{% endif %}{% if hook.args %}        args: {{ hook.args | tojson }}
-{% endif %}{% if hook.files %}        files: {{ hook.files | tojson }}
-{% endif %}{% if hook.exclude %}        exclude: {{ hook.exclude }}
-{% endif %}{% if hook.types %}        types: {{ hook.types | tojson }}
-{% endif %}{% if hook.language %}        language: {{ hook.language }}
-{% endif %}{% if hook.always_run %}        always_run: {{ hook.always_run | string | lower }}
-{% endif %}{% if hook.pass_filenames %}        pass_filenames: {{ hook.pass_filenames | string | lower }}
-{% endif %}{% if hook.description %}        description: {{ hook.description }}
+{% if repo.rev is defined %}    rev: {{ repo.rev }}
+{% endif %}{% if repo.hooks is defined and repo.hooks %}    hooks:
+{% for hook in repo.hooks %}{% if hook.id is defined %}      - id: {{ hook.id }}
+{% endif %}{% if hook.name is defined %}        name: {{ hook.name }}
+{% endif %}{% if hook.entry is defined %}        entry: {{ hook.entry }}
+{% endif %}{% if hook.args is defined %}        args: {{ hook.args | tojson }}
+{% endif %}{% if hook.files is defined %}        files: {{ hook.files | tojson }}
+{% endif %}{% if hook.exclude is defined %}        exclude: {{ hook.exclude }}
+{% endif %}{% if hook.types is defined %}        types: {{ hook.types | tojson }}
+{% endif %}{% if hook.language is defined %}        language: {{ hook.language }}
+{% endif %}{% if hook.always_run is defined %}        always_run: {{ hook.always_run | string | lower }}
+{% endif %}{% if hook.pass_filenames is defined %}        pass_filenames: {{ hook.pass_filenames | string | lower }}
+{% endif %}{% if hook.description is defined %}        description: {{ hook.description }}
 {% endif %}
 {% endfor %}{% endif %}
 {% endfor %}
-# Default configuration options
-fail_fast: {{ fail_fast | string | lower }}
 
-# Skip hooks matching these patterns
+# --------------------------------------------------------------------------
+# If true, abort all hooks after the first failure.
+# Default: false (continue running all hooks).
+# --------------------------------------------------------------------------
+fail_fast: {{ (fail_fast | default(false)) | string | lower }}
+
+# --------------------------------------------------------------------------
+# List of hook IDs to skip globally.
+# Use this to disable specific hooks without removing them from the config.
+# Example: ['flake8', 'black']
+# --------------------------------------------------------------------------
 skip:
-{% for skip_hook in skip %}  - {{ skip_hook }}
+{% for skip_hook in (skip | default([])) %}  - {{ skip_hook }}
 {% endfor %}
 
-# Default language version (applied if not overridden per hook)
+# --------------------------------------------------------------------------
+# Global default version for each language.
+# Overrides the default system version for hooks that support versioning.
+# Example: python: python3.10
+# --------------------------------------------------------------------------
 default_language_version:
-{% for lang, version in default_language_version.items() %}  {{ lang }}: {{ version }}
+{% for lang, version in (default_language_version | default({})) | dict2items %}  {{ lang.key }}: {{ lang.value }}
 {% endfor %}
 
-# Default config for hooks that use `additional_dependencies`
-default_additional_dependencies: {{ default_additional_dependencies | tojson }}
+# --------------------------------------------------------------------------
+# Default dependencies added to each hook's environment when installed.
+# These are appended to individual hook dependencies if not overridden.
+# --------------------------------------------------------------------------
+default_additional_dependencies: {{ (default_additional_dependencies | default([])) | tojson }}
 
-# Minimum pre-commit version required
-minimum_pre_commit_version: {{ minimum_pre_commit_version }}
+# --------------------------------------------------------------------------
+# Minimum pre-commit version required to use this config.
+# Prevents compatibility issues with older pre-commit versions.
+# --------------------------------------------------------------------------
+minimum_pre_commit_version: {{ minimum_pre_commit_version | default('3.0.0') }}
 
-# Show tracebacks on errors
-show_diff_on_failure: {{ show_diff_on_failure | string | lower }}
+# --------------------------------------------------------------------------
+# If true, show a unified diff of changes made by hooks that modify files
+# when the hook fails. Useful for reviewing formatter changes.
+# --------------------------------------------------------------------------
+show_diff_on_failure: {{ (show_diff_on_failure | default(false)) | string | lower }}

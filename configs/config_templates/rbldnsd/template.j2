@@ -1,42 +1,38 @@
 # /etc/default/rbldnsd
-# This file should set one variable, RBLDNSD, to be a multiline
-# list of all instances of rbldnsd to start.  Every line in that
-# list consist of a key (basename for a pid file), and rbldnsd
-# command line, e.g.:
 #
-# RBLDNSD="dsbl -r/var/lib/rbldns/dsbl -b{{ listen_addresses[0] }}{{ (listen_addresses|length == 1 and listen_port == 53) | ternary('', ':' ~ listen_port) }} list.dsbl.org:ip4set:list"
+# This file configures the rbldnsd (RBL DNS Daemon) service instance(s).
+# The RBLDNSD variable is passed a multiline string of command-line arguments
+# defining the daemon's behavior, logging, user context, network binding,
+# and served zones.
 #
-# or, using multiple lines and line continuations:
-#
-# RBLDNSD="dsbl -r/var/lib/rbldns/dsbl -b {{ listen_addresses[0] }}{{ (listen_addresses|length == 1 and listen_port == 53) | ternary('', ':' ~ listen_port) }} \\
-#   list.dsbl.org:ip4set:list \\
-#   multihop.dsbl.org:ip4set:multihop \\
-#   unconfirmed.dsbl.org:ip4set:unconfirmed \\
-#
-# local -r{{ zones[0].file if zones and zones[0].type == 'file' else '/var/lib/rbldns/local' }} -b {{ listen_addresses[0] if listen_addresses|length > 1 else listen_addresses[0] }}{{ (listen_addresses|length == 1 and listen_port == 53) | ternary('', ':' ~ listen_port) }} \\
-#   dialups.bl.example.com:ip4set:dialups \\
-#   spews.bl.example.com:ip4set:spews \\
-#   inputs.bl.example.com:ip4set:inputs \\
-#   bl.example.com:ip4set:dialups \\
-#   bl.example.com:ip4set:spews \\
-#   bl.example.com:ip4set:inputs \\
-#
-#  "
-#
-# This is the recommended way to keep entries readable and
-# easily editable.
-#
-# the first word, key, will be used to form pid file name, like
-# /var/run/rbldnsd-dsbl.pid, /var/run/rbldnsd-local.pid etc.
-# So, all keys should be unique.  This is done in order to support
-# several instances of rbldnsd, if that'll be required.  In a
-# simple case, when only one instance is needed, key may be
-# specified as a single dash, -, and in this case pid file
-# will be /var/run/rbldnsd.pid :
-#
-# RBLDNSD="- -r/var/lib/rbldns -b127.2 \\
-#   zone list...\
-# "
-#
-# See rbldnsd(8) for descriptions of options.
-#
+# Each section below corresponds to a configuration parameter from the
+# Ansible role schema. Defaults are applied if variables are undefined.
+
+# The RBLDNSD variable assignment.
+# It uses a heredoc-style multiline string for readability.
+RBLDNSD="- \
+\
+# Log file: Path to the log file. Use '-' to log to stdout (useful with systemd).
+-f{{ log_file | default('/var/log/rbldnsd/rbldnsd.log') }} \
+\
+# PID file: Path where the daemon writes its PID file.
+-p{{ pid_file | default('/run/rbldnsd/rbldnsd.pid') }} \
+\
+# Service user: Unix username under which the daemon will run (for security).
+-u{{ service_user | default('nobody') }} \
+\
+# Service group: Unix group name for the daemon (optional; pairs with `service_user`).
+-g{{ service_group | default('nogroup') }} \
+\
+# Listen addresses and port: List of IP addresses (IPv4 or IPv6) to bind the DNS server to.
+{% for addr in listen_addresses | default(['0.0.0.0']) %}
+-b{{ addr }}:{{ listen_port | default(53) }}{% if not loop.last %} \
+{% endif %}
+{% endfor %}
+\
+# Zones: List of DNSBL zones to serve. Each entry defines a zone and its SOA/RR behavior.
+{% for zone in zones | default([]) %}
+{{ zone.domain | default('') }}:{{ zone.type | default('') }}:{{ zone.suffix | default('') }}{% if not loop.last %} \
+{% endif %}
+{% endfor %}
+"

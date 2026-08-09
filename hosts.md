@@ -1,0 +1,323 @@
+- generic [ref=f45e3]:
+  - navigation "Main navigation" [ref=f45e4]:
+    - generic [ref=f45e5]:
+      - img "Bossman" [ref=f45e6]
+      - generic [ref=f45e7]: Bossman
+      - generic [ref=f45e8]: Fleet Commander
+    - tablist "Workspaces" [ref=f45e9]:
+      - tab "Monitor" [ref=f45e10] [cursor=pointer]:
+        - img "fleet" [ref=f45e13]
+      - tab "Fleet" [selected] [ref=f45e19] [cursor=pointer]:
+        - img "hosts" [ref=f45e22]
+      - tab "Library" [ref=f45e27] [cursor=pointer]:
+        - img "roles" [ref=f45e30]
+      - tab "Deploy" [ref=f45e34] [cursor=pointer]:
+        - img "deploy" [ref=f45e37]
+      - tab "Admin" [ref=f45e42] [cursor=pointer]:
+        - img "settings" [ref=f45e45]
+    - generic [ref=f45e49]:
+      - generic [ref=f45e50]: Fleet
+      - generic [ref=f45e51]: The assets you manage
+    - link "hosts Hosts" [ref=f45e52] [cursor=pointer]:
+      - /url: /hosts
+      - img "hosts" [ref=f45e55]
+      - generic [ref=f45e60]: Hosts
+    - link "topology Systems" [ref=f45e61] [cursor=pointer]:
+      - /url: /systems
+      - img "topology" [ref=f45e64]
+      - generic [ref=f45e70]: Systems
+    - link "hosts Devices" [ref=f45e71] [cursor=pointer]:
+      - /url: /snmp-devices
+      - img "hosts" [ref=f45e74]
+      - generic [ref=f45e79]: Devices
+    - link "host-placement Host placement" [ref=f45e80] [cursor=pointer]:
+      - /url: /host-placement
+      - img "host-placement" [ref=f45e83]
+      - generic [ref=f45e89]: Host placement
+    - link "ou-policy OU / Policy" [ref=f45e90] [cursor=pointer]:
+      - /url: /ou
+      - img "ou-policy" [ref=f45e93]
+      - generic [ref=f45e97]: OU / Policy
+    - generic [ref=f45e98]:
+      - link "Help" [ref=f45e99] [cursor=pointer]:
+        - /url: /help
+        - img "help" [ref=f45e102]
+      - generic [ref=f45e107]: admin
+      - button "Log out" [ref=f45e108] [cursor=pointer]:
+        - img "logout" [ref=f45e111]
+  - generic [ref=f45e115]:
+    - generic [ref=f45e118]:
+      - generic [ref=f45e119]:
+        - heading "Hosts" [level=1] [ref=f45e120]
+        - button "Add host" [ref=f45e121]:
+          - img [ref=f45e122]: add
+      - table [ref=f45e127]:
+        - rowgroup [ref=f45e128]:
+          - row [ref=f45e129]:
+            - columnheader "Name" [ref=f45e130]
+            - columnheader "State" [ref=f45e131]
+            - columnheader "CPU load" [ref=f45e132]
+            - columnheader "Memory" [ref=f45e133]
+            - columnheader "Disk (max)" [ref=f45e134]
+            - columnheader "Services" [ref=f45e135]
+            - columnheader "Last seen" [ref=f45e136]
+            - columnheader [ref=f45e137]
+        - rowgroup [ref=f45e138]:
+          - row [ref=f45e161] [cursor=pointer]:
+            - cell "claude-pxe-test" [ref=f45e162]
+            - cell "OK" [ref=f45e163]
+            - cell "—" [ref=f45e166]
+            - cell "—" [ref=f45e167]:
+              - generic "No data yet" [ref=f45e169]: —
+            - cell "—" [ref=f45e172]:
+              - generic "No data yet" [ref=f45e174]: —
+            - cell [ref=f45e177]
+            - cell "never" [ref=f45e178]
+            - cell [ref=f45e179]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e180]:
+                - img [ref=f45e181]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e182]:
+                - img [ref=f45e183]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e184]:
+                - img [ref=f45e185]: upload_file
+              - button "Delete host" [ref=f45e186]:
+                - img [ref=f45e187]: delete
+          - row [ref=f45e188] [cursor=pointer]:
+            - cell "host1.example.internal" [ref=f45e189]
+            - cell "OK" [ref=f45e190]
+            - cell "0.64" [ref=f45e193]
+            - cell "66.0%" [ref=f45e194]:
+              - generic "65.97%" [ref=f45e196]: 66.0%
+            - cell "54.3%" [ref=f45e200]:
+              - generic "54.27%" [ref=f45e202]: 54.3%
+            - cell "19 OK" [ref=f45e206]
+            - cell "Aug 8, 2026, 2:28:45 PM" [ref=f45e208]
+            - cell [ref=f45e209]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e210]:
+                - img [ref=f45e211]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e212]:
+                - img [ref=f45e213]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e214]:
+                - img [ref=f45e215]: upload_file
+              - button "Delete host" [ref=f45e216]:
+                - img [ref=f45e217]: delete
+          - row [ref=f45e218] [cursor=pointer]:
+            - cell "↳ bm-canvas-web" [ref=f45e219]
+            - cell "OK" [ref=f45e220]
+            - cell "—" [ref=f45e223]
+            - cell "—" [ref=f45e224]:
+              - generic "No data yet" [ref=f45e226]: —
+            - cell "—" [ref=f45e229]:
+              - generic "No data yet" [ref=f45e231]: —
+            - cell [ref=f45e234]
+            - cell "Jul 26, 2026, 4:15:04 PM" [ref=f45e235]
+            - cell [ref=f45e236]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e237]:
+                - img [ref=f45e238]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e239]:
+                - img [ref=f45e240]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e241]:
+                - img [ref=f45e242]: upload_file
+              - button "Delete host" [ref=f45e243]:
+                - img [ref=f45e244]: delete
+          - row [ref=f45e245] [cursor=pointer]:
+            - cell "↳ bm-node-web" [ref=f45e246]
+            - cell "OK" [ref=f45e247]
+            - cell "—" [ref=f45e250]
+            - cell "—" [ref=f45e251]:
+              - generic "No data yet" [ref=f45e253]: —
+            - cell "—" [ref=f45e256]:
+              - generic "No data yet" [ref=f45e258]: —
+            - cell [ref=f45e261]
+            - cell "Jul 26, 2026, 2:55:03 PM" [ref=f45e262]
+            - cell [ref=f45e263]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e264]:
+                - img [ref=f45e265]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e266]:
+                - img [ref=f45e267]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e268]:
+                - img [ref=f45e269]: upload_file
+              - button "Delete host" [ref=f45e270]:
+                - img [ref=f45e271]: delete
+          - row [ref=f45e272] [cursor=pointer]:
+            - cell "↳ minikube" [ref=f45e273]
+            - cell "UNKNOWN" [ref=f45e274]
+            - cell "12.08" [ref=f45e277]
+            - cell "37.4%" [ref=f45e278]:
+              - generic "37.42%" [ref=f45e280]: 37.4%
+            - cell "—" [ref=f45e284]:
+              - generic "No data yet" [ref=f45e286]: —
+            - cell "2 OK" [ref=f45e289]
+            - cell "Aug 8, 2026, 2:28:51 PM" [ref=f45e291]
+            - cell [ref=f45e292]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e293]:
+                - img [ref=f45e294]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e295]:
+                - img [ref=f45e296]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e297]:
+                - img [ref=f45e298]: upload_file
+              - button "Delete host" [ref=f45e299]:
+                - img [ref=f45e300]: delete
+          - row [ref=f45e301] [cursor=pointer]:
+            - cell "↳ nginx" [ref=f45e302]
+            - cell "OK" [ref=f45e303]
+            - cell "—" [ref=f45e306]
+            - cell "—" [ref=f45e307]:
+              - generic "No data yet" [ref=f45e309]: —
+            - cell "—" [ref=f45e312]:
+              - generic "No data yet" [ref=f45e314]: —
+            - cell [ref=f45e317]
+            - cell "Jul 25, 2026, 4:16:26 PM" [ref=f45e318]
+            - cell [ref=f45e319]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e320]:
+                - img [ref=f45e321]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e322]:
+                - img [ref=f45e323]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e324]:
+                - img [ref=f45e325]: upload_file
+              - button "Delete host" [ref=f45e326]:
+                - img [ref=f45e327]: delete
+          - row [ref=f45e328] [cursor=pointer]:
+            - cell "MUE-C5 Trio Cluster" [ref=f45e329]
+            - cell "OK" [ref=f45e330]
+            - cell "—" [ref=f45e333]
+            - cell "—" [ref=f45e334]:
+              - generic "No data yet" [ref=f45e336]: —
+            - cell "—" [ref=f45e339]:
+              - generic "No data yet" [ref=f45e341]: —
+            - cell "2 OK" [ref=f45e344]
+            - cell "never" [ref=f45e346]
+            - cell [ref=f45e347]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e348]:
+                - img [ref=f45e349]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e350]:
+                - img [ref=f45e351]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e352]:
+                - img [ref=f45e353]: upload_file
+              - button "Delete host" [ref=f45e354]:
+                - img [ref=f45e355]: delete
+          - row [ref=f45e356] [cursor=pointer]:
+            - cell "pxe-lab" [ref=f45e357]
+            - cell "CRIT" [ref=f45e358]
+            - cell "—" [ref=f45e361]
+            - cell "—" [ref=f45e362]:
+              - generic "No data yet" [ref=f45e364]: —
+            - cell "—" [ref=f45e367]:
+              - generic "No data yet" [ref=f45e369]: —
+            - cell "1 CRIT" [ref=f45e372]
+            - cell "Aug 3, 2026, 8:40:34 PM" [ref=f45e374]
+            - cell [ref=f45e375]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e376]:
+                - img [ref=f45e377]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e378]:
+                - img [ref=f45e379]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e380]:
+                - img [ref=f45e381]: upload_file
+              - button "Delete host" [ref=f45e382]:
+                - img [ref=f45e383]: delete
+          - row [ref=f45e384] [cursor=pointer]:
+            - cell "host3.example.internal" [ref=f45e385]
+            - cell "UNKNOWN" [ref=f45e386]
+            - cell "0.00" [ref=f45e389]
+            - cell "16.9%" [ref=f45e390]:
+              - generic "16.90%" [ref=f45e392]: 16.9%
+            - cell "17.8%" [ref=f45e396]:
+              - generic "17.80%" [ref=f45e398]: 17.8%
+            - cell "12 OK" [ref=f45e402]
+            - cell "Aug 8, 2026, 2:28:45 PM" [ref=f45e404]
+            - cell [ref=f45e405]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e406]:
+                - img [ref=f45e407]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e408]:
+                - img [ref=f45e409]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e410]:
+                - img [ref=f45e411]: upload_file
+              - button "Delete host" [ref=f45e412]:
+                - img [ref=f45e413]: delete
+          - row [ref=f45e414] [cursor=pointer]:
+            - cell "host.example.internal" [ref=f45e415]
+            - cell "UNKNOWN" [ref=f45e416]
+            - cell "0.18" [ref=f45e419]
+            - cell "4.2%" [ref=f45e420]:
+              - generic "4.19%" [ref=f45e422]: 4.2%
+            - cell "12.1%" [ref=f45e426]:
+              - generic "12.12%" [ref=f45e428]: 12.1%
+            - cell "16 OK" [ref=f45e432]
+            - cell "Aug 8, 2026, 2:28:45 PM" [ref=f45e434]
+            - cell [ref=f45e435]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e436]:
+                - img [ref=f45e437]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e438]:
+                - img [ref=f45e439]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e440]:
+                - img [ref=f45e441]: upload_file
+              - button "Delete host" [ref=f45e442]:
+                - img [ref=f45e443]: delete
+          - row [ref=f45e444] [cursor=pointer]:
+            - cell "host.example.internal" [ref=f45e445]
+            - cell "OK" [ref=f45e446]
+            - cell "0.16" [ref=f45e449]
+            - cell "71.8%" [ref=f45e450]:
+              - generic "71.84%" [ref=f45e452]: 71.8%
+            - cell "1.3%" [ref=f45e456]:
+              - generic "1.32%" [ref=f45e458]: 1.3%
+            - cell "24 OK" [ref=f45e462]
+            - cell "Aug 8, 2026, 2:28:45 PM" [ref=f45e464]
+            - cell [ref=f45e465]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e466]:
+                - img [ref=f45e467]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e468]:
+                - img [ref=f45e469]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e470]:
+                - img [ref=f45e471]: upload_file
+              - button "Delete host" [ref=f45e472]:
+                - img [ref=f45e473]: delete
+          - row [ref=f45e474] [cursor=pointer]:
+            - cell "host.example.internal" [ref=f45e475]
+            - cell "OK" [ref=f45e476]
+            - cell "2.05" [ref=f45e479]
+            - cell "47.2%" [ref=f45e480]:
+              - generic "47.21%" [ref=f45e482]: 47.2%
+            - cell "1.2%" [ref=f45e486]:
+              - generic "1.22%" [ref=f45e488]: 1.2%
+            - cell "28 OK" [ref=f45e492]
+            - cell "Aug 8, 2026, 2:28:45 PM" [ref=f45e494]
+            - cell [ref=f45e495]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e496]:
+                - img [ref=f45e497]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e498]:
+                - img [ref=f45e499]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e500]:
+                - img [ref=f45e501]: upload_file
+              - button "Delete host" [ref=f45e502]:
+                - img [ref=f45e503]: delete
+          - row [ref=f45e504] [cursor=pointer]:
+            - cell "web07" [ref=f45e505]
+            - cell "CRIT" [ref=f45e506]
+            - cell "—" [ref=f45e509]
+            - cell "—" [ref=f45e510]:
+              - generic "No data yet" [ref=f45e512]: —
+            - cell "—" [ref=f45e515]:
+              - generic "No data yet" [ref=f45e517]: —
+            - cell "1 CRIT" [ref=f45e520]
+            - cell "Aug 3, 2026, 8:40:34 PM" [ref=f45e522]
+            - cell [ref=f45e523]:
+              - button "Poll now — force an immediate poll (metrics + checks) instead of waiting for the next tick" [ref=f45e524]:
+                - img [ref=f45e525]: refresh
+              - button "Update agent — Bossman pushes the matching package (.deb/.rpm by OS family); the agent installs it and restarts" [ref=f45e526]:
+                - img [ref=f45e527]: system_update_alt
+              - button "Upload a specific agent package (.deb/.rpm) to this host" [ref=f45e528]:
+                - img [ref=f45e529]: upload_file
+              - button "Delete host" [ref=f45e530]:
+                - img [ref=f45e531]: delete
+    - generic [ref=f45e145]:
+      - button "Expand" [ref=f45e146] [cursor=pointer]:
+        - img [ref=f45e147]: expand_less
+      - img [ref=f45e150]: smart_toy
+      - generic [ref=f45e151]: Assistant
+      - combobox [ref=f45e152]:
+        - option "hermes-web" [selected]
+      - button "New chat" [ref=f45e153] [cursor=pointer]:
+        - img [ref=f45e154]: add_comment
+      - button "Maximize" [ref=f45e157] [cursor=pointer]:
+        - img [ref=f45e158]: fullscreen

@@ -1,172 +1,193 @@
 # /etc/systemd/journald.conf — Configuration file for systemd-journald
-# See 'man journald.conf' for details.
+#
+# This file configures the systemd journal daemon (journald).
+# It controls where logs are stored (disk vs RAM), retention policies,
+# forwarding behavior, and compression settings.
+#
+# Reference: man journald.conf
+#
+# NOTE: Boolean values in systemd config files are 'yes' or 'no' (or true/false
+# in some contexts), not Python booleans. The template handles conversion.
 
-# Store journal data persistently (to disk) or volatile (to RAM only)
-{% if persistent | default(true) %}
-Storage=persistent
-{% else %}
-Storage=volatile
+# ---------------------------------------------------------------------------
+# Storage Backend: Persistent vs Volatile
+# ---------------------------------------------------------------------------
+
+# If true, store journal files persistently on disk (in /var/log/journal).
+# If false, store in RAM only (/run/log/journal), losing logs on reboot.
+{% set storage_mode = 'persistent' if (persistent | default(true)) else 'volatile' %}
+Storage={{ storage_mode }}
+
+# ---------------------------------------------------------------------------
+# Directory Configuration
+# ---------------------------------------------------------------------------
+
+# Absolute path to store persistent journal files.
+# Leave empty to auto-select (/var/log/journal if Storage=persistent,
+# /run/log/journal otherwise).
+{% if data_directory | default('') %}
+DataDirectory={{ data_directory | default('') }}
 {% endif %}
 
-# Directory where journal files are stored (effective only for persistent storage)
-{% if data_directory %}
-DataDirectory={{ data_directory }}
-{% else %}
-# DataDirectory=auto — uses /var/log/journal or /run/log/journal depending on Storage
+# ---------------------------------------------------------------------------
+# Disk Space Management
+# ---------------------------------------------------------------------------
+
+# Maximum disk space allowed for journal files.
+# Supports units: K, M, G, T, P (or percentages like 10% of the filesystem).
+{% if system_max_use | default('10%') %}
+SystemMaxUse={{ system_max_use | default('10%') }}
 {% endif %}
 
-# Maximum disk space used by journal (e.g. 100M, 1G, 10% of filesystem)
-{% if system_max_use %}
-SystemMaxUse={{ system_max_use }}
-{% else %}
-# SystemMaxUse=10%
+# Maximum free space to leave on the filesystem before removing old journal files.
+# This acts as a safety valve to prevent disk exhaustion.
+{% if system_max_free_space | default('1G') %}
+SystemMaxFreeSpace={{ system_max_free_space | default('1G') }}
 {% endif %}
 
-# Maximum disk space used by journal per user (set to 0 for per-user journals only)
-{% if system_max_free_space %}
-SystemMaxFreeSpace={{ system_max_free_space }}
-{% else %}
-# SystemMaxFreeSpace=1G
+# Maximum size of a single journal file before rotation occurs.
+{% if system_max_file_size | default('100M') %}
+SystemMaxFileSize={{ system_max_file_size | default('100M') }}
 {% endif %}
 
-# Maximum size of individual journal files (e.g. 100M, 500M)
-{% if system_max_file_size %}
-SystemMaxFileSize={{ system_max_file_size }}
-{% else %}
-# SystemMaxFileSize=100M
+# Minimum free space to keep on the filesystem.
+# Prevents the journal from consuming all available disk space.
+{% if system_keep_free | default('20%') %}
+SystemKeepFree={{ system_keep_free | default('20%') }}
 {% endif %}
 
-# Maximum number of journal files to retain per stream
-{% if system_keep_free %}
-SystemKeepFree={{ system_keep_free }}
-{% else %}
-# SystemKeepFree=20% of filesystem
+# ---------------------------------------------------------------------------
+# Retention Policy (Time-based)
+# ---------------------------------------------------------------------------
+
+# Maximum time to retain journal entries (e.g. 30d, 1year, 2weeks).
+# Entries older than this are removed.
+{% if max_file_lifetime | default('6months') %}
+MaxFileLifetime={{ max_file_lifetime | default('6months') }}
 {% endif %}
 
-# Maximum time to retain journal entries (e.g. 30d, 2weeks)
-{% if max_file_lifetime %}
-MaxFileLifetime={{ max_file_lifetime }}
-{% else %}
-# MaxFileLifetime=6months
+# Maximum retention time for volatile (RAM) journal files.
+# Only effective when Storage=volatile.
+{% if volatile_max_file_lifetime | default('1week') %}
+VolatileMaxFileLifetime={{ volatile_max_file_lifetime | default('1week') }}
 {% endif %}
 
-# Maximum time to retain journal entries in volatile storage (e.g. 1week)
-{% if volatile_max_file_lifetime %}
-VolatileMaxFileLifetime={{ volatile_max_file_lifetime }}
-{% else %}
-# VolatileMaxFileLifetime=1week
+# ---------------------------------------------------------------------------
+# Compression
+# ---------------------------------------------------------------------------
+
+# Whether to compress journal files using a configurable algorithm.
+# Algorithms supported depend on systemd build options (xz, lz4, zstd).
+{% set compress_val = 'yes' if (compress | default(true)) else 'no' %}
+Compress={{ compress_val }}
+
+# Journal entries newer than this are not compressed.
+# Set to '0' to disable time-based threshold (compress everything).
+{% if compress_threshold | default('30s') %}
+CompressThresholdSec={{ compress_threshold | default('30s') }}
 {% endif %}
 
-# Compression algorithm: xz, lz4, zstd, or no
-{% if compress %}
-Compress={{ 'yes' if compress else 'no' }}
-{% else %}
-# Compress=yes
+# ---------------------------------------------------------------------------
+# Rate Limiting
+# ---------------------------------------------------------------------------
+
+# Time window for rate limiting journal writes (e.g. 30s, 2min).
+# Prevents log floods from overwhelming the system.
+{% if rate_limit_interval | default('30s') %}
+RateLimitIntervalSec={{ rate_limit_interval | default('30s') }}
 {% endif %}
 
-# Threshold for compression (entries smaller than this are not compressed)
-{% if compress_threshold %}
-CompressThresholdSec={{ compress_threshold }}
-{% else %}
-# CompressThresholdSec=30s
+# Maximum number of log messages allowed within the interval before throttling.
+# If exceeded, messages are dropped until the next interval.
+{% if rate_limit_burst | default(10000) %}
+RateLimitBurst={{ rate_limit_burst | default(10000) }}
 {% endif %}
 
-# Maximum rate of journal writes per second (0 = unlimited)
-{% if rate_limit_interval %}
-RateLimitIntervalSec={{ rate_limit_interval }}
-{% else %}
-# RateLimitIntervalSec=30s
+# ---------------------------------------------------------------------------
+# Timestamping
+# ---------------------------------------------------------------------------
+
+# Timestamp format for journal entries:
+# 'monotonic': monotonic clock since boot
+# 'boot': monotonic clock since boot (legacy)
+# 'realtime': wall-clock time (NTP synchronized)
+# 'hires': high-resolution real-time
+{% if timestamp | default('monotonic') %}
+Timestamp={{ timestamp | default('monotonic') }}
 {% endif %}
 
-{% if rate_limit_burst %}
-RateLimitBurst={{ rate_limit_burst }}
-{% else %}
-# RateLimitBurst=10000
+# ---------------------------------------------------------------------------
+# Forwarding to Other Log Destinations
+# ---------------------------------------------------------------------------
+
+# If true, forward entries to the system syslog daemon (e.g., rsyslog).
+{% set forward_syslog_val = 'yes' if (forward_to_syslog | default(true)) else 'no' %}
+ForwardToSyslog={{ forward_syslog_val }}
+
+# Path to the Unix socket used to forward to syslog.
+# Set to empty string to disable syslog forwarding explicitly.
+{% if syslog_socket | default('/run/systemd/journal/syslog') %}
+SyslogSocket={{ syslog_socket | default('/run/systemd/journal/syslog') }}
 {% endif %}
 
-# Include full timestamps in journal output
-{% if timestamp %}
-Timestamp={{ timestamp }}
-{% else %}
-# Timestamp=monotonic
+# If true, write entries to the kernel log buffer (accessible via dmesg).
+{% set forward_kmsg_val = 'yes' if (forward_to_kmsg | default(true)) else 'no' %}
+ForwardToKMsg={{ forward_kmsg_val }}
+
+# If true, send entries to the system console (visible on serial/tty).
+{% set forward_console_val = 'yes' if (forward_to_console | default(true)) else 'no' %}
+ForwardToConsole={{ forward_console_val }}
+
+# Device file for console output (e.g., /dev/ttyS0 or /dev/console).
+{% if console_device | default('/dev/console') %}
+ConsoleDevice={{ console_device | default('/dev/console') }}
 {% endif %}
 
-# Forward journal entries to syslog daemon
-{% if forward_to_syslog %}
-ForwardToSyslog={{ 'yes' if forward_to_syslog else 'no' }}
-{% else %}
-# ForwardToSyslog=yes
+# Minimum log level (debug, info, notice, warning, err, crit, alert, emerg)
+# for console output. Lower levels are filtered out.
+{% if console_level | default('info') %}
+ConsoleLevel={{ console_level | default('info') }}
 {% endif %}
 
-# Syslog socket path (use empty string to disable)
-{% if syslog_socket %}
-SyslogSocket={{ syslog_socket }}
-{% else %}
-# SyslogSocket=/run/systemd/journal/syslog
+# Maximum number of journal lines shown per file during interactive display.
+# Limits the output size when viewing journal files directly.
+{% if max_lines | default(1000) %}
+MaxFileLines={{ max_lines | default(1000) }}
 {% endif %}
 
-# Forward journal entries to the kernel log buffer (dmesg)
-{% if forward_to_kmsg %}
-ForwardToKMsg={{ 'yes' if forward_to_kmsg else 'no' }}
-{% else %}
-# ForwardToKMsg=yes
-{% endif %}
+# If true, show human-friendly descriptions (from message catalogs) when viewing logs.
+# Adds metadata to journalctl output for better readability.
+{% set show_catalog_val = 'yes' if (show_catalog | default(true)) else 'no' %}
+ShowCatalog={{ show_catalog_val }}
 
-# Forward journal entries to the console (kernel log ring buffer)
-{% if forward_to_console %}
-ForwardToConsole={{ 'yes' if forward_to_console else 'no' }}
-{% else %}
-# ForwardToConsole=yes
-{% endif %}
+# ---------------------------------------------------------------------------
+# Kernel Messages and Metadata
+# ---------------------------------------------------------------------------
 
-# Console device (e.g. /dev/ttyS0 or /dev/console)
-{% if console_device %}
-ConsoleDevice={{ console_device }}
-{% else %}
-# ConsoleDevice=/dev/console
-{% endif %}
+# If true, read kernel messages and include them in journal.
+# Equivalent to the legacy ReadKMsg setting.
+{% set header_val = 'yes' if (header | default(true)) else 'no' %}
+ReadKMsg={{ header_val }}
 
-# Minimum log level forwarded to console
-{% if console_level %}
-ConsoleLevel={{ console_level }}
-{% else %}
-# ConsoleLevel=info
-{% endif %}
+# ---------------------------------------------------------------------------
+# Custom Fields and Namespaces
+# ---------------------------------------------------------------------------
 
-# Max number of lines of journal displayed on console at boot
-{% if max_lines %}
-MaxFileLines={{ max_lines }}
-{% else %}
-# MaxFileLines=1000
-{% endif %}
-
-# Maximum number of lines shown when journal is read interactively
-{% if show_catalog %}
-ShowCatalog={{ 'yes' if show_catalog else 'no' }}
-{% else %}
-# ShowCatalog=yes
-{% endif %}
-
-# Whether to include header metadata (e.g. machine ID, boot ID) in journal files
-{% if header %}
-ReadKMsg={{ 'yes' if header else 'no' }}
-{% else %}
-# ReadKMsg=yes
-{% endif %}
-
-# Additional fields to append to each journal entry (key=value pairs)
-{% for field in extra_fields %}
+# List of static key-value fields to append to all journal entries.
+# Useful for tagging logs by environment, service, or host.
+# Format: Key=Value per line.
+{% for field in (extra_fields | default([])) %}
 # {{ field.name }}={{ field.value }}
 {% endfor %}
 
-# Enable or disable journal namespace support
-{% if namespace %}
-Namespace={{ namespace }}
-{% else %}
-# Namespace=
+# Namespace name for journal isolation (e.g., for containers).
+# Leave blank to disable namespace isolation.
+{% if namespace | default('') %}
+Namespace={{ namespace | default('') }}
 {% endif %}
 
-# List of units to exclude from journaling (empty = none)
-{% for unit in exclude_units %}
+# List of systemd unit names whose logs should be excluded from journald capture.
+# Prevents specific services from logging to the central journal.
+{% for unit in (exclude_units | default([])) %}
 # ExcludeUnit={{ unit }}
 {% endfor %}

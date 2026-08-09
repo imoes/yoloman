@@ -1,75 +1,141 @@
 # NRPE Server Configuration
-# This file configures the NRPE daemon for listening and executing checks.
+# This file configures the NRPE (Nagios Remote Plugin Executor) daemon for listening
+# and executing health-check commands on behalf of a monitoring server (e.g. Nagios/Icinga).
 
-# Server settings
-server_address={{ nrpe_server_address }}
-server_port={{ nrpe_server_port }}
+# ---------------------------------------------------------------------------
+# Server Network Settings
+# ---------------------------------------------------------------------------
 
-# SSL/TLS configuration (disabled if ssl_enabled == false)
-{% if nrpe_ssl_enabled %}
-ssl_cipher_list={{ nrpe_ssl_cipher_list }}
-{% else %}
-ssl_port={{ nrpe_ssl_port }}
+# IP address the NRPE daemon should bind to.
+# Use '0.0.0.0' to listen on all interfaces, or a specific IP for single-interface binding.
+server_address={{ nrpe_server_address | default('0.0.0.0') }}
+
+# TCP port for the NRPE daemon to listen on.
+# Standard port is 5666. Ensure this port is open in the host firewall.
+server_port={{ nrpe_server_port | default(5666) }}
+
+# ---------------------------------------------------------------------------
+# SSL/TLS Configuration
+# ---------------------------------------------------------------------------
+
+# Enable SSL/TLS encryption for client connections.
+# Strongly recommended in production to encrypt monitoring traffic.
+# If enabled, certificate and key paths must also be configured.
+{% if nrpe_ssl_enabled | default(true) %}
+# When SSL is enabled, specify the OpenSSL cipher list to allow.
+# Restricting ciphers improves security by disabling weak algorithms.
+ssl_cipher_list={{ nrpe_ssl_cipher_list | default('HIGH:MEDIUM:!aNULL:!MD5:!SEED:!IDEA') }}
+
+# SSL/TLS certificate file path.
+# Required if SSL is enabled. Must be readable by the NRPE daemon user.
+ssl_cert_file={{ nrpe_ssl_cert_file | default('/etc/ssl/certs/nrpe_cert.pem') }}
+
+# SSL/TLS private key file path.
+# Required if SSL is enabled. Should have restrictive permissions (e.g., 600).
+ssl_key_file={{ nrpe_ssl_key_file | default('/etc/ssl/private/nrpe_key.pem') }}
+
+# SSL/TLS CA certificate for peer verification.
+# Optional but recommended for mutual TLS (mTLS). Improves security by verifying the client's certificate.
+{% if nrpe_ssl_ca_cert_file | default('') %}
+ssl_ca_cert_file={{ nrpe_ssl_ca_cert_file | default('') }}
 {% endif %}
 
-# Timeout settings (in seconds)
-connection_timeout={{ nrpe_connection_timeout }}
-request_timeout={{ nrpe_request_timeout }}
+# SSL peer verification level.
+# 0 = none, 1 = optional, 2 = required.
+# Use 2 for strict mutual TLS authentication.
+ssl_verify_peer={{ nrpe_ssl_verify_peer | default(0) }}
 
-# Logging
-{% if nrpe_debug %}
+{% else %}
+# When SSL is disabled, some older NRPE versions or specific configurations might require
+# setting a specific port for unencrypted fallback or distinct handling.
+ssl_port={{ nrpe_ssl_port | default(5666) }}
+{% endif %}
+
+# ---------------------------------------------------------------------------
+# Timeout Settings
+# ---------------------------------------------------------------------------
+
+# Maximum time (seconds) to wait for a new TCP connection to be established before closing it.
+connection_timeout={{ nrpe_connection_timeout | default(60) }}
+
+# Maximum time (seconds) to wait for a request/response from the client after connection is established.
+request_timeout={{ nrpe_request_timeout | default(60) }}
+
+# ---------------------------------------------------------------------------
+# Logging Configuration
+# ---------------------------------------------------------------------------
+
+# Path to the NRPE log file.
+# Ensure the directory exists and the NRPE process has write permissions.
+log_file={{ nrpe_log_file | default('/var/log/nagios/nrpe.log') }}
+
+# Verbosity level of logging.
+# 0 = minimal, 5 = debug. Higher levels generate more log entries.
+log_level={{ nrpe_log_level | default(2) }}
+
+# Enable verbose debugging output to the log file.
+# Disable in production to avoid performance impact and excessive log volume.
+{% if nrpe_debug | default(false) %}
 debug=true
 {% else %}
 debug=false
 {% endif %}
-log_file={{ nrpe_log_file }}
 
-# PID file
-pid_file={{ nrpe_pid_file }}
+# ---------------------------------------------------------------------------
+# Process Management
+# ---------------------------------------------------------------------------
 
-# Allowed hosts (comma-separated or as list)
-allowed_hosts={{ nrpe_allowed_hosts | join(',') }}
+# Path to the PID file for the NRPE daemon.
+# Used by init scripts or systemd to manage the process lifecycle.
+pid_file={{ nrpe_pid_file | default('/var/run/nagios/nrpe.pid') }}
 
-# Command definitions
-{% for cmd in nrpe_commands %}
+# ---------------------------------------------------------------------------
+# Access Control
+# ---------------------------------------------------------------------------
+
+# List of trusted hosts (IPs or hostnames) allowed to query NRPE commands.
+# Comma-separated list. Restrict this to your monitoring server's IP to prevent unauthorized checks.
+allowed_hosts={{ nrpe_allowed_hosts | default(['127.0.0.1', '::1']) | join(',') }}
+
+# ---------------------------------------------------------------------------
+# Command Definitions
+# ---------------------------------------------------------------------------
+
+# List of commands that may be invoked remotely by the monitoring server.
+# Each command is defined as: command[name]=/path/to/plugin [arguments]
+# SECURITY WARNING: Ensure 'escape_command_arguments' is enabled to prevent shell injection.
+{% for cmd in nrpe_commands | default([]) %}
 command[{{ cmd.name }}]={{ cmd.executable }} {{ cmd.arguments | join(' ') | default('', true) }}
 {% endfor %}
 
-# Optional: include additional config from external files
-{% if nrpe_include_dir is defined and nrpe_include_dir %
-include_dir={{ nrpe_include_dir }}
+# ---------------------------------------------------------------------------
+# Advanced / Optional Settings
+# ---------------------------------------------------------------------------
+
+# Directory to scan for additional configuration files (e.g., /etc/nagios/nrpe.d/).
+# Leave empty to disable external config inclusion. Useful for modular command definitions.
+{% if nrpe_include_dir | default('') %}
+include_dir={{ nrpe_include_dir | default('') }}
 {% endif %}
 
-# Command argument escaping (recommended for security)
-{% if nrpe_escape_command_arguments %}
+# Escape special characters in command arguments.
+# Highly recommended for security to prevent shell injection via malicious arguments.
+{% if nrpe_escape_command_arguments | default(true) %}
 escape_command_arguments=true
 {% else %}
 escape_command_arguments=false
 {% endif %}
 
-# Log level (0-5; higher = more verbose)
-log_level={{ nrpe_log_level }}
-
-# Interface binding (optional; leave blank for all interfaces)
-{% if nrpe_bind_address %}
-bind_address={{ nrpe_bind_address }}
+# Optional specific IP address to bind (overrides server_address if set).
+# Leave blank to rely on server_address or listen on all interfaces.
+{% if nrpe_bind_address | default('') %}
+bind_address={{ nrpe_bind_address | default('') }}
 {% endif %}
 
-# Use IPv4 only?
-{% if nrpe_ipv4_only %}
+# Restrict NRPE to IPv4 connections only.
+# Set to false to allow both IPv4 and IPv6.
+{% if nrpe_ipv4_only | default(false) %}
 address_families=inet
 {% else %}
 address_families=inet,inet6
 {% endif %}
-
-# SSL certificate and key paths (only used if SSL is enabled)
-{% if nrpe_ssl_enabled %}
-ssl_cert_file={{ nrpe_ssl_cert_file }}
-ssl_key_file={{ nrpe_ssl_key_file }}
-{% if nrpe_ssl_ca_cert_file %}
-ssl_ca_cert_file={{ nrpe_ssl_ca_cert_file }}
-{% endif %}
-{% endif %}
-
-# Allow client SSL verification? (0=none, 1=optional, 2=required)
-ssl_verify_peer={{ nrpe_ssl_verify_peer }}

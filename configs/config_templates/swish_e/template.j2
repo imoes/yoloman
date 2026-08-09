@@ -1,56 +1,167 @@
-# Index directories (space-separated paths)
-Directories {{ indexed_dirs | join(' ') }}
+# ==============================================================================
+# SWISH-E Search Engine Configuration
+#
+# This template generates the configuration file for SWISH-E, a high-performance
+# file and web search engine. It controls indexing behavior, metadata extraction,
+# file filtering, and logging.
+#
+# Variables are drawn from the role's inventory or defaults.
+# ==============================================================================
 
-# File extensions to index (space-separated, without dots)
-FileExtensions {{ file_extensions | join(' ') }}
+# ------------------------------------------------------------------------------
+# Index Directories
+# Description: List of directory paths to index (space-separated in config);
+#              supports recursion if configured externally.
+# ------------------------------------------------------------------------------
+Directories {{ indexed_dirs | default(['/var/www/html']) | join(' ') }}
 
-# Ignore case when searching
-{{ 'IndexOnly' if case_sensitive else 'IgnoreCase' }}
+# ------------------------------------------------------------------------------
+# File Extensions
+# Description: List of file extensions to include in indexing (without dots,
+#              space-separated).
+# ------------------------------------------------------------------------------
+FileExtensions {{ file_extensions | default(['html', 'htm', 'shtml', 'txt', 'pdf', 'doc', 'rtf']) | join(' ') }}
 
-# Maximum number of words stored per document (0 = no limit)
-MaxWordLength {{ max_word_length }}
+# ------------------------------------------------------------------------------
+# Case Sensitivity
+# Description: If true, search is case-sensitive; if false, case-insensitive
+#              (uses IgnoreCase).
+# ------------------------------------------------------------------------------
+{% if case_sensitive | default(False) | bool %}
+# Note: Case-sensitive search is enabled.
+IndexOnly
+{% else %}
+# Note: Case-insensitive search is enabled.
+IgnoreCase
+{% endif %}
 
-# Minimum word length to index
-MinWordLength {{ min_word_length }}
+# ------------------------------------------------------------------------------
+# Maximum Word Length
+# Description: Maximum length (in characters) of words to store in the index.
+#              Set to 0 for no limit.
+# ------------------------------------------------------------------------------
+MaxWordLength {{ max_word_length | default(100) }}
 
-# Stemming algorithm (none,porter,snowball,etc.)
-Stemming {{ stemming }}
+# ------------------------------------------------------------------------------
+# Minimum Word Length
+# Description: Shortest word length to index (shorter words are ignored).
+# ------------------------------------------------------------------------------
+MinWordLength {{ min_word_length | default(3) }}
 
-# Path to stopwords file (empty = none)
-{% if stopwords_file %}StopWordsFile {{ stopwords_file }}{% endif %}
+# ------------------------------------------------------------------------------
+# Stemming Algorithm
+# Description: Stemming algorithm to apply to words (e.g., 'none', 'porter',
+#              'snowball').
+# ------------------------------------------------------------------------------
+Stemming {{ stemming | default('porter') }}
 
-# Path to configuration file for meta tags
-{% if meta_config_file %}MetaNameConfig {{ meta_config_file }}{% endif %}
+# ------------------------------------------------------------------------------
+# Stopwords File
+# Description: Path to a file containing stop words (one per line).
+#              Leave empty to disable stop-word filtering.
+# ------------------------------------------------------------------------------
+{% set sw_file = stopwords_file | default('') %}
+{% if sw_file %}
+StopWordsFile {{ sw_file }}
+{% endif %}
 
-# Index metadata fields (list of field definitions)
-{% for field in meta_fields %}MetaName {{ field.name }} {{ field.index_number }}{% endfor %}
+# ------------------------------------------------------------------------------
+# Meta Config File
+# Description: Path to a file defining meta tag parsing rules (e.g., for
+#              extracting custom metadata from HTML).
+# ------------------------------------------------------------------------------
+{% set mc_file = meta_config_file | default('') %}
+{% if mc_file %}
+MetaNameConfig {{ mc_file }}
+{% endif %}
 
-# Location to store the index file
-IndexFile {{ index_file }}
+# ------------------------------------------------------------------------------
+# Meta Fields
+# Description: List of metadata fields to extract and index. Each field maps
+#              a name to an index number.
+# ------------------------------------------------------------------------------
+{% for field in meta_fields | default([
+    {'name': 'title', 'index_number': 1},
+    {'name': 'author', 'index_number': 2},
+    {'name': 'subject', 'index_number': 3}
+]) %}
+MetaName {{ field.name }} {{ field.index_number }}
+{% endfor %}
 
-# Log file path (empty = stderr)
-{% if log_file %}LogFile {{ log_file }}{% endif %}
+# ------------------------------------------------------------------------------
+# Index File
+# Description: File path where the compiled search index will be stored.
+# ------------------------------------------------------------------------------
+IndexFile {{ index_file | default('/var/lib/swish-e/index.swish-e') }}
 
-# Maximum number of documents to process before rotating index (0 = no rotation)
-RotateIndexFiles {{ rotate_index_files }}
+# ------------------------------------------------------------------------------
+# Log File
+# Description: Path to the log file for indexing events. Empty string means
+#              log to stderr.
+# ------------------------------------------------------------------------------
+{% set lg_file = log_file | default('/var/log/swish-e/swish-e.log') %}
+{% if lg_file %}
+LogFile {{ lg_file }}
+{% endif %}
 
-# Maximum size (in bytes) for index file before rotation (0 = disabled)
-MaxIndexFileSize {{ max_index_file_size }}
+# ------------------------------------------------------------------------------
+# Rotate Index Files
+# Description: Number of documents to index before rotating (creating new)
+#              index files. Set to 0 to disable.
+# ------------------------------------------------------------------------------
+RotateIndexFiles {{ rotate_index_files | default(0) }}
 
-# Index description field for title generation
-Description {{ description_field }}
+# ------------------------------------------------------------------------------
+# Max Index File Size
+# Description: Maximum size (in bytes) per index file before rotation.
+#              0 disables size-based rotation.
+# ------------------------------------------------------------------------------
+MaxIndexFileSize {{ max_index_file_size | default(0) }}
 
-# Index name for multi-index setups
-IndexName {{ index_name }}
+# ------------------------------------------------------------------------------
+# Description Field
+# Description: Metadata field to use as the default description when displaying
+#              results (e.g., 'title', 'abstract').
+# ------------------------------------------------------------------------------
+Description {{ description_field | default('title') }}
 
-# Path to config file for header directives (e.g., for parsing HTML headers)
-{% if header_config_file %}HeaderConfig {{ header_config_file }}{% endif %}
+# ------------------------------------------------------------------------------
+# Index Name
+# Description: Name for this index (used in multi-index environments for
+#              identification).
+# ------------------------------------------------------------------------------
+IndexName {{ index_name | default('main') }}
 
-# Default description for documents without one
-DefaultDescription {{ default_description }}
+# ------------------------------------------------------------------------------
+# Header Config File
+# Description: Path to a file defining header parsing rules (for HTTP or
+#              document headers).
+# ------------------------------------------------------------------------------
+{% set hc_file = header_config_file | default('') %}
+{% if hc_file %}
+HeaderConfig {{ hc_file }}
+{% endif %}
 
-# Maximum number of simultaneous processes for indexing (0 = single-process)
-{% if parallel_workers > 0 %}ParallelProcessing {{ parallel_workers }}{% endif %}
+# ------------------------------------------------------------------------------
+# Default Description
+# Description: Fallback description text used when a document lacks the
+#              configured description field.
+# ------------------------------------------------------------------------------
+DefaultDescription {{ default_description | default('[No description available]') }}
 
-# Verbosity level (0–3); higher = more output
-Verbose {{ verbosity }}
+# ------------------------------------------------------------------------------
+# Parallel Workers
+# Description: Number of parallel processes to use for indexing (0 =
+#              single-process mode).
+# ------------------------------------------------------------------------------
+{% set pw = parallel_workers | default(0) %}
+{% if pw > 0 %}
+ParallelProcessing {{ pw }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Verbosity
+# Description: Verbosity level of the indexer: 0 (quiet), 1 (normal), 2 (verbose),
+#              3 (debug).
+# ------------------------------------------------------------------------------
+Verbose {{ verbosity | default(1) }}

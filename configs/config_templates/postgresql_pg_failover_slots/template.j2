@@ -1,39 +1,95 @@
-# PostgreSQL HA Failover Slots configuration — manages logical replication slots for failover
-# Enables automatic slot management across primary/standby PostgreSQL instances
-# Defines primary and standby cluster connections and slot behavior
+# ==============================================================================
+# PostgreSQL HA Failover Slots Configuration
+# ==============================================================================
+# This file configures a helper/service that manages logical replication slots
+# for PostgreSQL High Availability (HA) failover scenarios.
+#
+# It maintains connections to both the primary and standby instances,
+# defining which replication slots to monitor/create and how the system
+# should behave during a failover event.
+# ==============================================================================
 
 [primary]
-# Host and credentials for the primary database
-host = {{ primary_host }}
-port = {{ primary_port }}
-user = {{ primary_user }}
-password = {{ primary_password }}
-database = {{ primary_database }}
+# --------------------------------------------------------------------------
+# Primary Instance Connection Settings
+# --------------------------------------------------------------------------
+
+# Hostname or IP address of the PostgreSQL primary instance
+host = {{ (primary_host | default('localhost')) | string }}
+
+# Port number of the PostgreSQL primary instance
+port = {{ (primary_port | default(5432)) | int }}
+
+# Username with replication privileges on the primary
+user = {{ (primary_user | default('postgres')) | string }}
+
+# Password for the primary user.
+# Note: It is recommended to use .pgpass files or scram-sha-256 authentication
+# instead of storing plain-text passwords here if possible.
+password = {{ (primary_password | default('')) | string }}
+
+# Database to connect to on the primary (used for slot queries and status checks)
+database = {{ (primary_database | default('postgres')) | string }}
 
 [standby]
-# Host and credentials for the standby database
-host = {{ standby_host }}
-port = {{ standby_port }}
-user = {{ standby_user }}
-password = {{ standby_password }}
-database = {{ standby_database }}
+# --------------------------------------------------------------------------
+# Standby Instance Connection Settings
+# --------------------------------------------------------------------------
+
+# Hostname or IP address of the PostgreSQL standby instance
+host = {{ (standby_host | default('localhost')) | string }}
+
+# Port number of the PostgreSQL standby instance
+port = {{ (standby_port | default(5432)) | int }}
+
+# Username with replication privileges on the standby
+user = {{ (standby_user | default('postgres')) | string }}
+
+# Password for the standby user.
+password = {{ (standby_password | default('')) | string }}
+
+# Database to connect to on the standby
+database = {{ (standby_database | default('postgres')) | string }}
 
 [replication]
-# Logical replication slot(s) to manage for failover
-{% for slot in replication_slots %}
-slot_{{ loop.index0 }}_name = {{ slot.name }}
-slot_{{ loop.index0 }}_plugin = {{ slot.plugin }}
-slot_{{ loop.index0 }}_two_phase = {{ slot.two_phase | lower }}
+# --------------------------------------------------------------------------
+# Replication Slot Management Configuration
+# --------------------------------------------------------------------------
+# Defines logical replication slots to manage for high availability.
+# Each slot entry is generated based on the list provided in `replication_slots`.
+
+{% for slot in (replication_slots | default([{'name': 'failover_slot', 'plugin': 'pgoutput', 'two_phase': False}])) %}
+# Slot Name: {{ (slot.name | default('failover_slot')) | string }}
+# Slot Plugin: {{ (slot.plugin | default('pgoutput')) | string }}
+# Two-Phase Commit Support: {{ (slot.two_phase | default(false)) | lower }}
+slot_{{ loop.index0 }}_name = {{ (slot.name | default('failover_slot')) | string }}
+slot_{{ loop.index0 }}_plugin = {{ (slot.plugin | default('pgoutput')) | string }}
+slot_{{ loop.index0 }}_two_phase = {{ (slot.two_phase | default(false)) | lower }}
 {% endfor %}
 
 [monitoring]
-# Interval (in seconds) between health checks and slot sync
-check_interval = {{ check_interval }}
+# --------------------------------------------------------------------------
+# Health Check Settings
+# --------------------------------------------------------------------------
+
+# Seconds between health checks and slot synchronization attempts
+check_interval = {{ (check_interval | default(10)) | int }}
 
 [behavior]
-# Whether to automatically promote slots on failover
-auto_promote = {{ auto_promote | lower }}
-# Whether to fail immediately on slot sync failure (strict mode)
-strict_mode = {{ strict_mode | lower }}
-# Timeout (in seconds) for replication operations
-operation_timeout = {{ operation_timeout }}
+# --------------------------------------------------------------------------
+# Failover Behavior Settings
+# --------------------------------------------------------------------------
+
+# If true, automatically promote slots to the new primary during failover.
+# When enabled, the system will attempt to re-initialize or update slots
+# on the newly promoted primary server.
+auto_promote = {{ (auto_promote | default(true)) | lower }}
+
+# If true, abort operation on any slot sync error (fail-fast).
+# When enabled, any error encountered during slot management will cause
+# the current operation to stop immediately rather than continuing.
+strict_mode = {{ (strict_mode | default(false)) | lower }}
+
+# Maximum seconds to wait for replication operations (slot creation, sync, etc.).
+# If an operation exceeds this duration, it will be considered failed.
+operation_timeout = {{ (operation_timeout | default(30)) | int }}

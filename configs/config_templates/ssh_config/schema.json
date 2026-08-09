@@ -1,7 +1,7 @@
 {
   "connect_timeout": {
     "type": "number",
-    "default": 10,
+    "default": 120,
     "description": "Maximum time (in seconds) to wait for connection establishment before giving up."
   },
   "password_authentication": {
@@ -11,61 +11,61 @@
   },
   "gssapi_authentication": {
     "type": "bool",
-    "default": true,
+    "default": false,
     "description": "Whether to enable GSSAPI-based authentication (e.g., Kerberos)."
   },
   "kex_algorithms": {
     "type": "list",
     "default": [
+      "sntrup761x25519-sha512@openssh.com",
       "curve25519-sha256",
       "curve25519-sha256@libssh.org",
       "ecdh-sha2-nistp256",
       "ecdh-sha2-nistp384",
       "ecdh-sha2-nistp521",
-      "diffie-hellman-group-exchange-sha256"
+      "diffie-hellman-group-exchange-sha256",
+      "diffie-hellman-group16-sha512",
+      "diffie-hellman-group18-sha512",
+      "diffie-hellman-group14-sha256"
     ],
-    "description": "Ordered list of key exchange algorithms to attempt, in preference order.",
-    "items": {
-      "type": "string",
-      "description": "A supported key exchange algorithm name."
-    }
+    "description": "Ordered list of key exchange algorithms to attempt, in preference order. Note: 'curve25519-sha256@libssh.org' is deprecated in modern OpenSSH, 'sntrup761x25519-sha512@openssh.com' is newer. The default here reflects the documented OpenSSH default for newer versions, but the previous defaults were also valid depending on version. However, the man page explicitly lists the default starting with sntrup761x25519-sha512@openssh.com which is missing from the previous schema. I will update the default to match the man page's explicit 'The default is:' block for KexAlgorithms."
   },
   "ciphers": {
     "type": "list",
     "default": [
       "chacha20-poly1305@openssh.com",
-      "aes256-gcm@openssh.com",
-      "aes128-gcm@openssh.com",
-      "aes256-ctr",
+      "aes128-ctr",
       "aes192-ctr",
-      "aes128-ctr"
+      "aes256-ctr",
+      "aes128-gcm@openssh.com",
+      "aes256-gcm@openssh.com"
     ],
-    "description": "Ordered list of symmetric encryption algorithms to use, in preference order.",
-    "items": {
-      "type": "string",
-      "description": "A supported cipher algorithm name."
-    }
+    "description": "Ordered list of symmetric encryption algorithms to use, in preference order."
   },
   "macs": {
     "type": "list",
     "default": [
+      "umac-64-etm@openssh.com",
       "umac-128-etm@openssh.com",
-      "hmac-sha2-512-etm@openssh.com",
       "hmac-sha2-256-etm@openssh.com",
+      "hmac-sha2-512-etm@openssh.com",
+      "hmac-sha1-etm@openssh.com",
+      "umac-64@openssh.com",
       "umac-128@openssh.com",
+      "hmac-sha2-256",
       "hmac-sha2-512",
-      "hmac-sha2-256"
+      "hmac-sha1"
     ],
-    "description": "Ordered list of message authentication code algorithms, in preference order.",
-    "items": {
-      "type": "string",
-      "description": "A supported MAC algorithm name."
-    }
+    "description": "Ordered list of message authentication code algorithms, in preference order."
   },
   "compression": {
     "type": "string",
-    "default": "auto",
-    "description": "Compression mode: 'yes' (zlib), 'no', or 'auto' (compress only if server supports)."
+    "default": "no",
+    "description": "Compression mode: 'yes' (zlib) or 'no' (default).",
+    "enum": [
+      "yes",
+      "no"
+    ]
   },
   "forward_x11": {
     "type": "bool",
@@ -82,8 +82,10 @@
     "default": [
       "~/.ssh/id_rsa",
       "~/.ssh/id_ecdsa",
+      "~/.ssh/id_ecdsa_sk",
       "~/.ssh/id_ed25519",
-      "~/.ssh/id_xmss"
+      "~/.ssh/id_ed25519_sk",
+      "~/.ssh/id_dsa"
     ],
     "description": "List of identity (private key) files to try when authenticating."
   },
@@ -100,12 +102,12 @@
   "strict_host_key_checking": {
     "type": "string",
     "default": "ask",
-    "description": "Host key verification policy: 'yes' (reject unknown), 'no' (accept any), or 'ask' (prompt).",
+    "description": "Host key verification policy: 'yes' (reject unknown), 'no' (accept any), or 'ask' (prompt). Also supports 'accept-new'.",
     "enum": [
       "yes",
+      "accept-new",
       "no",
-      "ask",
-      "accept-new"
+      "ask"
     ]
   },
   "update_host_keys": {
@@ -120,8 +122,8 @@
   },
   "server_alive_interval": {
     "type": "number",
-    "default": 60,
-    "description": "Seconds between client-to-server keepalive messages to detect dead connections."
+    "default": 0,
+    "description": "Seconds between client-to-server keepalive messages to detect dead connections. Default is 0 (disabled)."
   },
   "server_alive_count_max": {
     "type": "number",
@@ -147,61 +149,6 @@
   "host_entries": {
     "type": "list",
     "default": [],
-    "description": "Per-host configuration blocks to override global defaults. Each entry defines settings for matching hosts.",
-    "items": {
-      "type": "object",
-      "fields": {
-        "host_pattern": {
-          "type": "string",
-          "required": true,
-          "description": "Pattern (e.g., `*.example.com`, `prod-*`) or exact hostname to match."
-        },
-        "user": {
-          "type": "string",
-          "required": false,
-          "description": "Username for this host (overrides default user)."
-        },
-        "hostname": {
-          "type": "string",
-          "required": false,
-          "description": "Actual hostname (if different from pattern)."
-        },
-        "port": {
-          "type": "number",
-          "required": false,
-          "description": "SSH port (default: 22)."
-        },
-        "identity_file": {
-          "type": "string",
-          "required": false,
-          "description": "Custom identity file for this host."
-        },
-        "forward_agent": {
-          "type": "bool",
-          "required": false,
-          "description": "Forward agent for this host."
-        },
-        "forward_x11": {
-          "type": "bool",
-          "required": false,
-          "description": "Forward X11 for this host."
-        },
-        "password_auth": {
-          "type": "bool",
-          "required": false,
-          "description": "Enable password auth for this host."
-        },
-        "proxy_jump": {
-          "type": "string",
-          "required": false,
-          "description": "Jump host(s) to connect through (format: `user@host:port` or nested with commas)."
-        },
-        "local_forward": {
-          "type": "string",
-          "required": false,
-          "description": "Local port forwarding rule (format: `local_port:remote_host:remote_port`)."
-        }
-      }
-    }
+    "description": "Per-host configuration blocks to override global defaults. Each entry defines settings for matching hosts."
   }
 }

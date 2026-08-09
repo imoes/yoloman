@@ -18,11 +18,21 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="PageKite system service"
 NAME=pagekite
-RUNAS=daemon:daemon
+
+# User and group under which the PageKite daemon runs, formatted as user:group.
+RUNAS={{ runas | default('daemon:daemon') }}
+
 DAEMON=/usr/bin/$NAME
+
+# Wrapper tool for respawning the daemon.
 WRAPPER=/usr/bin/daemon
-PIDFILE=/var/run/$NAME.pid
-LOGFILE=/var/log/$NAME/$NAME.log
+
+# Path to write the PID file when running in daemon mode.
+PIDFILE={{ pidfile | default('/var/run/pagekite.pid') }}
+
+# Path to the log file for PageKite.
+LOGFILE={{ logfile | default('/var/log/pagekite/pagekite.log') }}
+
 WRAPPER_PIDFILE=$PIDFILE.wrapper
 WRAPPER_ARGS="--noconfig --unsafe --respawn --delay=60 --name=$NAME"
 DAEMON_ARGS="--clean \
@@ -46,7 +56,7 @@ grep -c ^abort_not_configured /etc/pagekite.d/10_account.rc \
 
 # Define LSB log_* functions.
 # Depend on lsb-base (>= 3.0-6) to ensure that this file is present.
-. /lib/lsb/init-functions
+. /lib/lsb/lsb-functions
 
 #
 # Function that starts the daemon/service
@@ -78,8 +88,8 @@ do_start()
 		|| return 2
         fi
 	# Add code here, if necessary, that waits for the process to be ready
-	# to handle requests from services started subsequently which depend
-	# on this one.  As a last resort, sleep for some time.
+	# to handle requests from services started subsequently which depend on
+	# this one. As a last resort, sleep for some time.
 }
 
 #

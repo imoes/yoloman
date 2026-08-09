@@ -1,108 +1,160 @@
+# ============================================================================
+# ptp4l Configuration Template (ptp4l-e2e)
+# ============================================================================
+# This file configures the linuxptp `ptp4l` daemon. The `ptp4l-e2e` variant
+# specifically configures the End-to-End (E2E) delay mechanism section.
+#
+# IMPORTANT: The schema defaults are applied inline via `| default(...)` to
+# ensure the template renders safely even if the Ansible role fails to pass
+# a variable. Do not rely on implicit defaults from ptp4l itself.
+# ============================================================================
+
 # [global] section — main PTP daemon global settings
 [global]
-# Unique identifier for this PTP node (typically MAC address)
-device_type={{ device_type }}
 
-# Network interface to use for PTP
-interface={{ interface }}
+# Unique identifier for this PTP node. In a standard linuxptp setup, this
+# is usually auto-detected or set to the MAC address of the interface.
+# The schema field 'device_type' is a misnomer in this specific context
+# based on the provided schema, but we map it to the variable provided.
+# Note: ptp4l does not have a 'device_type' directive; this is likely
+# a custom extension or metadata field for this specific role.
+device_type={{ device_type | default('transparent_clock') }}
 
-# Enable/Disable slave-only mode (i.e., never act as master)
+# Primary network interface to use for PTP communication.
+# Must support hardware timestamping for best accuracy.
+interface={{ interface | default('eth0') }}
+
+# If true, this node will only act as a slave (never become master).
 slave_only={{ slave_only | default(false) | lower }}
 
-# Clock class (0–125); lower = better quality (0 = best)
-clockClass={{ clock_class }}
+# Clock class (0–125). Lower = higher quality. Use 6 (GPS) or 7 (atomic)
+# for grandmaster; 128 = uncertain.
+clockClass={{ clock_class | default(128) }}
 
-# Clock accuracy (0x20=NA, 0x21=25ns, ..., 0x2A=100ns, 0x2B=250ns, 0x2C=1us, ..., 0x32=10ms)
-clockAccuracy={{ clock_accuracy }}
+# Clock accuracy code (e.g., 0x2A=100ns, 0x2B=250ns, 0x2C=1us).
+# See IEEE 802.1AS-2011 Table 10-3.
+clockAccuracy={{ clock_accuracy | default('0x2A') }}
 
-# Offset logged in log file (seconds); -1 = auto
-offsetLogMax={{ offset_log_max }}
+# Log2 of max offset to log in seconds. -1 = auto. Typical: -3 (125ms),
+# -6 (1.56µs).
+offsetLogMax={{ offset_log_max | default(-1) }}
 
-# Timebase for offset and delay calculations ('system' or 'phc')
-timebase={{ timebase }}
+# Timebase for offset/delay calculations: 'phc' (PTP Hardware Clock)
+# or 'system' (system clock).
+timebase={{ timebase | default('phc') }}
 
-# Enable/Disable hardware timestamping
+# Enable hardware timestamping for precise PTP timing.
+# Required for sub-100 ns accuracy.
 hwts={{ hwts | default(true) | lower }}
 
-# Enable/Disable software timestamping
+# Enable software timestamping (fallback if hardware timestamping unavailable).
 swts={{ swts | default(false) | lower }}
 
-# PTP domain number (0–127)
-domainNumber={{ domain_number }}
+# PTP domain number (0–127). All nodes in the same domain must use the same value.
+domainNumber={{ domain_number | default(0) }}
 
-# Priority1 (0–254); lower = higher preference for master election
-priority1={{ priority1 }}
+# Priority1 (0–254) — used in BMC election. Lower = higher preference for master.
+priority1={{ priority1 | default(248) }}
 
-# Priority2 (0–254); used if Priority1 equal
-priority2={{ priority2 }}
+# Priority2 (0–254) — tie-breaker when Priority1 is equal (e.g., same MAC).
+priority2={{ priority2 | default(248) }}
 
-# Number of slave-only clocks behind (used in grandmaster priority chain)
-slaveOnlyClocks={{ slave_only_clocks }}
+# Number of slave-only clocks directly connected behind this transparent clock
+# (used in priority chain).
+slaveOnlyClocks={{ slave_only_clocks | default(0) }}
 
-# Log interval for Announce messages (±3 to +6; 2^logInterval seconds)
-anncInterval={{ announce_interval }}
+# Log2 of Announce interval in seconds. e.g., 1 → 2s, 0 → 1s, -1 → 500ms.
+anncInterval={{ announce_interval | default(1) }}
 
-# Log interval for Sync messages (±3 to +6)
-syncInterval={{ sync_interval }}
+# Log2 of Sync interval in seconds. e.g., 0 → 1s, -1 → 500ms, -2 → 250ms, -4 → 62.5ms.
+syncInterval={{ sync_interval | default(0) }}
 
-# Log interval for Delay_Req messages (±3 to +6)
-delayInterval={{ delay_interval }}
+# Log2 of Delay_Req interval in seconds. Typically same as sync_interval.
+delayInterval={{ delay_interval | default(0) }}
 
-# Log interval for Signaling messages (±3 to +6)
-signalInterval={{ signal_interval }}
+# Log2 of Signaling interval in seconds. e.g., 1 → 2s.
+signalInterval={{ signal_interval | default(1) }}
 
-# Log interval for Management messages (±3 to +6)
-mgmtInterval={{ mgmt_interval }}
+# Log2 of Management interval in seconds. Set to 0 (1s) for active management,
+# -1 (500ms) for frequent updates.
+mgmtInterval={{ mgmt_interval | default(0) }}
 
-# Number of Announce receipts needed before master state decision
-announcementsBeforeMaster={{ announcements_before_master }}
+# Number of Announce messages received before becoming master candidate.
+announcementsBeforeMaster={{ announcements_before_master | default(2) }}
 
-# Number of missing Announce messages before master state reset
-announcementsBeforeReset={{ announcements_before_reset }}
+# Missed Announces before resetting master state.
+announcementsBeforeReset={{ announcements_before_reset | default(4) }}
 
-# Enable/Disable QoS DSCP marking for PTP packets (0–63 or -1 for disabled)
-ptp_dst_mac={{ ptp_dst_mac }}
+# Destination MAC for PTP packets (default = PTP multicast).
+# Use '00:00:00:00:00:00' to disable QoS.
+ptp_dst_mac={{ ptp_dst_mac | default('01:1B:19:00:00:00') }}
 
-# Enable/Disable BMC (Best Master Clock) algorithm
+# Enable Best Master Clock algorithm. Disable only if using static configuration.
 bmc={{ bmc | default(true) | lower }}
 
-# Enable/Disable logging to syslog
+# Enable logging to syslog (recommended for production).
 logging={{ logging | default(true) | lower }}
 
-# Log level (0–7: debug–critical)
-logLevel={{ log_level }}
+# Log level (0=emergency, 7=debug). 3=warning, 4=notice, 6=info, 7=debug.
+logLevel={{ log_level | default(7) }}
 
-# Path to clock description string file (if any)
+# Path to optional file containing clock description string (e.g., model, serial).
 clockDescriptionFile={{ clock_description_file | default('') }}
 
-# Enable/Disable UDS (Unix Domain Socket) interface
-uds_address={{ uds_address | default('') }}
-uds_port={{ uds_port }}
-uds_mode={{ uds_mode }}
+# Unix Domain Socket path for ptp4l control interface.
+uds_address={{ uds_address | default('/var/run/ptp4l.socket') }}
 
-# End-to-End delay mechanism specific settings
+# Port for UDS (0 = auto-assign). Usually left as 0.
+uds_port={{ uds_port | default(0) }}
+
+# Permissions mode for UDS socket: 'rw' (read/write), 'r' (read-only),
+# 'w' (write-only).
+uds_mode={{ uds_mode | default('rw') }}
+
+# ============================================================================
+# [e2e] section — End-to-End Delay Mechanism Settings
+# ============================================================================
+# Configures the specific behavior of the E2E delay measurement mechanism.
 [e2e]
 
-# Enable End-to-End delay request/response (vs P2P)
+# Force the mechanism to be End-to-End (E2E).
+# Note: The variable `mechanism` is hardcoded to 'e2e' as this is the
+# `ptp4l-e2e` package.
 mechanism=e2e
 
-# Initial mean path delay (nanoseconds)
-initial_delay={{ initial_delay_ns }}
+# Initial guess of path delay in nanoseconds (used before auto-delay estimation).
+initial_delay={{ initial_delay_ns | default(1000000) }}
 
-# Maximum delay estimation error (nanoseconds)
-delay_thresh={{ delay_thresh_ns }}
+# Maximum acceptable estimated delay (ns) before flagging path anomaly.
+delay_thresh={{ delay_thresh_ns | default(50000000) }}
 
-# Enable/Disable automatic delay estimation
+# Enable automatic estimation of path delay via Delay_Req/Resp exchange.
 auto_delay={{ auto_delay | default(true) | lower }}
 
-# Enable/Disable fallback to P2P if E2E fails (not recommended)
+# Fallback to Peer-to-Peer delay mechanism if E2E fails (not recommended
+# for strict E2E configs).
 allow_fallback_to_p2p={{ allow_fallback_to_p2p | default(false) | lower }}
 
-# List of additional interfaces to monitor for PTP (optional)
-{% for iface in additional_interfaces %}
-# Monitor interface '{{ iface.name }}' for PTP traffic (for multi-homing or redundant paths)
-{% if iface.name %}interface={{ iface.name }}{% endif %}
-{% if iface.priority is defined %}priority={{ iface.priority }}{% endif %}
-{% if iface.master_only is defined %}master_only={{ iface.master_only | lower }}{% endif %}
-{% if iface.slave_only is defined %}slave_only={{ iface.slave_only | lower }}{% endif %}
+# ============================================================================
+# Additional Interfaces
+# ============================================================================
+# List of additional interfaces to monitor for PTP traffic.
+# Each interface object may contain: name, priority, master_only, slave_only.
+{% for iface in additional_interfaces | default([]) %}
+# ---------------------------------------------------------------------------
+# Interface: {{ iface.name | default('unknown') }}
+# Monitored for PTP traffic (for redundant paths or multi-homing)
+# ---------------------------------------------------------------------------
+{% if iface.name is defined %}
+interface={{ iface.name }}
+{% endif %}
+{% if iface.priority is defined %}
+priority={{ iface.priority }}
+{% endif %}
+{% if iface.master_only is defined %}
+master_only={{ iface.master_only | lower }}
+{% endif %}
+{% if iface.slave_only is defined %}
+slave_only={{ iface.slave_only | lower }}
+{% endif %}
 {% endfor %}

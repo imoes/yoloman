@@ -1,64 +1,135 @@
-# SSH client configuration file — global defaults and per-host overrides
-# Host-specific settings are matched in order; first match wins
-Host *
-  # Default connection timeout (seconds)
-  ConnectTimeout {{ connect_timeout }}
-  # Number of authentication attempts before disconnecting
-  PasswordAuthentication {{ password_authentication }}
-  # Use GSSAPI for authentication if available
-  GSSAPIAuthentication {{ gssapi_authentication }}
-  # Preferred key exchange algorithms (space-separated)
-  KexAlgorithms {{ kex_algorithms | join(' ') }}
-  # Preferred ciphers (space-separated)
-  Ciphers {{ ciphers | join(' ') }}
-  # Preferred MACs (space-separated)
-  MACs {{ macs | join(' ') }}
-  # Enable compression (on/off)
-  Compression {{ compression }}
-  # Enable X11 forwarding (on/off)
-  ForwardX11 {{ forward_x11 }}
-  # Enable TCP forwarding (on/off)
-  ForwardAgent {{ forward_agent }}
-  # Identity files (public keys) to try for authentication
-{% for key_file in identity_files %}  IdentityFile {{ key_file }}
-{% endfor %}
-  # Default user if not specified in the command
-{% if default_user %}  User {{ default_user }}
-{% endif %}
-  # Local port forwarding (for dynamic SOCKS proxy)
-{% if dynamic_forward_port %}  DynamicForward *:{{ dynamic_forward_port }}
-{% endif %}
-  # Strict host key checking (yes/no/ask)
-  StrictHostKeyChecking {{ strict_host_key_checking }}
-  # How to handle unknown host keys (accept-new/ask/yes)
-  UpdateHostKeys {{ update_host_keys }}
-  # Keep-alive interval (seconds) to prevent disconnection
-  ServerAliveInterval {{ server_alive_interval }}
-  # Number of keep-alive messages without response before disconnect
-  ServerAliveCountMax {{ server_alive_count_max }}
-  # Log level (QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, TRACE)
-  LogLevel {{ log_level }}
+# SSH Client Configuration File
+# ===============================
+# This template generates a valid `ssh_config` file for the OpenSSH client.
+# It establishes global defaults for `Host *` and optionally appends
+# per-host configuration blocks from the `host_entries` list.
+#
+# SELF-DOCUMENTATION:
+# Every directive is preceded by a comment describing its schema purpose.
+# All variables use `default(...)` to ensure the template renders safely
+# even if a variable is undefined in the Ansible execution environment.
 
-# Per-host overrides (example patterns)
-# These are illustrative; real usage may vary
-{% for host_entry in host_entries %}# Host: {{ host_entry.host_pattern }}
-Host {{ host_entry.host_pattern }}
-{% if host_entry.user is defined and host_entry.user %}  User {{ host_entry.user }}
-{% endif %}
-{% if host_entry.hostname is defined and host_entry.hostname %}  HostName {{ host_entry.hostname }}
-{% endif %}
-{% if host_entry.port is defined and host_entry.port %}  Port {{ host_entry.port }}
-{% endif %}
-{% if host_entry.identity_file is defined and host_entry.identity_file %}  IdentityFile {{ host_entry.identity_file }}
-{% endif %}
-{% if host_entry.forward_agent is defined %}  ForwardAgent {{ "yes" if host_entry.forward_agent else "no" }}
-{% endif %}
-{% if host_entry.forward_x11 is defined %}  ForwardX11 {{ "yes" if host_entry.forward_x11 else "no" }}
-{% endif %}
-{% if host_entry.password_auth is defined %}  PasswordAuthentication {{ "yes" if host_entry.password_auth else "no" }}
-{% endif %}
-{% if host_entry.proxy_jump is defined and host_entry.proxy_jump %}  ProxyJump {{ host_entry.proxy_jump }}
-{% endif %}
-{% if host_entry.local_forward is defined and host_entry.local_forward %}  LocalForward {{ host_entry.local_forward }}
-{% endif %}
+Host *
+  # Maximum time (in seconds) to wait for connection establishment before giving up.
+  # Schema field: connect_timeout (default: 120)
+  ConnectTimeout {{ connect_timeout | default(120) }}
+
+  # Whether to permit password authentication (yes/no).
+  # Schema field: password_authentication (default: True)
+  PasswordAuthentication {{ password_authentication | default(True) | lower }}
+
+  # Whether to enable GSSAPI-based authentication (e.g., Kerberos).
+  # Schema field: gssapi_authentication (default: False)
+  GSSAPIAuthentication {{ gssapi_authentication | default(False) | lower }}
+
+  # Ordered list of key exchange algorithms to attempt, in preference order.
+  # Note: 'curve25519-sha256@libssh.org' is deprecated in modern OpenSSH.
+  # Schema field: kex_algorithms (default: list of curve25519/ecdhe/dh algorithms)
+  KexAlgorithms {{ kex_algorithms | default(['sntrup761x25519-sha512@openssh.com', 'curve25519-sha256', 'curve25519-sha256@libssh.org', 'ecdh-sha2-nistp256', 'ecdh-sha2-nistp384', 'ecdh-sha2-nistp521', 'diffie-hellman-group-exchange-sha256', 'diffie-hellman-group16-sha512', 'diffie-hellman-group18-sha512', 'diffie-hellman-group14-sha256']) | join(' ') }}
+
+  # Ordered list of symmetric encryption algorithms to use, in preference order.
+  # Schema field: ciphers (default: chacha20 and aes-ctr/gcm variants)
+  Ciphers {{ ciphers | default(['chacha20-poly1305@openssh.com', 'aes128-ctr', 'aes192-ctr', 'aes256-ctr', 'aes128-gcm@openssh.com', 'aes256-gcm@openssh.com']) | join(' ') }}
+
+  # Ordered list of message authentication code algorithms, in preference order.
+  # Schema field: macs (default: umac-64/128-etm, hmac-sha2-256/512-etm, hmac-sha1)
+  MACs {{ macs | default(['umac-64-etm@openssh.com', 'umac-128-etm@openssh.com', 'hmac-sha2-256-etm@openssh.com', 'hmac-sha2-512-etm@openssh.com', 'hmac-sha1-etm@openssh.com', 'umac-64@openssh.com', 'umac-128@openssh.com', 'hmac-sha2-256', 'hmac-sha2-512', 'hmac-sha1']) | join(' ') }}
+
+  # Compression mode: 'yes' (zlib) or 'no' (default).
+  # Schema field: compression (default: 'no')
+  Compression {{ compression | default('no') }}
+
+  # Enable X11 forwarding (for GUI applications over SSH).
+  # Schema field: forward_x11 (default: False)
+  ForwardX11 {{ forward_x11 | default(False) | lower }}
+
+  # Forward SSH authentication agent connection to the remote host.
+  # Schema field: forward_agent (default: False)
+  ForwardAgent {{ forward_agent | default(False) | lower }}
+
+  # List of identity (private key) files to try when authenticating.
+  # Schema field: identity_files (default: common RSA, ECDSA, Ed25519, DSA paths)
+  {% for key_file in identity_files | default(['~/.ssh/id_rsa', '~/.ssh/id_ecdsa', '~/.ssh/id_ecdsa_sk', '~/.ssh/id_ed25519', '~/.ssh/id_ed25519_sk', '~/.ssh/id_dsa']) %}  IdentityFile {{ key_file }}
+  {% endfor %}
+
+  # Default username to use when connecting without specifying one.
+  # Leave blank to require user specification.
+  # Schema field: default_user (default: '')
+  {% if default_user | default('') | length > 0 %}  User {{ default_user | default('') }}
+  {% endif %}
+
+  # Port to use for dynamic application-level port forwarding (SOCKS proxy).
+  # Set to 0 to disable.
+  # Schema field: dynamic_forward_port (default: 0)
+  {% if dynamic_forward_port | default(0) | int > 0 %}  DynamicForward *:{{ dynamic_forward_port | default(0) | int }}
+  {% endif %}
+
+  # Host key verification policy: 'yes' (reject unknown), 'no' (accept any),
+  # or 'ask' (prompt). Also supports 'accept-new'.
+  # Schema field: strict_host_key_checking (default: 'ask')
+  StrictHostKeyChecking {{ strict_host_key_checking | default('ask') }}
+
+  # How to handle host key updates: 'yes', 'no', or 'ask'.
+  # Use 'ask' to preserve security while allowing operator review.
+  # Schema field: update_host_keys (default: 'ask')
+  UpdateHostKeys {{ update_host_keys | default('ask') }}
+
+  # Seconds between client-to-server keepalive messages to detect dead connections.
+  # Default is 0 (disabled).
+  # Schema field: server_alive_interval (default: 0)
+  ServerAliveInterval {{ server_alive_interval | default(0) }}
+
+  # Number of keepalive messages without response before terminating the connection.
+  # Schema field: server_alive_count_max (default: 3)
+  ServerAliveCountMax {{ server_alive_count_max | default(3) }}
+
+  # Verbosity of logging (e.g., INFO, DEBUG, VERBOSE). Use DEBUG for troubleshooting.
+  # Schema field: log_level (default: 'INFO')
+  LogLevel {{ log_level | default('INFO') }}
+
+# Per-host overrides
+# ==================
+# These blocks define specific settings for matching hosts.
+# They are appended after the global defaults. First match wins in SSH client logic.
+{% for host_entry in host_entries | default([]) %}
+# --- Per-Host Block: {{ host_entry.host_pattern | default('unknown') }} ---
+Host {{ host_entry.host_pattern | default('unknown') }}
+
+  # User for this specific host entry, if defined.
+  # Overrides the global default_user if present.
+  {% if host_entry.user is defined and host_entry.user %}  User {{ host_entry.user }}
+  {% endif %}
+
+  # Hostname for this specific host entry, if defined.
+  {% if host_entry.hostname is defined and host_entry.hostname %}  HostName {{ host_entry.hostname }}
+  {% endif %}
+
+  # Port for this specific host entry, if defined.
+  {% if host_entry.port is defined and host_entry.port %}  Port {{ host_entry.port }}
+  {% endif %}
+
+  # Identity file (private key) for this specific host entry, if defined.
+  {% if host_entry.identity_file is defined and host_entry.identity_file %}  IdentityFile {{ host_entry.identity_file }}
+  {% endif %}
+
+  # Forward agent flag for this host.
+  {% if host_entry.forward_agent is defined %}  ForwardAgent {{ host_entry.forward_agent | lower }}
+  {% endif %}
+
+  # X11 forwarding flag for this host.
+  {% if host_entry.forward_x11 is defined %}  ForwardX11 {{ host_entry.forward_x11 | lower }}
+  {% endif %}
+
+  # Password authentication flag for this host.
+  {% if host_entry.password_auth is defined %}  PasswordAuthentication {{ host_entry.password_auth | lower }}
+  {% endif %}
+
+  # ProxyJump (jump host) configuration for this host, if defined.
+  {% if host_entry.proxy_jump is defined and host_entry.proxy_jump %}  ProxyJump {{ host_entry.proxy_jump }}
+  {% endif %}
+
+  # LocalForward (port forwarding) configuration for this host, if defined.
+  {% if host_entry.local_forward is defined and host_entry.local_forward %}  LocalForward {{ host_entry.local_forward }}
+  {% endif %}
+
 {% endfor %}

@@ -32,4 +32,9 @@ export class SystemSettingsService {
   setNetboot(body: SetNetbootInput) {
     return this.http.put<SystemSettings>(`${this.base}/netboot`, body);
   }
+
+  /** Event/run history auto-purge window (days; 0 = keep forever). */
+  setRetention(runRetentionDays: number) {
+    return this.http.put<SystemSettings>(`${this.base}/retention`, { run_retention_days: runRetentionDays });
+  }
 }

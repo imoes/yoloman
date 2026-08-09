@@ -1,59 +1,102 @@
-# PoolCounter daemon configuration
-# List of listening sockets (Unix domain or TCP)
-{% for sock in listeners %}{{ sock.type }} {{ sock.path if sock.type == 'unix' else sock.host ~ ':' ~ sock.port }}
+{# ----------------------------------------------------------------------------- #}
+{# PoolCounter daemon configuration file                                       #}
+{#                                                                             #}
+{# This file is managed by Ansible. Do not edit manually.                      #}
+{# See the schema defaults for expected types and meanings.                    #}
+{# ----------------------------------------------------------------------------- #}
+
+{# List of listening endpoints (Unix sockets or TCP listeners).                #}
+{# Each entry is rendered on its own line.                                     #}
+{# Default: [{'type': 'unix', 'path': '/run/poolcounter/poolcounter.sock'}]    #}
+{% for sock in (listeners | default([{'type': 'unix', 'path': '/run/poolcounter/poolcounter.sock'}])) %}
+{# Type of listener (unix or tcp)                                              #}
+{# Default: unix                                                               #}
+# Type: {{ sock.type | default('unix') }}
+{% if sock.type == 'unix' %}
+{# Unix socket path for local communication                                    #}
+{# Default: /run/poolcounter/poolcounter.sock                                  #}
+{# Path: unix.path                                                             #}
+# Unix socket path: {{ sock.path | default('/run/poolcounter/poolcounter.sock') }}
+{{ sock.type }} {{ sock.path | default('/run/poolcounter/poolcounter.sock') }}
+{% else %}
+{# TCP host address for network communication                                  #}
+{# Default: 0.0.0.0                                                            #}
+{# Host: sock.host                                                             #}
+# TCP host and port: {{ sock.host | default('0.0.0.0') }}:{{ sock.port | default(0) }}
+{# TCP port number for network communication                                   #}
+{# Default: 0                                                                  #}
+{# Port: sock.port                                                             #}
+{{ sock.type }} {{ sock.host | default('0.0.0.0') }}:{{ sock.port | default(0) }}
+{% endif %}
 {% endfor %}
 
-# Maximum number of pending connections per listener
-{% if max_backlog is defined %}MaxConnBacklog {{ max_backlog }}
-{% else %}MaxConnBacklog 128
+{# Maximum number of pending connections queued per listener socket.           #}
+{# Default: 128                                                                #}
+{# Field: max_backlog                                                          #}
+MaxConnBacklog {{ max_backlog | default(128) }}
+
+{# Number of worker processes. Set to 0 to auto-detect based on CPU cores.    #}
+{# Default: 0                                                                  #}
+{# Field: num_workers                                                          #}
+Workers {{ num_workers | default(0) }}
+
+{# Maximum number of concurrent requests handled per worker process.           #}
+{# Default: 100                                                                #}
+{# Field: max_reqs_per_worker                                                  #}
+MaxReqsPerWorker {{ max_reqs_per_worker | default(100) }}
+
+{# Minimum severity level for log messages.                                    #}
+{# Valid levels: debug, info, notice, warning, error, crit, alert, emerg.     #}
+{# Default: warning                                                            #}
+{# Field: log_level                                                            #}
+Log {{ log_level | default('warning') }}
+
+{# Destination for log output: 'syslog', 'stderr', or an absolute file path. #}
+{# Default: syslog                                                             #}
+{# Field: log_dest                                                             #}
+LogTo {{ log_dest | default('syslog') }}
+
+{# Idle timeout in seconds for client connections.                             #}
+{# Connections inactive longer than this value will be dropped.                #}
+{# Default: 30                                                                 #}
+{# Field: client_timeout                                                       #}
+ClientTimeout {{ client_timeout | default(30) }}
+
+{# Enable or disable the internal statistics HTTP endpoint.                    #}
+{# When 'true'/'yes', the stats listener binds to StatsHost/StatsPort.         #}
+{# Default: false                                                              #}
+{# Field: enable_stats                                                         #}
+Stats {{ 'on' if enable_stats | default(false) else 'off' }}
+
+{# Statistics endpoint bind address (only used when Stats is enabled).         #}
+{# Defaults to loopback to avoid exposing stats to external networks by default. #}
+{# Default: 127.0.0.1                                                          #}
+{# Field: stats_host                                                           #}
+{% if enable_stats | default(false) %}
+StatsHost {{ stats_host | default('127.0.0.1') }}
+{# Port for the stats endpoint (only used when Stats is on).                   #}
+{# Default: 9100                                                               #}
+{# Field: stats_port                                                           #}
+StatsPort {{ stats_port | default(9100) }}
 {% endif %}
 
-# Number of worker processes (0 = automatic, based on CPU cores)
-{% if num_workers is defined %}Workers {{ num_workers }}
-{% else %}Workers 0
-{% endif %}
+{# Unix socket permissions (in octal) for the main socket file.                #}
+{# Applies only if at least one listener uses type 'unix'.                     #}
+{# Default: 0660                                                               #}
+{# Field: unix_socket_perms                                                    #}
+UnixSocketPerms {{ unix_socket_perms | default('0660') }}
 
-# Maximum number of concurrent requests per worker
-{% if max_reqs_per_worker is defined %}MaxReqsPerWorker {{ max_reqs_per_worker }}
-{% else %}MaxReqsPerWorker 100
-{% endif %}
-
-# Log level: debug, info, notice, warning, error, crit, alert, emerg
-{% if log_level is defined %}Log {{ log_level }}
-{% else %}Log warning
-{% endif %}
-
-# Log destination: file path or 'syslog' or 'stderr'
-{% if log_dest is defined %}LogTo {{ log_dest }}
-{% else %}LogTo syslog
-{% endif %}
-
-# Timeout (seconds) for client connections
-{% if client_timeout is defined %}ClientTimeout {{ client_timeout }}
-{% else %}ClientTimeout 30
-{% endif %}
-
-# Enable/disable statistics endpoint
-{% if enable_stats is defined %}Stats {{ 'on' if enable_stats else 'off' }}
-{% else %}Stats off
-{% endif %}
-
-# Statistics endpoint host and port (only if Stats is on)
-{% if enable_stats %}StatsHost {{ stats_host }}
-StatsPort {{ stats_port }}
-{% endif %}
-
-# Enable/disable Unix socket permissions
-{% if unix_socket_perms is defined %}UnixSocketPerms {{ unix_socket_perms }}
-{% else %}UnixSocketPerms 0660
-{% endif %}
-
-# List of allowed client networks (CIDR or IP); if empty, all are allowed
-{% if allowed_networks %}# Allowed networks
-{% for net in allowed_networks %}AllowFrom {{ net }}
+{# List of allowed client networks in CIDR notation.                           #}
+{# If empty, all clients are allowed.                                          #}
+{# Default: []                                                                 #}
+{# Field: allowed_networks                                                     #}
+{% if allowed_networks | default([]) | length > 0 %}
+{% for net in allowed_networks %}
+AllowFrom {{ net }}
 {% endfor %}
 {% endif %}
 
-# Optional: lock file for PID
-{% if pid_file is defined %}PIDFile {{ pid_file }}
-{% endif %}
+{# Optional path to a PID lock file for process control.                       #}
+{# Default: /run/poolcounter/poolcounter.pid                                   #}
+{# Field: pid_file                                                             #}
+PIDFile {{ pid_file | default('/run/poolcounter/poolcounter.pid') }}

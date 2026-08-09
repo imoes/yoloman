@@ -18,13 +18,23 @@ set -e
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 
+# SMTP listening port (used in init script)
+# Defaults to 25 if not specified in service.port
+PORT="{{ (service | default({})).port | default(25) }}"
 
-PORT="{{ port }}"
-RUNAS="{{ runas }}"
+# User account under which qpsmtpd runs (used in init script)
+# Defaults to 'qpsmtpd' if not specified in service.runas
+RUNAS="{{ (service | default({})).runas | default('qpsmtpd') }}"
+
 NICE=""
 INTERFACES=""
 LISTEN=""
-ENABLED="{{ enabled }}"
+
+# Whether qpsmtpd service is enabled ('true' or 'false'; used in init script)
+# Valid values: false, true, 0, 1
+# Defaults to 'false' if not specified in service.enabled
+ENABLED="{{ (service | default({})).enabled | default('false') }}"
+
 SERVER="forkserver"
 EXTRA_ARGS=""
 

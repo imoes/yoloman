@@ -3,7 +3,24 @@
 # Syntax: [options] <addr1>[,<addr2>,...] [[options]] <addr3>[,...]
 # For more details: man socat or https://www.dest-unreach.org/socat/
 
-{% for rule in rules %}
-# {{ rule.description | default('Relay traffic from ' + rule.from + ' to ' + rule.to) }}
-{% if rule.options %}{{ rule.options | join(' ') }} {% endif %}{{ rule.from }}{{ ',' + rule.to if rule.to else '' }}{% if rule.post_options %} {{ rule.post_options | join(' ') }}{% endif %}
+{# List of relay rules. Each rule defines a source and destination for traffic forwarding, with optional command-line options. #}
+{# Iterates over the 'rules' list defined in the schema. Defaults to empty list if 'rules' is not provided. #}
+{% for rule in rules | default([]) %}
+  {# Description of this specific relay rule, used as a comment. Fallback to generated description if not provided. #}
+  # {{ rule.description | default('Relay traffic from ' + (rule.from | default('unknown')) + ' to ' + (rule.to | default('unknown'))) }}
+
+  {# Optional pre-address command-line options (e.g., listen, fork, syslog). #}
+  {# If 'options' is present, join them with a space. Otherwise, emit nothing. #}
+  {% if rule.options %}{{ rule.options | join(' ') }} {% endif %}
+
+  {# The source address (FROM). #}
+  {{ rule.from | default('') }}
+
+  {# The destination address (TO), preceded by a comma if it exists. #}
+  {# If 'to' is present, append ',' + to. Otherwise, append nothing. #}
+  {% if rule.to %}{{ ',' + rule.to }}{% endif %}
+
+  {# Optional post-address command-line options (e.g., exec, shell, bind). #}
+  {# If 'post_options' is present, join them with a space. Otherwise, emit nothing. #}
+  {% if rule.post_options %} {{ rule.post_options | join(' ') }}{% endif %}
 {% endfor %}

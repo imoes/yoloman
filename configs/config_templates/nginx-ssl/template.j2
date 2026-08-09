@@ -1,41 +1,116 @@
-# Main NGINX worker and event configuration
+# =============================================================================
+# Nginx SSL/TLS Configuration Template
+# =============================================================================
+# This template generates a main Nginx configuration file (`nginx.conf`)
+# focusing on worker process tuning, HTTP/1.1 keep-alive settings, Gzip
+# compression, and strict SSL/TLS cipher/protocol policies.
+#
+# Variables are drawn from the Ansible role variables. If a variable is not
+# defined, Jinja2 `default()` filters apply the schema defaults to ensure
+# a valid configuration file is always produced.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Worker Process Configuration
+# ------------------------------------------------------------------------------
+# Sets the number of worker processes. 'auto' is recommended for production
+# as it matches the number of available CPU cores.
 worker_processes auto;
 
 events {
-    worker_connections {{ worker_connections }};
+    # Maximum number of simultaneous connections each worker process can handle.
+    # Higher values allow handling more concurrent connections but consume
+    # more file descriptors and memory. Default is 1024.
+    worker_connections {{ worker_connections | default(1024) }};
 }
 
 http {
-    # Basic settings
+    # Basic Performance Settings
+    # ------------------------------------------------------------------------------
+    
+    # Enables efficient file transfer using sendfile() system call.
     sendfile on;
-    tcp_nopush on;
-    tcp_nodelay on;
-    keepalive_timeout {{ keepalive_timeout }};
-    types_hash_max_size {{ types_hash_max_size }};
 
-    # Logging
+    # Reduces network packet overhead by combining small packets before sending.
+    # Should be used with sendfile on.
+    tcp_nopush on;
+
+    # Disables Nagle's algorithm, reducing latency for small packets.
+    # Should be used with keepalive_timeout set.
+    tcp_nodelay on;
+
+    # Time (in seconds) to keep connections open for reuse by clients.
+    # Setting this too high may keep idle connections open; too low increases
+    # connection overhead. Default is 65 seconds.
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
+
+    # Maximum size (in bytes) of the hash tables used for MIME types.
+    # Increasing this allows more MIME types to be mapped efficiently.
+    # Default is 2048.
+    types_hash_max_size {{ types_hash_max_size | default(2048) }};
+
+    # Logging Configuration
+    # ------------------------------------------------------------------------------
+    # Access log location. Can be customized per server block later.
     access_log /var/log/nginx/access.log;
+
+    # Error log location.
     error_log /var/log/nginx/error.log;
 
-    # Gzip compression
+    # Gzip Compression Settings
+    # ------------------------------------------------------------------------------
+    # Enable Gzip compression to reduce transfer size.
     gzip on;
+
+    # Adds 'Vary: Accept-Encoding' header to response.
     gzip_vary on;
+
+    # Compresses responses for all proxy requests.
     gzip_proxied any;
-    gzip_types {{ gzip_types | join(', ') }};
-    gzip_comp_level {{ gzip_comp_level }};
 
-    # SSL settings
-    ssl_protocols {{ ssl_protocols | join(' ') }};
+    # List of MIME types to compress with Gzip.
+    # Note: This is a list in the schema, joined here with commas for Nginx config.
+    gzip_types {{ (gzip_types | default(['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml', 'application/xml', 'application/xml+rss', 'text/javascript'])) | join(', ') }};
+
+    # Gzip compression level (1–9). Higher values give better compression
+    # but use more CPU cycles. Default is 4.
+    gzip_comp_level {{ gzip_comp_level | default(4) }};
+
+    # SSL/TLS Configuration
+    # ------------------------------------------------------------------------------
+    # Allowed TLS protocol versions. Avoid insecure protocols like SSLv3,
+    # TLSv1.0, TLSv1.1. Only modern secure protocols are listed.
+    # Default: TLSv1.2, TLSv1.3
+    ssl_protocols {{ (ssl_protocols | default(['TLSv1.2', 'TLSv1.3'])) | join(' ') }};
+
+    # Prefer server ciphers over client ciphers for better security control.
     ssl_prefer_server_ciphers on;
-    ssl_ciphers '{{ ssl_ciphers }}';
-    ssl_session_cache shared:SSL:{{ ssl_session_cache_size }};
-    ssl_session_timeout {{ ssl_session_timeout }}m;
 
-    # Include MIME types
+    # Strong cipher suites allowed for TLS connections.
+    # Colon-separated list of high-strength ECDHE/DHE ciphers.
+    # Default: A comprehensive set of modern secure ciphers.
+    ssl_ciphers '{{ ssl_ciphers | default("ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384") }}';
+
+    # Size of the shared SSL session cache.
+    # Accepts suffixes like 'k', 'm', or 'g'. '10m' is a safe default.
+    ssl_session_cache shared:SSL:{{ ssl_session_cache_size | default('10m') }};
+
+    # Time (in minutes) SSL session parameters are cached.
+    # Default is 10 minutes.
+    ssl_session_timeout {{ ssl_session_timeout | default(10) }}m;
+
+    # MIME Types and Server Blocks
+    # ------------------------------------------------------------------------------
+    
+    # Include the global MIME types configuration.
     include /etc/nginx/mime.types;
+
+    # Default MIME type for responses without a matching type.
     default_type application/octet-stream;
 
-    # Load modulated server blocks
+    # Load additional configuration snippets.
     include /etc/nginx/conf.d/*.conf;
+    
+    # Load enabled site configurations.
     include /etc/nginx/sites-enabled/*;
 }

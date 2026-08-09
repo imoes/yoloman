@@ -1,75 +1,153 @@
-# Mode of operation for NUT (Network UPS Tools) server
-MODE={{ nut_mode }}
+# ==============================================================================
+# Network UPS Tools (NUT) - UPS Daemon (upsd) Configuration
+# ==============================================================================
+# This template generates the upsd.conf file for the NUT server.
+# It defines operational mode, UPS devices, network listeners, access control lists (ACLs),
+# and user accounts for authentication and authorization.
+# ==============================================================================
 
-# List of UPS devices to monitor and control
-{% for ups in ups_list %}
-[{{ ups.name }}]
-  driver = {{ ups.driver }}
-  port = {{ ups.port }}
-  desc = "{{ ups.description | default('') }}"
-{% if ups.serial %}
+# ------------------------------------------------------------------------------
+# Mode of operation for NUT server
+# - 'standalone': Single UPS, local monitoring only (default).
+# - 'netserver':  Serve UPS data over the network to other NUT clients.
+# - 'netclient':  Connect to a remote NUT server (passthrough mode).
+# ------------------------------------------------------------------------------
+# nut_mode: Operational mode for NUT. Typically 'standalone' (single UPS, local only), 'netserver' (serve UPS data over network), or 'netclient' (connect to remote server).
+MODE={{ (nut_mode | default('standalone')) }}
+
+# ------------------------------------------------------------------------------
+# UPS Device Definitions
+# Each entry in the `ups_list` creates a section defining a specific UPS device
+# connected to this system. The driver and port are mandatory for most devices.
+# ------------------------------------------------------------------------------
+# ups_list: List of UPS devices to configure and monitor.
+{% for ups in (ups_list | default([])) %}
+[{{ (ups.name | default('')) }}]
+  # Driver to use for this UPS device (e.g., usbhid-ups, blazer_usb)
+  driver = {{ (ups.driver | default('')) }}
+  # Port identifier (e.g., /dev/ttyUSB0, auto, or network address)
+  port = {{ (ups.port | default('')) }}
+  # Human-readable description of the UPS
+  desc = "{{ (ups.description | default('')) }}"
+
+  # Unique serial number of the UPS
+  {% if (ups.serial | default('')) %}
   serial = {{ ups.serial }}
-{% endif %}
-{% if ups.bus %}
+  {% endif %}
+
+  # USB bus number (for USB devices)
+  {% if (ups.bus | default('')) %}
   bus = {{ ups.bus }}
-{% endif %}
-{% if ups.vendorid %}
+  {% endif %}
+
+  # USB Vendor ID (hexadecimal)
+  {% if (ups.vendorid | default('')) %}
   vendorid = {{ ups.vendorid }}
-{% endif %}
-{% if ups.productid %}
+  {% endif %}
+
+  # USB Product ID (hexadecimal)
+  {% if (ups.productid | default('')) %}
   productid = {{ ups.productid }}
-{% endif %}
-{% if ups.product %}
+  {% endif %}
+
+  # Product name string
+  {% if (ups.product | default('')) %}
   product = "{{ ups.product }}"
-{% endif %}
-{% if ups.vendor %}
+  {% endif %}
+
+  # Vendor name string
+  {% if (ups.vendor | default('')) %}
   vendor = "{{ ups.vendor }}"
-{% endif %}
-{% if ups.firmware %}
+  {% endif %}
+
+  # Firmware version string
+  {% if (ups.firmware | default('')) %}
   firmware = "{{ ups.firmware }}"
-{% endif %}
-{% if ups.poll_interval is defined %}
+  {% endif %}
+
+  # Interval in seconds between status polls (default usually 2-10)
+  {% if (ups.poll_interval | default('')) %}
   pollinterval = {{ ups.poll_interval }}
-{% endif %}
-{% if ups.pollonly is defined %}
+  {% endif %}
+
+  # If true, only poll status, do not allow control (read-only)
+  {% if (ups.pollonly | default(False)) %}
   pollonly = {{ ups.pollonly }}
-{% endif %}
-{% if ups.master is defined %}
+  {% endif %}
+
+  # If true, mark this UPS as a master for netclient synchronization
+  {% if (ups.master | default(False)) %}
   master = {{ ups.master }}
-{% endif %}
+  {% endif %}
+
 {% endfor %}
 
-# Network access control — allow only trusted hosts
-{% for host in allowed_hosts %}
-ACL {{ host.name }} {{ host.ip }} {{ host.actions | join(', ') }}
+# ------------------------------------------------------------------------------
+# Network Access Control (ACLs)
+# Define which hosts are allowed to connect to the UPS daemon and what actions
+# they are permitted to perform.
+# Format: ACL <host_identifier> <ip_address> <nomacaddr|macaddr> <actions>
+# ------------------------------------------------------------------------------
+# allowed_hosts: List of trusted hosts allowed to connect to upsd. Each entry defines a name, IP, and allowed actions.
+{% for host in (allowed_hosts | default([])) %}
+ACL {{ (host.name | default('localhost')) }} {{ (host.ip | default('127.0.0.1')) }} nomacaddr {{ (host.actions | default(['MASTER'])) | join(', ') }}
 {% endfor %}
 
-# Allow access from localhost for local tools
+# ------------------------------------------------------------------------------
+# Localhost Access
+# Allow local tools (like upsc, upsrw) to connect via the loopback interface.
+# 'all' actions are granted to localhost by default for local management.
+# ------------------------------------------------------------------------------
 ACL localhost localhost nomacaddr all
 
-# Default ACL — deny by default unless explicitly allowed above
+# ------------------------------------------------------------------------------
+# Default Deny Policy
+# Explicitly deny all other connections not matched by the ACLs above.
+# This ensures a secure-by-default configuration.
+# ------------------------------------------------------------------------------
 ACL all all nomacaddr deny
 
-# User accounts and permissions
-{% for user in users %}
-{% if user.disabled is defined and user.disabled %}
-# User '{{ user.name }}' is disabled
+# ------------------------------------------------------------------------------
+# User Accounts and Permissions
+# Define users who can authenticate to the NUT server.
+# Each user has a name, password, and a list of allowed actions.
+# Actions: SET, INSTCMD, FSD, ACL, MONITOR, MASTER, SLAVE
+# ------------------------------------------------------------------------------
+# users: User accounts for authenticating with upsd. Each user has a name, optional password, and access rights.
+{% for user in (users | default([])) %}
+# users[].disabled: If true, comment out the user line (for temporary deactivation).
+{% if (user.disabled | default(False)) %}
+# User '{{ (user.name | default('unknown')) }}' is DISABLED
 {% else %}
-{% if user.password is defined %}
-user {{ user.name }} = {{ user.password }} {{ user.actions | join(', ') }}
+# users[].name: Username (e.g., 'monuser', 'upsadmin').
+# users[].password: User's password (if not set, comment the line).
+# users[].actions: List of allowed actions: 'SET', 'INSTCMD', 'FSD', 'ACL', 'MONITOR', 'MASTER', 'SLAVE'.
+{% if (user.password | default('')) %}
+user {{ (user.name | default('')) }} = {{ (user.password | default('')) }} {{ (user.actions | default(['INSTCMD'])) | join(', ') }}
 {% else %}
-# user {{ user.name }} = <secret> {{ user.actions | join(', ') }}
+# user {{ (user.name | default('')) }} = <secret> {{ (user.actions | default(['INSTCMD'])) | join(', ') }}
 {% endif %}
 {% endif %}
 {% endfor %}
 
-# Listeners — IP:port bindings
-LISTEN {{ listen_ip }} {{ listen_port }}
+# ------------------------------------------------------------------------------
+# Listeners
+# Define where the UPS daemon listens for incoming connections.
+# ------------------------------------------------------------------------------
+# listen_ip: IP address to bind the upsd listener to (e.g., '127.0.0.1', '::', '0.0.0.0').
+# listen_port: TCP port for upsd to listen on (default 3493).
+LISTEN {{ (listen_ip | default('0.0.0.0')) }} {{ (listen_port | default(3493)) }}
 
-# Optional: enable or disable specific protocols
-{% if enable_upsd_tcp %}
+# ------------------------------------------------------------------------------
+# Protocol Support
+# Enable or disable specific communication protocols for UPS devices.
+# ------------------------------------------------------------------------------
+# enable_upsd_tcp: If true, enable TCP/IP protocol support (required for netclient/netserver mode).
+{% if (enable_upsd_tcp | default(False)) %}
 PROTOCOL TCP
 {% endif %}
-{% if enable_upsd_usb %}
+
+# enable_upsd_usb: If true, enable USB HID protocol support (required for direct-USB UPS).
+{% if (enable_upsd_usb | default(True)) %}
 PROTOCOL USB
 {% endif %}

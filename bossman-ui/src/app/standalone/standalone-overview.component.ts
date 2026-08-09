@@ -217,7 +217,7 @@ export class StandaloneOverviewComponent implements OnInit {
     const out: Vital[] = [];
     const mk = (metric: string, label: string, unit: string, level: (v: number) => 'crit' | 'warn' | 'ok', caption?: string) => {
       const s = m[metric]; const v = this.latest(s); if (v == null) return;
-      out.push({ metric, label, unit, value: Math.round(v * 10) / 10, level: level(v), caption, series: (s || []).slice(-60).map((p) => ({ time: p.timestamp, value: p.value })) });
+      out.push({ metric, label, unit, value: Math.round(v * 100) / 100, level: level(v), caption, series: (s || []).slice(-60).map((p) => ({ time: p.timestamp, value: p.value })) });
     };
     mk('cpu_pct', 'CPU', '%', (v) => this.pct(v), this.hottestCore());
     mk('mem_used_pct', 'Memory', '%', (v) => this.pct(v), this.memCaption());
@@ -268,7 +268,7 @@ export class StandaloneOverviewComponent implements OnInit {
       const used = bytes('disk_used_bytes', mnt);
       const total = bytes('disk_total_bytes', mnt);
       return {
-        metric: 'fs:' + mnt, label: mnt, unit: '%', value: Math.round(v * 10) / 10, level: this.pct(v), series: [],
+        metric: 'fs:' + mnt, label: mnt, unit: '%', value: Math.round(v * 100) / 100, level: this.pct(v), series: [],
         caption: used != null && total != null
           ? `${formatBytes(used)} of ${formatBytes(total)}\n${formatBytes(Math.max(0, total - used))} free`
           : undefined,

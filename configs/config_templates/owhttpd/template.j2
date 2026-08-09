@@ -13,12 +13,24 @@
 ### END INIT INFO
 
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-CONFFILE=/etc/owfs.conf
+
+# The service name used for the daemon binary, PID file, and log messages.
+# Default: 'owhttpd'
 DESC="1-Wire HTTP Daemon"
-NAME="owhttpd"
-DAEMON=/usr/bin/$NAME
-PIDDIR=/var/run/owfs
-PIDFILE=$PIDDIR/$NAME.pid
+NAME="{{ name | default('owhttpd') }}"
+
+# The daemon binary path, constructed from the service name.
+DAEMON=/usr/bin/{{ name | default('owhttpd') }}
+
+# Directory where the PID file is stored.
+# Default: '/var/run/owfs'
+PIDDIR={{ pid_dir | default('/var/run/owfs') }}
+
+# The full path to the PID file.
+PIDFILE=$PIDDIR/{{ name | default('owhttpd') }}.pid
+
+# The main configuration file passed to the daemon.
+CONFFILE=/etc/owfs.conf
 
 # Gracefully exit if the package has been removed.
 test -x $DAEMON || exit 0
@@ -26,10 +38,12 @@ test -x $DAEMON || exit 0
 . /lib/lsb/init-functions
 
 d_start() {
+    # Ensure the PID directory exists with correct permissions.
     [ -d $PIDDIR ] || {
     mkdir -m 0775 -p $PIDDIR
     chown root:root $PIDDIR >/dev/null 2>&1
     }
+    # Start the daemon with its configuration and PID file.
     start-stop-daemon --start --quiet --oknodo --exec $DAEMON -- -c $CONFFILE \
         --pid-file $PIDFILE
     # ensure the daemon has been started 
@@ -38,8 +52,10 @@ d_start() {
 }
 
 d_stop() {
+    # Stop the running daemon.
     start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
     sleep 1
+    # Clean up stale PID file if the process is no longer running.
     if [ -f $PIDFILE ] && ! ps h `cat $PIDFILE` > /dev/null
     then
         # Stale PID file (owhttpd was successfilly stoped),
@@ -49,6 +65,7 @@ d_stop() {
 }
 
 d_status() {
+    # Check if the daemon process is currently running.
     pidofproc -p $PIDFILE $DAEMON > /dev/null
 }
 

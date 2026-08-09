@@ -1,4 +1,51 @@
-{% for s in storages %}{{ s.type }}: {{ s.id }}
-{% for o in s.options %}	{{ o.key }} {{ o.value }}
+# Proxmox VE Storage Configuration
+# This template generates /etc/pve/storage.cfg, which defines storage backends
+# available to the Proxmox VE cluster.
+# Each storage definition must include an ID, type, and specific options
+# depending on the storage backend (dir, lvm, lvmthin, zfspool, nfs, cifs, etc.).
+
+{% if storages is defined %}
+{% for storage in storages %}
+# {{ storage.desc | default('Storage definition') }}
+{{ storage.id }}: {{ storage.type }}
+{% if storage.enabled is defined %}
+  enabled {{ storage.enabled }}
+{% endif %}
+{% if storage.path is defined %}
+  path {{ storage.path }}
+{% endif %}
+{% if storage.content is defined %}
+  content {{ storage.content }}
+{% endif %}
+{% if storage.maxfiles is defined %}
+  maxfiles {{ storage.maxfiles }}
+{% endif %}
+{% if storage.shared is defined %}
+  shared {{ storage.shared }}
+{% endif %}
+{% if storage.sloppy is defined %}
+  sloppy {{ storage.sloppy }}
+{% endif %}
+{% if storage.nodes is defined %}
+  nodes {{ storage.nodes | join(' ') }}
+{% endif %}
+{% if storage.ignoreempty is defined %}
+  ignoreempty {{ storage.ignoreempty }}
+{% endif %}
+{% if storage.nochunkcache is defined %}
+  nochunkcache {{ storage.nochunkcache }}
+{% endif %}
+{% if storage.prunekeep is defined %}
+  {% for k, v in storage.prunekeep | dict2items %}
+  prunekeep {{ k }}={{ v }}
+  {% endfor %}
+{% endif %}
+{% if storage.options is defined %}
+  # Generic key-value options for this storage type
+  {% for opt in storage.options %}
+  {{ opt.key }} {{ opt.value }}
+  {% endfor %}
+{% endif %}
+
 {% endfor %}
-{% endfor %}
+{% endif %}

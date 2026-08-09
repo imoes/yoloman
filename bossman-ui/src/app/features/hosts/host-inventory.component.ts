@@ -91,11 +91,11 @@ import { Agent, InventoryFacts } from '../../core/models/agent.model';
                   <td class="bm-mono">{{ nicAddresses(n) }}</td>
                   <td class="bm-mono">{{ n.mac || '—' }}</td>
                   <td>
-                    <span class="bm-dot" [class.bm-dot--up]="n.state === 'up'"></span>
-                    {{ n.state || '—' }}
+                    <span class="bm-dot" [class.bm-dot--up]="nicUp(n)"></span>
+                    {{ nicState(n) }}
                   </td>
                   <td>{{ n.mtu ?? '—' }}</td>
-                  <td>{{ n.speed_mbps ? n.speed_mbps + ' Mbit/s' : '—' }}</td>
+                  <td>{{ n.speed_mbps ? n.speed_mbps + ' Mbit/s' : (nicUp(n) ? 'virtual' : '—') }}</td>
                 </tr>
               }
             </tbody>
@@ -268,6 +268,21 @@ export class HostInventoryComponent {
   nicAddresses(n: { ipv4?: string[]; ipv6?: string[] }): string {
     const addrs = [...(n.ipv4 ?? []), ...(n.ipv6 ?? [])];
     return addrs.length ? addrs.join(', ') : '—';
+  }
+
+  /** virtio/virtual NICs (e.g. Proxmox ens18) report operstate "unknown" even
+   * when they are fully up — the kernel driver doesn't implement carrier
+   * detection. Treat "unknown" with real addresses as up, so a working NIC
+   * doesn't read as an error. */
+  nicUp(n: { state?: string; ipv4?: string[]; ipv6?: string[] }): boolean {
+    const s = (n.state || '').toLowerCase();
+    if (s === 'up') return true;
+    if (s === 'unknown' && [...(n.ipv4 ?? []), ...(n.ipv6 ?? [])].length) return true;
+    return false;
+  }
+  nicState(n: { state?: string; ipv4?: string[]; ipv6?: string[] }): string {
+    if (this.nicUp(n)) return 'up';
+    return n.state || '—';
   }
 
   formatBytes(bytes?: number): string {

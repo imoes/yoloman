@@ -75,46 +75,43 @@
     "default": [],
     "description": "List of fact tables to manage. Each entry defines the source query and refresh behavior.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Human-readable identifier for the fact table (used in logs/metrics)."
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Human-readable identifier for the fact table (used in logs/metrics)."
+      },
+      "schema": {
+        "type": "string",
+        "default": "dw",
+        "description": "PostgreSQL schema where the fact table resides."
+      },
+      "table": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the fact table to build or refresh."
+      },
+      "query": {
+        "type": "string",
+        "default": "",
+        "description": "SQL statement used to generate the fact table data. Typically an INSERT/SELECT or CTAS query."
+      },
+      "schedule": {
+        "type": "string",
+        "default": "",
+        "description": "Cron expression for automatic background refresh (e.g., '0 2 * * *' = daily at 2 AM). Leave blank to disable scheduled runs."
+      },
+      "truncate_before_load": {
+        "type": "bool",
+        "default": true,
+        "description": "If true, TRUNCATE the table before loading new data (full refresh). If false, perform append/update."
+      },
+      "tags": {
+        "type": "list",
+        "default": [],
+        "items": {
+          "type": "string"
         },
-        "schema": {
-          "type": "string",
-          "default": "dw",
-          "description": "PostgreSQL schema where the fact table resides."
-        },
-        "table": {
-          "type": "string",
-          "default": "",
-          "description": "Name of the fact table to build or refresh."
-        },
-        "query": {
-          "type": "string",
-          "default": "",
-          "description": "SQL statement used to generate the fact table data. Typically an INSERT/SELECT or CTAS query."
-        },
-        "schedule": {
-          "type": "string",
-          "default": "",
-          "description": "Cron expression for automatic background refresh (e.g., '0 2 * * *' = daily at 2 AM). Leave blank to disable scheduled runs."
-        },
-        "truncate_before_load": {
-          "type": "bool",
-          "default": true,
-          "description": "If true, TRUNCATE the table before loading new data (full refresh). If false, perform append/update."
-        },
-        "tags": {
-          "type": "list",
-          "default": [],
-          "items": {
-            "type": "string"
-          },
-          "description": "Optional labels to categorize or group this fact table (e.g., 'finance', 'realtime')."
-        }
+        "description": "Optional labels to categorize or group this fact table (e.g., 'finance', 'realtime')."
       }
     }
   },

@@ -1,98 +1,187 @@
+# =============================================================================
 # PostgreSQL Generic Queue Server (pgq) main configuration file
-# Controls global pgq behavior, including connection to the database, worker pools, and queue management.
+# =============================================================================
+#
+# Self-documenting Jinja2 template for PostgreSQL pgq (Generic Queue).
+# This file controls global pgq behavior, including the connection to the
+# PostgreSQL coordinator, worker pools, queue management, and logging.
+#
+# Variables are sourced from Ansible variables matching the field names below.
+# If an Ansible variable is not defined, a safe default from the schema is used.
+#
+# =============================================================================
 
-# Database connection string for the coordinator (required)
-# Example: postgresql://user:pass@host:5432/dbname
+# -----------------------------------------------------------------------------
+# Section: Database Connection
+# -----------------------------------------------------------------------------
+
+# Database connection string for the PostgreSQL coordinator.
+# Supports libpq-style DSNs (e.g., 'host=localhost port=5432 dbname=pgq user=pgq password=...').
+# If this is set, it takes precedence over individual host/port/user fields
+# UNLESS specific fields are explicitly overridden in the application logic,
+# but per standard pgq behavior, this DSN is the primary connection handle.
 pgq.db = {{ db_conn_string | default("postgresql://pgq:pgq@localhost:5432/pgq") }}
 
-# PostgreSQL user to use for queue operations
+# PostgreSQL username used for queue operations.
+# This is used as a fallback if not already embedded in the connection string.
 pgq.user = {{ user | default("pgq") }}
 
-# PostgreSQL database name to use for queue metadata
+# PostgreSQL database name containing pgq tables and queues.
 pgq.database = {{ database | default("pgq") }}
 
-# PostgreSQL host (can be hostname or IP); empty string means use Unix socket
+# PostgreSQL server host (hostname or IP address).
+# Leave empty ('') to use a Unix socket connection.
+# If `socket_path` is also empty, the default PostgreSQL socket directory is used.
 pgq.host = {{ host | default("") }}
 
-# PostgreSQL port (if host is not a Unix socket path)
+# PostgreSQL server port.
+# This setting is ignored if `host` is set to a Unix socket path.
 pgq.port = {{ port | default(5432) }}
 
-# Path to Unix socket (optional; if empty, uses default PostgreSQL socket directory)
-# If set, `pgq.host` and `pgq.port` are ignored.
+# Path to the PostgreSQL Unix domain socket directory.
+# Example: '/var/run/postgresql'
+# If this is set, it overrides `host` and `port`.
 pgq.socket = {{ socket_path | default("") }}
 
-# Directory where log files are written
+# -----------------------------------------------------------------------------
+# Section: Logging
+# -----------------------------------------------------------------------------
+
+# Directory where pgq log files are written.
+# Ensure this directory exists and is writable by the pgq service user.
 log.dir = {{ log_dir | default("/var/log/pgq") }}
 
-# Log file name (can include strftime `%Y%m%d` etc.); `%s` expands to epoch seconds
+# Base name for log files.
+# Supports strftime patterns for log rotation by date/time.
+# Example: 'pgq-%Y%m%d.log'
 log.file = {{ log_file | default("pgq.log") }}
 
-# Log level: DEBUG, INFO, WARNING, ERROR, FATAL
+# Logging verbosity level.
+# Allowed values: DEBUG, INFO, WARNING, ERROR, FATAL.
 log.level = {{ log_level | default("INFO") }}
 
-# Number of worker threads per queue (0 disables worker pool; use only coordinator)
+# -----------------------------------------------------------------------------
+# Section: Worker Configuration (Global Defaults)
+# -----------------------------------------------------------------------------
+
+# Number of worker threads per queue.
+# Applies globally unless overridden per-queue definition.
+# Set to 0 to disable workers entirely (coordinator-only mode).
 worker.count = {{ worker_count | default(2) }}
 
-# Maximum number of items to process per worker tick
+# Maximum number of items a worker processes per tick.
+# Controls batch size for throughput tuning.
 worker.max_batch = {{ worker_max_batch | default(100) }}
 
-# Delay (in milliseconds) between worker ticks if no work is done
+# Delay (in milliseconds) between worker ticks when no work is available.
+# Prevents busy-waiting on empty queues.
 worker.tick_delay = {{ worker_tick_delay | default(500) }}
 
-# Delay (in milliseconds) between worker ticks even if work is done
+# Delay (in milliseconds) between worker ticks regardless of work availability.
+# Ensures periodic execution even if the queue is empty (useful for ticker tasks).
 worker.tick_interval = {{ worker_tick_interval | default(100) }}
 
-# Maximum time (in seconds) a worker may wait for a database connection
+# Maximum time (in seconds) a worker waits for a database connection.
+# Prevents hanging on database startup or network issues.
 worker.conn_timeout = {{ worker_conn_timeout | default(10) }}
 
-# Maximum time (in seconds) a worker may wait for a query to complete
+# Maximum time (in seconds) a worker waits for a query to complete.
+# Protects against long-running queries blocking the worker thread.
 worker.query_timeout = {{ worker_query_timeout | default(60) }}
 
-# Enable or disable auto-creation of tables (requires superuser or DDL permissions)
+# -----------------------------------------------------------------------------
+# Section: Coordinator & Table Management
+# -----------------------------------------------------------------------------
+
+# Automatically create required pgq tables and extensions on startup if missing.
+# Requires the database user to have superuser or DDL permissions.
 auto.create_tables = {{ auto_create_tables | default(true) }}
 
-# Enable or disable coordinator mode (true = run coordinator; false = worker-only)
+# Enable the coordinator process.
+# The coordinator is required for queue maintenance, ticker tasks, and high availability.
+# Set to false to run in worker-only mode (if supported by deployment).
 coordinator.enabled = {{ coordinator_enabled | default(true) }}
 
-# Coordinator tick interval (in seconds)
+# Coordinator tick interval in seconds.
+# How often the coordinator checks for work and manages queue state.
 coordinator.tick_interval = {{ coordinator_tick_interval | default(1) }}
 
-# Coordinator tick timeout (in seconds)
+# Coordinator tick timeout in seconds.
+# If a tick takes longer than this, it is considered stuck and killed.
 coordinator.tick_timeout = {{ coordinator_tick_timeout | default(5) }}
 
-# List of queue definitions — each defines a named queue with its own settings
-{% for queue in queues %}
+# -----------------------------------------------------------------------------
+# Section: Queue Definitions
+# -----------------------------------------------------------------------------
+# Each queue is defined in a list provided by Ansible (queues variable).
+# This loop generates the configuration block for each queue.
+
+{% for queue in queues | default([]) %}
+
+# =============================================================================
 # Queue: {{ queue.name }}
-{% if queue.enabled is not false %}# (enabled by default)
-{% endif %}
+# =============================================================================
+# This section configures a specific pgq queue named {{ queue.name }}.
+
+# Enable or disable this specific queue.
 pgq.queue.{{ queue.name }}.enabled = {{ queue.enabled | default(true) }}
-{% if queue.consumer_prefix %}
-pgq.queue.{{ queue.name }}.consumer_prefix = {{ queue.consumer_prefix }}
-{% else %}
-# No consumer prefix — consumers must use explicit names
-{% endif %}
+
+# Worker count for this specific queue.
+# Overrides the global worker.count if specified.
 pgq.queue.{{ queue.name }}.worker_count = {{ queue.worker_count | default(1) }}
+
+# Maximum batch size for this specific queue.
+# Overrides the global worker.max_batch if specified.
 pgq.queue.{{ queue.name }}.max_batch = {{ queue.max_batch | default(50) }}
+
+# Maximum lag allowed in milliseconds before alerts or actions.
 pgq.queue.{{ queue.name }}.max_lag_ms = {{ queue.max_lag_ms | default(5000) }}
-{% if queue.ticker_enabled is not none %}
-pgq.queue.{{ queue.name }}.ticker_enabled = {{ queue.ticker_enabled }}
-{% else %}
-pgq.queue.{{ queue.name }}.ticker_enabled = {{ coordinator_enabled | default(true) }}
+
+# Ticker enabled for this queue.
+# If not explicitly set, inherits the global coordinator.ticker_enabled state.
+pgq.queue.{{ queue.name }}.ticker_enabled = {{ queue.ticker_enabled | default(coordinator_enabled | default(true)) }}
+
+# Consumer prefix (optional).
+# If set, consumers must use this prefix for queue names.
+{% if queue.consumer_prefix is defined and queue.consumer_prefix is not none %}
+pgq.queue.{{ queue.name }}.consumer_prefix = {{ queue.consumer_prefix }}
 {% endif %}
+
 {% endfor %}
 
-# Optional: remote queue forwarding (for multi-tier pgq setups)
-{% for forward in forward_targets %}
-# Forward queue `{{ forward.source_queue }}` to remote database
+# -----------------------------------------------------------------------------
+# Section: Remote Queue Forwarding (Multi-Tier)
+# -----------------------------------------------------------------------------
+# Defines rules to forward events from local queues to remote pgq instances.
+
+{% for forward in forward_targets | default([]) %}
+
+# =============================================================================
+# Forward Queue: {{ forward.source_queue }}
+# =============================================================================
+# Forwards events from the local queue {{ forward.source_queue }} to a remote database.
+
+# Target database name in the remote pgq instance.
 pgq.forward.{{ forward.source_queue }}.dest_db = {{ forward.dest_db }}
+
+# Target username in the remote pgq instance.
 pgq.forward.{{ forward.source_queue }}.dest_user = {{ forward.dest_user | default("pgq") }}
+
+# Target table in the remote pgq instance where data is written.
 pgq.forward.{{ forward.source_queue }}.dest_table = {{ forward.dest_table | default("pgq.queue_data") }}
+
 {% endfor %}
 
-# Optional: external monitor hook (executed on coordinator tick)
-{% if monitor_script %}
-# Path to a shell script executed after each coordinator tick
+# -----------------------------------------------------------------------------
+# Section: Monitor / Hooks
+# -----------------------------------------------------------------------------
+
+# Path to an executable shell script called after each coordinator tick.
+# The script receives queue status as arguments.
+# Used for external monitoring, alerting, or custom maintenance tasks.
+{% if monitor_script is defined and monitor_script is not none and monitor_script != "" %}
 monitor.script = {{ monitor_script }}
 {% else %}
-# No monitor hook configured
+# No monitor hook configured.
+# Set monitor_script in Ansible to enable external tick monitoring.
 {% endif %}

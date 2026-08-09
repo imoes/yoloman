@@ -1,46 +1,79 @@
+# Neutron SR-IOV Agent Configuration
+# This template generates the neutron-sriov-agent.conf file.
+# It handles logging, device mappings, and agent behavior settings.
+
 [DEFAULT]
-# Log file name for the SR-IOV agent. Set empty to disable logging to file.
-log_file = {{ log_file }}
+# Log file name for the SR-IOV agent. Set to empty string ('') to disable file logging.
+# Default: neutron-sriov-agent.log
+log_file = {{ log_file | default('neutron-sriov-agent.log') }}
 
-# Logging directory
-log_dir = {{ log_dir }}
+# Directory where log files will be stored. Ensure the directory exists and is writable by the agent user.
+# Default: /var/log/neutron
+log_dir = {{ log_dir | default('/var/log/neutron') }}
 
-# Logging format string (Python logging format syntax)
-log_format = {{ log_format }}
+# Python logging format string used for log messages.
+# Uses standard Python % formatting (e.g., %(asctime)s, %(levelname)s).
+# Default: '%(asctime)s %(levelname)s %(name)s [%(process)d:%(threadName)s] %(message)s'
+# Note: %% is used to escape literal % characters in Jinja2 so they appear as % in the output.
+log_format = {{ log_format | default('%%(asctime)s %%(levelname)s %%(name)s [%%(process)d:%%(threadName)s] %%(message)s') }}
 
-# Logging date format
-log_date_format = {{ log_date_format }}
+# Date/time format used in log timestamps.
+# Matches Python strftime syntax.
+# Default: '%Y-%m-%d %H:%M:%S'
+log_date_format = {{ log_date_format | default('%%Y-%%m-%%d %%H:%%M:%%S') }}
 
-# Verbosity level: DEBUG, INFO, WARNING, ERROR, CRITICAL
-verbose = {{ verbose }}
-debug = {{ debug }}
+# Enable verbose logging (INFO level).
+# If false, defaults to WARNING level.
+# Default: False
+verbose = {{ verbose | default(false) }}
 
-# Path to the OVS bridge used for SR-IOV physical interfaces
-# Must exist and be of type 'ovs'
-physical_device_mappings = {% for item in physical_device_mappings %}{{ item.physical_network }}:{{ item.device_name }}{% if not loop.last %}, {% endif %}{% endfor %}
+# Enable debug-level logging (very verbose).
+# Should be disabled in production unless troubleshooting.
+# Default: False
+debug = {{ debug | default(false) }}
 
-# List of physical networks that can be used by SR-IOV interfaces
-# If empty, all networks are allowed
+# List of mappings from logical physical networks to host network devices.
+# Format: 'physnet1:ens3f0', 'physnet2:ens3f1'.
+# Each entry maps a network name to a PCI device name.
+# If empty, no physical devices are mapped.
+# Example: physnet1:ens3f0,physnet2:ens3f1
+# Note: physical_device_mappings is a list of dicts with keys 'physical_network' and 'device_name'.
+{% set pdm = physical_device_mappings | default([]) %}
+{% if pdm is iterable and pdm | length > 0 %}
+physical_device_mappings = {{ pdm | map(attribute='physical_network') | zip(pdm | map(attribute='device_name')) | map('join', ':') | join(',') }}
+{% else %}
+physical_device_mappings =
+{% endif %}
+
+# List of allowed physical network names.
+# If empty, all networks are allowed.
+# Use to restrict which physical networks the agent can bind to.
 # Example: default,external
-allowed_physical_networks = {% if allowed_physical_networks %}{% for item in allowed_physical_networks %}{{ item }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}{% endif %}
+{% set apn = allowed_physical_networks | default([]) %}
+{% if apn is iterable and apn | length > 0 %}
+allowed_physical_networks = {{ apn | join(',') }}
+{% else %}
+allowed_physical_networks =
+{% endif %}
 
 [agent]
-# Polling interval (seconds) for checking device state
-polling_interval = {{ polling_interval }}
-
-# Enable L2 population support (requires ML2/OVS with L2-pop)
-enable_l2_pop = {{ enable_l2_pop }}
-
-# Enable dynamic segmentation IDs (e.g., for VLAN-based tenant isolation)
-enable_dynamic_segmentation = {{ enable_dynamic_segmentation }}
+# Interval (in seconds) between polling for SR-IOV device status changes.
+# Lower values increase responsiveness but also CPU usage.
+# Default: 2
+polling_interval = {{ polling_interval | default(2) }}
 
 [securitygroup]
-# Enable security groups (iptables or OVS firewall)
-enable_security_group = {{ enable_security_group }}
+# Enable security groups (firewall rules applied per port).
+# Required if tenant workloads use security groups.
+# Default: False
+enable_security_group = {{ enable_security_group | default(false) }}
 
-# Firewall driver: iptables_hybrid, iptables, or ovs
-firewall_driver = {{ firewall_driver }}
+# Firewall driver to use.
+# 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver' is the standard hybrid driver.
+# Default: 'neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver'
+firewall_driver = {{ firewall_driver | default('neutron.agent.linux.iptables_firewall.OVSHybridIptablesFirewallDriver') }}
 
-# Enable IPtables drop log for debugging
-# Note: only effective with iptables-based firewall driver
-ip_tables_drop_log = {{ ip_tables_drop_log }}
+# Enable logging of dropped packets by iptables (for debugging security groups).
+# Only effective with iptables-based firewall drivers.
+# Default: False
+ip_tables_drop_log = {{ ip_tables_drop_log | default(false) }}

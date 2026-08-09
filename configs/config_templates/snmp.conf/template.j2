@@ -1,8 +1,92 @@
 #
-# SNMP configuration file for CUPS.  See "man cups-snmp.conf" for a complete
-# description of this file.
+# SNMP configuration file for CUPS.
+#
+# This file configures the CUPS SNMP backend used for printer discovery
+# and status monitoring. It defines the community string for SNMPv1/v2c,
+# trap destinations, system identity information, and query behavior.
 #
 
+# Address to bind the SNMP listener/agent to.
+# 'localhost' restricts SNMP traffic to the local machine, which is generally
+# safer for print server management.
 Address @LOCAL
-Community {{ snmp_community }}
 
+# Community string used for SNMPv1 and SNMPv2c read-only access.
+# WARNING: This string is transmitted in plaintext. In production environments,
+# it is critical to change this from the default 'public' to a unique,
+# complex string to prevent unauthorized enumeration of printer status.
+# For higher security, consider using SNMPv3 (see snmpv3_enabled).
+Community {{ snmp_community | default('public') }}
+
+# Enable SNMP support within CUPS.
+# When true, CUPS will use the SNMP backend to monitor printer status
+# (toner levels, paper jams, etc.) and to discover printers on the network.
+# If false, CUPS will ignore SNMP data and rely on other methods or no status.
+{% if snmp_enabled | default(False) | bool %}
+# SNMP support is enabled for CUPS.
+{% else %}
+# SNMP support is disabled in CUPS.
+{% endif %}
+
+# SNMP Trap Destinations.
+# List of hostnames or IP addresses where CUPS (or the underlying SNMP agent)
+# should send trap messages, such as printer alerts or status changes.
+# This section iterates over the list provided in the schema.
+{% if snmp_trap_destinations | default([]) | length > 0 %}
+TrapDestinations
+{% for dest in snmp_trap_destinations | default([]) %}
+  {{ dest }}
+{% endfor %}
+{% endif %}
+
+# SNMP System Contact Information.
+# Sets the contact information for the SNMP device (the print server).
+# Typically an email address or phone number for the administrator.
+# This is queried via standard MIB-II system contacts.
+SysContact {{ snmp_contact | default('root@localhost') }}
+
+# SNMP System Location Information.
+# Sets the physical or logical location of the print server.
+# This is queried via standard MIB-II system location.
+SysLocation {{ snmp_location | default('Server Room') }}
+
+# SNMP Printers Scope.
+# Defines which printers CUPS should monitor via SNMP.
+# Options:
+#   'none'  - Do not monitor any printers via SNMP.
+#   'all'   - Monitor all printers configured in CUPS.
+#   'list'  - A space-separated list of specific printer names (e.g., "hp_laserjet canon_ink").
+#
+# Default is 'none' for security and performance reasons, as monitoring
+# all printers can generate significant SNMP traffic.
+{% if snmp_printers | default('none') | string == 'none' %}
+Printers none
+{% elif snmp_printers | default('none') | string == 'all' %}
+Printers all
+{% else %}
+# Monitoring specific printers: {{ snmp_printers | default('none') }}
+Printers {{ snmp_printers | default('none') }}
+{% endif %}
+
+# SNMP Query Timeout.
+# The number of seconds to wait for an SNMP response before timing out.
+# A higher value may improve reliability on slow networks but increases
+# the time taken for status checks.
+Timeout {{ snmp_timeout | default(5) }}
+
+# SNMP Query Retries.
+# The number of times to retry an SNMP query before giving up and marking
+# the printer status as unavailable.
+Retries {{ snmp_retries | default(3) }}
+
+# SNMPv3 Support Status.
+# NOTE: CUPS itself does not parse SNMPv3-specific configuration directives
+# in this file. This setting is primarily informational or may trigger
+# CUPS to look for SNMPv3 credentials elsewhere if enabled.
+# Enabling SNMPv3 requires configuring security credentials (user, auth, priv)
+# in cupsd.conf or associated credentials files.
+{% if snmpv3_enabled | default(False) | bool %}
+# SNMPv3 support is enabled (requires additional configuration in cupsd.conf).
+{% else %}
+# SNMPv3 support is disabled; SNMPv1/v2c is used.
+{% endif %}

@@ -1,137 +1,247 @@
-[Match]
-# Match against hardware interface(s) by name, MAC address, or other criteria
-Name={{ interface_name }}
+# ============================================================================
+# systemd-networkd .network file generator
+# ---------------------------------------------------------------------------
+# This template produces a single .network file for systemd-networkd,
+# configuring DHCPv4/v6, static fallbacks, DNS/NTP integration, and
+# name-resolution policies for the specified network interface.
+#
+# Fields prefixed with 'ipv4' or 'ipv6' control address-family behavior.
+# Fallback fields allow static networking when DHCP is unavailable.
+# ============================================================================
 
-# Optional: Match by MAC address (for deterministic assignment)
-{% if mac_address %}# Match by MAC address
-MACAddress={{ mac_address }}
+[Match]
+# Name of the network interface to configure (e.g., 'eth0', 'enp0s3').
+# Must match an existing kernel interface name.
+Name={{ interface_name | default('eth0') }}
+
+{% if mac_address | default('') | length > 0 %}
+# Optional MAC address for deterministic matching.
+# Format: 'aa:bb:cc:dd:ee:ff'.
+# If provided, this rule will only match this specific hardware address.
+MACAddress={{ mac_address | default('') }}
 {% endif %}
 
 [Network]
-# Enable DHCPv4 client (default is yes, but explicit is clearer)
+# Enable DHCP client for this interface.
+# 'yes' enables DHCPv4 (and v6 if not explicitly disabled/overridden elsewhere).
 DHCP=yes
 
-# Optional: Request additional DHCP options (e.g., NTP, routes, DNS search domains)
-{% if request_options %}# Request additional DHCP options
-RequestOptions={{ request_options | join(', ') }}
+# ============================================================================
+# DHCP Request Options
+# ============================================================================
+{% if request_options | default([]) | length > 0 %}
+# List of specific DHCP option codes to request from the server.
+# Overrides default requests. Examples: '15' (Domain Name), '245' (Private).
+RequestOptions={{ request_options | default([]) | join(', ') }}
 {% endif %}
 
-# Optional: Use only IPv4 (disable IPv6 autoconfiguration if not desired)
-{% if not ipv6_autoconf %}# Disable IPv6 autoconfiguration
+# ============================================================================
+# IPv6 Autoconfiguration (SLAAC / Router Advertisements)
+# ============================================================================
+{% if ipv6_autoconf | default(true) %}
+# Accept Router Advertisements to configure IPv6 addresses automatically (SLAAC).
+IPv6AcceptRA=yes
+{% else %}
+# Disable IPv6 autoconfiguration. The interface will not acquire IPv6
+# addresses via RA/SLAAC unless configured statically elsewhere.
 IPv6AcceptRA=no
 {% endif %}
 
-# Optional: Set static IPv4 address if fallback is desired (e.g., for out-of-band access)
-{% if fallback_ipv4 %}# Fallback static IPv4 address
-Address={{ fallback_ipv4 }}/24
-{% if fallback_ipv4_gw %}Gateway={{ fallback_ipv4_gw }}
-{% endif %}{% endif %}
+# ============================================================================
+# Static IPv4 Fallback Configuration
+# ============================================================================
+{% if fallback_ipv4 | default('') | length > 0 %}
+# Static IPv4 address to assign if DHCP fails or is not used.
+# Note: systemd-networkd treats Address directives as static assignments.
+# If DHCP is enabled, this acts as a fallback or additional address depending
+# on the DHCP server's response and policy.
+Address={{ fallback_ipv4 | default('') }}/24
 
-# Optional: Set static DNS servers (e.g., when DHCP doesn’t supply them)
-{% if dns_servers %}# Static DNS servers
-DNS={{ dns_servers | join(' ') }}
+{% if fallback_ipv4_gw | default('') | length > 0 %}
+# Default gateway for the static IPv4 configuration.
+# Used if DHCP does not provide a gateway or fails entirely.
+Gateway={{ fallback_ipv4_gw | default('') }}
+{% endif %}
 {% endif %}
 
-# Optional: Set NTP servers via DHCP or manually
-{% if ntp_servers %}# Static NTP servers (if DHCP not supplying them)
-NTP={{ ntp_servers | join(' ') }}
+# ============================================================================
+# DNS Configuration
+# ============================================================================
+{% if dns_servers | default([]) | length > 0 %}
+# Static DNS servers to use.
+# These are added to the DNS list, potentially alongside DHCP-supplied ones.
+DNS={{ dns_servers | default([]) | join(' ') }}
 {% endif %}
 
-# Optional: Configure time-sync service integration
-{% if use_timesyncd %}# Let systemd-timesyncd handle time sync (default behavior)
-{% else %}# Disable systemd-timesyncd use (e.g., for chrony or manual config)
-Timesyncd=false
+{% if fallback_dns | default([]) | length > 0 %}
+# Fallback DNS servers used if DHCP-provided DNS is missing or empty.
+FallbackDNS={{ fallback_dns | default([]) | join(' ') }}
 {% endif %}
 
-# Optional: Set link-local addressing behavior
-{% if link_local %}# Link-local addressing (e.g., 169.254.0.0/16 for IPv4)
+# ============================================================================
+# NTP / Time Synchronization
+# ============================================================================
+{% if ntp_servers | default([]) | length > 0 %}
+# Static NTP servers to use for time synchronization.
+NTP={{ ntp_servers | default([]) | join(' ') }}
+{% endif %}
+
+{% if use_timesyncd | default(true) %}
+# Enable systemd-timesyncd to handle time synchronization.
+# This allows the lightweight timesyncd service to sync clocks independently
+# of the static NTP servers defined above (if any).
+Timesyncd=yes
+{% else %}
+# Disable systemd-timesyncd. Use an external NTP daemon (e.g., chrony)
+# or rely solely on the static NTP servers defined in this file.
+Timesyncd=no
+{% endif %}
+
+# ============================================================================
+# Link-Local Addressing (IPv4)
+# ============================================================================
+{% if link_local | default(true) %}
+# Enable IPv4 link-local addressing (169.254.0.0/16).
+# Allows communication on the local link even if DHCP fails.
 LinkLocalAddressing=ipv4
-{% else %}# Disable link-local addressing
+{% else %}
+# Disable IPv4 link-local addressing.
 LinkLocalAddressing=no
 {% endif %}
 
-# Optional: Set IPv6 link-local addressing
-{% if ipv6_link_local %}# Enable IPv6 link-local addressing
+# ============================================================================
+# Link-Local Addressing (IPv6)
+# ============================================================================
+{% if ipv6_link_local | default(true) %}
+# Enable IPv6 link-local addressing (fe80::/10).
+# Required for Neighbor Discovery and SLAAC on IPv6 networks.
 IPv6LinkLocalAddress=yes
-{% else %}# Disable IPv6 link-local addressing
+{% else %}
+# Disable IPv6 link-local addressing.
 IPv6LinkLocalAddress=no
 {% endif %}
 
-# Optional: Set IPv4LL (IPv4 Link Layer) behavior
-{% if ipv4ll %}# Enable IPv4LL (for fallback when DHCP fails)
+# ============================================================================
+# IPv4 Link-Layer Addressing (IPv4LL / APIPA)
+# ============================================================================
+{% if ipv4ll | default(true) %}
+# Enable IPv4LL (RFC 3927) as a fallback when DHCPv4 fails.
+# Assigns an address in the 169.254.0.0/16 range automatically.
 IPv4LL=yes
-{% else %}# Disable IPv4LL
+{% else %}
+# Disable automatic IPv4LL fallback.
 IPv4LL=no
 {% endif %}
 
-# Optional: Set routing metric for this interface
-{% if routing_metric %}# Custom routing metric (lower = higher priority)
-RouteMetric={{ routing_metric }}
+# ============================================================================
+# Routing Metrics
+# ============================================================================
+{% if routing_metric | default(0) != 0 %}
+# Custom routing metric for routes learned via DHCP or static config.
+# Lower values indicate higher priority. Default is 0.
+RouteMetric={{ routing_metric | default(0) }}
 {% endif %}
 
-# Optional: Set DHCP client ID (e.g., for vendor-specific lease tracking)
-{% if dhcp_client_id %}# DHCP client identifier (e.g., MAC-based or custom)
-DHCPClientIdentifier={{ dhcp_client_id }}
+# ============================================================================
+# DHCP Client Identifier
+# ============================================================================
+{% if dhcp_client_id | default('') | length > 0 %}
+# Custom DHCP client identifier (Client ID).
+# Can be 'mac' (hardware address) or a specific hex/string identifier.
+DHCPClientIdentifier={{ dhcp_client_id | default('') }}
 {% endif %}
 
-# Optional: Set hostname sent to DHCP server
-{% if send_hostname %}# Hostname to send to DHCP server
-SendHostname={{ send_hostname }}
-{% else %}# Do not send hostname (use system hostname if none provided)
+# ============================================================================
+# Hostname Handling
+# ============================================================================
+{% if send_hostname | default(true) %}
+# Send the system's hostname to the DHCP server.
+# Allows the DHCP server to update DNS records with the correct hostname.
+SendHostname=yes
+{% else %}
+# Do not send the hostname to the DHCP server.
 SendHostname=no
 {% endif %}
 
-# Optional: Set hostname to use for DHCP client (instead of system hostname)
-{% if hostname %}# Custom hostname to send to DHCP server (overrides SendHostname)
-Hostname={{ hostname }}
+{% if hostname | default('') | length > 0 %}
+# Explicit hostname to send to the DHCP server, overriding the system hostname.
+# Useful if the system hostname is generic or needs to be distinct for DHCP/DNS.
+Hostname={{ hostname | default('') }}
 {% endif %}
 
-# Optional: Set DHCP server fallback for static config (e.g., when server unreachable)
-{% if fallback_dns %}# Fallback DNS servers (if DHCP server doesn’t provide any)
-FallbackDNS={{ fallback_dns | join(' ') }}
+# ============================================================================
+# Fallback Gateway
+# ============================================================================
+{% if fallback_gw | default('') | length > 0 %}
+# Gateway to use if the DHCP server does not provide a default route.
+# Provides a backup path for single-homed interfaces.
+FallbackGateway={{ fallback_gw | default('') }}
 {% endif %}
 
-# Optional: Set fallback gateway (e.g., for single-homed failover)
-{% if fallback_gw %}# Fallback gateway (used only when no gateway from DHCP)
-FallbackGateway={{ fallback_gw }}
-{% endif %}
-
-# Optional: Configure LLMNR (Link-Local Multicast Name Resolution)
-{% if llmnr %}# Enable LLMNR
+# ============================================================================
+# Local Multicast Name Resolution
+# ============================================================================
+{% if llmnr | default(true) %}
+# Enable LLMNR (Link-Local Multicast Name Resolution).
+# Allows local hostname resolution without a central DNS server.
 LLMNR=resolve
-{% else %}# Disable LLMNR
+{% else %}
+# Disable LLMNR.
 LLMNR=no
 {% endif %}
 
-# Optional: Configure mDNS (multicast DNS)
-{% if mdns %}# Enable mDNS
+# ============================================================================
+# Multicast DNS (mDNS)
+# ============================================================================
+{% if mdns | default(false) %}
+# Enable mDNS (multicast DNS) for local service discovery (.local domains).
 MulticastDNS=yes
-{% else %}# Disable mDNS
+{% else %}
+# Disable mDNS.
 MulticastDNS=no
 {% endif %}
 
-# Optional: Configure DNSSEC support
-{% if dnssec %}# Enable DNSSEC (requires upstream DNS support)
+# ============================================================================
+# DNS Security (DNSSEC)
+# ============================================================================
+{% if dnssec | default(false) %}
+# Enable DNSSEC validation for DNS queries.
+# Requires upstream resolver support.
 DNSSEC=yes
-{% else %}# Disable DNSSEC
+{% else %}
+# Disable DNSSEC validation.
 DNSSEC=no
 {% endif %}
 
-# Optional: Configure DNS-over-TLS (DoT)
-{% if dns_over_tls %}# Enable DNS-over-TLS
+# ============================================================================
+# DNS-over-TLS (DoT)
+# ============================================================================
+{% if dns_over_tls | default(false) %}
+# Enable DNS-over-TLS for encrypted DNS queries.
+# Requires a DoT-capable upstream resolver.
 DNSOverTLS=yes
-{% else %}# Disable DNS-over-TLS
+{% else %}
+# Disable DNS-over-TLS.
 DNSOverTLS=no
 {% endif %}
 
-# Optional: Configure DHCPv4 rapid commit (fast lease acquisition)
-{% if rapid_commit %}# Enable DHCPv4 rapid commit (RFC 4039)
+# ============================================================================
+# DHCPv4 Rapid Commit
+# ============================================================================
+{% if rapid_commit | default(false) %}
+# Enable Rapid Commit (RFC 4039) for faster DHCPv4 lease acquisition.
+# Uses a two-message exchange (Request/Reply) instead of four.
 RapidCommit=yes
-{% else %}# Disable rapid commit
+{% else %}
+# Disable Rapid Commit (standard four-message exchange).
 RapidCommit=no
 {% endif %}
 
-# Optional: Set IPv6 router preference (low/medium/high)
-{% if ipv6_router_preference %}# IPv6 router preference (for RA selection)
-IPv6RouterPreference={{ ipv6_router_preference }}
+# ============================================================================
+# IPv6 Router Preference
+# ============================================================================
+{% if ipv6_router_preference | default('medium') %}
+# Preference level for IPv6 Router Advertisements (RA).
+# Values: 'low', 'medium', 'high'. Affects default route selection.
+IPv6RouterPreference={{ ipv6_router_preference | default('medium') }}
 {% endif %}

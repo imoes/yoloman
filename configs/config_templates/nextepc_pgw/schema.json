@@ -1,64 +1,4 @@
 {
-  "pgw_interfaces_cp_if": {
-    "type": "string",
-    "default": "eth0",
-    "description": "Network interface (e.g., eth0) used for PGW control plane (GTP-C) traffic."
-  },
-  "pgw_interfaces_cp_address": {
-    "type": "string",
-    "default": "10.1.1.1",
-    "description": "IPv4 address assigned to the control plane interface."
-  },
-  "pgw_interfaces_cp_ipv6_address": {
-    "type": "string",
-    "default": "",
-    "description": "Optional IPv6 address for control plane (leave empty if not used)."
-  },
-  "pgw_interfaces_up_if": {
-    "type": "string",
-    "default": "eth1",
-    "description": "Network interface used for user plane (GTP-U) traffic."
-  },
-  "pgw_interfaces_up_address": {
-    "type": "string",
-    "default": "10.1.2.1",
-    "description": "IPv4 address assigned to the user plane interface."
-  },
-  "pgw_interfaces_up_ipv6_address": {
-    "type": "string",
-    "default": "",
-    "description": "Optional IPv6 address for user plane (leave empty if not used)."
-  },
-  "pgw_interfaces_gx_if": {
-    "type": "string",
-    "default": "",
-    "description": "Optional interface for Gx (PCRF) Diameter connection (e.g., eth2)."
-  },
-  "pgw_interfaces_gx_address": {
-    "type": "string",
-    "default": "",
-    "description": "IPv4 address of the Gx interface (required if Gx enabled)."
-  },
-  "pgw_interfaces_gx_ipv6_address": {
-    "type": "string",
-    "default": "",
-    "description": "Optional IPv6 for Gx."
-  },
-  "pgw_interfaces_gy_if": {
-    "type": "string",
-    "default": "",
-    "description": "Optional interface for Gy (AAAR) Diameter connection."
-  },
-  "pgw_interfaces_gy_address": {
-    "type": "string",
-    "default": "",
-    "description": "IPv4 address of the Gy interface (required if Gy enabled)."
-  },
-  "pgw_interfaces_gy_ipv6_address": {
-    "type": "string",
-    "default": "",
-    "description": "Optional IPv6 for Gy."
-  },
   "pgw_log_level": {
     "type": "string",
     "default": "INFO",
@@ -79,122 +19,18 @@
     "default": "mnc001.mcc001.3gppnetwork.org",
     "description": "Diameter realm of the PGW (typically same as MNC/MCC domain)."
   },
-  "pgw_apn_list": {
-    "type": "list",
-    "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "internet",
-          "description": "APN name (e.g., 'internet', 'ims')."
-        },
-        "qos": {
-          "type": "object",
-          "fields": {
-            "qci": {
-              "type": "number",
-              "default": 9,
-              "description": "QoS Class Identifier (QCI) \u2014 e.g., 1 for voice, 9 for best effort."
-            },
-            "arp": {
-              "type": "object",
-              "fields": {
-                "priority_level": {
-                  "type": "number",
-                  "default": 15,
-                  "description": "Allocation and Retention Priority (ARP) priority level (1\u201315, lower = higher priority)."
-                },
-                "preemption_cap": {
-                  "type": "string",
-                  "default": "true",
-                  "enum": [
-                    "true",
-                    "false"
-                  ],
-                  "description": "Can this bearer be preempted by higher-priority bearers?"
-                },
-                "preemption_vuln": {
-                  "type": "string",
-                  "default": "true",
-                  "enum": [
-                    "true",
-                    "false"
-                  ],
-                  "description": "Can this bearer preempt lower-priority bearers?"
-                }
-              }
-            }
-          }
-        },
-        "ue": {
-          "type": "object",
-          "fields": {
-            "ipv4": {
-              "type": "string",
-              "default": "10.100.0.0/24",
-              "description": "IPv4 subnet (CIDR) from which UE IPs are allocated for this APN."
-            },
-            "ipv6_prefix": {
-              "type": "string",
-              "default": "",
-              "description": "Optional IPv6 prefix (e.g., '2001:db8:abcd::/48') for UE IPv6 assignment."
-            }
-          }
-        },
-        "dns": {
-          "type": "object",
-          "fields": {
-            "primary": {
-              "type": "string",
-              "default": "8.8.8.8",
-              "description": "Primary DNS server for this APN."
-            },
-            "secondary": {
-              "type": "string",
-              "default": "8.8.4.4",
-              "description": "Secondary DNS server for this APN."
-            }
-          },
-          "required": []
-        },
-        "mtu": {
-          "type": "number",
-          "default": 1500,
-          "description": "Maximum Transmission Unit (MTU) for this APN."
-        }
-      }
-    },
-    "description": "List of supported APNs, each defining QoS, UE address pool, DNS, and MTU."
-  },
   "pgw_mme_peers": {
     "type": "list",
     "default": [],
-    "items": {
-      "type": "object",
-      "fields": {
-        "fqdn": {
-          "type": "string",
-          "default": "sgw.mnc001.mcc001.3gppnetwork.org",
-          "description": "FQDN of the peer MME/SGW (used for Diameter routing)."
-        },
-        "address": {
-          "type": "string",
-          "default": "10.2.1.1",
-          "description": "IPv4 address of the peer MME/SGW."
-        },
-        "ipv6_address": {
-          "type": "string",
-          "default": "",
-          "description": "Optional IPv6 address of the peer."
-        }
-      }
-    },
     "description": "List of MME/SGW peers for S5/S8 connectivity (e.g., in multi-MME deployments)."
   },
+  "pgw_apn_list": {
+    "type": "list",
+    "default": [],
+    "description": "List of supported APNs, each defining QoS, UE address pool, DNS, and MTU."
+  },
   "pgw_charging_gx_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable Gx interface to PCRF for policy and charging control."
   },
@@ -209,7 +45,7 @@
     "description": "Diameter host (FQDN) of the PCRF."
   },
   "pgw_charging_gy_enabled": {
-    "type": "boolean",
+    "type": "bool",
     "default": false,
     "description": "Enable Gy interface to AAAR for online charging (e.g., for prepaid subscribers)."
   },

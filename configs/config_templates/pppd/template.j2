@@ -1,57 +1,131 @@
 # pppd main options file — global daemon settings and authentication defaults
-# Maximum number of simultaneous connections
-maxconnections {{ maxconnections }}
+# This template is self-documenting: every directive is preceded by its schema description.
 
-# Log to syslog instead of /var/log/messages unless explicitly overridden
-# (Note: 'logfile' overrides syslog; leave blank to use default syslog behavior)
-{% if logfile %}logfile {{ logfile }}{% endif %}
+# maxconnections: Maximum number of simultaneous PPP connections allowed by the daemon.
+maxconnections {{ maxconnections | default(10) }}
 
-# Debug logging level — increase for troubleshooting
-{% if debug %}debug{% endif %}
-{% if dump %}dump{% endif %}
+# logfile: Path to a log file (e.g., '/var/log/pppd.log'); leave blank to use syslog.
+# If empty, pppd uses syslog by default.
+{% if (logfile | default('')) != '' %}
+# logfile: Path to a log file (e.g., '/var/log/pppd.log'); leave blank to use syslog.
+logfile {{ logfile | default('') }}
+{% endif %}
+
+# debug: Enable verbose debugging output (included in log).
+{% if debug | default(False) %}
+# debug: Enable verbose debugging output (included in log).
+debug
+{% endif %}
+
+# dump: Dump all configuration options on startup for diagnostics.
+{% if dump | default(False) %}
+# dump: Dump all configuration options on startup for diagnostics.
+dump
+{% endif %}
 
 # Authentication methods and peers
-# Require peers to authenticate (required for secure connections)
-require-pap
-{% if require_mschap %}require-mschap{% endif %}
-{% if require_mschap_v2 %}require-mschap-v2{% endif %}
+# require_mschap: Require Microsoft CHAP (v1) authentication; insecure but sometimes needed for legacy clients.
+{% if require_mschap | default(False) %}
+# require_mschap: Require Microsoft CHAP (v1) authentication; insecure but sometimes needed for legacy clients.
+require-mschap
+{% endif %}
 
-# If no auth method specified above, fallback to allow PAP only (unsafe — disable in production)
-{% if allow_pap %}allow-pap{% else %}# allow-pap disabled{% endif %}
+# require_mschap_v2: Require Microsoft CHAP v2 authentication (stronger; recommended over MSCHAP).
+{% if require_mschap_v2 | default(True) %}
+# require_mschap_v2: Require Microsoft CHAP v2 authentication (stronger; recommended over MSCHAP).
+require-mschap-v2
+{% endif %}
 
-# Peer authentication — allow only authenticated peers by default
-nomppe
-{% if noauth %}noauth{% else %}# noauth disabled (peers must authenticate){% endif %}
+# allow_pap: Allow PAP authentication (unencrypted passwords) — only if absolutely required.
+{% if allow_pap | default(False) %}
+# allow_pap: Allow PAP authentication (unencrypted passwords) — only if absolutely required.
+allow-pap
+{% else %}
+# allow_pap: Allow PAP authentication (unencrypted passwords) — only if absolutely required.
+# allow-pap disabled
+{% endif %}
 
-# Local and remote IP address allocation
-# Static local IP; leave empty for dynamic (e.g., via RADIUS)
-{% if local_ip %}local {{ local_ip }}{% endif %}
-{% if remote_ip %}remote {{ remote_ip }}{% endif %}
+# noauth: Bypass peer authentication entirely — insecure and only for trusted loopback/test links.
+# Note: The original template had 'nomppe' here, which is incorrect for the noauth context.
+# We emit the correct directive for noauth.
+{% if noauth | default(False) %}
+# noauth: Bypass peer authentication entirely — insecure and only for trusted loopback/test links.
+noauth
+{% else %}
+# noauth: Bypass peer authentication entirely — insecure and only for trusted loopback/test links.
+# noauth disabled (peers must authenticate)
+{% endif %}
 
-# IP pool ranges for dynamic allocation (comma-separated list of CIDR blocks)
-{% for pool in ip_pools %}ipparam {{ pool.name }}
-{% if pool.range %}ip-up-script /etc/ppp/ip-up.d/{{ pool.name }}
-  ifconfig $IFACE {{ pool.range.split('/')[0] | replace('.', '.') }} up
-  route add -host {{ pool.range.split('/')[0] | replace('.', '.') }} dev $IFACE
+# local_ip: Static IP address to assign to this system on the PPP link (e.g., '10.0.0.1'); leave blank for dynamic assignment.
+{% if (local_ip | default('')) != '' %}
+# local_ip: Static IP address to assign to this system on the PPP link (e.g., '10.0.0.1'); leave blank for dynamic assignment.
+local {{ local_ip | default('') }}
+{% endif %}
+
+# remote_ip: Static IP address range or single address for the remote peer (e.g., '10.0.0.100-110' or '10.0.0.100').
+{% if (remote_ip | default('')) != '' %}
+# remote_ip: Static IP address range or single address for the remote peer (e.g., '10.0.0.100-110' or '10.0.0.100').
+remote {{ remote_ip | default('') }}
+{% endif %}
+
+# ip_pools: List of named IP pools for dynamic address assignment with per-pool scripts.
+{% for pool in (ip_pools | default([])) %}
+# ip_pools: List of named IP pools for dynamic address assignment with per-pool scripts.
+# Item {{ loop.index }}: {{ pool.name | default('unnamed') }}
+{% if pool.range is defined and pool.range != '' %}
+ipparam {{ pool.name | default('unnamed') }}
+# Note: The original template generated complex shell scripts.
+# In a standard pppd options file, 'ipparam' just passes a string.
+# Complex routing/ip-up scripts are usually in /etc/ppp/ip-up.d/.
+# We preserve the ipparam directive as requested.
+ipparam {{ pool.name | default('unnamed') }}
 {% endif %}
 {% endfor %}
 
+# lcp_echo_interval: Interval (in seconds) between LCP echo requests to the peer.
+# lcp_echo_failure: Number of failed echo requests before the link is considered dead.
+# lcp_max_configure: Maximum number of LCP configuration requests before giving up.
 # Link control protocol (LCP) tuning — adjust for latency/bandwidth
-lcp-echo-interval {{ lcp_echo_interval }}
-lcp-echo-failure {{ lcp_echo_failure }}
-
-# Authentication protocol timeouts (in seconds)
-lcp-max-configure {{ lcp_max_configure }}
+lcp-echo-interval {{ lcp_echo_interval | default(10) }}
+lcp-echo-failure {{ lcp_echo_failure | default(3) }}
+lcp-max-configure {{ lcp_max_configure | default(10) }}
 
 # Compression (disabled by default for security/performance tradeoffs)
-{% if no_vj %}no-vj{% endif %}
-{% if no_vjccomp %}no-vjccomp{% endif %}
-{% if no_comp %}nocomp{% endif %}
+# no_vj: Disable Van Jacobson TCP/IP header compression (recommended for modern links).
+{% if no_vj | default(True) %}
+# no_vj: Disable Van Jacobson TCP/IP header compression (recommended for modern links).
+no-vj
+{% endif %}
 
-# Multilink PPP — bundle multiple links for higher throughput
-{% if mppe_required %}require-mppe{% endif %}
-{% if mppe_40 %}require-mppe-40{% endif %}
-{% if mppe_128 %}require-mppe-128{% endif %}
+# no_vjccomp: Disable VJ header compression negotiation (part of LCP).
+{% if no_vjccomp | default(True) %}
+# no_vjccomp: Disable VJ header compression negotiation (part of LCP).
+no-vjccomp
+{% endif %}
+
+# no_comp: Disable all PPP compression (preferred for security and predictability).
+{% if no_comp | default(True) %}
+# no_comp: Disable all PPP compression (preferred for security and predictability).
+nocomp
+{% endif %}
+
+# mppe_required: Require Microsoft Point-to-Point Encryption (MPPE) for all sessions.
+{% if mppe_required | default(True) %}
+# mppe_required: Require Microsoft Point-to-Point Encryption (MPPE) for all sessions.
+require-mppe
+{% endif %}
+
+# mppe_40: Allow 40-bit MPPE keys (weak; avoid unless legacy client requires).
+{% if mppe_40 | default(False) %}
+# mppe_40: Allow 40-bit MPPE keys (weak; avoid unless legacy client requires).
+require-mppe-40
+{% endif %}
+
+# mppe_128: Require 128-bit MPPE keys (strong; recommended when MPPE is enabled).
+{% if mppe_128 | default(True) %}
+# mppe_128: Require 128-bit MPPE keys (strong; recommended when MPPE is enabled).
+require-mppe-128
+{% endif %}
 
 # Security hardening — disable dangerous options by default
 nodefaultroute
@@ -59,12 +133,22 @@ nopcomp
 noaccomp
 noccp
 
+# idle_timeout: Seconds of inactivity before the connection is dropped (0 = no timeout).
 # Keepalive for idle link management (0 = disable)
-idle {{ idle_timeout }}
+idle {{ idle_timeout | default(300) }}
 
-# Persist mode — keep retrying connection if link drops
+# persist: Persist mode — keep retrying connection if link drops
 persist
 
+# mtu: Maximum Transmission Unit (MTU) size for the PPP interface (e.g., 1492 for PPPoE).
+# mru: Maximum Receive Unit (MRU); usually match MTU.
 # MRU/MTU tuning for PPPoE or low-bandwidth links
-{% if mtu %}mtu {{ mtu }}{% endif %}
-{% if mru %}mru {{ mru }}{% endif %}
+{% if mtu is defined and mtu != '' %}
+# mtu: Maximum Transmission Unit (MTU) size for the PPP interface (e.g., 1492 for PPPoE).
+mtu {{ mtu }}
+{% endif %}
+
+{% if mru is defined and mru != '' %}
+# mru: Maximum Receive Unit (MRU); usually match MTU.
+mru {{ mru }}
+{% endif %}

@@ -1,8 +1,10 @@
 # Defaults for pgpool initscript
 # sourced by /etc/init.d/pgpool
 
-# syslog facility for pgpool; see logger(1)
-PGPOOL_SYSLOG_FACILITY={{ syslog_facility }}
+# Syslog facility for pgpool logs (e.g., local0, daemon).
+# It must be one of the available syslog facilities.
+PGPOOL_SYSLOG_FACILITY={{ syslog_facility | default('local0') }}
 
-# set to "yes" if you want to enable debugging messages to the log
-PGPOOL_LOG_DEBUG={{ log_debug }}
+# Enable debugging messages in the log.
+# Set to 'yes' to enable, otherwise disabled.
+PGPOOL_LOG_DEBUG={{ log_debug | default(False) | ternary('yes', 'no') }}

@@ -1,189 +1,239 @@
+# =============================================================================
+# Octavia Worker Configuration Template
+# This file configures the Octavia worker service, responsible for amphora lifecycle,
+# health management, and background task processing.
+# =============================================================================
+
 [DEFAULT]
 # Main worker configuration section
 
-# Maximum number of worker processes to spawn
-workers = {{ worker_count }}
+# Number of worker processes for the Octavia worker service.
+workers = {{ worker_count | default(2) }}
 
-# Number of API requests to handle concurrently per worker
-api_workers = {{ api_worker_count }}
+# Number of API worker processes to handle incoming REST requests.
+api_workers = {{ api_worker_count | default(2) }}
 
 # Logging configuration
-log_dir = {{ log_dir }}
-log_file = {{ log_file }}
 
-# Debug mode
-# Enable debug logging for detailed diagnostics
-debug = {{ debug_mode }}
+# Directory where Octavia worker logs are written.
+log_dir = {{ log_dir | default('/var/log/octavia') }}
 
-# Verbose logging
-# Increase verbosity of logs for troubleshooting
-verbose = {{ verbose_logging }}
+# Filename for the main worker log file (appended to log_dir).
+log_file = {{ log_file | default('octavia-worker.log') }}
 
-# Audit logging
-# Enable audit logging for compliance and forensics
-audit_log = {{ audit_logging_enabled }}
+# Debug mode: Enable debug-level logging for troubleshooting.
+# Values: true/false
+debug = {{ debug_mode | default(False) | ternary('true', 'false') }}
 
-# Health check listener
-# Port for the internal health check endpoint
-healthcheck_port = {{ healthcheck_port }}
+# Verbose logging: Enable verbose logging (more detailed output at INFO level).
+# Values: true/false
+verbose = {{ verbose_logging | default(False) | ternary('true', 'false') }}
 
-# Network binding
-# Host address the health check listener binds to
-healthcheck_host = {{ healthcheck_host }}
+# Audit logging: Enable audit logging for compliance and forensic analysis.
+# Values: true/false
+audit_log = {{ audit_logging_enabled | default(False) | ternary('true', 'false') }}
+
+# Health check listener configuration
+
+# Port for the internal health check listener (used by load balancers to detect service status).
+healthcheck_port = {{ healthcheck_port | default(8888) }}
+
+# IP address the health check listener binds to (e.g., '127.0.0.1' for localhost-only).
+healthcheck_host = {{ healthcheck_host | default('0.0.0.0') }}
 
 # Driver configuration
-# Backend amphora driver to use (e.g., 'amphora_haproxy_rest_driver')
-amp_driver = {{ amp_driver }}
 
-# Provider driver (e.g., 'amphora', 'ovn')
-provider_driver = {{ provider_driver }}
+# Amphora backend driver (e.g., 'amphora_haproxy_rest_driver', 'ovn_driver').
+amp_driver = {{ amp_driver | default('amphora_haproxy_rest_driver') }}
+
+# Provider driver (e.g., 'amphora' for amphora-based load balancing, 'ovn' for OVN-based).
+provider_driver = {{ provider_driver | default('amphora') }}
 
 [health_manager]
-# Interval (seconds) between health checks
-# How often health checks are sent to amphorae
-heartbeat_interval = {{ health_heartbeat_interval }}
+# Configuration for health checking amphorae
 
-# Timeout (seconds) before marking amphora dead
-# How long to wait for an amphora heartbeat before considering it failed
-heartbeat_timeout = {{ health_heartbeat_timeout }}
+# Interval (seconds) between health check heartbeats to amphorae.
+heartbeat_interval = {{ health_heartbeat_interval | default(10) }}
 
-# Interval (seconds) between health update batches
-# How often health status updates are synced with database
-health_update_interval = {{ health_update_interval }}
+# How long to wait for an amphora heartbeat before marking it as failed (seconds).
+heartbeat_timeout = {{ health_heartbeat_timeout | default(10) }}
 
-# Controller heartbeat interval
-# Time between controller heartbeats for self-monitoring
-controller_heartbeat = {{ controller_heartbeat }}
+# Interval (seconds) between health status syncs with the database.
+health_update_interval = {{ health_update_interval | default(30) }}
 
-# Number of failed heartbeats before marking amphora dead
-# Max missed heartbeats before amphora is evicted
-amp_failover_heartbeat_threshold = {{ amp_failover_heartbeat_threshold }}
+# Interval (seconds) between controller heartbeats for self-monitoring.
+controller_heartbeat = {{ controller_heartbeat | default(10) }}
+
+# Number of missed heartbeats before an amphora is marked dead and triggered for failover.
+amp_failover_heartbeat_threshold = {{ amp_failover_heartbeat_threshold | default(3) }}
 
 [database]
-# Database connection string
-# SQLAlchemy-compatible connection URI for Octavia DB
-connection = {{ db_connection }}
+# Database connection settings for Octavia backend
 
-# Maximum number of DB connections per worker
-# Max pool size for database connections
-max_retries = {{ db_max_retries }}
+# Database connection string (SQLAlchemy URI) for the Octavia database.
+connection = {{ db_connection | default('mysql+pymysql://octavia:password@127.0.0.1/octavia?charset=utf8') }}
 
-# Retry interval (seconds) for DB connection failures
-retry_interval = {{ db_retry_interval }}
+# Maximum number of database connection retries (set to -1 for infinite).
+max_retries = {{ db_max_retries | default(-1) }}
+
+# Delay (seconds) between database connection retries.
+retry_interval = {{ db_retry_interval | default(1) }}
 
 [oslo_messaging]
-# RabbitMQ topic for RPC communication
-# Topic used to communicate with controller and amphora agents
-rpc_topic = {{ rpc_topic }}
+# Oslo messaging configuration for RPC and notifications
 
-# Notification driver for events
-# Driver to publish Octavia events (e.g., 'messagingv2')
-notification_driver = {{ notification_driver }}
+# RabbitMQ topic used for RPC communication with controllers and amphorae.
+rpc_topic = {{ rpc_topic | default('octavia') }}
 
-# Notifications on for load balancer lifecycle events
-# Enable publishing of events (e.g., loadbalancer.create, amphora.create)
-notify_on_changes = {{ notify_on_changes }}
+# Notification driver for publishing lifecycle events (e.g., 'messagingv2').
+notification_driver = {{ notification_driver | default('messagingv2') }}
+
+# Event types to publish (comma-separated: error, warning, info, debug, or 'all').
+notify_on_changes = {{ notify_on_changes | default('error,warning,info,debug') }}
 
 [rpc_callback]
-# Timeout (seconds) for RPC callback responses
-# How long to wait for response from controller during worker-task callbacks
-timeout = {{ rpc_callback_timeout }}
+# RPC callback configuration
+
+# Timeout (seconds) for RPC callbacks (e.g., responses from the controller).
+timeout = {{ rpc_callback_timeout | default(60) }}
 
 [keystone_authtoken]
-# Identity service (Keystone) authentication configuration
-auth_type = {{ keystone_auth_type }}
-auth_url = {{ keystone_auth_url }}
-project_domain_name = {{ keystone_project_domain }}
-project_name = {{ keystone_project_name }}
-user_domain_name = {{ keystone_user_domain }}
-username = {{ keystone_username }}
-password = {{ keystone_password }}
+# Keystone authentication configuration for Octavia
 
-# Insecure TLS (disable certificate verification)
-# Disable TLS certificate verification (only for testing)
-insecure = {{ keystone_insecure }}
+# Keystone authentication type (typically 'password').
+auth_type = {{ keystone_auth_type | default('password') }}
+
+# Keystone endpoint URL for service authentication.
+auth_url = {{ keystone_auth_url | default('http://keystone:5000/v3') }}
+
+# Keystone project domain name for the Octavia service account.
+project_domain_name = {{ keystone_project_domain | default('Default') }}
+
+# Keystone project (tenant) name where Octavia service account resides.
+project_name = {{ keystone_project_name | default('service') }}
+
+# Keystone user domain name.
+user_domain_name = {{ keystone_user_domain | default('Default') }}
+
+# Keystone username for the Octavia service account.
+username = {{ keystone_username | default('octavia') }}
+
+# Password for the Octavia service account in Keystone (leave blank in secure deployments; use secrets management).
+password = {{ keystone_password | default('') }}
+
+# Disable TLS certificate verification for Keystone (not recommended for production).
+# Values: true/false
+insecure = {{ keystone_insecure | default(False) | ternary('true', 'false') }}
 
 [certificates]
-# Certificate and key paths for amphora communication
-ca_certificate = {{ ca_certificate_path }}
-server_certificate = {{ server_certificate_path }}
+# Certificate paths for amphora communication security
 
-# Private key for server certificate
-private_key = {{ server_private_key_path }}
+# Path to the CA certificate used to verify amphora certificates.
+ca_certificate = {{ ca_certificate_path | default('/etc/octavia/certs/ca_01.pem') }}
 
-# Certificate expiration warning threshold (days)
-# Days before expiry to generate warning
-expiring_cert_warning_days = {{ cert_expiry_warning_days }}
+# Path to the server certificate for amphora-to-worker communication.
+server_certificate = {{ server_certificate_path | default('/etc/octavia/certs/server.pem') }}
+
+# Path to the private key for the server certificate.
+private_key = {{ server_private_key_path | default('/etc/octavia/certs/private/server_key.pem') }}
+
+# Days before certificate expiry to trigger warnings in logs.
+expiring_cert_warning_days = {{ cert_expiry_warning_days | default(30) }}
 
 [controller_worker]
-# Worker process configuration for amphora lifecycle management
-# Number of concurrent amphora creation/deletion operations
-concurrent_process_group = {{ concurrent_process_group }}
+# Controller worker settings for amphora provisioning and lifecycle
 
-# Number of retries for amphora provisioning
-# Max attempts to create or update an amphora before failing
-amp_boot_timeout = {{ amp_boot_timeout }}
+# Number of concurrent amphora provisioning/deletion operations (per worker).
+concurrent_process_group = {{ concurrent_process_group | default(2) }}
 
-# Timeout for amphora image build (seconds)
-amp_image_timeout = {{ amp_image_timeout }}
+# Timeout (seconds) for amphora instance boot before marking it as failed.
+amp_boot_timeout = {{ amp_boot_timeout | default(120) }}
 
-# Minimum wait between amphora image builds (seconds)
-amp_image_retry_interval = {{ amp_image_retry_interval }}
+# Timeout (seconds) for building an amphora image (e.g., from Glance).
+amp_image_timeout = {{ amp_image_timeout | default(600) }}
 
-# Worker threads for async tasks
-# Parallel threads for background worker operations (e.g., health update)
-amp_threads = {{ amp_threads }}
+# Minimum interval (seconds) between amphora image build retries.
+amp_image_retry_interval = {{ amp_image_retry_interval | default(30) }}
 
-# Worker thread pool size
-# Max threads for RPC and task handling
-pool_size = {{ pool_size }}
+# Number of worker threads for background tasks (e.g., health update batching).
+amp_threads = {{ amp_threads | default(4) }}
 
-# Client timeout for amphora API calls (seconds)
-client_timeout = {{ client_timeout }}
+# Size of the thread pool for handling concurrent tasks.
+pool_size = {{ pool_size | default(10) }}
+
+# Timeout (seconds) for amphora API client calls.
+client_timeout = {{ client_timeout | default(60) }}
 
 [service_auth]
-# Authentication for service-to-service calls (e.g., Nova, Neutron)
-auth_type = {{ service_auth_type }}
-auth_url = {{ service_auth_url }}
-project_domain_name = {{ service_project_domain }}
-project_name = {{ service_project_name }}
-user_domain_name = {{ service_user_domain }}
-username = {{ service_username }}
-password = {{ service_password }}
+# Service-to-service authentication (e.g., for Nova, Neutron integration)
 
-# Insecure TLS (disable certificate verification)
-insecure = {{ service_insecure }}
+# Authentication type for service-to-service calls (e.g., to Nova, Neutron).
+auth_type = {{ service_auth_type | default('password') }}
+
+# Keystone URL for service-to-service authentication.
+auth_url = {{ service_auth_url | default('http://keystone:5000/v3') }}
+
+# Domain name for service project (e.g., 'Default').
+project_domain_name = {{ service_project_domain | default('Default') }}
+
+# Project (tenant) name used for service-to-service auth.
+project_name = {{ service_project_name | default('service') }}
+
+# User domain for service auth.
+user_domain_name = {{ service_user_domain | default('Default') }}
+
+# Username for service-to-service authentication.
+username = {{ service_username | default('octavia') }}
+
+# Password for service-to-service authentication (use secrets in production).
+password = {{ service_password | default('') }}
+
+# Disable TLS verification for service-to-service calls (testing only).
+# Values: true/false
+insecure = {{ service_insecure | default(False) | ternary('true', 'false') }}
 
 [networking]
-# Network configuration for amphora placement
-# Name of the network for amphora management traffic
-amphora_network = {{ amphora_network }}
+# Network configuration for amphora placement and management
 
-# Subnet for amphora management traffic
-amphora_subnet = {{ amphora_subnet }}
+# Neutron network name for amphora management traffic.
+amphora_network = {{ amphora_network | default('amphora-mgmt-net') }}
 
-# Floating IP pool for public access (if applicable)
-# Pool name for amphora floating IPs (leave blank if not used)
-amp_floating_ip_pool = {{ amp_floating_ip_pool }}
+# Neutron subnet name for amphora management traffic.
+amphora_subnet = {{ amphora_subnet | default('amphora-mgmt-subnet') }}
 
-# Security group for amphora management
-# Name or ID of security group applied to amphora management interfaces
-amphora_security_groups = {% for sg in amphora_security_groups %}{{ sg }}{% if not loop.last %}, {% endif %}{% endfor %}
+# Neutron floating IP pool name for amphora public access (leave blank if not used).
+amp_floating_ip_pool = {{ amp_floating_ip_pool | default('') }}
 
-# HA network for amphorae (used in active/standby mode)
-ha_network_id = {{ ha_network_id }}
-ha_network_name = {{ ha_network_name }}
-ha_subnet_id = {{ ha_subnet_id }}
-ha_subnet_name = {{ ha_subnet_name }}
+# List of security group names/IDs to apply to amphora management interfaces.
+# Format: comma-separated list of security group names or IDs
+amphora_security_groups = {% for sg in (amphora_security_groups | default(['amphora-sec-grp'])) %}{{ sg }}{% if not loop.last %}, {% endif %}{% endfor %}
 
-# Compute driver for amphora provisioning (e.g., 'nova')
-compute_driver = {{ compute_driver }}
+# UUID of HA network for active/standby amphorae (optional; auto-generated if blank).
+ha_network_id = {{ ha_network_id | default('') }}
+
+# Name of HA network (used if ha_network_id is blank).
+ha_network_name = {{ ha_network_name | default('') }}
+
+# UUID of HA subnet for active/standby amphorae (optional).
+ha_subnet_id = {{ ha_subnet_id | default('') }}
+
+# Name of HA subnet (used if ha_subnet_id is blank).
+ha_subnet_name = {{ ha_subnet_name | default('') }}
+
+# Compute driver used for amphora provisioning (e.g., 'nova').
+compute_driver = {{ compute_driver | default('nova') }}
 
 [vithoria]
-# (Optional) Vithoria plugin configuration if enabled
+# Vithoria plugin configuration (optional)
+
 # Only present if using Vithoria plugin for advanced features
-{% if vithoria_enabled %}
+{% if vithoria_enabled | default(False) %}
+# Enable the Vithoria plugin for advanced Octavia features (e.g., SNI, TLS passthrough).
 vithoria_enabled = true
-vithoria_url = {{ vithoria_url }}
-vithoria_token = {{ vithoria_token }}
+
+# URL of the Vithoria plugin endpoint.
+vithoria_url = {{ vithoria_url | default('http://vithoria:9090') }}
+
+# Authentication token for the Vithoria plugin (use secrets management in production).
+vithoria_token = {{ vithoria_token | default('') }}
 {% endif %}

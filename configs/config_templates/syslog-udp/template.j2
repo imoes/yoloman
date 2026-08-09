@@ -1,13 +1,64 @@
-# Load UDP input module
+{# ============================================================================ #}
+{# rsyslog UDP/TCP Syslog Collector Configuration Template                       #}
+{#                                                                              #}
+{# This template generates an rsyslog configuration fragment that sets up       #}
+{# network listeners for syslog messages over UDP and optionally TCP.           #}
+{# It also applies custom routing rules for log processing.                     #}
+{#                                                                              #}
+{# Self-documenting: All variables include schema defaults.                     #}
+{# ============================================================================ #}
+
+{# -------------------------------------------------------------------------- #}
+{# 1. UDP Input Module & Listener                                             #}
+{# -------------------------------------------------------------------------- #}
+
+# Load the UDP input module required for receiving syslog over UDP.
 module(load="imudp")
-# Enable UDP input
-input(type="imudp" port="{{ udp_port }}" address="{{ udp_address }}")
-{% if tcp_enabled %}
-# Load TCP input module (optional)
-module(load="imtcp")
-input(type="imtcp" port="{{ tcp_port }}" address="{{ tcp_address }}")
+
+# Define the UDP input listener.
+# - udp_port: {{ udp_port | default(514) }} (default 514)
+# - udp_address: {{ udp_address | default('0.0.0.0') }} (default 0.0.0.0)
+input(type="imudp"
+      port="{{ udp_port | default(514) }}"
+      address="{{ udp_address | default('0.0.0.0') }}"
+)
+
+{# -------------------------------------------------------------------------- #}
+{# 2. TCP Input Module & Listener (Optional)                                  #}
+{# -------------------------------------------------------------------------- #}
+
+{% if tcp_enabled | default(false) | bool %}
+  {# TCP input is enabled. Load the module and configure the listener. #}
+  
+  # Load the TCP input module required for receiving syslog over TCP.
+  module(load="imtcp")
+
+  # Define the TCP input listener.
+  # - tcp_port: {{ tcp_port | default(514) }} (default 514)
+  # - tcp_address: {{ tcp_address | default('0.0.0.0') }} (default 0.0.0.0)
+  input(type="imtcp"
+        port="{{ tcp_port | default(514) }}"
+        address="{{ tcp_address | default('0.0.0.0') }}"
+  )
+{% else %}
+  {# TCP input is disabled; no TCP listener is configured. #}
 {% endif %}
-# Default rule: log to system log files
-{% for log_rule in log_rules %}
-{{ log_rule.selector }}	{{ log_rule.action }}
-{% endfor %}
+
+{# -------------------------------------------------------------------------- #}
+{# 3. Log Routing Rules                                                       #}
+{# -------------------------------------------------------------------------- #}
+
+# Custom syslog routing rules.
+# These rules are applied after the standard rsyslog defaults.
+# Each rule consists of a selector (filter expression) and an action.
+# - log_rules: {{ log_rules | default([]) | length }} rule(s) configured.
+
+{% if log_rules | default([]) | length > 0 %}
+  {% for log_rule in log_rules %}
+    {# Selector: {{ log_rule.selector | default('') }} #}
+    {# Action: {{ log_rule.action | default('') }} #}
+{{ log_rule.selector | default('') }} {{ log_rule.action | default('') }}
+  {% endfor %}
+{% else %}
+  {# No custom rules defined; rsyslog will use its default routing. #}
+{% endif %}

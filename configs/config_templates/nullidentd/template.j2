@@ -3,12 +3,17 @@
 # need to set a user
 service auth
 {
-	disable		= {{ disable }}
+	# disable: Whether the service is disabled (inetd/xinetd style). Set to false to enable.
+	disable		= {{ disable | default(true) }}
 	flags		= NODELAY
 	socket_type	= stream
 	protocol	= tcp
 	wait		= no
 	server		= /usr/sbin/nullidentd
-	server_args	= {{ server_args_user }}
-	user		= {{ user }}
+
+	# server_args_user: First argument passed to /usr/sbin/nullidentd. Typically matches the 'user' setting, but kept separate as per real config.
+	server_args	= {{ server_args_user | default('nobody') }}
+
+	# user: User account under which the daemon runs (for inetd/xinetd service definition).
+	user		= {{ user | default('nobody') }}
 }

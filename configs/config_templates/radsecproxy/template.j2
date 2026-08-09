@@ -1,5 +1,4 @@
 #! /bin/sh
-
 ### BEGIN INIT INFO
 # Provides:		radsecproxy
 # Required-Start:	$remote_fs $syslog $network
@@ -24,7 +23,11 @@ PIDFILE=$PIDDIR/pid
 
 test -x $DAEMON || exit 0
 
-DAEMON_OPTS="-i $PIDFILE"
+# -i <pidfile>: Path to PID file (already set via $PIDFILE)
+# -l <level>:   Log verbosity (0=none, 1=error, 2=warn, 3=info, 4=debug)
+# -d:           Debug flag, present if debug_flag is set
+# <tls_config>: Additional TLS flags (e.g. -t options), empty if not configured
+DAEMON_OPTS="-i $PIDFILE -l {{ log_level | default(2) }} {{ debug_flag | default('2') }} {{ tls_config | default('') }}"
 
 case "$1" in
   start)
@@ -53,7 +56,7 @@ case "$1" in
 	start-stop-daemon --stop --retry 5 --quiet --pidfile $PIDFILE \
 		--user $DAEMONUSER \
 		--exec $DAEMON
-	case "$?" in
+	case " $?" in
 		0) log_end_msg 0 ;;
 		1) log_progress_msg "(already stopped)"
 		   log_end_msg 0 ;;

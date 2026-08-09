@@ -1,18 +1,29 @@
 #!/bin/sh
+#
+# rkhunter cron job wrapper
+#
+# This script is the cron entry point for rkhunter. It reads configuration
+# from /etc/default/rkhunter and executes the rkhunter binary with appropriate
+# settings (nice level, battery checks, email reporting).
+#
 
-RKHUNTER={{ installdir }}/bin/rkhunter
+# Base installation prefix of rkhunter (parent of bin/, share/, etc.)
+RKHUNTER={{ installdir | default('/usr') }}/bin/rkhunter
 
+# Exit if the rkhunter binary is not executable
 test -x $RKHUNTER || exit 0
 
 # source our config
 . /etc/default/rkhunter
 
+# Nice level for the rkhunter cron job
 if [ -z "$NICE" ]; then
-    NICE=0
+    NICE={{ NICE | default(0) }}
 fi
 
+# Whether to run rkhunter when on battery power (true/false)
 if [ -z "$RUN_CHECK_ON_BATTERY" ]; then
-    RUN_CHECK_ON_BATTERY="false"
+    RUN_CHECK_ON_BATTERY="{{ RUN_CHECK_ON_BATTERY | default('false') }}"
 fi
 
 # Do not run daily check if running on battery except if explicitely allowed
@@ -24,10 +35,13 @@ case "$RUN_CHECK_ON_BATTERY" in
         fi
 esac
 
+# Enable daily cron job execution (yes/no)
 case "$CRON_DAILY_RUN" in
     [YyTt]*)
         OUTFILE=`mktemp` || exit 1
+        # Execute rkhunter with nice level and cronjob options
         /usr/bin/nice -n $NICE $RKHUNTER --cronjob --report-warnings-only --appendlog > $OUTFILE
+        # Email address to receive daily rkhunter warning reports
         if [ -s "$OUTFILE" -a -n "$REPORT_EMAIL" ]; then
           (
             echo "Subject: [rkhunter] $(hostname) - Daily report"

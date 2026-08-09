@@ -1,101 +1,54 @@
-# nfcapd.conf — main configuration file for nfcapd (NetFlow capture daemon)
-# Listen on this UDP port for NetFlow/sFlow/IPFIX flows
-port: {{ port }}
+# nfcapd.conf — Main configuration file for nfcapd (NetFlow capture daemon)
+# This file configures how nfcapd receives, stores, and rotates flow records.
 
-# Bind to this IP address (use 0.0.0.0 for all interfaces)
-host: {{ host }}
+# Listen on this UDP port for incoming NetFlow/sFlow/IPFIX flows.
+# Default: 9995
+port: {{ port | default(9995) }}
 
-# Directory where flow files are stored
-base_dir: {{ base_dir }}
+# IP address or hostname to bind to.
+# If empty, nfcapd listens on all available interfaces (0.0.0.0 / ::).
+# Default: '' (empty)
+bindhost: {{ bindhost | default('') }}
 
-# Subdirectory under base_dir for new flow files (e.g., 'current' or 'live')
-subdir: {{ subdir }}
+# Root directory where flow files are stored.
+# The daemon creates this path if it does not exist.
+# Default: '/var/nfcapd'
+flowdir: {{ flowdir | default('/var/nfcapd') }}
 
-# Retention policy: keep flow files for this many seconds
-retention: {{ retention }}
+# Subdirectory hierarchy level under flowdir.
+# 0: no subdirectories (all files in flowdir).
+# 1: flowdir/YYYY/MM/DD/
+# 2: flowdir/YYYY/MM/DD/HH/
+# Use this to prevent directory listing performance issues with many files.
+# Default: 0
+subdir_level: {{ subdir_level | default(0) }}
 
-# Compress flow files after this many seconds (0 = disable auto-compression)
-compress_after: {{ compress_after }}
+# Time interval in seconds to rotate flow files.
+# After this many seconds, the current flow file is closed and a new one is started.
+# Default: 300
+rotate_interval: {{ rotate_interval | default(300) }}
 
-# Compress using: gzip (default), bzip2, or none
-compress_program: {{ compress_program }}
+# Compression type for flow files.
+# Supported: 'lzo', 'bz2', 'lz4', 'zstd'.
+# Leave empty to disable compression.
+# Default: '' (empty)
+compress: {{ compress | default('') }}
 
-# Flush output buffer every this many seconds (0 = use kernel buffering)
-flush_interval: {{ flush_interval }}
+# System user to drop privileges to after startup.
+# The daemon starts as root to bind ports, then switches to this user.
+# Default: 'nfcapd'
+user: {{ user | default('nfcapd') }}
 
-# Write to stdin of this program for additional processing (e.g., nfreplay)
-pipe_program: {{ pipe_program }}
+# System group to drop privileges to after startup.
+# Default: 'nfcapd'
+group: {{ group | default('nfcapd') }}
 
-# Run as this user (must be valid system user)
-user: {{ user }}
+# Path to the PID file written by the daemon.
+# Used for process management (stop/restart signals).
+# Default: '/var/run/nfcapd.pid'
+pidfile: {{ pidfile | default('/var/run/nfcapd.pid') }}
 
-# Run as this group (must be valid system group)
-group: {{ group }}
-
-# Enable extended flow record format (v9/IPFIX extensions)
-extended: {{ extended }}
-
-# Enable IPv6 flow support (required for IPv6 flows)
-ipv6: {{ ipv6 }}
-
-# Log level: debug, info, notice, warning, error, critical, alert, emergency
-loglevel: {{ loglevel }}
-
-# Log to this file (use '-' for stdout/stderr)
-logfile: {{ logfile }}
-
-# Enable PID file creation
-pidfile: {{ pidfile }}
-
-# List of additional NetFlow versions to accept (e.g., [5, 9, 10])
-accept_versions: {% for ver in accept_versions %}{{ ver }}{% if not loop.last %}, {% endif %}{% endfor %}
-
-# Enable BGP daemon integration (requires bgpd.conf)
-bgp: {{ bgp }}
-
-# List of additional export formats (e.g., ['nfcapd', 'nfstat', 'nffile'])
-formats: {% for fmt in formats %}'{{ fmt }}'{% if not loop.last %}, {% endif %}{% endfor %}
-
-# Enable SSL for remote collectors (IPFIX-TLS) — requires certificate/key paths
-ssl: {{ ssl }}
-ssl_cert: {{ ssl_cert }}
-ssl_key: {{ ssl_key }}
-ssl_ca_cert: {{ ssl_ca_cert }}
-
-# Disable default NetFlow v5 flow header padding (for legacy equipment quirks)
-no_padding: {{ no_padding }}
-
-# Timeout for idle flows (seconds) — used for IPFIX session tracking
-idle_timeout: {{ idle_timeout }}
-
-# Timeout for active flows (seconds)
-active_timeout: {{ active_timeout }}
-
-# Buffer size in bytes for incoming UDP packets (min 1472, default 8192)
-read_buffer: {{ read_buffer }}
-
-# Max number of open flow files (prevents FD exhaustion)
-max_open_files: {{ max_open_files }}
-
-# Disable hostname lookup (improves performance and avoids DNS delays)
-no_dns: {{ no_dns }}
-
-# Set CPU affinity to this list of logical CPU cores (e.g., [0, 1])
-cpu_affinity: {% for cpu in cpu_affinity %}{{ cpu }}{% if not loop.last %}, {% endif %}{% endfor %}
-
-# Enable precise timestamp resolution (nanoseconds instead of microseconds)
-nanoseconds: {{ nanoseconds }}
-
-# Enable flow sampling rate inference (for sFlow with rate >1)
-sample_infer: {{ sample_infer }}
-
-# Disable flow record coalescing (keep each packet as a separate record)
-no_coalesce: {{ no_coalesce }}
-
-# List of flow collectors to forward to (e.g., [{'host': '10.0.0.5', 'port': 2055}])
-forward: {% for fwd in forward %}
-# Forward to {{ fwd.host }}:{{ fwd.port }} (protocol: {{ fwd.proto | default('udp') }})
-{% if not loop.first %}# {% endif %}forward_host: {{ fwd.host }}
-{% if not loop.first %}# {% endif %}forward_port: {{ fwd.port }}
-{% if not loop.first %}# {% endif %}forward_proto: {{ fwd.proto | default('udp') }}
-{% endfor %}
+# Verbose level: 0=quiet, 1-3=increasing verbosity.
+# Higher levels produce more detailed logs to stdout/stderr or syslog.
+# Default: 0
+verbose: {{ verbose | default(0) }}

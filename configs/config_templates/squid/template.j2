@@ -20,7 +20,7 @@
 NAME=squid
 DESC="Squid HTTP Proxy"
 DAEMON=/usr/sbin/squid
-PIDFILE=/run/$NAME.pid
+PIDFILE={{ pid_filename }}
 CONFIG=/etc/squid/squid.conf
 SQUID_ARGS="-YC -f $CONFIG"
 
@@ -35,7 +35,7 @@ PATH=/bin:/usr/bin:/sbin:/usr/sbin
 ulimit -n 65535
 
 find_cache_dir () {
-	w=	 # space tab
+	w=" 	" # space tab
         res=`$DAEMON -k parse -f $CONFIG 2>&1 |
 		grep "Processing:" |
 		sed s/.*Processing:\ // |
@@ -49,7 +49,7 @@ find_cache_dir () {
 }
 
 grepconf () {
-	w=	 # space tab
+	w=" 	" # space tab
         res=`$DAEMON -k parse -f $CONFIG 2>&1 |
 		grep "Processing:" |
 		sed s/.*Processing:\ // |
@@ -70,7 +70,7 @@ create_run_dir () {
 	if [ "$(dpkg-statoverride --list $run_dir)" = "" ] &&
 	   [ ! -e $run_dir ] ; then
 		mkdir -p $run_dir
-	   chown $usr:$grp $run_dir
+	   	chown $usr:$grp $run_dir
 		[ -x /sbin/restorecon ] && restorecon $run_dir
 	fi
 }
@@ -108,7 +108,7 @@ stop () {
 	PID=`cat $PIDFILE 2>/dev/null`
 	start-stop-daemon --stop --quiet --pidfile $PIDFILE --exec $DAEMON
 	#
-	#	Now we have to wait until squid has _really_ stopped.
+	# 	Now we have to wait until squid has _really_ stopped.
 	#
 	sleep 2
 	if test -n "$PID" && kill -0 $PID 2>/dev/null
@@ -172,7 +172,7 @@ case "$1" in
 		exit 3
 	else
 		log_action_msg "Reloading $DESC configuration files"
-	  start-stop-daemon --stop --signal 1 \
+	   	start-stop-daemon --stop --signal 1 \
 			--pidfile $PIDFILE --quiet --exec $DAEMON
 		log_action_end_msg 0
 	fi

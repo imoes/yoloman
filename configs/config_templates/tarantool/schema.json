@@ -9,11 +9,6 @@
     "default": "/var/lib/tarantool",
     "description": "Base directory for instance data, logs, and backups (must be writable)."
   },
-  "conf_dir": {
-    "type": "string",
-    "default": "/etc/tarantool/conf.d",
-    "description": "Directory from which Tarantool loads optional configuration snippets."
-  },
   "read_only": {
     "type": "bool",
     "default": false,
@@ -32,13 +27,6 @@
   "replicas": {
     "type": "list",
     "default": [],
-    "items": {
-      "uri": {
-        "type": "string",
-        "default": "",
-        "description": "URI of a replication source (e.g., 'user:password@host:3301')."
-      }
-    },
     "description": "List of replication source URIs (used for multi-master or replica setups)."
   },
   "log_level": {
@@ -126,11 +114,6 @@
     "default": 1073741824,
     "description": "Disk write quota (in bytes) \u2014 limits total WAL + snapshot disk usage."
   },
-  "worker_pool_threads": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of threads in the Tarantool worker pool (for background tasks)."
-  },
   "default_engine": {
     "type": "string",
     "default": "memtx",
@@ -159,33 +142,36 @@
   "spaces": {
     "type": "list",
     "default": [],
-    "items": {
-      "name": {
-        "type": "string",
-        "default": "",
-        "description": "Name of the space (e.g., 'mydata')."
-      },
-      "engine": {
-        "type": "string",
-        "default": "memtx",
-        "description": "Space engine: 'memtx' or 'vinyl'."
-      },
-      "field_count": {
-        "type": "number",
-        "default": 1,
-        "description": "Number of fields (columns) in tuples."
-      },
-      "primary_parts": {
-        "type": "list",
-        "default": "[{1, \"str\"}]",
-        "description": "Index parts definition (e.g., [[1, 'num']] for first field as number)."
-      },
-      "is_unique": {
-        "type": "bool",
-        "default": true,
-        "description": "Whether the primary index enforces uniqueness."
-      }
-    },
     "description": "Optional list of spaces to pre-create with default settings (useful for apps with static schema)."
+  },
+  "items": {
+    "type": "object",
+    "default": null,
+    "description": "Space definition."
+  },
+  "name": {
+    "type": "string",
+    "default": "",
+    "description": "Name of the space (e.g., 'mydata')."
+  },
+  "engine": {
+    "type": "string",
+    "default": "memtx",
+    "description": "Space engine: 'memtx' or 'vinyl'."
+  },
+  "field_count": {
+    "type": "number",
+    "default": 1,
+    "description": "Number of fields (columns) in tuples."
+  },
+  "primary_parts": {
+    "type": "list",
+    "default": "[{1, \"str\"}]",
+    "description": "Index parts definition (e.g., [[1, 'num']] for first field as number)."
+  },
+  "is_unique": {
+    "type": "bool",
+    "default": true,
+    "description": "Whether the primary index enforces uniqueness."
   }
 }

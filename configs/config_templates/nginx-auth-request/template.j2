@@ -1,13 +1,23 @@
-# Global settings
-worker_processes auto;
-error_log /var/log/nginx/error.log warn;
-pid /run/nginx.pid;
+# Nginx Global Configuration
+# This template configures the core behavior of the Nginx web server,
+# including worker processes, logging, connection limits, and security headers.
+
+# Number of worker processes. 'auto' lets NGINX choose based on CPU cores.
+worker_processes {{ worker_processes | default('auto') }};
+
+# Error log path and minimum severity level (e.g., debug, info, notice, warn, error, crit, alert, emerg).
+error_log {{ error_log | default('/var/log/nginx/error.log warn') }};
+
+# Path to the PID file.
+pid {{ pid_file | default('/run/nginx.pid') }};
 
 events {
-    worker_connections 1024;
+    # Maximum number of simultaneous connections that can be opened by a worker process.
+    worker_connections {{ worker_connections | default(1024) }};
 }
 
 http {
+    # MIME types mapping
     include /etc/nginx/mime.types;
     default_type application/octet-stream;
 
@@ -17,18 +27,46 @@ http {
                     '"$http_user_agent" "$http_x_forwarded_for"';
     access_log /var/log/nginx/access.log main;
 
-    sendfile on;
-    tcp_nopush on;
-    tcp_nodelay on;
-    keepalive_timeout 65;
-    types_hash_max_size 2048;
+    # Enable or disable use of sendfile() for efficient static file serving.
+    sendfile {{ sendfile | default(True) | ternary('on', 'off') }};
+
+    # Enable TCP_CORK / TCP_NOPUSH — sends minimal TCP packets with full headers.
+    tcp_nopush {{ tcp_nopush | default(True) | ternary('on', 'off') }};
+
+    # Disable Nagle’s algorithm for low-latency transmission (useful for real-time apps).
+    tcp_nodelay {{ tcp_nodelay | default(True) | ternary('on', 'off') }};
+
+    # Time (seconds) to keep a client connection open on the server side.
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
+
+    # Maximum size of hash tables used for MIME types mapping.
+    types_hash_max_size {{ types_hash_max_size | default(2048) }};
 
     # Security headers (optional, but recommended in production)
+    {% if enable_security_headers | default(True) | bool %}
+    # X-Frame-Options: Prevents clickjacking by restricting iframe embedding.
     add_header X-Frame-Options "SAMEORIGIN" always;
+    # X-Content-Type-Options: Prevents MIME-type sniffing.
     add_header X-Content-Type-Options "nosniff" always;
+    # X-XSS-Protection: Enables browser XSS filtering.
     add_header X-XSS-Protection "1; mode=block" always;
+    {% endif %}
 
     # Include site-specific configs
+    {% if include_conf_d | default(True) | bool %}
+    # Whether to include *.conf files from /etc/nginx/conf.d/ (typically used for server blocks).
     include /etc/nginx/conf.d/*.conf;
+    {% endif %}
+
+    {% if include_sites_enabled | default(True) | bool %}
+    # Whether to include configs from /etc/nginx/sites-enabled/ (Debian/Ubuntu convention).
     include /etc/nginx/sites-enabled/*;
+    {% endif %}
+
+    # Custom server blocks (e.g., for auth_request proxying)
+    # Each element defines a virtual host or auth-protected location.
+    {% for server_block in custom_server_blocks | default([]) %}
+    # Server block configuration #{{ loop.index }}
+    {{ server_block | to_nice_yaml }}
+    {% endfor %}
 }

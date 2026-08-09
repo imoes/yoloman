@@ -2,62 +2,53 @@
 # This file is sourced by slirp4netns when invoked with --config
 # Each line is a key=value pair; empty lines and lines starting with # are ignored
 
-# Enable or disable rootless port forwarding
-port_forwarding={{ port_forwarding }}
+# Specify CIDR, e.g. 10.0.2.0/24. Controls the IPv4 network used for the virtual interface.
+cidr={{ cidr | default('10.0.2.0/24') }}
 
-# Network CIDR for the guest (slirp4netns internal network)
-net_cidr={{ net_cidr }}
+# Specify MTU (max=65521). Default is 1500.
+mtu={{ mtu | default(1500) }}
 
-# IP address assigned to the host inside the guest network
-host_ip={{ host_ip }}
+# Enable IPv6 (EXPERIMENTAL). Allows IPv6 traffic through the slirp interface.
+enable_ipv6={{ enable_ipv6 | default(false) | ternary('1', '0') }}
 
-# IP address assigned to the guest (container side)
-guest_ip={{ guest_ip }}
+# Specify network namespace type ([path|pid|tapfd], default=pid).
+netns_type={{ netns_type | default('pid') }}
 
-# DNS server IP to be advertised to guests
-# If omitted, uses /etc/resolv.conf from host (or default 10.0.2.3)
-guest_dns={{ guest_dns | default('') | trim or '10.0.2.3' }}
+# Specify user namespace path. Empty string means default.
+userns_path={{ userns_path | default('') }}
 
-# Hostname to assign to the guest (optional)
-guest_hostname={{ guest_hostname | default('') | trim }}
+# Enter the user namespace and create a new mount namespace where only /etc and /run are mounted from the host.
+enable_sandbox={{ enable_sandbox | default(false) | ternary('1', '0') }}
 
-# Enable or disable hostname forwarding (set hostname inside guest)
-hostname_forwarding={{ hostname_forwarding }}
+# Enable seccomp(2) to limit syscalls. Typically used in conjunction with --enable-sandbox. EXPERIMENTAL.
+enable_seccomp={{ enable_seccomp | default(false) | ternary('1', '0') }}
 
-# Enable or disable NAT port redirection (legacy behavior)
-natp={{ natp }}
+# Prohibit connecting to 127.0.0.1:* on the host namespace.
+disable_host_loopback={{ disable_host_loopback | default(false) | ternary('1', '0') }}
 
-# Enable or disable SLIRP’s built-in DHCP server
-# If disabled, manual IP must be configured in guest
-dhcp_server={{ dhcp_server }}
+# Disable built-in DNS (10.0.2.3 by default).
+disable_dns={{ disable_dns | default(false) | ternary('1', '0') }}
 
-# Enable or disable IPv6 support
-ipv6={{ ipv6 }}
+# Specify MAC address of the TAP interface (only valid with --configure/-c).
+macaddress={{ macaddress | default('') }}
 
-# IPv6 CIDR for guest network (if ipv6 enabled)
-ipv6_prefix={{ ipv6_prefix }}
+# Specify the target type ([netns|bess], default=netns).
+# The bess mode (since v1.2.0, EXPERIMENTAL) is expected to be used with User Mode Linux.
+target_type={{ target_type | default('netns') }}
 
-# Host IPv6 address inside guest network
-ipv6_host={{ ipv6_host }}
+# Specify outbound ipv4 address slirp should bind to.
+outbound_addr={{ outbound_addr | default('') }}
 
-# Enable or disable TAP interface creation (for advanced use)
-tap_ifname={{ tap_ifname | default('') | trim }}
+# Specify outbound interface slirp should bind to (ipv4 traffic only).
+outbound_addr_interface={{ outbound_addr_interface | default('') }}
 
-# MTU for the slirp interface (default: 65520)
-mtu={{ mtu }}
+# Specify outbound ipv6 address slirp should bind to.
+outbound_addr6={{ outbound_addr6 | default('') }}
 
-# Enable or disable VLAN support
-vlan={{ vlan }}
+# Specify outbound interface slirp should bind to (ipv6 traffic only).
+outbound_addr6_interface={{ outbound_addr6_interface | default('') }}
 
-# VLAN ID (only if vlan is enabled)
- vlan_id={{ vlan_id }}
-
-# Rootless port mappings — syntax: host_ip:host_port:guest_ip:guest_port
-# Multiple mappings allowed; each on a new line
-{% for mapping in port_mappings %}port_map={{ mapping.host_ip }}:{{ mapping.host_port }}:{{ mapping.guest_ip }}:{{ mapping.guest_port }}
-{% endfor %}
-
-# Additional slirp4netns options (passed as-is; e.g., --disable-host-loopback)
+# Additional slirp4netns options (passed as-is; e.g., '--disable-host-loopback').
 # Each extra_option goes on its own line
-{% for option in extra_options %}{{ option }}
+{% for option in extra_options | default([]) %}{{ option }}
 {% endfor %}

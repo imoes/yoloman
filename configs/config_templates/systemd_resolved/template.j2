@@ -1,65 +1,61 @@
 # /etc/systemd/resolved.conf — systemd-resolved DNS stub resolver configuration
-# Enable LLMNR (Link-Local Multicast Name Resolution)
-# LLMNR allows hostname resolution on the local network segment without a DNS server.
-LLMNR=yes
+# This template is self-documenting: every directive is preceded by its schema description.
+# All variables use explicit defaults to ensure safe rendering even when variables are undefined.
 
-# Enable mDNS (multicast DNS, e.g., for .local domains)
-# Set to 'resolve' to allow mDNS queries to be forwarded, 'resolve' to answer locally, or 'no' to disable.
-MulticastDNS=yes
+[Resolve]
 
-# DNSOverTLS mode: 'no', 'opportunistic', or 'yes'
-# 'opportunistic' uses TLS when available but falls back to plain DNS; 'yes' enforces TLS.
-DNSOverTLS=opportunistic
+# Enable or disable Link-Local Multicast Name Resolution (LLMNR). Use 'yes' to allow local hostname resolution via broadcast/multicast.
+LLMNR={{ LLMNR | default('yes') }}
 
-# DNSSEC mode: 'no', 'true', 'allow-downgrade', or 'force'
-# Controls validation of DNSSEC records. 'true' requires validation; 'allow-downgrade' falls back if validation fails.
-DNSSEC=allow-downgrade
+# Enable or disable mDNS. Accepts 'yes' (respond to local queries), 'resolve' (forward queries to mDNS), or 'no' (disable).
+MulticastDNS={{ MulticastDNS | default('yes') }}
 
-# DNSSEC Negative Trust Anchors (comma-separated domain list)
-# Domains for which DNSSEC validation is disabled (e.g., for legacy or private zones).
-DNSSecNegativeTrustAnchors=
+# DNS-over-TLS mode. 'opportunistic' prefers encryption but falls back to plain DNS; 'yes' enforces TLS; 'no' disables DoT.
+DNSOverTLS={{ DNSOverTLS | default('opportunistic') }}
 
-# Default DNS servers for this system
-# Replace with actual upstream DNS resolvers (IP addresses or hostnames).
-DNS=
+# DNSSEC validation mode. 'allow-downgrade' validates unless upstream doesn’t support it; 'true' requires validation; 'no' disables it.
+DNSSEC={{ DNSSEC | default('allow-downgrade') }}
 
-# Default DNS domains for search resolution
-# Domains appended to unqualified hostnames during resolution.
-Domains=
+# List of domains for which DNSSEC validation is explicitly disabled (e.g., internal zones without DNSSEC support).
+# Joined by space as per systemd-resolved.conf syntax.
+DNSSecNegativeTrustAnchors={{ DNSSecNegativeTrustAnchors | default([]) | join(' ') }}
 
-# DNS stub listener on loopback (127.0.0.53)
-# If 'yes', systemd-resolved listens on 127.0.0.53:53 for local queries.
-DNSStubListener=yes
+# Upstream DNS servers to use (IP addresses or resolvable hostnames). Systemd will prefer these over DHCP-provided servers unless overridden.
+# Joined by space.
+DNS={{ DNS | default([]) | join(' ') }}
 
-# DNSStubListenerExtra (list of extra addresses for DNS stub listener)
-# Additional IPs (e.g., for IPv6 or multi-homed hosts) to bind DNS stub listener to.
-DNSStubListenerExtra=
+# Search domains appended to unqualified hostnames during DNS lookups.
+# Joined by space.
+Domains={{ Domains | default([]) | join(' ') }}
 
-# Read resolv.conf (yes/no)
-# If 'yes', systemd-resolved reads /etc/resolv.conf and merges it with its own DNS config.
-ReadResolvConf=yes
+# If true, systemd-resolved provides a stub resolver at 127.0.0.53:53 for local services to query.
+DNSStubListener={{ DNSStubListener | default(True) }}
 
-# Cache size (positive integer or 'no')
-# Number of entries in the DNS cache. Set to 'no' to disable caching.
-Cache=yes
+# Additional IPs (e.g., IPv6 addresses or container IPs) where the DNS stub listener should bind. Useful in containerized environments.
+# Joined by space.
+DNSStubListenerExtra={{ DNSStubListenerExtra | default([]) | join(' ') }}
 
-# DNSMaxPackeSize — maximum DNS packet size (512–65535)
-# Adjust for EDNS0 support or large responses. Default is 4096.
-DNSMaxPacketSize=4096
+# If true, systemd-resolved reads and merges /etc/resolv.conf. Disable if you want systemd-resolved to fully manage DNS without legacy config
+ReadResolvConf={{ ReadResolvConf | default(True) }}
 
-# Fallback DNS servers — used when no DNS is configured via other means
-# Typically reserved for link-local or private use when upstream DNS is unavailable.
-FallbackDNS=
+# DNS caching behavior. Set to 'yes' to enable (default size), or 'no' to disable caching.
+Cache={{ Cache | default('yes') }}
 
-# Link-local Multicast Resolver port (1-65535)
-# Port for mDNS/LLMNR listener; only change if port conflict occurs.
-LLMNRPort=5353
-MulticastDNSPort=5353
+# Maximum DNS packet size (including EDNS0). Increase to 65535 if you rely on large DNS responses (e.g., DNSSEC with many records).
+DNSMaxPacketSize={{ DNSMaxPacketSize | default(4096) }}
 
-# LLMNR timeout in milliseconds (100–30000)
-# How long to wait for LLMNR responses before giving up.
-LLMNRTimeoOut=2500
+# Fallback DNS servers used when no other DNS configuration is available (e.g., during early boot or without DHCP). Often used for private/res
+# Joined by space.
+FallbackDNS={{ FallbackDNS | default([]) | join(' ') }}
 
-# mDNS timeout in milliseconds (100–30000)
-# How long to wait for mDNS responses before giving up.
-MulticastDNSTimeoOut=2500
+# UDP port used for LLMNR traffic. Only change if port 5353 is unavailable.
+LLMNRPort={{ LLMNRPort | default(5353) }}
+
+# UDP port used for mDNS traffic. Only change if port 5353 is unavailable.
+MulticastDNSPort={{ MulticastDNSPort | default(5353) }}
+
+# Time in milliseconds to wait for LLMNR responses before giving up. Higher values improve reliability on slow networks.
+LLMNRTimeoOut={{ LLMNRTimeoOut | default(2500) }}
+
+# Time in milliseconds to wait for mDNS responses before giving up. Higher values improve reliability on slow networks.
+MulticastDNSTimeoOut={{ MulticastDNSTimeoOut | default(2500) }}

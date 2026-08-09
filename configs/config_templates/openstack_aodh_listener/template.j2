@@ -1,96 +1,200 @@
+# OpenStack Aodh Listener Configuration Template
+# This template generates the configuration file for the OpenStack Aodh Listener service.
+# Aodh is the OpenStack Telemetry service responsible for handling alarms.
+# The listener component specifically handles incoming notification events to trigger alarm evaluations.
+
 [DEFAULT]
-# Log to syslog and stderr, with debug-level logging if enabled
-{% if debug %}debug = True{% else %}debug = False{% endif %}
+# Enable debug logging for verbose output (use only for troubleshooting).
+# Schema: debug (bool, default=False)
+debug = {{ debug | default(False) }}
+
+# Log directory for Aodh logs.
 log_dir = /var/log/aodh
+
+# Log file for the Aodh listener service.
 log_file = /var/log/aodh/listener.log
+
+# Whether to use syslog.
 use_syslog = True
+
+# Syslog facility to use.
 syslog_log_facility = LOG_LOCAL0
 
-# Logging format string
+# Logging format string for exceptions.
 logging_exception_prefix = EXCEPTION %%(asctime)s %%(process)d
+
+# Logging format string for default logs.
 logging_default_format_string = %%(asctime)s.%%(msecs)03d %%(process)d %%(levelname)s %%(name)s [%%(filename)s:%%(lineno)d] %%(message)s
+
+# Logging format suffix for debug logs.
 logging_debug_format_suffix = [%%(funcName)s] %%(pathname)s:%%(lineno)d
+
+# Short logging format string.
 logging_short_format_string = %%(asctime)s.%%(msecs)03d %%(process)d %%(levelname)s %%(name)s [%%(filename)s:%%(lineno)d] %%(message)s
+
+# Context logging format string (includes request/user/project IDs).
 logging_context_format_string = %%(asctime)s.%%(msecs)03d %%(process)d %%(levelname)s %%(name)s [%%(request_id)s %%(user_id)s %%(project_id)s] %%(message)s
 
-# Thread pool size for event processing
-{% if worker_count %}workers = {{ worker_count }}{% endif %}
+# Thread pool size for event processing. Number of worker processes to handle event listener requests.
+# Schema: worker_count (int, default=1)
+workers = {{ worker_count | default(1) }}
 
-# Authentication (Keystone) parameters
+# Authentication strategy.
 auth_strategy = keystone
 
 [alarm_evaluator]
-# Interval (seconds) between alarm evaluation cycles
-evaluation_interval = {{ evaluation_interval }}
+# Interval (in seconds) between alarm evaluation cycles (minimum 10s recommended).
+# Schema: evaluation_interval (int, default=60)
+evaluation_interval = {{ evaluation_interval | default(60) }}
 
 [alarm_notifier]
-# Maximum number of notifications to send per batch
-batch_size = {{ batch_size }}
-# Timeout (seconds) for outgoing HTTP notifications
+# Maximum number of notifications to send per batch.
+# Schema: batch_size (int, default=10)
+batch_size = {{ batch_size | default(10) }}
+
+# Timeout (seconds) for outgoing HTTP notifications (fixed value in original template).
 notification_retries = 3
-notification_retry_delay = {{ notification_retry_delay }}
+
+# Delay (in seconds) between notification delivery retry attempts.
+# Schema: notification_retry_delay (int, default=30)
+notification_retry_delay = {{ notification_retry_delay | default(30) }}
 
 [api]
-# API endpoint binding
-{% if api_bind_host %}host = {{ api_bind_host }}{% endif %}
-{% if api_port %}port = {{ api_port }}{% endif %}
-# Enable SSL (if true, require ssl_cert and ssl_key)
-{% if api_enable_ssl %}enabled = True
-ssl_cert = {{ api_ssl_cert }}
-ssl_key = {{ api_ssl_key }}{% else %}enabled = False{% endif %}
+# IP address or hostname for the Aodh listener API to bind to.
+# Schema: api_bind_host (str, default='0.0.0.0')
+host = {{ api_bind_host | default('0.0.0.0') }}
 
-# REST API auth URL (for keystone auth) — note: used only if auth_strategy=keystone
-auth_url = {{ keystone_auth_url }}
+# TCP port for the Aodh listener API.
+# Schema: api_port (int, default=8042)
+port = {{ api_port | default(8042) }}
+
+# Enable TLS/SSL for the API endpoint (requires valid cert/key paths).
+# Schema: api_enable_ssl (bool, default=False)
+{% if api_enable_ssl | default(False) %}
+# SSL Certificate Path
+# Schema: api_ssl_cert (str, default='/etc/ssl/certs/aodh.pem')
+ssl_cert = {{ api_ssl_cert | default('/etc/ssl/certs/aodh.pem') }}
+
+# SSL Private Key Path
+# Schema: api_ssl_key (str, default='/etc/ssl/private/aodh.key')
+ssl_key = {{ api_ssl_key | default('/etc/ssl/private/aodh.key') }}
+enabled = True
+{% else %}
+enabled = False
+{% endif %}
+
+# Keystone identity service endpoint URL (must include version, e.g., /v3).
+# Schema: keystone_auth_url (str, default='http://keystone.local:5000/v3')
+auth_url = {{ keystone_auth_url | default('http://keystone.local:5000/v3') }}
 
 [database]
-# Database connection string
-{% if database_connection %}connection = {{ database_connection }}{% endif %}
-# Maximum database connections in pool
-{% if database_max_retries %}max_retries = {{ database_max_retries }}{% endif %}
-# Interval (seconds) between retry attempts
-{% if database_retry_interval %}retry_interval = {{ database_retry_interval }}{% endif %}
+# Database connection string (e.g., 'postgresql://user:pass@host/db' or 'mysql+pymysql://...').
+# Schema: database_connection (str, default='mysql+pymysql://aodh:secret@localhost/aodh')
+connection = {{ database_connection | default('mysql+pymysql://aodh:secret@localhost/aodh') }}
+
+# Maximum number of retries on database connection failure (-1 = infinite).
+# Schema: database_max_retries (int, default=-1)
+max_retries = {{ database_max_retries | default(-1) }}
+
+# Seconds between database connection retry attempts.
+# Schema: database_retry_interval (int, default=10)
+retry_interval = {{ database_retry_interval | default(10) }}
 
 [keystone_authtoken]
 # Identity service (Keystone) auth params
-{% if keystone_auth_url %}auth_url = {{ keystone_auth_url }}{% endif %}
-{% if keystone_auth_type %}auth_type = {{ keystone_auth_type }}{% endif %}
-{% if keystone_project_name %}project_name = {{ keystone_project_name }}{% endif %}
-{% if keystone_user_domain_name %}user_domain_name = {{ keystone_user_domain_name }}{% endif %}
-{% if keystone_project_domain_name %}project_domain_name = {{ keystone_project_domain_name }}{% endif %}
-{% if keystone_username %}username = {{ keystone_username }}{% endif %}
-{% if keystone_password %}password = {{ keystone_password }}{% endif %}
+
+# Keystone identity service endpoint URL (must include version, e.g., /v3).
+# Schema: keystone_auth_url (str, default='http://keystone.local:5000/v3')
+auth_url = {{ keystone_auth_url | default('http://keystone.local:5000/v3') }}
+
+# Keystone authentication method (e.g., 'password', 'token', 'application_credential').
+# Schema: keystone_auth_type (str, default='password')
+auth_type = {{ keystone_auth_type | default('password') }}
+
+# Keystone project (tenant) name used for service authentication.
+# Schema: keystone_project_name (str, default='service')
+project_name = {{ keystone_project_name | default('service') }}
+
+# Keystone user domain name for authentication.
+# Schema: keystone_user_domain_name (str, default='Default')
+user_domain_name = {{ keystone_user_domain_name | default('Default') }}
+
+# Keystone project domain name for authentication.
+# Schema: keystone_project_domain_name (str, default='Default')
+project_domain_name = {{ keystone_project_domain_name | default('Default') }}
+
+# Keystone service username (must have appropriate roles and project access).
+# Schema: keystone_username (str, default='aodh')
+username = {{ keystone_username | default('aodh') }}
+
+# Password for the Aodh service user in Keystone (leave empty to use other auth types).
+# Schema: keystone_password (str, default='')
+password = {{ keystone_password | default('') }}
+
 # Disable TLS verification (only for dev/testing!)
-{% if keystone_disable_ssl_certificate_validation %}insecure = True{% else %}insecure = False{% endif %}
-# Path to CA certificate bundle if using self-signed certs
-{% if keystone_cafile %}cafile = {{ keystone_cafile }}{% endif %}
+# Schema: keystone_disable_ssl_certificate_validation (bool, default=False)
+{% if keystone_disable_ssl_certificate_validation | default(False) %}
+insecure = True
+{% else %}
+insecure = False
+{% endif %}
 
-{% if memcached_servers %}[cache]
-# Memcached servers (comma-separated list)
+# Path to CA certificate bundle if using self-signed certs.
+# Schema: keystone_cafile (str, default='')
+{% if keystone_cafile | default('') %}
+cafile = {{ keystone_cafile | default('') }}
+{% endif %}
+
+# Memcached Configuration Section
+# Only included if memcached_servers is provided
+{% if memcached_servers | default(['localhost:11211']) %}
+[cache]
+# Memcached backend identifier.
 backends = aodh.openstack.common.cache._cache
-url = {{ memcached_servers | join(', ') }}{% endif %}
 
-# Event processing pipeline (for listener)
-{% if event_handlers %}[event_handlers]
-{% for handler in event_handlers %}# {{ handler.description | default('Event handler configuration') }}
+# List of Memcached server hosts (host:port), used for caching.
+# Schema: memcached_servers (list, default=['localhost:11211'])
+url = {{ memcached_servers | default(['localhost:11211']) | join(', ') }}
+{% endif %}
+
+# Event processing pipeline (for listener).
+{% if event_handlers | default([]) %}
+[event_handlers]
+# List of event handler configurations to process incoming events (e.g., for alarm triggering).
+# Each entry defines an event type and an action.
+{% for handler in event_handlers | default([]) %}
+# Event handler description placeholder
 enabled = True
-event_type = {{ handler.event_type }}
-action = {{ handler.action }}
+
+# Event type to listen for.
+event_type = {{ handler.event_type | default('') }}
+
+# Action to take on event.
+action = {{ handler.action | default('') }}
+
+# Action options (JSON-encoded).
 action_options = {{ handler.action_options | default('{}') | tojson }}
-{% endfor %}{% endif %}
+{% endfor %}
+{% endif %}
 
-# Publisher (e.g., for publishing alarm state changes to messaging bus)
+# Publisher (e.g., for publishing alarm state changes to messaging bus).
 [publisher]
-# URI to the message bus (e.g., rabbit, redis, kombu+rabbit://...)
-{% if publisher_uri %}telemetry_writer = {{ publisher_uri }}{% endif %}
+# Message bus URI (e.g., RabbitMQ or Redis) for publishing telemetry events.
+# Schema: publisher_uri (str, default='rabbit://openstack:secret@localhost:5672/')
+telemetry_writer = {{ publisher_uri | default('rabbit://openstack:secret@localhost:5672/') }}
 
-# Rate limiting (per alarm evaluator run)
+# Rate limiting (per alarm evaluator run).
 [evaluator]
-# Maximum alarms evaluated per batch
-batch_size = {{ evaluator_batch_size }}
+# Maximum number of alarms to evaluate in each batch cycle.
+# Schema: evaluator_batch_size (int, default=100)
+batch_size = {{ evaluator_batch_size | default(100) }}
 
-# Alarming service notification settings
+# Alarming service notification settings.
 [alarm_notification]
-# Default alarm notification method (e.g., 'log', 'email', 'webhook')
-notification_method = {{ notification_method }}
-# Additional notification methods (list of dicts with 'type' and optional params)
+# Default method for sending alarm notifications (e.g., 'log', 'http', 'email').
+# Schema: notification_method (str, default='log')
+notification_method = {{ notification_method | default('log') }}
+
+# List of additional alarm notification method configurations. Each item must define a 'type' and may include parameters.
+# Schema: alarm_notification_methods (list, default=[])
 notification_methods = {{ alarm_notification_methods | default([]) | tojson }}

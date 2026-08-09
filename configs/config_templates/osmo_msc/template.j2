@@ -1,37 +1,47 @@
 # OsmoMSC configuration file
 # Generated from template — do not edit directly
 
-# Global settings
+# Global settings for logging: file, level, colors, and timestamps.
 log
-  file {{ log_file }}
-  level {{ log_level }}
-  color {{ log_color | lower }}
-  timestamp {{ log_timestamp | lower }}
+  # Path to the log file for OsmoMSC.
+  {{ log_file | default('/var/log/osmo-msc/osmo-msc.log') }}
+  # Logging level (dso, lld, info, notice, warning, error, critical, alert, emergency).
+  level {{ log_level | default('info') }}
+  # Enable colored log output in terminals.
+  color {{ log_color | default(True) | lower }}
+  # Prefix log entries with timestamps.
+  timestamp {{ log_timestamp | default(True) | lower }}
 end
 
-# Control interface for remote management
+# Control interface for remote management via Osmoctrl.
 ctrl
-  bind {{ ctrl_bind_addr }}
-  port {{ ctrl_port }}
+  # IP address for the control interface.
+  bind {{ ctrl_bind_addr | default('127.0.0.1') }}
+  # TCP port for the control interface.
+  port {{ ctrl_port | default(4237) }}
 end
 
-# VTY interface (local CLI)
+# VTY interface (local CLI) for administrative access.
 vtys
-  bind {{ vty_bind_addr }}
-  port {{ vty_port }}
+  # IP address for the VTY (local CLI) interface.
+  bind {{ vty_bind_addr | default('127.0.0.1') }}
+  # TCP port for the VTY (local CLI) interface.
+  port {{ vty_port | default(4234) }}
 end
 
-# A-interface (BSC → MSC)
+# A-interface (BSSAP over IP) connecting to Base Station Controllers (BSCs).
 a-interface
   ip
-    bind {{ a_interface_bind_ip }}
+    # IP address to bind the A-interface (BSSAP over IP).
+    bind {{ a_interface_bind_ip | default('0.0.0.0') }}
     point-to-point
   end
   ccm
-    ip {{ a_interface_ccm_ip }}
+    # IP address for CCM (Circuit Configuration Management) on A-interface.
+    ip {{ a_interface_ccm_ip | default('127.0.0.1') }}
   end
   bscs
-{% for bsc in bscs %}
+{% for bsc in (bscs | default([])) %}
     bsc {{ bsc.name }}
       bsc-id {{ bsc.id }}
       ip {{ bsc.ip }}
@@ -46,13 +56,14 @@ a-interface
   end
 end
 
-# Iu-CS interface (RNC → MSC for UMTS)
+# Iu-CS interface (UMTS) connecting to Radio Network Controllers (RNCs).
 iu-cs
   mgw
-    rtcp {{ iu_cs_mgw_rtcp }}
+    # Enable RTCP for media monitoring on Iu-CS (UMTS).
+    rtcp {{ iu_cs_mgw_rtcp | default(True) }}
   end
   rncs
-{% for rnc in rncs %}
+{% for rnc in (rncs | default([])) %}
     rnc {{ rnc.name }}
       rnc-id {{ rnc.id }}
       ip {{ rnc.ip }}
@@ -67,25 +78,32 @@ iu-cs
   end
 end
 
-# Core network MSC settings
+# Core network MSC settings including HLR, SMS, SS7, and security policies.
 msc
-  name {{ msc_name }}
-  uuid {{ msc_uuid }}
-  cs7-instance {{ cs7_instance }}
-  # HLR integration
+  # Name of this MSC instance (used for identification).
+  name {{ msc_name | default('osmo-msc') }}
+  # UUID of this MSC (if managed by external system); auto-generated if empty.
+  uuid {{ msc_uuid | default('') }}
+  # SS7 instance number for this MSC.
+  cs7-instance {{ cs7_instance | default(1) }}
+  # HLR integration settings.
   hlr
-    bind {{ hlr_bind_addr }}
-    port {{ hlr_port }}
+    # IP address to bind HLR (HLR over GSv interface).
+    bind {{ hlr_bind_addr | default('127.0.0.1') }}
+    # TCP port for HLR interface (GSv protocol).
+    port {{ hlr_port | default(4230) }}
   end
-  # Authentication & security
+  # Authentication & security policy.
   auth-policy
-    auth-optional {{ auth_policy_auth_optional | lower }}
-    order {{ auth_policy_order }}
+    # If true, authentication is optional (e.g., for open networks).
+    auth-optional {{ auth_policy_auth_optional | default(False) | lower }}
+    # Order of auth checks (e.g., 'hlr,sim' or 'sim,hlr').
+    order {{ auth_policy_order | default('hlr,sim') }}
   end
-  # SMS & USSD
+  # SMS & USSD configuration via SMPP.
   sms
     smpp
-{% for smpp in smpps %}
+{% for smpp in (smpps | default([])) %}
       system-id {{ smpp.system_id }}
       password {{ smpp.password }}
       bind-tx {{ smpp.bind_tx | lower }}
@@ -95,54 +113,71 @@ msc
 {% endfor %}
     end
     smpp-defaults
-      smsc-id {{ smsc_default_smsc_id }}
-      source-addr {{ smsc_default_source_addr }}
+      # Default SMS-C ID for outgoing SMS.
+      smsc-id {{ smsc_default_smsc_id | default('osmo-smsc') }}
+      # Default source address (e.g., short code) for outgoing SMS.
+      source-addr {{ smsc_default_source_addr | default('12345') }}
     end
   end
-  # SS7 routing (for ISUP/DTAP)
+  # SS7 routing (for ISUP/DTAP) configuration.
   cs7
-    point-code {{ cs7_point_code }}
-    routing-context {{ cs7_routing_context }}
-    dpc {{ cs7_dpc }}
-    opc {{ cs7_opc }}
-    type {{ cs7_type }}
-    ssn {{ cs7_ssn }}
+    # Point Code (PC) of this MSC in SS7 (dotted format for 14-bit).
+    point-code {{ cs7_point_code | default('1.2.3') }}
+    # Routing Context (RC) for SCCP connectionless.
+    routing-context {{ cs7_routing_context | default(100) }}
+    # Destination Point Code (e.g., HLR PC).
+    dpc {{ cs7_dpc | default('1.2.2') }}
+    # Originating Point Code (same as point-code).
+    opc {{ cs7_opc | default('1.2.3') }}
+    # SS7 protocol variant: 'itu' (default), 'ansi', or 'japan'.
+    type {{ cs7_type | default('itu') }}
+    # SSN (Subsystem Number) for ISUP (e.g., 8).
+    ssn {{ cs7_ssn | default(8) }}
   end
-  # Location Area Code (LAC) for IMSI-based routing
-  lac {{ default_lac }}
-  # Mobile Identity prefixes (e.g., for routing by IMSI prefix)
+  # Location Area Code (LAC) for routing when no LAC is provided.
+  lac {{ default_lac | default(1) }}
+  # Mobile Identity prefixes (e.g., for routing by IMSI prefix).
   prefixes
-{% for prefix in imsi_prefixes %}
+{% for prefix in (imsi_prefixes | default([])) %}
     prefix {{ prefix.match }} {{ prefix.routing_area }}
 {% endfor %}
   end
-  # Rate limiting for SMPP sessions
-  smpp-rate-limit {{ smpp_rate_limit }}
-  # SS7 congestion control
-  ss7-congestion {{ ss7_congestion | lower }}
+  # Max SMS per second per SMPP session.
+  smpp-rate-limit {{ smpp_rate_limit | default(100) }}
+  # Enable SS7 congestion control (e.g., backpressure on signaling).
+  ss7-congestion {{ ss7_congestion | default(True) | lower }}
 end
 
-# MGW (Media Gateway) configuration
+# MGW (Media Gateway) configuration for voice media handling.
 mgw
-  name {{ mgw_default_name }}
+  # Name of the default media gateway.
+  name {{ mgw_default_name | default('default') }}
   endpoint
-    local-ip {{ mgw_local_ip }}
-    local-port-base {{ mgw_port_base }}
-    remote-ip {{ mgw_remote_ip }}
+    # Local IP for MGW endpoint (for media streaming).
+    local-ip {{ mgw_local_ip | default('0.0.0.0') }}
+    # Starting port for media (RTP) allocation.
+    local-port-base {{ mgw_port_base | default(20000) }}
+    # Remote IP (e.g., BSC/RNC) for media negotiation; leave 0.0.0.0 for dynamic.
+    remote-ip {{ mgw_remote_ip | default('0.0.0.0') }}
   end
   mediasrv
-    sdp-offer {{ mgw_sdp_offer | lower }}
-    rtcp {{ mgw_rtcp | lower }}
+    # If true, MGW offers SDP in early media.
+    sdp-offer {{ mgw_sdp_offer | default(True) | lower }}
+    # Enable RTCP for media quality monitoring.
+    rtcp {{ mgw_rtcp | default(True) | lower }}
   end
+  # List of supported audio codecs for voice calls.
   codecs
-{% for codec in codecs %}
+{% for codec in (codecs | default([{'name': 'GSM-FR', 'payload_type': 3}, {'name': 'AMR-FR', 'payload_type': 96}, {'name': 'AMR-HR', 'payload_type': 97}, {'name': 'GSM-HR', 'payload_type': 98}, {'name': 'EFR', 'payload_type': 99}])) %}
     {{ codec.name }} {{ codec.payload_type }}
 {% endfor %}
   end
 end
 
-# VTY/CLI authentication
+# VTY/CLI authentication credentials.
 login
-  username {{ cli_username }}
-  password {{ cli_password }}
+  # Username for VTY/CLI login.
+  username {{ cli_username | default('osmocom') }}
+  # Password for VTY/CLI login (insecure in plaintext — use only on localhost).
+  password {{ cli_password | default('osmocom') }}
 end

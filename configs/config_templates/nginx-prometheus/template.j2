@@ -1,87 +1,149 @@
-# Load the Prometheus metrics module dynamically
-load_module modules/ngx_http_prometheus_module.so;
+# ============================================================================
+# Nginx Configuration with Prometheus Metrics Module
+# ============================================================================
+# This template generates a complete Nginx configuration file.
+# It loads the dynamic `ngx_http_prometheus_module.so` to expose
+# internal Nginx metrics at the /metrics endpoint.
+# ============================================================================
 
-# Global error logging level (debug, info, notice, warn, error, crit, alert, emerg)
-error_log /var/log/nginx/error.log warn;
+# Load the Prometheus metrics module dynamically.
+# Module path relative to Nginx root (usually /usr/share/nginx or /usr/lib/nginx).
+load_module {{ prometheus_module_path | default('modules/ngx_http_prometheus_module.so') }};
 
-# PID file location
-pid /run/nginx.pid;
+# Global error logging level.
+# Allowed levels: debug, info, notice, warn, error, crit, alert, emerg.
+error_log {{ error_log_path | default('/var/log/nginx/error.log') }} {{ error_log_level | default('warn') }};
 
+# PID file location for the master process.
+pid {{ pid_path | default('/run/nginx.pid') }};
+
+# ============================================================================
+# Events Context
+# ============================================================================
 events {
-  # Maximum number of simultaneous connections (per worker process)
-  worker_connections 1024;
+    # Maximum number of simultaneous connections that a single worker process
+    # can handle. This value depends on system limits (ulimit -n).
+    worker_connections {{ worker_connections | default(1024) }};
 }
 
+# ============================================================================
+# HTTP Context
+# ============================================================================
 http {
-  # Include MIME types mapping
-  include /etc/nginx/mime.types;
+    # Include MIME types mapping for correct Content-Type headers.
+    include /etc/nginx/mime.types;
 
-  # Default MIME type for unknown files
-  default_type application/octet-stream;
+    # Default MIME type for responses where the type could not be determined
+    # by the file extension check.
+    default_type application/octet-stream;
 
-  # Log format definition for access logs
-  log_format main '$remote_addr - $remote_user [$time_local] "$request" '
-                  '$status $body_bytes_sent "$http_referer" '
-                  '"$http_user_agent" "$http_x_forwarded_for"';
+    # Define a named log format for access logs.
+    # Uses Nginx variables for remote address, user, time, request, status, etc.
+    log_format main '$remote_addr - $remote_user [$time_local] "$request" '
+                    '$status $body_bytes_sent "$http_referer" '
+                    '"$http_user_agent" "$http_x_forwarded_for"';
 
-  # Enable access logging to /var/log/nginx/access.log using 'main' format
-  access_log /var/log/nginx/access.log main;
+    # Enable access logging to a file using the 'main' format defined above.
+    access_log /var/log/nginx/access.log main;
 
-  # Enable or disable sendfile (kernel zero-copy optimization)
-  sendfile on;
+    # Enable or disable sendfile system call for file transfer.
+    # 'on' uses kernel zero-copy optimization, improving performance.
+    sendfile {{ sendfile | default(true) | ternary('on', 'off') }};
 
-  # Keep alive timeout in seconds
-  keepalive_timeout 65;
+    # Timeout in seconds for keep-alive connections with the client.
+    # Prevents idle connections from staying open too long.
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
 
-  # Worker processes: typically set to number of CPU cores
-  worker_processes auto;
+    # Number of worker processes to spawn.
+    # 'auto' sets it to the number of available CPU cores.
+    worker_processes {{ worker_processes | default('auto') }};
 
-  # Prometheus metrics endpoint configuration
-  # Exposes /metrics in Prometheus format
-  server {
-    listen 9113;
-    server_name localhost;
+    # ========================================================================
+    # Prometheus Metrics Endpoint
+    # ========================================================================
+    # Internal server block dedicated to exposing Prometheus-compatible metrics.
+    # Usually bound to localhost to prevent external exposure unless firewalled.
+    server {
+        # Port on which the Prometheus metrics endpoint (/metrics) is exposed.
+        listen {{ prometheus_port | default(9113) }};
 
-    location /metrics {
-      prometheus_metrics;
+        # Server name for this internal metrics server block.
+        # Typically 'localhost' to restrict access.
+        server_name {{ prometheus_server_name | default('localhost') }};
+
+        # Location block serving the Prometheus metrics.
+        location /metrics {
+            # Enable Prometheus metrics collection for this location.
+            prometheus_metrics;
+        }
+
+        # Default location to return 404 for any other path on this server.
+        location / {
+            return 404;
+        }
     }
 
-    location / {
-      return 404;
-    }
-  }
+    # ========================================================================
+    # Application Server Blocks (Sites)
+    # ========================================================================
+    # Iterates over the 'sites' list to generate server blocks for
+    # upstream application servers or virtual hosts.
+{% for site in sites | default([]) %}
+    # Site: {{ site.name | default('unnamed') }}
+    # Description: {{ site.description | default('') }}
+    server {
+        # Listen address and port. Supports SSL flag.
+        listen {{ site.listen | default('80') }}{% if site.ssl | default(false) %} ssl{% endif %};
 
-  # Include additional server blocks defined in site configurations
-{% for site in sites %}
-  # {{ site.description }}
-  server {
-    listen {{ site.listen }}{% if site.ssl %} ssl{% endif %};
-    server_name {{ site.name }};
-{% if site.ssl %}
-    ssl_certificate {{ site.ssl_cert }};
-    ssl_certificate_key {{ site.ssl_key }};
+        # Server name (hostname) for this virtual host.
+        server_name {{ site.name | default('_') }};
+
+{% if site.ssl | default(false) %}
+        # SSL certificate file path.
+        ssl_certificate {{ site.ssl_cert | default('/etc/nginx/ssl/cert.pem') }};
+
+        # SSL private key file path.
+        ssl_certificate_key {{ site.ssl_key | default('/etc/nginx/ssl/key.pem') }};
 {% endif %}
+
 {% if site.root %}
-    root {{ site.root }};
+        # Document root directory for static files.
+        root {{ site.root }};
 {% endif %}
+
 {% if site.index %}
-    index {{ site.index | join(' ') }};
+        # Index files to serve when a directory is requested.
+        index {{ site.index | join(' ') }};
 {% endif %}
+
 {% if site.locations %}
+        # ====================================================================
+        # Location Blocks
+        # ====================================================================
 {% for loc in site.locations %}
-    location {{ loc.path }} {
+        # Location: {{ loc.path | default('/') }}
 {% if loc.proxy_pass %}
-      proxy_pass {{ loc.proxy_pass }};
+        # Proxy pass directive forwarding requests to the backend.
+        location {{ loc.path }} {
+            proxy_pass {{ loc.proxy_pass }};
+        }
+{% elif loc.try_files %}
+        # Try files in order before falling back.
+        location {{ loc.path }} {
+            try_files {{ loc.try_files | join(' ') }};
+        }
+{% elif loc.return %}
+        # Return a specific status code and body.
+        location {{ loc.path }} {
+            return {{ loc.return.code | default('200') }} {{ loc.return.body | default('') }};
+        }
+{% else %}
+        # Basic location block (no specific action defined in schema).
+        location {{ loc.path }} {
+        }
 {% endif %}
-{% if loc.try_files %}
-      try_files {{ loc.try_files | join(' ') }};
-{% endif %}
-{% if loc.return %}
-      return {{ loc.return.code }} {{ loc.return.body | default('') }};
-{% endif %}
-    }
 {% endfor %}
 {% endif %}
-  }
+    }
 {% endfor %}
 }

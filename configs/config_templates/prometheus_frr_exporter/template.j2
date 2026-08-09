@@ -1,35 +1,69 @@
 # /etc/default/prometheus-frr-exporter
-# Environment variables for the prometheus-frr-exporter service
+# Environment variables for the prometheus-frr-exporter systemd/sysv service.
+# This file is self-documenting: every variable is explained and safe.
 
-# The user to run the exporter as (default: 'frr')
-FRR_EXPORTER_USER="{{ user }}"
+# System user account under which the exporter process runs.
+# Schema: user (default: 'frr')
+FRR_EXPORTER_USER="{{ user | default('frr') }}"
 
-# The group to run the exporter as (default: 'frr')
-FRR_EXPORTER_GROUP="{{ group }}"
+# System group for the exporter process.
+# Schema: group (default: 'frr')
+FRR_EXPORTER_GROUP="{{ group | default('frr') }}"
 
-# Address and port the exporter listens on (default: '127.0.0.1:9342')
-FRR_EXPORTER_LISTEN="{{ listen_address }}:{{ listen_port }}"
+# IP address the exporter listens on. Use '0.0.0.0' to listen on all interfaces.
+# Schema: listen_address (default: '127.0.0.1')
+FRR_EXPORTER_LISTEN_ADDRESS="{{ listen_address | default('127.0.0.1') }}"
 
-# Path to FRR's vty socket (default: '/run/frr/vty.sock')
-FRR_VTY_SOCKET="{{ vty_socket_path }}"
+# TCP port the exporter listens on for Prometheus scrapes.
+# Schema: listen_port (default: 9342)
+FRR_EXPORTER_LISTEN_PORT="{{ listen_port | default(9342) }}"
 
-# Path to FRR's daemons config (optional, for per-daemon metrics)
-# FRR_DAEMONS_CONFIG="{{ daemons_config_path }}"
+# Path to the FRR vty socket used to query routing protocol state.
+# Schema: vty_socket_path (default: '/run/frr/vty.sock')
+FRR_VTY_SOCKET="{{ vty_socket_path | default('/run/frr/vty.sock') }}"
 
-# Enable verbose logging (true/false; default: false)
-FRR_EXPORTER_DEBUG="{{ debug | string | lower }}"
+# Optional path to FRR's daemons configuration file. If set, enables per-daemon metrics.
+# Schema: daemons_config_path (default: '')
+{%- if daemons_config_path | default('') %}
+FRR_DAEMONS_CONFIG="{{ daemons_config_path | default('') }}"
+{%- else %}
+# FRR_DAEMONS_CONFIG="{{ daemons_config_path | default('') }}"
+{%- endif %}
 
-# Comma-separated list of FRR daemons to scrape (e.g., 'bgp,isis,ospf6'; default: all enabled)
-FRR_EXPORTER_DAEMONS="{{ daemons | join(',') }}"
+# Enable verbose debug logging for troubleshooting.
+# Schema: debug (default: False)
+FRR_EXPORTER_DEBUG="{{ debug | default(False) | string | lower }}"
 
-# Timeout for connections to FRR vty socket (in seconds; default: 5)
-FRR_EXPORTER_TIMEOUT="{{ timeout }}"
+# List of FRR daemons to scrape. Use ['all'] to scrape all enabled daemons,
+# or specify a subset (e.g., ['bgp', 'isis']).
+# Schema: daemons (default: ['all'])
+FRR_EXPORTER_DAEMONS="{{ daemons | default(['all']) | join(',') }}"
 
-# Enable TLS for the exporter endpoint (true/false; default: false)
-FRR_EXPORTER_TLS="{{ tls_enabled | string | lower }}"
+# Maximum time (in seconds) to wait for responses from the FRR vty socket.
+# Schema: timeout (default: 5)
+FRR_EXPORTER_TIMEOUT="{{ timeout | default(5) }}"
 
-# Path to TLS certificate file (required if TLS enabled)
-# FRR_EXPORTER_TLS_CERT="{{ tls_cert_path }}"
+# Enable TLS (HTTPS) for the exporter metrics endpoint.
+# Schema: tls_enabled (default: False)
+FRR_EXPORTER_TLS="{{ tls_enabled | default(False) | string | lower }}"
 
-# Path to TLS private key file (required if TLS enabled)
-# FRR_EXPORTER_TLS_KEY="{{ tls_key_path }}"
+# Absolute path to the TLS certificate file (required if TLS is enabled).
+# Schema: tls_cert_path (default: '')
+{%- if tls_cert_path | default('') %}
+FRR_EXPORTER_TLS_CERT="{{ tls_cert_path | default('') }}"
+{%- else %}
+# FRR_EXPORTER_TLS_CERT="{{ tls_cert_path | default('') }}"
+{%- endif %}
+
+# Absolute path to the TLS private key file (required if TLS is enabled).
+# Schema: tls_key_path (default: '')
+{%- if tls_key_path | default('') %}
+FRR_EXPORTER_TLS_KEY="{{ tls_key_path | default('') }}"
+{%- else %}
+# FRR_EXPORTER_TLS_KEY="{{ tls_key_path | default('') }}"
+{%- endif %}
+
+# Note: The listen address and port are also available as a combined variable
+# for legacy compatibility or direct usage by the init script.
+# Derived from listen_address and listen_port schemas.
+FRR_EXPORTER_LISTEN="{{ listen_address | default('127.0.0.1') }}:{{ listen_port | default(9342) }}"

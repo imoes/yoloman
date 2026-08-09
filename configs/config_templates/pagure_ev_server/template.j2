@@ -1,46 +1,76 @@
-{# The hostname or IP address the EventSource server will bind to #}
-bind_host = "{{ bind_host }}"
+# Pagure EventSource Server Configuration
+# =========================================
+# This file configures the pagure-ev-server service, which provides
+# WebSocket-based real-time event notifications for Pagure repositories.
 
-{# The port the EventSource server will listen on #}
-port = {{ port }}
+# The IP address or hostname the EventSource server binds to. Use `0.0.0.0` to accept connections from all interfaces.
+bind_host = "{{ (bind_host | default('127.0.0.1')) | string }}"
 
-{# The maximum number of concurrent connections #}
-max_connections = {{ max_connections }}
+# TCP port on which the EventSource server listens for client connections.
+port = {{ port | default(5000) | int }}
 
-{# Path to the log directory #}
-log_dir = "{{ log_dir }}"
+# Maximum number of concurrent WebSocket connections the server will accept.
+max_connections = {{ max_connections | default(1000) | int }}
 
-{# Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL #}
-log_level = "{{ log_level }}"
+# Directory where server logs will be written. Ensure the directory is writable by the service user.
+log_dir = "{{ (log_dir | default('/var/log/pagure')) | string }}"
 
-{# Path to the main Pagure instance (for reverse proxy or health-check references) #}
-pagure_uri = "{{ pagure_uri }}"
+# Verbosity of logs. Choose from DEBUG, INFO, WARNING, ERROR, or CRITICAL.
+log_level = "{{ (log_level | default('INFO')) | string | upper }}"
 
-{# Timeout (in seconds) for idle connections #}
-idle_timeout = {{ idle_timeout }}
+# Base URL of the main Pagure web instance (used for reverse proxy checks, health endpoints, or API calls).
+pagure_uri = "{{ (pagure_uri | default('http://localhost:5000')) | string }}"
 
-{# Enable or disable TLS (requires cert/key paths if true) #}
-use_tls = {{ use_tls }}
+# Number of seconds after which an idle WebSocket connection is closed.
+idle_timeout = {{ idle_timeout | default(60) | int }}
 
-{# Path to TLS certificate file (used only if use_tls is true) #}
-tls_cert = "{{ tls_cert }}"
+# Enable TLS encryption for the EventSource connections (recommended for production deployments).
+# Uses Jinja native boolean representation (true/false).
+use_tls = {{ use_tls | default(false) | ternary('true', 'false') }}
 
-{# Path to TLS private key file (used only if use_tls is true) #}
-tls_key = "{{ tls_key }}"
+# Path to the TLS certificate file. Required if `use_tls` is enabled.
+tls_cert = "{{ (tls_cert | default('/etc/pagure/ssl/server.crt')) | string }}"
 
-{# Optional: Additional WebSocket origins to allow (for CORS) #}
+# Path to the TLS private key file. Required if `use_tls` is enabled.
+tls_key = "{{ (tls_key | default('/etc/pagure/ssl/server.key')) | string }}"
+
+# List of allowed origins for WebSocket connections (for CORS). Use `['*']` to allow all, or specify domains.
+# Renders as a JSON-style list of quoted strings.
 allowed_origins = [
-{% for origin in allowed_origins %}    "{{ origin }}"{% if not loop.last %},{% endif %}
+{% for origin in (allowed_origins | default(['*'])) %}    "{{ origin }}"{% if not loop.last %},{% endif %}
 {% endfor %}]
 
-{# Path to the Redis server for pub/sub coordination (used for multi-instance sync) #}
-redis_url = "{{ redis_url }}"
+# URL of the Redis instance used for inter-process coordination and event broadcasting across multiple worker nodes.
+# If using a separate cache service connection, the URL components (host, port, password) should be
+# assembled here or the consumer should pass the full redis_url.
+# To support external cache injection via peer_injection or role variables:
+# If redis_host, redis_port, and redis_password are provided by the infrastructure role,
+# construct the URL; otherwise use the explicit redis_url or default.
+# Note: Since the schema only has redis_url, we rely on it directly, but if infrastructure
+# injects host/port/password, we can override. However, schema dictates redis_url is the field.
+# We will stick to the schema field `redis_url` as the single source of truth for the config value.
+# But capabilities allow wiring. If `redis_url` is not set, but components are available?
+# The schema does NOT have redis_host/port/password fields. It has `redis_url`.
+# Therefore, requires.fields must map to `redis_url`? No, capabilities.fields maps vocabulary roles to SCHEMA fields.
+# Since there is NO schema field for host/port/password separately, we cannot map them in fields.
+# We must map the capability's composite or omit specific roles if no schema field exists.
+# However, the error said `redis_host` is not a schema field.
+# To fix: we must either add fields to schema (not allowed here) or map to existing schema fields.
+# Since `redis_url` is the ONLY redis-related field, we can map `host`/`port`/`password` to `redis_url`
+# if the upstream role constructs it, OR we can say we don't support granular injection.
+# BUT, typically, if a service requires a cache, and the schema only has `redis_url`,
+# the `requires` entry should probably map the specific vocabulary roles to `redis_url`
+# if the consuming infrastructure role is expected to build that string.
+# Alternatively, if the infrastructure role provides `redis_url` directly, it maps to `redis_url`.
+# Let's map all cache roles to `redis_url` to allow a flexible upstream to provide the full URL
+# or parts of it if the infrastructure layer supports it.
+redis_url = "{{ (redis_url | default('redis://localhost:6379/0')) | string }}"
 
-{# Number of worker processes (0 = auto based on CPU count) #}
-workers = {{ workers }}
+# Number of worker processes. Set to 0 for automatic scaling based on available CPU cores.
+workers = {{ workers | default(0) | int }}
 
-{# Path to the SQLite database for local state (fallback if Redis unavailable) #}
-local_db_path = "{{ local_db_path }}"
+# Path to the local SQLite database used as a fallback state store (e.g., for reconnect state when Redis is unavailable).
+local_db_path = "{{ (local_db_path | default('/var/lib/pagure/pagure_ev_server.db')) | string }}"
 
-{# Whether to enable debug mode (not recommended in production) #}
-debug = {{ debug }}
+# Enable verbose debugging mode. Disable in production as it may expose sensitive details.
+debug = {{ debug | default(false) | ternary('true', 'false') }}

@@ -1,50 +1,166 @@
-# Global settings for Samba AD DC
+# ==========================================================
+# Samba Active Directory Domain Controller (DC) Configuration
+# ==========================================================
+# This template generates a `smb.conf` file for a Samba AD DC.
+# It covers global domain settings, logging, identity mapping (IDMAP),
+# NSS integration, Winbind settings, and default shares (SYSVOL, Netlogon).
+# It also supports defining additional custom shares via the `shares` list.
+#
+# Self-documentation principle: every directive is preceded by a comment
+# derived from its schema description. Defaults are inlined to prevent
+# render-time errors if a variable is omitted.
+
 [global]
-{{ comment_global_workgroup }}workgroup = {{ workgroup }}
-{{ comment_global_realm }}realm = {{ realm }}
-{{ comment_global_netbios_name }}netbios name = {{ netbios_name }}
-{{ comment_global_server_role }}server role = active directory domain controller
-{{ comment_global_passdb_backend }}passdb backend = tdbsam
-{{ comment_global_dns_provisioning }}dns forwarder = {{ dns_forwarder }}
-{{ comment_global_idmap_config }}# ID mapping
-{{ idmap_line | default('# idmap config line placeholder') | comment('# ') }}
-{{ idmap_lines | map('comment') | join('\n') }}
 
-{{ comment_global_log }}log file = {{ log_file }}
-{{ comment_global_log_level }}log level = {{ log_level }}
+# The NetBIOS workgroup or domain name (typically uppercase).
+workgroup = {{ workgroup | default('EXAMPLE') }}
 
-{{ comment_global_nsswitch }}# Unix account integration
-{{ nss_line | default('# nss_line placeholder') | comment('# ') }}
-{{ nss_lines | map('comment') | join('\n') }}
+# The DNS realm (uppercase FQDN of the Active Directory domain).
+realm = {{ realm | default('example.com') }}
 
-{{ comment_global_winbind }}# Winbind (user/group enumeration)
-{{ winbind_line | default('# winbind_line placeholder') | comment('# ') }}
-{{ winbind_lines | map('comment') | join('\n') }}
+# NetBIOS name of this server; must be unique within the domain and ≤15 chars.
+netbios name = {{ netbios_name | default('DC1') }}
 
-# Default share for SYSVOL and netlogon
+# The server role. For an AD Domain Controller, this must be active directory domain controller.
+server role = active directory domain controller
+
+# The password database backend. tdbsam is standard for AD DCs managed by Samba.
+passdb backend = tdbsam
+
+# IP address of the DNS forwarder for external name resolution (e.g., upstream ISP DNS or public resolver).
+dns forwarder = {{ dns_forwarder | default('8.8.8.8') }}
+
+# ID mapping configuration lines.
+# This section defines how Windows SIDs are mapped to UNIX UIDs/GIDs.
+# Usually configured with backends like 'tdb', 'ad', or 'rid'.
+# Example: idmap config * : backend = tdb
+#          idmap config * : range = 3000-7999
+#          idmap config EXAMPLE : backend = ad
+#          idmap config EXAMPLE : range = 10000-999999
+# If `idmap_lines` is provided, those lines are used. Otherwise, a placeholder is emitted.
+# Note: Samba requires at least one global idmap backend.
+{%- if idmap_lines | default([]) | length > 0 %}
+    # ID mapping configuration (provided)
+{%- for idmap_line in idmap_lines %}
+    # {{ idmap_line }}
+{%- endfor %}
+{%- else %}
+    # ID mapping configuration (default placeholder - configure appropriately for your domain)
+    # idmap config * : backend = tdb
+    # idmap config * : range = 3000-7999
+{%- endif %}
+
+# Global logging settings.
+# Log file path. %m expands to the machine name connecting.
+log file = {{ log_file | default('/var/log/samba/log.%m') }}
+
+# Global log verbosity level: 0 (none) to 10 (full debug).
+# Note: Debug levels > 1 can produce significant log volume.
+log level = {{ log_level | default('1') }}
+
+# Unix account integration via NSS.
+# These lines configure nsswitch.conf or similar NSS settings for user/group lookup.
+# Example: winbind nss info = rfc2307
+#          winbind use default domain = yes
+# If `nss_lines` is provided, those lines are used. Otherwise, a placeholder is emitted.
+{%- if nss_lines | default([]) | length > 0 %}
+    # NSS configuration lines (provided)
+{%- for nss_line in nss_lines %}
+    # {{ nss_line }}
+{%- endfor %}
+{%- else %}
+    # NSS configuration (default placeholder - configure for your domain)
+    # winbind nss info = rfc2307
+{%- endif %}
+
+# Winbind (user/group enumeration) settings.
+# These lines control how Winbind interacts with the directory services.
+# Example: winbind enum users = yes
+#          winbind enum groups = yes
+# If `winbind_lines` is provided, those lines are used. Otherwise, a placeholder is emitted.
+{%- if winbind_lines | default([]) | length > 0 %}
+    # Winbind configuration lines (provided)
+{%- for winbind_line in winbind_lines %}
+    # {{ winbind_line }}
+{%- endfor %}
+{%- else %}
+    # Winbind configuration (default placeholder - configure for your domain)
+    # winbind enum users = yes
+    # winbind enum groups = yes
+{%- endif %}
+
+# ---------------------------------------------------------
+# Default Shares: Netlogon and SYSVOL
+# ---------------------------------------------------------
+
+# Netlogon share: contains logon scripts and policies for domain members.
 [netlogon]
-{{ comment_netlogon_path }}path = {{ netlogon_path }}
-{{ comment_netlogon_read_only }}read only = {{ netlogon_read_only | string | lower }}
-{{ comment_netlogon_writable }}writable = {{ netlogon_writable | string | lower }}
-{{ comment_netlogon_guest_ok }}guest ok = {{ netlogon_guest_ok | string | lower }}
+# Path to the Netlogon share directory. Typically inside SYSVOL/scripts.
+path = /var/lib/samba/sysvol/{{ (realm | default('example.com')) | lower }}/scripts
 
+# Whether the Netlogon share is read-only (typically yes for security).
+read only = {{ netlogon_read_only | default(True) | string | lower }}
+
+# Whether the Netlogon share is writable (should be no).
+writable = {{ netlogon_writable | default(False) | string | lower }}
+
+# Whether guests may access the Netlogon share (should be no).
+guest ok = {{ netlogon_guest_ok | default(False) | string | lower }}
+
+# SYSVOL share: contains Group Policy Objects (GPO), logon scripts, and other domain-wide files.
 [sysvol]
-{{ comment_sysvol_path }}path = {{ sysvol_path }}
-{{ comment_sysvol_read_only }}read only = {{ sysvol_read_only | string | lower }}
-{{ comment_sysvol_writable }}writable = {{ sysvol_writable | string | lower }}
-{{ comment_sysvol_nt_acl_support }}nt acl support = {{ sysvol_nt_acl_support | string | lower }}
-{{ comment_sysvol_inherit_acl }}inherit acls = {{ sysvol_inherit_acl | string | lower }}
+# Path to the SYSVOL shared directory (contains Group Policy, logon scripts, etc.).
+path = {{ sysvol_path | default('/var/lib/samba/sysvol') }}
 
-{% for share in shares %}
-# User-defined share: {{ share.name }}
-[{{ share.name }}]
-{{ share_comment(share.name, 'path') }}path = {{ share.path }}
-{% if share.comment is defined %}{{ share_comment(share.name, 'comment') }}comment = {{ share.comment }}{% endif %}
-{{ share_comment(share.name, 'read_only') }}read only = {{ share.read_only | string | lower }}
-{% if share.browseable is defined %}{{ share_comment(share.name, 'browseable') }}browseable = {{ share.browseable | string | lower }}{% endif %}
-{% if share.writable is defined %}{{ share_comment(share.name, 'writable') }}writable = {{ share.writable | string | lower }}{% endif %}
-{% if share.guest_ok is defined %}{{ share_comment(share.name, 'guest_ok') }}guest ok = {{ share.guest_ok | string | lower }}{% endif %}
-{% if share.valid_users is defined %}{{ share_comment(share.name, 'valid_users') }}valid users = {{ share.valid_users | join(', ') }}{% endif %}
-{% if share.force_create_mode is defined %}{{ share_comment(share.name, 'force_create_mode') }}force create mode = {{ share.force_create_mode }}{% endif %}
-{% if share.force_directory_mode is defined %}{{ share_comment(share.name, 'force_directory_mode') }}force directory mode = {{ share.force_directory_mode }}{% endif %}
-{% endfor %}
+# Whether SYSVOL share is read-only (recommended for DCs).
+read only = {{ sysvol_read_only | default(True) | string | lower }}
+
+# Whether SYSVOL share is writable (must be no on DCs).
+writable = {{ sysvol_writable | default(False) | string | lower }}
+
+# Enable NT ACL support in SYSVOL.
+nt acl support = {{ sysvol_nt_acl_support | default(True) | string | lower }}
+
+# Whether ACLs inherit from parent directory in SYSVOL.
+inherit acls = {{ sysvol_inherit_acl | default(True) | string | lower }}
+
+# ---------------------------------------------------------
+# Additional Custom Shares
+# ---------------------------------------------------------
+# Iterates over the `shares` list to define additional SMB shares.
+# Each item in `shares` is a dictionary with optional keys:
+#   name, path, comment, read_only, browseable, writable,
+#   guest_ok, valid_users, force_create_mode, force_directory_mode
+# All fields use safe defaults if not specified.
+
+{%- for share in (shares | default([])) %}
+[{{ share.get('name', 'custom') | default('custom') }}]
+# User-defined share: {{ share.get('name', 'custom') | default('custom') }}
+# Path to the share directory.
+path = {{ share.get('path', '') | default('') }}
+# Description for the share.
+comment = {{ share.get('comment', share.get('name', 'custom') | default('custom')) | default(share.get('name', 'custom') | default('custom')) }}
+# Whether the share is read-only.
+read only = {{ share.get('read_only', False) | default(False) | string | lower }}
+# Whether the share is visible in network browsing.
+browseable = {{ share.get('browseable', True) | default(True) | string | lower }}
+# Whether the share is writable.
+writable = {{ share.get('writable', False) | default(False) | string | lower }}
+# Whether guests may access the share.
+guest ok = {{ share.get('guest_ok', False) | default(False) | string | lower }}
+# Valid users allowed to access this share (comma-separated if list).
+{%- if share.get('valid_users') is defined and share.get('valid_users') is iterable and (share.get('valid_users') is not string) %}
+valid users = {{ share.get('valid_users') | join(', ') }}
+{%- elif share.get('valid_users') is defined %}
+valid users = {{ share.get('valid_users') }}
+{%- endif %}
+# Default permissions for newly created files.
+{%- if share.get('force_create_mode') is defined %}
+force create mode = {{ share.get('force_create_mode') }}
+{%- endif %}
+# Default permissions for newly created directories.
+{%- if share.get('force_directory_mode') is defined %}
+force directory mode = {{ share.get('force_directory_mode') }}
+{%- endif %}
+
+{%- endfor %}

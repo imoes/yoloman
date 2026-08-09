@@ -1,38 +1,82 @@
-# pgnodemx extension configuration
-# Enables collection of OS-level metrics (CPU, memory, disk, network) from within PostgreSQL
-# Activate the pgnodemx extension at server start
+# ==============================================================================
+# pgnodemx extension configuration for PostgreSQL
+# ==============================================================================
+# This file configures the pgnodemx PostgreSQL extension, which collects
+# OS-level metrics (CPU, memory, disk I/O, network) directly from within
+# the database server process.
+# ==============================================================================
+
+# --------------------------------------------------------------------------
+# Shared Preload Libraries
+# --------------------------------------------------------------------------
+# Description: Libraries to preload at PostgreSQL server start.
+# The pgnodemx extension must be preloaded to function.
 shared_preload_libraries = 'pgnodemx'
 
-# Path to the pgnodemx data directory (where raw metric files may be stored temporarily)
-# If empty, defaults to PostgreSQL's data directory
-pgnodemx.data_directory = '{{ pgnodemx_data_directory | default('') }}'
+# --------------------------------------------------------------------------
+# Data Directory for pgnodemx Metrics
+# --------------------------------------------------------------------------
+# Description: Optional directory to store temporary pgnodemx metric data files.
+# Leave empty to use PostgreSQL’s data directory.
+# Default: ''
+pgnodemx.data_directory = '{{ (pgnodemx_data_directory | default('')) | string | trim | quote }}'
 
-# Interval (in milliseconds) between OS metric samples
-# Minimum recommended: 1000 (1 second); lower values increase overhead
-pgnodemx.sample_interval_ms = {{ pgnodemx_sample_interval_ms }}
+# --------------------------------------------------------------------------
+# Sample Interval
+# --------------------------------------------------------------------------
+# Description: Time in milliseconds between OS metric samples. Minimum 1000 ms recommended.
+# Default: 2000
+pgnodemx.sample_interval_ms = {{ pgnodemx_sample_interval_ms | default(2000) | int }}
 
-# Enable collection of CPU metrics (user, nice, system, idle, iowait, etc.)
-pgnodemx.cpu_enabled = {{ 'on' if pgnodemx_cpu_enabled else 'off' }}
+# --------------------------------------------------------------------------
+# CPU Metrics Collection
+# --------------------------------------------------------------------------
+# Description: Enable or disable CPU metric collection (e.g., user, system, idle percentages).
+# Default: True
+pgnodemx.cpu_enabled = {{ pgnodemx_cpu_enabled | default(true) | ternary('on', 'off') }}
 
-# Enable collection of memory metrics (total, used, free, buffers, cached, etc.)
-pgnodemx.memory_enabled = {{ 'on' if pgnodemx_memory_enabled else 'off' }}
+# --------------------------------------------------------------------------
+# Memory Metrics Collection
+# --------------------------------------------------------------------------
+# Description: Enable or disable memory metric collection (total, used, free, buffers, cached).
+# Default: True
+pgnodemx.memory_enabled = {{ pgnodemx_memory_enabled | default(true) | ternary('on', 'off') }}
 
-# Enable collection of disk I/O metrics (read/write bytes, ops, latency)
-pgnodemx.disk_enabled = {{ 'on' if pgnodemx_disk_enabled else 'off' }}
+# --------------------------------------------------------------------------
+# Disk I/O Metrics Collection
+# --------------------------------------------------------------------------
+# Description: Enable or disable disk I/O metric collection (read/write throughput and latency).
+# Default: True
+pgnodemx.disk_enabled = {{ pgnodemx_disk_enabled | default(true) | ternary('on', 'off') }}
 
-# Enable collection of network interface metrics (bytes in/out, packets, errors)
-pgnodemx.network_enabled = {{ 'on' if pgnodemx_network_enabled else 'off' }}
+# --------------------------------------------------------------------------
+# Network Metrics Collection
+# --------------------------------------------------------------------------
+# Description: Enable or disable network metric collection (bytes/packets in/out, errors).
+# Default: False
+pgnodemx.network_enabled = {{ pgnodemx_network_enabled | default(false) | ternary('on', 'off') }}
 
-# List of network interfaces to monitor (empty = all non-loopback interfaces)
-# Interfaces not listed will be ignored in network metrics
-{% for iface in pgnodemx_network_interfaces %}# Interface: {{ iface }}
-pgnodemx.network_interface = '{{ iface }}'
+# --------------------------------------------------------------------------
+# Network Interfaces to Monitor
+# --------------------------------------------------------------------------
+# Description: List of network interfaces to monitor. Leave empty to monitor all non-loopback interfaces.
+# Default: []
+{% for iface in (pgnodemx_network_interfaces | default([])) %}
+# Interface: {{ iface | string | trim }}
+pgnodemx.network_interface = '{{ iface | string | trim | quote }}'
 {% endfor %}
 
-# Optional: Custom file descriptor limit for pgnodemx (affects how many open files it can track)
-# Set to 0 to use system default (typically /proc/sys/fs/file-max)
-pgnodemx.max_file_descriptors = {{ pgnodemx_max_file_descriptors | default(0) }}
+# --------------------------------------------------------------------------
+# Maximum File Descriptors
+# --------------------------------------------------------------------------
+# Description: Maximum file descriptors pgnodemx may open (0 = use system default).
+# Set higher if monitoring many disks or mounts.
+# Default: 0
+pgnodemx.max_file_descriptors = {{ pgnodemx_max_file_descriptors | default(0) | int }}
 
-# Optional: Log level for pgnodemx internal logging (debug, info, notice, warning, error)
-# Set to 'debug' only for troubleshooting — may produce high log volume
-pgnodemx.log_level = '{{ pgnodemx_log_level }}'
+# --------------------------------------------------------------------------
+# Log Level
+# --------------------------------------------------------------------------
+# Description: Log verbosity for pgnodemx internal messages. Use 'debug' only when troubleshooting.
+# Default: 'warning'
+pgnodemx.log_level = '{{ pgnodemx_log_level | default('warning') | string | trim | lower | quote }}'

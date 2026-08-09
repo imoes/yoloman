@@ -1,90 +1,141 @@
-# Listen address and port for the policyd-weight service
-listen = "{{ listen_addr }}:{{ listen_port }}"
+# =============================================================================
+# policyd-weight Configuration Template
+# =============================================================================
+# This file configures policyd-weight, a Postfix policy daemon for SPF, DNSBL,
+# HELO, sender, and client IP reputation checks, as well as greylisting.
+# =============================================================================
 
-# Maximum number of simultaneous connections
-max_children = {{ max_children }}
+# -----------------------------------------------------------------------------
+# Network Configuration
+# -----------------------------------------------------------------------------
 
-# Log level: 0=quiet, 1=normal, 2=verbose, 3=debug
-log_level = {{ log_level }}
+# IP address the policy daemon listens on. Use 0.0.0.0 to listen on all interfaces.
+listen = "{{ (listen_addr | default('127.0.0.1')) }}:{{ (listen_port | default(12525)) }}"
 
-# Path to the log file
-log_file = "{{ log_file }}"
+# Maximum number of worker processes (concurrent connections) to spawn.
+max_children = {{ (max_children | default(10)) }}
 
-# Enable or disable logging to syslog
-log_syslog = {{ log_syslog | lower }}
+# -----------------------------------------------------------------------------
+# Logging Configuration
+# -----------------------------------------------------------------------------
 
-# Enable or disable chroot operation
-chroot = {{ chroot | lower }}
+# Verbosity level: 0=quiet, 1=normal, 2=verbose, 3=debug.
+log_level = {{ (log_level | default(1)) }}
 
-# Path to the PID file
-pid_file = "{{ pid_file }}"
+# Path to the log file. Set to '-' to log to stdout.
+log_file = "{{ (log_file | default('/var/log/policyd-weight/policyd-weight.log')) }}"
 
-# Delay between checks (in seconds) for stale connections
-connection_timeout = {{ connection_timeout }}
+# Whether to also log to syslog in addition to file.
+log_syslog = {{ log_syslog | default(False) | lower }}
 
-# Enable DNS lookups
-use_dns = {{ use_dns | lower }}
+# -----------------------------------------------------------------------------
+# Daemon Safety & PID
+# -----------------------------------------------------------------------------
 
-# Timeout for DNS lookups (in seconds)
-dns_timeout = {{ dns_timeout }}
+# Whether to chroot the daemon for security isolation.
+chroot = {{ chroot | default(False) | lower }}
 
-# Minimum time (in seconds) between same-source connection attempts
-rate_limit_interval = {{ rate_limit_interval }}
+# Path to store the daemon's process ID (PID) file.
+pid_file = "{{ (pid_file | default('/run/policyd-weight.pid')) }}"
 
-# Maximum connection attempts per source within rate_limit_interval
-max_connections_per_source = {{ max_connections_per_source }}
+# -----------------------------------------------------------------------------
+# Connection & Timeouts
+# -----------------------------------------------------------------------------
 
-# Enable or disable SPF checking
-check_spf = {{ check_spf | lower }}
+# Maximum idle time (in seconds) before a connection is closed.
+connection_timeout = {{ (connection_timeout | default(300)) }}
 
-# Enable or disable DNSBL (blacklist) checking
-check_dnsbl = {{ check_dnsbl | lower }}
+# Enable DNS lookups (required for SPF, DNSBL, and HELO checks).
+use_dns = {{ use_dns | default(True) | lower }}
 
-# Enable or disable HELO/EHLO reputation checks
-check_helo = {{ check_helo | lower }}
+# Maximum time (in seconds) to wait for a DNS response.
+dns_timeout = {{ (dns_timeout | default(5)) }}
 
-# Enable or disable sender address reputation checks
-check_sender = {{ check_sender | lower }}
+# -----------------------------------------------------------------------------
+# Rate Limiting Configuration
+# -----------------------------------------------------------------------------
 
-# Enable or disable client IP reputation checks
-check_client_ip = {{ check_client_ip | lower }}
+# Time window (in seconds) over which connections are counted for rate limiting.
+rate_limit_interval = {{ (rate_limit_interval | default(60)) }}
 
-# Enable or disable greylisting
-use_greylist = {{ use_greylist | lower }}
+# Maximum connections allowed per source IP within rate_limit_interval.
+max_connections_per_source = {{ (max_connections_per_source | default(5)) }}
 
-# Greylist delay (in seconds)
-greylist_delay = {{ greylist_delay }}
+# -----------------------------------------------------------------------------
+# Reputation Checks Configuration
+# -----------------------------------------------------------------------------
 
-# Greylist expiry (in seconds)
-greylist_expiry = {{ greylist_expiry }}
+# Enable Sender Policy Framework (SPF) validation.
+check_spf = {{ check_spf | default(True) | lower }}
 
-# Path to the greylist database
-greylist_db_path = "{{ greylist_db_path }}"
+# Enable Real-time Blackhole List (DNSBL) lookups.
+check_dnsbl = {{ check_dnsbl | default(True) | lower }}
 
-# Path to the DNSBL configuration file (one entry per line: host,tcode,rcode)
-dnsbl_conf = "{{ dnsbl_conf }}"
+# Check HELO/EHLO hostname reputation (e.g., IP vs hostname match).
+check_helo = {{ check_helo | default(True) | lower }}
 
-# Path to the SPF configuration file (optional)
-spf_conf = "{{ spf_conf }}"
+# Check sender domain reputation and format.
+check_sender = {{ check_sender | default(True) | lower }}
 
-# Path to the HELO configuration file (optional)
-helo_conf = "{{ helo_conf }}"
+# Check client IP address reputation.
+check_client_ip = {{ check_client_ip | default(True) | lower }}
 
-# Path to the sender configuration file (optional)
-sender_conf = "{{ sender_conf }}"
+# -----------------------------------------------------------------------------
+# Greylisting Configuration
+# -----------------------------------------------------------------------------
 
-# Path to the client IP configuration file (optional)
-client_ip_conf = "{{ client_ip_conf }}"
+# Enable greylisting: temporarily reject first-time senders.
+use_greylist = {{ use_greylist | default(True) | lower }}
 
-# Permitted senders (comma-separated list of domains or IPs)
-permitted_senders = [ {{- permitted_senders | map("quote") | join(", ") -}} ]
+# Minimum delay (in seconds) before accepting a retried connection.
+greylist_delay = {{ (greylist_delay | default(300)) }}
 
-# Permitted clients (comma-separated list of domains or IPs)
-permitted_clients = [ {{- permitted_clients | map("quote") | join(", ") -}} ]
+# Time (in seconds) after which a greylisted entry is removed.
+greylist_expiry = {{ (greylist_expiry | default(2592000)) }}
 
-# Weight adjustments for matched rules (applied in order)
-# Each entry defines a condition and its weight penalty/bonus
-{% for rule in weight_rules %}
-# {{ rule.description | default('Weight rule') }}
+# Path to the SQLite database storing greylisting entries.
+greylist_db_path = "{{ (greylist_db_path | default('/var/lib/policyd-weight/greylist.db')) }}"
+
+# -----------------------------------------------------------------------------
+# External Configuration Files
+# -----------------------------------------------------------------------------
+
+# Path to the DNSBL configuration file (host,rcode,reason format).
+dnsbl_conf = "{{ (dnsbl_conf | default('/etc/postfix-policyd-weight/dnsbl.conf')) }}"
+
+# Path to optional SPF rules file.
+spf_conf = "{{ (spf_conf | default('/etc/postfix-policyd-weight/spf.conf')) }}"
+
+# Path to optional HELO rules file.
+helo_conf = "{{ (helo_conf | default('/etc/postfix-policyd-weight/helo.conf')) }}"
+
+# Path to optional sender rules file.
+sender_conf = "{{ (sender_conf | default('/etc/postfix-policyd-weight/sender.conf')) }}"
+
+# Path to optional client IP rules file.
+client_ip_conf = "{{ (client_ip_conf | default('/etc/postfix-policyd-weight/client_ip.conf')) }}"
+
+# -----------------------------------------------------------------------------
+# Permitted Sources (Exemptions)
+# -----------------------------------------------------------------------------
+
+# List of domains or IPs that are exempt from all checks (e.g., internal mail servers).
+permitted_senders = [ {{ (permitted_senders | default([]) | map("quote") | join(", ")) }} ]
+
+# List of client IPs exempt from rate limiting and greylisting.
+permitted_clients = [ {{ (permitted_clients | default([]) | map("quote") | join(", ")) }} ]
+
+# -----------------------------------------------------------------------------
+# Weight Rules
+# -----------------------------------------------------------------------------
+
+# List of weight adjustment rules. Each rule adds or subtracts from the sender’s score.
+# Each rule object typically contains 'name', 'weight', and optionally 'condition' or 'description'.
+{% for rule in (weight_rules | default([])) %}
+# Rule: {{ rule.name | default('unnamed') }}
+# Description: {{ rule.description | default('No description provided') }}
+# Weight: {{ rule.weight | default(0) }}
+# Condition: {{ rule.condition | default('always') }}
 {{ rule.name }} = {{ rule.weight }}{% if rule.condition %} # if {{ rule.condition }}{% endif %}
+
 {% endfor %}

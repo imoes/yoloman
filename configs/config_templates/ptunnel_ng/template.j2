@@ -1,72 +1,55 @@
-# ptunnel-ng configuration file (next-gen)
-# This config defines tunnel endpoints, ICMP behavior, and security.
+# ptunnel-ng configuration file
+# Self-documenting template: every directive includes its default value inline
+# to prevent render failures if the variable is undefined.
 
-# Daemon mode: run as background process (true/false)
-{% if daemon %}
-daemon = true
-{% else %}
-daemon = false
+# Run ptunnel-ng as a background daemon process.
+# Default: False (run in foreground)
+daemon = {{ daemon | default(False) | ternary('true', 'false') }}
+
+# Logging verbosity: 0=errors only, 1=warnings, 2=info (default), 3=debug.
+# Default: 2
+log_level = {{ log_level | default(2) }}
+
+# Path to log file. Leave blank to log to stderr.
+# If the variable is undefined or empty, the directive is omitted.
+{% if log_file | default('', true) %}
+log_file = {{ log_file | default('', true) }}
 {% endif %}
 
-# Log level: 0=error, 1=warn, 2=info, 3=debug
-log_level = {{ log_level }}
+# Remote server IP or hostname to connect to.
+# Default: localhost
+dst_host = {{ dst_host | default('localhost') }}
 
-# Log file path (leave empty to log to stderr)
-{% if log_file %}
-log_file = {{ log_file }}
+# Remote server port to connect to.
+# Default: 22
+dst_port = {{ dst_port | default(22) }}
+
+# Network interface to bind to (e.g., 'eth0'). Auto-detected if blank.
+# If the variable is undefined or empty, the directive is omitted.
+{% if src_interface | default('', true) %}
+src_interface = {{ src_interface | default('', true) }}
 {% endif %}
 
-# ICMP ping timeout in milliseconds
-ping_timeout = {{ ping_timeout }}
+# Local address to bind the TCP proxy to.
+# Default: 127.0.0.1
+listen_addr = {{ listen_addr | default('127.0.0.1') }}
 
-# ICMP echo reply timeout in milliseconds (max wait for reply)
-reply_timeout = {{ reply_timeout }}
+# Local TCP port where applications connect to use the tunnel.
+# Default: 8080
+listen_port = {{ listen_port | default(8080) }}
 
-# Maximum number of concurrent ICMP echo requests
-max_echo_requests = {{ max_echo_requests }}
+# IP address of the remote ptunnel-ng daemon (ICMP target).
+# Default: 192.168.1.100
+remote_ip = {{ remote_ip | default('192.168.1.100') }}
 
-# Maximum ICMP payload size (bytes)
-max_icmp_payload = {{ max_icmp_payload }}
-
-# Source interface for sending packets (e.g., 'eth0'); empty = auto-detect
-{% if src_interface %}
-src_interface = {{ src_interface }}
+# Shared secret for authentication. Must match on client and server.
+# If the variable is undefined or empty, the directive is omitted.
+{% if shared_key | default('', true) %}
+shared_key = {{ shared_key | default('', true) }}
 {% endif %}
 
-# Local proxy address (bind address for listening TCP connections)
-{% if listen_addr %}
-listen_addr = {{ listen_addr }}
-{% else %}
-listen_addr = 127.0.0.1
-{% endif %}
-
-# Local proxy port (TCP port to listen on for inbound connections)
-listen_port = {{ listen_port }}
-
-# Destination host (remote server IP or hostname)
-dst_host = {{ dst_host }}
-
-# Destination ICMP echo handler (remote ptunnel-ng daemon IP)
-dst_icmp = {{ dst_icmp }}
-
-# Optional: Use authenticated ICMP (requires matching pre-shared key)
-{% if auth_key %}
-auth_key = {{ auth_key }}
-{% endif %}
-
-# Optional: Tunnel multiple TCP ports via a single ICMP stream (list of port mappings)
-{% for mapping in port_mappings %}
-# Map local port {{ mapping.local_port }} to remote host {{ mapping.remote_host }}:{{ mapping.remote_port }}
-port_map = {{ mapping.local_port }} {{ mapping.remote_host }} {{ mapping.remote_port }}
-{% endfor %}
-
-# Optional: Restrict access to specific source IP(s) (CIDR or IP)
-{% for allowed_source in allowed_sources %}
-# Allow ICMP echo requests only from {{ allowed_source }}
-allow_from = {{ allowed_source }}
-{% endfor %}
-
-# Optional: Disable strict ICMP ID checking (for broken NATs or firewalls)
-{% if relax_icmp_id %}
-relax_icmp_id = true
+# Local port for the client side of the tunnel. If 0, auto-assigned.
+# If the variable is 0 or undefined, the directive is omitted.
+{% if local_port | default(0) != 0 %}
+local_port = {{ local_port | default(0) }}
 {% endif %}

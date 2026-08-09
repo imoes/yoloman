@@ -1,46 +1,75 @@
-# Default LDAP server URI(s); space-separated for fallback or load balancing
-URI {{ uri | join(' ') }}
+# ==============================================================================
+# OpenLDAP Client Utilities Configuration (/etc/ldap/ldap.conf)
+# This template generates a self-documenting, safe configuration for openldap-utils.
+# Every directive is commented with its schema description and uses safe defaults.
+# ==============================================================================
 
-# Default LDAP base DN for commands that omit -b
-BASE {{ base_dn }}
+# LDAP server URIs. Supports multiple space-separated values for redundancy/failover.
+# Schema field: uri (list of strings)
+# Default: ['ldap://ldap.example.com']
+URI {{ uri | default(['ldap://ldap.example.com']) | join(' ') }}
 
-# Path to certificate authority (CA) certificate(s) for TLS verification
-# If empty, system CA store is used
-TLS_CACERT {{ cacert_path | default('', true) }}
+# Default base distinguished name (DN) for LDAP searches and operations.
+# Used when no -b option is specified on the command line.
+# Schema field: base_dn (string)
+# Default: 'dc=example,dc=com'
+BASE {{ base_dn | default('dc=example,dc=com') }}
 
-# Path to client certificate for mutual TLS (optional)
-TLS_CERT {{ client_cert | default('', true) }}
+# Path to CA certificate file for TLS verification.
+# If empty, the system default CA store is used.
+# Schema field: cacert_path (string)
+# Default: ''
+TLS_CACERT {{ cacert_path | default('') }}
 
-# Path to client private key for mutual TLS (optional)
-TLS_KEY {{ client_key | default('', true) }}
+# Path to client certificate file for mutual TLS (optional).
+# Leave empty to disable client certificate authentication.
+# Schema field: client_cert (string)
+# Default: ''
+TLS_CERT {{ client_cert | default('') }}
 
-# TLS protocol version(s) to allow (e.g., '0x0303' for TLS 1.2)
-TLS_PROTOCOL_MIN {{ tls_protocol_min | default('', true) }}
+# Path to client private key file for mutual TLS (optional).
+# Must match the client_cert if specified.
+# Schema field: client_key (string)
+# Default: ''
+TLS_KEY {{ client_key | default('') }}
 
-# Require certificate verification (on/off); 'demand' = strict, 'allow' = optional
+# Minimum TLS protocol version to allow (hex string).
+# Empty string uses the system default. Example: '0x0303' for TLS 1.2.
+# Schema field: tls_protocol_min (string)
+# Default: ''
+TLS_PROTOCOL_MIN {{ tls_protocol_min | default('') }}
+
+# Server certificate verification policy.
+# Options: never, allow, try, demand. 'demand' is strictest.
+# Schema field: reqcert (string)
+# Default: 'demand'
 TLS_REQCERT {{ reqcert | default('demand') }}
 
-# Default time limit (seconds) for search operations
-TIMELIMIT {{ search_timelimit }}
+# Maximum time in seconds allowed for search operations.
+# 0 indicates no limit.
+# Schema field: search_timelimit (int)
+# Default: 30
+TIMELIMIT {{ search_timelimit | default(30) }}
 
-# Default size limit (entries) for search operations
-SIZELIMIT {{ search_sizelimit }}
+# Maximum number of entries returned by a search operation.
+# 0 indicates no limit.
+# Schema field: search_sizelimit (int)
+# Default: 100
+SIZELIMIT {{ search_sizelimit | default(100) }}
 
-# Default referral chasing (on/off)
-REFERRALS {{ referrals | string | lower }}
+# Automatically chase referrals to other LDAP servers.
+# 'yes' or 'no'.
+# Schema field: referrals (bool)
+# Default: True
+REFERRALS {{ referrals | default(true) | ternary('yes', 'no') }}
 
-# Default bind method (e.g., 'simple', 'sasl')
-# Not commonly set globally — usually passed at CLI
-# BINDMETHOD {{ bindmethod | default('simple') }}
+# Debug verbosity level for logging.
+# Range: 0-7. 0 = no debug, 7 = maximum detail.
+# Schema field: debug_level (int)
+# Default: 0
+DEBUG {{ debug_level | default(0) }}
 
-# Default SASL mechanism (if BINDMETHOD=sasl)
-# SASL_MECH {{ sasl_mech | default('', true) }}
-
-# Log level for debugging (0–7; 0 = no debug)
-DEBUG {{ debug_level }}
-
-# Network timeout for connection establishment (seconds)
-NETWORK_TIMEOUT {{ network_timeout }}
-
-# Enable StartTLS negotiation (on/off)
-# STARTTLS {{ starttls | string | lower }}
+# Seconds to wait for a network connection before timing out.
+# Schema field: network_timeout (int)
+# Default: 10
+NETWORK_TIMEOUT {{ network_timeout | default(10) }}

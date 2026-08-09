@@ -1,0 +1,39 @@
+{
+  "provides": [
+    {
+      "capability": "mail_smtp",
+      "backends": [
+        "postfix",
+        "exim",
+        "sendmail"
+      ],
+      "port_field": "bind_port",
+      "default_port": 8893
+    }
+  ],
+  "requires": [
+    {
+      "capability": "dns_resolver",
+      "backends": [
+        "dnsmasq",
+        "unbound",
+        "systemd-resolved",
+        "bind9"
+      ],
+      "backend_field": null,
+      "fields": {
+        "host": null,
+        "port": null
+      }
+    }
+  ],
+  "peer_injection": [
+    {
+      "capability": "mail_smtp",
+      "field": "bind_port",
+      "kind": "milter_socket",
+      "items_style": "scalar"
+    }
+  ],
+  "confidence": "high"
+}

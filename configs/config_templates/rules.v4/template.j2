@@ -1,47 +1,93 @@
-# IPv4 rules for iptables (managed by netfilter-persistent)
+# ===========================================================================
+# iptables IPv4 filter rules (netfilter-persistent)
+# Managed as a Jinja2 template. See schema for every variable's purpose.
+# ===========================================================================
 *filter
+
+# Default policies — deny inbound and forwarded traffic, allow outbound.
+# INPUT: default policy for all incoming packets (DROP = deny).
 :INPUT DROP [0:0]
+# FORWARD: default policy for routed packets (DROP = deny).
 :FORWARD DROP [0:0]
+# OUTPUT: default policy for all outgoing packets (ACCEPT = allow).
 :OUTPUT ACCEPT [0:0]
 
-# Allow loopback interface
+# ---------------------------------------------------------------------------
+# Loopback interface
+# Allow all traffic on the local loopback interface (lo) so local
+# services can communicate with each other.
+# ---------------------------------------------------------------------------
 -A INPUT -i lo -j ACCEPT
 
-# Allow established and related connections
+# ---------------------------------------------------------------------------
+# Stateful inspection
+# Allow packets that belong to already-established or related connections.
+# This is essential for response traffic of outbound connections.
+# ---------------------------------------------------------------------------
 -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-# Allow SSH (configure port dynamically)
--A INPUT -p tcp --dport {{ ssh_port }} -m conntrack --ctstate NEW -j ACCEPT
+# ---------------------------------------------------------------------------
+# SSH access
+# Allow new TCP connections to the SSH daemon on the configured port.
+# ssh_port: Port number for SSH access. Recommended: 22 (or a non-standard port for security hardening).
+# ---------------------------------------------------------------------------
+-A INPUT -p tcp --dport {{ ssh_port | default(22) }} -m conntrack --ctstate NEW -j ACCEPT
 
-# Allow HTTP/HTTPS
-{% if http_enabled %}
+# ---------------------------------------------------------------------------
+# HTTP access (port 80)
+# http_enabled: Enable HTTP (port 80) access to the server.
+# ---------------------------------------------------------------------------
+{% if http_enabled | default(false) %}
 -A INPUT -p tcp --dport 80 -m conntrack --ctstate NEW -j ACCEPT
 {% endif %}
-{% if https_enabled %}
+
+# ---------------------------------------------------------------------------
+# HTTPS access (port 443)
+# https_enabled: Enable HTTPS (port 443) access to the server.
+# ---------------------------------------------------------------------------
+{% if https_enabled | default(true) %}
 -A INPUT -p tcp --dport 443 -m conntrack --ctstate NEW -j ACCEPT
 {% endif %}
 
-# Allow ICMP ping (optional)
-{% if icmp_enabled %}
+# ---------------------------------------------------------------------------
+# ICMP echo-request (ping)
+# icmp_enabled: Allow ICMP echo requests (ping). Useful for diagnostics;
+#               disable if not needed.
+# ---------------------------------------------------------------------------
+{% if icmp_enabled | default(false) %}
 -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
 {% endif %}
 
-# Custom rules: per service
-{% for service in services %}
-# {{ service.name }}: {{ service.description | default('custom service') }}
+# ---------------------------------------------------------------------------
+# Custom service rules
+# services: List of custom services to allow. Each entry defines a service
+#           name, protocol, and port/icmp rule.
+# Iterates over the list and emits a rule per entry.
+# ---------------------------------------------------------------------------
+{% for service in services | default([]) %}
+# {{ service.name | default('unnamed') }}: {{ service.description | default('custom service') }}
 {% if service.protocol == 'tcp' %}
--A INPUT -p tcp --dport {{ service.port }} -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p tcp --dport {{ service.port | default(0) }} -m conntrack --ctstate NEW -j ACCEPT
 {% elif service.protocol == 'udp' %}
--A INPUT -p udp --dport {{ service.port }} -m conntrack --ctstate NEW -j ACCEPT
+-A INPUT -p udp --dport {{ service.port | default(0) }} -m conntrack --ctstate NEW -j ACCEPT
 {% elif service.protocol == 'icmp' %}
--A INPUT -p icmp --icmp-type {{ service.icmp_type }} -j ACCEPT
+-A INPUT -p icmp --icmp-type {{ service.icmp_type | default('echo-request') }} -j ACCEPT
 {% endif %}
 {% endfor %}
 
+# ---------------------------------------------------------------------------
 # Log dropped packets (optional)
-{% if log_dropped %}
+# log_dropped: Log dropped packets via kernel logging (syslog). Enable for
+#              debugging; may generate high log volume.
+# ---------------------------------------------------------------------------
+{% if log_dropped | default(false) %}
 -A INPUT -j LOG --log-prefix "IPTABLES_DROPPED: " --log-level 4
 {% endif %}
 
+# ---------------------------------------------------------------------------
+# Final drop rule (implicit default policy already handles it, but kept for
+# explicitness and auditability).
+# ---------------------------------------------------------------------------
 -A INPUT -j DROP
+
 COMMIT

@@ -1,26 +1,57 @@
+# Syslog configuration template
+# This template configures rsyslog or syslog-ng style basic routing.
+# Variables are safely defaulted to preserve the original behavior when not provided.
+
+# ===========================================================================
+# Global Logging Targets
+# ===========================================================================
+
 # Global logging facility/level targets
+# Default: All facilities at any severity go to /var/log/syslog
 *.*           /var/log/syslog
 
 # Kernel messages
+# Default: Kernel messages go to /var/log/kern.log
 kern.*        /var/log/kern.log
 
 # Daemon messages
+# Default: Daemon messages go to /var/log/daemon.log
 daemon.*      /var/log/daemon.log
 
 # Mail system events
+# Default: Mail system logs go to /var/log/mail.log
 mail.*        /var/log/mail.log
 
 # Cron jobs
+# Default: Cron logs go to /var/log/cron.log
 cron.*        /var/log/cron.log
 
 # Auth (security) messages
+# Default: Authentication logs go to /var/log/auth.log
 auth,authpriv.* /var/log/auth.log
 
 # Log all emergency messages to all users
+# Default: Emergency messages are broadcast to all logged-in users (*)
 *.emerg       *
 
+# ===========================================================================
+# Remote Syslog Forwarding
+# ===========================================================================
+
 # Remote logging server (optional)
-{% if syslog_server %}*.* @{{ syslog_server }}{% endif %}
+# If syslog_server is provided, forward ALL logs to it using UDP (@).
+# Default: syslog_server is empty, so this block is skipped.
+{% if (syslog_server | default('')) %}
+*.* @{{ syslog_server | default('') }}
+{% endif %}
+
+# ===========================================================================
+# Custom Logging Rules
+# ===========================================================================
 
 # Local logging overrides
-{% for rule in custom_rules %}{{ rule.facility }}.{{ rule.level }}        {{ rule.target }}{% endfor %}
+# Iterate over custom_rules to append facility.level target mappings.
+# Default: custom_rules is an empty list, so no custom rules are added.
+{% for rule in (custom_rules | default([])) %}
+{{ (rule.facility | default('local0')) }}.{{ (rule.level | default('info')) }}        {{ (rule.target | default('/var/log/custom.log')) }}
+{% endfor %}

@@ -12,18 +12,25 @@
 
 ### BEGIN USER CONFIGURATION
 
-CONF="/etc/patroni/postgres.yml"
-LOGFILE="/var/log/patroni.log"
-USER="postgres"
-GROUP="postgres"
+# Path to the Patroni configuration file (YAML)
+CONF="{{ patroni_conf_path | default('/etc/patroni/postgres.yml') }}"
+
+# Path to the Patroni log file
+LOGFILE="{{ patroni_logfile_path | default('/var/log/patroni.log') }}"
+
+# Unix user running Patroni
+USER="{{ patroni_user | default('postgres') }}"
+
+# Unix group running Patroni
+GROUP="{{ patroni_group | default('postgres') }}"
 
 NAME=patroni
 PATRONI="/usr/bin/$NAME"
 PIDFILE="/var/run/$NAME.pid"
 
 # Set this parameter, if you have several Postgres versions installed
-# POSTGRES_VERSION="9.4"
-POSTGRES_VERSION=""
+# Explicit PostgreSQL version to use for PGPATH (e.g. '14'). Leave empty to auto-detect via postgresql-common.
+POSTGRES_VERSION="{{ patroni_postgres_version | default('') }}"
 
 ### END USER CONFIGURATION
 
@@ -69,7 +76,7 @@ prepare_pgpath() {
     if echo $versions | grep -q -e "\s"; then
       log_warning_msg "You have several Postgres versions installed. Please, use POSTGRES_VERSION to define correct environment."
     else
-      versions=`echo $versions | sed -e 's/^[ 	]*//'`
+      versions=`echo $versions | sed -e 's/^[ \t]*//'`
       PGPATH="/usr/lib/postgresql/$versions/bin"
     fi
   fi

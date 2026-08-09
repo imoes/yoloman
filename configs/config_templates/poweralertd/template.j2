@@ -1,62 +1,125 @@
-# Power Alert Daemon main configuration file
-# Controls battery monitoring and alerting behavior
-# Set the log level: debug, info, warning, error
-log_level: {{ log_level }}
+# Power Alert Daemon configuration file
+#
+# This file configures the poweralertd daemon, which monitors battery devices
+# and triggers notifications or alerts based on configurable thresholds.
 
-# Path to the PID file
-pid_file: {{ pid_file }}
+# ==============================================================================
+# General Settings
+# ==============================================================================
 
-# Enable/disable automatic detection of new battery devices
-auto_detect: {{ auto_detect | lower }}
+# Verbosity of logging; choose from debug, info, warning, error
+# Default: info
+log_level: {{ log_level | default('info') }}
 
-# Path to the notification script (called on battery status change)
-notification_script: {{ notification_script }}
+# Path to store the daemon's PID file
+# Default: /run/poweralertd/poweralertd.pid
+pid_file: {{ pid_file | default('/run/poweralertd/poweralertd.pid') }}
 
-# Maximum time (in seconds) between battery polls
-tick_interval: {{ tick_interval }}
+# Enable automatic detection and monitoring of newly connected battery devices
+# Default: true
+auto_detect: {{ auto_detect | default(true) | lower }}
 
-# Minimum battery level (percentage) that triggers a warning
-warning_threshold: {{ warning_threshold }}
+# Path to script invoked on battery status changes
+# Receives device name, status, and % capacity as arguments
+# Default: /usr/local/bin/poweralert-notify.sh
+notification_script: {{ notification_script | default('/usr/local/bin/poweralert-notify.sh') }}
 
-# Minimum battery level (percentage) that triggers a critical alert
-critical_threshold: {{ critical_threshold }}
+# Number of seconds between battery status polls
+# Default: 60
+tick_interval: {{ tick_interval | default(60) }}
 
-# Battery device patterns to monitor (supports glob-style wildcards)
-{% for pattern in battery_device_patterns %}
+# Battery percentage at or below which a 'warning' alert is triggered
+# Default: 20
+warning_threshold: {{ warning_threshold | default(20) }}
+
+# Battery percentage at or below which a 'critical' alert is triggered
+# Default: 10
+critical_threshold: {{ critical_threshold | default(10) }}
+
+# ==============================================================================
+# Device Filtering
+# ==============================================================================
+
+# Glob-style patterns to identify battery devices (e.g., BAT0, BAT1)
+# Leave empty or undefined to auto-detect all available batteries
+# Default: ['BAT[0-9]*']
+{% for pattern in battery_device_patterns | default(['BAT[0-9]*']) %}
 battery_pattern: {{ pattern }}
 {% endfor %}
 
-# Excluded device names (exact match)
-{% for excluded in excluded_devices %}
+# List of exact battery device names to ignore (e.g., BAT1 for secondary battery)
+# Default: []
+{% for excluded in excluded_devices | default([]) %}
 exclude_device: {{ excluded }}
 {% endfor %}
 
-# Notification options (applied when script is invoked)
-# - First argument: battery device name
-# - Second argument: status (normal|warning|critical|unknown)
-# - Third argument: remaining capacity percentage
-notification_timeout: {{ notification_timeout }}
+# ==============================================================================
+# Notification Options
+# ==============================================================================
 
-# SMTP server configuration (if email alerts enabled)
-{% if smtp_enabled %}
-smtp_server: {{ smtp_server }}
-smtp_port: {{ smtp_port }}
-smtp_user: {{ smtp_user }}
-smtp_password: {{ smtp_password }}
-smtp_from: {{ smtp_from }}
-smtp_to: {{ smtp_to | join(', ') }}
-smtp_use_tls: {{ smtp_use_tls | lower }}
+# Seconds to wait for the notification script before timing out
+# Default: 10
+notification_timeout: {{ notification_timeout | default(10) }}
+
+# ==============================================================================
+# Email Alerts (SMTP)
+# ==============================================================================
+
+# Enable email alerts via SMTP
+# Default: false
+# When enabled, the following SMTP settings are applied.
+{% if smtp_enabled | default(false) | bool %}
+# SMTP server hostname (used only if email alerts enabled)
+# Default: smtp.example.com
+smtp_server: {{ smtp_server | default('smtp.example.com') }}
+
+# SMTP server port
+# Default: 587
+smtp_port: {{ smtp_port | default(587) }}
+
+# SMTP username (leave blank for unauthenticated SMTP)
+# Default: ''
+smtp_user: {{ smtp_user | default('') }}
+
+# SMTP password (leave blank if no authentication)
+# Default: ''
+smtp_password: {{ smtp_password | default('') }}
+
+# Sender email address
+# Default: poweralert@example.com
+smtp_from: {{ smtp_from | default('poweralert@example.com') }}
+
+# List of recipient email addresses
+# Default: ['admin@example.com']
+smtp_to: {{ smtp_to | default(['admin@example.com']) | join(', ') }}
+
+# Use TLS encryption for SMTP connection
+# Default: true
+smtp_use_tls: {{ smtp_use_tls | default(true) | lower }}
 {% endif %}
 
-# Webhook configuration (if webhooks enabled)
-{% if webhooks_enabled %}
-{% for webhook in webhooks %}
+# ==============================================================================
+# Webhook Alerts
+# ==============================================================================
+
+# Enable HTTP webhook alerts
+# Default: false
+# When enabled, the daemon will POST status changes to the configured webhooks.
+{% if webhooks_enabled | default(false) | bool %}
+{% for webhook in webhooks | default([]) %}
+# Webhook endpoint URL
 webhook_url: {{ webhook.url }}
+
+# HTTP method to use (e.g., POST)
 webhook_method: {{ webhook.method }}
+
+# Timeout for the webhook request in seconds
 webhook_timeout: {{ webhook.timeout }}
+
+# Custom headers to include with the webhook request
 webhook_headers:
-{% for header, value in webhook.headers.items() %}
-  {{ header }}: {{ value }}
+{% for header in webhook.headers | default({}) | dict2items %}
+  {{ header.key }}: {{ header.value }}
 {% endfor %}
 {% endfor %}
 {% endif %}

@@ -1,93 +1,159 @@
+# Osmo GGSN (Gateway GPRS Support Node) Configuration
+# This template generates the configuration file for osmo-ggsn, part of the Osmocom
+# mobile core network suite. It manages GTP tunneling, IP allocation for subscribers,
+# and signaling via GSUP to the HLR/HLR.
+
+! Logging configuration
+# Send logs to stderr for debugging or container stdout
 log stderr
+# Persistent log file path
 log file /var/log/osmocom/osmo-ggsn.log
 
-! Global settings
-! GGSN identity and context for logging/mgmt
-id ggsn 1
-! IP address of the GGSN for GTP-U/GTP-C (must be reachable by SGSNs)
-gtp0 local-ip {{ gtp0_local_ip }}
-gtp0 remote-ip {{ gtp0_remote_ip }}
+! -----------------------------------------------------------------------------
+! GTP0 Interface Definition
+! Defines the local interface and IP bindings for GTP-C and GTP-U traffic.
+! -----------------------------------------------------------------------------
 
-! VTY/CLI access — bind to localhost by default; change for remote management
+# Network interface used for GTP0 traffic (e.g., 'eth0' or a dedicated 'gtp0' veth)
+{% if gtp0_interface | default('eth0') != '' %}
+gtp0 interface {{ gtp0_interface | default('eth0') }}
+{% endif %}
+
+# Local IP address used by the GGSN for GTP-C/GTP-U.
+# Must be reachable by connected SGSNs.
+gtp0 local-ip {{ gtp0_local_ip | default('10.88.0.1') }}
+
+# Remote GTP endpoint IP (e.g., SGSN IP).
+# Often left as 0.0.0.0 to accept connections from any peer, or set to a specific SGSN.
+gtp0 remote-ip {{ gtp0_remote_ip | default('0.0.0.0') }}
+
+! -----------------------------------------------------------------------------
+! VTY / CLI Management Interface
+! Provides remote command-line access via telnet or ssh (using vtysh).
+! -----------------------------------------------------------------------------
+
 vtl vty
- bind {{ vty_bind_addr }}
- port {{ vty_port }}
+ # IP address for the VTY/CLI management interface
+ bind {{ vty_bind_addr | default('127.0.0.1') }}
+ # TCP port for the VTY/CLI management interface
+ port {{ vty_port | default(4242) }}
 
-! GSUP interface — connects to HLR (e.g., osmo-hlr or osmo-msc)
+! -----------------------------------------------------------------------------
+! GSUP Server Configuration
+# GSUP (Generic Subscriber Update Protocol) connects this GGSN to the HLR/HLR
+# (e.g., osmo-hlr or osmo-msc) for subscriber data updates.
+! -----------------------------------------------------------------------------
+
 gsup server
- local-ip {{ gsup_local_ip }}
- local-port {{ gsup_local_port }}
- remote-ip {{ gsup_remote_ip }}
- remote-port {{ gsup_remote_port }}
+ # Local IP for the GSUP server interface
+ local-ip {{ gsup_local_ip | default('127.0.0.1') }}
+ # Local port for the GSUP server
+ local-port {{ gsup_local_port | default(4222) }}
+ # Remote GSUP peer IP (e.g., HLR or MSC)
+ remote-ip {{ gsup_remote_ip | default('127.0.0.1') }}
+ # Remote GSUP peer port
+ remote-port {{ gsup_remote_port | default(4222) }}
 
-! IP pool definitions — each pool corresponds to a subscriber APN
-{% for pool in ip_pools %}
+! -----------------------------------------------------------------------------
+! IP Pool Definitions
+# Each IP pool corresponds to a specific APN and provides addresses to subscribers.
+! -----------------------------------------------------------------------------
+
+{% for pool in ip_pools | default([]) %}
 ip pool {{ pool.name }}
+ # Subnet for this pool
  {{ pool.subnet }}
+ # Default gateway for the pool
  gateway {{ pool.gateway }}
- dns1 {{ pool.dns1 | default('0.0.0.0') | default('') | trim if pool.dns1 | length > 0 else '' }}
- dns2 {{ pool.dns2 | default('') | trim if pool.dns2 | length > 0 else '' }}
-{% if pool.sntp %}
+# DNS Server 1 (only if provided)
+{% if pool.dns1 | default('') != '' %}
+ dns1 {{ pool.dns1 }}
+{% endif %}
+# DNS Server 2 (only if provided)
+{% if pool.dns2 | default('') != '' %}
+ dns2 {{ pool.dns2 }}
+{% endif %}
+# SNTP Server (optional)
+{% if pool.sntp | default('') != '' %}
  sntp {{ pool.sntp }}
 {% endif %}
-{% if pool.wins1 %}
+# WINS Server 1 (optional)
+{% if pool.wins1 | default('') != '' %}
  wins1 {{ pool.wins1 }}
 {% endif %}
-{% if pool.wins2 %}
+# WINS Server 2 (optional)
+{% if pool.wins2 | default('') != '' %}
  wins2 {{ pool.wins2 }}
 {% endif %}
 {% endfor %}
 
-! APN definitions — each APN ties a pool and SGW/PGW context
-{% for apn in apns %}
+! -----------------------------------------------------------------------------
+! APN Definitions
+# Each APN ties a logical network name to an IP pool and optional QoS/PCO settings.
+! -----------------------------------------------------------------------------
+
+{% for apn in apns | default([]) %}
 apn {{ apn.name }}
+ # Reference to the IP pool defined above
  ip-pool {{ apn.pool_name }}
-{% if apn.type %}
+# APN Type (optional, e.g., 'ipv4', 'ipv6', 'ipv4v6')
+{% if apn.type | default('') != '' %}
  type {{ apn.type }}
 {% endif %}
-{% if apn.qos %}
+# QoS profile (optional)
+{% if apn.qos | default('') != '' %}
  qos {{ apn.qos }}
 {% endif %}
-{% if apn.pco %}
+# Protocol Configuration Options (optional)
+{% if apn.pco | default('') != '' %}
  pco {{ apn.pco }}
 {% endif %}
 {% endfor %}
 
-! GPRS routing area (optional, used for inter-SGSN routing)
-{% if gprs_ran %}
+! -----------------------------------------------------------------------------
+! GPRS Routing Area Identity (RAN)
+# Optional but recommended for inter-SGSN handover.
+# Identifies the Routing Area within the PLMN.
+! -----------------------------------------------------------------------------
+
+{% if gprs_ran is defined and gprs_ran is not none %}
 rann {{ gprs_ran.mcc }} {{ gprs_ran.mnc }} {{ gprs_ran.lac }} {{ gprs_ran.rac }}
 {% endif %}
 
-! SGSN peers — typically one per SGSN in the network
-{% for peer in sgsn_peers %}
+! -----------------------------------------------------------------------------
+! SGSN Peers
+# Defines one or more SGSN peers. Typically one entry per SGSN in the network.
+! -----------------------------------------------------------------------------
+
+{% for peer in sgsn_peers | default([]) %}
 sgsn
+ # Peer SGSN IP address
  peer-ip {{ peer.ip }}
+ # Peer SGSN GTP port (default 2123)
  peer-port {{ peer.port | default(2123) }}
-{% if peer.local_ip %}
+# Local IP for this SGSN session (optional)
+{% if peer.local_ip | default('') != '' %}
  local-ip {{ peer.local_ip }}
 {% endif %}
-{% if peer.local_port %}
+# Local GTP port for this SGSN session (default 2123)
+{% if peer.local_port is defined %}
  local-port {{ peer.local_port | default(2123) }}
 {% endif %}
-{% if peer.apn %}
+# APN associated with this SGSN peer (optional)
+{% if peer.apn | default('') != '' %}
  apn {{ peer.apn }}
 {% endif %}
-{% if peer.tft %}
+# Traffic Filter Templates (optional)
+{% if peer.tft | default('') != '' %}
  tft {{ peer.tft }}
 {% endif %}
 {% endfor %}
 
-! SGW/PGW interface — GTP-C port 2152 for S5/S8 (if used with EPC core)
-{% if s5_s8_enabled %}
-gtp0 interface {{ s5_s8_interface }}
-gtp0 local-ip {{ s5_s8_local_ip }}
-gtp0 remote-ip {{ s5_s8_remote_ip }}
-{% endif %}
+! -----------------------------------------------------------------------------
+! Statistics and Metrics
+# Controls how often GGSN statistics are updated/cleared.
+! -----------------------------------------------------------------------------
 
-! Statistics and metrics
 stats
- interval {{ stats_interval }}
-
-! Keepalives & timeouts
-keepalive 30
-no timeout 0
+ # Interval in seconds between statistics updates
+ interval {{ stats_interval | default(60) }}

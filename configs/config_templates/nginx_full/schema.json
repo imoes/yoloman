@@ -27,14 +27,13 @@
   "nginx_event_method": {
     "type": "string",
     "default": "epoll",
-    "description": "Event notification method (e.g., epoll, kqueue, select).",
+    "description": "Event notification method (e.g., epoll, kqueue, select). Supported methods include epoll, kqueue, /dev/poll, event ports, select, and poll.",
     "enum": [
+      "epoll",
       "select",
       "poll",
       "kqueue",
-      "/dev/poll",
-      "event ports",
-      "epoll"
+      "/dev/poll"
     ]
   },
   "nginx_access_log": {
@@ -43,17 +42,17 @@
     "description": "Path to access log file."
   },
   "nginx_sendfile": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Use sendfile() for static file transfers."
   },
   "nginx_tcp_nopush": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable TCP_CORK (send headers + first chunk in one packet)."
   },
   "nginx_tcp_nodelay": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Disable Nagle's algorithm (send small packets immediately)."
   },
@@ -68,20 +67,21 @@
     "description": "Maximum number of requests per keep-alive connection."
   },
   "nginx_gzip": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Enable gzip compression."
   },
   "nginx_gzip_vary": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Add 'Vary: Accept-Encoding' header for proxied requests."
   },
   "nginx_gzip_proxied": {
     "type": "string",
     "default": "any",
-    "description": "Conditions under which to compress proxied responses (e.g., any, expired, no-cache).",
+    "description": "Conditions under which to compress proxied responses (e.g., expired, no-cache, no-store, authorization).",
     "enum": [
+      "off",
       "auth",
       "any"
     ]
@@ -98,10 +98,7 @@
       "application/xml+rss",
       "text/javascript"
     ],
-    "description": "MIME types to compress (only these will be gzip\u2019d).",
-    "items": {
-      "type": "string"
-    }
+    "description": "MIME types to compress (only these will be gzip\u2019d)."
   },
   "nginx_gzip_min_length": {
     "type": "number",
@@ -114,71 +111,8 @@
     "description": "Maximum allowed size of client request body (e.g., 1m, 100m)."
   },
   "nginx_hide_version": {
-    "type": "boolean",
+    "type": "bool",
     "default": true,
     "description": "Hide Nginx version in error pages and response headers for security."
-  },
-  "nginx_enable_stream": {
-    "type": "boolean",
-    "default": false,
-    "description": "Enable stream module for TCP/UDP load balancing (e.g., for databases, DNS, etc.)."
-  },
-  "nginx_stream_error_log": {
-    "type": "string",
-    "default": "/var/log/nginx/stream_error.log",
-    "description": "Path to stream module error log (only used if enable_stream is true)."
-  },
-  "nginx_stream_listen_port": {
-    "type": "number",
-    "default": 8000,
-    "description": "Port on which stream server listens (only used if enable_stream is true)."
-  },
-  "nginx_stream_upstream_name": {
-    "type": "string",
-    "default": "backend_tcp",
-    "description": "Name of upstream to proxy to in stream block (only used if enable_stream is true)."
-  },
-  "nginx_upstreams": {
-    "type": "list",
-    "default": [],
-    "description": "List of upstream groups for HTTP load balancing (defined in conf.d or sites-enabled, but included here for completeness).",
-    "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "description": "Upstream group name."
-        },
-        "servers": {
-          "type": "list",
-          "description": "List of backend servers.",
-          "items": {
-            "type": "object",
-            "fields": {
-              "address": {
-                "type": "string",
-                "description": "Server IP or hostname."
-              },
-              "port": {
-                "type": "number",
-                "description": "Server port."
-              },
-              "weight": {
-                "type": "number",
-                "description": "Relative weight (higher = more requests)."
-              },
-              "max_fails": {
-                "type": "number",
-                "description": "Fail attempts before marking server as unavailable."
-              },
-              "fail_timeout": {
-                "type": "string",
-                "description": "Time to wait before reattempting failed server (e.g., 30s)."
-              }
-            }
-          }
-        }
-      }
-    }
   }
 }

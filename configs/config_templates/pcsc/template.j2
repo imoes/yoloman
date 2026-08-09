@@ -1,38 +1,54 @@
-# Enable debug logging to syslog or console
-Debug {{ debug_enabled | lower }}
+# pcscd configuration
+# Manages PC/SC (Personal Computer/Smart Card) middleware, enabling applications
+# to communicate with smart card readers and tokens.
 
-# Maximum number of concurrent client connections
-MaxClients {{ max_clients }}
+# Enable verbose debug logging to syslog or console.
+# Set to 'yes' or 'no'.
+Debug {{ debug_enabled | default(False) | lower }}
 
-# Path to the socket for client communication
-SocketDir {{ socket_dir }}
+# Maximum number of simultaneous client connections allowed.
+# Limits concurrency to prevent resource exhaustion.
+MaxClients {{ max_clients | default(10) }}
 
-# Group that owns the socket (must exist)
-SocketGroup {{ socket_group }}
+# Directory where the PC/SC socket will be created for client communication.
+# Applications connect to this socket to use smart card services.
+SocketDir {{ socket_dir | default('/run/pcscd') }}
 
-# Enable automatic reader detection
-AutoEnable {{ auto_enable | lower }}
+# Unix group that owns the PC/SC socket.
+# Clients in this group can access smart cards without root privileges.
+SocketGroup {{ socket_group | default('pcscd') }}
 
-# Path to the PC/SC drivers directory (shared libraries for reader drivers)
-DriversDir {{ drivers_dir }}
+# Automatically enable readers when they are detected (hot-plug support).
+# Set to 'yes' or 'no'.
+AutoEnable {{ auto_enable | default(True) | lower }}
 
-# Enable scanner for USB devices (if supported)
-EnableUSBScanner {{ enable_usb_scanner | lower }}
+# Path to the directory containing reader driver shared libraries.
+# Drivers are loaded dynamically to support specific hardware.
+DriversDir {{ drivers_dir | default('/usr/lib/pcsc/drivers') }}
 
-# Reader driver configuration blocks (one per supported reader)
-{% for reader in readers %}
-# Reader: {{ reader.name }}
-# Device path: {{ reader.device }}
+# Enable built-in USB device scanning.
+# May be deprecated or unsupported on some systems. Set to 'yes' or 'no'.
+EnableUSBScanner {{ enable_usb_scanner | default(False) | lower }}
+
+# Reader driver configuration blocks for custom readers.
+# Each entry defines a specific reader and its associated driver library.
+{% for reader in readers | default([]) %}
+# Reader: {{ reader.name | default('unknown') }}
+# Device path: {{ reader.device | default('') }}
 # Driver library (e.g., libccid.so)
-Driver {{ reader.driver }}
+Driver {{ reader.driver | default('') }}
 
 {% endfor %}
 
-# Log file path (use 'SysLog' to send logs to systemd journal/syslog)
+# Path to a log file, or 'SysLog' to use systemd journal/syslog.
+# Controls where pcscd writes its operational logs.
 LogFile {{ log_file | default('SysLog') }}
 
-# Log level: 0=none, 1=error, 2=info, 3=debug
-LogLevel {{ log_level }}
+# Verbosity level of the log output.
+# 0=none, 1=error, 2=info, 3=debug.
+LogLevel {{ log_level | default(1) }}
 
-# Allow external users (non-root) to access smart cards
-AllowExternalCardRdr {{ allow_external_card_rdr | lower }}
+# Allow non-root users to access external card readers.
+# Security-sensitive: enabling this permits broader hardware access.
+# Set to 'yes' or 'no'.
+AllowExternalCardRdr {{ allow_external_card_rdr | default(False) | lower }}

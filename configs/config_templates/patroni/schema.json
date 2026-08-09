@@ -1,163 +1,27 @@
 {
-  "pg_data_dir": {
-    "type": "string",
-    "default": "/var/lib/postgresql/14/main",
-    "description": "Path to the PostgreSQL data directory (contains PG_VERSION, base/, pg_wal/, etc.)"
-  },
-  "pg_bin_dir": {
-    "type": "string",
-    "default": "/usr/lib/postgresql/14/bin",
-    "description": "Path to the PostgreSQL binary directory (pg_ctl, psql, etc.)"
-  },
-  "pg_config_file": {
-    "type": "string",
-    "default": "postgresql.conf",
-    "description": "Relative or absolute path to the main PostgreSQL config file (inside data_dir or elsewhere)"
-  },
-  "pg_hba_file": {
-    "type": "string",
-    "default": "pg_hba.conf",
-    "description": "Relative or absolute path to the PostgreSQL client authentication config file"
-  },
-  "replication_use_slots": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable PostgreSQL replication slots to prevent WAL preemption"
-  },
-  "replication_use_pg_rewind": {
-    "type": "bool",
-    "default": true,
-    "description": "Use pg_rewind to sync failover replicas instead of full base backup (requires WAL archiving)"
-  },
-  "pg_params": {
-    "type": "object",
-    "default": [],
-    "description": "Key-value map of PostgreSQL runtime parameters to set (e.g., shared_buffers = '256MB')"
-  },
-  "superuser_name": {
-    "type": "string",
-    "default": "postgres",
-    "description": "Name of the PostgreSQL superuser account"
-  },
-  "superuser_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the PostgreSQL superuser (must be set securely in production)"
-  },
-  "replicator_name": {
-    "type": "string",
-    "default": "replicator",
-    "description": "Name of the user used for streaming replication"
-  },
-  "replicator_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the replication user (must be set securely)"
-  },
-  "cluster_scope": {
-    "type": "string",
-    "default": "mycluster",
-    "description": "Namespace/scope for the cluster within the DCS \u2014 ensures separation between multiple Patroni clusters"
-  },
-  "node_name": {
-    "type": "string",
-    "default": "pg1",
-    "description": "Unique hostname/identifier for this Patroni node (must be unique within the cluster)"
-  },
-  "dcs_type": {
-    "type": "string",
-    "default": "etcd",
-    "description": "Distributed configuration store backend to use for cluster coordination",
-    "enum": [
-      "etcd",
-      "etcd3",
-      "consul",
-      "kubernetes",
-      "zookeeper",
-      "exhibitor",
-      "raft"
-    ]
-  },
-  "dcs_hosts": {
-    "type": "list",
-    "default": [
-      "localhost:2379"
-    ],
-    "description": "List of DCS host addresses (host:port) \u2014 one per DCS instance"
-  },
-  "dcs_port": {
-    "type": "number",
-    "default": 8500,
-    "description": "Port for Consul (ignored for other DCS backends)"
-  },
-  "dcs_username": {
-    "type": "string",
-    "default": "",
-    "description": "Optional username for ZooKeeper or etcd authentication"
-  },
-  "dcs_password": {
-    "type": "string",
-    "default": "",
-    "description": "Optional password for ZooKeeper or etcd authentication"
-  },
-  "dcs_token": {
-    "type": "string",
-    "default": "",
-    "description": "ACL token for Consul authentication"
-  },
-  "dcs_scheme": {
-    "type": "string",
-    "default": "http",
-    "description": "Protocol to use for Consul (http or https)"
-  },
-  "dcs_verify_ssl": {
-    "type": "bool",
-    "default": true,
-    "description": "Whether to verify TLS certificates for Consul (set to false only for testing)"
-  },
-  "dcs_use_ssl": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to use TLS for ZooKeeper or etcd"
-  },
-  "dcs_ca_path": {
-    "type": "string",
-    "default": "",
-    "description": "Path to CA certificate for TLS with etcd"
-  },
-  "dcs_cert_path": {
-    "type": "string",
-    "default": "",
-    "description": "Path to client certificate for TLS with etcd"
-  },
-  "init_script_logfile": {
-    "type": "string",
-    "default": "/var/log/patroni.log",
-    "description": "Path to the Patroni init script log file"
-  },
-  "init_script_user": {
-    "type": "string",
-    "default": "postgres",
-    "description": "System user to run Patroni as"
-  },
-  "init_script_group": {
-    "type": "string",
-    "default": "postgres",
-    "description": "System group to run Patroni as"
-  },
-  "init_script_postgres_version": {
-    "type": "string",
-    "default": "",
-    "description": "Optional PostgreSQL version (used when multiple versions installed)"
-  },
-  "init_script_conf_file": {
+  "patroni_conf_path": {
     "type": "string",
     "default": "/etc/patroni/postgres.yml",
-    "description": "Path to the Patroni main configuration file"
+    "description": "Path to the Patroni configuration file (YAML)"
   },
-  "init_script_pid_file": {
+  "patroni_logfile_path": {
     "type": "string",
-    "default": "/var/run/patroni.pid",
-    "description": "Path to the Patroni PID file"
+    "default": "/var/log/patroni.log",
+    "description": "Path to the Patroni log file"
+  },
+  "patroni_user": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Unix user running Patroni"
+  },
+  "patroni_group": {
+    "type": "string",
+    "default": "postgres",
+    "description": "Unix group running Patroni"
+  },
+  "patroni_postgres_version": {
+    "type": "string",
+    "default": "",
+    "description": "Explicit PostgreSQL version to use for PGPATH (e.g. '14'). Leave empty to auto-detect via postgresql-common."
   }
 }

@@ -1,111 +1,143 @@
-# MME configuration for NextEPC Evolved Packet Core
-# Global MME parameters
+# ============================================================================
+# NextEPC MME (Mobility Management Entity) Configuration
+# ============================================================================
+# This file configures the MME component of the NextEPC Evolved Packet Core (EPC).
+# The MME is responsible for managing mobility and session control for LTE/4G users.
+#
+# Self-documenting template: Every configurable field includes its schema
+# description as a comment above it. All variables use `default()` to ensure
+# safe rendering even if the variable is undefined in the Ansible context.
+# ============================================================================
+
+# --- Global MME Parameters ---
 mme:
-  # GUMMEI (Globally Unique MME Identity) — identifies the MME in the network
+  # --- GUMMEI (Globally Unique MME Identity) ---
+  # The GUMMEI uniquely identifies this MME in the network.
   gummei:
-    # PLMN ID of the serving network (3-digit MCC + 2-digit MNC, padded to 6 hex chars)
+    # PLMN ID of the serving network (3-digit MCC + 2-digit MNC, zero-padded to 6 hex chars).
+    # Example: '00101' for MCC=001, MNC=01.
     plmn_id: "{{ mme_plmn_id | default('00101') }}"
-    # MME Group ID — identifies the group of MMEs
+    # MME Group ID — identifies the group of MMEs in the network (1–255).
     mme_gid: {{ mme_gid | default(1) }}
-    # MME Code — distinguishes MMEs within a group
+    # MME Code — distinguishes individual MMEs within a group (0–255).
     mme_code: {{ mme_code | default(1) }}
 
-  # S1-MME interface configuration
+  # --- S1-MME Interface Configuration ---
+  # S1-MME is the interface between the MME and the eNodeB (base station).
   s1ap:
-    # IP address of the MME's S1-MME interface
+    # IP address for the MME’s S1-MME interface (connecting to eNodeB).
     addr: "{{ s1ap_addr | default('127.0.0.1') }}"
-    # Port for S1-MME (default 36412)
+    # UDP port for S1-MME interface (S1AP protocol, default 36412).
     port: {{ s1ap_port | default(36412) }}
 
-  # S6a interface (to HSS) configuration
+  # --- S6a Interface Configuration (MME to HSS) ---
+  # S6a is the Diameter-based interface between the MME and the HSS (Home Subscriber Server).
   s6a:
-    # Hostname or IP of HSS
+    # Diameter realm of the HSS (home network).
     dest_realm: "{{ s6a_dest_realm | default('epc.mnc001.mcc001.3gppnetwork.org') }}"
-    # Destination host (HSS FQDN)
+    # Diameter FQDN of the HSS host.
     dest_host: "{{ s6a_dest_host | default('hss.epc.mnc001.mcc001.3gppnetwork.org') }}"
-    # Local hostname (MME FQDN)
+    # Diameter FQDN of this MME.
     origin_host: "{{ s6a_origin_host | default('mme.epc.mnc001.mcc001.3gppnetwork.org') }}"
-    # Origin realm
+    # Diameter realm of this MME (should match s6a_dest_realm).
     origin_realm: "{{ s6a_origin_realm | default('epc.mnc001.mcc001.3gppnetwork.org') }}"
-    # Listen address for S6a (Diameter server)
+    # Local IP address for the S6a Diameter server (listening for HSS connections).
     addr: "{{ s6a_addr | default('127.0.0.1') }}"
-    # Listen port (default 3868)
+    # Port for S6a Diameter server (default 3868).
     port: {{ s6a_port | default(3868) }}
 
-  # SGW/PGW selection policy
+  # --- SGW/PGW Node Configuration ---
+  # List of Serving Gateway (SGW) and Packet Data Network Gateway (PGW) nodes
+  # used for routing user-plane traffic. Supports load balancing and fallback.
   pgw:
-    # List of SGWs/PGWs with their addresses and priorities
-    # For each entry: address (IP), name (FQDN), priority (int), weight (int)
     nodes:
-{% for pgw in pgw_nodes %}      -
-        # SGW/PGW FQDN or hostname
+      # Iterate over the pgw_nodes list (default is one entry).
+{% for pgw in pgw_nodes | default([{'name': 'sgw-pgw.epc.mnc001.mcc001.3gppnetwork.org', 'addr': '127.0.0.1', 'priority': 0, 'weight': 1}]) %}
+      -
+        # SGW/PGW FQDN or hostname.
         name: "{{ pgw.name | default('sgw-pgw.epc.mnc001.mcc001.3gppnetwork.org') }}"
-        # IP address of the SGW/PGW
+        # IP address of the SGW/PGW.
         addr: "{{ pgw.addr | default('127.0.0.1') }}"
-        # Routing priority (lower = higher priority)
+        # Routing priority (lower number = higher priority).
         priority: {{ pgw.priority | default(0) }}
-        # Load-balancing weight
+        # Load-balancing weight (relative weight for traffic distribution).
         weight: {{ pgw.weight | default(1) }}
 {% endfor %}
 
-  # APN configuration — default APN settings for non-SIM-provisioned APNs
+  # --- APN Configuration ---
   apn:
-    # Default APN name used for EPS bearers if not specified in subscription
+    # Default APN (Access Point Name) for EPS bearers if none is provided in subscription.
+    # Common values: 'internet', 'ims', 'mms'.
     default: "{{ apn_default | default('internet') }}"
 
-  # PLMN access control (optional; if omitted, all PLMNs allowed)
+  # --- PLMN Access Control ---
+  # Restricts which Public Land Mobile Networks (PLMNs) can attach to this MME.
   plmn_access_control:
-{% if plmn_access_enabled %}    # Enable PLMN access control (true/false)
+    # Enable PLMN access control to restrict which networks can access this MME.
+{% if plmn_access_enabled | default(False) %}
+    # Enabled: true when plmn_access_enabled is true.
     enabled: true
-    # List of allowed PLMN IDs (MCC+MNC, 5-digit strings)
+    # List of allowed PLMN IDs (MCC+MNC, 5-digit strings).
     allow:
-{% for plmn in allowed_plmns %}      - "{{ plmn }}"
-{% endfor %}{% else %}    enabled: false
+{% for plmn in allowed_plmns | default([]) %}
+      - "{{ plmn }}"
+{% endfor %}
+{% else %}
+    # Enabled: false when plmn_access_enabled is false or undefined.
+    enabled: false
 {% endif %}
 
-  # TAI (Tracking Area Identity) configuration
-  # List of TACs per PLMN to define tracking areas
+  # --- Tracking Area Identity (TAI) List ---
+  # Defines the Tracking Areas this MME manages. Used for paging and registration.
   tai:
-{% for tai in tai_list %}    -
-      # PLMN ID (MCC+MNC, 5-digit string)
-      plmn_id: "{{ tai.plmn_id }}"
-      # Tracking Area Code (16-bit integer)
-      tac: {{ tai.tac }}
+{% for tai in tai_list | default([{'plmn_id': '00101', 'tac': 1}]) %}
+    -
+      # PLMN ID (MCC+MNC, 5-digit string) associated with this TAC.
+      plmn_id: "{{ tai.plmn_id | default('00101') }}"
+      # Tracking Area Code (16-bit integer, 0–65535).
+      tac: {{ tai.tac | default(1) }}
 {% endfor %}
 
-  # GTP-C (S5/S8/S11) interface to SGW/PGW
+  # --- GTP-C Interface Configuration ---
+  # GTP-C (GPRS Tunnelling Protocol Control plane) is used for S11, S5, and S8 interfaces
+  # between MME and SGW/PGW.
   gtpc:
-    # Local listening address for GTP-C (S11/S5/S8)
+    # Local IP address for GTP-C interface (S11/S5/S8) to SGW/PGW.
     addr: "{{ gtpc_addr | default('127.0.0.1') }}"
-    # Port for GTP-C (default 2152)
+    # UDP port for GTP-C (default 2152).
     port: {{ gtpc_port | default(2152) }}
 
-# Diameter configuration for Cx/Dx interfaces (optional, not always used in basic MME)
-# Diameter server configuration (forCx/Dx interfaces to IMS/ICSF)
+# --- Diameter Server Configuration (Cx/Dx Interfaces) ---
+# Optional: Used for IMS (IP Multimedia Subsystem) or ICSF integration.
+# If not needed, set diameter_enabled=false.
 diameter:
-  # Enabled flag for Diameter server (Cx/Dx)
-{% if diameter_enabled %}  enabled: true
-{% else %}  enabled: false
+  # Enable Diameter server for Cx/Dx interfaces (required only for IMS or ICSF integration).
+{% if diameter_enabled | default(False) %}
+  enabled: true
+{% else %}
+  enabled: false
 {% endif %}
-  # Listen address for Diameter Cx/Dx
+  # Local IP for Cx/Dx Diameter server.
   addr: "{{ diameter_addr | default('127.0.0.1') }}"
-  # Listen port (default 3868)
+  # Port for Cx/Dx Diameter server (default 3868).
   port: {{ diameter_port | default(3868) }}
 
-# Logging configuration
+# --- Logging Configuration ---
 logging:
-  # Log level: trace, debug, info, warn, error, fatal
+  # Logging verbosity level (e.g., trace, debug, info, warn, error).
   level: "{{ log_level | default('info') }}"
-  # Log file path (or 'stdout' for console)
+  # Path to the log file (use 'stdout' to log to console).
   file: "{{ log_file | default('/var/log/nextepc/mme.log') }}"
 
-# Statistics and metrics (optional; used by Prometheus exporter)
+# --- Metrics Configuration (Prometheus) ---
 metrics:
-  # Enable metrics endpoint (true/false)
-{% if metrics_enabled %}  enabled: true
-{% else %}  enabled: false
+  # Enable Prometheus-compatible metrics endpoint (for monitoring).
+{% if metrics_enabled | default(False) %}
+  enabled: true
+{% else %}
+  enabled: false
 {% endif %}
-  # Listen address for metrics server
+  # Local IP to bind metrics HTTP server.
   addr: "{{ metrics_addr | default('127.0.0.1') }}"
-  # Port for metrics (default 9090)
+  # Port for metrics HTTP server (e.g., for scraping by Prometheus).
   port: {{ metrics_port | default(9090) }}

@@ -1,90 +1,121 @@
-[DEFAULT]
-# Enable debug logging for the Octavia Driver Agent
-{% if debug %}debug = true{% else %}debug = false{% endif %}
+# ==============================================================================
+# Octavia Driver Agent Configuration
+# ==============================================================================
+# This file configures the Octavia Driver Agent, which manages load balancer
+# amphorae instances. It handles health checks, failover, and communication
+# with the Octavia controller API and message queue.
+# ==============================================================================
 
-# Log file path (empty string disables file logging)
+[DEFAULT]
+# Enable verbose debug logging for troubleshooting.
+# Useful for diagnosing connection or processing issues.
+debug = {{ debug | default(False) | ternary('true', 'false') }}
+
+# Path to the log file. Leave empty to log only to syslog.
+# If specified, logs will be appended to this file.
 log_file = {{ log_file | default('') }}
 
-# Logging level
-{% if log_level %}logging_level = {{ log_level }}{% endif %}
+# Logging level (e.g., DEBUG, INFO, WARNING, ERROR, CRITICAL).
+# Controls the verbosity of log output.
+log_level = {{ log_level | default('INFO') | upper }}
 
-# Path to the Octavia driver agent configuration
-state_path = {{ state_path }}
+# Base directory for Octavia state and runtime files.
+# The agent stores temporary files, sockets, and status data here.
+state_path = {{ state_path | default('/var/lib/octavia') }}
 
-# Worker count for handling requests
-{% if worker_count %}workers = {{ worker_count }}{% endif %}
+# Number of worker processes to handle incoming requests.
+# Higher values may improve throughput but consume more resources.
+worker_count = {{ worker_count | default(2) | int }}
 
 [driver_agent]
-# Backend driver module to use for load balancer operations
+# Backend driver module for load balancer management (e.g., amphora, provider_driver).
+# Determines how the agent interacts with the underlying infrastructure.
 driver_name = {{ driver_name | default('amphora') }}
 
-# API endpoint for the Octavia controller
-{% if controller_endpoint %}controller_endpoint = {{ controller_endpoint }}{% endif %}
+# HTTP(S) endpoint URL of the Octavia controller API.
+# The agent sends RPC commands and receives updates from this endpoint.
+controller_endpoint = {{ controller_endpoint | default('') }}
 
-# Path to the SSL/TLS CA certificate for controller communication
-{% if controller_ca_cert %}controller_ca_cert = {{ controller_ca_cert }}{% endif %}
+# Path to the CA certificate used to verify the Octavia controller's TLS certificate.
+# Required if controller_endpoint uses HTTPS and the CA is not in the system store.
+controller_ca_cert = {{ controller_ca_cert | default('') }}
 
-# Path to the client certificate for mutual TLS authentication
-{% if client_cert %}client_cert = {{ client_cert }}{% endif %}
+# Path to the client certificate used for mutual TLS with the controller.
+# Used for authenticating the agent to the controller if mTLS is enabled.
+client_cert = {{ client_cert | default('') }}
 
-# Path to the client private key
-{% if client_key %}client_key = {{ client_key }}{% endif %}
+# Path to the private key corresponding to the client certificate.
+# Must match the client_cert provided above.
+client_key = {{ client_key | default('') }}
 
-# Timeout (in seconds) for communication with the Octavia controller
-{% if controller_timeout %}controller_timeout = {{ controller_timeout }}{% endif %}
+# Maximum time (seconds) to wait for responses from the Octavia controller.
+# Requests timing out after this duration are considered failed.
+controller_timeout = {{ controller_timeout | default(60) | int }}
 
-# Period (in seconds) for periodic health check of amphorae
-{% if amphora_periodic_health_check_interval %}amphora_periodic_health_check_interval = {{ amphora_periodic_health_check_interval }}{% endif %}
+# Interval (seconds) between health checks of amphorae.
+# Triggers periodic polling to verify amphora status.
+amphora_periodic_health_check_interval = {{ amphora_periodic_health_check_interval | default(30) | int }}
 
-# Maximum number of load balancers a single amphora can support
-{% if max_loadbalancers_per_amphora %}max_loadbalancers_per_amphora = {{ max_loadbalancers_per_amphora }}{% endif %}
+# Maximum number of load balancers allowed per amphora instance.
+# Controls resource allocation per VM/container.
+max_loadbalancers_per_amphora = {{ max_loadbalancers_per_amphora | default(5) | int }}
 
-# Enable automatic failover of amphorae on failure
-{% if failover_enabled %}failover_enabled = true{% else %}failover_enabled = false{% endif %}
+# Enable automatic failover to a standby amphora if active amphora becomes unhealthy.
+# Ensures high availability for load balanced services.
+failover_enabled = {{ failover_enabled | default(True) | ternary('true', 'false') }}
 
-# List of enabled load balancer topologies
-{% for topology in loadbalancer_topologies %}# Topology: {{ topology }}
-{% endfor %}
-loadbalancer_topology = {% for topology in loadbalancer_topologies %}{{ topology }}{% if not loop.last %}, {% endif %}{% endfor %}
+# List of enabled load balancer topologies supported by this agent.
+# Comma-separated list of topology names (e.g., SINGLE, ACTIVE_STANDBY).
+loadbalancer_topologies = {{ loadbalancer_topologies | default(['SINGLE', 'ACTIVE_STANDBY']) | join(', ') }}
 
-# List of enabled provider drivers (used if driver_name='provider_driver')
-{% if provider_drivers %}
+{% if provider_drivers is defined and provider_drivers is iterable and (provider_drivers | length) > 0 %}
 [provider_drivers]
-# Provider driver list
-provider_drivers = {% for driver in provider_drivers %}{{ driver }}{% if not loop.last %}, {% endif %}{% endfor %}
+# List of registered provider driver names to load.
+# Only used if driver_name is set to 'provider_driver'.
+provider_drivers = {{ provider_drivers | default([]) | join(', ') }}
 {% endif %}
 
-{% if amphorae %}
+{% if amphorae is defined and amphorae is iterable and (amphorae | length) > 0 %}
 [amphorae]
-# List of amphora agents to manage
-{% for amphora in amphorae %}# Amphora ID: {{ amphora.id }}
-{% if amphora.ip %}ip = {{ amphora.ip }}{% endif %}
-{% if amphora.compute_id %}compute_id = {{ amphora.compute_id }}{% endif %}
-{% if amphora.status %}status = {{ amphora.status }}{% endif %}
-{% if amphora.vrrp_ip %}vrrp_ip = {{ amphora.vrrp_ip }}{% endif %}
-{% if amphora.ha_ip %}ha_ip = {{ amphora.ha_ip }}{% endif %}
+# List of pre-registered amphorae to manage.
+# Used for static deployments where amphorae are not discovered automatically.
+{% for amphora in amphorae %}
+# Amphora ID: {{ amphora.id | default('unknown') }}
+{% if amphora.id is defined %}id = {{ amphora.id }}{% endif %}
+{% if amphora.ip is defined %}ip = {{ amphora.ip }}{% endif %}
+{% if amphora.compute_id is defined %}compute_id = {{ amphora.compute_id }}{% endif %}
+{% if amphora.status is defined %}status = {{ amphora.status }}{% endif %}
+{% if amphora.vrrp_ip is defined %}vrrp_ip = {{ amphora.vrrp_ip }}{% endif %}
+{% if amphora.ha_ip is defined %}ha_ip = {{ amphora.ha_ip }}{% endif %}
 {% endfor %}
 {% endif %}
 
 [oslo_messaging]
-# AMQP transport URL
-{% if transport_url %}transport_url = {{ transport_url }}{% endif %}
+# Message bus transport URL (e.g., RabbitMQ, Redis, etc.).
+# Connects the driver agent to the OpenStack message queue.
+transport_url = {{ transport_url | default('rabbit://openstack:password@controller:5672/') }}
 
-# RPC topic name for driver agent communication
-{% if rpc_topic %}rpc_topic = {{ rpc_topic }}{% endif %}
+# RPC topic used to send messages to and from the Octavia controller.
+# Agents listen on this topic for commands.
+rpc_topic = {{ rpc_topic | default('driver-agent') }}
 
-# RPC cache duration (in seconds) for message bus connections
-{% if rpc_response_timeout %}rpc_response_timeout = {{ rpc_response_timeout }}{% endif %}
+# Timeout (seconds) for RPC responses before considering request failed.
+# Prevents indefinite hanging on unresponsive message queue nodes.
+rpc_response_timeout = {{ rpc_response_timeout | default(60) | int }}
 
 [health_executor]
-# Backend health manager driver
-driver = {{ health_driver | default('health_master') }}
+# Health manager backend driver (e.g., health_master, health_backup).
+# Handles the logic for determining amphora health status.
+health_driver = {{ health_driver | default('health_master') }}
 
-# Enable health manager
-{% if health_manager_enabled %}enabled = true{% else %}enabled = false{% endif %}
+# Enable the health manager subprocess for amphora health monitoring.
+# When disabled, health checks are not performed.
+health_manager_enabled = {{ health_manager_enabled | default(True) | ternary('true', 'false') }}
 
-# Interval (in seconds) between health syncs
-{% if health_check_interval %}health_check_interval = {{ health_check_interval }}{% endif %}
+# Interval (seconds) between health syncs to amphorae.
+# Frequency at which the agent checks the health status of managed amphorae.
+health_check_interval = {{ health_check_interval | default(10) | int }}
 
-# Path to the health manager socket
-{% if health_manager_socket %}health_manager_socket = {{ health_manager_socket }}{% endif %}
+# Unix domain socket path used by the health manager for IPC.
+# The health executor communicates with the health manager via this socket.
+health_manager_socket = {{ health_manager_socket | default('/var/lib/octavia/health_manager.sock') }}

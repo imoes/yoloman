@@ -1,86 +1,87 @@
-#!/bin/sh
+{#
+  owftpd - 1-Wire FTP Server Configuration Template
+  This template generates the configuration file for owftpd, a lightweight FTP server
+  designed to expose 1-Wire (Dallas) devices over the network via FTP.
+#}
 
-### BEGIN INIT INFO
-# Provides:          owftpd
-# Required-Start:    $remote_fs $network $syslog $named
-# Required-Stop:     $remote_fs $network $syslog $named
-# Should-Start:      owserver
-# Should-Stop:       owserver
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: 1-wire FTP server
-# Description:       Start and stop an anonymous FTP server for 1-wire control.
-### END INIT INFO
+{#
+  Server Binding and Port Configuration
+  Controls which network interface and port owftpd listens on for incoming FTP connections.
+#}
+[owftpd]
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-CONFFILE=/etc/owfs.conf
-DESC="1-Wire FTP server"
-NAME="owftpd"
-DAEMON=/usr/bin/$NAME
-PIDDIR=/var/run/owfs
-PIDFILE=$PIDDIR/$NAME.pid
+# IP address or hostname for the FTP server to bind to. Use 0.0.0.0 for all interfaces.
+server_host = {{ (server_host | default('0.0.0.0')) | string }}
 
-# Gracefully exit if the package has been removed.
-test -x $DAEMON || exit 0
+# FTP control port to listen on.
+port = {{ (port | default(21)) | int }}
 
-. /lib/lsb/init-functions
+# Idle connection timeout in seconds. Increase for slow or large transfers.
+timeout_seconds = {{ (timeout_seconds | default(300)) | int }}
 
-d_start() {
-    [ -d $PIDDIR ] || {
-    mkdir -m 0775 -p $PIDDIR
-    chown root:root $PIDDIR >/dev/null 2>&1
-    }
-    start-stop-daemon --start --quiet --oknodo --exec $DAEMON -- -c $CONFFILE \
-        --pid-file $PIDFILE
-    # ensure the daemon has been started 
-    sleep 1
-    pidofproc -p $PIDFILE $DAEMON >/dev/null
-}
+# Maximum number of concurrent FTP connections.
+max_connections = {{ (max_connections | default(10)) | int }}
 
-d_stop() {
-    start-stop-daemon --stop --quiet --oknodo --exec $DAEMON
-    sleep 1
-    if [ -f $PIDFILE ] && ! ps h `cat $PIDFILE` > /dev/null
-    then
-        # Stale PID file (owhttpd was successfilly stoped),
-        #remove it
-        rm -f $PIDFILE
-    fi
-}
+{#
+  Security and Access Control
+  Manages user authentication modes, write permissions, and connection restrictions.
+#}
 
-d_status() {
-    pidofproc -p $PIDFILE $DAEMON > /dev/null
-}
+# Allow login without credentials. Use with caution in production.
+# Setting this to True permits any user to log in as 'anonymous'.
+allow_anonymous = {{ (allow_anonymous | default(False)) | lower }}
 
-case "$1" in
-    start)
-        log_daemon_msg "Starting $DESC" "$NAME"
-        d_start
-        log_end_msg $?
-        ;;
-    stop)
-        log_daemon_msg "Stopping $DESC" "$NAME"
-        d_stop
-        log_end_msg $?
-        ;;
-    restart|force-reload)
-        log_daemon_msg "Restarting $DESC" "$NAME"
-        d_status && d_stop
-        d_start
-        log_end_msg $?
-        ;;
-    status)
-        d_status
-        if [ $? -eq 0 ];then
-            log_success_msg "$NAME is running"
-        else
-            log_failure_msg "$NAME is not running"
-        fi
-        ;;
-    *)
-        echo "Usage: /etc/init.d/$NAME {start|stop|restart|force-reload|status}" >&2
-        exit 1
-        ;;
-esac
+# Permit authenticated users to write to the 1-Wire filesystem. Enable only if needed.
+# WARNING: Enabling this allows modification of 1-Wire device settings via FTP.
+allow_write = {{ (allow_write | default(False)) | lower }}
 
-exit 0
+# Chroot authenticated users to the FTP root for security isolation.
+# Prevents users from accessing the filesystem outside the configured FTP root.
+chroot_enabled = {{ (chroot_enabled | default(True)) | lower }}
+
+{#
+  SSL/TLS Configuration (FTPS)
+  Optional secure layer for FTP data and control connections.
+  Requires valid certificate and key paths.
+#}
+
+# Enable FTP over SSL/TLS (FTPS) for secure data transfer.
+ssl_enabled = {{ (ssl_enabled | default(False)) | lower }}
+
+{% if (ssl_enabled | default(False)) is sameas true %}
+# Path to the SSL certificate file (PEM format). Required if SSL is enabled.
+ssl_cert_path = {{ (ssl_cert_path | default('/etc/owfs/ssl/owftpd.crt')) | string }}
+
+# Path to the SSL private key file (PEM format). Required if SSL is enabled.
+ssl_key_path = {{ (ssl_key_path | default('/etc/owfs/ssl/owftpd.key')) | string }}
+{% endif %}
+
+{#
+  1-Wire Filesystem Mapping
+  Defines which 1-Wire buses are exposed and where they are mounted in the FTP namespace.
+#}
+[owfs]
+
+# 1-Wire filesystem path to expose as FTP root (e.g., /, /bus.0, /system).
+# This acts as the virtual root directory for FTP clients.
+server_root = {{ (ftp_root_path | default('/')) | string }}
+
+# List of 1-Wire bus device paths (e.g., /dev/w1_bus_master1) or 'auto' for auto-discovery.
+# 'auto' lets owfs detect available buses dynamically.
+bus_devices = {{ bus_devices | default(['auto']) | join(', ') }}
+
+{#
+  Logging and Debugging
+  Controls output verbosity and log destination.
+#}
+
+# Enable verbose debug output (not recommended for production).
+# Increases log volume significantly; useful only for troubleshooting.
+debug_enabled = {{ (debug_enabled | default(False)) | lower }}
+
+# Optional path to a log file. If empty or omitted, logging goes to syslog.
+{% if (log_file_path | default('')) | string | length > 0 %}
+log_file_path = {{ (log_file_path | default('')) | string }}
+{% else %}
+# Logging to syslog (default when log_file_path is empty)
+{% endif %}

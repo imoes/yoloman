@@ -1,45 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ocsigen Server configuration file -->
+<!-- Ocsigen Server configuration file. -->
+<!-- This file is managed by Ansible. Do not edit manually. -->
 <ocsigenserver>
   <!-- Global server settings -->
-  <pidfile>{{ pidfile }}</pidfile>
-  
+
+  <!-- Path to the PID file for the server process. -->
+  <pidfile>{{ pidfile | default('/run/ocsigenserver/ocsigenserver.pid') }}</pidfile>
+
   <!-- Logging configuration -->
-  <log file="{{ log_file }}" level="{{ log_level }}"/>
-  
+
+  <!-- Path to the main log file. -->
+  <logfile file="{{ log_file | default('/var/log/ocsigenserver/ocsigenserver.log') }}" level="{{ log_level | default('info') }}"/>
+
   <!-- HTTP server settings -->
-  <http host="{{ http_host }}" port="{{ http_port }}"/>
-  {% if http_ssl_enabled %}
+
+  <!-- IP address or hostname the HTTP server binds to (e.g., '0.0.0.0' or '*'). -->
+  <httphost host="{{ http_host | default('*') }}" port="{{ http_port | default(8080) }}"/>
+
+  {% if http_ssl_enabled | default(False) %}
   <!-- HTTPS server settings -->
-  <https host="{{ https_host }}" port="{{ https_port }}" cert="{{ ssl_cert }}" key="{{ ssl_key }}"/>
+
+  <!-- IP address or hostname the HTTPS server binds to. -->
+  <!-- TCP port for HTTPS traffic. -->
+  <!-- Path to the SSL/TLS certificate file (PEM format). -->
+  <!-- Path to the SSL/TLS private key file (PEM format). -->
+  <httpshost host="{{ https_host | default('*') }}" port="{{ https_port | default(8443) }}" cert="{{ ssl_cert | default('/etc/ocsigenserver/server.crt') }}" key="{{ ssl_key | default('/etc/ocsigenserver/server.key') }}"/>
   {% endif %}
-  
-  <!-- Timeout and resource limits -->
-  <timeout>{{ timeout }}</timeout>
-  <max_connections>{{ max_connections }}</max_connections>
-  
+
   <!-- Worker processes (prefork model) -->
   <prefork>
-    <start_servers>{{ start_servers }}</start_servers>
-    <min_spare_servers>{{ min_spare_servers }}</min_spare_servers>
-    <max_spare_servers>{{ max_spare_servers }}</max_spare_servers>
-    <max_requests>{{ max_requests }}</max_requests>
+
+    <!-- Number of worker processes to start on startup. -->
+    <start_servers>{{ start_servers | default(4) }}</start_servers>
+
+    <!-- Minimum number of idle worker processes to maintain. -->
+    <min_spare_servers>{{ min_spare_servers | default(2) }}</min_spare_servers>
+
+    <!-- Maximum number of idle worker processes allowed. -->
+    <max_spare_servers>{{ max_spare_servers | default(8) }}</max_spare_servers>
+
+    <!-- Maximum requests per worker before restart (0 = unlimited). -->
+    <max_requests>{{ max_requests | default(0) }}</max_requests>
   </prefork>
-  
+
   <!-- Module loading paths -->
-  <modulepath>
-    {% for path in module_paths %}
+
+  <!-- List of directories to search for dynamically loadable modules. If empty, uses default path /usr/lib/ocsigenserver/modules. -->
+  <modulepaths>
+    {% for path in module_paths | default(['/usr/lib/ocsigenserver/modules']) %}
     <path>{{ path }}</path>
     {% endfor %}
-  </modulepath>
-  
+  </modulepaths>
+
   <!-- Extensions enabled -->
+
+  <!-- List of extensions to enable, each with a module name and optional configuration parameters. Note: 'mod_ocsigen' is not a standard module name. -->
   <extensions>
-    {% for ext in enabled_extensions %}
-    <extension module="{{ ext.module }}">
-      {% if ext.config %}
+    {% for ext in enabled_extensions | default([{'module': 'mod_cgi', 'config': {}}, {'module': 'mod_staticfile', 'config': {}}]) %}
+    <extension module="{{ ext.module | default('') }}">
+      {% if ext.config is defined and ext.config %}
       <configure>
-        {% for key, value in ext.config.items() %}
+        {% for key, value in ext.config | dict2items %}
         <param name="{{ key }}">{{ value | e }}</param>
         {% endfor %}
       </configure>
@@ -47,37 +68,46 @@
     </extension>
     {% endfor %}
   </extensions>
-  
+
   <!-- Sites defined -->
+
+  <!-- List of virtual sites (host/port combos) with their own document roots and settings. -->
   <sites>
-    {% for site in sites %}
-    <site host="{{ site.host }}" port="{{ site.port }}">
+    {% for site in sites | default([{'host': 'localhost', 'port': 8080, 'document_root': '/var/www/ocsigen', 'cgi_enabled': False, 'cgi_aliases': [], 'static_dir': '/var/www/ocsigen/static', 'static_url': '/static', 'ocsigen_extensions': []}]) %}
+    <site host="{{ site.host | default('localhost') }}" port="{{ site.port | default(8080) }}">
+
       <!-- Document root -->
-      <dir root="{{ site.document_root }}"/>
-      
+
+      <!-- Path to the document root for this site. -->
+      <dir root="{{ site.document_root | default('/var/www/ocsigen') }}"/>
+
       <!-- CGI script aliasing -->
-      {% if site.cgi_enabled %}
+
+      {% if site.cgi_enabled | default(False) %}
       <cgi>
-        {% for alias in site.cgi_aliases %}
-        <alias prefix="{{ alias.prefix }}" path="{{ alias.path }}"/>
+        {% for alias in site.cgi_aliases | default([]) %}
+        <alias prefix="{{ alias.prefix | default('') }}" path="{{ alias.path | default('') }}"/>
         {% endfor %}
       </cgi>
       {% endif %}
-      
+
       <!-- Static file serving -->
-      <static dir="{{ site.static_dir }}" url="{{ site.static_url }}"/>
-      
+
+      <!-- Directory for static files. -->
+      <!-- URL path prefix for static files. -->
+      <static dir="{{ site.static_dir | default('/var/www/ocsigen/static') }}" url="{{ site.static_url | default('/static') }}"/>
+
       <!-- Ocsigen extensions per site (e.g., Eliom, TyXML) -->
-      {% for ext in site.ocsigen_extensions %}
-      <{{ ext.name }}>
-        {% if ext.config %}
+      {% for ext in site.ocsigen_extensions | default([]) %}
+      <{{ ext.name | default('unknown') }}>
+        {% if ext.config is defined and ext.config %}
         <configure>
-          {% for key, value in ext.config.items() %}
+          {% for key, value in ext.config | dict2items %}
           <param name="{{ key }}">{{ value | e }}</param>
           {% endfor %}
         </configure>
         {% endif %}
-      </{{ ext.name }}>
+      </{{ ext.name | default('unknown') }}>
       {% endfor %}
     </site>
     {% endfor %}

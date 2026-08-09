@@ -1,17 +1,38 @@
 #! /bin/sh
 
-# check if quota package is available
-test -x {{ warnquota_path }} || exit 0
+# Self-documenting quota notification wrapper.
+# Manages the execution of warnquota based on configuration defaults
+# and system fstab quota status.
 
-# check if warnquota run is configured
-test -f {{ default_quota_file }} || exit 0
-. {{ default_quota_file }}
+# Absolute path to the warnquota executable.
+# Source field: warnquota_command_path
+# Default: /usr/sbin/warnquota
+test -x {{ warnquota_command_path | default('/usr/sbin/warnquota') }} || exit 0
 
+# Path to the quota default configuration file that defines the run_warnquota variable.
+# Source field: default_quota_file_path
+# Default: /etc/default/quota
+test -f {{ default_quota_file_path | default('/etc/default/quota') }} || exit 0
+
+# Load the default configuration file to retrieve runtime flags like run_warnquota.
+. {{ default_quota_file_path | default('/etc/default/quota') }}
+
+# Only proceed if warnquota is explicitly enabled in the default configuration.
+# The variable run_warnquota is expected to be set in the sourced file.
 if [ "${run_warnquota}" = "true" ]; then
-	# check if quotas are enabled
-	if grep -q '^[^#]*quota' {{ fstab_path }}; then
-        	{{ warnquota_command }} -ug
-	fi	
+    # Check if quotas are actually enabled on the filesystems listed in fstab.
+    # Source field: fstab_path
+    # Default: /etc/fstab
+    # The pattern looks for lines containing 'quota' that are not comments.
+    if grep -q '^[^#]*quota' {{ fstab_path | default('/etc/fstab') }}; then
+
+        # Full command to invoke warnquota with options.
+        # Source field: warnquota_command
+        # Default: /usr/sbin/warnquota -ug
+        # This variable must be a valid shell command string.
+        {{ warnquota_command | default('/usr/sbin/warnquota -ug') }}
+
+    fi
 fi
 
 exit 0

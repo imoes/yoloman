@@ -1,39 +1,87 @@
-# pglogical_ticker.conf — Configuration for pglogical ticker, used to track replication lag
-# pglogical_ticker runs as a background job (cron-style) and records timestamps in the pglogical schema
-# to enable lag monitoring between logical replication providers and subscribers.
-# Note: This file is sourced by the PostgreSQL startup script; it's not a PostgreSQL configuration file.
+# =============================================================================
+# pglogical_ticker.conf
+# Configuration for pglogical ticker.
+# This file is sourced by the PostgreSQL startup script or the ticker process.
+# It tracks replication lag between logical replication providers and subscribers
+# by recording timestamps in a dedicated schema.
+# =============================================================================
 
-# Database connection parameters
-DB_NAME={{ db_name }}
-DB_HOST={{ db_host }}
-DB_PORT={{ db_port }}
-DB_USER={{ db_user }}
+# ------------------------------------------------------------------------------
+# Database Connection Parameters
+# ------------------------------------------------------------------------------
+
+# Name of the PostgreSQL database where pglogical metadata and tick records are stored.
+DB_NAME={{ db_name | default('postgres') }}
+
+# Hostname or IP address of the PostgreSQL server.
+DB_HOST={{ db_host | default('localhost') }}
+
+# Port number used by PostgreSQL.
+DB_PORT={{ db_port | default(5432) }}
+
+# Database user (with superuser or replication privileges) used to connect.
+DB_USER={{ db_user | default('postgres') }}
+
+# Password for the database user. Leave blank to use peer authentication or .pgpass.
 DB_PASS={{ db_pass | default('', true) }}
-DB_SSLMODE={{ db_sslmode }}
-DB_CONNECT_TIMEOUT={{ db_connect_timeout }}
 
-# Timing interval (in seconds) between each tick
-TICK_INTERVAL={{ tick_interval }}
+# SSL connection mode: disable, allow, prefer, require, verify-ca, or verify-full.
+DB_SSLMODE={{ db_sslmode | default('prefer') }}
 
-# Table and schema used to store tick records
-SCHEMA_NAME={{ schema_name }}
-TICK_TABLE={{ tick_table }}
+# Maximum time (seconds) to wait for connection establishment.
+DB_CONNECT_TIMEOUT={{ db_connect_timeout | default(10) }}
 
-# Retention policy: number of days to keep tick records
-RETENTION_DAYS={{ retention_days }}
+# ------------------------------------------------------------------------------
+# Timing Configuration
+# ------------------------------------------------------------------------------
 
-# Enable or disable verbose logging
-VERBOSE={{ verbose | lower }}
+# Interval (seconds) between each replication lag tick. Minimum recommended: 15.
+TICK_INTERVAL={{ tick_interval | default(60) }}
 
-# List of logical replication sets (or publications) to monitor
-{% for rs in replication_sets %}# Monitor replication set: {{ rs.name }} (provider: {{ rs.provider }})
-REPLICATION_SET_{{ loop.index }}_NAME={{ rs.name }}
-REPLICATION_SET_{{ loop.index }}_PROVIDER={{ rs.provider }}
+# ------------------------------------------------------------------------------
+# Schema and Table Configuration
+# ------------------------------------------------------------------------------
+
+# Schema to contain the tick table (created automatically on first run if missing).
+SCHEMA_NAME={{ schema_name | default('pglogical_ticker') }}
+
+# Name of the table used to store tick timestamps per replication set.
+TICK_TABLE={{ tick_table | default('ticks') }}
+
+# ------------------------------------------------------------------------------
+# Retention Policy
+# ------------------------------------------------------------------------------
+
+# Number of days to retain tick records before automatic purging.
+RETENTION_DAYS={{ retention_days | default(30) }}
+
+# ------------------------------------------------------------------------------
+# Logging Configuration
+# ------------------------------------------------------------------------------
+
+# Enable or disable verbose logging output to the log file (true/false).
+VERBOSE={{ verbose | default(False) | lower }}
+
+# Path to the log file where ticker output is written.
+LOG_FILE={{ log_file | default('/var/log/postgresql/pglogical_ticker.log') }}
+
+# ------------------------------------------------------------------------------
+# Replication Sets to Monitor
+# ------------------------------------------------------------------------------
+
+# List of logical replication sets (publications) to monitor for lag.
+{% if replication_sets is defined and replication_sets is iterable %}
+{% for rs in replication_sets %}
+# Monitor replication set: {{ rs.name | default('unknown') }} (provider: {{ rs.provider | default('unknown') }})
+REPLICATION_SET_{{ loop.index }}_NAME={{ rs.name | default('') }}
+REPLICATION_SET_{{ loop.index }}_PROVIDER={{ rs.provider | default('') }}
 {% endfor %}
+{% endif %}
 
-# Optional: command to run after each tick (e.g., alerting or metrics export)
-# Leave empty to disable
+# ------------------------------------------------------------------------------
+# Post-Tick Actions
+# ------------------------------------------------------------------------------
+
+# Optional shell command to execute after each tick (e.g., for alerting).
+# Use with caution; ensure script is executable.
 POST_TICK_CMD={{ post_tick_cmd | default('', true) }}
-
-# Logging output path
-LOG_FILE={{ log_file }}

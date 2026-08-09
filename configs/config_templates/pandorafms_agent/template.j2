@@ -1,68 +1,91 @@
-# Pandora FMS Agent configuration file
-# Server address for communication with Pandora FMS Server
-server_ip = {{ server_ip }}
+# ==============================================================================
+# Pandora FMS Agent Configuration
+# ==============================================================================
+# This configuration file defines how the Pandora FMS Agent connects to the
+# central server and behaves locally. All variables are sourced from the Ansible
+# inventory/role defaults.
 
-# Server port for communication (default: 41121)
-server_port = {{ server_port }}
+# ------------------------------------------------------------------------------
+# Server Connection
+# ------------------------------------------------------------------------------
 
-# Agent name (must be unique per monitored host)
-agent_name = {{ agent_name }}
+# IP address or hostname of the Pandora FMS Server.
+# The agent connects to this address to send collected data.
+server_ip = {{ server_ip | default('127.0.0.1') }}
 
-# Directory where agent plugins and modules are stored
-plugin_directory = {{ plugin_directory }}
+# Port used to connect to the Pandora FMS Server.
+# Default is 41121, which is the standard Pandora FMS server port.
+server_port = {{ server_port | default(41121) }}
 
-# Directory where agent data is cached
-temp_directory = {{ temp_directory }}
+# ------------------------------------------------------------------------------
+# Agent Identity
+# ------------------------------------------------------------------------------
 
-# Interval (in seconds) between data collection cycles
-interval = {{ interval }}
+# Unique name of this agent (used to identify it on the server).
+# This name must be unique across all monitored hosts to avoid data collisions.
+agent_name = {{ agent_name | default('pandora_agent') }}
 
-# Enable/Disable debug mode
-debug_mode = {{ debug_mode | lower }}
+# ------------------------------------------------------------------------------
+# Directory Structure
+# ------------------------------------------------------------------------------
 
-# Enable/Disable remote configuration
-remote_config = {{ remote_config | lower }}
+# Directory containing custom plugins.
+# The agent executes scripts in this directory as part of its monitoring cycle.
+plugin_directory = {{ plugin_directory | default('/var/lib/pandora/plugins') }}
 
-# List of modules to run
-{% for module in modules %}# {{ module.description }}
-module = {{ module.name }}
-{% if module.param %}module_param = {{ module.param }}
-{% endif %}{% if module.interval is defined %}module_interval = {{ module.interval }}
-{% endif %}{% endfor %}
+# Directory used for temporary data storage.
+# The agent caches data here before sending it to the server or processing it.
+temp_directory = {{ temp_directory | default('/var/spool/pandora/data_in') }}
 
-# Network discovery configuration
-{% if network_discovery.enabled %}network_discovery = 1
-network_discovery_network = {{ network_discovery.network }}
-network_discovery_interval = {{ network_discovery.interval }}
-network_discovery_timeout = {{ network_discovery.timeout }}
-network_discovery_threads = {{ network_discovery.threads }}
-{% else %}network_discovery = 0
+# ------------------------------------------------------------------------------
+# Monitoring Cycle
+# ------------------------------------------------------------------------------
+
+# Interval (in seconds) between monitoring cycles.
+# Determines how often the agent collects data and sends it to the server.
+interval = {{ interval | default(300) }}
+
+# ------------------------------------------------------------------------------
+# Logging and Debugging
+# ------------------------------------------------------------------------------
+
+# Enable verbose debug logging.
+# Set to '1' (true) to enable detailed logging for troubleshooting; '0' (false) for normal operation.
+debug_mode = {{ debug_mode | default(false) | lower }}
+
+# Path to the agent log file.
+# The agent writes its operational logs to this file.
+log_file = {{ log_file | default('/var/log/pandora/pandora_agent.log') }}
+
+# Minimum logging level.
+# Controls the verbosity of logs (e.g., 'info', 'warning', 'error').
+log_level = {{ log_level | default('info') }}
+
+# ------------------------------------------------------------------------------
+# Remote Configuration
+# ------------------------------------------------------------------------------
+
+# Allow server-side remote configuration updates.
+# If enabled, the agent can fetch its configuration from the Pandora FMS Server.
+remote_config = {{ remote_config | default(false) | lower }}
+
+# ------------------------------------------------------------------------------
+# Network Discovery
+# ------------------------------------------------------------------------------
+
+# Enable/Disable network discovery for automatic inventory.
+# Note: Network discovery is primarily a server-side feature; agent-side configuration
+# is limited. When disabled, the agent uses a static value of 0.
+{% if network_discovery is defined and network_discovery.enabled %}
+network_discovery = 1
+# Network range or interfaces to discover.
+network_discovery_network = {{ network_discovery.network | default('') }}
+# Interval in seconds for discovery scans.
+network_discovery_interval = {{ network_discovery.interval | default(60) }}
+# Timeout in seconds for discovery operations.
+network_discovery_timeout = {{ network_discovery.timeout | default(10) }}
+# Number of threads for discovery operations.
+network_discovery_threads = {{ network_discovery.threads | default(5) }}
+{% else %}
+network_discovery = 0
 {% endif %}
-
-# SSH scanning configuration (for network discovery)
-{% if ssh_scan.enabled %}ssh_scan = 1
-ssh_scan_user = {{ ssh_scan.user }}
-ssh_scan_password = {{ ssh_scan.password | default('') }}
-ssh_scan_key = {{ ssh_scan.key_file | default('') }}
-ssh_scan_timeout = {{ ssh_scan.timeout }}
-{% else %}ssh_scan = 0
-{% endif %}
-
-# Proxy configuration
-{% if proxy.enabled %}proxy_server = {{ proxy.server }}
-proxy_port = {{ proxy.port }}
-{% else %}# No proxy
-{% endif %}
-
-# TLS/SSL settings
-{% if ssl.enabled %}ssl = 1
-ssl_cert = {{ ssl.cert_file }}
-ssl_key = {{ ssl.key_file }}
-ssl_ca = {{ ssl.ca_file }}
-ssl_verify = {{ ssl.verify | lower }}
-{% else %}ssl = 0
-{% endif %}
-
-# Logging
-log_file = {{ log_file }}
-log_level = {{ log_level }}

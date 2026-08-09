@@ -1,9 +1,32 @@
-# Load PL/Tcl procedural language
-# Enables PL/Tcl functions within PostgreSQL
-shared_preload_libraries = '{{ shared_preload_libraries | default('') | join(", ") | default('') }}'
-#PL/Tcl-specific settings
+# PostgreSQL PL/Tcl Configuration
+#
+# This file configures the PL/Tcl procedural language support for PostgreSQL 17.
+# It ensures that the PL/Tcl shared library is preloaded and points to its
+# optional runtime configuration file.
 
-# Enable PL/Tcl procedural language (must be set before shared_preload_libraries takes effect)
-# Adds 'pltcl' to the list of available procedural languages
-# (Note: This is handled automatically on first CREATE LANGUAGE pltcl, but explicitly setting it improves clarity)
+# ------------------------------------------------------------------------------
+# SHARED LIBRARIES PRELOAD
+# ------------------------------------------------------------------------------
+# Description: List of shared libraries to preload at server start.
+#              PL/Tcl requires 'pltcl' to be included here. Other libraries
+#              may be added as needed.
+# Type: List of strings
+# Default: []
+#
+# Note: If this list is empty or does not contain 'pltcl', PL/Tcl functions
+# will not be available. The value is joined into a comma-separated string.
+shared_preload_libraries = '{{ (shared_preload_libraries | default([])) | join(", ") }}'
+
+# ------------------------------------------------------------------------------
+# PL/TCL CONFIGURATION FILE
+# ------------------------------------------------------------------------------
+# Description: Path to the optional PL/Tcl runtime configuration file, if used.
+#              This file may define pltcl.startup and pltcl.trusted_startup
+#              functions.
+# Type: String
+# Default: /etc/postgresql/17/main/pltcl.conf
+#
+# Note: This setting points PostgreSQL to the specific configuration file for
+# the PL/Tcl extension. If the file does not exist or is empty, PL/Tcl will
+# run with default runtime settings.
 pltcl.conf = '{{ pltcl_conf_path | default("/etc/postgresql/17/main/pltcl.conf") }}'

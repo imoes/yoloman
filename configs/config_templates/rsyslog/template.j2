@@ -1,4 +1,105 @@
-^(w{3} [ :0-9]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ rsyslogd([[0-9]+])?: [origin software="rsyslogd" swVersion="[0-9.]+" x-pid="[0-9]+" x-info="https://www.rsyslog.com"] exiting on signal [0-9]+.$
-^(w{3} [ :0-9]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ rsyslogd([[0-9]+])?: [origin software="rsyslogd" swVersion="[0-9.]+" x-pid="[0-9]+" x-info="https://www.rsyslog.com"] rsyslogd was HUPed$
-^(w{3} [ :0-9]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ rsyslogd([[0-9]+])?: [origin software="rsyslogd" swVersion="[0-9.]+" x-pid="[0-9]+" x-info="https://www.rsyslog.com"] start$
-^(w{3} [ :0-9]{11}|[0-9T:.+-]{32}) [._[:alnum:]-]+ rsyslogd([[0-9]+])?: imuxsock: Acquired UNIX socket '/run/systemd/journal/syslog' ([f{[0-9]+}) from systemd.[v[0-9.]+]$
+################
+# Global directivess
+################
+
+# Global values
+# work_directory: Directory for spool and state files.
+global(
+  workDir="{{ work_directory | default('/var/spool/rsyslog') }}"
+)
+
+# Use the new non-linear engine
+module(load="builtin:omfile" Template="RSYSLOG_FileFormat")
+
+################
+# Modules
+################
+# Load modules
+# imuxsock: provides support for local system logging (e.g. via logger command)
+module(load="imuxsock")
+
+# imklog: provides kernel logging support
+module(load="imklog" permitnonkernelfacility="on")
+
+# load_immark: Whether to load the immark module.
+{% if load_immark | default(False) | bool %}
+module(load="immark") # provides periodic heartbeat marker.
+{% endif %}
+
+# load_imudp: Whether to load the imudp module.
+# load_imudp_port: Port number for UDP syslog reception.
+{% if load_imudp | default(False) | bool %}
+input(type="imudp" port="{{ load_imudp_port | default(514) }}")
+{% endif %}
+
+# load_imtcp: Whether to load the imtcp module.
+# load_imtcp_port: Port number for TCP syslog reception.
+{% if load_imtcp | default(False) | bool %}
+input(type="imtcp" port="{{ load_imtcp_port | default(514) }}")
+{% endif %}
+
+################
+# Rules
+################
+# Log all kernel messages to the console.
+# Logging much else clutters up the screen.
+#kern.*                                                 /dev/console
+
+# Log anything (except mail) of level info or higher.
+# Don't log private authentication messages!
+*.info;mail.none;authpriv.none;cron.none                /var/log/messages
+
+# The authpriv file has restricted access.
+authpriv.*                                              /var/log/secure
+
+# Log all the mail messages in one place.
+mail.*                                                  -/var/log/maillog
+
+# Log cron stuff
+cron.*                                                  /var/log/cron
+
+# Everybody gets emergency messages
+*.emerg                                                 :omusrmsg:*
+
+# Save news errors of level crit and higher in a dedicated file.
+uucp,news.crit                                          /var/log/spooler
+
+# Save boot messages also to boot.log
+local7.*                                                /var/log/boot.log
+
+#
+# --> template directive example <==
+#
+#template(name="RemoteSyslog" type="list") {
+#    constant(value="/var/log/remote/")
+#    property(name="hostname")
+#    constant(value="/")
+#    property(name="programname")
+#    constant(value=".log")
+#}
+#
+# *.* action(type="omfile" template="RemoteSyslog")
+
+# File ownership and permissions settings
+# file_owner: Owner of the log files.
+# file_group: Group of the log files.
+# file_create_mode: Create mode for log files.
+# dir_create_mode: Create mode for log directories.
+# umask: Umask for log files and directories.
+# privdrop_to_user: User to drop privileges to.
+# privdrop_to_group: Group to drop privileges to.
+
+# Note: The current template does not use file_owner, file_group,
+# file_create_mode, dir_create_mode, umask, privdrop_to_user, or privdrop_to_group.
+# These variables are available for future enrichment of global() or module directives.
+# Example for global():
+# global(
+#   workDir="{{ work_directory | default('/var/spool/rsyslog') }}",
+#   fileOwner="{{ file_owner | default('syslog') }}",
+#   fileGroup="{{ file_group | default('adm') }}",
+#   fileCreateMode="{{ file_create_mode | default('0640') }}",
+#   dirCreateMode="{{ dir_create_mode | default('0755') }}",
+#   umask="{{ umask | default('0022') }}",
+#   privDropToUser="{{ privdrop_to_user | default('syslog') }}",
+#   privDropToGroup="{{ privdrop_to_group | default('syslog') }}"
+# )

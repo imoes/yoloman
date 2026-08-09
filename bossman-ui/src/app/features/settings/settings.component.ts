@@ -311,6 +311,31 @@ import { EnrollInfo } from '../../core/models/enroll.model';
         </mat-card-content>
       </mat-card>
 
+      <mat-card class="bm-helm-card">
+        <mat-card-header>
+          <mat-card-title>Event & run history retention</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <p>
+            How long to keep the Event Browser's play history and the audit log. Housekeeping's hourly sweep
+            auto-purges <code>runbook_runs</code> and <code>audit_log</code> rows older than this.
+            <strong>0 = keep forever</strong> (no auto-purge).
+          </p>
+          <div class="bm-llm-row">
+            <mat-form-field appearance="outline">
+              <mat-label>Retention (days)</mat-label>
+              <input matInput type="number" min="0" max="3650" [(ngModel)]="retentionDays" />
+            </mat-form-field>
+          </div>
+          <div class="bm-llm-actions">
+            <button mat-raised-button color="primary" (click)="saveRetention()" [disabled]="retentionBusy()">Save</button>
+            @if (retentionMsg()) {
+              <span [class.bm-success]="retentionOk()" [class.bm-error]="!retentionOk()">{{ retentionMsg() }}</span>
+            }
+          </div>
+        </mat-card-content>
+      </mat-card>
+
       <!-- Check rules and Host groups live in the OU / Policy view (scoped to
            OUs there); they were removed from Settings to avoid a second,
            unscoped home for the same objects. -->
@@ -494,6 +519,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
   netbootEnabled = false;
   netbootSecret = '';
   netbootSet = signal(false);
+
+  // Event/run history retention (DB-backed SystemSettings.run_retention_days).
+  retentionDays = 90;
+  retentionBusy = signal(false);
+  retentionMsg = signal<string | null>(null);
+  retentionOk = signal(true);
   netbootBusy = signal(false);
   netbootMsg = signal<string | null>(null);
   netbootOk = signal(true);
@@ -522,6 +553,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
       this.helmNoProxy = s.helm_no_proxy ?? '';
       this.netbootEnabled = s.netboot_enabled ?? false;
       this.netbootSet.set(s.netboot_secret_set ?? false);
+      this.retentionDays = s.run_retention_days ?? 90;
     });
     this.refreshAuth();
   }
@@ -546,6 +578,26 @@ export class SettingsComponent implements OnInit, OnDestroy {
           this.helmMsg.set(e?.error?.detail ?? 'save failed');
         },
       });
+  }
+
+  saveRetention(): void {
+    this.retentionBusy.set(true);
+    this.retentionMsg.set(null);
+    const days = Math.max(0, Math.min(Math.floor(this.retentionDays || 0), 3650));
+    this.systemSettings.setRetention(days).subscribe({
+      next: (s) => {
+        this.retentionDays = s.run_retention_days ?? days;
+        this.retentionBusy.set(false);
+        this.retentionOk.set(true);
+        this.retentionMsg.set(days ? `Saved — history older than ${days} days is auto-purged.` : 'Saved — history kept forever.');
+        setTimeout(() => this.retentionMsg.set(null), 3000);
+      },
+      error: (e) => {
+        this.retentionBusy.set(false);
+        this.retentionOk.set(false);
+        this.retentionMsg.set(e?.error?.detail ?? 'save failed');
+      },
+    });
   }
 
   saveNetboot(): void {

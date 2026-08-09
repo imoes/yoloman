@@ -1,159 +1,241 @@
+# ============================================================================
+# neutron-ovn-agent.conf - OVN Neutron Agent Configuration
+# ============================================================================
+# This file configures the Open vSwitch Neutron (OVN) agent, which connects
+# OpenStack Neutron (SDN) to the OVN (Open Virtual Network) dataplane.
+# It manages L2/L3 forwarding, NAT, DHCP, and Security Groups via OVN.
+
 [DEFAULT]
+# Global agent settings
+
 # Enables the OVN Neutron agent
-enabled = True
+# Enable or disable this agent entirely.
+enabled = {{ enabled | default(True) | lower }}
 
 # Logging configuration
-log_dir = {{ log_dir }}
-log_file = {{ log_file }}
+# Directory to store agent log files.
+log_dir = {{ log_dir | default('/var/log/neutron') }}
+
+# Name of the agent log file.
+log_file = {{ log_file | default('neutron-ovn-agent.log') }}
 
 # Verbosity level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-verbose = {{ verbose }}
-debug = {{ debug }}
+# Enable verbose logging output (INFO level).
+verbose = {{ verbose | default(True) | lower }}
+
+# Enable debug-level logging (detailed trace output).
+debug = {{ debug | default(False) | lower }}
 
 [ovs]
-# Open vSwitch integration bridge name
-ovs_bridge = {{ ovs_bridge }}
+# Open vSwitch (OVS) specific settings for the Neutron agent
 
-# Enable integration bridge for local VM traffic
-integration_bridge = {{ integration_bridge }}
+# Open vSwitch integration bridge name
+# Name of the Open vSwitch integration bridge used for VM traffic.
+ovs_bridge = {{ ovs_bridge | default('br-int') }}
+
+# Integration bridge for local VM-to-VM and VM-to-gateway traffic.
+# Integration bridge for local VM-to-VM and VM-to-gateway traffic.
+integration_bridge = {{ integration_bridge | default('br-int') }}
 
 # Enable tunneling (Geneve, VXLAN, or GRE)
-enable_tunneling = {{ enable_tunneling }}
+# Enable overlay network tunneling (e.g., Geneve, VXLAN).
+enable_tunneling = {{ enable_tunneling | default(True) | lower }}
 
 # Tunnel type to use (geneve, vxlan, gre)
-tunnel_type = {{ tunnel_type }}
+# Tunnel type to use (geneve, vxlan, or gre).
+tunnel_type = {{ tunnel_type | default('geneve') }}
 
 # Local IP for tunnel endpoint
-local_ip = {{ local_ip }}
+# Local IP address on the hypervisor used as tunnel endpoint (required if tunneling enabled).
+local_ip = {{ local_ip | default('') }}
 
 # Enable VXLAN UDP checksum
-vtep_udp_checksum = {{ vtep_udp_checksum }}
+# Enable UDP checksum for VXLAN traffic (improves reliability, may impact performance).
+vtep_udp_checksum = {{ vtep_udp_checksum | default(False) | lower }}
 
 # Enable VXLAN flow offload (if supported by hardware)
-vtep_flow_offload = {{ vtep_flow_offload }}
+# Enable hardware offload for VXLAN flow processing (if supported).
+vtep_flow_offload = {{ vtep_flow_offload | default(False) | lower }}
 
 # Maximum transmission unit for tunnel interfaces
-tunnel_mtu = {{ tunnel_mtu }}
+# Maximum transmission unit (MTU) for tunnel interfaces. Lower than physical interface MTU to avoid fragmentation.
+tunnel_mtu = {{ tunnel_mtu | default(1450) }}
 
 [ovn]
+# OVN (Open Virtual Network) backend connection and behavior settings
+
 # Comma-separated list of OVN NB and SB OVSDB server addresses
-ovn_nb_db = {{ ovn_nb_db }}
-ovn_sb_db = {{ ovn_sb_db }}
+# OVN Northbound database connection string(s) (comma-separated for HA).
+ovn_nb_db = {{ ovn_nb_db | default('tcp:127.0.0.1:6641') }}
+
+# OVN Southbound database connection string(s) (comma-separated for HA).
+ovn_sb_db = {{ ovn_sb_db | default('tcp:127.0.0.1:6642') }}
 
 # OVN timeout (seconds) for DB connections
-ovn_nb_db_timeout = {{ ovn_nb_db_timeout }}
-ovn_sb_db_timeout = {{ ovn_sb_db_timeout }}
+# Timeout (seconds) for Northbound OVSDB connections.
+ovn_nb_db_timeout = {{ ovn_nb_db_timeout | default(180) }}
+
+# Timeout (seconds) for Southbound OVSDB connections.
+ovn_sb_db_timeout = {{ ovn_sb_db_timeout | default(180) }}
 
 # Enable L3 routing via OVN Northbound DB
-enable_chassis_as_edge = {{ enable_chassis_as_edge }}
+# Treat each chassis (compute node) as a distributed edge router.
+enable_chassis_as_edge = {{ enable_chassis_as_edge | default(False) | lower }}
 
 # Enable distributed routing (requires L3 agent disabled)
-enable_distributed_floating_ip = {{ enable_distributed_floating_ip }}
+# Enable distributed routing for floating IPs (requires L3 agent disabled).
+enable_distributed_floating_ip = {{ enable_distributed_floating_ip | default(True) | lower }}
 
 # Enable L3 HA for floating IPs
-enable_ha_for_floating_ips = {{ enable_ha_for_floating_ips }}
+# Enable high availability (HA) for floating IPs (requires distributed routing).
+enable_ha_for_floating_ips = {{ enable_ha_for_floating_ips | default(False) | lower }}
 
 # Enable SNAT on chassis for floating IPs
-enable_snat = {{ enable_snat }}
+# Enable SNAT (source NAT) on chassis for external network traffic.
+enable_snat = {{ enable_snat | default(True) | lower }}
 
 # Gateway chassis for SNAT
-snat_gateway_port = {{ snat_gateway_port }}
+# Gateway port name or UUID used for SNAT (optional; auto-selected if not set).
+snat_gateway_port = {{ snat_gateway_port | default('') }}
 
 # Enable NAT for floating IPs
-enable_fip_nat = {{ enable_fip_nat }}
+# Enable NAT rules for floating IPs (required unless using distributed SNAT).
+enable_fip_nat = {{ enable_fip_nat | default(True) | lower }}
 
 # Maximum number of L3 router gateway ports per chassis
-max_l3_router_ports = {{ max_l3_router_ports }}
+# Maximum number of L3 router ports (interfaces) per chassis.
+max_l3_router_ports = {{ max_l3_router_ports | default(100) }}
 
 # Maximum number of router floating IPs per chassis
-max_floating_ips_per_router = {{ max_floating_ips_per_router }}
+# Maximum number of floating IPs per router.
+max_floating_ips_per_router = {{ max_floating_ips_per_router | default(50) }}
 
 # Enable metadata service (requires metadata agent disabled)
-enable_metadata = {{ enable_metadata }}
+# Enable metadata service proxy (requires Neutron metadata agent disabled).
+enable_metadata = {{ enable_metadata | default(True) | lower }}
 
 # Metadata network ID to bind metadata proxy
-tenant_network_type = {{ tenant_network_type }}
+# Tenant network type (geneve, vxlan, vlan, flat) used for metadata traffic.
+tenant_network_type = {{ tenant_network_type | default('geneve') }}
 
 # Metadata secret (shared with Neutron server)
-metadata_proxy_secret = {{ metadata_proxy_secret }}
+# Shared secret between Neutron server and agents for metadata proxy authentication.
+metadata_proxy_secret = {{ metadata_proxy_secret | default('') }}
 
 # Metadata network name or ID for agent to bind
-metadata_network = {{ metadata_network }}
+# Name or ID of the metadata network used by the agent.
+metadata_network = {{ metadata_network | default('metadata') }}
 
 # OVN L3 scheduler (leastloaded, mostloaded, random)
-ovn_l3_scheduler = {{ ovn_l3_scheduler }}
+# L3 scheduler algorithm (leastloaded, mostloaded, random) to assign routers to chassis.
+ovn_l3_scheduler = {{ ovn_l3_scheduler | default('leastloaded') }}
 
 # Enable OVN QoS extension driver
-enable_qos_ext_driver = {{ enable_qos_ext_driver }}
+# Enable QoS (Quality of Service) extension driver for rate limiting and bandwidth allocation.
+enable_qos_ext_driver = {{ enable_qos_ext_driver | default(True) | lower }}
 
 # Enable security groups extension driver
-enable_sg_ext_driver = {{ enable_sg_ext_driver }}
+# Enable security group extension driver for firewall rules.
+enable_sg_ext_driver = {{ enable_sg_ext_driver | default(True) | lower }}
 
 # Enable audit logging for OVN
-audit_log = {{ audit_log }}
+# Enable OVN audit logging (records all DB changes for debugging/forensics).
+audit_log = {{ audit_log | default(False) | lower }}
 
 [agent]
+# Agent process behavior, polling, and worker thread settings
+
 # Polling interval (seconds) for OVSDB changes
-polling_interval = {{ polling_interval }}
+# Interval (seconds) between OVSDB polling for changes.
+polling_interval = {{ polling_interval | default(2) }}
 
 # Timeout (seconds) for OVSDB commands
-ovsdb_connection_timeout = {{ ovsdb_connection_timeout }}
+# Timeout (seconds) for OVSDB command execution.
+ovsdb_connection_timeout = {{ ovsdb_connection_timeout | default(10) }}
 
 # Number of OVSDB reconnection attempts
-ovsdb_connection_max_retries = {{ ovsdb_connection_max_retries }}
+# Maximum number of OVSDB connection retries on failure.
+ovsdb_connection_max_retries = {{ ovsdb_connection_max_retries | default(3) }}
 
 # Number of concurrent OVSDB transactions
-ovsdb_transaction_concurrency = {{ ovsdb_transaction_concurrency }}
+# Maximum number of concurrent OVSDB transactions.
+ovsdb_transaction_concurrency = {{ ovsdb_transaction_concurrency | default(4) }}
 
 # Minimum number of workers for event processing
-min_workers = {{ min_workers }}
+# Minimum number of worker threads for async event processing.
+min_workers = {{ min_workers | default(2) }}
 
 # Maximum number of workers for event processing
-max_workers = {{ max_workers }}
+# Maximum number of worker threads for async event processing.
+max_workers = {{ max_workers | default(16) }}
 
 [securitygroup]
+# Security Group (SG) and Firewall driver settings
+
 # Enable security groups (requires Neutron security groups enabled)
-enable_security_group = {{ enable_security_group }}
+# Enable Neutron security groups (requires OpenStack security group API enabled).
+enable_security_group = {{ enable_security_group | default(True) | lower }}
 
 # Enable security group logging
-log_security_group_events = {{ log_security_group_events }}
+# Log security group rule updates and port updates.
+log_security_group_events = {{ log_security_group_events | default(False) | lower }}
 
 # Enable debug logging for security group events
-debug_security_group_events = {{ debug_security_group_events }}
+# Enable debug logging for security group events (very verbose).
+debug_security_group_events = {{ debug_security_group_events | default(False) | lower }}
 
 # Enable iptables_hybrid (if using legacy iptables + OVS firewall driver)
-firewall_driver = {{ firewall_driver }}
+# Firewall driver (ovn, iptables_hybrid, none). 'ovn' uses OVN-native ACLs.
+firewall_driver = {{ firewall_driver | default('ovn') }}
 
 # Enable IPsets for efficient SG membership tracking
-enable_ipset = {{ enable_ipset }}
+# Use ipset for efficient SG member tracking (requires ipset kernel module).
+enable_ipset = {{ enable_ipset | default(True) | lower }}
 
 # Enable iptables_flood protection (drop packets if too many rules)
-enable_flood_rules = {{ enable_flood_rules }}
+# Drop packets early if too many SG rules are added (prevents OVS rule overflow).
+enable_flood_rules = {{ enable_flood_rules | default(True) | lower }}
 
 # Enable DHCP options injection (DHCP options via OVN)
-enable_dhcp_options = {{ enable_dhcp_options }}
+# Enable OVN to inject DHCP options via DHCP options table (requires OVN >= 20.06).
+enable_dhcp_options = {{ enable_dhcp_options | default(True) | lower }}
 
 # Enable DHCPv6 stateful mode
-enable_dhcpv6_stateful = {{ enable_dhcpv6_stateful }}
+# Enable stateful DHCPv6 (server-assigned addresses).
+enable_dhcpv6_stateful = {{ enable_dhcpv6_stateful | default(True) | lower }}
 
 # Enable DHCPv6 stateless mode
-enable_dhcpv6_stateless = {{ enable_dhcpv6_stateless }}
+# Enable stateless DHCPv6 (RA + DHCP for metadata, DNS, etc).
+enable_dhcpv6_stateless = {{ enable_dhcpv6_stateless | default(False) | lower }}
 
 [ml2]
+# Multiple Linux Switch (ML2) plugin driver configuration
+
 # Type drivers (e.g., vlan, flat, geneve, vxlan)
-type_drivers = {{ type_drivers | join(', ') }}
+# List of supported network type drivers (must include at least one).
+type_drivers = {{ type_drivers | default(['geneve', 'vlan', 'flat']) | join(', ') }}
 
 # Tenant network types (subset of type_drivers)
-tenant_network_types = {{ tenant_network_types | join(', ') }}
+# Tenant network types to allocate by default (subset of type_drivers).
+tenant_network_types = {{ tenant_network_types | default(['geneve']) | join(', ') }}
 
 # Mechanism drivers
-mechanism_drivers = {{ mechanism_drivers | join(', ') }}
+# Mechanism drivers to integrate with OVS/OVN.
+mechanism_drivers = {{ mechanism_drivers | default(['ovn']) | join(', ') }}
 
 # Extension drivers
-extension_drivers = {{ extension_drivers | join(', ') }}
+# Extension drivers enabled on this agent (e.g., for port security, QoS, DNS).
+extension_drivers = {{ extension_drivers | default(['port_security', 'qos', 'security_group']) | join(', ') }}
 
 [database]
+# Optional separate database connection for agent-specific metadata
+
 # OVN-specific database connection (if using separate backend)
-connection = {{ database_connection }}
-max_retries = {{ database_max_retries }}
-retry_interval = {{ database_retry_interval }}
+# Optional separate database connection string for agent metadata (rarely needed).
+connection = {{ database_connection | default('') }}
+
+# Maximum number of retries for database connection.
+max_retries = {{ database_max_retries | default(20) }}
+
+# Delay (seconds) between database connection retries.
+retry_interval = {{ database_retry_interval | default(5) }}

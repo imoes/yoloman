@@ -1,106 +1,4 @@
 {
-  "config.log_to_file": {
-    "type": "bool",
-    "default": false,
-    "description": "Whether to log to a file instead of syslog"
-  },
-  "config.log_file": {
-    "type": "string",
-    "default": "/var/log/qpsmtpd/qpsmtpd.log",
-    "description": "Path to the log file (used only if log_to_file is true)"
-  },
-  "config.listeners": {
-    "type": "list",
-    "default": [
-      {
-        "address": "0.0.0.0",
-        "port": 25
-      }
-    ],
-    "description": "List of addresses and ports to listen on"
-  },
-  "config.max_connections_per_ip": {
-    "type": "number",
-    "default": 20,
-    "description": "Maximum simultaneous connections allowed from a single IP"
-  },
-  "config.timeout": {
-    "type": "number",
-    "default": 300,
-    "description": "Connection idle timeout in seconds"
-  },
-  "config.auth_backends": {
-    "type": "list",
-    "default": [],
-    "description": "Authentication backends (e.g., PAM, SQL, passwd file)"
-  },
-  "config.plugins": {
-    "type": "list",
-    "default": [
-      {
-        "name": "auth/daemon",
-        "enabled": true
-      },
-      {
-        "name": "tls",
-        "enabled": true
-      },
-      {
-        "name": "pre_qp",
-        "enabled": true
-      },
-      {
-        "name": "check_basicheaders",
-        "enabled": true
-      },
-      {
-        "name": "check_earlytalker",
-        "enabled": true
-      },
-      {
-        "name": "check_badmailfrom",
-        "enabled": true
-      },
-      {
-        "name": "check_badrcptto",
-        "enabled": true
-      },
-      {
-        "name": "check_spf",
-        "enabled": true
-      },
-      {
-        "name": "greylisting",
-        "enabled": false
-      },
-      {
-        "name": "spamassassin",
-        "enabled": true
-      },
-      {
-        "name": "rbl",
-        "enabled": false
-      },
-      {
-        "name": "vpopmail",
-        "enabled": false
-      },
-      {
-        "name": "rate",
-        "enabled": false
-      },
-      {
-        "name": "antivirus",
-        "enabled": true
-      }
-    ],
-    "description": "List of qpsmtpd plugins to enable (order matters). Set 'enabled' to false to skip a plugin."
-  },
-  "config.spamassassin": {
-    "type": "object",
-    "default": true,
-    "description": "SpamAssassin integration settings"
-  },
   "service.port": {
     "type": "number",
     "default": 25,
@@ -114,12 +12,16 @@
   "service.enabled": {
     "type": "string",
     "default": "false",
-    "description": "Whether qpsmtpd service is enabled ('true' or 'false'; used in init script)",
+    "description": "Whether qpsmtpd service is enabled ('true' or 'false'; used in init script)\n      Valid values: false, true, 0, 1\n      Default: false\n      Enum: [\"false\", \"true\", \"0\", \"1\"]\n      Example: true\n    }",
     "enum": [
-      "false",
       "true",
-      "0",
+      "false",
       "1"
     ]
+  },
+  "sample_values": {
+    "type": "object",
+    "default": false,
+    "description": "Sample values that reproduce the original default config file exactly.\n      service.port: 25\n      service.runas: qpsmtpd\n      service.enabled: false\n    }"
   }
 }

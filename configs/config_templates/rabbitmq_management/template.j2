@@ -1,72 +1,108 @@
-# HTTP listener for the Management Plugin
-# Binds to a specific host and port
-# Set to null to disable HTTP listener
-listeners.management.1 = {{ management_http_port }}
+# =============================================================================
+# RabbitMQ Management Plugin Configuration
+# =============================================================================
+# This file configures the HTTP/HTTPS interface for the RabbitMQ Management Plugin.
+# It exposes web UI and REST API endpoints.
+# =============================================================================
 
-# Optional: custom bind address (default: 127.0.0.1)
-# Set to 0.0.0.0 to listen on all interfaces
-management.tcp.bind_address = {{ management_bind_address }}
+# --- HTTP Listener ---
 
-# HTTPS listener (optional)
-# Enable only if SSL is configured
-{% if management_ssl_enabled %}
+# HTTP port for the Management Plugin web UI and API.
+# Set to 0 or null to disable the HTTP listener entirely.
+listeners.management.1 = {{ (management_http_port | default(15672)) | tojson }}
+
+# Network interface (IP address) to bind the management HTTP(S) listeners to.
+# Use '127.0.0.1' for local access only, or '0.0.0.0' to accept on all interfaces.
+management.tcp.bind_address = {{ management_bind_address | default('127.0.0.1') }}
+
+# --- HTTPS Listener (SSL/TLS) ---
+
+# Enable HTTPS for the management interface.
+# Requires valid SSL certificate and key files to be configured below.
+{% if management_ssl_enabled | default(False) %}
 # HTTPS listener configuration
-listeners.management.ssl.1 = {{ management_https_port }}
-management.ssl.port = {{ management_https_port }}
-management.ssl.bind_address = {{ management_bind_address }}
+# The port where the plugin will listen for secure connections.
+listeners.management.ssl.1 = {{ (management_https_port | default(15671)) | tojson }}
+management.ssl.port = {{ (management_https_port | default(15671)) | tojson }}
+management.ssl.bind_address = {{ management_bind_address | default('127.0.0.1') }}
 
-# TLS configuration
-management.ssl.cacertfile = {{ management_ssl_cacertfile }}
-management.ssl.certfile = {{ management_ssl_certfile }}
-management.ssl.keyfile = {{ management_ssl_keyfile }}
+# TLS/SSL Certificate Configuration
 
-{% if management_ssl_verify == "verify_peer" %}
+# Path to the CA certificate file used for verifying client or server chains.
+management.ssl.cacertfile = {{ management_ssl_cacertfile | default('/etc/rabbitmq/ssl/cacert.pem') }}
+
+# Path to the server's own certificate file (public key).
+management.ssl.certfile = {{ management_ssl_certfile | default('/etc/rabbitmq/ssl/cert.pem') }}
+
+# Path to the server's private key file.
+management.ssl.keyfile = {{ management_ssl_keyfile | default('/etc/rabbitmq/ssl/key.pem') }}
+
+# Client Certificate Verification Policy
+# 'verify_peer' enforces strict validation of client certificates.
+# 'verify_none' disables client certificate validation (standard for most setups).
+{% if management_ssl_verify | default('verify_none') == 'verify_peer' %}
 management.ssl.verify = verify_peer
 management.ssl.fail_if_no_peer_cert = true
-{% elif management_ssl_verify == "verify_none" %}
+{% elif management_ssl_verify | default('verify_none') == 'verify_none' %}
 management.ssl.verify = verify_none
 {% endif %}
-
 {% endif %}
 
-# Authentication backend (default: rabbit_mgmt_user_pass)
-# This is rarely changed, but exposed for completeness
-management.agent = {{ management_agent }}
+# --- Authentication ---
 
-# Number of HTTP worker threads (default: 16)
-management.num_tcp_acceptors = {{ management_num_tcp_acceptors }}
+# Authentication backend used by the management plugin.
+# Default 'rabbit_mgmt_user_pass' uses the standard RabbitMQ user database.
+management.agent = {{ management_agent | default('rabbit_mgmt_user_pass') }}
 
-# HTTP request timeout in milliseconds (default: 30000)
-management.http_timeout = {{ management_http_timeout }}
+# --- Performance & Timeouts ---
 
-# Enable/disable guest user login via HTTP API/UI
-# Set to false in production for security
-management.disable_guest_login = {{ management_disable_guest_login }}
+# Number of TCP acceptor processes handling incoming management connections.
+# Adjust based on expected concurrency and system load.
+management.num_tcp_acceptors = {{ (management_num_tcp_acceptors | default(16)) | tojson }}
 
-# Metrics collection settings
-{% for metric in management_metrics %}
+# HTTP request timeout in milliseconds.
+# Increase for long-running requests like large queue dumps or consumer stats.
+management.http_timeout = {{ (management_http_timeout | default(30000)) | tojson }}
+
+# --- Security ---
+
+# Block the default 'guest' user from logging in via the HTTP API/UI.
+# Strongly recommended to keep True in production environments.
+management.disable_guest_login = {{ (management_disable_guest_login | default(True)) | tojson }}
+
+# --- Metrics & Logging ---
+
+# Fine-grained metric collection tuning.
+# List of key-value pairs to enable/disable or tune specific management metrics.
+{% for metric in management_metrics | default([]) %}
 management.{{ metric.key }} = {{ metric.value }}
 {% endfor %}
 
-# Enable verbose logging for the management plugin
-management.log_levels = [{{ management_log_levels | join(', ') }}]
+# Log levels for the management plugin.
+# Order matters: first match wins. Common: ['error', 'warning', 'info', 'debug'].
+management.log_levels = [{{ management_log_levels | default(['warning']) | join(', ') }}]
 
-# Optional: custom path prefix (default: /)
-# Useful when reverse proxying with a path prefix
-management.path_prefix = {{ management_path_prefix }}
+# --- UI & API Configuration ---
 
-# Rate limiting (optional, advanced)
-{% if management_rate_limiting_enabled %}
+# URL path prefix for the management plugin.
+# Useful when placing the plugin behind a reverse proxy at a specific path (e.g., /rmq-mgmt).
+management.path_prefix = {{ management_path_prefix | default('/') }}
+
+# Rate Limiting (Advanced)
+# Prevents API abuse by limiting the number of requests per time window.
+{% if management_rate_limiting_enabled | default(False) %}
 management.rate_limit.enabled = true
-management.rate_limit.threshold = {{ management_rate_limit_threshold }}
-management.rate_limit.interval = {{ management_rate_limit_interval_ms }}
+management.rate_limit.threshold = {{ (management_rate_limit_threshold | default(100)) | tojson }}
+management.rate_limit.interval = {{ (management_rate_limit_interval_ms | default(1000)) | tojson }}
 {% endif %}
 
-# Cluster name in UI (optional, defaults to node name)
-management.cluster_name = {{ management_cluster_name }}
+# Custom display name for the RabbitMQ cluster in the Web UI.
+# If empty, the node name is used instead.
+management.cluster_name = {{ management_cluster_name | default('') }}
 
-# Enable PPI (Performance & Predictability Insights) data collection
-management.ppi.enabled = {{ management_ppi_enabled }}
+# Enable Performance & Predictability Insights (PPI) data collection.
+# Sends anonymized metrics to the RabbitMQ team to help improve the software.
+management.ppi.enabled = {{ (management_ppi_enabled | default(False)) | tojson }}
 
-# Cookie file for distributed Erlang (not used directly by management plugin, but required for cluster-aware features)
-# Managed via rabbitmq-env.conf or env vars; not templated here.
+# Note: The Erlang cookie for cluster communication is managed separately
+# via /etc/rabbitmq/rabbitmq-env.conf or environment variables.

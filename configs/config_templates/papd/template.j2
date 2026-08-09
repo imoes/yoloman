@@ -15,7 +15,7 @@ set -e
 
 . /lib/lsb/init-functions
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/usr/sbin:/usr/bin
 DESC="PAP print server"
 NAME=papd
 SCRIPTNAME=/etc/init.d/$NAME
@@ -25,19 +25,101 @@ PIDFILE=/var/lock/$NAME
 # Guard to prevent execution if netatalk was removed.
 test -x $DAEMON || exit 0
 
+# --- Papd Runtime Configuration ---
+
+# IP address for papd to bind to; use 0.0.0.0 for all interfaces.
+BIND_ADDR="{{ listen_address | default('0.0.0.0') }}"
+
+# UDP port to listen on for PAP requests (standard AppleTalk PAP port).
+BIND_PORT="{{ listen_port | default(543) }}"
+
+# Enable PAP service — if false, no printers will be accessible via AppleTalk.
+# Note: Jinja renders boolean True/False as strings 'True'/'False' unless cast.
+PAP_ACTIVE="{{ pap_active | default(true) | lower }}"
+
+# Maximum number of print jobs papd will accept per printer at once.
+MAX_JOBS="{{ max_jobs | default(10) }}"
+
+# Seconds after which queued jobs are purged (0 = never purge).
+QUEUE_TIMEOUT="{{ queue_timeout | default(86400) }}"
+
+# Log messages to syslog — recommended for production use.
+SYSLOG_ENABLED="{{ syslog_enabled | default(true) | lower }}"
+
+# Enable verbose debug logging — use only for troubleshooting.
+DEBUG_ENABLED="{{ debug_enabled | default(false) | lower }}"
+
+# Path to the printcap file describing available printers.
+PRINTCAP_PATH="{{ printcap_path | default('/etc/printcap') }}"
+
+# Name of the default printer (if empty, first printer in PrintCap is used).
+DEFAULT_PRINTER="{{ default_printer | default('') }}"
+
+# List of printers to expose via PAP. Each printer is mapped to an AppleTalk name.
+# We collect them into a comma-separated string for the command line.
+{% set printer_list = printers | default([]) | list %}
+{% if printer_list | length > 0 %}
+PRINTER_LIST="{{ printer_list | join(',') }}"
+{% else %}
+PRINTER_LIST=""
+{% endif %}
+
+# Template for the shell command used to submit print jobs (variables: job, printer).
+# Note: The variables $printer and $job are expanded by papd at runtime.
+DEFAULT_CMD="{{ default_command | default('lp -d $printer $job') }}"
+
 status(){
     set +e
     EXIT_CODE=`start-stop-daemon --status --exec $DAEMON; echo $?`
-    set -e
+    set +e
     echo $EXIT_CODE
 }
+
+# Construct command-line arguments for the daemon based on config vars.
+DAEMON_ARGS=""
+
+# If PAP is active, we may add options. If disabled, we might just stop or add --disable.
+# The template logic checks pap_active (string 'true' or 'false' after lower()).
+{% if pap_active | default(true) | lower == 'true' %}
+# Service enabled; proceed with standard arguments.
+{% else %}
+# Service disabled; do not start or stop actively serving.
+DAEMON_ARGS="${DAEMON_ARGS} --disable"
+{% endif %}
+
+DAEMON_ARGS="${DAEMON_ARGS} --bind ${BIND_ADDR}"
+DAEMON_ARGS="${DAEMON_ARGS} --port ${BIND_PORT}"
+DAEMON_ARGS="${DAEMON_ARGS} --max-jobs ${MAX_JOBS}"
+DAEMON_ARGS="${DAEMON_ARGS} --queue-timeout ${QUEUE_TIMEOUT}"
+
+{% if syslog_enabled | default(true) | lower == 'false' %}
+DAEMON_ARGS="${DAEMON_ARGS} --no-syslog"
+{% endif %}
+
+{% if debug_enabled | default(false) | lower == 'true' %}
+DAEMON_ARGS="${DAEMON_ARGS} --debug"
+{% endif %}
+
+DAEMON_ARGS="${DAEMON_ARGS} --printcap ${PRINTCAP_PATH}"
+
+{% if (default_printer | default('') | trim) | length > 0 %}
+DAEMON_ARGS="${DAEMON_ARGS} --default ${DEFAULT_PRINTER}"
+{% endif %}
+
+{% if printer_list | length > 0 %}
+DAEMON_ARGS="${DAEMON_ARGS} --printers ${PRINTER_LIST}"
+{% endif %}
+
+{% if (default_command | default('lp -d $printer $job') | trim) | length > 0 %}
+DAEMON_ARGS="${DAEMON_ARGS} --cmd ${DEFAULT_CMD}"
+{% endif %}
 
 case "$1" in
     start)
         EXIT_CODE=`status`
         if [ $EXIT_CODE -ne 0 ]; then
             echo -n "Starting $NAME"
-            start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
+            start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE -- $DAEMON_ARGS
             echo "."
         else
             echo "$NAME is already running."
@@ -58,7 +140,7 @@ case "$1" in
         echo -n "Restarting $NAME"
         start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $PIDFILE
         echo -n "."
-        start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE
+        start-stop-daemon --start --quiet --exec $DAEMON --pidfile $PIDFILE -- $DAEMON_ARGS
         echo -n "."
         echo " Done."
         ;;

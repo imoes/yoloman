@@ -1,85 +1,99 @@
-# LDAP server URI
-LDAPServer {{ ldap_server }}
+# ==============================================================================
+# Pure-FTPD LDAP Authentication Configuration Template
+# ==============================================================================
+# This template generates the configuration directives for pure-ftpd to use
+# an external LDAP directory for user authentication and account lookup.
+# Every directive is self-documented via comments derived from the schema.
+# ==============================================================================
 
-# Base DN for LDAP searches
-LDAPBaseDN {{ ldap_base_dn }}
+# URI of the LDAP server (e.g., ldap://ldap.example.com or ldaps://ldap.example.com for LDAPS).
+LDAPServer {{ ldap_server | default('ldap://ldap.example.com') }}
 
-# LDAP bind DN (for bind operation; leave empty for anonymous bind)
-{% if ldap_bind_dn %}
-LDAPBindDN {{ ldap_bind_dn }}
+# Base Distinguished Name (DN) for LDAP user searches.
+LDAPBaseDN {{ ldap_base_dn | default('dc=example,dc=com') }}
+
+# DN to bind as when searching the LDAP directory.
+# Leave blank for anonymous bind.
+{% if ldap_bind_dn | default('') | length > 0 %}
+LDAPBindDN {{ ldap_bind_dn | default('') }}
 {% endif %}
 
-# LDAP bind password
-{% if ldap_bind_password %}
-LDAPBindPass {{ ldap_bind_password }}
+# Password for the bind DN.
+# Only required if bind DN is set.
+{% if ldap_bind_password | default('') | length > 0 %}
+LDAPBindPass {{ ldap_bind_password | default('') }}
 {% endif %}
 
-# LDAP search filter for user lookup (use %u for username, %s for service, %h for hostname)
-LDAPFilter {{ ldap_user_filter }}
+# LDAP search filter used to find users.
+# Use %u for the provided username.
+LDAPFilter {{ ldap_user_filter | default('(&(objectClass=posixAccount)(uid=%u))') }}
 
-# LDAP attribute mapping for UID
-LDAPDefaultUID {{ ldap_uid_attribute }}
+# LDAP attribute containing the numeric user ID (UID).
+LDAPDefaultUID {{ ldap_uid_attribute | default('uidNumber') }}
 
-# LDAP attribute mapping for GID
-LDAPDefaultGID {{ ldap_gid_attribute }}
+# LDAP attribute containing the numeric group ID (GID).
+LDAPDefaultGID {{ ldap_gid_attribute | default('gidNumber') }}
 
-# LDAP attribute mapping for home directory
-LDAPHomeDir {{ ldap_home_attribute }}
+# LDAP attribute containing the user's home directory path.
+LDAPHomeDir {{ ldap_home_attribute | default('homeDirectory') }}
 
-# LDAP attribute mapping for shell
-{% if ldap_shell_attribute %}
-LDAPDefaultShell {{ ldap_shell_attribute }}
+# LDAP attribute containing the user's default shell (optional).
+{% if ldap_shell_attribute | default('loginShell') | length > 0 %}
+LDAPDefaultShell {{ ldap_shell_attribute | default('loginShell') }}
 {% endif %}
 
-# LDAP attribute mapping for password (for auth)
-{% if ldap_password_attribute %}
-LDAPPasswordAttribute {{ ldap_password_attribute }}
+# LDAP attribute containing the user's password hash (used for authentication).
+{% if ldap_password_attribute | default('userPassword') | length > 0 %}
+LDAPPasswordAttribute {{ ldap_password_attribute | default('userPassword') }}
 {% endif %}
 
-# Use TLS (startTLS) for LDAP connection
-{% if ldap_use_tls %}
-LDAPTLS {% if ldap_use_tls == true %}1{% else %}0{% endif %}
+# Enable startTLS to encrypt the LDAP connection (requires startTLS-capable server).
+{% if ldap_use_tls | default(false) %}
+LDAPTLS 1
+{% else %}
+LDAPTLS 0
 {% endif %}
 
-# CA certificate file for LDAP TLS verification
-{% if ldap_ca_cert_file %}
-LDAPCACertFile {{ ldap_ca_cert_file }}
+# Path to CA certificate file for verifying LDAP server certificate (used with TLS).
+{% if ldap_ca_cert_file | default('/etc/ssl/certs/ca-certificates.crt') | length > 0 %}
+LDAPCACertFile {{ ldap_ca_cert_file | default('/etc/ssl/certs/ca-certificates.crt') }}
 {% endif %}
 
-# Client certificate for LDAP TLS (optional)
-{% if ldap_client_cert_file %}
-LDAPClientCertFile {{ ldap_client_cert_file }}
+# Path to client certificate file for mutual TLS (optional).
+{% if ldap_client_cert_file | default('') | length > 0 %}
+LDAPClientCertFile {{ ldap_client_cert_file | default('') }}
 {% endif %}
 
-# Client key for LDAP TLS (optional)
-{% if ldap_client_key_file %}
-LDAPClientKeyFile {{ ldap_client_key_file }}
+# Path to client private key file for mutual TLS (optional).
+{% if ldap_client_key_file | default('') | length > 0 %}
+LDAPClientKeyFile {{ ldap_client_key_file | default('') }}
 {% endif %}
 
-# LDAP version (2 or 3); 3 is recommended
-LDAPVersion {{ ldap_version }}
+# LDAP protocol version (2 or 3). Version 3 is strongly recommended.
+LDAPVersion {{ ldap_version | default(3) }}
 
-# Require valid certificate (for LDAP TLS)
-{% if ldap_require_cert %}
-LDAPRequireCert {{ ldap_require_cert }}
+# Certificate verification mode for TLS: 'never', 'allow', 'try', or 'demand' (default).
+{% if ldap_require_cert | default('demand') | length > 0 %}
+LDAPRequireCert {{ ldap_require_cert | default('demand') }}
 {% endif %}
 
-# Follow referrals (0 = no, 1 = yes)
-{% if ldap_follow_referrals %}
-LDAPFollowReferrals {{ ldap_follow_referrals }}
+# Follow LDAP referrals (0 = no, 1 = yes).
+{% if ldap_follow_referrals | default(0) %}
+LDAPFollowReferrals {{ ldap_follow_referrals | default(0) }}
 {% endif %}
 
-# Maximum number of LDAP connections to pool
-{% if ldap_max_conn %}
-LDAPMaxConn {{ ldap_max_conn }}
+# Maximum number of LDAP connections to pool for performance.
+{% if ldap_max_conn | default(10) %}
+LDAPMaxConn {{ ldap_max_conn | default(10) }}
 {% endif %}
 
-# Enable debug mode (0 = off, 1 = on)
-{% if ldap_debug %}
-LDAPDebug {{ ldap_debug }}
+# Enable verbose debug logging to syslog (0 = off, 1 = on).
+{% if ldap_debug | default(0) %}
+LDAPDebug {{ ldap_debug | default(0) }}
 {% endif %}
 
-# Additional LDAP search base (multiple allowed; each on new line)
-{% for base in ldap_additional_search_bases %}
+# Additional LDAP base DNs to search (e.g., for users in multiple OUs).
+# Each entry is added as a separate LDAPSearchBase directive.
+{% for base in ldap_additional_search_bases | default([]) %}
 LDAPSearchBase {{ base }}
 {% endfor %}

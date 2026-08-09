@@ -2,57 +2,130 @@
 #
 # This file configures IPsec connections. StrongSwan uses a simple,
 # hierarchical syntax to define tunnels, authentication, and policies.
+#
+# NOTE: This template is self-documenting. Every variable uses an inline
+# default to ensure safe rendering even when undefined. Comments above
+# each directive describe the source schema field.
 
 config setup
-    # Virtual IP pool forroadcast clients (used in IKEv2 mode)
+    # Virtual IP pool for broadcast clients (used in IKEv2 mode)
+    # Defines private address ranges that are NAT-traversed or tunneled.
     virtual_private=%v4:10.0.0.0/8,%v4:192.168.0.0/16,%v4:172.16.0.0/12,%v6:fd00::/8,%v6:fe80::/10
-    # Enable CRL checking (off = disabled, pem = check CRLs in PEM format)
-    crlcheckinterval={{ values.crl_check_interval }}
-    # Log level: 0=none, 1=basic, 2=more, 3=all, 4=raw (max)
-    charondebug="{{ values.charon_debug }}"
-    # Strict IKE SA rekeying (yes = strict enforcement, no = lenient)
-    strictcrlpolicy={{ values.strict_crl_policy | lower }}
-    # Enable NAT traversal
-    nat_traversal={{ values.nat_traversal | lower }}
-    # Disable dead peer detection by default (per-conn override recommended)
-    dpdaction={{ values.dpd_action }}
-    dpddelay={{ values.dpd_delay }}
-    dpdtimeout={{ values.dpd_timeout }}
-    # Disable IKEv1 support if not needed
-    ikelifetime={{ values.ike_lifetime }}
-    keylife={{ values.key_lifetime }}
 
-{% for conn in values.connections %}
-# Connection: {{ conn.name }}
-conn {{ conn.name }}
-    # Connection type: roadwarrior (client-to-site), site-to-site (host-to-host)
-    type={{ conn.type }}
-    # IKE version to use: 1, 2, or 0 (auto)
-    ike={{ conn.ike_version }}
-    # ESP cipher suite (e.g., aes256-sha256-modp2048)
-    esp={{ conn.esp_suite }}
-    # Authentication method: pubkey, psk, eap-[tls|md5|pwd|mschapv2], hybrid
-    authby={{ conn.auth_by }}
-    # Local identity (host or user FQDN); e.g., %defaultroute, @vpn.example.com
-    left={{ conn.left }}
-    leftid={{ conn.left_id }}
-    leftsubnet={{ conn.left_subnet | join(', ') }}
-    leftcert={{ conn.left_cert }}
-    # Remote identity / gateway
-    right={{ conn.right }}
-    rightid={{ conn.right_id }}
-    rightsubnet={{ conn.right_subnet | join(', ') }}
-    # For EAP clients: allow all or restrict to specific EAP method
-{% if conn.right_sourceip %}
-    rightsourceip={{ conn.right_sourceip }}
-{% endif %}
-{% if conn.eap_identity %}
-    eap_identity={{ conn.eap_identity }}
-{% endif %}
-    # Dead peer detection (per-connection override)
-    dpdaction={{ conn.dpd_action | default(values.dpd_action) }}
-    dpddelay={{ conn.dpd_delay | default(values.dpd_delay) }}
-    dpdtimeout={{ conn.dpd_timeout | default(values.dpd_timeout) }}
-    # Auto-start behavior: start, add, route, ignore
-    auto={{ conn.auto }}
+    # CRL Check Interval
+    # Interval (in seconds) between CRL (Certificate Revocation List) reloads. Set to 0 to disable automatic refresh.
+    crlcheckinterval={{ ((values | default({})).crl_check_interval | default(600)) }}
+
+    # Charon Debug Level
+    # Debug level for Charon daemon components (IKEv2). Format: '<component> <level>, ...'. Levels: 0 (none) to 4 (raw).
+    charondebug="{{ (values | default({})).charon_debug | default('cfg 2, dmn 2, ike 2, chd 2') }}"
+
+    # Strict CRL Policy
+    # If true, reject certificates if CRL is missing or expired. If false, allow operation with warnings.
+    strictcrlpolicy={{ (values | default({})).strict_crl_policy | default(false) | lower }}
+
+    # NAT Traversal
+    # Enable NAT traversal (NAT-T) to support IPsec behind NAT devices.
+    nat_traversal={{ (values | default({})).nat_traversal | default(true) | lower }}
+
+    # Dead Peer Detection (DPD) - Global Settings
+    # Action taken when a peer is detected as dead. Common values: 'clear' (remove SA), 'restart', 'hold'.
+    dpdaction="{{ (values | default({})).dpd_action | default('clear') }}"
+
+    # DPD Delay
+    # Seconds between DPD requests.
+    dpddelay={{ (values | default({})).dpd_delay | default(30) }}
+
+    # DPD Timeout
+    # Seconds to wait for a DPD response before declaring peer dead.
+    dpdtimeout={{ (values | default({})).dpd_timeout | default(150) }}
+
+    # IKE SA Lifetime
+    # IKE SA lifetime in seconds (before rekeying).
+    ikelifetime={{ (values | default({})).ike_lifetime | default(28800) }}
+
+    # IPsec (CHILD) SA Lifetime
+    # IPsec (CHILD) SA lifetime in seconds (before rekeying).
+    keylife={{ (values | default({})).key_lifetime | default(3600) }}
+
+# Connections
+# List of IPsec connection definitions (tunnels). Each item describes a
+# single VPN tunnel or roadwarrior configuration.
+{% for conn in (values | default({})).connections | default([]) %}
+# Connection: {{ (conn | default({})).name | default('unnamed') }}
+# Each connection defines a specific VPN tunnel or roadwarrior configuration.
+conn {{ (conn | default({})).name | default('unnamed') }}
+    # Connection Type
+    # Connection type: roadwarrior (client-to-site), site-to-site (host-to-host), etc.
+    type={{ (conn | default({})).type | default('tunnel') }}
+
+    # IKE Version
+    # IKE version to use: 1, 2, or 0 (auto).
+    ike={{ (conn | default({})).ike_version | default('2') }}
+
+    # ESP Cipher Suite
+    # ESP cipher suite (e.g., aes256-sha256-modp2048).
+    # Defines encryption and integrity algorithms for the data channel.
+    esp={{ (conn | default({})).esp_suite | default('aes256-sha256-modp2048') }}
+
+    # Authentication Method
+    # Authentication method: pubkey, psk, eap-[tls|md5|pwd|mschapv2], hybrid.
+    authby={{ (conn | default({})).auth_by | default('psk') }}
+
+    # Local Identity / Gateway
+    # Local identity (host or user FQDN); e.g., %defaultroute, @vpn.example.com.
+    left={{ (conn | default({})).left | default('0.0.0.0') }}
+
+    # Local ID Attribute
+    # Specific identity format for the left side.
+    leftid={{ (conn | default({})).left_id | default('%any') }}
+
+    # Local Subnets
+    # Local subnets to be protected by this tunnel.
+    leftsubnet={{ ((conn | default({})).left_subnet | default(['0.0.0.0/0'])) | join(', ') }}
+
+    # Local Certificate
+    # Certificate file for the left side (if using pubkey auth).
+    leftcert={{ (conn | default({})).left_cert | default('') }}
+
+    # Remote Identity / Gateway
+    # Remote identity / gateway address or FQDN.
+    right={{ (conn | default({})).right | default('0.0.0.0') }}
+
+    # Remote ID Attribute
+    # Specific identity format for the right side.
+    rightid={{ (conn | default({})).right_id | default('%any') }}
+
+    # Remote Subnets
+    # Remote subnets to be protected by this tunnel.
+    rightsubnet={{ ((conn | default({})).right_subnet | default(['0.0.0.0/0'])) | join(', ') }}
+
+    # Right Source IP (for Roadwarriors/EAP)
+    # For EAP clients: specify a fixed IP or pool for the remote client.
+    {% if (conn | default({})).right_sourceip | default(false) %}
+    rightsourceip={{ (conn | default({})).right_sourceip | default('') }}
+    {% endif %}
+
+    # EAP Identity
+    # For EAP clients: the identity string presented during authentication.
+    {% if (conn | default({})).eap_identity | default(false) %}
+    eap_identity={{ (conn | default({})).eap_identity | default('') }}
+    {% endif %}
+
+    # Dead Peer Detection (Per-Connection Override)
+    # Action taken when a peer is detected as dead. Inherits from global if not set.
+    dpdaction="{{ ((conn | default({})).dpd_action | default((values | default({})).dpd_action | default('clear'))) }}"
+
+    # DPD Delay (Per-Connection Override)
+    # Seconds between DPD requests. Inherits from global if not set.
+    dpddelay={{ ((conn | default({})).dpd_delay | default((values | default({})).dpd_delay | default(30))) }}
+
+    # DPD Timeout (Per-Connection Override)
+    # Seconds to wait for a DPD response before declaring peer dead. Inherits from global if not set.
+    dpdtimeout={{ ((conn | default({})).dpd_timeout | default((values | default({})).dpd_timeout | default(150))) }}
+
+    # Auto-Start Behavior
+    # Auto-start behavior: start, add, route, ignore.
+    auto={{ (conn | default({})).auto | default('start') }}
+
 {% endfor %}

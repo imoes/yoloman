@@ -19,8 +19,8 @@
 #              APIs for client programs.
 # processname: openhpid
 # config: the standard openhpi conf file specified on the command line or the env.
-# pidfile: /var/run/openhpid.pid
-# 
+# pidfile: {{ openhpi_pidfile | default('/var/run/openhpid.pid') }}
+#
 # Author(s):
 #	W. David Ashley <dashley@us.ibm.com>
 #	Daniel de Araujo <ddearauj@us.ibm.com>
@@ -58,31 +58,30 @@ fi
 
 print_outcome()
 {
-   
-	case "${lsbtype}" in 
-      
+
+	case "${lsbtype}" in
+
 		rh)
-    		echo
-    		[ "$?" -eq 0 ]
-    		;;
+   			echo
+   			[ "$?" -eq 0 ]
+   			;;
 
 		suse)
  			rc_status -v
 			;;
-
 		lsb)
 			if test "$?" -eq 0
-    		then
-       			log_success_msg "success"
-    		else
+   			then
+      				log_success_msg "success"
+   			else
 				log_failure_msg "failed"
-    		fi
-    		  ;;
-  		  
+   			fi
+  			;;
+
 		gentoo)
 			eend $?
 			;;
-   
+
 		nolsb)
 			if test "$?" -eq 0
 			then
@@ -96,10 +95,11 @@ print_outcome()
     	esac
 }
 
-start() { 
-	case "${lsbtype}" in 
-		
-		rh) 
+# Start the openhpid daemon.
+start() {
+	case "${lsbtype}" in
+
+		rh)
 			echo -n "Starting $prog: "
 			daemon /usr/sbin/openhpid -c /etc/openhpi/openhpi.conf
 			RETVAL=$?
@@ -124,57 +124,62 @@ start() {
 			/usr/sbin/openhpid -c /etc/openhpi/openhpi.conf
 			RETVAL=$?
 			;;
-			
+
 		esac
-        
+
 	print_outcome
 
 }
 
-stop() { 
-	case "${lsbtype}" in 
-		
+# Stop the openhpid daemon.
+stop() {
+	case "${lsbtype}" in
+
 		rh | lsb | suse)
 			echo -n "Stopping $prog: "
 			killproc /usr/sbin/openhpid
 			RETVAL=$?
 			;;
-		
+
 		gentoo)
 			ebegin "Stopping $prog: "
 			start-stop-daemon --stop --quiet --exec /usr/sbin/openhpid
 			RETVAL=$?
 			;;
-		
+
 		nolsb)
 			echo -n "Stopping $prog: "
-			if test -f /var/run/openhpid.pid && test "`cat /var/run/openhpid.pid`" != ""
-          		then
-            			kill "`cat /var/run/openhpid.pid`"
-				RETVAL=$?  
+			# Check if the PID file exists and contains a valid PID
+			# Using quote filter to safely handle the path in shell test
+			if test -f {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }} && test "`cat {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }}`" != ""
+         		then
+            			kill "`cat {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }}`"
+				RETVAL=$?
 			else
 				RETVAL=0
-			fi	          
+			fi
 			;;
-		
-	esac
-	
+
+		esac
+
 	print_outcome
-	
-	if test "$RETVAL" -eq 0 && test -f /var/run/openhpid.pid
+
+	# Clean up PID file and lock file if stop was successful
+	if test "$RETVAL" -eq 0 && test -f {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }}
 	then
 		rm -f /var/lock/openhpid
-		rm -f /var/run/openhpid.pid
-	fi	
+		rm -f {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }}
+	fi
 
-} 
+}
 
+# Check status of the openhpid daemon.
 dstatus() {
 	echo "Checking for $prog daemon: "
-	
-	case "${lsbtype}" in 
-		
-		rh) 
+
+	case "${lsbtype}" in
+
+		rh)
 			status /usr/sbin/openhpid
 			;;
 		suse)
@@ -183,41 +188,42 @@ dstatus() {
 			;;
 		lsb)
 			pid="`pidofproc /usr/sbin/openhpid`"
-          		if test "${pid}" != ""
+         		if test "${pid}" != ""
 			then
 				log_success_msg "$prog is running"
 			else
-				log_success_msg "$prog is not running" 
-			fi	
+				log_success_msg "$prog is not running"
+			fi
 			;;
 		gentoo | nolsb)
-			if test -f /var/run/openhpid.pid && 
-				test "`cat /var/run/openhpid.pid`" != "" && 
-				kill -s 0 "`cat /var/run/openhpid.pid`"
+			# Check if PID file exists, has content, and the process is running
+			if test -f {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }} &&
+				test "`cat {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }}`" != "" &&
+				kill -s 0 "`cat {{ openhpi_pidfile | default('/var/run/openhpid.pid') | quote }}`"
 			then
 				echo "$prog is running"
 			else
 				echo "$prog is not running"
-			fi			
-				
+			fi
+
 			;;
-			
-		esac	
 
+		esac
 
+}
 
-} 
-
+# Restart the openhpid daemon.
 restart() {
 	stop
 	start
-} 
+}
 
+# Force reload (currently acts as restart).
 force_reload() {
 	# We don't currently support a reload, but can do a restart
 	stop
 	start
-} 
+}
 
 # See how we were called.
 

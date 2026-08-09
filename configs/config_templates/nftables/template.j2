@@ -1,15 +1,65 @@
 #!/usr/sbin/nft -f
 
+# Flush all existing rules to ensure a clean slate before applying the new configuration.
 flush ruleset
 
+{#
+  Global Defines Section
+  List of global defines (e.g., IP ranges, port sets) for reuse across rules.
+  Each entry in the 'defines' list must have 'name' and 'value' keys.
+#}
+{% for define in (defines | default([])) %}
+define {{ define.name | default('') }} {{ define.value | default('') }}
+{% endfor %}
+
+# Main Filter Table
 table inet filter {
+
+  {#
+    Input Chain
+    Handles traffic destined for the local host.
+    If no custom rules are provided via 'chains.filter_inet.input',
+    a default chain with standard filter hook priority is created.
+  #}
+  {% if (chains | default({})).filter_inet is defined and (chains | default({})).filter_inet.input is defined %}
+	chain input {
+{{ (chains | default({})).filter_inet.input | indent(2) }}
+	}
+  {% else %}
 	chain input {
 		type filter hook input priority filter;
 	}
+  {% endif %}
+
+  {#
+    Forward Chain
+    Handles traffic passing through the host (routing/NAT).
+    If no custom rules are provided via 'chains.filter_inet.forward',
+    a default chain with standard filter hook priority is created.
+  #}
+  {% if (chains | default({})).filter_inet is defined and (chains | default({})).filter_inet.forward is defined %}
+	chain forward {
+{{ (chains | default({})).filter_inet.forward | indent(2) }}
+	}
+  {% else %}
 	chain forward {
 		type filter hook forward priority filter;
 	}
+  {% endif %}
+
+  {#
+    Output Chain
+    Handles traffic originating from the local host.
+    If no custom rules are provided via 'chains.filter_inet.output',
+    a default chain with standard filter hook priority is created.
+  #}
+  {% if (chains | default({})).filter_inet is defined and (chains | default({})).filter_inet.output is defined %}
+	chain output {
+{{ (chains | default({})).filter_inet.output | indent(2) }}
+	}
+  {% else %}
 	chain output {
 		type filter hook output priority filter;
 	}
+  {% endif %}
 }

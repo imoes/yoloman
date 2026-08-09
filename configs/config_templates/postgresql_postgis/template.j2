@@ -1,24 +1,54 @@
-# Enable the PostGIS extension by loading its shared library
-shared_preload_libraries = '{{ shared_preload_libraries }}'
+# ============================================================================
+# PostGIS Configuration for PostgreSQL
+# ============================================================================
+# This template configures PostgreSQL parameters required for optimal PostGIS
+# performance and functionality. It is intended for use in Ansible roles
+# managing PostgreSQL with the PostGIS extension.
+#
+# Self-Documenting: Each directive below includes the schema description as a
+# comment, ensuring anyone reading the rendered config understands the purpose
+# and constraints of the setting without external documentation.
+# ============================================================================
 
-# Set the PostGIS schema search path (ensure 'postgis' is first for unqualified references)
-schema_search_path = '{{ schema_search_path }}'
+# Comma-separated list of shared libraries to preload at server start.
+# Must include 'postgis' for PostGIS functionality.
+# Schema Description: Comma-separated list of shared libraries to preload at server start. Must include 'postgis' for PostGIS functionality.
+shared_preload_libraries = '{{ (shared_preload_libraries | default('postgis')) | string }}'
 
-# Optional: limit memory usage for geospatial operations (e.g., GEOS, GDAL, PROJ internal buffers)
-# Adjust based on typical query complexity and system resources
-work_mem = '{{ work_mem }}'
+# Schema search path. 'postgis' should appear first so spatial functions
+# like ST_GeomFromText are resolved unqualified.
+# Schema Description: Schema search path. 'postgis' should appear first so spatial functions like ST_GeomFromText are resolved unqualified.
+search_path = '{{ (schema_search_path | default('postgis, public')) | string }}'
 
-# Optional: enable parallel execution for spatial operations (PostgreSQL 14+)
-# Note: PostGIS itself doesn’t directly control parallelism, but PostgreSQL’s planner uses this
-max_parallel_workers_per_gather = '{{ max_parallel_workers_per_gather }}'
+# Amount of memory to use per operation for internal spatial computations
+# (e.g., GEOS, buffer, intersection). Higher values improve performance.
+# Schema Description: Amount of memory to use per operation for internal spatial computations (e.g., GEOS, buffer, intersection). Higher values improve performance.
+work_mem = '{{ (work_mem | default('64MB')) | string }}'
 
-# Optional: configure temporary directory for spatial operations (e.g., during raster processing)
-temp_directory = '{{ temp_directory }}'
+# Maximum number of parallel workers per Gather node. Enables faster parallel
+# scans and operations on large spatial tables (requires PostgreSQL 14+).
+# Schema Description: Maximum number of parallel workers per Gather node. Enables faster parallel scans and operations on large spatial tables (requires PostgreSQL 14+).
+max_parallel_workers_per_gather = '{{ (max_parallel_workers_per_gather | default(2)) | int }}'
 
-# Optional: enable verbose logging for PostGIS functions
-# (helpful for debugging spatial queries, but may increase log volume)
-log_min_messages = '{{ log_min_messages }}'
+# Directory used for temporary files during complex spatial operations
+# (e.g., raster reprojection, large polygon unions). Ensure it exists and
+# has sufficient space.
+# Schema Description: Directory used for temporary files during complex spatial operations (e.g., raster reprojection, large polygon unions). Ensure it exists and has sufficient space.
+temp_directory = '{{ (temp_directory | default('/tmp')) | string }}'
 
-# Optional: register PostGIS in new databases by default (via template1)
-# Not configurable in postgresql.conf — done via SQL in post-installation or init scripts
-# See: CREATE EXTENSION postgis;
+# Minimum message level logged. Set to 'INFO' or 'LOG' only if debugging
+# PostGIS functions, as spatial operations may generate many notices.
+# Schema Description: Minimum message level logged. Set to 'INFO' or 'LOG' only if debugging PostGIS functions, as spatial operations may generate many notices.
+log_min_messages = '{{ (log_min_messages | default('WARNING')) | string }}'
+
+# ============================================================================
+# Notes on Provisioning and Dependencies
+# ============================================================================
+# This role/configure ONLY the postgresql.conf parameters.
+#
+# To enable PostGIS in a specific database, the consumer (or a separate role)
+# must run: CREATE EXTENSION postgis;
+#
+# This package does NOT manage the PostgreSQL service lifecycle, database
+# creation, or user management. It assumes a running PostgreSQL instance.
+# ============================================================================

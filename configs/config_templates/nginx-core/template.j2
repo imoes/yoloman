@@ -1,68 +1,78 @@
 # PID file location for the master process
-pid /run/nginx.pid;
+# Specifies where NGINX writes the PID of its master process.
+pid {{ pid | default('/run/nginx.pid') }};
 
 # Global error log level and location
-error_log {{ error_log }};
+# Configures the path and minimum severity for NGINX error messages.
+error_log {{ error_log | default('/var/log/nginx/error.log warn') }};
 
-# Worker process configuration: number of workers and CPU affinity
-worker_processes {{ worker_processes }};
-{% if worker_cpu_affinity %}worker_cpu_affinity {{ worker_cpu_affinity | join(' ') }};{% endif %}
+# Worker process configuration: number of workers
+# Sets the number of worker processes. 'auto' lets NGINX match CPU cores.
+worker_processes {{ worker_processes | default('auto') }};
 
-# Enable debug logging if required
-{% if debug_mode %}debug_points on;{% endif %}
+# CPU affinity masks for worker processes
+# Maps specific workers to specific CPU cores for performance optimization.
+# Expects a list of hex masks (e.g., ['0001', '0010']).
+{% if worker_cpu_affinity is defined and worker_cpu_affinity | length > 0 %}worker_cpu_affinity {{ worker_cpu_affinity | join(' ') }};
+{% endif %}
 
 # Main event block: event-driven model settings
 events {
-  # Maximum number of simultaneous connections per worker
-  worker_connections {{ worker_connections }};
-  
-  # Use the most efficient multiplexing method available
-{% if use_epoll %}  use epoll;{% endif %}
-{% if use_kqueue %}  use kqueue;{% endif %}
+    # Maximum number of simultaneous connections allowed per worker process.
+    worker_connections {{ worker_connections | default(1024) }};
+
+    # Use the most efficient multiplexing method available
+    # Selects the event notification mechanism (epoll for Linux, kqueue for BSD/macOS).
+{% if use_epoll is defined and use_epoll %}    use epoll;
+{% elif use_kqueue is defined and use_kqueue %}    use kqueue;
+{% endif %}
 }
 
 # HTTP server block: core HTTP handling
 http {
-  # Include MIME types and default settings
-  include /etc/nginx/mime.types;
-  default_type application/octet-stream;
+    # Include MIME types and default settings
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
 
-  # Logging format and access log
-  log_format main '{{ log_format_main }}';
-  access_log {{ access_log }} main;
+    # Logging format and access log
+    # Defines the log format string and enables access logging.
+    log_format main '{{ log_format_main | default('$remote_addr - $remote_user [$time_local] "$request" ') }}';
+    access_log {{ access_log | default('/var/log/nginx/access.log') }} main;
 
-  # Performance tuning
-  sendfile {{ sendfile | lower }};
-  tcp_nopush {{ tcp_nopush | lower }};
-  tcp_nodelay {{ tcp_nodelay | lower }};
-  keepalive_timeout {{ keepalive_timeout }};
-  keepalive_requests {{ keepalive_requests }};
-  client_max_body_size {{ client_max_body_size }};
-  
-  # Gzip compression settings
-{% if enable_gzip %}gzip on;
+    # Performance tuning
+    # Optimizes file transfer and TCP behavior.
+    sendfile {{ sendfile | default('on') | lower }};
+    tcp_nopush {{ tcp_nopush | default('on') | lower }};
+    tcp_nodelay {{ tcp_nodelay | default('on') | lower }};
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
+    keepalive_requests {{ keepalive_requests | default(100) }};
+    client_max_body_size {{ client_max_body_size | default('1m') }};
+
+    # Gzip compression settings
+{% if enable_gzip is defined and enable_gzip %}gzip on;
 gzip_vary on;
 gzip_proxied any;
-gzip_comp_level {{ gzip_comp_level }};
-gzip_min_length {{ gzip_min_length }};
-gzip_types {{ gzip_types | join(' ') }};{% endif %}
+gzip_comp_level {{ gzip_comp_level | default(6) }};
+gzip_min_length {{ gzip_min_length | default(256) }};
+gzip_types {{ gzip_types | default('text/plain text/css application/json application/javascript text/xml application/xml') | join(' ') }};
+{% endif %}
 
-  # Include server blocks from site configs
-{% if sites %}  {% for site in sites %}# {{ site.name }}: {{ site.description }}
-  include {{ site.include_path }};
+    # Include server blocks from site configs
+{% if sites is defined and sites %}{% for site in sites %}    # {{ site.name }}: {{ site.description }}
+    include {{ site.include_path }};
 {% endfor %}{% endif %}
 
-  # Upstream definitions for load-balanced backends
-{% if upstreams %}{% for upstream in upstreams %}  # {{ upstream.name }}: {{ upstream.description }}
-  upstream {{ upstream.name }} {
-{% for server in upstream.servers %}    server {{ server.address }}:{{ server.port }}{% if server.weight %} weight={{ server.weight }}{% endif %}{% if server.backup %} backup{% endif %}{% if server.max_fails %} max_fails={{ server.max_fails }}{% endif %}{% if server.fail_timeout %} fail_timeout={{ server.fail_timeout }}{% endif %};
-{% endfor %}  }
+    # Upstream definitions for load-balanced backends
+{% if upstreams is defined and upstreams %}{% for upstream in upstreams %}    # {{ upstream.name }}: {{ upstream.description }}
+    upstream {{ upstream.name }} {
+{% for server in upstream.servers %}        server {{ server.address }}:{{ server.port }}{% if server.weight is defined and server.weight %} weight={{ server.weight }}{% endif %}{% if server.backup is defined and server.backup %} backup{% endif %}{% if server.max_fails is defined and server.max_fails %} max_fails={{ server.max_fails }}{% endif %}{% if server.fail_timeout is defined and server.fail_timeout %} fail_timeout={{ server.fail_timeout }}{% endif %};
+{% endfor %}    }
 
 {% endfor %}{% endif %}
 
-  # Optional: proxy cache configuration
-{% if proxy_cache_paths %}{% for cache in proxy_cache_paths %}  # {{ cache.name }}: {{ cache.description }}
-  proxy_cache_path {{ cache.path }} levels={{ cache.levels }} keys_zone={{ cache.name }}:{{ cache.keys_size }} max_size={{ cache.max_size }} inactive={{ cache.inactive }} use_temp_path={{ 'on' if cache.use_temp_path else 'off' }};
+    # Optional: proxy cache configuration
+{% if proxy_cache_paths is defined and proxy_cache_paths %}{% for cache in proxy_cache_paths %}    # {{ cache.name }}: {{ cache.description }}
+    proxy_cache_path {{ cache.path }} levels={{ cache.levels }} keys_zone={{ cache.name }}:{{ cache.keys_size }} max_size={{ cache.max_size }} inactive={{ cache.inactive }} use_temp_path={{ 'on' if cache.use_temp_path is defined and cache.use_temp_path else 'off' }};
 
 {% endfor %}{% endif %}
 }

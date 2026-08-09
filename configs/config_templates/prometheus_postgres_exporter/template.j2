@@ -1,47 +1,111 @@
-# PostgreSQL Exporter environment file
-# Sets environment variables for the postgres_exporter systemd service
+# PostgreSQL Exporter (prometheus_postgres_exporter) environment file
+# This file is consumed by the systemd unit to pass configuration
+# environment variables to the postgres_exporter process.
 
-# Comma-separated list of DSNs to scrape
-# Format: postgresql://user:pass@host:port/dbname?sslmode=disable
-POSTGRES_EXPORTER_TARGET_DSN={{ target_dsns | join(',') | default('') }}
+# ==============================================================================
+# Data Source Connection Strings
+# ==============================================================================
 
-# Optional: Custom connection timeout (seconds)
+# List of PostgreSQL DSNs (connection strings) to monitor.
+# Each DSN follows format: postgresql://user:pass@host:port/dbname?sslmode=disable
+# If using capability-based wiring (database->postgresql), this is typically
+# populated by an Ansible role that constructs the DSN from db_host, db_port,
+# db_name, db_user, and db_password.
+POSTGRES_EXPORTER_TARGET_DSN={{ (target_dsns | default([])) | join(',') | default('') }}
+
+# ==============================================================================
+# General Configuration
+# ==============================================================================
+
+# Maximum seconds to wait for a PostgreSQL connection per scrape before timing out.
 POSTGRES_EXPORTER_TIMEOUT={{ timeout | default('5') }}
 
-# Optional: List of disabled collectors (comma-separated)
-# Run with --no-collector help to see available collectors
-POSTGRES_EXPORTER_DISABLE_COLLECTORS={{ disabled_collectors | join(',') | default('') }}
+# ==============================================================================
+# Collector Selection
+# ==============================================================================
 
-# Optional: List of enabled collectors (comma-separated)
-# By default, most collectors are enabled; use this to restrict
-POSTGRES_EXPORTER_COLLECTORS={{ enabled_collectors | join(',') | default('') }}
+# List of collector names to disable.
+# Use '--no-collector help' on the command line to list available collectors.
+# If a collector is in both disabled and enabled lists, behavior depends on
+# the exporter version; typically explicit enable overrides default enable,
+# and explicit disable overrides both.
+POSTGRES_EXPORTER_DISABLE_COLLECTORS={{ (disabled_collectors | default([])) | join(',') | default('') }}
 
-# Optional: Log level: debug, info, warn, error
+# List of collector names to *only* enable (overrides the default enabled set).
+# If this list is empty, the exporter uses its built-in default set of collectors.
+# If populated, ONLY these collectors will run.
+POSTGRES_EXPORTER_COLLECTORS={{ (enabled_collectors | default([])) | join(',') | default('') }}
+
+# ==============================================================================
+# Logging
+# ==============================================================================
+
+# Verbosity of exporter logs. One of: debug, info, warn, error.
 POSTGRES_EXPORTER_LOG_LEVEL={{ log_level | default('info') }}
 
-# Optional: Web listener address (host:port)
+# ==============================================================================
+# Web Interface (Metrics Endpoint)
+# ==============================================================================
+
+# Network interface and port to expose metrics.
+# Default '0.0.0.0:9187' listens on all interfaces. Use '127.0.0.1:9187'
+# to restrict access to localhost only.
 POSTGRES_EXPORTER_WEB_LISTEN_ADDRESS={{ web_listen_address | default('0.0.0.0:9187') }}
 
-# Optional: TLS/SSL config (path to cert and key)
+# ==============================================================================
+# TLS/SSL Configuration for the Metrics Endpoint
+# ==============================================================================
+
+# Path to TLS certificate file for HTTPS on the exporter endpoint.
+# Leave empty to disable TLS. If set, tls_key_file must also be set.
 POSTGRES_EXPORTER_TLS_CERT_FILE={{ tls_cert_file | default('') }}
+
+# Path to TLS private key file (must accompany tls_cert_file).
+# Leave empty if tls_cert_file is empty.
 POSTGRES_EXPORTER_TLS_KEY_FILE={{ tls_key_file | default('') }}
 
-# Optional: Basic auth credentials for /metrics endpoint
+# ==============================================================================
+# Basic Authentication for the Metrics Endpoint
+# ==============================================================================
+
+# Username for basic auth on the /metrics endpoint.
+# Leave empty to disable auth. If set, basic_auth_pass must also be set.
 POSTGRES_EXPORTER_BASIC_AUTH_USER={{ basic_auth_user | default('') }}
+
+# Password for basic auth on the /metrics endpoint.
+# Must be set if basic_auth_user is set.
 POSTGRES_EXPORTER_BASIC_AUTH_PASS={{ basic_auth_pass | default('') }}
 
-# Optional: Custom query mapping file path
+# ==============================================================================
+# Custom Queries
+# ==============================================================================
+
+# Path to custom YAML file defining additional queries/metrics.
+# See upstream docs for format. Leave empty to use no custom queries.
 POSTGRES_EXPORTER_QUERY_PATH={{ query_path | default('') }}
 
-# Optional: PostgreSQL version override (e.g., '14.0')
+# ==============================================================================
+# PostgreSQL Specific Settings
+# ==============================================================================
+
+# Explicitly set PostgreSQL version (e.g., '14.0') to override auto-detection.
+# Useful for proxy layers (e.g., pgBouncer) where version detection might fail.
 POSTGRES_EXPORTER_PG_VERSION={{ pg_version | default('') }}
 
-# Optional: Whether to collect database size in bytes
-POSTGRES_EXPORTER_EXPORT_DATABASE_SIZE={{ export_database_size | default('false') | lower }}
+# Enable collection of per-database size (uses pg_database.datsize).
+# Has a slight performance impact.
+POSTGRES_EXPORTER_EXPORT_DATABASE_SIZE={{ export_database_size | default(false) | lower }}
 
-# Optional: Whether to collect table-level bloat estimation (requires pg_stat_statements)
-POSTGRES_EXPORTER_EXPORT_TABLE_BLOAT={{ export_table_bloat | default('false') | lower }}
+# Enable estimation of table bloat (requires pg_stat_statements extension).
+# May be slow on large schemas.
+POSTGRES_EXPORTER_EXPORT_TABLE_BLOAT={{ export_table_bloat | default(false) | lower }}
 
-# Optional: Custom WAL lag thresholds (in bytes)
-POSTGRES_EXPORTER_WAL_LAG_WARNING={{ wal_lag_warning | default('100000000') }}
-POSTGRES_EXPORTER_WAL_LAG_CRITICAL={{ wal_lag_critical | default('1000000000') }}
+# ==============================================================================
+# Streaming Replication Alerts (WAL Lag)
+# ==============================================================================
+
+# Minimum WAL lag (in bytes) to trigger a warning alert for streaming replication.
+POSTGRES_EXPORTER_WAL_LAG_WARNING={{ wal_lag_warning | default(100000000) }}
+
+# Minimum WAL lag (in bytes) to trigger a critical alert for streaming replication.
+POSTGRES_EXPORTER_WAL_LAG_CRITICAL={{ wal_lag_critical | default(1000000000) }}

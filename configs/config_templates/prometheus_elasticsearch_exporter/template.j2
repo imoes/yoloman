@@ -1,90 +1,117 @@
-# Configuration for the Prometheus Elasticsearch exporter
-# Path to the Elasticsearch cluster (e.g., http://localhost:9200)
-ES_URI={{ es_uri }}
+{# ============================================================================ #}
+{# Prometheus Elasticsearch Exporter Configuration Template                     #}
+{# This template generates an environment file (or shell-compatible config)     #}
+{# for the prometheus-elasticsearch-exporter service. All variables are         #}
+{# explicitly defaulted using Jinja2 `default()` filters to ensure safe         #}
+{# rendering even when optional Ansible variables are undefined.                #}
+{# ============================================================================ #}
 
-# Comma-separated list of Elasticsearch nodes (optional; if empty, ES_URI is used)
-{% if es_nodes %}ES_NODES={{ es_nodes | join(',') }}{% endif %}
+{# Base URI of your Elasticsearch cluster. Used if ES_NODES is not specified. #}
+ES_URI={{ es_uri | default('http://localhost:9200') }}
 
-# Elasticsearch username for basic auth (optional)
-{% if es_username %}ES_USERNAME={{ es_username }}{% endif %}
+{# List of specific node URIs to scrape. Overrides ES_URI if provided. #}
+{% if es_nodes | default([]) | length > 0 %}
+ES_NODES={{ es_nodes | default([]) | join(',') }}
+{% endif %}
 
-# Elasticsearch password for basic auth (optional)
-{% if es_password %}ES_PASSWORD={{ es_password }}{% endif %}
+{# Username for basic authentication to Elasticsearch. #}
+{% if es_username | default('') | length > 0 %}
+ES_USERNAME={{ es_username | default('') }}
+{% endif %}
 
-# Enable TLS/SSL (true/false)
-ES_TLS={{ es_tls }}
+{# Password for basic authentication to Elasticsearch. #}
+{% if es_password | default('') | length > 0 %}
+ES_PASSWORD={{ es_password | default('') }}
+{% endif %}
 
-# Path to CA certificate for TLS verification (optional)
-{% if es_ca_cert %}ES_CA_CERT={{ es_ca_cert }}{% endif %}
+{# Enable TLS (HTTPS) when connecting to Elasticsearch. #}
+ES_TLS={{ es_tls | default(false) }}
 
-# Skip TLS certificate verification (⚠️ insecure; for dev/test only)
-ES_TLS_SKIP_VERIFY={{ es_tls_skip_verify }}
+{# Absolute path to the CA certificate file used to verify Elasticsearch's TLS certificate. #}
+{% if es_ca_cert | default('') | length > 0 %}
+ES_CA_CERT={{ es_ca_cert | default('') }}
+{% endif %}
 
-# Path to client certificate for mutual TLS (optional)
-{% if es_client_cert %}ES_CLIENT_CERT={{ es_client_cert }}{% endif %}
+{# Skip verification of Elasticsearch's TLS certificate. WARNING: Only for testing, never in production. #}
+ES_TLS_SKIP_VERIFY={{ es_tls_skip_verify | default(false) }}
 
-# Path to client private key for mutual TLS (optional)
-{% if es_client_key %}ES_CLIENT_KEY={{ es_client_key }}{% endif %}
+{# Absolute path to the client certificate for mutual TLS authentication. #}
+{% if es_client_cert | default('') | length > 0 %}
+ES_CLIENT_CERT={{ es_client_cert | default('') }}
+{% endif %}
 
-# Enable collection of cluster health metrics
-CLUSTER_HEALTH={{ cluster_health }}
+{# Absolute path to the client private key for mutual TLS authentication. #}
+{% if es_client_key | default('') | length > 0 %}
+ES_CLIENT_KEY={{ es_client_key | default('') }}
+{% endif %}
 
-# Enable collection of indices stats
-INDICES_STATS={{ indices_stats }}
+{# Collect cluster health metrics (status, number of nodes, etc.). #}
+CLUSTER_HEALTH={{ cluster_health | default(true) }}
 
-# Enable collection of node stats
-NODES_STATS={{ nodes_stats }}
+{# Collect per-index statistics (docs, store size, queries, etc.). #}
+INDICES_STATS={{ indices_stats | default(true) }}
 
-# Enable collection of shards stats (⚠️ expensive on large clusters)
-SHARDS_STATS={{ shards_stats }}
+{# Collect per-node JVM, OS, and transport metrics. #}
+NODES_STATS={{ nodes_stats | default(true) }}
 
-# Enable collection of snapshot/backup metrics
-SNAPSHOTS={{ snapshots }}
+{# Collect per-shard metrics. WARNING: Can be expensive on large clusters with many shards. #}
+SHARDS_STATS={{ shards_stats | default(false) }}
 
-# Enable collection of circuit breaker stats
-CIRCUIT_BREAKERS={{ circuit_breakers }}
+{# Collect snapshot repository and snapshot status metrics. #}
+SNAPSHOTS={{ snapshots | default(false) }}
 
-# Enable collection of thread pool stats
-THREAD_POOLS={{ thread_pools }}
+{# Collect Elasticsearch circuit breaker stats (memory usage limits). #}
+CIRCUIT_BREAKERS={{ circuit_breakers | default(true) }}
 
-# Enable collection of index template stats
-INDEX_TEMPLATES={{ index_templates }}
+{# Collect thread pool size, queue, and activity metrics per node. #}
+THREAD_POOLS={{ thread_pools | default(true) }}
 
-# Enable collection of ingest pipeline stats
-INGEST_PIPELINES={{ ingest_pipelines }}
+{# Collect index template stats (matching patterns, order, etc.). #}
+INDEX_TEMPLATES={{ index_templates | default(false) }}
 
-# Enable collection of feature stats (e.g., machine learning)
-FEATURES={{ features }}
+{# Collect ingest pipeline stats (processors, failures, etc.). #}
+INGEST_PIPELINES={{ ingest_pipelines | default(false) }}
 
-# List of additional labels to attach to all metrics (format: key=value)
-{% if extra_labels %}EXTRA_LABELS={{ extra_labels | join(',') }}{% endif %}
+{# Collect feature usage metrics (e.g., machine learning, watchlists). #}
+FEATURES={{ features | default(false) }}
 
-# Timeout for HTTP requests to Elasticsearch (seconds)
-HTTP_TIMEOUT={{ http_timeout }}
+{# List of key=value labels to attach to every metric. #}
+{% if extra_labels | default([]) | length > 0 %}
+EXTRA_LABELS={{ extra_labels | default([]) | join(',') }}
+{% endif %}
 
-# Port to listen on for the exporter (default: 9114)
-LISTEN_PORT={{ listen_port }}
+{# HTTP request timeout to Elasticsearch in seconds. Increase for slow or large clusters. #}
+HTTP_TIMEOUT={{ http_timeout | default(30) }}
 
-# Host to bind to (default: 0.0.0.0)
-LISTEN_HOST={{ listen_host }}
+{# Port on which the exporter exposes its /metrics endpoint. #}
+LISTEN_PORT={{ listen_port | default(9114) }}
 
-# Log level: debug, info, warn, error (default: info)
-LOG_LEVEL={{ log_level }}
+{# Network interface to bind the exporter to (e.g., 127.0.0.1 to restrict locally). #}
+LISTEN_HOST={{ listen_host | default('0.0.0.0') }}
 
-# Enable/disable metric filtering (experimental)
-METRIC_FILTERING={{ metric_filtering }}
+{# Verbosity of exporter logs (debug for troubleshooting). #}
+LOG_LEVEL={{ log_level | default('info') }}
 
-# Comma-separated list of regex patterns for metric filtering (if enabled)
-{% if metric_filters %}METRIC_FILTERS={{ metric_filters | join(',') }}{% endif %}
+{# Enable experimental filtering of metrics by regex patterns. #}
+METRIC_FILTERING={{ metric_filtering | default(false) }}
 
-# Comma-separated list of index patterns to exclude from indices stats
-{% if exclude_indices %}EXCLUDE_INDICES={{ exclude_indices | join(',') }}{% endif %}
+{# List of regex patterns; metrics matching any pattern are excluded from output. #}
+{% if metric_filters | default([]) | length > 0 %}
+METRIC_FILTERS={{ metric_filters | default([]) | join(',') }}
+{% endif %}
 
-# Comma-separated list of node roles to exclude (e.g., "data", "master")
-{% if exclude_node_roles %}EXCLUDE_NODE_ROLES={{ exclude_node_roles | join(',') }}{% endif %}
+{# List of index name patterns (glob or regex) to skip when collecting indices stats. #}
+{% if exclude_indices | default(['.*', '.*-.*']) | length > 0 %}
+EXCLUDE_INDICES={{ exclude_indices | default(['.*', '.*-.*']) | join(',') }}
+{% endif %}
 
-# Enable/disable collection of ILM (Index Lifecycle Management) policies
-ILM={{ ilm }}
+{# List of node roles to exclude (e.g., 'master', 'data'). Only core roles: master, data, ingest, ml. #}
+{% if exclude_node_roles | default([]) | length > 0 %}
+EXCLUDE_NODE_ROLES={{ exclude_node_roles | default([]) | join(',') }}
+{% endif %}
 
-# Enable/disable collection of data stream stats
-DATA_STREAMS={{ data_streams }}
+{# Collect Index Lifecycle Management (ILM) policy and phase metrics. #}
+ILM={{ ilm | default(false) }}
+
+{# Collect data stream stats (backing indices, generation, size). #}
+DATA_STREAMS={{ data_streams | default(false) }}

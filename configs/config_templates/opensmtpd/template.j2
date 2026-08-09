@@ -1,16 +1,17 @@
 #!/bin/sh
 # /etc/init.d/opensmtpd
 #
-# Written by Daniel Walrond <debian@djw.org.uk>
-#        and Ryan Kavanagh <rak@debian.org>
+# Ansible-generated SysV init script for OpenSMTPD
+# Provides:          opensmtpd mail-transport-agent
+# Description:       OpenSMTPD Mail Transport Agent daemon management
 
 ### BEGIN INIT INFO
 # Provides:          opensmtpd mail-transport-agent
 # Required-Start:    $local_fs $remote_fs $syslog $network
 # Required-Stop:     $local_fs $remote_fs $syslog $network
-# Should-Start:      postgresql mysql dovecot
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
+# Should-Start:      {{ opensmtpd_should_start | default(['postgresql', 'mysql', 'dovecot']) | join(' ') }}
+# Default-Start:     {{ opensmtpd_runlevels | default('2 3 4 5') }}
+# Default-Stop:      {{ opensmtpd_stop_runlevels | default('0 1 6') }}
 # Short-Description: opensmtpd Mail Transport Agent
 # Description:       OpenSMTPD
 ### END INIT INFO
@@ -19,21 +20,43 @@
 # is in effect and echoing status messages to the console fails.
 set -u
 
-DEFAULT=/etc/default/opensmtpd
+# Path to the default configuration overrides file
+# Default: /etc/default/opensmtpd
+DEFAULT={{ opensmtpd_default_file | default('/etc/default/opensmtpd') }}
 
-DAEMON="/usr/sbin/smtpd"
-CONFIG="/etc/smtpd.conf"
-PIDFILE="/run/smtpd.pid"
-CONTROL="/usr/sbin/smtpctl"
-DESC="opensmtpd"
+# Path to the OpenSMTPD daemon binary
+# Default: /usr/sbin/smtpd
+DAEMON={{ opensmtpd_daemon_path | default('/usr/sbin/smtpd') }}
+
+# Path to the main OpenSMTPD configuration file
+# Default: /etc/smtpd.conf
+CONFIG={{ opensmtpd_config_path | default('/etc/smtpd.conf') }}
+
+# Path to the PID file for the daemon
+# Default: /run/smtpd.pid
+PIDFILE={{ opensmtpd_pidfile_path | default('/run/smtpd.pid') }}
+
+# Path to the OpenSMTPD control utility
+# Default: /usr/sbin/smtpctl
+CONTROL={{ opensmtpd_control_path | default('/usr/sbin/smtpctl') }}
+
+# Human-readable description of the service
+# Default: opensmtpd
+DESC={{ opensmtpd_description | default('opensmtpd') }}
+
+# Load default overrides if they exist
 test -f "${DEFAULT}" && . "${DEFAULT}"
 
+# Exit gracefully if the daemon binary is missing or not executable
 test -x "${DAEMON}" || exit 0
 
+# Load LSB functions for logging and status reporting
 . /lib/lsb/init-functions
 
+# Function to start the OpenSMTPD daemon
 smtpd_start()
 {
+  # Attempt to start the daemon with the specified config file
   if start-stop-daemon \
       --start \
       --pidfile "${PIDFILE}" \
@@ -47,8 +70,10 @@ smtpd_start()
   fi
 }
 
+# Function to stop the OpenSMTPD daemon
 smtpd_stop()
 {
+  # Attempt to stop the daemon by reading its PID file
   if start-stop-daemon --stop --pidfile "${PIDFILE}" -- -f "${CONFIG}"; then
     log_progress_msg "opensmtpd"
     return 0
@@ -58,16 +83,17 @@ smtpd_stop()
   fi
 }
 
+# Function to validate the OpenSMTPD configuration file
 smtpd_config_check()
 {
-# ${DAEMON} -n checks the config file's validity
-if "${DAEMON}" -f "${CONFIG}" -n >/dev/null 2>&1; then
-  return 0
-else
-  log_end_msg 1
-  "${DAEMON}" -f "${CONFIG}" -n
-  return 1
-fi
+  # ${DAEMON} -n checks the config file's validity without running
+  if "${DAEMON}" -f "${CONFIG}" -n >/dev/null 2>&; then
+    return 0
+  else
+    log_end_msg 1
+    "${DAEMON}" -f "${CONFIG}" -n
+    return 1
+  fi
 }
 
 case "$1" in

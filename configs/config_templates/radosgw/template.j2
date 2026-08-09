@@ -3,10 +3,10 @@
 # Provides:          radosgw
 # Required-Start:    $remote_fs $named $network $time
 # Required-Stop:     $remote_fs $named $network $time
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
+# Default-Start:      2 3 4 5
+# Default-Stop:       0 1 6
 # Short-Description: radosgw RESTful rados gateway
-# Description: radosgw RESTful rados gateway
+# Description:       radosgw RESTful rados gateway
 ### END INIT INFO
 
 PATH=/sbin:/bin:/usr/bin
@@ -37,11 +37,11 @@ for opt in $*; do
     fi
 done
 
-# prefix for radosgw instances in ceph.conf
-PREFIX='client.radosgw.'
+# The prefix used for radosgw instance sections in ceph.conf.
+PREFIX='{{ cluster_name_prefix | default('client.radosgw.') }}'
 
-# user to run radosgw as (if not specified in ceph.conf)
-DEFAULT_USER='root'
+# The default user to run radosgw as if not specified in ceph.conf.
+DEFAULT_USER='{{ default_user | default('root') }}'
 
 RADOSGW=`which radosgw`
 if [ ! -x "$RADOSGW" ]; then

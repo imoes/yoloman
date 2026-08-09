@@ -62,22 +62,33 @@ else
     CONFIGURATION=/etc/default/o2cb
 fi
 
-# How long to wait for things to start
-BRINGUP_TIMEOUT=5
+{# How long to wait for things to start. #}
+# How long to wait for things to start.
+BRINGUP_TIMEOUT={{ bringup_timeout | default(5) }}
 
-# The default values should always be in sync with the kernel
-DEF_HEARTBEAT_THRESHOLD=31
-DEF_IDLE_TIMEOUT_MS=30000
-DEF_KEEPALIVE_DELAY_MS=2000
-DEF_RECONNECT_DELAY_MS=2000
+{# The default values should always be in sync with the kernel #}
+# The default heartbeat threshold value, synced with the kernel.
+DEF_HEARTBEAT_THRESHOLD={{ def_heartbeat_threshold | default(31) }}
+# The default idle timeout in ms, synced with the kernel.
+DEF_IDLE_TIMEOUT_MS={{ def_idle_timeout_ms | default(30000) }}
+# The default keepalive delay in ms, synced with the kernel.
+DEF_KEEPALIVE_DELAY_MS={{ def_keepalive_delay_ms | default(2000) }}
+# The default reconnect delay in ms, synced with the kernel.
+DEF_RECONNECT_DELAY_MS={{ def_reconnect_delay_ms | default(2000) }}
 
-# Minimum timeout values
-MIN_HEARTBEAT_THRESHOLD=7
-MIN_IDLE_TIMEOUT_MS=5000
-MIN_KEEPALIVE_DELAY_MS=1000
-MIN_RECONNECT_DELAY_MS=2000
+{# Minimum timeout values #}
+# Minimum heartbeat threshold value.
+MIN_HEARTBEAT_THRESHOLD={{ min_heartbeat_threshold | default(7) }}
+# Minimum idle timeout in ms value.
+MIN_IDLE_TIMEOUT_MS={{ min_idle_timeout_ms | default(5000) }}
+# Minimum keepalive delay in ms value.
+MIN_KEEPALIVE_DELAY_MS={{ min_keepalive_delay_ms | default(1000) }}
+# Minimum reconnect delay in ms value.
+MIN_RECONNECT_DELAY_MS={{ min_reconnect_delay_ms | default(2000) }}
 
-VERSION=1.8.8
+{# Version string of the o2cb script. #}
+# Version string of the o2cb script.
+VERSION={{ version | default('1.8.8') }}
 
 # Source configuration
 [ -f "${CONFIGURATION}" ] && . "${CONFIGURATION}"
@@ -582,7 +593,7 @@ check_filesystem()
     FSNAME="$1"
     MOUNTPOINT="$2"
 
-    FULL_MOUNTSEARCH="`echo "$MOUNTPOINT" | sed -e 's/\//\\\//g'`"
+    FULL_MOUNTSEARCH="`echo "$MOUNTPOINT" | sed -e 's/\//\\\\\//g'`"
     MOUNTOUT="`awk '$2 ~ /^'$FULL_MOUNTSEARCH'$/ && $3 ~ /^'$FSNAME'$/{print $2; exit}' < /proc/mounts 2>/dev/null`"
     test -n "$MOUNTOUT"
     return $?
@@ -1195,7 +1206,7 @@ unload_stack_o2cb()
 
 #
 # unload_stack_user()
-# Unload the user stack plugin
+# Unload the userspace stack plugin
 #
 # 0 is success, 1 is error, 2 is not loaded.
 #

@@ -1,71 +1,153 @@
+# ==============================================================================
+# SSSD (System Security Services Daemon) Configuration
+# ==============================================================================
+# This template generates the main SSSD configuration file (sssd.conf).
+# SSSD provides access to remote identity and authentication providers
+# such as LDAP, Active Directory, and Kerberos.
+# ==============================================================================
+
 [sssd]
-# List of SSSD services to enable
-services = {{ services | join(', ') }}
+# List of SSSD services to enable.
+# 'nss' enables name service switch (getpwuid, getgrgid) for system calls.
+# 'pam' enables Pluggable Authentication Modules for login/authentication.
+# 'ssh' can be added to enable SSH public key authentication via SSSD.
+services = {{ services | default(['nss', 'pam']) | join(', ') }}
 
-# Domain configuration list
+# Configuration file version. Do not change unless upgrading legacy configs.
 config_file_version = 2
-domains = {{ domains | join(', ') }}
 
-{% for domain in domains %}
-[domain/{{ domain }}]
-# LDAP provider type for this domain
+# List of domain names defined in this configuration.
+# Each domain name corresponds to a [domain/<name>] section below.
+domains = {{ domains | default(['ldap']) | join(', ') }}
+
+{% for domain in domains | default(['ldap']) %}
+# ==============================================================================
+# Domain: {{ domain | default('ldap') }}
+# ==============================================================================
+[domain/{{ domain | default('ldap') }}]
+# Identifier provider: How SSSD retrieves user/group data.
+# 'ldap' indicates the directory service is an LDAP server.
 id_provider = ldap
+
+# Authentication provider: How SSSD verifies user credentials.
+# 'ldap' indicates LDAP bind authentication (simple or SASL).
 auth_provider = ldap
-{% if domain == 'default' %}
-# Default domain (used if no domain specified in login)
-# (No extra directive needed; handled by naming)
-{% else %}
-# LDAP URI(s) for directory server access
-ldap_uri = {{ ldap_uris | join(', ') }}
 
-# LDAP server search base (root DSE for domain-specific search)
-ldap_search_base = {{ search_base }}
+# -----------------------------------------------------------------------------
+# LDAP Connection & Server List
+# -----------------------------------------------------------------------------
+# LDAP server URIs to contact.
+# Space or comma separated. Use 'ldap://' for plain text or 'ldaps://' for TLS.
+# Example: ldap://ldap1.example.com ldap://ldap2.example.com
+ldap_uri = {{ ldap_uris | default(['ldap://ldap.example.com']) | join(' ') }}
 
-# LDAP schema to use (rfc2307, rfc2307bis, or apple_mactelnet)
-ldap_schema = {{ ldap_schema }}
+# Base DN for searches.
+# The root of the subtree where users and groups are located.
+# Example: ou=people,dc=example,dc=com
+ldap_search_base = {{ search_base | default('dc=example,dc=com') }}
 
-# Authentication method: simple (bind DN + password) or sasl
-ldap_default_bind_dn = {{ default_bind_dn }}
+# LDAP Schema.
+# 'rfc2307': Standard POSIX attributes (uidNumber, gidNumber).
+# 'rfc2307bis': Allows groups to contain user DNs in memberOf.
+# 'apple_mactelnet': Legacy Apple-specific schema.
+ldap_schema = {{ ldap_schema | default('rfc2307') }}
+
+# -----------------------------------------------------------------------------
+# Authentication Credentials
+# -----------------------------------------------------------------------------
+# DN used for binding to the LDAP server for queries (Search Bind).
+# If empty, an anonymous bind is attempted. Often left empty for public
+# directory trees, or set to a service account DN for protected trees.
+ldap_default_bind_dn = {{ default_bind_dn | default('') }}
+
+# Password for the bind DN specified above.
+# SECURITY WARNING: Storing plaintext passwords in sssd.conf is insecure.
+# In production, use 'ldap_default_authtok_type = files' or external secrets.
 ldap_default_authtok = {{ default_authtok | default('') }}
 
-# TLS configuration
-ldap_tls_reqcert = {{ tls_reqcert }}
-{% if tls_ca_cert_dir %}
-ldap_tls_cacertdir = {{ tls_ca_cert_dir }}
+# -----------------------------------------------------------------------------
+# TLS / SSL Configuration
+# -----------------------------------------------------------------------------
+# Certificate verification level for the LDAP server.
+# 'demand': Verify server cert (default, secure).
+# 'try': Do not verify, but use TLS.
+# 'allow': Accept any cert, no TLS enforcement.
+# 'never': Disable TLS completely (insecure).
+ldap_tls_reqcert = {{ tls_reqcert | default('demand') }}
+
+# Path to the directory containing CA certificates for verification.
+# Used if tls_reqcert is 'demand' or 'try'.
+{% if tls_ca_cert_dir | default('/etc/ssl/certs') != '' %}
+ldap_tls_cacertdir = {{ tls_ca_cert_dir | default('/etc/ssl/certs') }}
 {% endif %}
-{% if tls_ca_cert_file %}
-ldap_tls_cacert = {{ tls_ca_cert_file }}
+
+# Path to a specific CA certificate file for verification.
+# Overrides tls_ca_cert_dir if both are set.
+{% if tls_ca_cert_file | default('') != '' %}
+ldap_tls_cacert = {{ tls_ca_cert_file | default('') }}
 {% endif %}
 
-# User/group name and attribute mapping
-ldap_user_name = {{ user_name_attr }}
-ldap_user_uid_number = {{ user_uid_attr }}
-ldap_user_gid_number = {{ user_gid_attr }}
-ldap_user_home_directory = {{ user_homedir_attr }}
-ldap_user_shell = {{ user_shell_attr }}
-ldap_group_name = {{ group_name_attr }}
-ldap_group_gid_number = {{ group_gid_attr }}
+# -----------------------------------------------------------------------------
+# User Attribute Mapping
+# -----------------------------------------------------------------------------
+# LDAP attribute containing the username used for login.
+# Common: 'uid' (standard), 'sAMAccountName' (Active Directory).
+ldap_user_name = {{ user_name_attr | default('uid') }}
 
-# Cache settings
-cache_credentials = {{ cache_credentials | lower }}
+# LDAP attribute containing the numeric User ID (UID).
+ldap_user_uid_number = {{ user_uid_attr | default('uidNumber') }}
 
-# Authorization (optional, for POSIX ACLs / sudo)
-{% if enable_authorization %}
+# LDAP attribute containing the numeric Primary Group ID (GID).
+ldap_user_gid_number = {{ user_gid_attr | default('gidNumber') }}
+
+# LDAP attribute containing the absolute path to the user's home directory.
+ldap_user_home_directory = {{ user_homedir_attr | default('homeDirectory') }}
+
+# LDAP attribute containing the absolute path to the user's default shell.
+ldap_user_shell = {{ user_shell_attr | default('loginShell') }}
+
+# -----------------------------------------------------------------------------
+# Group Attribute Mapping
+# -----------------------------------------------------------------------------
+# LDAP attribute containing the group name.
+ldap_group_name = {{ group_name_attr | default('cn') }}
+
+# LDAP attribute containing the numeric Group ID (GID).
+ldap_group_gid_number = {{ group_gid_attr | default('gidNumber') }}
+
+# -----------------------------------------------------------------------------
+# Caching & Authorization
+# -----------------------------------------------------------------------------
+# Enable caching of user passwords.
+# Allows users to log in even if the LDAP server is unreachable.
+# Set to False for high-security environments requiring live auth.
+cache_credentials = {{ cache_credentials | default(true) | lower }}
+
+# Enable LDAP-based authorization features.
+# Useful for fetching sudo rules, SELinux contexts, or group memberships
+# that are not handled by standard id_provider auth.
+{% if enable_authorization | default(false) %}
 ldap_authorization = True
 {% else %}
 ldap_authorization = False
 {% endif %}
-{% endif %}
+
 {% endfor %}
 
+# ==============================================================================
+# Global SSSD Behavior & Logging
+# ==============================================================================
 [sssd]
-# Service startup timeout (seconds)
+# Number of retries when connecting to the provider fails.
 reconnection_retries = 3
+
+# Timeout in seconds for SBUS (SSD internal bus) communication.
 sbus_timeout = 30
 
-# SSSD log level (0-9, 9 = verbose debug)
-# 2 = normal operational logging
-debug_level = {{ debug_level }}
+# Debug level for SSSD logs.
+# Range: 0 (none) to 9 (very verbose).
+# 2 is recommended for production. Increase to 5+ for troubleshooting.
+debug_level = {{ debug_level | default(2) }}
 
-# Log file location
-log_file = {{ log_file }}
+# Path to the main SSSD log file.
+log_file = {{ log_file | default('/var/log/sssd/sssd.log') }}

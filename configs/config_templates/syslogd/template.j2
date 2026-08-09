@@ -1,61 +1,61 @@
 # /etc/syslog.conf
-# System logging daemon configuration for {{ hostname }}
+# System logging daemon configuration for {{ hostname | default('localhost') }}
 # Generated — do not edit manually
 
-{% if include_kern_log %}
+{% if include_kern_log | default(true) %}
 # Write all kernel facility messages to the kernel log file
-kern.*					{{ log_dir }}/kern.log
+kern.*					{{ log_dir | default('/var/log') }}/kern.log
 
 {% endif %}
 # Write authentication and privilege-escalation messages to the auth log
-auth,authpriv.*				{{ log_dir }}/auth.log
+auth,authpriv.*				{{ log_dir | default('/var/log') }}/auth.log
 
-{% if include_mail_log %}
+{% if include_mail_log | default(true) %}
 # Write all mail subsystem messages; leading - disables sync-after-write for performance
-mail.*					-{{ log_dir }}/mail.log
+mail.*					-{{ log_dir | default('/var/log') }}/mail.log
 
 {% endif %}
-{% if include_daemon_log %}
+{% if include_daemon_log | default(true) %}
 # Write all background system daemon messages (async write)
-daemon.*				-{{ log_dir }}/daemon.log
+daemon.*				-{{ log_dir | default('/var/log') }}/daemon.log
 
 {% endif %}
-{% if include_cron_log %}
+{% if include_cron_log | default(true) %}
 # Write cron and at job scheduler messages
-cron.*					{{ log_dir }}/cron.log
+cron.*					{{ log_dir | default('/var/log') }}/cron.log
 
 {% endif %}
-{% if include_syslog_log %}
+{% if include_syslog_log | default(true) %}
 # Write syslogd's own internal operational messages
-syslog.*				{{ log_dir }}/syslog
+syslog.*				{{ log_dir | default('/var/log') }}/syslog
 
 {% endif %}
-{% if include_messages %}
+{% if include_messages | default(true) %}
 # Write info-level and above messages, excluding mail, auth, and cron facilities
-*.info;mail.none;authpriv.none;cron.none	{{ log_dir }}/messages
+*.info;mail.none;authpriv.none;cron.none	{{ log_dir | default('/var/log') }}/messages
 
 {% endif %}
-{% if debug_log_enabled %}
+{% if debug_log_enabled | default(false) %}
 # Write all debug-level messages; very high volume — disable in production
-*.=debug;auth,authpriv.none;mail.none	-{{ log_dir }}/debug
+*.=debug;auth,authpriv.none;mail.none	-{{ log_dir | default('/var/log') }}/debug
 
 {% endif %}
-{% if emergency_wall %}
+{% if emergency_wall | default(true) %}
 # Broadcast emergency-severity messages to all currently logged-in user terminals
 *.emerg					*
 
 {% endif %}
-{% if remote_logging_enabled %}
-{% if remote_protocol == "tcp" %}
+{% if remote_logging_enabled | default(false) %}
+{% if remote_protocol | default('udp') == "tcp" %}
 # Forward all messages to remote syslog server via TCP (reliable, ordered delivery)
-*.*					@@{{ remote_host }}:{{ remote_port }}
+*.*					@@{{ remote_host | default('logserver.example.com') }}:{{ remote_port | default(514) }}
 {% else %}
 # Forward all messages to remote syslog server via UDP (low overhead)
-*.*					@{{ remote_host }}:{{ remote_port }}
+*.*					@{{ remote_host | default('logserver.example.com') }}:{{ remote_port | default(514) }}
 {% endif %}
 
 {% endif %}
-{% for rule in extra_rules %}
-# {{ rule.comment }}
-{{ rule.selector }}	{{ rule.action }}
+{% for rule in extra_rules | default([]) %}
+# {{ rule.comment | default('Custom rule') }}
+{{ rule.selector | default('*') }}	{{ rule.action | default('/var/log/custom.log') }}
 {% endfor %}

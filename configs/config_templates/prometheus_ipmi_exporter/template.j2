@@ -1,48 +1,99 @@
-# IPMI exporter configuration for prometheus-ipmi-exporter
-# Listen address (host:port) for the metrics endpoint
-BIND_ADDRESS={{ bind_address }}
+# ============================================================================
+# prometheus_ipmi_exporter configuration template
+# ============================================================================
+# This file configures the prometheus-ipmi-exporter service. It exposes IPMI
+# sensor data (temperatures, voltages, fans, etc.) as Prometheus metrics.
+#
+# Global Settings
+# ============================================================================
 
-# Path to the IPMI configuration file (optional; if present, overrides inline credentials)
-# Leave empty to disable external config file
+# Network address (host:port) on which the exporter listens for Prometheus scrapes.
+# Default: '0.0.0.0:9484'
+BIND_ADDRESS={{ bind_address | default('0.0.0.0:9484') }}
+
+# ============================================================================
+# IPMI Credentials & Connectivity
+# ============================================================================
+
+# Path to an external YAML/JSON file containing per-host IPMI credentials and options.
+# Leave empty to use inline credentials defined below.
+# Default: ''
 IPMI_CONFIG_FILE={{ ipmi_config_file | default('') }}
 
-# Enable or disable IPMI over LAN (set to 'false' to disable)
-IPMI_OVER_LAN={{ ipmi_over_lan | string | lower }}
+# Enable IPMI over LAN (required for remote IPMI connections).
+# Disable only for direct serial/IPMI-USB.
+# Default: true
+IPMI_OVER_LAN={{ ipmi_over_lan | default(True) | string | lower }}
 
-# Global IPMI user credentials (used when IPMI_CONFIG_FILE is not set)
-# These are used as fallback when no per-host credentials are configured
+# Global IPMI username used for devices without per-host credentials.
+# Used as a fallback when no specific device credentials are provided.
+# Default: ''
 IPMI_USER={{ ipmi_user | default('') }}
+
+# Global IPMI password used for devices without per-host credentials.
+# Used as a fallback when no specific device credentials are provided.
+# Default: ''
 IPMI_PASSWORD={{ ipmi_password | default('') }}
 
-# Timeout (in seconds) for IPMI commands
-IPMI_TIMEOUT={{ ipmi_timeout }}
+# Timeout in seconds for each IPMI command before failing.
+# Default: 10
+IPMI_TIMEOUT={{ ipmi_timeout | default(10) }}
 
-# Retry count for failed IPMI commands
-IPMI_RETRIES={{ ipmi_retries }}
+# Number of times to retry a failed IPMI command before marking it as failed.
+# Default: 2
+IPMI_RETRIES={{ ipmi_retries | default(2) }}
 
-# Enable or disable strict certificate verification for HTTPS IPMI connections (TLS)
-IPMI_TLS_INSECURE={{ ipmi_tls_insecure | string | lower }}
+# Skip TLS certificate verification for HTTPS IPMI connections.
+# Enable only if using self-signed certs.
+# Default: true
+IPMI_TLS_INSECURE={{ ipmi_tls_insecure | default(True) | string | lower }}
 
-# Optional: List of IPMI devices with host-specific credentials (overrides global credentials)
-# Format: hostname|username|password|interface|privilege
-{% for device in ipmi_devices %}IPMI_DEVICE_{{ loop.index }}={{ device.hostname }}|{{ device.username }}|{{ device.password }}|{{ device.interface | default('lan') }}|{{ device.privilege | default('admin') }}
+# ============================================================================
+# Per-Device IPMI Credentials
+# ============================================================================
+# List of IPMI devices with host-specific credentials and options.
+# Overrides global credentials if provided.
+# Format: IPMI_DEVICE_<index>=hostname|username|password|interface|privilege
+# Default: [] (empty list)
+{% set devices = ipmi_devices | default([]) %}
+{% if devices | length > 0 %}
+{% for device in devices %}
+# Device {{ loop.index }}: {{ device.hostname | default('unknown') }}
+IPMI_DEVICE_{{ loop.index }}={{ device.hostname | default('unknown') }}|{{ device.username | default('') }}|{{ device.password | default('') }}|{{ device.interface | default('lan') }}|{{ device.privilege | default('admin') }}
 {% endfor %}
+{% endif %}
 
-# Optional: List of blacklisted IPMI sensors (by GUID or name pattern)
-{% for sensor in blacklisted_sensors %}# Blacklisted sensor: {{ sensor }}
+# ============================================================================
+# Metric Collection Controls
+# ============================================================================
+
+# List of sensor names or GUIDs to exclude from metric collection.
+# Useful to silence noisy or non-critical sensors.
+# Default: []
+{% set blacklisted = blacklisted_sensors | default([]) %}
+{% if blacklisted | length > 0 %}
+{% for sensor in blacklisted %}
+# Blacklisted sensor: {{ sensor }}
 {% endfor %}
+{% endif %}
 
-# Enable or disable collection of sensor readings
-COLLECT_SENSOR_READINGS={{ collect_sensor_readings | string | lower }}
+# Collect sensor readings (temperature, fan speed, voltage, etc.).
+# Default: true
+COLLECT_SENSOR_READINGS={{ collect_sensor_readings | default(True) | string | lower }}
 
-# Enable or disable collection ofSEL (System Event Log) entries
-COLLECT_SEL={{ collect_sel | string | lower }}
+# Collect System Event Log (SEL) entries as metrics.
+# Default: true
+COLLECT_SEL={{ collect_sel | default(True) | string | lower }}
 
-# Enable or disable collection of SDR (Sensor Data Record) information
-COLLECT_SDR={{ collect_sdr | string | lower }}
+# Collect Sensor Data Records (metadata about sensors).
+# Default: true
+COLLECT_SDR={{ collect_sdr | default(True) | string | lower }}
 
-# Enable or disable collection of FRU (Field Replaceable Unit) information
-COLLECT_FRU={{ collect_fru | string | lower }}
+# Collect Field Replaceable Unit (FRU) inventory information.
+# Default: true
+COLLECT_FRU={{ collect_fru | default(True) | string | lower }}
 
-# Maximum number of concurrent IPMI connections (limits resource usage)
-MAX_CONCURRENT_REQUESTS={{ max_concurrent_requests }}
+# Maximum number of concurrent IPMI connection attempts.
+# Reduce on low-memory systems.
+# Default: 20
+MAX_CONCURRENT_REQUESTS={{ max_concurrent_requests | default(20) }}

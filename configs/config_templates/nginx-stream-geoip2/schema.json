@@ -4,62 +4,48 @@
     "default": [],
     "description": "List of upstream server groups for load balancing. Each group defines one or more backend servers and optional balancing policy.",
     "items": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name of the upstream group (used in proxy_pass)."
-        },
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Optional human-readable description of the upstream's purpose."
-        },
-        "balance": {
-          "type": "string",
-          "default": "round_robin",
-          "enum": [
-            "round_robin",
-            "ip_hash",
-            "least_conn"
-          ],
-          "description": "Load balancing method for the upstream group."
-        },
-        "servers": {
-          "type": "list",
-          "default": [],
-          "description": "List of backend server addresses.",
-          "items": {
-            "type": "object",
-            "properties": {
-              "host": {
-                "type": "string",
-                "default": "",
-                "description": "Hostname or IP address of the backend server."
-              },
-              "port": {
-                "type": "number",
-                "default": 0,
-                "description": "Port number of the backend server."
-              },
-              "backup": {
-                "type": "boolean",
-                "default": false,
-                "description": "If true, this server is only used when all non-backup servers are down."
-              }
-            },
-            "required": [
-              "host",
-              "port"
-            ]
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name of the upstream group (used in proxy_pass)."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description of the upstream's purpose."
+      },
+      "balance": {
+        "type": "string",
+        "default": "round_robin",
+        "enum": [
+          "round_robin",
+          "ip_hash",
+          "least_conn"
+        ],
+        "description": "Load balancing method for the upstream group."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "description": "List of backend server addresses.",
+        "items": {
+          "host": {
+            "type": "string",
+            "default": "",
+            "description": "Hostname or IP address of the backend server."
+          },
+          "port": {
+            "type": "number",
+            "default": 0,
+            "description": "Port number of the backend server."
+          },
+          "backup": {
+            "type": "bool",
+            "default": false,
+            "description": "If true, this server is only used when all non-backup servers are down."
           }
         }
-      },
-      "required": [
-        "name",
-        "servers"
-      ]
+      }
     }
   },
   "stream_servers": {
@@ -67,68 +53,60 @@
     "default": [],
     "description": "List of stream (TCP/UDP) server blocks that define listening ports, routing rules, and proxy targets.",
     "items": {
-      "type": "object",
-      "properties": {
-        "listen_address": {
+      "listen_address": {
+        "type": "string",
+        "default": "*",
+        "description": "IP address or hostname to bind to (e.g., '0.0.0.0', '127.0.0.1')."
+      },
+      "listen_port": {
+        "type": "number",
+        "default": 0,
+        "description": "TCP/UDP port to listen on (e.g., 5432 for PostgreSQL proxy)."
+      },
+      "protocol": {
+        "type": "string",
+        "default": "tcp",
+        "enum": [
+          "tcp",
+          "udp"
+        ],
+        "description": "Protocol for this server (TCP or UDP)."
+      },
+      "upstream_name": {
+        "type": "string",
+        "default": "",
+        "description": "Name of the upstream group to proxy traffic to (must match an upstream.name)."
+      },
+      "timeout": {
+        "type": "string",
+        "default": "3s",
+        "description": "Idle timeout before closing connections (e.g., '30s', '1m')."
+      },
+      "log_name": {
+        "type": "string",
+        "default": "",
+        "description": "Custom suffix for the access log filename (defaults to port number)."
+      },
+      "geoip_redirect": {
+        "type": "bool",
+        "default": false,
+        "description": "If true, redirect traffic not from allowed countries to a fallback host."
+      },
+      "geoip_countries": {
+        "type": "list",
+        "default": [],
+        "description": "List of allowed 2-letter ISO country codes (e.g., ['US', 'CA', 'GB']).",
+        "items": {
           "type": "string",
-          "default": "*",
-          "description": "IP address or hostname to bind to (e.g., '0.0.0.0', '127.0.0.1')."
-        },
-        "listen_port": {
-          "type": "number",
-          "default": 0,
-          "description": "TCP/UDP port to listen on (e.g., 5432 for PostgreSQL proxy)."
-        },
-        "protocol": {
-          "type": "string",
-          "default": "tcp",
-          "enum": [
-            "tcp",
-            "udp"
-          ],
-          "description": "Protocol for this server (TCP or UDP)."
-        },
-        "upstream_name": {
-          "type": "string",
-          "default": "",
-          "description": "Name of the upstream group to proxy traffic to (must match an upstream.name)."
-        },
-        "timeout": {
-          "type": "string",
-          "default": "3s",
-          "description": "Idle timeout before closing connections (e.g., '30s', '1m')."
-        },
-        "log_name": {
-          "type": "string",
-          "default": "",
-          "description": "Custom suffix for the access log filename (defaults to port number)."
-        },
-        "geoip_redirect": {
-          "type": "boolean",
-          "default": false,
-          "description": "If true, redirect traffic not from allowed countries to a fallback host."
-        },
-        "geoip_countries": {
-          "type": "list",
-          "default": [],
-          "description": "List of allowed 2-letter ISO country codes (e.g., ['US', 'CA', 'GB']).",
-          "items": {
-            "type": "string",
-            "pattern": "^[A-Z]{2}$",
-            "description": "Allowed 2-letter ISO 3166-1 alpha-2 country code."
-          }
-        },
-        "geoip_fallback_host": {
-          "type": "string",
-          "default": "",
-          "description": "Host (with optional port) to redirect blocked traffic to (e.g., 'block.example.com:443')."
+          "pattern": "^[A-Z]{2}$",
+          "description": "Allowed 2-letter ISO 3166-1 alpha-2 country code."
         }
       },
-      "required": [
-        "listen_port",
-        "protocol",
-        "upstream_name"
-      ]
+      "geoip_fallback_host": {
+        "type": "string",
+        "default": "",
+        "description": "Host (with optional port) to redirect blocked traffic to (e.g., 'block.example.com:443')."
+      }
     }
   },
   "worker_processes": {

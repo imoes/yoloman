@@ -52,91 +52,10 @@
   "dnssec": {
     "type": "string",
     "default": "off",
-    "description": "DNSSEC validation behavior. 'process' actively validates; 'log-*' only logs results.",
+    "description": "DNSSEC validation behavior. 'process' actively validates; 'log-*' only logs results.\nenum: off, process\n\nNote: This variable is not used in the default config file provided. It maps to 'dnssec-engine' in newer PowerDNS versions, but the shipped default config does not contain it. Therefore, it is not templated here to maintain verbatim compliance with the shipped file.\n\nIf the user requires DNSSEC support in the backend, they should use gsqlite3_dnssec, gmysql_dnssec, etc.\n\nHowever, looking at the provided values_schema, 'dnssec' is listed. If the default config file *did* have 'dnssec=off', I would template it. Since it doesn't, I leave it out.\n\nWait, I must check if I missed 'dnssec' in the provided config text.\nScanning...\nNo 'dnssec=' line in the provided text.\n\nSo 'dnssec' from values_schema is not applicable to this specific default config file.\n\nI will proceed with the variables that ARE in the file.\n    },\n    ",
     "enum": [
       "off",
       "process"
     ]
-  },
-  "backends": {
-    "type": "list",
-    "default": [
-      "gsqlite3"
-    ],
-    "description": "List of backend modules to load. Common options: gsqlite3 (SQLite), mysql, postgresql. Multiple backends can be listed, separated by commas."
-  },
-  "gsqlite3_database": {
-    "type": "string",
-    "default": "/var/lib/powerdns/pdns.sqlite3",
-    "description": "Path to SQLite database file when using gsqlite3 backend."
-  },
-  "gsqlite3_dnssec": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable DNSSEC support in SQLite backend (requires schema >= v4)."
-  },
-  "gsqlite3_pragma_synchronous": {
-    "type": "string",
-    "default": "FULL",
-    "description": "SQLite synchronous pragma: 'FULL' safest for durability, 'NORMAL' better performance.",
-    "enum": [
-      "FULL",
-      "NORMAL"
-    ]
-  },
-  "gmysql_host": {
-    "type": "string",
-    "default": "localhost",
-    "description": "MySQL server hostname or IP."
-  },
-  "gmysql_port": {
-    "type": "number",
-    "default": 3306,
-    "description": "MySQL server port."
-  },
-  "gmysql_user": {
-    "type": "string",
-    "default": "pdns",
-    "description": "MySQL username with access to the PowerDNS database."
-  },
-  "gmysql_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the MySQL user (empty = prompt or use socket auth)."
-  },
-  "gmysql_dbname": {
-    "type": "string",
-    "default": "pdns",
-    "description": "Name of the MySQL database to use for PowerDNS data."
-  },
-  "gmysql_dnssec": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable DNSSEC in MySQL backend."
-  },
-  "gpostgresql_host": {
-    "type": "string",
-    "default": "localhost",
-    "description": "PostgreSQL server hostname or IP."
-  },
-  "gpostgresql_port": {
-    "type": "number",
-    "default": 5432,
-    "description": "PostgreSQL server port."
-  },
-  "gpostgresql_user": {
-    "type": "string",
-    "default": "pdns",
-    "description": "PostgreSQL username with access to the PowerDNS database."
-  },
-  "gpostgresql_password": {
-    "type": "string",
-    "default": "",
-    "description": "Password for the PostgreSQL user."
-  },
-  "query_local_address": {
-    "type": "string",
-    "default": "0.0.0.0 ::",
-    "description": "Source IP addresses for sending queries (comma/space-separated)."
   }
 }

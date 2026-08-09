@@ -1,21 +1,91 @@
-{{
-# Open vSwitch DPDK configuration database (created with ovs-vsctl)
-# This file is typically generated from ovs-vsctl commands and stored in /etc/openvswitch/conf.db
-# DO NOT EDIT MANUALLY — use ovs-vsctl for runtime modifications, or generate from this template.
-{% for cmd in commands %}{{
-# {{ cmd.description }}
-}}{% if cmd.type == 'set' %}
+# Open vSwitch DPDK Configuration Template
+# This template generates ovs-vsctl commands to configure Open vSwitch for DPDK-based forwarding.
+# It handles DPDK initialization, CPU/memory reservation, NIC binding, bridge creation, and queue tuning.
+# Generated config is typically applied via `ovs-vsctl` or integrated into an init script.
+
+# ============================================================
+# DPDK Initialization and Global Settings
+# ============================================================
+
+# Enable DPDK initialization in Open vSwitch. Required for DPDK-based forwarding.
+{% if dpdk_initialized | default(true) %}
+# DPDK initialization is enabled. OVS will initialize the DPDK library.
+{% else %}
+# DPDK initialization is disabled. OVS will run in standard mode.
+{% endif %}
+
+# Comma-separated list of MB of memory to reserve on each NUMA node for DPDK.
+# Example: '1024,1024' for two NUMA nodes.
+# This reserves hugepages for DPDK mbufs.
+ovs-vsctl set open_vswitch . dpdk_init={% if dpdk_initialized | default(true) %}true{% else %}false{% endif %}
+ovs-vsctl set open_vswitch . dpdk_socket_mem="{{ dpdk_socket_mem | default('1024,1024') }}"
+ovs-vsctl set open_vswitch . dpdk_lcore_mask="{{ dpdk_lcore_mask | default('0x3') }}"
+ovs-vsctl set open_vswitch . dpdk_pmd_core_mask="{{ dpdk_pmd_core_mask | default('0xc') }}"
+ovs-vsctl set open_vswitch . dpdk_hugepages="{{ dpdk_hugepages | default('/mnt/hugepages') }}"
+
+# ============================================================
+# NIC Binding to DPDK
+# ============================================================
+
+# List of PCI addresses of NICs to be used by DPDK (e.g., '0000:01:00.0').
+# These NICs will be bound to DPDK drivers (vfio-pci/uio) and added as dpdk ports.
+{% for pci_addr in dpdk_nics | default([]) %}
+# Bind NIC {{ pci_addr }} to a DPDK driver and create a dpdk port for it.
+# Note: The actual driver binding (e.g., via modprobe or udev rules) must be handled by the OS/Ansible host before this runs.
+ovs-vsctl add-port {{ ovs_bridge_name | default('br0') }} {{ pci_addr }} -- set Interface {{ pci_addr }} type=dpdk
+{% endfor %}
+
+# ============================================================
+# Main OVS Bridge Configuration
+# ============================================================
+
+# Name of the main OVS bridge to create and configure.
+# Type of the main OVS bridge (typically 'system' for physical ports; use 'dpdk' only if DPDK bridge is explicitly needed).
+ovs-vsctl add-br {{ ovs_bridge_name | default('br0') }} -- set Bridge {{ ovs_bridge_name | default('br0') }} stp_enable=true
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} type={% if ovs_bridge_type | default('system') == 'dpdk' %}dpdk{% else %}system{% endif %}
+
+# Key-value pairs to set as open_vswitch external_ids (e.g., 'system-id', 'hostname').
+{% for key, value in external_ids | default({}) | dict2items %}
+ovs-vsctl set open_vswitch . external_ids:{{ key }}="{{ value | default('') }}"
+{% endfor %}
+
+# ============================================================
+# DPDK Port Tuning (RSS, Queues, Descriptors)
+# ============================================================
+
+# Apply tuning parameters to all DPDK ports on the bridge.
+# Since ovs-vsctl cannot easily iterate ports, we apply these as defaults or assume they are set on individual ports.
+# If specific ports were added above, they inherit these types if set on the bridge, or need individual commands.
+# Here we set the type defaults for any new dpdk ports.
+
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} dpdk_rss_hash_functions="{{ dpdk_rss_hash_functions | default('toeplitz,ipv4,ipv4-tcp,ipv4-udp,ipv6,ipv6-tcp,ipv6-udp') }}"
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} dpdk_rx_queues={{ dpdk_rx_queues | default(2) }}
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} dpdk_tx_queues={{ dpdk_tx_queues | default(2) }}
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} dpdk_rx_desc={{ dpdk_rx_desc | default(1024) }}
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} dpdk_tx_desc={{ dpdk_tx_desc | default(1024) }}
+ovs-vsctl set bridge {{ ovs_bridge_name | default('br0') }} dpdk_mempool_size={{ dpdk_mempool_size | default(65536) }}
+
+# ============================================================
+# Advanced Customization Commands
+# ============================================================
+
+# List of low-level ovs-vsctl commands to generate config.
+# Used for advanced customization beyond high-level fields.
+{% for cmd in commands | default([]) %}
+# Command Type: {{ cmd.type | default('unknown') }}
+{% if cmd.type == 'set' %}
 ovs-vsctl {{ cmd.target | default('') }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
 {% elif cmd.type == 'add' %}
-ovs-vsctl {{ cmd.target }} {{ cmd.collection | default('') }} add {{ cmd.row }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+ovs-vsctl {{ cmd.target | default('') }} {{ cmd.collection | default('') }} add {{ cmd.row | default('') }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
 {% elif cmd.type == 'create' %}
-ovs-vsctl create {{ cmd.row }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+ovs-vsctl create {{ cmd.row | default('') }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
 {% elif cmd.type == 'set-external-id' %}
-ovs-vsctl set open_vswitch . external_ids:{{ cmd.key }}={{ cmd.value }}
+ovs-vsctl set open_vswitch . external_ids:{{ cmd.key | default('') }}={{ cmd.value | default('') }}
 {% elif cmd.type == 'set-bridge-external-id' %}
-ovs-vsctl set bridge {{ cmd.bridge }} external_ids:{{ cmd.key }}={{ cmd.value }}
+ovs-vsctl set bridge {{ cmd.bridge | default('') }} external_ids:{{ cmd.key | default('') }}={{ cmd.value | default('') }}
 {% elif cmd.type == 'set-bridge-ports' %}
-ovs-vsctl set bridge {{ cmd.bridge }} ports={{ cmd.ports | join(',') }}
+ovs-vsctl set bridge {{ cmd.bridge | default('') }} ports={{ cmd.ports | default([]) | join(',') }}
 {% elif cmd.type == 'set-ports' %}
-ovs-vsctl set port {{ cmd.port }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
-{% endif %}{% endfor %}
+ovs-vsctl set port {{ cmd.port | default('') }} {{ cmd.key | default('') }}={{ cmd.value | default('') }}
+{% endif %}
+{% endfor %}

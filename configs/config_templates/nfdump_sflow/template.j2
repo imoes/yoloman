@@ -1,50 +1,115 @@
-# sFlow collector daemon (nfdump_sflow/nfcapd) configuration
-# Listen on UDP port for sFlow/NetFlow v5/v9/IPFIX samples
-listen: {{ listen_port }}
+# ==============================================================================
+# nfdump_sflow / nfcapd Configuration Template
+# ==============================================================================
+# This template generates the configuration file for the nfcapd daemon,
+# part of the nfdump suite, acting as an sFlow/NetFlow/IPFIX collector.
+# All variables are sourced from Ansible host/group vars or defaults defined
+# below. The configuration is self-documenting: every directive is preceded
+# by its purpose.
 
-# IP address to bind to (empty = all interfaces)
-bind: {{ bind_address }}
+# --------------------------------------------------------------------------
+# listen_port: UDP port on which the sFlow collector listens for incoming
+#              packets. Standard sFlow port is 6343.
+# --------------------------------------------------------------------------
+listen: {{ listen_port | default(6343) }}
 
-# Enable IPv6 support
-ipv6: {{ enable_ipv6 }}
+# --------------------------------------------------------------------------
+# bind_address: IP address to bind the collector to. Leave empty to listen
+#               on all interfaces (0.0.0.0 or ::).
+# --------------------------------------------------------------------------
+bind: {{ bind_address | default('') }}
 
-# Input format: sflow, netflow, ipfix, or auto
-input: {{ input_format }}
+# --------------------------------------------------------------------------
+# enable_ipv6: Enable support for IPv6 sFlow/NetFlow packets.
+#              Set to true if clients are sending over IPv6.
+# --------------------------------------------------------------------------
+ipv6: {{ enable_ipv6 | default(False) | ternary('true', 'false') }}
 
-# Output directory for flow files (must exist, owned by daemon user)
-outdir: {{ output_dir }}
+# --------------------------------------------------------------------------
+# input_format: Protocol format to parse. Options: 'sflow', 'netflow',
+#               'ipfix', or 'auto' (detect automatically based on packet).
+# --------------------------------------------------------------------------
+input: {{ input_format | default('sflow') }}
 
-# Rotate flow files after N seconds
-rotate: {{ rotate_interval }}
+# --------------------------------------------------------------------------
+# output_dir: Directory where flow files (e.g., nfcapd.YYYYMMDDHHmm) will
+#             be written. Must exist and be writable by the daemon user.
+# --------------------------------------------------------------------------
+outdir: {{ output_dir | default('/var/spool/nfcapd') }}
 
-# Retention period: keep files for N seconds (0 = keep forever)
-retention: {{ retention_period }}
+# --------------------------------------------------------------------------
+# rotate_interval: Time interval (in seconds) after which flow files are
+#                  rotated. Default 900s (15 minutes).
+# --------------------------------------------------------------------------
+rotate: {{ rotate_interval | default(900) }}
 
-# User to drop privileges to (commonly 'nobody' or 'nfdump')
-user: {{ daemon_user }}
+# --------------------------------------------------------------------------
+# retention_period: Number of seconds to retain flow files. Set to 0 to
+#                   keep indefinitely. Default 604800s (7 days).
+# --------------------------------------------------------------------------
+retention: {{ retention_period | default(604800) }}
 
-# Group to drop privileges to
-#group: {{ daemon_group }}
+# --------------------------------------------------------------------------
+# daemon_user: System user account under which the collector daemon runs
+#              (for security isolation). Default 'nobody'.
+# --------------------------------------------------------------------------
+user: {{ daemon_user | default('nobody') }}
 
-# Enable verbose logging to syslog
-verbose: {{ verbose_logging }}
+# --------------------------------------------------------------------------
+# daemon_group: System group for the daemon user. Optional; leave empty to
+#               omit the group directive.
+# --------------------------------------------------------------------------
+{% if daemon_group | default('') | trim != '' %}
+group: {{ daemon_group | default('') | trim }}
+{% endif %}
 
-# Set maximum file size for rotation (bytes); overrides rotate if >0
-maxsize: {{ max_file_size }}
+# --------------------------------------------------------------------------
+# verbose_logging: Enable detailed logging to syslog for troubleshooting.
+#                  Set to true for debug output.
+# --------------------------------------------------------------------------
+verbose: {{ verbose_logging | default(False) | ternary('true', 'false') }}
 
-# Enable flow compression with gzip
-compress: {{ compress_flows }}
+# --------------------------------------------------------------------------
+# max_file_size: Maximum size (in bytes) per flow file before rotation.
+#                Overrides rotate_interval if set >0. Default 0 (disabled).
+# --------------------------------------------------------------------------
+maxsize: {{ max_file_size | default(0) }}
 
-# Enable live streaming via netcat (host:port)
-#stream: {{ stream_target }}
+# --------------------------------------------------------------------------
+# compress_flows: Compress rotated flow files with gzip to save disk space.
+#                 Default true.
+# --------------------------------------------------------------------------
+compress: {{ compress_flows | default(True) | ternary('true', 'false') }}
 
-# Enable extended NetFlow v9/IPFIX option parsing
-extended: {{ extended_nf9 }}
+# --------------------------------------------------------------------------
+# stream_target: Target host:port to forward live flows (e.g.,
+#                '192.168.1.10:9995'). Leave empty to disable streaming.
+# --------------------------------------------------------------------------
+{% if stream_target | default('') | trim != '' %}
+stream: {{ stream_target | default('') | trim }}
+{% endif %}
 
-# List of source IP subnets to accept flows from (empty = accept all)
-{% if allow_sources %}allow-from:
-{% for src in allow_sources %}  {{ src }}{% if loop.last %}
-{% endif %}{% endfor %}{% endif %}
+# --------------------------------------------------------------------------
+# extended_nf9: Parse extended NetFlow v9 and IPFIX options (e.g., BGP
+#               next-hop, MPLS) — recommended for modern networks.
+#               Default true.
+# --------------------------------------------------------------------------
+extended: {{ extended_nf9 | default(True) | ternary('true', 'false') }}
 
-# Disable flow aggregation (useful for debugging)
-noflowagg: {{ no_flow_aggregation }}
+# --------------------------------------------------------------------------
+# allow_sources: List of source IP subnets (CIDR notation) allowed to send
+#                sFlow/NetFlow data. Empty = accept from any source.
+# --------------------------------------------------------------------------
+{% if allow_sources | default([]) | length > 0 %}
+allow-from:
+{% for src in allow_sources | default([]) %}
+  {{ src }}
+{% endfor %}
+{% endif %}
+
+# --------------------------------------------------------------------------
+# no_flow_aggregation: Disable flow aggregation (one file per flow record
+#                      instead of time-binned); mainly for debugging.
+#                      Default false.
+# --------------------------------------------------------------------------
+noflowagg: {{ no_flow_aggregation | default(False) | ternary('true', 'false') }}

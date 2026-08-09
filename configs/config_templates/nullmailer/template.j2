@@ -1,9 +1,17 @@
+# Nullmailer initialization script for LSB-compatible systems.
+# This script manages the nullmailer-send daemon, a lightweight MTA
+# that queues and relays outbound email to configured smart relays.
+#
+# It handles the creation of the named pipe (FIFO) used by nullmailer
+# to signal new mail to the daemon, manages the PID file, and
+# integrates with the syslog facility.
+
 #! /bin/bash
 
 ### BEGIN INIT INFO
 # Provides:          nullmailer
 # Required-Start:    $remote_fs $syslog $network
-# Required-Stop:     $remote_fs $syslog $network
+# Required-Stop:    $remote_fs $syslog $network
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: relay-only mail transport agent
@@ -11,51 +19,81 @@
 #                    set of smart relays.
 ### END INIT INFO
 
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+# Standard paths for system binaries
+PATH=/usr/local/sbin:/usr/local/bin:/sbin/bin:/usr/sbin:/usr/bin
+
+# The daemon executable path
 DAEMON=/usr/sbin/nullmailer-send
+
+# The service name used in logs and PID files
 NAME=nullmailer
+
+# Description string for status messages
 DESC=mail-transfer-agent
+
+# Path to the PID file for the daemon
 PIDFILE=/var/run/$NAME.pid
 
+# Ensure the daemon binary is executable before proceeding
 test -x $DAEMON || exit 0
 
+# Source LSB init functions for standard logging and process management
 . /lib/lsb/init-functions
 
 case "$1" in
   start)
 	log_begin_msg "Starting $DESC:" "$NAME"
-	# don't kill trigger if daemon already running
+	# Check if the daemon is already running to avoid duplicate instances
 	if ! pidofproc -p $PIDFILE $DAEMON; then
+	    # Nullmailer uses a FIFO (named pipe) in the spool directory to
+	    # wake up the daemon when new mail arrives. Ensure it exists.
 	    if [ ! -p /var/spool/nullmailer/trigger ]; then
-		rm -f /var/spool/nullmailer/trigger
-		mkfifo /var/spool/nullmailer/trigger
-	    fi
-	    chown mail:root /var/spool/nullmailer/trigger
-	    chmod 0622 /var/spool/nullmailer/trigger
-	    # --oknodo in case of race condition on daemon start
-	    start-stop-daemon --start --quiet --user mail --chuid mail --no-close \
-			      --pidfile $PIDFILE --make-pidfile --background \
-			      --oknodo --exec "$DAEMON" > >(logger -p mail.notice -t nullmailer) 2>&1
-	    log_end_msg $?
+		    rm -f /var/spool/nullmailer/trigger
+		    mkfifo /var/spool/nullmailer/trigger
+		fi
+		# Set ownership and permissions on the trigger FIFO.
+		# Owner: mail (the user running the daemon)
+		# Group: root
+		# Mode: 0622 (rw-r--r-- with sticky/write on FIFO for signaling)
+		chown mail:root /var/spool/nullmailer/trigger
+		chmod 0622 /var/spool/nullmailer/trigger
+		# Start the daemon.
+		# --user mail: Run as the 'mail' user for security isolation.
+		# --no-close: Do not close standard file descriptors, allowing
+		#             logging redirection via the pipeline below.
+		# --background: Run in the background.
+		# --oknodo: Ignore errors if the start fails (e.g., race condition).
+		# The daemon's output is logged to syslog under the 'mail' facility
+		# with the tag 'nullmailer'.
+		start-stop-daemon --start --quiet --user mail --chuid mail --no-close \
+				  --pidfile $PIDFILE --make-pidfile --background \
+				  --oknodo --exec "$DAEMON" > >(logger -p mail.notice -t nullmailer) 2>&1
+		log_end_msg $?
 	else
-	    log_end_msg $? "$NAME already running: $PIDS"
+	    # Daemon is already running
+	    log_end_msg $?
+	    echo "$NAME already running: $PIDS"
 	fi
 	;;
   stop)
 	log_begin_msg "Stopping $DESC:" "$NAME"
-	start-stop-daemon --stop --quiet --user mail --exec "$DAEMON" --pidfile $PIDFILE --oknodo
+	# Stop the daemon gracefully.
+	start-stop-daemon --stop --quiet --user mail --exec $DAEMON --pidfile $PIDFILE --oknodo
 	log_end_msg $?
 	;;
   restart|reload|force-reload)
+	# Restart the service by stopping and starting
 	$0 stop
 	sleep 1
 	$0 start
 	;;
   status)
+	# Check and display the status of the process
 	status_of_proc -p $PIDFILE $DAEMON $NAME
 	exit $?
 	;;
   *)
+	# Usage help for invalid commands
 	N=/etc/init.d/$NAME
 	echo "Usage: $N {start|stop|restart|reload|force-reload|status}" >&2
 	exit 1

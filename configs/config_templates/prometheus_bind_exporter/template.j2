@@ -1,33 +1,109 @@
-# Environment variables for prometheus-bind-exporter
-# Sets the BIND DNS server stats endpoint URL
-BIND_EXPORTER_URL="{{ bind_url }}"
+# ==============================================================================
+# prometheus_bind_exporter — Environment Configuration Template
+# ==============================================================================
+# This template generates an environment file for the prometheus-bind-exporter.
+# It exposes environment variables that control how the exporter connects to
+# the BIND DNS server's XML statistics channel and how it exposes metrics to Prometheus.
+#
+# Schema Fields:
+#   bind_url         - Base URL of the BIND server (e.g., http://localhost)
+#   bind_port        - Port of BIND’s XML statistics channel (default 8053)
+#   bind_path        - Path to the BIND XML statistics endpoint (e.g., /xml/v3/statistics)
+#   bind_use_tls     - Whether to use TLS/HTTPS (true/false)
+#   bind_username    - Username for HTTP Basic Auth (if protected)
+#   bind_password    - Password for HTTP Basic Auth (if protected)
+#   bind_timeout     - Timeout in seconds for HTTP requests (default 10)
+#   log_level        - Log verbosity: debug, info, warn, error (default info)
+#   extra_labels     - List of key=value label pairs (e.g., ["env=prod"])
+#   views            - List of named views to scrape (e.g., ["internal"])
+#   disable_metrics  - List of metric categories to disable (e.g., ["queries"])
+# ==============================================================================
 
-# Sets the BIND stats channel username (if ACL-based auth required)
-{% if bind_username is defined %}BIND_EXPORTER_USERNAME="{{ bind_username }}"{% endif %}
+# --------------------------------------------------------------------------
+# BIND Server Connection Base URL
+# Field: bind_url
+# Description: Base URL of the BIND server (e.g., http://localhost or https://dns.example.com)
+# --------------------------------------------------------------------------
+BIND_EXPORTER_URL="{{ (bind_url | default('http://localhost')) }}"
 
-# Sets the BIND stats channel password (if ACL-based auth required)
-{% if bind_password is defined %}BIND_EXPORTER_PASSWORD="{{ bind_password }}"{% endif %}
+# --------------------------------------------------------------------------
+# BIND Server HTTP Basic Auth Username
+# Field: bind_username
+# Description: Username for HTTP Basic Auth (if BIND stats channel is protected)
+# --------------------------------------------------------------------------
+BIND_EXPORTER_USERNAME="{{ (bind_username | default('')) }}"
 
-# Sets the BIND stats channel port (default: 8053 for stats, or 9547 for XML)
-BIND_EXPORTER_PORT="{{ bind_port }}"
+# --------------------------------------------------------------------------
+# BIND Server HTTP Basic Auth Password
+# Field: bind_password
+# Description: Password for HTTP Basic Auth (if BIND stats channel is protected)
+# --------------------------------------------------------------------------
+BIND_EXPORTER_PASSWORD="{{ (bind_password | default('')) }}"
 
-# Sets the path to the BIND statistics channel (e.g., /xml/v3/statistics)
-BIND_EXPORTER_PATH="{{ bind_path }}"
+# --------------------------------------------------------------------------
+# BIND Server Statistics Port
+# Field: bind_port
+# Description: Port of BIND’s XML statistics channel (default 8053 for XML v3, or 9547 for older versions)
+# --------------------------------------------------------------------------
+BIND_EXPORTER_PORT="{{ (bind_port | default(8053)) }}"
 
-# Sets whether to use TLS/HTTPS for stats channel (true|false)
-BIND_EXPORTER_USE_TLS="{{ bind_use_tls | lower }}"
+# --------------------------------------------------------------------------
+# BIND Server Statistics Endpoint Path
+# Field: bind_path
+# Description: Path to the BIND XML statistics endpoint. Common: /xml/v3/statistics or /xml/v2/statistics
+# --------------------------------------------------------------------------
+BIND_EXPORTER_PATH="{{ (bind_path | default('/xml/v3/statistics')) }}"
 
-# Sets the timeout (in seconds) for requests to BIND
-BIND_EXPORTER_TIMEOUT="{{ bind_timeout }}"
+# --------------------------------------------------------------------------
+# TLS/HTTPS Enforcement for Stats Channel
+# Field: bind_use_tls
+# Description: Whether to use TLS/HTTPS when connecting to the BIND stats channel
+# --------------------------------------------------------------------------
+BIND_EXPORTER_USE_TLS="{{ (bind_use_tls | default(False) | lower) }}"
 
-# Sets the log level (debug|info|warn|error)
-BIND_EXPORTER_LOG_LEVEL="{{ log_level }}"
+# --------------------------------------------------------------------------
+# HTTP Request Timeout
+# Field: bind_timeout
+# Description: Timeout in seconds for HTTP requests to BIND stats channel
+# --------------------------------------------------------------------------
+BIND_EXPORTER_TIMEOUT="{{ (bind_timeout | default(10)) }}"
 
-# Comma-separated list of additional labels to attach to all metrics (e.g., env=prod,team=infra)
-{% if extra_labels %}BIND_EXPORTER_LABELS="{{ extra_labels | map('join=') | join(',') }}"{% endif %}
+# --------------------------------------------------------------------------
+# Logging Verbosity Level
+# Field: log_level
+# Description: Log verbosity level (debug, info, warn, error)
+# --------------------------------------------------------------------------
+BIND_EXPORTER_LOG_LEVEL="{{ (log_level | default('info')) }}"
 
-# If set, bind_exporter will scrape metrics only for these views (comma-separated)
-{% if views %}BIND_EXPORTER_VIEWS="{{ views | join(',') }}"{% endif %}
+# --------------------------------------------------------------------------
+# Additional Labels for All Metrics
+# Field: extra_labels
+# Description: List of key=value label pairs to attach to all exported metrics (e.g., ["env=prod", "team=network"])
+#              Renders as a comma-separated string: "env=prod,team=network"
+# --------------------------------------------------------------------------
+{% set _labels = extra_labels | default([]) %}
+{% if _labels %}
+BIND_EXPORTER_LABELS="{{ _labels | map('join', '=') | join(',') }}"
+{% endif %}
 
-# If set, bind_exporter will disable collection of certain metric categories (comma-separated: queries, zones, etc.)
-{% if disable_metrics %}BIND_EXPORTER_DISABLE_METRICS="{{ disable_metrics | join(',') }}"{% endif %}
+# --------------------------------------------------------------------------
+# Scoped Views to Scrape
+# Field: views
+# Description: If set, only scrape metrics for these named views (e.g., ["internal", "external"]).
+#              Leave empty to scrape all views. Renders as comma-separated: "internal,external"
+# --------------------------------------------------------------------------
+{% set _views = views | default([]) %}
+{% if _views %}
+BIND_EXPORTER_VIEWS="{{ _views | join(',') }}"
+{% endif %}
+
+# --------------------------------------------------------------------------
+# Disabled Metric Categories
+# Field: disable_metrics
+# Description: List of metric categories to disable (e.g., ["queries", "resolver", "zones"]).
+#              Check exporter docs for valid options. Renders as comma-separated: "queries,resolver"
+# --------------------------------------------------------------------------
+{% set _disable_metrics = disable_metrics | default([]) %}
+{% if _disable_metrics %}
+BIND_EXPORTER_DISABLE_METRICS="{{ _disable_metrics | join(',') }}"
+{% endif %}

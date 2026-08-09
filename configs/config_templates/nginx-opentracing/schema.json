@@ -4,46 +4,40 @@
     "default": [],
     "description": "List of upstream groups for load balancing. Each defines a set of backend servers.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "",
-          "description": "Unique name for this upstream group."
-        },
-        "description": {
-          "type": "string",
-          "default": "",
-          "description": "Optional human-readable description (e.g., 'API backend pool')."
-        },
-        "servers": {
-          "type": "list",
-          "default": [],
-          "description": "Backend servers in this upstream group.",
-          "items": {
-            "type": "object",
-            "fields": {
-              "address": {
-                "type": "string",
-                "default": "127.0.0.1",
-                "description": "IP address or hostname of the backend server."
-              },
-              "port": {
-                "type": "number",
-                "default": 8080,
-                "description": "Port number the backend listens on."
-              },
-              "weight": {
-                "type": "number",
-                "default": 1,
-                "description": "Load balancing weight (higher = more requests)."
-              },
-              "backup": {
-                "type": "bool",
-                "default": false,
-                "description": "Mark server as backup (only used when primary servers fail)."
-              }
-            }
+      "name": {
+        "type": "string",
+        "default": "",
+        "description": "Unique name for this upstream group."
+      },
+      "description": {
+        "type": "string",
+        "default": "",
+        "description": "Optional human-readable description (e.g., 'API backend pool')."
+      },
+      "servers": {
+        "type": "list",
+        "default": [],
+        "description": "Backend servers in this upstream group.",
+        "items": {
+          "address": {
+            "type": "string",
+            "default": "127.0.0.1",
+            "description": "IP address or hostname of the backend server."
+          },
+          "port": {
+            "type": "number",
+            "default": 8080,
+            "description": "Port number the backend listens on."
+          },
+          "weight": {
+            "type": "number",
+            "default": 1,
+            "description": "Load balancing weight (higher = more requests)."
+          },
+          "backup": {
+            "type": "bool",
+            "default": false,
+            "description": "Mark server as backup (only used when primary servers fail)."
           }
         }
       }
@@ -54,105 +48,99 @@
     "default": [],
     "description": "List of server blocks (virtual hosts) to host multiple sites or APIs.",
     "items": {
-      "type": "object",
-      "fields": {
-        "name": {
-          "type": "string",
-          "default": "localhost",
-          "description": "Server name (hostname or wildcard, e.g., '*.example.com')."
+      "name": {
+        "type": "string",
+        "default": "localhost",
+        "description": "Server name (hostname or wildcard, e.g., '*.example.com')."
+      },
+      "listen": {
+        "type": "object",
+        "default": {
+          "port": 80,
+          "ssl": false
         },
-        "listen": {
-          "type": "object",
-          "default": {
-            "port": 80,
-            "ssl": false
+        "description": "Listen directive parameters.",
+        "fields": {
+          "port": {
+            "type": "number",
+            "default": 80,
+            "description": "Port to listen on (e.g., 80 for HTTP, 443 for HTTPS)."
           },
-          "description": "Listen directive parameters.",
-          "fields": {
-            "port": {
-              "type": "number",
-              "default": 80,
-              "description": "Port to listen on (e.g., 80 for HTTP, 443 for HTTPS)."
-            },
-            "ssl": {
-              "type": "bool",
-              "default": false,
-              "description": "Enable SSL/TLS for this server."
-            }
+          "ssl": {
+            "type": "bool",
+            "default": false,
+            "description": "Enable SSL/TLS for this server."
           }
-        },
-        "ssl_cert": {
-          "type": "string",
-          "default": "server.crt",
-          "description": "Filename of SSL certificate (relative to /etc/nginx/ssl/).",
-          "when": "listen.ssl == true"
-        },
-        "ssl_key": {
-          "type": "string",
-          "default": "server.key",
-          "description": "Filename of SSL private key (relative to /etc/nginx/ssl/).",
-          "when": "listen.ssl == true"
-        },
-        "tracing_enabled": {
-          "type": "bool",
-          "default": true,
-          "description": "Enable OpenTracing span tagging for this server. Set to false to disable."
-        },
-        "locations": {
-          "type": "list",
-          "default": [],
-          "description": "Location blocks for specific paths.",
-          "items": {
-            "type": "object",
-            "fields": {
-              "path": {
-                "type": "string",
-                "default": "/",
-                "description": "Path pattern (e.g., '/api', '/static/', '~ ^/api/.*')."
-              },
-              "description": {
-                "type": "string",
-                "default": "",
-                "description": "Human-readable description of this location's purpose."
-              },
-              "upstream": {
-                "type": "string",
-                "default": "",
-                "description": "Name of upstream group to proxy to (required if not serving static files)."
-              },
-              "auth_basic": {
-                "type": "string",
-                "default": "",
-                "description": "Basic auth realm name (empty to disable)."
-              },
-              "auth_basic_file": {
-                "type": "string",
-                "default": "/etc/nginx/.htpasswd",
-                "description": "Path to htpasswd file (used only if auth_basic is set)."
-              },
-              "rate_limit_zone": {
-                "type": "string",
-                "default": "",
-                "description": "Name of rate-limiting zone to apply (e.g., 'api_limit')."
-              },
-              "rate_limit_burst": {
-                "type": "number",
-                "default": 10,
-                "description": "Maximum burst size for rate limiting (used only if rate_limit_zone is set)."
-              },
-              "root": {
-                "type": "string",
-                "default": "",
-                "description": "Document root for static files (e.g., /var/www/static)."
-              },
-              "index": {
-                "type": "list",
-                "default": [
-                  "index.html"
-                ],
-                "description": "Index files to try in order (e.g., ['index.html', 'index.htm'])."
-              }
-            }
+        }
+      },
+      "ssl_cert": {
+        "type": "string",
+        "default": "server.crt",
+        "description": "Filename of SSL certificate (relative to /etc/nginx/ssl/).",
+        "when": "listen.ssl == true"
+      },
+      "ssl_key": {
+        "type": "string",
+        "default": "server.key",
+        "description": "Filename of SSL private key (relative to /etc/nginx/ssl/).",
+        "when": "listen.ssl == true"
+      },
+      "tracing_enabled": {
+        "type": "bool",
+        "default": true,
+        "description": "Enable OpenTracing span tagging for this server. Set to false to disable."
+      },
+      "locations": {
+        "type": "list",
+        "default": [],
+        "description": "Location blocks for specific paths.",
+        "items": {
+          "path": {
+            "type": "string",
+            "default": "/",
+            "description": "Path pattern (e.g., '/api', '/static/', '~ ^/api/.*')."
+          },
+          "description": {
+            "type": "string",
+            "default": "",
+            "description": "Human-readable description of this location's purpose."
+          },
+          "upstream": {
+            "type": "string",
+            "default": "",
+            "description": "Name of upstream group to proxy to (required if not serving static files)."
+          },
+          "auth_basic": {
+            "type": "string",
+            "default": "",
+            "description": "Basic auth realm name (empty to disable)."
+          },
+          "auth_basic_file": {
+            "type": "string",
+            "default": "/etc/nginx/.htpasswd",
+            "description": "Path to htpasswd file (used only if auth_basic is set)."
+          },
+          "rate_limit_zone": {
+            "type": "string",
+            "default": "",
+            "description": "Name of rate-limiting zone to apply (e.g., 'api_limit')."
+          },
+          "rate_limit_burst": {
+            "type": "number",
+            "default": 10,
+            "description": "Maximum burst size for rate limiting (used only if rate_limit_zone is set)."
+          },
+          "root": {
+            "type": "string",
+            "default": "",
+            "description": "Document root for static files (e.g., /var/www/static)."
+          },
+          "index": {
+            "type": "list",
+            "default": [
+              "index.html"
+            ],
+            "description": "Index files to try in order (e.g., ['index.html', 'index.htm'])."
           }
         }
       }

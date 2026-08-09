@@ -1,23 +1,36 @@
-# /etc/default/prometheus-dnsmasq-exporter
 # Environment variables for the prometheus-dnsmasq-exporter systemd service
+# This configuration is managed by Ansible. Do not edit manually.
 
-# Host address the exporter should listen on
-HOST={{ host }}
+# [host] IP address the exporter listens on. Use 0.0.0.0 to listen on all interfaces.
+HOST={{ host | default('0.0.0.0') }}
 
-# Port the exporter should listen on
-PORT={{ port }}
+# [port] Port number the exporter exposes Prometheus metrics on.
+PORT={{ port | default(9109) }}
 
-# Path to dnsmasq's lease file (required for lease stats)
-DNSMASQ_LEASEFILE={{ dnsmasq_leasefile }}
+# [dnsmasq_leasefile] Absolute path to dnsmasq's lease database file,
+# typically /var/lib/dnsmasq/dnsmasq.leases.
+DNSMASQ_LEASEFILE={{ dnsmasq_leasefile | default('/var/lib/dnsmasq/dnsmasq.leases') }}
 
-# Path to dnsmasq's DHCP stats file (optional, if available)
-{% if dnsmasq_dhcp_stats_file is defined %}DNSMASQ_DHCP_STATS_FILE={{ dnsmasq_dhcp_stats_file }}{% endif %}
+# [dnsmasq_dhcp_stats_file] Optional absolute path to dnmasq's DHCP stats file
+# (e.g., /var/lib/dnsmasq/dnsmasq-dhcp-stats). Leave empty if not available.
+{% if dnsmasq_dhcp_stats_file | default('') %}
+DNSMASQ_DHCP_STATS_FILE={{ dnsmasq_dhcp_stats_file | default('') }}
+{% endif %}
 
-# Timeout for scraping dnsmasq (in seconds)
-SCRAPE_TIMEOUT={{ scrape_timeout }}
+# [scrape_timeout] Maximum time (seconds) allowed for a single scrape of dnsmasq
+# stats before timing out.
+SCRAPE_TIMEOUT={{ scrape_timeout | default(5) }}
 
-# Enable verbose logging
-{% if enable_verbose %}LOG_LEVEL=debug{% else %}LOG_LEVEL=info{% endif %}
+# [enable_verbose] Enable verbose debug logging for troubleshooting.
+# If enabled, LOG_LEVEL is set to debug; otherwise, it defaults to info.
+{% if enable_verbose | default(False) %}
+LOG_LEVEL=debug
+{% else %}
+LOG_LEVEL=info
+{% endif %}
 
-# Additional command-line flags passed to the exporter (space-separated)
-{% if extra_flags %}EXTRA_FLAGS={{ extra_flags | join(' ') }}{% endif %}
+# [extra_flags] Additional command-line flags to pass to the exporter
+# (e.g., ['--log-json']). These are joined into a space-separated string.
+{% if extra_flags | default([]) %}
+EXTRA_FLAGS={{ extra_flags | default([]) | join(' ') }}
+{% endif %}

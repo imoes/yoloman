@@ -1,84 +1,122 @@
-# Global event handling configuration
-worker_processes {{ worker_processes }};
-error_log {{ error_log_path }} {{ error_log_level }};
-pid {{ pid_path }};
+# ==============================================================================
+# NGINX Configuration Template with Zipkin Tracing Integration
+# ==============================================================================
+# This template generates a complete NGINX configuration acting as a reverse proxy
+# with distributed tracing support (Zipkin/Brave headers).
+#
+# Variables are sourced from the Ansible role's variable namespace. All variables
+# have safe defaults derived from the schema to prevent render failures.
+# ==============================================================================
 
-# Event model — recommended for most production environments
+# ------------------------------------------------------------------------------
+# Global Context
+# ------------------------------------------------------------------------------
+
+# Number of worker processes; 'auto' scales to number of CPU cores.
+# Default: auto
+worker_processes {{ worker_processes | default('auto') }};
+
+# Path for the error log file.
+# Default: /var/log/nginx/error.log
+error_log {{ error_log_path | default('/var/log/nginx/error.log') }} {{ error_log_level | default('notice') }};
+
+# Path to the PID file.
+# Default: /run/nginx.pid
+pid {{ pid_path | default('/run/nginx.pid') }};
+
 events {
-    worker_connections {{ worker_connections }};
-    use epoll;
+    # Maximum number of simultaneous connections each worker can handle.
+    # Default: 1024
+    worker_connections {{ worker_connections | default(1024) }};
 }
 
-# HTTP block: core proxy and tracing configuration
 http {
-    # Include MIME types and default settings
-    include {{ nginx_conf_dir }}/mime.types;
+    # Base directory for NGINX configuration (used to locate mime.types).
+    # Default: /etc/nginx
+    include {{ nginx_conf_dir | default('/etc/nginx') }}/mime.types;
     default_type application/octet-stream;
 
-    # Logging format for Zipkin compatibility (B3 headers + trace IDs)
+    # Access log format tailored for Zipkin distributed tracing.
+    # Captures standard HTTP metrics alongside Zipkin trace headers (B3 format).
     log_format zipkin '$remote_addr - $remote_user [$time_local] "$request" '
                       '$status $body_bytes_sent "$http_referer" '
                       '"$http_user_agent" '
                       '"$http_x_b3_traceid" "$http_x_b3_spanid" "$http_x_b3_parentspanid" '
                       '$request_time $upstream_response_time';
 
-    access_log {{ access_log_path }} zipkin;
+    # Path to the access log file (uses 'zipkin' format).
+    # Default: /var/log/nginx/access.log
+    access_log {{ access_log_path | default('/var/log/nginx/access.log') }} zipkin;
 
-    # Sendfile and TCP optimizations for high-throughput
     sendfile on;
     tcp_nopush on;
     tcp_nodelay on;
 
-    # Connection keepalive tuning
-    keepalive_timeout {{ keepalive_timeout }};
-    keepalive_requests {{ keepalive_requests }};
+    # Timeout (seconds) for keep-alive connections to upstream servers.
+    # Default: 65
+    keepalive_timeout {{ keepalive_timeout | default(65) }};
 
-    # Gzip compression for improved performance
+    # Maximum number of requests served per keep-alive connection.
+    # Default: 1000
+    keepalive_requests {{ keepalive_requests | default(1000) }};
+
+    # Enable Gzip compression.
     gzip on;
     gzip_vary on;
     gzip_proxied any;
-    gzip_comp_level {{ gzip_compression_level }};
-    gzip_types {{ gzip_types | join(' ') }};
 
-    # Zipkin tracing module initialization
-    zipkin {
-        # Service name as reported to Zipkin
-        service_name {{ zipkin_service_name }};
-        # Zipkin collector endpoint (e.g., http://zipkin-collector:9411/api/v2/spans)
-        collector_host {{ zipkin_collector_host }};
-        collector_port {{ zipkin_collector_port }};
-        # Sampling rate (0.0–1.0); 1.0 = trace every request
-        sampler_rate {{ zipkin_sampler_rate }};
-        # Span timeout in seconds
-        span_timeout {{ zipkin_span_timeout }}s;
-        # Optional: enable binary annotation for local address
-        local_address {{ zipkin_local_address }};
-    }
+    # Gzip compression level (1–9); higher = more CPU but smaller payloads.
+    # Default: 6
+    gzip_comp_level {{ gzip_compression_level | default(6) }};
 
-    # Upstream definition for backend services
+    # MIME types to compress with Gzip.
+    # Default: text/plain, text/css, application/json, application/javascript, text/xml, application/xml, application/xml+rss, text/javascript
+    gzip_types {{ (gzip_types | default(['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml', 'application/xml', 'application/xml+rss', 'text/javascript'])) | join(' ') }};
+
+    # ------------------------------------------------------------------------------
+    # Upstream Backend Definition
+    # ------------------------------------------------------------------------------
+    # List of backend servers for upstream load balancing.
+    # Default: [{'host': 'backend-1', 'port': 8080, 'weight': 1, 'backup': False}, {'host': 'backend-2', 'port': 8080, 'weight': 1, 'backup': False}]
     upstream backend {
-        # Dynamically configurable upstreams
-        {% for upstream_server in upstream_servers %}
+        {% for upstream_server in upstream_servers | default([{'host': 'backend-1', 'port': 8080, 'weight': 1, 'backup': False}, {'host': 'backend-2', 'port': 8080, 'weight': 1, 'backup': False}]) %}
         server {{ upstream_server.host }}:{{ upstream_server.port }} weight={{ upstream_server.weight }}{% if upstream_server.backup %} backup{% endif %};
         {% endfor %}
-        keepalive {{ upstream_keepalive_connections }};
+
+        # Maximum number of idle keep-alive connections to upstream servers.
+        # Default: 32
+        keepalive {{ upstream_keepalive_connections | default(32) }};
     }
 
-    # Server block: entrypoint for requests
+    # ------------------------------------------------------------------------------
+    # Server Block
+    # ------------------------------------------------------------------------------
     server {
-        listen {{ server_listen_port }}{% if server_ssl_enabled %} ssl{% endif %};
-        server_name {{ server_name }};
+        # Port to listen on for incoming HTTP traffic.
+        # Default: 80
+        listen {{ server_listen_port | default(80) }}{% if server_ssl_enabled | default(False) %} ssl{% endif %};
 
-        # SSL configuration (only if enabled)
-        {% if server_ssl_enabled %}
-        ssl_certificate {{ ssl_certificate_path }};
-        ssl_certificate_key {{ ssl_certificate_key_path }};
+        # Server name (hostname or wildcard) to respond to (SNI-aware).
+        # Default: _
+        server_name {{ server_name | default('_') }};
+
+        {% if server_ssl_enabled | default(False) %}
+        # Path to the SSL certificate file (only used if SSL enabled).
+        # Default: /etc/ssl/certs/nginx.crt
+        ssl_certificate {{ ssl_certificate_path | default('/etc/ssl/certs/nginx.crt') }};
+
+        # Path to the SSL private key file (only used if SSL enabled).
+        # Default: /etc/ssl/private/nginx.key
+        ssl_certificate_key {{ ssl_certificate_key_path | default('/etc/ssl/private/nginx.key') }};
+
         ssl_protocols TLSv1.2 TLSv1.3;
-        ssl_ciphers {{ ssl_ciphers }};
+
+        # SSL cipher suites to allow (strong defaults; avoid weak ciphers).
+        # Default: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+        ssl_ciphers {{ ssl_ciphers | default('ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384') }};
         ssl_prefer_server_ciphers on;
         {% endif %}
 
-        # Main location: proxy to backend with Zipkin header propagation
         location / {
             proxy_pass http://backend;
             proxy_http_version 1.1;
@@ -86,20 +124,25 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-            # Propagate Zipkin/B3 headers to backend
             proxy_set_header X-B3-TraceId $http_x_b3_traceid;
             proxy_set_header X-B3-SpanId $http_x_b3_spanid;
             proxy_set_header X-B3-ParentSpanId $http_x_b3_parentspanid;
             proxy_set_header X-B3-Sampled $http_x_b3_sampled;
             proxy_set_header X-B3-Flags $http_x_b3_flags;
 
-            # Timeouts
-            proxy_connect_timeout {{ proxy_connect_timeout }}s;
-            proxy_send_timeout {{ proxy_send_timeout }}s;
-            proxy_read_timeout {{ proxy_read_timeout }}s;
+            # Timeout (seconds) to establish connection to upstream.
+            # Default: 60
+            proxy_connect_timeout {{ proxy_connect_timeout | default(60) }}s;
+
+            # Timeout (seconds) for transmitting request to upstream.
+            # Default: 60
+            proxy_send_timeout {{ proxy_send_timeout | default(60) }}s;
+
+            # Timeout (seconds) for reading response from upstream.
+            # Default: 60
+            proxy_read_timeout {{ proxy_read_timeout | default(60) }}s;
         }
 
-        # Optional health check endpoint (e.g., for load balancers)
         location /health {
             access_log off;
             return 200 "OK\n";

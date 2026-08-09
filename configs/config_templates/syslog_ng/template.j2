@@ -1,117 +1,267 @@
-{# syslog-ng main configuration file #}
-{# Global options: tuning, time-reaping, stats, etc. #}
+{# ============================================================================== #}
+{# syslog-ng main configuration file                                              #}
+{# ============================================================================== #}
+{# This template configures the syslog-ng service. It handles global options,       #}
+{# sources (where logs come from), filters (how to select them), destinations       #}
+{# (where to send them), and log paths (connecting them all).                       #}
+{# All variables use {{ var | default(value) }} to prevent rendering errors         #}
+{# when optional fields are omitted in the Ansible playbook.                        #}
+{# ============================================================================== #}
+
 options {
-  {{ "log_fifo_size" | comment_for('Number of messages queued in output FIFOs') }}
-  log-fifo-size({{ log_fifo_size }});
+    {# Number of messages queued in output FIFOs before blocking. #}
+    log_fifo_size({{ log_fifo_size | default(10000) }});
 
-  {{ "use_dns" | comment_for('Enable reverse DNS lookups for source IPs') }}
-  use-dns({{ 'yes' if use_dns else 'no' }});
+    {# Enable reverse DNS lookups for source IP addresses (affects latency and load). #}
+    use_dns({{ 'yes' if use_dns | default(False) else 'no' }});
 
-  {{ "dns_cache_hosts" | comment_for('Static hostname-to-IP mapping (path to hosts file or empty to disable)') }}
-  {% if dns_cache_hosts %}
-  dns-cache-hosts("{{ dns_cache_hosts }}");
-  {% endif %}
+    {# Path to static hosts file for DNS caching (empty = disable static lookup). #}
+    {% if dns_cache_hosts | default('') | trim != '' %}
+    dns_cache_hosts("{{ dns_cache_hosts | default('') }}");
+    {% endif %}
 
-  {{ "use_fqdn" | comment_for('Use fully-qualified domain names in logs') }}
-  use-fqdn({{ 'yes' if use_fqdn else 'no' }});
+    {# Use fully-qualified domain names instead of short hostnames in logs. #}
+    use_fqdn({{ 'yes' if use_fqdn | default(False) else 'no' }});
 
-  {{ "create_dirs" | comment_for('Create destination directories if missing') }}
-  create-dirs({{ 'yes' if create_dirs else 'no' }});
+    {# Automatically create parent directories for log files. #}
+    create_dirs({{ 'yes' if create_dirs | default(True) else 'no' }});
 
-  {{ "perm_dir" | comment_for('Default directory permissions for auto-created paths') }}
-  perm-dir({{ perm_dir }});
+    {# Directory permissions used when creating log directories. #}
+    perm_dir({{ perm_dir | default('0755') }});
 
-  {{ "template_escape" | comment_for('Escape control characters in messages') }}
-  template-escape({{ 'yes' if template_escape else 'no' }});
+    {# Escape control characters in log messages to prevent template injection. #}
+    template_escape({{ 'yes' if template_escape | default(True) else 'no' }});
 
-  {{ "keep_timestamps" | comment_for('Preserve original timestamps from incoming messages') }}
-  keep-timestamps({{ 'yes' if keep_timestamps else 'no' }});
+    {# Preserve original timestamps from incoming messages (disable only if re-timestamping). #}
+    keep_timestamps({{ 'yes' if keep_timestamps | default(True) else 'no' }});
 };
 
-{# Global parser definitions #}
-parser {{ parser_name | join(', ') }} {
-  {% if parser_name | length == 0 %}
-  # No custom parsers defined
-  {% else %}
-  # Custom parsers defined (see individual parser blocks)
-  {% endif %}
+{# Note: parser blocks are optional in syslog-ng. If no custom parsers are defined, #}
+{# this section is effectively a placeholder or can be removed. We emit it for      #}
+{# structural consistency if the user intends to add parsers later.                 #}
+{% if parser_name is defined and parser_name | default([]) | length > 0 %}
+parser {
+    {# Custom parser definitions go here. Currently, no specific parser fields are mapped. #}
 };
+{% endif %}
 
-{# Source definitions: where logs come from #}
-{% for src in sources %}
+{# ============================================================================== #}
+{# Source definitions: where logs come from                                       #}
+{# ============================================================================== #}
+{% for src in sources | default([]) %}
 source {{ src.name }} {
-  {{ src.type | comment_for('Type of source (e.g., internal, unix-stream, tcp, udp, file, etc.)') }}
-  {% if src.type == 'internal' %}
-  internal();
-  {% elif src.type == 'unix-stream' %}
-  unix-stream("{{ src.path }}"{% if src.perm | length %} perm({{ src.perm }}){% endif %}{% if src.group | length %} group({{ src.group }}){% endif %}{% if src.owner | length %} owner({{ src.owner }}){% endif %});
-  {% elif src.type == 'tcp' %}
-  tcp(port({{ src.port }}) host("{{ src.bind_address }}"){% if src.max_connections | default(0) > 0 %} max-connections({{ src.max_connections }}){% endif %}{% if src_tls.enabled %} tls( peer-verify({% if src_tls.verify == 'optional' %}optional{% else %}required{% endif %}) ca-file("{{ src_tls.ca_file }}") cert-file("{{ src_tls.cert_file }}") key-file("{{ src_tls.key_file }}")) {% endif %});
-  {% elif src.type == 'udp' %}
-  udp(port({{ src.port }}) host("{{ src.bind_address }}"){% if src.recv_buffer | default(0) > 0 %} recv-buffer-size({{ src.recv_buffer }}){% endif %});
-  {% elif src.type == 'file' %}
-  file("{{ src.path }}" follow-freq({{ src.follow_freq }}) flags({{ src.flags | join(', ') }}));
-  {% elif src.type == 'pipe' %}
-  pipe("{{ src.path }}" flags({{ src.flags | join(', ') }}));
-  {% endif %}
+    {# Type of source: internal, unix-stream, tcp, udp, file, pipe, etc. #}
+    {% if src.type == 'internal' %}
+    internal();
+
+    {% elif src.type == 'unix-stream' %}
+    {# Unix domain socket stream source. #}
+    unix_stream(
+        "{{ src.path | default('/dev/log') }}"
+        {% if src.perm | default('') | trim != '' %}
+        perm({{ src.perm | default('') }})
+        {% endif %}
+        {% if src.group | default('') | trim != '' %}
+        group({{ src.group | default('') }})
+        {% endif %}
+        {% if src.owner | default('') | trim != '' %}
+        owner({{ src.owner | default('') }})
+        {% endif %}
+    );
+
+    {% elif src.type == 'tcp' %}
+    {# TCP network source. #}
+    tcp(
+        port({{ src.port | default(0) }})
+        host("{{ src.bind_address | default('') }}")
+        {% if src.max_connections | default(0) > 0 %}
+        max_connections({{ src.max_connections | default(0) }})
+        {% endif %}
+        {% if (src.tls | default({})).enabled | default(False) %}
+        tls(
+            peer_verify({{ 'optional' if (src.tls | default({})).verify == 'optional' else 'required' }})
+            ca_file("{{ (src.tls | default({})).ca_file | default('') }}")
+            cert_file("{{ (src.tls | default({})).cert_file | default('') }}")
+            key_file("{{ (src.tls | default({})).key_file | default('') }}")
+        )
+        {% endif %}
+    );
+
+    {% elif src.type == 'udp' %}
+    {# UDP network source. #}
+    udp(
+        port({{ src.port | default(0) }})
+        host("{{ src.bind_address | default('') }}")
+        {% if src.recv_buffer | default(0) > 0 %}
+        recv_buffer_size({{ src.recv_buffer | default(0) }})
+        {% endif %}
+    );
+
+    {% elif src.type == 'file' %}
+    {# File-based source. #}
+    file(
+        "{{ src.path | default('') }}"
+        follow_freq({{ src.follow_freq | default(1) }})
+        flags({{ src.flags | default([]) | join(', ') }})
+    );
+
+    {% elif src.type == 'pipe' %}
+    {# Pipe-based source. #}
+    pipe(
+        "{{ src.path | default('') }}"
+        flags({{ src.flags | default([]) | join(', ') }})
+    );
+
+    {% else %}
+    {# Unknown source type; skip or handle via extension #}
+    {# syslog-ng will reject invalid types, so we rely on valid schema data. #}
+    internal();
+    {% endif %}
 };
 {% endfor %}
 
-{# Destination definitions: where logs go #}
-{% for dst in destinations %}
+{# ============================================================================== #}
+{# Destination definitions: where logs go                                         #}
+{# ============================================================================== #}
+{% for dst in destinations | default([]) %}
 destination {{ dst.name }} {
-  {{ dst.type | comment_for('Destination type: file, syslog, tcp, udp, db, network, etc.') }}
-  {% if dst.type == 'file' %}
-  file("{{ dst.path }}"{% if dst.template | length %} template("{{ dst.template }}"){% endif %}{% if dst.template_escape %} template-escape(yes){% endif %}{% if dst.perm | length %} perm({{ dst.perm }}){% endif %}{% if dst.dir_perm | length %} dir-perm({{ dst.dir_perm }}){% endif %});
-  {% elif dst.type == 'syslog' %}
-  syslog(host("{{ dst.host }}") port({{ dst.port }}){% if dst_tls.enabled %} tls( peer-verify({% if dst_tls.verify == 'optional' %}optional{% else %}required{% endif %}) ca-file("{{ dst_tls.ca_file }}") cert-file("{{ dst_tls.cert_file }}") key-file("{{ dst_tls.key_file }}")) {% endif %});
-  {% elif dst.type == 'tcp' %}
-  tcp("{{ dst.host }}" port({{ dst.port }}){{ ' keep-alives()' if dst.tcp_keepalive else '' }});
-  {% elif dst.type == 'udp' %}
-  udp("{{ dst.host }}" port({{ dst.port }}));
-  {% elif dst.type == 'network' %}
-  network("{{ dst.host }}" port({{ dst.port }}) transport("{{ dst.transport }}"){% if dst_tls.enabled %} tls( peer-verify({% if dst_tls.verify == 'optional' %}optional{% else %}required{% endif %}) ca-file("{{ dst_tls.ca_file }}") cert-file("{{ dst_tls.cert_file }}") key-file("{{ dst_tls.key_file }}")) {% endif %}{% if dst.sanitize %} sanitize-keys(yes) sanitize-dots(yes){% endif %});
-  {% elif dst.type == 'db' %}
-  sql("{{ dst.connstr }}" table("{{ dst.table_name }}") columns("{{ dst.columns | join('", "') }}") values("$ISODATE", "$HOST", "$PROGRAM", "$PID", "$MSGONLY"{% if dst.extra_columns %}, {{ dst.extra_columns | join(', ') }}{% endif %}));
-  {% elif dst.type == 'syslog-ng-internal' %}
-  internal();
-  {% elif dst.type == 'null' %}
-  null();
-  {% endif %}
+    {# Destination type: file, syslog, tcp, udp, db, network, etc. #}
+    {% if dst.type == 'file' %}
+    {# Local file destination. #}
+    file(
+        "{{ dst.path | default('/var/log/messages') }}"
+        {% if dst.template | default('') | trim != '' %}
+        template("{{ dst.template | default('') }}")
+        {% endif %}
+        {% if dst.template_escape | default(False) | default(False) %}
+        template_escape(yes)
+        {% endif %}
+        {% if dst.perm | default('') | trim != '' %}
+        perm({{ dst.perm | default('') }})
+        {% endif %}
+        {% if dst.dir_perm | default('') | trim != '' %}
+        dir_perm({{ dst.dir_perm | default('') }})
+        {% endif %}
+    );
+
+    {% elif dst.type == 'syslog' %}
+    {# Remote syslog destination (UDP/TCP to another syslog server). #}
+    syslog(
+        host("{{ dst.host | default('') }}")
+        port({{ dst.port | default(0) }})
+        {% if (dst.tls | default({})).enabled | default(False) %}
+        tls(
+            peer_verify({{ 'optional' if (dst.tls | default({})).verify == 'optional' else 'required' }})
+            ca_file("{{ (dst.tls | default({})).ca_file | default('') }}")
+            cert_file("{{ (dst.tls | default({})).cert_file | default('') }}")
+            key_file("{{ (dst.tls | default({})).key_file | default('') }}")
+        )
+        {% endif %}
+    );
+
+    {% elif dst.type == 'tcp' %}
+    {# TCP destination to a raw TCP endpoint. #}
+    tcp(
+        "{{ dst.host | default('') }}"
+        port({{ dst.port | default(0) }})
+    );
+
+    {% elif dst.type == 'udp' %}
+    {# UDP destination to a raw UDP endpoint. #}
+    udp(
+        "{{ dst.host | default('') }}"
+        port({{ dst.port | default(0) }})
+    );
+
+    {% elif dst.type == 'network' %}
+    {# Network destination with transport protocol (tcp/udp/ssl). #}
+    network(
+        "{{ dst.host | default('') }}"
+        port({{ dst.port | default(0) }})
+        transport("{{ dst.transport | default('') }}")
+        {% if (dst.tls | default({})).enabled | default(False) %}
+        tls(
+            peer_verify({{ 'optional' if (dst.tls | default({})).verify == 'optional' else 'required' }})
+            ca_file("{{ (dst.tls | default({})).ca_file | default('') }}")
+            cert_file("{{ (dst.tls | default({})).cert_file | default('') }}")
+            key_file("{{ (dst.tls | default({})).key_file | default('') }}")
+        )
+        {% endif %}
+        {% if dst.sanitize | default(False) | default(False) %}
+        sanitize_keys(yes)
+        sanitize_dots(yes)
+        {% endif %}
+    );
+
+    {% elif dst.type == 'db' %}
+    {# Database destination using SQL syntax (MySQL/PostgreSQL via ODBC/JDBC). #}
+    sql(
+        "{{ dst.connstr | default('') }}"
+        table("{{ dst.table_name | default('') }}")
+        columns("{{ dst.columns | default([]) | join('", "') }}")
+        values("$ISODATE", "$HOST", "$PROGRAM", "$PID", "$MSGONLY"{% if dst.extra_columns | default('') | trim != '' %}, {{ dst.extra_columns | default('') }}{% endif %})
+    );
+
+    {% elif dst.type == 'syslog-ng-internal' %}
+    {# Internal syslog-ng destination (used for internal events). #}
+    internal();
+
+    {% elif dst.type == 'null' %}
+    {# Null destination (discards messages). #}
+    null();
+
+    {% else %}
+    {# Unknown destination type. #}
+    file("{{ dst.path | default('/var/log/unknown') }}");
+    {% endif %}
 };
 {% endfor %}
 
-{# Filter definitions: selection criteria #}
-{% for flt in filters %}
+{# ============================================================================== #}
+{# Filter definitions: selection criteria                                         #}
+{# ============================================================================== #}
+{% for flt in filters | default([]) %}
 filter {{ flt.name }} {
-  {{ flt.expression | comment_for('Filter expression using syslog-ng filter operators') }}
-  {{ flt.expression }};
+    {# Filter expression using syslog-ng filter operators (e.g., level(info..emerg)). #}
+    {{ flt.expression | default('') }};
 };
 {% endfor %}
 
-{# Log paths: connect sources → filters → destinations #}
-{% for path in logpaths %}
+{# ============================================================================== #}
+{# Log paths: connect sources → filters → destinations                            #}
+{# ============================================================================== #}
+{% for path in logpaths | default([]) %}
 log {
-  {{ path.sources | map(attribute='name') | join(', ') | comment_for('Sources involved in this log path') }}
-  source({{ path.sources | map(attribute='name') | join(', ') }});
-  {% if path.filters | length > 0 %}
-  {{ path.filters | map(attribute='name') | join(', ') | comment_for('Filters applied (AND logic)') }}
-  filter({{ path.filters | map(attribute='name') | join(') and filter(') }});
-  {% endif %}
-  {{ path.destinations | map(attribute='name') | join(', ') | comment_for('Destinations to forward matched messages') }}
-  destination({{ path.destinations | map(attribute='name') | join(', ') }});
+    {# Sources involved in this log path. #}
+    source({% for src in path.sources | default([]) %}{{ src.name }}{% if not loop.last %},{% endif %}{% endfor %});
+
+    {# Filters applied (AND logic between multiple filters). #}
+    {% if path.filters | default([]) | length > 0 %}
+    filter(
+        {% for flt in path.filters | default([]) %}
+        {{ flt.name }}{% if not loop.last %}) and filter({% endif %}
+        {% endfor %}
+    );
+    {% endif %}
+
+    {# Destinations to forward matched messages. #}
+    destination({% for dst in path.destinations | default([]) %}{{ dst.name }}{% if not loop.last %},{% endif %}{% endfor %});
 };
 {% endfor %}
 
-{# Statistics options — optional #}
-{% if stats %}
+{# ============================================================================== #}
+{# Statistics options — optional                                                    #}
+{# ============================================================================== #}
+{% if stats | default(False) | default(False) %}
 stats(
-  {{ "stats_freq" | comment_for('Frequency of stats reporting in seconds') }}
-  freq({{ stats_freq }});
+    {# Frequency of stats reporting in seconds. #}
+    freq({{ stats_freq | default(60) }});
 );
 {% endif %}
 
-{# Include additional config snippets (optional) #}
-{% if include_dir %}
-@include "{{ include_dir }}/*.conf";
+{# ============================================================================== #}
+{# Include additional config snippets (optional)                                    #}
+{# ============================================================================== #}
+{% if include_dir | default('/etc/syslog-ng/conf.d') | trim != '' %}
+@include "{{ include_dir | default('/etc/syslog-ng/conf.d') }}/*.conf";
 {% endif %}

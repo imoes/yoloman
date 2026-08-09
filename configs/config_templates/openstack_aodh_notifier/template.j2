@@ -1,114 +1,191 @@
 # Main configuration file for OpenStack Aodh Notifier service
+# This file is managed by Ansible. Do not edit manually.
 
 [DEFAULT]
-# Log to stdout and specify log format
-log_file = {{ default_log_file }}
-log_dir = {{ default_log_dir }}
-logging_context_format_string = {{ default_logging_context_format_string }}
-logging_default_format_string = {{ default_logging_default_format_string }}
-logging_debug_format_suffix = {{ default_logging_debug_format_suffix }}
+# Path to the notifier service log file.
+# Schema field: default_log_file
+log_file = {{ default_log_file | default('/var/log/aodh/aodh-notifier.log') }}
 
-# RPC messaging configuration (used to communicate with other services)
-transport_url = {{ rpc_transport_url }}
+# Directory for Aodh service logs.
+# Schema field: default_log_dir
+log_dir = {{ default_log_dir | default('/var/log/aodh') }}
 
-# Authentication (keystone auth_uri and credentials)
+# Format string for context-aware logging messages.
+# Schema field: default_logging_context_format_string
+logging_context_format_string = {{ default_logging_context_format_string | default('%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [%(request_id)s %(user_identity)s] %(instance)s %(message)s') }}
+
+# Format string for default logging messages.
+# Schema field: default_logging_default_format_string
+logging_default_format_string = {{ default_logging_default_format_string | default('%(asctime)s.%(msecs)03d %(process)d %(levelname)s %(name)s [-] %(instance)s %(message)s') }}
+
+# Suffix appended to debug-level log entries.
+# Schema field: default_logging_debug_format_suffix
+logging_debug_format_suffix = {{ default_logging_debug_format_suffix | default('from %(funcName)s @%(filename)s:%(lineno)d') }}
+
+# Message bus connection string (e.g., RabbitMQ or Redis).
+# Requires message_queue (rabbitmq) backend.
+# Schema field: rpc_transport_url
+transport_url = {{ rpc_transport_url | default('rabbit://openstack:RABBIT_PASSWORD@controller:5672/') }}
+
+# Authentication strategy used by the service.
 auth_strategy = keystone
 
 [keystone_authtoken]
-# Keystone authentication details for the notifier service
+# Keystone authentication details for the notifier service.
 auth_type = password
-project_domain_name = {{ keystone_authtoken_project_domain_name }}
-user_domain_name = {{ keystone_authtoken_user_domain_name }}
-project_name = {{ keystone_authtoken_project_name }}
-username = {{ keystone_authtoken_username }}
-password = {{ keystone_authtoken_password }}
-auth_url = {{ keystone_authtoken_auth_url }}
+
+# Keystone domain name for the project.
+# Schema field: keystone_authtoken_project_domain_name
+project_domain_name = {{ keystone_authtoken_project_domain_name | default('Default') }}
+
+# Keystone domain name for the user.
+# Schema field: keystone_authtoken_user_domain_name
+user_domain_name = {{ keystone_authtoken_user_domain_name | default('Default') }}
+
+# Keystone project (tenant) where the aodh service user resides.
+# Schema field: keystone_authtoken_project_name
+project_name = {{ keystone_authtoken_project_name | default('service') }}
+
+# Keystone username for the aodh service.
+# Schema field: keystone_authtoken_username
+username = {{ keystone_authtoken_username | default('aodh') }}
+
+# Password for the aodh service user in Keystone. Required.
+# Schema field: keystone_authtoken_password
+password = {{ keystone_authtoken_password | default('') }}
+
+# Keystone authentication endpoint URL (v3 API).
+# Schema field: keystone_authtoken_auth_url
+auth_url = {{ keystone_authtoken_auth_url | default('http://controller:5000/v3') }}
 
 [oslo_concurrency]
-# Lock path for concurrent operations
-lock_path = {{ oslo_concurrency_lock_path }}
+# Lock path for concurrent operations (must be writable by aodh user).
+# Schema field: oslo_concurrency_lock_path
+lock_path = {{ oslo_concurrency_lock_path | default('/var/lib/aodh/lock') }}
 
 [alarm]
-# Alarm evaluation and notification settings
+# Alarm evaluation and notification settings.
 api_version = 2
-# Whether to enable the notifier service
-enabled = {{ alarm_enabled }}
-# Number of worker processes for event processing
-workers = {{ alarm_workers }}
-# Alarm storage backend configuration (typically shared with Aodh evaluator)
-evaluation_service = {{ alarm_evaluation_service }}
-# Timeout for notification delivery (seconds)
-notification_retries = {{ alarm_notification_retries }}
-notification_retry_delay = {{ alarm_notification_retry_delay }}
 
-# Repeated notification rules for alarms
-{% for rule in alarm_notification_rules %}
+# Whether to enable the notifier service.
+# Schema field: alarm_enabled
+enabled = {{ alarm_enabled | default(true) | lower }}
+
+# Number of worker processes for event processing.
+# Schema field: alarm_workers
+workers = {{ alarm_workers | default(1) }}
+
+# Name of the evaluation service (shared with aodh-evaluator); typically 'evaluator'.
+# Schema field: alarm_evaluation_service
+evaluation_service = {{ alarm_evaluation_service | default('evaluator') }}
+
+# Maximum number of delivery retries for alarm notifications.
+# Schema field: alarm_notification_retries
+notification_retries = {{ alarm_notification_retries | default(3) }}
+
+# Delay between notification delivery retries (seconds).
+# Schema field: alarm_notification_retry_delay
+notification_retry_delay = {{ alarm_notification_retry_delay | default(5.0) }}
+
+# Repeated notification rules for alarms.
+# Each rule defines specific thresholds and behaviors for specific alarms.
+# Schema field: alarm_notification_rules
+{% for rule in alarm_notification_rules | default([]) %}
 # Notification rule {{ loop.index }}
 [alarm-notifier-{{ loop.index }}]
-name = {{ rule.name }}
-type = {{ rule.type }}
-threshold = {{ rule.threshold }}
-alarm_id = {{ rule.alarm_id }}
-severity = {{ rule.severity }}
-enabled = {{ rule.enabled | lower }}
+name = {{ rule.name | default('') }}
+type = {{ rule.type | default('') }}
+threshold = {{ rule.threshold | default(0) }}
+alarm_id = {{ rule.alarm_id | default('') }}
+severity = {{ rule.severity | default('') }}
+enabled = {{ rule.enabled | default(true) | lower }}
 {% endfor %}
 
-# Reusable notification endpoint definitions
-{% for endpoint in notification_endpoints %}
+# Reusable notification endpoint definitions.
+# Defines how and where notifications are sent.
+# Schema field: notification_endpoints
+{% for endpoint in notification_endpoints | default([]) %}
 # Notification endpoint {{ loop.index }}
 [notification-{{ loop.index }}]
-name = {{ endpoint.name }}
-method = {{ endpoint.method }}
-url = {{ endpoint.url }}
-{% if endpoint.project_domain_name %}project_domain_name = {{ endpoint.project_domain_name }}{% endif %}
-{% if endpoint.user_domain_name %}user_domain_name = {{ endpoint.user_domain_name }}{% endif %}
-{% if endpoint.project_name %}project_name = {{ endpoint.project_name }}{% endif %}
-{% if endpoint.username %}username = {{ endpoint.username }}{% endif %}
-{% if endpoint.password %}password = {{ endpoint.password }}{% endif %}
-{% if endpoint.auth_url %}auth_url = {{ endpoint.auth_url }}{% endif %}
+name = {{ endpoint.name | default('') }}
+method = {{ endpoint.method | default('') }}
+url = {{ endpoint.url | default('') }}
+{% if endpoint.project_domain_name is defined and endpoint.project_domain_name %}project_domain_name = {{ endpoint.project_domain_name }}{% endif %}
+{% if endpoint.user_domain_name is defined and endpoint.user_domain_name %}user_domain_name = {{ endpoint.user_domain_name }}{% endif %}
+{% if endpoint.project_name is defined and endpoint.project_name %}project_name = {{ endpoint.project_name }}{% endif %}
+{% if endpoint.username is defined and endpoint.username %}username = {{ endpoint.username }}{% endif %}
+{% if endpoint.password is defined and endpoint.password %}password = {{ endpoint.password }}{% endif %}
+{% if endpoint.auth_url is defined and endpoint.auth_url %}auth_url = {{ endpoint.auth_url }}{% endif %}
 {% endfor %}
 
-# Optional: alarm actions per state (e.g., OK, ALARM, INSUFFICIENT_DATA)
-{% for action in alarm_actions %}
-# Alarm action for state '{{ action.state }}'
-[alarm-action-{{ action.state }}]
-state = {{ action.state }}
-actions = {{ action.actions | join(', ') }}
+# Optional: alarm actions per state (e.g., OK, ALARM, INSUFFICIENT_DATA).
+# Defines what actions to take when an alarm transitions states.
+# Schema field: alarm_actions
+{% for action in alarm_actions | default([]) %}
+# Alarm action for state '{{ action.state | default('') }}'
+[alarm-action-{{ action.state | default('') }}]
+state = {{ action.state | default('') }}
+actions = {{ action.actions | default([]) | join(', ') }}
 {% endfor %}
 
-# Rate limiting and throttling (optional but recommended in production)
+# Rate limiting and throttling / notification configuration.
 [oslo_messaging_notifications]
-# Driver(s) for sending notifications (e.g., 'messagingv2', 'log', 'test')
-drivers = {{ oslo_messaging_notifications_drivers | join(', ') }}
-# Topic for notifications (default: notifications)
-topic = {{ oslo_messaging_notifications_topic }}
-# Retry on failure
-retry = {{ oslo_messaging_notifications_retry | lower }}
+# Driver(s) for sending notifications (e.g., 'messagingv2', 'log', 'test').
+# Requires message_queue (rabbitmq) backend if using messagingv2.
+# Schema field: oslo_messaging_notifications_drivers
+drivers = {{ oslo_messaging_notifications_drivers | default(['messagingv2']) | join(', ') }}
 
-# MySQL database (optional — usually shared with Aodh evaluator)
-{% if database_connection %}
+# Topic for notifications (default: notifications).
+# Schema field: oslo_messaging_notifications_topic
+topic = {{ oslo_messaging_notifications_topic | default('notifications') }}
+
+# Retry on failure for notification delivery.
+# Schema field: oslo_messaging_notifications_retry
+retry = {{ oslo_messaging_notifications_retry | default(true) | lower }}
+
+# MySQL database (optional — usually shared with Aodh evaluator).
+# Requires database (mysql/mariadb) backend.
+# Schema field: database_connection
+{% if database_connection is defined and database_connection %}
 [database]
-# Database connection string for alarm storage
+# Database connection string for alarm storage.
 connection = {{ database_connection }}
 {% endif %}
 
-# Optional: TLS/SSL for HTTPS endpoints
-{% if tls_enabled %}
+# Optional: TLS/SSL for HTTPS endpoints.
+# Schema field: tls_enabled
+{% if tls_enabled | default(false) %}
 [ssl]
+# Enable TLS/SSL.
 enabled = true
-cert_file = {{ tls_cert_file }}
-key_file = {{ tls_key_file }}
-ca_file = {{ tls_ca_file }}
+# Path to TLS certificate (PEM format).
+# Schema field: tls_cert_file
+cert_file = {{ tls_cert_file | default('/etc/aodh/ssl/cert.pem') }}
+# Path to TLS private key (PEM format).
+# Schema field: tls_key_file
+key_file = {{ tls_key_file | default('/etc/aodh/ssl/key.pem') }}
+# Path to CA certificate for verifying peer (optional).
+# Schema field: tls_ca_file
+ca_file = {{ tls_ca_file | default('/etc/aodh/ssl/ca.pem') }}
 {% endif %}
 
-# Service endpoint registration (for internal/external API access)
+# Service endpoint registration (for internal/external API access).
+# Used by the service to authenticate itself against Keystone for other API calls.
 [service_credentials]
 auth_type = password
-project_domain_name = {{ service_credentials_project_domain_name }}
-user_domain_name = {{ service_credentials_user_domain_name }}
-project_name = {{ service_credentials_project_name }}
-username = {{ service_credentials_username }}
-password = {{ service_credentials_password }}
-auth_url = {{ service_credentials_auth_url }}
-interface = {{ service_credentials_interface }}
-region_name = {{ service_credentials_region_name }}
+# Schema field: service_credentials_project_domain_name
+project_domain_name = {{ service_credentials_project_domain_name | default('Default') }}
+# Schema field: service_credentials_user_domain_name
+user_domain_name = {{ service_credentials_user_domain_name | default('Default') }}
+# Schema field: service_credentials_project_name
+project_name = {{ service_credentials_project_name | default('service') }}
+# Schema field: service_credentials_username
+username = {{ service_credentials_username | default('aodh') }}
+# Schema field: service_credentials_password
+password = {{ service_credentials_password | default('') }}
+# Schema field: service_credentials_auth_url
+auth_url = {{ service_credentials_auth_url | default('http://controller:5000/v3') }}
+# Schema field: service_credentials_interface
+interface = {{ service_credentials_interface | default('internal') }}
+# Schema field: service_credentials_region_name
+region_name = {{ service_credentials_region_name | default('RegionOne') }}

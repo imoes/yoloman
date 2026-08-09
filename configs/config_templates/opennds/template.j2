@@ -19,7 +19,7 @@
  5. faskey: Matching $key as set in this script (see below this introduction).
 	This is a key phrase for NDS to encrypt the query string sent to FAS.
 	It can be any combination of A-Z, a-z and 0-9, up to 64 characters with no white space.
-	eg c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646
+	eg c77557b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646
 
  6. fas_secure_enabled:  set to level 3
 	The NDS parameters: clientip, clientmac, gatewayname, client token, gatewayaddress, authdir and originurl
@@ -58,7 +58,8 @@
 //	For example, use the sha256 hash of a secret string, but note also that if not present in the openNDS config, one will be generated and added there.
 //	See: /etc/config/opennds on the router.
 
-$key="{{ fas_key }}";
+// Pre-shared encryption key between openNDS and FAS script (must match openNDS faskey config).
+$key="{{ fas_key | default('c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646') }}";
 
 // Allow immediate flush to browser
 if (ob_get_level()){ob_end_clean();}
@@ -107,11 +108,20 @@ if (file_exists("/etc/config/opennds")) {
 	A value of 0 means no limit
 */
 
-$sessionlength={{ fas_sessionlength }}; // minutes (1440 minutes = 24 hours)
-$uploadrate={{ fas_uploadrate }}; // kbits/sec (500 kilobits/sec = 0.5 Megabits/sec)
-$downloadrate={{ fas_downloadrate }}; // kbits/sec (1000 kilobits/sec = 1.0 Megabits/sec)
-$uploadquota={{ fas_uploadquota }}; // kBytes (500000 kiloBytes = 500 MegaBytes)
-$downloadquota={{ fas_downloadquota }}; // kBytes (1000000 kiloBytes = 1 GigaByte)
+// Session length in minutes (0 = no limit).
+$sessionlength={{ fas_sessionlength | default(0) }}; // minutes (1440 minutes = 24 hours)
+
+// Client upload rate limit in kbits/sec (0 = no limit).
+$uploadrate={{ fas_uploadrate | default(0) }}; // kbits/sec (500 kilobits/sec = 0.5 Megabits/sec)
+
+// Client download rate limit in kbits/sec (0 = no limit).
+$downloadrate={{ fas_downloadrate | default(0) }}; // kbits/sec (1000 kilobits/sec = 1.0 Megabits/sec)
+
+// Client upload quota in kBytes (0 = no limit).
+$uploadquota={{ fas_uploadquota | default(0) }}; // kBytes (500000 kiloBytes = 500 MegaBytes)
+
+// Client download quota in kBytes (0 = no limit).
+$downloadquota={{ fas_downloadquota | default(0) }}; // kBytes (1000000 kiloBytes = 1 GigaByte)
 
 
 /* define a remote image to display
@@ -119,7 +129,8 @@ $downloadquota={{ fas_downloadquota }}; // kBytes (1000000 kiloBytes = 1 GigaByt
 	$imagepath is used function footer()
 */
 
-$imageurl="{{ fas_imageurl }}";
+// URL of the image to display on the splash page.
+$imageurl="{{ fas_imageurl | default('https://avatars1.githubusercontent.com/u/62547912') }}";
 $imagetype="png";
 $scriptname=basename($_SERVER['SCRIPT_NAME']);
 $imagepath=htmlentities("$scriptname?get_image=$imageurl&imagetype=$imagetype");
@@ -134,8 +145,8 @@ auth_get();
 
 // Service requests for remote image
 if (isset($_GET["get_image"])) {
-	$url=$_GET['get_image'];
-	$imagetype=$_GET['imagetype'];
+	$url=$_GET["get_image"];
+	$imagetype=$_GET["imagetype"];
 	get_image($url, $imagetype);
 	exit(0);
 }
@@ -419,7 +430,7 @@ function auth_get() {
 					$clientauth=file("$logpath"."$gatewayhash/$client");
 					$authlist=$authlist." ".rawurlencode(trim($clientauth[0]));
 				}
-			echo trim("$authlist");
+				echo trim("$authlist");
 			}
 		}
 		exit(0);
@@ -535,7 +546,7 @@ function authenticate_page() {
 	# Note: override values set earlier if required, for example by testing clientif 
 	$log="$rhid $sessionlength $uploadrate $downloadrate $uploadquota $downloadquota $custom \n";
 
-	$logfile="$logpath"."$gwname"."/$rhid";
+	$logfile="$logpath"."$gwname/$rhid";
 
 	# Request authentication by openNDS
 	if (!file_exists($logfile)) {
@@ -716,14 +727,14 @@ function status_page() {
 
 		echo "
 			<p>
-				Your device originally requested <b>$redir</b>
-				<br>
-				Click or tap Continue to go to there.
-				</p>
-				<form>
-					<input type=\"button\" VALUE=\"Continue\" onClick=\"location.href='".$redir."'\" >
-				</form>
-			";
+			Your device originally requested <b>$redir</b>
+			<br>
+			Click or tap Continue to go to there.
+			</p>
+			<form>
+				<input type=\"button\" VALUE=\"Continue\" onClick=\"location.href='".$redir."'\" >
+			</form>
+		";
 	} else {
 		echo "
 			<p><big-red>ERROR 404 - Page Not Found.</big-red></p>
@@ -762,9 +773,9 @@ function landing_page() {
 			</italic-black>
 		</p>
 		<p>
-		(Your device originally requested $redir)
-		<hr>
-		Click or tap Continue to show the status of your account.
+			(Your device originally requested $redir)
+			<hr>
+			Click or tap Continue to show the status of your account.
 		</p>
 		<form>
 			<input type=\"button\" VALUE=\"Continue\" onClick=\"location.href='".$gatewayurl."'\" >
@@ -818,6 +829,7 @@ function err403() {
 	header("Cache-Control: no-cache");
 	header("Pragma: no-cache");
 
+
 	echo "<!DOCTYPE html>\n<html>\n<head>
 		<meta charset=\"utf-8\" />
 		<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
@@ -864,7 +876,7 @@ function footer() {
 		</div>
 		</body>
 		</html>
-";
+	";
 	exit(0);
 }
 
@@ -903,7 +915,7 @@ function display_terms () {
 			All information collected by this system is stored in a secure manner and is not accessible by third parties.<br>
 			In return, we grant you FREE Internet access.
 		</b><hr>
-";
+	";
 	flush();
 
 	# Terms of Service
@@ -917,12 +929,12 @@ function display_terms () {
 		<form>
 			<input type=\"button\" VALUE=\"Continue\" onClick=\"history.go(-1);return true;\">
 		</form>
-";
+	";
 	flush();
 
 	# Proper Use
 	echo "
-		hr>
+		<hr>
 		<b>Proper Use</b>
 
 		<p>
@@ -987,12 +999,12 @@ function display_terms () {
 					using the Service for any unlawful, harassing, abusive, criminal or fraudulent purpose.
 				</li>
 			</ol>
-";
+	";
 	flush();
 
 	# Content Disclaimer
 	echo "
-		hr>
+		<hr>
 		<b>Content Disclaimer</b>
 
 		<p>
@@ -1009,20 +1021,20 @@ function display_terms () {
 		any liability for infringement of proprietory rights and/or infringement of Copyright by any user of the system.
 		Login details and device identities may be stored and be used as evidence in a Court of Law against such users.
 		<br>
-";
+	";
 	flush();
 
 	# Limitation of Liability
 	echo "
 
-		hr><b>Limitation of Liability</b>
+		<hr><b>Limitation of Liability</b>
 
 		<p>
 			Under no circumstances shall the Owners, their suppliers or their licensors be liable to any user or
 			any third party on account of that party's use or misuse of or reliance on the Service.
 		</p>
 
-		hr><b>Changes to Terms of Service and Termination</b>
+		<hr><b>Changes to Terms of Service and Termination</b>
 
 		<p>
 			We may modify or terminate the Service and these Terms of Service and any accompanying policies,
@@ -1035,12 +1047,12 @@ function display_terms () {
 			We reserve the right to terminate your use of the Service, for any reason, and without notice.
 			Upon any such termination, any and all rights granted to you by this Hotspot Owner shall terminate.
 		</p>
-";
+	";
 	flush();
 
 	# Inemnity
 	echo "
-		hr><b>Indemnity</b>
+		<hr><b>Indemnity</b>
 
 		<p>
 			<b>You agree</b> to hold harmless and indemnify the Owners of this Hotspot,
@@ -1049,11 +1061,11 @@ function display_terms () {
 			losses, damages (actual and consequential), suits, judgments, litigation costs and legal fees, of every kind and nature.
 		</p>
 
-		hr>
+		<hr>
 		<form>
 			<input type=\"button\" VALUE=\"Continue\" onClick=\"history.go(-1);return true;\">
 		</form>
-";
+	";
 	flush();
 }
 
@@ -1118,19 +1130,19 @@ function insert_css() {
 	}
 
 	input[type=submit], input[type=button] {
-				font-size: 1em;
+			font-size: 1em;
 		line-height: 2em;
-			height: 2em;
-			font-weight: bold;
-			border: 0;
-			border-radius: 10px;
-			background-color: #1a7856;
-			padding: 0 10px;
-			color: #fff;
-			cursor: pointer;
-			box-shadow: rgba(50, 50, 93, 0.1) 0 0 0 1px inset,
-			rgba(50, 50, 93, 0.1) 0 2px 5px 0, rgba(0, 0, 0, 0.07) 0 1px 1px 0;
-		}
+		height: 2em;
+		font-weight: bold;
+		border: 0;
+		border-radius: 10px;
+		background-color: #1a7856;
+		padding: 0 10px;
+		color: #fff;
+		cursor: pointer;
+		box-shadow: rgba(50, 50, 93, 0.1) 0 0 0 1px inset,
+		rgba(50, 50, 93, 0.1) 0 2px 5px 0, rgba(0, 0, 0, 0.07) 0 1px 1px 0;
+	}
 
 	med-blue {
 		font-size: 1.2em;

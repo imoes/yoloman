@@ -1,114 +1,91 @@
 {
-  "port_forwarding": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable user-mode port forwarding (required for container networking in most cases)."
-  },
-  "net_cidr": {
+  "cidr": {
     "type": "string",
     "default": "10.0.2.0/24",
-    "description": "IPv4 CIDR block for the internal slirp4netns network (guest subnet)."
-  },
-  "host_ip": {
-    "type": "string",
-    "default": "10.0.2.2",
-    "description": "IPv4 address assigned to the host (outside) interface inside the guest network."
-  },
-  "guest_ip": {
-    "type": "string",
-    "default": "10.0.2.15",
-    "description": "IPv4 address assigned to the guest (container) interface."
-  },
-  "guest_dns": {
-    "type": "string",
-    "default": "10.0.2.3",
-    "description": "IPv4 address of the DNS server advertised to the guest (leave blank to inherit from host\u2019s /etc/resolv.conf)."
-  },
-  "guest_hostname": {
-    "type": "string",
-    "default": "",
-    "description": "Hostname to assign to the guest (if hostname_forwarding is enabled)."
-  },
-  "hostname_forwarding": {
-    "type": "bool",
-    "default": false,
-    "description": "If true, forwards the container\u2019s hostname to the guest network namespace."
-  },
-  "natp": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable legacy NAT port redirection (usually keep enabled)."
-  },
-  "dhcp_server": {
-    "type": "bool",
-    "default": true,
-    "description": "Enable the built-in DHCP server for automatic IP assignment in guests."
-  },
-  "ipv6": {
-    "type": "bool",
-    "default": false,
-    "description": "Enable IPv6 support in slirp4netns (experimental; not recommended for production)."
-  },
-  "ipv6_prefix": {
-    "type": "string",
-    "default": "fd12:3456:789a:abcd::/64",
-    "description": "IPv6 prefix for the guest network (only used if ipv6 is enabled)."
-  },
-  "ipv6_host": {
-    "type": "string",
-    "default": "fd12:3456:789a:abcd::2",
-    "description": "IPv6 address of the host interface inside the guest network (only used if ipv6 is enabled)."
-  },
-  "tap_ifname": {
-    "type": "string",
-    "default": "",
-    "description": "Name of TAP interface to create (for advanced use with --netns-type=tap). Leave empty to use veth (default)."
+    "description": "Specify CIDR, e.g. 10.0.2.0/24"
   },
   "mtu": {
     "type": "number",
-    "default": 65520,
-    "description": "Maximum Transmission Unit (MTU) for the slirp interface. High values reduce fragmentation overhead."
+    "default": 1500,
+    "description": "Specify MTU (max=65521). Default is 1500."
   },
-  "vlan": {
+  "enable_ipv6": {
     "type": "bool",
     "default": false,
-    "description": "Enable VLAN tagging (advanced; only if using VLAN-aware network namespaces)."
+    "description": "Enable IPv6 (EXPERIMENTAL)."
   },
-  "vlan_id": {
-    "type": "number",
-    "default": 1,
-    "description": "VLAN ID (only used if vlan is enabled)."
+  "netns_type": {
+    "type": "string",
+    "default": "pid",
+    "description": "Specify network namespace type ([path|pid|tapfd], default=pid).",
+    "enum": [
+      "path",
+      "pid",
+      "tapfd"
+    ]
   },
-  "port_mappings": {
-    "type": "list",
-    "default": [],
-    "description": "List of port mappings to expose container ports to the host. Format: host_ip:host_port:guest_ip:guest_port.",
-    "items": {
-      "host_ip": {
-        "type": "string",
-        "default": "127.0.0.1",
-        "description": "Host IP to bind the port to (e.g., 127.0.0.1, 0.0.0.0, or empty for default)."
-      },
-      "host_port": {
-        "type": "number",
-        "default": 0,
-        "description": "Host port to forward from (0 to let slirp4netns pick an ephemeral port)."
-      },
-      "guest_ip": {
-        "type": "string",
-        "default": "10.0.2.15",
-        "description": "Guest IP (container IP) to forward to."
-      },
-      "guest_port": {
-        "type": "number",
-        "default": 0,
-        "description": "Guest port to forward to (e.g., 80 for HTTP)."
-      }
-    }
+  "userns_path": {
+    "type": "string",
+    "default": "",
+    "description": "Specify user namespace path."
+  },
+  "enable_sandbox": {
+    "type": "bool",
+    "default": false,
+    "description": "Enter the user namespace and create a new mount namespace where only /etc and /run are mounted from the host."
+  },
+  "enable_seccomp": {
+    "type": "bool",
+    "default": false,
+    "description": "Enable seccomp(2) to limit syscalls. Typically used in conjunction with --enable-sandbox. EXPERIMENTAL."
+  },
+  "disable_host_loopback": {
+    "type": "bool",
+    "default": false,
+    "description": "Prohibit connecting to 127.0.0.1:* on the host namespace."
+  },
+  "disable_dns": {
+    "type": "bool",
+    "default": false,
+    "description": "Disable built-in DNS (10.0.2.3 by default)."
+  },
+  "macaddress": {
+    "type": "string",
+    "default": "",
+    "description": "Specify MAC address of the TAP interface (only valid with --configure/-c)."
+  },
+  "target_type": {
+    "type": "string",
+    "default": "netns",
+    "description": "Specify the target type ([netns|bess], default=netns). The bess mode is EXPERIMENTAL.",
+    "enum": [
+      "netns",
+      "bess"
+    ]
+  },
+  "outbound_addr": {
+    "type": "string",
+    "default": "",
+    "description": "Specify outbound ipv4 address slirp should bind to."
+  },
+  "outbound_addr_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Specify outbound interface slirp should bind to (ipv4 traffic only)."
+  },
+  "outbound_addr6": {
+    "type": "string",
+    "default": "",
+    "description": "Specify outbound ipv6 address slirp should bind to."
+  },
+  "outbound_addr6_interface": {
+    "type": "string",
+    "default": "",
+    "description": "Specify outbound interface slirp should bind to (ipv6 traffic only)."
   },
   "extra_options": {
     "type": "list",
     "default": [],
-    "description": "Additional command-line-style options to pass directly to slirp4netns (e.g., '--disable-host-loopback')."
+    "description": "Additional slirp4netns options (passed as-is; e.g., '--disable-host-loopback')."
   }
 }

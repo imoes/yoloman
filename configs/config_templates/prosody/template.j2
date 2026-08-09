@@ -1,5 +1,4 @@
 #! /bin/sh
-
 ### BEGIN INIT INFO
 # Provides:             prosody
 # Required-Start:       $network $local_fs $remote_fs $syslog
@@ -15,7 +14,8 @@ set -e
 
 # /etc/init.d/prosody: start and stop Prosody XMPP server
 
-USER={{ user }}
+# System user account under which Prosody runs.
+USER={{ user | default('prosody') }}
 DAEMON=/usr/bin/prosody
 PIDPATH=/run/prosody
 PIDFILE="$PIDPATH"/prosody.pid
@@ -41,7 +41,8 @@ start_opts() {
 
 start_prosody () {
 	mkdir -p "$(dirname $PIDFILE)"
-	chown prosody:adm "$(dirname $PIDFILE)"
+	# System user account under which Prosody runs.
+	chown {{ user | default('prosody') }}:adm "$(dirname $PIDFILE)"
 	[ -x /sbin/restorecon ] && /sbin/restorecon `dirname $PIDFILE`
 	if start-stop-daemon --start --quiet --pidfile "$PIDFILE" \
 		--chuid "$USER" --oknodo --user "$USER" --name "$LUA" \
@@ -83,40 +84,40 @@ case "$1" in
 	fi
 	;;
   stop)
-  	log_daemon_msg "Stopping Prosody XMPP Server" "prosody"
-  	if stop_prosody; then
-  		log_end_msg 0;
-  	else
-  		log_end_msg 1;
-  	fi
+	log_daemon_msg "Stopping Prosody XMPP Server" "prosody"
+	if stop_prosody; then
+		log_end_msg 0;
+	else
+		log_end_msg 1;
+	fi
 	;;
   force-reload|restart)
-  	log_daemon_msg "Restarting Prosody XMPP Server" "prosody"
+	log_daemon_msg "Restarting Prosody XMPP Server" "prosody"
 
-  	stop_prosody
+	stop_prosody
 
 	if start_prosody; then
-   		log_end_msg 0;
-   	else
-   		log_end_msg 1;
-   	 fi
-   	;;
+		log_end_msg 0;
+	else
+		log_end_msg 1;
+	fi
+	;;
   reload)
-  	log_daemon_msg "Reloading Prosody XMPP Server" "prosody"
+	log_daemon_msg "Reloading Prosody XMPP Server" "prosody"
 
 	if signal_prosody 1; then
-   		log_end_msg 0;
-   	else
-   		log_end_msg 1;
-   	 fi
-   	;;
+		log_end_msg 0;
+	else
+		log_end_msg 1;
+	fi
+	;;
   status)
 	log_daemon_msg "Status of Prosody XMPP Server" "prosody "
 	status_of_proc -p"$PIDFILE" "$LUA"
 	;;
   *)
-  	log_action_msg "Usage: /etc/init.d/prosody {start|stop|restart|reload|status}"
-  	exit 1
+	log_action_msg "Usage: /etc/init.d/prosody {start|stop|restart|reload|status}"
+	exit 1
 esac
 
 exit 0

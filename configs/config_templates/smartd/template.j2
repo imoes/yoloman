@@ -1,10 +1,50 @@
-# smartd configuration - managed by Jinja2 template
+# smartd configuration - managed by Ansible/Jinja2 template
 # Home page: https://www.smartmontools.org
+#
+# This file configures smartd, the SMART Disk Monitor daemon.
+# It can operate in two mutually exclusive modes:
+# 1. DEVICESCAN: Automatically scan all detectable devices with a common set of directives.
+# 2. Explicit Device List: Manually specify devices and their specific monitoring directives.
 
-{%- if devicescan_enabled %}
-DEVICESCAN {{ devicescan_directives | join(' ') }}
+{#
+  Determine which mode to use based on the 'devicescan_enabled' variable.
+  Default is True (DEVICESCAN mode).
+#}
+{%- if devicescan_enabled | default(true) %}
+
+# -----------------------------------------------------------------------
+# MODE: DEVICESCAN (Automatic Scanning)
+# -----------------------------------------------------------------------
+# When devicescan_enabled is true, smartd will automatically scan for all
+# available storage devices and apply the directives listed below to each.
+# Explicitly listed devices in 'monitored_devices' are IGNORED in this mode.
+
+# The DEVICESCAN directive followed by the list of global directives.
+# Directives are joined by spaces.
+#
+# Default directives:
+#   -d removable          : Treat removable devices (e.g., USB disks)
+#   -n standby            : Do not poll if the disk is in standby/sleep mode
+#   -m root               : Send email alerts to 'root' (needs MTA or -M exec)
+#   -M exec /usr/share/smartmontools/smartd-runner : Use the system runner script for alerts
+DEVICESCAN {{ devicescan_directives | default(['-d', 'removable', '-n', 'standby', '-m', 'root', '-M', 'exec', '/usr/share/smartmontools/smartd-runner']) | join(' ') }}
+
 {%- else %}
-{%- for device in monitored_devices %}
-{{ device.path }} {{ device.directives | join(' ') }}
+
+# -----------------------------------------------------------------------
+# MODE: EXPLICIT DEVICE LIST (Manual Monitoring)
+# -----------------------------------------------------------------------
+# When devicescan_enabled is false, smartd will ONLY monitor the devices
+# explicitly listed below. The DEVICESCAN directive is NOT used.
+# This allows fine-grained control over per-device options (e.g., different
+# email alerts or polling intervals for specific disks).
+
+{# Iterate over the list of monitored devices. #}
+{%- for device in monitored_devices | default([]) %}
+
+# Device: {{ device.path | default('/dev/unknown') }}
+# Directives: {{ device.directives | default([]) | join(' ') }}
+{{ device.path | default('/dev/sdX') }} {{ device.directives | default([]) | join(' ') }}
+
 {%- endfor %}
 {%- endif %}

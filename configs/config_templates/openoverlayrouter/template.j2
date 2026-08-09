@@ -1,1 +1,325 @@
-{{ config }}
+###############################################################################
+# Open Overlay Router (OOR) / LISPmob Configuration Template
+#
+# This template generates the configuration file for Open Overlay Router.
+# The configuration is structured by sections corresponding to the device's
+# operating mode (xTR, RTR, MN, MS).
+#
+# Variables are drawn from the Ansible playbook role variables. All variables
+# use the |default() filter to ensure safe rendering even if the variable
+# is undefined in the playbook.
+###############################################################################
+
+################################################
+#
+# General configuration
+#
+# debug: Debug level [0..3]. Higher values produce more verbose logs.
+# map_request_retries: Additional Map-Requests to send per map cache miss.
+# log_file: Log file path when running in daemon mode.
+#
+# NOTE: If log_file is empty, messages are written to syslog.
+################################################
+
+# Debug level [0..3]
+debug                  = {{ debug | default(0) }}
+
+# Additional Map-Requests to send per map cache miss
+map-request-retries    = {{ map_request_retries | default(2) }}
+
+# Specifies log file used in daemon mode.
+log-file               = {{ log_file | default('/var/log/oor.log') }}
+ 
+################################################
+#
+# Device Operating Mode
+#
+# operating_mode: Defines the LISP device type.
+# Values: xTR (Translator), RTR (Router), MN (Mobile Node), MS (Map Server).
+################################################
+
+# Define the type of LISP device LISPmob will operate as 
+operating-mode         = {{ operating_mode | default('xTR') }}
+
+# For the rest of this file you can delete the sections that does not apply to 
+# the LISP device selected in operating_mode
+
+
+################################################
+#
+# MS (Map Server) configuration
+#
+# Applies when operating_mode is 'MS'.
+################################################
+
+# Control messages are received and generated through this interface.
+# Only one interface is supported. Required for MS operating mode.
+control-iface = {{ control_iface | default('') }}
+
+# Define an allowed lisp-site to be registered into the Map Server. Several
+# lisp-site can be defined.
+#   eid-prefix: Accepted EID prefix (IPvX/mask)
+#   key-type: Only 1 supported (HMAC-SHA-1-96)
+#   key: Password to authenticate the received Map-Registers
+#   iid: Instance ID associated with the lisp site [0-16777215]
+#   accept-more-specifics [true/false]: Accept more specific prefixes
+#     with same authentication information 
+
+lisp-site {
+    eid-prefix            = {{ ms_eid_prefix | default('') }}
+    key-type              = 1
+    key                   = {{ ms_key | default('') }}
+    iid                   = 0
+    accept-more-specifics = {{ ms_accept_more_specifics | default(True) | lower }}
+}
+
+# Define a static registered mapping. New Map-Registers overwrites
+# the information of this mapping. You can define several eid-prefix.
+#   eid-prefix: EID prefix (IPvX/mask) of the mapping
+#   iid: Instance ID associated with the lisp site [0-16777215]
+#   address: It could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+#   priority [0-255]: Priority for the RLOC of the interface. Locators
+#     with lower values are more preferable. This is used for both incoming
+#     policy announcements and outgoing traffic policy management
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
+#     indicates how to balance unicast traffic between them
+
+ms-static-registered-site {
+    eid-prefix          = {{ ms_static_eid_prefix | default('') }}
+    iid                 = 0
+     rloc-address {
+        address         = {{ ms_static_rloc_address | default('') }}
+        priority        = {{ ms_static_rloc_priority | default(0) }}
+        weight          = {{ ms_static_rloc_weight | default(0) }}
+    }
+}
+
+###############################################
+#
+# Tunnel Router general configuration
+# Common for xTR, RTR & MN
+#
+
+# encapsulation: Encapsulation that will use OOR in the data plane.
+# Values: LISP or VXLAN-GPE. LISP is selected by default.
+
+encapsulation          = {{ encapsulation | default('LISP') }}
+
+
+# RLOC probing configuration
+#   rloc-probe-interval: interval at which periodic RLOC probes are sent
+#     (seconds). A value of 0 disables RLOC probing
+#   rloc-probe-retries: RLOC probe retries before setting the locator with
+#     status down. [0..5]
+#   rloc-probe-retries-interval: interval at which RLOC probes retries are
+#     sent (seconds) [1..rloc-probe-interval]
+
+rloc-probing {
+    rloc-probe-interval             = {{ rloc_probe_interval | default(30) }}
+    rloc-probe-retries              = {{ rloc_probe_retries | default(2) }}
+    rloc-probe-retries-interval     = {{ rloc_probe_retries_interval | default(5) }}
+}
+
+# Encapsulated Map-Requests are sent to this Map-Resolver.
+# You can define several Map-Resolvers, separated by comma. Encapsulated 
+# Map-Request messages will be sent to only one.
+#   address: IPv4 or IPv6 address of the map-resolver  
+
+map-resolver        = {
+	{{ map_resolver_address | default('') }}
+}
+
+# Static Map Entry of the Map Cache. Several eid-prefix can be defined.
+#   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
+#   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
+#     the VNI of the mapping. [0-16777215]
+#   address: It could be one of the following cases
+#      - IPv4 or IPv6 address of the RLOC
+#      - ELP name
+#   priority [0-255]: Priority for the RLOC. Locators with
+#     lower values are more preferable. This is used for both incoming
+#     policy announcements and outgoing traffic policy management.
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
+#     indicates how to balance unicast traffic between them.
+
+static-map-cache {
+    eid-prefix          = {{ static_map_eid_prefix | default('') }}
+    iid                 = 0
+    rloc-address {
+        address         = {{ static_map_rloc_address | default('') }}
+        priority        = {{ static_map_rloc_priority | default(0) }}
+        weight          = {{ static_map_rloc_weight | default(0) }}
+    }
+}
+
+###############################################
+#
+# RTR configuration
+#
+# Applies when operating_mode is 'RTR'.
+#
+
+# List of interfaces to be used as outgoing interfaces for the packets sent
+# by the RTR. Several rtr-ifaces can be defined. 
+#   iface: interface containing the RLOCs to be used for outgoing traffic 
+#   ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6 
+#     address of the interface
+#   priority [0-255]: Priority for the RLOC of the interface. Locators
+#     with lower values are more preferable. This is used for outgoing
+#     traffic policy management.
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
+#     indicates how to balance unicast traffic between them.
+
+rtr-ifaces {
+    rtr-iface {
+        iface           = {{ rtr_iface_name | default('') }}
+        ip_version      = {{ rtr_iface_ip_version | default(4) }}
+        priority        = {{ rtr_iface_priority | default(0) }}
+        weight          = {{ rtr_iface_weight | default(0) }}
+    }
+}
+
+###############################################
+#
+# xTR & MN configuration
+#
+# Applies when operating_mode is 'xTR' or 'MN'.
+#
+
+# NAT Traversal configuration. 
+#   nat_traversal_support: check if the node is behind NAT.
+# Values: on or off. Required for xTR/MN if behind NAT.
+
+nat_traversal_support  = {{ nat_traversal_support | default('off') }}
+
+# Map-Registers are sent to this Map-Server.
+# You can define several Map-Servers. Map-Register messages will be sent to all
+# of them.
+#   address: IPv4 or IPv6 address of the map-server
+#   key-type: Only 1 supported (HMAC-SHA-1-96)
+#   key: password to authenticate with the map-server
+#   proxy-reply [on/off]: Configure map-server to Map-Reply on behalf of the xTR
+
+map-server {
+        address        = {{ map_server_address | default('') }}
+        key-type       = 1
+        key            = {{ map_server_key | default('') }}
+        proxy-reply    = {{ map_server_proxy_reply | default('off') }}
+}
+
+# Packets addressed to non-LISP sites will be encapsulated to this Proxy-ETR.
+# You can define several Proxy-ETR. Traffic will be balanced according to the
+# priority and weight.
+#   address: IPv4 or IPv6 address of the Proxy-ETR
+#   priority [0-255]: Proxy-ETR with lower values are more preferable.
+#   weight [0-255]: When priorities are the same for multiple Proxy-ETRs,
+#     the weight indicates how to balance unicast traffic between them.
+
+proxy-etr {
+        address     = {{ proxy_etr_address | default('') }}
+        priority    = {{ proxy_etr_priority | default(0) }}
+        weight      = {{ proxy_etr_weight | default(0) }}
+}
+
+# IPv4 / IPv6 EID of the node.
+#   eid-prefix: EID prefix (ip-prefix/mask) of the mapping
+#   iid: Instance ID associated to the EID. When using VXLAN-GPE, iid configures
+#     the VNI of the mapping. [0-16777215]
+# Two types of RLOCs can be defined:
+#   rloc-address: Specifies directly the RLOC of the interface
+#     address: It could be one of the following cases
+#       - IPv4 or IPv6 address of the RLOC. Address should exist and
+#        be assigned to an UP interface during startup process otherwise
+#        it is discarded.
+#       - ELP name
+#   rloc-iface: Specifies the interface associated with the RLOC
+#     interface: interface containing the RLOCs associated to this mapping 
+#     ip_version: 4 to use the IPv4 address of the interface and 6 to use the IPv6 
+#       address of the interface
+# Both types of RLOCs use priority and weight
+#   priority [0-255]: Priority for the RLOC of the interface. Locators
+#     with lower values are more preferable. This is used for both incoming
+#     policy announcements and outgoing traffic policy management.
+#   weight [0-255]: When priorities are the same for multiple RLOCs, the weight
+#     indicates how to balance unicast traffic between them.
+
+database-mapping {
+    eid-prefix          = {{ database_mapping_eid_prefix | default('') }}
+    iid                 = 0
+    rloc-address {
+        address         = {{ database_mapping_rloc_address | default('') }}
+        priority        = {{ database_mapping_rloc_priority | default(0) }}
+        weight          = {{ database_mapping_rloc_weight | default(0) }}
+    }
+    rloc-iface{
+        interface       = {{ database_mapping_rloc_iface | default('') }}
+        ip_version      = {{ database_mapping_rloc_iface_ip_version | default(4) }}
+        priority        = {{ database_mapping_rloc_iface_priority | default(0) }}
+        weight          = {{ database_mapping_rloc_iface_weight | default(0) }}
+    }
+}
+
+# Current LISP beta-network (lisp4.net/lisp6.net) PITR addresses
+# Uncomment the IPv4 or IPv6 list based on your current locators and
+# comment the previous 'proxy-itrs' section
+
+
+#proxy-itrs = {
+# LISP beta-network IPv4 PITRs
+#        69.31.31.98,                 # eqx-ash-pxtr
+#        149.20.48.60,                # isc-pxtr
+#        198.6.255.37,                # asp-pxtr
+#        173.36.193.25,               # sjc-pxtr
+#        129.250.1.63,                # ntt-amer-pxtr
+#        217.8.98.33,                 # intouch-pxtr-1
+#        217.8.98.35,                 # intouch-pxtr-2
+#        193.162.145.46,              # tdc-pxtr
+#        158.38.1.92,                 # uninett-pxtr
+#        203.181.249.172,             # apan-pxtr
+#        202.51.247.10                # sg-nus-pxtr
+# LISP beta-network IPv6 PITRs 
+#        2001:590::451f:1f62,         # eqx-ash-pxtr
+#        2001:4f8:3:d::60,            # isc-pxtr
+#        2001:418:4:1:deaf:bebe::10d, # asp-pxtr
+#        2001:418:0:1000::613,        # ntt-amer-pxtr
+#        2001:200:e000:17::17,        # intouch-pxtr-1
+#        2001:67C:21B4:108::b,        # intouch-pxtr-2
+#        2001:6c8:41:100:0:2:1:c,     # tdc-pxtr
+#        2001:700:0:52E::4,           # uninett-pxtr
+#        2001:67C:21B4:107::b         # apan-pxtr
+#}
+
+###############################################
+#
+# Miscellaneous configuration
+#
+
+# Structure to define a path involving multiple hops (Explicit Locator Path)
+#   elp-name: Name to define the ELP used as a reference in the rest of the 
+#     configuration
+#   elp-node: Defines each of the hops of the ELP. Several ones can be defined.
+#     In most cases, the last elp-node would be the local RLOC of an xTR
+#   address: IPv4 or IPv6 address of the RLOC. The address of the last elp-node 
+#     should exist and be assigned to an UP interface during startup process 
+#     otherwise it is discarded.
+#   strict [true/false]: Not yet implemented. Use false
+#   probe [true/false]: Not yet implemented. Use false
+#   lookup [true/false]: Not yet implemented. Use false
+
+explicit-locator-path {
+    elp-name        = {{ elp_name | default('') }}
+    elp-node {
+        address     = {{ elp_node1_address | default('') }}
+        strict      = {{ elp_node1_strict | default(False) | lower }}
+        probe       = {{ elp_node1_probe | default(False) | lower }}
+        lookup      = {{ elp_node1_lookup | default(False) | lower }}
+    }
+    elp-node {
+        address     = {{ elp_node2_address | default('') }}
+        strict      = {{ elp_node2_strict | default(False) | lower }}
+        probe       = {{ elp_node2_probe | default(False) | lower }}
+        lookup      = {{ elp_node2_lookup | default(False) | lower }}
+    } 
+}

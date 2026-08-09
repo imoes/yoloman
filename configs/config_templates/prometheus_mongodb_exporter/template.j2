@@ -1,61 +1,94 @@
-#!/bin/sh
-# Configuration for the Prometheus MongoDB exporter service
-# This file is sourced by the systemd service unit
+# Prometheus MongoDB Exporter Configuration
+# This file configures the prometheus-mongodb-exporter process.
+#
+# Self-documenting: every directive is preceded by a comment
+# derived from the schema description. Defaults are applied
+# inline so the template renders safely even if a variable is
+# absent from the Ansible vars.
 
-# MongoDB URI to connect to (required)
-# Supports single server, replica sets, and sharded clusters
-MONGODB_URI="{{ mongodb_uri }}"
+# MongoDB connection URI. Required. Supports formats like
+# mongodb://user:pass@host:27017, mongodb+srv://... for Atlas,
+# and replica set connect strings.
+# If not provided, the exporter will fail to start.
+# Consumers can inject the full URI via the mongodb_uri field,
+# or wire host/port/user/password separately (see capabilities).
+MONGODB_URI="{{ mongodb_uri | default('') }}"
 
-# Optional: Database to collect metrics from (default: admin)
-# Use 'all' to collect from all databases (not recommended for production)
+# Database to query for database-level metrics (e.g., dbStats).
+# Set to 'all' to scan all databases (⚠️ not recommended for production
+# due to performance overhead).
+# This is the default database context for queries.
 MONGODB_DB="{{ mongodb_db | default('admin') }}"
 
-# Optional: Disable collecting certain metric sets (comma-separated)
-# Valid options: collection, index, dbstats, replset, sharded, diagnostics, serverstatus, top
-DISABLED_METRICS="{{ disabled_metrics | default('') | join(',') }}"
+# List of metric categories to disable. Valid options:
+# collection, index, dbstats, replset, sharded, diagnostics,
+# serverstatus, top.
+# Rendered as a comma-separated string.
+DISABLED_METRICS="{{ disabled_metrics | default([]) | join(',') }}"
 
-# Optional: Enable collection of diagnostics data (requires MongoDB 4.2+)
+# Enable collection of diagnostics data (e.g., diagnostics collections
+# in admin database). Requires MongoDB 4.2+.
+# Renders as 'true' or 'false'.
 ENABLE_DIAGNOSTICS="{{ enable_diagnostics | default(false) | lower }}"
 
-# Optional: Timeout for MongoDB connections (in seconds)
+# Timeout (in seconds) for each MongoDB query. Increase if queries
+# time out on slow clusters.
 METRICS_TIMEOUT="{{ metrics_timeout | default(10) }}"
 
-# Optional: TLS/SSL settings
-# Enable TLS/SSL for connection to MongoDB
+# Enable TLS/SSL for the connection to MongoDB.
 ENABLE_TLS="{{ enable_tls | default(false) | lower }}"
 
-# Optional: Path to CA certificate (required if TLS enabled and using self-signed cert)
+# Path to CA certificate file. Required if TLS is enabled and using
+# a self-signed or non-public CA certificate.
 TLS_CA_FILE="{{ tls_ca_file | default('') }}"
 
-# Optional: Path to client certificate (optional, for client cert auth)
+# Path to client certificate file for mutual TLS (optional).
 TLS_CERT_FILE="{{ tls_cert_file | default('') }}"
 
-# Optional: Path to client private key (optional, for client cert auth)
+# Path to client private key file (for TLS client auth).
 TLS_KEY_FILE="{{ tls_key_file | default('') }}"
 
-# Optional: Skip TLS certificate verification (⚠️ insecure, for testing only)
+# Skip TLS certificate verification (⚠️ insecure, for testing only).
+# Do not use in production.
 TLS_INSECURE_SKIP_VERIFY="{{ tls_insecure_skip_verify | default(false) | lower }}"
 
-# Optional: Server listening address (default: 0.0.0.0:9216)
+# Address and port to expose the exporter metrics endpoint.
+# Default format is host:port, e.g., 0.0.0.0:9216.
+# This is the network interface the Prometheus scraper connects to.
 WEB_LISTEN_ADDRESS="{{ web_listen_address | default('0.0.0.0:9216') }}"
 
-# Optional: Enable authentication (for MongoDB users with auth)
-# If using SCRAM-SHA-256 or other auth, specify username/password via URI or below
+# MongoDB username. Use only if not embedded in mongodb_uri.
+# Note: This is the MongoDB application user, not an OS account.
+# Wired from capability consumer fields if mongodb_uri is empty.
 MONGODB_USER="{{ mongodb_user | default('') }}"
+
+# MongoDB password (will be stored in plaintext). Use only if not
+# embedded in mongodb_uri.
+# Note: This is the MongoDB application password, not an OS account.
 MONGODB_PASSWORD="{{ mongodb_password | default('') }}"
+
+# MongoDB authentication database. Default is 'admin' for most
+# deployments.
+# Used for SCRAM/SASL authentication when user/password are provided.
 MONGODB_AUTH_DB="{{ mongodb_auth_db | default('admin') }}"
 
-# Optional: Collect metrics from hidden nodes in replica sets
+# Collect metrics from hidden replica set members (e.g., for backup
+# nodes).
 COLLECT_HIDDEN="{{ collect_hidden | default(false) | lower }}"
 
-# Optional: Collect metrics from secondary nodes only (skip primary)
+# Only collect metrics from secondary nodes (skip the primary).
+# Useful for read-only monitoring.
 SECONDARY_ONLY="{{ secondary_only | default(false) | lower }}"
 
-# Optional: Extra labels to attach to all metrics (JSON map, e.g., {"env": "prod", "region": "us-east-1"})
-EXTRA_LABELS="{{ extra_labels | tojson | safe }}"
+# List of key-value pairs to attach as labels to all metrics
+# (e.g., environment, region). Format as a list of objects with
+# 'key' and 'value'.
+# Rendered as a JSON array string.
+EXTRA_LABELS="{{ extra_labels | default([]) | tojson }}"
 
-# Optional: Limit concurrent connections to MongoDB (default: 2)
+# Maximum number of concurrent connections to the MongoDB server.
+# Adjust based on your MongoDB's connection limits.
 MAX_CONNECTIONS="{{ max_connections | default(2) }}"
 
-# Optional: Enable profiling if MongoDB profiling level > 0
+# Collect metrics from MongoDB's profiler (requires profiling level > 0).
 ENABLE_PROFILING="{{ enable_profiling | default(false) | lower }}"

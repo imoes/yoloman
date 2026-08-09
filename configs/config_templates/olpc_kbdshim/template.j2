@@ -1,39 +1,49 @@
 # OLPC XO Keyboard Support Daemon configuration
 # This file is read by olpc-kbdshim(8) at startup.
-# Enable or disable the daemon.
-{% if enabled | default(true) %}
-# Set the device node for the keyboard.
-{% if keyboard_device is defined %}
-keyboard_device={{ keyboard_device }}
+# Enable or disable the OLPC keyboard support daemon.
+# Default: true
+{% set _enabled = enabled | default(true) %}
+{% if _enabled %}
+
+# Input device node for the OLPC XO keyboard (e.g., /dev/input/event0 or a symlink).
+# Default: /dev/input/by-id/olpc-xo-keyboard
+keyboard_device={{ (keyboard_device | default('/dev/input/by-id/olpc-xo-keyboard')) | string }}
+
+# List of modifier keys to remap or special-handle (e.g., Alt, Super, Control).
+# Default: ['Alt', 'Super', 'Control']
+{% set _modifier_keys = modifier_keys | default(['Alt', 'Super', 'Control']) %}
+{% if _modifier_keys | length > 0 %}
+modifier_keys={{ _modifier_keys | join(',') }}
 {% endif %}
-# Comma-separated list of modifier keys to map (e.g., "Alt,Super,Control").
-{% if modifier_keys | default([]) | length > 0 %}
-modifier_keys={{ modifier_keys | join(',') }}
-{% endif %}
-# Log level: 0=error, 1=warn, 2=info, 3=debug
-{% if log_level is defined %}
-log_level={{ log_level }}
-{% endif %}
-# Path to the PID file.
-{% if pidfile is defined %}
-pidfile={{ pidfile }}
-{% endif %}
-# Optional: custom keymap overrides (one per line: old=new)
-{% if keymaps | default([]) | length > 0 %}
-{% for mapping in keymaps %}
-{% if mapping.from_key and mapping.to_key %}
+
+# Verbosity of logging: 0=error, 1=warn, 2=info (recommended), 3=debug.
+# Default: 2
+log_level={{ (log_level | default(2)) | int }}
+
+# Path to the file where the daemon writes its process ID.
+# Default: /run/olpc-kbdshim.pid
+pidfile={{ (pidfile | default('/run/olpc-kbdshim.pid')) | string }}
+
+# Custom keymap overrides: a list of key remappings.
+# Each item maps a source key to a destination key.
+# Format: source_key=dest_key
+{% set _keymaps = keymaps | default([]) %}
+{% if _keymaps | length > 0 %}
+{% for mapping in _keymaps %}
+{% if mapping.from_key is defined and mapping.to_key is defined %}
 {{ mapping.from_key }}={{ mapping.to_key }}
 {% endif %}
 {% endfor %}
 {% endif %}
-# Enable or disable special Fn key handling (e.g., volume, brightness).
-{% if enable_fn_handling is defined %}
-enable_fn_handling={{ enable_fn_handling | string | lower }}
-{% endif %}
-# Enable legacy backlight control (for older XO models).
-{% if legacy_backlight is defined %}
-legacy_backlight={{ legacy_backlight | string | lower }}
-{% endif %}
+
+# Enable special handling of Fn key combinations (e.g., volume up/down, screen brightness).
+# Default: true
+enable_fn_handling={{ (enable_fn_handling | default(true)) | string | lower }}
+
+# Use legacy sysfs backlight interface (required only for XO-1 and XO-1.5 with older kernels).
+# Default: false
+legacy_backlight={{ (legacy_backlight | default(false)) | string | lower }}
+
 {% else %}
 # Daemon disabled — no further settings are processed.
 {% endif %}

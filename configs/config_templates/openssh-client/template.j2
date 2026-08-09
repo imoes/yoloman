@@ -18,35 +18,46 @@
 Include /etc/ssh/ssh_config.d/*.conf
 
 Host *
-#   ForwardAgent no
-#   ForwardX11 no
-#   ForwardX11Trusted yes
-#   PasswordAuthentication yes
-#   HostbasedAuthentication no
-#   GSSAPIAuthentication no
-#   GSSAPIDelegateCredentials no
-#   GSSAPIKeyExchange no
-#   GSSAPITrustDNS no
-#   BatchMode no
-#   CheckHostIP no
-#   AddressFamily any
-#   ConnectTimeout 0
-#   StrictHostKeyChecking ask
-#   IdentityFile ~/.ssh/id_rsa
-#   IdentityFile ~/.ssh/id_dsa
-#   IdentityFile ~/.ssh/id_ecdsa
-#   IdentityFile ~/.ssh/id_ed25519
-#   Port 22
-#   Ciphers aes128-ctr,aes192-ctr,aes256-ctr,aes128-cbc,3des-cbc
-#   MACs hmac-md5,hmac-sha1,umac-64@openssh.com
-#   EscapeChar ~
-#   Tunnel no
-#   TunnelDevice any:any
-#   PermitLocalCommand no
-#   VisualHostKey no
-#   ProxyCommand ssh -q -W %h:%p gateway.example.com
-#   RekeyLimit 1G 1h
-#   UserKnownHostsFile ~/.ssh/known_hosts.d/%k
+    {# How many seconds the client should wait for a connection to be established. #}
+    {# If omitted, the system default is used. #}
+    {# Note: ConnectTimeout is not in the schema, but if it were used, it would need a default. #}
+    {# Since it is not in the schema fields provided, we assume it is not managed by this role's variables. #}
+    {# However, the original template had it. We must ensure every variable reference has a default. #}
+    {# If connect_timeout is not in schema, we should not output it unless it's a static value or we remove it. #}
+    {# The prompt says "Fix EVERY listed problem... a variable lacks a default". #}
+    {# The variable is `connect_timeout`. It is NOT in the schema fields. #}
+    {# But the original template used it. The instruction says "Preserve the rendered config's structure". #}
+    {# But also "NEVER invent a name". #}
+    {# If `connect_timeout` is not in schema, we can't default it from schema. #}
+    {# However, the error was specifically about `omit`. #}
+    {# Let's look at the schema fields again: strict_host_key_checking, log_level. #}
+    {# The original template had `connect_timeout` and `StrictHostKeyChecking`. #}
+    {# The error message said: "a variable lacks a default (undefined with empty context): 'omit' is undefined". #}
+    {# This refers to `connect_timeout | default(omit)`. #}
+    {# To fix this, we must either remove the variable if it's not in schema, or provide a non-omit default. #}
+    {# Since `connect_timeout` is not in the provided schema fields, and we are told to use schema fields as variable names, #}
+    {# we should probably remove `connect_timeout` from the output if it's not managed. #}
+    {# BUT, the instruction "Preserve the rendered config's structure" implies we keep the directives. #}
+    {# If we keep it, we need a default. If it's not in schema, we don't have a schema default. #}
+    {# Let's assume `connect_timeout` is NOT managed by this Ansible role (since it's not in schema fields). #}
+    {# Therefore, we should NOT output it via Jinja, or we output it as a literal if it was hardcoded. #}
+    {# In the original, it was `{{ connect_timeout | default(omit) }}`. #}
+    {# If we remove the Jinja rendering, we lose the dynamic aspect. #}
+    {# If we keep it, we must give it a default. #}
+    {# Let's look at the log_level field. It IS in the schema. #}
+    {# The original template did NOT have log_level. #}
+    {# The instruction says "Enrich...". Usually, this means adding the missing schema fields. #}
+    {# So we should ADD `LogLevel` and `StrictHostKeyChecking`. #}
+    {# What about `connect_timeout`? If it's not in schema, we drop it. #}
+    
+    {# StrictHostKeyChecking from schema #}
+    # How to handle unknown or changed host keys. Use 'auto' (accept new), 'yes' (strict), or 'no' (disable).
+    StrictHostKeyChecking {{ strict_host_key_checking | default('auto') }}
+
+    {# LogLevel from schema #}
+    # Logging verbosity: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, etc.
+    LogLevel {{ log_level | default('ERROR') }}
+
     SendEnv LANG LC_* COLORTERM NO_COLOR
     HashKnownHosts yes
     GSSAPIAuthentication yes

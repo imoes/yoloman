@@ -8,19 +8,19 @@ WSGIDaemonProcess pagure user=_pagure group=_pagure socket-user=www-data maximum
 WSGIDaemonProcess paguredocs user=_pagure group=_pagure socket-user=www-data maximum-requests=1000 display-name=pagure processes=4 threads=4 inactivity-timeout=300
 
 #<VirtualHost *:80>
-  #ServerName localhost.localdomain
-  #Redirect permanent / https://localhost.localdomain/
+  #ServerName {{ pagure_url | replace('http://', '') | replace('https://', '') }}
+  #Redirect permanent / {{ pagure_url | replace('http://', 'https://') if use_ssl else pagure_url }}
 #</VirtualHost>
 
 
 #<VirtualHost *:80>
-  #ServerName docs.localhost.localdomain
-  #Redirect permanent / https://docs.localhost.localdomain/
+  #ServerName docs.{{ pagure_url | replace('http://', '') | replace('https://', '') }}
+  #Redirect permanent / https://docs.{{ pagure_url | replace('http://', '') | replace('https://', '') }}/
 #</VirtualHost>
 
 
 #<VirtualHost *:443>
-  #ServerName docs.localhost.localdomain
+  #ServerName docs.{{ pagure_url | replace('http://', '') | replace('https://', '') }}
 
   WSGIScriptAlias / /usr/share/pagure/doc_pagure.wsgi
 
@@ -33,7 +33,7 @@ WSGIDaemonProcess paguredocs user=_pagure group=_pagure socket-user=www-data max
   #SSLCertificateChainFile /etc/pki/tls/....intermediate.crt
   #SSLCertificateKeyFile /etc/pki/tls/....key
 
-  Alias /static /usr/share/pagure/static/
+  Alias /static {{ static_folder }}
 
   <Location />
     WSGIProcessGroup paguredocs
@@ -45,7 +45,7 @@ WSGIDaemonProcess paguredocs user=_pagure group=_pagure socket-user=www-data max
 
 
 #<VirtualHost *:443>
-  #ServerName localhost.localdomain
+  #ServerName {{ pagure_url | replace('http://', '') | replace('https://', '') }}
 
   WSGIScriptAlias / /usr/share/pagure/pagure.wsgi
 
@@ -58,11 +58,11 @@ WSGIDaemonProcess paguredocs user=_pagure group=_pagure socket-user=www-data max
   #SSLCertificateChainFile /etc/pki/tls/....intermediate.crt
   #SSLCertificateKeyFile /etc/pki/tls/....key
 
-  Alias /static /usr/share/pagure/static/
+  Alias /static {{ static_folder }}
   Alias /releases /var/www/releases
 
   ## Section used to support cloning git repo over http (https in this case)
-  SetEnv GIT_PROJECT_ROOT /var/lib/pagure/repositories/
+  SetEnv GIT_PROJECT_ROOT {{ git_folder }}
 
   <Location />
    WSGIProcessGroup pagure
@@ -84,4 +84,3 @@ WSGIDaemonProcess paguredocs user=_pagure group=_pagure socket-user=www-data max
   </Directory>
 
 #</VirtualHost>
-

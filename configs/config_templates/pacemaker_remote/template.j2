@@ -1,48 +1,113 @@
-# Configuration for Pacemaker Remote — proxy daemon for remote nodes
-# Enables a remote node to participate in a Pacemaker cluster without full cluster stack
-# Path to the cluster's CA certificate (for TLS verification)
-ca_cert: {{ ca_cert }}
+# =============================================================================
+# Pacemaker Remote Configuration
+# =============================================================================
+# This file configures the pacemaker-remote daemon, which allows a remote node
+# to participate in a Pacemaker/Corosync cluster without running the full
+# cluster stack (corosync + pacemaker). It acts as a proxy, relaying CIB
+# changes and resource management commands from the cluster manager.
+#
+# Structure: key: value
+# See man pacemaker-remote(8) and pcs(8) for details.
+# =============================================================================
 
-# Path to this node's TLS certificate (signed by cluster CA)
-cert: {{ cert }}
+# --- TLS / Identity Verification ---
 
-# Path to this node's TLS private key
-key: {{ key }}
+# Absolute path to the cluster's CA certificate.
+# Used by this remote node to verify the identity of the cluster manager.
+# The certificate must be readable by the pacemaker-remote process user.
+ca_cert: {{ ca_cert | default('/etc/pacemaker/ca.crt') }}
 
-# Optional: trusted CAs (additional to ca_cert), as a list of paths
-{% if trusted_certs %}
+# Absolute path to this node's TLS certificate.
+# This certificate must be signed by the cluster CA specified in ca_cert.
+# It proves this node's identity to the cluster manager.
+cert: {{ cert | default('/etc/pacemaker/remote.crt') }}
+
+# Absolute path to this node's TLS private key.
+# Must correspond to the certificate in `cert`.
+# Permissions should be restrictive (e.g., 600) owned by root or the service user.
+key: {{ key | default('/etc/pacemaker/remote.key') }}
+
+# Optional list of additional trusted CA certificate paths.
+# These are concatenated with colons and used for verification.
+# Useful if the cluster CA chain includes intermediate CAs not in ca_cert.
+{% if trusted_certs is defined and trusted_certs | length > 0 %}
 trusted_certs: {{ trusted_certs | join(':') }}
 {% endif %}
 
-# Address the daemon listens on (IP or hostname); use 0.0.0.0 for all interfaces
-listen_addr: {{ listen_addr }}
+# --- Network Binding ---
 
-# TCP port the daemon listens on (default: 3128)
-listen_port: {{ listen_port }}
+# IP address or hostname the daemon binds to.
+# Use '0.0.0.0' to listen on all available interfaces.
+# Use a specific IP (e.g., '10.0.0.5') to restrict access to a specific NIC.
+listen_addr: {{ listen_addr | default('0.0.0.0') }}
 
-# Maximum number of client connections (e.g., from pacemaker-controld)
-max_connections: {{ max_connections }}
+# TCP port the daemon listens on.
+# The standard port for pacemaker-remote is 3128.
+# Ensure this port is allowed through firewalls on this node.
+listen_port: {{ listen_port | default(3128) | int }}
 
-# Enable or disable TLS; set to false only for testing (insecure)
-{% if enable_tls %}enable_tls: true{% else %}enable_tls: false{% endif %}
+# --- Connection Limits ---
 
-# Authentication method: 'none' or 'pam'
-auth: {{ auth }}
+# Maximum number of concurrent client connections allowed.
+# Controls how many simultaneous connections the cluster manager can have.
+# Adjust based on expected cluster load; default is usually sufficient.
+max_connections: {{ max_connections | default(100) | int }}
 
-# Optional: PAM service name (used only if auth='pam')
-{% if pam_service %}pam_service: {{ pam_service }}{% endif %}
+# --- Security & Encryption ---
 
-# Logging configuration: level (debug|info|notice|warning|error|critical|alert|emergency)
-log_level: {{ log_level }}
+# Enable TLS encryption for all communications.
+# Set to false ONLY for testing or air-gapped internal networks (insecure).
+# In production, always keep this true to ensure data confidentiality and integrity.
+{% if enable_tls is defined and enable_tls | default(true) | bool %}
+enable_tls: true
+{% else %}
+enable_tls: false
+{% endif %}
 
-# Log destination: syslog or path to file
-{% if log_dest %}log_dest: {{ log_dest }}{% endif %}
+# --- Authentication ---
 
-# List of remote resources managed by this daemon (if any static definitions needed)
-# Each entry maps a remote resource name to its local service/script
+# Authentication method for incoming connections.
+# 'pam': Uses Linux PAM subsystem (recommended, supports system users/groups).
+# 'none': No authentication (INSECURE — do not use in production).
+auth: {{ auth | default('pam') }}
+
+# Optional: Name of the PAM service to use for authentication.
+# Only relevant if `auth` is set to 'pam'.
+# The corresponding PAM configuration file will be /etc/pam.d/<value>.
+{% if pam_service is defined and pam_service %}
+pam_service: {{ pam_service | default('pacemaker-remote') }}
+{% endif %}
+
+# --- Logging ---
+
+# Verbosity level for logging.
+# Options: debug, info (default), notice, warning, error, critical, alert, emergency.
+# 'debug' generates significant log volume; use sparingly.
+log_level: {{ log_level | default('info') }}
+
+# Log destination.
+# 'syslog': Send logs to the system logger (rsyslog/syslog-ng).
+# File path (e.g., '/var/log/pacemaker-remote.log'): Write logs to a specific file.
+{% if log_dest is defined and log_dest %}
+log_dest: {{ log_dest | default('syslog') }}
+{% endif %}
+
+# --- Resources ---
+
+# List of remote resources managed by this daemon.
+# Each entry defines a resource name and its execution context.
+# Format: resource <name> <exec_path> [user=<user>]
+# This allows the cluster to manage local services/scripts on this remote node.
+{% if resources is defined and resources | length > 0 %}
 {% for resource in resources %}
-resource: {{ resource.name }} {{ resource.exec }}{% if resource.user %} {{ resource.user }}{% endif %}
+resource: {{ resource.name }} {{ resource.exec }}{% if resource.user is defined and resource.user %} {{ resource.user }}{% endif %}
 {% endfor %}
+{% endif %}
 
-# Optional: shutdown timeout (seconds) for graceful shutdown
-{% if shutdown_timeout %}shutdown_timeout: {{ shutdown_timeout }}{% endif %}
+# --- Shutdown Behavior ---
+
+# Seconds to wait before forcing shutdown during stop operation.
+# Allows time for graceful cleanup of resources before the daemon exits.
+{% if shutdown_timeout is defined and shutdown_timeout %}
+shutdown_timeout: {{ shutdown_timeout | default(60) | int }}
+{% endif %}

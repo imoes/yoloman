@@ -1,47 +1,76 @@
-#!/bin/sh
-# kFreeBSD do not accept scripts as interpreters, using #!/bin/sh and sourcing.
-if [ true != "$INIT_D_SCRIPT_SOURCED" ] ; then
-    set "$0" "$@"; INIT_D_SCRIPT_SOURCED=true . /lib/init/init-d-script
-fi
-### BEGIN INIT INFO
-# Provides:          nsd
-# Required-Start:    $network $local_fs $remote_fs $syslog
-# Required-Stop:     $remote_fs $syslog
-# Default-Start:     2 3 4 5
-# Default-Stop:      0 1 6
-# Short-Description: authoritative domain name server
-# Description:       NSD is a authoritative-only domain name server
-### END INIT INFO
+# ==============================================================================
+# NSD (Name Server Daemon) Configuration Template
+# ==============================================================================
+# This template generates the main `nsd.conf` file for an authoritative-only
+# DNS server. It is self-documenting: every directive is preceded by a comment
+# explaining its purpose and source field.
+# ==============================================================================
 
-NAME=nsd                  # Introduce the short server's name here
-DAEMON=/usr/sbin/$NAME    # Introduce the server's location here
-DESC="Name Server Daemon" # Introduce a short description here
-PIDFILE=$(nsd-checkconf -o pidfile /etc/nsd/nsd.conf)
+# server_count: Number of NSD server worker processes. Typically set to the number of CPU cores.
+server-count: {{ server_count | default(2) }}
 
-do_tmpfiles() {
-    local type path mode user group
+# chroot_path: Path to chroot directory for security isolation.
+chroot: {{ chroot_path | default('/var/chroot/nsd') }}
 
-    if [ -r "/usr/lib/tmpfiles.d/$1.conf" ]; then
-        TMPFILE=/usr/lib/tmpfiles.d/$1.conf
-    fi
-    if [ -r "/etc/tmpfiles.d/$1.conf" ]; then
-        TMPFILE=/etc/tmpfiles.d/$1.conf
-    fi
+# zones_dir: Directory where zone data files (zonefiles) are stored.
+zonesdir: {{ zones_dir | default('/etc/nsd/zones') }}
 
-    while read type path mode user group age argument; do
-        if [ "$type" = "d" ]; then
-            mkdir -p "$path"
-            chmod "$mode" "$path"
-            chown "$user:$group" "$path"
-        fi
-    done < "$TMPFILE"
-}
+# pidfile_path: Path to the file where NSD will write its process ID.
+pidfile: {{ pidfile_path | default('/run/nsd.pid') }}
 
-do_start_prepare() {
-    do_tmpfiles $(basename $0)
-}
+# log_queries: Whether to log every DNS query received (increases log volume).
+log-queries: {{ log_queries | default(false) | lower }}
 
-do_reload() {
-    nsd-control reload >/dev/null
-    return $?
-}
+# log_level: Logging verbosity level: 0 (none) to 5 (debug). Higher levels log more details.
+# NSD uses integer levels.
+log-level: {{ log_level | default('3') | int }}
+
+# tcp_query_count: Maximum number of concurrent TCP connections per server process.
+tcp-query-count: {{ tcp_query_count | default(100) }}
+
+# tcp_timeout: TCP connection idle timeout in seconds.
+tcp-timeout: {{ tcp_timeout | default(30) }}
+
+# interfaces: List of network interfaces (address, port, protocol) on which NSD listens.
+# Each interface is configured with its address, port, and protocol (udp/tcp).
+# Default interface listens on all addresses (0.0.0.0), port 53, UDP only.
+{% for iface in interfaces | default([{'address': '0.0.0.0', 'port': 53, 'proto': 'udp', 'ip4_only': False, 'ip6_only': False}]) %}
+interface: {{ iface.address | default('0.0.0.0') }}:{{ iface.port | default(53) }}
+{% endfor %}
+
+# remote_control_enable: Enable remote control via nsd-control (requires key/cert files).
+remote-control: {{ remote_control_enable | default(false) | lower }}
+
+# remote_control_interface: Address for the remote control interface (e.g., '127.0.0.1' or '::1').
+# remote_control_port: Port for the remote control interface.
+# remote_control_key_file: Path to server’s private key file for TLS control channel.
+# remote_control_cert_file: Path to server’s certificate file for TLS control channel.
+# remote_control_cli_key_file: Path to client’s private key (often same as server key for self-signed).
+# remote_control_cli_cert_file: Path to client’s certificate (often same as server cert).
+{% if remote_control_enable | default(false) %}
+remote-control-interface: {{ remote_control_interface | default('127.0.0.1') }}
+remote-control-port: {{ remote_control_port | default(8953) }}
+remote-control-key-file: {{ remote_control_key_file | default('/etc/nsd/nsd_control.key') }}
+remote-control-cert-file: {{ remote_control_cert_file | default('/etc/nsd/nsd_control.pem') }}
+remote-control-cli-key-file: {{ remote_control_cli_key_file | default('/etc/nsd/nsd_control.key') }}
+remote-control-cli-cert-file: {{ remote_control_cli_cert_file | default('/etc/nsd/nsd_control.pem') }}
+{% endif %}
+
+# zone_list_file: Optional path to a file listing all zonefiles explicitly (alternative to zones-dir).
+# Leave blank to use zones-dir.
+{% if zone_list_file | default('') %}
+zone-list-file: {{ zone_list_file | default('') }}
+{% endif %}
+
+# zones: List of zone configurations (name, zonefile, allow-query, etc.).
+{% for zone in zones | default([]) %}
+zone:
+    # name: The zone name (e.g., example.com.)
+    name: {{ zone.name | default('') }}
+    # zonefile: The path to the zone data file.
+    zonefile: {{ zone.zonefile | default('') }}
+    # allow-query: ACL for queries (e.g., 'private_network; localhost;').
+    {% if zone.allow_query is defined %}
+    # allow-query: {{ zone.allow_query | default('') }}
+    {% endif %}
+{% endfor %}

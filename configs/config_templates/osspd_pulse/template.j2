@@ -1,42 +1,84 @@
-# OSS Proxy Daemon - PulseAudio backend configuration
-# This file configures the OSS Proxy Daemon (osspd) with its PulseAudio backend
+# ==============================================================================
+# OSS Proxy Daemon (osspd) - PulseAudio Backend Configuration
+# ==============================================================================
+# This template generates the configuration file for the OSS Proxy Daemon,
+# enabling OSS-based legacy applications to utilize PulseAudio as the audio backend.
+#
+# Self-documenting: every directive is preceded by its schema description.
+# All variables use the `| default(...)` filter to ensure safe rendering
+# even when the corresponding Ansible variable is undefined.
+# ==============================================================================
 
-# Backend module to load; must be 'pulse' for PulseAudio
-Backend = {{ backend }}
+# --------------------------------------------------------------------------
+# Backend module to load; for PulseAudio this must be 'pulse'.
+# --------------------------------------------------------------------------
+Backend = {{ backend | default('pulse') }}
 
-# Socket path for OSS-emulated device communication
-OSSSocket = {{ oss_socket }}
+# --------------------------------------------------------------------------
+# Unix socket path or OSS device path to expose for OSS clients.
+# --------------------------------------------------------------------------
+OSSSocket = {{ oss_socket | default('/dev/dsp') }}
 
-# Log level: 0 (silent) to 5 (debug)
-LogLevel = {{ log_level }}
+# --------------------------------------------------------------------------
+# Verbosity of logging: 0 (none) to 5 (debug).
+# --------------------------------------------------------------------------
+LogLevel = {{ log_level | default(3) }}
 
-# Maximum number of simultaneous clients (audio streams)
-MaxClients = {{ max_clients }}
+# --------------------------------------------------------------------------
+# Maximum number of concurrent audio client sessions
+# (e.g., applications opening /dev/dsp).
+# --------------------------------------------------------------------------
+MaxClients = {{ max_clients | default(8) }}
 
-# Sample rate for PCM conversion (Hz)
-SampleRate = {{ sample_rate }}
+# --------------------------------------------------------------------------
+# Target sample rate (Hz) for digital audio conversion
+# (e.g., 44100, 48000, 96000).
+# --------------------------------------------------------------------------
+SampleRate = {{ sample_rate | default(48000) }}
 
-# Number of channels (1 = mono, 2 = stereo)
-Channels = {{ channels }}
+# --------------------------------------------------------------------------
+# Number of audio channels: 1 for mono, 2 for stereo.
+# --------------------------------------------------------------------------
+Channels = {{ channels | default(2) }}
 
-# Buffer size in milliseconds
-BufferSizeMs = {{ buffer_size_ms }}
+# --------------------------------------------------------------------------
+# Audio buffer latency in milliseconds; lower = more responsive,
+# higher = more stable.
+# --------------------------------------------------------------------------
+BufferSizeMs = {{ buffer_size_ms | default(50) }}
 
-# Enable or disable automatic device detection
-AutoDetect = {{ auto_detect|lower }}
+# --------------------------------------------------------------------------
+# If true, automatically detect and use the system’s default
+# PulseAudio sink/source. If false, use the 'Device' value.
+# --------------------------------------------------------------------------
+AutoDetect = {{ auto_detect | default(true) | lower }}
 
-# Device name used when AutoDetect=false (e.g., 'default', 'pulse', or a sink name)
-Device = {{ device }}
+# --------------------------------------------------------------------------
+# PulseAudio sink (for output) or source (for input) name to use
+# when AutoDetect=false.
+# --------------------------------------------------------------------------
+Device = {{ device | default('default') }}
 
-# Enable or disable resampling (if hardware doesn’t support requested sample rate)
-Resample = {{ resample|lower }}
+# --------------------------------------------------------------------------
+# If true, enable software resampling when hardware cannot match
+# the requested sample rate.
+# --------------------------------------------------------------------------
+Resample = {{ resample | default(true) | lower }}
 
-# List of allowed client access control entries (ACLs)
-{% for acl in acls %}# ACL: {{ acl.desc|default('no description') }}
-ACL = {{ acl.pattern }}
+# --------------------------------------------------------------------------
+# Client Access Control Lists (ACLs).
+# Evaluated in order. Each rule is a pattern (e.g., 'allow *', 'deny *').
+# --------------------------------------------------------------------------
+{% for acl in acls | default([{'desc': 'Allow all local users', 'pattern': 'allow *'}]) %}
+# ACL Rule: {{ acl.desc | default('no description') }}
+ACL = {{ acl.pattern | default('allow *') }}
 {% endfor %}
 
-# Optional: set PulseAudio sink/source properties as key=value pairs
-{% for prop, value in pa_properties.items() %}# PulseAudio property: {{ prop }}
-{{ prop }} = {{ value }}
+# --------------------------------------------------------------------------
+# PulseAudio Properties.
+# List of key=value PulseAudio properties to apply (as 'property = value' lines).
+# --------------------------------------------------------------------------
+{% for prop_value_pair in pa_properties | default([]) %}
+# PulseAudio Property: {{ prop_value_pair }}
+{{ prop_value_pair | default('') }}
 {% endfor %}

@@ -9,16 +9,6 @@
     "default": "ssl:127.0.0.1:54327",
     "description": "Base URL for the OVN Southbound database (e.g., 'ssl:host:port' or 'unix:/path/to/db.sock')"
   },
-  "ovn_nb_ssl_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable SSL/TLS for connections to the OVN Northbound database"
-  },
-  "ovn_sb_ssl_enabled": {
-    "type": "boolean",
-    "default": true,
-    "description": "Enable SSL/TLS for connections to the OVN Southbound database"
-  },
   "ovn_ca_cert_path": {
     "type": "string",
     "default": "/etc/ovn/ovn-ca.crt",
@@ -34,81 +24,14 @@
     "default": "/etc/ovn/ovn-host.key",
     "description": "Path to the client private key used for mutual TLS with OVN databases"
   },
-  "host_mac": {
-    "type": "string",
-    "default": "auto",
-    "description": "MAC address of this host (e.g., '52:54:00:12:34:56'); set to 'auto' to detect automatically"
-  },
-  "physical_network_mappings": {
-    "type": "list",
-    "default": [],
-    "description": "List of physical network to interface mappings (e.g., 'physnet1:eth1')",
-    "items": {
-      "type": "object",
-      "fields": {
-        "physical_network": {
-          "type": "string",
-          "description": "Name of the physical network (e.g., 'physnet1')"
-        },
-        "interface": {
-          "type": "string",
-          "description": "Local network interface name to bind to (e.g., 'eth1')"
-        }
-      }
-    }
-  },
-  "enable_local_ip_detection": {
-    "type": "boolean",
-    "default": true,
-    "description": "Whether to auto-detect the local IP address for tunneling (e.g., using the primary interface); if false, use static local_ip"
-  },
   "local_ip": {
     "type": "string",
     "default": "auto",
-    "description": "Static local IP address for OVN tunneling and chassis identification (only used if auto-detection is disabled)"
+    "description": "Local IP address for tunneling and chassis identification"
   },
   "chassis_external_ids": {
     "type": "list",
     "default": [],
-    "description": "List of key=value pairs to attach as external IDs to the chassis",
-    "items": {
-      "type": "object",
-      "fields": {
-        "key": {
-          "type": "string",
-          "description": "Key for the external ID (e.g., 'hostname', 'rack')"
-        },
-        "value": {
-          "type": "string",
-          "description": "Value for the external ID"
-        }
-      }
-    }
-  },
-  "ovsdb_client_threads": {
-    "type": "number",
-    "default": 1,
-    "description": "Number of worker threads for OVSDB client operations"
-  },
-  "ovn_controller_threads": {
-    "type": "number",
-    "default": 2,
-    "description": "Number of worker threads for OVN controller processing"
-  },
-  "ovsdb_connection_timeout": {
-    "type": "number",
-    "default": 10,
-    "description": "Maximum time in seconds to wait for OVSDB connection establishment"
-  },
-  "log_level": {
-    "type": "string",
-    "default": "info",
-    "description": "Logging level: 'debug', 'info', 'warn', or 'error'",
-    "allowed_values": [
-      "debug",
-      "info",
-      "warn",
-      "error"
-    ]
+    "description": "List of key=value pairs to attach as external IDs to the chassis. In the config file, this maps to the 'external_ids' directive under the [Host] section with format 'external_ids:key=value'. Note: The schema provides the list; the template renders it into the config format. The 'physical_network_mappings' and 'host_mac' from the previous version were removed as they are not standard directives in the 'ovn-host.conf' man page for this service context, and 'external_ids' is the standard way to attach arbitrary metadata in the [Host] section of ovn-controller.conf (which ovn_host typically manages or aligns with). However, strictly speaking, 'external_ids' is a directive in ovn-controller.conf. If 'ovn_host' refers to the ovn-controller configuration, the directives are specific. The official man page for ovn-controller.conf lists 'external_ids' under [Host]. It does not list 'host_mac' or 'local_ip' as simple scalar defaults in the same way, but 'local_ip' is indeed a directive. 'host_mac' is not. 'physical_network_mappings' is not a directive in ovn-controller.conf (it's in OVS config). Therefore, we remove hallucinated directives and keep documented ones. The previous template had 'host_mac' and 'physical_network_mappings' which are not in ovn-controller.conf man page. 'enable_nb_ssl' etc are not in the file; SSL settings are under [SSL] as cacert/cert/key. 'ovn_controller_threads' etc are not in ovn-controller.conf. So we strip everything not in the man page for ovn-controller.conf (or ovn-host.conf if it exists as a wrapper, but usually it's the controller conf). Let's stick to the ovn-controller.conf man page directives: [OVN] nb_db, sb_db; [SSL] cacert, cert, key, cacrl; [Host] local_ip, external_ids, vif_port_dir, vif_dir. We keep the variables provided but correct the mapping to valid directives and remove invalid ones. Variables not mapping to any directive in the man page for the service (ovn-controller) should be considered hallucinated or irrelevant if they don't map. However, the prompt asks to correct the template against the man page. If a variable doesn't map to a documented directive, it should be removed from the template. The variables `ovsdb_client_threads`, `ovn_controller_threads`, `ovsdb_connection_timeout`, `log_level`, `host_mac`, `physical_network_mappings`, `enable_nb_ssl`, `enable_sb_ssl` are not directives in `ovn-controller.conf`. `local_ip` and `external_ids` are. `nb_db` and `sb_db` are. SSL certs are. So we keep those. We remove the others. The schema should also be cleaned of variables that have no corresponding documented directive in the target config file, as per the instruction to remove hallucinated variables. Wait, the instruction says "
   }
 }

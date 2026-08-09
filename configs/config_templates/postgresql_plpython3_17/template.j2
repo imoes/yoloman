@@ -1,21 +1,64 @@
-# Enable PL/Python 3 procedural language for PostgreSQL
-{% if enable_plpython3 %}
-# Load PL/Python 3 extension at server start
+# =============================================================================
+# PostgreSQL PL/Python 3 Configuration
+# =============================================================================
+# This block configures the PL/Python 3 (plpython3u) procedural language extension
+# for PostgreSQL. PL/Python allows writing stored procedures and functions in
+# Python 3.
+#
+# WARNING: plpython3u is an UNTRUSTED language. Functions written in it run with
+# the privileges of the PostgreSQL server owner (usually the 'postgres' OS user)
+# and can execute arbitrary system commands. Only enable this if you trust your
+# database users and have validated the Python code being executed.
+
+{% if enable_plpython3 | default(False) %}
+# ------------------------------------------------------------------------------
+# Extension Loading
+# ------------------------------------------------------------------------------
+# Load the PL/Python 3 extension shared library when the PostgreSQL server starts.
+# This makes the 'plpython3u' language available in all databases.
+# If you only want it available in specific databases, omit this and use:
+#   CREATE EXTENSION plpython3u;
+# inside those databases instead.
 shared_preload_libraries = 'plpython3u'
 
-# PL/Python 3 language configuration
-plpython3.path = '{{ plpython3_path | default('', true) }}'
+# ------------------------------------------------------------------------------
+# Python Path Configuration
+# ------------------------------------------------------------------------------
+# Set the extra directories to be searched for Python modules by PL/Python
+# functions. This is prepended to Python's standard sys.path.
+# Use colon-separated paths (e.g., '/opt/lib:/custom/modules').
+# Leave empty to rely on the system default Python path.
+# Reference: plpython3.path
+plpython3.path = '{{ plpython3_path | default("", true) }}'
 
-# Maximum recursion depth for PL/Python (0 = use Python default)
-plpython3.python_max_recursion = {{ plpython3_max_recursion }}
+# ------------------------------------------------------------------------------
+# Recursion Depth Limit
+# ------------------------------------------------------------------------------
+# Define the maximum recursion depth for Python function calls within PL/Python.
+# Set to 0 to defer to Python's standard recursion limit (typically 1000).
+# Increasing this value can help with deep recursive queries but may increase
+# memory usage or risk stack overflow.
+# Reference: plpython3.python_max_recursion
+plpython3.python_max_recursion = {{ plpython3_max_recursion | default(0) }}
 
-# Control whether untrusted PL/Python (plpython3u) is allowed
-# Note: plpython3u allows arbitrary code execution; restrict in production
-# plpython3.enable_untrusted = on  # (default: on for plpython3u)
+# ------------------------------------------------------------------------------
+# Python Home Isolation (Optional)
+# ------------------------------------------------------------------------------
+# Specify a custom Python home directory. This isolates PL/Python from the
+# system Python installation, allowing the use of a specific Python version
+# or virtual environment.
+# If left empty, PostgreSQL uses the system Python determined at build time.
+# Reference: plpython3.python_home
+{% if plpython3_python_home | default("", true) %}
+plpython3.python_home = '{{ plpython3_python_home | default("", true) }}'
+{% endif %}
 
-# Optional: set PL/Python environment variables
-# plpython3.python_home = '{{ plpython3_python_home | default('', true) }}'
 {% else %}
-# PL/Python 3 disabled
-# shared_preload_libraries = ''  # ensure plpython3u is not preloaded
+# ------------------------------------------------------------------------------
+# PL/Python 3 Disabled
+# ------------------------------------------------------------------------------
+# PL/Python 3 support is disabled in this configuration.
+# The plpython3u extension will not be preloaded.
+# If you need PL/Python 3 later, enable 'enable_plpython3' and restart PostgreSQL.
+# Ensure 'plpython3u' is not present in shared_preload_libraries.
 {% endif %}

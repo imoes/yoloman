@@ -1,23 +1,27 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 #
 # PASST - Plug A Simple Socket Transport
-#  for qemu/UNIX domain socket mode
+# AppArmor profile template.
 #
 # PASTA - Pack A Subtle Tap Abstraction
-#  for network namespace/tap device mode
-#
-# contrib/apparmor/abstractions/passt - Abstraction for passt(1)
+# Network namespace/tap device mode.
 #
 # Copyright (c) 2022 Red Hat GmbH
 # Author: Stefano Brivio <sbrivio@redhat.com>
+#
+# This file is a Jinja2 template. It renders a valid AppArmor profile for passt/pasta.
+#
+# Variables used:
+#   - pass_user (default: root): The user account running the passt process.
+#   - pasta_user (default: root): The user account running the pasta process (if separate).
 
   abi <abi/4.0>,
 
   include <abstractions/base>
 
-  include <abstractions/nameservice>        # get_dns(), conf.c
+  include <abstractions/nameservice>		# get_dns(), conf.c
 
-  capability net_bind_service,              # isolation.c, conf.c
+  capability net_bind_service,			# isolation.c, conf.c
   capability setuid,
   capability setgid,
   capability sys_admin,
@@ -26,27 +30,36 @@
   capability sys_ptrace,
   userns,
 
-  /                                         r,      # isolate_prefork(), isolation.c
+  /					r,	# isolate_prefork(), isolation.c
   mount options=(rw, runbindable) -> /,
-  mount     ""    -> "/",
-  mount     ""    -> "/tmp/",
-  pivot_root    "/tmp/" -> "/tmp/",
-  umount    "/",
+  mount		""	-> "/",
+  mount		""	-> "/tmp/",
+  pivot_root	"/tmp/" -> "/tmp/",
+  umount	"/",
 
-  owner @{PROC}/@{pid}/uid_map      r,      # conf_ugid()
+  owner @{PROC}/@{pid}/uid_map		r,	# conf_ugid()
 
-  @{PROC}/sys/net/ipv4/ip_local_port_range r,      # fwd_probe_ephemeral()
+  @{PROC}/sys/net/ipv4/ip_local_port_range r,	# fwd_probe_ephemeral()
 
-  network netlink raw,                      # nl_sock_init_do(), netlink.c
+  network netlink raw,				# nl_sock_init_do(), netlink.c
 
-  network inet stream,                      # tcp.c
+  network inet stream,				# tcp.c
   network inet6 stream,
 
-  network inet dgram,                       # udp.c
+  network inet dgram,				# udp.c
   network inet6 dgram,
 
-  network unix stream,                      # tap.c
+  network unix stream,				# tap.c
 
-  network unix dgram,                       # __openlog(), log.c
+  network unix dgram,				# __openlog(), log.c
 
-  /usr/bin/passt.avx2               ix,      # arch_avx2_exec(), arch.c
+  /usr/bin/passt.avx2			ix,	# arch_avx2_exec(), arch.c
+
+{% if pass_user is defined %}
+  @{PROC}/@{pid}/status r,			# conf_ugid()
+{% endif %}
+
+{% if pasta_user is defined %}
+  # Pasta-specific permissions if running as a different user
+  @{PROC}/@{pid}/status r,			# conf_ugid()
+{% endif %}

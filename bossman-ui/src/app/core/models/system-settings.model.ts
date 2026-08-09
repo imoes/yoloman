@@ -14,6 +14,9 @@ export interface SystemSettings {
    * whether one is set (netboot_secret_set) and the enable toggle. See SetNetbootInput. */
   netboot_enabled: boolean;
   netboot_secret_set: boolean;
+  /** Event/run history auto-purge window in days; 0 = keep forever. Housekeeping
+   * prunes runbook_runs + audit_log older than this. See SetRetentionIn. */
+  run_retention_days: number;
   updated_by: string | null;
   updated_at: string;
 }

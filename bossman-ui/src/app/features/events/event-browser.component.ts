@@ -59,17 +59,12 @@ interface RunDetail extends RunRow {
 
       <div class="eb-retn">
         <mat-icon class="eb-i">history</mat-icon>
-        <span>Auto-purge history older than</span>
+        <span>Auto-purge older than <b>{{ retention() ? retention() + ' days' : 'forever' }}</b></span>
+        <span class="eb-dim">— configured in Admin → Settings.</span>
         @if (isAdmin()) {
-          <input class="eb-days" type="number" min="0" max="3650" [(ngModel)]="retentionEdit" />
-          <span>days (0 = keep forever)</span>
-          <button mat-stroked-button (click)="saveRetention()" [disabled]="busy() || retentionEdit === retention()">Save</button>
           <span class="eb-spacer"></span>
           <button mat-stroked-button color="warn" (click)="purge(retention())" [disabled]="busy() || !retention()"><mat-icon>auto_delete</mat-icon> Purge older than {{ retention() }}d</button>
           <button mat-stroked-button color="warn" (click)="purge(0)" [disabled]="busy()"><mat-icon>delete_forever</mat-icon> Clear all</button>
-        } @else {
-          <b>{{ retention() ? retention() + ' days' : 'forever' }}</b>
-          <span class="eb-dim">(set in Admin settings)</span>
         }
         @if (msg()) { <span class="eb-ok">{{ msg() }}</span> }
       </div>
@@ -194,7 +189,6 @@ export class EventBrowserComponent {
   effect = signal('');
   q = '';
   retention = signal(0);
-  retentionEdit = 0;
   busy = signal(false);
   msg = signal('');
   isAdmin = computed(() => this.auth.role() === 'admin');
@@ -221,14 +215,7 @@ export class EventBrowserComponent {
   }
   loadRetention(): void {
     this.http.get<{ run_retention_days: number }>(`${environment.apiUrl}/system/yolo-mode`).subscribe((s) => {
-      this.retention.set(s.run_retention_days); this.retentionEdit = s.run_retention_days;
-    });
-  }
-  saveRetention(): void {
-    this.busy.set(true); this.msg.set('');
-    this.http.put<{ run_retention_days: number }>(`${environment.apiUrl}/system/retention`, { run_retention_days: this.retentionEdit }).subscribe({
-      next: (s) => { this.retention.set(s.run_retention_days); this.retentionEdit = s.run_retention_days; this.busy.set(false); this.msg.set('Retention saved.'); },
-      error: () => { this.busy.set(false); this.msg.set('Save failed.'); },
+      this.retention.set(s.run_retention_days);
     });
   }
   purge(olderThanDays: number): void {

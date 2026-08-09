@@ -1,92 +1,135 @@
-# Base directory for reclass data storage (nodes and applications)
-storage: {{ storage.path }}
+# =============================================================================
+# Reclass Configuration Template
+# =============================================================================
+# This template generates a reclass (or salt-class) configuration file.
+# Reclass is a hierarchy-based configuration management system often used
+# with SaltStack or Ansible to manage node definitions and classes.
+# =============================================================================
 
-# Name of the reclass environment (used for namespace isolation)
-name: {{ name }}
+# Base directory where reclass stores its cache and generated inventory data.
+# This is the root for the reclass storage backend.
+storage:
+  path: {{ (storage | default({'path': '/var/lib/reclass'})).path | default('/var/lib/reclass') }}
 
-# URI of the reclass metadata service (for external data sources)
-{% if metadata.uri %}metadata:
-  uri: {{ metadata.uri }}
-{% endif %}
+# Logical name for this reclass instance.
+# Used for logging and namespace isolation if running multiple instances.
+name: {{ name | default('reclass') }}
 
-# Source configuration for node and application data
-{% if sources %}source_directories:
-{% for src in sources %}  - {{ src.path }}
+# Configuration for optional external metadata endpoint.
+# Allows dynamic injection of node classes or data from external APIs.
+{% set _metadata = metadata | default({}) %}
+{% if _metadata is mapping and _metadata %}metadata:
+{% if (_metadata | default({})).uri is defined %}  uri: {{ _metadata.uri | default('') }}
+{% endif %}{% endif %}
+
+# Source directories containing node definitions (YAML files ending in .yml/.yaml)
+# and class definitions. Reclass will scan these paths to build the inventory.
+{% set _sources = sources | default([{'path': '/etc/reclass/nodes'}, {'path': '/etc/reclass/classes'}]) %}
+{% if _sources %}source_directories:
+{% for src in _sources %}  - {{ (src | default({})).path | default('/etc/reclass/nodes') }}
 {% endfor %}{% endif %}
 
-# Interpolation settings
-{% if interpolation %}interpolation:
-  enabled: {{ interpolation.enabled | lower }}
+# Controls whether reclass performs variable interpolation (e.g., ${var} -> value)
+# in values. Recommended to keep enabled for standard usage.
+{% set _interpolation = interpolation | default({'enabled': True}) %}
+{% if _interpolation %}interpolation:
+  enabled: {{ (_interpolation | default({})).enabled | default(True) | lower }}
 {% endif %}
 
-# Cache settings for improved performance
-{% if cache %}cache:
-  enabled: {{ cache.enabled | lower }}
-  path: {{ cache.path }}
-  ttl: {{ cache.ttl }}
-{% endif %}
+# Optional caching layer to speed up repeated queries.
+# Prevents re-scanning file sources on every request if the data hasn't changed.
+{% set _cache = cache | default({'enabled': False, 'path': '/var/cache/reclass', 'ttl': 3600}) %}
+{% if _cache %}cache:
+  enabled: {{ (_cache | default({})).enabled | default(False) | lower }}
+{% if (_cache | default({})).path is defined %}  path: {{ _cache.path | default('/var/cache/reclass') }}
+{% endif %}{% if (_cache | default({})).ttl is defined %}  ttl: {{ _cache.ttl | default(3600) }}
+{% endif %}{% endif %}
 
-# Output formatting (YAML or JSON)
-output: {{ output.format }}
+# Output formatting preferences for reclass’s exported inventory.
+# 'yaml' or 'json'. Determines how the inventory is returned to consumers.
+{% set _output = output | default({'format': 'yaml', 'allowed_types': ['yaml', 'json']}) %}
+output:
+  format: {{ (_output | default({})).format | default('yaml') }}
 
-# List of allowed output types (for compatibility with CM systems)
+# List of allowed output types.
+# Used by clients to request specific formats; reclass validates against this list.
 allowed_output_types:
-{% for t in output.allowed_types %}  - {{ t }}
+{% for t in (_output | default({})).allowed_types | default(['yaml', 'json']) %}  - {{ t }}
 {% endfor %}
 
-# Logging configuration
-{% if logging.level %}logging:
-  level: {{ logging.level }}
-  file: {{ logging.file }}
+# Logging verbosity and destination.
+# 'level' can be DEBUG, INFO, WARNING, ERROR, CRITICAL.
+# 'file' is optional; if empty, logs go to stdout/syslog.
+{% set _logging = logging | default({'level': 'WARNING', 'file': ''}) %}
+{% if _logging %}logging:
+  level: {{ (_logging | default({})).level | default('WARNING') }}
+{% if (_logging | default({})).file is defined %}  file: {{ _logging.file | default('') }}
+{% endif %}{% endif %}
+
+# Maximum class inheritance depth to prevent infinite loops.
+# If a class inherits from itself (directly or indirectly), reclass stops here.
+max_inheritance_depth: {{ max_inheritance_depth | default(20) }}
+
+# Optional normalization for incoming node names.
+# 'type' can be 'none', 'lowercase', 'strip_domain', etc.
+{% set _node_transform = node_name_transform | default({'type': 'none'}) %}
+{% if _node_transform %}node_name_transform:
+  type: {{ (_node_transform | default({})).type | default('none') }}
 {% endif %}
 
-# Inventory class inheritance depth limit (prevents infinite recursion)
-max_inheritance_depth: {{ max_inheritance_depth }}
-
-# Node name transformation (e.g., lowercase, strip domain)
-{% if node_name_transform %}node_name_transform:
-  type: {{ node_name_transform.type }}
-{% endif %}
-
-# Optional external data source configuration
-{% if external_data %}external_data:
-{% for key, val in external_data.items() | sort %}  {{ key }}: {{ val | to_json }}
+# Key-value pairs for static external data.
+# Can be used to inject cloud provider metadata, secrets, or environment-specific flags
+# that are not part of the node/class hierarchy.
+{% set _ext_data = external_data | default({}) %}
+{% if _ext_data is mapping and _ext_data %}external_data:
+{% for key, val in _ext_data | dictsort %}  {{ key }}: {{ val | tojson }}
 {% endfor %}{% endif %}
 
-# Default node class (used when node has no explicit classes)
-{% if default_node_class %}default_node_class: {{ default_node_class }}
+# Default class name to apply to nodes without explicit classes.
+# Useful for applying a generic '_defaults' class to all nodes.
+{% if default_node_class is defined %}default_node_class: {{ default_node_class }}
 {% endif %}
 
-# Merge strategy for lists and dicts
-{% if merge_strategy %}merge_strategy:
-  dicts: {{ merge_strategy.dicts }}
-  lists: {{ merge_strategy.lists }}
+# Strategy to combine dicts and lists during class merging.
+# 'dicts': 'deep' merges nested dicts recursively.
+# 'lists': 'append' concatenates lists.
+{% set _merge = merge_strategy | default({'dicts': 'deep', 'lists': 'append'}) %}
+{% if _merge %}merge_strategy:
+{% if (_merge | default({})).dicts is defined %}  dicts: {{ _merge.dicts | default('deep') }}
+{% endif %}{% if (_merge | default({})).lists is defined %}  lists: {{ _merge.lists | default('append') }}
+{% endif %}{% endif %}
+
+# Toggles diagnostic features for troubleshooting node resolution.
+{% set _diag = diagnostics | default({'show_missing_nodes': False}) %}
+{% if _diag %}diagnostics:
+{% if (_diag | default({})).show_missing_nodes is defined %}  show_missing_nodes: {{ _diag.show_missing_nodes | default(False) | lower }}
+{% endif %}{% endif %}
+
+# Path prefix to prepend to all file-based paths.
+# Used in multi-tenant setups to isolate data directories.
+{% if path_prefix is defined %}path_prefix: {{ path_prefix }}
 {% endif %}
 
-# Diagnostic output (for troubleshooting)
-{% if diagnostics %}diagnostics:
-  show_missing_nodes: {{ diagnostics.show_missing_nodes | lower }}
+# YAML rendering options.
+# 'width' sets the line length for wrapped output.
+{% set _yaml_opts = yaml | default({'width': 80}) %}
+{% if _yaml_opts %}yaml:
+{% if (_yaml_opts | default({})).width is defined %}  width: {{ _yaml_opts.width | default(80) }}
+{% endif %}{% endif %}
+
+# Timezone used for timestamps in logs and generated data.
+{% if timezone is defined %}timezone: {{ timezone }}
 {% endif %}
 
-# Path prefix (for multi-tenant deployments)
-{% if path_prefix %}path_prefix: {{ path_prefix }}
+# Encoding method for URIs in external references.
+# 'percent' applies standard URL percent-encoding. 'none' leaves URIs raw.
+{% if uri_encoding is defined %}uri_encoding: {{ uri_encoding }}
 {% endif %}
 
-# YAML syntax options
-{% if yaml %}yaml:
-  width: {{ yaml.width }}
-{% endif %}
-
-# Timezone used in timestamps
-{% if timezone %}timezone: {{ timezone }}
-{% endif %}
-
-# URI encoding policy for external references
-{% if uri_encoding %}uri_encoding: {{ uri_encoding }}
-{% endif %}
-
-# Node and class naming validation
-{% if naming %}naming:
-  node_name_pattern: {{ naming.node_name_pattern }}
-  class_name_pattern: {{ naming.class_name_pattern }}
-{% endif %}
+# Regex patterns to validate node and class names.
+# Ensures names conform to expected formats before processing.
+{% set _naming = naming | default({'node_name_pattern': '^[a-zA-Z0-9._-]+$', 'class_name_pattern': '^[a-zA-Z0-9._-]+$'}) %}
+{% if _naming %}naming:
+{% if (_naming | default({})).node_name_pattern is defined %}  node_name_pattern: {{ _naming.node_name_pattern | default('^[a-zA-Z0-9._-]+$') }}
+{% endif %}{% if (_naming | default({})).class_name_pattern is defined %}  class_name_pattern: {{ _naming.class_name_pattern | default('^[a-zA-Z0-9._-]+$') }}
+{% endif %}{% endif %}

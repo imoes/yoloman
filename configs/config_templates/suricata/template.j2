@@ -1,26 +1,69 @@
-# Default config for Suricata
+# Suricata init.d wrapper configuration
+# This file configures the system-level behavior of the Suricata IDS/IPS service.
+# It is consumed by the init.d script to determine how to start and manage the daemon.
 
-# set to yes to start the server in the init.d script
-RUN={{ run }}
+# ==============================================================================
+# Service Start Control
+# ==============================================================================
 
-# Configuration file to load
-SURCONF={{ suri_conf }}
+# Run Suricata via init.d script?
+# Default: 'no'
+# Set to 'yes' to enable the service to be started by the init system.
+RUN={{ run | default('no') }}
 
-# Listen mode: pcap, nfqueue or af-packet
-# depending on this value, only one of the two following options
-# will be used (af-packet uses neither).
-# Please note that IPS mode is only available when using nfqueue
-LISTENMODE={{ listen_mode }}
+# ==============================================================================
+# Core Configuration Path
+# ==============================================================================
 
-# Interface to listen on (for pcap mode)
-IFACE={{ listen_iface }}
+# Path to the main Suricata YAML configuration file.
+# This file contains detailed rules, signatures, and engine settings.
+# Default: '/etc/suricata/suricata.yaml'
+SURCONF={{ suri_conf | default('/etc/suricata/suricata.yaml') }}
 
-# Queue number to listen on (for nfqueue mode)
-NFQUEUE={{ nfqueue_id }}
+# ==============================================================================
+# Network Capture Mode
+# ==============================================================================
 
-# Load Google TCMALLOC if libtcmalloc-minimal4 is installed
+# Listen mode: 'pcap', 'nfqueue', or 'af-packet'.
+# This determines how Suricata attaches to the network stack.
+# - 'pcap': Reads packets from a specific interface via libpcap.
+# - 'nfqueue': Uses Netfilter queue to inspect/forward packets (IPs mode available here).
+# - 'af-packet': Uses AF_PACKET sockets for high-performance capture (Linux specific).
+# Default: 'nfqueue'
+LISTENMODE={{ listen_mode | default('nfqueue') }}
+
+# ==============================================================================
+# Interface Selection (PCAP Mode)
+# ==============================================================================
+
+# Network interface for pcap mode.
+# This variable is ONLY used when LISTENMODE is set to 'pcap'.
+# Default: 'eth0'
+IFACE={{ listen_iface | default('eth0') }}
+
+# ==============================================================================
+# NFQueue Selection (NFQueue Mode)
+# ==============================================================================
+
+# NFQUEUE number for nfqueue mode.
+# Suricata will only process packets queued to this specific Netfilter queue ID.
+# Default: 0
+NFQUEUE={{ nfqueue_id | default(0) }}
+
+# ==============================================================================
+# Memory Allocation
+# ==============================================================================
+
+# Load Google TCMALLOC if libtcmalloc-minimal4 is installed.
 # This _might_ give you very very small performance gain....
+# Note: This setting is currently hardcoded to YES in the default script logic.
 TCMALLOC="YES"
 
-# Pid file
-PIDFILE={{ pid_file }}
+# ==============================================================================
+# Process Management
+# ==============================================================================
+
+# Path to Suricata PID file.
+# The init.d script uses this file to check if the service is running and to stop it gracefully.
+# Default: '/var/run/suricata.pid'
+PIDFILE={{ pid_file | default('/var/run/suricata.pid') }}

@@ -11,16 +11,34 @@
 # Short-Description: Start/Stop the Nagios Service Check Acceptor (nsca) daemon
 ### END INIT INFO
 
+# Standard system paths for the daemon execution environment
 PATH=/sbin:/bin:/usr/sbin:/usr/bin
-DAEMON=/usr/sbin/nsca
-NAME=nsca
-DESC="Nagios Service Check Acceptor"
-CONF=/etc/nsca.cfg
-OPTS="--daemon -c $CONF"
-PIDFILE="{{ pid_file }}"
 
+# The nsca binary location
+DAEMON=/usr/sbin/nsca
+
+# Service identification name used by logging and status checks
+NAME=nsca
+
+# Human-readable description of the service
+DESC="Nagios Service Check Acceptor"
+
+# Path to the nsca configuration file
+CONF=/etc/nsca.cfg
+
+# Command-line options passed to the daemon:
+# --daemon: Run in background
+# -c: Specify the configuration file
+OPTS="--daemon -c $CONF"
+
+# Path to the PID file.
+# Default: /var/run/nsca.pid
+PIDFILE="{{ pid_file | default('/var/run/nsca.pid') }}"
+
+# Check if the daemon binary exists; exit silently if not (package not installed)
 test -f $DAEMON || exit 0
 
+# Ensure LSB (Linux Standard Base) init functions are available for consistent logging
 if ! [ -x "/lib/lsb/init-functions" ]; then
     . /lib/lsb/init-functions
 else
@@ -28,26 +46,31 @@ else
     exit 1
 fi
 
-# support a default file
+# Support a default overrides file if it exists
+# This allows overriding environment variables or other settings outside the init script
 if [ -f /etc/default/nsca ]; then
     . /etc/default/nsca
 fi
 
-# if the pid_file is specified in the configuration file, nsca will
-# take care of the pid handling for us.  if it isn't we should continue
+# If the pid_file is specified in the configuration file, nsca will
+# take care of the pid handling for us. if it isn't we should continue
 # as we have before
 PIDFILE="$(confget -f $CONF pid_file)"
-# if pidfile isn't set
+
+# if pidfile isn't set in the config, we cannot proceed safely
 if [ -z "$PIDFILE" ];  then
-    # then this is the default PIDFILE
+    # Inform the user to configure the PID file path
     log_failure_msg "Please set pid_file in /etc/nsca.conf"
     exit 1
 fi
 
+# Ensure the run directory exists for the PID file
+# Default directory: /run/nagios
 if [ ! -d "/run/nagios" ]; then
     mkdir -p /run/nagios || { log_failure_msg "couldn't create /run/nagios"; exit 1; }
 fi
 
+# Case statement to handle init script arguments
 case "$1" in
 start)
     log_daemon_msg "Starting $DESC" "$NAME"

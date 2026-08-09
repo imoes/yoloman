@@ -1,173 +1,233 @@
-# worker_processes: Number of worker processes; auto = number of CPU cores
-worker_processes auto;
+# ============================================================
+# Nginx Core Configuration
+# ============================================================
+# This template generates a self-documenting nginx.conf.
+# It uses Jinja2 defaults to ensure safe rendering even if
+# variables are not provided by Ansible.
 
-# pid: File to store the PID of the main process
-pid /run/nginx.pid;
+# worker_processes: Number of worker processes; 'auto' uses CPU count
+worker_processes {{ worker_processes | default('auto') }};
 
-# events: Configuration for worker connections
+# pid: File to store the PID of the main Nginx process
+pid {{ pid | default('/run/nginx.pid') }};
+
 events {
-  # worker_connections: Maximum number of simultaneous connections per worker
-  worker_connections 768;
+    # worker_connections: Maximum number of simultaneous connections per worker
+    # Note: This is a fixed default in the base template, usually set globally or per-worker
+    worker_connections 768;
 }
 
-# http: Main HTTP block
 http {
-  # Sendfile: Use kernel's sendfile() for efficient file transfers
-  sendfile on;
+    # sendfile: Use kernel's sendfile() for efficient file transfers
+    sendfile on;
 
-  # TCPnopush: Push packets immediately (not buffered until full segment)
-  tcp_nopush on;
+    # tcp_nopush: Push packets immediately (not buffered until full segment)
+    tcp_nopush on;
 
-  # TCPnodelay: Disable Nagle's algorithm for low-latency response
-  tcp_nodelay on;
+    # tcp_nodelay: Disable Nagle's algorithm for low-latency response
+    tcp_nodelay on;
 
-  # keepalive_timeout: Time to keep HTTP keep-alive connections open
-  keepalive_timeout 65;
+    # keepalive_timeout: Time to keep HTTP keep-alive connections open
+    keepalive_timeout 65;
 
-  # types_hash_max_size / types_hash_bucket_size: Optimize MIME type lookup
-  types_hash_max_size 2048;
-  types_hash_bucket_size 128;
+    # types_hash_max_size / types_hash_bucket_size: Optimize MIME type lookup
+    types_hash_max_size 2048;
+    types_hash_bucket_size 128;
 
-  # include: Load additional MIME types from /etc/nginx/mime.types
-  include /etc/nginx/mime.types;
+    # include: Load additional MIME types from /etc/nginx/mime.types
+    include /etc/nginx/mime.types;
 
-  # default_type: Default MIME type for unknown files
-  default_type application/octet-stream;
+    # default_type: Default MIME type for unknown files
+    default_type application/octet-stream;
 
-  # access_log / error_log: Log file paths and format
-  access_log /var/log/nginx/access.log;
-  error_log /var/log/nginx/error.log;
+    # access_log / error_log: Log file paths and format
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
 
-  # gzip: Enable compression for responses
-  gzip on;
+    # gzip: Enable compression for responses
+    gzip {{ gzip | default(true) | ternary('on', 'off') }};
 
-  # gzip_types: MIME types to compress
-  gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+    # gzip_types: MIME types to compress
+    # Defaults are applied if the list is empty or undefined
+    gzip_types {{ (gzip_types | default(['text/plain', 'text/css', 'application/json', 'application/javascript', 'text/xml', 'application/xml', 'application/xml+rss', 'text/javascript'])) | join(' ') }};
 
-  # server_tokens: Hide Nginx version in headers
-  server_tokens off;
+    # server_tokens: Hide Nginx version in headers for security
+    # False -> off, True -> on
+    server_tokens {{ server_tokens | default(false) | ternary('on', 'off') }};
 
-  # Include server blocks from external files
-{% for server in servers %}
-{% if server.enabled %}
-  include {{ server.include_path | default('/etc/nginx/conf.d/*.conf', true) }};
-  break
-{% endif %}
-{% endfor %}
-{% if servers | length > 0 %}
-  # Included server blocks (from /etc/nginx/sites-enabled/)
-{% for server in servers %}
-{% if server.enabled and server.include_path %}
-{% if loop.first %}  # Explicitly included server configs:
-{% endif %}
-  include {{ server.include_path }};
-{% endif %}
-{% endfor %}
-{% endif %}
-
-{% for upstream in upstreams %}
-  # upstream {{ upstream.name }}: Define a group of backend servers
-  upstream {{ upstream.name }} {
-{% for server in upstream.servers %}
-    server {{ server.address }}{{ ' weight=' ~ server.weight if server.weight }}{{ ' max_fails=' ~ server.max_fails if server.max_fails }}{{ ' fail_timeout=' ~ server.fail_timeout ~ 's' if server.fail_timeout }};
-{% endfor %}
-{% if upstream.hash %}
-    hash {{ upstream.hash.key }} {{ 'consistent' if upstream.hash.consistent }};
-{% endif %}
-{% if upstream.zone %}
-    zone {{ upstream.zone.name }}:{{ upstream.zone.size }};
-{% endif %}
-  }
-{% endfor %}
-
-{% for server in servers %}
-{% if server.enabled %}
-  # server block: {{ server.name | default('unnamed') }}
-  server {
-{% if server.listen %}
-{% for listen_addr in server.listen %}
-    listen {{ listen_addr.address | default('80') }}{{ ' ssl' if listen_addr.ssl }}{{ ' default_server' if listen_addr.default }};
-{% endfor %}
-{% else %}
-    listen 80;
-{% endif %}
-
-{% if server.server_name %}
-    server_name {{ server.server_name | join(', ') }};
-{% else %}
-    server_name localhost;
-{% endif %}
-
-{% if server.root %}
-    root {{ server.root }};
-{% endif %}
-
-{% if server.index %}
-    index {{ server.index | join(' ') }};
-{% endif %}
-
-{% if server.ssl_cert %}
-    ssl_certificate {{ server.ssl_cert }};
-{% endif %}
-{% if server.ssl_key %}
-    ssl_certificate_key {{ server.ssl_key }};
-{% endif %}
-{% if server.ssl_protocols %}
-    ssl_protocols {{ server.ssl_protocols | join(' ') }};
-{% endif %}
-{% if server.ssl_ciphers %}
-    ssl_ciphers {{ server.ssl_ciphers }};
-{% endif %}
-{% if server.ssl_prefer_server_ciphers %}
-    ssl_prefer_server_ciphers {{ server.ssl_prefer_server_ciphers | lower }};
-{% endif %}
-
-{% for location in server.locations %}
-    # location {{ location.path }}: {{ location.description | default('static file or proxy') }}
-    location {{ location.path }} {
-{% if location.root %}
-      root {{ location.root }};
-{% endif %}
-{% if location.index %}
-      index {{ location.index | join(' ') }};
-{% endif %}
-{% if location.try_files %}
-      try_files {{ location.try_files | join(' ') }};
-{% endif %}
-{% if location.proxy_pass %}
-      proxy_pass {{ location.proxy_pass }};
-{% endif %}
-{% if location.proxy_set_header %}
-      proxy_set_header {{ location.proxy_set_header | join('\n      ') }};
-{% endif %}
-{% if location.add_header %}
-      add_header {{ location.add_header | join('\n      ') }};
-{% endif %}
-{% if location.limit_req_zone %}
-      limit_req zone={{ location.limit_req_zone.name }}{{ ' burst=' ~ location.limit_req_zone.burst if location.limit_req_zone.burst }}{{ ' nodelay' if location.limit_req_zone.nodelay }};
-{% endif %}
-{% if location.auth_basic %}
-      auth_basic "{{ location.auth_basic }}";
-{% endif %}
-{% if location.auth_basic_user_file %}
-      auth_basic_user_file {{ location.auth_basic_user_file }};
-{% endif %}
-{% if location.return %}
-      return {{ location.return.code }}{{ ' "' ~ location.return.body ~ '"' if location.return.body }};
-{% endif %}
-{% if location.internal %}
-      internal;
-{% endif %}
-{% if location.addition_types %}
-      types {{ location.addition_types | join(' ') }};
-{% endif %}
+    # --------------------------------------------------------
+    # Upstream Definitions
+    # --------------------------------------------------------
+    # upstreams: List of upstream (backend) server groups for load balancing
+    {% for upstream in upstreams | default([]) %}
+    # upstream {{ upstream.name }}: Define a group of backend servers
+    upstream {{ upstream.name }} {
+        {% for server in upstream.servers | default([]) %}
+        # server: {{ server.address | default('') }}
+        # weight: {{ server.weight | default(1) }}
+        # max_fails: {{ server.max_fails | default(1) }}
+        # fail_timeout: {{ server.fail_timeout | default(10) }}
+        server {{ server.address | default('') }}{{ ' weight=' ~ (server.weight | default(1)) if server.weight is defined and server.weight is not none }}{{ ' max_fails=' ~ (server.max_fails | default(1)) if server.max_fails is defined and server.max_fails is not none }}{{ ' fail_timeout=' ~ (server.fail_timeout | default(10)) ~ 's' if server.fail_timeout is defined and server.fail_timeout is not none }};
+        {% endfor %}
+        {% if upstream.hash is defined and upstream.hash is not none %}
+        # hash: {{ upstream.hash.key | default('') }}
+        {% if upstream.hash.consistent is defined and upstream.hash.consistent is not none %}
+        hash {{ upstream.hash.key | default('') }} consistent;
+        {% else %}
+        hash {{ upstream.hash.key | default('') }};
+        {% endif %}
+        {% endif %}
+        {% if upstream.zone is defined and upstream.zone is not none %}
+        # zone: {{ upstream.zone.name | default('') }} {{ upstream.zone.size | default('') }}
+        zone {{ upstream.zone.name | default('') }} {{ upstream.zone.size | default('') }};
+        {% endif %}
     }
-{% endfor %}
+    {% endfor %}
 
-{% if server.error_page %}
-    error_page {{ server.error_page | join(' ') }};
-{% endif %}
-  }
-{% endif %}
-{% endfor %}
+    # --------------------------------------------------------
+    # Server Blocks
+    # --------------------------------------------------------
+    # servers: List of server blocks (virtual hosts)
+    {% for server in servers | default([]) %}
+    {% if server.enabled | default(true) %}
+    # server block: {{ server.name | default('unnamed') }}
+    server {
+        # listen: Addresses and ports to listen on
+        {% if server.listen is defined and server.listen is not none and server.listen | length > 0 %}
+        {% for listen_addr in server.listen %}
+        # listen address: {{ listen_addr.address | default('80') }}
+        {% if listen_addr.ssl is defined and listen_addr.ssl is not none and listen_addr.ssl %}
+        # listen ssl: on
+        listen {{ listen_addr.address | default('80') }} ssl{{ ' default_server' if listen_addr.default is defined and listen_addr.default is not none and listen_addr.default }};
+        {% else %}
+        listen {{ listen_addr.address | default('80') }}{{ ' default_server' if listen_addr.default is defined and listen_addr.default is not none and listen_addr.default }};
+        {% endif %}
+        {% endfor %}
+        {% else %}
+        # listen default: port 80
+        listen 80;
+        {% endif %}
+
+        # server_name: Hostnames for this server block
+        {% if server.server_name is defined and server.server_name is not none and server.server_name | length > 0 %}
+        server_name {{ server.server_name | join(', ') }};
+        {% else %}
+        server_name localhost;
+        {% endif %}
+
+        # root: Document root directory
+        {% if server.root is defined and server.root is not none %}
+        root {{ server.root }};
+        {% endif %}
+
+        # index: Default index files
+        {% if server.index is defined and server.index is not none and server.index | length > 0 %}
+        index {{ server.index | join(' ') }};
+        {% endif %}
+
+        # SSL Configuration
+        {% if server.ssl_cert is defined and server.ssl_cert is not none %}
+        # ssl_certificate: Path to the SSL certificate file
+        ssl_certificate {{ server.ssl_cert }};
+        {% endif %}
+        {% if server.ssl_key is defined and server.ssl_key is not none %}
+        # ssl_certificate_key: Path to the SSL private key file
+        ssl_certificate_key {{ server.ssl_key }};
+        {% endif %}
+        {% if server.ssl_protocols is defined and server.ssl_protocols is not none and server.ssl_protocols | length > 0 %}
+        # ssl_protocols: Allowed SSL/TLS protocols
+        ssl_protocols {{ server.ssl_protocols | join(' ') }};
+        {% endif %}
+        {% if server.ssl_ciphers is defined and server.ssl_ciphers is not none %}
+        # ssl_ciphers: Allowed cipher suites
+        ssl_ciphers {{ server.ssl_ciphers }};
+        {% endif %}
+        {% if server.ssl_prefer_server_ciphers is defined and server.ssl_prefer_server_ciphers is not none %}
+        # ssl_prefer_server_ciphers: Prefer server's cipher order
+        ssl_prefer_server_ciphers {{ server.ssl_prefer_server_ciphers | lower }};
+        {% endif %}
+
+        # --------------------------------------------------------
+        # Location Blocks
+        # --------------------------------------------------------
+        # locations: List of location blocks within this server
+        {% for location in server.locations | default([]) %}
+        # location {{ location.path | default('/') }}: {{ location.description | default('static file or proxy') }}
+        location {{ location.path | default('/') }} {
+            # root: Document root for this location
+            {% if location.root is defined and location.root is not none %}
+            root {{ location.root }};
+            {% endif %}
+
+            # index: Default index files for this location
+            {% if location.index is defined and location.index is not none and location.index | length > 0 %}
+            index {{ location.index | join(' ') }};
+            {% endif %}
+
+            # try_files: Ordered list of files/directories to test
+            {% if location.try_files is defined and location.try_files is not none and location.try_files | length > 0 %}
+            try_files {{ location.try_files | join(' ') }};
+            {% endif %}
+
+            # proxy_pass: Backend URL to proxy requests to
+            {% if location.proxy_pass is defined and location.proxy_pass is not none %}
+            proxy_pass {{ location.proxy_pass }};
+            {% endif %}
+
+            # proxy_set_header: Headers to send to the backend
+            {% if location.proxy_set_header is defined and location.proxy_set_header is not none and location.proxy_set_header | length > 0 %}
+            {% for header in location.proxy_set_header %}
+            proxy_set_header {{ header }};
+            {% endfor %}
+            {% endif %}
+
+            # add_header: Headers to add to the response
+            {% if location.add_header is defined and location.add_header is not none and location.add_header | length > 0 %}
+            {% for header in location.add_header %}
+            add_header {{ header }};
+            {% endfor %}
+            {% endif %}
+
+            # limit_req: Rate limiting configuration
+            {% if location.limit_req_zone is defined and location.limit_req_zone is not none %}
+            # limit_req zone: {{ location.limit_req_zone.name | default('') }}
+            # limit_req burst: {{ location.limit_req_zone.burst | default(0) }}
+            # limit_req nodelay: {{ location.limit_req_zone.nodelay | default(false) }}
+            limit_req zone={{ location.limit_req_zone.name | default('') }}{{ ' burst=' ~ (location.limit_req_zone.burst | default(0)) if location.limit_req_zone.burst is defined and location.limit_req_zone.burst is not none }}{{ ' nodelay' if location.limit_req_zone.nodelay is defined and location.limit_req_zone.nodelay is not none and location.limit_req_zone.nodelay }};
+            {% endif %}
+
+            # auth_basic: Basic authentication realm name
+            {% if location.auth_basic is defined and location.auth_basic is not none %}
+            auth_basic "{{ location.auth_basic }}";
+            {% endif %}
+
+            # auth_basic_user_file: Path to the password file
+            {% if location.auth_basic_user_file is defined and location.auth_basic_user_file is not none %}
+            auth_basic_user_file {{ location.auth_basic_user_file }};
+            {% endif %}
+
+            # return: Immediate return code and body
+            {% if location.return is defined and location.return is not none %}
+            # return code: {{ location.return.code | default('') }}
+            {% if location.return.body is defined and location.return.body is not none %}
+            return {{ location.return.code | default('') }} "{{ location.return.body }}";
+            {% else %}
+            return {{ location.return.code | default('') }};
+            {% endif %}
+            {% endif %}
+
+            # internal: Only allow internal requests
+            {% if location.internal is defined and location.internal is not none and location.internal %}
+            internal;
+            {% endif %}
+        }
+        {% endfor %}
+
+        # error_page: Custom error page configurations
+        {% if server.error_page is defined and server.error_page is not none and server.error_page | length > 0 %}
+        error_page {{ server.error_page | join(' ') }};
+        {% endif %}
+    }
+    {% endif %}
+    {% endfor %}
 }

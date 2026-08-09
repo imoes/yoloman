@@ -1,23 +1,55 @@
-# Server listen address (host:port or just port)
-listen {{ listen_addr }}
+# =============================================================================
+# remctl_server configuration
+# =============================================================================
+# This template configures the remctl_server daemon. remctl is a tool for
+# executing commands on remote hosts in a secure manner, typically using
+# Kerberos (SPNEGO) for authentication.
+# =============================================================================
 
-# Kerberos keytab file location
-keytab {{ keytab_path }}
+# -----------------------------------------------------------------------------
+# listen_addr: Address and port the remctl server should bind to. Use 'host:port'
+# or just 'port' for all interfaces.
+# -----------------------------------------------------------------------------
+listen {{ listen_addr | default('localhost:8080') }}
 
-# Default Kerberos service name (usually 'host' or 'remctl')
-service {{ service_name }}
+# -----------------------------------------------------------------------------
+# keytab_path: Path to the Kerberos keytab file used for authentication.
+# -----------------------------------------------------------------------------
+keytab {{ keytab_path | default('/etc/remctl/remctl.keytab') }}
 
-# Enable or disable debug logging
-{{ 'debug' if debug else '' }}
+# -----------------------------------------------------------------------------
+# service_name: Kerberos service name (e.g., 'host' or 'remctl') to use in
+# SPNEGO negotiation.
+# -----------------------------------------------------------------------------
+service {{ service_name | default('host') }}
 
-# Root directory for the server (for chroot or internal paths)
-{{ 'root ' + root_dir if root_dir else '' }}
+# -----------------------------------------------------------------------------
+# debug: Enable verbose debug logging to stderr.
+# -----------------------------------------------------------------------------
+{% if debug | default(False) %}
+debug
+{% endif %}
 
-# Maximum number of concurrent connections
-{{ 'maxconn ' + maxconn|string if maxconn else '' }}
+# -----------------------------------------------------------------------------
+# root_dir: Optional chroot directory (absolute path). If empty, no chroot
+# is performed.
+# -----------------------------------------------------------------------------
+{% if root_dir | default('') %}
+root {{ root_dir | default('') }}
+{% endif %}
 
-# ACLs: each line grants a principal permission to run commands
-{% for acl_entry in acls %}
-# ACL entry for principal: {{ acl_entry.principal }}
-acl {{ acl_entry.principal }} {{ acl_entry.commands | join(', ') }}
+# -----------------------------------------------------------------------------
+# maxconn: Maximum number of concurrent client connections. Set to 0 for
+# unlimited.
+# -----------------------------------------------------------------------------
+{% if maxconn | default(100) %}
+maxconn {{ maxconn | default(100) }}
+{% endif %}
+
+# -----------------------------------------------------------------------------
+# acls: List of ACL entries granting Kerberos principals permission to run
+# specific commands.
+# -----------------------------------------------------------------------------
+{% for acl_entry in acls | default([]) %}
+acl {{ acl_entry.principal | default('') }} {{ acl_entry.commands | default([]) | join(', ') }}
 {% endfor %}

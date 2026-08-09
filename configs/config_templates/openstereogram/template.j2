@@ -1,71 +1,105 @@
-# Stereogram Generator configuration file
-# Controls rendering parameters, output paths, and worker behavior
+# OpenStereogram Configuration File
+# This template generates the INI-style configuration for OpenStereogram.
+# It is self-documenting: every setting is commented with its schema description.
+# Variables use |default() to ensure safe rendering even when undefined.
 
 [general]
-# Enable or disable verbose logging
-verbose = {{ verbose }}
+# Enable verbose logging for debugging and diagnostics.
+# Default: False
+verbose = {{ verbose | default(False) | lower }}
 
-# Base directory for temporary and output files
-work_dir = {{ work_dir }}
+# Base directory for temporary files (e.g., processed depth maps).
+# Default: /tmp/openstereogram
+work_dir = {{ work_dir | default('/tmp/openstereogram') }}
 
-# Default output directory for generated stereograms
-output_dir = {{ output_dir }}
+# Directory where generated stereograms are saved by default.
+# Default: /var/lib/openstereogram/output
+output_dir = {{ output_dir | default('/var/lib/openstereogram/output') }}
 
-# Default image format for output
-output_format = {{ output_format }}
+# Default image format for output (e.g., png, jpeg).
+# Default: png
+output_format = {{ output_format | default('png') }}
 
-[rendering]
-# Number of worker threads for parallel stereogram generation
-worker_threads = {{ rendering.worker_threads }}
+# --- Rendering Parameters ---
+# Nested 'rendering' dict flattened into individual keys as expected by the software.
+# Accessing via (rendering | default({})) to prevent failure if the dict is missing.
+{% set rendering = rendering | default({'worker_threads': 4, 'min_depth_res': 64, 'max_depth_res': 1024, 'auto_depth_scale': True, 'depth_scale': 0.8, 'eye_separation': 10, 'focal_distance': 500}) %}
 
-# Minimum depth map resolution (in pixels) — lower values speed up generation
-min_depth_res = {{ rendering.min_depth_res }}
+# Number of worker threads for parallel stereogram generation.
+# Default: 4
+worker_threads = {{ (rendering | default({})).worker_threads | default(4) }}
 
-# Maximum depth map resolution (in pixels) — higher values improve detail
-max_depth_res = {{ rendering.max_depth_res }}
+# Minimum depth map resolution (in pixels); lower values speed up generation.
+# Default: 64
+min_depth_res = {{ (rendering | default({})).min_depth_res | default(64) }}
 
-# Auto-adjust depth scale to avoid clipping
-auto_depth_scale = {{ rendering.auto_depth_scale }}
+# Maximum depth map resolution (in pixels); higher values improve detail.
+# Default: 1024
+max_depth_res = {{ (rendering | default({})).max_depth_res | default(1024) }}
 
-# Depth scaling factor (0.0–1.0); 1.0 maps full range of depth values to parallax range
-depth_scale = {{ rendering.depth_scale }}
+# Auto-adjust depth scale to avoid clipping.
+# Default: True
+auto_depth_scale = {{ (rendering | default({})).auto_depth_scale | default(True) | lower }}
 
-# Horizontal shift (in pixels) between left/right views
-eye_separation = {{ rendering.eye_separation }}
+# Depth scaling factor (0.0–1.0); 1.0 maps full range of depth values to parallax range.
+# Default: 0.8
+depth_scale = {{ (rendering | default({})).depth_scale | default(0.8) }}
 
-# Focal distance (in pixels); controls perceived depth plane
-focal_distance = {{ rendering.focal_distance }}
+# Horizontal shift (in pixels) between left/right views.
+# Default: 10
+eye_separation = {{ (rendering | default({})).eye_separation | default(10) }}
 
-[gui]
-# GUI server hostname
-host = {{ gui.host }}
+# Focal distance (in pixels); controls perceived depth plane.
+# Default: 500
+focal_distance = {{ (rendering | default({})).focal_distance | default(500) }}
 
-# GUI server port
-port = {{ gui.port }}
+# --- GUI Server Configuration ---
+# Nested 'gui' dict flattened into individual keys.
+{% set gui = gui | default({'host': '127.0.0.1', 'port': 8080, 'auto_open_browser': False, 'api_secret': '', 'allowed_origins': ['http://localhost', 'http://127.0.0.1:8080']}) %}
 
-# Enable or disable automatic web browser launch
-auto_open_browser = {{ gui.auto_open_browser }}
+# GUI server hostname.
+# Default: 127.0.0.1
+host = {{ (gui | default({})).host | default('127.0.0.1') }}
 
-# API authentication secret (leave empty to disable auth)
-api_secret = {{ gui.api_secret }}
+# GUI server port.
+# Default: 8080
+port = {{ (gui | default({})).port | default(8080) }}
 
-# Allowed origins for CORS (comma-separated list of hostnames)
-allowed_origins = {{ gui.allowed_origins | join(', ') }}
+# Enable or disable automatic web browser launch upon start.
+# Default: False
+auto_open_browser = {{ (gui | default({})).auto_open_browser | default(False) | lower }}
 
-[filters]
-# Optional pre-processing filters (applied in order)
+# API authentication secret (leave empty to disable auth).
+# Default: ''
+api_secret = {{ (gui | default({})).api_secret | default('') }}
+
+# Allowed origins for CORS (comma-separated list of hostnames).
+# Default: ['http://localhost', 'http://127.0.0.1:8080']
+allowed_origins = {{ (gui | default({})).allowed_origins | default(['http://localhost', 'http://127.0.0.1:8080']) | join(', ') }}
+
+# --- Pre-rendering Filters ---
+# Ordered list of optional pre-rendering filters for depth maps.
+# Default: [{'name': 'blur_pre', 'enabled': False, 'params': {'radius': 2}}, {'name': 'normalize_depth', 'enabled': True, 'params': {'clamp_min': 0.1, 'clamp_max': 0.9}}]
+{% set filters = filters | default([{'name': 'blur_pre', 'enabled': False, 'params': {'radius': 2}}, {'name': 'normalize_depth', 'enabled': True, 'params': {'clamp_min': 0.1, 'clamp_max': 0.9}}]) %}
 {% for filter_config in filters %}
-{{ filter_config.name }} = {{ filter_config.enabled }}
-{% if filter_config.enabled %}
-{%   for key, value in filter_config.params.items() %}
+# Filter: {{ filter_config.name }} - Enabled: {{ filter_config.enabled | default(False) }}
+{{ filter_config.name }} = {{ filter_config.enabled | default(False) | lower }}
+{% if filter_config.enabled | default(False) %}
+{% for key, value in filter_config.params | default({}) | dict2items %}
+# Parameter {{ filter_config.name }}_{{ key }}
 {{ filter_config.name }}_{{ key }} = {{ value }}
-{%   endfor %}
+{% endfor %}
 {% endif %}
 {% endfor %}
 
-[security]
-# Restrict rendering to local input only (no remote URLs)
-local_only = {{ security.local_only }}
+# --- Security Settings ---
+# Nested 'security' dict flattened into individual keys.
+{% set security = security | default({'local_only': True, 'max_input_pixels_mpx': 10}) %}
 
-# Maximum input image size (in megapixels); larger images are rejected
-max_input_pixels_mpx = {{ security.max_input_pixels_mpx }}
+# Restrict rendering to local input only (no remote URLs).
+# Default: True
+local_only = {{ (security | default({})).local_only | default(True) | lower }}
+
+# Maximum input image size (in megapixels); larger images are rejected.
+# Default: 10
+max_input_pixels_mpx = {{ (security | default({})).max_input_pixels_mpx | default(10) }}

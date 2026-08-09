@@ -1,71 +1,188 @@
-# Global settings
-# Local address to bind to for queries
-local-address={{ local_address }}
+{# ============================================================================ #}
+{# PowerDNS authoritative server configuration template                          #}
+{# Self-documented: every directive has a comment explaining its purpose and    #}
+{# mapping to the Ansible variable that controls it.                            #}
+{# ============================================================================ #}
 
-# Local port to listen on for DNS queries
-local-port={{ local_port }}
+# ============================================================================ #
+# Network Binding Settings                                                     #
+# ============================================================================ #
 
-# IP addresses allowed to send recursive queries (empty = none)
-allow-axfr-ips={{ allow_axfr_ips | join(', ') if allow_axfr_ips else 'none' }}
+# IP address the PowerDNS server will listen on for incoming DNS queries.
+# Uses a tuple/list syntax for multiple IPs if the variable is a list.
+{% if (local_address | default([]) is iterable) and (local_address | default([]) | first is not mapping) %}
+local-address={{ (local_address | default(['127.0.0.1'])) | join(',') }}
+{% else %}
+local-address={{ (local_address | default('127.0.0.1')) | string }}
+{% endif %}
 
-# Enable or disable zone transfers (AXFR)
-enable-axfr={{ 'yes' if enable_axfr else 'no' }}
+# UDP/TCP port to listen on for DNS queries.
+local-port={{ (local_port | default(53)) | int }}
 
-# Enable or disable TCP queries
-tcp-outgoing-socket={{ tcp_outgoing_socket | default('0') }}
+# ============================================================================ #
+# Zone Transfer (AXFR) Settings                                                #
+# ============================================================================ #
 
-# Enable or disable DNSSEC validation (authoritative mode: typically no)
-disable-dnssec={{ 'yes' if disable_dnssec else 'no' }}
+# List of IP addresses permitted to request zone transfers (AXFR).
+# Empty list results in 'none' (no transfers allowed).
+{% set axfr_ips = (allow_axfr_ips | default([])) %}
+{% if (axfr_ips | length) > 0 %}
+allow-axfr-ips={{ axfr_ips | join(', ') }}
+{% else %}
+allow-axfr-ips=none
+{% endif %}
 
-# Enable or disable DNS64 (not recommended for authoritative-only)
-disable-dns64={{ 'yes' if disable_dns64 else 'no' }}
+# Enable zone transfers (AXFR).
+# Enable only for trusted secondary servers.
+enable-axfr={{ (enable_axfr | default(false)) | ternary('yes', 'no') }}
 
-# Backend configuration
-# List of database backends to load
-launch={{ backends | map(attribute='name') | join(' ') }}
+# ============================================================================ #
+# Query Handling & Protocol Features                                           #
+# ============================================================================ #
 
-{% for backend in backends %}
-# Backend: {{ backend.name }} — connection string for {{ backend.name }}
-gsqlite3-{{ backend.name }}-database={{ backend.connection_string }}{% endfor %}
+# TCP outgoing socket port (0 = system default).
+# Rarely needed; usually left at 0 for dynamic ephemeral ports.
+tcp-outgoing-socket={{ (tcp_outgoing_socket | default(0)) | int }}
 
-{% if backends | selectattr('name', 'equalto', 'gsqlite3') | first %}
+# Disable DNSSEC processing (recommended for authoritative-only servers that don't sign zones).
+# If True, PowerDNS does not validate or sign DNSSEC records.
+disable-dnssec={{ (disable_dnssec | default(true)) | ternary('yes', 'no') }}
+
+# Disable DNS64 (IPv6 synthesization).
+# Not used in authoritative-only mode; typically left enabled as True.
+disable-dns64={{ (disable_dns64 | default(true)) | ternary('yes', 'no') }}
+
+# ============================================================================ #
+# Database Backends                                                            #
+# ============================================================================ #
+
+# Database backends to load.
+# Generates the 'launch' directive required by PowerDNS to initialize backends.
+{% set backends_list = (backends | default([{'name': 'gsqlite3', 'connection_string': '/var/lib/powerdns/pdns.sqlite3'}])) %}
+launch={{ backends_list | map(attribute='name') | join(' ') }}
+
+# Configure each backend individually.
+# Iterates through the backends list and applies backend-specific configuration.
+{% for backend in backends_list %}
+{% set bname = (backend.name | default('unknown')) %}
+{% set bconn = (backend.connection_string | default('')) %}
+
+# Backend: {{ bname }} connection string.
+# The format is <backend_name>-<backend_name>-<param>=<value>.
+# For gsqlite3, the database parameter is key.
+{{ bname }}-{{ bname }}-database={{ bconn }}
+{% endfor %}
+
+# Enable DNSSEC support in SQLite backend if 'gsqlite3' is present in the list.
+# This is specific to the gsqlite3 backend and adds DNSSEC record support.
+{% if (backends_list | selectattr('name', 'equalto', 'gsqlite3') | list | length) > 0 %}
 # Enable DNSSEC support in SQLite backend
 gsqlite3-dnssec=on
 {% endif %}
 
-# Default zone SOA settings (overridable per-zone via API or zone file)
-default-soa-name={{ default_soa_name }}
-default-soa-mail={{ default_soa_mail }}
-default-soa-serial={{ default_soa_serial }}
-default-soa-refresh={{ default_soa_refresh }}
-default-soa-retry={{ default_soa_retry }}
-default-soa-expire={{ default_soa_expire }}
-default-soa-ttl={{ default_soa_ttl }}
+# ============================================================================ #
+# Default SOA (Start of Authority) Records                                     #
+# ============================================================================ #
 
-# Security hardening
-chroot={{ chroot_dir | default('') }}
-setuid={{ setuid_user | default('') }}
-setgid={{ setgid_group | default('') }}
+# Default primary nameserver in SOA records if not specified per-zone.
+default-soa-name={{ (default_soa_name | default('ns1.example.com')) | string }}
 
-# Logging
-loglevel={{ log_level }}
-log-dns-queries={{ 'yes' if log_dns_queries else 'no' }}
-log-dns-outgoing={{ 'yes' if log_dns_outgoing else 'no' }}
+# Default responsible email (SOA MNAME) in SOA records — use dot instead of @.
+# E.g., admin.example.com corresponds to admin@example.com.
+default-soa-mail={{ (default_soa_mail | default('admin.example.com')) | string }}
 
-# Performance tuning
-max-udp-packet-size={{ max_udp_packet_size }}
-worker-threads={{ worker_threads }}
-max-cache-entries={{ max_cache_entries }}
-max-cache-ttl={{ max_cache_ttl }}
+# Default SOA serial number (e.g., YYYYMMDDnn).
+default-soa-serial={{ (default_soa_serial | default(2025040101)) | int }}
 
-# API (only if enabled)
-{% if api_enabled %}
+# Default SOA refresh interval (seconds).
+# How often secondary servers check for updates.
+default-soa-refresh={{ (default_soa_refresh | default(10800)) | int }}
+
+# Default SOA retry interval (seconds).
+# How long a secondary waits before retrying if refresh fails.
+default-soa-retry={{ (default_soa_retry | default(3600)) | int }}
+
+# Default SOA expire interval (seconds).
+# Time after which a zone is considered expired if not refreshed.
+default-soa-expire={{ (default_soa_expire | default(604800)) | int }}
+
+# Default SOA minimum TTL (seconds).
+# Used for negative caching (NSEC/NSEC3 proofs) and as default TTL.
+default-soa-ttl={{ (default_soa_ttl | default(604800)) | int }}
+
+# ============================================================================ #
+# Security & Privileges                                                        #
+# ============================================================================ #
+
+# Chroot directory (e.g., '/var/lib/powerdns').
+# Leave empty to disable chrooting.
+chroot={{ (chroot_dir | default('')) | string }}
+
+# User to drop privileges to after startup.
+setuid={{ (setuid_user | default('pdns')) | string }}
+
+# Group to drop privileges to after startup.
+setgid={{ (setgid_group | default('pdns')) | string }}
+
+# ============================================================================ #
+# Logging Configuration                                                        #
+# ============================================================================ #
+
+# Logging verbosity: 0 (quiet) to 10 (debug).
+# Recommended: 6 (info) or 7 (detail).
+loglevel={{ (log_level | default('6')) | string }}
+
+# Log all incoming DNS queries.
+# Use with care for privacy and performance implications.
+log-dns-queries={{ (log_dns_queries | default(true)) | ternary('yes', 'no') }}
+
+# Log outgoing DNS responses.
+# Rarely needed; usually disabled.
+log-dns-outgoing={{ (log_dns_outgoing | default(false)) | ternary('yes', 'no') }}
+
+# ============================================================================ #
+# Performance Tuning                                                           #
+# ============================================================================ #
+
+# Maximum UDP packet size (EDNS0).
+# Typically 4096 for modern clients to allow large DNS responses.
+max-udp-packet-size={{ (max_udp_packet_size | default(4096)) | int }}
+
+# Number of worker threads.
+# Set to number of CPU cores for best performance.
+worker-threads={{ (worker_threads | default(2)) | int }}
+
+# Maximum number of entries in the packet cache.
+# Not used heavily in authoritative-only mode but affects recursor caching.
+max-cache-entries={{ (max_cache_entries | default(1000000)) | int }}
+
+# Maximum TTL (seconds) for cached data (e.g., NSEC/NSEC3 proofs).
+max-cache-ttl={{ (max_cache_ttl | default(86400)) | int }}
+
+# ============================================================================ #
+# HTTP API Configuration                                                       #
+# ============================================================================ #
+
+# Enable the HTTP API for zone management and monitoring.
+{% if (api_enabled | default(false)) %}
 # Enable the HTTP API
-api={{ 'yes' }}
-api-key={{ api_key }}
-api-readonly={{ 'yes' if api_readonly else 'no' }}
-api-logfile={{ api_logfile }}
+api=yes
+
+# API authentication key (base64 or strong random string).
+# Required if API is enabled. Keep this secret.
+api-key={{ (api_key | default('')) | string }}
+
+# If true, API operations are read-only (no zone modifications).
+api-readonly={{ (api_readonly | default(false)) | ternary('yes', 'no') }}
+
+# Log file for API requests.
+api-logfile={{ (api_logfile | default('/var/log/pdns-api.log')) | string }}
 {% endif %}
 
-# Additional settings
-include-dir={{ include_dir | default('/etc/powerdns/conf.d') }}
+# ============================================================================ #
+# Include Directory                                                            #
+# ============================================================================ #
+
+# Directory to scan for additional configuration files (*.conf).
+# Allows modular configuration splitting.
+include-dir={{ (include_dir | default('/etc/powerdns/conf.d')) | string }}

@@ -1,120 +1,236 @@
-# Default SSH client configuration file
-# This file provides global defaults for SSH client behavior
-# See `man ssh_config` for detailed options
+# ==============================================================================
+# OpenSSH Client Configuration Template
+# ==============================================================================
+# This template generates the ssh_config file for an SSH client.
+# It provides global defaults and per-host overrides.
+# See `man ssh_config` for detailed documentation on all options.
+# ==============================================================================
 
-# Disable host key checking for known_hosts (not recommended for production)
-# Set to 'no' to strictly enforce known_hosts verification
+# ------------------------------------------------------------------------------
+# Host Key Verification
+# ------------------------------------------------------------------------------
+# strict_host_key_checking: Whether to ask before adding a new host key ('ask'),
+# reject unknown hosts ('no'), or auto-add (strict) ('yes').
+# 'ask' is recommended for security to prevent MITM attacks on first connect.
+# Values: 'ask', 'no', 'yes', 'accept-new'
 StrictHostKeyChecking {{ strict_host_key_checking | default('ask') }}
 
-# Automatically add new host keys to known_hosts file
-# Set to 'yes' to auto-add; 'no' to reject unknown hosts
+# ------------------------------------------------------------------------------
+# Known Hosts Storage
+# ------------------------------------------------------------------------------
+# user_known_hosts_file: Path to the file storing known host public keys.
+# Use per-user (~/.ssh/known_hosts) or global (/etc/ssh/ssh_known_hosts).
 UserKnownHostsFile {{ user_known_hosts_file | default('~/.ssh/known_hosts') }}
 
-# Log level: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3
-# INFO is typical for normal use; DEBUG for troubleshooting
+# ------------------------------------------------------------------------------
+# Logging
+# ------------------------------------------------------------------------------
+# log_level: Verbosity of logging output.
+# Use DEBUG (or DEBUG1-DEBUG3) for troubleshooting; INFO for normal production use.
+# Values: QUIET, FATAL, ERROR, INFO, VERBOSE, DEBUG, DEBUG1, DEBUG2, DEBUG3
 LogLevel {{ log_level | default('INFO') }}
 
-# Default port for SSH connections (change only if non-standard)
+# ------------------------------------------------------------------------------
+# Connection Defaults
+# ------------------------------------------------------------------------------
+# default_port: Default port for SSH connections when not specified per-host.
+# Standard SSH port is 22.
 Port {{ default_port | default(22) }}
 
-# Connection timeout in seconds before giving up
+# connect_timeout: Maximum time (seconds) to wait for a connection to be established.
+# Helps avoid hanging on unreachable hosts.
 ConnectTimeout {{ connect_timeout | default(10) }}
 
-# Number of authentication attempts before disconnecting
+# ------------------------------------------------------------------------------
+# Authentication Methods
+# ------------------------------------------------------------------------------
+# password_authentication: Whether to allow password authentication globally.
+# Can be overridden per-host. Use 'no' to enforce key-only authentication.
 PasswordAuthentication {{ password_authentication | default('yes') }}
 
-# Use agent forwarding only to trusted hosts
-ForwardAgent {{ forward_agent | default('no') }}
+# pubkey_authentication: Enable public key authentication globally.
+# Overrides per-host settings if set here.
+PubkeyAuthentication {{ pubkey_authentication | default('yes') }}
 
-# Disable X11 forwarding by default (enable per-host if needed)
-ForwardX11 {{ forward_x11 | default('no') }}
-
-# Enable TCP keepalive to detect dead connections
-TCPKeepAlive {{ tcp_keep_alive | default('yes') }}
-
-# Default identity file(s) to try for public key authentication
-# Order matters: first available key is used
-{% for key_path in identity_files | default(['~/.ssh/id_rsa', '~/.ssh/id_ed25519']) %}IdentityFile {{ key_path }}
-{% endfor %}
-
-# Preferred authentication methods (order: from most to least preferred)
-# Common values: 'publickey,password,keyboard-interactive'
+# preferred_authentications: Comma-separated list of authentication methods
+# in order of preference (most preferred first).
+# Common: 'publickey,keyboard-interactive,password'
 PreferredAuthentications {{ preferred_authentications | default('publickey,keyboard-interactive,password') }}
 
-# Disable GSSAPI authentication unless explicitly needed (e.g., Kerberos)
-GSSAPIAuthentication {{ gssapi_authentication | default('no') }}
+# identity_files: List of private key files to try for public key authentication.
+# Ordered by preference; the first available key is used.
+{% for key_path in identity_files | default(['~/.ssh/id_rsa', '~/.ssh/id_ed25519']) %}IdentityFile {{ key_path | default('~/.ssh/id_rsa') }}
+{% endfor %}
 
-# Use compression only for slow links
-Compression {{ compression | default('yes') }}
-
-# Enable control master for connection sharing (requires ControlPath)
-ControlMaster {{ control_master | default('no') }}
-
-# Path for control socket when using connection sharing
-ControlPath {{ control_path | default('~/.ssh/sockets/%r@%h-%p') }}
-
-# Timeout (in seconds) for control sockets
-ControlPersist {{ control_persist | default('0') }}
-
-# Global proxy configuration (commented out by default)
-{% if proxy_command %}ProxyCommand {{ proxy_command }}
-{% else %}# ProxyCommand none
+# identity_only: If 'yes', only use the identity files explicitly listed.
+# Ignores other keys loaded in ssh-agent.
+{% if identity_only | default(false) | bool %}IdentityOnly yes
 {% endif %}
 
-# Global exit status behavior: 0 if at least one host succeeds
-# Set to 'any' to require success on all hosts when using -M/-A
-ExitOnForwardFailure {{ exit_on_forward_failure | default('no') }}
-
-# Quiet mode: suppress most output
-{% if quiet_mode | default(false) %}Quiet yes
-{% else %}# Quiet no
+# add_keys_to_agent: Whether to automatically add identity files to ssh-agent.
+# Values: 'yes', 'no', 'ask', 'confirm'.
+# 'confirm' is safest for interactive use.
+{% if add_keys_to_agent | default('no') != 'no' %}AddKeysToAgent {{ add_keys_to_agent | default('no') }}
 {% endif %}
 
-# Optional: enable IPv6 by default (set to 'yes' or 'no')
+# gssapi_authentication: Enable GSSAPI authentication (e.g., Kerberos).
+# Only needed in enterprise environments with Kerberos infrastructure.
+{% if gssapi_authentication | default(false) | bool %}GSSAPIAuthentication yes
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Forwarding
+# ------------------------------------------------------------------------------
+# forward_agent: Whether to forward your SSH authentication agent to remote hosts.
+# Enable ONLY for trusted targets; forwarding to untrusted hosts is a security risk.
+{% if forward_agent | default(false) | bool %}ForwardAgent yes
+{% endif %}
+
+# forward_x11: Enable X11 forwarding for GUI applications over SSH.
+# Required only if running graphical apps remotely.
+{% if forward_x11 | default(false) | bool %}ForwardX11 yes
+{% endif %}
+
+# stream_local_bind_unlink: Unlink existing Unix domain socket before binding.
+# Needed if a stale socket exists from a previous process (e.g., Docker).
+{% if stream_local_bind_unlink | default(false) | bool %}StreamLocalBindUnlink yes
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Network & Keepalive
+# ------------------------------------------------------------------------------
+# tcp_keep_alive: Send TCP keepalive packets to detect dead connections.
+# Generally safe to leave enabled.
+{% if tcp_keep_alive | default(true) | bool %}TCPKeepAlive yes
+{% endif %}
+
+# server_alive_interval: Seconds between keepalive messages sent to the server.
+# Non-zero values help prevent timeout on idle connections.
+{% if server_alive_interval | default(0) > 0 %}ServerAliveInterval {{ server_alive_interval | default(0) }}
+{% endif %}
+
+# server_alive_count_max: Maximum number of keepalive messages without response
+# before disconnecting.
+{% if server_alive_count_max | default(3) > 0 %}ServerAliveCountMax {{ server_alive_count_max | default(3) }}
+{% endif %}
+
+# address_family: IP address family to use for connections.
+# 'any' = dual-stack; 'inet' = IPv4 only; 'inet6' = IPv6 only.
 AddressFamily {{ address_family | default('any') }}
 
-# Enable stream local forwarding (e.g., for Docker sockets)
-StreamLocalBindUnlink {{ stream_local_bind_unlink | default('no') }}
-
-# Cipher and MAC settings (only if custom policies enforced)
-{% if ciphers %}Ciphers {{ ciphers | join(',') }}
-{% endif %}
-{% if macs %}MACs {{ macs | join(',') }}
+# compression: Enable compression for the connection.
+# Beneficial for slow links; negligible overhead on fast networks.
+{% if compression | default(true) | bool %}Compression yes
 {% endif %}
 
-# Host-specific settings can be added below using Host blocks
-# Example:
-# Host example
-#   HostName example.com
-#   User myuser
-#   Port 2222
+# ------------------------------------------------------------------------------
+# Connection Sharing (Multiplexing)
+# ------------------------------------------------------------------------------
+# control_master: Enable SSH connection sharing (multiplexing) to reuse connections.
+# Requires ControlPath to be set.
+{% if control_master | default(false) | bool %}ControlMaster yes
+{% endif %}
 
-# Default Host block (applies to all hosts not matched above)
-# Use `*` for wildcard matching
+# control_path: Path template for control sockets used by ControlMaster.
+# Variables: %r=remote user, %h=remote host, %p=remote port.
+{% if control_path | default('~/.ssh/sockets/%r@%h-%p') %}ControlPath {{ control_path | default('~/.ssh/sockets/%r@%h-%p') }}
+{% endif %}
+
+# control_persist: Time (seconds) to keep the master connection alive after
+# the last session ends. 0 disables persistence (closes immediately).
+{% if control_persist | default(0) > 0 %}ControlPersist {{ control_persist | default(0) }}
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Proxy & Exit Behavior
+# ------------------------------------------------------------------------------
+# proxy_command: Shell command to establish connection via a proxy.
+# Leave empty to disable. Example: 'nc -X 5 -x proxy:1080 %h %p'.
+{% if proxy_command | default('') %}ProxyCommand {{ proxy_command | default('') }}
+{% endif %}
+
+# exit_on_forward_failure: Exit with error if local/remote port forwarding fails.
+{% if exit_on_forward_failure | default(false) | bool %}ExitOnForwardFailure yes
+{% endif %}
+
+# quiet_mode: Suppress informational messages. Useful for scripts.
+{% if quiet_mode | default(false) | bool %}Quiet yes
+{% endif %}
+
+# ------------------------------------------------------------------------------
+# Security Policies (Ciphers & MACs)
+# ------------------------------------------------------------------------------
+# ciphers: List of allowed ciphers (comma-separated).
+# Only set if strict cipher policies are required by compliance.
+{% if ciphers | default([]) | length > 0 %}Ciphers {{ ciphers | default([]) | join(',') }}
+{% endif %}
+
+# macs: List of allowed Message Authentication Codes (comma-separated).
+# Only set if strict MAC policies are required by compliance.
+{% if macs | default([]) | length > 0 %}MACs {{ macs | default([]) | join(',') }}
+{% endif %}
+
+# ==============================================================================
+# Host-Specific Configuration Blocks
+# ==============================================================================
+
+# Global Default Host Block
+# Applies to all hosts not matched by subsequent Host blocks.
+# Use Host * for wildcard matching.
 Host *
-{% if add_keys_to_agent | default('no') != 'no' %}  AddKeysToAgent {{ add_keys_to_agent }}
-{% endif %}
-{% if identity_only | default(false) %}  IdentityOnly yes
-{% endif %}
-{% if server_alive_interval | default(0) > 0 %}  ServerAliveInterval {{ server_alive_interval }}
-{% endif %}
-{% if server_alive_count_max | default(3) > 0 %}  ServerAliveCountMax {{ server_alive_count_max }}
-{% endif %}
+  # Request a TTY for remote commands (useful for sudo).
+  # 'no' = allocate if needed; 'yes' = always; 'force' = always allocate.
   RequestTTY {{ request_tty | default('no') }}
-  PubkeyAuthentication {{ pubkey_authentication | default('yes') }}
-  PasswordAuthentication {{ password_authentication | default('yes') }}
-{% for host in extra_hosts %}  # Extra host entry (user-defined)
-  Host {{ host.name }}
-{% if host.hostname %}    HostName {{ host.hostname }}
-{% endif %}
-{% if host.user %}    User {{ host.user }}
-{% endif %}
-{% if host.port is defined %}    Port {{ host.port }}
-{% endif %}
-{% if host.forward_agent is defined %}    ForwardAgent {{ 'yes' if host.forward_agent else 'no' }}
-{% endif %}
-{% if host.forward_x11 is defined %}    ForwardX11 {{ 'yes' if host.forward_x11 else 'no' }}
-{% endif %}
-{% if host.identity_file %}    IdentityFile {{ host.identity_file }}
-{% endif %}
+
+  # AddKeysToAgent applies per-host here for Host *
+  {% if add_keys_to_agent | default('no') != 'no' %}  AddKeysToAgent {{ add_keys_to_agent | default('no') }}
+  {% endif %}
+
+  # IdentityOnly applies per-host here
+  {% if identity_only | default(false) | bool %}  IdentityOnly yes
+  {% endif %}
+
+  # ServerAliveInterval applies per-host here
+  {% if server_alive_interval | default(0) > 0 %}  ServerAliveInterval {{ server_alive_interval | default(0) }}
+  {% endif %}
+
+  # ServerAliveCountMax applies per-host here
+  {% if server_alive_count_max | default(3) > 0 %}  ServerAliveCountMax {{ server_alive_count_max | default(3) }}
+  {% endif %}
+
+  # PasswordAuthentication overrides for Host *
+  {% if password_authentication | default('yes') %}  PasswordAuthentication {{ password_authentication | default('yes') }}
+  {% endif %}
+
+{% for host_entry in extra_hosts | default([]) %}
+  # ------------------------------------------------------------------------------
+  # Extra Host Entry: {{ host_entry.name | default('unknown') }}
+  # ------------------------------------------------------------------------------
+  # This block defines custom settings for a specific host or pattern.
+  # Defined by the 'extra_hosts' variable.
+  Host {{ host_entry.name | default('unknown') }}
+
+  {% if host_entry.hostname %}  # HostName: The actual hostname or IP to connect to.
+  HostName {{ host_entry.hostname }}
+  {% endif %}
+
+  {% if host_entry.user %}  # User: The username to log in as.
+  User {{ host_entry.user }}
+  {% endif %}
+
+  {% if host_entry.port is defined %}  # Port: Override the default SSH port.
+  Port {{ host_entry.port }}
+  {% endif %}
+
+  {% if host_entry.forward_agent is defined %}  # ForwardAgent: Enable/disable agent forwarding for this host.
+  ForwardAgent {{ 'yes' if host_entry.forward_agent else 'no' }}
+  {% endif %}
+
+  {% if host_entry.forward_x11 is defined %}  # ForwardX11: Enable/disable X11 forwarding for this host.
+  ForwardX11 {{ 'yes' if host_entry.forward_x11 else 'no' }}
+  {% endif %}
+
+  {% if host_entry.identity_file %}  # IdentityFile: Specific key for this host.
+  IdentityFile {{ host_entry.identity_file }}
+  {% endif %}
 {% endfor %}

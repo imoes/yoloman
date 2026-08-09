@@ -1,80 +1,105 @@
+# repmgr configuration template
+# Managed by Ansible - do not edit manually
+# This file configures repmgr for PostgreSQL replication management.
+
 # PostgreSQL server connection settings
-conninfo 'host={{ primary_host }} port={{ primary_port }} user={{ repmgr_user }} password={{ repmgr_password | e }} dbname={{ repmgr_database }}'
+# Hostname or IP address of the primary PostgreSQL server.
+conninfo 'host={{ (primary_host | default("localhost")) | string }} port={{ (primary_port | default(5432)) | int }} user={{ (repmgr_user | default("repmgr")) | string }} password={{ (repmgr_password | default("")) | string }} dbname={{ (repmgr_database | default("repmgr")) | string }}'
 
 # Local node identification
-node_id={{ node_id }}
-node_name='{{ node_name }}'
+# Unique integer identifier for this node in the cluster (1–999999999).
+node_id={{ (node_id | default(1)) | int }}
+# Human-readable name for this node (must be unique within the cluster).
+node_name='{{ (node_name | default("node1")) | string }}'
 
 # Data directory path
-data_directory='{{ data_directory }}'
+# Path to the PostgreSQL data directory on this node.
+data_directory='{{ (data_directory | default("/var/lib/postgresql/17/main")) | string }}'
 
 # Replication user and connection (repmgr uses same user for primary & standby)
-replication_user='{{ replication_user }}'
-replication_password='{{ replication_password | e }}'
+# PostgreSQL user used for streaming replication.
+replication_user='{{ (replication_user | default("replication")) | string }}'
+# Password for the replication user. Recommended to use peer or scram-sha-256 auth in pg_hba.conf.
+replication_password='{{ (replication_password | default("")) | string }}'
 
 # Monitoring configuration
 monitoring_history=yes
-monitor_interval_secs={{ monitoring_interval_secs }}
+# Interval in seconds between health checks for the cluster.
+monitor_interval_secs={{ (monitoring_interval_secs | default(5)) | int }}
 
 # Failover settings
-failover='{{ failover }}'
-promote_command='{{ promote_command }}'
-follow_command='{{ follow_command }}'
+# Failover mode: 'automatic' (full automated) or 'manual' (requires manual intervention).
+failover='{{ (failover | default("automatic")) | string }}'
+# Shell command to execute when promoting a standby to primary.
+promote_command='{{ (promote_command | default("repmgr standby promote -f /etc/repmgr/17/repmgr.conf --log-level=DEBUG")) | string }}'
+# Shell command to execute when a standby starts following a new primary.
+follow_command='{{ (follow_command | default("repmgr standby follow -f /etc/repmgr/17/repmgr.conf --log-level=DEBUG --upstream-node-id=%n")) | string }}'
 
 # Logging
-log_level='{{ log_level }}'
-log_facility='{{ log_facility }}'
-log_file='{{ log_file }}'
+# Verbosity level for repmgr logs (e.g., DEBUG, INFO, NOTICE, WARNING, ERROR).
+log_level='{{ (log_level | default("INFO")) | string }}'
+# Syslog facility to use when logging to syslog.
+log_facility='{{ (log_facility | default("LOG_LOCAL0")) | string }}'
+# Path to the file where repmgr writes its logs (if syslog not used).
+log_file='{{ (log_file | default("/var/log/postgresql/repmgr.log")) | string }}'
 
 # Registration and service management
-service_start_command='{{ service_start_command }}'
-service_stop_command='{{ service_stop_command }}'
-service_restart_command='{{ service_stop_command }} && {{ service_start_command }}'
-service_status_command='{{ service_status_command }}'
+# Command used to start PostgreSQL on this node (e.g., via pg_ctlcluster or systemctl).
+service_start_command='{{ (service_start_command | default("pg_ctlcluster 17 main start")) | string }}'
+# Command used to stop PostgreSQL on this node (e.g., via pg_ctlcluster or systemctl).
+service_stop_command='{{ (service_stop_command | default("pg_ctlcluster 17 main stop -m fast")) | string }}'
+# Command used to restart PostgreSQL on this node.
+service_restart_command='{{ (service_stop_command | default("pg_ctlcluster 17 main stop -m fast")) | string }} && {{ (service_start_command | default("pg_ctlcluster 17 main start")) | string }}'
+# Command used to check PostgreSQL status on this node.
+service_status_command='{{ (service_status_command | default("pg_ctlcluster 17 main status")) | string }}'
 
 # Standby auto-registration on startup
-auto_registration={{ auto_registration }}
+# If true, automatically register this standby node with the cluster on startup.
+auto_registration={{ (auto_registration | default(False)) | lower }}
 
 # Standby follow primary automatically
-auto_follow={{ auto_follow }}
+# If true, automatically reattach to a new primary after failover or follow event.
+auto_follow={{ (auto_follow | default(True)) | lower }}
 
 # Failover target preference (optional)
-{% if failover_targets %}
+{% if (failover_targets | default([])) %}
 # Explicit failover priority list (lowest value = highest priority)
 failover_targets = {
 {% for target in failover_targets %}
-  {{ target.node_id }} = '{{ target.host }}:{{ target.port }}'
+  {{ (target.node_id | default(0)) | int }} = '{{ (target.host | default("")) | string }}:{{ (target.port | default(5432)) | int }}'
 {% endfor %}
 }
 {% endif %}
 
 # Optional upstream node for standby (useful in cascading replication)
-{% if upstream_node %}
-upstream_node={{ upstream_node }}
+{% if (upstream_node | default(None)) %}
+# Node ID of the upstream node (for cascading replication). Leave blank for direct primary connection.
+upstream_node={{ (upstream_node | default(None)) | int }}
 {% endif %}
 
 # Optional pg_basebackup options
-pg_basebackup_options='{{ pg_basebackup_options }}'
+# Extra options passed to pg_basebackup when creating a new standby.
+pg_basebackup_options='{{ (pg_basebackup_options | default("-c fast -X stream -P")) | string }}'
 
 # Optional SSH options (for remote operations)
 ssh_options='-q -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=10'
 
 # Event notification (optional)
-{% if events %}
+{% if (events | default([])) %}
 # Event notification handlers (comma-separated script paths)
 events = {
 {% for event in events %}
-  '{{ event.name }}' = '{{ event.script }}'
+  '{{ (event.name | default("")) | string }}' = '{{ (event.script | default("")) | string }}'
 {% endfor %}
 }
 {% endif %}
 
 # Optional custom parameters passed to PostgreSQL
-{% if postgresql_parameters %}
+{% if (postgresql_parameters | default({})) %}
 # PostgreSQL custom parameters (applied via repmgr on promote/follow)
 postgresql_parameters = {
-{% for param, value in postgresql_parameters.items() %}
-  '{{ param }}' = '{{ value | e }}'
-{% endfor %
+{% for param, value in (postgresql_parameters | default({})) | dict2items %}
+  '{{ (param | default("")) | string }}' = '{{ (value | default("")) | string }}'
+{% endfor %}
 }
 {% endif %}

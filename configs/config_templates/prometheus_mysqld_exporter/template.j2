@@ -1,30 +1,66 @@
-# Environment variables for mysqld_exporter
-# Set the MySQL server connection details
-MYSQLD_EXPORTER_MY_CNF="{{ my_cnf_path }}"
+# Ansible managed environment configuration for mysqld_exporter
+# This file sets environment variables consumed by the mysqld_exporter systemd service.
+# It is auto-generated; do not edit manually.
 
-# Optional: Set a custom MySQL user and password (if not using .my.cnf)
-{% if user is defined %}MYSQL_USER="{{ user }}"{% endif %}
-{% if password is defined %}MYSQL_PASSWORD="{{ password }}"{% endif %}
+# Path to the .my.cnf file containing MySQL connection credentials (user, password, host, port, socket).
+# The exporter reads this file if MYSQL_USER/MYSQL_PASSWORD are not explicitly set.
+MYSQLD_EXPORTER_MY_CNF="{{ my_cnf_path | default('/etc/mysql/.my.cnf') }}"
 
-# Set the address (host:port) the exporter listens on
-{% if listen_address is defined %}LISTEN_ADDRESS="{{ listen_address }}"{% else %}LISTEN_ADDRESS="0.0.0.0:9104"{% endif %}
+# MySQL username for the exporter. If set, overrides the user in .my.cnf.
+# Leave empty to rely on the credentials file.
+{% if user is defined and user | length > 0 %}
+MYSQL_USER="{{ user }}"
+{% endif %}
 
-# Enable or disable collectors
-{% if disable_collectors is defined %}DISABLE_COLLECTORS="{{ disable_collectors | join(',') }}"{% endif %}
-{% if enable_collectors is defined %}ENABLE_COLLECTORS="{{ enable_collectors | join(',') }}"{% endif %}
+# MySQL password for the exporter. If set, overrides the password in .my.cnf.
+# Leave empty to rely on the credentials file.
+{% if password is defined and password | length > 0 %}
+MYSQL_PASSWORD="{{ password }}"
+{% endif %}
 
-# TLS/SSL configuration (optional)
-{% if tls_cert_file is defined %}TLS_CERT_FILE="{{ tls_cert_file }}"{% endif %}
-{% if tls_key_file is defined %}TLS_KEY_FILE="{{ tls_key_file }}"{% endif %}
+# Network address and port the exporter will bind to.
+# Format: host:port (e.g., '0.0.0.0:9104' or '127.0.0.1:9104').
+LISTEN_ADDRESS="{{ listen_address | default('0.0.0.0:9104') }}"
 
-# Extra mysqld_exporter arguments (e.g., for data sources)
-{% if extra_args is defined %}EXTRA_ARGS="{{ extra_args | join(' ') }}"{% endif %}
+# List of collector names to disable (e.g., process, slave_host, info_schema.tables).
+# Useful to reduce overhead or ignore incompatible collectors.
+{% if disable_collectors is defined and disable_collectors | length > 0 %}
+DISABLE_COLLECTORS="{{ disable_collectors | join(',') }}"
+{% endif %}
 
-# Logging level (debug, info, warn, error)
-{% if log_level is defined %}LOG_LEVEL="{{ log_level }}"{% endif %}
+# List of collector names to explicitly enable.
+# Overrides the default set of enabled collectors. Use only if you need non-default behavior.
+{% if enable_collectors is defined and enable_collectors | length > 0 %}
+ENABLE_COLLECTORS="{{ enable_collectors | join(',') }}"
+{% endif %}
 
-# Process timeout for metric collection (in seconds)
-{% if scrape_timeout is defined %}SCRAPE_TIMEOUT="{{ scrape_timeout }}"{% endif %}
+# Path to the TLS certificate file for HTTPS endpoint (optional).
+# If set, the exporter serves metrics over TLS using this cert.
+{% if tls_cert_file is defined and tls_cert_file | length > 0 %}
+TLS_CERT_FILE="{{ tls_cert_file }}"
+{% endif %}
 
-# Optional: Disable native MySQL metric collections (e.g., for MariaDB compatibility)
-{% if disable_native_metrics is defined %}DISABLE_NATIVE_METRICS="{{ disable_native_metrics }}"{% endif %}
+# Path to the TLS private key file for HTTPS endpoint (optional).
+# Must be paired with TLS_CERT_FILE.
+{% if tls_key_file is defined and tls_key_file | length > 0 %}
+TLS_KEY_FILE="{{ tls_key_file }}"
+{% endif %}
+
+# Additional command-line arguments to pass to mysqld_exporter.
+# Allows fine-tuning exporter behavior beyond standard env vars (e.g., --no-collect.info_schema.tables).
+{% if extra_args is defined and extra_args | length > 0 %}
+EXTRA_ARGS="{{ extra_args | join(' ') }}"
+{% endif %}
+
+# Logging verbosity: debug, info, warn, or error.
+LOG_LEVEL="{{ log_level | default('info') }}"
+
+# Maximum time (in seconds) to wait for metrics from MySQL before timing out.
+# Prevents hangs if the database is slow or unreachable.
+SCRAPE_TIMEOUT="{{ scrape_timeout | default(30) }}"
+
+# Set to 'true' to skip collection of native MySQL metrics.
+# Useful for compatibility with MariaDB or specific monitoring setups that handle native metrics elsewhere.
+{% if disable_native_metrics is defined %}
+DISABLE_NATIVE_METRICS="{{ disable_native_metrics }}"
+{% endif %}
