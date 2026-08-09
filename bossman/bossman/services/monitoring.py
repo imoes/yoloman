@@ -477,6 +477,9 @@ def format_value(value: float | None, metric: str | None = None) -> str:
 #
 # The name is reserved: no rule may produce it, and L3's suppression keys off it.
 HOST_ALIVE_SERVICE = "Host alive"
+# Reserved service carrying the count of managed config files drifted from desired
+# (poller._enforce_config_drift upserts it each cycle; WARN when > 0).
+CONFIG_DRIFT_SERVICE = "Config drift"
 
 
 def _version_suffix(version: str) -> str:

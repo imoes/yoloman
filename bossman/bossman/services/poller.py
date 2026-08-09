@@ -382,9 +382,20 @@ async def _enforce_config_drift(session: AsyncSession, agent: Agent, client: Age
     host's own value stands and a rollback is still available. Best-effort; a
     failure here must never break the poll cycle."""
     from bossman.services.config_desired import effective_resources
+    from bossman.services.monitoring import CONFIG_DRIFT_SERVICE, DEFAULT_MAX_ATTEMPTS, _upsert_service_state
+
+    async def _record_drift(n: int, detail: str) -> None:
+        # Monitoring signal: a "Config drift" service per host carrying the number
+        # of managed files drifted from desired — WARN when > 0 — so out-of-band
+        # tampering is visible/alertable, not just silently re-applied.
+        await _upsert_service_state(
+            session, agent.id, CONFIG_DRIFT_SERVICE, "WARN" if n else "OK", float(n), detail,
+            datetime.now(timezone.utc), DEFAULT_MAX_ATTEMPTS, metric="config_drift_files",
+            rule_id=None, agent_name=agent.name, agent_tags=agent.tags, comparison="gt")
 
     eff = await effective_resources(session, agent)
     if not eff:
+        await _record_drift(0, "no managed config on this host")
         return
     resources = [e["resource"] for e in eff]
     try:
@@ -393,6 +404,12 @@ async def _enforce_config_drift(session: AsyncSession, agent: Agent, client: Age
         return
     changes = plan.get("changes", []) if isinstance(plan, dict) else []
     drifted = {c.get("path") for c in changes if c.get("action") not in (None, "noop") and not c.get("error")}
+    await _record_drift(
+        len(drifted),
+        (f"{len(drifted)} managed config file(s) drifted from desired: "
+         + ", ".join(sorted(str(p) for p in drifted))) if drifted
+        else "all managed config files in sync with desired")
+
     if not drifted:
         return
     push = [r for r in resources if r.get("path") in drifted]
