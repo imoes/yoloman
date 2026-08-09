@@ -14,9 +14,12 @@
 package inventory
 
 import (
+	"context"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strconv"
@@ -349,10 +352,14 @@ func (c *Collector) collectNICs() []NIC {
 		if mtu, err := strconv.Atoi(readTrimmed(filepath.Join(base, "mtu"))); err == nil {
 			n.MTU = mtu
 		}
-		// speed reads -1 on down/virtual links and EINVALs on some
-		// drivers; only positive values are meaningful.
-		if speed, err := strconv.Atoi(readTrimmed(filepath.Join(base, "speed"))); err == nil && speed > 0 {
+		// Link speed. /sys/class/net/<if>/speed returns -1 on virtio and many
+		// virtual NICs even when up, so — like Checkmk's lnx_if section — prefer
+		// `ethtool <if>` (queries the driver, reports a real negotiated speed on
+		// virtio/QEMU) and fall back to /sys. 65535 is ethtool's "unknown" sentinel.
+		if speed := ethtoolSpeedMbps(name); speed > 0 && speed != 65535 {
 			n.SpeedMbps = speed
+		} else if s, err := strconv.Atoi(readTrimmed(filepath.Join(base, "speed"))); err == nil && s > 0 {
+			n.SpeedMbps = s
 		}
 		if c.NICAddrs != nil {
 			n.IPv4, n.IPv6 = c.NICAddrs(name)
@@ -389,6 +396,34 @@ func readTrimmed(path string) string {
 		return ""
 	}
 	return strings.TrimSpace(string(data))
+}
+
+var ethtoolSpeedRe = regexp.MustCompile(`(?i)Speed:\s*([0-9]+)\s*Mb/s`)
+
+// ethtoolSpeedMbps returns a NIC's negotiated link speed in Mb/s via
+// `ethtool <iface>`, the same source Checkmk's lnx_if section prefers. ethtool
+// queries the driver directly (SIOCETHTOOL), so it reports a real speed on
+// virtio/QEMU NICs where /sys/class/net/<if>/speed is -1. Returns 0 when ethtool
+// is absent, the NIC is down, or the speed is unknown ("Unknown!"/65535).
+func ethtoolSpeedMbps(iface string) int {
+	if iface == "" {
+		return 0
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ethtool", iface).CombinedOutput()
+	if err != nil {
+		return 0
+	}
+	m := ethtoolSpeedRe.FindSubmatch(out)
+	if m == nil {
+		return 0
+	}
+	speed, err := strconv.Atoi(string(m[1]))
+	if err != nil {
+		return 0
+	}
+	return speed
 }
 
 // parseOSRelease parses KEY=VALUE lines, stripping optional quotes — the
