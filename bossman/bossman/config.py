@@ -64,6 +64,19 @@ class Settings(BaseSettings):
     # The matching RPM for RHEL/Fedora/SUSE hosts — the bundled self-update
     # picks .deb vs .rpm by the target's OS family.
     agent_rpm_path: str = ""
+
+    # ── Agent release channel (GitHub) ──────────────────────────────────────
+    # Where the yoloman-agent package is published. Bossman polls this repo's
+    # latest release (its manifest.json carries each asset's SHA-256), so it can
+    # detect a NEW package by hash + version and offer a one-click rollout that
+    # pushes the verified .deb/.rpm to enrolled hosts via the self-update channel.
+    agent_release_repo: str = "imoes/yoloman"
+    agent_release_enabled: bool = True
+    # How often the poller re-checks the release channel (seconds).
+    agent_release_check_interval_seconds: int = 3600
+    # Optional GitHub token — only needed for a private repo or to avoid the
+    # unauthenticated API rate limit. A public repo works without it.
+    github_token: str = ""
     # The address:port the deployed agent listens on (0.0.0.0 so Bossman can
     # reach it) and the value stored as the Agent row's address (host:port).
     agent_listen_port: int = 18051

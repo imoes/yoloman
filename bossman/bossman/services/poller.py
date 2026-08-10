@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
-from bossman.services import notification
+from bossman.services import agent_release, notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.monitoring import (
     evaluate_assigned_checks,
@@ -782,6 +782,13 @@ async def poller_loop(
         if settings.poll_enabled:
             started = datetime.now(timezone.utc)
             try:
+                # Check the agent release channel (throttled to its own interval
+                # inside maybe_refresh) so "a newer package is on GitHub" is known
+                # without a separate loop. Never blocks the poll cycle materially.
+                try:
+                    await agent_release.maybe_refresh(settings)
+                except Exception:  # noqa: BLE001
+                    logger.debug("agent-release check skipped", exc_info=True)
                 results = await poll_once(session_factory, settings)
                 failed = [r for r in results if r.errors]
                 if failed:

@@ -66,6 +66,12 @@ services:
       BOSSMAN_PXE_VNC_HOST: ${BOSSMAN_PXE_VNC_HOST:-192.0.2.130}
       BOSSMAN_NETBOOT_SECRET: ${BOSSMAN_NETBOOT_SECRET:-}
       BOSSMAN_IMAGE_BASE_URL: ${BOSSMAN_IMAGE_BASE_URL:-}
+      # Agent release channel (GitHub). Repo the yoloman-agent package is
+      # published to; the token is only needed while that repo is PRIVATE (put
+      # the real value in the gitignored .env, never here). Public repo → leave
+      # the token empty. See services/agent_release.py.
+      BOSSMAN_AGENT_RELEASE_REPO: ${BOSSMAN_AGENT_RELEASE_REPO:-imoes/yoloman}
+      BOSSMAN_GITHUB_TOKEN: ${BOSSMAN_GITHUB_TOKEN:-}
     command: ["uv", "run", "uvicorn", "bossman.main:app", "--host", "0.0.0.0", "--port", "8000"]
     # Event Console (gap #2): expose the passive syslog/SNMP-trap UDP listeners.
     # Privileged 514/162 on the host map to the unprivileged in-container ports;

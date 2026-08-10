@@ -14,6 +14,7 @@ import { ChatService } from '../../core/services/chat.service';
 import { SystemSettingsService } from '../../core/services/system-settings.service';
 import { ChatBackendName, ChatPrefs, ClaudeStartResponse, CodexStartResponse } from '../../core/models/chat.model';
 import { EnrollInfo } from '../../core/models/enroll.model';
+import { AgentUpdatesComponent } from './agent-updates.component';
 
 /**
  * v1 scope, deliberately small: Bossman's REST API has no user-management
@@ -29,7 +30,7 @@ import { EnrollInfo } from '../../core/models/enroll.model';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule],
+  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent],
   template: `
     <div class="bm-page">
       <h1>Settings</h1>
@@ -111,6 +112,8 @@ import { EnrollInfo } from '../../core/models/enroll.model';
           }
         </mat-card-content>
       </mat-card>
+
+      <app-agent-updates />
 
       <mat-card class="bm-catalog-card">
         <mat-card-header>

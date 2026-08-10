@@ -1,7 +1,11 @@
 # nfpm package definition for agentic-mcpd — builds both .deb and .rpm from
 # this single config (nfpm package -f packaging/nfpm.yaml -p rpm|deb -t <out>).
 # See docs/plan.md's packaging section for the build/install-test workflow.
-name: agentic-mcp
+# Package renamed agentic-mcp → yoloman-agent. The binary, systemd unit and all
+# on-disk paths stay agentic-mcp(d) (renaming those would break every installed
+# host); only the *package* identity changes. replaces/conflicts/provides make
+# the new package cleanly supersede an already-installed agentic-mcp on upgrade.
+name: yoloman-agent
 arch: amd64
 platform: linux
 
@@ -11,14 +15,24 @@ overrides:
   deb:
     depends:
       - libpam0g
+    replaces:
+      - agentic-mcp
+    conflicts:
+      - agentic-mcp
+    provides:
+      - agentic-mcp
   rpm:
     depends:
       - pam
+    replaces:
+      - agentic-mcp
+    provides:
+      - agentic-mcp
 version: "${VERSION}"
 section: admin
 priority: optional
 maintainer: "mutkluge"
-homepage: "https://github.com/mutkluge/agentic-mcp"
+homepage: "https://github.com/imoes/yoloman"
 description: |
   YOLO-MANager (agentic-mcpd) — an AI-native Linux node agent exposing
   system state and management over MCP (Streamable HTTP) and REST,
