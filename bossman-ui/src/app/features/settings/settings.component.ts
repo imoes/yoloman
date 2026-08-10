@@ -15,6 +15,7 @@ import { SystemSettingsService } from '../../core/services/system-settings.servi
 import { ChatBackendName, ChatPrefs, ClaudeStartResponse, CodexStartResponse } from '../../core/models/chat.model';
 import { EnrollInfo } from '../../core/models/enroll.model';
 import { AgentUpdatesComponent } from './agent-updates.component';
+import { InfraKnowledgeComponent } from './infra-knowledge.component';
 
 /**
  * v1 scope, deliberately small: Bossman's REST API has no user-management
@@ -30,7 +31,7 @@ import { AgentUpdatesComponent } from './agent-updates.component';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent],
+  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent, InfraKnowledgeComponent],
   template: `
     <div class="bm-page">
       <h1>Settings</h1>
@@ -112,6 +113,8 @@ import { AgentUpdatesComponent } from './agent-updates.component';
           }
         </mat-card-content>
       </mat-card>
+
+      <app-infra-knowledge />
 
       <app-agent-updates />
 

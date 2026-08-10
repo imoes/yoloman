@@ -82,6 +82,28 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "search_infra",
+            "description": (
+                "Search the LIVE infrastructure knowledge index across the WHOLE fleet — host "
+                "identity/health, current problems (WARN/CRIT), config drift, and network "
+                "connections — and return the most relevant facts. Use this to ground any answer "
+                "about the real infrastructure and to spot RELATIONSHIPS across hosts (e.g. 'which "
+                "hosts are CRIT', 'what does web07 talk to', 'why might db01 be failing'). Prefer "
+                "this over guessing; each fact names its host."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Natural-language search over the fleet's live state."},
+                    "top_k": {"type": "integer", "description": "How many facts to return (default 8)."},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "discover_host_checks",
             "description": (
                 "Run monitoring auto-discovery on a host: detect which checks apply and the "
@@ -250,6 +272,23 @@ async def execute_tool(
 
         root = getattr(settings, "help_root", "/etc/bossman/help") if settings else "/etc/bossman/help"
         return {"query": args.get("query", ""), "results": help_svc.search_help(root, args.get("query", ""))}
+    if name == "search_infra":
+        from bossman.services import knowledge_search
+        from bossman.services.embedding_client import EmbeddingClientError, embedding_client_for
+
+        query = args.get("query", "")
+        top_k = max(1, min(int(args.get("top_k") or 8), 20))
+        hits: list = []
+        if settings is not None:  # try semantic; fall back to lexical (no vector DB needed)
+            try:
+                hits = await knowledge_search.search(session, embedding_client_for(settings), query, top_k=top_k)
+            except EmbeddingClientError:
+                hits = []
+        if not hits:
+            hits = await knowledge_search.search_lexical(session, query, top_k=top_k)
+        return {"query": query, "facts": [
+            {"kind": h.kind, "title": h.title, "text": h.text, "host_id": h.host_id,
+             "similarity": h.similarity, "retriever": h.retriever} for h in hits]}
     if name in ("discover_host_checks", "assign_host_check"):
         return await _check_tool(session, name, args, settings, client_factory)
     if name in ("analyze_host", "read_host_log"):

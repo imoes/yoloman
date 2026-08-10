@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
 from bossman.db.models import Agent, AgentObservedState, HostEdge, Metric, MetricRaw
-from bossman.services import agent_release, notification
+from bossman.services import agent_release, knowledge_index, notification
 from bossman.services.agent_client import AgentClient, AgentClientError, client_for
 from bossman.services.monitoring import (
     evaluate_assigned_checks,
@@ -789,6 +789,12 @@ async def poller_loop(
                     await agent_release.maybe_refresh(settings)
                 except Exception:  # noqa: BLE001
                     logger.debug("agent-release check skipped", exc_info=True)
+                # Rebuild the infra knowledge index (throttled inside; incremental
+                # + degrades to text-only when no embed endpoint is present).
+                try:
+                    await knowledge_index.maybe_reindex(session_factory, settings)
+                except Exception:  # noqa: BLE001
+                    logger.debug("knowledge reindex skipped", exc_info=True)
                 results = await poll_once(session_factory, settings)
                 failed = [r for r in results if r.errors]
                 if failed:

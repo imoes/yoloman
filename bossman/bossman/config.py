@@ -77,6 +77,15 @@ class Settings(BaseSettings):
     # Optional GitHub token — only needed for a private repo or to avoid the
     # unauthenticated API rate limit. A public repo works without it.
     github_token: str = ""
+
+    # ── Infra knowledge index (RAG) ─────────────────────────────────────────
+    # The poller periodically rebuilds a semantic+lexical knowledge index over
+    # the live fleet (services/knowledge_index.py) so the assistant can answer
+    # grounded questions ("ask the infrastructure"). Incremental (content-hash),
+    # and it degrades to lexical retrieval when no embedding endpoint is present
+    # — so it never hard-depends on the vector DB / embed model.
+    knowledge_index_enabled: bool = True
+    knowledge_reindex_interval_seconds: int = 600
     # The address:port the deployed agent listens on (0.0.0.0 so Bossman can
     # reach it) and the value stored as the Agent row's address (host:port).
     agent_listen_port: int = 18051

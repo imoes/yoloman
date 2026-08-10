@@ -570,6 +570,42 @@ class PlanEmbedding(Base):
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
 
 
+class KnowledgeEmbedding(Base):
+    """One natural-language "knowledge card" about the LIVE infrastructure,
+    embedded — the substrate for infra-grounded RAG (services/knowledge_index.py
+    builds the cards, services/knowledge_search.py retrieves them, api/knowledge.py
+    answers questions from them). Unlike PlanEmbedding (static catalog) this indexes
+    the running fleet: a host summary, its current problems, its network edges, etc.
+
+    `doc_id` is the natural primary key and is STABLE per source entity (e.g.
+    `host:{agent_id}`, `problems:{agent_id}`, `topology:{agent_id}`), so re-indexing
+    upserts in place; `content_hash` lets the indexer re-embed only what changed."""
+
+    __tablename__ = "knowledge_embeddings"
+
+    doc_id: Mapped[str] = mapped_column(String, primary_key=True)
+    # What this card is about — host | problems | topology | config | event | doc …
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    # The entity it derives from (agent id, event id, …) — free-form, for provenance.
+    ref_id: Mapped[str | None] = mapped_column(String)
+    # The host this card concerns (for host-scoped retrieval); NULL for fleet/doc cards.
+    host_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    # sha256 of `text` — the "only re-embed what changed" short-circuit.
+    content_hash: Mapped[str] = mapped_column(String, nullable=False)
+    # NULLABLE on purpose: a card is stored even when no embedding model is
+    # available, so lexical/structured retrieval still grounds the AI. The vector
+    # is an optimisation (semantic recall), not a hard requirement — the feature
+    # must not hard-depend on a vector DB / embed endpoint being present.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(CHUNK_EMBEDDING_DIM))
+    # Which embedding model produced the vector ("" when stored without one) — a
+    # model switch makes old rows incomparable, so retrieval filters by the model.
+    model: Mapped[str] = mapped_column(String, nullable=False, default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        TZ_DATETIME, server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class SeverityLabel(Base):
     """Display-only label/color override per state (Zabbix gap-analysis
     Block K10) — cosmetic: `state` stays yolo-man's real 4-value state
