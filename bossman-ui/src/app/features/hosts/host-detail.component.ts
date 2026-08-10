@@ -1,4 +1,7 @@
 import { Component, OnInit, computed, inject, signal, viewChild } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { ScopeVarsEditorComponent } from '../../shared/components/scope-vars-dialog/scope-vars-editor.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
@@ -152,6 +155,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     TopologyComponent,
     HostManagementComponent,
     HostResourcesComponent,
+    ScopeVarsEditorComponent,
     DeploymentEdgesComponent,
     KubernetesDeployComponent,
     MetricChartComponent,
@@ -751,6 +755,11 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                           </tbody>
                         </table>
                       } @else { <p class="bm-empty">No plans/policies apply to this host. Link one in OU / Policy.</p> }
+                    } @else if (selectedPane() === '::variables') {
+                      <h3 class="bm-gpo-h">Playbook variables (host_vars)</h3>
+                      <p class="bm-dim">Variables passed to playbooks/runbooks for this host — a single value, a list, or a dict. They resolve GPO-style (group &lt; OU &lt; host) at run time.</p>
+                      <app-scope-vars-editor [embedded]="true" scopeType="host" [scopeId]="agent.id"
+                        [scopeLabel]="'host ' + agent.name" (saved)="onVarsSaved()" />
                     } @else if (selRes(obs); as r) {
                       <div class="bm-cfg-row">
                         <code class="bm-cfg-path">{{ r.path }}</code>
@@ -2046,6 +2055,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
 })
 export class HostDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private http = inject(HttpClient);
   private agentService = inject(AgentService);
   private checkService = inject(CheckService);
   private thrCatalog = signal<CheckCatalogEntry[]>([]);
@@ -2679,6 +2689,7 @@ export class HostDetailComponent implements OnInit {
   loadObserved(refresh = false): void {
     const agent = this.agent();
     if (!agent) return;
+    this.loadVarsCount();
     this.observedLoading.set(true);
     this.observedError.set(null);
     this.rollbackTarget.set(null);
@@ -2733,6 +2744,21 @@ export class HostDetailComponent implements OnInit {
   }>({ managed: [], drift: [], sources: {} });
   driftBusy = signal(false);
 
+  // Count of host_vars for the Configuration ▸ Variables category badge. Loaded
+  // when the Configuration tab opens and refreshed after an in-place save.
+  varsCount = signal(0);
+  private loadVarsCount(): void {
+    const a = this.agent();
+    if (!a) return;
+    this.http.get<{ vars?: Record<string, unknown> }>(
+      `${environment.apiUrl}/scope-vars?scope_type=host&agent_id=${a.id}`,
+    ).subscribe({
+      next: (r) => this.varsCount.set(Object.keys(r?.vars ?? {}).length),
+      error: () => this.varsCount.set(0),
+    });
+  }
+  onVarsSaved(): void { this.loadVarsCount(); }
+
   // ---- Block G: GPO-style settings editor (gpedit model: category tree left,
   // settings list right, per-setting Not configured / Configured / Removed) ----
   selectedPane = signal<string>('::thresholds');
@@ -2769,6 +2795,7 @@ export class HostDetailComponent implements OnInit {
     const cats: { key: string; label: string; icon: string; count: number }[] = [
       { key: '::mon', label: 'Monitoring', icon: 'speed', count: this.thresholds().length },
       { key: '::pol', label: 'Policies', icon: 'policy', count: this.appliedPlans().length },
+      { key: '::vars', label: 'Variables', icon: 'data_object', count: this.varsCount() },
     ];
     for (const g of this.categoryGroups(obs)) {
       cats.push({ key: g.cat.key, label: g.cat.label, icon: g.cat.icon, count: g.files.length });
@@ -2780,6 +2807,7 @@ export class HostDetailComponent implements OnInit {
     const cat = this.gpoActiveCat();
     if (cat === '::mon') return [{ pane: '::thresholds', label: 'Thresholds', title: 'Monitoring thresholds', drift: false }];
     if (cat === '::pol') return [{ pane: '::plans', label: 'Applied plans', title: 'Applied plans', drift: false }];
+    if (cat === '::vars') return [{ pane: '::variables', label: 'Host variables', title: 'Playbook variables (host_vars)', drift: false }];
     const grp = this.categoryGroups(obs).find((g) => g.cat.key === cat);
     return (grp?.files ?? []).map((f) => ({ pane: f.path, label: this.baseName(f.path), title: f.path, drift: !!this.driftFor(f.path) }));
   }

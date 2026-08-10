@@ -116,6 +116,49 @@ def submit_check(
             "validation": result.to_dict()}
 
 
+# Older translations baked a boilerplate lead sentence into the description
+# ("Checkmk check 'x' (service: …), translated to a read-only on-host Starlark
+# check module."). The dump generator no longer emits it, but ~450 catalog
+# entries still carry it. Strip it at serve time so no consumer (UI, chat, MCP,
+# docs summary) ever shows the internal "Checkmk … translated to Starlark"
+# wording; a real, retranslated description (which never matches) passes through
+# untouched. This does NOT hide the marker from retranslate_checks.py, which
+# selects on prompt_version / empty-options / unrunnable — not on this text.
+_CHECK_BOILERPLATE = re.compile(
+    r"(?:checkmk|monitoring)\s+check\s+'[^']*'"          # Checkmk/Monitoring check 'name'
+    r"(?:\s*\(service:[^)]*\))?"                          # optional (service: …)
+    r"\s*[,—-]?\s*"
+    r"(?:translated\s+to\s+a\s+)?read-only\s+on-host\s+starlark\s+check(?:\s+module)?\.?",
+    re.IGNORECASE,
+)
+
+
+def _humanized_label(short: str) -> str:
+    """A plain label from the service-name template ("Interface %s" → "Interface")."""
+    label = re.sub(r"%s", "", short or "")
+    label = re.sub(r"\s+", " ", label).strip(" -:—").strip()
+    return label
+
+
+def clean_check_description(description: str, short: str = "") -> str:
+    """Drop the translator boilerplate from a check description for display.
+
+    A description with real prose (no boilerplate) is returned verbatim. One that
+    is only boilerplate is replaced by a clean sentence built from the short
+    description, so the reader gets "Monitors Interface on this host." instead of
+    "Checkmk check 'lnx_if' … translated to a read-only on-host Starlark …"."""
+    if not description:
+        label = _humanized_label(short)
+        return f"Monitors {label} on this host." if label else ""
+    if not _CHECK_BOILERPLATE.search(description):
+        return description
+    stripped = _CHECK_BOILERPLATE.sub("", description).strip(" ,.—-\n\t").strip()
+    if stripped:
+        return stripped
+    label = _humanized_label(short)
+    return f"Monitors {label} on this host." if label else "On-host monitoring check."
+
+
 def _summary(description: str, limit: int = 240) -> str:
     """First prose sentence(s) of a markdown check description — skip headings,
     blockquote/`>` markers and blank lines; stop at the next heading. Used as the
@@ -167,7 +210,8 @@ def list_checks(checks_dir: str | Path) -> list[dict[str, Any]]:
             # second round-trip to GET /checks/{name}. Derived from the markdown
             # description's Overview: the first real prose line, headers/blockquote
             # markers stripped.
-            entry["summary"] = _summary(meta.get("description", ""))
+            entry["summary"] = _summary(
+                clean_check_description(meta.get("description", ""), entry["short_description"]))
         except (OSError, ModuleLibraryError):
             entry["options"] = {}
         try:
@@ -191,6 +235,11 @@ def load_check(checks_dir: str | Path, name: str) -> dict[str, Any]:
         star_code = star_path.read_text(encoding="utf-8")
     except OSError as exc:
         raise ModuleLibraryError(f"cannot read check {name!r}: {exc}") from exc
+    # Serve a display-clean description (drops the translator boilerplate); the
+    # on-disk sidecar is untouched, so retranslate's selection is unaffected.
+    if isinstance(metadata, dict) and metadata.get("description"):
+        metadata["description"] = clean_check_description(
+            metadata["description"], metadata.get("short_description", ""))
     return {"name": name, "metadata": metadata, "star_code": star_code}
 
 

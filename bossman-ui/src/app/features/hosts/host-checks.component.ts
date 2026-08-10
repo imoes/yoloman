@@ -5,7 +5,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { Agent } from '../../core/models/agent.model';
 import { CheckCatalogEntry, CheckOption, DiscoveryProposal, EffectiveCheck } from '../../core/models/check.model';
@@ -16,10 +15,6 @@ import { AgentService } from '../../core/services/agent.service';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
 import { serviceStateBadge } from '../../shared/status.util';
 import { formatMetricValue } from '../../shared/format.util';
-import {
-  ScopeVarsDialogComponent,
-  ScopeVarsDialogData,
-} from '../../shared/components/scope-vars-dialog/scope-vars-dialog.component';
 
 /**
  * Block G9-P2 — the host's Checks tab. Shows the checks that effectively
@@ -49,9 +44,6 @@ import {
         <button mat-stroked-button (click)="recheckNow()" [disabled]="rechecking()"
                 title="Run this host's checks now instead of waiting for the next poll">
           <mat-icon>refresh</mat-icon> {{ rechecking() ? 'Rechecking…' : 'Recheck now' }}
-        </button>
-        <button mat-button (click)="editHostVars()">
-          <mat-icon>data_object</mat-icon> Variables…
         </button>
       </div>
 
@@ -273,7 +265,6 @@ export class HostChecksComponent {
   private checkService = inject(CheckService);
   private monitoringService = inject(MonitoringService);
   private agentService = inject(AgentService);
-  private dialog = inject(MatDialog);
   agent = input.required<Agent>();
   /** F-4 bridge: the monitoring services actually active on this host (from
    * threshold check-rules + the agent's built-in metrics) — a different notion
@@ -309,14 +300,6 @@ export class HostChecksComponent {
       },
       error: () => this.descriptions.update((m) => ({ ...m, [name]: 'Could not load description.' })),
     });
-  }
-
-  /** Host-scope runbook variables (strongest in the GPO merge). */
-  editHostVars(): void {
-    const a = this.agent();
-    this.dialog.open<ScopeVarsDialogComponent, ScopeVarsDialogData, boolean>(
-      ScopeVarsDialogComponent, { width: '560px', data: { scopeType: 'host', scopeId: a.id, scopeLabel: 'host ' + a.name } },
-    );
   }
 
   checks = signal<EffectiveCheck[]>([]);
