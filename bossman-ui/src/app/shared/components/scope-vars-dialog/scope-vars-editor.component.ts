@@ -42,50 +42,69 @@ const MASK = '••••••••';
     }
     @for (r of rows(); track $index) {
       <div class="sv-row">
+        <!-- The variable NAME and its VALUE sit on one line. A scalar keeps its
+             single value here; a list/dict shows a shape chip and its entries
+             (each name-beside-value) drop below. -->
         <div class="sv-row-head">
           <input class="sv-in sv-key" [ngModel]="r.key" (ngModelChange)="setKey($index, $event)" placeholder="variable name" />
-          <span class="sv-shape" [attr.data-shape]="shape(r)">{{ shape(r) }}</span>
-          @if (isScalarText(r)) {
-            <button type="button" class="sv-iconbtn" (click)="toggleSecret($index)"
-                    [class.on]="r.secret" [title]="r.secret ? 'Secret — encrypted at rest' : 'Mark as secret (encrypt at rest)'">
-              <mat-icon>{{ r.secret ? 'lock' : 'lock_open' }}</mat-icon>
-            </button>
+          @if (!structured(r)) {
+            @if (r.leaves[0].kind === 'bool') {
+              <select class="sv-in sv-val" [ngModel]="r.leaves[0].value" (ngModelChange)="setLeafValue($index, 0, $event)">
+                <option value="true">true</option><option value="false">false</option>
+              </select>
+            } @else {
+              <input class="sv-in sv-val" [type]="r.secret ? 'password' : 'text'"
+                     [ngModel]="r.leaves[0].value" (ngModelChange)="setLeafValue($index, 0, $event)"
+                     (focus)="onSecretFocus($index, 0)"
+                     [placeholder]="r.secret ? '••••••••' : (r.leaves[0].kind === 'number' ? '3306' : 'value')" />
+            }
+            @if (!r.secret) {
+              <select class="sv-in sv-type" [ngModel]="r.leaves[0].kind" (ngModelChange)="setLeafKind($index, 0, $event)" title="Value type">
+                <option value="text">abc</option><option value="number">123</option><option value="bool">☑</option>
+              </select>
+            }
+            @if (isScalarText(r)) {
+              <button type="button" class="sv-iconbtn" (click)="toggleSecret($index)"
+                      [class.on]="r.secret" [title]="r.secret ? 'Secret — encrypted at rest' : 'Mark as secret (encrypt at rest)'">
+                <mat-icon>{{ r.secret ? 'lock' : 'lock_open' }}</mat-icon>
+              </button>
+            }
+          } @else {
+            <span class="sv-shape" [attr.data-shape]="shape(r)">{{ shape(r) }}</span>
           }
           <button type="button" class="sv-iconbtn" (click)="removeRow($index)" title="Remove variable"><mat-icon>close</mat-icon></button>
         </div>
 
-        <div class="sv-leaves">
-          @for (l of r.leaves; track $index; let li = $index) {
-            <div class="sv-leaf">
-              @if (structured(r)) {
+        <!-- List/dict entries: each row is name-beside-value. -->
+        @if (structured(r)) {
+          <div class="sv-leaves">
+            @for (l of r.leaves; track $index; let li = $index) {
+              <div class="sv-leaf">
                 <input class="sv-in sv-name" [ngModel]="l.name" (ngModelChange)="setLeafName($index, li, $event)"
                        placeholder="leave empty for list · name it for a dict"
                        title="Leave the name empty and this entry is a list item; type a name and the variable becomes a dict." />
-              }
-              @if (l.kind === 'bool') {
-                <select class="sv-in sv-val" [ngModel]="l.value" (ngModelChange)="setLeafValue($index, li, $event)">
-                  <option value="true">true</option><option value="false">false</option>
-                </select>
-              } @else {
-                <input class="sv-in sv-val" [type]="r.secret && !structured(r) ? 'password' : 'text'"
-                       [ngModel]="l.value" (ngModelChange)="setLeafValue($index, li, $event)"
-                       (focus)="onSecretFocus($index, li)"
-                       [placeholder]="r.secret ? '••••••••' : (l.kind === 'number' ? '3306' : 'value')" />
-              }
-              @if (!r.secret) {
+                @if (l.kind === 'bool') {
+                  <select class="sv-in sv-val" [ngModel]="l.value" (ngModelChange)="setLeafValue($index, li, $event)">
+                    <option value="true">true</option><option value="false">false</option>
+                  </select>
+                } @else {
+                  <input class="sv-in sv-val" [ngModel]="l.value" (ngModelChange)="setLeafValue($index, li, $event)"
+                         [placeholder]="l.kind === 'number' ? '3306' : 'value'" />
+                }
                 <select class="sv-in sv-type" [ngModel]="l.kind" (ngModelChange)="setLeafKind($index, li, $event)" title="Value type">
                   <option value="text">abc</option><option value="number">123</option><option value="bool">☑</option>
                 </select>
-              }
-              @if (r.leaves.length > 1) {
-                <button type="button" class="sv-iconbtn" (click)="removeLeaf($index, li)" title="Remove entry"><mat-icon>remove</mat-icon></button>
-              }
-            </div>
-          }
-          <button type="button" class="sv-addleaf" (click)="addLeaf($index)">
-            <mat-icon>add</mat-icon> {{ structured(r) ? 'Add entry' : 'Make a list / dict' }}
-          </button>
-        </div>
+                @if (r.leaves.length > 1) {
+                  <button type="button" class="sv-iconbtn" (click)="removeLeaf($index, li)" title="Remove entry"><mat-icon>remove</mat-icon></button>
+                }
+              </div>
+            }
+          </div>
+        }
+
+        <button type="button" class="sv-addleaf" (click)="addLeaf($index)">
+          <mat-icon>add</mat-icon> {{ structured(r) ? 'Add entry' : 'Make a list / dict' }}
+        </button>
       </div>
     }
     <button type="button" class="sv-addrow" (click)="addRow()"><mat-icon>add</mat-icon> Add variable</button>
