@@ -276,24 +276,46 @@ async def find_providers(
     return out
 
 
-def roles_providing(settings: Settings, capability: str, backend: str | None = None) -> list[dict]:
-    """Which catalog ROLE a NEW server would need to provide `capability` (optionally a specific backend) —
-    scanned from the per-template capabilities.json, no host involved."""
-    catalog = load_catalog(settings)
-    accepted = expand_backends(settings, [backend]) if backend else None
-    out: list[dict] = []
-    for role, entry in catalog.items():
-        template = entry.get("template") or role
-        caps = load_template_capabilities(settings, template)
-        if not caps:
+@lru_cache(maxsize=4)
+def _provider_roles_index(templates_dir: str) -> dict[str, list[dict]]:
+    """capability → [provider role candidates], built once by scanning every
+    config_templates/<t>/capabilities.json directly (not via package_catalog,
+    whose template linkage misses most enriched contracts). Each template dir is a
+    role a NEW server could take on. Cached — the first call walks the tree once."""
+    index: dict[str, list[dict]] = {}
+    base = Path(templates_dir)
+    if not base.is_dir():
+        return index
+    for capf in base.glob("*/capabilities.json"):
+        try:
+            caps = json.loads(capf.read_text())
+        except (OSError, ValueError):
             continue
+        if not isinstance(caps, dict):
+            continue
+        template = capf.parent.name
         for prov in caps.get("provides", []) or []:
-            if not isinstance(prov, dict) or prov.get("capability") != capability:
+            if not isinstance(prov, dict) or not prov.get("capability"):
                 continue
-            if accepted and prov.get("backend") and prov["backend"] not in accepted:
-                continue
-            out.append({"role": role, "template": template, "label": entry.get("label", role),
-                        "backend": prov.get("backend"), "default_port": prov.get("default_port")})
+            backend = prov.get("backend") or (prov.get("backends") or [None])[0]
+            index.setdefault(prov["capability"], []).append({
+                "role": template, "template": template, "label": template,
+                "backend": backend, "default_port": prov.get("default_port")})
+    return index
+
+
+def roles_providing(settings: Settings, capability: str, backend: str | None = None) -> list[dict]:
+    """Which ROLE a NEW server would need to provide `capability` (optionally a
+    specific backend) — from the per-template capabilities.json contracts. Enriches
+    the label from package_catalog when a matching entry exists."""
+    accepted = expand_backends(settings, [backend]) if backend else None
+    catalog = load_catalog(settings)
+    labels = {r: (e.get("label") or r) for r, e in catalog.items()} if isinstance(catalog, dict) else {}
+    out: list[dict] = []
+    for cand in _provider_roles_index(settings.config_templates_dir).get(capability, []):
+        if accepted and cand.get("backend") and cand["backend"] not in accepted:
+            continue
+        out.append({**cand, "label": labels.get(cand["role"], cand["label"])})
     return out
 
 

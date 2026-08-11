@@ -1834,6 +1834,9 @@ class Blueprint(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     status: Mapped[str] = mapped_column(String, nullable=False, default="draft")   # draft | ready
+    # Folder path for the blueprint tree (e.g. "web/wordpress"); "" = root. The UI
+    # groups blueprints into a tree by splitting this on "/", instead of a flat list.
+    path: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     services: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
