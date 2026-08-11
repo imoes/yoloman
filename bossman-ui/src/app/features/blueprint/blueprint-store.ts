@@ -50,6 +50,9 @@ export class BlueprintStore {
   /** id of the backend Blueprint this draft is bound to (null = local-only, not yet saved to the fleet). */
   readonly backendId = signal<string | null>(null);
   readonly saving = signal(false);
+  /** Folder path in the blueprint tree ("web/wordpress") — organises the saved
+   *  blueprint into the tree navigator instead of a flat list. */
+  readonly folderPath = signal('');
 
   readonly services = computed(() => this.bp().services);
   readonly selectedService = computed(() =>
@@ -287,6 +290,7 @@ export class BlueprintStore {
     this.selected.set(null);
     this.error.set('');
     this.backendId.set(null);
+    this.folderPath.set('');
     this.persist();
   }
 
@@ -350,7 +354,7 @@ export class BlueprintStore {
     this.saving.set(true); this.error.set('');
     const body = {
       name: this.bp().name || 'blueprint',
-      description: '', status: 'draft', services: this.toBackendServices(),
+      description: '', status: 'draft', path: this.folderPath(), services: this.toBackendServices(),
     };
     try {
       const id = this.backendId();
@@ -371,8 +375,9 @@ export class BlueprintStore {
   async openBackend(id: string): Promise<void> {
     this.error.set('');
     try {
-      const bp = await firstValueFrom(this.http.get<{ id: string; name: string; services: any[] }>(`${environment.apiUrl}/blueprints/${id}`));
+      const bp = await firstValueFrom(this.http.get<{ id: string; name: string; path?: string; services: any[] }>(`${environment.apiUrl}/blueprints/${id}`));
       this.bp.set({ name: bp.name, services: this.fromBackendServices(bp.services) });
+      this.folderPath.set(bp.path || '');
       this.backendId.set(bp.id);
       this.selected.set(null);
       this.persist();

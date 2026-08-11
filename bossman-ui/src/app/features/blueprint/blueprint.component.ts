@@ -71,13 +71,29 @@ interface RunbookRow { id: string; name: string; folder: string }
           <input #fileInput type="file" accept=".yml,.yaml,.json" hidden (change)="onFile($event)" />
           <button mat-stroked-button class="bm-w" (click)="store.reset()"><mat-icon>delete_sweep</mat-icon> Clear</button>
 
+          <label class="bm-fld"><span>Folder (tree path, e.g. web/wordpress)</span>
+            <input [ngModel]="store.folderPath()" (ngModelChange)="store.folderPath.set($event)" placeholder="(root)" />
+          </label>
+
           <div class="bm-pal-h" style="margin-top:14px">Fleet</div>
-          <select class="bm-w bm-bp-pick" [ngModel]="''" (ngModelChange)="loadBackend($event)"
-                  title="Load a saved blueprint from the fleet into the editor">
-            <option value="" disabled selected>Load saved blueprint…</option>
-            @for (b of backendList(); track b.id) { <option [value]="b.id">{{ b.name }} ({{ b.status }})</option> }
-          </select>
-          <button mat-flat-button color="primary" class="bm-w" (click)="saveToFleet()" [disabled]="store.saving() || !store.services().length">
+          <div class="bm-tree" title="Saved blueprints, organised by folder path">
+            @for (r of blueprintTree(); track r.kind + r.path + (r.id || '')) {
+              @if (r.kind === 'folder') {
+                <div class="bm-tree-folder" [style.paddingLeft.px]="6 + r.depth * 14" (click)="toggleFolder(r.path)">
+                  <mat-icon>{{ r.collapsed ? 'chevron_right' : 'expand_more' }}</mat-icon>
+                  <mat-icon class="bm-tree-fic">folder</mat-icon><span>{{ r.label }}</span>
+                </div>
+              } @else {
+                <button type="button" class="bm-tree-leaf" [class.on]="store.backendId() === r.id"
+                        [style.paddingLeft.px]="6 + r.depth * 14 + 16" (click)="loadBackend(r.id!)"
+                        [title]="'Load ' + r.label">
+                  <mat-icon>description</mat-icon><span class="bm-tree-name">{{ r.label }}</span>
+                  <span class="bm-tree-st">{{ r.status }}</span>
+                </button>
+              }
+            } @empty { <p class="bm-hint" style="padding:4px 6px">No saved blueprints yet.</p> }
+          </div>
+          <button mat-flat-button color="primary" class="bm-w" style="margin-top:8px" (click)="saveToFleet()" [disabled]="store.saving() || !store.services().length">
             <mat-icon>cloud_upload</mat-icon> {{ store.backendId() ? 'Update in fleet' : 'Save to fleet' }}
           </button>
           @if (store.backendId(); as id) {
@@ -388,6 +404,18 @@ interface RunbookRow { id: string; name: string; folder: string }
     .bm-sug-btn mat-icon { font-size: 15px; height: 15px; width: 15px; opacity: .8; }
     .bm-sug-btn code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
     .bm-sug-be { font-size: 10.5px; opacity: .6; }
+    .bm-tree { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 4px; max-height: 260px; overflow: auto; }
+    .bm-tree-folder { display: flex; align-items: center; gap: 3px; padding: 3px 6px; cursor: pointer; border-radius: 5px; font-size: 12.5px; }
+    .bm-tree-folder:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent); }
+    .bm-tree-folder mat-icon { font-size: 16px; height: 16px; width: 16px; opacity: .75; }
+    .bm-tree-fic { color: var(--bm-gold, #b8860b); }
+    .bm-tree-leaf { display: flex; align-items: center; gap: 5px; width: 100%; text-align: left; background: none; border: 0;
+      border-radius: 5px; padding: 3px 6px; color: inherit; cursor: pointer; font: inherit; font-size: 12.5px; }
+    .bm-tree-leaf:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 7%, transparent); }
+    .bm-tree-leaf.on { background: color-mix(in srgb, var(--mat-sys-primary) 15%, transparent); }
+    .bm-tree-leaf mat-icon { font-size: 15px; height: 15px; width: 15px; opacity: .7; }
+    .bm-tree-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bm-tree-st { font-size: 10px; opacity: .5; }
     code { font-family: ui-monospace, monospace; }
   `],
 })
@@ -467,6 +495,44 @@ export class BlueprintComponent implements OnInit {
       error: () => { /* offline / empty — picker just stays empty */ },
     });
   }
+
+  // ---- blueprint tree (path-organised, replaces the flat picker) ----------
+  readonly treeCollapsed = signal<Set<string>>(new Set());
+  toggleFolder(path: string): void {
+    this.treeCollapsed.update((s) => { const n = new Set(s); n.has(path) ? n.delete(path) : n.add(path); return n; });
+  }
+
+  /** Flatten the saved blueprints into a depth-tagged, collapsible tree by their
+   *  `path` ("web/wordpress" → folders web › wordpress › <blueprint>). Rendered as
+   *  an indented list so no recursive template is needed. */
+  readonly blueprintTree = computed<{ kind: 'folder' | 'leaf'; depth: number; label: string; path: string; id?: string; status?: string; collapsed?: boolean }[]>(() => {
+    const rows = this.backendList();
+    const collapsed = this.treeCollapsed();
+    // children[folderPath] = { folders:Set, leaves:[] }; root is "".
+    const folders = new Map<string, { subfolders: Set<string>; leaves: BackendBlueprintRow[] }>();
+    const ensure = (p: string) => { if (!folders.has(p)) folders.set(p, { subfolders: new Set(), leaves: [] }); return folders.get(p)!; };
+    ensure('');
+    for (const b of rows) {
+      const segs = (b.path || '').split('/').map((s) => s.trim()).filter(Boolean);
+      let acc = '';
+      for (const seg of segs) { const parent = acc; acc = acc ? `${acc}/${seg}` : seg; ensure(parent).subfolders.add(acc); ensure(acc); }
+      ensure(acc).leaves.push(b);
+    }
+    const out: { kind: 'folder' | 'leaf'; depth: number; label: string; path: string; id?: string; status?: string; collapsed?: boolean }[] = [];
+    const walk = (path: string, depth: number) => {
+      const node = folders.get(path); if (!node) return;
+      for (const sub of [...node.subfolders].sort()) {
+        const isCollapsed = collapsed.has(sub);
+        out.push({ kind: 'folder', depth, label: sub.split('/').pop() || sub, path: sub, collapsed: isCollapsed });
+        if (!isCollapsed) walk(sub, depth + 1);
+      }
+      for (const b of node.leaves.slice().sort((a, z) => a.name.localeCompare(z.name))) {
+        out.push({ kind: 'leaf', depth, label: b.name, path: b.path || '', id: b.id, status: b.status });
+      }
+    };
+    walk('', 0);
+    return out;
+  });
 
   /** Load a saved blueprint from the fleet into the editor. */
   loadBackend(id: string): void {
