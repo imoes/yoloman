@@ -203,18 +203,24 @@ interface RunbookRow { id: string; name: string; folder: string }
                     <p class="bm-warn">Needs <code class="bm-req">{{ req.capability }}</code>@if (req.backends?.length) { <span class="bm-req-be">({{ req.backends!.join(' | ') }})</span> }</p>
                     @if (suggestionFor(req.capability); as sug) {
                       @if (sug.providers.length) {
-                        <div class="bm-sug-sec">Available in inventory:</div>
+                        <div class="bm-sug-sec">Available in inventory — click to connect:</div>
                         @for (p of sug.providers; track p.agent_id) {
-                          <div class="bm-sug"><code>{{ p.hostname || p.address }}</code>
+                          <button type="button" class="bm-sug bm-sug-btn" (click)="connectFleetHost(s.name, req.capability, p)"
+                                  title="Connect {{ s.name }} to this existing host">
+                            <mat-icon>link</mat-icon>
+                            <code>{{ p.hostname || p.address }}</code>
                             <span class="bm-sug-be">{{ p.backend }}{{ p.port ? ':' + p.port : '' }}</span>
-                          </div>
+                          </button>
                         }
                       } @else if (sug.roles.length) {
-                        <div class="bm-sug-sec">No host provides it — new server with role:</div>
+                        <div class="bm-sug-sec">No host provides it — click to add a new server:</div>
                         @for (r of sug.roles; track r.role) {
-                          <div class="bm-sug"><code>{{ r.label || r.role }}</code>
+                          <button type="button" class="bm-sug bm-sug-btn" (click)="addRoleProvider(s.name, req.capability, r)"
+                                  title="Add a new {{ r.label || r.role }} server and connect it">
+                            <mat-icon>add_circle</mat-icon>
+                            <code>{{ r.label || r.role }}</code>
                             <span class="bm-sug-be">{{ r.backend }}</span>
-                          </div>
+                          </button>
                         }
                       } @else {
                         <p class="bm-hint">No provider known yet (catalog is being enriched).</p>
@@ -374,6 +380,14 @@ interface RunbookRow { id: string; name: string; folder: string }
     .bm-plaus-p { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; }
     .bm-plaus-p.err { color: var(--mat-sys-error, #c62828); }
     .bm-plaus-p.warn { color: var(--bm-gold, #b8860b); }
+    .bm-sug-sec { font-size: 11px; opacity: .6; margin: 6px 0 3px; }
+    .bm-sug-btn { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none;
+      border: 1px solid var(--mat-sys-outline-variant); border-radius: 7px; padding: 5px 8px; margin-bottom: 4px;
+      color: inherit; cursor: pointer; font: inherit; font-size: 12px; }
+    .bm-sug-btn:hover { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent); border-color: var(--mat-sys-primary); }
+    .bm-sug-btn mat-icon { font-size: 15px; height: 15px; width: 15px; opacity: .8; }
+    .bm-sug-btn code { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    .bm-sug-be { font-size: 10.5px; opacity: .6; }
     code { font-family: ui-monospace, monospace; }
   `],
 })
@@ -571,6 +585,52 @@ export class BlueprintComponent implements OnInit {
   /** The suggestion for one open-requirement capability (for the template). */
   suggestionFor(capability: string): ProvidersResponse | undefined {
     return this.suggestions()[capability];
+  }
+
+  /** Palette archetype that provides a capability — so a newly-placed provider node
+   *  satisfies the consumer's requirement even before its role contract loads. */
+  private capabilityIcon(cap: string): string {
+    const map: Record<string, string> = {
+      database: 'database', cache: 'cache', message_queue: 'queue', web_server: 'proxy',
+      reverse_proxy: 'proxy', app_runtime: 'container', storage: 'storage', virtualization: 'hypervisor',
+    };
+    return map[cap] || 'server';
+  }
+
+  private placePos(): { x: number; y: number } {
+    const n = this.store.services().length;
+    return { x: 140 + (n % 4) * 190, y: 130 + Math.floor(n / 4) * 165 };
+  }
+
+  /** Step 2 (new server): place a provider node carrying `role` and connect the
+   *  consumer's open requirement to it. The role's contract loads async and upgrades
+   *  the wiring to backend/field grain. */
+  addRoleProvider(consumer: string, cap: string, role: { role: string; template?: string | null }): void {
+    const entry = paletteFor(this.capabilityIcon(cap)) ?? paletteFor('server')!;
+    const pos = this.placePos();
+    const name = this.store.add(entry, pos.x, pos.y);
+    const template = role.template || role.role.replace(/^install-/, '');
+    this.store.update(name, { role: role.role, template });
+    if (role.role) this.loadSchema(role.role);
+    if (template) this.loadContract(template);
+    this.store.connect(consumer, name);
+    this.store.selected.set(consumer);
+  }
+
+  /** Step 2 (existing server): represent a real fleet host as an external provider
+   *  node (its address + the capability it provides) and connect the consumer to it. */
+  connectFleetHost(consumer: string, cap: string, p: any): void {
+    const entry = paletteFor('external') ?? paletteFor('server')!;
+    const pos = this.placePos();
+    const name = this.store.add(entry, pos.x, pos.y);
+    const caps: RoleContract = {
+      provides: [{ capability: cap, backend: p.backend, default_port: p.port ?? null,
+                   field_sources: p.detail?.provides?.[0]?.field_sources }],
+      requires: [],
+    };
+    this.store.update(name, { host: p.hostname || undefined, address: p.address || undefined, caps });
+    this.store.connect(consumer, name);
+    this.store.selected.set(consumer);
   }
 
   /** Fetch a role's parameters once (GET /runbooks lists names only, the detail
