@@ -69,6 +69,7 @@ const WORKSPACES: Workspace[] = [
       { path: '/noc', label: 'NOC view', icon: 'desktop_windows' },
       { path: '/problems', label: 'Problems', icon: 'report_problem' },
       { path: '/events', label: 'Event Console', icon: 'inbox' },
+      { path: '/event-browser', label: 'Event Browser', icon: 'manage_search' },
       { path: '/business-services', label: 'Business services', icon: 'hub' },
       { path: '/capacity', label: 'Capacity', icon: 'trending_up' },
       { path: '/topology', label: 'Topology', icon: 'account_tree' },
