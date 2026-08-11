@@ -3,7 +3,7 @@ from bossman.services import blueprint_provision as bp
 
 
 def test_local_mysql_recipe_argv():
-    r = bp.build_recipe("mariadb", "local", None)
+    r = bp.build_recipe("mariadb", "local", None, generate=True)
     assert r is not None
     assert r["argv"][0] == "mysql"
     assert r["generate"] == ["app_password"]
@@ -14,10 +14,15 @@ def test_local_mysql_recipe_argv():
 
 
 def test_docker_exec_wraps_client():
-    r = bp.build_recipe("mysql", "docker", "db")
+    r = bp.build_recipe("mysql", "docker", "db", generate=True)
     assert r["argv"][:4] == ["docker", "exec", "-i", "db"]
     assert r["argv"][4] == "mysql"
 
 
 def test_unsupported_backend_is_none():
-    assert bp.build_recipe("postgresql", "local", None) is None
+    assert bp.build_recipe("postgresql", "local", None, generate=True) is None
+
+
+def test_custom_password_omits_generate():
+    r = bp.build_recipe("mysql", "local", None, generate=False)
+    assert r["generate"] == []

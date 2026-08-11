@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal, viewChild } from '@angular
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
 import { ScopeVarsEditorComponent } from '../../shared/components/scope-vars-dialog/scope-vars-editor.component';
+import { ProvisionDbDialogComponent } from './provision-db-dialog.component';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { ConfigCategory, categorizeConfigPath, groupByCategory } from '../../shared/config-categories';
@@ -756,10 +757,14 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                         </table>
                       } @else { <p class="bm-empty">No plans/policies apply to this host. Link one in OU / Policy.</p> }
                     } @else if (selectedPane() === '::variables') {
-                      <h3 class="bm-gpo-h">Playbook variables (host_vars)</h3>
-                      <p class="bm-dim">Variables passed to playbooks/runbooks for this host — a single value, a list, or a dict. They resolve GPO-style (group &lt; OU &lt; host) at run time.</p>
+                      <h3 class="bm-gpo-h">Playbook variables (host_vars)
+                        <button mat-button (click)="openProvisionDb(agent)">
+                          <mat-icon>key</mat-icon> Provision DB credential…
+                        </button>
+                      </h3>
+                      <p class="bm-dim">Variables passed to playbooks/runbooks for this host — a single value, a list, or a dict. They resolve GPO-style (group &lt; OU &lt; host) at run time. “Provision DB credential” creates a database + user on a provider and stores the credential here (password encrypted).</p>
                       <app-scope-vars-editor [embedded]="true" scopeType="host" [scopeId]="agent.id"
-                        [scopeLabel]="'host ' + agent.name" (saved)="onVarsSaved()" />
+                        [scopeLabel]="'host ' + agent.name" [reloadTick]="varsReloadTick()" (saved)="onVarsSaved()" />
                     } @else if (selRes(obs); as r) {
                       <div class="bm-cfg-row">
                         <code class="bm-cfg-path">{{ r.path }}</code>
@@ -2746,6 +2751,16 @@ export class HostDetailComponent implements OnInit {
 
   // Count of host_vars for the Configuration ▸ Variables category badge. Loaded
   // when the Configuration tab opens and refreshed after an in-place save.
+  varsReloadTick = signal(0);
+  openProvisionDb(agent: { id: string; name: string }): void {
+    const ref = this.dialog.open(ProvisionDbDialogComponent, {
+      width: '640px', data: { consumerAgentId: agent.id, consumerName: agent.name },
+    });
+    ref.afterClosed().subscribe((ok) => {
+      if (ok) { this.varsReloadTick.update((t) => t + 1); this.loadVarsCount(); }
+    });
+  }
+
   varsCount = signal(0);
   private loadVarsCount(): void {
     const a = this.agent();

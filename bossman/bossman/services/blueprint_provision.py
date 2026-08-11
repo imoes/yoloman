@@ -28,11 +28,12 @@ _MYSQL_SQL = (
 SUPPORTED_BACKENDS = ("mysql", "mariadb")
 
 
-def build_recipe(backend: str, exec_mode: str, container: str | None) -> dict[str, Any] | None:
+def build_recipe(backend: str, exec_mode: str, container: str | None, *, generate: bool) -> dict[str, Any] | None:
     """An inline provisioning recipe (provisioning.provision shape) that creates a
     DB + user on the provider. `exec_mode` "docker" wraps the client in
-    `docker exec <container> …`; "local" runs it on the host directly. Returns None
-    for an unsupported backend."""
+    `docker exec <container> …`; "local" runs it on the host directly. When
+    `generate` is False the app password is supplied by the caller (custom /
+    existing) instead of minted. Returns None for an unsupported backend."""
     if backend not in SUPPORTED_BACKENDS:
         return None
     client_argv = ["mysql", "-u{admin_user}", "-p{admin_password}", "-e", _MYSQL_SQL]
@@ -43,7 +44,7 @@ def build_recipe(backend: str, exec_mode: str, container: str | None) -> dict[st
     return {
         "admin_params": {"admin_user": "DB admin user", "admin_password": "DB admin password"},
         "secret_params": ["admin_password"],
-        "generate": ["app_password"],
+        "generate": ["app_password"] if generate else [],
         "argv": argv,
         "produces": {"name": "{db_name}", "user": "{db_user}", "password": "{app_password}"},
     }
@@ -52,15 +53,19 @@ def build_recipe(backend: str, exec_mode: str, container: str | None) -> dict[st
 async def provision_database(
     client, *, backend: str, exec_mode: str, container: str | None,
     admin_user: str, admin_password: str, db_name: str, db_user: str,
+    app_password: str | None = None,
 ) -> dict[str, Any]:
     """Create the DB + user on the provider host and return
-    {ok, produced_params:{name,user,password}, output, error}. `password` is the
-    freshly generated plaintext — the caller stores it as a vault handle and never
-    returns it to a client."""
-    recipe = build_recipe(backend, exec_mode, container)
+    {ok, produced_params:{name,user,password}, output, error}. When `app_password`
+    is None it is generated; otherwise the caller-supplied one is used (custom or an
+    existing decrypted secret). The caller stores the password as a vault handle and
+    never returns the plaintext to a client."""
+    recipe = build_recipe(backend, exec_mode, container, generate=app_password is None)
     if recipe is None:
         return {"ok": False, "error": f"unsupported backend {backend!r} (supported: {', '.join(SUPPORTED_BACKENDS)})",
                 "produced_params": {}, "output": ""}
     admin_params = {"admin_user": admin_user, "admin_password": admin_password,
                     "db_name": db_name, "db_user": db_user}
+    if app_password is not None:
+        admin_params["app_password"] = app_password
     return await provisioning.provision(client, recipe, admin_params)

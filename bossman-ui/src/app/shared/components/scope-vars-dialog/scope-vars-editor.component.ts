@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, Output, effect, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
@@ -156,6 +156,8 @@ export class ScopeVarsEditorComponent implements OnInit {
   /** Embedded (Configuration tab) shows its own Save button; in the dialog the
    * dialog's action bar drives save() instead. */
   @Input() embedded = false;
+  /** Bump to force a reload (e.g. after out-of-band provisioning wrote host_vars). */
+  reloadTick = input(0);
   @Output() saved = new EventEmitter<void>();
 
   private http = inject(HttpClient);
@@ -164,6 +166,12 @@ export class ScopeVarsEditorComponent implements OnInit {
   error = signal('');
   savedMsg = signal('');
   busy = signal(false);
+
+  constructor() {
+    // Reload when the parent bumps reloadTick (post-provisioning), not on the
+    // initial 0 (ngOnInit already does the first load).
+    effect(() => { if (this.reloadTick() > 0) this.ngOnInit(); });
+  }
 
   // ── shape helpers ─────────────────────────────────────────────────────────
   structured(r: VarRow): boolean { return r.leaves.length > 1 || r.leaves.some((l) => l.name.trim() !== ''); }
