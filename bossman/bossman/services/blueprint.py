@@ -12,6 +12,7 @@ ready-to-view drafts.
 
 from __future__ import annotations
 
+import shlex
 from typing import Any
 
 from sqlalchemy import select
@@ -242,15 +243,27 @@ def plausibility(settings: Settings, services: list[dict], fleet_providers: dict
 
 
 def _docker_run_step(svc: dict, wired_env: dict[str, Any]) -> dict:
+    """One container as an IDEMPOTENT, properly-quoted docker step — the same shape
+    services/docker_app.deploy_container applies on the Docker-state path (`docker
+    rm -f` then `docker run`), so a re-deploy replaces rather than fails, ports keep
+    an explicit host:container mapping, and volumes/restart are honoured. (A dedicated
+    structured container agent-module is a separate, larger follow-up; today both the
+    blueprint and the Docker-state path drive docker through the generic command/shell
+    module, so this keeps them consistent.)"""
+    name = svc["name"]
     env = {**(svc.get("environment") or {}), **wired_env}
-    parts = ["docker", "run", "-d", "--name", svc["name"], "--restart", "unless-stopped"]
+    parts = ["docker", "run", "-d", "--name", name, "--restart", svc.get("restart") or "unless-stopped"]
     for k, v in env.items():
         parts += ["-e", f"{k}={v}"]
     for p in svc.get("ports", []) or []:
-        parts += ["-p", f"{p}:{p}"]
-    parts.append(svc.get("image") or svc["name"])
-    return {"name": f"Deploy container {svc['name']}", "module": "shell",
-            "args": {"cmd": " ".join(str(x) for x in parts)}}
+        spec = str(p) if ":" in str(p) else f"{p}:{p}"   # "8080:80" kept; "3306" → "3306:3306"
+        parts += ["-p", spec]
+    for vol in svc.get("volumes", []) or []:
+        parts += ["-v", str(vol)]
+    parts.append(svc.get("image") or name)
+    run = " ".join(shlex.quote(str(x)) for x in parts)
+    cmd = f"docker rm -f {shlex.quote(name)} >/dev/null 2>&1 || true; {run}"
+    return {"name": f"Deploy container {name}", "module": "shell", "args": {"cmd": cmd}}
 
 
 def _native_steps(svc: dict, wired_vals: dict[str, Any]) -> list[dict]:
