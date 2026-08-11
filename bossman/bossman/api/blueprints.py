@@ -179,6 +179,39 @@ async def blueprint_suggest_providers(bp_id: UUID, session: AsyncSession = Depen
     return {"suggestions": suggestions}
 
 
+class ServicesIn(BaseModel):
+    """A live draft's services[] (backend shape) — lets the designer validate/find
+    providers WITHOUT first persisting the blueprint."""
+    services: list = []
+
+
+@router.post("/api/v1/blueprints/plausibility")
+async def plausibility_stateless(body: ServicesIn, session: AsyncSession = Depends(get_session),
+                                 settings: Settings = Depends(get_settings), _i: Identity = Depends(get_current_identity)):
+    """Validate an in-flight draft (not yet saved): every requirement resolved
+    (in-blueprint or a fleet host), every connection field supplied."""
+    fleet = await _resolve_fleet_providers(session, settings, body.services)
+    return blueprint_plausibility(settings, body.services, fleet_providers=fleet)
+
+
+@router.post("/api/v1/blueprints/suggest-providers")
+async def suggest_providers_stateless(body: ServicesIn, session: AsyncSession = Depends(get_session),
+                                      settings: Settings = Depends(get_settings), _i: Identity = Depends(get_current_identity)):
+    """For an in-flight draft, per open requirement: matching fleet hosts + candidate
+    roles a new server would need. Drives step 2 of the designer live."""
+    suggestions = []
+    for openreq in open_requirements_for_fleet(settings, body.services):
+        hosts = await find_providers(session, settings, openreq["capability"], openreq["backends"])
+        roles = roles_providing(settings, openreq["capability"],
+                                (openreq["backends"] or [None])[0] if openreq["backends"] else None)
+        suggestions.append({
+            "req_key": openreq["req_key"], "consumer": openreq["consumer"],
+            "capability": openreq["capability"], "backends": openreq["backends"],
+            "fleet_hosts": hosts, "candidate_roles": roles,
+        })
+    return {"suggestions": suggestions}
+
+
 @router.post("/api/v1/blueprints/{bp_id}/save-as-runbook")
 async def save_blueprint_as_runbook(bp_id: UUID, session: AsyncSession = Depends(get_session),
                                     settings: Settings = Depends(get_settings), identity: Identity = Depends(get_current_identity)):

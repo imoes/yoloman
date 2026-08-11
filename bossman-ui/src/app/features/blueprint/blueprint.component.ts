@@ -105,6 +105,24 @@ interface RunbookRow { id: string; name: string; folder: string }
             <p class="bm-dim">Start order (depends_on, topological): <code>{{ order().order.join(' → ') }}</code></p>
           }
 
+          <!-- Whole-blueprint plausibility (fleet-aware): every requirement resolved
+               and every connection field supplied? Live from the backend. -->
+          @if (store.plausibility(); as pl) {
+            <div class="bm-plaus" [class.bm-plaus-ok]="pl.ok" [class.bm-plaus-bad]="!pl.ok">
+              <div class="bm-plaus-h">
+                <mat-icon>{{ pl.ok ? 'verified' : 'report_problem' }}</mat-icon>
+                @if (pl.ok) { Plausible — {{ pl.resolved }} connection(s) fully wired }
+                @else { {{ pl.problems.length }} issue(s) — {{ pl.resolved }} connection(s) wired }
+              </div>
+              @for (p of pl.problems; track $index) {
+                <div class="bm-plaus-p" [class.err]="p.severity === 'error'" [class.warn]="p.severity === 'warning'">
+                  <mat-icon>{{ p.severity === 'error' ? 'error' : 'warning' }}</mat-icon>
+                  <span>{{ p.message }}</span>
+                </div>
+              }
+            </div>
+          }
+
           <!-- The document is the payoff, so it stays visible by default — but it
                can be folded away to give the canvas the whole column. -->
           <div class="bm-doc">
@@ -347,6 +365,15 @@ interface RunbookRow { id: string; name: string; folder: string }
     .bm-dim { opacity: .6; font-size: 12px; }
     .bm-warn { color: var(--bm-gold, #b8860b); font-size: 11.5px; margin: 2px 0 8px; }
     .bm-err { color: var(--mat-sys-error, #c62828); font-size: 12.5px; }
+    .bm-plaus { margin: 8px 0; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--mat-sys-outline-variant); font-size: 12.5px; }
+    .bm-plaus-ok { border-color: color-mix(in srgb, #66bb6a 50%, transparent); }
+    .bm-plaus-bad { border-color: color-mix(in srgb, var(--mat-sys-error, #c62828) 45%, transparent); }
+    .bm-plaus-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+    .bm-plaus-h mat-icon, .bm-plaus-p mat-icon { font-size: 16px; height: 16px; width: 16px; }
+    .bm-plaus-ok .bm-plaus-h { color: #66bb6a; }
+    .bm-plaus-p { display: flex; align-items: flex-start; gap: 6px; margin-top: 4px; }
+    .bm-plaus-p.err { color: var(--mat-sys-error, #c62828); }
+    .bm-plaus-p.warn { color: var(--bm-gold, #b8860b); }
     code { font-family: ui-monospace, monospace; }
   `],
 })

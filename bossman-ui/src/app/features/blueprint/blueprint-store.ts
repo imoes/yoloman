@@ -22,7 +22,19 @@ import { environment } from '../../../environments/environment';
 const STORAGE_KEY = 'bm_blueprint_draft';
 
 /** Backend blueprint list row (GET /blueprints) — just what the picker needs. */
-export interface BackendBlueprintRow { id: string; name: string; description: string; status: string; }
+export interface BackendBlueprintRow { id: string; name: string; description: string; status: string; path?: string; }
+
+/** One problem from the plausibility check. */
+export interface PlausibilityProblem { severity: 'error' | 'warning'; consumer: string; capability: string; message: string; }
+/** POST /blueprints/plausibility result. */
+export interface PlausibilityResult {
+  ok: boolean;
+  problems: PlausibilityProblem[];
+  wiring: { consumer: string; provider?: string; capability: string; set: Record<string, unknown> }[];
+  unresolved: unknown[];
+  order: string[];
+  resolved: number;
+}
 
 function emptyBlueprint(): Blueprint {
   return { name: 'mein-stack', services: [] };
@@ -233,8 +245,25 @@ export class BlueprintStore {
 
   // ---- persistence / IO --------------------------------------------------
 
+  /** Whole-blueprint plausibility (fleet-aware): does every requirement resolve
+   *  and is every connection field supplied? Refreshed (debounced) on each change
+   *  via the stateless backend endpoint — no need to save the draft first. */
+  readonly plausibility = signal<PlausibilityResult | null>(null);
+  private plTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private refreshPlausibility(): void {
+    if (this.plTimer) clearTimeout(this.plTimer);
+    this.plTimer = setTimeout(() => {
+      const services = this.toBackendServices();
+      if (!services.length) { this.plausibility.set(null); return; }
+      this.http.post<PlausibilityResult>(`${environment.apiUrl}/blueprints/plausibility`, { services })
+        .subscribe({ next: (r) => this.plausibility.set(r), error: () => { /* offline / not-saved is fine */ } });
+    }, 400);
+  }
+
   private persist(): void {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(this.bp())); } catch { /* quota — draft is best-effort */ }
+    this.refreshPlausibility();
   }
 
   private load(): void {
