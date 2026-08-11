@@ -359,6 +359,8 @@ def create_app() -> FastAPI:
     app.include_router(agent_release_api.router, tags=["agent-release"])
     from bossman.api import knowledge as knowledge_api
     app.include_router(knowledge_api.router, tags=["knowledge"])
+    from bossman.api import vault as vault_api
+    app.include_router(vault_api.router, tags=["vault"])
     app.include_router(security.router, tags=["security"])
     # Block L4 is PUSH, not pull: Bossman's reconciler (services/reconciler.py)
     # POSTs each new generation to the agent's own POST /api/v1/config/apply

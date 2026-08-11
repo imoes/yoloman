@@ -233,6 +233,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/settings/settings.component').then((m) => m.SettingsComponent),
   },
   {
+    path: 'vault',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/vault/vault.component').then((m) => m.VaultComponent),
+  },
+  {
     path: 'help',
     canActivate: [authGuard],
     loadComponent: () => import('./features/help/help.component').then((m) => m.HelpComponent),

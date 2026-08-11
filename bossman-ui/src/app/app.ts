@@ -21,7 +21,7 @@ const NAV_ICON: Record<string, string> = {
   '/scheduler': 'scheduler', '/rollouts': 'rollouts',
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
   '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
-  '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings',
+  '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings', '/vault': 'settings',
   '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy', '/docker-state': 'hosts',
   // Previously unmapped (they silently fell back to 'fleet'). Icon names repeat across workspaces where
   // the set has no closer match — harmless, since each appears in a different tree.
@@ -133,6 +133,7 @@ const WORKSPACES: Workspace[] = [
     items: [
       { path: '/users', label: 'Users & Access', icon: 'admin_panel_settings', adminOnly: true },
       { path: '/notifications', label: 'Notifications', icon: 'notifications' },
+      { path: '/vault', label: 'Vault', icon: 'key', adminOnly: true },
       { path: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
