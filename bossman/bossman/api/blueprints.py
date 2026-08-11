@@ -12,7 +12,8 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.api.auth import Identity, get_current_identity
+from bossman.api.auth import Identity, get_current_identity, require_admin
+from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import (
     DEFAULT_TENANT_ID,
@@ -23,7 +24,9 @@ from bossman.db.models import (
     OrchestrationPlanLink,
     OrchestrationPlanVersion,
     OUNode,
+    ScopeVars,
 )
+from bossman.services import blueprint_provision
 from bossman.db.session import get_session
 from bossman.services.blueprint import (
     compile_blueprint,
@@ -210,6 +213,74 @@ async def suggest_providers_stateless(body: ServicesIn, session: AsyncSession = 
             "fleet_hosts": hosts, "candidate_roles": roles,
         })
     return {"suggestions": suggestions}
+
+
+class ProvisionIn(BaseModel):
+    """Provision a database + user on a provider host and store the generated
+    credential for the consumer. Admin creds are used only for this call and never
+    persisted; the app password is stored for the consumer as a vault handle."""
+    provider_agent_id: UUID           # reachable host the DB runs on
+    exec: str = "local"               # "local" | "docker"
+    container: str | None = None      # docker exec target when exec=docker
+    backend: str = "mysql"            # mysql | mariadb
+    admin_user: str
+    admin_password: str
+    db_name: str
+    db_user: str
+    consumer_agent_id: UUID           # host whose host_vars receive the credential
+    targets: dict = {}                # {name|user|password: consumer var key}
+
+
+@router.post("/api/v1/blueprints/provision")
+async def provision_credentials(
+    body: ProvisionIn, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity: Identity = Depends(require_admin),
+) -> dict:
+    """Out-of-band credential provisioning (step 4 of the designer, secret-safe):
+    create the DB+user on the provider via the agent `command` module, then store
+    the generated password for the consumer as a vault handle in its host_vars. No
+    plaintext is persisted and no agent module is required."""
+    provider = await session.get(Agent, body.provider_agent_id)
+    if provider is None:
+        raise HTTPException(404, "no such provider host")
+    if not provider.address:
+        raise HTTPException(409, "provider host has no direct address — cannot reach it to provision")
+    consumer = await session.get(Agent, body.consumer_agent_id)
+    if consumer is None:
+        raise HTTPException(404, "no such consumer host")
+
+    client = client_factory(provider, settings)
+    res = await blueprint_provision.provision_database(
+        client, backend=body.backend, exec_mode=body.exec, container=body.container,
+        admin_user=body.admin_user, admin_password=body.admin_password,
+        db_name=body.db_name, db_user=body.db_user)
+    if not res.get("ok"):
+        raise HTTPException(502, res.get("error") or "provisioning failed")
+
+    produced = res.get("produced_params") or {}
+    vault = Vault(settings.vault_key, settings.vault_key_path)
+    row = await session.scalar(select(ScopeVars).where(
+        ScopeVars.tenant_id == DEFAULT_TENANT_ID, ScopeVars.scope_type == "host",
+        ScopeVars.agent_id == body.consumer_agent_id))
+    merged = dict((row.vars if row else {}) or {})
+    stored: list[str] = []
+    if body.targets.get("name") and produced.get("name"):
+        merged[body.targets["name"]] = produced["name"]; stored.append(body.targets["name"])
+    if body.targets.get("user") and produced.get("user"):
+        merged[body.targets["user"]] = produced["user"]; stored.append(body.targets["user"])
+    if body.targets.get("password") and produced.get("password"):
+        merged[body.targets["password"]] = vault.encrypt(produced["password"]); stored.append(body.targets["password"])
+    if row is None:
+        row = ScopeVars(tenant_id=DEFAULT_TENANT_ID, scope_type="host",
+                        agent_id=body.consumer_agent_id, vars=merged)
+        session.add(row)
+    else:
+        row.vars = merged
+    await session.commit()
+    return {"ok": True, "provider": provider.name, "consumer": consumer.name,
+            "database": produced.get("name"), "user": produced.get("user"),
+            "stored_keys": stored, "password": Vault.mask()}
 
 
 @router.post("/api/v1/blueprints/{bp_id}/save-as-runbook")
