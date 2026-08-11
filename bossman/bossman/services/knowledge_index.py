@@ -23,7 +23,9 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from bossman.config import Settings
-from bossman.db.models import Agent, AgentObservedState, HostEdge, KnowledgeEmbedding, Service
+from bossman.db.models import (
+    Agent, AgentObservedState, Event, HostEdge, KnowledgeEmbedding, RunbookRun, Service,
+)
 from bossman.services.embedding_client import EmbeddingClient, EmbeddingClientError, embedding_client_for
 
 logger = logging.getLogger(__name__)
@@ -118,6 +120,22 @@ async def build_cards(session: AsyncSession) -> list[Card]:
     for e in edges:
         edge_by_src.setdefault(e.src_agent_id, []).append(e)
 
+    # Recent CHANGES (runbook runs) and EVENTS (syslog/traps) per host — the
+    # temporal context the AI needs to reason about whether a failure lines up
+    # with a recent change. Bounded global fetch, grouped per host.
+    runs = (await session.scalars(
+        select(RunbookRun).order_by(RunbookRun.created_at.desc()).limit(400))).all()
+    runs_by_agent: dict = {}
+    for r in runs:
+        if r.agent_id:
+            runs_by_agent.setdefault(r.agent_id, []).append(r)
+    events = (await session.scalars(
+        select(Event).order_by(Event.received_at.desc()).limit(400))).all()
+    events_by_host: dict = {}
+    for ev in events:
+        if ev.host_name:
+            events_by_host.setdefault(ev.host_name, []).append(ev)
+
     cards: list[Card] = []
     for agent in agents:
         aid = str(agent.id)
@@ -182,6 +200,34 @@ async def build_cards(session: AsyncSession) -> list[Card]:
             cards.append(Card(
                 doc_id=f"topology:{aid}", kind="topology", ref_id=aid, host_id=aid,
                 title=f"Connections from {agent.name}", text=_clip("\n".join(tlines))))
+
+        # ── recent changes (runbook runs) — for correlating a failure with a change ──
+        host_runs = runs_by_agent.get(agent.id, [])
+        if host_runs:
+            clines = [f"Recent changes on host {agent.name} (most recent first — to correlate a "
+                      f"failure with a change that may have caused it):"]
+            for r in host_runs[:12]:
+                mode = "check-only" if r.dry_run else "APPLIED"
+                changed = "made changes" if r.changed else "no change"
+                who = r.requested_by or "system"
+                when = r.created_at.isoformat() if r.created_at else "?"
+                clines.append(f"- {r.runbook_name}: {r.status}, {changed}, {mode}, by {who} at {when}")
+            cards.append(Card(
+                doc_id=f"changes:{aid}", kind="changes", ref_id=aid, host_id=aid,
+                title=f"Recent changes on {agent.name}", text=_clip("\n".join(clines))))
+
+        # ── recent events (syslog / SNMP traps) ─────────────────────────────
+        host_events = events_by_host.get(agent.name, [])
+        if host_events:
+            elines = [f"Recent events on host {agent.name} (syslog/traps, most recent first):"]
+            for ev in host_events[:12]:
+                when = ev.received_at.isoformat() if ev.received_at else "?"
+                tag = ev.app or ev.kind
+                msg = (ev.message or "").strip().replace("\n", " ")[:180]
+                elines.append(f"- [sev {ev.severity}] {tag}: {msg} ({when})")
+            cards.append(Card(
+                doc_id=f"events:{aid}", kind="events", ref_id=aid, host_id=aid,
+                title=f"Recent events on {agent.name}", text=_clip("\n".join(elines))))
 
     return cards
 
