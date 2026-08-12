@@ -39,6 +39,7 @@ import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../share
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
+import { HostDisksComponent } from './host-disks.component';
 import { LatencyHeatmapComponent } from './latency-heatmap.component';
 import { ProcessHistoryChartComponent } from './process-history-chart.component';
 import { HostChecksComponent } from './host-checks.component';
@@ -148,6 +149,7 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatIconModule,
     HostStatusBadgeComponent,
     HostInventoryComponent,
+    HostDisksComponent,
     StandaloneOverviewComponent,
     ResourceNodeComponent,
     ParamFormComponent,
@@ -531,6 +533,12 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                 </div>
                 @if (classMsg()) { <span class="bm-classify-ok">{{ classMsg() }}</span> }
               </div>
+            </div>
+          </ng-template></mat-tab>
+
+          <mat-tab label="Disks"><ng-template matTabContent>
+            <div class="bm-tab-content">
+              <app-host-disks [agentId]="agent.id" />
             </div>
           </ng-template></mat-tab>
 
@@ -2330,7 +2338,7 @@ export class HostDetailComponent implements OnInit {
   // Order MUST match the <mat-tab> order in the template (index → ?tab= deep link).
   // Grouped by theme: status (overview/services/inventory) → config & manage
   // (configuration + management adjacent) → checks/diagnostics → ops.
-  private readonly tabOrder = ['overview', 'services', 'inventory', 'configuration', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
+  private readonly tabOrder = ['overview', 'services', 'inventory', 'disks', 'configuration', 'management', 'checks', 'console', 'relationships', 'ebpf', 'processes', 'runs', 'resources', 'kubernetes'];
   initialTabIndex = 0;
 
   ngOnInit(): void {
