@@ -142,6 +142,21 @@ def compile(plan: dict) -> list[dict]:
             steps.append({"op": kind, "device": dev, "touches_table": False,
                           "desc": f"grow LV {t} by {size} (online, --resizefs)",
                           "argv": ["lvextend", "--resizefs", flag, size, t]})
+        elif kind == "lvreduce":
+            # LV shrink: --resizefs shrinks the filesystem FIRST, then the LV. Unlike
+            # lvextend this is NOT online (ext can't shrink mounted) — the target must
+            # be unmounted, enforced by the busy_target guard. -y answers lvreduce's
+            # "do you really want to reduce?" prompt. Only a shrink (absolute size).
+            t = op.get("target")
+            size = str(op.get("size", ""))
+            if not size or size.startswith("+"):
+                steps.append({"op": kind, "device": dev, "error": "lvreduce needs an absolute shrink size (not a grow)",
+                              "desc": f"shrink LV {t} (UNSUPPORTED)", "argv": []})
+            else:
+                flag = "-l" if "%" in size else "-L"
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"shrink LV {t} to {size} (fs shrunk first; requires unmount)",
+                              "argv": ["lvreduce", "-y", "--resizefs", flag, size, t]})
         else:
             steps.append({"op": kind, "device": dev, "error": f"unknown op {kind!r}",
                           "desc": f"unknown op {kind!r}", "argv": []})
@@ -229,7 +244,7 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {dev} has mounted filesystem(s); unmount them first"})
         tgt = s.get("busy_target")
-        if s["op"] in ("mkfs", "label", "delete", "resize") and tgt and tgt in busy:
+        if s["op"] in ("mkfs", "label", "delete", "resize", "lvreduce") and tgt and tgt in busy:
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {tgt} is mounted; unmount it first"})
     return problems
@@ -252,7 +267,7 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
         if s.get("touches_table"):
             needed.add("parted")
             needed.add("sfdisk")  # table backup
-        if s["op"] in ("mkfs", "label", "resize", "lvextend") and argv:
+        if s["op"] in ("mkfs", "label", "resize", "lvextend", "lvreduce") and argv:
             needed.add(argv[0])
     installed: list[str] = []
     missing: list[str] = []

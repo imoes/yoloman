@@ -84,6 +84,19 @@ def test_resize_grow_compiles_partition_before_fs():
     assert steps[1]["argv"] == ["resize2fs", "/dev/sdb1"]
 
 
+def test_lvreduce_compiles_and_refuses_grow_and_mounted():
+    steps = do.compile({"ops": [{"op": "lvreduce", "device": "/dev/mapper/vg-data",
+                                 "target": "/dev/mapper/vg-data", "size": "8G"}]})
+    assert steps[0]["argv"] == ["lvreduce", "-y", "--resizefs", "-L", "8G", "/dev/mapper/vg-data"]
+    # a "+size" is a grow, not a shrink → flagged
+    grow = do.compile({"ops": [{"op": "lvreduce", "device": "/dev/vg/lv", "target": "/dev/vg/lv", "size": "+5G"}]})
+    assert any(p["severity"] == "error" for p in do.safety_check(grow, {"devices": []}, allow_nonloop=True))
+    # a mounted LV → refused (ext can't shrink mounted)
+    layout = {"devices": [{"path": "/dev/sda", "partitions": [{"path": "/dev/sda2", "busy": False, "children": [
+        {"path": "/dev/mapper/vg-data", "kind": "lvm", "busy": True, "mountpoint": "/mnt/data", "children": []}]}]}]}
+    assert any("unmount" in p["message"].lower() for p in do.safety_check(steps, layout, allow_nonloop=True))
+
+
 def test_resize_refuses_xfs_and_mounted():
     xfs = do.compile({"ops": [{"op": "resize", "device": "/dev/sdb", "target": "/dev/sdb1",
                                "num": 1, "fstype": "xfs", "size_mib": 4096}]})

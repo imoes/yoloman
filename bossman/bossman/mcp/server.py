@@ -398,6 +398,8 @@ def build_mcp_server(
                     resize an unmounted ext* partition + its fs (grow=true grows,
                     false shrinks; size_mib is the new size, start_mib its start)
           lvextend  {op,device,target,size}             grow an LV online (size like +5G)
+          lvreduce  {op,device,target,size}             shrink an LV (fs shrunk first; needs
+                    unmount; absolute size like 8G, not a +grow)
         Returns {steps, problems, ok}. `ok=false` means a safety error blocks apply
         (e.g. target mounted, or a non-loop disk with mounted filesystems)."""
         from bossman.services import disk_layout as _dl, disk_ops as _do

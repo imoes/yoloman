@@ -153,7 +153,8 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
 - **Op-Engine** (`services/disk_ops.py`): `compile`→ geordnete Host-Kommandos,
   `safety_check`→ Guardrails, `apply`→ mit Tabellen-Backup (sfdisk -d) +
   Tool-Preflight (best-effort Install). Ops: mklabel, mkpart, mkfs, label, mount,
-  umount, delete, **resize (grow & shrink)**, lvextend (online).
+  umount, delete, **resize (grow & shrink)**, lvextend (online grow), **lvreduce
+  (LVM shrink; fs shrunk first via --resizefs, needs unmount)**.
 - **resize** — verkleinert/vergrößert eine *unmountete* ext-Partition **samt FS** in
   der datensicheren gparted-Reihenfolge: Shrink `e2fsck → resize2fs <größe> →
   parted resizepart`; Grow `parted resizepart → resize2fs` (füllt). ext2/3/4 only
@@ -178,7 +179,7 @@ mehrere Oberflächen** (UI, REST, MCP, Chat):
 
 Die Op-Formate stehen in den Tool-Beschreibungen (server.py); `ops` ist eine geordnete
 Liste, jede Op ein Dict mit `op`-Feld (mklabel/mkpart/mkfs/label/mount/umount/delete/
-resize/lvextend).
+resize/lvextend/lvreduce).
 
 ## 9. Risiken / offen
 

@@ -88,8 +88,16 @@ interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: numb
                   <td>@for (f of p.row.flags; track f) { <span class="bm-dk-flag">{{ f }}</span> }</td>
                   <td class="bm-dk-rowacts">
                     @if (p.row.kind === 'lvm') {
-                      <!-- LVM: grow works ONLINE (lvextend --resizefs), no unmount needed -->
+                      <!-- LVM: grow works ONLINE (lvextend --resizefs), no unmount needed.
+                           Shrink (lvreduce) shrinks the fs first → the LV must be unmounted. -->
                       <button mat-button (click)="opLvextend(p.row)" title="Grow this logical volume online (no unmount needed)"><mat-icon>unfold_more</mat-icon> Extend</button>
+                      @if (p.row.busy) {
+                        <span class="bm-dk-lock" title="Mounted at {{ p.row.mountpoint }} — unmount to shrink (grow works online)">
+                          <mat-icon>lock</mat-icon>unmount to shrink</span>
+                        <button mat-button (click)="unmount(d, p.row)" [disabled]="busy()">Unmount</button>
+                      } @else {
+                        <button mat-button (click)="opLvreduce(p.row)" title="Shrink this logical volume (filesystem shrunk first; LV is unmounted)"><mat-icon>unfold_less</mat-icon> Reduce</button>
+                      }
                     } @else if (p.row.kind === 'part' || p.row.kind === 'crypt') {
                       @if (p.row.busy) {
                         <span class="bm-dk-lock" title="Mounted at {{ p.row.mountpoint }} — a filesystem must be unmounted before it can be edited">
@@ -319,6 +327,18 @@ export class HostDisksComponent {
     if (!size) return;
     if (!size.startsWith('+')) { alert('Only online GROW is supported here — the size must start with "+".'); return; }
     this.push({ op: 'lvextend', device: p.path, target: p.path, size, _desc: `Grow LV ${p.path} by ${size} (online, fs kept mounted)` });
+  }
+  /** Shrink an LVM logical volume (lvreduce --resizefs): the filesystem is shrunk
+   *  first, so — unlike the online grow — the LV must be UNMOUNTED. */
+  opLvreduce(p: Partition): void {
+    const cur = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
+    if (!cur) { alert('Cannot determine current LV size.'); return; }
+    const ans = (prompt(`New size for LV ${p.path} in MiB (current ≈ ${cur}). Must be smaller — the filesystem is shrunk first, so the LV must be unmounted:`, String(cur)) || '').trim();
+    const mib = Number(ans);
+    if (!mib || mib <= 0) return;
+    if (mib >= cur) { alert('Reduce means a smaller size than the current one.'); return; }
+    if (!confirm(`Shrink LV ${p.path} to ${mib} MiB? The filesystem is checked and shrunk first. Back up important data.`)) return;
+    this.push({ op: 'lvreduce', device: p.path, target: p.path, size: `${mib}M`, _desc: `Shrink LV ${p.path} ${cur} → ${mib} MiB (fs first)` });
   }
   /** Immediate unmount (the "free it for editing" workflow) — not staged. */
   unmount(d: Device, p: Partition): void {
