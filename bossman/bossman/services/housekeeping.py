@@ -143,10 +143,20 @@ async def prune_process_series(
                 text("DELETE FROM metrics_raw WHERE series_id = ANY(:ids) AND time >= :floor"),
                 {"ids": list(ids), "floor": uncompressed_floor},
             )
-            # phase 2: the (now point-less) series rows
+            # phase 2: the (now point-less) series rows. Guard each delete with a
+            # time-bounded NOT EXISTS so a series that gained a referencing point
+            # between phase 1 and here (a concurrent insert, or a straggler) is
+            # SKIPPED instead of aborting the whole prune on the FK
+            # (metrics_raw_series_id_fkey). Same `>= floor` bound as phase 1, so the
+            # check stays on uncompressed chunks (no decompression). Skipped series
+            # are simply pruned on a later run.
             res = await session.execute(
-                text("DELETE FROM metric_series WHERE series_id = ANY(:ids)"),
-                {"ids": list(ids)},
+                text(
+                    "DELETE FROM metric_series WHERE series_id = ANY(:ids) "
+                    "AND NOT EXISTS (SELECT 1 FROM metrics_raw r "
+                    "WHERE r.series_id = metric_series.series_id AND r.time >= :floor)"
+                ),
+                {"ids": list(ids), "floor": uncompressed_floor},
             )
             await session.commit()
             pruned += res.rowcount or 0
