@@ -403,22 +403,33 @@ export class HostDisksComponent {
   /** Grow an LVM logical volume ONLINE (lvextend --resizefs) — works while the
    *  filesystem is mounted, so no unmount is needed (unlike a raw partition). */
   opLvextend(p: Partition): void {
-    const size = (prompt(`Grow ${p.path} by (e.g. +5G, or +100%FREE for all free VG space):`, '+100%FREE') || '').trim();
-    if (!size) return;
-    if (!size.startsWith('+')) { alert('Only online GROW is supported here — the size must start with "+".'); return; }
-    this.push({ op: 'lvextend', device: p.path, target: p.path, size, _desc: `Grow LV ${p.path} by ${size} (online, fs kept mounted)` });
+    this.openForm({
+      title: `Grow LV ${p.path} (online)`, icon: 'unfold_more', submitLabel: 'Add to queue',
+      fields: [{ key: 'size', label: 'Grow by', type: 'text', value: '+100%FREE',
+        hint: 'e.g. +5G, or +100%FREE for all free VG space · must start with "+"' }],
+      run: (v) => {
+        const size = v['size']; if (!size) return;
+        if (!size.startsWith('+')) { alert('Only online GROW is supported here — the size must start with "+".'); return; }
+        this.push({ op: 'lvextend', device: p.path, target: p.path, size, _desc: `Grow LV ${p.path} by ${size} (online, fs kept mounted)` });
+      },
+    });
   }
   /** Shrink an LVM logical volume (lvreduce --resizefs): the filesystem is shrunk
    *  first, so — unlike the online grow — the LV must be UNMOUNTED. */
   opLvreduce(p: Partition): void {
     const cur = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
     if (!cur) { alert('Cannot determine current LV size.'); return; }
-    const ans = (prompt(`New size for LV ${p.path} in MiB (current ≈ ${cur}). Must be smaller — the filesystem is shrunk first, so the LV must be unmounted:`, String(cur)) || '').trim();
-    const mib = Number(ans);
-    if (!mib || mib <= 0) return;
-    if (mib >= cur) { alert('Reduce means a smaller size than the current one.'); return; }
-    if (!confirm(`Shrink LV ${p.path} to ${mib} MiB? The filesystem is checked and shrunk first. Back up important data.`)) return;
-    this.push({ op: 'lvreduce', device: p.path, target: p.path, size: `${mib}M`, _desc: `Shrink LV ${p.path} ${cur} → ${mib} MiB (fs first)` });
+    this.openForm({
+      title: `Shrink LV ${p.path}`, icon: 'unfold_less', submitLabel: 'Add to queue', danger: true,
+      fields: [{ key: 'size', label: 'New size (MiB)', type: 'number', value: String(cur),
+        hint: `current ≈ ${cur} MiB · must be smaller · fs shrunk first (LV must be unmounted)` }],
+      run: (v) => {
+        const mib = Number(v['size']);
+        if (!mib || mib <= 0) return;
+        if (mib >= cur) { alert('Reduce means a smaller size than the current one.'); return; }
+        this.push({ op: 'lvreduce', device: p.path, target: p.path, size: `${mib}M`, _desc: `Shrink LV ${p.path} ${cur} → ${mib} MiB (fs first)` });
+      },
+    });
   }
   /** Immediate unmount (the "free it for editing" workflow) — not staged. */
   unmount(d: Device, p: Partition): void {
@@ -448,12 +459,17 @@ export class HostDisksComponent {
   }
 
   addScratch(): void {
-    const mb = Number(prompt('Scratch loopback disk size in MB (for safe testing):', '256') || 0);
-    if (!mb) return;
-    this.scratchMsg.set('Creating scratch disk…');
-    this.http.post<any>(`${this.base()}/disks/scratch`, { action: 'create', size_mb: mb }).subscribe({
-      next: (r) => { this.scratchMsg.set(r?.ok ? `Scratch disk ${r.device} created — Rescan to see it. (Destroy later via losetup -d.)` : ('scratch failed: ' + (r?.error || ''))); this.load(); },
-      error: (e) => this.scratchMsg.set(e?.error?.detail ?? 'scratch failed'),
+    this.openForm({
+      title: 'Scratch loopback test disk', icon: 'science', submitLabel: 'Create',
+      fields: [{ key: 'mb', label: 'Size (MB)', type: 'number', value: '256', hint: 'a throwaway loop device for safe testing' }],
+      run: (v) => {
+        const mb = Number(v['mb']); if (!mb) return;
+        this.scratchMsg.set('Creating scratch disk…');
+        this.http.post<any>(`${this.base()}/disks/scratch`, { action: 'create', size_mb: mb }).subscribe({
+          next: (r) => { this.scratchMsg.set(r?.ok ? `Scratch disk ${r.device} created — Rescan to see it. (Destroy later via losetup -d.)` : ('scratch failed: ' + (r?.error || ''))); this.load(); },
+          error: (e) => this.scratchMsg.set(e?.error?.detail ?? 'scratch failed'),
+        });
+      },
     });
   }
 
