@@ -27,7 +27,7 @@ interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: numb
 interface FormField { key: string; label: string; type: 'text' | 'number' | 'select'; value: string;
   options?: string[]; hint?: string; placeholder?: string; }
 interface ActiveForm { title: string; icon: string; fields: FormField[]; submitLabel: string;
-  danger?: boolean; run: (v: Record<string, string>) => void; }
+  danger?: boolean; note?: string; run: (v: Record<string, string>) => void; }
 
 /**
  * The host's Disks view (gparted-style): a visual bar + partition table per disk,
@@ -140,6 +140,8 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     @if (form(); as f) {
       <div class="bm-dk-form" [class.danger]="f.danger">
         <div class="bm-dk-form-h"><mat-icon>{{ f.icon }}</mat-icon> {{ f.title }}</div>
+        @if (f.note) { <div class="bm-dk-form-note"><mat-icon>warning</mat-icon> {{ f.note }}</div> }
+        @if (f.fields.length) {
         <div class="bm-dk-form-grid">
           @for (fld of f.fields; track fld.key) {
             <label class="bm-dk-fld">
@@ -156,6 +158,7 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
             </label>
           }
         </div>
+        }
         <div class="bm-dk-form-acts">
           <button mat-button (click)="closeForm()">Cancel</button>
           <button mat-flat-button [color]="f.danger ? 'warn' : 'primary'" (click)="submitForm()">{{ f.submitLabel }}</button>
@@ -235,6 +238,9 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     .bm-dk-form.danger { border-color: var(--mat-sys-error, #c62828); background: color-mix(in srgb, var(--mat-sys-error,#c62828) 7%, transparent); }
     .bm-dk-form-h { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 10px; }
     .bm-dk-form-h mat-icon { font-size: 18px; height: 18px; width: 18px; }
+    .bm-dk-form-note { display: flex; align-items: center; gap: 6px; font-size: 12.5px; margin-bottom: 10px;
+      color: var(--mat-sys-error, #c62828); }
+    .bm-dk-form-note mat-icon { font-size: 16px; height: 16px; width: 16px; }
     .bm-dk-form-grid { display: flex; flex-wrap: wrap; gap: 12px; }
     .bm-dk-fld { display: flex; flex-direction: column; gap: 3px; min-width: 160px; flex: 1 1 160px; }
     .bm-dk-fld-lbl { font-size: 12px; font-weight: 600; opacity: 0.75; }
@@ -314,8 +320,12 @@ export class HostDisksComponent {
 
   // ---- op builders (gparted-style; inline forms) ----------------------------
   opMklabel(d: Device, table: string): void {
-    if (!confirm(`Create a new ${table.toUpperCase()} partition table on ${d.path}? This discards its current layout.`)) return;
-    this.push({ op: 'mklabel', device: d.path, table, _desc: `Create ${table} table on ${d.path}` });
+    this.openForm({
+      title: `Initialise ${d.path} as ${table.toUpperCase()}`, icon: 'dangerous', submitLabel: `Create ${table.toUpperCase()} table`,
+      danger: true, fields: [],
+      note: `This writes a fresh ${table.toUpperCase()} partition table and discards the current layout of ${d.path}. All partitions on it are lost.`,
+      run: () => this.push({ op: 'mklabel', device: d.path, table, _desc: `Create ${table} table on ${d.path}` }),
+    });
   }
   opAddPartition(d: Device): void {
     this.openForm({
@@ -397,8 +407,12 @@ export class HostDisksComponent {
   opDelete(d: Device, p: Partition): void {
     const num = Number((p.name.match(/(\d+)$/) || [])[1]);
     if (!num) { alert('Cannot determine partition number.'); return; }
-    if (!confirm(`Delete ${p.path}? This erases it.`)) return;
-    this.push({ op: 'delete', device: d.path, num, _desc: `Delete ${p.path}` });
+    this.openForm({
+      title: `Delete ${p.path}`, icon: 'delete_forever', submitLabel: 'Delete partition',
+      danger: true, fields: [],
+      note: `This removes partition ${num} from ${d.path} and erases its contents.`,
+      run: () => this.push({ op: 'delete', device: d.path, num, _desc: `Delete ${p.path}` }),
+    });
   }
   /** Grow an LVM logical volume ONLINE (lvextend --resizefs) — works while the
    *  filesystem is mounted, so no unmount is needed (unlike a raw partition). */
