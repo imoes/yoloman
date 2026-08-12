@@ -36,3 +36,30 @@ def test_safety_refuses_busy_target():
     layout = {"devices": [{"partitions": [{"path": "/dev/loop0", "busy": True, "children": []}]}]}
     probs = do.safety_check(steps, layout, allow_nonloop=False)
     assert any("mounted/busy" in p["message"] for p in probs)
+
+
+def test_umount_and_lvextend_compile():
+    steps = do.compile({"ops": [
+        {"op": "umount", "device": "/dev/sdb", "target": "/dev/sdb1"},
+        {"op": "lvextend", "device": "/dev/rootvg/var", "target": "/dev/rootvg/var", "size": "+100%FREE"},
+        {"op": "lvextend", "device": "/dev/rootvg/var", "target": "/dev/rootvg/var", "size": "+5G"},
+    ]})
+    assert steps[0]["argv"] == ["umount", "/dev/sdb1"]
+    assert steps[1]["argv"] == ["lvextend", "--resizefs", "-l", "+100%FREE", "/dev/rootvg/var"]  # % → -l
+    assert steps[2]["argv"] == ["lvextend", "--resizefs", "-L", "+5G", "/dev/rootvg/var"]        # size → -L
+
+
+def test_umount_refuses_critical_mount_but_allows_data():
+    layout = {"devices": [{"path": "/dev/sda", "partitions": [
+        {"path": "/dev/sda1", "busy": True, "mountpoint": "/", "children": []},
+        {"path": "/dev/sdb1", "busy": True, "mountpoint": "/mnt/data", "children": []},
+    ]}]}
+    crit = do.compile({"ops": [{"op": "umount", "device": "/dev/sda", "target": "/dev/sda1"}]})
+    assert any("critical system mount" in p["message"] for p in do.safety_check(crit, layout, allow_nonloop=True))
+    data = do.compile({"ops": [{"op": "umount", "device": "/dev/sda", "target": "/dev/sdb1"}]})
+    assert do.safety_check(data, layout, allow_nonloop=True) == []  # /mnt/data unmount is fine
+
+
+def test_lvextend_refuses_non_grow():
+    shrink = do.compile({"ops": [{"op": "lvextend", "device": "/dev/vg/lv", "target": "/dev/vg/lv", "size": "10G"}]})
+    assert any("online GROW" in p["message"] for p in do.safety_check(shrink, {"devices": []}, allow_nonloop=True))
