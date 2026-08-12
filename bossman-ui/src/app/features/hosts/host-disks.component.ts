@@ -24,6 +24,10 @@ interface DiskOp { op: string; device?: string; target?: string; table?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
   start_mib?: number; size_mib?: number; grow?: boolean; _desc: string; }
 interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: number; color: string; title: string; }
+interface FormField { key: string; label: string; type: 'text' | 'number' | 'select'; value: string;
+  options?: string[]; hint?: string; placeholder?: string; }
+interface ActiveForm { title: string; icon: string; fields: FormField[]; submitLabel: string;
+  danger?: boolean; run: (v: Record<string, string>) => void; }
 
 /**
  * The host's Disks view (gparted-style): a visual bar + partition table per disk,
@@ -132,6 +136,33 @@ interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: numb
       }
     } @else if (error()) { <p class="bm-err">{{ error() }}</p> }
 
+    <!-- inline op form (replaces the old prompt() chain) -->
+    @if (form(); as f) {
+      <div class="bm-dk-form" [class.danger]="f.danger">
+        <div class="bm-dk-form-h"><mat-icon>{{ f.icon }}</mat-icon> {{ f.title }}</div>
+        <div class="bm-dk-form-grid">
+          @for (fld of f.fields; track fld.key) {
+            <label class="bm-dk-fld">
+              <span class="bm-dk-fld-lbl">{{ fld.label }}</span>
+              @if (fld.type === 'select') {
+                <select [value]="fld.value" (change)="fld.value = asVal($event)">
+                  @for (o of fld.options!; track o) { <option [value]="o">{{ o || '(none)' }}</option> }
+                </select>
+              } @else {
+                <input [type]="fld.type" [value]="fld.value" [placeholder]="fld.placeholder || ''"
+                       (input)="fld.value = asVal($event)" (keydown.enter)="submitForm()" />
+              }
+              @if (fld.hint) { <span class="bm-dk-fld-hint">{{ fld.hint }}</span> }
+            </label>
+          }
+        </div>
+        <div class="bm-dk-form-acts">
+          <button mat-button (click)="closeForm()">Cancel</button>
+          <button mat-flat-button [color]="f.danger ? 'warn' : 'primary'" (click)="submitForm()">{{ f.submitLabel }}</button>
+        </div>
+      </div>
+    }
+
     <!-- pending operations queue (gparted's HBoxOperations) -->
     @if (ops().length) {
       <div class="bm-dk-queue">
@@ -199,6 +230,18 @@ interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: numb
     .bm-dk-flag { font-size: 10px; padding: 0 6px; border-radius: 10px; margin-right: 3px; background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
     .bm-dk-vgs { display: flex; gap: 10px; align-items: center; font-size: 12px; opacity: 0.8; margin: 4px 0 16px; }
     .bm-dk-vg { padding: 2px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 20px; }
+    .bm-dk-form { margin-top: 16px; border: 1px solid var(--mat-sys-primary); border-radius: 10px; padding: 12px 14px;
+      background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
+    .bm-dk-form.danger { border-color: var(--mat-sys-error, #c62828); background: color-mix(in srgb, var(--mat-sys-error,#c62828) 7%, transparent); }
+    .bm-dk-form-h { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 10px; }
+    .bm-dk-form-h mat-icon { font-size: 18px; height: 18px; width: 18px; }
+    .bm-dk-form-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+    .bm-dk-fld { display: flex; flex-direction: column; gap: 3px; min-width: 160px; flex: 1 1 160px; }
+    .bm-dk-fld-lbl { font-size: 12px; font-weight: 600; opacity: 0.75; }
+    .bm-dk-fld input, .bm-dk-fld select { font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+      border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+    .bm-dk-fld-hint { font-size: 11px; opacity: 0.6; }
+    .bm-dk-form-acts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
     .bm-dk-queue { margin-top: 16px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 10px 12px; }
     .bm-dk-queue-h { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 6px; }
     .bm-dk-qop { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 2px 0; }
@@ -218,6 +261,7 @@ export class HostDisksComponent {
   loading = signal(false);
   error = signal('');
   ops = signal<DiskOp[]>([]);
+  form = signal<ActiveForm | null>(null);
   previewResult = signal<any>(null);
   applyResult = signal<any>(null);
   applying = signal(false);
@@ -255,25 +299,46 @@ export class HostDisksComponent {
   }
   private push(o: DiskOp): void { this.ops.update((l) => [...l, o]); this.previewResult.set(null); this.applyResult.set(null); }
 
-  // ---- op builders (gparted-style; prompts keep it compact) -----------------
+  // ---- inline form plumbing (replaces prompt()) -----------------------------
+  asVal(e: Event): string { return (e.target as HTMLInputElement | HTMLSelectElement).value; }
+  closeForm(): void { this.form.set(null); }
+  private openForm(f: ActiveForm): void { this.previewResult.set(null); this.applyResult.set(null); this.form.set(f); }
+  submitForm(): void {
+    const f = this.form(); if (!f) return;
+    const v: Record<string, string> = {};
+    for (const fld of f.fields) v[fld.key] = (fld.value ?? '').trim();
+    this.form.set(null);
+    f.run(v);
+  }
+  private static readonly FS_OPTS = ['ext4', 'ext3', 'ext2', 'xfs', 'btrfs', 'vfat', 'swap'];
+
+  // ---- op builders (gparted-style; inline forms) ----------------------------
   opMklabel(d: Device, table: string): void {
     if (!confirm(`Create a new ${table.toUpperCase()} partition table on ${d.path}? This discards its current layout.`)) return;
     this.push({ op: 'mklabel', device: d.path, table, _desc: `Create ${table} table on ${d.path}` });
   }
   opAddPartition(d: Device): void {
-    const size = (prompt('Partition size (e.g. 10GiB, 512MiB, or 100% for the rest):', '100%') || '').trim();
-    if (!size) return;
-    const fstype = (prompt('Filesystem (ext4, xfs, btrfs, vfat, swap):', 'ext4') || 'ext4').trim();
-    const label = (prompt('Label (optional):', '') || '').trim();
-    const mp = (prompt('Mount point (optional, e.g. /data):', '') || '').trim();
-    const num = this.nextNum(d.path);
-    const tgt = this.partPath(d.path, num);
-    const end = size === '100%' ? '100%' : size;
-    this.push({ op: 'mkpart', device: d.path, ptype: 'primary', fstype, start: '1MiB', end,
-      _desc: `New ${size} ${fstype} partition on ${d.path} (→ ${tgt})` });
-    if (fstype) this.push({ op: 'mkfs', device: d.path, target: tgt, fstype, _desc: `Format ${tgt} as ${fstype}` });
-    if (label) this.push({ op: 'label', device: d.path, target: tgt, fstype, label, _desc: `Label ${tgt} = "${label}"` });
-    if (mp) this.push({ op: 'mount', device: d.path, target: tgt, mountpoint: mp, _desc: `Mount ${tgt} at ${mp}` });
+    this.openForm({
+      title: `New partition on ${d.path}`, icon: 'add', submitLabel: 'Add to queue',
+      fields: [
+        { key: 'size', label: 'Size', type: 'text', value: '100%', hint: 'e.g. 10GiB, 512MiB, or 100% for the rest' },
+        { key: 'fstype', label: 'Filesystem', type: 'select', value: 'ext4', options: [...HostDisksComponent.FS_OPTS, ''] },
+        { key: 'label', label: 'Label', type: 'text', value: '', hint: 'optional' },
+        { key: 'mount', label: 'Mount point', type: 'text', value: '', placeholder: '/data', hint: 'optional' },
+      ],
+      run: (v) => {
+        const size = v['size']; if (!size) return;
+        const fstype = v['fstype'];
+        const num = this.nextNum(d.path);
+        const tgt = this.partPath(d.path, num);
+        const end = size === '100%' ? '100%' : size;
+        this.push({ op: 'mkpart', device: d.path, ptype: 'primary', fstype: fstype || 'ext4', start: '1MiB', end,
+          _desc: `New ${size} ${fstype || 'ext4'} partition on ${d.path} (→ ${tgt})` });
+        if (fstype) this.push({ op: 'mkfs', device: d.path, target: tgt, fstype, _desc: `Format ${tgt} as ${fstype}` });
+        if (v['label'] && fstype) this.push({ op: 'label', device: d.path, target: tgt, fstype, label: v['label'], _desc: `Label ${tgt} = "${v['label']}"` });
+        if (v['mount']) this.push({ op: 'mount', device: d.path, target: tgt, mountpoint: v['mount'], _desc: `Mount ${tgt} at ${v['mount']}` });
+      },
+    });
   }
   opFormat(d: Device, p: Partition): void {
     const fstype = (prompt(`Format ${p.path} as (ext4, xfs, btrfs, vfat, swap):`, p.fstype || 'ext4') || '').trim();
@@ -296,14 +361,19 @@ export class HostDisksComponent {
     const curMib = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
     const startMib = p.start_s != null ? Math.max(1, Math.round((p.start_s * sector) / 1048576)) : 1;
     if (!num || !curMib) { alert('Cannot determine partition geometry.'); return; }
-    const ans = (prompt(`New size for ${p.path} in MiB (current ≈ ${curMib} MiB). Smaller shrinks, larger grows:`, String(curMib)) || '').trim();
-    const sizeMib = Number(ans);
-    if (!sizeMib || sizeMib <= 0) return;
-    if (sizeMib === curMib) { alert('Same size — nothing to do.'); return; }
-    const grow = sizeMib > curMib;
-    if (!grow && !confirm(`Shrink ${p.path} to ${sizeMib} MiB? The filesystem is checked and shrunk first, then the partition. Back up important data.`)) return;
-    this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!, start_mib: startMib, size_mib: sizeMib, grow,
-      _desc: `${grow ? 'Grow' : 'Shrink'} ${p.path} (${p.fstype}) ${curMib} → ${sizeMib} MiB` });
+    this.openForm({
+      title: `Resize ${p.path} (${p.fstype})`, icon: 'open_in_full', submitLabel: 'Add to queue',
+      fields: [{ key: 'size', label: 'New size (MiB)', type: 'number', value: String(curMib),
+        hint: `current ≈ ${curMib} MiB · smaller shrinks, larger grows` }],
+      run: (v) => {
+        const sizeMib = Number(v['size']);
+        if (!sizeMib || sizeMib <= 0) return;
+        if (sizeMib === curMib) { alert('Same size — nothing to do.'); return; }
+        const grow = sizeMib > curMib;
+        this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!, start_mib: startMib, size_mib: sizeMib, grow,
+          _desc: `${grow ? 'Grow' : 'Shrink'} ${p.path} (${p.fstype}) ${curMib} → ${sizeMib} MiB` });
+      },
+    });
   }
   opLabel(d: Device, p: Partition): void {
     const label = (prompt(`Label for ${p.path}:`, p.label || '') || '').trim();
