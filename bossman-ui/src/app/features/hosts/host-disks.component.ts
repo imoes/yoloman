@@ -341,10 +341,15 @@ export class HostDisksComponent {
     });
   }
   opFormat(d: Device, p: Partition): void {
-    const fstype = (prompt(`Format ${p.path} as (ext4, xfs, btrfs, vfat, swap):`, p.fstype || 'ext4') || '').trim();
-    if (!fstype) return;
-    if (!confirm(`Format ${p.path} as ${fstype}? This erases its data.`)) return;
-    this.push({ op: 'mkfs', device: d.path, target: p.path, fstype, _desc: `Format ${p.path} as ${fstype}` });
+    this.openForm({
+      title: `Format ${p.path}`, icon: 'edit_note', submitLabel: 'Add to queue', danger: true,
+      fields: [{ key: 'fstype', label: 'Filesystem', type: 'select', value: p.fstype && HostDisksComponent.FS_OPTS.includes(p.fstype) ? p.fstype : 'ext4',
+        options: HostDisksComponent.FS_OPTS, hint: 'this erases all data on the partition' }],
+      run: (v) => {
+        const fstype = v['fstype']; if (!fstype) return;
+        this.push({ op: 'mkfs', device: d.path, target: p.path, fstype, _desc: `Format ${p.path} as ${fstype}` });
+      },
+    });
   }
   /** Resize (grow OR shrink) an unmounted ext* partition + its filesystem, gparted-style.
    *  ext only (xfs/others can't shrink); must be unmounted (enforced by the backend too). */
@@ -376,13 +381,18 @@ export class HostDisksComponent {
     });
   }
   opLabel(d: Device, p: Partition): void {
-    const label = (prompt(`Label for ${p.path}:`, p.label || '') || '').trim();
-    this.push({ op: 'label', device: d.path, target: p.path, fstype: p.fstype || 'ext4', label, _desc: `Label ${p.path} = "${label}"` });
+    this.openForm({
+      title: `Label ${p.path}`, icon: 'sell', submitLabel: 'Add to queue',
+      fields: [{ key: 'label', label: 'Label', type: 'text', value: p.label || '', hint: 'filesystem label' }],
+      run: (v) => this.push({ op: 'label', device: d.path, target: p.path, fstype: p.fstype || 'ext4', label: v['label'], _desc: `Label ${p.path} = "${v['label']}"` }),
+    });
   }
   opMount(d: Device, p: Partition): void {
-    const mp = (prompt(`Mount ${p.path} at:`, '/mnt/' + p.name) || '').trim();
-    if (!mp) return;
-    this.push({ op: 'mount', device: d.path, target: p.path, mountpoint: mp, _desc: `Mount ${p.path} at ${mp}` });
+    this.openForm({
+      title: `Mount ${p.path}`, icon: 'drive_folder_upload', submitLabel: 'Add to queue',
+      fields: [{ key: 'mount', label: 'Mount point', type: 'text', value: '/mnt/' + p.name, placeholder: '/mnt/data' }],
+      run: (v) => { if (v['mount']) this.push({ op: 'mount', device: d.path, target: p.path, mountpoint: v['mount'], _desc: `Mount ${p.path} at ${v['mount']}` }); },
+    });
   }
   opDelete(d: Device, p: Partition): void {
     const num = Number((p.name.match(/(\d+)$/) || [])[1]);
