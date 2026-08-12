@@ -35,7 +35,7 @@ def test_safety_refuses_busy_target():
     steps = do.compile({"ops": [{"op": "mkfs", "target": "/dev/loop0", "device": "/dev/loop0", "fstype": "ext4"}]})
     layout = {"devices": [{"partitions": [{"path": "/dev/loop0", "busy": True, "children": []}]}]}
     probs = do.safety_check(steps, layout, allow_nonloop=False)
-    assert any("mounted/busy" in p["message"] for p in probs)
+    assert any("mounted" in p["message"] for p in probs)
 
 
 def test_umount_and_lvextend_compile():
@@ -63,3 +63,34 @@ def test_umount_refuses_critical_mount_but_allows_data():
 def test_lvextend_refuses_non_grow():
     shrink = do.compile({"ops": [{"op": "lvextend", "device": "/dev/vg/lv", "target": "/dev/vg/lv", "size": "10G"}]})
     assert any("online GROW" in p["message"] for p in do.safety_check(shrink, {"devices": []}, allow_nonloop=True))
+
+
+def test_resize_shrink_compiles_in_safe_order():
+    # shrink ext4: fsck → resize2fs <size> → parted resizepart (fs before partition)
+    steps = do.compile({"ops": [{"op": "resize", "device": "/dev/sdb", "target": "/dev/sdb1",
+                                 "num": 1, "fstype": "ext4", "start_mib": 1, "size_mib": 8192, "grow": False}]})
+    assert steps[0]["argv"] == ["e2fsck", "-f", "-y", "/dev/sdb1"]
+    assert steps[1]["argv"] == ["resize2fs", "/dev/sdb1", "8192M"]
+    # partition shrink goes through sh -c (parted needs a tty + "Yes" on shrink); +2 MiB margin
+    assert steps[2]["argv"][:2] == ["sh", "-c"] and "resizepart 1 8195MiB" in steps[2]["argv"][2]
+    assert steps[2]["touches_table"] and not steps[1]["touches_table"]
+
+
+def test_resize_grow_compiles_partition_before_fs():
+    # grow: parted resizepart (bigger) → resize2fs (fill) — partition before fs
+    steps = do.compile({"ops": [{"op": "resize", "device": "/dev/sdb", "target": "/dev/sdb1",
+                                 "num": 1, "fstype": "ext4", "start_mib": 1, "size_mib": 20480, "grow": True}]})
+    assert steps[0]["argv"] == ["parted", "-s", "/dev/sdb", "unit", "MiB", "resizepart", "1", "20481MiB"]
+    assert steps[1]["argv"] == ["resize2fs", "/dev/sdb1"]
+
+
+def test_resize_refuses_xfs_and_mounted():
+    xfs = do.compile({"ops": [{"op": "resize", "device": "/dev/sdb", "target": "/dev/sdb1",
+                               "num": 1, "fstype": "xfs", "size_mib": 4096}]})
+    assert any(p["severity"] == "error" for p in do.safety_check(xfs, {"devices": []}, allow_nonloop=True))
+    ext = do.compile({"ops": [{"op": "resize", "device": "/dev/sdb", "target": "/dev/sdb1",
+                               "num": 1, "fstype": "ext4", "start_mib": 1, "size_mib": 4096}]})
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb1", "busy": True, "mountpoint": "/mnt/data", "children": []}]}]}
+    # mounted target → refused (can't shrink a mounted ext fs); note the whole disk is protected too
+    assert any("unmount" in p["message"].lower() for p in do.safety_check(ext, layout, allow_nonloop=True))

@@ -21,7 +21,8 @@ interface Vg { name: string; size_bytes: number | null; free_bytes: number | nul
 interface DiskLayout { devices: Device[]; vgs?: Vg[]; errors: string[]; }
 
 interface DiskOp { op: string; device?: string; target?: string; table?: string; fstype?: string;
-  start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string; _desc: string; }
+  start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
+  start_mib?: number; size_mib?: number; grow?: boolean; _desc: string; }
 interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: number; color: string; title: string; }
 
 /**
@@ -96,6 +97,7 @@ interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: numb
                         <button mat-button (click)="unmount(d, p.row)" [disabled]="busy()">Unmount</button>
                       } @else if (p.depth === 0 && p.row.kind === 'part') {
                         <button mat-icon-button (click)="opFormat(d, p.row)" title="Format"><mat-icon>edit_note</mat-icon></button>
+                        <button mat-icon-button (click)="opResize(d, p.row)" [disabled]="!canResize(p.row)" [title]="resizeHint(p.row)"><mat-icon>open_in_full</mat-icon></button>
                         <button mat-icon-button (click)="opMount(d, p.row)" [disabled]="!p.row.fstype" title="Mount"><mat-icon>drive_folder_upload</mat-icon></button>
                         <button mat-icon-button (click)="opDelete(d, p.row)" title="Delete"><mat-icon>delete_outline</mat-icon></button>
                       }
@@ -270,6 +272,30 @@ export class HostDisksComponent {
     if (!fstype) return;
     if (!confirm(`Format ${p.path} as ${fstype}? This erases its data.`)) return;
     this.push({ op: 'mkfs', device: d.path, target: p.path, fstype, _desc: `Format ${p.path} as ${fstype}` });
+  }
+  /** Resize (grow OR shrink) an unmounted ext* partition + its filesystem, gparted-style.
+   *  ext only (xfs/others can't shrink); must be unmounted (enforced by the backend too). */
+  canResize(p: Partition): boolean { return !p.busy && !!p.fstype && p.fstype.startsWith('ext') && p.start_s != null; }
+  resizeHint(p: Partition): string {
+    if (p.busy) return 'Unmount first to resize';
+    if (!p.fstype || !p.fstype.startsWith('ext')) return 'Resize supported for ext2/3/4 only';
+    if (p.start_s == null) return 'Partition geometry unknown (parted needed)';
+    return 'Resize filesystem + partition (grow or shrink)';
+  }
+  opResize(d: Device, p: Partition): void {
+    const num = Number((p.name.match(/(\d+)$/) || [])[1]);
+    const sector = d.sector_size || 512;
+    const curMib = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
+    const startMib = p.start_s != null ? Math.max(1, Math.round((p.start_s * sector) / 1048576)) : 1;
+    if (!num || !curMib) { alert('Cannot determine partition geometry.'); return; }
+    const ans = (prompt(`New size for ${p.path} in MiB (current ≈ ${curMib} MiB). Smaller shrinks, larger grows:`, String(curMib)) || '').trim();
+    const sizeMib = Number(ans);
+    if (!sizeMib || sizeMib <= 0) return;
+    if (sizeMib === curMib) { alert('Same size — nothing to do.'); return; }
+    const grow = sizeMib > curMib;
+    if (!grow && !confirm(`Shrink ${p.path} to ${sizeMib} MiB? The filesystem is checked and shrunk first, then the partition. Back up important data.`)) return;
+    this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!, start_mib: startMib, size_mib: sizeMib, grow,
+      _desc: `${grow ? 'Grow' : 'Shrink'} ${p.path} (${p.fstype}) ${curMib} → ${sizeMib} MiB` });
   }
   opLabel(d: Device, p: Partition): void {
     const label = (prompt(`Label for ${p.path}:`, p.label || '') || '').trim();

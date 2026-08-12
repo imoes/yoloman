@@ -37,6 +37,13 @@ async def _run(client, argv: list[str]) -> tuple[int, str, str]:
     return int(data.get("rc", 0) or 0), data.get("stdout", "") or "", data.get("stderr", "") or ""
 
 
+def _part_path(dev: str, num) -> str:
+    """device + partition number, with the 'p' separator for loop/nvme/mmc."""
+    import re
+    sep = "p" if re.search(r"(?:loop\d+|nvme\d+n\d+|mmcblk\d+)$", dev) else ""
+    return f"{dev}{sep}{num}"
+
+
 def _target_device(op: dict) -> str:
     """The block device an op acts on — its `device`, or the disk of its `target`."""
     dev = op.get("device") or ""
@@ -69,7 +76,7 @@ def compile(plan: dict) -> list[dict]:
                           "argv": ["parted", "-s", "-a", "optimal", dev, "mkpart", ptype, fstype, start, end]})
         elif kind == "delete":
             num = str(op.get("num"))
-            steps.append({"op": kind, "device": dev, "touches_table": True,
+            steps.append({"op": kind, "device": dev, "touches_table": True, "busy_target": _part_path(dev, num),
                           "desc": f"delete partition {num} on {dev}",
                           "argv": ["parted", "-s", dev, "rm", num]})
         elif kind == "mkfs":
@@ -80,15 +87,45 @@ def compile(plan: dict) -> list[dict]:
                 steps.append({"op": kind, "device": dev, "error": f"unsupported fstype {fstype!r}",
                               "desc": f"format {t} as {fstype} (UNSUPPORTED)", "argv": []})
             else:
-                steps.append({"op": kind, "device": dev, "touches_table": False,
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
                               "desc": f"format {t} as {fstype}", "argv": base + [t]})
         elif kind == "label":
             t, label, fstype = op.get("target"), op.get("label", ""), op.get("fstype", "ext4")
             argv = (["e2label", t, label] if fstype.startswith("ext")
                     else ["xfs_admin", "-L", label, t] if fstype == "xfs"
                     else ["fatlabel", t, label] if fstype in ("vfat", "fat32") else [])
-            steps.append({"op": kind, "device": dev, "touches_table": False,
+            steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
                           "desc": f"label {t} = {label!r}", "argv": argv})
+        elif kind == "resize":
+            # Resize a raw partition's filesystem + the partition itself, in the
+            # ORDER that keeps data safe (gparted's rule): shrink FS then partition;
+            # grow partition then FS. ext* only (xfs can't shrink); shrink needs the
+            # FS unmounted — enforced in safety_check via busy_target.
+            t, num, fstype = op.get("target"), str(op.get("num")), op.get("fstype", "ext4")
+            start_mib, size_mib = int(op.get("start_mib") or 1), int(op.get("size_mib") or 0)
+            grow = bool(op.get("grow"))
+            if not fstype.startswith("ext") or size_mib <= 0:
+                steps.append({"op": kind, "device": dev, "error": f"resize supported for ext* with a size (got {fstype})",
+                              "desc": f"resize {t} (UNSUPPORTED)", "argv": []})
+            elif grow:
+                end = f"{start_mib + size_mib}MiB"
+                steps.append({"op": kind, "device": dev, "touches_table": True, "busy_target": t,
+                              "desc": f"grow partition {num} to {end}",
+                              "argv": ["parted", "-s", dev, "unit", "MiB", "resizepart", num, end]})
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"grow filesystem {t} to fill", "argv": ["resize2fs", t]})
+            else:  # shrink: fsck → shrink fs → shrink partition (with a small margin)
+                end = f"{start_mib + size_mib + 2}MiB"
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"check filesystem {t}", "argv": ["e2fsck", "-f", "-y", t]})
+                steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                              "desc": f"shrink filesystem {t} to {size_mib}MiB", "argv": ["resize2fs", t, f"{size_mib}M"]})
+                # parted resizepart prompts "are you sure?" on a SHRINK even with -s, and
+                # then hangs; feed it a tty (---pretend-input-tty) and answer Yes.
+                shrink_cmd = f"printf 'Yes\\n' | parted ---pretend-input-tty {shlex.quote(dev)} unit MiB resizepart {shlex.quote(num)} {shlex.quote(end)}"
+                steps.append({"op": kind, "device": dev, "touches_table": True, "busy_target": t,
+                              "desc": f"shrink partition {num} to {end}",
+                              "argv": ["sh", "-c", shrink_cmd]})
         elif kind == "mount":
             t, mp = op.get("target"), op.get("mountpoint")
             steps.append({"op": kind, "device": dev, "touches_table": False,
@@ -191,9 +228,10 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
         if dev in protected:
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {dev} has mounted filesystem(s); unmount them first"})
-        tgt = (s.get("argv") or [])[-1] if s.get("argv") else None
-        if s["op"] in ("mkfs", "label", "delete") and tgt in busy:
-            problems.append({"severity": "error", "message": f"{s['desc']}: refused — {tgt} is mounted/busy"})
+        tgt = s.get("busy_target")
+        if s["op"] in ("mkfs", "label", "delete", "resize") and tgt and tgt in busy:
+            problems.append({"severity": "error",
+                             "message": f"{s['desc']}: refused — {tgt} is mounted; unmount it first"})
     return problems
 
 
@@ -201,6 +239,7 @@ _PKG_FOR_BIN = {
     "parted": "parted", "mkfs.ext2": "e2fsprogs", "mkfs.ext3": "e2fsprogs", "mkfs.ext4": "e2fsprogs",
     "e2label": "e2fsprogs", "mkfs.xfs": "xfsprogs", "xfs_admin": "xfsprogs", "mkfs.btrfs": "btrfs-progs",
     "mkfs.vfat": "dosfstools", "fatlabel": "dosfstools", "mkfs.exfat": "exfatprogs", "sfdisk": "util-linux",
+    "resize2fs": "e2fsprogs", "e2fsck": "e2fsprogs", "lvextend": "lvm2",
 }
 
 
@@ -213,7 +252,7 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
         if s.get("touches_table"):
             needed.add("parted")
             needed.add("sfdisk")  # table backup
-        if s["op"] in ("mkfs", "label") and argv:
+        if s["op"] in ("mkfs", "label", "resize", "lvextend") and argv:
             needed.add(argv[0])
     installed: list[str] = []
     missing: list[str] = []
