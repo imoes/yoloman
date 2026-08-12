@@ -192,6 +192,18 @@ TOOL_DEFS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
+            "name": "disk_layout",
+            "description": "Read a host's disks + partitions (the gparted-style Disks view), read-only: devices with size/table/sector_size, each partition's fstype/label/mountpoint/used/avail/busy and start_s/end_s sectors, free-space gaps, and LVM VGs. Use to answer disk-usage/partitioning questions or before proposing a resize/format. Editing the layout (create/format/resize/delete) is done via the MCP disk_plan_preview + disk_plan_apply tools.",
+            "parameters": {
+                "type": "object",
+                "properties": {"host": {"type": "string", "description": "The host (agent) name."}},
+                "required": ["host"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_problems",
             "description": "List active fleet problems — non-OK services in a hard state, most recent first (the 'unhandled problems' triage view). Each: host, service, state, value, thresholds, acknowledged, in_downtime. Call this to see what needs attention across the fleet.",
             "parameters": {
@@ -328,6 +340,15 @@ async def execute_tool(
             "groups": list(agent.groups or []), "ou_id": str(agent.ou_id) if agent.ou_id else None,
             "last_seen": agent.last_seen_at.isoformat() if agent.last_seen_at else None,
         }
+    if name == "disk_layout":
+        from bossman.services import disk_layout as _dl
+
+        agent = await _resolve_agent(session, args.get("host") or "")
+        if agent is None:
+            return {"error": f"no such host {args.get('host')!r}"}
+        if client_factory is None:
+            return {"error": "disk_layout needs host access (not available in this chat context)"}
+        return await _dl.read_disk_layout(agent, client_factory, settings)
     if name == "list_problems":
         from bossman.services.monitoring import query_problems
 

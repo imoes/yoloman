@@ -146,6 +146,40 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
    (neues Modul) — starke Safety + Rollback via sfdisk-Dump. Grow/shrink-Reihenfolge.
 4. **LVM/LUKS-Komfort.** PV/VG/LV über `lvg`/`lvol`; LUKS-Container.
 
+## 8a. Umgesetzt (Stand)
+
+- **READ/Visualisierung** — `GET /agents/{id}/disks` (`services/disk_layout.py`) +
+  „Disks"-Tab mit Balken, Tabelle, Free-Space, LVM.
+- **Op-Engine** (`services/disk_ops.py`): `compile`→ geordnete Host-Kommandos,
+  `safety_check`→ Guardrails, `apply`→ mit Tabellen-Backup (sfdisk -d) +
+  Tool-Preflight (best-effort Install). Ops: mklabel, mkpart, mkfs, label, mount,
+  umount, delete, **resize (grow & shrink)**, lvextend (online).
+- **resize** — verkleinert/vergrößert eine *unmountete* ext-Partition **samt FS** in
+  der datensicheren gparted-Reihenfolge: Shrink `e2fsck → resize2fs <größe> →
+  parted resizepart`; Grow `parted resizepart → resize2fs` (füllt). ext2/3/4 only
+  (xfs/andere können nicht shrinken); Ziel muss unmountet sein (Busy-Guard via
+  `busy_target`). parted fragt beim Shrink trotz `-s` nach → Schritt läuft über
+  `sh -c … ---pretend-input-tty … Yes`. **Real verifiziert** auf test-deployment
+  (`/dev/sdb1`: 32768→8192 MiB shrink, 8192→20480 MiB grow, FS intakt).
+- **Safety** — loop-only außer `allow_nonloop`; Platten mit gemountetem FS sind hart
+  geschützt (System-/Root-Platte); kritische Mounts nie unmountbar; lvextend nur
+  online-GROW.
+
+## 8b. Die KI bedient den Partition-Editor (MCP)
+
+Der Editor ist als MCP-Tools exponiert, damit die KI ihn selbst fährt — **eine Logik,
+mehrere Oberflächen** (UI, REST, MCP, Chat):
+- `disk_layout(host)` — Live-Scan (read-only).
+- `disk_plan_preview(host, ops)` — Op-Queue → exakte Kommandos + Safety-Verdikt, ohne
+  Ausführung. **Immer vor Apply.**
+- `disk_plan_apply(host, ops)` — führt die Queue aus; dasselbe Safety-Gate wie UI/REST.
+- Chat-KI: read-only `disk_layout` in `chat_tools.py` (v1 read-only-Doktrin);
+  mutierende Ops laufen über die separat auditierten MCP-Tools.
+
+Die Op-Formate stehen in den Tool-Beschreibungen (server.py); `ops` ist eine geordnete
+Liste, jede Op ein Dict mit `op`-Feld (mklabel/mkpart/mkfs/label/mount/umount/delete/
+resize/lvextend).
+
 ## 9. Risiken / offen
 
 - **Datenverlust** — destruktive Domäne; Bestätigung, Backup, klarer Diff, Busy-Guard.

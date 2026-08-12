@@ -370,6 +370,63 @@ def build_mcp_server(
             raise ValueError(str(exc)) from exc
 
     @mcp.tool()
+    async def disk_layout(host: str) -> dict[str, Any]:
+        """Read a host's disks + partitions (the gparted-style Disks view),
+        read-only: {devices:[{path,size_bytes,table,sector_size,partitions:[…],
+        free:[…]}], vgs:[…]}. Each partition carries fstype/label/mountpoint/
+        used/avail/busy and start_s/end_s sectors. This is the SCAN step — call
+        it first to see the layout, then disk_plan_preview / disk_plan_apply to
+        change it. Live read over the agent (lsblk + parted)."""
+        from bossman.services import disk_layout as _dl
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+        return await _dl.read_disk_layout(agent, client_factory, settings)
+
+    @mcp.tool()
+    async def disk_plan_preview(host: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
+        """Compile a gparted-style op queue to the exact host commands + a safety
+        verdict, WITHOUT running anything. Always preview before disk_plan_apply.
+        `ops` is an ordered list; each op is a dict with an `op` field:
+          mklabel   {op,device,table}                  new partition table (gpt|msdos)
+          mkpart    {op,device,fstype,start,end,ptype}  create a partition
+          mkfs      {op,device,target,fstype}           format (ext4/xfs/btrfs/vfat/swap)
+          label     {op,device,target,fstype,label}     set a filesystem label
+          mount     {op,device,target,mountpoint}       mkdir + mount
+          umount    {op,device,target}                  unmount (frees a fs for editing)
+          delete    {op,device,num}                     delete a partition
+          resize    {op,device,target,num,fstype,start_mib,size_mib,grow}
+                    resize an unmounted ext* partition + its fs (grow=true grows,
+                    false shrinks; size_mib is the new size, start_mib its start)
+          lvextend  {op,device,target,size}             grow an LV online (size like +5G)
+        Returns {steps, problems, ok}. `ok=false` means a safety error blocks apply
+        (e.g. target mounted, or a non-loop disk with mounted filesystems)."""
+        from bossman.services import disk_layout as _dl, disk_ops as _do
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+        layout = await _dl.read_disk_layout(agent, client_factory, settings)
+        steps = _do.compile({"ops": ops})
+        problems = _do.safety_check(steps, layout, allow_nonloop=True)
+        return {"steps": steps, "problems": problems,
+                "ok": not any(p["severity"] == "error" for p in problems)}
+
+    @mcp.tool()
+    async def disk_plan_apply(host: str, ops: list[dict[str, Any]]) -> dict[str, Any]:
+        """Run a gparted-style op queue on a host (DESTRUCTIVE). Same `ops` shape as
+        disk_plan_preview — preview first. The safety gate always runs and refuses:
+        any disk carrying a mounted filesystem (protects the system/root disk), a
+        format/label/delete/resize whose target is mounted (unmount it first), and a
+        non-online lvextend. Before a partition-table change the table is dumped
+        (sfdisk -d) as a rollback point; missing tools (parted/e2fsprogs/…) are
+        installed best-effort. Stops at the first failed step. Returns {ok, refused,
+        problems, steps:[{desc,ok,output}], table_backup}."""
+        from bossman.services import disk_layout as _dl, disk_ops as _do
+        async with session_factory() as session:
+            agent = await _addressed_agent_or_raise(session, host)
+        layout = await _dl.read_disk_layout(agent, client_factory, settings)
+        return await _do.apply(agent, client_factory, settings, {"ops": ops}, layout,
+                               allow_nonloop=True)
+
+    @mcp.tool()
     async def host_status(host: str) -> dict[str, Any]:
         """A quick health snapshot of ONE host (by name): its facts (OS, kernel,
         IPs), the latest metric sample (cpu/mem/disk/load), and its most recent
