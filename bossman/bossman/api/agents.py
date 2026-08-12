@@ -368,6 +368,73 @@ async def get_agent_disks(
     return await disk_layout.read_disk_layout(agent, client_factory, settings)
 
 
+class DiskPlanBody(BaseModel):
+    """A gparted-style op queue. `allow_nonloop` must be set to touch a real disk;
+    without it, apply refuses anything but a loopback scratch device."""
+    ops: list = []
+    allow_nonloop: bool = False
+
+
+class ScratchBody(BaseModel):
+    action: str = "create"           # create | destroy
+    size_mb: int = 256
+    device: str | None = None        # destroy: the loop device
+    backing_file: str | None = None  # destroy: its backing file
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/preview")
+async def preview_disk_plan(
+    agent_id: UUID, body: DiskPlanBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Compile the op queue to concrete commands + a safety verdict — nothing runs."""
+    from bossman.services import disk_layout, disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    layout = await disk_layout.read_disk_layout(agent, client_factory, settings)
+    steps = disk_ops.compile({"ops": body.ops})
+    problems = disk_ops.safety_check(steps, layout, allow_nonloop=body.allow_nonloop)
+    return {"steps": steps, "problems": problems,
+            "ok": not any(p["severity"] == "error" for p in problems)}
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/apply")
+async def apply_disk_plan(
+    agent_id: UUID, body: DiskPlanBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Run the op queue on the host (guarded: loop-only unless allow_nonloop)."""
+    from bossman.services import disk_layout, disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    layout = await disk_layout.read_disk_layout(agent, client_factory, settings)
+    return await disk_ops.apply(agent, client_factory, settings, {"ops": body.ops}, layout,
+                                allow_nonloop=body.allow_nonloop)
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/scratch")
+async def disk_scratch(
+    agent_id: UUID, body: ScratchBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Create/destroy a throwaway loopback disk so partition ops can be tested for
+    real without a spare disk."""
+    from bossman.services import disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    if body.action == "create":
+        return await disk_ops.scratch_setup(agent, client_factory, settings, size_mb=body.size_mb)
+    if body.action == "destroy":
+        if not body.device:
+            raise HTTPException(422, "destroy needs the loop device")
+        return await disk_ops.scratch_teardown(agent, client_factory, settings,
+                                               device=body.device, backing_file=body.backing_file or "")
+    raise HTTPException(422, "action must be create|destroy")
+
+
 @router.post("/api/v1/agents/{agent_id}/update")
 async def update_agent(
     agent_id: UUID,

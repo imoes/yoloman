@@ -1,0 +1,189 @@
+"""Disk operations — the gparted-style op queue + Apply (docs/disk-management.md,
+Phase 2/3). A DiskPlan is an ORDERED list of typed operations; `compile` turns it
+into concrete host commands, `preview` shows them + a safety verdict without
+touching anything, and `apply` runs them over the agent `command` module.
+
+SAFETY (first cut): apply refuses any operation whose target device is not a
+loopback scratch device (/dev/loop*) unless `allow_nonloop=True` is passed
+explicitly — so the destructive engine can be exercised for real against a
+throwaway loop device without any chance of harming a system disk. A scratch loop
+device is created/destroyed via `scratch_setup`/`scratch_teardown`. Before a
+partition-table change the table is dumped (`sfdisk -d`) as a rollback point.
+"""
+from __future__ import annotations
+
+import logging
+import shlex
+from typing import Any
+
+logger = logging.getLogger(__name__)
+
+# Filesystem → mkfs command + label tool (extend as more are validated).
+_MKFS = {
+    "ext2": ["mkfs.ext2", "-F"], "ext3": ["mkfs.ext3", "-F"], "ext4": ["mkfs.ext4", "-F"],
+    "xfs": ["mkfs.xfs", "-f"], "btrfs": ["mkfs.btrfs", "-f"], "vfat": ["mkfs.vfat"],
+    "fat32": ["mkfs.vfat", "-F", "32"], "exfat": ["mkfs.exfat"], "swap": ["mkswap"],
+}
+
+
+async def _run(client, argv: list[str]) -> tuple[int, str, str]:
+    try:
+        res = await client.call_tool("command", {"argv": argv})
+    except Exception as exc:  # noqa: BLE001
+        return 127, "", str(exc)[:300]
+    data = (res or {}).get("data") if isinstance(res, dict) else {}
+    if not isinstance(data, dict):
+        return 1, "", "unexpected command result"
+    return int(data.get("rc", 0) or 0), data.get("stdout", "") or "", data.get("stderr", "") or ""
+
+
+def _target_device(op: dict) -> str:
+    """The block device an op acts on — its `device`, or the disk of its `target`."""
+    dev = op.get("device") or ""
+    if dev:
+        return dev
+    t = op.get("target") or ""
+    # /dev/sda2 → /dev/sda ; /dev/loop0p1 → /dev/loop0 ; /dev/nvme0n1p2 → /dev/nvme0n1
+    import re
+    m = re.match(r"^(/dev/(?:loop\d+|nvme\d+n\d+|mmcblk\d+|[a-z]+))p?\d*$", t)
+    return m.group(1) if m else t
+
+
+def compile(plan: dict) -> list[dict]:
+    """DiskPlan → ordered [{op, desc, argv, device, touches_table}]. Pure."""
+    steps: list[dict] = []
+    for op in plan.get("ops", []) or []:
+        kind = op.get("op")
+        dev = _target_device(op)
+        if kind == "mklabel":
+            table = op.get("table", "gpt")
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"create {table} partition table on {dev}",
+                          "argv": ["parted", "-s", dev, "mklabel", table]})
+        elif kind == "mkpart":
+            fstype = op.get("fstype", "ext4")
+            start, end = op.get("start", "1MiB"), op.get("end", "100%")
+            ptype = op.get("ptype", "primary")
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"create {ptype} partition {start}→{end} on {dev}",
+                          "argv": ["parted", "-s", "-a", "optimal", dev, "mkpart", ptype, fstype, start, end]})
+        elif kind == "delete":
+            num = str(op.get("num"))
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"delete partition {num} on {dev}",
+                          "argv": ["parted", "-s", dev, "rm", num]})
+        elif kind == "mkfs":
+            t = op.get("target")
+            fstype = op.get("fstype", "ext4")
+            base = _MKFS.get(fstype)
+            if not base:
+                steps.append({"op": kind, "device": dev, "error": f"unsupported fstype {fstype!r}",
+                              "desc": f"format {t} as {fstype} (UNSUPPORTED)", "argv": []})
+            else:
+                steps.append({"op": kind, "device": dev, "touches_table": False,
+                              "desc": f"format {t} as {fstype}", "argv": base + [t]})
+        elif kind == "label":
+            t, label, fstype = op.get("target"), op.get("label", ""), op.get("fstype", "ext4")
+            argv = (["e2label", t, label] if fstype.startswith("ext")
+                    else ["xfs_admin", "-L", label, t] if fstype == "xfs"
+                    else ["fatlabel", t, label] if fstype in ("vfat", "fat32") else [])
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"label {t} = {label!r}", "argv": argv})
+        elif kind == "mount":
+            t, mp = op.get("target"), op.get("mountpoint")
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"mount {t} at {mp}",
+                          "argv": ["sh", "-c", f"mkdir -p {shlex.quote(mp)} && mount {shlex.quote(t)} {shlex.quote(mp)}"]})
+        else:
+            steps.append({"op": kind, "device": dev, "error": f"unknown op {kind!r}",
+                          "desc": f"unknown op {kind!r}", "argv": []})
+    return steps
+
+
+def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> list[dict]:
+    """Design-time guardrails. Returns problems [{severity, message}]. errors block
+    apply; warnings don't."""
+    problems: list[dict] = []
+    # index busy (mounted) targets from the current layout
+    busy: set[str] = set()
+    for d in layout.get("devices", []) or []:
+        for p in d.get("partitions", []) or []:
+            if p.get("busy"):
+                busy.add(p.get("path"))
+            for c in p.get("children", []) or []:
+                if c.get("busy"):
+                    busy.add(c.get("path"))
+    for s in steps:
+        if s.get("error"):
+            problems.append({"severity": "error", "message": s["desc"]})
+        dev = s.get("device") or ""
+        is_loop = dev.startswith("/dev/loop")
+        if not is_loop and not allow_nonloop:
+            problems.append({"severity": "error",
+                             "message": f"{s['desc']}: refused — {dev} is not a loopback scratch device "
+                                        "(pass allow_nonloop to operate on a real disk)"})
+        tgt = (s.get("argv") or [])[-1] if s.get("argv") else None
+        if s["op"] in ("mkfs", "label", "delete") and tgt in busy:
+            problems.append({"severity": "error", "message": f"{s['desc']}: refused — {tgt} is mounted/busy"})
+    return problems
+
+
+async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, allow_nonloop: bool = False) -> dict:
+    """Run the plan on the host. Refuses on any safety error. Dumps the partition
+    table (sfdisk -d) of each touched device first as a rollback point. Stops at
+    the first failed step. Returns {ok, steps:[…], table_backup:{dev:dump}}."""
+    steps = compile(plan)
+    problems = safety_check(steps, layout, allow_nonloop=allow_nonloop)
+    if any(p["severity"] == "error" for p in problems):
+        return {"ok": False, "refused": True, "problems": problems, "steps": []}
+
+    client = client_factory(agent, settings)
+    # rollback point: dump the table of every device whose table we touch
+    table_backup: dict[str, str] = {}
+    for dev in {s["device"] for s in steps if s.get("touches_table")}:
+        rc, out, _ = await _run(client, ["sfdisk", "-d", dev])
+        if rc == 0:
+            table_backup[dev] = out
+
+    results: list[dict] = []
+    ok = True
+    for s in steps:
+        if not s.get("argv"):
+            results.append({"desc": s["desc"], "ok": False, "error": s.get("error", "no command")})
+            ok = False
+            break
+        rc, out, err = await _run(client, s["argv"])
+        step_ok = rc == 0
+        results.append({"desc": s["desc"], "argv": s["argv"], "rc": rc,
+                        "ok": step_ok, "output": (out + err).strip()[:500]})
+        if not step_ok:
+            ok = False
+            break
+    return {"ok": ok, "problems": problems, "steps": results, "table_backup": table_backup}
+
+
+async def scratch_setup(agent, client_factory, settings, *, size_mb: int = 256) -> dict:
+    """Create a throwaway loopback disk (a sparse file + losetup) so disk ops can
+    be tested for real without a spare disk. Returns {ok, device, backing_file}."""
+    client = client_factory(agent, settings)
+    size_mb = max(16, min(size_mb, 4096))
+    script = (
+        f"f=$(mktemp /var/tmp/bm-scratch.XXXXXX.img) && truncate -s {size_mb}M \"$f\" "
+        f"&& dev=$(losetup --find --show \"$f\") && echo \"$dev|$f\""
+    )
+    rc, out, err = await _run(client, ["sh", "-c", script])
+    if rc != 0 or "|" not in out:
+        return {"ok": False, "error": (err or out or "losetup failed")[:300]}
+    dev, backing = out.strip().split("|", 1)
+    return {"ok": True, "device": dev, "backing_file": backing}
+
+
+async def scratch_teardown(agent, client_factory, settings, *, device: str, backing_file: str) -> dict:
+    """Detach + delete a scratch loopback disk created by scratch_setup."""
+    if not device.startswith("/dev/loop"):
+        return {"ok": False, "error": "refused — not a loop device"}
+    client = client_factory(agent, settings)
+    bf = shlex.quote(backing_file) if backing_file else ""
+    script = f"umount {shlex.quote(device)}* 2>/dev/null; losetup -d {shlex.quote(device)}; " + (f"rm -f {bf}" if bf else "true")
+    rc, out, err = await _run(client, ["sh", "-c", script])
+    return {"ok": rc == 0, "output": (out + err).strip()[:300]}

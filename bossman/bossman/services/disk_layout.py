@@ -146,4 +146,37 @@ async def read_disk_layout(agent, client_factory, settings) -> dict:
             errors.append(f"parted on {path}: rc={prc} {perr[:120]}")
         devices.append(dev)
 
-    return {"devices": devices, "errors": errors}
+    vgs = await _read_lvm(client, errors)
+    return {"devices": devices, "vgs": vgs, "errors": errors}
+
+
+async def _read_lvm(client, errors: list[str]) -> list[dict]:
+    """LVM volume groups + logical volumes (name, size, FREE extents) — so the
+    view shows LVM and an LV can be created in a VG's free space. Best-effort:
+    hosts without LVM simply return []."""
+    vgrc, vgout, _ = await _run(client, [
+        "vgs", "--reportformat", "json", "--units", "b", "--nosuffix",
+        "-o", "vg_name,vg_size,vg_free"])
+    if vgrc != 0 or not vgout.strip():
+        return []  # no LVM (or lvm2 not installed) — not an error worth surfacing
+    try:
+        vg_report = json.loads(vgout)
+        vg_rows = vg_report["report"][0]["vg"]
+    except (ValueError, KeyError, IndexError):
+        return []
+    lvrc, lvout, _ = await _run(client, [
+        "lvs", "--reportformat", "json", "--units", "b", "--nosuffix",
+        "-o", "lv_name,vg_name,lv_size,lv_path"])
+    lv_by_vg: dict[str, list[dict]] = {}
+    try:
+        for lv in json.loads(lvout)["report"][0]["lv"]:
+            lv_by_vg.setdefault(lv["vg_name"], []).append({
+                "name": lv["lv_name"], "path": lv.get("lv_path"), "size_bytes": _int(lv.get("lv_size"))})
+    except (ValueError, KeyError, IndexError):
+        pass
+    vgs = []
+    for vg in vg_rows:
+        vgs.append({
+            "name": vg["vg_name"], "size_bytes": _int(vg.get("vg_size")),
+            "free_bytes": _int(vg.get("vg_free")), "lvs": lv_by_vg.get(vg["vg_name"], [])})
+    return vgs
