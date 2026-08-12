@@ -2200,6 +2200,16 @@ class RemediationPolicy(Base):
     # trigger and escalate if it didn't recover. `verify_after_s` is the settle time.
     verify: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
     verify_after_s: Mapped[int] = mapped_column(Integer, nullable=False, server_default="60", default=60)
+    # ── autonomy (Phase 2) — opt-in, guardrailed ────────────────────────────
+    # propose = human applies (default); auto_verify = auto-apply when the
+    # guardrails pass, then verify + escalate/rollback. A global kill-switch
+    # (settings.remediation_autonomy_enabled) must also be on.
+    autonomy: Mapped[str] = mapped_column(String, nullable=False, server_default="propose", default="propose")
+    # Guardrails for auto_verify:
+    allow_prod: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false", default=False)
+    max_blast_radius: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1", default=1)
+    # Optional compensating runbook to run if verify fails (best-effort undo).
+    rollback_runbook: Mapped[str | None] = mapped_column(String)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)

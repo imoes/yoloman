@@ -32,8 +32,15 @@ class RemediationPolicyIn(BaseModel):
     runbook_name: str
     params: dict = {}
     max_per_hour: int = 3
-    mode: str = "auto"            # auto | propose
+    mode: str = "auto"            # auto | propose (legacy)
     enabled: bool = True
+    # closed-loop verify (Phase 1) + autonomy (Phase 2)
+    verify: bool = True
+    verify_after_s: int = 60
+    autonomy: str = "propose"     # propose | auto_verify
+    allow_prod: bool = False
+    max_blast_radius: int = 1
+    rollback_runbook: str | None = None
 
 
 class RemediationPolicyOut(BaseModel):
@@ -50,6 +57,12 @@ class RemediationPolicyOut(BaseModel):
     max_per_hour: int
     mode: str
     enabled: bool
+    verify: bool
+    verify_after_s: int
+    autonomy: str
+    allow_prod: bool
+    max_blast_radius: int
+    rollback_runbook: str | None
 
     @classmethod
     def of(cls, p: RemediationPolicy) -> "RemediationPolicyOut":
@@ -57,7 +70,9 @@ class RemediationPolicyOut(BaseModel):
             id=p.id, name=p.name, match_service_name=p.match_service_name, scope_type=p.scope_type,
             ou_id=p.ou_id, host_group_id=p.host_group_id, agent_id=p.agent_id, conditions=p.conditions or {},
             runbook_name=p.runbook_name, params=p.params or {}, max_per_hour=p.max_per_hour,
-            mode=p.mode, enabled=p.enabled,
+            mode=p.mode, enabled=p.enabled, verify=p.verify, verify_after_s=p.verify_after_s,
+            autonomy=p.autonomy, allow_prod=p.allow_prod, max_blast_radius=p.max_blast_radius,
+            rollback_runbook=p.rollback_runbook,
         )
 
 
@@ -76,11 +91,16 @@ async def create_remediation_policy(
         raise HTTPException(422, "scope_type must be global|ou|group|host")
     if body.mode not in ("auto", "propose"):
         raise HTTPException(422, "mode must be auto|propose")
+    if body.autonomy not in ("propose", "auto_verify"):
+        raise HTTPException(422, "autonomy must be propose|auto_verify")
     p = RemediationPolicy(
         tenant_id=DEFAULT_TENANT_ID, name=body.name, match_service_name=body.match_service_name,
         scope_type=body.scope_type, ou_id=body.ou_id, host_group_id=body.host_group_id, agent_id=body.agent_id,
         conditions=body.conditions or {}, runbook_name=body.runbook_name, params=body.params or {},
-        max_per_hour=body.max_per_hour, mode=body.mode, enabled=body.enabled, created_by=identity.name,
+        max_per_hour=body.max_per_hour, mode=body.mode, enabled=body.enabled,
+        verify=body.verify, verify_after_s=body.verify_after_s, autonomy=body.autonomy,
+        allow_prod=body.allow_prod, max_blast_radius=body.max_blast_radius, rollback_runbook=body.rollback_runbook,
+        created_by=identity.name,
     )
     session.add(p)
     await session.commit()

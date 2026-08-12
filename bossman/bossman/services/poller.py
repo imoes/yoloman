@@ -800,9 +800,12 @@ async def poller_loop(
                 if settings.remediation_enabled:
                     try:
                         from bossman.services import remediation
+                        # Autonomy (Phase 2): apply eligible pending proposals
+                        # unattended — self-gated by the kill-switch + guardrails.
+                        await remediation.auto_apply_due(session_factory, settings)
                         await remediation.verify_due(session_factory, settings)
                     except Exception:  # noqa: BLE001
-                        logger.debug("remediation verify skipped", exc_info=True)
+                        logger.debug("remediation auto-apply/verify skipped", exc_info=True)
                 results = await poll_once(session_factory, settings)
                 failed = [r for r in results if r.errors]
                 if failed:

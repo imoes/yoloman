@@ -132,6 +132,56 @@ async def propose_for_service(session: AsyncSession, agent: Agent, service_name:
     return out
 
 
+def _is_prod(agent: Agent) -> bool:
+    """Best-effort 'is this a production host': criticality or an env tag."""
+    if (agent.criticality or "").lower() in ("prod", "production", "critical"):
+        return True
+    return str((agent.tags or {}).get("env", "")).lower() in ("prod", "production")
+
+
+async def _auto_allowed(
+    session: AsyncSession, settings: Settings, policy: RemediationPolicy, agent: Agent,
+    cycle_counts: dict,
+) -> tuple[bool, str]:
+    """The autonomy gate — every guardrail that must pass before a fix is applied
+    unattended. Returns (allowed, reason). Any No leaves the proposal pending for a
+    human."""
+    if not settings.remediation_autonomy_enabled:
+        return False, "autonomy kill-switch off"
+    if not policy.enabled:
+        return False, "policy disabled"
+    if policy.autonomy != "auto_verify":
+        return False, "policy not autonomous"
+    if _is_prod(agent) and not policy.allow_prod:
+        return False, "production host (allow_prod off)"
+    if await _recent_runs(session, policy.id, agent.id) >= policy.max_per_hour:
+        return False, "rate-limited (max_per_hour)"
+    if cycle_counts.get(policy.id, 0) >= policy.max_blast_radius:
+        return False, "blast-radius cap reached this cycle"
+    return True, "ok"
+
+
+async def _execute_runbook_by_name(
+    session: AsyncSession, settings: Settings, agent: Agent, runbook_name: str,
+    request_vars: dict, client_factory,
+) -> tuple[bool, str]:
+    """Run an arbitrary runbook (e.g. a compensating rollback) on a host. Best-effort."""
+    if not agent.address:
+        return False, "host has no reachable address"
+    rb = await session.scalar(select(Runbook).where(Runbook.name == runbook_name))
+    doc = nt_runbook.parse_data(rb.doc, source=f"runbook {runbook_name!r}") if rb else None
+    if not isinstance(doc, nt_runbook.Runbook):
+        return False, f"runbook {runbook_name!r} missing or is a role"
+    try:
+        _, rr = await execute_runbook(
+            session, agent, doc, settings=settings, client=client_factory(agent, settings),
+            request_vars=request_vars, dry_run=False, requested_by=f"remediation-rollback:{runbook_name}", commit=False)
+        ok = rr.get("ok", True) and not rr.get("aborted")
+        return ok, "rollback runbook " + ("succeeded" if ok else "failed")
+    except Exception as exc:  # noqa: BLE001
+        return False, f"rollback error: {str(exc)[:200]}"
+
+
 async def apply_run(session: AsyncSession, settings: Settings, run: RemediationRun, client_factory) -> dict[str, Any]:
     """Execute a pending proposal now (the Apply button / AI). Updates the run's
     status to ran/failed."""
@@ -257,12 +307,22 @@ async def verify_due(session_factory, settings: Settings) -> int:
             else:
                 run.phase = "escalated"
                 run.outcome = f"no_recovery (still {state or 'UNKNOWN'})"
+                # Optional compensating rollback runbook before we hand off to a human.
+                policy = await session.get(RemediationPolicy, run.policy_id) if run.policy_id else None
+                rb_name = getattr(policy, "rollback_runbook", None) if policy else None
+                rolled = ""
+                if rb_name and agent.address:
+                    ok_rb, detail_rb = await _execute_runbook_by_name(
+                        session, settings, agent, rb_name,
+                        {"check_service": run.service_name, "check_host": agent.name}, client_for)
+                    rolled = f" | rollback '{rb_name}': {'ok' if ok_rb else 'failed'} ({detail_rb})"
+                    run.outcome += rolled
                 try:
                     ev = NotifyEvent(
                         agent_name=agent.name, service_name=run.service_name,
                         state=state or "UNKNOWN", event="problem",
                         output=(f"Auto-remediation '{run.runbook_name}' did NOT recover "
-                                f"'{run.service_name}' (still {state or 'UNKNOWN'}). Manual attention needed."),
+                                f"'{run.service_name}' (still {state or 'UNKNOWN'}).{rolled} Manual attention needed."),
                         agent_tags=agent.tags or {})
                     await notification.dispatch(session, settings, ev)
                 except Exception:  # noqa: BLE001
@@ -273,3 +333,43 @@ async def verify_due(session_factory, settings: Settings) -> int:
     if processed:
         logger.info("remediation verify: processed %d run(s)", processed)
     return processed
+
+
+async def auto_apply_due(session_factory, settings: Settings) -> int:
+    """Autonomous apply step (poller hook, Phase 2). Pulls PENDING proposals whose
+    policy is `auto_verify`, runs each through the guardrail gate, and — only when
+    every guardrail passes — applies it (which enters `verifying`, so the Phase-1
+    verify closes the loop). Anything that fails a guardrail stays pending for a
+    human. Gated overall by the autonomy kill-switch. Returns how many were applied.
+
+    Local import avoids an import cycle at module load (poller imports this)."""
+    if not settings.remediation_autonomy_enabled:
+        return 0
+    from bossman.services.agent_client import client_for
+
+    applied = 0
+    cycle_counts: dict = {}
+    async with session_factory() as session:
+        rows = (await session.scalars(
+            select(RemediationRun).where(
+                RemediationRun.status == "pending", RemediationRun.phase == "proposed")
+            .order_by(RemediationRun.at.asc())
+        )).all()
+        for run in rows:
+            policy = await session.get(RemediationPolicy, run.policy_id) if run.policy_id else None
+            agent = await session.get(Agent, run.agent_id) if run.agent_id else None
+            if policy is None or agent is None:
+                continue
+            allowed, reason = await _auto_allowed(session, settings, policy, agent, cycle_counts)
+            if not allowed:
+                logger.debug("auto-apply skipped %s/%s: %s", agent.name, run.service_name, reason)
+                continue
+            cycle_counts[policy.id] = cycle_counts.get(policy.id, 0) + 1
+            await apply_run(session, settings, run, client_for)
+            run.detail = f"[auto] {run.detail or ''}".strip()
+            applied += 1
+        if applied:
+            await session.commit()
+    if applied:
+        logger.info("remediation auto-apply: applied %d proposal(s)", applied)
+    return applied

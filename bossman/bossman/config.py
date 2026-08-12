@@ -410,6 +410,10 @@ class Settings(BaseSettings):
     # Event-driven self-healing: run RemediationPolicy runbooks when a check goes
     # hard on the poll path. Off in the test suite (like the poller loops).
     remediation_enabled: bool = True
+    # Master kill-switch for AUTONOMOUS remediation (Phase 2). Even a policy set to
+    # autonomy=auto_verify only runs unattended when this is on — off by default so
+    # the fleet must explicitly opt into any self-applied change.
+    remediation_autonomy_enabled: bool = False
     # Wake the reconciler INSTANTLY on a change via Postgres LISTEN/NOTIFY, instead
     # of waiting up to reconcile_interval_seconds. enqueue_policy_event fires a
     # NOTIFY in the same transaction (delivered on commit); a dedicated listener
