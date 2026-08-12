@@ -142,10 +142,30 @@ async def apply_run(session: AsyncSession, settings: Settings, run: RemediationR
         run.detail = "policy or host no longer exists"
         return {"status": "failed", "detail": run.detail}
     status, detail = await _execute_policy(session, settings, agent, run.service_name, policy, client_factory)
+    now = datetime.now(timezone.utc)
     run.status = status
     run.detail = detail
-    run.at = datetime.now(timezone.utc)
-    return {"status": status, "detail": detail, "host": agent.name, "runbook": policy.runbook_name}
+    run.at = now
+    run.applied_at = now
+    _set_verify_phase(run, policy, status, now)
+    return {"status": status, "detail": detail, "phase": run.phase,
+            "host": agent.name, "runbook": policy.runbook_name}
+
+
+def _set_verify_phase(run: RemediationRun, policy: RemediationPolicy, status: str, now: datetime) -> None:
+    """After an apply, move the run into its next lifecycle phase: a successful
+    apply enters `verifying` (the poller re-checks it after verify_after_s) unless
+    the policy disabled verify; a failed apply is terminal `failed`."""
+    if status != "ran":
+        run.phase = "failed"
+        run.outcome = "apply_failed"
+        return
+    if getattr(policy, "verify", True):
+        run.phase = "verifying"
+        run.verify_due_at = now + timedelta(seconds=getattr(policy, "verify_after_s", 60) or 60)
+    else:
+        run.phase = "resolved"
+        run.outcome = "applied (verify disabled)"
 
 
 async def run_remediations_for_service(
@@ -154,14 +174,17 @@ async def run_remediations_for_service(
     """Run every matching policy for one (host, check) NOW and log each — the
     manual/AI direct trigger (there is no automatic execution path)."""
     results = []
+    now = datetime.now(timezone.utc)
     for p in await matching_policies(session, agent, service_name):
         status, detail = await _execute_policy(session, settings, agent, service_name, p, client_factory)
-        session.add(RemediationRun(
+        run = RemediationRun(
             tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
-            runbook_name=p.runbook_name, status=status, detail=detail[:2000],
-        ))
+            runbook_name=p.runbook_name, status=status, detail=detail[:2000], applied_at=now, at=now,
+        )
+        _set_verify_phase(run, p, status, now)
+        session.add(run)
         results.append({"policy": p.name, "host": agent.name, "service": service_name,
-                        "runbook": p.runbook_name, "status": status, "detail": detail})
+                        "runbook": p.runbook_name, "status": status, "phase": run.phase, "detail": detail})
     return results
 
 
@@ -183,3 +206,70 @@ async def collect_and_propose(session: AsyncSession, touched: list[Service]) -> 
             agents[svc.agent_id] = agent
         proposed += len(await propose_for_service(session, agent, svc.name))
     return proposed
+
+
+async def verify_due(session_factory, settings: Settings) -> int:
+    """Closed-loop VERIFY step (poller hook). Picks up runs in phase `verifying`
+    whose settle time has elapsed, re-checks the triggering service on the host,
+    and closes the loop: recovered → `resolved`; still failing → `escalated`
+    (notify a human via the existing notification engine). Best-effort per run —
+    one bad verify never sinks the cycle. Returns how many runs were processed.
+
+    Local imports avoid any import cycle at module load (poller imports this)."""
+    from bossman.services.agent_client import client_for
+    from bossman.services import notification
+    from bossman.services.notification import NotifyEvent
+    from bossman.services.monitoring import evaluate_assigned_checks
+
+    now = datetime.now(timezone.utc)
+    processed = 0
+    async with session_factory() as session:
+        rows = (await session.scalars(
+            select(RemediationRun).where(
+                RemediationRun.phase == "verifying", RemediationRun.verify_due_at <= now)
+        )).all()
+        for run in rows:
+            agent = await session.get(Agent, run.agent_id) if run.agent_id else None
+            if agent is None:
+                run.phase = "failed"
+                run.outcome = "host no longer exists"
+                run.verified_at = now
+                processed += 1
+                continue
+            # Best-effort targeted recheck so verify reflects the CURRENT state,
+            # not a stale poll (assigned checks only; metric-threshold services are
+            # refreshed by the poller and read below either way).
+            if agent.address:
+                try:
+                    await evaluate_assigned_checks(session, agent, client_for(agent, settings), settings.checks_dir)
+                except Exception:  # noqa: BLE001
+                    logger.debug("verify recheck failed for %s", agent.name, exc_info=True)
+            svc = await session.scalar(select(Service).where(
+                Service.agent_id == run.agent_id, Service.name == run.service_name))
+            state = svc.state if svc else None
+            recovered = state == "OK"
+            run.verified_at = now
+            run.verify_state = state or "UNKNOWN"
+            run.verify_ok = recovered
+            if recovered:
+                run.phase = "resolved"
+                run.outcome = "recovered"
+            else:
+                run.phase = "escalated"
+                run.outcome = f"no_recovery (still {state or 'UNKNOWN'})"
+                try:
+                    ev = NotifyEvent(
+                        agent_name=agent.name, service_name=run.service_name,
+                        state=state or "UNKNOWN", event="problem",
+                        output=(f"Auto-remediation '{run.runbook_name}' did NOT recover "
+                                f"'{run.service_name}' (still {state or 'UNKNOWN'}). Manual attention needed."),
+                        agent_tags=agent.tags or {})
+                    await notification.dispatch(session, settings, ev)
+                except Exception:  # noqa: BLE001
+                    logger.warning("remediation escalation dispatch failed for %s", agent.name, exc_info=True)
+            processed += 1
+        if processed:
+            await session.commit()
+    if processed:
+        logger.info("remediation verify: processed %d run(s)", processed)
+    return processed

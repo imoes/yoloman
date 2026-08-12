@@ -795,6 +795,14 @@ async def poller_loop(
                     await knowledge_index.maybe_reindex(session_factory, settings)
                 except Exception:  # noqa: BLE001
                     logger.debug("knowledge reindex skipped", exc_info=True)
+                # Closed-loop VERIFY: check whether applied remediations actually
+                # recovered their trigger, and escalate the ones that didn't.
+                if settings.remediation_enabled:
+                    try:
+                        from bossman.services import remediation
+                        await remediation.verify_due(session_factory, settings)
+                    except Exception:  # noqa: BLE001
+                        logger.debug("remediation verify skipped", exc_info=True)
                 results = await poll_once(session_factory, settings)
                 failed = [r for r in results if r.errors]
                 if failed:

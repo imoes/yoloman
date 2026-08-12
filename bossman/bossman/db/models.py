@@ -2196,6 +2196,10 @@ class RemediationPolicy(Base):
     params: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     max_per_hour: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
     mode: Mapped[str] = mapped_column(String, nullable=False, default="auto")  # auto | propose
+    # Closed-loop verify knobs (Phase 1): after an applied remediation, re-check the
+    # trigger and escalate if it didn't recover. `verify_after_s` is the settle time.
+    verify: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true", default=True)
+    verify_after_s: Mapped[int] = mapped_column(Integer, nullable=False, server_default="60", default=60)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
@@ -2219,11 +2223,27 @@ class RemediationRun(Base):
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="SET NULL"))
     service_name: Mapped[str] = mapped_column(String, nullable=False, default="")
     runbook_name: Mapped[str] = mapped_column(String, nullable=False, default="")
-    status: Mapped[str] = mapped_column(String, nullable=False)  # ran|proposed|rate_limited|failed
+    status: Mapped[str] = mapped_column(String, nullable=False)  # pending|ran|rate_limited|failed
     detail: Mapped[str | None] = mapped_column(Text)
     at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    # ── closed-loop lifecycle (docs/closed-loop-remediation.md) ──────────────
+    # The run is a tracked VORGANG now, not just an attempt: after a fix is
+    # applied it is VERIFIED (was the triggering check actually restored?), and
+    # on failure it ESCALATES. `phase` drives that state machine; `status` stays
+    # the coarse apply outcome for backward compatibility.
+    phase: Mapped[str] = mapped_column(String, nullable=False, server_default="proposed", default="proposed")
+    # proposed | verifying | resolved | failed | escalated
+    applied_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    verify_due_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)   # when the poller should verify
+    verified_at: Mapped[datetime | None] = mapped_column(TZ_DATETIME)
+    verify_state: Mapped[str | None] = mapped_column(String)             # the trigger check's state at verify
+    verify_ok: Mapped[bool | None] = mapped_column(Boolean)              # did it recover?
+    outcome: Mapped[str | None] = mapped_column(Text)                    # recovered | no_recovery | apply_failed | …
 
-    __table_args__ = (Index("idx_remediation_runs_recent", "policy_id", "agent_id", "at"),)
+    __table_args__ = (
+        Index("idx_remediation_runs_recent", "policy_id", "agent_id", "at"),
+        Index("idx_remediation_runs_verify", "phase", "verify_due_at"),
+    )
 
 
 class ChangeProposal(Base):

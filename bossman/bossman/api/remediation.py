@@ -106,6 +106,13 @@ class RemediationRunOut(BaseModel):
     status: str
     detail: str | None
     at: datetime
+    # closed-loop lifecycle
+    phase: str
+    applied_at: datetime | None
+    verified_at: datetime | None
+    verify_state: str | None
+    verify_ok: bool | None
+    outcome: str | None
 
 
 @router.get("/api/v1/remediation-runs", response_model=list[RemediationRunOut])
@@ -119,6 +126,8 @@ async def list_remediation_runs(status: str | None = Query(None), limit: int = Q
     return [RemediationRunOut(
         id=r.id, policy_id=r.policy_id, agent_id=r.agent_id, service_name=r.service_name,
         runbook_name=r.runbook_name, status=r.status, detail=r.detail, at=r.at,
+        phase=r.phase, applied_at=r.applied_at, verified_at=r.verified_at,
+        verify_state=r.verify_state, verify_ok=r.verify_ok, outcome=r.outcome,
     ) for r in rows]
 
 
