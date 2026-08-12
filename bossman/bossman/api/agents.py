@@ -351,6 +351,23 @@ async def mass_assign_facets(
     return [AgentOut.from_model(a) for a in agents]
 
 
+@router.get("/api/v1/agents/{agent_id}/disks")
+async def get_agent_disks(
+    agent_id: UUID,
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """The host's disk + partition layout (gparted-style Disks view, read-only):
+    disks with their partitions (fs, mount, used/avail, flags), the partition-table
+    type, and FREE segments. Live read over the agent (lsblk + parted)."""
+    from bossman.services import disk_layout
+
+    agent = await _get_agent_or_404(session, agent_id)
+    return await disk_layout.read_disk_layout(agent, client_factory, settings)
+
+
 @router.post("/api/v1/agents/{agent_id}/update")
 async def update_agent(
     agent_id: UUID,
