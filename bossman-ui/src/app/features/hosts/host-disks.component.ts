@@ -18,11 +18,17 @@ interface Device {
   sector_size: number | null; partitions: Partition[]; free: FreeSeg[];
 }
 interface Vg { name: string; size_bytes: number | null; free_bytes: number | null; lvs: { name: string }[]; }
-interface DiskLayout { devices: Device[]; vgs?: Vg[]; errors: string[]; }
+interface ZfsPool { name: string; size_bytes: number | null; alloc_bytes: number | null; free_bytes: number | null; health: string; frag: string | null; cap: string | null; }
+interface ZfsDataset { name: string; type: string; used_bytes: number | null; avail_bytes: number | null;
+  refer_bytes: number | null; quota_bytes: number | null; refquota_bytes: number | null;
+  reservation_bytes: number | null; refreservation_bytes: number | null; mountpoint: string | null; }
+interface Zfs { available: boolean; pools?: ZfsPool[]; datasets?: ZfsDataset[]; }
+interface DiskLayout { devices: Device[]; vgs?: Vg[]; zfs?: Zfs; errors: string[]; }
 
 interface DiskOp { op: string; device?: string; target?: string; table?: string; fstype?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
-  start_mib?: number; size_mib?: number; grow?: boolean; _desc: string; }
+  start_mib?: number; size_mib?: number; grow?: boolean;
+  name?: string; property?: string; snap?: string; recursive?: boolean; raid?: string; vdevs?: string[]; _desc: string; }
 interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: number; color: string; title: string; }
 interface FormField { key: string; label: string; type: 'text' | 'number' | 'select'; value: string;
   options?: string[]; hint?: string; placeholder?: string; }
@@ -134,6 +140,56 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
           @for (v of l.vgs!; track v.name) { <span class="bm-dk-vg">{{ v.name }} · {{ fmt(v.size_bytes) }} ({{ fmt(v.free_bytes) }} free) · {{ v.lvs.length }} LV</span> }
         </div>
       }
+
+      @if (l.zfs?.available) {
+        <div class="bm-dk-zfs">
+          <div class="bm-dk-zfs-h">
+            <mat-icon>dataset</mat-icon><strong>ZFS</strong>
+            <span class="bm-dk-devacts">
+              <button mat-button (click)="opZpoolCreate(l)"><mat-icon>add</mat-icon> Create pool</button>
+            </span>
+          </div>
+          @for (pool of l.zfs!.pools || []; track pool.name) {
+            <div class="bm-dk-zpool">
+              <div class="bm-dk-zpool-h">
+                <span class="bm-dk-swatch" [style.background]="poolHealthColor(pool.health)"></span>
+                <strong>{{ pool.name }}</strong>
+                <span class="bm-dk-meta">{{ fmt(pool.size_bytes) }} · {{ fmt(pool.free_bytes) }} free · {{ pool.health }}{{ pool.cap ? ' · ' + pool.cap + '% used' : '' }}</span>
+                <span class="bm-dk-rowacts">
+                  <button mat-button (click)="opZfsCreate(pool.name)" title="Create a dataset"><mat-icon>create_new_folder</mat-icon> Dataset</button>
+                  <button mat-icon-button (click)="opZpoolDestroy(pool.name)" title="Destroy pool"><mat-icon>delete_forever</mat-icon></button>
+                </span>
+              </div>
+              <table class="bm-dk-tbl">
+                <thead><tr><th>Dataset</th><th>Type</th><th>Used</th><th>Avail</th><th>Quota</th><th>Reserv.</th><th>Mount</th><th></th></tr></thead>
+                <tbody>
+                  @for (ds of datasetsOf(l, pool.name); track ds.name) {
+                    <tr>
+                      <td class="bm-dk-mono" [style.paddingLeft.px]="8 + zfsDepth(ds.name) * 16">{{ zfsLeaf(ds.name) }}</td>
+                      <td>{{ ds.type }}</td>
+                      <td class="bm-dk-num">{{ fmt(ds.used_bytes) }}</td>
+                      <td class="bm-dk-num">{{ ds.avail_bytes != null ? fmt(ds.avail_bytes) : '—' }}</td>
+                      <td class="bm-dk-num">{{ ds.refquota_bytes != null ? fmt(ds.refquota_bytes) : (ds.quota_bytes != null ? fmt(ds.quota_bytes) : '—') }}</td>
+                      <td class="bm-dk-num">{{ ds.refreservation_bytes != null ? fmt(ds.refreservation_bytes) : (ds.reservation_bytes != null ? fmt(ds.reservation_bytes) : '—') }}</td>
+                      <td class="bm-dk-mono">{{ ds.mountpoint || '' }}</td>
+                      <td class="bm-dk-rowacts">
+                        @if (ds.type !== 'snapshot') {
+                          <button mat-icon-button (click)="opZfsSet(ds)" title="Set quota / reservation (the ZFS resize)"><mat-icon>straighten</mat-icon></button>
+                          <button mat-icon-button (click)="opZfsSnapshot(ds.name)" title="Snapshot"><mat-icon>photo_camera</mat-icon></button>
+                          <button mat-icon-button (click)="opZfsDestroy(ds.name)" title="Destroy dataset"><mat-icon>delete_outline</mat-icon></button>
+                        } @else {
+                          <button mat-icon-button (click)="opZfsRollback(ds.name)" title="Roll back to this snapshot"><mat-icon>history</mat-icon></button>
+                          <button mat-icon-button (click)="opZfsDestroy(ds.name)" title="Destroy snapshot"><mat-icon>delete_outline</mat-icon></button>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @empty { <p class="bm-dim">No pools. Use “Create pool” to make one from free devices.</p> }
+        </div>
+      }
     } @else if (error()) { <p class="bm-err">{{ error() }}</p> }
 
     <!-- inline op form (replaces the old prompt() chain) -->
@@ -233,6 +289,12 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     .bm-dk-flag { font-size: 10px; padding: 0 6px; border-radius: 10px; margin-right: 3px; background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
     .bm-dk-vgs { display: flex; gap: 10px; align-items: center; font-size: 12px; opacity: 0.8; margin: 4px 0 16px; }
     .bm-dk-vg { padding: 2px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 20px; }
+    .bm-dk-zfs { margin: 8px 0 18px; }
+    .bm-dk-zfs-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .bm-dk-zfs-h mat-icon { font-size: 18px; height: 18px; width: 18px; opacity: 0.8; }
+    .bm-dk-zpool { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
+    .bm-dk-zpool-h { display: flex; align-items: center; gap: 8px; }
+    .bm-dk-zpool-h .bm-dk-rowacts { margin-left: auto; }
     .bm-dk-form { margin-top: 16px; border: 1px solid var(--mat-sys-primary); border-radius: 10px; padding: 12px 14px;
       background: color-mix(in srgb, var(--mat-sys-primary) 6%, transparent); }
     .bm-dk-form.danger { border-color: var(--mat-sys-error, #c62828); background: color-mix(in srgb, var(--mat-sys-error,#c62828) 7%, transparent); }
@@ -445,6 +507,71 @@ export class HostDisksComponent {
       },
     });
   }
+  // ---- ZFS op builders (pools/datasets; sizing = a property, not geometry) --
+  opZpoolCreate(l: DiskLayout): void {
+    this.openForm({
+      title: 'Create ZFS pool', icon: 'dataset', submitLabel: 'Add to queue', danger: true,
+      note: 'The selected block devices are wiped and turned into a ZFS pool.',
+      fields: [
+        { key: 'name', label: 'Pool name', type: 'text', value: 'tank' },
+        { key: 'raid', label: 'Layout', type: 'select', value: '', options: ['', 'mirror', 'raidz', 'raidz2', 'raidz3'], hint: 'empty = stripe' },
+        { key: 'vdevs', label: 'Devices', type: 'text', value: '', placeholder: '/dev/sdb /dev/sdc', hint: 'space-separated block devices (vdevs)' },
+      ],
+      run: (v) => {
+        const name = v['name']; const vdevs = (v['vdevs'] || '').split(/\s+/).filter(Boolean);
+        if (!name || !vdevs.length) return;
+        this.push({ op: 'zpool_create', name, raid: v['raid'] || undefined, vdevs, _desc: `Create pool ${name} (${v['raid'] || 'stripe'}) on ${vdevs.join(', ')}` });
+      },
+    });
+  }
+  opZpoolDestroy(name: string): void {
+    this.openForm({ title: `Destroy pool ${name}`, icon: 'delete_forever', submitLabel: 'Destroy pool', danger: true, fields: [],
+      note: `This destroys the ZFS pool ${name} and every dataset in it.`,
+      run: () => this.push({ op: 'zpool_destroy', name, _desc: `Destroy pool ${name}` }) });
+  }
+  opZfsCreate(pool: string): void {
+    this.openForm({
+      title: `New dataset in ${pool}`, icon: 'create_new_folder', submitLabel: 'Add to queue',
+      fields: [
+        { key: 'name', label: 'Name', type: 'text', value: pool + '/', hint: 'full name, e.g. tank/data' },
+        { key: 'mountpoint', label: 'Mount point', type: 'text', value: '', placeholder: '/tank/data', hint: 'optional' },
+      ],
+      run: (v) => {
+        const name = v['name']; if (!name || name.endsWith('/')) return;
+        this.push({ op: 'zfs_create', name, mountpoint: v['mountpoint'] || undefined, _desc: `Create dataset ${name}` + (v['mountpoint'] ? ` at ${v['mountpoint']}` : '') });
+      },
+    });
+  }
+  /** The ZFS "resize": set a size PROPERTY (quota/refquota cap, reservation guarantee)
+   *  — online and non-destructive, no unmount. */
+  opZfsSet(ds: ZfsDataset): void {
+    const cur = ds.refquota_bytes ?? ds.quota_bytes ?? null;
+    this.openForm({
+      title: `Resize ${ds.name}`, icon: 'straighten', submitLabel: 'Add to queue',
+      fields: [
+        { key: 'property', label: 'Property', type: 'select', value: 'refquota', options: ['refquota', 'quota', 'refreservation', 'reservation'], hint: 'quota = logical cap · reservation = guaranteed' },
+        { key: 'size', label: 'Size', type: 'text', value: cur != null ? this.fmtZ(cur) : '', placeholder: '8G', hint: 'e.g. 8G, 500M' },
+      ],
+      run: (v) => { const size = v['size']; if (!size) return;
+        this.push({ op: 'zfs_set', name: ds.name, property: v['property'], size, _desc: `Set ${v['property']}=${size} on ${ds.name}` }); },
+    });
+  }
+  opZfsSnapshot(name: string): void {
+    this.openForm({ title: `Snapshot ${name}`, icon: 'photo_camera', submitLabel: 'Add to queue',
+      fields: [{ key: 'snap', label: 'Snapshot name', type: 'text', value: 'snap1', hint: `becomes ${name}@<name>` }],
+      run: (v) => { if (v['snap']) this.push({ op: 'zfs_snapshot', name, snap: v['snap'], _desc: `Snapshot ${name}@${v['snap']}` }); } });
+  }
+  opZfsRollback(snap: string): void {
+    this.openForm({ title: `Roll back to ${snap}`, icon: 'history', submitLabel: 'Roll back', danger: true, fields: [],
+      note: `Rolls the dataset back to ${snap} and destroys any newer snapshots.`,
+      run: () => this.push({ op: 'zfs_rollback', name: snap, _desc: `Roll back to ${snap}` }) });
+  }
+  opZfsDestroy(name: string): void {
+    const isSnap = name.includes('@');
+    this.openForm({ title: `Destroy ${name}`, icon: 'delete_forever', submitLabel: 'Destroy', danger: true, fields: [],
+      note: `This destroys ${isSnap ? 'snapshot ' + name : 'dataset ' + name + ' and all its children/snapshots'}.`,
+      run: () => this.push({ op: 'zfs_destroy', name, recursive: !isSnap, _desc: `Destroy ${name}` }) });
+  }
   /** Immediate unmount (the "free it for editing" workflow) — not staged. */
   unmount(d: Device, p: Partition): void {
     if (!confirm(`Unmount ${p.path} (mounted at ${p.mountpoint})?\nA filesystem must be unmounted before it can be formatted, resized or deleted.`)) return;
@@ -505,6 +632,21 @@ export class HostDisksComponent {
     while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
     return `${n.toFixed(n < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
   }
+  /** Compact ZFS-style size (e.g. 8G) for prefilling a quota/reservation form. */
+  fmtZ(bytes: number): string {
+    const u = ['', 'K', 'M', 'G', 'T', 'P']; let i = 0; let n = bytes;
+    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
+    return `${Math.round(n)}${u[i]}`;
+  }
+  datasetsOf(l: DiskLayout, pool: string): ZfsDataset[] {
+    return (l.zfs?.datasets || []).filter((d) => d.name === pool || d.name.startsWith(pool + '/') || d.name.startsWith(pool + '@'));
+  }
+  zfsDepth(name: string): number { return (name.split('@')[0].match(/\//g) || []).length; }
+  zfsLeaf(name: string): string {
+    if (name.includes('@')) return '@' + name.split('@')[1];
+    const parts = name.split('/'); return parts.length > 1 ? parts[parts.length - 1] : name;
+  }
+  poolHealthColor(h: string): string { return h === 'ONLINE' ? '#3fae6b' : (h === 'DEGRADED' ? '#d0a03c' : '#d05656'); }
   segsFor(d: Device): Seg[] {
     const total = d.size_bytes
       || (d.partitions.reduce((a, p) => a + (p.size_bytes || 0), 0) + d.free.reduce((a, f) => a + (f.size_bytes || 0), 0)) || 1;
