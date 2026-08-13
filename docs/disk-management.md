@@ -154,7 +154,17 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   `safety_check`→ Guardrails, `apply`→ mit Tabellen-Backup (sfdisk -d) +
   Tool-Preflight (best-effort Install). Ops: mklabel, mkpart, mkfs, label, mount,
   umount, delete, **resize (grow & shrink)**, lvextend (online grow), **lvreduce
-  (LVM shrink; fs shrunk first via --resizefs, needs unmount)**.
+  (LVM shrink; fs shrunk first via --resizefs, needs unmount)**, and **ZFS**
+  (zfs_create/set/snapshot/rollback/destroy + zpool_create/add/destroy).
+- **ZFS** — read via `zpool list` + `zfs list -t all` (pools + datasets with
+  used/avail/quota/refquota/reservation/mountpoint), degrades to `available:false`
+  without a loadable module. Sizing is a **property** (`zfs set quota|refquota|
+  reservation|refreservation`), online & non-destructive — not geometry. Destroy/
+  rollback are refused when the pool/dataset (or a child) holds a critical mount;
+  `zpool create/add` guard each raw vdev (loop-only unless allow_nonloop, protected
+  + busy). NOTE: live write-op test still pending — test-deployment is a KVM VM whose
+  kernel refuses unsigned out-of-tree modules (IMA/IPE), so the DKMS zfs.ko (built OK)
+  can't load there; needs a host where ZFS is already loadable.
 - **resize** — verkleinert/vergrößert eine *unmountete* ext-Partition **samt FS** in
   der datensicheren gparted-Reihenfolge: Shrink `e2fsck → resize2fs <größe> →
   parted resizepart`; Grow `parted resizepart → resize2fs` (füllt). ext2/3/4 only
