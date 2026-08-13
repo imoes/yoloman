@@ -400,6 +400,17 @@ def build_mcp_server(
           lvextend  {op,device,target,size}             grow an LV online (size like +5G)
           lvreduce  {op,device,target,size}             shrink an LV (fs shrunk first; needs
                     unmount; absolute size like 8G, not a +grow)
+          -- ZFS (pools/datasets; sizing is a property, not geometry) --
+          zfs_create   {op,name,mountpoint?}            create a dataset
+          zfs_set      {op,name,property,size}          the ZFS "resize": property is
+                       quota|refquota (logical cap) or reservation|refreservation (guaranteed);
+                       online, non-destructive
+          zfs_snapshot {op,name,snap,recursive?}        snapshot name@snap
+          zfs_rollback {op,name}                        roll back to a name@snap (destroys newer)
+          zfs_destroy  {op,name,recursive?}             destroy a dataset (guarded off critical mounts)
+          zpool_create {op,name,raid?,vdevs[]}          raid: ''(stripe)|mirror|raidz|raidz2; vdevs guarded
+          zpool_add    {op,name,raid?,vdevs[]}          grow a pool with more vdevs
+          zpool_destroy{op,name}                        destroy a pool (guarded off critical mounts)
         Returns {steps, problems, ok}. `ok=false` means a safety error blocks apply
         (e.g. target mounted, or a non-loop disk with mounted filesystems)."""
         from bossman.services import disk_layout as _dl, disk_ops as _do

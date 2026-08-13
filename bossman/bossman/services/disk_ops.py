@@ -157,6 +157,68 @@ def compile(plan: dict) -> list[dict]:
                 steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
                               "desc": f"shrink LV {t} to {size} (fs shrunk first; requires unmount)",
                               "argv": ["lvreduce", "-y", "--resizefs", flag, size, t]})
+        elif kind == "zfs_create":
+            # Create a ZFS filesystem dataset. Online, non-destructive.
+            name = op.get("name") or op.get("target")
+            mp = op.get("mountpoint")
+            argv = ["zfs", "create"] + (["-o", f"mountpoint={mp}"] if mp else []) + [name]
+            steps.append({"op": kind, "device": "", "zfs_name": name, "touches_table": False,
+                          "desc": f"create ZFS dataset {name}" + (f" at {mp}" if mp else ""), "argv": argv})
+        elif kind == "zfs_set":
+            # The ZFS "resize": a size PROPERTY, not geometry. quota/refquota cap the
+            # logical size; reservation/refreservation guarantee it. Online, safe.
+            name = op.get("name") or op.get("target")
+            prop = op.get("property") or "refquota"
+            val = str(op.get("size") or op.get("value") or "")
+            if prop not in ("quota", "refquota", "reservation", "refreservation") or not val:
+                steps.append({"op": kind, "device": "", "error": f"zfs_set needs quota|refquota|reservation|refreservation + a value (got {prop}={val!r})",
+                              "desc": f"set {prop} on {name} (UNSUPPORTED)", "argv": []})
+            else:
+                steps.append({"op": kind, "device": "", "zfs_name": name, "touches_table": False,
+                              "desc": f"set {prop}={val} on {name}", "argv": ["zfs", "set", f"{prop}={val}", name]})
+        elif kind == "zfs_destroy":
+            name = op.get("name") or op.get("target")
+            rec = bool(op.get("recursive"))
+            steps.append({"op": kind, "device": "", "zfs_name": name, "zfs_guard": True, "touches_table": False,
+                          "desc": f"destroy ZFS {name}" + (" (recursive)" if rec else ""),
+                          "argv": ["zfs", "destroy"] + (["-r"] if rec else []) + [name]})
+        elif kind == "zfs_snapshot":
+            name = op.get("name") or op.get("target")
+            snap = op.get("snap") or op.get("snapshot") or ""
+            rec = bool(op.get("recursive"))
+            if not snap or not name or "@" in str(name):
+                steps.append({"op": kind, "device": "", "error": "zfs_snapshot needs a dataset name + a snapshot name",
+                              "desc": "snapshot (UNSUPPORTED)", "argv": []})
+            else:
+                full = f"{name}@{snap}"
+                steps.append({"op": kind, "device": "", "zfs_name": name, "touches_table": False,
+                              "desc": f"snapshot {full}", "argv": ["zfs", "snapshot"] + (["-r"] if rec else []) + [full]})
+        elif kind == "zfs_rollback":
+            name = op.get("name") or op.get("target") or ""
+            if "@" not in str(name):
+                steps.append({"op": kind, "device": "", "error": "zfs_rollback needs a snapshot name (dataset@snap)",
+                              "desc": "rollback (UNSUPPORTED)", "argv": []})
+            else:
+                steps.append({"op": kind, "device": "", "zfs_name": str(name).split("@")[0], "zfs_guard": True,
+                              "touches_table": False, "desc": f"rollback to {name} (destroys newer snapshots)",
+                              "argv": ["zfs", "rollback", "-r", name]})
+        elif kind in ("zpool_create", "zpool_add"):
+            name = op.get("name") or op.get("target")
+            raid = (op.get("raid") or "").strip()  # '' | mirror | raidz | raidz2 | raidz3
+            vdevs = [v for v in (op.get("vdevs") or []) if v]
+            if not name or not vdevs:
+                steps.append({"op": kind, "device": "", "error": f"{kind} needs a pool name + at least one vdev",
+                              "desc": f"{kind} (UNSUPPORTED)", "argv": []})
+            else:
+                sub = ["create"] if kind == "zpool_create" else ["add"]
+                argv = ["zpool"] + sub + ["-f", name] + ([raid] if raid else []) + vdevs
+                verb = "create pool" if kind == "zpool_create" else "add vdev(s) to pool"
+                steps.append({"op": kind, "device": "", "vdevs": vdevs, "touches_table": False,
+                              "desc": f"{verb} {name} ({raid or 'stripe'}) on {', '.join(vdevs)}", "argv": argv})
+        elif kind == "zpool_destroy":
+            name = op.get("name") or op.get("target")
+            steps.append({"op": kind, "device": "", "zfs_name": name, "zfs_guard": True, "touches_table": False,
+                          "desc": f"destroy pool {name}", "argv": ["zpool", "destroy", name]})
         else:
             steps.append({"op": kind, "device": dev, "error": f"unknown op {kind!r}",
                           "desc": f"unknown op {kind!r}", "argv": []})
@@ -192,6 +254,19 @@ _CRITICAL_MOUNTS = {"/", "/boot", "/boot/efi", "/usr", "/var", "/etc", "/bin", "
                     "/lib", "/lib64", "[SWAP]"}
 
 
+def _zfs_hits_critical(layout: dict, name: str) -> bool:
+    """True if the ZFS pool/dataset `name` — or any dataset beneath it — is mounted
+    at a critical system path, so destroy/rollback of it would break the host."""
+    if not name:
+        return False
+    for ds in ((layout.get("zfs") or {}).get("datasets") or []):
+        n = ds.get("name") or ""
+        if n == name or n.startswith(name + "/") or n.startswith(name + "@"):
+            if ds.get("mountpoint") in _CRITICAL_MOUNTS:
+                return True
+    return False
+
+
 def _mount_by_path(layout: dict) -> dict[str, str | None]:
     out: dict[str, str | None] = {}
 
@@ -214,6 +289,25 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
     for s in steps:
         if s.get("error"):
             problems.append({"severity": "error", "message": s["desc"]})
+        # ZFS name ops act on pool/dataset names, not raw block devices — they skip
+        # the block-device loop/protected/busy rules; destroy/rollback are guarded by
+        # mountpoint instead (never tear down a critical system mount).
+        if s["op"] in ("zfs_create", "zfs_set", "zfs_destroy", "zfs_snapshot", "zfs_rollback", "zpool_destroy"):
+            if s.get("zfs_guard") and _zfs_hits_critical(layout, s.get("zfs_name") or ""):
+                problems.append({"severity": "error",
+                                 "message": f"{s['desc']}: refused — {s.get('zfs_name')} (or a child) holds a critical system mount"})
+            continue
+        # zpool create/add consume raw vdevs — check each vdev like a device op.
+        if s["op"] in ("zpool_create", "zpool_add"):
+            for vdev in s.get("vdevs") or []:
+                base = _target_device({"target": vdev})
+                if not vdev.startswith("/dev/loop") and not allow_nonloop:
+                    problems.append({"severity": "error", "message": f"{s['desc']}: refused — {vdev} is not a loopback scratch device (pass allow_nonloop to use a real disk)"})
+                if base in protected:
+                    problems.append({"severity": "error", "message": f"{s['desc']}: refused — {base} has mounted filesystem(s)"})
+                if vdev in busy:
+                    problems.append({"severity": "error", "message": f"{s['desc']}: refused — {vdev} is mounted/in use"})
+            continue
         dev = s.get("device") or ""
         is_loop = dev.startswith("/dev/loop")
         if not is_loop and not allow_nonloop:
@@ -255,6 +349,7 @@ _PKG_FOR_BIN = {
     "e2label": "e2fsprogs", "mkfs.xfs": "xfsprogs", "xfs_admin": "xfsprogs", "mkfs.btrfs": "btrfs-progs",
     "mkfs.vfat": "dosfstools", "fatlabel": "dosfstools", "mkfs.exfat": "exfatprogs", "sfdisk": "util-linux",
     "resize2fs": "e2fsprogs", "e2fsck": "e2fsprogs", "lvextend": "lvm2",
+    "zfs": "zfsutils-linux", "zpool": "zfsutils-linux",
 }
 
 
@@ -269,6 +364,8 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
             needed.add("sfdisk")  # table backup
         if s["op"] in ("mkfs", "label", "resize", "lvextend", "lvreduce") and argv:
             needed.add(argv[0])
+        if s["op"].startswith(("zfs_", "zpool_")) and argv:
+            needed.add(argv[0])  # zfs / zpool
     installed: list[str] = []
     missing: list[str] = []
     for binname in sorted(needed):

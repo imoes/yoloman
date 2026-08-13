@@ -147,7 +147,45 @@ async def read_disk_layout(agent, client_factory, settings) -> dict:
         devices.append(dev)
 
     vgs = await _read_lvm(client, errors)
-    return {"devices": devices, "vgs": vgs, "errors": errors}
+    zfs = await _read_zfs(client)
+    return {"devices": devices, "vgs": vgs, "zfs": zfs, "errors": errors}
+
+
+async def _read_zfs(client) -> dict:
+    """ZFS pools + datasets (used/avail/quota/mountpoint), so the Disks view can
+    show and manage ZFS alongside partitions/LVM. Best-effort: a host without ZFS
+    (no zpool/zfs binary, or module not loaded) returns {available: False} — never
+    an error, mirroring the storage-overview endpoint's degradation."""
+    prc, pout, _ = await _run(client, [
+        "zpool", "list", "-Hp", "-o", "name,size,alloc,free,health,frag,cap"])
+    if prc != 0:
+        return {"available": False}
+    pools: list[dict] = []
+    for line in pout.splitlines():
+        c = line.split("\t")
+        if len(c) >= 5:
+            pools.append({"name": c[0], "size_bytes": _int(c[1]), "alloc_bytes": _int(c[2]),
+                          "free_bytes": _int(c[3]), "health": c[4],
+                          "frag": c[5] if len(c) > 5 else None, "cap": c[6] if len(c) > 6 else None})
+    # datasets: filesystems + volumes + snapshots, with the size-shaping properties
+    drc, dout, _ = await _run(client, [
+        "zfs", "list", "-Hp", "-t", "all", "-o",
+        "name,type,used,avail,refer,quota,refquota,reservation,refreservation,mountpoint"])
+    datasets: list[dict] = []
+    if drc == 0:
+        def _prop(x: str):  # zfs prints '-' or '0' for "none"
+            return None if x in ("-", "none") else _int(x)
+        for line in dout.splitlines():
+            c = line.split("\t")
+            if len(c) < 10:
+                continue
+            datasets.append({
+                "name": c[0], "type": c[1], "used_bytes": _int(c[2]), "avail_bytes": _int(c[3]),
+                "refer_bytes": _int(c[4]), "quota_bytes": _prop(c[5]), "refquota_bytes": _prop(c[6]),
+                "reservation_bytes": _prop(c[7]), "refreservation_bytes": _prop(c[8]),
+                "mountpoint": None if c[9] in ("-", "none") else c[9],
+            })
+    return {"available": True, "pools": pools, "datasets": datasets}
 
 
 async def _read_lvm(client, errors: list[str]) -> list[dict]:

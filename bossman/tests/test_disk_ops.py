@@ -97,6 +97,48 @@ def test_lvreduce_compiles_and_refuses_grow_and_mounted():
     assert any("unmount" in p["message"].lower() for p in do.safety_check(steps, layout, allow_nonloop=True))
 
 
+def test_zfs_ops_compile():
+    steps = do.compile({"ops": [
+        {"op": "zfs_create", "name": "tank/data", "mountpoint": "/data"},
+        {"op": "zfs_set", "name": "tank/data", "property": "refquota", "size": "8G"},
+        {"op": "zfs_snapshot", "name": "tank/data", "snap": "before"},
+        {"op": "zfs_destroy", "name": "tank/old", "recursive": True},
+        {"op": "zpool_create", "name": "tank", "raid": "mirror", "vdevs": ["/dev/loop0", "/dev/loop1"]},
+    ]})
+    assert steps[0]["argv"] == ["zfs", "create", "-o", "mountpoint=/data", "tank/data"]
+    assert steps[1]["argv"] == ["zfs", "set", "refquota=8G", "tank/data"]           # the ZFS "resize"
+    assert steps[2]["argv"] == ["zfs", "snapshot", "tank/data@before"]
+    assert steps[3]["argv"] == ["zfs", "destroy", "-r", "tank/old"]
+    assert steps[4]["argv"] == ["zpool", "create", "-f", "tank", "mirror", "/dev/loop0", "/dev/loop1"]
+
+
+def test_zfs_set_rejects_bad_property():
+    steps = do.compile({"ops": [{"op": "zfs_set", "name": "tank/x", "property": "compression", "size": "on"}]})
+    assert any(p["severity"] == "error" for p in do.safety_check(steps, {"devices": []}, allow_nonloop=True))
+
+
+def test_zfs_destroy_refuses_critical_mount():
+    layout = {"devices": [], "zfs": {"available": True, "datasets": [
+        {"name": "rpool", "mountpoint": "/"}, {"name": "rpool/ROOT", "mountpoint": "/"}]}}
+    steps = do.compile({"ops": [{"op": "zpool_destroy", "name": "rpool"}]})
+    assert any("critical" in p["message"] for p in do.safety_check(steps, layout, allow_nonloop=True))
+    # a data pool with no critical mount is allowed
+    ok = do.compile({"ops": [{"op": "zfs_destroy", "name": "tank/scratch"}]})
+    assert do.safety_check(ok, {"devices": [], "zfs": {"datasets": [{"name": "tank/scratch", "mountpoint": "/tank/scratch"}]}}, allow_nonloop=True) == []
+
+
+def test_zpool_create_guards_vdevs():
+    steps = do.compile({"ops": [{"op": "zpool_create", "name": "tank", "vdevs": ["/dev/sdb1"]}]})
+    # real disk without the flag → refused; with the flag → allowed
+    assert any("loopback" in p["message"] for p in do.safety_check(steps, {"devices": []}, allow_nonloop=False))
+    assert do.safety_check(steps, {"devices": []}, allow_nonloop=True) == []
+    # a vdev on a disk that carries a mounted fs → refused even with the flag
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb2", "busy": True, "mountpoint": "/", "children": []}]}]}
+    assert any("mounted" in p["message"] for p in do.safety_check(
+        do.compile({"ops": [{"op": "zpool_create", "name": "t", "vdevs": ["/dev/sdb1"]}]}), layout, allow_nonloop=True))
+
+
 def test_resize_refuses_xfs_and_mounted():
     xfs = do.compile({"ops": [{"op": "resize", "device": "/dev/sdb", "target": "/dev/sdb1",
                                "num": 1, "fstype": "xfs", "size_mib": 4096}]})
