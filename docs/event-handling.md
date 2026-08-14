@@ -256,10 +256,40 @@ Dabei zwei eigene Fehler korrigiert: `Plan` hat kein `plan_type` (die Runbook-Li
 `GET /runbooks`, gefiltert auf `kind != 'role'`, weil eine Rolle kein Handler-Körper sein kann),
 und ein literales `'<name>'` **im** Template wird von Angular als Tag geparst.
 
+### Schritt 4b (API-Teil) — die Regel kann den Handler überhaupt erst benennen
+
+Beim Bau der Regel-Oberfläche kamen **zwei Lücken** heraus, die vorher niemand sehen konnte:
+
+```
+[Ausgeschlossenes Drittes] Kein Endpunkt konnte einen Handler an eine Regel binden
+  Beleg:   RemediationPolicyIn kannte `event_handler_id` NICHT — die Spalte existiert, der
+           Service liest sie, die Migration hat sie angelegt, aber POST setzte sie nie.
+  Problem: Das ganze Event-Handling war per API unerreichbar; nur ein direkter SQL-INSERT
+           konnte eine Handler-Regel erzeugen (genau so habe ich in Schritt 3 getestet, was
+           den Mangel verdeckt hat).
+  Fix:     `event_handler_id` in RemediationPolicyIn/Out, und `_validate_action` nennt bei
+           jeder Verweigerung den Grund. Live geprüft:
+             beide Aktionen  → 422 „two would be two answers to the question of what runs"
+             keine Aktion    → 422 „otherwise it would fire and do nothing"
+             Pflichtparameter ohne Wert → 422 mit dem Parameternamen (vor dem Ereignis, nicht
+                                          mitten im Lauf auf dem Host)
+             unbekannter Handler / deaktivierter Handler / unbekanntes Runbook → je 422
+
+[Widerspruchsfreiheit] „Bearbeiten" trennte die Audit-Historie von ihrer Regel
+  Beleg:   Es gab nur POST und DELETE. Eine Regel ändern hieß löschen + neu anlegen, und
+           `remediation_runs.policy_id` ist ON DELETE SET NULL.
+  Problem: Die vergangenen Läufe blieben stehen, verloren aber die Verbindung zu der Regel,
+           die sie verursacht hat — die Historie listet dann Ereignisse, die sie nicht mehr
+           erklären kann.
+  Fix:     PUT /remediation-policies/{id} ändert in place. Live geprüft: dieselbe id nach dem
+           Speichern, geänderte Felder übernommen.
+```
+
 ### Offen
 
-4b. Event-Regeln: die Bindung Auslöser → Handler braucht noch eine Oberfläche
-    (`/remediation-policies`), mit der Wahl „Runbook (klassisch)" ODER „Event handler".
+4c. Event-Regeln-Oberfläche: Liste + Editor (Aktion als EINE Auswahl „Runbook" oder
+    „Event handler", Parameterwerte aus den deklarierten Parametern des Handlers, Leitplanken)
+    und die Läufe mit Apply/Dismiss als Beobachtungspunkt.
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.
 6. Der Agent mit `env` muss auf die Hosts ausgerollt werden, sonst verweigert jeder
    Skript-Handler dort — mit Grund, aber er läuft nicht.

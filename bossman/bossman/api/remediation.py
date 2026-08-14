@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import Identity, get_current_identity
 from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
-from bossman.db.models import DEFAULT_TENANT_ID, Agent, RemediationPolicy, RemediationRun
+from bossman.db.models import DEFAULT_TENANT_ID, Agent, RemediationPolicy, RemediationRun, Runbook
 from bossman.db.session import get_session
 
 router = APIRouter()
@@ -29,7 +29,12 @@ class RemediationPolicyIn(BaseModel):
     host_group_id: UUID | None = None
     agent_id: UUID | None = None
     conditions: dict = {}
-    runbook_name: str
+    #: The action. EXACTLY ONE of these two: `runbook_name` is the original inline form,
+    #: `event_handler_id` points at a reusable EventHandler (which may be a script). Both would
+    #: be two answers to "what runs?", neither would be a rule that fires and does nothing —
+    #: the schema enforces it (ck_remediation_one_action) and _validate_action says why.
+    runbook_name: str = ""
+    event_handler_id: UUID | None = None
     params: dict = {}
     max_per_hour: int = 3
     mode: str = "auto"            # auto | propose (legacy)
@@ -53,6 +58,7 @@ class RemediationPolicyOut(BaseModel):
     agent_id: UUID | None
     conditions: dict
     runbook_name: str
+    event_handler_id: UUID | None
     params: dict
     max_per_hour: int
     mode: str
@@ -69,7 +75,8 @@ class RemediationPolicyOut(BaseModel):
         return cls(
             id=p.id, name=p.name, match_service_name=p.match_service_name, scope_type=p.scope_type,
             ou_id=p.ou_id, host_group_id=p.host_group_id, agent_id=p.agent_id, conditions=p.conditions or {},
-            runbook_name=p.runbook_name, params=p.params or {}, max_per_hour=p.max_per_hour,
+            runbook_name=p.runbook_name, event_handler_id=p.event_handler_id, params=p.params or {},
+            max_per_hour=p.max_per_hour,
             mode=p.mode, enabled=p.enabled, verify=p.verify, verify_after_s=p.verify_after_s,
             autonomy=p.autonomy, allow_prod=p.allow_prod, max_blast_radius=p.max_blast_radius,
             rollback_runbook=p.rollback_runbook,
@@ -80,6 +87,54 @@ class RemediationPolicyOut(BaseModel):
 async def list_remediation_policies(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
     rows = (await session.scalars(select(RemediationPolicy).order_by(RemediationPolicy.created_at.desc()))).all()
     return [RemediationPolicyOut.of(p) for p in rows]
+
+
+async def _validate_action(body: RemediationPolicyIn, session: AsyncSession) -> None:
+    """Exactly one action, and it must exist.
+
+    The schema already forbids both-or-neither; this says WHY, and it resolves the reference now
+    rather than at the moment an event fires — which is the worst time to learn that a runbook or
+    handler was renamed away.
+    """
+    has_runbook = bool((body.runbook_name or "").strip())
+    has_handler = body.event_handler_id is not None
+    if has_runbook and has_handler:
+        raise HTTPException(
+            422,
+            "a rule has ONE action: either a runbook name or an event handler, not both — two "
+            "would be two answers to the question of what runs",
+        )
+    if not has_runbook and not has_handler:
+        raise HTTPException(
+            422,
+            "a rule needs an action: pick a runbook or an event handler, otherwise it would fire "
+            "and do nothing",
+        )
+    if has_handler:
+        from bossman.db.models import EventHandler
+
+        handler = await session.get(EventHandler, body.event_handler_id)
+        if handler is None:
+            raise HTTPException(422, f"no such event handler {body.event_handler_id}")
+        if not handler.enabled:
+            raise HTTPException(
+                422, f"event handler {handler.name!r} is disabled, so the rule could not act"
+            )
+        # Required parameters with no value and no default would fail at run time with the host
+        # already involved; named here instead.
+        from bossman.services.event_handlers import missing_required
+
+        missing = missing_required(handler, body.params or {})
+        if missing:
+            raise HTTPException(
+                422,
+                f"event handler {handler.name!r} requires parameter(s) with no value: "
+                f"{', '.join(missing)}",
+            )
+    else:
+        rb = await session.scalar(select(Runbook.id).where(Runbook.name == body.runbook_name))
+        if rb is None:
+            raise HTTPException(422, f"no runbook named {body.runbook_name!r}")
 
 
 @router.post("/api/v1/remediation-policies", response_model=RemediationPolicyOut)
@@ -93,16 +148,68 @@ async def create_remediation_policy(
         raise HTTPException(422, "mode must be auto|propose")
     if body.autonomy not in ("propose", "auto_verify"):
         raise HTTPException(422, "autonomy must be propose|auto_verify")
+    await _validate_action(body, session)
     p = RemediationPolicy(
         tenant_id=DEFAULT_TENANT_ID, name=body.name, match_service_name=body.match_service_name,
         scope_type=body.scope_type, ou_id=body.ou_id, host_group_id=body.host_group_id, agent_id=body.agent_id,
-        conditions=body.conditions or {}, runbook_name=body.runbook_name, params=body.params or {},
+        conditions=body.conditions or {},
+        # The constraint wants the unused half empty, not null: "" is the absence of an inline
+        # runbook, and NULL is the absence of a handler.
+        runbook_name=(body.runbook_name or "") if body.event_handler_id is None else "",
+        event_handler_id=body.event_handler_id, params=body.params or {},
         max_per_hour=body.max_per_hour, mode=body.mode, enabled=body.enabled,
         verify=body.verify, verify_after_s=body.verify_after_s, autonomy=body.autonomy,
         allow_prod=body.allow_prod, max_blast_radius=body.max_blast_radius, rollback_runbook=body.rollback_runbook,
         created_by=identity.name,
     )
     session.add(p)
+    await session.commit()
+    await session.refresh(p)
+    return RemediationPolicyOut.of(p)
+
+
+@router.put("/api/v1/remediation-policies/{policy_id}", response_model=RemediationPolicyOut)
+async def update_remediation_policy(
+    policy_id: UUID, body: RemediationPolicyIn, session: AsyncSession = Depends(get_session),
+    _i: Identity = Depends(get_current_identity),
+):
+    """Edit a rule in place.
+
+    This did not exist, so "editing" a rule meant deleting and recreating it — and because
+    remediation_runs.policy_id is ON DELETE SET NULL, that silently cut every past run loose from
+    the rule that caused it. The audit trail would still list the runs and no longer be able to
+    say why they happened.
+    """
+    p = await session.get(RemediationPolicy, policy_id)
+    if p is None:
+        raise HTTPException(404, f"no such remediation policy {policy_id}")
+    if body.scope_type not in ("global", "ou", "group", "host"):
+        raise HTTPException(422, "scope_type must be global|ou|group|host")
+    if body.mode not in ("auto", "propose"):
+        raise HTTPException(422, "mode must be auto|propose")
+    if body.autonomy not in ("propose", "auto_verify"):
+        raise HTTPException(422, "autonomy must be propose|auto_verify")
+    await _validate_action(body, session)
+
+    p.name = body.name
+    p.match_service_name = body.match_service_name
+    p.scope_type = body.scope_type
+    p.ou_id = body.ou_id
+    p.host_group_id = body.host_group_id
+    p.agent_id = body.agent_id
+    p.conditions = body.conditions or {}
+    p.runbook_name = (body.runbook_name or "") if body.event_handler_id is None else ""
+    p.event_handler_id = body.event_handler_id
+    p.params = body.params or {}
+    p.max_per_hour = body.max_per_hour
+    p.mode = body.mode
+    p.enabled = body.enabled
+    p.verify = body.verify
+    p.verify_after_s = body.verify_after_s
+    p.autonomy = body.autonomy
+    p.allow_prod = body.allow_prod
+    p.max_blast_radius = body.max_blast_radius
+    p.rollback_runbook = body.rollback_runbook
     await session.commit()
     await session.refresh(p)
     return RemediationPolicyOut.of(p)
