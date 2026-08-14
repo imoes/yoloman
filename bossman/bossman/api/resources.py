@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bossman.api.auth import require_manage_agent
+from bossman.api.auth import get_current_identity, require_manage_agent
 from bossman.api.management import _agent_with_address
 from bossman.api.plans import get_client_factory
 from bossman.db.models import Agent
@@ -63,6 +63,19 @@ async def _read(kind: str, verb: str, **kw) -> dict[str, Any]:
         raise HTTPException(status_code=422, detail=str(exc)) from None
     except ValueError as exc:                     # unknown kind / not a read verb
         raise HTTPException(status_code=400, detail=str(exc)) from None
+
+
+@router.get("/api/v1/resource-kinds")
+async def resource_kinds(_identity=Depends(get_current_identity)) -> dict[str, Any]:
+    """What kinds exist and how each one behaves — the registry as plain data.
+
+    The UI used to hard-code this and got it wrong: it built a `/schema` URL for every
+    kind including `config`, which has no such endpoint (docs/logik-audit.md area 7).
+    Deriving the capabilities from here means the client cannot disagree with the
+    server about what a kind can do — there is one source of truth, and it is the one
+    the routes themselves use.
+    """
+    return {"kinds": resources.as_dict()}
 
 
 @router.get("/api/v1/agents/{agent_id}/resources/{kind}/{name}/{verb}")

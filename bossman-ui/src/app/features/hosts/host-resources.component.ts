@@ -6,7 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { environment } from '../../../environments/environment';
 import { ResourceInspectorComponent } from '../../shared/resource-inspector/resource-inspector.component';
-import { ResourceKind, ResourceRef } from '../../core/services/resource.service';
+import { ResourceKind, ResourceRef, ResourceService } from '../../core/services/resource.service';
 
 /**
  * The host's Resources — the ONE generic surface over everything on this machine
@@ -160,11 +160,15 @@ export class HostResourcesComponent {
   kinds = KINDS;
   activeKind = signal<ResourceKind>('helm');
   search = signal('');
+  private resourceSvc = inject(ResourceService);
   private rows = signal<Row[]>([]);
   loading = signal(false);
   private selected = signal<Row | null>(null);
 
   constructor() {
+    // Load the kind capabilities once, so the client stops guessing what a kind can do
+    // (see ResourceService.loadKinds / GET /resource-kinds).
+    this.resourceSvc.loadKinds().subscribe({ error: () => {} });
     effect(() => {
       const id = this.agentId();
       this.rows.set([]);

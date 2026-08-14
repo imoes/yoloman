@@ -378,7 +378,7 @@ Weder UI noch MCP noch Agent rufen diese auf:
            /state/* und /docker-state/* werden darauf abgebildet oder entfernt.
            Das ist das Refactoring vor dem Release.
 
-[Ausgeschlossenes Drittes] Ein Aufruf, der nur scheitern kann
+[Ausgeschlossenes Drittes] Ein Aufruf, der nur scheitern kann  — ERLEDIGT
   Beleg:   resources.service.ts:75 baut /resources/{kind}/.../schema für JEDE Art,
            aber resources.py hat für `config` KEIN /schema (207-250) — config ist
            auch die einzige Art ohne {name}.
@@ -386,6 +386,15 @@ Weder UI noch MCP noch Agent rufen diese auf:
            Ausnahme ist nirgends deklariert, sondern in zwei Clients nachgebaut.
   Fix:     Fähigkeiten pro Art in der Registry deklarieren (hat `schema`? braucht
            `{name}`?) und im Client daraus ableiten statt zu raten.
+  Status:  ERLEDIGT. `GET /api/v1/resource-kinds` liefert die Registry als reine Daten;
+           `resource.service.ts` lädt sie einmal und leitet URL-Form, Identitäts-Felder
+           und „hat diese Art ein Schema?" daraus ab. Der hartcodierte
+           `kind === 'config'`-Sonderfall ist weg. Ein Fallback spiegelt die
+           Server-Tabelle, solange der Endpoint noch nicht geantwortet hat — er
+           **erfindet** keine Regel, denn genau das Erfinden hat die nicht existierende
+           URL erzeugt. Live belegt: die UI ruft /resource-kinds (200) und danach
+           schema/observe/generations über die zusammengelegten Routen; eine Anfrage
+           an /resources/config/schema kommt nicht mehr vor.
 
 [Parsimonie] Arten ohne jeden Aufrufer
   Beleg:   /resources/package/* und /resources/service/* (12 Endpunkte) werden von
