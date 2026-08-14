@@ -364,10 +364,57 @@ erscheinen **nicht** im OpenAPI-Schema.
 ORM-Klassen mitumbenannt werden sollen. Dafür spricht ein einziger Name; dagegen eine Migration
 über gespeicherte Verlaufsdaten, deren Nutzen rein kosmetisch ist.
 
-### Offen
+### Schritt 6 — ausgerollt und ENDE-ZU-ENDE bewiesen
 
-6. Der Agent mit `env` muss ausgerollt werden, sonst verweigert jeder Skript-Handler — mit
-   Grund, aber er läuft nicht.
+Agent **0.57.45** gebaut (`scripts/build-agent-deb.sh`, VERSION gebumpt) und über den
+vorgesehenen Weg verteilt: `POST /agents/{id}/update-bundled` schiebt das mitgelieferte Paket,
+der Agent installiert per dpkg und startet neu. Belegt: Version 0.57.44 → 0.57.45, und die
+`env`-Sonde antwortet mit `1`.
+
+Der Beweis, der bis dahin fehlte — ein *managed* Skript-Handler mit Parameter, ausgelöst über
+eine Event-Regel:
+
+```
+status: ran
+detail: script /etc/agentic-mcp/event-handlers/proof-echo exited 0:
+        host=host3.example.internal service=Disk / state=OK
+        unit=nginx run=d96bded4-6fc0-4ba2-ad90-06b9a34180c6
+```
+
+Und die Gegenprobe auf die Audit-Zeile: `id = d96bded4-6fc0-4ba2-ad90-06b9a34180c6`,
+`action = handler:proof-echo`, `status = ran` — die ID, die das Skript auf dem Host ausgibt, **ist**
+die Historienzeile.
+
+### Beim Beweis gefunden: zwei zugesagte Fakten kamen leer an
+
+Der erste Lauf zeigte `state=` und `run=` — beides hatte dieses Dokument in §3 versprochen. Eine
+leere Variable, die laut Doku gesetzt ist, ist genau der stille Fehler, den das Audit sonst
+verfolgt.
+
+```
+[Zureichender Grund] BOSSMAN_EVENT_STATE war nie nachgeschlagen
+  Fix:     _execute_policy liest state und value der auslösenden Service-Zeile und gibt sie
+           weiter. Vorher wusste der Auslöser den Checknamen, aber niemand fragte nach dem
+           Zustand — obwohl er das Erste ist, was ein Handler wissen will.
+
+[Identität] BOSSMAN_EVENT_RUN_ID konnte es nicht geben
+  Beleg:   Die RemediationRun-Zeile wurde ERST NACH dem Lauf erzeugt, ihre id existierte
+           während der Ausführung also noch nicht.
+  Fix:     Die id wird VOR dem Lauf gezogen (uuid4) und beim Anlegen der Zeile wiederverwendet.
+           Der Reihenfolge-Grund steht im Code: die Zeile vorher zu schreiben und danach zu
+           aktualisieren würde eine halbfertige Zeile für gleichzeitige Leser sichtbar machen.
+```
+
+**Damit ist das Event-Handling vollständig und belegt**: Objekt, Ausführung, API, beide
+Oberflächen, Audit-Spur, Benennung, Rollout — und ein Lauf, der auf einem echten Host mit
+gefülltem Kontext und gefülltem Parameter endet.
+
+### Offen (Nutzerentscheidung)
+
+* Tabellen/ORM-Klassen `remediation_*` mitumbenennen? Ein Name überall gegen eine Migration über
+  gespeicherte Verlaufsdaten mit kosmetischem Nutzen.
+* Der Agent läuft neu nur auf `test-deployment`; die übrigen Hosts brauchen dasselbe Update,
+  bevor Skript-Handler dort wirken (bis dahin verweigern sie begründet).
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.
 6. Der Agent mit `env` muss auf die Hosts ausgerollt werden, sonst verweigert jeder
    Skript-Handler dort — mit Grund, aber er läuft nicht.

@@ -14,7 +14,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,7 +77,7 @@ async def _recent_runs(session: AsyncSession, policy_id: UUID, agent_id: UUID) -
 
 async def _execute_policy(
     session: AsyncSession, settings: Settings, agent: Agent, service_name: str,
-    policy: RemediationPolicy, client_factory,
+    policy: RemediationPolicy, client_factory, *, run_id=None,
 ) -> tuple[str, str]:
     """Actually run one policy's remediation runbook on the host. Returns
     (status, detail). Execution NEVER happens automatically — only from an Apply
@@ -98,9 +98,24 @@ async def _execute_policy(
             # Cannot normally happen (the FK is ON DELETE RESTRICT), so it is reported rather
             # than silently treated as "nothing to do".
             return "failed", f"event handler {policy.event_handler_id} is gone"
+        # The state and the run id are FACTS the handler was promised (docs/event-handling.md
+        # lists BOSSMAN_EVENT_STATE and _RUN_ID) and used to arrive empty: the state was never
+        # looked up, and the audit row was created only AFTER the run, so its id did not exist
+        # yet. Measured on a real host: "state= … run=". The state is read here, and the id is
+        # minted by the caller before executing so the same value lands in the row and in the
+        # script's environment — that is what connects a host log line to the audit trail.
+        from bossman.db.models import Service as _Service
+
+        state = await session.scalar(
+            select(_Service.state).where(_Service.agent_id == agent.id, _Service.name == service_name)
+        )
+        value = await session.scalar(
+            select(_Service.value).where(_Service.agent_id == agent.id, _Service.name == service_name)
+        )
         ok, detail = await run_handler(
             session, settings, agent, handler, client=client_factory(agent, settings),
             values=policy.params or {}, service_name=service_name,
+            state=state or "", value=value, run_id=run_id,
             requested_by=f"remediation:{policy.name}",
         )
         return ("ran" if ok else "failed"), detail
@@ -262,8 +277,15 @@ async def run_remediations_for_service(
     results = []
     now = datetime.now(timezone.utc)
     for p in await matching_policies(session, agent, service_name):
-        status, detail = await _execute_policy(session, settings, agent, service_name, p, client_factory)
+        # The id is generated BEFORE the run so the handler's BOSSMAN_EVENT_RUN_ID names the very
+        # row this run is about; creating the row first and updating it afterwards would work too
+        # but would leave a half-written row visible to a concurrent reader.
+        run_id = uuid4()
+        status, detail = await _execute_policy(
+            session, settings, agent, service_name, p, client_factory, run_id=run_id
+        )
         run = RemediationRun(
+            id=run_id,
             tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
             runbook_name=p.runbook_name, action=await _action_label(session, p),
             status=status, detail=detail[:2000], applied_at=now, at=now,
