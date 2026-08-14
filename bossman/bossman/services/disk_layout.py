@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -180,7 +181,9 @@ async def read_disk_layout(agent, client_factory, settings, *, rescan: bool = Tr
     vgs = await _read_lvm(client, errors)
     zfs = await _read_zfs(client)
     tools = await _read_tools(client)
-    return {"devices": devices, "vgs": vgs, "zfs": zfs, "tools": tools, "errors": errors}
+    mdraid = await _read_mdraid(client)
+    return {"devices": devices, "vgs": vgs, "zfs": zfs, "mdraid": mdraid,
+            "tools": tools, "errors": errors}
 
 
 # The binaries the editor drives, and the package that provides each. The SCAN
@@ -202,6 +205,88 @@ async def _read_tools(client) -> dict:
     missing = [ln.strip() for ln in out.splitlines() if ln.strip()]
     return {"missing": missing,
             "packages": sorted({_PKG_FOR_BIN[b] for b in missing if b in _PKG_FOR_BIN})}
+
+
+def _parse_mdstat(text: str) -> list[dict]:
+    """Parse /proc/mdstat into arrays. Pure, so it can be tested without a host.
+
+    md0 : active raid1 sdb2[1] sdb1[0]
+          2094080 blocks super 1.2 [2/2] [UU]
+          [==>..................]  recovery = 12.3% (…) finish=1.2min speed=21504K/sec
+
+    The member suffixes carry the role and its condition: [0] role index,
+    (F) failed, (S) spare, (W) write-mostly. `[2/2] [UU]` is the expected/present
+    count plus a per-slot map where `_` marks a missing member — that is what makes
+    an array degraded, so it is read rather than guessed.
+    """
+    arrays: list[dict] = []
+    cur: dict | None = None
+    for raw in text.splitlines():
+        line = raw.rstrip()
+        if not line or line.startswith(("Personalities", "unused devices")):
+            continue
+        head = re.match(r"^(md\S+)\s*:\s*(\S+)(?:\s+(\S+))?\s*(.*)$", line)
+        if head:
+            name, state, level, rest = head.groups()
+            members = []
+            for tok in (rest or "").split():
+                m = re.match(r"^(\S+?)\[(\d+)\]([()A-Z]*)$", tok)
+                if not m:
+                    continue
+                dev, role, flags = m.groups()
+                members.append({
+                    "path": dev if dev.startswith("/dev/") else f"/dev/{dev}",
+                    "role": _int(role),
+                    "state": ("failed" if "F" in flags else "spare" if "S" in flags
+                              else "write-mostly" if "W" in flags else "in-sync"),
+                })
+            cur = {"name": name, "path": f"/dev/{name}", "state": state,
+                   "level": level if (level or "").startswith("raid") else None,
+                   "size_bytes": None, "devices": members, "degraded": False,
+                   "expected": None, "present": None, "sync": None}
+            arrays.append(cur)
+            continue
+        if cur is None:
+            continue
+        blocks = re.search(r"^\s*(\d+)\s+blocks", line)
+        if blocks:
+            cur["size_bytes"] = (_int(blocks.group(1)) or 0) * 1024   # mdstat counts KiB
+            counts = re.search(r"\[(\d+)/(\d+)\]", line)
+            if counts:
+                cur["expected"], cur["present"] = _int(counts.group(1)), _int(counts.group(2))
+            slots = re.search(r"\[([U_]+)\]", line)
+            if slots:
+                cur["degraded"] = "_" in slots.group(1)
+                cur["slots"] = slots.group(1)
+            elif cur["expected"] and cur["present"] is not None:
+                cur["degraded"] = cur["present"] < cur["expected"]
+            continue
+        sync = re.search(r"(recovery|resync|reshape|check)\s*=\s*([\d.]+)%", line)
+        if sync:
+            cur["sync"] = {"action": sync.group(1), "percent": float(sync.group(2))}
+            eta = re.search(r"finish=(\S+)", line)
+            if eta:
+                cur["sync"]["finish"] = eta.group(1)
+    return arrays
+
+
+async def _read_mdraid(client) -> dict:
+    """Software RAID via /proc/mdstat — which exists whenever the md module is
+    loaded, so arrays are visible even on a host without the mdadm binary. mdadm
+    only adds detail (uuid, chunk); its absence is not an error."""
+    rc, out, _ = await _run(client, ["cat", "/proc/mdstat"])
+    if rc != 0:
+        return {"available": False}
+    arrays = _parse_mdstat(out)
+    for arr in arrays:
+        drc, dout, _ = await _run(client, ["mdadm", "--detail", arr["path"]])
+        if drc != 0:
+            continue
+        for key, field in (("UUID", "uuid"), ("Chunk Size", "chunk"), ("Array Size", "array_size")):
+            m = re.search(rf"^\s*{key}\s*:\s*(.+)$", dout, re.MULTILINE)
+            if m:
+                arr[field] = m.group(1).strip()
+    return {"available": True, "arrays": arrays}
 
 
 async def _read_zfs(client) -> dict:
