@@ -281,6 +281,25 @@ interface DiscoRow {
   `,
   styles: [
     `
+      /* Discovery states: all four buckets always visible, and "vanished" has to
+         LOOK different — an unnoticed missing service is the failure this section
+         exists to prevent. */
+      .bm-disco-sub { font-weight: 400; font-size: 12px; margin-left: 8px; }
+      .bm-disco-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+      .bm-disco-tab { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 20px;
+        cursor: pointer; border: 1px solid var(--mat-sys-outline-variant); background: transparent;
+        color: var(--mat-sys-on-surface); }
+      .bm-disco-tab.sel { border-color: var(--mat-sys-primary);
+        background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
+      .bm-disco-tab.warn { border-color: #e5534b; color: #e5534b; }
+      .bm-disco-tab.warn.sel { background: color-mix(in srgb, #e5534b 18%, transparent); color: #ff8b84; }
+      .bm-disco-state { font-size: 11.5px; padding: 1px 8px; border-radius: 10px;
+        border: 1px solid var(--mat-sys-outline-variant); }
+      .bm-disco-state.gone { color: #ff8b84; border-color: #e5534b;
+        background: color-mix(in srgb, #e5534b 14%, transparent); }
+      .bm-disco-state.ign { opacity: 0.6; }
+      .bm-disco-gone td.bm-mono, .bm-disco-gone .bm-mono { text-decoration: line-through; opacity: 0.8; }
+
       /* Grouped-inset layout (design-philosophy §9): comfortable max width,
          rounded hairline groups, quiet header rows. */
       .bm-checks { padding: 4px 2px; max-width: 960px; }

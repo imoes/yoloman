@@ -221,6 +221,19 @@ async def delete_assignment(
             raise HTTPException(status_code=403, detail="not authorized to manage this host")
     elif not (identity.kind == "user" and identity.role == "admin"):
         raise HTTPException(status_code=403, detail="group/OU assignments are admin-only")
+    # A host-scoped assignment that came from discovery is one half of a pair: the
+    # discovered_services row says `monitored` BECAUSE this assignment exists. Deleting
+    # only the assignment left the row claiming "monitored" while the host had no
+    # assigned check — two views of the same host contradicting each other. Reset the
+    # row to `undecided` (the service is still on the host, just not monitored), which
+    # is exactly what apply_discovery's `remove` does.
+    if a.scope_type == "host" and a.agent_id and (a.source or "") == "autodiscovered":
+        from bossman.services import discovery_lifecycle
+
+        item = str((a.parameters or {}).get("item") or "")
+        row = await _discovered_row(session, a.agent_id, a.check_name, item)
+        if row is not None and row.state == discovery_lifecycle.STATE_MONITORED:
+            row.state = discovery_lifecycle.STATE_UNDECIDED
     await session.delete(a)
     await session.commit()
 

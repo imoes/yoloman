@@ -160,9 +160,37 @@ Vier verschiedene Dinge heißen im UI alle „Check" bzw. „Service":
            kommt — dieselbe Herkunftslogik, die die Zuweisungstabelle schon hat.
 ```
 
+### Beim Umsetzen zusätzlich gefunden (beide im Backend)
+
+```
+[Widerspruchsfreiheit] `remove` machte aus einem verschwundenen Service einen "neuen"
+  Beleg:   bossman/bossman/api/checks.py, apply_discovery, verb == "remove"
+  Problem: Die Zeile wurde pauschal auf `undecided` gesetzt. Bei state='vanished'
+           behauptet das "Discovery hat ihn gefunden, unentschieden", obwohl genau
+           dieser Lauf ihn nicht gefunden hat — und er wäre beim nächsten Lauf als
+           "neu" wieder aufgetaucht.
+  Fix:     Bei `vanished` die Zeile löschen (wie discovery_lifecycle bei
+           remove_vanished_services); bei noch vorhandenem Service bleibt undecided.
+  Status:  ERLEDIGT, live belegt: Vanished 1→0 und New blieb 198 (nicht 199),
+           die Zeile war weg.
+
+[Widerspruchsfreiheit] "Monitored 10" neben "No assigned checks on this host yet"
+  Beleg:   bossman/bossman/api/checks.py, delete_assignment (löschte nur die
+           Zuweisung); Screenshot des Checks-Tabs zeigte beide Aussagen gleichzeitig
+  Problem: Die Invariante "state='monitored' ⇒ es gibt eine Zuweisung" war nicht
+           gehalten: eine autodiscovered Host-Zuweisung konnte gelöscht werden,
+           während die Discovery-Zeile weiter `monitored` behauptete. Zwei Ansichten
+           desselben Hosts widersprachen sich.
+  Fix:     delete_assignment setzt eine autodiscovered Host-Zuweisung zugehörige
+           Zeile von `monitored` auf `undecided` zurück (dasselbe, was `remove` tut).
+  Status:  ERLEDIGT.
+```
+
 ### Rangfolge
 
-1. `vanished` sichtbar und behandelbar machen (unsichtbarer Zustand → Fehlbedienung).
+1. ~~`vanished` sichtbar und behandelbar machen~~ — **ERLEDIGT** (Sektion
+   „Discovered services" mit vier immer sichtbaren Zählern, vanished rot +
+   durchgestrichen, Aktionen Remove/Ignore/Monitor/Stop; live belegt).
 2. Schwellwert/Begründung an der Messung (falsche Ruhe bei WARN/CRIT).
 3. Service-Checks in den Checks-Tab falten (ein Ort pro Aufgabe).
 4. Benennung vereinheitlichen (zieht sich durch alle Screens, daher zuletzt und
