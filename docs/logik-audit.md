@@ -959,3 +959,60 @@ Seed-Skript und keine Migration erzeugt sie, die Namen kommen nur als Beispiel i
 vor — mutmaßlich manuell angelegte Probedaten einer früheren Sitzung. Ich habe sie stehen
 gelassen, weil sie Absicht sein könnten; sie sind als Prüfstoff sogar nützlich. (Meine erste
 Vermutung „Rückstand aus heutigen Testläufen" war falsch — die Zeitstempel sind 15 Tage alt.)
+
+---
+
+## Umsetzung: Bereich 1 Restbefunde — Service checks gefaltet, Benennung eindeutig
+
+### Der Befund war schärfer als zuerst notiert
+
+Die Inventur nannte „zwei Orte für eine Aufgabe" (Parsimonie). Beim Umsetzen zeigte der Code
+etwas Schlimmeres:
+
+```
+[Ausgeschlossenes Drittes] Der Tab „Checks" verbarg eine ganze Klasse von Checks
+  Beleg:   host-checks.component.ts:424-429 (vorher) filterte die Kategorie
+           „Service checks" AUS der Tabelle heraus — mit dem Kommentar, sie würden in
+           Management ▸ Service checks verwaltet („single source of truth").
+  Problem: Ein Tab mit dem Namen „Checks" zeigte also NICHT alle Checks dieses Hosts, und
+           nichts auf dem Tab sagte, dass etwas fehlt. Das ist keine Redundanz, sondern eine
+           Lücke im Zustandsraum: Wer dort nachsieht, ob ein Endpunkt überwacht wird,
+           bekommt „nein" zu sehen, obwohl die Antwort „ja, nur woanders" wäre.
+  Fix:     Die Sektion ist auf denselben Tab gezogen (die Komponente ist unverändert
+           wiederverwendet, nur ohne eigene Überschrift), der Management-Snapin
+           „Service checks" ist entfernt. Der Filter bleibt — aber jetzt, weil die Zeilen
+           in der Sektion DARÜBER stehen (sonst stünde dieselbe Zeile zweimal auf einem
+           Screen), nicht weil sie vom Tab verschwinden.
+
+[Identität] Ein Wort, vier Dinge — jetzt sagt jede Sektion, was eine Zeile behauptet
+  Fix:     Vier Sektionen in der Reihenfolge Tatsache → Regel → Regel → Messung, jede mit
+           einer Zeile:
+             Discovered services  „was discovery auf dem Host gefunden hat — eine Tatsache,
+                                   keine Regel"
+             Service checks       „Assigned check (a rule): ein Endpunkt, den dieser Host
+                                   aktiv prüft"
+             Effective checks     „Assigned check (a rule): ein Check aus der Bibliothek, der
+                                   für diesen Host gilt"
+             Service states       „Service state (a measurement): was ein Check zuletzt
+                                   gemeldet hat. Eine Regel oben sagt, WAS gemessen wird;
+                                   eine Zeile hier sagt, was zurückkam."
+           Der Kopfkommentar der Komponente führt die Vierertabelle Definition / Regel /
+           Tatsache / Messung, damit die Begriffe nicht wieder auseinanderlaufen.
+           „Monitoring services" heißt jetzt „Service states" — es sind Messungen, keine
+           systemd-Dienste, und „Services" war im selben Screen schon anders belegt.
+
+[Identität] Derselbe Titel zweimal auf einem Screen
+  Beleg:   Beim ersten Einbau trug die eingebettete Komponente ihre eigene <h3>Service
+           checks</h3> — im Browser gemessen: die Überschrift erschien zweimal.
+  Fix:     Die Sektion bekommt Überschrift und Erklärzeile vom Tab; die Komponente hat keine
+           eigene Überschrift mehr.
+```
+
+Aufgeräumt: der Standalone-Shell versteckte den Snapin per `hideSnapins=['servicechecks']` —
+eine Referenz, die nach dem Entfernen ins Leere zeigte. Die Standalone-Konsole hat gar keinen
+Checks-Tab, dort erscheint also nichts.
+
+Live belegt (`/hosts/<id>?tab=checks`): vier Überschriften in der genannten Reihenfolge,
+„Service checks" genau EINMAL, der Knopf „Add a service check" auf dem Tab, kein Verweis auf
+„Management ▸ Service checks" mehr im DOM — und im Management-Tab ist die Kategorie
+„Monitoring" samt Snapin verschwunden.

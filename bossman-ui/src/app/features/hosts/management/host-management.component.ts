@@ -13,7 +13,6 @@ import { HostVirtComponent } from './host-virt.component';
 import { HostUpdatesComponent } from './host-updates.component';
 import { RolesFeaturesComponent } from './roles/roles-features.component';
 import { RoleBindingsComponent } from './roles/role-bindings.component';
-import { ServiceChecksComponent } from './service-checks/service-checks.component';
 import { PackageConfigComponent, PackageConfigDef } from './packages/package-config.component';
 import { BindZonesComponent } from './packages/bind-zones.component';
 import { NfsExportsComponent } from './packages/nfs-exports.component';
@@ -46,7 +45,7 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
     MatIconModule, MatButtonModule,
     HostNetworkComponent, HostFirewallComponent, HostServicesComponent, HostUpdatesComponent,
     HostLogsComponent, HostAccountsComponent, HostFreeipaComponent, HostStorageComponent,
-    HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, ServiceChecksComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
+    HostVirtComponent, RolesFeaturesComponent, RoleBindingsComponent, PackageConfigComponent, BindZonesComponent, NfsExportsComponent, DhcpdComponent,
     CronComponent, LogrotateComponent, AptReposComponent, SambaComponent, PureFtpdComponent, ProftpdComponent, CupsComponent,
     WebConfigTreeComponent, WebSingleConfigTreeComponent, TraefikConfigComponent,
   ],
@@ -72,7 +71,6 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
         </div>
         @if (visited().has('roles')) { <div [style.display]="show('roles')"><app-roles-features [agentId]="agentId()" /></div> }
         @if (visited().has('role-bindings')) { <div [style.display]="show('role-bindings')"><app-role-bindings [agentId]="agentId()" /></div> }
-        @if (visited().has('servicechecks')) { <div [style.display]="show('servicechecks')"><app-service-checks [agentId]="agentId()" /></div> }
         @if (visited().has('services')) { <div [style.display]="show('services')"><app-host-services [agentId]="agentId()" /></div> }
         @if (visited().has('updates')) { <div [style.display]="show('updates')"><app-host-updates [agentId]="agentId()" /></div> }
         @if (visited().has('logs')) { <div [style.display]="show('logs')"><app-host-logs [agentId]="agentId()" /></div> }
@@ -133,8 +131,10 @@ interface SnapIn { id: string; label: string; icon: string; category: string; }
 export class HostManagementComponent implements OnInit {
   private agentService = inject(AgentService);
   agentId = input.required<string>();
-  /** Snap-in ids to hide (e.g. the standalone console hides monitoring
-   * snap-ins like 'servicechecks' that are a Fleet-Commander concern). */
+  /** Snap-in ids to hide (e.g. the standalone console hides snap-ins that are a
+   * Fleet-Commander concern). 'servicechecks' is no longer among them: service checks moved
+   * to the host's Checks tab, where the rest of the host's checks already were — see
+   * docs/logik-audit.md, area 1. */
   hideSnapins = input<string[]>([]);
 
   /** Self-activate on init so a deep-link (?tab=management) loads the default
@@ -182,7 +182,6 @@ export class HostManagementComponent implements OnInit {
   private readonly snapins: SnapIn[] = [
     { id: 'roles', label: 'Roles & Features', icon: 'widgets', category: 'Server' },
     { id: 'role-bindings', label: 'Role bindings', icon: 'assignment_ind', category: 'Server' },
-    { id: 'servicechecks', label: 'Service checks', icon: 'network_check', category: 'Monitoring' },
     { id: 'services', label: 'Services', icon: 'settings_applications', category: 'Server' },
     { id: 'cron', label: 'Scheduled jobs', icon: 'schedule', category: 'Server' },
     { id: 'logrotate', label: 'Log rotation', icon: 'sync', category: 'Server' },

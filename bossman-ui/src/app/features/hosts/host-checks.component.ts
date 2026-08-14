@@ -14,6 +14,7 @@ import { CheckService } from '../../core/services/check.service';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { AgentService } from '../../core/services/agent.service';
 import { HostStatusBadgeComponent } from '../../shared/components/host-status-badge/host-status-badge.component';
+import { ServiceChecksComponent } from './management/service-checks/service-checks.component';
 import { serviceStateBadge } from '../../shared/status.util';
 import { formatMetricValue } from '../../shared/format.util';
 
@@ -24,26 +25,34 @@ interface DiscoRow {
 }
 
 /**
- * Block G9-P2 — the host's Checks tab. Shows the checks that effectively
- * apply to this host (resolved GPO-style from OU/group/host assignments),
- * where each check's warn levels come from, and lets you override an
- * inherited check's parameters at host scope. Auto-discovery is the
- * host-centric way to add checks; browsing the full catalog to add a
- * service check by hand lives in Management ▸ Service checks (single source
- * of truth — not duplicated here). Group/OU-wide assignment stays in OU/Policy.
+ * Block G9-P2 — the host's Checks tab: everything this host is measured by, and what came
+ * back. Four different things live here and the sections say which is which, because "check"
+ * used to name all four at once:
+ *
+ *   Check              a definition in the library      (browsed in Library ▸ Checks)
+ *   Assigned check     a RULE: it applies to this host  (Service checks + Effective checks)
+ *   Discovered service a FACT: discovery found it       (Discovered services)
+ *   Service state      a MEASUREMENT: what it reported  (Service states)
+ *
+ * The SERVICE CHECKS section is the folded-in Management ▸ Service checks snap-in. That split
+ * was worse than redundancy: this tab explicitly filtered the "Service checks" category out
+ * (with a comment calling the snap-in the single source of truth), so a tab named "Checks"
+ * hid a whole class of the host's own checks and nothing on it said so. See
+ * docs/logik-audit.md, area 1. Group/OU-wide assignment still belongs to OU / Policy — that
+ * is a different scope, not a second place for the same scope.
  */
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent, ServiceChecksComponent],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
 
-      <!-- Toolbar: auto-discovery is THE host-centric path. Browsing the full
-           check catalog to add a service check by hand lives in the
-           Management ▸ Service checks snap-in (single source of truth), so it
-           is intentionally not duplicated here. -->
+      <!-- Toolbar: auto-discovery is the host-centric path (it proposes from what the host
+           actually has). Adding an endpoint check by hand is the Service checks section
+           below — on this same tab, so both ways of getting a check onto this host are in
+           one place. -->
       <div class="bm-add">
         <button mat-flat-button color="primary" (click)="runDiscover()" [disabled]="discovering()">
           <mat-icon>travel_explore</mat-icon> {{ discovering() ? 'Discovering…' : 'Auto-discover checks' }}
@@ -130,9 +139,9 @@ interface DiscoRow {
         </div>
       }
 
-      <!-- Reached only via "Override here" on an inherited (OU/group) check —
-           set host-scoped parameters. Catalog browsing to ADD a new check
-           lives in Management ▸ Service checks, not here. -->
+      <!-- Reached only via "Override here" on an inherited (OU/group) check — set
+           host-scoped parameters. Adding a NEW check is either Auto-discover above or the
+           Service checks section below. -->
       @if (pickName()) {
         <div class="bm-form">
           <div class="bm-form-title">Configure <b>{{ pickName() }}</b> for {{ agent().name }}</div>
@@ -215,7 +224,24 @@ interface DiscoRow {
         }
       }
 
+      <!-- The active endpoint checks (HTTP/TCP/DNS/certificate). They used to live only in
+           Management > Service checks while THIS tab filtered them out, so the tab called
+           "Checks" hid a whole class of the host's checks and nothing said so. Now they are
+           here, where every other check of this host is, and the one place that can add or
+           edit them is here too. -->
+      <h3>Service checks</h3>
+      <p class="bm-dim bm-what">
+        <b>Assigned check</b> (a rule): an endpoint this host actively probes. Configure and add
+        them here — they are listed separately from the checks below only because they are
+        authored differently, not because they live elsewhere.
+      </p>
+      <app-service-checks [agentId]="agent().id" />
+
       <h3>Effective checks</h3>
+      <p class="bm-dim bm-what">
+        <b>Assigned check</b> (a rule): a check from the library that applies to this host,
+        inherited from its OU/group or set here. The service checks above are not repeated.
+      </p>
       @if (effectiveChecks().length) {
         <div class="bm-group">
         <table class="bm-table">
@@ -239,13 +265,17 @@ interface DiscoRow {
         </table>
         </div>
       } @else {
-        <p class="bm-dim">No assigned checks on this host yet. Run <b>Auto-discover checks</b> above, add a service check in <b>Management&nbsp;▸&nbsp;Service checks</b>, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
+        <p class="bm-dim">No library checks assigned to this host yet. Run <b>Auto-discover checks</b> above, add a <b>service check</b> in the section above, or assign a check to its OU/group in OU&nbsp;/&nbsp;Policy. Its live monitoring services are listed below.</p>
       }
 
       <!-- F-4: the monitoring services actually running on this host, so the
            tab reconciles the two notions of "check" (assigned Starlark checks
            above vs. threshold/built-in monitoring services here). -->
-      <h3 class="bm-svc-h">Monitoring services <span class="bm-dim">({{ services().length }})</span></h3>
+      <h3 class="bm-svc-h">Service states <span class="bm-dim">({{ services().length }})</span></h3>
+      <p class="bm-dim bm-what">
+        <b>Service state</b> (a measurement): what a check most recently reported. A rule above
+        says what to measure; a row here says what came back.
+      </p>
       <p class="bm-dim bm-svc-note">
         From threshold rules + the agent's built-in metrics — distinct from the assigned checks above.
         Edit thresholds in <a routerLink="/ou">OU&nbsp;/&nbsp;Policy</a>; full detail on the
@@ -315,6 +345,7 @@ interface DiscoRow {
          rounded hairline groups, quiet header rows. */
       .bm-checks { padding: 4px 2px; max-width: 960px; }
       .bm-svc-h { margin-top: 28px; }
+      .bm-what { margin: 2px 0 8px; font-size: 12.5px; max-width: 860px; }
       .bm-svc-note { font-size: 12px; margin: 2px 0 10px; }
       .bm-svc-note a { color: var(--mat-sys-primary); }
       .bm-add { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -421,9 +452,12 @@ export class HostChecksComponent {
   provInfo = signal<Record<string, { available: boolean; title?: string; admin_params?: { name: string; secret: boolean; description: string }[] }>>({});
   private adminCreds = signal<Record<string, Record<string, string>>>({});
 
-  /** Effective checks minus the active "Service checks" (HTTP/TCP/DNS/…):
-   * those are managed in Management ▸ Service checks, so listing them here too
-   * would be redundant. Checks not in the library keep showing (orphan view). */
+  /** Effective checks minus the active "Service checks" (HTTP/TCP/DNS/…): those have their
+   * own section ON THIS TAB, which is where they are added and edited, so repeating them in
+   * this table would show the same row twice on one screen. The difference from before is
+   * that the other section is now here rather than in a Management snap-in — the rows are
+   * not hidden from the tab any more, only sorted into the section that can act on them.
+   * Checks not in the library keep showing (orphan view). */
   effectiveChecks = computed(() => {
     const cat = new Map(this.catalog().map((c) => [c.name, c.category]));
     return this.checks().filter((c) => cat.get(c.check_name) !== 'Service checks');

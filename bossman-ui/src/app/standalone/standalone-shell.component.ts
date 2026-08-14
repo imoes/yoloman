@@ -38,7 +38,10 @@ interface Proc { pid: number; user: string; comm: string; command: string; cpu_p
         <main class="bm-main" [class.bm-main-flush]="tab()==='overview'">
           @if (tab()==='overview') { <app-standalone-overview /> }
           <div [style.display]="tab()==='management' ? 'block' : 'none'">
-            <app-host-management [agentId]="agentId" [hideSnapins]="['servicechecks']" />
+            <!-- Nothing to hide any more: 'servicechecks' was the one Fleet-Commander
+                 snap-in here, and service checks now live on the host's Checks tab, which
+                 this standalone console does not have at all. -->
+            <app-host-management [agentId]="agentId" />
           </div>
           @if (tab()==='processes') {
             <div class="bm-proc">
