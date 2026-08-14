@@ -62,6 +62,23 @@ class ResourceSpec:
     extra_verbs: tuple[str, ...] = ()
     #: True when the operation is performed on behalf of a user and audited.
     needs_identity: bool = False
+    #: Whether the host must have a reachable address. `role` deliberately does NOT:
+    #: a role binding is DB-only desired state, so a PLANNED (not yet booted) host can
+    #: be given roles now and converge when it first checks in. Demanding an address
+    #: there would forbid a legitimate case — the quirk is declared, not buried in a
+    #: route body (api/resources.py's _role_resource explains the same thing).
+    needs_address: bool = True
+    #: Whether the kind derives its schema from live data (`schema_async()`) or states
+    #: it statically (`schema()`). docker/package/service are static; helm/role/config
+    #: must ask the host or the DB first. A caller has to know which — and the test
+    #: checks this against the class, because a declaration that nobody verifies is
+    #: just a second place to be wrong (it caught this very field being wrong once).
+    schema_is_async: bool = True
+    #: `config` returns its field schema together with `observe()`, because the schema
+    #: depends on the file's codec and is computed from the observed values anyway.
+    observe_includes_schema: bool = False
+    #: `config` labels its history with the scope it applies to ("host").
+    generations_scope: str | None = None
     #: Human wording used by the UI and the docs — one label per kind, everywhere.
     label: str = ""
     notes: str = ""
@@ -78,6 +95,7 @@ class ResourceSpec:
 REGISTRY: dict[str, ResourceSpec] = {
     "docker": ResourceSpec(
         kind="docker", cls=DockerContainerResource, label="Docker container",
+        schema_is_async=False,
         notes="One container's desired spec (image, ports, env, volumes, restart).",
     ),
     "helm": ResourceSpec(
@@ -87,22 +105,27 @@ REGISTRY: dict[str, ResourceSpec] = {
     ),
     "config": ResourceSpec(
         kind="config", cls=ConfigResource, label="Config file",
-        addressed_by="path", has_schema=False,
+        addressed_by="path", has_schema=False, observe_includes_schema=True,
+        generations_scope="host",
         notes="Addressed by filesystem path in the body, not a URL segment. Its field "
-              "schema depends on the file's codec and therefore arrives with observe().",
+              "schema depends on the file's codec and therefore arrives with observe(); "
+              "its history is labelled with the scope it applies to.",
     ),
     "role": ResourceSpec(
         kind="role", cls=RoleResource, label="Role binding",
-        extra_verbs=("binding",), needs_identity=True,
+        extra_verbs=("binding",), needs_identity=True, needs_address=False,
         notes="Binding a role is done on behalf of a user and audited; DELETE .../binding "
-              "removes the link.",
+              "removes the link. Needs NO host address: the binding is DB-only desired "
+              "state, so a planned host can be given roles before it ever boots.",
     ),
     "package": ResourceSpec(
         kind="package", cls=PackageResource, label="OS package",
+        schema_is_async=False,
         notes="present/absent/version of one package.",
     ),
     "service": ResourceSpec(
         kind="service", cls=ServiceResource, label="systemd unit",
+        schema_is_async=False,
         notes="enabled/state of one unit.",
     ),
 }
@@ -135,7 +158,10 @@ def as_dict() -> dict[str, dict[str, Any]]:
             "kind": s.kind, "label": s.label, "addressed_by": s.addressed_by,
             "has_schema": s.has_schema, "verbs": list(s.verbs),
             "query_params": list(s.query_params), "extra_verbs": list(s.extra_verbs),
-            "needs_identity": s.needs_identity, "notes": s.notes,
+            "needs_identity": s.needs_identity, "needs_address": s.needs_address,
+            "schema_is_async": s.schema_is_async,
+            "observe_includes_schema": s.observe_includes_schema,
+            "generations_scope": s.generations_scope, "notes": s.notes,
         }
         for s in REGISTRY.values()
     }

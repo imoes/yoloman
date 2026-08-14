@@ -287,7 +287,23 @@ Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
    wäre nicht rollback-fähig — die Lücke, die das Protokoll schließen sollte);
    Eigenheiten stehen nur dort, wo sie hingehören.
 3. **36 → 6 Routen** zusammenlegen; die alten Pfade bleiben identisch, also kein
-   Bruch für Aufrufer.
+   Bruch für Aufrufer. **Zwischenstand:** beim Ansetzen kam heraus, dass die Arten
+   sich in **mehr** Eigenschaften unterscheiden als zunächst deklariert — die
+   Registry ist entsprechend vollständig gemacht (`needs_address`,
+   `schema_is_async`, `observe_includes_schema`, `generations_scope`), und die Tests
+   prüfen jede Behauptung **gegen die Klasse** (sie haben dabei sofort zwei falsche
+   Angaben von mir gefangen: package und service haben ein statisches `schema()`,
+   nicht `schema_async()`). Wichtigster inhaltlicher Fund: **`role` verlangt bewusst
+   keine Host-Adresse** — eine Rollenbindung ist DB-Soll-Zustand, damit ein
+   geplanter, noch nicht gebooteter Host Rollen erhalten kann. Diese Eigenschaft war
+   nur als Kommentar in einer Route begraben.
+   **Offene Entscheidung für den Umbau selbst:** die 18 POST-Routen tragen je Art ein
+   **typisiertes Pydantic-Body-Modell** (DockerSpec/HelmSpec/ConfigSpec/RoleSpec …).
+   Eine einzige generische Route müsste `dict` annehmen und statt dessen gegen
+   `schema()` validieren — das ist die parsimonische Lösung (ein
+   Validierungsmechanismus statt sechs), ändert aber die Fehlerform. Die 18
+   **GET**-Routen sind dagegen verlustfrei zusammenlegbar (kein Body). Vorschlag:
+   GETs jetzt zusammenlegen, POSTs erst nach dieser Entscheidung.
 4. **Vertragstest** über die Registry (Punkt 4 oben).
 
 

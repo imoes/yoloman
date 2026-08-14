@@ -93,8 +93,53 @@ def test_unknown_kind_error_names_the_alternatives():
         assert kind in msg
 
 
+@pytest.mark.parametrize("kind", reg.kinds())
+def test_declared_schema_flavour_matches_the_class(kind: str):
+    """`schema_is_async` is a claim about the class — check it against the class, or the
+    declaration is just a second place to be wrong."""
+    spec = reg.spec_for(kind)
+    if not spec.has_schema:
+        return
+    if spec.schema_is_async:
+        assert hasattr(spec.cls, "schema_async"), f"{spec.cls.__name__} declares an async schema but has no schema_async()"
+        assert inspect.iscoroutinefunction(spec.cls.schema_async)
+    else:
+        assert not inspect.iscoroutinefunction(spec.cls.schema)
+
+
+def test_which_kinds_state_their_schema_statically():
+    """Asserted exhaustively so a new kind cannot quietly join either group. docker,
+    package and service can describe themselves without asking anyone; helm and role
+    must look at the DB/host first (config has no schema route at all)."""
+    static = [k for k in reg.kinds() if reg.spec_for(k).has_schema and not reg.spec_for(k).schema_is_async]
+    derived = [k for k in reg.kinds() if reg.spec_for(k).has_schema and reg.spec_for(k).schema_is_async]
+    assert static == ["docker", "package", "service"]
+    assert derived == ["helm", "role"]
+
+
+def test_role_is_the_only_kind_that_works_without_a_host_address():
+    """A role binding is DB-only desired state, so a PLANNED host can be given roles
+    before it boots. Every other kind talks to the host and needs an address."""
+    no_addr = [k for k in reg.kinds() if not reg.spec_for(k).needs_address]
+    assert no_addr == ["role"]
+
+
+def test_config_is_the_only_kind_with_response_quirks():
+    """config carries its schema in observe() and labels its history with a scope."""
+    with_schema_in_observe = [k for k in reg.kinds() if reg.spec_for(k).observe_includes_schema]
+    with_scope = [k for k in reg.kinds() if reg.spec_for(k).generations_scope]
+    assert with_schema_in_observe == ["config"]
+    assert with_scope == ["config"]
+    assert reg.spec_for("config").generations_scope == "host"
+
+
 def test_as_dict_is_plain_data_for_the_ui():
     d = reg.as_dict()
     assert set(d) == set(reg.kinds())
     assert d["config"]["has_schema"] is False and d["config"]["addressed_by"] == "path"
     assert "namespace" in d["helm"]["query_params"]
+    # the newly declared quirks must reach the UI too, or it goes back to guessing
+    assert d["docker"]["schema_is_async"] is False and d["helm"]["schema_is_async"] is True
+    assert d["role"]["needs_address"] is False
+    assert d["config"]["observe_includes_schema"] is True
+    assert d["config"]["generations_scope"] == "host"
