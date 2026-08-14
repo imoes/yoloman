@@ -385,6 +385,7 @@ _PKG_FOR_BIN = {
     "resize2fs": "e2fsprogs", "e2fsck": "e2fsprogs", "lvextend": "lvm2",
     "zfs": "zfsutils-linux", "zpool": "zfsutils-linux",
     "pvresize": "lvm2", "sgdisk": "gdisk", "partprobe": "parted",
+    "cryptsetup": "cryptsetup",
 }
 
 
@@ -408,21 +409,49 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
         if rc == 0:
             continue
         pkg = _PKG_FOR_BIN.get(binname)
-        if pkg:
-            install = (
-                f"if command -v apt-get >/dev/null; then export DEBIAN_FRONTEND=noninteractive; "
-                f"apt-get update -qq && apt-get install -y -qq {pkg}; "
-                f"elif command -v dnf >/dev/null; then dnf install -y {pkg}; "
-                f"elif command -v yum >/dev/null; then yum install -y {pkg}; "
-                f"elif command -v zypper >/dev/null; then zypper --non-interactive install {pkg}; fi"
-            )
-            await _run(client, ["sh", "-c", install])
-            rc2, _, _ = await _run(client, ["sh", "-c", f"command -v {shlex.quote(binname)}"])
-            if rc2 == 0:
-                installed.append(pkg)
-                continue
+        if pkg and await _install_pkg(client, pkg, binname):
+            installed.append(pkg)
+            continue
         missing.append(binname)
     return installed, missing
+
+
+async def _install_pkg(client, pkg: str, verify_bin: str | None = None) -> bool:
+    """Install one package with whatever package manager the host has. Returns
+    whether the binary is available afterwards (or the install reported success)."""
+    install = (
+        f"if command -v apt-get >/dev/null; then export DEBIAN_FRONTEND=noninteractive; "
+        f"apt-get update -qq && apt-get install -y -qq {shlex.quote(pkg)}; "
+        f"elif command -v dnf >/dev/null; then dnf install -y {shlex.quote(pkg)}; "
+        f"elif command -v yum >/dev/null; then yum install -y {shlex.quote(pkg)}; "
+        f"elif command -v zypper >/dev/null; then zypper --non-interactive install {shlex.quote(pkg)}; "
+        f"elif command -v apk >/dev/null; then apk add --no-cache {shlex.quote(pkg)}; "
+        f"else echo 'no supported package manager' >&2; exit 1; fi"
+    )
+    rc, _, _ = await _run(client, ["sh", "-c", install])
+    if not verify_bin:
+        return rc == 0
+    rc2, _, _ = await _run(client, ["sh", "-c", f"command -v {shlex.quote(verify_bin)}"])
+    return rc2 == 0
+
+
+async def install_tools(agent, client_factory, settings, bins: list[str]) -> dict:
+    """Install the packages providing `bins` (the view's "install missing tools"
+    button). Only binaries this editor actually drives are accepted, so the endpoint
+    cannot be used to install arbitrary packages. Returns {ok, installed, failed}."""
+    client = client_factory(agent, settings)
+    wanted = [b for b in bins if b in _PKG_FOR_BIN]
+    rejected = [b for b in bins if b not in _PKG_FOR_BIN]
+    installed: list[str] = []
+    failed: list[str] = []
+    for pkg in sorted({_PKG_FOR_BIN[b] for b in wanted}):
+        # verify via one of the binaries this package provides
+        verify = next((b for b in wanted if _PKG_FOR_BIN[b] == pkg), None)
+        if await _install_pkg(client, pkg, verify):
+            installed.append(pkg)
+        else:
+            failed.append(pkg)
+    return {"ok": not failed, "installed": installed, "failed": failed, "rejected": rejected}
 
 
 async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, allow_nonloop: bool = False) -> dict:

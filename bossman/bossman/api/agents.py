@@ -414,6 +414,29 @@ async def apply_disk_plan(
                                 allow_nonloop=body.allow_nonloop)
 
 
+class DiskToolsBody(BaseModel):
+    """Binaries to provide — only ones the disk editor drives are accepted."""
+    bins: list[str] = []
+
+
+@router.post("/api/v1/agents/{agent_id}/disks/tools")
+async def install_disk_tools(
+    agent_id: UUID, body: DiskToolsBody, session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings), client_factory=Depends(get_client_factory),
+    _identity=Depends(require_manage_agent),
+) -> dict:
+    """Install the packages that provide the disk tools a host is missing (the Disks
+    view's "install missing tools" button). The read-only scan only REPORTS what is
+    missing — installing on a mere page view would be a surprising side effect — while
+    `disks/apply` still auto-installs whatever its plan needs."""
+    from bossman.services import disk_ops
+
+    agent = await _get_agent_or_404(session, agent_id)
+    if not body.bins:
+        raise HTTPException(422, "bins must not be empty")
+    return await disk_ops.install_tools(agent, client_factory, settings, body.bins)
+
+
 @router.post("/api/v1/agents/{agent_id}/disks/scratch")
 async def disk_scratch(
     agent_id: UUID, body: ScratchBody, session: AsyncSession = Depends(get_session),

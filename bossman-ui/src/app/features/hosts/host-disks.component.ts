@@ -27,7 +27,8 @@ interface ZfsDataset { name: string; type: string; used_bytes: number | null; av
   refer_bytes: number | null; quota_bytes: number | null; refquota_bytes: number | null;
   reservation_bytes: number | null; refreservation_bytes: number | null; mountpoint: string | null; }
 interface Zfs { available: boolean; pools?: ZfsPool[]; datasets?: ZfsDataset[]; }
-interface DiskLayout { devices: Device[]; vgs?: Vg[]; zfs?: Zfs; errors: string[]; }
+interface DiskTools { missing: string[]; packages: string[]; }
+interface DiskLayout { devices: Device[]; vgs?: Vg[]; zfs?: Zfs; tools?: DiskTools; errors: string[]; }
 
 interface DiskOp { op: string; device?: string; target?: string; table?: string; fstype?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
@@ -91,6 +92,21 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
           <mat-icon>refresh</mat-icon></button>
       </div>
     </div>
+
+    <!-- Missing host tools are REPORTED here (a read-only scan must not install
+         packages by itself); one click provides them. Apply auto-installs anyway. -->
+    @if (layout()?.tools?.missing?.length) {
+      <div class="bm-gp-tools">
+        <mat-icon>extension</mat-icon>
+        <div>
+          <strong>Missing on this host:</strong> {{ layout()!.tools!.missing.join(', ') }}
+          <span class="bm-dim">— without them parts of this view stay empty (packages: {{ layout()!.tools!.packages.join(', ') }}).</span>
+          @if (toolMsg()) { <div class="bm-dim">{{ toolMsg() }}</div> }
+        </div>
+        <button mat-flat-button color="primary" (click)="installTools()" [disabled]="installing()">
+          {{ installing() ? 'Installing…' : 'Install' }}</button>
+      </div>
+    }
 
     @if (layout()?.errors?.length) {
       <div class="bm-dk-errs"><mat-icon>info</mat-icon><div>@for (e of layout()!.errors; track $index) { <div>{{ e }}</div> }</div></div>
@@ -377,6 +393,11 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     .bm-dk-tools { display: flex; gap: 8px; }
     .bm-dim { opacity: 0.7; font-size: 13px; }
     .bm-err { color: var(--mat-sys-error, #c62828); } .bm-empty { opacity: 0.6; }
+    .bm-gp-tools { order: 2; display: flex; align-items: center; gap: 10px; font-size: 12.5px;
+      padding: 9px 12px; margin-top: 10px; border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--bm-gold, #b8860b) 45%, transparent);
+      background: color-mix(in srgb, var(--bm-gold, #b8860b) 10%, transparent); }
+    .bm-gp-tools > div { flex: 1; } .bm-gp-tools mat-icon { color: var(--bm-gold, #b8860b); }
     .bm-gp-grew { order: 2; display: flex; align-items: center; gap: 10px; font-size: 12.5px;
       padding: 9px 12px; margin-top: 10px; border-radius: 8px;
       border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 45%, transparent);
@@ -472,7 +493,25 @@ export class HostDisksComponent {
   applyResult = signal<any>(null);
   applying = signal(false);
   scratchMsg = signal('');
-  busy = computed(() => this.loading() || this.applying());
+  installing = signal(false);
+  toolMsg = signal('');
+  busy = computed(() => this.loading() || this.applying() || this.installing());
+
+  /** Provide the disk tools this host lacks, then rescan so the view fills in. */
+  installTools(): void {
+    const bins = this.layout()?.tools?.missing || [];
+    if (!bins.length) return;
+    this.installing.set(true); this.toolMsg.set('');
+    this.http.post<any>(`${this.base()}/disks/tools`, { bins }).subscribe({
+      next: (r) => {
+        this.installing.set(false);
+        this.toolMsg.set(r?.ok ? `Installed ${(r.installed || []).join(', ')}.`
+                               : `Installed ${(r.installed || []).join(', ') || 'nothing'} · failed: ${(r.failed || []).join(', ')}`);
+        this.load();
+      },
+      error: (e) => { this.installing.set(false); this.toolMsg.set(e?.error?.detail ?? 'install failed'); },
+    });
+  }
 
   constructor() { effect(() => { const id = this.agentId(); if (id) this.load(); }); }
 

@@ -183,6 +183,23 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   geschützt (System-/Root-Platte); kritische Mounts nie unmountbar; lvextend nur
   online-GROW.
 
+## 8d. Fehlende Host-Werkzeuge
+
+Zwei Wege, bewusst unterschiedlich:
+- **Apply installiert automatisch** (`disk_ops._ensure_tools`-Preflight): was der Plan
+  braucht, wird per apt/dnf/yum/zypper/apk nachgezogen und als `tools_installed`
+  gemeldet — dort hat der Nutzer der Änderung ohnehin zugestimmt.
+- **Der Scan meldet nur** (`disk_layout._read_tools` → `tools:{missing,packages}`):
+  Pakete zu installieren, nur weil jemand eine read-only Ansicht öffnet, wäre eine
+  überraschende Nebenwirkung. Das Panel zeigt stattdessen eine Hinweiszeile
+  („Missing on this host: parted, …") mit **Install**-Button →
+  `POST /agents/{id}/disks/tools` (`disk_ops.install_tools`, nimmt nur Binaries an,
+  die der Editor wirklich fährt).
+- **Eine Paket-Map** (`disk_ops._PKG_FOR_BIN`) für beide Wege. Vorher hatte der Scan
+  eine eigene Liste — `cryptsetup` wurde als fehlend gemeldet, hatte aber kein
+  Mapping und wurde beim Installieren stillschweigend verworfen. Live gefunden und
+  behoben.
+
 ## 8c. Gewachsene VM-Platte (on the fly, ohne Reboot)
 
 Vergrößert der Hypervisor eine virtuelle Platte, muss das **im Betrieb** ankommen:

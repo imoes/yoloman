@@ -179,7 +179,29 @@ async def read_disk_layout(agent, client_factory, settings, *, rescan: bool = Tr
 
     vgs = await _read_lvm(client, errors)
     zfs = await _read_zfs(client)
-    return {"devices": devices, "vgs": vgs, "zfs": zfs, "errors": errors}
+    tools = await _read_tools(client)
+    return {"devices": devices, "vgs": vgs, "zfs": zfs, "tools": tools, "errors": errors}
+
+
+# The binaries the editor drives, and the package that provides each. The SCAN
+# only REPORTS what is missing (installing packages just because someone opened a
+# read-only view would be a surprising side effect) — the view offers a one-click
+# install, and `disk_ops.apply` still auto-installs what its plan actually needs.
+_TOOL_BINS = ("parted", "sgdisk", "mkfs.ext4", "resize2fs", "pvresize", "zpool", "cryptsetup")
+
+
+async def _read_tools(client) -> dict:
+    """Which of the disk tools are missing on this host → {missing, packages}."""
+    from bossman.services.disk_ops import _PKG_FOR_BIN
+
+    bins = " ".join(_TOOL_BINS)
+    rc, out, _ = await _run(client, [
+        "sh", "-c", f"for b in {bins}; do command -v \"$b\" >/dev/null 2>&1 || echo \"$b\"; done"])
+    if rc != 0:
+        return {"missing": [], "packages": []}
+    missing = [ln.strip() for ln in out.splitlines() if ln.strip()]
+    return {"missing": missing,
+            "packages": sorted({_PKG_FOR_BIN[b] for b in missing if b in _PKG_FOR_BIN})}
 
 
 async def _read_zfs(client) -> dict:
