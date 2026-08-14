@@ -269,8 +269,23 @@ Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
    bleibt jetzt an **einer** Stelle, art-spezifische Extras (`role`: `status`,
    `unbound`) sind im gemeinsamen Typ **deklariert** statt in einem zweiten Client
    entdeckt zu werden. Live geprüft: Resources-Tab + Inspector funktionieren.
-2. **Registry einführen** (`services/resources/__init__.py`) mit kind→Klasse und
-   deren Eigenheiten als Attribute.
+2. ~~**Registry einführen**~~ — **ERLEDIGT**: `services/resources/__init__.py` (vorher
+   0 Bytes) enthält jetzt `REGISTRY: kind → ResourceSpec` mit den Eigenheiten
+   **deklariert** statt in Route-Duplikaten versteckt: `addressed_by` ('name' bzw.
+   'path' für config), `has_schema` (config: False — sein Schema hängt am Codec und
+   kommt mit `observe()`), `query_params` (helm: namespace), `extra_verbs`
+   (role: binding), `needs_identity` (role: auditiert), plus `label` und `notes`.
+   `spec_for()` nennt bei unbekannter Art **die erlaubten Werte** (eine Verweigerung
+   ohne Grund ist keine). `as_dict()` gibt die Tabelle als reine Daten heraus, damit
+   die UI ihre Fähigkeiten **ableitet** statt zu raten — genau der Fehler, der zum
+   nicht existierenden `/resources/config/.../schema` führte.
+   **Vertragstest** `tests/test_resource_registry.py` (24 Tests): jede Art
+   implementiert die Verben, die sie deklariert; zustandsändernde Verben sind async,
+   `schema` bleibt synchron; jede Art nennt sich selbst (`resource_type` + Label);
+   `config` bricht die Form **genau** wie deklariert und keine andere Art bricht sie;
+   die Historien-Verben gelten für **alle** Arten (eine Resource ohne Generationen
+   wäre nicht rollback-fähig — die Lücke, die das Protokoll schließen sollte);
+   Eigenheiten stehen nur dort, wo sie hingehören.
 3. **36 → 6 Routen** zusammenlegen; die alten Pfade bleiben identisch, also kein
    Bruch für Aufrufer.
 4. **Vertragstest** über die Registry (Punkt 4 oben).
