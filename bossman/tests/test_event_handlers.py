@@ -36,11 +36,21 @@ class FakeAgent:
 class FakeClient:
     """Records every module call and returns a canned payload per tool."""
 
-    def __init__(self, replies=None):
+    def __init__(self, replies=None, env_supported=True):
         self.calls = []
+        self.probe_calls = 0
         self.replies = replies or {}
+        self.env_supported = env_supported
 
     async def call_tool(self, tool, params):
+        # The env probe (see event_handlers.supports_env) is answered by echoing the marker
+        # back, which is what a current agent does. `probe_calls` keeps it out of `calls`, so
+        # the assertions about which modules a run touches stay readable.
+        if tool == "command" and params.get("env", {}).get("BOSSMAN_ENV_PROBE"):
+            self.probe_calls += 1
+            if self.env_supported:
+                return {"data": {"rc": 0, "stdout": params["env"]["BOSSMAN_ENV_PROBE"], "stderr": ""}}
+            return {"data": {"rc": 0, "stdout": "", "stderr": ""}}  # an old agent ignores env
         self.calls.append((tool, params))
         return {"data": self.replies.get(tool, {"rc": 0, "stdout": "", "stderr": ""})}
 
@@ -123,13 +133,17 @@ async def test_managed_script_is_deployed_before_every_run():
         service_name="Disk /", state="CRIT", value=91,
     )
     assert ok, detail
-    assert [t for t, _ in client.calls] == ["copy", "command"]
+    # file (the directory) -> copy (the body) -> command (the run). The directory step is not
+    # decoration: `copy` does not create parents, so without it the deploy failed on every host
+    # that had never received a handler — found by running it for real, not by reading.
+    assert [t for t, _ in client.calls] == ["file", "copy", "command"]
+    assert client.calls[0][1] == {"path": eh.HANDLER_DIR, "state": "directory", "mode": "0700"}
 
-    copy_params = client.calls[0][1]
+    copy_params = client.calls[1][1]
     assert copy_params["dest"] == f"{eh.HANDLER_DIR}/clean-logs"
     assert copy_params["mode"] == "0700"
 
-    cmd_params = client.calls[1][1]
+    cmd_params = client.calls[2][1]
     assert cmd_params["argv"] == ["bash", f"{eh.HANDLER_DIR}/clean-logs"]
     # the rule's value wins over the default, and the event context travels with it
     assert cmd_params["env"]["BOSSMAN_DAYS"] == "3"
@@ -200,3 +214,17 @@ async def test_local_availability_reports_all_missing_when_the_call_fails():
             raise RuntimeError("host unreachable")
 
     assert await eh.local_availability(Boom(), ["cleanup.sh"]) == {"cleanup.sh": False}
+
+
+async def test_an_agent_that_ignores_env_is_refused_not_run_blind():
+    """The dangerous case, measured on a real host before this guard existed: an agent older than
+    the `env` parameter ignores it, so the script ran with rc 0 and an EMPTY context — success
+    reported for the wrong work. A refusal naming the reason is the only honest outcome.
+    """
+    client = FakeClient(env_supported=False)
+    ok, detail = await eh.run_handler(
+        None, None, FakeAgent(), FakeHandler(), client=client, service_name="Disk /",
+    )
+    assert ok is False
+    assert "environment" in detail and "update the agent" in detail
+    assert client.calls == [], "nothing may be deployed or run on such a host"

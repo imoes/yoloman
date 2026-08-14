@@ -318,6 +318,11 @@ def create_app() -> FastAPI:
     app.include_router(rollouts_api.router, tags=["rollouts"])
     from bossman.api import remediation as remediation_api
     app.include_router(remediation_api.router, tags=["remediation"])
+    # Event handlers: the reusable ACTION an event rule performs (runbook or script, managed by
+    # Bossman or already on the host). Same tag as remediation on purpose — it is one subsystem,
+    # not a second one beside it (docs/event-handling.md).
+    from bossman.api import event_handlers as event_handlers_api
+    app.include_router(event_handlers_api.router, tags=["remediation"])
     from bossman.api import blueprints as blueprints_api
     app.include_router(blueprints_api.router, tags=["blueprints"])
     app.include_router(compliance_api.router, tags=["compliance"])

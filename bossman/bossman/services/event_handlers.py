@@ -151,6 +151,35 @@ async def _call(client, tool: str, params: dict) -> tuple[bool, Any]:
     return True, res.get("data")
 
 
+#: The probe's marker. A value the script echoes back, so the check is a MEASUREMENT of the
+#: capability rather than an inference from a version number.
+_PROBE_VALUE = "1"
+
+
+async def supports_env(client) -> bool:
+    """Can this agent actually pass environment variables to `command`?
+
+    This must be asked, because an agent older than the `env` parameter IGNORES it silently:
+    measured against a real host running 0.57.44, the handler script ran with rc 0 and printed
+    "cleanup ran for  on " — the context was simply empty. A silent wrong result is worse than a
+    failure, so a script handler refuses to run rather than run blind.
+
+    Asked by probing, not by comparing versions: `list_tools` returns {name, kind, writes} with
+    no input schema, and a version→feature table would be a second source of truth that has to
+    be kept in step with the agent by hand. The probe measures the property itself.
+
+    Not cached: a false negative only costs a refusal that names its reason, while a stale
+    "supported" would reintroduce exactly the silent-wrong-run this exists to prevent.
+    """
+    ok, data = await _call(client, "command", {
+        "argv": ["/bin/sh", "-c", 'printf %s "$BOSSMAN_ENV_PROBE"'],
+        "env": {"BOSSMAN_ENV_PROBE": _PROBE_VALUE},
+    })
+    if not ok or not isinstance(data, dict):
+        return False
+    return str(data.get("stdout", "")).strip() == _PROBE_VALUE
+
+
 async def run_handler(
     session: AsyncSession,
     settings,
@@ -203,12 +232,29 @@ async def run_handler(
         return ok, f"runbook {handler.runbook_name!r} " + ("succeeded" if ok else "failed")
 
     # ---- script ----------------------------------------------------------------
+    # Every script handler receives at least the event context through the environment, so an
+    # agent that cannot pass it would run the script with empty variables and report success.
+    # Refused with the reason instead — see supports_env.
+    if not await supports_env(client):
+        return False, (
+            "this host's agent cannot pass environment variables to a command, so the event "
+            "context (and any parameters) would arrive empty and the script would report "
+            "success while doing the wrong thing — update the agent before using a script "
+            "handler here"
+        )
     missing = missing_required(handler, values)
     if missing:
         return False, f"missing required parameter(s): {', '.join(missing)}"
     path = script_path(handler)
 
     if handler.location == "managed":
+        # The directory first: `copy` writes a file but does not create parents, so on a host
+        # that has never received a handler the deploy failed with "no such file or directory".
+        # Found by running it against a real host — the unit tests use a fake client and could
+        # not see it. 0700 because the scripts inside run as root.
+        ok, data = await _call(client, "file", {"path": HANDLER_DIR, "state": "directory", "mode": "0700"})
+        if not ok:
+            return False, f"could not create {HANDLER_DIR}: {_msg(data)}"
         # Deployed on every run, so the host cannot hold a body older than the one Bossman
         # shows. mode 0700: it runs as root and nothing else needs to read it.
         ok, data = await _call(client, "copy", {"dest": path, "content": handler.source or "", "mode": "0700"})

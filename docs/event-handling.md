@@ -184,9 +184,57 @@ damit hätte `local_availability` **jeden** lokalen Handler als fehlend gemeldet
 `services/remediation.py` ruft `run_handler`, wenn die Regel auf einen Handler zeigt; sonst
 läuft der bisherige Runbook-Pfad unverändert.
 
+### Schritt 3 — API (erledigt, Commit)
+
+`api/event_handlers.py`: CRUD unter `/api/v1/event-handlers` plus
+`/event-handlers/{id}/availability`. Live geprüft, dass **jede** Verweigerung ihren Grund nennt
+statt nur einen Statuscode:
+
+| Versuch | Antwort |
+|---|---|
+| managed Skript, lokales Skript | 201, mit `script_path` |
+| Runbook `local` | 422 „a runbook is a document in Bossman's database, so there is nothing on the host to point at" |
+| lokal **mit** Parametern | 422 mit der vollen Begründung (Bossman kennt den Skriptinhalt nicht) |
+| managed ohne `source` | 422 „that text IS the handler" |
+| unbekanntes Runbook | 422 „no runbook named …" — jetzt, nicht erst beim Ereignis |
+| Name doppelt | 409 |
+| `availability` auf einem managed/runbook-Handler | 422 mit dem Grund, warum die Frage dort keinen Sinn hat |
+
+`availability` ist der Beobachtungspunkt für lokale Handler und live belegt: erst **0 von 2**,
+nach dem Ablegen der Datei auf einem Host **1 von 2** — je Host benannt (`present` / `missing`),
+plus zwei weitere benannte Zustände: `unreachable` (Host ohne Adresse: „nicht da" und „konnte
+nicht fragen" sind verschiedene Tatsachen) und `unknown` für eine angefragte ID, die kein Host
+ist — sonst hätte eine Frage nach drei Hosts zwei Zeilen ohne Erwähnung der dritten beantwortet.
+
+### Zwei Fehler, die erst der echte Lauf gezeigt hat
+
+```
+[Widerspruchsfreiheit] copy legt kein Elternverzeichnis an
+  Messung: Der managed-Pfad scheiterte auf einem echten Host mit
+           „open /etc/agentic-mcp/event-handlers/cleanup.sh: no such file or directory".
+  Problem: Die Unit-Tests benutzen einen Fake-Client und konnten das nicht sehen.
+  Fix:     Erst `file state=directory mode=0700`, dann `copy`, dann `command` — im Test als
+           Reihenfolge festgehalten.
+
+[Widerspruchsfreiheit] Ein alter Agent IGNORIERT env stillschweigend
+  Messung: Auf einem Host mit Agent 0.57.44 lief das Handler-Skript mit rc 0 und gab
+           „cleanup ran for  on " aus — der Kontext war leer. Erfolg gemeldet, falsche Arbeit
+           getan. Ein stilles falsches Ergebnis ist schlimmer als ein Fehler.
+  Fix:     `supports_env` MISST die Fähigkeit vor jedem Skript-Handler (eine Sonde, die einen
+           Marker zurück-echot). Nicht über die Version: `list_tools` liefert kein
+           Eingabeschema, und eine Version→Feature-Tabelle wäre eine zweite Quelle der
+           Wahrheit, die man von Hand nachziehen müsste. Nicht gecacht: eine falsche
+           Verneinung kostet nur eine begründete Verweigerung, ein veraltetes „unterstützt"
+           brächte genau den stillen Fehllauf zurück.
+  Belegt:  Event-Regel auf einen lokalen Handler gebunden und ausgelöst → Status `failed` mit
+           „this host's agent cannot pass environment variables … update the agent before using
+           a script handler here", und NICHTS wurde auf dem Host ausgeführt.
+```
+
 ### Offen
 
-3. API `/event-handlers` CRUD + `/event-handlers/{id}/availability`.
 4. UI: Handler-Editor (bei `local` die Begründung anzeigen, warum keine Parameter) +
    „vorhanden auf N von M Hosts"; die Event-Regeln daneben.
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.
+6. Der Agent mit `env` muss auf die Hosts ausgerollt werden, sonst verweigert jeder
+   Skript-Handler dort — mit Grund, aber er läuft nicht.
