@@ -297,6 +297,15 @@ Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
    keine Host-Adresse** — eine Rollenbindung ist DB-Soll-Zustand, damit ein
    geplanter, noch nicht gebooteter Host Rollen erhalten kann. Diese Eigenschaft war
    nur als Kommentar in einer Route begraben.
+   **Stand:** die 17 GET-Routen sind **ERLEDIGT** → zwei generische
+   (`/resources/{kind}/{name}/{verb}` und `/resources/config/{verb}`), Pfade
+   zeichengleich, `api/resources.py` von 36 auf 21 Routen. Antwortformen live
+   nachgewiesen (config trägt weiter sein `schema` in `observe` und `scope: host` an
+   `generations`), und die Fehler sind **besser** als vorher: `config/schema` → 404
+   „its schema arrives with observe()", unbekannte Art → 400 mit der Liste der
+   erlaubten Werte, falsches Verb → 400 mit den Lese-Verben, `role` ohne Plan → 404
+   mit der Erklärung, was eine Rolle ist. 92 resource-Tests grün, UI-Inspector live
+   geprüft.
    **Offene Entscheidung für den Umbau selbst:** die 18 POST-Routen tragen je Art ein
    **typisiertes Pydantic-Body-Modell** (DockerSpec/HelmSpec/ConfigSpec/RoleSpec …).
    Eine einzige generische Route müsste `dict` annehmen und statt dessen gegen
