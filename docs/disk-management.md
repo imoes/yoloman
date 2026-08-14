@@ -183,6 +183,40 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   geschützt (System-/Root-Platte); kritische Mounts nie unmountbar; lvextend nur
   online-GROW.
 
+## 8e. Partition verschieben (echter Move, mit Daten)
+
+Ein Move sind **dieselben Bytes an einem neuen Offset** — also eine Blockkopie, wie
+gparted sie macht (`../gparted/src/CopyBlocks.cc`). Zwei Dinge machen es heikel, und
+beide sind gelöst:
+
+1. **Richtung.** Liegt das Ziel *hinter* der Quelle, überlappen die Bereiche; vorwärts
+   zu kopieren würde ungelesene Bytes überschreiben. gparted negiert dafür seine
+   Blockgröße und beginnt am Ende (`CopyBlocks.cc:106-112`) — wir kopieren aus
+   demselben Grund **rückwärts**. `dd` kann das nicht (nur vorwärts).
+2. **Laufzeit.** Der Agent bindet Kindprozesse an den HTTP-Request
+   (`exec.CommandContext`), also stirbt ein Mehr-GB-`dd` beim Client-Timeout —
+   mitten in der Kopie. Deshalb ist der Kopierer **kein Kommando**, sondern ein
+   **natives Go-Modul** im Agent: `internal/modules/disk_move.go`,
+   `action=start` → `job_id`, `status` → `{state, done_bytes, percent}`, `cancel`.
+   JSON rein, JSON raus. Jeder Poll ist ein eigener kurzer Request.
+
+Die Op-Engine kennt dafür zwei zusätzliche Step-Arten: `{tool, params}` (Modulaufruf,
+gibt Werte wie `job_id` an Folge-Steps weiter) und `{poll}` (wartet bis `state !=
+running`, Backoff 0,5 s → 10 s, Abbruch nach 6 h). Die `movepart`-Op ist damit:
+**Kopie starten → auf den Job warten → erst dann die Tabelle umbiegen**
+(`parted rm` + `mkpart` am neuen Offset). Reihenfolge bewusst so: während die Kopie
+läuft, beschreibt die alte Tabelle noch, wo die Daten liegen.
+
+**Safety:** Zielbereich darf keine andere Partition überlappen (Prüfung gegen die
+Sektorbereiche des Layouts), Partition muss unmounted sein. Tabellen-Backup wie immer
+per `sfdisk -d`. Fs-agnostisch, solange die Länge gleich bleibt (fs-Resize ist eine
+eigene Operation).
+
+**Live verifiziert** auf test-deployment `/dev/sdb`: 6-GiB-ext4-Partition mit 300 MiB
+Zufallsdaten, Verschiebung um die halbe Größe nach rechts (Überlappung 6.291.456
+Sektoren, `backwards=True`), 6.442.450.944 Bytes kopiert → Prüfsumme der Partition
+**und** der Nutzdatei unverändert, `e2fsck` clean.
+
 ## 8d. Fehlende Host-Werkzeuge
 
 Zwei Wege, bewusst unterschiedlich:
