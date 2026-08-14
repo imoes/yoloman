@@ -304,12 +304,51 @@ Beim Bau der Regel-Oberfläche kamen **zwei Lücken** heraus, die vorher niemand
            unbekannt ist — eine erfundene Angabe wäre schlimmer als eine fehlende.
 ```
 
+### Schritt 4c — Event-Regeln-Oberfläche (erledigt, Commit)
+
+`Monitor ▸ Event rules` (`/event-rules`). Platzierung begründet: der **Handler** wird verfasst
+und liegt in Library bei den anderen verfassten Dingen; die **Regel** reagiert — sie wird neben
+den Ereignissen gelesen, auf die sie antwortet, und ihre Laufhistorie IST Monitoring-Historie.
+
+Aufbau in der kausalen Reihenfolge: **Wann** (Check, Scope mit passendem Zielfeld) → **Dann**
+(die Aktion) → **Leitplanken** → **Läufe**.
+
+```
+[Widerspruchsfreiheit] Die Aktion ist EINE Auswahl, nicht zwei Felder
+  Grund:   Das Schema erlaubt genau eines von runbook_name / event_handler_id. Zwei Felder
+           gleichzeitig anzubieten hieße, zu der Kombination einzuladen, die die Datenbank
+           ablehnt. Umschalten LEERT die andere Hälfte sofort (nicht nur ausblenden), und ein
+           Handlerwechsel verwirft die Parameterwerte des vorherigen — sie waren für einen
+           anderen Vertrag benannt.
+
+[Zureichender Grund] Jede Leitplanke mit einem Satz, was sie tut
+  Grund:   Eine Zahl ohne ihre Folge ist eine Einstellung, die niemand beurteilen kann. Live
+           sichtbar u.a.: „At most this many runs per host per hour … so a problem that keeps
+           re-firing cannot turn into a restart loop"; „Without this, auto_verify refuses on
+           hosts marked production".
+
+[Falsifizierbarkeit] Der Lauf ist der Beobachtungspunkt
+  Live belegt: Regel per Formular angelegt → ausgelöst → die Tabelle zeigt Zeitpunkt, Host,
+           Check, `handler:restart-unit`, Status `failed` und den vollen Grund (der Agent kann
+           keine Umgebung übergeben). Ohne diese Spalte wäre „die Regel wirkt" eine Behauptung.
+```
+
+Die Sperren nennen ihren Grund, live geprüft: „Pick the event handler to run." → nach der Wahl
+„Required parameter(s) without a value: unit." → nach dem Füllen frei. Die Parameterzeile zeigt
+Pflichtstatus, Beschreibung UND den Variablennamen `BOSSMAN_UNIT`.
+
+**Eigene Fehler dieser Iteration:** mein Patch für die Route griff NICHT (der Anker hatte sich
+durch einen früher eingefügten Kommentar verschoben) — `app.routes.ts` enthielt „event-rules"
+null mal, das Bundle aber schon, weil der Nav-Eintrag dieselbe Zeichenkette trägt; die App
+leitete still auf `/fleet` um. Erst das Zählen der Treffer hat es aufgedeckt. Und ein `curl` ohne
+`-X POST` ließ den Auslöser wie „kein Treffer" aussehen — der Messfehler war meiner.
+
 ### Offen
 
-4c. Event-Regeln-Oberfläche: Liste + Editor (Aktion als EINE Auswahl „Runbook" oder
-    „Event handler", Parameterwerte aus den deklarierten Parametern des Handlers, Leitplanken)
-    und die Läufe mit Apply/Dismiss als Beobachtungspunkt — jetzt auf einer Historie, die die
-    Frage „was lief?" beantworten kann.
+5. Umbenennen *Remediation policy → Event rule* in Code und API (die UI heißt schon so) als
+   eigener Commit.
+6. Der Agent mit `env` muss ausgerollt werden, sonst verweigert jeder Skript-Handler — mit
+   Grund, aber er läuft nicht.
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.
 6. Der Agent mit `env` muss auf die Hosts ausgerollt werden, sonst verweigert jeder
    Skript-Handler dort — mit Grund, aber er läuft nicht.

@@ -136,6 +136,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/events/events.component').then((m) => m.EventsComponent),
   },
   {
+    // The binding trigger -> action. Under Monitor rather than Library because a rule REACTS:
+    // it is judged next to the events it answers, and its run history is monitoring history.
+    path: 'event-rules',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/events/event-rules.component').then((m) => m.EventRulesComponent),
+  },
+  {
     // The reusable ACTION an event rule performs. In Library because it is authored, like a
     // runbook or a check — the rules that trigger it live with the monitoring side.
     path: 'event-handlers',
