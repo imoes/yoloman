@@ -280,26 +280,16 @@ export class AddWidgetDialogComponent implements OnInit {
     return agentId ? this.hostMetrics()[agentId] ?? [] : [];
   }
 
-  /** `check_<name>_state` is a check's own 0/1/2/3 verdict, not a measurable quantity —
-   * plotting it as a line says nothing. The fleet-wide /metric-catalog excludes these for
-   * exactly that reason; the per-agent /metrics catalog does not (and conversely excludes
-   * `process_*`, which the fleet one keeps). Two catalogs, two answers to "what metrics
-   * exist" — filtered here so the picker is usable, and recorded in docs/logik-audit.md as
-   * an inconsistency that belongs in ONE shared rule server-side. */
-  private plottable(name: string): boolean {
-    return !(name.startsWith('check_') && name.endsWith('_state'));
-  }
 
   private loadMetrics(agentId: string): void {
     if (!agentId || this.hostMetrics()[agentId] !== undefined) return;
     // metricNames is the purpose-built catalog for exactly this question ("what does THIS
     // host report?") and returns names only — cheaper than the latest-value snapshot.
     this.agentService.metricNames(agentId).subscribe({
-      next: (res) =>
-        this.hostMetrics.update((m) => ({
-          ...m,
-          [agentId]: res.metrics.filter((n) => this.plottable(n)).sort(),
-        })),
+      // No client-side filtering any more: /agents/{id}/metrics and the fleet-wide
+      // /metric-catalog now share ONE exclusion rule server-side
+      // (services/metrics_query.is_measurable), so what arrives here is already pickable.
+      next: (res) => this.hostMetrics.update((m) => ({ ...m, [agentId]: [...res.metrics].sort() })),
       // A host that cannot be read contributes no metrics; the template then says so rather
       // than showing an empty dropdown with no explanation.
       error: () => this.hostMetrics.update((m) => ({ ...m, [agentId]: [] })),

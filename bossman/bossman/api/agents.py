@@ -24,7 +24,8 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, Metric, MetricRaw, MetricSeries
 from bossman.db.session import get_session
-from bossman.services import module_library
+from bossman.services import host_membership, module_library
+from bossman.services.metrics_query import measurable_sql_filter
 from bossman.services.monitoring import is_infra_agent
 from bossman.services.agent_client import AgentClientError
 from bossman.services.metrics_query import query_series
@@ -227,9 +228,14 @@ async def update_agent_groups(
     the unit a check_rules row can target with scope_type=group, which a
     host-scoped rule can then override. Replaces the whole list rather
     than adding/removing one at a time, matching how the Settings UI's
-    host-groups editor naturally works (a multi-select, not a diff)."""
+    host-groups editor naturally works (a multi-select, not a diff).
+
+    Writes through services/host_membership, which owns `host_group_members` and derives
+    `agents.groups` from it. Assigning the array directly (as this did) left the membership
+    table untouched, so the group editor and this endpoint reported different memberships for
+    the same host — see that module's header for the measurement."""
     agent = await _get_agent_or_404(session, agent_id)
-    agent.groups = body.groups
+    await host_membership.set_agent_groups(session, agent, list(body.groups))
     await session.commit()
     return AgentOut.from_model(agent)
 
@@ -290,13 +296,15 @@ async def mass_update_agent_groups(
         if not await user_can_manage_agent(session, identity, agent.id):
             raise HTTPException(status_code=403, detail=f"not authorized to manage host {agent.name!r}")
 
+    # Through services/host_membership so the bulk editor writes the same source of truth as
+    # the single-host and group-side editors (it used to touch only agents.groups).
     for agent in agents:
         if body.op == "replace":
-            agent.groups = list(body.groups)
+            await host_membership.set_agent_groups(session, agent, list(body.groups))
         elif body.op == "add":
-            agent.groups = list(dict.fromkeys([*agent.groups, *body.groups]))  # dedupe, preserve order
+            await host_membership.add_agent_groups(session, agent, list(body.groups))
         else:  # remove
-            agent.groups = [g for g in agent.groups if g not in body.groups]
+            await host_membership.remove_agent_groups(session, agent, list(body.groups))
 
     await session.commit()
     return [AgentOut.from_model(a) for a in agents]
@@ -724,10 +732,15 @@ async def get_agent_metrics(
         # Catalog discovery (see docs/plan.md's "Offene Punkte"): let a
         # caller find out what metric names exist for this agent before
         # asking for any specific one's history.
+        # The SAME exclusion rule the fleet-wide /metric-catalog uses
+        # (services/metrics_query.measurable_sql_filter): a check's 0/1/2/3 verdict and the
+        # per-PID process_* series are not pickable metrics. This endpoint used to drop only
+        # process_*, so the two catalogs answered "which metrics exist?" differently — and the
+        # chart editor's picker had to filter check_*_state again on the client.
         names = (
             await session.scalars(
                 select(Metric.metric)
-                .where(Metric.agent_id == agent_id, Metric.metric.not_like("process_%"))
+                .where(Metric.agent_id == agent_id, measurable_sql_filter(Metric.metric))
                 .distinct()
                 .order_by(Metric.metric)
             )

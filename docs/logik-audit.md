@@ -1016,3 +1016,94 @@ Live belegt (`/hosts/<id>?tab=checks`): vier Überschriften in der genannten Rei
 „Service checks" genau EINMAL, der Knopf „Add a service check" auf dem Tab, kein Verweis auf
 „Management ▸ Service checks" mehr im DOM — und im Management-Tab ist die Kategorie
 „Monitoring" samt Snapin verschwunden.
+
+---
+
+## Befunde: Gruppen-Mitgliedschaft und Gruppen-Umbenennung (beide live bewiesen, behoben)
+
+Diese zwei Befunde kamen nicht aus der Endpunkt-Inventur, sondern beim Umsetzen der
+Metrik-Frage: die Spaltensuche nach „was hält einen Gruppennamen?" hat sie freigelegt.
+
+```
+[Widerspruchsfreiheit] Mitgliedschaft war ZWEIMAL gespeichert und lief auseinander
+  Beleg:   host_group_members (FK) — geschrieben von PUT /host-groups/{id}/members
+           agents.groups (Array von NAMEN) — GELESEN vom Regel-Matching
+           (services/scope.py:66, services/monitoring.py:848)
+           api/host_groups.py:189 schrieb NUR die erste, api/agents.py:232+295 nur die zweite.
+  Messung: Gruppe angelegt, Host per /members hinzugefügt → die Gruppe meldet „1 Mitglied",
+           agents.groups bleibt [], und eine gruppenweite CheckRule (warn 0.5 auf cpu_load1)
+           erschien in /effective-thresholds NICHT. Die Oberfläche behauptet Mitgliedschaft,
+           die Überwachungsmaschine widerspricht, nichts meldet es.
+  Ursache: Keine Schlamperei, sondern eine UNFERTIGE Migration — HostGroups eigener Docstring
+           sagt: „Distinct from the legacy flat agents.groups string list, which stays
+           untouched in L1." Die neue Tabelle kam, der Leser wurde nie umgezogen.
+  Fix:     services/host_membership.py ist der EINE Schreibweg. host_group_members ist die
+           Quelle (eine Relation zwischen zwei Zeilen kann nur mit Fremdschlüsseln nicht
+           baumeln), agents.groups ist eine daraus in derselben Transaktion abgeleitete
+           Projektion (Namen bleiben nötig, weil der Name ein PFAD ist). Alle drei Endpunkte
+           gehen darüber.
+  Status:  ERLEDIGT, 7 Tests in tests/test_host_membership.py; live nachgemessen: derselbe
+           Ablauf liefert jetzt groups=['audit-sync2'] UND die Regel gewinnt
+           („scope_label: Group audit-sync2, is_winner: true").
+
+[Ausgeschlossenes Drittes] Umbenennen brach jede Referenz still
+  Beleg:   api/host_groups.py:92 setzte nur host_groups.name.
+  Messung: Gruppe + gruppenweite Regel angelegt, umbenannt → die Regel zeigt auf
+           'audit-probe', eine Gruppe, die es nicht mehr gibt; sie gilt für keinen Host mehr.
+  Namensträger: check_rules.scope_value, notification_rules.scope_value,
+           template_links.host_group UND agents.groups. Ein Fremdschlüssel ist NICHT der Fix:
+           der Name ist absichtlich ein Pfad („Europe" regiert „Europe/Latvia").
+  Fix:     host_membership.rename_group zieht in EINER Transaktion alles mit, inklusive der
+           Pfad-Kinder („Europe/Latvia" → „Neu/Latvia"), und verweigert eine Namenskollision
+           VOR dem ersten Schreiben (sonst bricht die Unique-Bedingung mitten in der Kaskade
+           ab und niemand weiß, welche Hälfte gilt). Live: die Regel folgt auf
+           'audit-sync2-renamed', die Projektion ebenso.
+
+[dieselbe Fehlerklasse, beim Messen der NÄCHSTEN Tür gefunden]
+  Nach dem Beheben von Hinzufügen und Umbenennen zeigte die Messung, dass LÖSCHEN die
+  Projektion nicht anfasst: der frühere Member behielt den Namen der gelöschten Gruppe und
+  hätte weiter auf sie gematcht. Behoben und mit einem eigenen Test belegt.
+
+[Mein eigener Entwurfsfehler, von den Tests aufgedeckt — zweimal]
+  1. Die Projektion aus der Tabelle LÖSCHT Namen, die nur im Array standen (Altbestand, alte
+     Endpunkte, Fixtures, Enrollment). Ein Test fiel darüber: ein Host mit groups=["Europe"]
+     verlor „Europe", sobald „prod" hinzukam. Fix: `adopt_projection` übernimmt Array-Namen
+     zuerst in echte Mitgliedschaften — das Array WAR die Wahrheit fürs Matching, also ist es
+     die Absicht.
+  2. Die Adoption stand an der falschen Stelle: für die VERLIERER einer Mitgliedschafts-
+     änderung ist das Array per Konstruktion veraltet, also stellte „adoptiere, was das Array
+     sagt" die gerade gelöschte Zeile wieder her. Reihenfolge jetzt: adoptieren → ersetzen →
+     projizieren (ohne erneute Adoption). Beim Löschen ebenso VOR dem Löschen, sonst würde die
+     Adoption die zu löschende Gruppe neu anlegen.
+
+[Falsifizierbarkeit] Mein eigenes Testskript sicherte nur nominell
+  Beleg:   Ein per `timeout` abgebrochener Volllauf ließ seinen CONTAINER weiterlaufen (das
+           Signal erreicht die compose-CLI, nicht den Container), der flock wurde mit der
+           toten CLI freigegeben — 15 Minuten später löschte der Waise noch die Zeilen der
+           folgenden Läufe (25 Fehler, die nach dem Abschießen verschwanden).
+  Fix:     scripts/test-in-container.sh gibt dem Container einen festen Namen, entfernt einen
+           Rest vor dem Start und räumt per `trap … EXIT INT TERM` auf, wie das Skript auch
+           endet.
+  Lehre:   Ich habe erst auf einer vorgewärmten Datenbank „20 grün" gesehen; die Gruppen, die
+           mein Code selbst erzeugt hatte, machten den Erstlauf-Fall unsichtbar. Erst der Lauf
+           gegen 0 Gruppen war ein Beweis.
+```
+
+### Umgesetzt: EINE Metrik-Ausschlussregel (Nutzerentscheidung)
+
+`services/metrics_query.is_measurable` + `measurable_sql_filter` sind die eine Regel;
+`/metric-catalog` (api/monitoring.py:78) und `/agents/{id}/metrics` (api/agents.py:712) nutzen
+sie. Vorher filterte der eine nur `check_*_state` (19 Serien) und behielt `process_*`, der
+andere umgekehrt. Live: fleet 54 Einträge, per-host 42, in BEIDEN 0 × `check_*_state` und
+0 × `process_*`. Der clientseitige Notfilter im Add-Widget-Dialog ist entfallen.
+
+### Aufgeräumt
+
+36 `grp-XXXXXX`-Host-Gruppen (0 Mitglieder, Testnamensmuster) über die API gelöscht; dabei
+kaskadierten 9 test-eigene `access_grants` (1037 → 1028). Danach sind **null** Host-Gruppen
+übrig — alle waren Rückstand. Ebenfalls entfernt: ein `groups`-Array-Rest an
+test-deployment aus meiner eigenen Probe.
+
+**Nebenbefund, nicht angefasst:** `access_grants` hat 1028 Zeilen; das sieht überwiegend nach
+Testrückstand aus und gehört in dieselbe Rückstandsabsicherung wie Hosts und Gruppen (die
+Fixture erfasst beide bis heute nicht mit einem Eigentümer-Merkmal — siehe Bereich 9).

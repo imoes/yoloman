@@ -25,6 +25,7 @@ from bossman.api.auth import get_current_identity
 from bossman.db.models import DEFAULT_TENANT_ID, Agent, CheckRule, CheckRuleOuLink, Downtime, Metric, OUNode, Service, Site
 from bossman.db.session import get_session
 from bossman.services.auth import user_can_manage_agent
+from bossman.services.metrics_query import is_measurable
 from bossman.services.reconciler import enqueue_policy_event
 from bossman.services.monitoring import (
     ServiceView,
@@ -88,11 +89,11 @@ async def metric_catalog(
     metrics = sorted((await session.scalars(select(Metric.metric).distinct())).all())
     out: list[MetricCatalogEntry] = []
     for m in metrics:
-        # Skip the derived per-check state series (check_<name>_state, emitted
-        # by CheckStatusMetricName): they're a check's own 0/1/2/3 output, not
-        # a measurable metric you'd threshold — they only cluttered the metric
-        # search with "Check … state" entries.
-        if m.startswith("check_") and m.endswith("_state"):
+        # ONE exclusion rule for every catalog (services/metrics_query.is_measurable): a
+        # check's own 0/1/2/3 verdict and the per-PID process_* series are not things a human
+        # picks to threshold or plot. This endpoint used to skip only the former while the
+        # per-agent catalog skipped only the latter.
+        if not is_measurable(m):
             continue
         if m in _METRIC_DISPLAY:
             display, unit, description = _METRIC_DISPLAY[m]

@@ -8,6 +8,8 @@ single OU placement.
 
 from __future__ import annotations
 
+import logging
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
@@ -20,6 +22,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from bossman.api.auth import get_current_identity
 from bossman.db.models import Agent, HostGroup, HostGroupMember, OUNode
 from bossman.db.session import get_session
+from bossman.services import host_membership
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -95,7 +100,16 @@ async def update_host_group(
     if not body.name.strip():
         raise HTTPException(status_code=422, detail="name is required")
     group = await _get_group_or_404(session, group_id)
-    group.name = body.name
+    # A rename carries its references: the name IS what check rules, notification rules,
+    # template links and the projected agents.groups point at, and matching is path-based on
+    # it. Renaming only this row left rules aimed at a name that no longer existed — proven
+    # live, see services/host_membership.rename_group.
+    try:
+        renamed = await host_membership.rename_group(session, group, body.name)
+    except host_membership.RenameCollision as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     group.description = body.description
     group.ou_id = body.ou_id
     try:
@@ -103,6 +117,8 @@ async def update_host_group(
     except IntegrityError as exc:
         await session.rollback()
         raise HTTPException(status_code=409, detail=f"a host group named {body.name!r} already exists") from exc
+    if renamed:
+        logger.info("host group rename carried references: %s", renamed)
     return await _to_out(session, group)
 
 
@@ -130,7 +146,32 @@ async def delete_host_group(
     group_id: UUID, session: AsyncSession = Depends(get_session), _identity=Depends(get_current_identity)
 ) -> None:
     group = await _get_group_or_404(session, group_id)
+    # Remember the members BEFORE the cascade removes the rows, then rebuild their projected
+    # `agents.groups` after the delete — otherwise every former member keeps the group's name
+    # in the array rule matching reads, i.e. keeps matching a group that no longer exists.
+    # Found by measuring the delete right after fixing add/rename, not by inspection.
+    member_ids = list(
+        (
+            await session.scalars(
+                select(HostGroupMember.agent_id).where(HostGroupMember.host_group_id == group_id)
+            )
+        ).all()
+    )
+    # Adopt BEFORE the delete, while this group still exists: adopting afterwards would see
+    # its name in the members' arrays with no row behind it and re-create the group we are
+    # deleting. Adopting first only protects the members' OTHER groups; the cascade then
+    # removes this one and the re-projection drops its name.
+    for agent_id in member_ids:
+        agent = await session.get(Agent, agent_id)
+        if agent is not None:
+            await host_membership.adopt_projection(session, agent)
+    await session.flush()
     await session.delete(group)  # host_group_members is ON DELETE CASCADE
+    await session.flush()
+    for agent_id in member_ids:
+        agent = await session.get(Agent, agent_id)
+        if agent is not None:
+            await host_membership.project_agent_groups(session, agent)
     await session.commit()
 
 
@@ -195,11 +236,10 @@ async def replace_host_group_members(
         if await session.get(Agent, agent_id) is None:
             raise HTTPException(status_code=422, detail=f"no such agent {agent_id}")
 
-    existing = (await session.scalars(select(HostGroupMember).where(HostGroupMember.host_group_id == group_id))).all()
-    for row in existing:
-        await session.delete(row)
-    await session.flush()
-    for agent_id in body.agent_ids:
-        session.add(HostGroupMember(id=uuid4(), tenant_id=DEFAULT_TENANT_ID, host_group_id=group_id, agent_id=agent_id))
+    # services/host_membership owns this write: it replaces the membership rows AND
+    # re-derives `agents.groups` for every host that gains or loses the group. Writing only
+    # the rows (as this did) left rule matching on the old projection, so a host shown as a
+    # member was not matched by the group's rules.
+    await host_membership.set_group_members(session, group, list(body.agent_ids))
     await session.commit()
     return await _to_out(session, group)

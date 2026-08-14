@@ -60,7 +60,18 @@ echo "→ waiting for the test lock ($LOCK) so no two runs share the database…
 exec 9>"$LOCK"
 flock 9
 
+# The lock alone is not enough, and that was measured: a run killed by `timeout` leaves its
+# CONTAINER alive (the signal reaches the compose CLI, not the container), the lock is released
+# with the dead CLI, and the orphan keeps running teardowns that delete the next run's rows —
+# 15 minutes after being "stopped" one was still sabotaging results. So the container gets a
+# fixed name, any leftover is removed before starting, and it is removed again on exit however
+# this script ends.
+CONTAINER=bossman-tests
+docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+cleanup() { docker rm -f "$CONTAINER" >/dev/null 2>&1 || true; }
+trap cleanup EXIT INT TERM
+
 echo "→ running pytest inside the compose network (project $PROJECT)"
-exec docker compose -p "$PROJECT" run --rm --no-deps \
+docker compose -p "$PROJECT" run --rm --no-deps --name "$CONTAINER" \
   -v "$PWD/bossman/tests:/app/tests:ro" -w /app bossman \
   sh -c "uv sync --frozen >/dev/null 2>&1 && uv run pytest -q ${ARGS[*]}"
