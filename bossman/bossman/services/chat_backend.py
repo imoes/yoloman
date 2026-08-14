@@ -59,10 +59,15 @@ class HermesWebBackend:
     """OpenAI-compatible chat backend (hermes gateway or any /v1 server).
     Streams `chat.completion.chunk` deltas via SSE."""
 
+    #: Default for the hermes gateway. OpenRouter is served by this same class (it is
+    #: OpenAI-compatible), so the NAME has to be an instance attribute: a backend that
+    #: was built for openrouter but reports "hermes_web" makes every log line, usage
+    #: record and error message attribute its traffic to the wrong backend.
     name = HERMES_WEB
 
     def __init__(self, base_url: str, model: str, token: str = "", timeout: float = 300.0,
-                 transport: httpx.AsyncBaseTransport | None = None):
+                 transport: httpx.AsyncBaseTransport | None = None, name: str = HERMES_WEB):
+        self.name = name
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.token = token
@@ -315,7 +320,8 @@ def chat_backend_for(settings: Settings, name: str | None = None):
         return HermesWebBackend(settings.hermes_web_base_url, settings.hermes_web_model, settings.hermes_web_token)
     if backend == OPENROUTER:
         # OpenRouter is OpenAI-compatible → the same client, different base/model/token.
-        return HermesWebBackend(settings.openrouter_base_url, settings.openrouter_model, settings.openrouter_token)
+        return HermesWebBackend(settings.openrouter_base_url, settings.openrouter_model,
+                                settings.openrouter_token, name=OPENROUTER)
     if backend == CODEX:
         return CodexBackend(settings.codex_base_url, settings.codex_model)
     if backend == CLAUDE_CLI:

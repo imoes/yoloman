@@ -425,3 +425,36 @@ Bulk-Verben in vier Schreibweisen (`acknowledge-bulk`, `mass-update`, `bulk-upda
 | **A — Toten Code klären** | 38 Endpunkte: je Familie „UI nachziehen" oder „entfernen"; die zwei doppelt registrierten Routen löschen | gering, rein subtraktiv |
 | **B — Zustands-Rückgrat vereinheitlichen** | Resources als **einziger** Weg für observe/plan/apply/generations/rollback; `/state/*` und `/docker-state/*` darauf abbilden; Registry + Fähigkeiten pro Art; Vertragstest | hoch, aber genau das Refactoring vor dem Release |
 | **C — Benennung** | `agents`/`hosts` auf einen Begriff, „template" entzerren, `/sites` vs `/policy-sites`, kebab-case, Bulk-Verben | mittel, viele Dateien, mechanisch |
+
+
+---
+
+## Befunde: Bereich 9 — Tests als Beobachtungspunkte (beim Suite-Lauf gefunden)
+
+```
+[Falsifizierbarkeit] 16 Tests laufen lokal nie — also prüfen sie nichts
+  Beleg:   Voller Lauf: 883 grün, 488 übersprungen, 17 rot. 16 der 17 sind
+           DB-gestützte End-to-End-Tests („real HTTP, real Postgres", z.B.
+           tests/test_runs_api.py:1-3) mit ConnectionRefusedError, weil der Host die
+           Compose-Datenbank nicht erreicht.
+  Problem: Ein Test, der nie läuft, ist kein Beobachtungspunkt — er sieht nur so aus.
+           Schlimmer: er verdeckt echte Fehlschläge (siehe nächster Befund).
+  Fix:     Suite im Container laufen lassen (dort ist die DB erreichbar) oder diese
+           Tests als solche markieren, damit „17 rot" nicht zur Normalität wird.
+
+[Widerspruchsfreiheit] Wer OpenRouter anfordert, bekommt hermes_web
+  Beleg:   tests/test_chat_backend.py:128 behauptete BACKENDS == {claude_cli, codex,
+           hermes_web} — der Code hat seit dem OpenRouter-Umbau vier
+           (services/chat_backend.py:42). Der Test SCHLUG an, ging aber zwischen den
+           16 umgebungsbedingten Fehlern unter.
+           Beim Nachziehen des Tests fiel der eigentliche Fehler auf:
+           chat_backend_for(s, "openrouter").name == "hermes_web"
+           — services/chat_backend.py:62 setzte `name` als KLASSEN-Attribut, während
+           OpenRouter (OpenAI-kompatibel) dieselbe Klasse benutzt.
+  Problem: Das System antwortet auf die Anforderung „A" mit einem Objekt, das „B"
+           von sich behauptet. Jede Logzeile, jeder Nutzungsdatensatz und jede
+           Fehlermeldung schreibt OpenRouter-Verkehr auf hermes_web.
+  Fix:     `name` ist jetzt ein Instanz-Attribut; beide Konstruktionsstellen
+           (services/chat_backend.py:323, api/chat.py:81) übergeben `name=OPENROUTER`.
+  Status:  ERLEDIGT, Test grün (8/8) und um die vierte Art erweitert.
+```
