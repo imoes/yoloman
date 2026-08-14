@@ -340,7 +340,7 @@ Weder UI noch MCP noch Agent rufen diese auf (Tests und Service-Schicht siehe Sp
 
 | Familie | Endpunkte | Tests | Service | Beleg | Stand |
 |---|---|---|---|---|---|
-| `/graphs` (+`/{id}/data`) | 6 | ja | — | graphs.py:112,120,127,147,174,200 | Entscheidung: in Dashboards falten |
+| `/graphs` (+`/{id}/data`) | 6 | ja | ja (graph_data.py) | graphs.py:112,120,127,147,174,200 | **in Dashboards gefaltet** (Editor-UI offen) |
 | `/clusters` | 4 | ja | ja (clustering.py) | clusters.py:134,148,178,201 | **Oberfläche gebaut** |
 | `/value-maps` | 4 | ja | — | value_maps.py:47,55,79,98 | **Oberfläche gebaut** |
 | `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | **Oberfläche gebaut** |
@@ -755,3 +755,76 @@ Proxmox-Knoten (vpp0221/22/23), geclusterte Services `Memory` + `Host alive`, be
 
 Nebenbei aufgeräumt: zwei `rel-agent-*`-Hosts, die MEINE früheren Testläufe hinterlassen
 hatten (dieselbe Rückstands-Lücke wie bei den `grp-*`-Gruppen, siehe Bereich 9).
+
+---
+
+## Umsetzung: /graphs in die Dashboards gefaltet (Spur A, Familie 1)
+
+### Zuerst: meine Vorlage an den Nutzer war ZU GROB
+
+Ich hatte die Entscheidung so begründet: „Die Dashboards können Reihen bereits ad hoc pro
+Widget; ein zweiter Weg zum selben Ergebnis ist nach der Parsimonie-Regel ein Logikfehler."
+Das stimmt nicht. Beim Lesen beider Seiten:
+
+| | Dashboard-Widget `timeseries` | Graph |
+|---|---|---|
+| Reihen | genau **eine** (`config.agent_id` + `config.metric`) | **N** Items, über mehrere Hosts |
+| Auflösung | **keine** — rohes `select(Metric)` | tier-bewusst via `query_series` (raw/hourly/daily) |
+| Pro Reihe | — | label, color, draw_style, **axis_side links/rechts**, function avg/min/max |
+| Graph-Ebene | — | y_axis_mode, show_legend, show_working_time |
+| Benannt / wiederverwendbar | nein (Konfig steckt im Widget) | ja |
+
+Es waren also **nicht zwei Wege zum selben Ergebnis**, sondern eine echte Teilmenge — mit
+einem messbaren Defekt auf der schwächeren Seite. Die Entscheidung „falten" bleibt richtig,
+bedeutet aber: **der Graph ist die Maschine, das Dashboard der Ort** — nicht „Graphen weg".
+
+```
+[Parsimonie, mit messbarer Folge] Zwei Implementierungen derselben Berechnung
+  Beleg:   services/dashboard.py `_metric_series` (eigenes select(Metric), kein Tier)
+           vs api/graphs.py `get_graph_data` (query_series, Tier nach Alter von `since`).
+  Problem: Dieselbe Aufgabe, zwei Rechenwege, die NICHT übereinstimmten: ein 30-Tage-
+           Rückblick im Widget zog jede Rohzeile, derselbe Zeitraum im Graphen kam
+           verdichtet zurück. Redundanz ist hier kein Geschmack, sondern ein Fehler mit
+           Laufzeitfolge.
+  Fix:     services/graph_data.py ist jetzt die EINE Quelle (`series_for_items`,
+           `load_graph`). Beide Aufrufer benutzen sie; der inline-Fall läuft als
+           implizites Ein-Item-Graph durch denselben Code.
+  Belegt:  inline, 30 Tage → tier `hourly`, 2304 Punkte (vorher roh, 140160 Zeilen liegen
+           für diese Metrik vor); inline, 1 Stunde → tier `raw`. Vorher immer `raw`.
+
+[Zureichender Grund] Die Auflösung wandert mit den Daten
+  Problem: Ein Diagramm, das still von Minuten- auf Tageswerte wechselt, zeigt für dieselbe
+           Metrik eine glattere Linie — ohne dass man erkennen könnte, warum.
+  Fix:     `resolution` steht in jeder Reihe und im inline-Fall zusätzlich oben; der
+           Renderer fasst gemischte Tiers als „raw + hourly" zusammen statt einen davon
+           zu unterschlagen.
+
+[Ausgeschlossenes Drittes] Ein Widget, dessen Graph gelöscht wurde
+  Fix:     `{"series": [], "error": "the saved graph … no longer exists"}` — benannt, nicht
+           als „keine Daten" getarnt. Live geprüft: Graph gelöscht → genau diese Meldung.
+
+[Widerspruchsfreiheit] Der Renderer behauptete „No data", obwohl Reihen da waren
+  Beleg:   dashboard-widget.component.ts prüfte nur `points.length`.
+  Fix:     `timeseriesHasData()` prüft alle Reihen; ein Builder zeichnet beide Formen und
+           honoriert draw_style und axis_side (eine Metrik in Prozent und eine in Bytes
+           brauchen getrennte Achsen — das ist der Grund, warum ein Graph mehr ist als
+           „ein Widget mit mehr Linien").
+```
+
+### Live verifiziert
+
+Graph „probe cpu vs disk" über **zwei** Hosts mit **zwei Achsen** angelegt (vpp0221
+`cpu_core_pct` links, vpp0222 `disk_reads_total` rechts, gestrichelt, function=max):
+`/graphs/{id}/data` liefert beide Reihen; ein `timeseries`-Widget mit
+`config.graph_id` liefert **dieselben** zwei Reihen samt Achse und Tier — also derselbe
+Chart an zwei Orten aus einem Rechenweg. Danach alles wieder gelöscht (Graph + drei
+Probe-Widgets).
+
+### Offen
+
+Die **Authoring-Oberfläche** für Graphen fehlt noch: `config.graph_id` ist über die API
+setzbar, aber der Add-Widget-Dialog bietet es nicht an. Der geplante Zielzustand ist, den
+Graph-Editor genau dort zu haben — man baut den Chart im Dashboard, und er wird als
+benannter, wiederverwendbarer Graph gespeichert. Solange das fehlt, bleibt der Weg
+„gespeicherter Graph im Dashboard" nur per API erreichbar; die 6 /graphs-Routen bleiben
+deshalb bestehen (sie sind die Autorenschicht, nicht der zweite Renderpfad).

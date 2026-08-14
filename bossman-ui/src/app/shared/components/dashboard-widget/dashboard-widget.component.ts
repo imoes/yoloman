@@ -18,6 +18,7 @@ import {
   StatWidgetData,
   StatusTilesWidgetData,
   TableWidgetData,
+  TimeseriesSeries,
   TimeseriesWidgetData,
   TopHostsWidgetData,
   WarRoomWidgetData,
@@ -127,7 +128,7 @@ import { BM_GOLD, BM_GREEN, BM_RED, BM_UNKNOWN } from '../../bm-colors';
           @case ('timeseries') {
             @if (timeseriesError()) {
               <p class="bm-widget-empty">{{ timeseriesError() }}</p>
-            } @else if (timeseriesPoints().length) {
+            } @else if (timeseriesHasData()) {
               <div echarts [options]="timeseriesOptions()" class="bm-widget-chart"></div>
             } @else {
               <p class="bm-widget-empty">No data for this metric yet.</p>
@@ -327,6 +328,27 @@ export class DashboardWidgetComponent {
   gaugeError = computed(() => (this.data() as GaugeWidgetData | null)?.error ?? '');
   timeseriesError = computed(() => (this.data() as TimeseriesWidgetData | null)?.error ?? '');
   timeseriesPoints = computed(() => (this.data() as TimeseriesWidgetData | null)?.points ?? []);
+  /** Every line to draw. A widget that references a saved graph delivers N of them (across
+   * hosts, with their own colour and axis); the inline agent+metric case delivers one. The
+   * fallback keeps widgets stored before `series` existed rendering unchanged. */
+  timeseriesSeries = computed<TimeseriesSeries[]>(() => {
+    const d = this.data() as TimeseriesWidgetData | null;
+    if (d?.series?.length) return d.series;
+    if (d?.points?.length) {
+      return [{ item_id: null, agent_id: '', metric: '', label: null, color: BM_GREEN,
+                draw_style: 'line', axis_side: 'left', resolution: d.resolution ?? 'raw',
+                points: d.points }];
+    }
+    return [];
+  });
+  /** True once anything is plottable — the template used to test `points` only, which left a
+   * graph-backed widget claiming "No data" while it had series. */
+  timeseriesHasData = computed(() => this.timeseriesSeries().some((s) => s.points.length > 0));
+  /** The resolutions actually served, so mixed tiers are visible rather than implied. */
+  timeseriesResolution = computed(() => {
+    const tiers = [...new Set(this.timeseriesSeries().map((s) => s.resolution).filter(Boolean))];
+    return tiers.length === 1 ? tiers[0] : tiers.join(' + ');
+  });
 
   private readonly stateColors: Record<string, string> = { OK: BM_GREEN, WARN: BM_GOLD, CRIT: BM_RED, UNKNOWN: BM_UNKNOWN };
 
@@ -418,24 +440,41 @@ export class DashboardWidgetComponent {
     };
   });
 
+  /** One builder for both shapes. A saved graph's per-series draw style and axis side are
+   * honoured here, because they are the reason a graph is not just "a timeseries widget with
+   * more lines": a metric in percent and one in bytes need separate axes to be readable. */
   timeseriesOptions = computed<EChartsCoreOption>(() => {
-    const points = this.timeseriesPoints();
+    const series = this.timeseriesSeries();
+    const usesRight = series.some((s) => s.axis_side === 'right');
+    const legend = series.length > 1 && (this.data() as TimeseriesWidgetData | null)?.graph?.show_legend !== false;
     return {
       backgroundColor: 'transparent',
-      grid: { left: 44, right: 12, top: 12, bottom: 28 },
+      grid: { left: 44, right: usesRight ? 44 : 12, top: legend ? 28 : 12, bottom: 28 },
       tooltip: { trigger: 'axis' },
+      legend: legend ? { top: 0, textStyle: { fontSize: 10 } } : undefined,
       xAxis: { type: 'time' },
-      yAxis: { type: 'value' },
-      series: [
-        {
-          type: 'line',
-          showSymbol: false,
-          smooth: true,
-          data: points.map((p) => [p.time, p.value]),
-          color: BM_GREEN,
-          areaStyle: { opacity: 0.1 },
+      yAxis: usesRight
+        ? [{ type: 'value' }, { type: 'value' }]
+        : { type: 'value' },
+      series: series.map((s) => ({
+        type: 'line',
+        name: s.label || s.metric || 'value',
+        showSymbol: s.draw_style === 'dot',
+        smooth: s.draw_style !== 'dot',
+        lineStyle: {
+          width: s.draw_style === 'bold_line' ? 3 : 2,
+          type: s.draw_style === 'dashed' ? 'dashed' : 'solid',
         },
-      ],
+        yAxisIndex: usesRight && s.axis_side === 'right' ? 1 : 0,
+        data: s.points.map((p) => [p.time, p.value]),
+        color: s.color || BM_GREEN,
+        // Filling several overlapping lines makes them unreadable, so the area is kept for
+        // the single-line case (and for an explicitly filled/gradient item).
+        areaStyle:
+          s.draw_style === 'filled' || s.draw_style === 'gradient' || series.length === 1
+            ? { opacity: 0.1 }
+            : undefined,
+      })),
     };
   });
 }
