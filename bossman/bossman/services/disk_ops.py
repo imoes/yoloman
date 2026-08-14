@@ -142,6 +142,54 @@ def compile(plan: dict) -> list[dict]:
             steps.append({"op": kind, "device": dev, "touches_table": False,
                           "desc": f"grow LV {t} by {size} (online, --resizefs)",
                           "argv": ["lvextend", "--resizefs", flag, size, t]})
+        elif kind in ("luks_format", "luks_open", "luks_close"):
+            # LUKS. The passphrase NEVER appears in a plan, in compile() output or in
+            # a preview: the op carries a `secret_ref` (a vault:v1: handle) and only
+            # apply() decrypts it, injecting the plaintext into the `copy` module call
+            # that writes a key file. That is also why the passphrase does not travel
+            # in argv — a command line is visible in `ps` and in the agent's audit
+            # log, while a module body travels inside the mTLS request.
+            name = op.get("name") or ""
+            if kind == "luks_close":
+                if not name:
+                    steps.append({"op": kind, "device": dev, "error": "luks_close needs the mapper name",
+                                  "desc": "close LUKS volume (UNSUPPORTED)", "argv": []})
+                else:
+                    steps.append({"op": kind, "device": dev, "touches_table": False,
+                                  "desc": f"close LUKS volume {name}",
+                                  "argv": ["cryptsetup", "luksClose", name]})
+            else:
+                t = op.get("target") or ""
+                ref = op.get("secret_ref") or ""
+                if op.get("passphrase"):
+                    steps.append({"op": kind, "device": dev,
+                                  "error": "a plaintext passphrase is not accepted — pass a vault secret_ref",
+                                  "desc": f"{kind} on {t} (REFUSED)", "argv": []})
+                elif not t or not name or not ref:
+                    steps.append({"op": kind, "device": dev,
+                                  "error": f"{kind} needs target, name and secret_ref",
+                                  "desc": f"{kind} (UNSUPPORTED)", "argv": []})
+                else:
+                    keyfile = f"/run/bm-luks-{abs(hash((t, name))) % 10**8}.key"
+                    # 1. drop the passphrase into a key file on /run (tmpfs — never
+                    #    hits a disk); the value is injected by apply(), see above.
+                    steps.append({"op": kind, "device": dev, "touches_table": False,
+                                  "desc": f"stage the passphrase for {t} (from the vault, {keyfile})",
+                                  "tool": "copy", "secret_param": "content", "secret_ref": ref,
+                                  "params": {"dest": keyfile, "mode": "0600"}})
+                    # 2. use it, then remove it in the SAME shell so a failing
+                    #    cryptsetup can never leave the passphrase lying around.
+                    if kind == "luks_format":
+                        body = (f"cryptsetup luksFormat --batch-mode --key-file {keyfile} {shlex.quote(t)} && "
+                                f"cryptsetup luksOpen --key-file {keyfile} {shlex.quote(t)} {shlex.quote(name)}")
+                        desc = f"encrypt {t} with LUKS and open it as {name}"
+                    else:
+                        body = f"cryptsetup luksOpen --key-file {keyfile} {shlex.quote(t)} {shlex.quote(name)}"
+                        desc = f"unlock {t} as {name}"
+                    steps.append({"op": kind, "device": dev, "touches_table": False, "busy_target": t,
+                                  "desc": desc,
+                                  "argv": ["sh", "-c", f"{body}; rc=$?; "
+                                                       f"shred -u {keyfile} 2>/dev/null || rm -f {keyfile}; exit $rc"]})
         elif kind == "movepart":
             # A real gparted-style MOVE: copy the partition's bytes to the new offset
             # with the agent's native disk_move module (fs-agnostic, copies backwards
@@ -365,7 +413,9 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
     mp_by_path = _mount_by_path(layout)
     for s in steps:
         if s.get("error"):
-            problems.append({"severity": "error", "message": s["desc"]})
+            # Report the REASON, not just the step title — "…(REFUSED)" alone leaves
+            # the user guessing why.
+            problems.append({"severity": "error", "message": f"{s['desc']}: {s['error']}"})
         # ZFS name ops act on pool/dataset names, not raw block devices — they skip
         # the block-device loop/protected/busy rules; destroy/rollback are guarded by
         # mountpoint instead (never tear down a critical system mount).
@@ -466,6 +516,8 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
             needed.add(argv[0])
         if s["op"].startswith(("zfs_", "zpool_")) and argv:
             needed.add(argv[0])  # zfs / zpool
+        if s["op"].startswith("luks_"):
+            needed.add("cryptsetup")
     installed: list[str] = []
     missing: list[str] = []
     for binname in sorted(needed):
@@ -528,10 +580,26 @@ async def _call_module(client, tool: str, params: dict) -> tuple[bool, dict]:
     return True, (data if isinstance(data, dict) else {})
 
 
-async def _run_tool_step(client, s: dict, ctx: dict) -> tuple[bool, dict]:
+async def _run_tool_step(client, s: dict, ctx: dict, settings=None) -> tuple[bool, dict]:
     """Run a module-call step. Anything the module returns that later steps need
-    (today: `job_id` from disk_move) is stashed in the shared step context."""
-    ok, data = await _call_module(client, s["tool"], s.get("params") or {})
+    (today: `job_id` from disk_move) is stashed in the shared step context.
+
+    A step may declare `secret_param` + `secret_ref`: the vault handle is decrypted
+    HERE and the plaintext is put into that parameter, so it exists only in memory
+    for the duration of the call — never in the plan, the compiled steps or a
+    preview, and never on a command line."""
+    params = dict(s.get("params") or {})
+    if s.get("secret_param"):
+        from bossman.services.vault import Vault, VaultError
+
+        if settings is None:
+            return False, {"tool": s["tool"], "output": "no settings — cannot open the vault"}
+        try:
+            params[s["secret_param"]] = Vault(settings.vault_key, settings.vault_key_path).decrypt(
+                s.get("secret_ref") or "")
+        except (VaultError, Exception) as exc:  # noqa: BLE001
+            return False, {"tool": s["tool"], "output": f"vault: {str(exc)[:200]}"}
+    ok, data = await _call_module(client, s["tool"], params)
     if not ok:
         return False, {"tool": s["tool"], "output": data.get("output", "call failed")}
     if data.get("job_id"):
@@ -612,7 +680,7 @@ async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, al
         # MODULE (tool/params — that is how the native disk_move copier is driven),
         # or a wait-for-job (poll) that keeps asking the module until it finishes.
         if s.get("tool"):
-            step_ok, detail = await _run_tool_step(client, s, ctx)
+            step_ok, detail = await _run_tool_step(client, s, ctx, settings)
         elif s.get("poll"):
             step_ok, detail = await _run_poll_step(client, s, ctx)
         elif s.get("argv"):

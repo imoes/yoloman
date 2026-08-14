@@ -118,6 +118,46 @@ def test_grown_disk_chain_compiles_and_is_allowed_on_the_system_disk():
     assert do.safety_check(steps, layout, allow_nonloop=True) == []
 
 
+def test_luks_never_puts_the_passphrase_in_the_plan():
+    """The passphrase travels as a vault handle: it must not appear in the compiled
+    steps (which the preview shows) and must not land on a command line."""
+    steps = do.compile({"ops": [{"op": "luks_format", "target": "/dev/sdb1",
+                                 "name": "cryptdata", "secret_ref": "vault:v1:ABC123"}]})
+    assert steps[0]["tool"] == "copy" and steps[0]["secret_param"] == "content"
+    assert steps[0]["secret_ref"] == "vault:v1:ABC123"
+    assert "content" not in steps[0]["params"]           # injected at apply time only
+    blob = repr(steps)
+    assert "ABC123" in blob                              # the handle may appear…
+    assert "--key-file" in steps[1]["argv"][2]           # …but cryptsetup reads a file
+    assert "luksFormat" in steps[1]["argv"][2] and "luksOpen" in steps[1]["argv"][2]
+    assert "shred -u" in steps[1]["argv"][2]             # key file removed even on failure
+    assert do.safety_check(steps, {"devices": []}, allow_nonloop=True) == []
+
+
+def test_luks_refuses_a_plaintext_passphrase():
+    steps = do.compile({"ops": [{"op": "luks_format", "target": "/dev/sdb1", "name": "x",
+                                 "passphrase": "hunter2"}]})
+    probs = do.safety_check(steps, {"devices": []}, allow_nonloop=True)
+    assert any("vault secret_ref" in p["message"] for p in probs)
+    assert "hunter2" not in repr(steps)                  # not echoed back either
+
+
+def test_luks_open_and_close_compile():
+    op = do.compile({"ops": [{"op": "luks_open", "target": "/dev/sdb1", "name": "cryptdata",
+                              "secret_ref": "vault:v1:X"}]})
+    assert op[0]["tool"] == "copy" and "luksOpen" in op[1]["argv"][2] and "luksFormat" not in op[1]["argv"][2]
+    cl = do.compile({"ops": [{"op": "luks_close", "name": "cryptdata"}]})
+    assert cl[0]["argv"] == ["cryptsetup", "luksClose", "cryptdata"]
+
+
+def test_luks_refuses_a_mounted_target():
+    steps = do.compile({"ops": [{"op": "luks_format", "target": "/dev/sdb1", "name": "c",
+                                 "secret_ref": "vault:v1:X"}]})
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb1", "busy": True, "mountpoint": "/mnt/x", "children": []}]}]}
+    assert any("unmount" in p["message"].lower() for p in do.safety_check(steps, layout, allow_nonloop=True))
+
+
 def test_movepart_uses_the_native_copier_then_rewrites_the_table():
     """A real move: copy the bytes with the agent's disk_move module, wait for that
     job, and only then repoint the partition. Copy first, table second."""
