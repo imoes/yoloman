@@ -46,13 +46,13 @@ interface DevRow {
       } @else if (loadErr()) {
         <p class="bm-svc-err">{{ loadErr() }}</p>
       } @else if (data(); as s) {
-        <div class="bm-topbar">
-          <label class="bm-chk"><input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run (preview only)</label>
-          <span class="bm-spacer"></span>
-          @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
-          @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
-          <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
-        </div>
+        @if (msg() || err()) {
+          <div class="bm-topbar">
+            <span class="bm-spacer"></span>
+            @if (msg()) { <span class="bm-svc-ok">{{ msg() }}</span> }
+            @if (err()) { <span class="bm-svc-err">{{ err() }}</span> }
+          </div>
+        }
 
         <!-- The partition editor IS the Storage snapin now: visual disk + a
              selection-driven toolbar + a staged op queue, covering disks,
@@ -63,13 +63,17 @@ interface DevRow {
 
         <!-- /etc/fstab: the columnar mount table, decoded via the fstab codec
              and edited as values — applied through state/apply (versioned +
-             roll-backable), respecting the Dry-run toggle above. -->
+             roll-backable). Dry run only affects THIS card now (the partition
+             editor above has its own Preview/Apply), so the toggle lives here. -->
         <section class="bm-card">
           <header class="bm-card-head"><h3>Mounts (/etc/fstab)</h3>
             @if (!fstabAvail()) { <span class="bm-na">unavailable</span> }
             <span class="bm-spacer"></span>
             @if (fstabMsg()) { <span class="bm-svc-ok">{{ fstabMsg() }}</span> }
             @if (fstabErr()) { <span class="bm-svc-err">{{ fstabErr() }}</span> }
+            <label class="bm-chk" title="Preview the rendered /etc/fstab instead of writing it">
+              <input type="checkbox" [checked]="dryRun()" (change)="dryRun.set($any($event.target).checked)" /> Dry run</label>
+            <button mat-icon-button (click)="reload()" [disabled]="loading()" title="Reload"><mat-icon>refresh</mat-icon></button>
             <button mat-stroked-button (click)="addMount()" [disabled]="busy() || !fstabAvail()"><mat-icon>add</mat-icon> Add mount</button>
             <button mat-flat-button color="primary" (click)="saveFstab()" [disabled]="busy() || !fstabDirty()">{{ dryRun() ? 'Preview' : 'Apply' }}</button>
           </header>

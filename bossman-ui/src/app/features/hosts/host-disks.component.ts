@@ -386,10 +386,15 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     .bm-dk-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 7px; vertical-align: -1px; }
     .bm-dk-swatch.free { background: color-mix(in srgb, var(--mat-sys-on-surface) 22%, transparent); }
     .bm-dk-flag { font-size: 10px; padding: 0 6px; border-radius: 10px; margin-right: 3px; background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent); }
-    .bm-dk-vgs { display: flex; gap: 10px; align-items: center; font-size: 12px; opacity: 0.8; margin: 4px 0 16px; }
-    .bm-dk-vg { padding: 2px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 20px; }
-    .bm-dk-zfs { margin: 8px 0 18px; }
+    /* LVM + ZFS live in the same framed card the disk canvas uses, so the panel
+       reads as one unit instead of loose strips */
+    .bm-dk-vgs, .bm-dk-zfs { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px;
+      padding: 8px 12px; margin-top: 12px; }
+    .bm-dk-vgs { display: flex; gap: 10px; align-items: center; font-size: 12px; }
+    .bm-dk-vgs > strong { opacity: 0.65; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .bm-dk-vg { padding: 2px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 20px; opacity: 0.85; }
     .bm-dk-zfs-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    .bm-dk-zfs-h > strong { opacity: 0.65; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
     .bm-dk-zfs-h mat-icon { font-size: 18px; height: 18px; width: 18px; opacity: 0.8; }
     .bm-dk-zpool { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
     .bm-dk-zpool-h { display: flex; align-items: center; gap: 8px; }
