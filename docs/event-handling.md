@@ -26,9 +26,16 @@ Logik-Audit die ganze Zeit findet: ein zweiter Weg zum selben Ergebnis.
 | **Skript ausbringen** | Agent-Modul `copy` | Inhalt + `dest` + `mode` — genau der Weg, den die Disk-Verwaltung für die LUKS-Passphrase nutzt |
 | **Lokale Handler finden** | Agent-Modul `find` | Ein Verzeichnis auflisten |
 
-**Folge:** Event-Handling braucht **keinen** neuen Auslöser, keine neue Leitplanke, kein neues
-Audit und keine Zeile Agent-Code. Es braucht genau das, was fehlt: einen **Handler als eigenes,
-benennbares Objekt**, dessen Körper auch ein Skript sein darf.
+**Folge:** Event-Handling braucht **keinen** neuen Auslöser, keine neue Leitplanke und kein neues
+Audit. Es braucht genau das, was fehlt: einen **Handler als eigenes, benennbares Objekt**, dessen
+Körper auch ein Skript sein darf.
+
+> **Korrektur zu diesem Absatz:** hier stand zuerst zusätzlich „und keine Zeile Agent-Code". Das
+> war falsch — `command` hatte keinen `env`-Parameter, und Parameter als Umgebungsvariablen sind
+> der Kern des Entwurfs. Details unter „Korrektur am eigenen Entwurf" weiter unten. Der Satz
+> bleibt hier korrigiert stehen statt gelöscht, weil die Tabelle darüber genau die Prüfung ist,
+> die den Irrtum hätte verhindern sollen: ich hatte `copy`/`script`/`find` nachgesehen, `env`
+> aber nicht.
 
 ## 2. Das Objekt
 
