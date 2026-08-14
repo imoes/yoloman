@@ -136,6 +136,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/events/events.component').then((m) => m.EventsComponent),
   },
   {
+    // The reusable ACTION an event rule performs. In Library because it is authored, like a
+    // runbook or a check — the rules that trigger it live with the monitoring side.
+    path: 'event-handlers',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/events/event-handlers.component').then((m) => m.EventHandlersComponent),
+  },
+  {
     path: 'event-browser',
     canActivate: [authGuard],
     loadComponent: () => import('./features/events/event-browser.component').then((m) => m.EventBrowserComponent),

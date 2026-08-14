@@ -44,6 +44,15 @@ export class WizardService {
     return this.http.get<WizardContext>(`${this.base}/agents/${agentId}/package-wizard/context${refresh ? '?refresh=true' : ''}`);
   }
 
+  /** Every runbook's name and kind. Used by the event-handler editor to offer a body: a handler
+   * whose body is a runbook resolves it BY NAME server-side, and `kind` matters because a role
+   * cannot be a handler body (the service answers "missing or is a role"). */
+  listRunbooks() {
+    return this.http.get<{ runbooks: { id: string; name: string; kind: string; folder: string }[] }>(
+      `${this.base}/runbooks`,
+    );
+  }
+
   /** Resolve a seeded runbook by name → its id, Ansible-YAML source and parameter mask. */
   runbookByName(name: string): Observable<WizardRunbook | null> {
     return this.http.get<{ runbooks: { id: string; name: string }[] }>(`${this.base}/runbooks`).pipe(

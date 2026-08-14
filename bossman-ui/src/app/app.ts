@@ -20,7 +20,7 @@ const NAV_ICON: Record<string, string> = {
   '/noc': 'noc', '/business-services': 'business-services', '/capacity': 'capacity',
   '/scheduler': 'scheduler', '/rollouts': 'rollouts',
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
-  '/checks': 'checks', '/check-templates': 'checks',
+  '/checks': 'checks', '/check-templates': 'checks', '/event-handlers': 'workflow',
   '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
   '/clusters': 'hosts', '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings', '/vault': 'settings',
   '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy', '/docker-state': 'hosts',
@@ -104,6 +104,7 @@ const WORKSPACES: Workspace[] = [
     items: [
       { path: '/plan-library', label: 'Roles', icon: 'folder_special' },
       { path: '/runbooks', label: 'Sequences', icon: 'account_tree' },
+      { path: '/event-handlers', label: 'Event handlers', icon: 'bolt' },
       { path: '/blueprint', label: 'Blueprints', icon: 'schema' },
       { path: '/blueprint-drafts', label: 'Blueprint drafts', icon: 'account_tree' },
       { path: '/apps', label: 'App Store', icon: 'apps' },

@@ -231,10 +231,35 @@ ist — sonst hätte eine Frage nach drei Hosts zwei Zeilen ohne Erwähnung der 
            a script handler here", und NICHTS wurde auf dem Host ausgeführt.
 ```
 
+### Schritt 4a — Handler-Oberfläche (erledigt, Commit)
+
+`Library ▸ Event handlers` (`/event-handlers`). Live im Browser durchgespielt:
+
+* Die erlaubten Werte (bodies, locations, interpreters) und das Handler-Verzeichnis kommen aus
+  `GET /event-handlers/meta` — in der UI festverdrahtet wären sie eine zweite Quelle der
+  Wahrheit, die beim ersten neuen Interpreter auseinanderläuft (dasselbe Muster wie
+  `/resource-kinds`).
+* Der Ausbringpfad wird beim Tippen mitgeschrieben: „Deployed to
+  `/etc/agentic-mcp/event-handlers/clean-logs` (mode 0700) **before every run**".
+* Umschalten auf „already on the host" zeigt die **ausformulierte Begründung** vom Server, warum
+  es keine Parameter gibt — und **verwirft** die bereits angelegte Parameterzeile, statt sie zu
+  verstecken: versteckt gehalten würde das Speichern aus einem unsichtbaren Grund scheitern.
+* Das Dateifeld nennt das Verzeichnis im Label statt in einem Hilfetext daneben.
+* „Is the file there?" fragt alle Hosts: live **present on 0 of 8**, jede Zeile mit dem exakten
+  Pfad und dem Zustand als benanntem Etikett in Fehlerfarbe.
+* Ein Warnkasten sagt vorab, dass ein Skript-Handler einen Agenten mit `env` braucht und der Lauf
+  sonst **verweigert** wird — statt dass man das später in einer Audit-Zeile findet.
+* `Löschen` nennt die Zahl der Regeln, die den Handler benutzen, BEVOR es versucht wird (die API
+  verweigert es ohnehin).
+
+Dabei zwei eigene Fehler korrigiert: `Plan` hat kein `plan_type` (die Runbook-Liste kommt aus
+`GET /runbooks`, gefiltert auf `kind != 'role'`, weil eine Rolle kein Handler-Körper sein kann),
+und ein literales `'<name>'` **im** Template wird von Angular als Tag geparst.
+
 ### Offen
 
-4. UI: Handler-Editor (bei `local` die Begründung anzeigen, warum keine Parameter) +
-   „vorhanden auf N von M Hosts"; die Event-Regeln daneben.
+4b. Event-Regeln: die Bindung Auslöser → Handler braucht noch eine Oberfläche
+    (`/remediation-policies`), mit der Wahl „Runbook (klassisch)" ODER „Event handler".
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.
 6. Der Agent mit `env` muss auf die Hosts ausgerollt werden, sonst verweigert jeder
    Skript-Handler dort — mit Grund, aber er läuft nicht.

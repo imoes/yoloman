@@ -190,6 +190,39 @@ def _apply(handler: EventHandler, body: EventHandlerIn) -> None:
     handler.updated_at = datetime.now(timezone.utc)
 
 
+class HandlerMeta(BaseModel):
+    """The legal values, served rather than duplicated.
+
+    The UI needs the same lists this module validates against; hard-coding them there would be a
+    second source of truth that drifts the moment one side gains an interpreter (the
+    /resource-kinds endpoint exists for the same reason). `handler_dir` travels too, so the
+    screen can name the exact path an operator has to place a local script in.
+    """
+
+    bodies: list[str]
+    locations: list[str]
+    interpreters: list[str]
+    handler_dir: str
+    #: Why a local handler declares no parameters — served so the form can SHOW the reason
+    #: instead of only greying a field out.
+    local_no_parameters_reason: str
+
+
+@router.get("/api/v1/event-handlers/meta", response_model=HandlerMeta)
+async def event_handler_meta(_i: Identity = Depends(get_current_identity)) -> HandlerMeta:
+    return HandlerMeta(
+        bodies=list(_BODIES), locations=list(_LOCATIONS), interpreters=list(_INTERPRETERS),
+        handler_dir=eh.HANDLER_DIR,
+        local_no_parameters_reason=(
+            "Bossman does not have this script's contents — it lives on the host — so it cannot "
+            "say which parameters it accepts, of what type, or whether they are required. A form "
+            "for values it cannot describe would promise an effect nobody can check. The event "
+            "context (host, service, state, value) is passed regardless: that is the fact that "
+            "caused the run, not a parameter."
+        ),
+    )
+
+
 @router.get("/api/v1/event-handlers", response_model=list[EventHandlerOut])
 async def list_event_handlers(
     session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)
