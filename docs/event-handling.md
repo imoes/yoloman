@@ -129,3 +129,57 @@ eskalieren sind keine Reparatur).
 4. UI: Handler-Editor + die Anzeige „vorhanden auf N von M Hosts"; die Event-Regeln daneben.
 5. Erst danach umbenennen (Remediation policy → Event rule), als eigener Schritt, damit ein
    Fehler in der Umbenennung nicht mit einem Fehler in der Funktion vermischt wird.
+
+---
+
+## Umsetzungsstand
+
+### Schritt 1 — Modell + Migration (erledigt, Commit)
+
+`EventHandler` + `remediation_policies.event_handler_id`, Migration `f7c2a8e14b93`. Die
+verbotenen Kombinationen sind **CheckConstraints**, live gegen die DB geprüft: `runbook+local`,
+lokales Skript **mit** Parametern, `managed` ohne `source`, Regel mit beiden bzw. keiner Aktion
+— alle vier abgewiesen; die drei erlaubten Formen akzeptiert. `ON DELETE RESTRICT`: ein Handler,
+den eine Regel benutzt, lässt sich nicht löschen (statt `SET NULL`, das eine Regel hinterließe,
+die feuert und nichts tut, oder `CASCADE`, das fremde Regeln mitnimmt).
+
+### Korrektur am eigenen Entwurf: es BRAUCHTE eine Agent-Änderung
+
+Der Entwurf behauptete „keine Zeile Agent-Code". Beim Nachsehen — nicht beim Annehmen — hatte
+das `command`-Modul überhaupt keinen `env`-Parameter, und kein anderes Modul auch. Parameter als
+Umgebungsvariablen sind aber der Kern des Entwurfs, also war die Zusage falsch.
+
+`env` ist jetzt Teil von `command` (und damit von `script`, das es umhüllt), mit zwei getesteten
+Eigenschaften: die Variablen werden zur **geerbten** Umgebung **hinzugefügt** (ein Skript ohne
+PATH/HOME scheitert aus einem Grund, den der Aufruf nicht beschreibt), und ein Nicht-String-Wert
+wird **abgewiesen** statt stillschweigend formatiert. Warum Umgebung und nicht Kommandozeile:
+`VAR=wert /pfad/skript` stellt jeden Wert in die Prozessliste und in die Shell-Historie.
+
+### Schritt 2 — Ausführungsschicht (erledigt, Commit)
+
+`services/event_handlers.py`, 16 Tests ohne DB und ohne Host:
+
+| Eigenschaft | Warum sie so ist |
+|---|---|
+| `managed` wird **vor jedem** Lauf ausgebracht (`copy`, mode 0700), dann `command` | Einmal kopieren ⇒ der Host hielte womöglich eine ältere Fassung als die, die Bossman zeigt: zwei Wahrheiten für einen Körper |
+| Jeder **deklarierte** Parameter kommt an (Wert → Default → leer) | Für ein Shell-Skript sind „Variable fehlt" und „Variable leer" verschiedene Fehler; nur einer davon ist die Absicht |
+| **Nicht deklarierte** Werte werden verworfen | Die Deklaration ist der Vertrag des Handlers; heimlich mehr durchzureichen macht ihn unlesbar |
+| `local` bekommt **keine** Parameter, aber **immer** den Kontext | Der Kontext ist kein Parameter, sondern die auslösende Tatsache — die kennt Bossman unabhängig vom Skriptinhalt |
+| Fehlender Pflichtparameter ⇒ Abbruch **vor** jedem Hostzugriff, mit Namen | Nichts wird kopiert oder gestartet, wenn der Aufruf unvollständig ist |
+| `rc != 0` ⇒ protokollierter Fehlschlag mit Code + erster Ausgabezeile | Ein Skript, das ungleich 0 endet, ist ein Ergebnis, kein Absturz — und die Audit-Zeile soll das **warum** enthalten |
+| `local_name` wird auf den **Basisnamen** reduziert | `../../etc/shadow` → `…/event-handlers/shadow`: ein Event-Handler ist kein Weg, beliebige Dateien auszuführen |
+
+**Beim Bauen gefunden:** `find` liefert seine Treffer als **Liste** von `{path,isdir,size}`, nicht
+als Objekt. Der Helfer aus `disk_ops`, den ich zuerst kopiert hatte, presst alles in ein dict —
+damit hätte `local_availability` **jeden** lokalen Handler als fehlend gemeldet. Gegen
+`internal/modules/find.go` geprüft und korrigiert, mit einem Test auf die Listenform.
+
+`services/remediation.py` ruft `run_handler`, wenn die Regel auf einen Handler zeigt; sonst
+läuft der bisherige Runbook-Pfad unverändert.
+
+### Offen
+
+3. API `/event-handlers` CRUD + `/event-handlers/{id}/availability`.
+4. UI: Handler-Editor (bei `local` die Begründung anzeigen, warum keine Parameter) +
+   „vorhanden auf N von M Hosts"; die Event-Regeln daneben.
+5. Umbenennen *Remediation policy → Event rule* als eigener Commit.

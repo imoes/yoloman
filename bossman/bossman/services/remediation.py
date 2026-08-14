@@ -84,6 +84,27 @@ async def _execute_policy(
     (manual/AI), so there is no gate here beyond a reachable host."""
     if not agent.address:
         return "failed", "host has no reachable address"
+
+    # An EVENT HANDLER carries the action when the rule points at one: a runbook as before, or
+    # a script — managed by Bossman and deployed per run, or one the agent already has locally.
+    # The trigger, scope, rate limit, autonomy, verify, rollback and audit around this call are
+    # unchanged; only WHAT runs got richer. See docs/event-handling.md.
+    if policy.event_handler_id is not None:
+        from bossman.db.models import EventHandler
+        from bossman.services.event_handlers import run_handler
+
+        handler = await session.get(EventHandler, policy.event_handler_id)
+        if handler is None:
+            # Cannot normally happen (the FK is ON DELETE RESTRICT), so it is reported rather
+            # than silently treated as "nothing to do".
+            return "failed", f"event handler {policy.event_handler_id} is gone"
+        ok, detail = await run_handler(
+            session, settings, agent, handler, client=client_factory(agent, settings),
+            values=policy.params or {}, service_name=service_name,
+            requested_by=f"remediation:{policy.name}",
+        )
+        return ("ran" if ok else "failed"), detail
+
     rb = await session.scalar(select(Runbook).where(Runbook.name == policy.runbook_name))
     doc = nt_runbook.parse_data(rb.doc, source=f"runbook {policy.runbook_name!r}") if rb else None
     if not isinstance(doc, nt_runbook.Runbook):
