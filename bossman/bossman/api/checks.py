@@ -504,8 +504,17 @@ async def apply_discovery(
             continue
 
         if verb == "remove":
+            # Removing a service that is STILL on the host means "stop monitoring it,
+            # offer it again next run" → undecided. Removing a VANISHED one means
+            # "it is gone, stop tracking it": leaving it as `undecided` would claim
+            # discovery found it while this very run did not — a contradiction, and it
+            # would resurface as "new". So drop the row, which is what
+            # discovery_lifecycle does for remove_vanished_services.
             if row is not None:
-                row.state = discovery_lifecycle.STATE_UNDECIDED
+                if row.state == discovery_lifecycle.STATE_VANISHED:
+                    await session.delete(row)
+                else:
+                    row.state = discovery_lifecycle.STATE_UNDECIDED
             await _drop_assignment(session, agent_id, check_name, item)
             counts["removed"] += 1
             continue

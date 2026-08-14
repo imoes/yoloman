@@ -1,4 +1,5 @@
 import { Component, computed, effect, inject, input, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -16,6 +17,12 @@ import { HostStatusBadgeComponent } from '../../shared/components/host-status-ba
 import { serviceStateBadge } from '../../shared/status.util';
 import { formatMetricValue } from '../../shared/format.util';
 
+/** One row of the persisted discovery result (Checkmk's autochecks). */
+interface DiscoRow {
+  check_name: string; item: string | null; state: string;
+  first_seen?: string; last_seen?: string; parameters?: Record<string, unknown>;
+}
+
 /**
  * Block G9-P2 — the host's Checks tab. Shows the checks that effectively
  * apply to this host (resolved GPO-style from OU/group/host assignments),
@@ -28,7 +35,7 @@ import { formatMetricValue } from '../../shared/format.util';
 @Component({
   selector: 'app-host-checks',
   standalone: true,
-  imports: [FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
+  imports: [DatePipe, FormsModule, MatButtonModule, MatIconModule, MatProgressBarModule, MatFormFieldModule, MatInputModule, RouterLink, HostStatusBadgeComponent],
   template: `
     <div class="bm-checks">
       @if (error()) { <div class="bm-error">{{ error() }}</div> }
@@ -144,6 +151,68 @@ import { formatMetricValue } from '../../shared/format.util';
             <button mat-button (click)="cancel()">Cancel</button>
           </div>
         </div>
+      }
+
+      <!-- What discovery KNOWS about this host, in every state the model can hold.
+           Without this a service that disappears from the host also disappears from
+           the view — the state space would be incomplete and nobody would learn that
+           something is missing (Checkmk calls this state "vanished"). -->
+      @if (disco(); as d) {
+        <h3>Discovered services
+          <span class="bm-dim bm-disco-sub">what discovery found on the host — a fact, not a rule</span>
+        </h3>
+        <div class="bm-disco-tabs">
+          @for (b of discoBuckets(); track b.key) {
+            <button type="button" class="bm-disco-tab" [class.sel]="discoFilter() === b.key"
+                    [class.warn]="b.key === 'vanished' && b.count > 0"
+                    (click)="discoFilter.set(b.key)" [title]="b.hint">
+              {{ b.label }} <b>{{ b.count }}</b>
+            </button>
+          }
+        </div>
+        @if (discoRows().length) {
+          <div class="bm-group">
+            <table class="bm-table">
+              <thead><tr><th>Service</th><th>Item</th><th>State</th><th>Last seen</th><th></th></tr></thead>
+              <tbody>
+                @for (s of discoRows(); track s.check_name + '/' + (s.item || '')) {
+                  <tr [class.bm-disco-gone]="s.state === 'vanished'">
+                    <td class="bm-mono">{{ s.check_name }}</td>
+                    <td class="bm-dim">{{ s.item || '—' }}</td>
+                    <td>
+                      <span class="bm-disco-state" [class.gone]="s.state === 'vanished'"
+                            [class.ign]="s.state === 'ignored'" [title]="discoStateHint(s.state)">
+                        {{ discoStateLabel(s.state) }}
+                      </span>
+                    </td>
+                    <td class="bm-dim">{{ s.last_seen ? (s.last_seen | date: 'short') : '—' }}</td>
+                    <td class="bm-svc-actions">
+                      @if (s.state === 'vanished') {
+                        <button mat-button (click)="discoDecide('remove', s)" [disabled]="discoBusy()"
+                                title="It is gone — stop tracking it (the row is dropped)">Remove</button>
+                        <button mat-button (click)="discoDecide('ignore', s)" [disabled]="discoBusy()"
+                                title="Keep the entry but never offer it again">Ignore</button>
+                      } @else if (s.state === 'undecided') {
+                        <button mat-button (click)="discoDecide('accept', s)" [disabled]="discoBusy()"
+                                title="Monitor it from now on">Monitor</button>
+                        <button mat-button (click)="discoDecide('ignore', s)" [disabled]="discoBusy()"
+                                title="Remembered — later runs stop offering it">Ignore</button>
+                      } @else if (s.state === 'monitored') {
+                        <button mat-button (click)="discoDecide('remove', s)" [disabled]="discoBusy()"
+                                title="Stop monitoring it; discovery offers it again next run">Stop</button>
+                      } @else {
+                        <button mat-button (click)="discoDecide('accept', s)" [disabled]="discoBusy()"
+                                title="Undo the ignore and monitor it">Monitor</button>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="bm-dim">Nothing in this state.</p>
+        }
       }
 
       <h3>Effective checks</h3>
@@ -376,6 +445,48 @@ export class HostChecksComponent {
     });
     this.checkService.listChecks().subscribe({ next: (r) => this.catalog.set(r.checks) });
     this.monitoringService.agentServices(agentId).subscribe({ next: (s) => this.services.set(s ?? []), error: () => this.services.set([]) });
+    this.checkService.discoveredServices(agentId).subscribe({
+      next: (d) => this.disco.set(d), error: () => this.disco.set(null),
+    });
+  }
+
+  // ---- discovered services: every state the model holds, none of them silent ----
+  disco = signal<{ counts: Record<string, number>; services: DiscoRow[] } | null>(null);
+  discoFilter = signal<string>('vanished');
+  discoBusy = signal(false);
+
+  /** The four lifecycle states, always all four — a bucket with 0 still shows, so
+   *  "no vanished services" is a statement rather than an absence. */
+  discoBuckets(): { key: string; label: string; count: number; hint: string }[] {
+    const c = this.disco()?.counts || {};
+    return [
+      { key: 'vanished', label: 'Vanished', count: c['vanished'] || 0,
+        hint: 'Was found before, this run did not find it — decide: remove or ignore' },
+      { key: 'undecided', label: 'New', count: c['undecided'] || 0,
+        hint: 'Discovery found it, nobody decided yet' },
+      { key: 'monitored', label: 'Monitored', count: c['monitored'] || 0,
+        hint: 'Found and being monitored' },
+      { key: 'ignored', label: 'Ignored', count: c['ignored'] || 0,
+        hint: 'Decided against — later runs stop offering it' },
+    ];
+  }
+  discoRows(): DiscoRow[] {
+    return (this.disco()?.services || []).filter((s) => s.state === this.discoFilter());
+  }
+  discoStateLabel(state: string): string {
+    return state === 'undecided' ? 'new' : state;
+  }
+  discoStateHint(state: string): string {
+    return this.discoBuckets().find((b) => b.key === state)?.hint || state;
+  }
+  /** accept | ignore | remove — the verbs the API already implements. */
+  discoDecide(verb: 'accept' | 'ignore' | 'remove', s: DiscoRow): void {
+    this.discoBusy.set(true);
+    const spec = { check_name: s.check_name, item: s.item || undefined };
+    this.checkService.decideDiscovery(this.agent().id, { [verb]: [spec] }).subscribe({
+      next: () => { this.discoBusy.set(false); this.reload(this.agent().id); },
+      error: (e) => { this.discoBusy.set(false); this.fail(e); },
+    });
   }
 
   private fail(e: unknown): void {
