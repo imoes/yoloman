@@ -142,6 +142,33 @@ def compile(plan: dict) -> list[dict]:
             steps.append({"op": kind, "device": dev, "touches_table": False,
                           "desc": f"grow LV {t} by {size} (online, --resizefs)",
                           "argv": ["lvextend", "--resizefs", flag, size, t]})
+        elif kind == "growpart":
+            # Grow a partition into the unallocated tail that appeared when the
+            # hypervisor enlarged the virtual disk. Only ever grows to 100%, so it
+            # cannot cut into anything — safe ONLINE, even for a mounted partition
+            # (the kernel re-reads the boundary via BLKPG). parted asks for
+            # confirmation when the partition is in use, hence the tty + "Yes".
+            num = str(op.get("num"))
+            cmd = (f"printf 'Yes\\n' | parted ---pretend-input-tty {shlex.quote(dev)} "
+                   f"unit s resizepart {shlex.quote(num)} 100%")
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"grow partition {num} on {dev} to the end of the disk",
+                          "argv": ["sh", "-c", cmd]})
+        elif kind == "gptfix":
+            # A GROWN disk still carries its GPT backup header at the OLD end, so the
+            # new tail is unusable until the header moves. sgdisk -e relocates it;
+            # partitions and data are untouched.
+            steps.append({"op": kind, "device": dev, "touches_table": True,
+                          "desc": f"move the GPT backup header to the new end of {dev}",
+                          "argv": ["sgdisk", "-e", dev]})
+        elif kind == "pvresize":
+            # After the underlying disk/partition GREW, the PV still reports the old
+            # size — pvresize makes the VG see the new extents. Online and
+            # non-destructive (no unmount, nothing is written to the filesystems).
+            t = op.get("target")
+            steps.append({"op": kind, "device": dev, "touches_table": False,
+                          "desc": f"grow PV {t} to the device size (VG gains the new space)",
+                          "argv": ["pvresize", t]})
         elif kind == "lvreduce":
             # LV shrink: --resizefs shrinks the filesystem FIRST, then the LV. Unlike
             # lvextend this is NOT online (ext can't shrink mounted) — the target must
@@ -332,6 +359,13 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
                 problems.append({"severity": "error",
                                  "message": f"{s['desc']}: refused — only online GROW (size starting with '+') is allowed"})
             continue
+        # The "the hypervisor grew this disk" chain (gptfix → growpart → pvresize) is
+        # ONLINE and strictly additive: it moves the GPT backup header, extends the
+        # last partition to 100%, and lets the PV see the new extents. Nothing is
+        # ever cut, so these are exempt from the protected-disk guard — otherwise the
+        # main use case (a grown VM system disk) could never be handled.
+        if s["op"] in ("gptfix", "growpart", "pvresize"):
+            continue
         # HARD guard: never touch a disk that has mounted filesystems, even with
         # allow_nonloop — this is what protects the system/root disk.
         if dev in protected:
@@ -350,6 +384,7 @@ _PKG_FOR_BIN = {
     "mkfs.vfat": "dosfstools", "fatlabel": "dosfstools", "mkfs.exfat": "exfatprogs", "sfdisk": "util-linux",
     "resize2fs": "e2fsprogs", "e2fsck": "e2fsprogs", "lvextend": "lvm2",
     "zfs": "zfsutils-linux", "zpool": "zfsutils-linux",
+    "pvresize": "lvm2", "sgdisk": "gdisk", "partprobe": "parted",
 }
 
 
@@ -362,7 +397,7 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
         if s.get("touches_table"):
             needed.add("parted")
             needed.add("sfdisk")  # table backup
-        if s["op"] in ("mkfs", "label", "resize", "lvextend", "lvreduce") and argv:
+        if s["op"] in ("mkfs", "label", "resize", "lvextend", "lvreduce", "pvresize", "gptfix") and argv:
             needed.add(argv[0])
         if s["op"].startswith(("zfs_", "zpool_")) and argv:
             needed.add(argv[0])  # zfs / zpool

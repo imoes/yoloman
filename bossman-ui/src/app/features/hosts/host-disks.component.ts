@@ -16,6 +16,10 @@ interface Device {
   name: string; path: string; size_bytes: number | null; model: string;
   rotational: boolean; transport: string | null; table: string | null;
   sector_size: number | null; partitions: Partition[]; free: FreeSeg[];
+  /** Unallocated space AFTER the last partition — appears when the hypervisor
+   *  enlarged the virtual disk. `gpt_needs_fix`: the GPT backup header still sits
+   *  at the old end and must be relocated before the tail is usable. */
+  tail_free_bytes?: number; gpt_needs_fix?: boolean;
 }
 interface Vg { name: string; size_bytes: number | null; free_bytes: number | null; lvs: { name: string }[]; }
 interface ZfsPool { name: string; size_bytes: number | null; alloc_bytes: number | null; free_bytes: number | null; health: string; frag: string | null; cap: string | null; }
@@ -82,7 +86,8 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
             <option [value]="d.path">{{ d.path }} ({{ fmt(d.size_bytes) }})</option>
           }
         </select>
-        <button class="bm-gp-tb bm-gp-tb-sm" (click)="load()" [disabled]="busy()" title="Rescan the host's disks">
+        <button class="bm-gp-tb bm-gp-tb-sm" (click)="load()" [disabled]="busy()"
+                title="Refresh — rescans the hardware first (echo 1 > /sys/class/block/*/device/rescan), so a virtual disk the hypervisor enlarged shows its new size without a reboot">
           <mat-icon>refresh</mat-icon></button>
       </div>
     </div>
@@ -93,6 +98,20 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
 
     @if (layout(); as l) {
       @if (dev(); as d) {
+        <!-- The hypervisor grew this virtual disk: unallocated space showed up after
+             the last partition. Offer the whole chain in one click. -->
+        @if ((d.tail_free_bytes || 0) > 1048576) {
+          <div class="bm-gp-grew">
+            <mat-icon>expand</mat-icon>
+            <div>
+              <strong>{{ d.path }} has grown</strong> — {{ fmt(d.tail_free_bytes) }} unallocated after the last partition.
+              @if (d.gpt_needs_fix) { <span class="bm-gp-grew-warn">The GPT backup header still sits at the old end and will be relocated first.</span> }
+              <div class="bm-dim">{{ growPlanDesc(d) }}</div>
+            </div>
+            <button mat-flat-button color="primary" (click)="opUseNewSpace(d)">Use the new space</button>
+          </div>
+        }
+
         <div class="bm-gp-canvas">
           <!-- the visual disk (gparted's DrawingAreaVisualDisk) -->
           <div class="bm-gp-disk" [title]="d.path + ' · ' + fmt(d.size_bytes) + ' · ' + (d.table || 'no partition table')">
@@ -358,6 +377,12 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     .bm-dk-tools { display: flex; gap: 8px; }
     .bm-dim { opacity: 0.7; font-size: 13px; }
     .bm-err { color: var(--mat-sys-error, #c62828); } .bm-empty { opacity: 0.6; }
+    .bm-gp-grew { order: 2; display: flex; align-items: center; gap: 10px; font-size: 12.5px;
+      padding: 9px 12px; margin-top: 10px; border-radius: 8px;
+      border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 45%, transparent);
+      background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent); }
+    .bm-gp-grew > div { flex: 1; } .bm-gp-grew mat-icon { color: var(--mat-sys-primary); }
+    .bm-gp-grew-warn { color: var(--bm-gold, #b8860b); margin-left: 4px; }
     .bm-dk-errs { display: flex; gap: 8px; font-size: 12px; padding: 8px 10px; margin-bottom: 12px; border-radius: 8px;
       background: color-mix(in srgb, var(--bm-gold, #b8860b) 12%, transparent); color: var(--bm-gold, #b8860b); }
     .bm-dk-errs mat-icon { font-size: 17px; height: 17px; width: 17px; }
@@ -951,6 +976,65 @@ export class HostDisksComponent {
       },
     });
   }
+  // ---- "the hypervisor grew this disk" one-click chain ----------------------
+  /** The last partition on a disk — the only one a trailing gap can extend. */
+  private lastPart(d: Device): Partition | null {
+    const parts = (d.partitions || []).filter((p) => p.kind === 'part');
+    if (!parts.length) return null;
+    return parts.reduce((a, b) => ((b.end_s ?? 0) > (a.end_s ?? 0) ? b : a));
+  }
+  /** Human-readable plan, so the banner says exactly what will be queued. */
+  growPlanDesc(d: Device): string {
+    const p = this.lastPart(d);
+    if (!p) return 'The new space will be offered as a new partition.';
+    const steps: string[] = [];
+    if (d.gpt_needs_fix) steps.push('relocate the GPT backup header');
+    steps.push(`grow ${p.path} to the end of the disk`);
+    if ((p.fstype || '').toUpperCase().includes('LVM2_MEMBER')) {
+      steps.push(`pvresize ${p.path} (the volume group gains the space)`);
+      const lv = this.biggestLv(p);
+      if (lv) steps.push(`grow ${lv.path} + its filesystem online`);
+    } else if ((p.fstype || '').startsWith('ext')) {
+      steps.push('grow its ext filesystem online');
+    }
+    return 'Will queue: ' + steps.join(' → ') + '.';
+  }
+  /** The LV to hand the new extents to — the largest one under this PV. */
+  private biggestLv(pv: Partition): Partition | null {
+    const lvs = (pv.children || []).filter((c) => c.kind === 'lvm');
+    if (!lvs.length) return null;
+    return lvs.reduce((a, b) => ((b.size_bytes ?? 0) > (a.size_bytes ?? 0) ? b : a));
+  }
+  /** Stage the whole grown-disk chain: GPT fix → grow partition → pvresize →
+   *  lvextend (LVM), or → resize2fs (a plain ext partition). All online. */
+  opUseNewSpace(d: Device): void {
+    const p = this.lastPart(d);
+    if (!p) { this.opAddPartition(d); return; }
+    const num = Number((p.name.match(/(\d+)$/) || [])[1]);
+    if (!num) { alert('Cannot determine the partition number.'); return; }
+    const isPv = (p.fstype || '').toUpperCase().includes('LVM2_MEMBER');
+    const lv = isPv ? this.biggestLv(p) : null;
+    this.openForm({
+      title: `Use the new space on ${d.path}`, icon: 'expand', submitLabel: 'Add to queue',
+      note: this.growPlanDesc(d) + ' Every step is online — nothing is unmounted and no data is cut.',
+      fields: [],
+      run: () => {
+        if (d.gpt_needs_fix) this.push({ op: 'gptfix', device: d.path, _desc: `Move the GPT backup header to the end of ${d.path}` });
+        this.push({ op: 'growpart', device: d.path, num, _desc: `Grow ${p.path} to the end of ${d.path}` });
+        if (isPv) {
+          this.push({ op: 'pvresize', device: d.path, target: p.path, _desc: `Grow PV ${p.path} (VG gains the new space)` });
+          if (lv) this.push({ op: 'lvextend', device: lv.path, target: lv.path, size: '+100%FREE',
+            _desc: `Grow LV ${lv.path} + filesystem by all free VG space (online)` });
+        } else if ((p.fstype || '').startsWith('ext')) {
+          this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!,
+            start_mib: p.start_s != null ? Math.max(1, Math.round((p.start_s * (d.sector_size || 512)) / 1048576)) : 1,
+            size_mib: Math.floor(((p.size_bytes || 0) + (d.tail_free_bytes || 0)) / 1048576), grow: true,
+            _desc: `Grow ${p.path} + its ext filesystem into the new space` });
+        }
+      },
+    });
+  }
+
   /** Free extents of the volume group this LV belongs to — how far it can grow. */
   private vgFreeBytesFor(p: Partition): number {
     for (const vg of this.layout()?.vgs || []) {

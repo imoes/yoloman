@@ -97,12 +97,32 @@ def _parse_parted(stdout: str) -> tuple[str | None, list[dict], int | None]:
     return table, segments, sector
 
 
-async def read_disk_layout(agent, client_factory, settings) -> dict:
+async def _rescan_devices(client) -> None:
+    """Make the kernel notice a virtual disk that the hypervisor GREW while the VM
+    was running — otherwise lsblk keeps reporting the old capacity until reboot.
+    `echo 1 > /sys/class/block/<d>/device/rescan` is the standard SCSI/virtio-scsi
+    trigger; `partprobe` re-reads the tables afterwards. Both are read-only with
+    respect to data (the kernel refuses changes to in-use partitions), so this runs
+    on every user-facing scan — that is what makes a resize show up on the fly."""
+    script = (
+        # 1. re-read the capacity of every existing disk (a RESIZED virtual disk)
+        "for d in /sys/class/block/*/device/rescan; do echo 1 > \"$d\" 2>/dev/null; done; "
+        # 2. scan the SCSI hosts for devices that appeared (a NEWLY attached disk)
+        "for h in /sys/class/scsi_host/host*/scan; do echo '- - -' > \"$h\" 2>/dev/null; done; "
+        # 3. let the kernel re-read the partition tables
+        "command -v partprobe >/dev/null && partprobe >/dev/null 2>&1; true"
+    )
+    await _run(client, ["sh", "-c", script])
+
+
+async def read_disk_layout(agent, client_factory, settings, *, rescan: bool = True) -> dict:
     """Scan one host's disks. Returns {devices:[…], errors:[…]}. Never raises."""
     if not agent.address:
         return {"devices": [], "errors": ["host has no reachable address"]}
     client = client_factory(agent, settings)
     errors: list[str] = []
+    if rescan:
+        await _rescan_devices(client)
 
     rc, out, err = await _run(client, ["lsblk", "-b", "-J", "-O"])
     if rc != 0 or not out.strip():
@@ -142,6 +162,14 @@ async def read_disk_layout(agent, client_factory, settings) -> dict:
                 s = by_num.get(i)
                 if s:
                     p["start_s"], p["end_s"] = s.get("start_s"), s.get("end_s")
+            # "the hypervisor grew this disk" detection: unallocated space AFTER the
+            # last partition. parted also warns when the GPT backup header still sits
+            # at the old end ("fix the GPT to use all of the space"), which must be
+            # repaired (sgdisk -e) before the tail is usable.
+            last_end = max((p.get("end_s") or 0) for p in dev["partitions"]) if dev["partitions"] else 0
+            tail = [f for f in dev["free"] if (f.get("start_s") or 0) >= last_end and last_end]
+            dev["tail_free_bytes"] = max((f.get("size_bytes") or 0) for f in tail) if tail else 0
+            dev["gpt_needs_fix"] = "fix the gpt" in perr.lower() or "not all of the space" in perr.lower()
         elif prc != 0 and "unrecognised disk label" not in perr.lower():
             # A disk with no partition table is NOT an error — parted just says
             # "unrecognised disk label"; the view already shows it as one big

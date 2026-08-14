@@ -97,6 +97,27 @@ def test_lvreduce_compiles_and_refuses_grow_and_mounted():
     assert any("unmount" in p["message"].lower() for p in do.safety_check(steps, layout, allow_nonloop=True))
 
 
+def test_grown_disk_chain_compiles_and_is_allowed_on_the_system_disk():
+    """The hypervisor-grew-the-disk chain: fix GPT → grow the last partition → let the
+    PV see the new extents → grow the LV. All online, so it must be allowed even on a
+    disk carrying mounted filesystems (the usual case: a grown VM system disk)."""
+    steps = do.compile({"ops": [
+        {"op": "gptfix", "device": "/dev/sda"},
+        {"op": "growpart", "device": "/dev/sda", "num": 1},
+        {"op": "pvresize", "device": "/dev/sda", "target": "/dev/sda1"},
+        {"op": "lvextend", "device": "/dev/rootvg/usr", "target": "/dev/rootvg/usr", "size": "+100%FREE"},
+    ]})
+    assert steps[0]["argv"] == ["sgdisk", "-e", "/dev/sda"]
+    assert steps[1]["argv"][:2] == ["sh", "-c"] and "resizepart 1 100%" in steps[1]["argv"][2]
+    assert steps[2]["argv"] == ["pvresize", "/dev/sda1"]
+    assert steps[3]["argv"] == ["lvextend", "--resizefs", "-l", "+100%FREE", "/dev/rootvg/usr"]
+    # /dev/sda holds the mounted root → normally protected, but this chain is exempt
+    layout = {"devices": [{"path": "/dev/sda", "partitions": [
+        {"path": "/dev/sda1", "busy": False, "children": [
+            {"path": "/dev/rootvg/usr", "kind": "lvm", "busy": True, "mountpoint": "/usr", "children": []}]}]}]}
+    assert do.safety_check(steps, layout, allow_nonloop=True) == []
+
+
 def test_zfs_ops_compile():
     steps = do.compile({"ops": [
         {"op": "zfs_create", "name": "tank/data", "mountpoint": "/data"},

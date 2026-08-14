@@ -183,6 +183,29 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   geschützt (System-/Root-Platte); kritische Mounts nie unmountbar; lvextend nur
   online-GROW.
 
+## 8c. Gewachsene VM-Platte (on the fly, ohne Reboot)
+
+Vergrößert der Hypervisor eine virtuelle Platte, muss das **im Betrieb** ankommen:
+- **Refresh-Button** im Panel löst vor jedem Scan einen Hardware-Rescan aus
+  (`disk_layout._rescan_devices`): `echo 1 > /sys/class/block/*/device/rescan`
+  (neue Kapazität), `echo '- - -' > /sys/class/scsi_host/host*/scan` (neu
+  angehängte Platten), danach `partprobe`. Alles daten-neutral.
+- **Erkennung:** `tail_free_bytes` = unallokierter Raum **hinter** der letzten
+  Partition; `gpt_needs_fix`, wenn parted meldet, dass der GPT-Backup-Header noch
+  am alten Ende liegt.
+- **Ein Klick („Use the new space")** reiht die passende Kette ein:
+  `gptfix` (`sgdisk -e`, nur bei GPT) → `growpart` (`parted resizepart <n> 100%`)
+  → bei LVM **`pvresize`** → `lvextend --resizefs` (online) ; bei einer reinen
+  ext-Partition stattdessen `resize` (grow) → `resize2fs`.
+- **Safety:** `gptfix`/`growpart`/`pvresize` sind vom protected-disk-Guard
+  ausgenommen — sie sind rein additiv und online, sonst wäre der Hauptfall (eine
+  gewachsene VM-**System**platte) nie behandelbar. Tabellenänderung wird vorher per
+  `sfdisk -d` gesichert.
+- **Live verifiziert** auf test-deployment (Proxmox `qemu/<vmid>/resize`): Systemplatte
+  32→40→44 GB; nach Refresh erscheint das Banner, ein Klick + Apply ergab
+  sda1 = ganze Platte, PV/VG 44 g, `/var` 10G → 22G — im laufenden Betrieb, ohne
+  Reboot und ohne Unmount.
+
 ## 8b. Die KI bedient den Partition-Editor (MCP)
 
 Der Editor ist als MCP-Tools exponiert, damit die KI ihn selbst fährt — **eine Logik,
