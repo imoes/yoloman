@@ -203,3 +203,67 @@ Vier verschiedene Dinge heißen im UI alle „Check" bzw. „Service":
 3. Service-Checks in den Checks-Tab falten (ein Ort pro Aufgabe).
 4. Benennung vereinheitlichen (zieht sich durch alle Screens, daher zuletzt und
    in einem Zug).
+
+
+---
+
+## Befunde: Bereich 7 — Resources (Resource-Protokoll)
+
+Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
+`docs/resource-protocol.md` als **ein** Interface mit vier Verben beschrieben
+(„the contract is identical across kinds"). Genau das hält die Umsetzung nicht ein.
+
+```
+[Identität] Ein Protokoll, zwei Clients
+  Beleg:   bossman-ui/src/app/core/services/resource.service.ts:8-13
+             — Docstring: "One client for the WHOLE Resource protocol … generic:
+               callers pass a ResourceRef and never a kind-specific URL"
+           bossman-ui/src/app/core/services/resources.service.ts:63-90
+             — dieselben Endpunkte, dieselben sechs Verben, eigene Typen, plus ein
+               Sonderfall `if (kind === 'config')`
+           Nutzer: shared/resource-inspector → ResourceService (Singular)
+                   shared/resource-node    → ResourcesService (Plural)
+  Problem: Dasselbe Ding heißt zweimal unterschiedlich (Singular/Plural), ist zweimal
+           implementiert und wird von je einer Komponente benutzt — die Datei, die
+           „der eine Client" zu sein behauptet, hat einen Zwilling.
+  Fix:     Einen Client behalten (den generischen), `resource-node` darauf umstellen,
+           den anderen löschen. Kein Backend betroffen.
+
+[Widerspruchsfreiheit] Zwei Typ-Modelle für dieselbe Serverantwort
+  Beleg:   resource.service.ts: ResourceDiff / ResourceResult
+           resources.service.ts: ResourcePlan / ApplyResult
+  Problem: Zwei Screens können dieselbe Antwort unterschiedlich interpretieren und
+           darstellen; der `config`-Sonderfall existiert nur in einem der beiden.
+  Fix:     Ein Typsatz, aus dem Backend-Schema abgeleitet.
+
+[Parsimonie] Das „eine Interface" ist im Backend sechsfach ausgeschrieben
+  Beleg:   bossman/bossman/api/resources.py — 36 Routen:
+           {config, docker, helm, package, role, service} × {schema, observe, plan,
+           apply, generations, rollback}
+           bossman/bossman/services/resources/__init__.py — 0 Bytes, keine
+           kind→Klasse-Registry; kein Dispatch, nur handgeschriebene Wiederholung
+  Problem: Wenn der Vertrag identisch ist, widersprechen sechs Kopien der eigenen
+           Prämisse. Jede neue Art kostet sechs Routen, und die echten Unterschiede
+           (config wird per Pfad identifiziert, nicht per {name}) verstecken sich in
+           Duplikaten statt sichtbar zu sein.
+  Fix:     EINE Routenfamilie /agents/{id}/resources/{kind}/{name}/{verb} plus eine
+           Registry kind→Resource-Klasse in services/resources/__init__.py; die
+           kind-spezifischen Eigenheiten (Identität per Pfad bei config) als Attribut
+           der Klasse, nicht als Routen-Duplikat.
+
+[Falsifizierbarkeit] Nichts erzwingt die Gleichheit des Vertrags
+  Problem: Weil es keine Registry und keinen gemeinsamen Router gibt, würde niemand
+           merken, wenn eine Art ein Verb anders benennt oder eines vergisst.
+  Fix:     Ein Test, der über die Registry iteriert und für JEDE Art alle Verben
+           samt Antwortform prüft — der Beobachtungspunkt, der heute fehlt.
+```
+
+### Vorschlag (gestaffelt, zur Entscheidung)
+
+1. **UI-Client vereinheitlichen** (klein, kein API-Bruch): einen Client, ein Typsatz,
+   `resource-node` umstellen, Duplikat löschen.
+2. **Registry einführen** (`services/resources/__init__.py`) mit kind→Klasse und
+   deren Eigenheiten als Attribute.
+3. **36 → 6 Routen** zusammenlegen; die alten Pfade bleiben identisch, also kein
+   Bruch für Aufrufer.
+4. **Vertragstest** über die Registry (Punkt 4 oben).
