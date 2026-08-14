@@ -400,6 +400,17 @@ async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, al
         return {"ok": False, "refused": True, "problems": problems, "steps": []}
 
     client = client_factory(agent, settings)
+    # ZFS preflight: the ops talk to /dev/zfs, which only exists once the kernel
+    # module is loaded. The agent runs sandboxed (ProtectKernelModules) and cannot
+    # load it, so surface a clear, actionable error rather than a cryptic zpool one.
+    if any(s["op"].startswith(("zfs_", "zpool_")) for s in steps):
+        rc, _, _ = await _run(client, ["sh", "-c", "test -e /dev/zfs"])
+        if rc != 0:
+            return {"ok": False, "refused": True, "steps": [],
+                    "problems": [{"severity": "error",
+                                  "message": "ZFS kernel module not loaded (/dev/zfs missing). "
+                                             "Load it on the host (modprobe zfs, or /etc/modules-load.d/zfs.conf) — "
+                                             "the agent is sandboxed and cannot load kernel modules itself."}]}
     # preflight: ensure the tools the plan needs exist (best-effort install)
     installed, missing = await _ensure_tools(client, steps)
     if missing:

@@ -162,9 +162,16 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   reservation|refreservation`), online & non-destructive — not geometry. Destroy/
   rollback are refused when the pool/dataset (or a child) holds a critical mount;
   `zpool create/add` guard each raw vdev (loop-only unless allow_nonloop, protected
-  + busy). NOTE: live write-op test still pending — test-deployment is a KVM VM whose
-  kernel refuses unsigned out-of-tree modules (IMA/IPE), so the DKMS zfs.ko (built OK)
-  can't load there; needs a host where ZFS is already loadable.
+  + busy). **Live-verified on test-deployment /dev/sdb**: zpool_create → zfs_create →
+  zfs_set refquota=4G (resize) → snapshot → rollback → read-back via _read_zfs → destroy
+  → wipefs, all ok.
+  - **Agent constraint (important):** the agent runs sandboxed (`ProtectKernelModules=true`
+    + a private mount namespace), so it cannot load the ZFS kernel module and cannot see
+    host-side module installs. The module must be present + loaded on the HOST (install
+    zfsutils-linux + zfs-dkms + matching linux-headers, then modprobe / `/etc/modules-load.d/
+    zfs.conf`). Once loaded, the agent's zpool/zfs commands work (they only ioctl /dev/zfs).
+    disk_ops.apply preflights `/dev/zfs` and returns a clear "load it on the host" error if
+    the module is missing.
 - **resize** — verkleinert/vergrößert eine *unmountete* ext-Partition **samt FS** in
   der datensicheren gparted-Reihenfolge: Shrink `e2fsck → resize2fs <größe> →
   parted resizepart`; Grow `parted resizepart → resize2fs` (füllt). ext2/3/4 only
