@@ -346,7 +346,7 @@ Weder UI noch MCP noch Agent rufen diese auf (Tests und Service-Schicht siehe Sp
 | `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | **Oberfläche gebaut** |
 | `/templates` + `/template-groups` | 11 | **10 E2E** | ja | templates.py:56,64,80,181,189,197,228,270,306,315,339 | **Oberfläche gebaut** |
 | `/remediation-policies`, `/remediation-runs`, `/agents/{id}/remediate` | 7 | — | ja | remediation.py:79,85,111,138,154,174,184 | geht in Event-Handling auf |
-| `/time-periods` POST/PUT/DELETE/usage | 4 | ja | ja | time_periods.py:144,167,205,225 (UI liest nur die Liste) | offen |
+| `/time-periods` POST/PUT/DELETE/usage | 4 | ja | ja | time_periods.py:144,167,205,225 | **Oberfläche gebaut** |
 
 ```
 [Falsifizierbarkeit + Parsimonie] 38 Endpunkte ohne Aufrufer
@@ -888,3 +888,74 @@ einen **Graphen** und referenziert ihn — es gibt keinen widget-eigenen Reihen-
    global erreichbar, deshalb der Pixel-Beleg statt einer Annahme.
 6. Probe-Graph und -Widget wieder gelöscht; `scripts/test-in-container.sh` über
    test_graphs.py + test_dashboard_api.py: 10 grün.
+
+---
+
+## Umsetzung: Notification windows (Spur A, Familie 7 — damit ist Spur A vollständig)
+
+Nutzerentscheidung: **Oberfläche nachziehen**. Karte „Notification windows" in
+Admin▸Notifications (`features/notifications/time-periods-card.component.ts`) — bewusst auf
+demselben Screen wie die Regeln, weil ein Fenster nur im Zusammenhang mit den Regeln gelesen
+wird, die es benutzen.
+
+Ausgangslage: der Verbraucher war **live** (`time_period_blocks` in services/notification.py
+entscheidet, ob eine Regel feuert) und der Regel-Dialog bot die Auswahl schon an — aber es
+gab nur das eingebaute `24x7`, weil niemand eine Periode anlegen konnte. „Nur zu
+Geschäftszeiten benachrichtigen" war damit unerreichbar.
+
+```
+[Zureichender Grund] In WELCHER Uhr wird ein Fenster gelesen?
+  Problem: Ein Fenster, das in der falschen Zone gelesen wird, ist um den Ortsversatz
+           verschoben — und das ist aus der Definition allein unsichtbar.
+  Fix:     Die Zone steht über der Tabelle („Windows are read in Europe/Berlin"), und je
+           Fenster steht „open"/"closed" für JETZT (serverseitig ausgewertet). Live belegt:
+           `business_hours` (Mo–Fr 08–17) stand um 20:08 Ortszeit korrekt auf „closed".
+
+[Widerspruchsfreiheit] Kein Bedienelement für eine Verweigerung
+  Fix:     Built-in: Löschen ist gesperrt MIT Begründung im Tooltip; Umbenennen ist gesperrt,
+           solange eine andere Periode diese ausschließt (excludes referenzieren per NAME, ein
+           Umbenennen würde sie ins Leere zeigen lassen) — beides vorher gesperrt statt
+           hinterher als 409. Selbstausschluss wird nicht angeboten. Speichern nennt seinen
+           Blocker.
+
+[Ausgeschlossenes Drittes] „geschlossen ganztägig" ist die LEERE Spannenliste
+  Problem: Eine Ausnahme mit leerer Liste heißt in der API „ganztägig zu" — als leere Zeile
+           gerendert hätte man sie für „noch nicht ausgefüllt" gehalten.
+  Fix:     Eigene Checkbox „closed all day"; das Umschalten setzt bzw. leert die Spannen.
+
+[Falsifizierbarkeit] Was ändert sich, WENN ich das ändere?
+  Fix:     /usage wird pro Fenster geladen: die Spalte „Used by" zeigt die Zahl der Regeln,
+           und im Editor steht namentlich, welche Regeln betroffen sind — vor dem Speichern.
+           Beim Löschen wird die Folge genannt: die Regeln verschwinden nicht (FK ON DELETE
+           SET NULL), sie feuern danach rund um die Uhr.
+
+[Widerspruchsfreiheit über Zeit] If-Match auch hier
+  Fix:     PUT sendet die `version`; ein 412 wird als Satz erklärt statt als Statuscode.
+
+[Widerspruchsfreiheit] MEIN EIGENER Entwurfsfehler, vom Test aufgedeckt
+  Beleg:   Der Validator lehnt Nacht-Spannen ab (ein Ende <= Start wäre ein Fenster, das nie
+           zutrifft), und die Oberfläche riet korrekt: „teile 22:00–02:00 in 22:00–24:00 und
+           00:00–02:00". Nur: `<input type="time">` KANN `24:00` nicht halten — der Browser
+           leert das Feld, und das Speichern kam mit „not a HH:MM time: ''" zurück.
+           Ich hatte also zu einem Wert geraten, den mein eigenes Bedienelement nicht
+           ausdrücken kann.
+  Fix:     „to midnight" ist ein eigenes Bedienelement (Checkbox) statt eines Wertes im
+           Zeitfeld; abgewählt fällt es auf 23:00 zurück — ein konkreter, editierbarer Wert,
+           kein leeres Feld. Live belegt: gespeichert wurde exakt
+           {"monday": [["22:00", "24:00"]]}.
+```
+
+### Live verifiziert
+
+Fenster `oncall-nights` über die Oberfläche angelegt: die Sperre „Without any hours this
+window is never open, and a rule using it would never fire." erschien, die Nacht-Spanne
+22:00–02:00 wurde mit Aufteilungs-Hinweis abgelehnt, nach „to midnight" war Speichern frei,
+und die API bekam `{"monday": [["22:00","24:00"]]}` mit „closed right now". Danach wieder
+gelöscht. `scripts/test-in-container.sh tests/test_time_periods.py`: 21 grün.
+
+**Nebenbefund, NICHT angefasst:** neben `24x7` liegen `business_hours` und
+`company_holidays` in der Datenbank, angelegt am 30.07. sechs Minuten nach dem Seed. Kein
+Seed-Skript und keine Migration erzeugt sie, die Namen kommen nur als Beispiel in Docstrings
+vor — mutmaßlich manuell angelegte Probedaten einer früheren Sitzung. Ich habe sie stehen
+gelassen, weil sie Absicht sein könnten; sie sind als Prüfstoff sogar nützlich. (Meine erste
+Vermutung „Rückstand aus heutigen Testläufen" war falsch — die Zeitstempel sind 15 Tage alt.)

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
-import { NotificationLogEntry, NotificationRule, NotificationRuleInput, TimePeriod } from '../models/notification.model';
+import { NotificationLogEntry, NotificationRule, NotificationRuleInput, TimePeriod, TimePeriodInput, TimePeriodUsage } from '../models/notification.model';
 
 /** REST client for notification rules + the send log (Block H8). */
 @Injectable({ providedIn: 'root' })
@@ -34,8 +34,32 @@ export class NotificationService {
     return this.http.get<NotificationLogEntry[]>(`${this.base}/notifications`, { params });
   }
 
-  /** L4: the selectable notification windows. */
+  /** L4: the selectable notification windows. `active_now` is evaluated server-side per
+   * request, so this is also the "is my window open right now" answer. */
   timePeriods() {
     return this.http.get<TimePeriod[]>(`${this.base}/time-periods`);
+  }
+
+  createTimePeriod(body: TimePeriodInput) {
+    return this.http.post<TimePeriod>(`${this.base}/time-periods`, body);
+  }
+
+  /** `version` travels as If-Match — see api/etag.py; without it the last writer wins
+   * unnoticed. */
+  updateTimePeriod(id: string, body: TimePeriodInput, version: string) {
+    const headers = version ? new HttpHeaders({ 'If-Match': version }) : undefined;
+    return this.http.put<TimePeriod>(`${this.base}/time-periods/${id}`, body, headers ? { headers } : {});
+  }
+
+  /** Refused (409) while another period excludes this one: a dangling exclude would make the
+   * referencing period unevaluable, and the dispatcher then treats it as unrestricted — the
+   * exclusion would quietly stop applying. Rules pointing at it widen back to "always". */
+  deleteTimePeriod(id: string) {
+    return this.http.delete<void>(`${this.base}/time-periods/${id}`);
+  }
+
+  /** Which notification rules use this window, and which periods exclude it. */
+  timePeriodUsage(id: string) {
+    return this.http.get<TimePeriodUsage>(`${this.base}/time-periods/${id}/usage`);
   }
 }
