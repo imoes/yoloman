@@ -191,7 +191,15 @@ Vier verschiedene Dinge heißen im UI alle „Check" bzw. „Service":
 1. ~~`vanished` sichtbar und behandelbar machen~~ — **ERLEDIGT** (Sektion
    „Discovered services" mit vier immer sichtbaren Zählern, vanished rot +
    durchgestrichen, Aktionen Remove/Ignore/Monitor/Stop; live belegt).
-2. Schwellwert/Begründung an der Messung (falsche Ruhe bei WARN/CRIT).
+2. ~~Schwellwert/Begründung an der Messung~~ — **ERLEDIGT**: Spalte „Threshold"
+   zeigt die Regel **samt Vergleichsoperator** (`>= 80 / >= 90` — „80" allein sagt
+   nicht, welche Seite schlecht ist), der Tooltip nennt die Begründungskette
+   („OK because disk_used_pct = 0.15 against warn >= 80, crit >= 90 … edit it in
+   OU / Policy"); ohne Regel steht „—" mit der Erklärung, dass der Check seinen
+   Zustand selbst meldet. Bei fehlendem Wert wird **kein** Vergleich behauptet
+   („no value was reported … so nothing could be graded"). Die Daten lagen auch hier
+   schon in der API (`ServiceOut.warn/crit_threshold` + `comparison`) — nur die UI
+   zeigte sie nicht: dasselbe Muster wie bei `vanished`.
 3. Service-Checks in den Checks-Tab falten (ein Ort pro Aufgabe).
 4. Benennung vereinheitlichen (zieht sich durch alle Screens, daher zuletzt und
    in einem Zug).

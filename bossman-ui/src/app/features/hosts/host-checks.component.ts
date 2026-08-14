@@ -254,13 +254,23 @@ interface DiscoRow {
       @if (services().length) {
         <div class="bm-group">
           <table class="bm-table">
-            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Metric</th><th></th></tr></thead>
+            <thead><tr><th>Service</th><th>State</th><th class="bm-num">Value</th><th>Threshold</th><th>Metric</th><th></th></tr></thead>
             <tbody>
               @for (s of services(); track s.id) {
                 <tr>
                   <td>{{ s.name }}</td>
                   <td><app-status-badge [status]="serviceBadge(s)" [label]="s.state" /></td>
                   <td class="bm-num">{{ fmtValue(s) }}</td>
+                  <!-- WHY is this row WARN/CRIT? A state without its threshold is an
+                       assertion without a reason. The API already ships it
+                       (ServiceOut.warn/crit_threshold + comparison). -->
+                  <td class="bm-thr" [title]="thresholdHint(s)">
+                    @if (s.warn_threshold != null || s.crit_threshold != null) {
+                      <span class="bm-mono">{{ thresholdText(s) }}</span>
+                    } @else {
+                      <span class="bm-dim">—</span>
+                    }
+                  </td>
                   <td class="bm-dim bm-mono">{{ s.metric }}</td>
                   <td class="bm-svc-actions">
                     <button mat-icon-button class="bm-del" [disabled]="deleting() === s.id"
@@ -284,6 +294,7 @@ interface DiscoRow {
       /* Discovery states: all four buckets always visible, and "vanished" has to
          LOOK different — an unnoticed missing service is the failure this section
          exists to prevent. */
+      .bm-thr { font-size: 12px; white-space: nowrap; opacity: 0.85; }
       .bm-disco-sub { font-weight: 400; font-size: 12px; margin-left: 8px; }
       .bm-disco-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
       .bm-disco-tab { font: inherit; font-size: 12.5px; padding: 4px 10px; border-radius: 20px;
@@ -511,6 +522,44 @@ export class HostChecksComponent {
   private fail(e: unknown): void {
     const d = (e as { error?: { detail?: string }; message?: string })?.error?.detail;
     this.error.set(d ?? (e as { message?: string })?.message ?? 'Request failed');
+  }
+
+  /** The rule this row is graded against, e.g. ">= 80 / >= 90". Answering "why is
+   *  this WARN?" needs the comparison too — "80" alone does not say which side is
+   *  bad. */
+  thresholdText(s: ServiceState): string {
+    const op = this.comparisonText(s.comparison);
+    const parts: string[] = [];
+    if (s.warn_threshold != null) parts.push(`${op}${s.warn_threshold}`);
+    if (s.crit_threshold != null) parts.push(`${op}${s.crit_threshold}`);
+    return parts.join(' / ');
+  }
+  /** Where the numbers come from + what they mean — the provenance the assignment
+   *  table shows in its "From" column, spelled out here for the measurement. */
+  thresholdHint(s: ServiceState): string {
+    if (s.warn_threshold == null && s.crit_threshold == null) {
+      return 'No threshold rule: this check reports its own state, so there is no value to grade. '
+           + 'Add a rule in OU / Policy to grade it.';
+    }
+    const w = s.warn_threshold != null ? `warn ${this.comparisonText(s.comparison)}${s.warn_threshold}` : 'no warn level';
+    const c = s.crit_threshold != null ? `crit ${this.comparisonText(s.comparison)}${s.crit_threshold}` : 'no crit level';
+    const rule = `The rule grades ${s.metric} at ${w}, ${c} (edit it in OU / Policy).`;
+    // No value means no comparison happened — claiming one would be a false reason.
+    if (s.value == null) {
+      return `${s.state}: no value was reported for ${s.metric}, so nothing could be graded. ${rule}`;
+    }
+    return `${s.state} because ${s.metric} = ${s.value} against ${w}, ${c}. ${rule}`;
+  }
+  private comparisonText(c: ServiceState['comparison']): string {
+    switch (c) {
+      case 'gt': return '> ';
+      case 'ge': return '>= ';
+      case 'lt': return '< ';
+      case 'le': return '<= ';
+      case 'eq': return '= ';
+      case 'ne': return '!= ';
+      default: return '';
+    }
   }
 
   scopeLabel(c: EffectiveCheck): string {
