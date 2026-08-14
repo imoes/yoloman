@@ -340,10 +340,10 @@ Weder UI noch MCP noch Agent rufen diese auf (Tests und Service-Schicht siehe Sp
 
 | Familie | Endpunkte | Tests | Service | Beleg | Stand |
 |---|---|---|---|---|---|
-| `/graphs` (+`/{id}/data`) | 6 | ja | — | graphs.py:112,120,127,147,174,200 | offen |
-| `/clusters` | 4 | ja | — | clusters.py:134,148,178,201 | offen |
-| `/value-maps` | 4 | ja | — | value_maps.py:47,55,79,98 | offen |
-| `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | offen |
+| `/graphs` (+`/{id}/data`) | 6 | ja | — | graphs.py:112,120,127,147,174,200 | Entscheidung: in Dashboards falten |
+| `/clusters` | 4 | ja | — | clusters.py:134,148,178,201 | Entscheidung: Oberfläche nachziehen |
+| `/value-maps` | 4 | ja | — | value_maps.py:47,55,79,98 | **Oberfläche gebaut** |
+| `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | **Oberfläche gebaut** |
 | `/templates` + `/template-groups` | 11 | **10 E2E** | ja | templates.py:56,64,80,181,189,197,228,270,306,315,339 | **Oberfläche gebaut** |
 | `/remediation-policies`, `/remediation-runs`, `/agents/{id}/remediate` | 7 | — | ja | remediation.py:79,85,111,138,154,174,184 | geht in Event-Handling auf |
 | `/time-periods` POST/PUT/DELETE/usage | 4 | ja | ja | time_periods.py:144,167,205,225 (UI liest nur die Liste) | offen |
@@ -631,3 +631,47 @@ bündelt `CheckRule`-Zeilen, kann andere Templates **verschachteln** und wird an
 
 Keine `prompt()`-Dialoge: Formulare sind inline, Bestätigungen laufen über eine Snackbar
 mit benannter Folge.
+
+---
+
+## Umsetzung: Wertzuordnungen + Zustandsnamen (Spur A, Familien 3 und 4)
+
+Nutzerentscheidung: bei beiden **Oberfläche nachziehen**. Beide beantworten dieselbe Frage —
+*wie wird ein gemessener Wert angezeigt?* — und liegen deshalb an **einem** Ort:
+`features/settings/measurement-display.component.ts`, eingehängt in Settings.
+
+```
+[Zureichender Grund] Ein Rohwert ohne Wortbedeutung
+  Beleg:   services/monitoring.py:1352-1353 bildet den Wert auf ein Label ab, WENN die
+           gewinnende Regel eine value_map_id trägt. Dieser Verbraucher war immer live —
+           aber es gab keine Oberfläche, um eine Zuordnung anzulegen ODER anzuhängen.
+  Problem: Ein `0` in einer Service-Zeile ist nicht selbsterklärend; die Erklärung war
+           gebaut und unerreichbar. Beide Hälften mussten kommen: anlegen UND anhängen,
+           sonst bleibt es unbenutzbar.
+  Fix:     Karte „Value maps" in Settings (Name + Wert→Wort-Paare) UND ein Auswahlfeld
+           „Shown as (value map)" im Regelformular der Check templates. Belegt: die
+           materialisierte CheckRule trägt die value_map_id bis in die Host-Gruppe.
+
+[Widerspruchsfreiheit] Ein Rohwert kann nicht zwei Wörter bedeuten
+  Problem: `mappings` ist ein JSON-Objekt; ein zweimal vergebener Schlüssel überlebt nur
+           einmal — das Speichern hätte einen Eintrag STILL verworfen.
+  Fix:     Die Dublette wird benannt („Der Rohwert „0" ist zweimal zugeordnet") und
+           Speichern bleibt gesperrt. Live geprüft: Sperre greift, nach Korrektur frei.
+
+[Ausgeschlossenes Drittes] „keine Zuordnung" ist ein benannter Zustand
+  Fix:     Die Spalte zeigt „raw value" statt leer, und eine Zuordnung, deren Objekt fehlt,
+           heißt „unknown map" — nicht leer. Leer ließe offen, ob nichts gewählt wurde oder
+           etwas fehlt.
+
+[Identität] Zustände umbenennen ≠ Zustände erfinden
+  Beleg:   api/severity_labels.py bietet absichtlich nur GET und PUT; die vier Zeilen sind
+           von der Migration gesät.
+  Fix:     Die Oberfläche hat kein Anlegen/Löschen, die Zustände stehen in der Skalenordnung
+           OK→WARN→CRIT→UNKNOWN (nicht alphabetisch, das verbärge die Ordnung), und über der
+           Tabelle steht, dass es reine Anzeige ist. „Speichern" ist gesperrt, solange nichts
+           abweicht — ein Knopf, der denselben Wert schreiben würde, ist eine Aktion ohne
+           Wirkung.
+
+Live verifiziert: Zuordnung „Up / Down" (0→Down, 1→Up) im Browser angelegt → per API sichtbar;
+an eine Template-Regel gehängt → die materialisierte CheckRule in `grp-14db80` trägt die
+value_map_id; WARN im Browser auf „Degraded" umbenannt → per API bestätigt und zurückgesetzt.

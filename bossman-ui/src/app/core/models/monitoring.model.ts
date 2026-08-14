@@ -170,6 +170,32 @@ export interface CheckTemplateLink {
   host_group: string;
 }
 
+/** A named raw-value → label mapping (API: /api/v1/value-maps), attachable to a check
+ * rule so a service shows "Down" next to its 0. Keys are the raw values as strings —
+ * that is the API's shape (`mappings: dict[str, str]`), because a JSON object key is
+ * always a string even when the metric is numeric. */
+export interface ValueMap {
+  id: string;
+  name: string;
+  mappings: Record<string, string>;
+  created_at: string;
+}
+
+export interface ValueMapInput {
+  name: string;
+  mappings: Record<string, string>;
+}
+
+/** Display label + colour for ONE of the four states. The set of states is fixed
+ * (OK/WARN/CRIT/UNKNOWN, seeded by the migration): only how they are shown is
+ * editable, so there is no create or delete — renaming a state must never be
+ * confusable with inventing one. */
+export interface SeverityLabel {
+  state: 'OK' | 'WARN' | 'CRIT' | 'UNKNOWN';
+  label: string;
+  color: string;
+}
+
 /** Matches bossman/api/monitoring.py's MetricCatalogEntry (Block L3c) — a
  * metric actually collected across the fleet, with a human-readable name. */
 export interface MetricCatalogEntry {

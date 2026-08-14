@@ -15,6 +15,7 @@ import {
   CheckTemplateInput,
   CheckTemplateLink,
   CheckTemplateRule,
+  ValueMap,
 } from '../../core/models/monitoring.model';
 import { MonitoringService } from '../../core/services/monitoring.service';
 import { HostGroup } from '../../core/models/host-group.model';
@@ -158,7 +159,7 @@ function emptyRule(): CheckTemplateRule {
               <h3>Rules <span class="bm-hint">what this template measures and at which thresholds</span></h3>
               <table class="bm-table">
                 <thead>
-                  <tr><th>Service</th><th>Metric</th><th>Condition</th><th>Warn</th><th>Crit</th><th>Label</th><th></th></tr>
+                  <tr><th>Service</th><th>Metric</th><th>Condition</th><th>Warn</th><th>Crit</th><th>Label</th><th>Shown as</th><th></th></tr>
                 </thead>
                 <tbody>
                   @for (r of d.rules; track $index) {
@@ -169,6 +170,7 @@ function emptyRule(): CheckTemplateRule {
                       <td class="bm-num">{{ r.warn_threshold ?? '—' }}</td>
                       <td class="bm-num">{{ r.crit_threshold ?? '—' }}</td>
                       <td class="bm-dim">{{ r.label_value || '—' }}</td>
+                      <td class="bm-dim">{{ valueMapName(r.value_map_id) }}</td>
                       <td class="bm-right">
                         <button mat-icon-button (click)="removeRule($index)" aria-label="Remove rule">
                           <mat-icon>close</mat-icon>
@@ -177,7 +179,7 @@ function emptyRule(): CheckTemplateRule {
                     </tr>
                   }
                   @if (!d.rules.length) {
-                    <tr><td colspan="7" class="bm-dim">No rules yet — this template would materialize nothing.</td></tr>
+                    <tr><td colspan="8" class="bm-dim">No rules yet — this template would materialize nothing.</td></tr>
                   }
                 </tbody>
               </table>
@@ -216,6 +218,16 @@ function emptyRule(): CheckTemplateRule {
                     <mat-label>Label (optional)</mat-label>
                     <input matInput [ngModel]="newRule().label_value"
                            (ngModelChange)="patchNewRule({ label_value: $event || null })" placeholder="/var" />
+                  </mat-form-field>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Shown as (value map)</mat-label>
+                    <mat-select [ngModel]="newRule().value_map_id ?? null"
+                                (ngModelChange)="patchNewRule({ value_map_id: $event })">
+                      <mat-option [value]="null">— raw value —</mat-option>
+                      @for (vm of valueMaps(); track vm.id) {
+                        <mat-option [value]="vm.id">{{ vm.name }}</mat-option>
+                      }
+                    </mat-select>
                   </mat-form-field>
                   <div class="bm-inline-actions">
                     <button mat-flat-button [disabled]="!ruleComplete()" (click)="commitRule()">Add</button>
@@ -391,6 +403,8 @@ export class CheckTemplatesComponent implements OnInit {
   allLinks = signal<CheckTemplateLink[]>([]);
   /** All check rules, used to read back what the links actually produced. */
   checkRules = signal<CheckRule[]>([]);
+  /** Value maps offered when attaching one to a rule (see Settings > Value maps). */
+  valueMaps = signal<ValueMap[]>([]);
   loading = signal(true);
   saving = signal(false);
 
@@ -457,6 +471,7 @@ export class CheckTemplatesComponent implements OnInit {
     this.monitoring.listCheckTemplateGroups().subscribe((g) => this.templateGroups.set(g));
     this.hostGroups.list().subscribe((g) => this.groups.set(g));
     this.monitoring.listCheckRules().subscribe((r) => this.checkRules.set(r));
+    this.monitoring.listValueMaps().subscribe((v) => this.valueMaps.set(v));
   }
 
   select(t: CheckTemplate): void {
@@ -595,6 +610,14 @@ export class CheckTemplatesComponent implements OnInit {
 
   knownGroup(name: string): boolean {
     return this.groups().some((g) => g.name === name);
+  }
+
+  /** What a rule's raw value is shown as. Says "raw value" rather than nothing when no
+   * map is attached — an empty cell would leave the reader guessing whether a map exists
+   * and failed, or none was chosen. A dangling id is named as such instead of blanked. */
+  valueMapName(id: string | null | undefined): string {
+    if (!id) return 'raw value';
+    return this.valueMaps().find((vm) => vm.id === id)?.name ?? 'unknown map';
   }
 
   save(): void {

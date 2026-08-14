@@ -16,6 +16,7 @@ import { ChatBackendName, ChatPrefs, ClaudeStartResponse, CodexStartResponse } f
 import { EnrollInfo } from '../../core/models/enroll.model';
 import { AgentUpdatesComponent } from './agent-updates.component';
 import { InfraKnowledgeComponent } from './infra-knowledge.component';
+import { MeasurementDisplayComponent } from './measurement-display.component';
 
 /**
  * v1 scope, deliberately small: Bossman's REST API has no user-management
@@ -31,7 +32,7 @@ import { InfraKnowledgeComponent } from './infra-knowledge.component';
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent, InfraKnowledgeComponent],
+  imports: [FormsModule, MatCardModule, MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule, MatSelectModule, AgentUpdatesComponent, InfraKnowledgeComponent, MeasurementDisplayComponent],
   template: `
     <div class="bm-page">
       <h1>Settings</h1>
@@ -117,6 +118,10 @@ import { InfraKnowledgeComponent } from './infra-knowledge.component';
       <app-infra-knowledge />
 
       <app-agent-updates />
+
+      <!-- How a measured value is shown: state names/colours and value maps. Presentation
+           only — neither changes the four states or any threshold. -->
+      <app-measurement-display />
 
       <mat-card class="bm-catalog-card">
         <mat-card-header>

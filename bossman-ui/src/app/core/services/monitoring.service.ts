@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Availability, CheckRule, CheckRuleInput, CheckTemplate, CheckTemplateGroup, CheckTemplateInput, CheckTemplateLink, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { Availability, CheckRule, CheckRuleInput, CheckTemplate, CheckTemplateGroup, CheckTemplateInput, CheckTemplateLink, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState, SeverityLabel, ValueMap, ValueMapInput } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -143,6 +143,43 @@ export class MonitoringService {
    * primary; refused for the last remaining OU). */
   removeOuLink(id: string, ouId: string) {
     return this.http.delete<CheckRule>(`${this.base}/check-rules/${id}/ou-links/${ouId}`);
+  }
+
+  /** ---------------------------------------------------------------------
+   * How a measurement is DISPLAYED — two small catalogs that change presentation
+   * only, never the 4-value state machine (OK/WARN/CRIT/UNKNOWN) itself.
+   *
+   * Value maps turn a raw number into a word (0 -> "Down"): the consumer has always
+   * been live (services/monitoring.py maps the value when the winning rule carries a
+   * value_map_id), but nothing could create a map or attach one, so the label could
+   * never appear. Severity labels rename/recolour a state for display. */
+
+  listValueMaps() {
+    return this.http.get<ValueMap[]>(`${this.base}/value-maps`);
+  }
+
+  createValueMap(body: ValueMapInput) {
+    return this.http.post<ValueMap>(`${this.base}/value-maps`, body);
+  }
+
+  updateValueMap(id: string, body: ValueMapInput) {
+    return this.http.put<ValueMap>(`${this.base}/value-maps/${id}`, body);
+  }
+
+  /** check_rules.value_map_id is ON DELETE SET NULL — a rule using this map is
+   * detached, never deleted (so a delete cannot silently drop monitoring). */
+  deleteValueMap(id: string) {
+    return this.http.delete<void>(`${this.base}/value-maps/${id}`);
+  }
+
+  listSeverityLabels() {
+    return this.http.get<SeverityLabel[]>(`${this.base}/severity-labels`);
+  }
+
+  /** The four rows are seeded by the migration; only label and colour are writable —
+   * there is no create/delete, because the set of states is not negotiable. */
+  updateSeverityLabel(state: string, body: { label: string; color: string }) {
+    return this.http.put<SeverityLabel>(`${this.base}/severity-labels/${state}`, body);
   }
 
   /** ---------------------------------------------------------------------
