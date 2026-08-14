@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -13,12 +14,27 @@ import (
 // directory and returns its captured stdout/stderr and exit code. A non-zero
 // exit code is ordinary data, not a Go error — only a failure to start the
 // process at all (e.g. the binary doesn't exist) is returned as err.
-type CommandExecFunc func(ctx context.Context, argv []string, chdir string) (stdout, stderr []byte, exitCode int, err error)
+// CommandExecFunc runs argv (no shell involved) with an optional working
+// directory and extra environment, and returns its captured stdout/stderr and
+// exit code. A non-zero exit code is ordinary data, not a Go error — only a
+// failure to start the process at all (e.g. the binary doesn't exist) is
+// returned as err.
+type CommandExecFunc func(ctx context.Context, argv []string, chdir string, env map[string]string) (stdout, stderr []byte, exitCode int, err error)
 
 // defaultCommandExec runs argv via os/exec.
-func defaultCommandExec(ctx context.Context, argv []string, chdir string) (stdout, stderr []byte, exitCode int, err error) {
+//
+// `env` is ADDED to the inherited environment rather than replacing it: a script
+// that suddenly loses PATH, HOME or the proxy variables would fail for reasons
+// nothing in the call describes.
+func defaultCommandExec(ctx context.Context, argv []string, chdir string, env map[string]string) (stdout, stderr []byte, exitCode int, err error) {
 	cmd := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	cmd.Dir = chdir
+	if len(env) > 0 {
+		cmd.Env = os.Environ()
+		for k, v := range env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
 	var outBuf, errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
@@ -76,6 +92,10 @@ func (c *Command) InputSchema() map[string]any {
 		"cmd":     stringProp(`Plain command line, split on whitespace (no quoting), e.g. "systemctl daemon-reload". Mutually exclusive with argv.`),
 		"argv":    stringArrayProp(`Explicit argument vector, e.g. ["mkdir", "-p", "/opt/my app"] — required whenever an argument contains spaces. Mutually exclusive with cmd.`),
 		"chdir":   stringProp("Optional working directory to run the command in."),
+		"env": objectMapProp("Extra environment variables for this one call, ADDED to the " +
+			"inherited environment (PATH/HOME stay intact). Values are passed through the process " +
+			"environment, not the command line, so they do not appear in `ps` output or a shell " +
+			"history — which is why an event handler's parameters travel this way."),
 		"dry_run": boolProp("When true, do not execute the command at all; report changed=true as a prediction only (check_mode).", false),
 	})
 }
@@ -92,6 +112,10 @@ func (c *Command) Run(ctx context.Context, params map[string]any, dryRunArg bool
 		return Result{}, err
 	}
 	chdir, err := stringParam(params, "chdir", false, "")
+	if err != nil {
+		return Result{}, err
+	}
+	env, err := stringMapParam(params, "env")
 	if err != nil {
 		return Result{}, err
 	}
@@ -119,7 +143,7 @@ func (c *Command) Run(ctx context.Context, params map[string]any, dryRunArg bool
 		}}, nil
 	}
 
-	stdout, stderr, exitCode, err := c.Exec(ctx, argv, chdir)
+	stdout, stderr, exitCode, err := c.Exec(ctx, argv, chdir, env)
 	if err != nil {
 		return Result{}, fmt.Errorf("command: %w", err)
 	}
