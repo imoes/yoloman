@@ -267,3 +267,139 @@ Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
 3. **36 → 6 Routen** zusammenlegen; die alten Pfade bleiben identisch, also kein
    Bruch für Aufrufer.
 4. **Vertragstest** über die Registry (Punkt 4 oben).
+
+
+---
+
+## Befunde: Bereich 8 — Die gesamte Endpunkt-Oberfläche
+
+Vollständige Inventur: **~370 Endpunkte** (481 `@router`-Dekoratoren) gegen alle
+UI-Aufrufe. Auftrag war „jeden einzelnen Frontend- und Backend-Endpunkt".
+
+### 8.1 Toter Code — ganze Feature-Familien ohne jeden Aufrufer
+
+Weder UI noch MCP noch Agent rufen diese auf:
+
+| Familie | Endpunkte | Beleg |
+|---|---|---|
+| `/graphs` (+`/{id}/data`) | 6 | graphs.py:112,120,127,147,174,200 |
+| `/clusters` | 4 | clusters.py:134,148,178,201 |
+| `/value-maps` | 4 | value_maps.py:47,55,79,98 |
+| `/severity-labels` | 2 | severity_labels.py:43,51 |
+| `/templates` + `/template-groups` | 11 | templates.py:56,64,80,181,189,197,228,270,306,315,339 |
+| `/remediation-policies`, `/remediation-runs`, `/agents/{id}/remediate` | 7 | remediation.py:79,85,111,138,154,174,184 |
+| `/time-periods` POST/PUT/DELETE/usage | 4 | time_periods.py:144,167,205,225 (UI liest nur die Liste) |
+
+```
+[Falsifizierbarkeit + Parsimonie] 38 Endpunkte ohne Aufrufer
+  Problem: Nicht erreichbarer Code kann nicht falsch werden — und nicht richtig.
+           Er wird mitgewartet, mitgetestet, mitdokumentiert und suggeriert
+           Funktionen, die niemand bedienen kann. Besonders auffällig:
+           Remediation (Phase 1+2 gebaut, live keine Oberfläche).
+  Fix:     Pro Familie entscheiden: UI nachziehen ODER Endpunkte entfernen.
+           Nichts darf „vielleicht später" bleiben — das ist der Limbo-Zustand
+           auf Architekturebene.
+
+[Widerspruchsfreiheit] Zwei Routen doppelt registriert = unerreichbar
+  Beleg:   runbooks.py:473 GET /runbook-runs und :488 GET /runbook-runs/{run_id}
+           registrieren Pfade, die bereits bei :71 und :116 registriert sind.
+  Problem: FastAPI behält die erste — die Zeilen 473-497 sind toter Code, der
+           aussieht als würde er etwas anderes tun.
+  Fix:     Löschen.
+```
+
+### 8.2 Drei parallele Wege zu „Soll-Zustand herstellen" — die Wurzel von „Resources machen keinen Sinn"
+
+```
+[Parsimonie + Identität] Dieselbe Aufgabe, drei Endpunkt-Familien
+  Beleg:   /agents/{id}/state/{observed,plan,apply,generations,rollback}
+             — management.py:108,240,261,155,514
+           /agents/{id}/resources/{kind}/{name}/{verb}
+             — resources.py (48 Endpunkte)
+           /agents/{id}/docker-state/{discover,diff,rollback,generations,converge-plan}
+             — docker_apps.py:183-250
+           dazu Docker doppelt: /agents/{id}/docker/{deploy,remove,containers}
+             (docker_apps.py:36,82,55) vs /resources/docker/{name}/{plan,apply,observe}
+           und Helm doppelt: helm_apps.py vs /resources/helm/...
+           Die UI nutzt BEIDE Wege (agent.service.ts:328-334 und resources.service.ts).
+  Problem: Das Resource-Protokoll sollte laut docs/resource-protocol.md „das
+           Rückgrat" sein, das genau diese Zersplitterung beseitigt — es ist
+           stattdessen als DRITTER Weg daneben getreten. Deshalb „macht Resources
+           keinen Sinn": es ist nicht die eine Abstraktion, sondern eine weitere.
+  Fix:     Eine Familie ist die Wahrheit. Vorschlag: /resources/{kind}/... wird der
+           einzige Weg (es ist der einzige mit Generationen+Rollback für ALLE Arten);
+           /state/* und /docker-state/* werden darauf abgebildet oder entfernt.
+           Das ist das Refactoring vor dem Release.
+
+[Ausgeschlossenes Drittes] Ein Aufruf, der nur scheitern kann
+  Beleg:   resources.service.ts:75 baut /resources/{kind}/.../schema für JEDE Art,
+           aber resources.py hat für `config` KEIN /schema (207-250) — config ist
+           auch die einzige Art ohne {name}.
+  Problem: Die UI kann einen Endpunkt konstruieren, den es nicht gibt; die
+           Ausnahme ist nirgends deklariert, sondern in zwei Clients nachgebaut.
+  Fix:     Fähigkeiten pro Art in der Registry deklarieren (hat `schema`? braucht
+           `{name}`?) und im Client daraus ableiten statt zu raten.
+
+[Parsimonie] Arten ohne jeden Aufrufer
+  Beleg:   /resources/package/* und /resources/service/* (12 Endpunkte) werden von
+           keiner UI-Datei aufgerufen.
+```
+
+### 8.3 Identität — ein Ding, zwei Namen (quer durch die API)
+
+```
+[Identität] `agents` und `hosts` bezeichnen dasselbe
+  Beleg:   /agents/{agent_id} (agents.py:149) vs /fleet/hosts (monitoring.py:1041),
+           /search/hosts (search.py:137), /host-groups (host_groups.py:63),
+           /agents/{id}/host-labels (checks.py:679), /provisioning/hosts
+           (images.py:212); /agents/{id}/parents liefert HostParentsOut (agents.py:836)
+  Fix:     Einen Begriff wählen (im UI heißt es überall „Host"), den anderen als
+           Alias-Route behalten, damit nichts bricht — aber nur EINEN dokumentieren.
+
+[Identität] „template" bezeichnet fünf verschiedene Dinge
+  Beleg:   /config-templates (config_templates.py:53), /templates (templates.py:181),
+           /template-groups (:56), /provisioning/templates (images.py:294),
+           /docker/app-templates (docker_apps.py:114)
+
+[Identität] Gleiche Funktionsnamen für verschiedene Dinge
+  Beleg:   /sites (search.py:209, `list_sites`) vs /policy-sites (sites.py:76,
+           ebenfalls `list_sites`) — einmal Facette, einmal Entität; UI ruft beide.
+           /plans (plans.py:111, `list_plans`) vs /orchestration/plans
+           (orchestration.py:103, ebenfalls `list_plans`).
+```
+
+### 8.4 Widerspruchsfreiheit — schreiben hier, lesen dort
+
+```
+[Widerspruchsfreiheit] Retention wird anders geschrieben als gelesen
+  Beleg:   PUT /system/retention (system_settings.py:123) schreibt sie;
+           es gibt KEIN GET /system/retention — die UI liest
+           `run_retention_days` aus GET /system/yolo-mode
+           (features/events/event-browser.component.ts:228)
+  Problem: Zwei Namen für eine Tatsache; wer die Einstellung sucht, findet sie
+           unter einem fremden Begriff.
+  Fix:     GET /system/retention ergänzen (oder beides unter /system/settings
+           zusammenfassen) und das UI darauf umstellen.
+```
+
+### 8.5 Weitere Doppelwege (belegt, geringere Priorität)
+
+`/config-desired` (management.py:413) vs `/desired-state` (orchestration.py:412) ·
+`/policy-report?scope_type=` (ou.py:407) vs `/host-groups/{id}/policy-report`
+(host_groups.py:151) · Gruppenmitgliedschaft dreifach (PATCH `/agents/{id}/groups`,
+PUT `/host-groups/{id}/members`, POST `/agents/mass-update/groups`) · PUT **und**
+PATCH mit überlappender Aufgabe (`/host-groups/{id}`, `/policy-sites/{id}`,
+`/check-rules/{id}`) · fünf parallele Lauf-Historien (`/runs`, `/runbook-runs`,
+`/remediation-runs`, `/restore-jobs`, `/deployments`) · zwei CVE-Leser
+(`/agents/{id}/cves` vs `/security/cves?agent_id=`) · Blueprint-GET/POST-Zwillinge
+(blueprints.py:148/191 und :162/200) · Widget-Liste zweifach (dashboard.py:168/179) ·
+Bulk-Verben in vier Schreibweisen (`acknowledge-bulk`, `mass-update`, `bulk-update`,
+`import-bulk`) · `/whatif/scope` bricht kebab-case (ou.py:816).
+
+### Vorschlag: drei Spuren, getrennt entscheidbar
+
+| Spur | Inhalt | Risiko |
+|---|---|---|
+| **A — Toten Code klären** | 38 Endpunkte: je Familie „UI nachziehen" oder „entfernen"; die zwei doppelt registrierten Routen löschen | gering, rein subtraktiv |
+| **B — Zustands-Rückgrat vereinheitlichen** | Resources als **einziger** Weg für observe/plan/apply/generations/rollback; `/state/*` und `/docker-state/*` darauf abbilden; Registry + Fähigkeiten pro Art; Vertragstest | hoch, aber genau das Refactoring vor dem Release |
+| **C — Benennung** | `agents`/`hosts` auf einen Begriff, „template" entzerren, `/sites` vs `/policy-sites`, kebab-case, Bulk-Verben | mittel, viele Dateien, mechanisch |
