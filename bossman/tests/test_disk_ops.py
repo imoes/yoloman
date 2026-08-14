@@ -118,6 +118,46 @@ def test_grown_disk_chain_compiles_and_is_allowed_on_the_system_disk():
     assert do.safety_check(steps, layout, allow_nonloop=True) == []
 
 
+def test_movepart_uses_the_native_copier_then_rewrites_the_table():
+    """A real move: copy the bytes with the agent's disk_move module, wait for that
+    job, and only then repoint the partition. Copy first, table second."""
+    steps = do.compile({"ops": [{"op": "movepart", "device": "/dev/sdb", "num": 1,
+                                 "sector_size": 512, "src_start_s": 2048,
+                                 "dst_start_s": 22528, "length_s": 20480}]})
+    assert steps[0]["tool"] == "disk_move"
+    assert steps[0]["params"] == {"action": "start", "device": "/dev/sdb",
+                                  "src_offset": 2048 * 512, "dst_offset": 22528 * 512,
+                                  "length": 20480 * 512}
+    assert "backwards" in steps[0]["desc"]          # dst > src → overlapping direction
+    assert steps[1]["poll"] == "disk_move"
+    assert steps[2]["touches_table"] and "mkpart" in steps[2]["argv"][2]
+    # nothing else on the disk → allowed
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb1", "busy": False, "start_s": 2048, "end_s": 22527, "children": []}]}]}
+    assert do.safety_check(steps, layout, allow_nonloop=True) == []
+
+
+def test_movepart_refuses_a_destination_that_overlaps_another_partition():
+    steps = do.compile({"ops": [{"op": "movepart", "device": "/dev/sdb", "num": 1,
+                                 "sector_size": 512, "src_start_s": 2048,
+                                 "dst_start_s": 40960, "length_s": 20480}]})
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb1", "busy": False, "start_s": 2048, "end_s": 22527, "children": []},
+        {"path": "/dev/sdb2", "busy": False, "start_s": 40960, "end_s": 81919, "children": []}]}]}
+    probs = do.safety_check(steps, layout, allow_nonloop=True)
+    assert any("overlaps /dev/sdb2" in p["message"] for p in probs)
+
+
+def test_movepart_refuses_a_mounted_partition():
+    steps = do.compile({"ops": [{"op": "movepart", "device": "/dev/sdb", "num": 1,
+                                 "sector_size": 512, "src_start_s": 22528,
+                                 "dst_start_s": 2048, "length_s": 20480}]})
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb1", "busy": True, "mountpoint": "/mnt/x",
+         "start_s": 22528, "end_s": 43007, "children": []}]}]}
+    assert any("unmount" in p["message"].lower() for p in do.safety_check(steps, layout, allow_nonloop=True))
+
+
 def test_zfs_ops_compile():
     steps = do.compile({"ops": [
         {"op": "zfs_create", "name": "tank/data", "mountpoint": "/data"},

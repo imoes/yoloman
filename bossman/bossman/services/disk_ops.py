@@ -142,6 +142,44 @@ def compile(plan: dict) -> list[dict]:
             steps.append({"op": kind, "device": dev, "touches_table": False,
                           "desc": f"grow LV {t} by {size} (online, --resizefs)",
                           "argv": ["lvextend", "--resizefs", flag, size, t]})
+        elif kind == "movepart":
+            # A real gparted-style MOVE: copy the partition's bytes to the new offset
+            # with the agent's native disk_move module (fs-agnostic, copies backwards
+            # when the ranges overlap), wait for that job, and only THEN rewrite the
+            # partition table. Copy first, table second — while the copy runs the old
+            # table still describes where the data is, so an abort is recoverable.
+            num = str(op.get("num"))
+            sector = int(op.get("sector_size") or 512)
+            src_s, dst_s = int(op.get("src_start_s") or 0), int(op.get("dst_start_s") or 0)
+            len_s = int(op.get("length_s") or 0)
+            if not len_s or not src_s or not dst_s:
+                steps.append({"op": kind, "device": dev,
+                              "error": "movepart needs src_start_s, dst_start_s and length_s",
+                              "desc": f"move partition {num} (UNSUPPORTED)", "argv": []})
+            else:
+                nbytes = len_s * sector
+                start_mib = (dst_s * sector) // 1048576
+                end_mib = start_mib + (nbytes // 1048576)
+                steps.append({
+                    "op": kind, "device": dev, "touches_table": False,
+                    "busy_target": _part_path(dev, num), "same_size": True,
+                    "dst_start_s": dst_s, "dst_end_s": dst_s + len_s - 1, "part_num": int(num),
+                    "desc": f"copy {nbytes} bytes of partition {num} from sector {src_s} to {dst_s}"
+                            + (" (backwards — ranges overlap)" if dst_s > src_s else ""),
+                    "tool": "disk_move",
+                    "params": {"action": "start", "device": dev, "src_offset": src_s * sector,
+                               "dst_offset": dst_s * sector, "length": nbytes},
+                })
+                steps.append({"op": kind, "device": dev, "touches_table": False,
+                              "busy_target": _part_path(dev, num),
+                              "desc": f"wait for the copy of partition {num} to finish",
+                              "poll": "disk_move"})
+                steps.append({"op": kind, "device": dev, "touches_table": True,
+                              "busy_target": _part_path(dev, num),
+                              "desc": f"repoint partition {num} at {start_mib}MiB→{end_mib}MiB",
+                              "argv": ["sh", "-c",
+                                       f"printf 'Yes\\n' | parted ---pretend-input-tty {shlex.quote(dev)} rm {shlex.quote(num)} && "
+                                       f"parted -s {shlex.quote(dev)} unit MiB mkpart primary {start_mib} {end_mib}"]})
         elif kind == "growpart":
             # Grow a partition into the unallocated tail that appeared when the
             # hypervisor enlarged the virtual disk. Only ever grows to 100%, so it
@@ -281,6 +319,18 @@ _CRITICAL_MOUNTS = {"/", "/boot", "/boot/efi", "/usr", "/var", "/etc", "/bin", "
                     "/lib", "/lib64", "[SWAP]"}
 
 
+def _partitions_of(layout: dict, device: str) -> list[dict]:
+    """Top-level partitions of one device, each tagged with its 1-based number so a
+    move can tell "another partition" from the one being moved."""
+    for d in layout.get("devices", []) or []:
+        if d.get("path") == device:
+            out = []
+            for i, p in enumerate(d.get("partitions", []) or [], start=1):
+                out.append({**p, "_num": i})
+            return out
+    return []
+
+
 def _zfs_hits_critical(layout: dict, name: str) -> bool:
     """True if the ZFS pool/dataset `name` — or any dataset beneath it — is mounted
     at a critical system path, so destroy/rollback of it would break the host."""
@@ -371,8 +421,22 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
         if dev in protected:
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {dev} has mounted filesystem(s); unmount them first"})
+        # A MOVE writes raw blocks at the destination, so that range must not belong
+        # to another partition — and the partition being moved has to be unmounted
+        # (its bytes must not change under the copy).
+        if s["op"] == "movepart" and s.get("dst_start_s") is not None:
+            for other in _partitions_of(layout, dev):
+                if other.get("_num") == s.get("part_num"):
+                    continue
+                o_start, o_end = other.get("start_s"), other.get("end_s")
+                if o_start is None or o_end is None:
+                    continue
+                if not (s["dst_end_s"] < o_start or s["dst_start_s"] > o_end):
+                    problems.append({"severity": "error",
+                                     "message": f"{s['desc']}: refused — the destination overlaps "
+                                                f"{other.get('path')} (sectors {o_start}–{o_end})"})
         tgt = s.get("busy_target")
-        if s["op"] in ("mkfs", "label", "delete", "resize", "lvreduce") and tgt and tgt in busy:
+        if s["op"] in ("mkfs", "label", "delete", "resize", "lvreduce", "movepart") and tgt and tgt in busy:
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {tgt} is mounted; unmount it first"})
     return problems
@@ -454,6 +518,58 @@ async def install_tools(agent, client_factory, settings, bins: list[str]) -> dic
     return {"ok": not failed, "installed": installed, "failed": failed, "rejected": rejected}
 
 
+async def _call_module(client, tool: str, params: dict) -> tuple[bool, dict]:
+    """Call an agent module and unwrap its {data:…} payload."""
+    try:
+        res = await client.call_tool(tool, params)
+    except Exception as exc:  # noqa: BLE001
+        return False, {"output": str(exc)[:300]}
+    data = (res or {}).get("data") if isinstance(res, dict) else None
+    return True, (data if isinstance(data, dict) else {})
+
+
+async def _run_tool_step(client, s: dict, ctx: dict) -> tuple[bool, dict]:
+    """Run a module-call step. Anything the module returns that later steps need
+    (today: `job_id` from disk_move) is stashed in the shared step context."""
+    ok, data = await _call_module(client, s["tool"], s.get("params") or {})
+    if not ok:
+        return False, {"tool": s["tool"], "output": data.get("output", "call failed")}
+    if data.get("job_id"):
+        ctx["job_id"] = data["job_id"]
+    return True, {"tool": s["tool"], "output": _brief(data)}
+
+
+async def _run_poll_step(client, s: dict, ctx: dict, *, timeout_s: int = 6 * 3600) -> tuple[bool, dict]:
+    """Wait for an asynchronous module job to finish. Each poll is its own short
+    request, so a copy that runs for hours can never be cut off by a request
+    timeout — which is exactly why the copier is a job and not a `dd` command."""
+    import asyncio
+
+    job_id = ctx.get("job_id")
+    if not job_id:
+        return False, {"output": "no job id from the preceding step"}
+    waited, delay = 0.0, 0.5
+    while waited < timeout_s:
+        ok, data = await _call_module(client, s["poll"], {"action": "status", "job_id": job_id})
+        if not ok:
+            return False, {"output": data.get("output", "status call failed")}
+        state = data.get("state")
+        if state == "done":
+            return True, {"output": _brief(data)}
+        if state in ("failed", "cancelled"):
+            return False, {"output": f"{state}: {data.get('error') or ''}".strip()}
+        await asyncio.sleep(delay)
+        waited += delay
+        delay = min(delay * 1.5, 10.0)     # back off: quick at first, then every 10s
+    return False, {"output": f"job {job_id} still running after {timeout_s}s"}
+
+
+def _brief(data: dict) -> str:
+    keys = ("state", "done_bytes", "total_bytes", "percent", "job_id", "backwards", "msg")
+    parts = [f"{k}={data[k]}" for k in keys if k in data and data[k] not in (None, "")]
+    return " ".join(parts)[:500]
+
+
 async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, allow_nonloop: bool = False) -> dict:
     """Run the plan on the host. Refuses on any safety error. Dumps the partition
     table (sfdisk -d) of each touched device first as a rollback point. Stops at
@@ -490,15 +606,24 @@ async def apply(agent, client_factory, settings, plan: dict, layout: dict, *, al
 
     results: list[dict] = []
     ok = True
+    ctx: dict[str, Any] = {}          # carries values between steps (e.g. a job id)
     for s in steps:
-        if not s.get("argv"):
+        # A step is one of three kinds: a host command (argv), a call into an agent
+        # MODULE (tool/params — that is how the native disk_move copier is driven),
+        # or a wait-for-job (poll) that keeps asking the module until it finishes.
+        if s.get("tool"):
+            step_ok, detail = await _run_tool_step(client, s, ctx)
+        elif s.get("poll"):
+            step_ok, detail = await _run_poll_step(client, s, ctx)
+        elif s.get("argv"):
+            rc, out, err = await _run(client, s["argv"])
+            step_ok = rc == 0
+            detail = {"argv": s["argv"], "rc": rc, "output": (out + err).strip()[:500]}
+        else:
             results.append({"desc": s["desc"], "ok": False, "error": s.get("error", "no command")})
             ok = False
             break
-        rc, out, err = await _run(client, s["argv"])
-        step_ok = rc == 0
-        results.append({"desc": s["desc"], "argv": s["argv"], "rc": rc,
-                        "ok": step_ok, "output": (out + err).strip()[:500]})
+        results.append({"desc": s["desc"], "ok": step_ok, **detail})
         if not step_ok:
             ok = False
             break
