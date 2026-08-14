@@ -37,7 +37,7 @@ interface Seg {
   pct: number; usedPct: number; color: string; title: string; children: Seg[];
 }
 interface FormField { key: string; label: string; type: 'text' | 'number' | 'select'; value: string;
-  options?: string[]; hint?: string; placeholder?: string; }
+  options?: string[]; hint?: string; placeholder?: string; min?: number; max?: number; }
 interface ActiveForm { title: string; icon: string; fields: FormField[]; submitLabel: string;
   danger?: boolean; note?: string; run: (v: Record<string, string>) => void; }
 
@@ -233,6 +233,7 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
                 </select>
               } @else {
                 <input [type]="fld.type" [value]="fld.value" [placeholder]="fld.placeholder || ''"
+                       [attr.min]="fld.min ?? null" [attr.max]="fld.max ?? null"
                        (input)="fld.value = asVal($event)" (keydown.enter)="submitForm()" />
               }
               @if (fld.hint) { <span class="bm-dk-fld-hint">{{ fld.hint }}</span> }
@@ -557,14 +558,29 @@ export class HostDisksComponent {
     const curMib = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
     const startMib = p.start_s != null ? Math.max(1, Math.round((p.start_s * sector) / 1048576)) : 1;
     if (!num || !curMib) { alert('Cannot determine partition geometry.'); return; }
+    // gparted's bounds: you cannot shrink below what the filesystem uses, and you
+    // cannot grow past the unallocated space that directly follows the partition.
+    const usedMib = p.used_bytes != null ? Math.ceil(p.used_bytes / 1048576) : 1;
+    const afterMib = Math.floor(this.followingFreeBytes(d, p) / 1048576);
+    const minMib = Math.max(1, usedMib);
+    const maxMib = curMib + afterMib;
     this.openForm({
-      title: `Resize ${p.path} (${p.fstype})`, icon: 'open_in_full', submitLabel: 'Add to queue',
+      title: `Resize/Move ${p.path} (${p.fstype})`, icon: 'open_in_full', submitLabel: 'Add to queue',
       fields: [{ key: 'size', label: 'New size (MiB)', type: 'number', value: String(curMib),
-        hint: `current ≈ ${curMib} MiB · smaller shrinks, larger grows` }],
+        min: minMib, max: maxMib,
+        hint: `current ${curMib} MiB · min ${minMib} MiB (used) · max ${maxMib} MiB`
+          + (afterMib > 0 ? ` (${afterMib} MiB free space after)` : ' (no free space after)') }],
       run: (v) => {
         const sizeMib = Number(v['size']);
         if (!sizeMib || sizeMib <= 0) return;
         if (sizeMib === curMib) { alert('Same size — nothing to do.'); return; }
+        if (sizeMib < minMib) { alert(`Cannot shrink below the used space (${minMib} MiB).`); return; }
+        if (sizeMib > maxMib) {
+          alert(afterMib > 0
+            ? `Cannot grow past the free space that follows — max ${maxMib} MiB.`
+            : 'There is no unallocated space directly after this partition, so it cannot grow.');
+          return;
+        }
         const grow = sizeMib > curMib;
         this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!, start_mib: startMib, size_mib: sizeMib, grow,
           _desc: `${grow ? 'Grow' : 'Shrink'} ${p.path} (${p.fstype}) ${curMib} → ${sizeMib} MiB` });
@@ -828,6 +844,20 @@ export class HostDisksComponent {
     }
     return out;
   }
+  /** Unallocated bytes lying DIRECTLY after a partition — the only space it can
+   *  grow into without moving anything (gparted's "free space following"). */
+  private followingFreeBytes(d: Device, p: Partition): number {
+    if (p.end_s == null) return 0;
+    const sector = d.sector_size || 512;
+    for (const f of d.free || []) {
+      if (f.start_s == null) continue;
+      // parted reports the gap starting on the sector right after the partition
+      if (Math.abs(f.start_s - (p.end_s + 1)) <= 2048) {
+        return f.size_bytes ?? (f.end_s != null ? (f.end_s - f.start_s + 1) * sector : 0);
+      }
+    }
+    return 0;
+  }
   private unusedBytes(p: Partition): number {
     if (p.used_bytes == null) return 0;
     return Math.max(0, (p.size_bytes || 0) - p.used_bytes);
@@ -889,14 +919,28 @@ export class HostDisksComponent {
   tbResize(): void {
     const d = this.dev(); const p = this.selPart(); if (!d || !p) return;
     if (p.kind !== 'lvm') { this.opResize(d, p); return; }
-    // LVM: one dialog, grow (online) or shrink (needs unmount) decided by the size
+    // LVM: one dialog, grow (online) or shrink (needs unmount) decided by the size.
+    // Bounds: shrink no further than the fs uses, grow no further than the VG's free extents.
     const cur = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
+    const usedMib = p.used_bytes != null ? Math.ceil(p.used_bytes / 1048576) : 1;
+    const vgFreeMib = Math.floor(this.vgFreeBytesFor(p) / 1048576);
+    const minMib = Math.max(1, usedMib);
+    const maxMib = cur + vgFreeMib;
     this.openForm({
       title: `Resize LV ${p.path}`, icon: 'unfold_more', submitLabel: 'Add to queue',
       fields: [{ key: 'size', label: 'New size (MiB)', type: 'number', value: String(cur),
-        hint: `current ≈ ${cur} MiB · larger grows ONLINE · smaller shrinks (LV must be unmounted)` }],
+        min: minMib, max: maxMib,
+        hint: `current ${cur} MiB · min ${minMib} MiB (used) · max ${maxMib} MiB`
+          + (vgFreeMib > 0 ? ` (${vgFreeMib} MiB free in the VG)` : ' (VG has no free extents)')
+          + ' · larger grows ONLINE, smaller needs it unmounted' }],
       run: (v) => {
         const mib = Number(v['size']); if (!mib || mib === cur) return;
+        if (mib < minMib) { alert(`Cannot shrink below the used space (${minMib} MiB).`); return; }
+        if (mib > maxMib) {
+          alert(vgFreeMib > 0 ? `The volume group only has ${vgFreeMib} MiB free — max ${maxMib} MiB.`
+                              : 'The volume group has no free extents, so this LV cannot grow.');
+          return;
+        }
         if (mib > cur) {
           this.push({ op: 'lvextend', device: p.path, target: p.path, size: `+${mib - cur}M`,
             _desc: `Grow LV ${p.path} ${cur} → ${mib} MiB (online)` });
@@ -906,6 +950,14 @@ export class HostDisksComponent {
         }
       },
     });
+  }
+  /** Free extents of the volume group this LV belongs to — how far it can grow. */
+  private vgFreeBytesFor(p: Partition): number {
+    for (const vg of this.layout()?.vgs || []) {
+      const mine = (vg.lvs || []).some((lv: any) => lv.path === p.path || lv.name === p.name);
+      if (mine || p.path.includes(`/${vg.name}-`) || p.path.includes(`/${vg.name}/`)) return vg.free_bytes || 0;
+    }
+    return 0;
   }
   /** gparted's Undo: drop the LAST staged operation (Undo all lives in the queue). */
   undoLast(): void { this.ops.update((l) => l.slice(0, -1)); this.previewResult.set(null); this.applyResult.set(null); }
