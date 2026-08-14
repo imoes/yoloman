@@ -298,14 +298,27 @@ Die Op-Formate stehen in den Tool-Beschreibungen (server.py); `ops` ist eine geo
 Liste, jede Op ein Dict mit `op`-Feld (mklabel/mkpart/mkfs/label/mount/umount/delete/
 resize/lvextend/lvreduce).
 
-## 9. Risiken / offen
+## 9. Risiken / offen (Stand nach der Umsetzung)
 
-- **Datenverlust** — destruktive Domäne; Bestätigung, Backup, klarer Diff, Busy-Guard.
-- **Root-/Boot-Platte** — online kaum sicher änderbar; solche Ops nur offline/gegen
-  eine Rehearsal-/Image-Umgebung (Anknüpfung an Imaging + test-systems).
-- **Kein echter parted-Dry-run** — durch Preview-Diff + Tabellen-Backup mitigiert.
-- **Komplexe Stacks** (LVM/LUKS/RAID/Timescale-Hypertables auf der Platte) — Phase 1
-  nur anzeigen; Bearbeiten schrittweise.
-- **Tool-Verfügbarkeit am Host** — vorab prüfen.
-- **Reihenfolge/Alignment** — Sektor-Alignment (1 MiB) + gparted-Reihenfolge exakt
-  übernehmen, sonst Korruption/Verschnitt.
+Adressiert:
+- **Datenverlust** — Danger-Formulare mit Begründung, `sfdisk -d`-Tabellen-Backup vor
+  jeder Tabellenänderung, Preview der exakten Kommandos, Busy-Guard, und
+  `safety_check` nennt bei einer Verweigerung den **Grund**.
+- **Root-/Boot-Platte** — Platten mit gemountetem Dateisystem sind hart geschützt;
+  ausgenommen ist nur die rein additive, online-sichere Kette
+  `gptfix → growpart → pvresize → lvextend` (genau der Fall „VM-Systemplatte
+  vergrößert"), live verifiziert.
+- **Kein echter parted-Dry-run** — Preview zeigt die kompilierten Kommandos +
+  Safety-Verdikt, Tabellen-Backup als Rückfallebene.
+- **Komplexe Stacks** — LVM (extend/reduce/pvresize), LUKS (format/open/close),
+  ZFS (Pools/Datasets/Snapshots/Quota) sind umgesetzt und live getestet.
+- **Tool-Verfügbarkeit** — Scan meldet fehlende Tools, ein Klick installiert sie;
+  Apply installiert selbst nach (§8d).
+- **Reihenfolge/Alignment** — `parted -a optimal` beim Anlegen; Resize/Move rechnen in
+  MiB (also 1-MiB-aligned); Shrink-Reihenfolge fs→Partition, Grow Partition→fs;
+  Move kopiert rückwärts bei Überlappung (§8e).
+
+Offen:
+- **Software-RAID (mdadm)** — Arrays werden noch nicht angezeigt oder verwaltet.
+  Das ist die letzte größere Lücke gegenüber typischen Linux-Servern.
+- **Rehearsal-first** für destruktive Ops (Anknüpfung an docs/test-systems.md).
