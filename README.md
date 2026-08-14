@@ -303,6 +303,16 @@ host has for it — one per filesystem, per file, per sensor — exactly like a 
 
 Assign a check on the **host's Checks tab** or, GPO-style, to a **group/OU in OU / Policy** — a
 host's own config overrides the inherited one, warn/crit levels merged weakest→strongest.
+
+**Check templates** (Library ▸ Check templates) bundle threshold rules into a named, reusable set —
+the Zabbix/Checkmk "template" idea. A template can **nest** other templates and then also carries
+their rules (resolved transitively, cycle-safe), and it is **linked to host groups**: linking
+*materializes* real check rules scoped to that group, and editing the template updates them in every
+group it is linked to. The screen shows both sides so the effect is checkable rather than promised —
+the *rule* ("3 effective: 2 own + 1 nested") next to the *instance* ("3 materialized check rules in
+this group"). Rules born from a template are read-only where they land: the API refuses a direct
+edit (`409 — edit the template instead`), and the host's rule list names the template that owns them.
+
 **Auto-discovery** runs the checks' discovery on a host and proposes assignments; when a check needs
 credentials (e.g. a MySQL monitoring user), a **provisioning recipe** (`<name>.provision.nt`) creates
 the account on the host and stores the generated credential — the admin credentials are used once and

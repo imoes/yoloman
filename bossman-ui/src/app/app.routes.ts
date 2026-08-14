@@ -103,6 +103,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/checks/checks-catalog.component').then((m) => m.ChecksCatalogComponent),
   },
   {
+    // Bundles of check rules linked to host groups (api/templates.py). Named
+    // 'check-templates', not 'templates': config-templates and disk-templates already
+    // exist, so the bare word would be ambiguous in the URL as well as in the UI.
+    path: 'check-templates',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/check-templates/check-templates.component').then((m) => m.CheckTemplatesComponent),
+  },
+  {
     path: 'config-templates',
     canActivate: [authGuard],
     loadComponent: () => import('./features/config-templates/config-templates.component').then((m) => m.ConfigTemplatesComponent),

@@ -39,7 +39,15 @@ from pydantic import BaseModel
 # recomputes for presentation rather than storing (an aggregate's live state, "is this window
 # active right now"). Including those would make the version change without anyone editing
 # the object, so every save would fail with a conflict that has no cause.
-_VOLATILE = frozenset({"version", "active_now", "service_states", "nodes", "timezone", "created_at"})
+#
+# Server-assigned provenance belongs here too (`template_id`,
+# `source_template_rule_id`): a client cannot edit it, so it is not "editable content" —
+# and hashing it would mean that merely *exposing* provenance invalidates every version
+# tag clients already hold, turning the next save into a conflict with no cause.
+_VOLATILE = frozenset({
+    "version", "active_now", "service_states", "nodes", "timezone", "created_at",
+    "template_id", "source_template_rule_id",
+})
 
 
 def compute_version(payload: Any) -> str:

@@ -20,7 +20,8 @@ const NAV_ICON: Record<string, string> = {
   '/noc': 'noc', '/business-services': 'business-services', '/capacity': 'capacity',
   '/scheduler': 'scheduler', '/rollouts': 'rollouts',
   '/hosts': 'hosts', '/notifications': 'notifications', '/ou': 'ou-policy', '/modules': 'modules',
-  '/checks': 'checks', '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
+  '/checks': 'checks', '/check-templates': 'checks',
+  '/config-templates': 'config-templates', '/config-codecs': 'config-templates',
   '/snmp-devices': 'hosts', '/users': 'users', '/settings': 'settings', '/vault': 'settings',
   '/apps': 'modules', '/systems': 'topology', '/disk-templates': 'deploy', '/docker-state': 'hosts',
   // Previously unmapped (they silently fell back to 'fleet'). Icon names repeat across workspaces where
@@ -108,6 +109,7 @@ const WORKSPACES: Workspace[] = [
       { path: '/docker-apps', label: 'Docker apps', icon: 'inventory_2' },
       { path: '/modules', label: 'Modules', icon: 'extension' },
       { path: '/checks', label: 'Checks', icon: 'fact_check' },
+      { path: '/check-templates', label: 'Check templates', icon: 'rule_folder' },
       { path: '/config-templates', label: 'Config templates', icon: 'dataset' },
       { path: '/config-codecs', label: 'Config codecs', icon: 'data_object' },
       { path: '/disk-templates', label: 'Disk images', icon: 'install_desktop' },

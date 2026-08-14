@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, concat, of, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { Availability, CheckRule, CheckRuleInput, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
+import { Availability, CheckRule, CheckRuleInput, CheckTemplate, CheckTemplateGroup, CheckTemplateInput, CheckTemplateLink, Downtime, EffectiveThreshold, FleetHost, FleetSummary, MetricCatalogEntry, ServiceHistoryPoint, ServiceState } from '../models/monitoring.model';
 
 export interface ProblemsFilter {
   state?: string;
@@ -143,6 +143,53 @@ export class MonitoringService {
    * primary; refused for the last remaining OU). */
   removeOuLink(id: string, ouId: string) {
     return this.http.delete<CheckRule>(`${this.base}/check-rules/${id}/ou-links/${ouId}`);
+  }
+
+  /** ---------------------------------------------------------------------
+   * Check templates (/api/v1/templates + /template-groups). Reusable bundles of
+   * check rules, linked to host groups; linking materializes real CheckRule rows,
+   * so every write here can change what the fleet is measured against. */
+
+  listCheckTemplates() {
+    return this.http.get<CheckTemplate[]>(`${this.base}/templates`);
+  }
+
+  createCheckTemplate(body: CheckTemplateInput) {
+    return this.http.post<CheckTemplate>(`${this.base}/templates`, body);
+  }
+
+  /** PUT is replace-all for rules and nesting (the API's own shape), then it
+   * re-materializes every link of this template AND of every template nesting it. */
+  updateCheckTemplate(id: string, body: CheckTemplateInput) {
+    return this.http.put<CheckTemplate>(`${this.base}/templates/${id}`, body);
+  }
+
+  deleteCheckTemplate(id: string) {
+    return this.http.delete<void>(`${this.base}/templates/${id}`);
+  }
+
+  listCheckTemplateLinks(id: string) {
+    return this.http.get<CheckTemplateLink[]>(`${this.base}/templates/${id}/links`);
+  }
+
+  linkCheckTemplate(id: string, hostGroup: string) {
+    return this.http.post<CheckTemplateLink>(`${this.base}/templates/${id}/links`, { host_group: hostGroup });
+  }
+
+  unlinkCheckTemplate(id: string, linkId: string) {
+    return this.http.delete<void>(`${this.base}/templates/${id}/links/${linkId}`);
+  }
+
+  listCheckTemplateGroups() {
+    return this.http.get<CheckTemplateGroup[]>(`${this.base}/template-groups`);
+  }
+
+  createCheckTemplateGroup(name: string) {
+    return this.http.post<CheckTemplateGroup>(`${this.base}/template-groups`, { name });
+  }
+
+  deleteCheckTemplateGroup(id: string) {
+    return this.http.delete<void>(`${this.base}/template-groups/${id}`);
   }
 
   fleetSummary() {

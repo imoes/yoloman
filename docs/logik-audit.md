@@ -323,19 +323,30 @@ Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
 Vollständige Inventur: **~370 Endpunkte** (481 `@router`-Dekoratoren) gegen alle
 UI-Aufrufe. Auftrag war „jeden einzelnen Frontend- und Backend-Endpunkt".
 
-### 8.1 Toter Code — ganze Feature-Familien ohne jeden Aufrufer
+### 8.1 Familien ohne Oberfläche — *nicht* automatisch toter Code
 
-Weder UI noch MCP noch Agent rufen diese auf:
+> **Korrektur (wichtig).** Diese Tabelle hieß zuerst „Toter Code — ohne jeden Aufrufer".
+> Das war falsch etikettiert und hat eine Löschentscheidung auf eine schiefe Grundlage
+> gestellt: „ohne Aufrufer" galt nur für **UI, MCP und Agent**. Tatsächlich hat **jede**
+> Familie außer Remediation eine **Testdatei**, und drei haben eine eigene Service-Schicht
+> (`templates.py`, `time_periods.py`, `remediation.py`). Ein Test *ist* ein Aufrufer.
+> Richtig heißt der Befund: **gebaut, getestet, aber nicht bedienbar** — und die Frage ist
+> je Familie „Oberfläche nachziehen oder entfernen", nicht „löschen, ist eh tot".
+>
+> Regelverstoß, den ich selbst begangen habe: Äquivokation über „Aufrufer" (§1) — derselbe
+> Begriff meinte in der Inventur etwas anderes als in der Vorlage an den Nutzer.
 
-| Familie | Endpunkte | Beleg |
-|---|---|---|
-| `/graphs` (+`/{id}/data`) | 6 | graphs.py:112,120,127,147,174,200 |
-| `/clusters` | 4 | clusters.py:134,148,178,201 |
-| `/value-maps` | 4 | value_maps.py:47,55,79,98 |
-| `/severity-labels` | 2 | severity_labels.py:43,51 |
-| `/templates` + `/template-groups` | 11 | templates.py:56,64,80,181,189,197,228,270,306,315,339 |
-| `/remediation-policies`, `/remediation-runs`, `/agents/{id}/remediate` | 7 | remediation.py:79,85,111,138,154,174,184 |
-| `/time-periods` POST/PUT/DELETE/usage | 4 | time_periods.py:144,167,205,225 (UI liest nur die Liste) |
+Weder UI noch MCP noch Agent rufen diese auf (Tests und Service-Schicht siehe Spalten):
+
+| Familie | Endpunkte | Tests | Service | Beleg | Stand |
+|---|---|---|---|---|---|
+| `/graphs` (+`/{id}/data`) | 6 | ja | — | graphs.py:112,120,127,147,174,200 | offen |
+| `/clusters` | 4 | ja | — | clusters.py:134,148,178,201 | offen |
+| `/value-maps` | 4 | ja | — | value_maps.py:47,55,79,98 | offen |
+| `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | offen |
+| `/templates` + `/template-groups` | 11 | **10 E2E** | ja | templates.py:56,64,80,181,189,197,228,270,306,315,339 | **Oberfläche gebaut** |
+| `/remediation-policies`, `/remediation-runs`, `/agents/{id}/remediate` | 7 | — | ja | remediation.py:79,85,111,138,154,174,184 | geht in Event-Handling auf |
+| `/time-periods` POST/PUT/DELETE/usage | 4 | ja | ja | time_periods.py:144,167,205,225 (UI liest nur die Liste) | offen |
 
 ```
 [Falsifizierbarkeit + Parsimonie] 38 Endpunkte ohne Aufrufer
@@ -475,6 +486,32 @@ Bulk-Verben in vier Schreibweisen (`acknowledge-bulk`, `mass-update`, `bulk-upda
            Schlimmer: er verdeckt echte Fehlschläge (siehe nächster Befund).
   Fix:     Suite im Container laufen lassen (dort ist die DB erreichbar) oder diese
            Tests als solche markieren, damit „17 rot" nicht zur Normalität wird.
+  NACHTRAG (im Container gemessen, damit widerlegt): „nur die Umgebung" war eine
+           unzureichende Erklärung. Im Container IST die DB erreichbar — und dieselben
+           16 fallen weiter, jetzt mit `assert 0 == 1`. Ursache ist ein Konstruktions-
+           fehler in den Tests selbst: `tests/conftest.py:52-69` gibt eine Session, die
+           NIE committet (Zeile 69 `rollback`), die Tests säen mit `flush()` und lesen
+           dann über `TestClient(create_app())` — eine EIGENE Verbindung, die eine
+           fremde offene Transaktion nach ACID nicht sehen kann (Beispiel:
+           tests/test_relationships_api.py:60-73).
+           Diese 16 Tests können in dieser Form in KEINER Umgebung grün werden.
+           Der Widerspruch: der Test behauptet, er prüfe „real HTTP gegen real Postgres",
+           prüft aber eine Sichtbarkeit, die er selbst ausschließt.
+  Fix:     Saat committen (die autouse-Fixture `_drop_test_residue` existiert genau für
+           TestClient-schreibende Tests und räumt danach auf) — NICHT die Assertions
+           abschwächen. Danach ist „rot" wieder ein Signal.
+  Lehre:   Zwei Umgebungen, zwei verschiedene Fehlerursachen, dieselbe Zahl 16 — die
+           gleiche Zahl hat mich die erste Ursache für die einzige halten lassen.
+
+[Widerspruchsfreiheit] Testrückstand in der gemeinsamen Datenbank
+  Beleg:   GET /api/v1/host-groups liefert live 36 Gruppen `grp-XXXXXX` mit 0 Mitgliedern.
+  Problem: Die Aufräum-Fixture `_drop_test_residue` erfasst Host-Gruppen nicht; die
+           Testläufe hinterlassen sie in der EINEN Datenbank (es gibt keine Dev-DB,
+           siehe reference-single-database). Jede Gruppenauswahl im UI — auch die neue
+           Template-Verknüpfung — zeigt damit Objekte, die es fachlich nicht gibt.
+  Fix:     Host-Gruppen in die Rückstandsabsicherung aufnehmen und die 36 Altlasten
+           löschen (getrennt entscheiden, weil es Fremddaten sein KÖNNTEN — Namensmuster
+           `grp-` + 0 Mitglieder + kein OU ist aber eindeutig).
 
 [Widerspruchsfreiheit] Wer OpenRouter anfordert, bekommt hermes_web
   Beleg:   tests/test_chat_backend.py:128 behauptete BACKENDS == {claude_cli, codex,
@@ -492,3 +529,89 @@ Bulk-Verben in vier Schreibweisen (`acknowledge-bulk`, `mass-update`, `bulk-upda
            (services/chat_backend.py:323, api/chat.py:81) übergeben `name=OPENROUTER`.
   Status:  ERLEDIGT, Test grün (8/8) und um die vierte Art erweitert.
 ```
+
+---
+
+## Umsetzung: Check templates — Oberfläche nachgezogen (Spur A, Familie 5)
+
+Nutzerentscheidung: **Oberfläche nachziehen** statt entfernen. Grundlage war die Korrektur
+in §8.1 — die Familie war nicht tot, sondern *fertig gebaut und ungenutzt*: `Template`
+bündelt `CheckRule`-Zeilen, kann andere Templates **verschachteln** und wird an Host-Gruppen
+**verlinkt**; beim Verlinken werden echte `CheckRule`-Zeilen **materialisiert**
+(`services/templates.py`, zyklensicher, transitiv).
+
+### Was gebaut wurde
+
+| Ort | Änderung |
+|---|---|
+| `bossman-ui/.../features/check-templates/check-templates.component.ts` | neu — der Screen (Liste ↔ Detail, Regeln, Verschachtelung, Verknüpfungen) |
+| `bossman-ui/.../core/services/monitoring.service.ts` | 9 Methoden für `/templates`, `/templates/{id}/links`, `/template-groups` |
+| `bossman-ui/.../core/models/monitoring.model.ts` | `CheckTemplate*`-Typen; `CheckRule` um die Herkunft erweitert |
+| `bossman-ui/src/app/app.routes.ts`, `app.ts` | Route `/check-templates` + Navigationseintrag in *Library* |
+| `bossman/bossman/api/monitoring.py` | `CheckRuleOut.template_id` / `.source_template_rule_id` |
+| `bossman/bossman/api/etag.py` | beide Felder aus dem Versions-Hash ausgenommen |
+
+### Logische Entscheidungen (jede mit ihrer Regel)
+
+```
+[Identität] Der Screen heißt "Check templates", nie bloß "Templates"
+  Problem: Die UI hat schon "Config templates" und "Disk images", die API zusätzlich
+           /provisioning/templates und /docker/app-templates (§8.3). Ein nackter
+           Begriff "Template" benennt fünf verschiedene Dinge.
+  Fix:     Label, Route (/check-templates) und Typnamen (CheckTemplate*) tragen das
+           Qualifikator-Wort. Der API-Name `Template` bleibt; die Übersetzung liegt an
+           EINER Stelle (dem Modell-Kommentar in monitoring.model.ts).
+
+[Zureichender Grund] Materialisierte Regeln waren herkunftslos
+  Beleg:   CheckRuleOut gab template_id nicht heraus, obwohl PUT/PATCH/DELETE
+           template-erzeugte Regeln bereits mit 409 "edit the template instead"
+           verweigern (monitoring.py:810,874,994).
+  Problem: Das UI konnte die Herkunft nicht nennen und die Bedienelemente nicht
+           ausgrauen — die Verweigerung erschien grundlos, erst nach dem Klick.
+  Fix:     Beide Herkunftsfelder in der Antwort; im Client als schreibgeschützt
+           typisiert (aus CheckRuleInput ausgenommen, der Compiler erzwingt es).
+
+[Falsifizierbarkeit] "Verknüpft" ist jetzt nachprüfbar, nicht nur behauptet
+  Problem: Ein Screen, der nur sagt "verlinkt", liefert keinen Beobachtungspunkt für
+           "hat es gewirkt?".
+  Fix:     Je Verknüpfung wird die ZURÜCKGELESENE Zahl materialisierter CheckRule-Zeilen
+           angezeigt (aus /check-rules gefiltert nach template_id + scope_value), und
+           bei Abweichung "N von M erwartet".
+
+[Ausgeschlossenes Drittes] Verwaiste Verknüpfung ist ein benannter Zustand
+  Problem: TemplateLink speichert den Gruppen-NAMEN als Text (models.py:764, kein FK).
+           Eine umbenannte oder gelöschte Gruppe hinterlässt eine Verknüpfung, die auf
+           nichts zeigt — vorher unsichtbar.
+  Fix:     Gruppenauswahl nur per Dropdown aus /host-groups (kein Freitext); eine
+           Verknüpfung ohne passende Gruppe wird rot als "unknown group" markiert.
+  Offen:   Der eigentliche Fix ist ein FK auf host_groups.id statt eines Namens-Strings —
+           Migration, daher eigene Entscheidung.
+
+[Widerspruchsfreiheit] Keine Aktion, die das Backend verweigern würde
+  Fix:     Selbstverschachtelung wird nicht angeboten (API: 422), schon verlinkte
+           Gruppen erscheinen nicht in der Auswahl (API: 409), "Add rule" bleibt
+           gesperrt ohne Service+Metrik+Schwellwert — mit Begründung im Formular.
+           Vor dem Speichern steht, dass die Regeln in N Gruppen neu erzeugt werden;
+           Löschen/Trennen nennt die Folge samt Anzahl.
+
+[Intension vs. Extension] Regel und Instanz getrennt gezeigt
+  Fix:     "Effective: 3 rule(s) — 2 own + 1 from nested templates" ist die REGEL
+           (inkl. ungespeicherter Änderung); "Materialized check rules: 3" ist die
+           INSTANZ in der Gruppe. Der Vergleichswert ist bewusst der GESPEICHERTE
+           Stand, damit eine offene Bearbeitung die Verknüpfung nicht falsch aussehen
+           lässt.
+```
+
+### Live verifiziert (test-deployment/Compose, nicht nur gebaut)
+
+1. Zwei Templates per API angelegt, `ui-probe-parent` verschachtelt `ui-probe-base`.
+2. Verknüpfung auf `grp-0e670c` → **2** CheckRule-Zeilen materialisiert: die eigene
+   (`mem_percent`) **und** die des verschachtelten Templates (`cpu_percent`), jeweils mit
+   `scope_type=group` und gesetzter `source_template_rule_id` → der transitive Weg wirkt.
+3. Direktes `PATCH`/`DELETE` auf eine so erzeugte Regel → **409** mit Begründung.
+4. Im Browser (`:4201/check-templates`): Regel über das Inline-Formular hinzugefügt,
+   gespeichert → „Effective: 3" **und** „Materialized: 3" in derselben Ansicht.
+5. Templates gelöscht → Cascade räumt die materialisierten Regeln mit ab (0 Restzeilen).
+
+Keine `prompt()`-Dialoge: Formulare sind inline, Bestätigungen laufen über eine Snackbar
+mit benannter Folge.
