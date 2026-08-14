@@ -143,3 +143,155 @@ def test_as_dict_is_plain_data_for_the_ui():
     assert d["role"]["needs_address"] is False
     assert d["config"]["observe_includes_schema"] is True
     assert d["config"]["generations_scope"] == "host"
+
+
+# ---------------------------------------------------------------------------
+# The builder: one call shape for every kind, and the read verbs' response
+# shapes. Doubles stand in for the session/agent so these run without a host
+# or a database — the DB-backed tests cannot run from here at all
+# (docs/logik-audit.md area 9), so the contract has to be checkable offline.
+# ---------------------------------------------------------------------------
+
+class _FakeAgent:
+    def __init__(self, name="h1", address="10.0.0.1"):
+        self.name = name
+        self.address = address
+
+
+class _FakeSession:
+    """Returns whatever agent it was given for any session.get(Agent, id)."""
+    def __init__(self, agent):
+        self._agent = agent
+
+    async def get(self, _model, _pk):
+        return self._agent
+
+
+def _spy_cls(recorder, *, plan_row=object()):
+    """A stand-in resource that records how it was constructed."""
+    class _Spy:
+        resource_key = "spy:key"
+        resource_type = "spy"
+
+        def __init__(self, session, agent, client_factory, settings, name, **kw):
+            recorder.update(session=session, agent=agent, name=name, kwargs=kw)
+
+        def schema(self):
+            return {"sync": True}
+
+        async def schema_async(self):
+            return {"async": True}
+
+        async def observe(self):
+            return {"observed": True}
+
+        async def generations(self):
+            return [{"generation": 1}]
+
+        async def _plan_row(self):
+            return plan_row
+
+    return _Spy
+
+
+@pytest.mark.asyncio
+async def test_build_refuses_an_unknown_host_with_a_reason():
+    with pytest.raises(reg.NoSuchResource) as e:
+        await reg.build("docker", agent_id="x", name="n", session=_FakeSession(None),
+                        settings=None, client_factory=None)
+    assert "no such agent" in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_build_refuses_an_unreachable_host_for_kinds_that_need_one(monkeypatch):
+    rec: dict = {}
+    monkeypatch.setitem(reg.REGISTRY, "docker",
+                        reg.ResourceSpec(kind="docker", cls=_spy_cls(rec), schema_is_async=False))
+    with pytest.raises(reg.ResourceUnreachable) as e:
+        await reg.build("docker", agent_id="x", name="n",
+                        session=_FakeSession(_FakeAgent(address="")), settings=None, client_factory=None)
+    assert "no reachable address" in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_role_builds_for_a_host_without_an_address(monkeypatch):
+    """The declared exception, exercised: a planned host that never booted can still be
+    given a role, because the binding is DB-only desired state."""
+    rec: dict = {}
+    monkeypatch.setitem(reg.REGISTRY, "role",
+                        reg.ResourceSpec(kind="role", cls=_spy_cls(rec), needs_address=False,
+                                         needs_identity=True))
+
+    class _Id:
+        name = "alice"
+
+    r = await reg.build("role", agent_id="x", name="web", session=_FakeSession(_FakeAgent(address="")),
+                        settings=None, client_factory=None, identity=_Id())
+    assert r is not None
+    assert rec["kwargs"]["requested_by"] == "alice"
+
+
+@pytest.mark.asyncio
+async def test_role_missing_plan_row_says_what_a_role_is(monkeypatch):
+    rec: dict = {}
+    monkeypatch.setitem(reg.REGISTRY, "role",
+                        reg.ResourceSpec(kind="role", cls=_spy_cls(rec, plan_row=None),
+                                         needs_address=False, needs_identity=True))
+    with pytest.raises(reg.NoSuchResource) as e:
+        await reg.build("role", agent_id="x", name="web", session=_FakeSession(_FakeAgent()),
+                        settings=None, client_factory=None)
+    msg = str(e.value)
+    assert "no such role" in msg and "OrchestrationPlan" in msg   # the reason, not just the refusal
+
+
+@pytest.mark.asyncio
+async def test_helm_gets_its_namespace_and_defaults_it(monkeypatch):
+    rec: dict = {}
+    monkeypatch.setitem(reg.REGISTRY, "helm",
+                        reg.ResourceSpec(kind="helm", cls=_spy_cls(rec), query_params=("namespace",)))
+    await reg.build("helm", agent_id="x", name="rel", session=_FakeSession(_FakeAgent()),
+                    settings=None, client_factory=None, namespace="prod")
+    assert rec["kwargs"]["namespace"] == "prod"
+    await reg.build("helm", agent_id="x", name="rel", session=_FakeSession(_FakeAgent()),
+                    settings=None, client_factory=None)
+    assert rec["kwargs"]["namespace"] == "default"
+
+
+@pytest.mark.asyncio
+async def test_read_verb_shapes_match_what_callers_already_get(monkeypatch):
+    rec: dict = {}
+    # a kind with a synchronous schema and no quirks
+    monkeypatch.setitem(reg.REGISTRY, "docker",
+                        reg.ResourceSpec(kind="docker", cls=_spy_cls(rec), schema_is_async=False))
+    spy = _spy_cls(rec)(None, None, None, None, "n")
+    assert await reg.read_verb("docker", "schema", spy) == {
+        "resource_key": "spy:key", "type": "spy", "schema": {"sync": True}}
+    assert await reg.read_verb("docker", "observe", spy) == {
+        "resource_key": "spy:key", "observed": {"observed": True}}
+    assert await reg.read_verb("docker", "generations", spy) == {
+        "resource_key": "spy:key", "generations": [{"generation": 1}]}
+
+
+@pytest.mark.asyncio
+async def test_config_keeps_its_two_response_quirks(monkeypatch):
+    rec: dict = {}
+    monkeypatch.setitem(reg.REGISTRY, "config",
+                        reg.ResourceSpec(kind="config", cls=_spy_cls(rec), addressed_by="path",
+                                         has_schema=False, observe_includes_schema=True,
+                                         generations_scope="host"))
+    spy = _spy_cls(rec)(None, None, None, None, "/etc/x")
+    obs = await reg.read_verb("config", "observe", spy)
+    assert obs["schema"] == {"async": True} and obs["observed"] == {"observed": True}
+    gens = await reg.read_verb("config", "generations", spy)
+    assert gens["scope"] == "host"
+    # and it has no schema endpoint — asking for one says why
+    with pytest.raises(reg.NoSuchResource) as e:
+        await reg.read_verb("config", "schema", spy)
+    assert "arrives with observe()" in str(e.value)
+
+
+@pytest.mark.asyncio
+async def test_read_verb_rejects_a_write_verb():
+    with pytest.raises(ValueError) as e:
+        await reg.read_verb("docker", "apply", object())
+    assert "not a read verb" in str(e.value)

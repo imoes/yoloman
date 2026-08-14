@@ -39,6 +39,20 @@ from bossman.services.resources.package_resource import PackageResource
 from bossman.services.resources.role import RoleResource
 from bossman.services.resources.service_resource import ServiceResource
 
+class NoSuchResource(LookupError):
+    """The host or the instance does not exist → the API answers 404.
+
+    A service raising its own exception (instead of FastAPI's HTTPException) keeps the
+    dependency pointing one way: the API may know about services, services must not
+    know about HTTP. The message is written for a human, because the API passes it
+    straight through as the reason.
+    """
+
+
+class ResourceUnreachable(RuntimeError):
+    """The host exists but cannot be reached directly → the API answers 422."""
+
+
 #: The four verbs every kind must implement, plus the two history verbs that make a
 #: change reversible. `generations`/`rollback` are part of the contract because a
 #: resource without history cannot be rolled back — that was the original complaint
@@ -131,6 +145,79 @@ REGISTRY: dict[str, ResourceSpec] = {
 }
 
 
+async def build(kind: str, *, agent_id, name: str, session, settings, client_factory,
+                identity=None, **query):
+    """Construct the resource for one instance — the ONE place that knows how the kinds
+    differ in construction.
+
+    Before this, each kind had its own factory with its own signature (agent id vs
+    agent object, Helm's namespace, role's identity), which is why the routes could not
+    be shared. The differences are read from the spec now, so a caller passes the same
+    arguments for every kind.
+
+    Raises NoSuchResource / ResourceUnreachable — never an HTTP exception.
+    """
+    from bossman.db.models import Agent
+
+    spec = spec_for(kind)
+    agent = await session.get(Agent, agent_id)
+    if agent is None:
+        raise NoSuchResource(f"no such agent {agent_id}")
+    # `role` is the declared exception: a binding is DB-only desired state, so a host
+    # that has never booted may still be given roles (see the spec's notes).
+    if spec.needs_address and not agent.address:
+        raise ResourceUnreachable(f"agent {agent.name!r} has no reachable address")
+
+    if spec.kind == "helm":
+        return spec.cls(session, agent, client_factory, settings, name,
+                        namespace=query.get("namespace") or "default")
+    if spec.kind == "role":
+        r = spec.cls(session, agent, client_factory, settings, name,
+                     requested_by=getattr(identity, "name", "resource-api"))
+        # 404 here rather than failing deeper down: a role is an OrchestrationPlan of
+        # type 'role', and saying so is more useful than an error from three layers in.
+        if await r._plan_row() is None:
+            raise NoSuchResource(
+                f"no such role: {name!r} — a role is an OrchestrationPlan of type 'role' "
+                "(author it in Ansible task syntax under a `role:` key and compile via "
+                "POST /api/v1/runbooks/role/compile)")
+        return r
+    # docker, config (name IS the file path), package, service
+    return spec.cls(session, agent, client_factory, settings, name)
+
+
+async def read_verb(kind: str, verb: str, resource) -> dict[str, Any]:
+    """Run one of the READ verbs and shape the response exactly as this kind's callers
+    already receive it. The per-kind response quirks come from the spec instead of from
+    duplicated route bodies:
+
+    * `schema` — `schema_async()` when the kind derives it from live data, else `schema()`
+    * `observe` — `config` returns its field schema alongside the values
+    * `generations` — `config` labels its history with the scope it applies to
+    """
+    spec = spec_for(kind)
+    if verb == "schema":
+        if not spec.has_schema:
+            raise NoSuchResource(f"{kind} has no schema endpoint — its schema arrives with observe()")
+        schema = await resource.schema_async() if spec.schema_is_async else resource.schema()
+        return {"resource_key": resource.resource_key, "type": resource.resource_type, "schema": schema}
+    if verb == "observe":
+        out: dict[str, Any] = {"resource_key": resource.resource_key}
+        if spec.observe_includes_schema:
+            # schema first: it derives the per-directive fields from the observed values
+            # (and caches the flatten index observe() needs anyway).
+            out["schema"] = await resource.schema_async()
+        out["observed"] = await resource.observe()
+        return out
+    if verb == "generations":
+        out = {"resource_key": resource.resource_key}
+        if spec.generations_scope:
+            out["scope"] = spec.generations_scope
+        out["generations"] = await resource.generations()
+        return out
+    raise ValueError(f"{verb!r} is not a read verb — expected schema, observe or generations")
+
+
 def spec_for(kind: str) -> ResourceSpec:
     """The spec for a kind, or a ValueError naming the legal values.
 
@@ -167,4 +254,10 @@ def as_dict() -> dict[str, dict[str, Any]]:
     }
 
 
-__all__ = ["CORE_VERBS", "HISTORY_VERBS", "REGISTRY", "ResourceSpec", "as_dict", "kinds", "spec_for"]
+READ_VERBS = ("schema", "observe", "generations")
+
+__all__ = [
+    "CORE_VERBS", "HISTORY_VERBS", "READ_VERBS", "REGISTRY", "NoSuchResource",
+    "ResourceSpec", "ResourceUnreachable", "as_dict", "build", "kinds", "read_verb",
+    "spec_for",
+]
