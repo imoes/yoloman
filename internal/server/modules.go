@@ -50,6 +50,7 @@ func NewDefaultModuleRegistry() *modules.Registry {
 		modules.NewService(),
 		modules.NewApt(),
 		modules.NewCommand(),
+		modules.NewDiskMove(),
 		modules.NewBlockInFile(),
 		modules.NewReplace(),
 		modules.NewAssemble(),
