@@ -123,6 +123,21 @@ async def _execute_policy(
         return "failed", f"error: {str(exc)[:200]}"
 
 
+async def _action_label(session: AsyncSession, policy: RemediationPolicy) -> str:
+    """"kind:name" for the audit row — resolved WHEN THE RUN IS WRITTEN.
+
+    The kind is part of the fact: "clean-logs" alone would not say whether a runbook or a script
+    ran. Resolved now rather than looked up later, because the rule (and with it the answer) may
+    be gone by the time someone reads the history.
+    """
+    if policy.event_handler_id is not None:
+        from bossman.db.models import EventHandler
+
+        handler = await session.get(EventHandler, policy.event_handler_id)
+        return f"handler:{handler.name}" if handler is not None else f"handler:{policy.event_handler_id}"
+    return f"runbook:{policy.runbook_name}" if policy.runbook_name else ""
+
+
 async def _has_open_proposal(session: AsyncSession, policy_id: UUID, agent_id: UUID, service_name: str) -> bool:
     """Is there already an un-applied proposal for this (policy, host, check)?
     Avoids re-proposing the same fix on every poll while the problem persists."""
@@ -145,7 +160,7 @@ async def propose_for_service(session: AsyncSession, agent: Agent, service_name:
             continue
         run = RemediationRun(
             tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
-            runbook_name=p.runbook_name, status="pending",
+            runbook_name=p.runbook_name, action=await _action_label(session, p), status="pending",
             detail=f"auto-detected on '{service_name}' — awaiting Apply",
         )
         session.add(run)
@@ -250,7 +265,8 @@ async def run_remediations_for_service(
         status, detail = await _execute_policy(session, settings, agent, service_name, p, client_factory)
         run = RemediationRun(
             tenant_id=agent.tenant_id, policy_id=p.id, agent_id=agent.id, service_name=service_name,
-            runbook_name=p.runbook_name, status=status, detail=detail[:2000], applied_at=now, at=now,
+            runbook_name=p.runbook_name, action=await _action_label(session, p),
+            status=status, detail=detail[:2000], applied_at=now, at=now,
         )
         _set_verify_phase(run, p, status, now)
         session.add(run)

@@ -285,11 +285,31 @@ Beim Bau der Regel-Oberfläche kamen **zwei Lücken** heraus, die vorher niemand
            Speichern, geänderte Felder übernommen.
 ```
 
+### Vor der Regel-Oberfläche gefunden: die Historie konnte nicht sagen, WAS lief
+
+```
+[Zureichender Grund] Der Audit-Eintrag einer Handler-Regel war leer
+  Beleg:   RemediationRun speicherte nur `runbook_name`, und der ist bei einer Handler-Regel
+           per Constraint LEER (services/remediation.py schrieb ihn an beiden Stellen 1:1).
+  Problem: Genau für den neuen Fall hätte die Historie Ereignisse gelistet, ohne benennen zu
+           können, was ausgeführt wurde. Eine Anzeige darauf zu bauen hätte eine leere Spalte
+           hübsch gerahmt.
+  Fix:     Migration b3e7d1a48c52 fügt `remediation_runs.action` als „kind:name" hinzu
+           („runbook:restart-nginx", „handler:clean-logs"). Die Art gehört zur Tatsache —
+           „clean-logs" allein sagt nicht, ob ein Runbook oder ein Skript lief.
+  Warum GESPEICHERT und nicht per Join geholt: `policy_id` ist ON DELETE SET NULL. Live
+           belegt: Regel gelöscht → `policy_id = None`, `action = 'handler:probe-action'`
+           bleibt. Ohne die Spalte hätte das Löschen der Regel die Antwort mitgenommen.
+  Bestand: 2 von 3 Altzeilen zurückgefüllt; die dritte bleibt LEER, weil ihr Ursprung
+           unbekannt ist — eine erfundene Angabe wäre schlimmer als eine fehlende.
+```
+
 ### Offen
 
 4c. Event-Regeln-Oberfläche: Liste + Editor (Aktion als EINE Auswahl „Runbook" oder
     „Event handler", Parameterwerte aus den deklarierten Parametern des Handlers, Leitplanken)
-    und die Läufe mit Apply/Dismiss als Beobachtungspunkt.
+    und die Läufe mit Apply/Dismiss als Beobachtungspunkt — jetzt auf einer Historie, die die
+    Frage „was lief?" beantworten kann.
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.
 6. Der Agent mit `env` muss auf die Hosts ausgerollt werden, sonst verweigert jeder
    Skript-Handler dort — mit Grund, aber er läuft nicht.

@@ -230,6 +230,8 @@ class RemediationRunOut(BaseModel):
     agent_id: UUID | None
     service_name: str
     runbook_name: str
+    #: WHAT ran, as "kind:name" — the answer the history keeps even after its rule is deleted.
+    action: str
     status: str
     detail: str | None
     at: datetime
@@ -252,7 +254,8 @@ async def list_remediation_runs(status: str | None = Query(None), limit: int = Q
     rows = (await session.scalars(stmt.order_by(RemediationRun.at.desc()).limit(limit))).all()
     return [RemediationRunOut(
         id=r.id, policy_id=r.policy_id, agent_id=r.agent_id, service_name=r.service_name,
-        runbook_name=r.runbook_name, status=r.status, detail=r.detail, at=r.at,
+        runbook_name=r.runbook_name, action=r.action or (f"runbook:{r.runbook_name}" if r.runbook_name else ""),
+        status=r.status, detail=r.detail, at=r.at,
         phase=r.phase, applied_at=r.applied_at, verified_at=r.verified_at,
         verify_state=r.verify_state, verify_ok=r.verify_ok, outcome=r.outcome,
     ) for r in rows]

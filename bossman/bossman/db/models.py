@@ -2326,6 +2326,12 @@ class RemediationRun(Base):
     service_name: Mapped[str] = mapped_column(String, nullable=False, default="")
     runbook_name: Mapped[str] = mapped_column(String, nullable=False, default="")
     status: Mapped[str] = mapped_column(String, nullable=False)  # pending|ran|rate_limited|failed
+    #: WHAT ran, as "kind:name" — "runbook:restart-nginx" or "handler:clean-logs". Stored, not
+    #: derived: policy_id is ON DELETE SET NULL, so a deleted rule would otherwise take the
+    #: answer with it and leave a history that lists events it cannot explain. `runbook_name`
+    #: stays for the rows and callers that predate event handlers (it is empty for a
+    #: handler-backed rule, which is what made this column necessary).
+    action: Mapped[str] = mapped_column(String, nullable=False, server_default="", default="")
     detail: Mapped[str | None] = mapped_column(Text)
     at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
     # ── closed-loop lifecycle (docs/closed-loop-remediation.md) ──────────────
