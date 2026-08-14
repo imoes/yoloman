@@ -142,6 +142,53 @@ def compile(plan: dict) -> list[dict]:
             steps.append({"op": kind, "device": dev, "touches_table": False,
                           "desc": f"grow LV {t} by {size} (online, --resizefs)",
                           "argv": ["lvextend", "--resizefs", flag, size, t]})
+        elif kind.startswith("md_"):
+            # Software RAID (mdadm). The array device is the "device" here; member
+            # partitions are the payload, so safety_check inspects `md_members`
+            # rather than the usual single target.
+            name = op.get("name") or op.get("target") or ""
+            members = [m for m in (op.get("devices") or []) if m]
+            if kind == "md_create":
+                level = str(op.get("level") or "1")
+                if not name or len(members) < 1:
+                    steps.append({"op": kind, "device": name, "error": "md_create needs a name/path and member devices",
+                                  "desc": "create RAID array (UNSUPPORTED)", "argv": []})
+                else:
+                    steps.append({"op": kind, "device": name, "md_members": members, "touches_table": False,
+                                  "desc": f"create RAID{level} {name} from {', '.join(members)}",
+                                  "argv": ["mdadm", "--create", "--run", name, f"--level={level}",
+                                           f"--raid-devices={len(members)}", *members]})
+            elif kind == "md_stop":
+                steps.append({"op": kind, "device": name, "busy_target": name, "touches_table": False,
+                              "desc": f"stop RAID array {name}", "argv": ["mdadm", "--stop", name]})
+            elif kind == "md_add":
+                steps.append({"op": kind, "device": name, "md_members": members, "touches_table": False,
+                              "desc": f"add {', '.join(members)} to {name} (resync starts)",
+                              "argv": ["mdadm", "--manage", name, "--add", *members]})
+            elif kind == "md_remove":
+                # A member must be failed before it can leave the array; do both in
+                # one shell so the array never sits half-way through the change.
+                if not members:
+                    steps.append({"op": kind, "device": name, "error": "md_remove needs the member device",
+                                  "desc": "remove RAID member (UNSUPPORTED)", "argv": []})
+                else:
+                    quoted = " ".join(shlex.quote(m) for m in members)
+                    steps.append({"op": kind, "device": name, "touches_table": False,
+                                  "desc": f"fail + remove {', '.join(members)} from {name}",
+                                  "argv": ["sh", "-c", f"mdadm --manage {shlex.quote(name)} --fail {quoted} && "
+                                                       f"mdadm --manage {shlex.quote(name)} --remove {quoted}"]})
+            elif kind == "md_grow":
+                n = int(op.get("raid_devices") or 0)
+                if n < 2:
+                    steps.append({"op": kind, "device": name, "error": "md_grow needs raid_devices >= 2",
+                                  "desc": f"grow {name} (UNSUPPORTED)", "argv": []})
+                else:
+                    steps.append({"op": kind, "device": name, "touches_table": False,
+                                  "desc": f"grow {name} to {n} raid devices (reshape)",
+                                  "argv": ["mdadm", "--grow", name, f"--raid-devices={n}"]})
+            else:
+                steps.append({"op": kind, "device": name, "error": f"unknown RAID op {kind!r}",
+                              "desc": f"unknown RAID op {kind!r}", "argv": []})
         elif kind in ("luks_format", "luks_open", "luks_close"):
             # LUKS. The passphrase NEVER appears in a plan, in compile() output or in
             # a preview: the op carries a `secret_ref` (a vault:v1: handle) and only
@@ -471,6 +518,23 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
         if dev in protected:
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {dev} has mounted filesystem(s); unmount them first"})
+        # RAID ops name an array device, not a disk, so the block-device rules do not
+        # apply to `device`. What must be checked are the MEMBERS: mdadm overwrites
+        # their superblock, so a member carrying a mounted filesystem would be
+        # destroyed under a running system. md_stop is guarded by busy_target below.
+        if s["op"].startswith("md_"):
+            for m in s.get("md_members") or []:
+                if m in busy:
+                    problems.append({"severity": "error",
+                                     "message": f"{s['desc']}: refused — {m} is mounted; mdadm would "
+                                                "overwrite it"})
+                base = _target_device({"target": m})
+                if base in protected and m not in busy:
+                    problems.append({"severity": "warning",
+                                     "message": f"{s['desc']}: {m} sits on {base}, which carries mounted "
+                                                "filesystems — make sure this member is really spare"})
+            if s["op"] != "md_stop":
+                continue
         # A MOVE writes raw blocks at the destination, so that range must not belong
         # to another partition — and the partition being moved has to be unmounted
         # (its bytes must not change under the copy).
@@ -486,7 +550,7 @@ def safety_check(steps: list[dict], layout: dict, *, allow_nonloop: bool) -> lis
                                      "message": f"{s['desc']}: refused — the destination overlaps "
                                                 f"{other.get('path')} (sectors {o_start}–{o_end})"})
         tgt = s.get("busy_target")
-        if s["op"] in ("mkfs", "label", "delete", "resize", "lvreduce", "movepart") and tgt and tgt in busy:
+        if s["op"] in ("mkfs", "label", "delete", "resize", "lvreduce", "movepart", "md_stop") and tgt and tgt in busy:
             problems.append({"severity": "error",
                              "message": f"{s['desc']}: refused — {tgt} is mounted; unmount it first"})
     return problems
@@ -499,7 +563,7 @@ _PKG_FOR_BIN = {
     "resize2fs": "e2fsprogs", "e2fsck": "e2fsprogs", "lvextend": "lvm2",
     "zfs": "zfsutils-linux", "zpool": "zfsutils-linux",
     "pvresize": "lvm2", "sgdisk": "gdisk", "partprobe": "parted",
-    "cryptsetup": "cryptsetup",
+    "cryptsetup": "cryptsetup", "mdadm": "mdadm",
 }
 
 
@@ -518,6 +582,8 @@ async def _ensure_tools(client, steps: list[dict]) -> tuple[list[str], list[str]
             needed.add(argv[0])  # zfs / zpool
         if s["op"].startswith("luks_"):
             needed.add("cryptsetup")
+        if s["op"].startswith("md_"):
+            needed.add("mdadm")
     installed: list[str] = []
     missing: list[str] = []
     for binname in sorted(needed):

@@ -183,6 +183,30 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   geschützt (System-/Root-Platte); kritische Mounts nie unmountbar; lvextend nur
   online-GROW.
 
+## 8g. Software-RAID (mdadm)
+
+- **Read:** `/proc/mdstat` (existiert, sobald das md-Modul geladen ist → Arrays sind
+  **auch ohne installiertes mdadm** sichtbar; `mdadm --detail` reichert nur UUID/Chunk
+  an). Der Parser liest, was mdstat kodiert: Member-Rolle + Zustand (`(F)` failed,
+  `(S)` spare, `(W)` write-mostly), Größe in KiB, `[2/2] [UU]` für Soll/Ist und die
+  Slot-Karte — deren `_` ist das, was ein Array **degraded** macht (nicht geraten).
+  Laufender `recovery/resync/reshape/check` mit Prozent und Restzeit.
+- **Write-Ops:** `md_create`, `md_add`, `md_remove` (fail **und** remove in *einer*
+  Shell, damit das Array nie halbfertig dasteht), `md_grow`, `md_stop`.
+- **Safety:** ein Member mit **gemountetem** Dateisystem wird verweigert (mdadm
+  überschreibt den Superblock); `md_stop` nicht bei gemountetem Array; **Warnung**,
+  wenn ein Member auf einer Platte mit gemounteten Dateisystemen liegt. RAID-Ops
+  benennen ein Array-Device, kein Disk — daher greifen dort die Block-Device-Regeln
+  nicht, geprüft werden die **Member**.
+- **UI:** Karte „Software RAID" (Stil wie LVM/ZFS): Level, State, `n/m members`,
+  **DEGRADED [U_]** rot mit rotem Kartenrahmen, Resync-Fortschritt, Member-Tabelle
+  mit Rolle/Zustand und Aktionen Create/Add/Remove/Stop.
+- **Live verifiziert** auf test-deployment (dritte Platte `/dev/sdc` per Proxmox
+  angehängt): RAID1 aus zwei Partitionen erzeugt → `2/2 [UU]`; `md_remove` →
+  `degraded=True, slots=U_, 1/2`; `md_add` → nach Resync wieder `2/2 [UU]`;
+  `md_stop` + `--zero-superblock` sauber. Der degradierte Zustand auch in der UI
+  geprüft (Screenshot).
+
 ## 8f. LUKS (Passphrase bleibt im Vault)
 
 Ops: `luks_format` (verschlüsseln + öffnen), `luks_open` (entsperren), `luks_close`.
@@ -319,6 +343,6 @@ Adressiert:
   Move kopiert rückwärts bei Überlappung (§8e).
 
 Offen:
-- **Software-RAID (mdadm)** — Arrays werden noch nicht angezeigt oder verwaltet.
-  Das ist die letzte größere Lücke gegenüber typischen Linux-Servern.
 - **Rehearsal-first** für destruktive Ops (Anknüpfung an docs/test-systems.md).
+- **RAID-Detail**: `--assemble` vorhandener Arrays, Spare-Verwaltung, Bitmap-Optionen,
+  RAID-Level-Migration (`--grow --level`) sind noch nicht abgebildet.

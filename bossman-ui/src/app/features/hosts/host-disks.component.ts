@@ -27,14 +27,21 @@ interface ZfsDataset { name: string; type: string; used_bytes: number | null; av
   refer_bytes: number | null; quota_bytes: number | null; refquota_bytes: number | null;
   reservation_bytes: number | null; refreservation_bytes: number | null; mountpoint: string | null; }
 interface Zfs { available: boolean; pools?: ZfsPool[]; datasets?: ZfsDataset[]; }
+interface MdMember { path: string; role: number | null; state: string; }
+interface MdArray {
+  name: string; path: string; level: string | null; state: string; size_bytes: number | null;
+  devices: MdMember[]; degraded: boolean; expected: number | null; present: number | null;
+  slots?: string; sync?: { action: string; percent: number; finish?: string } | null;
+}
+interface MdRaid { available: boolean; arrays?: MdArray[]; }
 interface DiskTools { missing: string[]; packages: string[]; }
-interface DiskLayout { devices: Device[]; vgs?: Vg[]; zfs?: Zfs; tools?: DiskTools; errors: string[]; }
+interface DiskLayout { devices: Device[]; vgs?: Vg[]; zfs?: Zfs; mdraid?: MdRaid; tools?: DiskTools; errors: string[]; }
 
 interface DiskOp { op: string; device?: string; target?: string; table?: string; fstype?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
   start_mib?: number; size_mib?: number; grow?: boolean;
   sector_size?: number; src_start_s?: number; dst_start_s?: number; length_s?: number;
-  secret_ref?: string;
+  secret_ref?: string; level?: string; devices?: string[]; raid_devices?: number;
   name?: string; property?: string; snap?: string; recursive?: boolean; raid?: string; vdevs?: string[]; _desc: string; }
 /** One box in the visual disk bar (gparted's DrawingAreaVisualDisk): a partition or
  *  a free gap, drawn proportionally, with nested children (LVM/LUKS) rendered inside
@@ -211,6 +218,47 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
         </div>
       }
 
+      @if (l.mdraid?.available) {
+        <div class="bm-dk-md">
+          <div class="bm-dk-zfs-h">
+            <mat-icon>view_agenda</mat-icon><strong>Software RAID</strong>
+            <span class="bm-dk-devacts">
+              <button mat-button (click)="opMdCreate(l)"><mat-icon>add</mat-icon> Create array</button>
+            </span>
+          </div>
+          @for (a of l.mdraid!.arrays || []; track a.path) {
+            <div class="bm-dk-mdarr" [class.degraded]="a.degraded">
+              <div class="bm-dk-zpool-h">
+                <span class="bm-dk-swatch" [style.background]="a.degraded ? '#d05656' : '#3fae6b'"></span>
+                <strong>{{ a.path }}</strong>
+                <span class="bm-dk-meta">{{ a.level || 'unknown level' }} · {{ fmt(a.size_bytes) }} · {{ a.state }}{{ a.present != null ? ' · ' + a.present + '/' + a.expected + ' members' : '' }}</span>
+                @if (a.degraded) { <span class="bm-dk-mdbad">DEGRADED{{ a.slots ? ' [' + a.slots + ']' : '' }}</span> }
+                @if (a.sync) { <span class="bm-dk-mdsync">{{ a.sync.action }} {{ a.sync.percent }}%{{ a.sync.finish ? ' · ' + a.sync.finish : '' }}</span> }
+                <span class="bm-dk-rowacts">
+                  <button mat-button (click)="opMdAdd(a)" title="Add a spare / replacement member"><mat-icon>add</mat-icon> Add</button>
+                  <button mat-icon-button (click)="opMdStop(a)" title="Stop the array"><mat-icon>stop_circle</mat-icon></button>
+                </span>
+              </div>
+              <table class="bm-gp-tbl">
+                <thead><tr><th>Member</th><th>Role</th><th>State</th><th></th></tr></thead>
+                <tbody>
+                  @for (m of a.devices; track m.path) {
+                    <tr>
+                      <td class="bm-dk-mono">{{ m.path }}</td>
+                      <td>{{ m.role != null ? m.role : '—' }}</td>
+                      <td [class.bm-dk-mdbad]="m.state === 'failed'">{{ m.state }}</td>
+                      <td class="bm-dk-rowacts">
+                        <button mat-icon-button (click)="opMdRemove(a, m)" title="Fail + remove this member"><mat-icon>link_off</mat-icon></button>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          } @empty { <p class="bm-dim">No arrays. “Create array” builds one from free partitions.</p> }
+        </div>
+      }
+
       @if (l.zfs?.available) {
         <div class="bm-dk-zfs">
           <div class="bm-dk-zfs-h">
@@ -331,8 +379,8 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     :host { display: flex; flex-direction: column; }
     .bm-gp-toolbar { order: 1; } .bm-dk-errs { order: 2; } .bm-gp-canvas { order: 3; }
     .bm-dk-form { order: 4; } .bm-dk-queue { order: 5; }
-    .bm-dk-vgs { order: 6; } .bm-dk-zfs { order: 7; }
-    .bm-empty, .bm-err { order: 8; }
+    .bm-dk-vgs { order: 6; } .bm-dk-md { order: 7; } .bm-dk-zfs { order: 8; }
+    .bm-empty, .bm-err { order: 9; }
     /* ---- gparted layout (toolbar / visual disk / list / statusbar) ---------- */
     .bm-gp-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
       padding: 6px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px 10px 0 0;
@@ -453,6 +501,11 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     .bm-dk-zfs-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
     .bm-dk-zfs-h > strong { opacity: 0.65; font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; }
     .bm-dk-zfs-h mat-icon { font-size: 18px; height: 18px; width: 18px; opacity: 0.8; }
+    .bm-dk-md { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 12px; margin-top: 12px; }
+    .bm-dk-mdarr { border: 1px solid var(--mat-sys-outline-variant); border-radius: 8px; padding: 6px 8px; margin-bottom: 8px; }
+    .bm-dk-mdarr.degraded { border-color: var(--mat-sys-error, #c62828); }
+    .bm-dk-mdbad { color: var(--mat-sys-error, #c62828); font-weight: 600; font-size: 11.5px; }
+    .bm-dk-mdsync { color: var(--bm-gold, #b8860b); font-size: 11.5px; }
     .bm-dk-zpool { border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px; padding: 8px 10px; margin-bottom: 10px; }
     .bm-dk-zpool-h { display: flex; align-items: center; gap: 8px; }
     .bm-dk-zpool-h .bm-dk-rowacts { margin-left: auto; }
@@ -1070,6 +1123,71 @@ export class HostDisksComponent {
       },
     });
   }
+  // ---- software RAID (mdadm) -----------------------------------------------
+  opMdCreate(l: DiskLayout): void {
+    const free = (l.devices || []).flatMap((d) => (d.partitions || [])
+      .filter((p) => p.kind === 'part' && !p.busy).map((p) => p.path));
+    this.openForm({
+      title: 'Create a RAID array', icon: 'view_agenda', submitLabel: 'Add to queue', danger: true,
+      note: 'mdadm overwrites the superblock of every member — anything on those partitions is lost.',
+      fields: [
+        { key: 'name', label: 'Array device', type: 'text', value: this.nextMd(l), hint: 'e.g. /dev/md0' },
+        { key: 'level', label: 'Level', type: 'select', value: '1', options: ['0', '1', '5', '6', '10'],
+          hint: 'raid1 mirrors, raid5/6 need 3/4 members' },
+        { key: 'devices', label: 'Members', type: 'text', value: '',
+          placeholder: free.slice(0, 2).join(' ') || '/dev/sdb1 /dev/sdb2',
+          hint: free.length ? 'space-separated · unmounted candidates: ' + free.join(', ') : 'space-separated partitions' },
+      ],
+      run: (v) => {
+        const name = (v['name'] || '').trim();
+        const devices = (v['devices'] || '').split(/\s+/).filter(Boolean);
+        if (!name || !devices.length) return;
+        const need: Record<string, number> = { '0': 2, '1': 2, '5': 3, '6': 4, '10': 4 };
+        if (devices.length < (need[v['level']] || 2)) {
+          alert(`RAID${v['level']} needs at least ${need[v['level']] || 2} members.`); return;
+        }
+        this.push({ op: 'md_create', name, level: v['level'], devices,
+          _desc: `Create RAID${v['level']} ${name} from ${devices.join(', ')}` });
+      },
+    });
+  }
+  opMdAdd(a: MdArray): void {
+    this.openForm({
+      title: `Add a member to ${a.path}`, icon: 'add', submitLabel: 'Add to queue',
+      fields: [{ key: 'devices', label: 'Device(s)', type: 'text', value: '', placeholder: '/dev/sdc1',
+        hint: 'space-separated · a resync starts once added' }],
+      run: (v) => {
+        const devices = (v['devices'] || '').split(/\s+/).filter(Boolean);
+        if (!devices.length) return;
+        this.push({ op: 'md_add', name: a.path, devices,
+          _desc: `Add ${devices.join(', ')} to ${a.path} (resync)` });
+      },
+    });
+  }
+  opMdRemove(a: MdArray, m: MdMember): void {
+    this.openForm({
+      title: `Remove ${m.path} from ${a.path}`, icon: 'link_off', submitLabel: 'Add to queue', danger: true,
+      fields: [],
+      note: a.degraded
+        ? `${a.path} is ALREADY degraded — removing another member can destroy the array.`
+        : `${m.path} is marked failed first, then removed. The array runs degraded until a replacement resyncs.`,
+      run: () => this.push({ op: 'md_remove', name: a.path, devices: [m.path],
+        _desc: `Fail + remove ${m.path} from ${a.path}` }),
+    });
+  }
+  opMdStop(a: MdArray): void {
+    this.openForm({
+      title: `Stop ${a.path}`, icon: 'stop_circle', submitLabel: 'Stop array', danger: true, fields: [],
+      note: `This deactivates the array. Its members keep their RAID superblock, so it can be assembled again.`,
+      run: () => this.push({ op: 'md_stop', name: a.path, _desc: `Stop RAID array ${a.path}` }),
+    });
+  }
+  private nextMd(l: DiskLayout): string {
+    const used = new Set((l.mdraid?.arrays || []).map((a) => a.name));
+    for (let i = 0; i < 32; i++) { if (!used.has(`md${i}`)) return `/dev/md${i}`; }
+    return '/dev/md127';
+  }
+
   // ---- LUKS ----------------------------------------------------------------
   /** An encrypted container (locked) or its opened mapper. */
   isLuks(p: Partition): boolean {

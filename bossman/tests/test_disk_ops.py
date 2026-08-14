@@ -118,6 +118,47 @@ def test_grown_disk_chain_compiles_and_is_allowed_on_the_system_disk():
     assert do.safety_check(steps, layout, allow_nonloop=True) == []
 
 
+def test_md_ops_compile():
+    steps = do.compile({"ops": [
+        {"op": "md_create", "name": "/dev/md0", "level": "1", "devices": ["/dev/sdb1", "/dev/sdb2"]},
+        {"op": "md_add", "name": "/dev/md0", "devices": ["/dev/sdc1"]},
+        {"op": "md_remove", "name": "/dev/md0", "devices": ["/dev/sdb2"]},
+        {"op": "md_grow", "name": "/dev/md0", "raid_devices": 3},
+        {"op": "md_stop", "name": "/dev/md0"},
+    ]})
+    assert steps[0]["argv"] == ["mdadm", "--create", "--run", "/dev/md0", "--level=1",
+                                "--raid-devices=2", "/dev/sdb1", "/dev/sdb2"]
+    assert steps[1]["argv"] == ["mdadm", "--manage", "/dev/md0", "--add", "/dev/sdc1"]
+    # a member has to be failed before it can be removed — both in one shell
+    assert steps[2]["argv"][:2] == ["sh", "-c"]
+    assert "--fail" in steps[2]["argv"][2] and "--remove" in steps[2]["argv"][2]
+    assert steps[3]["argv"] == ["mdadm", "--grow", "/dev/md0", "--raid-devices=3"]
+    assert steps[4]["argv"] == ["mdadm", "--stop", "/dev/md0"]
+    assert do.safety_check(steps, {"devices": []}, allow_nonloop=True) == []
+
+
+def test_md_create_refuses_a_mounted_member():
+    steps = do.compile({"ops": [{"op": "md_create", "name": "/dev/md0", "level": "1",
+                                 "devices": ["/dev/sdb1", "/dev/sdb2"]}]})
+    layout = {"devices": [{"path": "/dev/sdb", "partitions": [
+        {"path": "/dev/sdb1", "busy": True, "mountpoint": "/srv", "children": []},
+        {"path": "/dev/sdb2", "busy": False, "children": []}]}]}
+    probs = do.safety_check(steps, layout, allow_nonloop=True)
+    assert any("/dev/sdb1 is mounted" in p["message"] and p["severity"] == "error" for p in probs)
+
+
+def test_md_stop_refuses_while_the_array_is_mounted():
+    steps = do.compile({"ops": [{"op": "md_stop", "name": "/dev/md0"}]})
+    layout = {"devices": [{"path": "/dev/md0", "partitions": [
+        {"path": "/dev/md0", "busy": True, "mountpoint": "/data", "children": []}]}]}
+    assert any("mounted" in p["message"] for p in do.safety_check(steps, layout, allow_nonloop=True))
+
+
+def test_md_grow_needs_a_sensible_device_count():
+    steps = do.compile({"ops": [{"op": "md_grow", "name": "/dev/md0", "raid_devices": 1}]})
+    assert any("raid_devices" in p["message"] for p in do.safety_check(steps, {"devices": []}, allow_nonloop=True))
+
+
 def test_luks_never_puts_the_passphrase_in_the_plan():
     """The passphrase travels as a vault handle: it must not appear in the compiled
     steps (which the preview shows) and must not land on a command line."""
