@@ -340,7 +340,7 @@ Weder UI noch MCP noch Agent rufen diese auf (Tests und Service-Schicht siehe Sp
 
 | Familie | Endpunkte | Tests | Service | Beleg | Stand |
 |---|---|---|---|---|---|
-| `/graphs` (+`/{id}/data`) | 6 | ja | ja (graph_data.py) | graphs.py:112,120,127,147,174,200 | **in Dashboards gefaltet** (Editor-UI offen) |
+| `/graphs` (+`/{id}/data`) | 6 | ja | ja (graph_data.py) | graphs.py:112,120,127,147,174,200 | **in Dashboards gefaltet, Editor im Add-Widget-Dialog** |
 | `/clusters` | 4 | ja | ja (clustering.py) | clusters.py:134,148,178,201 | **Oberfläche gebaut** |
 | `/value-maps` | 4 | ja | — | value_maps.py:47,55,79,98 | **Oberfläche gebaut** |
 | `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | **Oberfläche gebaut** |
@@ -820,11 +820,71 @@ Graph „probe cpu vs disk" über **zwei** Hosts mit **zwei Achsen** angelegt (v
 Chart an zwei Orten aus einem Rechenweg. Danach alles wieder gelöscht (Graph + drei
 Probe-Widgets).
 
-### Offen
+### Nachgezogen: der Chart-Editor liegt im Add-Widget-Dialog
 
-Die **Authoring-Oberfläche** für Graphen fehlt noch: `config.graph_id` ist über die API
-setzbar, aber der Add-Widget-Dialog bietet es nicht an. Der geplante Zielzustand ist, den
-Graph-Editor genau dort zu haben — man baut den Chart im Dashboard, und er wird als
-benannter, wiederverwendbarer Graph gespeichert. Solange das fehlt, bleibt der Weg
-„gespeicherter Graph im Dashboard" nur per API erreichbar; die 6 /graphs-Routen bleiben
-deshalb bestehen (sie sind die Autorenschicht, nicht der zweite Renderpfad).
+`features/fleet-overview/add-widget-dialog.component.ts`. Der `timeseries`-Zweig baut jetzt
+einen **Graphen** und referenziert ihn — es gibt keinen widget-eigenen Reihen-Weg mehr.
+
+```
+[Parsimonie] Ein Ein-Item-Graph und ein "Einzelmetrik-Widget" sind dasselbe Ergebnis
+  Problem: Beides anzubieten wäre genau die Redundanz, die dieser Umbau beseitigen soll.
+  Fix:     Der Dialog kennt für timeseries nur zwei Quellen: „Build a chart" (legt einen
+           Graphen an, eine Linie ist der einfache Fall) und „Reuse a saved chart" — und
+           Wiederverwendung ist kein zweiter Weg, sondern dasselbe Objekt an einem weiteren
+           Ort. Der Graphname ist mit dem Widget-Titel vorbelegt, damit der eine Weg keinen
+           Zusatzaufwand kostet. Das Backend akzeptiert `agent_id`+`metric` weiterhin, damit
+           BESTEHENDE Widgets unverändert weiterlaufen; neu erzeugt wird es nicht mehr.
+
+[Widerspruchsfreiheit] Der Dialog darf nicht schließen, bevor der Graph existiert
+  Fix:     Speichern legt zuerst den Graphen an und schließt erst mit `graph_id`. Ein Fehler
+           (z.B. 409, Name vergeben) hält den Dialog OFFEN und nennt den Grund — stilles
+           Schließen hätte ausgesehen, als sei das Widget hinzugefügt.
+
+[Falsifizierbarkeit] Metriken pro HOST, nicht fleet-weit
+  Problem: Eine fleet-weite Metrikliste erlaubt, für einen Host eine Metrik zu wählen, die
+           er nie sendet — der Chart bliebe dauerhaft leer, ohne Hinweis warum.
+  Fix:     Die Auswahl kommt aus `GET /agents/{id}/metrics` (nur die Metriken DIESES Hosts);
+           das Metrikfeld ist gesperrt, bis ein Host gewählt ist, und ein Host ohne Metriken
+           wird benannt („This host has reported no metric yet").
+
+[Zureichender Grund] Warum es eine zweite Achse gibt
+  Fix:     Ab zwei Linien erklärt der Dialog die Achsenwahl („put a line on the right axis if
+           its unit differs (percent vs bytes)"), und bei gemischten Achsen bestätigt er, dass
+           rechts separat skaliert wird. Zwei Einheiten auf einer Achse plätten sich
+           gegenseitig — der Chart lügt dann durch Auslassung.
+```
+
+### Dabei gefunden: zwei Metrik-Kataloge, zwei Antworten
+
+```
+[Identität] "Welche Metriken gibt es?" wird an zwei Stellen verschieden beantwortet
+  Beleg:   api/monitoring.py `/metric-catalog` (fleet-weit) überspringt `check_*_state`
+           ausdrücklich („a check's own 0/1/2/3 output, not a measurable metric") — filtert
+           aber `process_*` NICHT.
+           api/agents.py `/agents/{id}/metrics` (pro Host) filtert `process_*` — aber
+           `check_*_state` NICHT.
+  Problem: Jeder Katalog schließt aus, was der andere einschließt. Im neuen Auswähler waren
+           dadurch 8 der ersten Einträge genau das Rauschen, das der andere Endpunkt
+           bewusst entfernt (42 statt 50 Einträge nach dem Filter).
+  Fix jetzt: Der Dialog filtert `check_*_state` selbst, mit Begründung im Code.
+  Fix richtig (OFFEN, eigene Entscheidung): EINE gemeinsame Ausschlussregel serverseitig,
+           von beiden Endpunkten benutzt. Nicht im Vorbeigehen geändert, weil
+           `/agents/{id}/metrics` auch die Host-Detail-Metriken speist — eine geänderte
+           Semantik dort ist eine Entscheidung, kein Nebeneffekt.
+```
+
+### Live verifiziert (Browser, nicht nur API)
+
+1. Add-Widget → „Time series": „Reuse a saved chart" ist korrekt **gesperrt**, solange kein
+   Graph existiert.
+2. Host `vpp0221` gewählt → Metrikfeld entsperrt, `check_*`-Einträge **0 von 42** (vorher 8
+   von 50).
+3. Zweite Linie: `vpp0222` / `disk_reads_total`, Achse **rechts**, Funktion **max** → der
+   Hinweis wechselt auf „Two axes: the right-hand lines are scaled separately."
+4. „Add" → per API belegt: Graph „probe cpu vs disk (dialog)" mit zwei Items (links avg /
+   rechts max, eigene Farben) UND ein Widget mit `config = {graph_id: …}`.
+5. Nach Reload zeichnet das Widget **beide** Linien — am Canvas gemessen: 13233 grüne
+   (#1e9600) und 38156 rote (#d0021b) Pixel. Die ECharts-Instanz ist gebündelt und nicht
+   global erreichbar, deshalb der Pixel-Beleg statt einer Annahme.
+6. Probe-Graph und -Widget wieder gelöscht; `scripts/test-in-container.sh` über
+   test_graphs.py + test_dashboard_api.py: 10 grün.
