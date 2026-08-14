@@ -34,6 +34,7 @@ interface DiskOp { op: string; device?: string; target?: string; table?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
   start_mib?: number; size_mib?: number; grow?: boolean;
   sector_size?: number; src_start_s?: number; dst_start_s?: number; length_s?: number;
+  secret_ref?: string;
   name?: string; property?: string; snap?: string; recursive?: boolean; raid?: string; vdevs?: string[]; _desc: string; }
 /** One box in the visual disk bar (gparted's DrawingAreaVisualDisk): a partition or
  *  a free gap, drawn proportionally, with nested children (LVM/LUKS) rendered inside
@@ -75,6 +76,14 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
           <mat-icon>sell</mat-icon><span>Label</span></button>
         <button class="bm-gp-tb" (click)="tbMount()" [disabled]="!canMount()" [title]="mountTip()">
           <mat-icon>{{ selBusy() ? 'eject' : 'drive_folder_upload' }}</mat-icon><span>{{ selBusy() ? 'Unmount' : 'Mount' }}</span></button>
+        <!-- LUKS: only shown when the selection actually is (or can become) encrypted -->
+        @if (selIsLuks()) {
+          <button class="bm-gp-tb" (click)="tbLuksToggle()" [title]="luksTip()">
+            <mat-icon>{{ selLuksOpen() ? 'lock' : 'lock_open' }}</mat-icon><span>{{ selLuksOpen() ? 'Lock' : 'Unlock' }}</span></button>
+        } @else if (canEncrypt()) {
+          <button class="bm-gp-tb" (click)="opLuksFormat()" title="Encrypt this partition with LUKS (erases it)">
+            <mat-icon>enhanced_encryption</mat-icon><span>Encrypt</span></button>
+        }
         <span class="bm-gp-sep"></span>
         <button class="bm-gp-tb" (click)="undoLast()" [disabled]="!ops().length" title="Undo the last staged operation">
           <mat-icon>undo</mat-icon><span>Undo</span></button>
@@ -1061,6 +1070,103 @@ export class HostDisksComponent {
       },
     });
   }
+  // ---- LUKS ----------------------------------------------------------------
+  /** An encrypted container (locked) or its opened mapper. */
+  isLuks(p: Partition): boolean {
+    return (p.fstype || '').toLowerCase() === 'crypto_luks' || p.kind === 'crypt';
+  }
+  selIsLuks(): boolean { const p = this.selPart(); return !!p && this.isLuks(p); }
+  /** The opened mapper sitting under a LUKS partition, if it is unlocked. */
+  private luksChild(p: Partition): Partition | null {
+    return (p.children || []).find((c) => c.kind === 'crypt') || null;
+  }
+  selLuksOpen(): boolean {
+    const p = this.selPart(); if (!p) return false;
+    return p.kind === 'crypt' || !!this.luksChild(p);
+  }
+  luksTip(): string {
+    const p = this.selPart(); if (!p) return '';
+    return this.selLuksOpen() ? `Close the encrypted volume on ${p.path}`
+                              : `Unlock ${p.path} with its passphrase from the vault`;
+  }
+  /** Encrypt is offered for a plain, unmounted partition (it erases the content). */
+  canEncrypt(): boolean {
+    const p = this.selPart();
+    return !!p && p.kind === 'part' && !p.busy && !this.isLuks(p);
+  }
+  tbLuksToggle(): void {
+    const p = this.selPart(); if (!p) return;
+    if (this.selLuksOpen()) {
+      const mapper = p.kind === 'crypt' ? p : this.luksChild(p)!;
+      const name = (mapper.path || '').replace(/^.*\//, '');
+      this.push({ op: 'luks_close', name, _desc: `Close encrypted volume ${name}` });
+      return;
+    }
+    this.luksForm(p, 'open');
+  }
+  opLuksFormat(): void {
+    const p = this.selPart(); if (p) this.luksForm(p, 'format');
+  }
+  /** One dialog for unlock/encrypt. The passphrase is turned into a vault handle
+   *  BEFORE the op is queued — the plan only ever carries the handle, matching what
+   *  the backend enforces (a plaintext passphrase in an op is refused). */
+  private luksForm(p: Partition, mode: 'open' | 'format'): void {
+    const suggested = 'crypt' + (p.name || '').replace(/[^a-z0-9]/gi, '');
+    this.openForm({
+      title: mode === 'format' ? `Encrypt ${p.path} with LUKS` : `Unlock ${p.path}`,
+      icon: mode === 'format' ? 'enhanced_encryption' : 'lock_open',
+      submitLabel: 'Add to queue', danger: mode === 'format',
+      note: mode === 'format'
+        ? 'This erases everything on the partition. The passphrase is stored in the vault — '
+          + 'if it is lost the data cannot be recovered.'
+        : undefined,
+      fields: [
+        { key: 'name', label: 'Mapper name', type: 'text', value: suggested,
+          hint: `the volume appears as /dev/mapper/<name>` },
+        { key: 'mode', label: 'Passphrase', type: 'select', value: mode === 'format' ? 'generate' : 'enter',
+          options: ['generate', 'enter', 'existing'],
+          hint: 'generate = a strong one is created and shown once · existing = paste a vault:v1: handle' },
+        { key: 'secret', label: 'Passphrase / handle', type: 'text', value: '',
+          hint: 'leave empty when generating' },
+      ],
+      run: (v) => {
+        const name = (v['name'] || '').trim();
+        if (!name) { alert('A mapper name is required.'); return; }
+        const how = v['mode']; const secret = (v['secret'] || '').trim();
+        if (how === 'existing') {
+          if (!secret.startsWith('vault:v1:')) { alert('Paste a vault:v1: handle, or pick another mode.'); return; }
+          this.pushLuks(p, mode, name, secret);
+          return;
+        }
+        if (how === 'enter' && !secret) { alert('Enter the passphrase, or choose generate.'); return; }
+        // hand the plaintext to the server ONCE to get a handle back; the plaintext
+        // never goes into an op, and never into the pending-operations list
+        this.installing.set(true);
+        this.http.post<any>(`${environment.apiUrl}/vault/encrypt`,
+          how === 'generate' ? { value: '', generate: true } : { value: secret }).subscribe({
+          next: (r) => {
+            this.installing.set(false);
+            if (!r?.handle) { alert('Could not create a vault handle.'); return; }
+            if (r.generated) {
+              alert(`Generated passphrase for ${p.path} — write it down NOW, it is not shown again:\n\n${r.generated}`);
+            }
+            this.pushLuks(p, mode, name, r.handle);
+          },
+          error: (e) => { this.installing.set(false); alert(e?.error?.detail ?? 'vault encrypt failed'); },
+        });
+      },
+    });
+  }
+  private pushLuks(p: Partition, mode: 'open' | 'format', name: string, handle: string): void {
+    if (mode === 'format') {
+      this.push({ op: 'luks_format', target: p.path, name, secret_ref: handle,
+        _desc: `Encrypt ${p.path} with LUKS and open it as ${name} (passphrase from the vault)` });
+    } else {
+      this.push({ op: 'luks_open', target: p.path, name, secret_ref: handle,
+        _desc: `Unlock ${p.path} as ${name} (passphrase from the vault)` });
+    }
+  }
+
   // ---- "the hypervisor grew this disk" one-click chain ----------------------
   /** The last partition on a disk — the only one a trailing gap can extend. */
   private lastPart(d: Device): Partition | null {

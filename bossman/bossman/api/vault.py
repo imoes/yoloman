@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bossman.api.auth import require_admin
+from bossman.config import Settings, get_settings
 from bossman.db.models import Agent, ConfigPolicy, HostGroup, OUNode, ScopeVars
 from bossman.db.session import get_session
 from bossman.services.vault import Vault
@@ -71,3 +73,43 @@ async def list_secrets(
     for s in secrets:
         by_source[s["source"]] = by_source.get(s["source"], 0) + 1
     return {"total": len(secrets), "by_source": by_source, "secrets": secrets}
+
+
+class EncryptBody(BaseModel):
+    """A value to turn into a vault handle. Never stored here — the caller keeps
+    the returned handle and puts THAT into whatever plan or policy needs it."""
+    value: str
+    generate: bool = False       # ignore `value` and mint a strong passphrase
+    length: int = 24
+
+
+@router.post("/api/v1/vault/encrypt")
+async def encrypt_value(
+    body: EncryptBody,
+    settings: Settings = Depends(get_settings),
+    _identity=Depends(require_admin),
+) -> dict:
+    """Turn a plaintext into a `vault:v1:` handle (optionally generating a strong
+    passphrase first), and return ONLY the handle.
+
+    This exists so a UI never has to put a plaintext secret into an operation: it
+    posts the passphrase once, keeps the handle, and the handle is what travels in
+    the plan (see disk_ops' LUKS ops, where apply() is the only place that decrypts).
+    The plaintext is not persisted anywhere by this endpoint. `generate=true` also
+    returns the plaintext once, because the operator has to be able to write it
+    down — a LUKS passphrase that nobody knows makes the data unrecoverable.
+    """
+    import secrets as _secrets
+
+    if body.generate:
+        length = max(12, min(int(body.length or 24), 128))
+        plaintext = _secrets.token_urlsafe(length)[:length]
+    else:
+        plaintext = body.value or ""
+        if not plaintext:
+            raise HTTPException(422, "value must not be empty (or pass generate=true)")
+    handle = Vault(settings.vault_key, settings.vault_key_path).encrypt(plaintext)
+    out = {"handle": handle}
+    if body.generate:
+        out["generated"] = plaintext     # shown once so it can be stored safely
+    return out

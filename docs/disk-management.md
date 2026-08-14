@@ -183,6 +183,32 @@ Damit ist der Bedien-Flow 1:1 der von gparted — nur remote über den Agent.
   geschützt (System-/Root-Platte); kritische Mounts nie unmountbar; lvextend nur
   online-GROW.
 
+## 8f. LUKS (Passphrase bleibt im Vault)
+
+Ops: `luks_format` (verschlüsseln + öffnen), `luks_open` (entsperren), `luks_close`.
+Die Passphrase ist das eigentliche Problem, deshalb bewusst so gelöst:
+- Die Op trägt ein **Vault-Handle** (`secret_ref`), nie Klartext. Wird doch Klartext
+  übergeben, wird die Op **verweigert** — und der Wert nicht in der Fehlermeldung
+  zurückgespiegelt.
+- `compile()`-Ausgabe = genau das, was **Preview** zeigt → enthält nur das Handle.
+  Ein Plan kann geprüft, gespeichert und geloggt werden, ohne etwas zu verraten.
+- Erst `apply()` entschlüsselt und injiziert den Wert in einen **`copy`**-Modulaufruf
+  (Step-Felder `secret_param`/`secret_ref`). Damit reist die Passphrase im
+  **mTLS-Body**, nicht in `argv` (eine Kommandozeile steht in `ps` und im Audit-Log).
+- Key-File auf **`/run` (tmpfs)**, `shred` in **derselben Shell** wie `cryptsetup` —
+  ein fehlgeschlagenes Format kann sie nicht liegen lassen.
+- UI: Toolbar zeigt kontextabhängig **Unlock/Lock** (bei crypto_LUKS bzw. offenem
+  Mapper) oder **Encrypt** (bei einer freien, unmounteten Partition). Passphrase-Wahl
+  **generieren / eingeben / bestehendes Handle**; „generieren" zeigt das Passwort
+  **einmal** an (ein LUKS-Passwort, das niemand kennt, macht die Daten unbrauchbar).
+  Das Klartext-Passwort geht per `POST /api/v1/vault/encrypt` **einmal** zum Server
+  und nur das zurückgegebene Handle landet in der Op.
+
+**Live verifiziert** auf `/dev/sdb2`: LUKS2/aes-xts-plain64 angelegt, ext4 im Mapper,
+`luks_close` → inactive, `luks_open` mit demselben Handle → wieder entsperrt und das
+ext4 intakt, keine `/run/bm-luks-*` übrig. In der UI geprüft, dass der Klartext
+nirgends im DOM erscheint (nur „passphrase from the vault").
+
 ## 8e. Partition verschieben (echter Move, mit Daten)
 
 Ein Move sind **dieselben Bytes an einem neuen Offset** — also eine Blockkopie, wie
