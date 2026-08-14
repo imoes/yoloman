@@ -2172,6 +2172,82 @@ class Rollout(Base):
     )
 
 
+class EventHandler(Base):
+    """A named, reusable ACTION for an event rule — a runbook or a script.
+
+    Before this, the action was two fields on RemediationPolicy (`runbook_name` + `params`):
+    not reusable across rules and not extensible to scripts. It is its own object now, so the
+    same handler can serve several rules and so a script is a first-class body.
+
+    Two axes, and they are independent:
+
+      body      runbook | script   WHAT runs
+      location  managed | local    WHERE the body comes from (scripts only)
+
+    `managed` scripts live here (`source`) and are copied to the host before every run — if
+    they were copied once, a host could hold an older body than the one Bossman displays,
+    which is two truths for one thing. `local` scripts live in the agent's own directory
+    (/etc/agentic-mcp/event-handlers/) and are run in place.
+
+    **`local` takes no parameters, and that is a consequence rather than a restriction:**
+    Bossman does not know a locally-placed script's contents, so it cannot say which
+    parameters it accepts, of what type, or whether they are required. A form asking for
+    values it cannot describe would promise an effect nobody can check. The event CONTEXT is
+    still passed (see services/event_handlers): that is not a parameter, it is the fact that
+    caused the run, and Bossman always knows it.
+
+    A runbook is a document in Bossman's database and therefore cannot be `local`; the
+    constraint below makes that combination impossible rather than leaving the UI to catch it.
+
+    See docs/event-handling.md.
+    """
+
+    __tablename__ = "event_handlers"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("tenants.id", ondelete="CASCADE"), nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(String, nullable=False, default="")
+    body: Mapped[str] = mapped_column(String, nullable=False)  # runbook | script
+    location: Mapped[str] = mapped_column(String, nullable=False, default="managed")  # managed | local
+    #: body=runbook — the Runbook.name to execute (same resolution remediation already uses).
+    runbook_name: Mapped[str | None] = mapped_column(String)
+    #: body=script — the interpreter the shebang would name (bash, sh, python3, …).
+    interpreter: Mapped[str | None] = mapped_column(String)
+    #: body=script + location=managed — the script text, authored in Bossman.
+    source: Mapped[str | None] = mapped_column(Text)
+    #: body=script + location=local — the file name inside the agent's handler directory.
+    local_name: Mapped[str | None] = mapped_column(String)
+    #: [{name, type, default, description, required}] — declared HERE and nowhere else, which
+    #: is what "parameters can only be configured in Bossman" means concretely.
+    parameters: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    timeout_s: Mapped[int] = mapped_column(Integer, nullable=False, server_default="300", default=300)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_by: Mapped[str | None] = mapped_column(String)
+    created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "name", name="uq_event_handlers_tenant_name"),
+        CheckConstraint("body IN ('runbook', 'script')", name="ck_event_handlers_body"),
+        CheckConstraint("location IN ('managed', 'local')", name="ck_event_handlers_location"),
+        # The forbidden combinations, made impossible in the TYPE rather than checked in the UI:
+        #  * a runbook cannot be local (it is a row in this database)
+        #  * a runbook needs a runbook_name; a script needs an interpreter
+        #  * a managed script needs its source; a local one needs its file name
+        #  * a local handler cannot declare parameters — Bossman cannot know them
+        CheckConstraint(
+            "(body = 'runbook' AND location = 'managed' AND runbook_name IS NOT NULL "
+            " AND source IS NULL AND local_name IS NULL) OR "
+            "(body = 'script' AND location = 'managed' AND interpreter IS NOT NULL "
+            " AND source IS NOT NULL AND local_name IS NULL AND runbook_name IS NULL) OR "
+            "(body = 'script' AND location = 'local' AND local_name IS NOT NULL "
+            " AND source IS NULL AND runbook_name IS NULL AND parameters = '[]'::jsonb)",
+            name="ck_event_handlers_body_shape",
+        ),
+    )
+
+
 class RemediationPolicy(Base):
     """Event-driven self-healing: when a check (service) enters a hard problem
     state on a host this policy reaches, run a parameter-driven remediation
@@ -2213,10 +2289,26 @@ class RemediationPolicy(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     created_by: Mapped[str | None] = mapped_column(String)
     created_at: Mapped[datetime] = mapped_column(TZ_DATETIME, server_default=func.now(), nullable=False)
+    #: The action, as a reusable EventHandler — the alternative to the inline `runbook_name`.
+    #: Exactly one of the two is set (constraint below): `runbook_name` stays valid so every
+    #: existing policy keeps working unchanged, and new ones point at a handler that may also
+    #: be a script. Everything else about this row — trigger, scope, rate limit, autonomy,
+    #: verify, rollback, audit — is unchanged, which is what "event handling absorbs
+    #: remediation" means: one trigger machine, a richer action. See docs/event-handling.md.
+    event_handler_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("event_handlers.id", ondelete="RESTRICT")
+    )
 
     __table_args__ = (
         CheckConstraint("scope_type IN ('global', 'ou', 'group', 'host')", name="ck_remediation_scope"),
         CheckConstraint("mode IN ('auto', 'propose')", name="ck_remediation_mode"),
+        # Exactly one action. Both would be two answers to "what runs?"; neither would be a
+        # rule that fires and does nothing.
+        CheckConstraint(
+            "(runbook_name <> '' AND event_handler_id IS NULL) OR "
+            "(runbook_name = '' AND event_handler_id IS NOT NULL)",
+            name="ck_remediation_one_action",
+        ),
         Index("idx_remediation_service", "match_service_name"),
     )
 

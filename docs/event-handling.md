@@ -1,0 +1,131 @@
+# Event handling — ein Handler, zwei Körper, zwei Herkünfte
+
+> Nutzervorgabe (wörtlich): „Das soll als Runbook oder Skript (Bash, Python, etc.) ausgeführt
+> werden können. Mit Parameter Übergabe um die Skripts variabel zu halten. Die Event handler
+> werden entweder von bossman verwaltet und verteilt oder sie liegen lokal in einem Bestimmten
+> Verzeichnis wo der agent sie finden kann. Natürlich dann ohne Parameter. Parameter können nur
+> in Bossman konfiguriert werden."
+> Und auf die Rückfrage, ob ein lokal liegender Handler auch lokal ausgelöst werden könne:
+> „Das ist wohl unlogisch oder? Es kann nur ein Bossman verwalteter Event handler getriggert
+> werden." → **Bossman ist immer der Auslöser.** Nur der *Körper* liegt woanders.
+
+## 1. Was schon existiert (und deshalb nicht neu gebaut wird)
+
+Diese Prüfung stand am Anfang, weil dieses Projekt sonst genau den Fehler wiederholt, den das
+Logik-Audit die ganze Zeit findet: ein zweiter Weg zum selben Ergebnis.
+
+| Baustein | Wo | Kann schon |
+|---|---|---|
+| **Auslöser** | `services/remediation.py` | Ein Check geht in einen harten Problemzustand → Policy greift |
+| **Bindung** | `RemediationPolicy` | `match_service_name` + Scope (global/OU/Gruppe/Host) + `conditions` |
+| **Ausführung Runbook** | `services/runbook_exec.execute_runbook` | Runbook **mit Parametern** auf dem Host |
+| **Leitplanken** | `RemediationPolicy` | `max_per_hour`, `autonomy` (propose/auto_verify), `allow_prod`, `max_blast_radius`, Kill-Switch |
+| **Nachkontrolle** | Phase 1/2 | `verify` + `verify_after_s`, Eskalation, `rollback_runbook` |
+| **Audit** | `RemediationRun` | jeder Lauf mit Ergebnis, apply/dismiss |
+| **Skript ausführen** | Agent-Modul `script` / `command` | Ein auf dem Host liegendes Skript ausführen (rc/stdout/stderr) |
+| **Skript ausbringen** | Agent-Modul `copy` | Inhalt + `dest` + `mode` — genau der Weg, den die Disk-Verwaltung für die LUKS-Passphrase nutzt |
+| **Lokale Handler finden** | Agent-Modul `find` | Ein Verzeichnis auflisten |
+
+**Folge:** Event-Handling braucht **keinen** neuen Auslöser, keine neue Leitplanke, kein neues
+Audit und keine Zeile Agent-Code. Es braucht genau das, was fehlt: einen **Handler als eigenes,
+benennbares Objekt**, dessen Körper auch ein Skript sein darf.
+
+## 2. Das Objekt
+
+`EventHandler` — die wiederverwendbare *Aktion*. Bisher war die Aktion ein Feld an der Policy
+(`runbook_name` + `params`), also nicht wiederverwendbar und nicht auf Skripte erweiterbar.
+
+```
+EventHandler
+  name            eindeutig, wird in der Policy referenziert
+  description
+  body            runbook | script          ← WAS ausgeführt wird
+  location        managed | local           ← WOHER der Körper kommt (nur für script)
+  runbook_name    body=runbook
+  interpreter     body=script: bash | sh | python3 | …
+  source          body=script, location=managed: der Skripttext (in Bossman gepflegt)
+  local_name      body=script, location=local: Dateiname in /etc/agentic-mcp/event-handlers/
+  parameters      [ {name, type, default, description, required} ]  ← NUR in Bossman
+  timeout_s
+```
+
+### Die vier erlaubten Kombinationen — und die eine verbotene
+
+| body | location | Parameter | Ausführung |
+|---|---|---|---|
+| `runbook` | — | ✅ | `execute_runbook` wie heute |
+| `script` | `managed` | ✅ | `copy` (Text → `/etc/agentic-mcp/event-handlers/<name>`, mode 0700) **dann** `command` |
+| `script` | `local` | **❌** | `command` auf `/etc/agentic-mcp/event-handlers/<local_name>` |
+| `runbook` | `local` | — | **existiert nicht** |
+
+Die letzte Zeile ist kein Versehen: ein Runbook ist ein Dokument in Bossmans Datenbank, es
+*kann* nicht lokal liegen. Der Typ muss diese Kombination daher unmöglich machen
+(Constraint), nicht das UI abfangen — Regel 2 des Logik-Audits.
+
+**Warum lokal ohne Parameter** (die Nutzervorgabe, mit ihrem Grund): Bossman kennt den Inhalt
+eines lokal abgelegten Skripts nicht. Es könnte also nicht sagen, welche Parameter es annimmt,
+welche Typen sie haben oder ob sie erforderlich sind — jede angebotene Parameterliste wäre
+geraten. Ein Formular, das Werte für unbekannte Parameter erfragt, verspricht eine Wirkung, die
+niemand prüfen kann. Deshalb: lokal = Aufruf ohne Argumente, und das Formular zeigt **warum**,
+statt das Feld nur auszugrauen.
+
+## 3. Wie Parameter ankommen
+
+Ein Skript bekommt sie als **Umgebungsvariablen**, nicht als Positionsargumente:
+`BOSSMAN_<PARAM>` in Großbuchstaben. Begründung: Positionsargumente sind reihenfolgeabhängig
+und stillschweigend falsch, wenn ein Parameter hinzukommt; benannte Variablen brechen nicht
+beim Erweitern. Dazu kommt immer der **Ereigniskontext**, damit ein Handler weiß, warum er
+läuft:
+
+```
+BOSSMAN_EVENT_HOST        Hostname
+BOSSMAN_EVENT_SERVICE     Service-/Checkname, der ausgelöst hat
+BOSSMAN_EVENT_STATE       WARN | CRIT | UNKNOWN
+BOSSMAN_EVENT_VALUE       Messwert (leer, wenn keiner)
+BOSSMAN_EVENT_HANDLER     Name des Handlers (für Logzeilen)
+BOSSMAN_EVENT_RUN_ID      die RemediationRun-Zeile — verbindet Hostlog und Audit
+```
+
+Auch der lokale Fall bekommt diesen Kontext: er ist **kein Parameter**, sondern die Tatsache,
+die den Lauf ausgelöst hat — Bossman kennt sie immer, unabhängig vom Skriptinhalt.
+
+## 4. Wie es an den Auslöser kommt
+
+`RemediationPolicy` bekommt **ein** Feld: `event_handler_id`. Entweder-oder zum bestehenden
+`runbook_name`, per Constraint erzwungen; `runbook_name` bleibt gültig, damit bestehende
+Policies unverändert laufen. Alles andere — Auslöser, Scope, Ratenbegrenzung, Autonomie,
+Verifikation, Rollback, Audit — bleibt exakt wie es ist.
+
+Damit geht `/remediation-*` **auf** statt daneben zu liegen: die 7 Endpunkte werden die
+Oberfläche des Event-Handlings, nicht ein zweites Subsystem.
+
+Benennung (Regel 1): das Objekt heißt im Code, in der API und im UI **Event handler**; die
+Policy, die ihn an einen Auslöser bindet, heißt **Event rule**, nicht länger „Remediation
+policy" — „Remediation" beschreibt nur einen Zweck von mehreren (benachrichtigen, aufräumen,
+eskalieren sind keine Reparatur).
+
+## 5. Was sichtbar sein muss (die Prüffragen, vorab beantwortet)
+
+- **Zureichender Grund:** Jeder Lauf nennt Handler, Auslöser, Parameterwerte und rc/stdout —
+  `RemediationRun` trägt das schon, das UI muss es zeigen.
+- **Falsifizierbarkeit:** Bei `location=local` muss ablesbar sein, ob die Datei auf dem Host
+  **existiert**. Ohne diese Anzeige ist ein lokaler Handler eine Behauptung: er läuft erst beim
+  Ereignis, und dann fehlt er womöglich. Deshalb: Bossman listet per `find` das Verzeichnis der
+  betroffenen Hosts und zeigt „vorhanden auf N von M Hosts".
+- **Ausgeschlossenes Drittes:** Ein Handler, dessen lokale Datei fehlt, ist ein **benannter**
+  Zustand („missing on host"), keine leere Zeile.
+- **Widerspruchsfreiheit:** Ein `managed`-Skript wird bei jedem Lauf ausgebracht, bevor es
+  läuft. Sonst könnte auf dem Host eine ältere Fassung liegen als die, die Bossman anzeigt —
+  zwei Wahrheiten für denselben Körper.
+
+## 6. Reihenfolge der Umsetzung
+
+1. Modell + Migration (`event_handlers`, `remediation_policies.event_handler_id`) samt
+   Constraints für die verbotenen Kombinationen.
+2. Service: `services/event_handlers.py` — Körper auflösen, Parameter in Umgebung übersetzen,
+   `managed` ausbringen, ausführen; `services/remediation.py` ruft es statt direkt
+   `execute_runbook`.
+3. API: `/event-handlers` CRUD + `/event-handlers/{id}/availability` (die `find`-Prüfung).
+4. UI: Handler-Editor + die Anzeige „vorhanden auf N von M Hosts"; die Event-Regeln daneben.
+5. Erst danach umbenennen (Remediation policy → Event rule), als eigener Schritt, damit ein
+   Fehler in der Umbenennung nicht mit einem Fehler in der Funktion vermischt wird.
