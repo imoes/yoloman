@@ -24,6 +24,8 @@ from bossman.db.models import AccessGrant, Agent, CheckRule, HostGroup, HostGrou
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
+from tests.naming import owned_name  # run-tagged names — see tests/naming.py
+
 TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
@@ -32,7 +34,7 @@ def _sfx() -> str:
 
 
 async def _token(db_session):
-    row, raw = new_api_token(f"mem-caller-{_sfx()}")
+    row, raw = new_api_token(owned_name("mem-caller"))
     db_session.add(row)
     await db_session.flush()
     await db_session.commit()
@@ -55,7 +57,7 @@ async def _grant_all(db_session, api_token) -> AccessGrant:
 
 async def _agent(db_session, prefix="mem-host") -> Agent:
     agent = Agent(
-        name=f"{prefix}-{_sfx()}", token=uuid.uuid4().hex, mode="standalone", enrollment_state="enrolled"
+        name=owned_name(prefix), token=uuid.uuid4().hex, mode="standalone", enrollment_state="enrolled"
     )
     db_session.add(agent)
     await db_session.flush()
@@ -86,7 +88,7 @@ async def test_group_side_membership_reaches_the_projection(db_session):
     """
     api_token, headers = await _token(db_session)
     agent = await _agent(db_session)
-    group = await _group(db_session, f"mem-grp-{_sfx()}")
+    group = await _group(db_session, owned_name("mem-grp"))
 
     app = create_app()
     with TestClient(app) as client:
@@ -112,7 +114,7 @@ async def test_removing_a_host_from_the_group_clears_its_projection(db_session):
     """The loser of a membership change must be re-projected too, or it keeps matching."""
     api_token, headers = await _token(db_session)
     agent = await _agent(db_session)
-    group = await _group(db_session, f"mem-grp-{_sfx()}")
+    group = await _group(db_session, owned_name("mem-grp"))
 
     app = create_app()
     with TestClient(app) as client:
@@ -137,7 +139,7 @@ async def test_deleting_a_group_clears_it_from_its_members(db_session):
     """
     api_token, headers = await _token(db_session)
     agent = await _agent(db_session)
-    group = await _group(db_session, f"mem-grp-{_sfx()}")
+    group = await _group(db_session, owned_name("mem-grp"))
 
     app = create_app()
     with TestClient(app) as client:
@@ -160,7 +162,7 @@ async def test_host_side_membership_writes_the_membership_table(db_session):
     api_token, headers = await _token(db_session)
     grant = await _grant_all(db_session, api_token)
     agent = await _agent(db_session)
-    name = f"mem-grp-{_sfx()}"
+    name = owned_name("mem-grp")
 
     app = create_app()
     with TestClient(app) as client:
@@ -183,7 +185,7 @@ async def test_rename_carries_rules_links_and_projection(db_session):
     """A rename must move every reference with it — the name IS the reference."""
     api_token, headers = await _token(db_session)
     agent = await _agent(db_session)
-    old = f"mem-grp-{_sfx()}"
+    old = owned_name("mem-grp")
     new = f"{old}-renamed"
     group = await _group(db_session, old)
 
@@ -191,7 +193,7 @@ async def test_rename_carries_rules_links_and_projection(db_session):
         service_name="probe", metric="cpu_load1", comparison="gt", warn_threshold=9, crit_threshold=99,
         scope_type="group", scope_value=old,
     )
-    note = NotificationRule(name=f"mem-note-{_sfx()}", channel="email", target="x@example.com",
+    note = NotificationRule(name=owned_name("mem-note"), channel="email", target="x@example.com",
                             scope_type="group", scope_value=old)
     db_session.add_all([rule, note])
     await db_session.flush()
@@ -226,7 +228,7 @@ async def test_rename_carries_path_children(db_session):
     """Nested groups are paths: renaming "a" must turn the separate row "a/b" into "new/b",
     or the subtree detaches from the group it belongs to."""
     api_token, headers = await _token(db_session)
-    parent_name = f"mem-grp-{_sfx()}"
+    parent_name = owned_name("mem-grp")
     child_name = f"{parent_name}/child"
     new_parent = f"{parent_name}-renamed"
     parent = await _group(db_session, parent_name)
@@ -249,8 +251,8 @@ async def test_rename_collision_is_refused_before_anything_changes(db_session):
     """A colliding rename must be a 409 and leave the old name intact — the unique constraint
     would otherwise abort mid-cascade, with half the references moved."""
     api_token, headers = await _token(db_session)
-    a = await _group(db_session, f"mem-grp-a-{_sfx()}")
-    b = await _group(db_session, f"mem-grp-b-{_sfx()}")
+    a = await _group(db_session, owned_name("mem-grp-a"))
+    b = await _group(db_session, owned_name("mem-grp-b"))
 
     app = create_app()
     with TestClient(app) as client:

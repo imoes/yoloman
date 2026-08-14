@@ -1107,3 +1107,42 @@ test-deployment aus meiner eigenen Probe.
 **Nebenbefund, nicht angefasst:** `access_grants` hat 1028 Zeilen; das sieht überwiegend nach
 Testrückstand aus und gehört in dieselbe Rückstandsabsicherung wie Hosts und Gruppen (die
 Fixture erfasst beide bis heute nicht mit einem Eigentümer-Merkmal — siehe Bereich 9).
+
+---
+
+## Umsetzung: Testrückstand — Eigentümer statt Zeitfenster (Bereich 9, Fortsetzung)
+
+```
+[Identität] Das Aufräum-Kriterium konnte fremd nicht von eigen unterscheiden
+  Beleg:   tests/conftest.py wählte „Name in Testform UND created_at >= mein Start".
+  Messung: dieselben drei Testdateien einzeln grün; ZWEI gleichzeitige Läufe → 10 bzw. 12
+           Fehler, weil jeder Teardown die frisch gesäten Hosts des anderen löschte.
+  Fix:     tests/naming.py trägt eine Lauf-Kennung (`RUN_TAG`) und `owned_name(prefix)`.
+           Aufgeräumt wird, was EIGEN ist (Name trägt die Kennung) ODER WAISE (Testform und
+           älter als 2 h, kann also keinem laufenden Prozess gehören). Die frischen Zeilen
+           eines parallelen Laufs sind keins von beidem.
+  Gegenprobe: zwei gleichzeitige Läufe → 28 grün / 28 grün (vorher 10 bzw. 12 Fehler).
+  Nebenbei: der Helfer hieß zuerst `test_name` — pytest sammelt jede Funktion mit `test_`-
+           Präfix, also wurde der HELFER als fehlschlagender Test eingesammelt. Vom Collector
+           gefunden, nicht vom Lesen; der Grund steht jetzt in naming.py.
+
+[Zureichender Grund] Grants referenzieren ihr Subjekt über den NAMEN
+  Messung: 1325 `access_grants`, alle `api_token / all / manage`, davon nur DREI in Testform —
+           die Suiten benutzen feste Namen (test-caller, mon-caller, mgmt-caller). 339 davon
+           hatten KEIN Token mehr, und 147 Test-Tokens lagen ebenfalls herum.
+  Problem: Ein Grant nennt sein Subjekt beim Namen. Ein künftiges Token namens `test-caller`
+           erbt damit `scope=all, permission=manage` aus einem Lauf von vor Wochen. Für
+           Testnamen ist das Rauschen — für einen echten Tokennamen ist es eine stille
+           Rechteerteilung. **Das ist dieselbe Fehlerklasse wie die Gruppen-Referenz per Name,
+           und sie ist NICHT behoben: sie gehört dir vorgelegt, weil es eine
+           Autorisierungs-Semantik ist, keine Aufräumfrage.**
+  Aufräumen (getan): Tokens ZUERST, dann Grants — die erste Fassung hatte es umgekehrt, wodurch
+           die Grants eines gerade gelöschten Tokens bis zum nächsten Lauf liegen blieben
+           (gemessen: 1325 → 971 statt weg). Danach: baumelnde Grants 339 → 0.
+  Stand:   Rückstand ist jetzt BEGRENZT und selbstheilend (jeder Lauf fegt Waisen > 2 h) statt
+           unbegrenzt zu wachsen — er war seit 02.08. auf 1325 Zeilen angewachsen. Ein Lauf
+           hinterlässt weiter seine eigenen Zeilen, solange die Suite `owned_name()` nicht
+           benutzt; migriert ist bisher nur tests/test_host_membership.py als Vorlage.
+  Offen:   die übrigen ~20 Testdateien auf `owned_name()` umstellen (mechanisch), dann ist der
+           Rückstand nach jedem Lauf null statt nach zwei Stunden.
+```
