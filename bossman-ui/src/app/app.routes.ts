@@ -211,6 +211,13 @@ export const routes: Routes = [
     loadComponent: () => import('./features/ou-policy/ou-policy.component').then((m) => m.OuPolicyComponent),
   },
   {
+    // Host clusters: a cluster IS a host (agents row, mode="cluster"), so it belongs with
+    // the fleet, not in a monitoring-config corner.
+    path: 'clusters',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/clusters/clusters.component').then((m) => m.ClustersComponent),
+  },
+  {
     path: 'host-placement',
     canActivate: [authGuard],
     loadComponent: () => import('./features/host-placement/host-placement.component').then((m) => m.HostPlacementComponent),

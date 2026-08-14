@@ -341,7 +341,7 @@ Weder UI noch MCP noch Agent rufen diese auf (Tests und Service-Schicht siehe Sp
 | Familie | Endpunkte | Tests | Service | Beleg | Stand |
 |---|---|---|---|---|---|
 | `/graphs` (+`/{id}/data`) | 6 | ja | — | graphs.py:112,120,127,147,174,200 | Entscheidung: in Dashboards falten |
-| `/clusters` | 4 | ja | — | clusters.py:134,148,178,201 | Entscheidung: Oberfläche nachziehen |
+| `/clusters` | 4 | ja | ja (clustering.py) | clusters.py:134,148,178,201 | **Oberfläche gebaut** |
 | `/value-maps` | 4 | ja | — | value_maps.py:47,55,79,98 | **Oberfläche gebaut** |
 | `/severity-labels` | 2 | ja | — | severity_labels.py:43,51 | **Oberfläche gebaut** |
 | `/templates` + `/template-groups` | 11 | **10 E2E** | ja | templates.py:56,64,80,181,189,197,228,270,306,315,339 | **Oberfläche gebaut** |
@@ -675,3 +675,83 @@ Nutzerentscheidung: bei beiden **Oberfläche nachziehen**. Beide beantworten die
 Live verifiziert: Zuordnung „Up / Down" (0→Down, 1→Up) im Browser angelegt → per API sichtbar;
 an eine Template-Regel gehängt → die materialisierte CheckRule in `grp-14db80` trägt die
 value_map_id; WARN im Browser auf „Degraded" umbenannt → per API bestätigt und zurückgesetzt.
+
+---
+
+## Umsetzung: Host clusters (Spur A, Familie 2)
+
+Nutzerentscheidung: **Oberfläche nachziehen**. Neuer Screen `Fleet ▸ Host clusters`
+(`features/clusters/clusters.component.ts`, `/clusters`).
+
+**Was ein Cluster hier ist** — und was nicht. Das Wort ist im System dreifach belegt:
+Monitoring-Cluster (dieser), Kubernetes-Cluster (Helm/kubeconfig), Proxmox-Cluster
+(Inventar-Import). Der Screen heißt deshalb **„Host clusters"**, das Modell
+`cluster.model.ts` sagt es im Kopf. Ein Cluster **ist** ein Host: `agents`-Zeile mit
+`mode="cluster"` und ohne Adresse — nichts pollt ihn, seine Services werden einmal pro
+Zyklus aus den Knoten berechnet (`poller.py:733` → `aggregate_all_clusters`). Die Aggregation
+ist eine Portierung von Checkmks `cluster_mode.py`.
+
+```
+[Zureichender Grund] Ein Modusname sagt nicht, was er tut
+  Problem: „worst" / „best" / „failover" in einem Dropdown ist eine Einstellung ohne
+           erkennbare Folge.
+  Fix:     Jede Option trägt ihren Satz („any node's problem is the cluster's problem"),
+           und unter der Auswahl steht die Bedeutung des GEWÄHLTEN Modus.
+
+[Identität] „Preferred node" ist NICHT nur für failover relevant
+  Beleg:   services/clustering.py: `pivot = primary if primary in selected else selected[0]`
+           — bei worst/best ist der Primärknoten der bevorzugte Pivot im gewählten
+           Zustands-Bucket, also der deterministische Gleichstands-Entscheid.
+  Problem: Ihn als „failover only" zu beschriften wäre schlicht falsch.
+  Fix:     Das Feld heißt je Modus anders und erklärt beides: „decides the cluster's state"
+           (failover) bzw. „breaks the tie when several nodes share the selected state".
+           Bei failover ohne Primärknoten warnt der Screen, dass der Modus dann wie „worst"
+           wirkt und die Einstellung nichts tut.
+
+[Falsifizierbarkeit] Ein Muster, dessen Wirkung man erst nach dem Speichern sieht
+  Problem: `service_patterns` entscheidet, welche Services dem CLUSTER statt dem Knoten
+           gehören. Blind getippt merkt man einen Tippfehler erst, wenn der Cluster
+           dauerhaft leer bleibt.
+  Fix:     Die Services der GEWÄHLTEN Knoten werden geladen und als Vorschlags-Chips
+           angeboten; je Muster steht, welche Services es beansprucht, „(N service(s),
+           reported by M of K node(s))", und ein Muster ohne Treffer wird rot als
+           „nothing — this pattern claims no service" benannt. Die Zahl zählt SERVICE-NAMEN,
+           nicht Knoten — deshalb heißt die Spalte „Claims these services": drei Knoten, die
+           alle „Memory" melden, sind ein beanspruchter Service, und „matches" hätte sich
+           als Knotenzahl gelesen.
+
+[Widerspruchsfreiheit] Keine Aktion, die das Backend verweigern würde
+  Fix:     Der Cluster selbst wird nicht als eigener Knoten angeboten (API: 422); wird ein
+           Knoten abgewählt, der Primärknoten war, fällt die Präferenz automatisch weg
+           (sonst 422 „primary_node_id must be one of the cluster's nodes"); „Speichern"
+           bleibt gesperrt und NENNT den Grund (kein Name / kein Knoten / kein Muster).
+           Andere Cluster sind als Knoten nicht wählbar — mit Begründung im Screen: ihr
+           eigener Zustand entsteht im selben Zyklus, ein Aggregat aus Aggregaten hinge an
+           der Reihenfolge innerhalb dieses Zyklus.
+
+[Widerspruchsfreiheit über Zeit] Erster Screen, der If-Match sendet
+  Beleg:   ClusterOut liefert `version`; api/etag.py `check_if_match` lässt einen Aufrufer
+           OHNE If-Match still passieren.
+  Problem: Bisher hat keine UI-Stelle den Wert zurückgeschickt — zwei parallele Bearbeiter
+           hätten sich gegenseitig überschrieben, ohne dass es jemand merkt.
+  Fix:     ClusterService.update sendet If-Match; ein 412 wird als Satz erklärt („Someone
+           else changed this cluster while you were editing…"). Live geprüft: PUT mit
+           veraltetem Wert → 412 mit der neuen Version in der Meldung.
+```
+
+### Live verifiziert am echten Cluster
+
+Es existierte schon ein produktiver Cluster: **MUE-C5 Trio Cluster**, `worst`, drei
+Proxmox-Knoten (vpp0221/22/23), geclusterte Services `Memory` + `Host alive`, beide OK.
+
+1. Der Screen lädt ihn, hakt genau die drei Knoten an und schließt den Cluster selbst aus.
+2. Je Muster erscheint der Treffer gegen die echten Knoten-Services (28/25/29 Services).
+3. „What this cluster reports now" zeigt `Host alive OK` / `Memory OK`.
+4. Über einen Vorschlags-Chip `CPU load` beansprucht und gespeichert → per API bestätigt;
+   danach **wieder auf den Ursprungszustand zurückgesetzt** (ein produktiver Cluster ist
+   keine Testumgebung).
+5. PUT mit veraltetem If-Match → 412.
+6. `scripts/test-in-container.sh tests/test_clusters_api.py tests/test_clustering.py` → 30 grün.
+
+Nebenbei aufgeräumt: zwei `rel-agent-*`-Hosts, die MEINE früheren Testläufe hinterlassen
+hatten (dieselbe Rückstands-Lücke wie bei den `grp-*`-Gruppen, siehe Bereich 9).
