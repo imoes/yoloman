@@ -260,8 +260,15 @@ Anlass: „Resources machen immer noch keinen Sinn." Das Protokoll ist in
 
 ### Vorschlag (gestaffelt, zur Entscheidung)
 
-1. **UI-Client vereinheitlichen** (klein, kein API-Bruch): einen Client, ein Typsatz,
-   `resource-node` umstellen, Duplikat löschen.
+1. ~~**UI-Client vereinheitlichen**~~ — **ERLEDIGT**: `resource-node` nutzt jetzt den
+   generischen `ResourceService` (Identität per `ResourceRef` statt vier
+   Positionsargumenten), `resources.service.ts` ist gelöscht. Dabei zeigte sich der
+   dokumentierte Widerspruch praktisch: die beiden Clients modellierten dieselbe
+   Antwort unterschiedlich (`applied_at` vs `created_at`, Hülle vs. entpackt) — der
+   Compiler hat jeden dieser Fälle gemeldet. Die Hülle (`{resource_key, observed}`)
+   bleibt jetzt an **einer** Stelle, art-spezifische Extras (`role`: `status`,
+   `unbound`) sind im gemeinsamen Typ **deklariert** statt in einem zweiten Client
+   entdeckt zu werden. Live geprüft: Resources-Tab + Inspector funktionieren.
 2. **Registry einführen** (`services/resources/__init__.py`) mit kind→Klasse und
    deren Eigenheiten als Attribute.
 3. **36 → 6 Routen** zusammenlegen; die alten Pfade bleiben identisch, also kein

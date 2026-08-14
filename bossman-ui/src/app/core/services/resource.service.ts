@@ -44,8 +44,15 @@ export interface ResourceResult {
   error?: string;
   generation?: number;
   plan?: ResourceDiff;
+  /** `role` only: the binding's state after applying ('active' | 'pending' | …). */
+  status?: string;
+  /** `role` only: how many links `unbind()` removed. */
+  unbound?: number;
 }
 
+/** Kind-specific extras that some resources add to `apply()`/`unbind()`. They are
+ *  DECLARED here rather than left to a second client to discover: `role` reports the
+ *  binding's `status` and how many links it `unbound`. */
 /** One recorded `apply()` — what `rollback()` restores. */
 export interface ResourceGeneration {
   generation: number;
@@ -53,6 +60,11 @@ export interface ResourceGeneration {
   note?: string | null;
   created_at?: string;
 }
+
+/** Aliases kept for the components that used to import from the deleted second
+ *  client — ONE type set now describes the protocol's answers. */
+export type ResourcePlan = ResourceDiff;
+export type ApplyResult = ResourceResult;
 
 @Injectable({ providedIn: 'root' })
 export class ResourceService {
@@ -122,6 +134,13 @@ export class ResourceService {
   }
 
   /** `rollback(generation)` → restore a previous spec. */
+  /** `role` only: drop the role/template binding. The one non-verb sub-resource in
+   *  the protocol, so it is declared here rather than hidden in a second client. */
+  unbind(ref: ResourceRef): Observable<ResourceResult> {
+    return this.http.delete<ResourceResult>(
+      `${environment.apiUrl}/agents/${ref.agentId}/resources/role/${encodeURIComponent(ref.name)}/binding`);
+  }
+
   rollback(ref: ResourceRef, generation: number): Observable<ResourceResult> {
     return this.http.post<ResourceResult>(this.url(ref, 'rollback'), { ...this.ident(ref), generation });
   }
