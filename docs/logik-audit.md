@@ -486,22 +486,38 @@ Bulk-Verben in vier Schreibweisen (`acknowledge-bulk`, `mass-update`, `bulk-upda
            Schlimmer: er verdeckt echte Fehlschläge (siehe nächster Befund).
   Fix:     Suite im Container laufen lassen (dort ist die DB erreichbar) oder diese
            Tests als solche markieren, damit „17 rot" nicht zur Normalität wird.
-  NACHTRAG (im Container gemessen, damit widerlegt): „nur die Umgebung" war eine
-           unzureichende Erklärung. Im Container IST die DB erreichbar — und dieselben
-           16 fallen weiter, jetzt mit `assert 0 == 1`. Ursache ist ein Konstruktions-
-           fehler in den Tests selbst: `tests/conftest.py:52-69` gibt eine Session, die
-           NIE committet (Zeile 69 `rollback`), die Tests säen mit `flush()` und lesen
-           dann über `TestClient(create_app())` — eine EIGENE Verbindung, die eine
-           fremde offene Transaktion nach ACID nicht sehen kann (Beispiel:
-           tests/test_relationships_api.py:60-73).
-           Diese 16 Tests können in dieser Form in KEINER Umgebung grün werden.
-           Der Widerspruch: der Test behauptet, er prüfe „real HTTP gegen real Postgres",
-           prüft aber eine Sichtbarkeit, die er selbst ausschließt.
-  Fix:     Saat committen (die autouse-Fixture `_drop_test_residue` existiert genau für
-           TestClient-schreibende Tests und räumt danach auf) — NICHT die Assertions
-           abschwächen. Danach ist „rot" wieder ein Signal.
-  Lehre:   Zwei Umgebungen, zwei verschiedene Fehlerursachen, dieselbe Zahl 16 — die
-           gleiche Zahl hat mich die erste Ursache für die einzige halten lassen.
+  Status:  ERLEDIGT — `scripts/test-in-container.sh` (mit Begründung im Kopf des Skripts).
+           Belegt: dieselben 10 Dateien im Container 60 passed / 0 failed.
+
+  ZWISCHENIRRTUM, ausdrücklich festgehalten (er zeigt, wie der Fehler entsteht):
+           Ich hatte behauptet, die 16 könnten „in KEINER Umgebung grün werden", weil
+           `db_session` (conftest.py:52-69) nie committet und die Tests deshalb über eine
+           fremde Verbindung Unsichtbares lesen. Das ist FALSCH: die Helfer committen
+           (tests/test_relationships_api.py:19,37,45). Ich hatte die Fixture gelesen und
+           den Testkörper nicht — ein Schluss aus einer unvollständigen Disjunktion (§5),
+           gestützt auf die Zahl 16, die in beiden Umgebungen gleich war.
+           Widerlegt durch Messung: das Szenario per Hand im Container nachgebaut →
+           funktioniert; der Test isoliert → grün; die ganze Datei → grün.
+
+[Widerspruchsfreiheit + Identität] Die Aufräum-Fixture löscht fremde Zeilen — BEWIESEN
+  Beleg:   tests/conftest.py:146-149 + `_drop_leaked_agents`: Kriterium ist
+           „Name passt auf ^[a-z-]+-[0-9a-f]{8}$ UND created_at >= started".
+           Experiment: dieselben drei Testdateien einzeln = grün; ZWEI Läufe gleichzeitig
+           gestartet = 10 bzw. 12 Fehler (jeweils in Tests, die allein bestehen).
+  Problem: Das Kriterium hat kein Eigentümer-Merkmal. „Nach MEINEM Start angelegt und
+           sieht wie ein Testhost aus" trifft auch auf die Zeilen des anderen Prozesses
+           zu — jeder Lauf sabotiert jeden parallelen Lauf, und der Fehler erscheint
+           irgendwo anders als er entsteht. Genau daraus wurde „16 sind halt rot".
+  Fix (jetzt): Serialisierung per `flock` in scripts/test-in-container.sh — zwei Läufe
+           können sich nicht mehr überlappen.
+  Fix (richtig, offen): Die Fixture darf nur löschen, was ihr EIGENER Prozess erzeugt hat
+           (Lauf-Kennung im Testhost-Namen oder mitgeführte id-Liste). Solange die
+           Bedingung „fremd" nicht von „eigen" unterscheiden kann, ist sie ein
+           Widerspruch zum Zweck der Fixture: sie soll aufräumen, nicht eingreifen.
+  Nebenbefund: `uv run` ist im Container Pflicht — PID 1 des Dienstes ist
+           `uv run uvicorn …`, das venv wird erst dort synchronisiert. Direkte Aufrufe von
+           /app/.venv/bin/python scheiterten an „No module named pytest" bzw.
+           „No module named jinja2" und sehen wie Codefehler aus, sind aber keine.
 
 [Widerspruchsfreiheit] Testrückstand in der gemeinsamen Datenbank
   Beleg:   GET /api/v1/host-groups liefert live 36 Gruppen `grp-XXXXXX` mit 0 Mitgliedern.

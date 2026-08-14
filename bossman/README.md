@@ -13,6 +13,22 @@ uv run pytest
 uv run ruff check .
 ```
 
+From the host, the ~16 DB-backed end-to-end tests ("real HTTP, real Postgres") cannot run:
+there is exactly one database — the one in docker compose — and the host does not reach it.
+Run those where the database is:
+
+```bash
+../scripts/test-in-container.sh                        # whole suite, inside the compose network
+../scripts/test-in-container.sh tests/test_runs_api.py # or a subset
+```
+
+The script takes a lock, and that is not cosmetic: `tests/conftest.py`'s autouse
+`_drop_test_residue` deletes every test-shaped row created after its own start time, with no
+notion of *whose* row it is — so two overlapping runs delete each other's data. Measured: the
+same three files pass alone and produce 10 and 12 failures when two runs start together.
+Inside a container always go through `uv run`; calling `/app/.venv/bin/python` directly hits
+an unsynced venv and fails in ways that look like code errors but are not.
+
 ## Local dev database
 
 Bossman needs a Postgres instance with the TimescaleDB extension. For local
