@@ -29,7 +29,13 @@ interface DiskOp { op: string; device?: string; target?: string; table?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
   start_mib?: number; size_mib?: number; grow?: boolean;
   name?: string; property?: string; snap?: string; recursive?: boolean; raid?: string; vdevs?: string[]; _desc: string; }
-interface Seg { kind: 'part' | 'free'; label: string; pct: number; usedPct: number; color: string; title: string; }
+/** One box in the visual disk bar (gparted's DrawingAreaVisualDisk): a partition or
+ *  a free gap, drawn proportionally, with nested children (LVM/LUKS) rendered inside
+ *  the parent box the way gparted draws an extended partition's container. */
+interface Seg {
+  kind: 'part' | 'free'; key: string; name: string; fs: string; sizeLabel: string;
+  pct: number; usedPct: number; color: string; title: string; children: Seg[];
+}
 interface FormField { key: string; label: string; type: 'text' | 'number' | 'select'; value: string;
   options?: string[]; hint?: string; placeholder?: string; }
 interface ActiveForm { title: string; icon: string; fields: FormField[]; submitLabel: string;
@@ -46,12 +52,39 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
   standalone: true,
   imports: [MatIconModule, MatButtonModule],
   template: `
-    <div class="bm-dk-head">
-      <span class="bm-dim">Disks &amp; partitions (live). Stage operations, then Apply — like gparted, over the agent.</span>
-      <span class="bm-dk-tools">
-        <button mat-stroked-button (click)="addScratch()" [disabled]="busy()"><mat-icon>science</mat-icon> Scratch test disk</button>
-        <button mat-stroked-button (click)="load()" [disabled]="busy()"><mat-icon>refresh</mat-icon> {{ loading() ? 'Scanning…' : 'Rescan' }}</button>
-      </span>
+    <!-- gparted's toolbar: actions act on the SELECTED partition; the device chooser
+         picks ONE disk at a time (right), and Undo/Apply gate the staged queue. -->
+    <div class="bm-gp-toolbar">
+      <div class="bm-gp-acts">
+        <button class="bm-gp-tb" (click)="tbNew()" [disabled]="!canNew()" title="New partition in the selected unallocated space">
+          <mat-icon>add_box</mat-icon><span>New</span></button>
+        <button class="bm-gp-tb" (click)="tbDelete()" [disabled]="!canDelete()" title="Delete the selected partition">
+          <mat-icon>delete</mat-icon><span>Delete</span></button>
+        <button class="bm-gp-tb" (click)="tbResize()" [disabled]="!canResizeSel()" [title]="resizeTip()">
+          <mat-icon>unfold_more</mat-icon><span>Resize/Move</span></button>
+        <span class="bm-gp-sep"></span>
+        <button class="bm-gp-tb" (click)="tbFormat()" [disabled]="!canFormat()" title="Format the selected partition">
+          <mat-icon>edit_note</mat-icon><span>Format</span></button>
+        <button class="bm-gp-tb" (click)="tbLabel()" [disabled]="!canFormat()" title="Set the filesystem label">
+          <mat-icon>sell</mat-icon><span>Label</span></button>
+        <button class="bm-gp-tb" (click)="tbMount()" [disabled]="!canMount()" [title]="mountTip()">
+          <mat-icon>{{ selBusy() ? 'eject' : 'drive_folder_upload' }}</mat-icon><span>{{ selBusy() ? 'Unmount' : 'Mount' }}</span></button>
+        <span class="bm-gp-sep"></span>
+        <button class="bm-gp-tb" (click)="undoLast()" [disabled]="!ops().length" title="Undo the last staged operation">
+          <mat-icon>undo</mat-icon><span>Undo</span></button>
+        <button class="bm-gp-tb bm-gp-apply" (click)="apply()" [disabled]="!ops().length || busy()" title="Apply all staged operations">
+          <mat-icon>check</mat-icon><span>{{ applying() ? 'Applying…' : 'Apply' }}</span></button>
+      </div>
+      <div class="bm-gp-devpick">
+        <mat-icon>{{ dev()?.rotational ? 'album' : 'sd_card' }}</mat-icon>
+        <select class="bm-gp-devsel" [value]="selDev()" (change)="pickDev(asVal($event))" title="Select a device">
+          @for (d of layout()?.devices || []; track d.path) {
+            <option [value]="d.path">{{ d.path }} ({{ fmt(d.size_bytes) }})</option>
+          }
+        </select>
+        <button class="bm-gp-tb bm-gp-tb-sm" (click)="load()" [disabled]="busy()" title="Rescan the host's disks">
+          <mat-icon>refresh</mat-icon></button>
+      </div>
     </div>
 
     @if (layout()?.errors?.length) {
@@ -59,81 +92,73 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     }
 
     @if (layout(); as l) {
-      @for (d of l.devices; track d.path) {
-        <div class="bm-dk-dev">
-          <div class="bm-dk-dev-h">
-            <mat-icon>{{ d.rotational ? 'album' : 'sd_card' }}</mat-icon>
-            <strong>{{ d.path }}</strong>
-            <span class="bm-dk-meta">{{ d.model || '—' }} · {{ fmt(d.size_bytes) }} · {{ d.table || 'no table' }}{{ d.rotational ? ' · HDD' : ' · SSD' }}</span>
-            <span class="bm-dk-devacts">
-              <button mat-button (click)="opMklabel(d, 'gpt')" [disabled]="protectedDev(d)" title="Create a new GPT partition table (wipes the disk)">Init GPT</button>
-              <button mat-button (click)="opMklabel(d, 'msdos')" [disabled]="protectedDev(d)">Init MBR</button>
-              <button mat-button (click)="opAddPartition(d)" [disabled]="protectedDev(d)"><mat-icon>add</mat-icon> Partition</button>
-            </span>
-          </div>
-
-          <div class="bm-dk-bar" [title]="d.path">
-            @for (s of segsFor(d); track $index) {
-              <div class="bm-dk-seg" [class.free]="s.kind === 'free'" [style.width.%]="s.pct" [style.background]="s.color" [title]="s.title">
-                @if (s.kind === 'part' && s.usedPct > 0) { <div class="bm-dk-used" [style.width.%]="s.usedPct"></div> }
-                <span class="bm-dk-seg-lbl">{{ s.label }}</span>
+      @if (dev(); as d) {
+        <div class="bm-gp-canvas">
+          <!-- the visual disk (gparted's DrawingAreaVisualDisk) -->
+          <div class="bm-gp-disk" [title]="d.path + ' · ' + fmt(d.size_bytes) + ' · ' + (d.table || 'no partition table')">
+            @for (s of segsFor(d); track s.key) {
+              <div class="bm-gp-seg" [class.free]="s.kind === 'free'" [class.sel]="sel() === s.key" [class.haskids]="s.children.length > 0"
+                   [style.width.%]="s.pct" [style.borderColor]="s.color"
+                   [style.background]="s.kind === 'free' ? '' : tint(s.color)"
+                   [title]="s.title" (click)="sel.set(s.key)">
+                @if (s.usedPct > 0) { <div class="bm-gp-used" [style.width.%]="s.usedPct" [style.background]="used(s.color)"></div> }
+                @if (s.children.length) {
+                  <div class="bm-gp-kids">
+                    @for (k of s.children; track k.key) {
+                      <div class="bm-gp-kid" [class.sel]="sel() === k.key" [style.width.%]="k.pct"
+                           [style.borderColor]="k.color" [style.background]="tint(k.color)"
+                           [title]="k.title" (click)="sel.set(k.key); $event.stopPropagation()">
+                        @if (k.usedPct > 0) { <div class="bm-gp-used" [style.width.%]="k.usedPct" [style.background]="used(k.color)"></div> }
+                        <span class="bm-gp-lbl"><b>{{ k.name }}</b><i>{{ k.sizeLabel }}</i></span>
+                      </div>
+                    }
+                  </div>
+                }
+                <span class="bm-gp-lbl"><b>{{ s.name }}</b><i>{{ s.sizeLabel }}</i></span>
               </div>
             }
           </div>
 
-          <table class="bm-dk-tbl">
-            <thead><tr><th>Partition</th><th>FS</th><th>Label</th><th>Size</th><th>Used</th><th>Avail</th><th>Mount</th><th>Flags</th><th></th></tr></thead>
+          <!-- the partition list (gparted's TreeView_Detail) -->
+          <div class="bm-gp-tblwrap">
+          <table class="bm-gp-tbl">
+            <thead><tr>
+              <th>Partition</th><th>File System</th><th>Mount Point</th><th>Label</th>
+              <th class="bm-dk-num">Size</th><th class="bm-dk-num">Used</th><th class="bm-dk-num">Unused</th><th>Flags</th>
+            </tr></thead>
             <tbody>
-              @for (p of flatten(d.partitions); track p.row.path) {
-                <tr>
-                  <td class="bm-dk-mono" [style.paddingLeft.px]="8 + p.depth * 16">
-                    <span class="bm-dk-swatch" [style.background]="fsColor(p.row.fstype, p.row.kind)"></span>{{ p.row.path }}
+              @for (p of rowsFor(d); track p.key) {
+                <tr [class.sel]="sel() === p.key" [class.bm-gp-freerow]="p.free" (click)="sel.set(p.key)">
+                  <td class="bm-dk-mono" [class.bm-gp-child]="p.depth > 0" [style.paddingLeft.px]="8 + p.depth * 18">
+                    @if (p.kids) { <span class="bm-gp-exp">▾</span> }
+                    <span class="bm-dk-swatch" [style.background]="p.free ? '' : p.color" [class.free]="p.free"></span>{{ p.name }}
+                    @if (p.busy) { <mat-icon class="bm-gp-lockic" [title]="'mounted at ' + p.mount + ' — unmount to edit'">lock</mat-icon> }
                   </td>
-                  <td>{{ p.row.fstype || (p.row.kind !== 'part' ? p.row.kind : '—') }}</td>
-                  <td>{{ p.row.label || '—' }}</td>
-                  <td class="bm-dk-num">{{ fmt(p.row.size_bytes) }}</td>
-                  <td class="bm-dk-num">{{ p.row.used_bytes != null ? fmt(p.row.used_bytes) : '—' }}</td>
-                  <td class="bm-dk-num">{{ p.row.avail_bytes != null ? fmt(p.row.avail_bytes) : '—' }}</td>
-                  <td class="bm-dk-mono">{{ p.row.mountpoint || '' }}</td>
-                  <td>@for (f of p.row.flags; track f) { <span class="bm-dk-flag">{{ f }}</span> }</td>
-                  <td class="bm-dk-rowacts">
-                    @if (p.row.kind === 'lvm') {
-                      <!-- LVM: grow works ONLINE (lvextend --resizefs), no unmount needed.
-                           Shrink (lvreduce) shrinks the fs first → the LV must be unmounted. -->
-                      <button mat-button (click)="opLvextend(p.row)" title="Grow this logical volume online (no unmount needed)"><mat-icon>unfold_more</mat-icon> Extend</button>
-                      @if (p.row.busy) {
-                        <span class="bm-dk-lock" title="Mounted at {{ p.row.mountpoint }} — unmount to shrink (grow works online)">
-                          <mat-icon>lock</mat-icon>unmount to shrink</span>
-                        <button mat-button (click)="unmount(d, p.row)" [disabled]="busy()">Unmount</button>
-                      } @else {
-                        <button mat-button (click)="opLvreduce(p.row)" title="Shrink this logical volume (filesystem shrunk first; LV is unmounted)"><mat-icon>unfold_less</mat-icon> Reduce</button>
-                      }
-                    } @else if (p.row.kind === 'part' || p.row.kind === 'crypt') {
-                      @if (p.row.busy) {
-                        <span class="bm-dk-lock" title="Mounted at {{ p.row.mountpoint }} — a filesystem must be unmounted before it can be edited">
-                          <mat-icon>lock</mat-icon>unmount to edit</span>
-                        <button mat-button (click)="unmount(d, p.row)" [disabled]="busy()">Unmount</button>
-                      } @else if (p.depth === 0 && p.row.kind === 'part') {
-                        <button mat-icon-button (click)="opFormat(d, p.row)" title="Format"><mat-icon>edit_note</mat-icon></button>
-                        <button mat-icon-button (click)="opResize(d, p.row)" [disabled]="!canResize(p.row)" [title]="resizeHint(p.row)"><mat-icon>open_in_full</mat-icon></button>
-                        <button mat-icon-button (click)="opMount(d, p.row)" [disabled]="!p.row.fstype" title="Mount"><mat-icon>drive_folder_upload</mat-icon></button>
-                        <button mat-icon-button (click)="opDelete(d, p.row)" title="Delete"><mat-icon>delete_outline</mat-icon></button>
-                      }
-                    }
-                  </td>
+                  <td>{{ p.fs }}</td>
+                  <td class="bm-dk-mono">{{ p.mount }}</td>
+                  <td>{{ p.label }}</td>
+                  <td class="bm-dk-num">{{ p.size }}</td>
+                  <td class="bm-dk-num">{{ p.used }}</td>
+                  <td class="bm-dk-num">{{ p.unused }}</td>
+                  <td>@for (f of p.flags; track f) { <span class="bm-dk-flag">{{ f }}</span> }</td>
                 </tr>
-              }
-              @for (f of d.free; track $index) {
-                @if ((f.size_bytes || 0) > 1048576) {
-                  <tr class="bm-dk-freerow"><td class="bm-dk-mono"><span class="bm-dk-swatch free"></span>free space</td>
-                    <td>—</td><td>—</td><td class="bm-dk-num">{{ fmt(f.size_bytes) }}</td><td>—</td><td>—</td><td></td><td></td>
-                    <td class="bm-dk-rowacts"><button mat-icon-button (click)="opAddPartition(d)" [disabled]="protectedDev(d)" title="New partition"><mat-icon>add</mat-icon></button></td></tr>
-                }
               }
             </tbody>
           </table>
+          </div>
+
+          <!-- gparted's statusbar + the device menu equivalents -->
+          <div class="bm-gp-status">
+            <span>{{ ops().length }} operation{{ ops().length === 1 ? '' : 's' }} pending</span>
+            <span class="bm-gp-statusdev">{{ d.model || 'disk' }} · {{ d.table || 'no partition table' }} · {{ d.rotational ? 'HDD' : 'SSD' }}{{ d.sector_size ? ' · ' + d.sector_size + 'B sectors' : '' }}</span>
+            <span class="bm-gp-statusacts">
+              <button class="bm-gp-lnk" (click)="opMklabel(d, 'gpt')" [disabled]="protectedDev(d)" title="Create a new GPT partition table (discards the layout)">New GPT table</button>
+              <button class="bm-gp-lnk" (click)="opMklabel(d, 'msdos')" [disabled]="protectedDev(d)">New MBR table</button>
+              <button class="bm-gp-lnk" (click)="addScratch()" [disabled]="busy()">Scratch disk…</button>
+            </span>
+          </div>
         </div>
-      } @empty { <p class="bm-empty">{{ loading() ? 'Scanning…' : 'No disks reported.' }}</p> }
+      } @else { <p class="bm-empty">{{ loading() ? 'Scanning…' : 'No disks reported.' }}</p> }
 
       @if (l.vgs?.length) {
         <div class="bm-dk-vgs"><strong>LVM</strong>
@@ -254,6 +279,80 @@ interface ActiveForm { title: string; icon: string; fields: FormField[]; submitL
     @if (scratchMsg()) { <p class="bm-dim">{{ scratchMsg() }}</p> }
   `,
   styles: [`
+    /* gparted's reading order: toolbar → visual disk + list + statusbar → the
+       pending-operations list → the LVM/ZFS extras. The @if blocks render no
+       wrapper elements, so the host lays its sections out directly. */
+    :host { display: flex; flex-direction: column; }
+    .bm-gp-toolbar { order: 1; } .bm-dk-errs { order: 2; } .bm-gp-canvas { order: 3; }
+    .bm-dk-form { order: 4; } .bm-dk-queue { order: 5; }
+    .bm-dk-vgs { order: 6; } .bm-dk-zfs { order: 7; }
+    .bm-empty, .bm-err { order: 8; }
+    /* ---- gparted layout (toolbar / visual disk / list / statusbar) ---------- */
+    .bm-gp-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;
+      padding: 6px 8px; border: 1px solid var(--mat-sys-outline-variant); border-radius: 10px 10px 0 0;
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); }
+    .bm-gp-acts, .bm-gp-devpick { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+    .bm-gp-devpick { margin-left: auto; }
+    .bm-gp-tb { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 58px;
+      padding: 6px 8px; border: 1px solid transparent; border-radius: 8px; background: transparent;
+      color: var(--mat-sys-on-surface); font: inherit; font-size: 11px; cursor: pointer; }
+    .bm-gp-tb mat-icon { font-size: 20px; height: 20px; width: 20px; }
+    .bm-gp-tb:hover:not(:disabled) { background: color-mix(in srgb, var(--mat-sys-primary) 12%, transparent);
+      border-color: color-mix(in srgb, var(--mat-sys-primary) 35%, transparent); }
+    .bm-gp-tb:disabled { opacity: 0.35; cursor: default; }
+    .bm-gp-tb-sm { min-width: 0; } .bm-gp-tb-sm span { display: none; }
+    .bm-gp-apply mat-icon { color: #66bb6a; }
+    .bm-gp-sep { width: 1px; align-self: stretch; margin: 4px 6px; background: var(--mat-sys-outline-variant); }
+    .bm-gp-devsel { font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 8px;
+      border: 1px solid var(--mat-sys-outline-variant); background: var(--mat-sys-surface); color: var(--mat-sys-on-surface); }
+    .bm-gp-devpick mat-icon { opacity: 0.75; font-size: 18px; height: 18px; width: 18px; }
+    .bm-gp-canvas { border: 1px solid var(--mat-sys-outline-variant); border-top: 0; border-radius: 0 0 10px 10px; }
+    /* the visual disk: proportional boxes, fstype-coloured border, pale interior,
+       darker "used" fill — gparted's DrawingAreaVisualDisk */
+    .bm-gp-disk { display: flex; gap: 3px; height: 78px; margin: 14px; padding: 3px;
+      border: 1px solid var(--mat-sys-outline-variant); border-radius: 4px;
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 6%, transparent); }
+    .bm-gp-seg { position: relative; min-width: 6px; border: 2px solid; border-radius: 2px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .bm-gp-seg.free { background: repeating-linear-gradient(45deg,
+      color-mix(in srgb,var(--mat-sys-on-surface) 9%,transparent), color-mix(in srgb,var(--mat-sys-on-surface) 9%,transparent) 5px,
+      transparent 5px, transparent 10px) !important; border-style: dashed; }
+    .bm-gp-seg.sel, .bm-gp-kid.sel { outline: 2px solid var(--bm-gold, #b8860b); outline-offset: 1px; }
+    .bm-gp-used { position: absolute; left: 0; top: 0; bottom: 0; }
+    /* a partition holding children (LVM/LUKS) puts its own label on top and draws the
+       children in the lower half — gparted's extended-partition container */
+    .bm-gp-seg.haskids { align-items: flex-start; }
+    .bm-gp-seg.haskids > .bm-gp-lbl { margin-top: 3px; }
+    .bm-gp-kids { position: absolute; left: 2px; right: 2px; bottom: 2px; top: 42%; display: flex; gap: 2px; }
+    .bm-gp-kid { position: relative; min-width: 4px; border: 1px solid; border-radius: 2px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; }
+    .bm-gp-lbl { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center;
+      line-height: 1.25; white-space: nowrap; padding: 0 4px; pointer-events: none; }
+    .bm-gp-lbl b { font-size: 11px; font-weight: 600; } .bm-gp-lbl i { font-size: 10.5px; font-style: normal; opacity: 0.8; }
+    .bm-gp-kid .bm-gp-lbl b { font-size: 10px; } .bm-gp-kid .bm-gp-lbl i { display: none; }
+    .bm-gp-tblwrap { overflow-x: auto; }
+    .bm-gp-tbl { width: 100%; border-collapse: collapse; font-size: 12.5px; white-space: nowrap; }
+    .bm-gp-tbl th { text-align: left; font-weight: 600; opacity: 0.65; padding: 5px 8px;
+      border-top: 1px solid var(--mat-sys-outline-variant); border-bottom: 1px solid var(--mat-sys-outline-variant);
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); }
+    .bm-gp-tbl td { padding: 3px 8px; border-bottom: 1px solid color-mix(in srgb, var(--mat-sys-outline-variant) 45%, transparent); }
+    .bm-gp-tbl tbody tr { cursor: pointer; }
+    .bm-gp-tbl tbody tr:hover { background: color-mix(in srgb, var(--mat-sys-on-surface) 5%, transparent); }
+    .bm-gp-tbl tbody tr.sel { background: color-mix(in srgb, var(--bm-gold, #b8860b) 18%, transparent); }
+    .bm-gp-freerow { opacity: 0.7; font-style: italic; }
+    .bm-gp-exp { display: inline-block; width: 12px; margin-left: -13px; opacity: 0.55; font-size: 11px; }
+    /* gparted's tree: children sit under their parent with a guide line */
+    .bm-gp-tbl td.bm-gp-child { position: relative; }
+    .bm-gp-tbl td.bm-gp-child::before { content: ''; position: absolute; left: 14px; top: 0; bottom: 50%;
+      border-left: 1px solid var(--mat-sys-outline-variant); border-bottom: 1px solid var(--mat-sys-outline-variant); width: 8px; }
+    .bm-gp-lockic { font-size: 13px; height: 13px; width: 13px; vertical-align: -2px; margin-left: 5px; color: var(--bm-gold, #b8860b); }
+    .bm-gp-status { display: flex; align-items: center; gap: 12px; padding: 6px 10px; font-size: 12px;
+      border-top: 1px solid var(--mat-sys-outline-variant);
+      background: color-mix(in srgb, var(--mat-sys-on-surface) 4%, transparent); border-radius: 0 0 10px 10px; }
+    .bm-gp-statusdev { opacity: 0.6; } .bm-gp-statusacts { margin-left: auto; display: flex; gap: 10px; }
+    .bm-gp-lnk { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; cursor: pointer;
+      color: var(--mat-sys-primary); text-decoration: underline; }
+    .bm-gp-lnk:disabled { opacity: 0.4; cursor: default; text-decoration: none; }
     .bm-dk-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
     .bm-dk-tools { display: flex; gap: 8px; }
     .bm-dim { opacity: 0.7; font-size: 13px; }
@@ -329,6 +428,14 @@ export class HostDisksComponent {
   loading = signal(false);
   error = signal('');
   ops = signal<DiskOp[]>([]);
+  /** gparted works on ONE device at a time (the toolbar's device chooser) and acts
+   *  on the currently SELECTED partition/unallocated row. */
+  selDev = signal<string>('');
+  sel = signal<string | null>(null);
+  dev = computed<Device | null>(() => {
+    const l = this.layout(); if (!l?.devices?.length) return null;
+    return l.devices.find((d) => d.path === this.selDev()) ?? l.devices[0];
+  });
   form = signal<ActiveForm | null>(null);
   previewResult = signal<any>(null);
   applyResult = signal<any>(null);
@@ -344,10 +451,17 @@ export class HostDisksComponent {
     if (!this.agentId()) return;
     this.loading.set(true); this.error.set('');
     this.http.get<DiskLayout>(`${this.base()}/disks`).subscribe({
-      next: (l) => { this.layout.set(l); this.loading.set(false); },
+      next: (l) => {
+        this.layout.set(l); this.loading.set(false);
+        // keep the chosen device across a rescan; default to the first one
+        if (!l.devices?.some((d) => d.path === this.selDev())) this.selDev.set(l.devices?.[0]?.path ?? '');
+        if (this.sel() && !this.rowsFor(this.dev() ?? ({ partitions: [], free: [] } as any)).some((r) => r.key === this.sel())) this.sel.set(null);
+      },
       error: (e) => { this.error.set(e?.error?.detail ?? 'Failed to read disks.'); this.loading.set(false); },
     });
   }
+
+  pickDev(path: string): void { this.selDev.set(path); this.sel.set(null); }
 
   // ---- a disk with mounted filesystems is protected (mirrors the backend guard)
   protectedDev(d: Device): boolean {
@@ -647,27 +761,147 @@ export class HostDisksComponent {
     const parts = name.split('/'); return parts.length > 1 ? parts[parts.length - 1] : name;
   }
   poolHealthColor(h: string): string { return h === 'ONLINE' ? '#3fae6b' : (h === 'DEGRADED' ? '#d0a03c' : '#d05656'); }
+  /** The visual disk: proportional boxes for partitions + unallocated gaps, with
+   *  nested children drawn INSIDE their parent (gparted's extended-container look). */
   segsFor(d: Device): Seg[] {
     const total = d.size_bytes
       || (d.partitions.reduce((a, p) => a + (p.size_bytes || 0), 0) + d.free.reduce((a, f) => a + (f.size_bytes || 0), 0)) || 1;
-    const segs: Seg[] = [];
-    for (const p of d.partitions) {
+    const seg = (p: Partition, of: number): Seg => {
       const sz = p.size_bytes || 0;
-      const usedPct = p.used_bytes != null && sz > 0 ? Math.min(100, (p.used_bytes / sz) * 100) : 0;
-      segs.push({ kind: 'part', label: (p.name || '').replace(/^.*\//, ''), pct: (sz / total) * 100, usedPct,
+      return {
+        kind: 'part', key: p.path, name: (p.name || '').replace(/^.*\//, ''),
+        fs: p.fstype || p.kind || '?', sizeLabel: this.fmt(sz),
+        pct: (sz / (of || 1)) * 100,
+        usedPct: p.used_bytes != null && sz > 0 ? Math.min(100, (p.used_bytes / sz) * 100) : 0,
         color: this.fsColor(p.fstype, p.kind),
         title: `${p.path}\n${p.fstype || p.kind || '?'} · ${this.fmt(sz)}${p.mountpoint ? ' · ' + p.mountpoint : ''}`
-          + (p.used_bytes != null ? `\nused ${this.fmt(p.used_bytes)} / avail ${this.fmt(p.avail_bytes)}` : '') });
-    }
-    for (const f of d.free) {
-      if ((f.size_bytes || 0) <= 1048576) continue;
-      segs.push({ kind: 'free', label: 'free', pct: ((f.size_bytes || 0) / total) * 100, usedPct: 0, color: 'transparent', title: `free space · ${this.fmt(f.size_bytes)}` });
+          + (p.used_bytes != null ? `\nused ${this.fmt(p.used_bytes)} · unused ${this.fmt(this.unusedBytes(p))}` : ''),
+        children: (p.children || []).map((c) => seg(c, sz)),
+      };
+    };
+    const segs: Seg[] = d.partitions.map((p) => seg(p, total));
+    for (const f of this.freeOf(d)) {
+      segs.push({ kind: 'free', key: f.key, name: 'unallocated', fs: 'unallocated',
+        sizeLabel: this.fmt(f.size_bytes), pct: ((f.size_bytes || 0) / total) * 100, usedPct: 0,
+        color: 'var(--mat-sys-outline-variant)', title: `unallocated · ${this.fmt(f.size_bytes)}`, children: [] });
     }
     return segs;
   }
-  flatten(parts: Partition[], depth = 0): { row: Partition; depth: number }[] {
-    const out: { row: Partition; depth: number }[] = [];
-    for (const p of parts) { out.push({ row: p, depth }); if (p.children?.length) out.push(...this.flatten(p.children, depth + 1)); }
+
+  /** Unallocated space. A disk with no partition table reports no gaps, but gparted
+   *  still draws the WHOLE disk as one unallocated area — so synthesize that. */
+  private freeOf(d: Device): { key: string; size_bytes: number | null }[] {
+    const gaps = (d.free || [])
+      .map((f, i) => ({ key: `free:${i}`, size_bytes: f.size_bytes }))
+      .filter((f) => (f.size_bytes || 0) > 1048576);
+    if (!gaps.length && !(d.partitions || []).length) return [{ key: 'free:whole', size_bytes: d.size_bytes }];
+    return gaps;
+  }
+
+  /** The partition list rows: partitions (nested) then the unallocated gaps — the
+   *  gparted column set (Partition / File System / Mount / Label / Size / Used / Unused / Flags). */
+  rowsFor(d: Device): { key: string; name: string; fs: string; mount: string; label: string; size: string;
+    used: string; unused: string; flags: string[]; depth: number; color: string; free: boolean;
+    busy: boolean; kids: boolean }[] {
+    const out: any[] = [];
+    const walk = (p: Partition, depth: number) => {
+      out.push({
+        key: p.path, name: p.path, fs: p.fstype || (p.kind !== 'part' ? p.kind : '—'),
+        mount: p.mountpoint || '', label: p.label || '', size: this.fmt(p.size_bytes),
+        used: p.used_bytes != null ? this.fmt(p.used_bytes) : '—',
+        unused: p.used_bytes != null ? this.fmt(this.unusedBytes(p)) : '—',
+        flags: p.flags || [], depth, color: this.fsColor(p.fstype, p.kind), free: false,
+        busy: p.busy, kids: !!(p.children || []).length,
+      });
+      for (const c of p.children || []) walk(c, depth + 1);
+    };
+    for (const p of d.partitions) walk(p, 0);
+    for (const f of this.freeOf(d)) {
+      out.push({ key: f.key, name: 'unallocated', fs: 'unallocated', mount: '', label: '',
+        size: this.fmt(f.size_bytes), used: '—', unused: this.fmt(f.size_bytes), flags: [], depth: 0,
+        color: '', free: true, busy: false, kids: false });
+    }
     return out;
   }
+  private unusedBytes(p: Partition): number {
+    if (p.used_bytes == null) return 0;
+    return Math.max(0, (p.size_bytes || 0) - p.used_bytes);
+  }
+
+  // ---- selection-driven toolbar (gparted acts on the selected partition) -----
+  /** Pale interior of a partition box; `used` is the darker filled part. */
+  tint(color: string): string { return `color-mix(in srgb, ${color} 13%, transparent)`; }
+  used(color: string): string { return `color-mix(in srgb, ${color} 55%, transparent)`; }
+
+  /** The selected row resolved back to its Partition (null for unallocated/none). */
+  selPart(): Partition | null {
+    const key = this.sel(); const d = this.dev();
+    if (!key || !d || key.startsWith('free:')) return null;
+    const find = (ps: Partition[]): Partition | null => {
+      for (const p of ps) { if (p.path === key) return p; const c = find(p.children || []); if (c) return c; }
+      return null;
+    };
+    return find(d.partitions);
+  }
+  selFree(): boolean { return (this.sel() || '').startsWith('free:'); }
+  selBusy(): boolean { return !!this.selPart()?.busy; }
+
+  /** New needs unallocated space AND a partition table — on a blank disk gparted
+   *  greys it out until you create a table (the statusbar's "New GPT table"), so a
+   *  queued mklabel for this device counts too. */
+  canNew(): boolean {
+    const d = this.dev(); if (!d || this.protectedDev(d)) return false;
+    const hasTable = !!d.table || this.ops().some((o) => o.op === 'mklabel' && o.device === d.path);
+    return hasTable && (this.selFree() || !d.partitions.length);
+  }
+  canDelete(): boolean { const p = this.selPart(); return !!p && p.kind === 'part' && !p.busy; }
+  canFormat(): boolean { const p = this.selPart(); return !!p && (p.kind === 'part' || p.kind === 'crypt') && !p.busy; }
+  canMount(): boolean { const p = this.selPart(); return !!p && (p.busy || !!p.fstype); }
+  canResizeSel(): boolean {
+    const p = this.selPart(); if (!p) return false;
+    if (p.kind === 'lvm') return true;                       // LVM: grow online, shrink unmounted
+    return this.canResize(p);                                 // raw partition: ext + unmounted
+  }
+  resizeTip(): string {
+    const p = this.selPart(); if (!p) return 'Select a partition to resize';
+    if (p.kind === 'lvm') return 'Resize this logical volume (grow works online, shrink needs it unmounted)';
+    return this.resizeHint(p);
+  }
+  mountTip(): string {
+    const p = this.selPart();
+    if (!p) return 'Select a partition';
+    return p.busy ? `Unmount ${p.path} (mounted at ${p.mountpoint})` : `Mount ${p.path}`;
+  }
+
+  tbNew(): void { const d = this.dev(); if (d) this.opAddPartition(d); }
+  tbDelete(): void { const d = this.dev(); const p = this.selPart(); if (d && p) this.opDelete(d, p); }
+  tbFormat(): void { const d = this.dev(); const p = this.selPart(); if (d && p) this.opFormat(d, p); }
+  tbLabel(): void { const d = this.dev(); const p = this.selPart(); if (d && p) this.opLabel(d, p); }
+  tbMount(): void {
+    const d = this.dev(); const p = this.selPart(); if (!d || !p) return;
+    if (p.busy) this.unmount(d, p); else this.opMount(d, p);
+  }
+  tbResize(): void {
+    const d = this.dev(); const p = this.selPart(); if (!d || !p) return;
+    if (p.kind !== 'lvm') { this.opResize(d, p); return; }
+    // LVM: one dialog, grow (online) or shrink (needs unmount) decided by the size
+    const cur = p.size_bytes ? Math.floor(p.size_bytes / 1048576) : 0;
+    this.openForm({
+      title: `Resize LV ${p.path}`, icon: 'unfold_more', submitLabel: 'Add to queue',
+      fields: [{ key: 'size', label: 'New size (MiB)', type: 'number', value: String(cur),
+        hint: `current ≈ ${cur} MiB · larger grows ONLINE · smaller shrinks (LV must be unmounted)` }],
+      run: (v) => {
+        const mib = Number(v['size']); if (!mib || mib === cur) return;
+        if (mib > cur) {
+          this.push({ op: 'lvextend', device: p.path, target: p.path, size: `+${mib - cur}M`,
+            _desc: `Grow LV ${p.path} ${cur} → ${mib} MiB (online)` });
+        } else {
+          this.push({ op: 'lvreduce', device: p.path, target: p.path, size: `${mib}M`,
+            _desc: `Shrink LV ${p.path} ${cur} → ${mib} MiB (fs first)` });
+        }
+      },
+    });
+  }
+  /** gparted's Undo: drop the LAST staged operation (Undo all lives in the queue). */
+  undoLast(): void { this.ops.update((l) => l.slice(0, -1)); this.previewResult.set(null); this.applyResult.set(null); }
 }

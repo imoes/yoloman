@@ -39,7 +39,6 @@ import { AcknowledgeDialogComponent, AcknowledgeDialogResult } from '../../share
 import { DowntimeDialogComponent, DowntimeDialogResult } from '../../shared/components/downtime-dialog/downtime-dialog.component';
 import { ThresholdDialogComponent } from '../../shared/components/threshold-dialog/threshold-dialog.component';
 import { HostInventoryComponent } from './host-inventory.component';
-import { HostDisksComponent } from './host-disks.component';
 import { LatencyHeatmapComponent } from './latency-heatmap.component';
 import { ProcessHistoryChartComponent } from './process-history-chart.component';
 import { HostChecksComponent } from './host-checks.component';
@@ -149,7 +148,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
     MatIconModule,
     HostStatusBadgeComponent,
     HostInventoryComponent,
-    HostDisksComponent,
     StandaloneOverviewComponent,
     ResourceNodeComponent,
     ParamFormComponent,
@@ -767,10 +765,6 @@ function serviceMetricSpec(name: string, metric: string): { members: string[]; m
                       <p class="bm-dim">Variables passed to playbooks/runbooks for this host — a single value, a list, or a dict. They resolve GPO-style (group &lt; OU &lt; host) at run time. “Provision DB credential” creates a database + user on a provider and stores the credential here (password encrypted).</p>
                       <app-scope-vars-editor [embedded]="true" scopeType="host" [scopeId]="agent.id"
                         [scopeLabel]="'host ' + agent.name" [reloadTick]="varsReloadTick()" (saved)="onVarsSaved()" />
-                    } @else if (selectedPane() === '::diskmgmt') {
-                      <h3 class="bm-gpo-h">Disk Management</h3>
-                      <p class="bm-dim">Disks, partitions, LVM and ZFS on this host — a gparted-style op queue applied over the agent. Stage operations, Preview, then Apply.</p>
-                      <app-host-disks [agentId]="agent.id" />
                     } @else if (selRes(obs); as r) {
                       <div class="bm-cfg-row">
                         <code class="bm-cfg-path">{{ r.path }}</code>
@@ -2817,7 +2811,6 @@ export class HostDetailComponent implements OnInit {
       { key: '::mon', label: 'Monitoring', icon: 'speed', count: this.thresholds().length },
       { key: '::pol', label: 'Policies', icon: 'policy', count: this.appliedPlans().length },
       { key: '::vars', label: 'Variables', icon: 'data_object', count: this.varsCount() },
-      { key: '::disks', label: 'Disk Management', icon: 'storage', count: 0 },
     ];
     for (const g of this.categoryGroups(obs)) {
       cats.push({ key: g.cat.key, label: g.cat.label, icon: g.cat.icon, count: g.files.length });
@@ -2830,7 +2823,6 @@ export class HostDetailComponent implements OnInit {
     if (cat === '::mon') return [{ pane: '::thresholds', label: 'Thresholds', title: 'Monitoring thresholds', drift: false }];
     if (cat === '::pol') return [{ pane: '::plans', label: 'Applied plans', title: 'Applied plans', drift: false }];
     if (cat === '::vars') return [{ pane: '::variables', label: 'Host variables', title: 'Playbook variables (host_vars)', drift: false }];
-    if (cat === '::disks') return [{ pane: '::diskmgmt', label: 'Disks & partitions', title: 'Disk / partition / LVM / ZFS management', drift: false }];
     const grp = this.categoryGroups(obs).find((g) => g.cat.key === cat);
     return (grp?.files ?? []).map((f) => ({ pane: f.path, label: this.baseName(f.path), title: f.path, drift: !!this.driftFor(f.path) }));
   }

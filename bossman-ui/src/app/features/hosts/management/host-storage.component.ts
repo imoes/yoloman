@@ -12,6 +12,7 @@ interface FstabEntry { device: string; mountpoint: string; fstype: string; optio
 import { ConfigDialogService } from '../../../shared/config-dialog/config-dialog.service';
 import { UsageBarComponent, fmtBytes } from '../../../shared/config-dialog/usage-bar.component';
 import { FieldValues } from '../../../shared/config-dialog/config-dialog.types';
+import { HostDisksComponent } from '../host-disks.component';
 
 /** A flattened lsblk device row carrying its nesting depth. */
 interface DevRow {
@@ -37,7 +38,7 @@ interface DevRow {
 @Component({
   selector: 'app-host-storage',
   standalone: true,
-  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent],
+  imports: [MatButtonModule, MatIconModule, MatMenuModule, MatProgressSpinnerModule, UsageBarComponent, HostDisksComponent],
   template: `
     <div class="bm-mgmt-section">
       @if (loading()) {
@@ -53,137 +54,12 @@ interface DevRow {
           <button mat-stroked-button (click)="reload()" [disabled]="loading()"><mat-icon>refresh</mat-icon> Reload</button>
         </div>
 
-        <!-- Storage: one hierarchical device table (Cockpit's overview) -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Storage</h3>
-            @if (!s.block_devices.available) { <span class="bm-na">unavailable</span> }
-            <span class="bm-spacer"></span>
-            <button mat-icon-button [matMenuTriggerFor]="createMenu" [disabled]="busy()" title="Create storage device"><mat-icon>add</mat-icon></button>
-            <mat-menu #createMenu="matMenu">
-              <button mat-menu-item (click)="createVg()"><mat-icon>dns</mat-icon> Create LVM volume group</button>
-              <button mat-menu-item (click)="createZpool()"><mat-icon>waves</mat-icon> Create ZFS pool</button>
-              <button mat-menu-item (click)="wizard()"><mat-icon>auto_awesome</mat-icon> Create storage (thin/VDO/ZFS)…</button>
-            </mat-menu>
-          </header>
-          @if (s.block_devices.available) {
-            <table class="bm-ct">
-              <thead><tr><th>Device</th><th>Type</th><th>Size</th><th>Usage / mount</th><th></th></tr></thead>
-              <tbody>
-                @for (d of rows(); track d.path) {
-                  <tr>
-                    <td class="bm-dev" [style.padding-left.px]="14 + d.depth * 20">
-                      <mat-icon class="bm-dev-ic">{{ devIcon(d) }}</mat-icon>{{ d.name }}
-                    </td>
-                    <td><span class="bm-type">{{ d.fstype || d.type }}</span></td>
-                    <td class="bm-mono">{{ bytes(d.size) }}</td>
-                    <td>
-                      @if (d.mountpoint && d.fssize) {
-                        <app-usage-bar [used]="d.fsused || 0" [total]="d.fssize" [critical]="0.95" [short]="true" />
-                        <span class="bm-mnt">{{ d.mountpoint }}</span>
-                      } @else if (d.mountpoint) {
-                        <span class="bm-chip">{{ d.mountpoint }}</span>
-                      } @else { <span class="bm-muted">—</span> }
-                    </td>
-                    <td class="bm-right">
-                      <button mat-icon-button [matMenuTriggerFor]="devMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                      <mat-menu #devMenu="matMenu">
-                        @if (d.type === 'disk') {
-                          <button mat-menu-item (click)="createPartTable(d)"><mat-icon>grid_on</mat-icon> Create partition table…</button>
-                          <button mat-menu-item (click)="createPartition(d)"><mat-icon>add_box</mat-icon> Create partition…</button>
-                        }
-                        @if (d.type === 'part' || d.type === 'lvm' || d.type === 'crypt') {
-                          <button mat-menu-item (click)="format(d)"><mat-icon>build</mat-icon> Format…</button>
-                          @if (d.mountpoint) {
-                            <button mat-menu-item (click)="unmount(d)"><mat-icon>eject</mat-icon> Unmount</button>
-                          } @else {
-                            <button mat-menu-item (click)="mount(d)"><mat-icon>save</mat-icon> Mount…</button>
-                          }
-                        }
-                        @if (d.type === 'part') {
-                          <button mat-menu-item class="bm-danger" (click)="deletePartition(d)"><mat-icon>delete</mat-icon> Delete partition</button>
-                        }
-                      </mat-menu>
-                    </td>
-                  </tr>
-                }
-                @if (!rows().length) { <tr><td colspan="5" class="bm-empty">No storage found.</td></tr> }
-              </tbody>
-            </table>
-          }
-        </section>
+        <!-- The partition editor IS the Storage snapin now: visual disk + a
+             selection-driven toolbar + a staged op queue, covering disks,
+             partitions, LVM and ZFS (docs/disk-management.md). It replaced the
+             old lsblk device table and the LVM/ZFS cards; /etc/fstab stays below. -->
+        <app-host-disks [agentId]="agentId()" />
 
-        <!-- LVM volume groups (with capacity bars + object-bound LV actions) -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>Volume groups (LVM)</h3>
-            @if (!s.lvm.available) { <span class="bm-na">unavailable</span> }
-          </header>
-          @if (s.lvm.available) {
-            @for (vg of s.lvm.vgs || []; track vg.vg_name) {
-              <div class="bm-vg">
-                <div class="bm-vg-top">
-                  <span class="bm-dev"><mat-icon class="bm-dev-ic">dns</mat-icon>{{ vg.vg_name }}</span>
-                  <span class="bm-spacer"></span>
-                  <span class="bm-vg-cap">{{ bytes(usedBytes(vg)) }} / {{ bytes(num(vg.vg_size)) }} used</span>
-                  <button mat-icon-button [matMenuTriggerFor]="vgMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                  <mat-menu #vgMenu="matMenu">
-                    <button mat-menu-item (click)="createLv(vg.vg_name, num(vg.vg_free))"><mat-icon>add</mat-icon> Create logical volume…</button>
-                    <button mat-menu-item (click)="pvresizeVg(vg.vg_name)"><mat-icon>open_in_full</mat-icon> Grow VG (resize PVs)</button>
-                    <button mat-menu-item class="bm-danger" (click)="deleteVg(vg.vg_name)"><mat-icon>delete</mat-icon> Delete volume group</button>
-                  </mat-menu>
-                </div>
-                <div class="bm-bar"><span class="bm-bar-fill" [style.width.%]="usedPct(vg)" [class.bm-bar-warn]="usedPct(vg) >= 80" [class.bm-bar-crit]="usedPct(vg) >= 90"></span></div>
-                @if (lvsOf(s, vg.vg_name).length) {
-                  <table class="bm-ct bm-lv-t">
-                    <tbody>
-                      @for (lv of lvsOf(s, vg.vg_name); track lv.lv_name) {
-                        <tr>
-                          <td class="bm-dev bm-lv-name"><mat-icon class="bm-dev-ic">layers</mat-icon>{{ lv.lv_name }}</td>
-                          <td class="bm-right bm-mono">{{ bytes(num(lv.lv_size)) }}</td>
-                          <td class="bm-right">
-                            <button mat-icon-button [matMenuTriggerFor]="lvMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                            <mat-menu #lvMenu="matMenu">
-                              <button mat-menu-item (click)="resizeLv(vg.vg_name, lv.lv_name, num(lv.lv_size), num(vg.vg_free))"><mat-icon>open_in_full</mat-icon> Resize…</button>
-                              <button mat-menu-item class="bm-danger" (click)="deleteLv(vg.vg_name, lv.lv_name)"><mat-icon>delete</mat-icon> Delete</button>
-                            </mat-menu>
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                }
-              </div>
-            }
-            @if (!(s.lvm.vgs || []).length) { <p class="bm-empty">No volume groups.</p> }
-          }
-        </section>
-
-        <!-- ZFS: always listed (even without tooling/pools) so it's discoverable. -->
-        <section class="bm-card">
-          <header class="bm-card-head"><h3>ZFS pools</h3>
-            @if (!s.zfs.available) { <span class="bm-na">zfs tooling not installed</span> }
-            <span class="bm-spacer"></span>
-            <button mat-icon-button (click)="createZpool()" [disabled]="busy()" title="Create ZFS pool"><mat-icon>add</mat-icon></button>
-          </header>
-          @if ((s.zfs.pools || []).length) {
-            <table class="bm-ct">
-              <tbody>
-                @for (p of s.zfs.pools || []; track $index) {
-                  <tr>
-                    <td class="bm-dev"><mat-icon class="bm-dev-ic">waves</mat-icon>{{ p.name || p }}</td>
-                    <td class="bm-right">
-                      <button mat-icon-button [matMenuTriggerFor]="zpMenu" [disabled]="busy()"><mat-icon>more_vert</mat-icon></button>
-                      <mat-menu #zpMenu="matMenu">
-                        <button mat-menu-item (click)="createDataset(p.name || p)"><mat-icon>add</mat-icon> Create dataset…</button>
-                      </mat-menu>
-                    </td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          } @else {
-            <p class="bm-empty">No ZFS pools. Use “Create ZFS pool” to make one from free devices.</p>
-          }
-        </section>
 
         <!-- /etc/fstab: the columnar mount table, decoded via the fstab codec
              and edited as values — applied through state/apply (versioned +

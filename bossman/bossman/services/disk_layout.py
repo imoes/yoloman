@@ -142,7 +142,10 @@ async def read_disk_layout(agent, client_factory, settings) -> dict:
                 s = by_num.get(i)
                 if s:
                     p["start_s"], p["end_s"] = s.get("start_s"), s.get("end_s")
-        elif prc != 0:
+        elif prc != 0 and "unrecognised disk label" not in perr.lower():
+            # A disk with no partition table is NOT an error — parted just says
+            # "unrecognised disk label"; the view already shows it as one big
+            # unallocated area (gparted does the same). Only surface real failures.
             errors.append(f"parted on {path}: rc={prc} {perr[:120]}")
         devices.append(dev)
 
