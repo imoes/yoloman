@@ -33,6 +33,7 @@ interface DiskLayout { devices: Device[]; vgs?: Vg[]; zfs?: Zfs; tools?: DiskToo
 interface DiskOp { op: string; device?: string; target?: string; table?: string; fstype?: string;
   start?: string; end?: string; ptype?: string; num?: number; label?: string; mountpoint?: string; size?: string;
   start_mib?: number; size_mib?: number; grow?: boolean;
+  sector_size?: number; src_start_s?: number; dst_start_s?: number; length_s?: number;
   name?: string; property?: string; snap?: string; recursive?: boolean; raid?: string; vdevs?: string[]; _desc: string; }
 /** One box in the visual disk bar (gparted's DrawingAreaVisualDisk): a partition or
  *  a free gap, drawn proportionally, with nested children (LVM/LUKS) rendered inside
@@ -628,26 +629,63 @@ export class HostDisksComponent {
     const afterMib = Math.floor(this.followingFreeBytes(d, p) / 1048576);
     const minMib = Math.max(1, usedMib);
     const maxMib = curMib + afterMib;
+    // MOVING is filesystem-agnostic (the agent copies raw blocks, backwards when the
+    // ranges overlap), so Start is editable for any unmounted partition. RESIZING
+    // needs a filesystem that can be resized, so Size is ext-only.
+    const canSize = !!p.fstype && p.fstype.startsWith('ext');
+    const diskMib = d.size_bytes ? Math.floor(d.size_bytes / 1048576) : 0;
+    const fields: FormField[] = [
+      { key: 'start', label: 'Start (MiB)', type: 'number', value: String(startMib), min: 1, max: diskMib,
+        hint: `currently ${startMib} MiB · changing this MOVES the partition (its bytes are copied)` },
+    ];
+    if (canSize) {
+      // `used` comes from lsblk and is only known while the filesystem is MOUNTED.
+      // Unmounted (which resizing requires) we cannot state a floor — resize2fs
+      // itself refuses to shrink below what the filesystem needs, so say that
+      // instead of pretending the minimum is 1 MiB.
+      const known = p.used_bytes != null;
+      fields.push({ key: 'size', label: 'Size (MiB)', type: 'number', value: String(curMib),
+        min: known ? minMib : 1, max: maxMib,
+        hint: `current ${curMib} MiB · max ${maxMib} MiB`
+          + (afterMib > 0 ? ` (${afterMib} MiB free after)` : ' (no free space after)')
+          + (known ? ` · min ${minMib} MiB (in use)` : ' · resize2fs refuses to shrink below what the filesystem needs') });
+    }
     this.openForm({
-      title: `Resize/Move ${p.path} (${p.fstype})`, icon: 'open_in_full', submitLabel: 'Add to queue',
-      fields: [{ key: 'size', label: 'New size (MiB)', type: 'number', value: String(curMib),
-        min: minMib, max: maxMib,
-        hint: `current ${curMib} MiB · min ${minMib} MiB (used) · max ${maxMib} MiB`
-          + (afterMib > 0 ? ` (${afterMib} MiB free space after)` : ' (no free space after)') }],
+      title: `Resize/Move ${p.path}${p.fstype ? ' (' + p.fstype + ')' : ''}`, icon: 'open_in_full',
+      submitLabel: 'Add to queue',
+      note: canSize ? undefined
+        : `${p.fstype || 'This'} cannot be resized here, but it can be MOVED — the bytes are copied unchanged.`,
+      fields,
       run: (v) => {
-        const sizeMib = Number(v['size']);
-        if (!sizeMib || sizeMib <= 0) return;
-        if (sizeMib === curMib) { alert('Same size — nothing to do.'); return; }
-        if (sizeMib < minMib) { alert(`Cannot shrink below the used space (${minMib} MiB).`); return; }
-        if (sizeMib > maxMib) {
-          alert(afterMib > 0
-            ? `Cannot grow past the free space that follows — max ${maxMib} MiB.`
-            : 'There is no unallocated space directly after this partition, so it cannot grow.');
-          return;
+        const newStart = Number(v['start']);
+        const newSize = canSize ? Number(v['size']) : curMib;
+        if (!newStart || !newSize) return;
+        if (newStart === startMib && newSize === curMib) { alert('Nothing changed.'); return; }
+        if (newStart + newSize > diskMib) { alert(`Start + size exceed the disk (${diskMib} MiB).`); return; }
+        // 1. the MOVE (same length, new offset) — the native copier does this
+        if (newStart !== startMib) {
+          const sizeSectors = Math.floor((p.size_bytes || 0) / sector);
+          this.push({ op: 'movepart', device: d.path, num, sector_size: sector,
+            src_start_s: p.start_s!, dst_start_s: Math.round((newStart * 1048576) / sector),
+            length_s: sizeSectors,
+            _desc: `Move ${p.path} ${startMib} → ${newStart} MiB (${this.fmt(p.size_bytes)} copied`
+              + (newStart > startMib ? ', backwards — ranges overlap)' : ')') });
         }
-        const grow = sizeMib > curMib;
-        this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!, start_mib: startMib, size_mib: sizeMib, grow,
-          _desc: `${grow ? 'Grow' : 'Shrink'} ${p.path} (${p.fstype}) ${curMib} → ${sizeMib} MiB` });
+        // 2. the RESIZE at the (possibly new) offset — ext only
+        if (canSize && newSize !== curMib) {
+          if (p.used_bytes != null && newSize < minMib) {
+            alert(`Cannot shrink below the used space (${minMib} MiB).`); return;
+          }
+          if (newStart === startMib && newSize > maxMib) {
+            alert(afterMib > 0 ? `Cannot grow past the free space that follows — max ${maxMib} MiB.`
+                               : 'There is no unallocated space directly after this partition, so it cannot grow.');
+            return;
+          }
+          const grow = newSize > curMib;
+          this.push({ op: 'resize', device: d.path, target: p.path, num, fstype: p.fstype!,
+            start_mib: newStart, size_mib: newSize, grow,
+            _desc: `${grow ? 'Grow' : 'Shrink'} ${p.path} (${p.fstype}) ${curMib} → ${newSize} MiB` });
+        }
       },
     });
   }
@@ -956,14 +994,22 @@ export class HostDisksComponent {
   canDelete(): boolean { const p = this.selPart(); return !!p && p.kind === 'part' && !p.busy; }
   canFormat(): boolean { const p = this.selPart(); return !!p && (p.kind === 'part' || p.kind === 'crypt') && !p.busy; }
   canMount(): boolean { const p = this.selPart(); return !!p && (p.busy || !!p.fstype); }
+  /** Any unmounted partition with a known geometry can be MOVED — the copier works
+   *  on raw blocks, so the filesystem does not matter. Resizing needs ext. */
+  canMoveSel(): boolean {
+    const p = this.selPart();
+    return !!p && p.kind === 'part' && !p.busy && p.start_s != null;
+  }
   canResizeSel(): boolean {
     const p = this.selPart(); if (!p) return false;
     if (p.kind === 'lvm') return true;                       // LVM: grow online, shrink unmounted
-    return this.canResize(p);                                 // raw partition: ext + unmounted
+    return this.canResize(p) || this.canMoveSel();            // raw: ext resize, or move (any fs)
   }
   resizeTip(): string {
-    const p = this.selPart(); if (!p) return 'Select a partition to resize';
+    const p = this.selPart(); if (!p) return 'Select a partition to resize or move';
     if (p.kind === 'lvm') return 'Resize this logical volume (grow works online, shrink needs it unmounted)';
+    if (this.canResize(p)) return 'Resize the filesystem + partition, or move it to a new offset';
+    if (this.canMoveSel()) return `Move ${p.path} to a new offset (its blocks are copied; ${p.fstype || 'no fs'} cannot be resized here)`;
     return this.resizeHint(p);
   }
   mountTip(): string {
