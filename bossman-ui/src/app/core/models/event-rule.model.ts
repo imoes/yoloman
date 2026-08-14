@@ -1,4 +1,4 @@
-/** Event rules (API: /api/v1/remediation-policies, engine: services/remediation.py).
+/** Event rules (API: /api/v1/event-rules, engine: services/remediation.py).
  *
  * A rule binds a TRIGGER (a check entering a hard problem state, within a scope) to an ACTION.
  * The action is exactly one of two things, enforced by a CHECK constraint:
@@ -9,9 +9,10 @@
  * Both would be two answers to "what runs?"; neither would be a rule that fires and does
  * nothing. The editor therefore offers ONE choice, never two fields.
  *
- * The API is still called `remediation-policies`; renaming it to "event rule" everywhere is a
- * separate, deliberate step (docs/event-handling.md) so a naming change cannot mix with a
- * functional one. This file is where the two vocabularies meet.
+ * The DATABASE tables and ORM classes are still `remediation_*`: renaming a table is a migration
+ * and an irreversible step for stored data, so code and table stay aligned and the operator-facing
+ * vocabulary is translated in exactly two places — here and api/remediation.py's header. Two names
+ * with a stated mapping beats three names.
  */
 
 export type RuleScope = 'global' | 'ou' | 'group' | 'host';

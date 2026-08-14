@@ -343,10 +343,29 @@ null mal, das Bundle aber schon, weil der Nav-Eintrag dieselbe Zeichenkette trä
 leitete still auf `/fleet` um. Erst das Zählen der Treffer hat es aufgedeckt. Und ein `curl` ohne
 `-X POST` ließ den Auslöser wie „kein Treffer" aussehen — der Messfehler war meiner.
 
+### Schritt 5 — Umbenennung (erledigt, Commit)
+
+Zuerst gemessen, wer die alten Pfade aufruft, weil davon abhängt, ob ein Wechsel ein Bruch ist:
+**genau einer** — mein eigener UI-Client. Kein MCP-Werkzeug, kein Chat-Tool, kein Agent, kein
+CLI, und in den Docs nur beschreibend.
+
+| Ebene | Entscheidung | Grund |
+|---|---|---|
+| API-Pfade | **kanonisch** `/api/v1/event-rules`, `/api/v1/event-runs`, `/api/v1/agents/{id}/trigger-event-rules` | „Remediation" benennt nur einen von mehreren Zwecken — benachrichtigen, aufräumen, eskalieren sind keine Reparatur |
+| alte Pfade | bleiben als **Alias**, `deprecated=True` + `include_in_schema=False` | „kein Aufrufer hier" ist nicht „kein Aufrufer irgendwo"; ein `curl`-Skript soll nicht brechen, weil ein Name besser wurde. Es ist dieselbe Funktion, also kein zweiter Weg, der auseinanderlaufen kann |
+| UI | ruft nur die neuen Pfade | live belegt: die Netzwerkaufrufe des Screens sind ausschließlich `/api/v1/event-rules` und `/api/v1/event-runs` |
+| DB-Tabellen + ORM-Klassen | bleiben `remediation_*` | eine Tabellenumbenennung ist eine Migration und für gespeicherte Daten irreversibel — eine eigene Entscheidung. Code und Tabelle bleiben deckungsgleich, damit es **zwei** Namen mit erklärter Zuordnung gibt statt drei |
+
+Die Zuordnung steht an genau zwei Stellen: im Kopf von `api/remediation.py` und in
+`core/models/event-rule.model.ts`. Belegt: alle vier Pfade antworten mit 200, und die Aliase
+erscheinen **nicht** im OpenAPI-Schema.
+
+**Offen zur Entscheidung:** ob die Tabellen `remediation_policies` / `remediation_runs` und die
+ORM-Klassen mitumbenannt werden sollen. Dafür spricht ein einziger Name; dagegen eine Migration
+über gespeicherte Verlaufsdaten, deren Nutzen rein kosmetisch ist.
+
 ### Offen
 
-5. Umbenennen *Remediation policy → Event rule* in Code und API (die UI heißt schon so) als
-   eigener Commit.
 6. Der Agent mit `env` muss ausgerollt werden, sonst verweigert jeder Skript-Handler — mit
    Grund, aber er läuft nicht.
 5. Umbenennen *Remediation policy → Event rule* als eigener Commit.

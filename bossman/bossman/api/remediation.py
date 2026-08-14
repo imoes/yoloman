@@ -1,5 +1,22 @@
-"""Remediation policies API — bind a parameter-driven remediation runbook to a
-check, and trigger/audit remediations. See services/remediation.
+"""Event rules API — bind a trigger (a check entering a hard problem state, within a scope) to
+an ACTION: a runbook, or an event handler which may be a script. Plus the run history and the
+manual apply/dismiss/trigger. Engine: services/remediation, action: services/event_handlers.
+
+**Naming.** The operator-facing name is "event rule", because "remediation" describes only one of
+several purposes (notifying, cleaning up, escalating are not repairs) — see docs/event-handling.md.
+The canonical paths are therefore `/api/v1/event-rules` and `/api/v1/event-runs`, with
+`/api/v1/agents/{id}/trigger-event-rules` for the manual trigger.
+
+The old `/remediation-*` paths still answer, marked deprecated and hidden from the schema. A grep
+of this repository found exactly ONE caller (the UI client, now moved), and no MCP tool, chat tool,
+agent or CLI used them — but "no caller here" is not "no caller anywhere", and an operator's script
+should not break because a name improved. They are aliases, not a second way to do something: the
+same function serves both, so the two can never diverge in behaviour.
+
+The DATABASE tables (`remediation_policies`, `remediation_runs`) and the ORM classes keep their
+names. Renaming a table is a migration and an irreversible step for stored data; leaving class and
+table aligned means there are two names in total (code/DB vs operator/API) with the translation
+stated here and in the UI model, rather than three.
 """
 
 from __future__ import annotations
@@ -83,7 +100,8 @@ class RemediationPolicyOut(BaseModel):
         )
 
 
-@router.get("/api/v1/remediation-policies", response_model=list[RemediationPolicyOut])
+@router.get("/api/v1/event-rules", response_model=list[RemediationPolicyOut])
+@router.get("/api/v1/remediation-policies", response_model=list[RemediationPolicyOut], deprecated=True, include_in_schema=False)
 async def list_remediation_policies(session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
     rows = (await session.scalars(select(RemediationPolicy).order_by(RemediationPolicy.created_at.desc()))).all()
     return [RemediationPolicyOut.of(p) for p in rows]
@@ -137,7 +155,8 @@ async def _validate_action(body: RemediationPolicyIn, session: AsyncSession) -> 
             raise HTTPException(422, f"no runbook named {body.runbook_name!r}")
 
 
-@router.post("/api/v1/remediation-policies", response_model=RemediationPolicyOut)
+@router.post("/api/v1/event-rules", response_model=RemediationPolicyOut)
+@router.post("/api/v1/remediation-policies", response_model=RemediationPolicyOut, deprecated=True, include_in_schema=False)
 async def create_remediation_policy(
     body: RemediationPolicyIn, session: AsyncSession = Depends(get_session),
     identity: Identity = Depends(get_current_identity),
@@ -168,7 +187,8 @@ async def create_remediation_policy(
     return RemediationPolicyOut.of(p)
 
 
-@router.put("/api/v1/remediation-policies/{policy_id}", response_model=RemediationPolicyOut)
+@router.put("/api/v1/event-rules/{policy_id}", response_model=RemediationPolicyOut)
+@router.put("/api/v1/remediation-policies/{policy_id}", response_model=RemediationPolicyOut, deprecated=True, include_in_schema=False)
 async def update_remediation_policy(
     policy_id: UUID, body: RemediationPolicyIn, session: AsyncSession = Depends(get_session),
     _i: Identity = Depends(get_current_identity),
@@ -215,7 +235,8 @@ async def update_remediation_policy(
     return RemediationPolicyOut.of(p)
 
 
-@router.delete("/api/v1/remediation-policies/{policy_id}", status_code=204)
+@router.delete("/api/v1/event-rules/{policy_id}", status_code=204)
+@router.delete("/api/v1/remediation-policies/{policy_id}", status_code=204, deprecated=True, include_in_schema=False)
 async def delete_remediation_policy(policy_id: UUID, session: AsyncSession = Depends(get_session),
                                     _i: Identity = Depends(get_current_identity)):
     p = await session.get(RemediationPolicy, policy_id)
@@ -244,7 +265,8 @@ class RemediationRunOut(BaseModel):
     outcome: str | None
 
 
-@router.get("/api/v1/remediation-runs", response_model=list[RemediationRunOut])
+@router.get("/api/v1/event-runs", response_model=list[RemediationRunOut])
+@router.get("/api/v1/remediation-runs", response_model=list[RemediationRunOut], deprecated=True, include_in_schema=False)
 async def list_remediation_runs(status: str | None = Query(None), limit: int = Query(100, ge=1, le=500),
                                 session: AsyncSession = Depends(get_session), _i: Identity = Depends(get_current_identity)):
     """Remediation history + the pending-proposal queue (?status=pending)."""
@@ -261,7 +283,8 @@ async def list_remediation_runs(status: str | None = Query(None), limit: int = Q
     ) for r in rows]
 
 
-@router.post("/api/v1/remediation-runs/{run_id}/apply")
+@router.post("/api/v1/event-runs/{run_id}/apply")
+@router.post("/api/v1/remediation-runs/{run_id}/apply", deprecated=True, include_in_schema=False)
 async def apply_remediation_run(
     run_id: UUID, session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
     _i: Identity = Depends(get_current_identity), client_factory=Depends(get_client_factory),
@@ -281,7 +304,8 @@ async def apply_remediation_run(
     return result
 
 
-@router.post("/api/v1/remediation-runs/{run_id}/dismiss", status_code=204)
+@router.post("/api/v1/event-runs/{run_id}/dismiss", status_code=204)
+@router.post("/api/v1/remediation-runs/{run_id}/dismiss", status_code=204, deprecated=True, include_in_schema=False)
 async def dismiss_remediation_run(run_id: UUID, session: AsyncSession = Depends(get_session),
                                   _i: Identity = Depends(get_current_identity)) -> None:
     """Dismiss a pending proposal without running it."""
@@ -291,7 +315,8 @@ async def dismiss_remediation_run(run_id: UUID, session: AsyncSession = Depends(
         await session.commit()
 
 
-@router.post("/api/v1/agents/{agent_id}/remediate")
+@router.post("/api/v1/agents/{agent_id}/trigger-event-rules")
+@router.post("/api/v1/agents/{agent_id}/remediate", deprecated=True, include_in_schema=False)
 async def trigger_remediation(
     agent_id: UUID, service: str = Query(...),
     session: AsyncSession = Depends(get_session), settings: Settings = Depends(get_settings),
