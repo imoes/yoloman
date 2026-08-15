@@ -1297,3 +1297,39 @@ Die Liste kommt **vom Host**, nicht aus `package_universe_real.json` (RedHat-Rum
 Repos eines konkreten Hosts ohnehin nicht). `internal/modules/package_facts.go:50` liefert
 *installiert* bereits familien-agnostisch (dpkg-query, rpm-Fallback). Es fehlt **genau ein** Verb im
 Agenten: **suchen** (`apt-cache search` / `dnf search`).
+
+### Umgesetzt — und wo der Defekt wirklich saß
+
+Die Suche nach der Ursache führte auf **zwei Zeilen**, nicht auf eine Redaktionsentscheidung:
+
+```
+bossman/scripts/classify_roles_features.py:222   for fam in ("debian", "redhat")
+bossman/scripts/build_package_catalog.py:234     {"debian": _fam(...), "redhat": _fam(...)}
+```
+
+Beide schreiben denselben Debian-Namen in **beide** Familien. Keine von beiden hatte je eine
+RedHat-Tatsache zur Hand — der Seed ist Debian-abgeleitet, die Codec-Registry ebenso. Die 78
+Kopien sind also nirgends beschlossen worden; sie sind das Ergebnis einer Dict-Comprehension.
+Beide Generatoren geben jetzt nur noch den Zweig aus, den sie kennen.
+
+Für den **Bestand** kuratiert `bossman/scripts/curate_family_branches.py` (idempotent, `--dry-run`)
+die 90 Einträge in vier belegte Ausgänge:
+
+| | Zahl | Grund |
+|---|---|---|
+| behalten | 46 | echte Übersetzung, CORE-Handentscheidung, oder Name im RedHat-Universum belegt |
+| kuratiert | 23 | geprüfte Korrektur aus `CORRECTIONS` (cron→cronie, slapd→openldap-servers, …) |
+| unavailable | 3 | apparmor / ufw / ntp — benannte Nicht-Existenz **mit** Ersatzhinweis |
+| verworfen | 18 | Kopie ohne Beleg → der Eintrag liest sich jetzt „für RedHat nicht kuratiert" |
+
+46+23+3+18 = 90: kein Eintrag im Limbo. Die **vierte Achse** ist in 34 Zweigen gefüllt
+(`www-data` / `apache` / `wwwrun`); wo sie fehlt, heißt das *unbekannt* und nicht *irgendwas*.
+
+`api/package_wizard._resolve_family` macht daraus vier erschöpfende, disjunkte Zustände —
+`exact` / `fallback` / `unavailable` / `unknown` — jeder außer `exact` mit Begründung. Der
+frühere stille Fallback konnte nicht helfen: ein erfundener Zweig erfüllt `fams.get(family)`,
+also lief er nie. **Abwesenheit ist der Zustand, über den man reden kann.**
+
+Belegt durch `tests/test_package_wizard_family.py` (9 Tests): die vier Zustände über den echten
+Katalog × drei Familien (auch `suse`, das gar keinen Zweig hat und deshalb überall `fallback`
+liefern muss), „verweigert nie ohne Grund", und ein Test, der die Kopien nicht zurückkommen lässt.

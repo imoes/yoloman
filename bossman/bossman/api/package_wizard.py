@@ -42,6 +42,57 @@ def _family(facts: dict) -> str:
     return "debian"
 
 
+#: Order in which another family's values may stand in for a missing one. Debian first because
+#: the catalog's generators derive from Debian metadata, so it is the branch most likely present.
+_FALLBACK_ORDER = ("debian", "ubuntu")
+
+
+def _resolve_family(fams: dict, family: str) -> tuple[dict, dict]:
+    """Pick the family branch to use, and say WHICH and WHY.
+
+    Returns `(branch, meta)`, where meta classifies the outcome into one of four states that are
+    exhaustive and mutually exclusive — every catalog entry lands in exactly one:
+
+      exact        this family has its own branch. Nothing to explain.
+      fallback     it does not; another family's values are shown, and `family_used` + `reason`
+                   say so. Still installable: the operator may know the name transfers (it
+                   measurably does for 27 of the roles — nginx, postfix, samba are the same
+                   name everywhere), but they are no longer told a curated fact that isn't one.
+      unavailable  the catalog states positively that this thing does not exist here (AppArmor on
+                   RHEL, which ships SELinux). NOT installable — an impossible action is greyed
+                   out with its reason, not attempted and explained afterwards.
+      unknown      the entry has no families at all. Not installable, and visible as a gap in the
+                   catalog rather than as an empty row.
+
+    This exists because the generators used to write the Debian name into a `redhat` branch as
+    well (build_package_catalog / classify_roles_features, both fixed). 78 of 90 redhat branches
+    were verbatim copies, ~15 demonstrably wrong (cron→cronie, slapd→openldap-servers). The old
+    resolution here — `fams.get(family) or fams.get("debian")` — could not help, because a
+    fabricated branch is indistinguishable from a curated one: it satisfies `fams.get(family)`
+    and the fallback never runs. Absence is the state that can be reasoned about.
+    """
+    branch = fams.get(family)
+    if isinstance(branch, dict) and branch.get("unavailable"):
+        meta = {"family_match": "unavailable", "family_used": family,
+                "reason": str(branch["unavailable"]), "installable": False}
+        if branch.get("instead"):
+            meta["instead"] = branch["instead"]
+        return {}, meta
+    if isinstance(branch, dict):
+        return branch, {"family_match": "exact", "family_used": family, "reason": "", "installable": True}
+
+    for alt in (*_FALLBACK_ORDER, *sorted(fams)):
+        if isinstance(fams.get(alt), dict) and not fams[alt].get("unavailable"):
+            names = ", ".join(fams[alt].get("packages") or []) or "—"
+            return fams[alt], {
+                "family_match": "fallback", "family_used": alt, "installable": True,
+                "reason": (f"No {family} entry in the catalog — showing the {alt} names ({names}). "
+                           f"They may not exist on {family}."),
+            }
+    return {}, {"family_match": "unknown", "family_used": "", "installable": False,
+                "reason": "The catalog has no package names for this entry in any family."}
+
+
 def _catalog(settings: Settings) -> dict:
     path = Path(settings.config_templates_dir).parent / "package_catalog.json"
     try:
@@ -87,10 +138,10 @@ async def wizard_context(
     installed: dict[str, str] = {}
     resolved: dict[str, dict] = {}
     for pkg, entry in catalog.items():
-        fams = entry.get("families") or {}
-        fam = fams.get(family) or fams.get("debian") or fams.get("ubuntu") or (next(iter(fams.values()), {}) if fams else {})
+        fam, meta = _resolve_family(entry.get("families") or {}, family)
         resolved[pkg] = {"packages": fam.get("packages", []), "service": fam.get("service", ""),
-                         "config_path": fam.get("config_path", "")}
+                         "config_path": fam.get("config_path", ""), "user": fam.get("user", ""),
+                         **meta}
         # Installed if ANY of the family's package names is present in inventory.
         for name in fam.get("packages", []):
             if name in inv:

@@ -4,11 +4,37 @@ import { Observable, map, switchMap, of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ParamSchema } from '../../shared/param-form/param-form.types';
 
+/** How the catalog answered for THIS host's OS family. Exhaustive and mutually exclusive —
+ * see bossman/api/package_wizard.py:_resolve_family for the measurement behind it.
+ *
+ *   exact        the family has its own curated branch
+ *   fallback     it has none; another family's names are shown and `reason` says so
+ *   unavailable  the catalog states it does not exist here (AppArmor on RHEL) — not installable
+ *   unknown      no package names in any family
+ */
+export type FamilyMatch = 'exact' | 'fallback' | 'unavailable' | 'unknown';
+
+export interface ResolvedPackage {
+  packages: string[];
+  service: string;
+  config_path: string;
+  /** The account the service runs as (www-data / apache / wwwrun). Empty = not curated. */
+  user: string;
+  family_match: FamilyMatch;
+  /** Which family's branch supplied the values above — differs from the host's on `fallback`. */
+  family_used: string;
+  /** Why it is a fallback, or why it cannot be installed. Empty only when `exact`. */
+  reason: string;
+  installable: boolean;
+  /** What to use instead; when it names a catalog entry the UI links to that role. */
+  instead?: string;
+}
+
 export interface WizardContext {
   host: string; // DNS name of the agent (for display)
   family: string;
   installed: Record<string, string>; // catalog pkg -> installed version
-  catalog_resolved: Record<string, { packages: string[]; service: string; config_path: string }>;
+  catalog_resolved: Record<string, ResolvedPackage>;
 }
 
 export interface WizardRunbook {
