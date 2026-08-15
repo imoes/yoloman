@@ -5,6 +5,7 @@ rollback cleans up) — see tests/conftest.py.
 """
 
 from uuid import UUID, uuid4
+from tests.naming import run_suffix
 
 from bossman.db.models import (
     Agent,
@@ -28,7 +29,7 @@ SYSTEM_SETTINGS_ID = "00000000-0000-0000-0000-0000000000f1"
 
 
 def _sfx() -> str:
-    return uuid4().hex[:8]
+    return run_suffix()
 
 
 async def _agent(db_session, ou=None):

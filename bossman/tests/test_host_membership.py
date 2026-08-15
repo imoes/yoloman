@@ -24,13 +24,13 @@ from bossman.db.models import AccessGrant, Agent, CheckRule, HostGroup, HostGrou
 from bossman.main import create_app
 from bossman.services.auth import new_api_token
 
-from tests.naming import owned_name  # run-tagged names — see tests/naming.py
+from tests.naming import owned_name  # run-tagged names — see tests/naming.py, run_suffix
 
 TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 def _sfx() -> str:
-    return uuid.uuid4().hex[:8]
+    return run_suffix()
 
 
 async def _token(db_session):

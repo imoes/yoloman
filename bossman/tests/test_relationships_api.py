@@ -3,6 +3,7 @@
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -13,7 +14,7 @@ from bossman.services.auth import new_api_token
 
 
 async def _make_agent(db_session) -> Agent:
-    agent = Agent(name=f"rel-agent-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("rel-agent"), token="tok", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
     await db_session.commit()

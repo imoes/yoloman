@@ -6,6 +6,7 @@ seam already used for the poller and the plan engine's own tests.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -43,7 +44,7 @@ class FakeAgentClient:
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"plan-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("plan-agent"),
         "token": "tok",
         "address": "10.0.0.9:8010",
         "mode": "standalone",

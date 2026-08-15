@@ -3,6 +3,7 @@ params merged inherited→specific). Real DB via db_session; the resolver
 only reads, so the fixture rollback cleans up."""
 
 from uuid import uuid4
+from tests.naming import run_suffix
 
 from bossman.db.models import Agent, CheckAssignment, HostGroup, HostGroupMember, OUNode
 from bossman.services.check_assignments import resolve_host_checks
@@ -11,7 +12,7 @@ TENANT = "00000000-0000-0000-0000-000000000001"
 
 
 def _sfx():
-    return uuid4().hex[:8]
+    return run_suffix()
 
 
 async def _ou(db_session, name, parent=None):

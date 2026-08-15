@@ -14,7 +14,7 @@ DEFAULT_TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 async def _agent(db_session, **kw):
-    fields = {"name": f"acl-{uuid.uuid4().hex[:8]}", "token": "t", "mode": "standalone", "enrollment_state": "enrolled",
+    fields = {"name": owned_name("acl"), "token": "t", "mode": "standalone", "enrollment_state": "enrolled",
               "address": "10.0.0.9:8010"}
     fields.update(kw)
     a = Agent(**fields)
@@ -25,7 +25,7 @@ async def _agent(db_session, **kw):
 
 
 async def _user(db_session, role="operator"):
-    u = new_bossman_user(f"u-{uuid.uuid4().hex[:6]}", "pw", role)
+    u = new_bossman_user(owned_name("u"), "pw", role)
     db_session.add(u)
     await db_session.flush()
     await db_session.commit()
@@ -116,7 +116,7 @@ async def test_all_grant_allows_the_token_it_was_issued_to(db_session):
 
 async def test_group_grant_via_membership(db_session):
     a = await _agent(db_session)
-    hg = HostGroup(tenant_id=DEFAULT_TENANT, name=f"grp-{uuid.uuid4().hex[:6]}")
+    hg = HostGroup(tenant_id=DEFAULT_TENANT, name=owned_name("grp"))
     db_session.add(hg)
     await db_session.flush()
     db_session.add(HostGroupMember(tenant_id=DEFAULT_TENANT, host_group_id=hg.id, agent_id=a.id))
@@ -162,7 +162,7 @@ async def test_users_api_admin_only(db_session):
         assert client.get("/api/v1/users", headers=_h(_jwt(op))).status_code == 403
         assert client.get("/api/v1/users", headers=_h(_jwt(admin))).status_code == 200
         # create a user + grant it a host
-        cu = client.post("/api/v1/users", json={"username": f"nu-{uuid.uuid4().hex[:5]}", "password": "pw", "role": "operator"}, headers=_h(_jwt(admin)))
+        cu = client.post("/api/v1/users", json={"username": owned_name("nu"), "password": "pw", "role": "operator"}, headers=_h(_jwt(admin)))
         assert cu.status_code == 200
         gid = client.post("/api/v1/access-grants", json={"subject_kind": "user", "subject_ref": cu.json()["username"], "scope": "all"}, headers=_h(_jwt(admin)))
         assert gid.status_code == 200

@@ -5,6 +5,7 @@ same seam api/processes.py's tests use, so no real agent connection is made.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 
@@ -38,7 +39,7 @@ class CallToolFake:
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"mgmt-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("mgmt-agent"),
         "token": "tok",
         "address": "10.0.0.9:8010",
         "mode": "standalone",

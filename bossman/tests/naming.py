@@ -27,4 +27,14 @@ def owned_name(prefix: str) -> str:
     `test_`, so that spelling turned the helper itself into a failing test case (it took a
     required argument). Caught by the collector, not by reading.
     """
-    return f"{prefix}-{RUN_TAG}{uuid.uuid4().hex[:4]}"
+    return f"{prefix}-{run_suffix()}"
+
+
+def run_suffix() -> str:
+    """`<RUN_TAG><4 hex>` — the owned part alone, for the suites that already had a `_sfx()`.
+
+    Those files build names as `f"grp-{_sfx()}"` all over. Pointing their `_sfx` here makes every
+    one of those call sites owned without editing any of them, which is both the smaller diff and
+    the one that cannot miss a site.
+    """
+    return f"{RUN_TAG}{uuid.uuid4().hex[:4]}"

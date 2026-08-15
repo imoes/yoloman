@@ -3,6 +3,7 @@ real DB (see tests/conftest.py's db_session fixture).
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -272,11 +273,11 @@ async def _make_template(db_session, name, rules=()) -> Template:
 
 async def test_collect_effective_rules_includes_nested_templates(db_session):
     child = await _make_template(
-        db_session, f"child-{uuid.uuid4().hex[:8]}",
+        db_session, owned_name("child"),
         rules=[dict(service_name="Disk /", metric="disk_used_pct", comparison="gt", warn_threshold=80.0, crit_threshold=95.0)],
     )
     parent = await _make_template(
-        db_session, f"parent-{uuid.uuid4().hex[:8]}",
+        db_session, owned_name("parent"),
         rules=[dict(service_name="CPU load", metric="cpu_pct", comparison="gt", warn_threshold=80.0, crit_threshold=95.0)],
     )
     db_session.add(TemplateNesting(parent_template_id=parent.id, child_template_id=child.id))
@@ -293,8 +294,8 @@ async def test_collect_effective_rules_includes_nested_templates(db_session):
 
 async def test_collect_effective_rules_handles_nesting_cycle(db_session):
     """A -> B -> A must not infinite-loop."""
-    a = await _make_template(db_session, f"a-{uuid.uuid4().hex[:8]}", rules=[dict(service_name="A", metric="m", comparison="gt")])
-    b = await _make_template(db_session, f"b-{uuid.uuid4().hex[:8]}", rules=[dict(service_name="B", metric="m", comparison="gt")])
+    a = await _make_template(db_session, owned_name("a"), rules=[dict(service_name="A", metric="m", comparison="gt")])
+    b = await _make_template(db_session, owned_name("b"), rules=[dict(service_name="B", metric="m", comparison="gt")])
     db_session.add(TemplateNesting(parent_template_id=a.id, child_template_id=b.id))
     db_session.add(TemplateNesting(parent_template_id=b.id, child_template_id=a.id))
     await db_session.commit()
@@ -315,10 +316,10 @@ async def test_materialize_template_cascades_to_ancestor_links(db_session):
     also updates the PARENT template's own linked host groups — the
     parent's effective rule set includes the child's rules."""
     child = await _make_template(
-        db_session, f"child-{uuid.uuid4().hex[:8]}",
+        db_session, owned_name("child"),
         rules=[dict(service_name="Disk /", metric="disk_used_pct", comparison="gt", warn_threshold=80.0, crit_threshold=95.0)],
     )
-    parent = await _make_template(db_session, f"parent-{uuid.uuid4().hex[:8]}")
+    parent = await _make_template(db_session, owned_name("parent"))
     db_session.add(TemplateNesting(parent_template_id=parent.id, child_template_id=child.id))
     link = TemplateLink(template_id=parent.id, host_group="ancestor-test-group")
     db_session.add(link)
@@ -354,7 +355,7 @@ async def test_materialize_template_cascades_to_ancestor_links(db_session):
 
 async def test_dematerialize_template_link_removes_generated_rules(db_session):
     template = await _make_template(
-        db_session, f"tmpl-{uuid.uuid4().hex[:8]}",
+        db_session, owned_name("tmpl"),
         rules=[dict(service_name="Uptime", metric="uptime_seconds", comparison="lt", crit_threshold=60.0)],
     )
     await materialize_template_link(db_session, template.id, "dematerialize-test-group")

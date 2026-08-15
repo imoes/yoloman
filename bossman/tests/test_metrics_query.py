@@ -8,6 +8,7 @@ See tests/conftest.py's db_session fixture (skips if no DB is reachable).
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, text
@@ -20,7 +21,7 @@ from bossman.services.metrics_query import pick_tier, query_series
 
 
 async def _make_agent(db_session) -> Agent:
-    agent = Agent(name=f"mq-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("mq"), token="tok", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
     await db_session.commit()

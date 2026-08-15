@@ -10,6 +10,7 @@ fake network dependency while keeping every DB write real.
 
 import asyncio
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timezone
 
 import pytest
@@ -92,7 +93,7 @@ def _settings(**overrides):
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
-    name = f"poll-{uuid.uuid4().hex[:8]}"
+    name = owned_name("poll")
     fields = {"name": name, "token": "tok", "mode": "standalone", "enrollment_state": "enrolled", "address": "10.0.0.1:8010"}
     fields.update(overrides)
     agent = Agent(**fields)

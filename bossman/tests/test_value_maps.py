@@ -4,6 +4,7 @@ tests/conftest.py's db_session fixture).
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -15,7 +16,7 @@ from bossman.services.monitoring import to_view
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
-    fields = {"name": f"vm-agent-{uuid.uuid4().hex[:8]}", "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
+    fields = {"name": owned_name("vm-agent"), "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
     fields.update(overrides)
     agent = Agent(**fields)
     db_session.add(agent)
@@ -103,7 +104,7 @@ async def test_check_rule_with_value_map_maps_service_value(db_session):
     """The core K4 payoff: a Service materialized from a CheckRule with a
     ValueMap attached shows mapped_value alongside its raw numeric value."""
     agent = await _make_agent(db_session)
-    value_map = ValueMap(name=f"vm-{uuid.uuid4().hex[:8]}", mappings={"0": "Down", "1": "Up"})
+    value_map = ValueMap(name=owned_name("vm"), mappings={"0": "Down", "1": "Up"})
     db_session.add(value_map)
     await db_session.flush()
 
@@ -175,7 +176,7 @@ async def test_check_rule_without_value_map_has_no_mapped_value(db_session):
 async def test_deleting_value_map_detaches_check_rule_not_delete_it(db_session):
     """check_rules.value_map_id is ON DELETE SET NULL — deleting a value
     map must not take rules referencing it down with it."""
-    value_map = ValueMap(name=f"vm-{uuid.uuid4().hex[:8]}", mappings={"0": "Down"})
+    value_map = ValueMap(name=owned_name("vm"), mappings={"0": "Down"})
     db_session.add(value_map)
     await db_session.flush()
     rule = CheckRule(

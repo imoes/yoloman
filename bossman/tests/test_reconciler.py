@@ -7,6 +7,7 @@ is opened. See tests/conftest.py.
 """
 
 import uuid
+from tests.naming import owned_name
 from uuid import UUID
 
 from sqlalchemy import select
@@ -56,7 +57,7 @@ def _factory(client):
 
 async def _agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"recon-{uuid.uuid4().hex[:8]}", "token": f"tok-{uuid.uuid4().hex}",
+        "name": owned_name("recon"), "token": f"tok-{uuid.uuid4().hex}",
         "mode": "standalone", "enrollment_state": "enrolled", "tenant_id": DEFAULT_TENANT_ID,
         "address": "10.0.0.9:8443",
     }
@@ -70,7 +71,7 @@ async def _agent(db_session, **overrides) -> Agent:
 
 async def _plan_linked_to_host(db_session, agent, checks):
     plan = OrchestrationPlan(
-        id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"plan-{uuid.uuid4().hex[:8]}",
+        id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=owned_name("plan"),
         display_name="P", plan_type="role", current_version=1,
     )
     db_session.add(plan)

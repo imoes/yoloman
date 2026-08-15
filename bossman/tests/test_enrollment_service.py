@@ -6,6 +6,7 @@ through the actual REST route.
 """
 
 import uuid
+from tests.naming import owned_name
 
 from sqlalchemy import select
 
@@ -14,7 +15,7 @@ from bossman.services.enrollment import EnrollRequest, enroll_agent
 
 
 async def test_enroll_agent_creates_new(db_session):
-    name = f"svc-new-{uuid.uuid4().hex[:8]}"
+    name = owned_name("svc-new")
     agent = await enroll_agent(
         db_session, EnrollRequest(name=name, token="tok", address="1.1.1.1:1")
     )
@@ -28,7 +29,7 @@ async def test_enroll_agent_creates_new(db_session):
 
 
 async def test_enroll_agent_updates_existing(db_session):
-    name = f"svc-reenroll-{uuid.uuid4().hex[:8]}"
+    name = owned_name("svc-reenroll")
     await enroll_agent(
         db_session, EnrollRequest(name=name, token="old", address="1.1.1.1:1")
     )

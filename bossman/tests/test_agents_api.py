@@ -6,6 +6,7 @@ used to reach these routes).
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -42,7 +43,7 @@ class FakeAgentClient:
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"api-agent-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("api-agent"),
         "token": "tok",
         "mode": "standalone",
         "enrollment_state": "enrolled",

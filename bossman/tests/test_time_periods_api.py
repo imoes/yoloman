@@ -3,6 +3,7 @@ goes wrong is the notification path, where the symptom is a page that never arri
 """
 
 import uuid
+from tests.naming import owned_name
 
 from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
@@ -15,7 +16,7 @@ BUSINESS = {d: [["08:00", "17:00"]] for d in ("monday", "tuesday", "wednesday", 
 
 
 async def _make_api_token(db_session):
-    name = f"tp-caller-{uuid.uuid4().hex[:6]}"
+    name = owned_name("tp-caller")
     row, raw = new_api_token(name)
     db_session.add(row)
     await db_session.flush()  # the grant references this token by uid — it must exist first
@@ -50,7 +51,7 @@ async def test_the_builtin_always_exists_and_reports_active(db_session):
 
 async def test_create_and_read_back(db_session):
     token, raw = await _make_api_token(db_session)
-    name = f"business-{uuid.uuid4().hex[:6]}"
+    name = owned_name("business")
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/time-periods",
@@ -72,7 +73,7 @@ async def test_a_typoed_weekday_is_refused_on_write(db_session):
     with TestClient(create_app()) as client:
         resp = client.post(
             "/api/v1/time-periods",
-            json={"name": f"typo-{uuid.uuid4().hex[:6]}", "ranges": {"tuseday": [["08:00", "17:00"]]}},
+            json={"name": owned_name("typo"), "ranges": {"tuseday": [["08:00", "17:00"]]}},
             headers=_headers(raw),
         )
     assert resp.status_code == 422
@@ -85,7 +86,7 @@ async def test_an_inverted_span_is_refused(db_session):
     with TestClient(create_app()) as client:
         resp = client.post(
             "/api/v1/time-periods",
-            json={"name": f"night-{uuid.uuid4().hex[:6]}", "ranges": {"monday": [["22:00", "02:00"]]}},
+            json={"name": owned_name("night"), "ranges": {"monday": [["22:00", "02:00"]]}},
             headers=_headers(raw),
         )
     assert resp.status_code == 422
@@ -94,7 +95,7 @@ async def test_an_inverted_span_is_refused(db_session):
 
 async def test_a_duplicate_name_is_a_conflict(db_session):
     token, raw = await _make_api_token(db_session)
-    name = f"dup-{uuid.uuid4().hex[:6]}"
+    name = owned_name("dup")
     with TestClient(create_app()) as client:
         first = client.post("/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw))
         second = client.post("/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw))
@@ -110,7 +111,7 @@ async def test_excluding_an_unknown_period_is_refused(db_session):
     with TestClient(create_app()) as client:
         resp = client.post(
             "/api/v1/time-periods",
-            json={"name": f"x-{uuid.uuid4().hex[:6]}", "ranges": BUSINESS, "excludes": ["ghost"]},
+            json={"name": owned_name("x"), "ranges": BUSINESS, "excludes": ["ghost"]},
             headers=_headers(raw),
         )
     assert resp.status_code == 422
@@ -120,7 +121,7 @@ async def test_excluding_an_unknown_period_is_refused(db_session):
 
 async def test_self_exclusion_is_refused(db_session):
     token, raw = await _make_api_token(db_session)
-    name = f"self-{uuid.uuid4().hex[:6]}"
+    name = owned_name("self")
     with TestClient(create_app()) as client:
         resp = client.post(
             "/api/v1/time-periods",
@@ -144,8 +145,8 @@ async def test_the_builtin_cannot_be_deleted(db_session):
 async def test_a_referenced_period_cannot_be_deleted_or_renamed(db_session):
     """excludes reference by NAME, so both operations would dangle the reference."""
     token, raw = await _make_api_token(db_session)
-    holidays = f"holidays-{uuid.uuid4().hex[:6]}"
-    business = f"business-{uuid.uuid4().hex[:6]}"
+    holidays = owned_name("holidays")
+    business = owned_name("business")
     with TestClient(create_app()) as client:
         h = client.post("/api/v1/time-periods", json={"name": holidays, "ranges": {}}, headers=_headers(raw))
         client.post(
@@ -167,12 +168,12 @@ async def test_a_referenced_period_cannot_be_deleted_or_renamed(db_session):
 async def test_usage_lists_the_rules_that_would_be_affected(db_session):
     """Asked before editing a window, not discovered afterwards."""
     token, raw = await _make_api_token(db_session)
-    name = f"usage-{uuid.uuid4().hex[:6]}"
+    name = owned_name("usage")
     with TestClient(create_app()) as client:
         created = client.post("/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw))
         pid = created.json()["id"]
         rule = NotificationRule(
-            name=f"rule-{uuid.uuid4().hex[:6]}", channel="email", target="ops@example.com",
+            name=owned_name("rule"), channel="email", target="ops@example.com",
             time_period_id=uuid.UUID(pid),
         )
         db_session.add(rule)
@@ -188,12 +189,12 @@ async def test_usage_lists_the_rules_that_would_be_affected(db_session):
 async def test_deleting_a_window_widens_its_rules_back_to_always(db_session):
     """ON DELETE SET NULL: cleanup must not silently delete someone's alerting."""
     token, raw = await _make_api_token(db_session)
-    name = f"widen-{uuid.uuid4().hex[:6]}"
+    name = owned_name("widen")
     with TestClient(create_app()) as client:
         created = client.post("/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw))
         pid = created.json()["id"]
         rule = NotificationRule(
-            name=f"rule-{uuid.uuid4().hex[:6]}", channel="email", target="ops@example.com",
+            name=owned_name("rule"), channel="email", target="ops@example.com",
             time_period_id=uuid.UUID(pid),
         )
         db_session.add(rule)
@@ -213,7 +214,7 @@ async def test_a_rule_cannot_point_at_a_nonexistent_window(db_session):
         resp = client.post(
             "/api/v1/notification-rules",
             json={
-                "name": f"r-{uuid.uuid4().hex[:6]}", "channel": "email", "target": "ops@example.com",
+                "name": owned_name("r"), "channel": "email", "target": "ops@example.com",
                 "time_period_id": str(uuid.uuid4()),
             },
             headers=_headers(raw),
@@ -234,7 +235,7 @@ async def test_a_stale_version_is_rejected(db_session):
     Now the second one gets a 412 naming the current version and telling it to re-read.
     """
     token, raw = await _make_api_token(db_session)
-    name = f"lock-{uuid.uuid4().hex[:6]}"
+    name = owned_name("lock")
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
@@ -271,7 +272,7 @@ async def test_a_write_without_if_match_still_works(db_session):
     """Honoured-when-present: requiring the header would break every existing client the
     moment this shipped. Documented in api/etag.py as a follow-up, not an oversight."""
     token, raw = await _make_api_token(db_session)
-    name = f"nolock-{uuid.uuid4().hex[:6]}"
+    name = owned_name("nolock")
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
@@ -288,7 +289,7 @@ async def test_a_write_without_if_match_still_works(db_session):
 async def test_a_quoted_or_star_tag_is_accepted(db_session):
     """A client library sends the ETag back quoted; `*` means "any version"."""
     token, raw = await _make_api_token(db_session)
-    name = f"quoted-{uuid.uuid4().hex[:6]}"
+    name = owned_name("quoted")
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)
@@ -312,7 +313,7 @@ async def test_a_quoted_or_star_tag_is_accepted(db_session):
 async def test_the_version_ignores_the_moving_clock(db_session):
     """`active_now` changes on its own; if it were hashed, every save would 412 for no reason."""
     token, raw = await _make_api_token(db_session)
-    name = f"clock-{uuid.uuid4().hex[:6]}"
+    name = owned_name("clock")
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/time-periods", json={"name": name, "ranges": BUSINESS}, headers=_headers(raw)

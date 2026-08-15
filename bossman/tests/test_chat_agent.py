@@ -1,6 +1,7 @@
 """Block K3 — agentic tool-loop + fleet-tool executor tests."""
 
 import uuid
+from tests.naming import owned_name
 
 from bossman.db.models import Agent
 from bossman.services.chat_agent import backend_is_agentic, run_agentic
@@ -63,7 +64,7 @@ async def test_run_agentic_tool_error_feeds_back():
 
 
 async def _make_agent(db_session, **kw):
-    fields = {"name": f"chat-tool-{uuid.uuid4().hex[:8]}", "token": "t", "mode": "standalone", "enrollment_state": "enrolled"}
+    fields = {"name": owned_name("chat-tool"), "token": "t", "mode": "standalone", "enrollment_state": "enrolled"}
     fields.update(kw)
     a = Agent(**fields)
     db_session.add(a)

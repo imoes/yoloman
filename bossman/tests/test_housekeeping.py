@@ -8,6 +8,7 @@ deliberately NOT touched here.
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -18,7 +19,7 @@ from bossman.services.housekeeping import run_housekeeping
 
 
 async def _make_agent(db_session) -> Agent:
-    agent = Agent(name=f"hk-{uuid.uuid4().hex[:8]}", token="tok", mode="standalone", enrollment_state="enrolled")
+    agent = Agent(name=owned_name("hk"), token="tok", mode="standalone", enrollment_state="enrolled")
     db_session.add(agent)
     await db_session.flush()
     await db_session.commit()

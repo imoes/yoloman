@@ -6,6 +6,7 @@ pivoting on vpp0221 — same node states, opposite verdicts.
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timezone
 
 from fastapi.testclient import TestClient
@@ -18,7 +19,7 @@ from bossman.services.clustering import aggregate_all_clusters
 
 
 async def _make_api_token(db_session):
-    name = f"cl-caller-{uuid.uuid4().hex[:6]}"
+    name = owned_name("cl-caller")
     row, raw = new_api_token(name)
     db_session.add(row)
     await db_session.flush()  # the grant references this token by uid — it must exist first
@@ -33,7 +34,7 @@ def _headers(raw):
 
 async def _node(db_session, name, services: dict[str, str]) -> Agent:
     agent = Agent(
-        name=f"{name}-{uuid.uuid4().hex[:6]}", address="10.0.0.1:9000",
+        name=owned_name(name), address="10.0.0.1:9000",
         token=uuid.uuid4().hex, enrollment_state="enrolled",
     )
     db_session.add(agent)
@@ -66,7 +67,7 @@ async def _purge(db_session, *agents):
 
 async def _cluster(db_session, nodes, mode="worst", patterns=("Memory",), primary=None) -> Agent:
     agent = Agent(
-        name=f"cluster-{uuid.uuid4().hex[:6]}", address=None, token=uuid.uuid4().hex,
+        name=owned_name("cluster"), address=None, token=uuid.uuid4().hex,
         mode="cluster", enrollment_state="enrolled",
     )
     db_session.add(agent)
@@ -199,7 +200,7 @@ async def test_create_lists_and_delete(db_session):
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/clusters",
-            json={"name": f"c-{uuid.uuid4().hex[:6]}", "aggregation_mode": "best",
+            json={"name": owned_name("c"), "aggregation_mode": "best",
                   "node_ids": [str(a.id)], "service_patterns": ["Memory"]},
             headers=_headers(raw),
         )
@@ -227,7 +228,7 @@ async def test_an_unknown_aggregation_mode_is_refused(db_session):
         for mode in ("native", "average", ""):
             resp = client.post(
                 "/api/v1/clusters",
-                json={"name": f"c-{uuid.uuid4().hex[:6]}", "aggregation_mode": mode, "node_ids": []},
+                json={"name": owned_name("c"), "aggregation_mode": mode, "node_ids": []},
                 headers=_headers(raw),
             )
             assert resp.status_code == 422, mode
@@ -246,7 +247,7 @@ async def test_a_primary_outside_the_cluster_is_refused(db_session):
     with TestClient(create_app()) as client:
         resp = client.post(
             "/api/v1/clusters",
-            json={"name": f"c-{uuid.uuid4().hex[:6]}", "aggregation_mode": "failover",
+            json={"name": owned_name("c"), "aggregation_mode": "failover",
                   "node_ids": [str(a.id)], "primary_node_id": str(outsider.id)},
             headers=_headers(raw),
         )
@@ -281,7 +282,7 @@ async def test_a_cluster_cannot_be_its_own_node(db_session):
     with TestClient(create_app()) as client:
         created = client.post(
             "/api/v1/clusters",
-            json={"name": f"c-{uuid.uuid4().hex[:6]}", "aggregation_mode": "worst", "node_ids": [str(a.id)]},
+            json={"name": owned_name("c"), "aggregation_mode": "worst", "node_ids": [str(a.id)]},
             headers=_headers(raw),
         )
         cid = created.json()["id"]

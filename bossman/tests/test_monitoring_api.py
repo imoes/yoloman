@@ -5,6 +5,7 @@ and tests/test_agents_api.py for the pattern this mirrors).
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from fastapi.testclient import TestClient
@@ -17,7 +18,7 @@ from bossman.services.auth import new_api_token
 
 async def _make_agent(db_session, **overrides) -> Agent:
     fields = {
-        "name": f"mon-api-{uuid.uuid4().hex[:8]}",
+        "name": owned_name("mon-api"),
         "token": "tok",
         "mode": "standalone",
         "enrollment_state": "enrolled",
@@ -656,7 +657,7 @@ async def test_fleet_hosts_shows_satellite_with_parent_link(db_session):
     proxy = await _make_agent(db_session, mode="proxy")
     api_token, raw = await _make_api_token(db_session)
     satellite = Agent(
-        name=f"sat-{uuid.uuid4().hex[:8]}",
+        name=owned_name("sat"),
         token="",
         mode="satellite",
         enrollment_state="enrolled",

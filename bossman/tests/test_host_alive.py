@@ -8,6 +8,7 @@ without any of them being rebuilt.
 """
 
 import uuid
+from tests.naming import owned_name
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, select
@@ -40,7 +41,7 @@ async def _sample(db_session, agent, when=None, value=1.0):
 
 async def _make_agent(db_session, name=None) -> Agent:
     agent = Agent(
-        name=name or f"halive-{uuid.uuid4().hex[:8]}",
+        name=name or owned_name("halive"),
         address="10.0.0.9:9000",
         token=uuid.uuid4().hex,
         enrollment_state="enrolled",

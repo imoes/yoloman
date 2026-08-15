@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from tests.naming import owned_name
 from pathlib import Path
 
 import pytest
@@ -65,8 +66,8 @@ async def _purge(db_session, *agents):
 
 async def test_derive_and_match_end_to_end(db_session, tmp_path):
     settings = _settings(tmp_path)
-    pg = await _agent(db_session, f"pg-{uuid.uuid4().hex[:6]}", ["postgresql"], "10.0.0.5")
-    rc = await _agent(db_session, f"rc-{uuid.uuid4().hex[:6]}", ["roundcube-core"], "10.0.0.9")
+    pg = await _agent(db_session, owned_name("pg"), ["postgresql"], "10.0.0.5")
+    rc = await _agent(db_session, owned_name("rc"), ["roundcube-core"], "10.0.0.9")
     try:
         await C.derive_agent(db_session, pg, settings)
         await C.derive_agent(db_session, rc, settings)
@@ -91,7 +92,7 @@ async def test_derive_and_match_end_to_end(db_session, tmp_path):
 
 async def test_reconcile_replaces_only_derived(db_session, tmp_path):
     settings = _settings(tmp_path)
-    pg = await _agent(db_session, f"pg-{uuid.uuid4().hex[:6]}", ["postgresql"], "10.0.0.5")
+    pg = await _agent(db_session, owned_name("pg"), ["postgresql"], "10.0.0.5")
     try:
         await C.derive_agent(db_session, pg, settings)
         await db_session.flush()

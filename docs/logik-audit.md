@@ -1187,3 +1187,113 @@ prüft jetzt das Gegenteil: ein gleichnamiges Zweit-Token erbt nichts.
 
 **Folge-Anpassung:** `test_update_agent_groups` erwartete Einfügereihenfolge; die Projektion
 sortiert bewusst, damit das Array eine Funktion der Mitgliedschaft ist und nicht der Tippreihenfolge.
+
+---
+
+## Bereich: Rollen & Features — Universalität über Distributionsfamilien
+
+Anlass ist die Nutzerfrage: *„bei Debian heißt Apache, Apache — aber bei RedHat httpd. Werden
+solche Namensunterschiede berücksichtigt?"*
+
+**Erste Antwort war falsch und wird hier korrigiert.** `configs/roles_features_seed.json`
+(73 Einträge, vier Felder, alles Debian) hat keine Familien-Achse — aber das ist nur ein **Seed**
+für `bossman/scripts/classify_roles_features.py`. Was die UI liest, ist
+`configs/package_catalog.json` über `api/package_catalog.py:26`, und **der hat eine Familien-Achse**:
+90 Einträge, je ein `debian`- und ein `redhat`-Zweig mit `packages`, `service`, `config_path`;
+aufgelöst in `api/package_wizard.py:91`. Die Frage ist also nicht *ob* übersetzt wird, sondern
+*ob die Übersetzung stimmt*. Gemessen:
+
+### [Ausgeschlossenes Drittes] 78 von 90 RedHat-Zweigen sind wortgleiche Debian-Kopien
+
+```
+Beleg:   configs/package_catalog.json — nur 12 der 90 Einträge haben einen redhat-Zweig,
+         der sich vom debian-Zweig unterscheidet (apache2→httpd, bind9→bind, snmpd→net-snmp,
+         postgresql, proftpd, redis, libvirtd, pacemaker, iscsi-target, tftpd-hpa,
+         docker-daemon, nfs.conf). Die übrigen 78 wiederholen den Debian-Namen.
+Problem: Ein falscher Zweig ist schlimmer als ein fehlender. Der Fallback in
+         package_wizard.py:91 (`fams.get(family) or fams.get("debian")`) kann nicht greifen,
+         weil der Eintrag beantwortet AUSSIEHT. Es gibt keinen Zustand „für diese Familie
+         unbekannt" — jeder Eintrag behauptet Wissen, das er nicht hat. Das ist genau der
+         fehlende dritte Zustand.
+Fix:     Ein Zweig darf FEHLEN (→ Zustand „für diese Familie nicht kuratiert", sichtbar in
+         der UI, Install gesperrt mit Grund) statt still den Debian-Namen zu behaupten.
+         Dann die belegten Übersetzungen nachtragen.
+```
+
+Nachweislich falsche Kopien (RHEL kennt den Namen nicht):
+
+| Katalog (Debian) | RedHat tatsächlich |
+|---|---|
+| `cron` | `cronie` (Dienst `crond`) |
+| `nfs-kernel-server` | `nfs-utils` (Dienst `nfs-server`) |
+| `slapd` | `openldap-servers` |
+| `krb5-kdc` | `krb5-server` |
+| `isc-dhcp-server` | `dhcp-server` |
+| `exim4` | `exim` |
+| `redis-server` | `redis` |
+| `auditd` | `audit` (Dienst `auditd`) |
+| `pdns-server` | `pdns` |
+| `wireguard` | `wireguard-tools` |
+| `prometheus-node-exporter` | `golang-github-prometheus-node-exporter` |
+| `docker.io` | `docker-ce` |
+| `ufw` | `firewalld` — **anderes Werkzeug** |
+| `apparmor` | existiert nicht — RHEL nutzt SELinux |
+| `ntp` | `chrony` — **anderes Programm** |
+
+Die letzten drei sind kein Übersetzungs-, sondern ein **Modellproblem**: es gibt für sie kein
+Gegenstück, nur einen Ersatz mit anderer Semantik. Dafür braucht der Eintrag ein benanntes
+`unavailable` mit Begründung — nicht einen stillen Debian-Namen, der ins Leere installiert.
+
+### [Identität] Die vierte Achse — der Systembenutzer — fehlt vollständig
+
+```
+Beleg:   configs/package_catalog.json — je Familie existieren GENAU drei Achsen
+         (packages ×180, service ×180, config_path ×180); ein `user` kommt nirgends vor.
+Problem: apache läuft als www-data (Debian), apache (RedHat), wwwrun (SUSE). Jede Regel, die
+         Dateirechte, Log-Eigentum oder eine Prüfung „läuft als" formuliert, ist damit an eine
+         Familie gebunden, ohne es zu sagen.
+Fix:     vierte Achse `user` (optional `group`) je Familien-Zweig.
+```
+
+### [Gültige Ableitung] SUSE/Arch bekommen still Debian-Namen
+
+```
+Beleg:   Familien-Abdeckung gemessen: debian 90, redhat 90, suse 0, arch 0, ubuntu 0.
+         api/package_wizard.py:25-33 kennt aber mehr Familien als der Katalog bedient.
+Problem: Auf einem SUSE-Host greift der Debian-Fallback und der Wizard schlägt `apache2` vor.
+         Das ist hier zufällig richtig (SUSE nutzt apache2), aber aus dem falschen Grund —
+         und bei `cron`/`ufw`/`nfs-kernel-server` ist es falsch. Ein Fallback, der nicht sagt,
+         DASS er Fallback ist, ist eine unbelegte Verallgemeinerung.
+Fix:     Der Wizard markiert einen Fallback als solchen („keine SUSE-Angabe, zeige Debian") —
+         zureichender Grund statt stiller Übernahme.
+```
+
+### [Falsifizierbarkeit] Die naheliegende Auto-Ableitung wurde geprüft und trägt nicht
+
+`configs/package_universe_real.json` enthält `debian["apache2"].desc == redhat["httpd"].desc ==
+"Apache HTTP Server"` — identische Beschreibung bei disjunkten Namen. Klingt nach automatischer
+Zuordnung. Gemessen: RedHat hat dort **349** Pakete gegen **8555** bei Debian, nur **13**
+Beschreibungen überschneiden sich, davon ergibt **genau eine** eine Übersetzung (eben apache2→httpd).
+Der Mechanismus stimmt, die Datenbasis trägt ihn nicht. **Also die 90 Einträge explizit pflegen.**
+
+### [Parsimonie] Der Paketmanager im Management-Tab
+
+Der Einwand des Nutzers gegen den ersten Entwurf war zwingend: ein Snapin, das **entfernen** kann,
+was es nicht **installieren** kann, bietet zwei ungleiche Verben für dasselbe Ding. Und „Rollen &
+Features massiv erweitern" hieße, ein Repo mit 8555 Paketen von Hand zu kuratieren.
+
+Auflösung: es sind **zwei Objekte**, und die Grenze ist eine **prüfbare Tatsache**:
+
+| | Quelle | Verben | Formular |
+|---|---|---|---|
+| **Rolle/Feature** | kuratierter Katalog (90) | installieren, entfernen, **konfigurieren** | ja — Template/Codec vorhanden |
+| **Paket** | Repo **des Hosts** | suchen, installieren, entfernen, pinnen | nein |
+
+*Ein Paket ist genau dann eine Rolle, wenn wir es auch konfigurieren können.* Kein redaktioneller
+Schnitt, sondern prüfbar — und damit falsifizierbar. Beide Snapins haben **symmetrische** Verben;
+keine Aufgabe bekommt einen zweiten Ort.
+
+Die Liste kommt **vom Host**, nicht aus `package_universe_real.json` (RedHat-Rumpf, kennt zusätzliche
+Repos eines konkreten Hosts ohnehin nicht). `internal/modules/package_facts.go:50` liefert
+*installiert* bereits familien-agnostisch (dpkg-query, rpm-Fallback). Es fehlt **genau ein** Verb im
+Agenten: **suchen** (`apt-cache search` / `dnf search`).

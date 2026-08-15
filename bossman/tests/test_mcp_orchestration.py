@@ -5,6 +5,7 @@ tests/test_mcp_server.py.
 
 import json
 import uuid
+from tests.naming import owned_name, run_suffix
 from uuid import UUID
 
 import pytest
@@ -72,7 +73,7 @@ def _mcp(session_factory, tmp_path):
 
 
 async def _make_agent(db_session, **overrides) -> Agent:
-    fields = {"name": f"mcp-orch-{uuid.uuid4().hex[:8]}", "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
+    fields = {"name": owned_name("mcp-orch"), "token": "tok", "mode": "standalone", "enrollment_state": "enrolled"}
     fields.update(overrides)
     agent = Agent(**fields)
     db_session.add(agent)
@@ -82,7 +83,7 @@ async def _make_agent(db_session, **overrides) -> Agent:
 
 
 async def _make_plan(db_session, **generated_monitoring) -> OrchestrationPlan:
-    plan = OrchestrationPlan(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"plan-{uuid.uuid4().hex[:8]}", display_name="Plan", plan_type="role", current_version=1)
+    plan = OrchestrationPlan(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=owned_name("plan"), display_name="Plan", plan_type="role", current_version=1)
     db_session.add(plan)
     db_session.add(OrchestrationPlanVersion(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, plan_id=plan.id, version=1, generated_monitoring=generated_monitoring or {}))
     await db_session.flush()
@@ -131,7 +132,7 @@ async def test_list_and_get_orchestration_plan(db_session, session_factory, tmp_
 
 
 async def test_list_host_groups(db_session, session_factory, tmp_path):
-    group = HostGroup(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"grp-{uuid.uuid4().hex[:8]}")
+    group = HostGroup(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=owned_name("grp"))
     db_session.add(group)
     await db_session.commit()
     mcp = _mcp(session_factory, tmp_path)
@@ -144,7 +145,7 @@ async def test_list_host_groups(db_session, session_factory, tmp_path):
 
 
 async def test_get_ou_tree(db_session, session_factory, tmp_path):
-    sfx = uuid.uuid4().hex[:8]
+    sfx = run_suffix()
     root = OUNode(id=uuid.uuid4(), tenant_id=DEFAULT_TENANT_ID, name=f"Root-{sfx}", path=f"/Root-{sfx}", ltree_path=f"Root_{sfx}")
     db_session.add(root)
     await db_session.commit()
