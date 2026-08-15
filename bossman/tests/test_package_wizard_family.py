@@ -11,6 +11,9 @@ the four states must stay exhaustive (no entry may fall through unclassified), a
 entry must stay un-installable.
 """
 
+import json
+from pathlib import Path
+
 import pytest
 
 from bossman.api.package_wizard import _catalog, _resolve_family
@@ -26,6 +29,29 @@ def _real_catalog() -> dict:
     only ever assert about the file that is actually served.
     """
     return _catalog(get_settings())
+
+
+def _template_dir(tname: str):
+    """Templates live beside the catalog — same resolution, so the test reads what the app reads."""
+    from bossman.config import get_settings as _gs
+    return Path(_gs().config_templates_dir) / tname
+
+
+def _template_fields(tname: str) -> list[str]:
+    f = _template_dir(tname) / "schema.json"
+    if not f.is_file():
+        return []
+    try:
+        schema = json.loads(f.read_text())
+    except (OSError, ValueError):
+        return []
+    fields = schema.get("parameters") or schema.get("properties") or schema
+    return [k for k, v in fields.items() if isinstance(v, dict)] if isinstance(fields, dict) else []
+
+
+def _template_body(tname: str):
+    f = _template_dir(tname) / "template.j2"
+    return f.read_text(errors="replace") if f.is_file() else None
 
 
 def test_own_branch_is_exact_and_explains_nothing():
@@ -115,4 +141,31 @@ def test_the_catalog_no_longer_copies_debian_into_redhat():
     assert not unchecked, (
         "redhat branches identical to debian with no `source` — copied, not checked. "
         "Run scripts/curate_family_branches.py:\n  " + "\n  ".join(sorted(unchecked))
+    )
+
+
+def test_no_role_offers_configure_with_a_template_that_configures_something_else():
+    """Configure renders template.j2 as a WHOLE FILE to config_path. A template that does not
+    configure that file therefore replaces it.
+
+    Measured before the guard: 7 of 90 roles had a template mentioning not one of their own
+    schema's field names, because the batch harvested the wrong file from the .deb. The worst was
+    `sshd` — schema of 90 fields for /etc/ssh/sshd_config, template.j2 being /etc/pam.d/sshd.
+    Applying it locks you out of the host. So an entry may keep its schema, but it may not keep the
+    Configure action: `template` is null and the UI shows its existing "no template yet" branch.
+    """
+    catalog = _real_catalog()
+    offenders = []
+    for name, entry in catalog.items():
+        tname = entry.get("template")
+        if not tname:
+            continue  # withdrawn, or never had one — both honest
+        fields = _template_fields(tname)
+        body = _template_body(tname)
+        if fields and body is not None and not any(k in body for k in fields):
+            path = (entry.get("families", {}).get("debian") or {}).get("config_path", "")
+            offenders.append(f"{name} (template {tname} → would overwrite {path or 'nothing'})")
+    assert not offenders, (
+        "roles offering Configure with a template that configures a different file — "
+        "run scripts/curate_catalog.py:\n  " + "\n  ".join(sorted(offenders))
     )
