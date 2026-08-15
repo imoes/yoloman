@@ -1146,3 +1146,44 @@ Fixture erfasst beide bis heute nicht mit einem Eigentümer-Merkmal — siehe Be
   Offen:   die übrigen ~20 Testdateien auf `owned_name()` umstellen (mechanisch), dann ist der
            Rückstand nach jedem Lauf null statt nach zwei Stunden.
 ```
+
+### Umgesetzt: Grants referenzieren ihr Subjekt per UID (Nutzerentscheidung + LDAP-Vorbild)
+
+Die Rückfrage des Nutzers — „warum geben wir nicht Objekten eine uid, so wie LDAP das macht?" —
+war besser als meine drei Optionen und beschreibt genau LDAPs Entwurf: ein Eintrag hat einen
+**DN** (den hierarchischen Namen) *und* eine unveränderliche **entryUUID**, plus ein
+**refint-Overlay**, das DN-Verweise beim Umbenennen und Löschen nachführt.
+
+| LDAP | hier | Stand |
+|---|---|---|
+| entryUUID | `api_tokens.id`, `host_groups.id` | existierte bereits |
+| DN (Pfad) | Gruppenname `Europe/Latvia` | trägt die Vererbung |
+| refint bei rename | Umbenennungs-Kaskade | gebaut (a6f75d51) |
+| refint bei delete | FK `ON DELETE CASCADE` | **jetzt für Grants** |
+
+Migration `c4f9b2e70a18`: `access_grants.subject_token_id` → `api_tokens.id`, CASCADE, plus ein
+CHECK „ein api_token-Grant braucht eine uid". `subject_ref` bleibt — für einen **user** ist der
+Name die Identität (es gibt keine andere uid), und in einer Audit-Zeile liest man den Namen.
+
+Live belegt, jeweils mit Grund in der Antwort:
+
+| Prüfung | Ergebnis |
+|---|---|
+| Grant auf einen Namen mit 2 Tokens | **409** „…a grant binds to one token, so the name is ambiguous" |
+| Grant auf einen unbekannten Namen | **422** „no API token named …" |
+| Token mit Grant darf verwalten | **200** |
+| **gleichnamiges** zweites Token | **403** — erbt NICHT (vorher hätte es geerbt) |
+| Identität ohne uid | abgelehnt statt Rückfall auf den Namen |
+
+Vorher gemessen: 1325 Grants, **alle** Testrückstand (`*-caller`), null echte; ein Grant auf
+`mon-caller` autorisierte **28** Tokens, `test-caller` 18. Der Rückstand wurde vor der Migration
+entfernt, damit nichts geraten werden musste.
+
+**Eigene Fehler in diesem Schritt, beide von Tests gefunden:** `ApiToken.id` hatte nur einen
+Server-Default und war vor dem Flush `None` (jetzt client-seitig erzeugt, wie in
+api/templates.py), und mein pauschales Test-Patch nahm überall die Variable `row` an —
+`test_users_acl.py` hatte gar kein Token, weil es die alte Namens-Semantik prüfte. Dieser Test
+prüft jetzt das Gegenteil: ein gleichnamiges Zweit-Token erbt nichts.
+
+**Folge-Anpassung:** `test_update_agent_groups` erwartete Einfügereihenfolge; die Projektion
+sortiert bewusst, damit das Array eine Funktion der Mitgliedschaft ist und nicht der Tippreihenfolge.

@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from bossman.config import get_settings
 from bossman.db.models import AccessGrant, Agent, HostGroup, HostGroupMember
 from bossman.main import create_app
+from tests.naming import owned_name
 from bossman.services.auth import Identity, create_access_token, new_api_token, new_bossman_user, user_can_manage_agent
 
 DEFAULT_TENANT = uuid.UUID("00000000-0000-0000-0000-000000000001")
@@ -74,15 +75,40 @@ async def test_host_grant_allows(db_session):
     await db_session.commit()
 
 
-async def test_all_grant_allows_token(db_session):
+async def test_all_grant_allows_the_token_it_was_issued_to(db_session):
+    """A wildcard grant lets THAT token through — and only that one.
+
+    The test used to build `Identity(kind="api_token", name="ci")` with no token row at all,
+    because authorisation matched on the NAME. That is what changed: a grant now names its subject
+    by uid, so a second token called "ci" no longer inherits anything. Measured before the change:
+    one grant on "mon-caller" authorised 28 different tokens.
+    """
     a = await _agent(db_session)
-    g = AccessGrant(subject_kind="api_token", subject_ref="ci", scope="all")
+    token, _raw = new_api_token(owned_name("acl-caller"))
+    twin, _raw2 = new_api_token(token.name)  # same NAME, different token
+    db_session.add_all([token, twin])
+    await db_session.flush()  # the grant references a token by uid — it must exist first
+    g = AccessGrant(
+        subject_kind="api_token", subject_ref=token.name, subject_token_id=token.id, scope="all"
+    )
     db_session.add(g)
     await db_session.commit()
-    ident = Identity(kind="api_token", name="ci")
-    assert await user_can_manage_agent(db_session, ident, a.id) is True
-    # a token WITHOUT the grant is denied
-    assert await user_can_manage_agent(db_session, Identity(kind="api_token", name="other"), a.id) is False
+
+    granted = Identity(kind="api_token", name=token.name, token_id=token.id)
+    assert await user_can_manage_agent(db_session, granted, a.id) is True
+
+    # The namesake must NOT inherit it — the whole point of referencing by uid.
+    namesake = Identity(kind="api_token", name=twin.name, token_id=twin.id)
+    assert await user_can_manage_agent(db_session, namesake, a.id) is False
+
+    # And an identity carrying no uid is refused rather than falling back to the name.
+    assert await user_can_manage_agent(db_session, Identity(kind="api_token", name=token.name), a.id) is False
+
+    await db_session.delete(g)
+    await db_session.delete(token)
+    await db_session.delete(twin)
+    await db_session.delete(a)
+    await db_session.commit()
     await db_session.delete(g)
     await db_session.delete(a)
     await db_session.commit()

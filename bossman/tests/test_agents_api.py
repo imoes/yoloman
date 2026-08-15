@@ -58,11 +58,12 @@ async def _make_agent(db_session, **overrides) -> Agent:
 async def _make_api_token(db_session, name="test-caller"):
     row, raw = new_api_token(name)
     db_session.add(row)
+    await db_session.flush()  # the grant references this token by uid — it must exist first
     # Block M: these tests aren't about the host ACL — give the token a
     # wildcard grant so require_manage_agent on mutating routes lets it through.
     from bossman.db.models import AccessGrant
 
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, subject_token_id=row.id, scope="all"))
     await db_session.flush()
     await db_session.commit()
     return row, raw

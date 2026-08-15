@@ -47,6 +47,9 @@ async def _grant_all(db_session, api_token) -> AccessGrant:
     test about MEMBERSHIP rather than about authorization."""
     grant = AccessGrant(
         id=uuid.uuid4(), subject_kind="api_token", subject_ref=api_token.name,
+        # Bound to the token's UID, not its name: a name is not an identity (api_tokens.name has
+        # no unique constraint), and the schema now refuses a name-only api_token grant.
+        subject_token_id=api_token.id,
         scope="all", permission="manage",
     )
     db_session.add(grant)

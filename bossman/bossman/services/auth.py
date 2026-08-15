@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -110,9 +111,16 @@ def hash_api_token(token: str) -> str:
 def new_api_token(name: str) -> tuple[ApiToken, str]:
     """Returns (row to persist, raw token to hand to the caller once) —
     the raw value is never retrievable again after this; only its hash is
-    stored."""
+    stored.
+
+    The id is generated HERE rather than left to the column's server default, so a caller can
+    reference the token (an AccessGrant's `subject_token_id`) without an early flush. The
+    server-default version read back as None until flushed, and binding a grant to that None hit
+    the new "an api_token grant needs a uid" constraint — the same trick api/templates.py already
+    uses for the same reason.
+    """
     raw = generate_api_token()
-    return ApiToken(name=name, token_hash=hash_api_token(raw)), raw
+    return ApiToken(id=uuid.uuid4(), name=name, token_hash=hash_api_token(raw)), raw
 
 
 async def authenticate_api_token(session: AsyncSession, token: str) -> ApiToken:
@@ -137,6 +145,10 @@ class Identity:
     kind: str  # "user" | "api_token"
     name: str
     role: str | None = None  # only set for kind == "user"
+    #: The api_token's UID. Authorization matches grants on THIS, not on the name: token names are
+    #: not unique, so name matching let one grant authorise every token sharing a name (measured:
+    #: 28 for "mon-caller"). Carried on the identity so the check needs no second lookup.
+    token_id: object | None = None  # only set for kind == "api_token"
 
 
 async def user_can_manage_agent(session: AsyncSession, identity: Identity, agent_id) -> bool:
@@ -147,14 +159,18 @@ async def user_can_manage_agent(session: AsyncSession, identity: Identity, agent
     scope='host_group' where the host is a member → yes. Otherwise no."""
     if identity.kind == "user" and identity.role == "admin":
         return True
-    grants = (
-        await session.scalars(
-            select(AccessGrant).where(
-                AccessGrant.subject_kind == identity.kind,
-                AccessGrant.subject_ref == identity.name,
-            )
-        )
-    ).all()
+    # An api_token is matched by its UID, a user by its username. The name was the reference for
+    # both until it was measured granting rights across tokens that merely shared a name; a
+    # username is still the identity for a user, because there is no separate uid to point at.
+    if identity.kind == "api_token":
+        if identity.token_id is None:
+            # No uid means this identity was built by something that predates the change — refused
+            # rather than silently falling back to name matching, which is what is being removed.
+            return False
+        where = (AccessGrant.subject_kind == "api_token", AccessGrant.subject_token_id == identity.token_id)
+    else:
+        where = (AccessGrant.subject_kind == identity.kind, AccessGrant.subject_ref == identity.name)
+    grants = (await session.scalars(select(AccessGrant).where(*where))).all()
     group_ids: list = []
     for g in grants:
         if g.scope == "all":
@@ -187,4 +203,4 @@ async def resolve_identity(session: AsyncSession, settings: Settings, bearer: st
     except AuthError:
         pass
     api_token = await authenticate_api_token(session, bearer)
-    return Identity(kind="api_token", name=api_token.name)
+    return Identity(kind="api_token", name=api_token.name, token_id=api_token.id)

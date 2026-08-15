@@ -468,7 +468,19 @@ class AccessGrant(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, server_default=func.gen_random_uuid())
     subject_kind: Mapped[str] = mapped_column(String, nullable=False)  # user | api_token
-    subject_ref: Mapped[str] = mapped_column(String, nullable=False)  # username or token name
+    #: The human-readable subject: a username, or a token's name. For a USER this is still the
+    #: reference (a username is the identity; bossman_users has no separate uid to point at). For
+    #: an api_token it is only a label — the reference is `subject_token_id` below.
+    subject_ref: Mapped[str] = mapped_column(String, nullable=False)
+    #: The subject's UID for api_token grants. Names are not identities: `api_tokens.name` has no
+    #: unique constraint, and one grant on "mon-caller" was measured authorising 28 different
+    #: tokens, so a token recreated under an old name inherited rights nobody issued. Modelled on
+    #: LDAP, where an entry has both a hierarchical name (its DN) and an immutable entryUUID:
+    #: this is the uid, and ON DELETE CASCADE is the referential-integrity half — a grant cannot
+    #: outlive its subject, therefore it cannot be inherited.
+    subject_token_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("api_tokens.id", ondelete="CASCADE")
+    )
     scope: Mapped[str] = mapped_column(String, nullable=False)  # all | host | host_group
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"))
     host_group_id: Mapped[uuid.UUID | None] = mapped_column(

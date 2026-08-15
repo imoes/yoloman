@@ -18,7 +18,8 @@ async def _make_api_token(db_session):
     name = f"tp-caller-{uuid.uuid4().hex[:6]}"
     row, raw = new_api_token(name)
     db_session.add(row)
-    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, scope="all"))
+    await db_session.flush()  # the grant references this token by uid — it must exist first
+    db_session.add(AccessGrant(subject_kind="api_token", subject_ref=name, subject_token_id=row.id, scope="all"))
     await db_session.commit()
     return row, raw
 
