@@ -1,0 +1,85 @@
+# =============================================================================
+# libvirtd SysVinit / SysV-style configuration template
+# =============================================================================
+#
+# This template generates configuration variables and directives for the
+# libvirtd daemon. It is primarily intended for environments using SysVinit
+# or legacy init systems, as many of these settings are ignored when using
+# systemd socket activation.
+#
+# Variables are sourced from Ansible variables, with safe defaults provided
+# via Jinja2 |default filters to prevent render failures if variables are
+# undefined.
+# =============================================================================
+
+# ------------------------------------------------------------------------------
+# Daemon Timeout Configuration
+# ------------------------------------------------------------------------------
+# Description: Timeout in seconds for libvirtd to wait for clients before
+#              shutting down if no VMs are running.
+# Variable:    libvirtd_timeout
+# Default:     120
+LIBVIRTD_ARGS="--timeout {{ libvirtd_timeout | default(120) }}"
+
+# ------------------------------------------------------------------------------
+# Listening Mode (Deprecated for systemd)
+# ------------------------------------------------------------------------------
+# Description: Uncomment to enable direct TCP listening.
+#              NOTE: This is IGNORED when using systemd socket activation.
+#              In systemd environments, enable libvirtd-{tcp,tls}.socket instead.
+#LIBVIRTD_ARGS="--listen"
+
+# ------------------------------------------------------------------------------
+# QEMU Audio Driver Override
+# ------------------------------------------------------------------------------
+# Description: Default audio driver for QEMU/SDL graphics.
+# Variable:    qemu_audio_drv
+# Default:     sdl
+#
+# Note: These have no effect for VMs using VNC unless vnc_allow_host_audio
+#       is enabled in /etc/libvirt/qemu.conf.
+#QEMU_AUDIO_DRV={{ qemu_audio_drv | default('sdl') }}
+
+# ------------------------------------------------------------------------------
+# SDL Audio Driver
+# ------------------------------------------------------------------------------
+# Description: SDL audio driver to use.
+# Variable:    sdl_audiodriver
+# Default:     pulse
+#
+# Note: Relevant only for VMs using SDL graphics.
+#SDL_AUDIODRIVER={{ sdl_audiodriver | default('pulse') }}
+
+#############################################################
+### The following settings are IGNORED when using systemd ###
+#############################################################
+
+# ------------------------------------------------------------------------------
+# Start Daemon at Boot (SysVinit Only)
+# ------------------------------------------------------------------------------
+# Description: Whether to start libvirtd at boot when using sysvinit.
+#              A much better solution for preventing start is to disable the
+#              service itself rather than toggling this flag.
+# Variable:    start_libvirtd
+# Default:     true
+#start_libvirtd={{ start_libvirtd | default(true) }}
+
+# ------------------------------------------------------------------------------
+# Mount Cgroups (SysVinit Only)
+# ------------------------------------------------------------------------------
+# Description: Whether to mount a systemd-like cgroup layout.
+#              This is primarily for compatibility with SysVinit scripts.
+# Variable:    mount_cgroups
+# Default:     true
+#mount_cgroups={{ mount_cgroups | default(true) }}
+
+# ------------------------------------------------------------------------------
+# Cgroups List (SysVinit Only)
+# ------------------------------------------------------------------------------
+# Description: List of cgroups to mount.
+#              These will be space-separated in the final configuration line.
+# Variable:    cgroups_list
+# Default:     ['memory', 'devices']
+#
+# Note: Ensure the list is joined with spaces for the target format.
+#cgroups="{{ cgroups_list | default(['memory', 'devices']) | join(' ') }}"

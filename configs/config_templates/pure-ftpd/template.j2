@@ -1,37 +1,6 @@
 # /etc/ftpusers: list of users disallowed FTP access.
-# This file prevents specific system accounts from logging in via FTP.
-# These are typically service accounts that should not have interactive shell or FTP access.
-#
-# If you need to customize this list, add or remove usernames below.
-# The template variable `ftpusers_users` (if provided as a list) can override this static list.
-
-{# Check if a dynamic list of users is provided via Ansible variables #}
-{% if ftpusers_users is defined %}
-{# Iterate over the list of users to disallow #}
-{% for user in ftpusers_users %}
-{{ user | trim }}
+# These users are blocked from logging into the FTP server via pure-ftpd.
+# Users listed here are denied access before any authentication takes place.
+{% for user in (ftp_denied_users | default(['root', 'daemon', 'bin', 'sys', 'sync', 'games', 'man', 'lp', 'mail', 'news', 'uucp', 'proxy', 'majordom', 'postgres', 'www-data', 'backup', 'msql', 'operator', 'list', 'irc', 'nobody'])) %}
+{{ user }}
 {% endfor %}
-{% else %}
-# Default static list of restricted users
-root
-daemon
-bin
-sys
-sync
-games
-man
-lp
-mail
-news
-uucp
-proxy
-majordom
-postgres
-www-data
-backup
-msql
-operator
-list
-irc
-nobody
-{% endif %}
