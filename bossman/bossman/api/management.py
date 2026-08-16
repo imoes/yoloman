@@ -29,7 +29,7 @@ from bossman.api.plans import get_client_factory
 from bossman.config import Settings, get_settings
 from bossman.db.models import DEFAULT_TENANT_ID, Agent, AgentObservedState, ConfigPolicy, HostConfigResource, HostGroup, OUNode
 from bossman.services.compiler import affected_agent_ids
-from bossman.services.config_desired import effective_resources, resource_dict
+from bossman.services.config_desired import effective_resources, resource_dict, is_flat
 from bossman.db.session import get_session
 from bossman.services.agent_client import AgentClientError
 from bossman.services.cve_collect import collect_host
@@ -178,7 +178,7 @@ def _merge_values(old: dict | None, new: dict | None, fmt: str | None) -> dict:
     apply only touches the keys it sends). keyvalue merges flat (keys may
     contain dots); nested formats merge deep. null values are kept — they mean
     "managed absent"."""
-    if fmt in (None, "keyvalue") or not isinstance(old, dict):
+    if is_flat(fmt) or not isinstance(old, dict):
         return {**(old or {}), **(new or {})}
     out = dict(old or {})
     for k, v in (new or {}).items():
@@ -195,7 +195,7 @@ def remove_desired_key(row: Any, key: str) -> dict | None:
     None when the key isn't managed. Nested formats navigate a dot-path and
     prune empty parents; the caller persists (or deletes the emptied row)."""
     values = dict(row.values or {})
-    if row.type != "template_render" and (row.config_format not in (None, "keyvalue")) and "." in key:
+    if row.type != "template_render" and not is_flat(row.config_format) and "." in key:
         parts = key.split(".")
         node = values
         for p in parts[:-1]:

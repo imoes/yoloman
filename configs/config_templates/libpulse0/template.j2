@@ -1,0 +1,83 @@
+{#
+  CUPS Client Configuration Template
+  ==================================
+  This template generates a valid `client.conf` for CUPS (Common UNIX Printing System).
+  It supports server connection, authentication, and TLS/SSL settings.
+  All variables default to safe, standard values if not provided by the Ansible hostvars.
+#}
+
+# ==============================================================================
+# Server Connection Settings
+# ==============================================================================
+
+# The hostname, IP address, or socket path of the CUPS server.
+# Optional port can be appended (e.g., localhost:631).
+# Default: localhost
+ServerName {{ server_name | default('localhost') }}
+
+# ==============================================================================
+# Authentication Settings
+# ==============================================================================
+
+# The default username to use for authentication if not specified in the request.
+# If empty, the current user's name is used.
+# Default: '' (empty)
+{% if (default_user | default('')) | length > 0 %}
+User {{ default_user | default('') }}
+{% endif %}
+
+# HTTP Digest authentication options.
+# One of: None, DenyMD5.
+# Default: DenyMD5
+DigestOptions {{ digest_options | default('DenyMD5') }}
+
+# The Kerberos service name used for GSS-API authentication.
+# Default: http
+{% if (gss_service_name | default('http')) != 'http' %}
+GSSServiceName {{ gss_service_name | default('http') }}
+{% endif %}
+
+# ==============================================================================
+# Encryption and TLS/SSL Settings
+# ==============================================================================
+
+# The encryption level for the connection.
+# One of: None, IfRequested, Required.
+# Default: IfRequested
+Encryption {{ encryption | default('IfRequested') }}
+
+# Whether to validate that the server's certificate Common Name matches the server hostname.
+# Note: CUPS client expects "Yes" or "No".
+# Default: No
+ValidateCerts {{ validate_certs | default(false) | ternary('Yes', 'No') }}
+
+# Whether to trust new TLS certificates automatically upon first connection.
+# Note: CUPS client expects "Yes" or "No".
+# Default: Yes
+TrustOnFirstUse {{ trust_on_first_use | default(true) | ternary('Yes', 'No') }}
+
+# Whether to allow TLS connections using certificates not signed by a trusted CA.
+# Note: CUPS client expects "Yes" or "No".
+# Default: Yes
+AllowAnyRoot {{ allow_any_root | default(true) | ternary('Yes', 'No') }}
+
+# Whether to allow TLS connections using expired certificates.
+# Note: CUPS client expects "Yes" or "No".
+# Default: No
+AllowExpiredCerts {{ allow_expired_certs | default(false) | ternary('Yes', 'No') }}
+
+# A list of SSL/TLS options to apply (e.g., MinTLS1.2, MaxTLS1.3).
+# Leave empty for defaults.
+# Default: [] (empty list)
+{% if ssloptions | default([]) | length > 0 %}
+SSLOptions {{ ssloptions | default([]) | join(' ') }}
+{% endif %}
+
+# ==============================================================================
+# Miscellaneous Settings
+# ==============================================================================
+
+# Which information to include in the User-Agent header.
+# One of: None, ProductOnly, Major, Minor, Minimal, OS, Full.
+# Default: Minimal
+UserAgentTokens {{ user_agent_tokens | default('Minimal') }}
